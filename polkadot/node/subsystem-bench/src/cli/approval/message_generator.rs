@@ -21,12 +21,7 @@ use crate::{
 		ApprovalTestState, BlockTestData, GeneratedState, BUFFER_FOR_GENERATION_MILLIS, LOG_TARGET,
 		SLOT_DURATION_MILLIS,
 	},
-	core::{
-		configuration::{TestAuthorities, TestConfiguration},
-		mock::runtime_api::session_info_for_peers,
-		NODE_UNDER_TEST,
-	},
-	ApprovalsOptions, TestObjective,
+	ApprovalsOptions,
 };
 use futures::SinkExt;
 use itertools::Itertools;
@@ -46,6 +41,11 @@ use polkadot_node_primitives::approval::{
 use polkadot_primitives::{
 	vstaging::ApprovalVoteMultipleCandidates, CandidateEvent, CandidateHash, CandidateIndex,
 	CoreIndex, Hash, SessionInfo, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
+};
+use polkadot_subsystem_bench::{
+	configuration::{TestAuthorities, TestConfiguration},
+	mock::runtime_api::session_info_for_peers,
+	NODE_UNDER_TEST,
 };
 use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -132,11 +132,7 @@ impl PeerMessagesGenerator {
 		options: &ApprovalsOptions,
 	) -> String {
 		let mut fingerprint = options.fingerprint();
-		let mut exclude_objective = configuration.clone();
-		// The objective contains the full content of `ApprovalOptions`, we don't want to put all of
-		// that in fingerprint, so execlute it because we add it manually see above.
-		exclude_objective.objective = TestObjective::Unimplemented;
-		let configuration_bytes = bincode::serialize(&exclude_objective).unwrap();
+		let configuration_bytes = bincode::serialize(&configuration).unwrap();
 		fingerprint.extend(configuration_bytes);
 		let mut sha1 = sha1::Sha1::new();
 		sha1.update(fingerprint);

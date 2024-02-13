@@ -26,22 +26,23 @@ use clap::Parser;
 use clap_num::number_range;
 use color_eyre::eyre;
 use colored::Colorize;
-use core::{
+use polkadot_subsystem_bench::{
 	configuration::TestConfiguration,
 	display::display_configuration,
 	environment::{TestEnvironment, GENESIS_HASH},
 };
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+use rand::thread_rng;
+use rand_distr::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 mod approval;
 mod availability;
-mod core;
 mod valgrind;
 
-const LOG_TARGET: &str = "subsystem-bench";
+const LOG_TARGET: &str = "subsystem-bench::cli";
 
 fn le_100(s: &str) -> Result<usize, String> {
 	number_range(s, 0, 100)
@@ -76,6 +77,59 @@ impl std::fmt::Display for TestObjective {
 				Self::Unimplemented => "Unimplemented",
 			}
 		)
+	}
+}
+
+/// The test input parameters
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct CliTestConfiguration {
+	/// Test Objective
+	pub objective: TestObjective,
+	/// Test Configuration
+	#[serde(flatten)]
+	pub test_config: TestConfiguration,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TestSequence {
+	#[serde(rename(serialize = "TestConfiguration", deserialize = "TestConfiguration"))]
+	test_configurations: Vec<CliTestConfiguration>,
+}
+
+fn random_uniform_sample<T: Into<usize> + From<usize>>(min_value: T, max_value: T) -> T {
+	Uniform::from(min_value.into()..=max_value.into())
+		.sample(&mut thread_rng())
+		.into()
+}
+
+fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
+	random_uniform_sample(min_pov_size, max_pov_size)
+}
+
+fn generate_pov_sizes(count: usize, min_kib: usize, max_kib: usize) -> Vec<usize> {
+	(0..count).map(|_| random_pov_size(min_kib * 1024, max_kib * 1024)).collect()
+}
+
+impl TestSequence {
+	pub fn into_vec(self) -> Vec<CliTestConfiguration> {
+		self.test_configurations
+			.into_iter()
+			.map(|mut v| {
+				v.test_config.pov_sizes = generate_pov_sizes(
+					v.test_config.n_cores,
+					v.test_config.min_pov_size,
+					v.test_config.max_pov_size,
+				);
+				v
+			})
+			.collect()
+	}
+}
+
+impl TestSequence {
+	pub fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
+		let string = String::from_utf8(std::fs::read(path)?).expect("File is valid UTF8");
+		Ok(serde_yaml::from_str(&string).expect("File is valid test sequence YA"))
 	}
 }
 
@@ -148,21 +202,32 @@ impl BenchCli {
 			None
 		};
 
-		let test_sequence = core::configuration::TestSequence::new_from_file(Path::new(&self.path))
+		let test_sequence = TestSequence::new_from_file(Path::new(&self.path))
 			.expect("File exists")
 			.into_vec();
 		let num_steps = test_sequence.len();
 		gum::info!("{}", format!("Sequence contains {} step(s)", num_steps).bright_purple());
-		for (index, test_config) in test_sequence.into_iter().enumerate() {
-			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, test_config.objective);
+		for (index, CliTestConfiguration { objective, test_config }) in
+			test_sequence.into_iter().enumerate()
+		{
+			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, objective);
 			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 			display_configuration(&test_config);
 
-			let usage = match test_config.objective {
+			let usage = match objective {
 				TestObjective::DataAvailabilityRead(ref _opts) => {
-					let mut state = TestState::new(&test_config);
+					let mut state = TestState::new(objective, &test_config);
 					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 					env.runtime().block_on(availability::benchmark_availability_read(
+						&benchmark_name,
+						&mut env,
+						state,
+					))
+				},
+				TestObjective::DataAvailabilityWrite => {
+					let mut state = TestState::new(objective, &test_config);
+					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+					env.runtime().block_on(availability::benchmark_availability_write(
 						&benchmark_name,
 						&mut env,
 						state,
@@ -172,15 +237,6 @@ impl BenchCli {
 					let (mut env, state) =
 						approval::prepare_test(test_config.clone(), options.clone());
 					env.runtime().block_on(bench_approvals(&benchmark_name, &mut env, state))
-				},
-				TestObjective::DataAvailabilityWrite => {
-					let mut state = TestState::new(&test_config);
-					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
-					env.runtime().block_on(availability::benchmark_availability_write(
-						&benchmark_name,
-						&mut env,
-						state,
-					))
 				},
 				TestObjective::Unimplemented => todo!(),
 			};

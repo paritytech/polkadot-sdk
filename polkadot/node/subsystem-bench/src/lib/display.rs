@@ -19,13 +19,15 @@
 //!
 //! Currently histogram buckets are skipped.
 
-use crate::{TestConfiguration, LOG_TARGET};
+use crate::configuration::TestConfiguration;
 use colored::Colorize;
 use prometheus::{
 	proto::{MetricFamily, MetricType},
 	Registry,
 };
 use std::fmt::Display;
+
+const LOG_TARGET: &str = "subsystem-bench::display";
 
 #[derive(Default, Debug)]
 pub struct MetricCollection(Vec<TestMetric>);
@@ -186,8 +188,7 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 
 pub fn display_configuration(test_config: &TestConfiguration) {
 	gum::info!(
-		"[{}] {}, {}, {}, {}, {}",
-		format!("objective = {:?}", test_config.objective).green(),
+		"{}, {}, {}, {}, {}",
 		format!("n_validators = {}", test_config.n_validators).blue(),
 		format!("n_cores = {}", test_config.n_cores).blue(),
 		format!("pov_size = {} - {}", test_config.min_pov_size, test_config.max_pov_size)

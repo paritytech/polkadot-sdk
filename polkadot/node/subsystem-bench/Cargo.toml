@@ -8,9 +8,13 @@ license.workspace = true
 readme = "README.md"
 publish = false
 
+[lib]
+name = "polkadot_subsystem_bench"
+path = "src/lib/lib.rs"
+
 [[bin]]
 name = "subsystem-bench"
-path = "src/subsystem-bench.rs"
+path = "src/cli/subsystem-bench.rs"
 
 # Prevent rustdoc error. Already documented from top-level Cargo.toml.
 doc = false
@@ -22,7 +26,9 @@ polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
-polkadot-availability-recovery = { path = "../network/availability-recovery", features = ["subsystem-benchmarks"] }
+polkadot-availability-recovery = { path = "../network/availability-recovery", features = [
+    "subsystem-benchmarks",
+] }
 polkadot-availability-distribution = { path = "../network/availability-distribution" }
 polkadot-node-core-av-store = { path = "../core/av-store" }
 polkadot-node-core-chain-api = { path = "../core/chain-api" }
@@ -75,10 +81,12 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
 
 schnorrkel = { version = "0.9.1", default-features = false }
-rand_core = "0.6.2"                                                                         # should match schnorrkel
+rand_core = "0.6.2" # should match schnorrkel
 rand_chacha = { version = "0.3.1" }
 paste = "1.0.14"
-orchestra = { version = "0.3.5", default-features = false, features = ["futures_channel"] }
+orchestra = { version = "0.3.5", default-features = false, features = [
+    "futures_channel",
+] }
 pyroscope = "0.5.7"
 pyroscope_pprofrs = "0.2.7"
 

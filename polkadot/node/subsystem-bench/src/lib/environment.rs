@@ -17,11 +17,9 @@
 //! Test environment implementation
 
 use crate::{
-	core::{
-		configuration::TestAuthorities, mock::AlwaysSupportsParachains,
-		network::NetworkEmulatorHandle,
-	},
-	TestConfiguration,
+	configuration::{TestAuthorities, TestConfiguration},
+	mock::AlwaysSupportsParachains,
+	network::NetworkEmulatorHandle,
 };
 use colored::Colorize;
 use core::time::Duration;

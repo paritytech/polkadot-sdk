@@ -14,24 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-	core::{
-		configuration::TestConfiguration,
-		environment::{BenchmarkUsage, TestEnvironmentDependencies},
-		mock::{
-			av_store,
-			av_store::MockAvailabilityStore,
-			chain_api::{ChainApiState, MockChainApi},
-			dummy_builder,
-			network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
-			runtime_api,
-			runtime_api::MockRuntimeApi,
-			AlwaysSupportsParachains,
-		},
-		network::new_network,
-	},
-	TestEnvironment, TestObjective, GENESIS_HASH,
-};
+use crate::{TestEnvironment, TestObjective, GENESIS_HASH};
 use av_store::NetworkAvailabilityState;
 use av_store_helpers::new_av_store;
 use bitvec::bitvec;
@@ -68,6 +51,19 @@ use polkadot_primitives::{
 	Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+use polkadot_subsystem_bench::{
+	configuration::TestConfiguration,
+	dummy_builder,
+	environment::{BenchmarkUsage, TestEnvironmentDependencies},
+	mock::{
+		av_store::{self, MockAvailabilityStore},
+		chain_api::{ChainApiState, MockChainApi},
+		network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
+		runtime_api::{self, MockRuntimeApi},
+		AlwaysSupportsParachains,
+	},
+	network::new_network,
+};
 use sc_network::{
 	request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig},
 	PeerId,
@@ -216,7 +212,7 @@ fn prepare_test_inner(
 	let network_bridge_rx =
 		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
 
-	let (overseer, overseer_handle) = match &state.config().objective {
+	let (overseer, overseer_handle) = match &state.objective() {
 		TestObjective::DataAvailabilityRead(options) => {
 			let use_fast_path = options.fetch_from_backers;
 
@@ -304,6 +300,8 @@ fn prepare_test_inner(
 
 #[derive(Clone)]
 pub struct TestState {
+	// Test Objective
+	objective: TestObjective,
 	// Full test configuration
 	config: TestConfiguration,
 	// A cycle iterator on all PoV sizes used in the test.
@@ -326,8 +324,8 @@ pub struct TestState {
 }
 
 impl TestState {
-	fn config(&self) -> &TestConfiguration {
-		&self.config
+	fn objective(&self) -> &TestObjective {
+		&self.objective
 	}
 
 	pub fn next_candidate(&mut self) -> Option<CandidateReceipt> {
@@ -367,7 +365,7 @@ impl TestState {
 			.cycle();
 	}
 
-	pub fn new(config: &TestConfiguration) -> Self {
+	pub fn new(objective: TestObjective, config: &TestConfiguration) -> Self {
 		let config = config.clone();
 
 		let mut chunks = Vec::new();
@@ -420,6 +418,7 @@ impl TestState {
 			candidate_hashes: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
 			backed_candidates: Vec::new(),
+			objective,
 			config,
 		};
 

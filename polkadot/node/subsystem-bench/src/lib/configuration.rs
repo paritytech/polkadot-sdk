@@ -16,25 +16,15 @@
 
 //! Test configuration definition and helpers.
 
-use crate::{core::keyring::Keyring, TestObjective};
+use crate::keyring::Keyring;
 use itertools::Itertools;
 use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId};
 use rand::thread_rng;
-use rand_distr::{Distribution, Normal, Uniform};
+use rand_distr::{Distribution, Normal};
 use sc_network::PeerId;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::AuthorityId;
-use std::{collections::HashMap, path::Path};
-
-pub fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
-	random_uniform_sample(min_pov_size, max_pov_size)
-}
-
-fn random_uniform_sample<T: Into<usize> + From<usize>>(min_value: T, max_value: T) -> T {
-	Uniform::from(min_value.into()..=max_value.into())
-		.sample(&mut thread_rng())
-		.into()
-}
+use std::collections::HashMap;
 
 /// Peer networking latency configuration.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -87,8 +77,6 @@ fn default_no_show_slots() -> usize {
 /// The test input parameters
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestConfiguration {
-	/// The test objective
-	pub objective: TestObjective,
 	/// Number of validators
 	pub n_validators: usize,
 	/// Number of cores
@@ -115,7 +103,7 @@ pub struct TestConfiguration {
 	pub max_pov_size: usize,
 	/// Randomly sampled pov_sizes
 	#[serde(skip)]
-	pov_sizes: Vec<usize>,
+	pub pov_sizes: Vec<usize>,
 	/// The amount of bandiwdth remote validators have.
 	#[serde(default = "default_bandwidth")]
 	pub peer_bandwidth: usize,
@@ -133,36 +121,6 @@ pub struct TestConfiguration {
 	pub num_blocks: usize,
 }
 
-fn generate_pov_sizes(count: usize, min_kib: usize, max_kib: usize) -> Vec<usize> {
-	(0..count).map(|_| random_pov_size(min_kib * 1024, max_kib * 1024)).collect()
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct TestSequence {
-	#[serde(rename(serialize = "TestConfiguration", deserialize = "TestConfiguration"))]
-	test_configurations: Vec<TestConfiguration>,
-}
-
-impl TestSequence {
-	pub fn into_vec(self) -> Vec<TestConfiguration> {
-		self.test_configurations
-			.into_iter()
-			.map(|mut config| {
-				config.pov_sizes =
-					generate_pov_sizes(config.n_cores, config.min_pov_size, config.max_pov_size);
-				config
-			})
-			.collect()
-	}
-}
-
-impl TestSequence {
-	pub fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
-		let string = String::from_utf8(std::fs::read(path)?).expect("File is valid UTF8");
-		Ok(serde_yaml::from_str(&string).expect("File is valid test sequence YA"))
-	}
-}
-
 /// Helper struct for authority related state.
 #[derive(Clone)]
 pub struct TestAuthorities {
@@ -177,14 +135,6 @@ pub struct TestAuthorities {
 }
 
 impl TestConfiguration {
-	#[allow(unused)]
-	pub fn write_to_disk(&self) {
-		// Serialize a slice of configurations
-		let yaml = serde_yaml::to_string(&TestSequence { test_configurations: vec![self.clone()] })
-			.unwrap();
-		std::fs::write("last_test.yaml", yaml).unwrap();
-	}
-
 	pub fn pov_sizes(&self) -> &[usize] {
 		&self.pov_sizes
 	}
