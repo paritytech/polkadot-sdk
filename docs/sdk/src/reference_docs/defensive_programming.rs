@@ -30,7 +30,7 @@
 //! to be handled in a graceful manner, which is in the line of the intended, fault-tolerant and deterministic
 //! behavior of blockchains.
 //!
-//! The Polkadot SDK is both built to reflect these principles and to facilitate their usage
+//! The Polkadot SDK is built to reflect these principles and to facilitate their usage
 //! accordingly.
 //!
 //! ## General Practices
