@@ -17,15 +17,10 @@
 //! A tool for running subsystem benchmark tests
 //! designed for development and CI regression testing.
 
-use availability::{cli::DataAvailabilityReadOptions, prepare_test, TestState};
 use clap::Parser;
 use color_eyre::eyre;
 use colored::Colorize;
-use polkadot_subsystem_bench::{
-	approval::{self, bench_approvals, ApprovalsOptions},
-	configuration::TestConfiguration,
-	environment::{TestEnvironment, GENESIS_HASH},
-};
+use polkadot_subsystem_bench::{approval, availability, configuration};
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use rand::thread_rng;
@@ -33,7 +28,6 @@ use rand_distr::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-mod availability;
 mod valgrind;
 
 const LOG_TARGET: &str = "subsystem-bench::cli";
@@ -43,11 +37,11 @@ const LOG_TARGET: &str = "subsystem-bench::cli";
 #[command(rename_all = "kebab-case")]
 pub enum TestObjective {
 	/// Benchmark availability recovery strategies.
-	DataAvailabilityRead(DataAvailabilityReadOptions),
+	DataAvailabilityRead(availability::DataAvailabilityReadOptions),
 	/// Benchmark availability and bitfield distribution.
 	DataAvailabilityWrite,
 	/// Benchmark the approval-voting and approval-distribution subsystems.
-	ApprovalVoting(ApprovalsOptions),
+	ApprovalVoting(approval::ApprovalsOptions),
 }
 
 impl std::fmt::Display for TestObjective {
@@ -71,7 +65,7 @@ struct CliTestConfiguration {
 	pub objective: TestObjective,
 	/// Test Configuration
 	#[serde(flatten)]
-	pub test_config: TestConfiguration,
+	pub test_config: configuration::TestConfiguration,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -172,9 +166,13 @@ impl BenchCli {
 			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {:?}", objective).green(), test_config);
 
 			match objective {
-				TestObjective::DataAvailabilityRead(ref _opts) => {
-					let mut state = TestState::new(objective, &test_config);
-					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+				TestObjective::DataAvailabilityRead(opts) => {
+					let mut state = availability::TestState::new(&test_config);
+					let (mut env, _protocol_config) = availability::prepare_test(
+						test_config,
+						&mut state,
+						availability::TestDataAvailability::Read(opts),
+					);
 					env.runtime().block_on(availability::benchmark_availability_read(
 						&benchmark_name,
 						&mut env,
@@ -182,8 +180,12 @@ impl BenchCli {
 					))
 				},
 				TestObjective::DataAvailabilityWrite => {
-					let mut state = TestState::new(objective, &test_config);
-					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+					let mut state = availability::TestState::new(&test_config);
+					let (mut env, _protocol_config) = availability::prepare_test(
+						test_config,
+						&mut state,
+						availability::TestDataAvailability::Write,
+					);
 					env.runtime().block_on(availability::benchmark_availability_write(
 						&benchmark_name,
 						&mut env,
@@ -193,7 +195,11 @@ impl BenchCli {
 				TestObjective::ApprovalVoting(ref options) => {
 					let (mut env, state) =
 						approval::prepare_test(test_config.clone(), options.clone());
-					env.runtime().block_on(bench_approvals(&benchmark_name, &mut env, state))
+					env.runtime().block_on(approval::bench_approvals(
+						&benchmark_name,
+						&mut env,
+						state,
+					))
 				},
 			};
 		}

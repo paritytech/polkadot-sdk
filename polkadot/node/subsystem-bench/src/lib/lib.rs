@@ -18,9 +18,10 @@
 pub const NODE_UNDER_TEST: u32 = 0;
 
 pub mod approval;
+pub mod availability;
 pub mod configuration;
-pub mod display;
-pub mod environment;
-pub mod keyring;
-pub mod mock;
-pub mod network;
+pub(crate) mod display;
+pub(crate) mod environment;
+pub(crate) mod keyring;
+pub(crate) mod mock;
+pub(crate) mod network;
