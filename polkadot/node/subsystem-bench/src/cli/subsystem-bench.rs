@@ -166,12 +166,13 @@ impl BenchCli {
 			.into_vec();
 		let num_steps = test_sequence.len();
 		gum::info!("{}", format!("Sequence contains {} step(s)", num_steps).bright_purple());
+
 		for (index, CliTestConfiguration { objective, test_config }) in
 			test_sequence.into_iter().enumerate()
 		{
 			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, objective);
 			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
-			display_configuration(&test_config);
+			gum::info!("[{}] {}", format!("objective = {:?}", objective).green(), test_config);
 
 			match objective {
 				TestObjective::DataAvailabilityRead(ref _opts) => {

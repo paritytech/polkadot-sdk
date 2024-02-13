@@ -87,6 +87,7 @@ impl Display for MetricCollection {
 		Ok(())
 	}
 }
+
 #[derive(Debug, Clone)]
 pub struct TestMetric {
 	name: String,
@@ -186,14 +187,16 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 	test_metrics.into()
 }
 
-pub fn display_configuration(test_config: &TestConfiguration) {
-	gum::info!(
-		"{}, {}, {}, {}, {}",
-		format!("n_validators = {}", test_config.n_validators).blue(),
-		format!("n_cores = {}", test_config.n_cores).blue(),
-		format!("pov_size = {} - {}", test_config.min_pov_size, test_config.max_pov_size)
-			.bright_black(),
-		format!("connectivity = {}", test_config.connectivity).bright_black(),
-		format!("latency = {:?}", test_config.latency).bright_black(),
-	);
+impl Display for TestConfiguration {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(
+			f,
+			"{}, {}, {}, {}, {}",
+			format!("n_validators = {}", self.n_validators).blue(),
+			format!("n_cores = {}", self.n_cores).blue(),
+			format!("pov_size = {} - {}", self.min_pov_size, self.max_pov_size).bright_black(),
+			format!("connectivity = {}", self.connectivity).bright_black(),
+			format!("latency = {:?}", self.latency).bright_black(),
+		)
+	}
 }
