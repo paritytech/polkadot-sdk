@@ -785,8 +785,8 @@ pub mod pallet {
 		SnapshotTargetsSizeExceeded { size: u32 },
 		/// A new force era mode was set.
 		ForceEra { mode: Forcing },
-		/// A nominator has set their preferences.
-		NominatorPrefsSet { who: T::AccountId, prefs: Nominations<T> },
+		/// A new nominator has been set 
+		Nominated { who: T::AccountId, nominations: Nominations<T> },
 	}
 
 	#[pallet::error]
@@ -1250,7 +1250,7 @@ pub mod pallet {
 
 			Self::do_remove_validator(stash);
 			Self::do_add_nominator(stash, nominations.clone());
-			Self::deposit_event(Event::<T>::NominatorPrefsSet { who: stash.clone(), prefs:nominations });
+			Self::deposit_event(Event::<T>::Nominated { who: stash.clone(), nominations:nominations });
 			Ok(())
 		}
 

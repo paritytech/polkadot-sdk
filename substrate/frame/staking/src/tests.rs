@@ -29,7 +29,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, Get, ReservableCurrency},
 };
-
+// use sp_runtime::traits::Lookup;
 use mock::*;
 use pallet_balances::Error as BalancesError;
 use sp_runtime::{
@@ -5437,6 +5437,37 @@ fn check_payee_invariant2_works() {
 		Payee::<Test>::insert(1111, RewardDestination::Staked);
 	})
 }
+
+#[test]
+fn event_work_for_nominator() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.balance_factor(100)
+		.min_nominator_bond(0)
+		.min_validator_bond(0)
+		.build_and_execute(|| {
+
+			assert_ok!(Staking::validate(
+				RuntimeOrigin::signed(11),
+				ValidatorPrefs { blocked: true, ..Default::default() }
+			));
+			let validator = vec![11];
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), validator.clone()));			
+			let targets = validator.clone();
+			let convert = BoundedVec::truncate_from(targets);
+			let targets: BoundedVec<_, _>  = convert;
+			let nominations = Nominations {
+				targets:targets,
+				submitted_in: Default::default(),
+				suppressed: false,
+			};
+			 assert_eq!(*staking_events().last().unwrap(), 	Event::Nominated {
+				who: 101,
+				nominations: nominations
+			});
+		})
+}
+
 
 #[test]
 fn min_bond_checks_work() {
