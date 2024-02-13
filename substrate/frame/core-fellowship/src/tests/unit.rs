@@ -183,7 +183,7 @@ fn basic_stuff() {
 
 #[test]
 fn set_params_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let params = ParamsType {
 			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90],
 			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9],

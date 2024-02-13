@@ -560,10 +560,20 @@ pub mod pallet {
 			}
 		}
 
+		/// Ensure the correctness of the state of this pallet
+		/// The following expectations must always apply.
 		///
-		/// even though the offboard timeout has elapsed, members can still call promote.
+		/// ## Expectations:
 		///
-		///
+		/// `ranked_member`:
+		/// * for members with non zero demotion periods, the `last_proof` block (i.e. the estimated time for re-approving a rank)
+		/// should always be greater than the current block.
+		/// 
+		/// `unranked_member`:
+		/// * for candidates, 
+		/// - the `last_proof` block(i.e. the estimated time before offboarding) 
+		/// should always be greater than the current block.
+		/// - evidence should only be submitted with a `Wish:Promotion`.
 		#[cfg(any(feature = "try-runtime", test))]
 		pub fn do_try_state() -> Result<(), TryRuntimeError> {
 			// Check invariants for each member tracked by the pallet
