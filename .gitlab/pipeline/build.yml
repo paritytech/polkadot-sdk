@@ -71,6 +71,12 @@ build-malus:
     - .common-refs
     - .run-immediately
     - .collect-artifacts
+  palallel:
+    matrix:
+      - FORKLIFT_compression_type: lzma2
+        FORKLIFT_compression_lzma2_compressionLevel: [1,2,3,4,5,6,7]
+      - FORKLIFT_compression_type: zstd
+        FORKLIFT_compression_zstd_compressionLevel: [1,2,3]
   script:
     - time cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
     # pack artifacts
