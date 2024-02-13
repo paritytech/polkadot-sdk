@@ -86,3 +86,13 @@ pub fn setup_api() -> (
 
 	(api, pool, client_mock, tx_api, executor_recv, pool_recv)
 }
+
+/// Get the next event from the provided middleware in at most 60 seconds.
+macro_rules! get_next_event {
+	($middleware:expr) => {
+		tokio::time::timeout(std::time::Duration::from_secs(60), $middleware.recv())
+			.await
+			.unwrap()
+			.unwrap()
+	};
+}

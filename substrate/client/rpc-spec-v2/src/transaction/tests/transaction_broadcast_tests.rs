@@ -21,15 +21,18 @@ use assert_matches::assert_matches;
 use codec::Encode;
 use jsonrpsee::{core::error::Error, rpc_params};
 use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionPool};
-use std::time::Duration;
 use substrate_test_runtime_client::AccountKeyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
 
-use crate::transaction::tests::setup::{setup_api, ALICE_NONCE};
+// Test helpers.
+use crate::transaction::tests::{
+	middleware_pool::{MiddlewarePoolEvent, TxStatusTypeTest},
+	setup::{setup_api, ALICE_NONCE},
+};
 
 #[tokio::test]
 async fn tx_broadcast_enters_pool() {
-	let (api, pool, client_mock, tx_api, _, _) = setup_api();
+	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) = setup_api();
 
 	// Start at block 1.
 	let block_1_header = api.push_block(1, vec![], true);
@@ -44,16 +47,17 @@ async fn tx_broadcast_enters_pool() {
 	client_mock.trigger_import_stream(block_1_header).await;
 
 	// Ensure the tx propagated from `transaction_unstable_broadcast` to the transaction pool.
+	let event = get_next_event!(&mut pool_middleware);
+	assert_eq!(
+		event,
+		MiddlewarePoolEvent::TransactionStatus {
+			transaction: xt.clone(),
+			status: TxStatusTypeTest::Ready
+		}
+	);
 
-	// TODO: Improve testability by extending the `transaction_unstable_broadcast` with
-	// a middleware trait that intercepts the transaction status for testing.
-	let mut num_retries = 12;
-	while num_retries > 0 && pool.status().ready != 1 {
-		tokio::time::sleep(Duration::from_secs(5)).await;
-		num_retries -= 1;
-	}
-	assert_eq!(1, pool.status().ready);
-	assert_eq!(uxt.encode().len(), pool.status().ready_bytes);
+	assert_eq!(1, pool.inner_pool.status().ready);
+	assert_eq!(uxt.encode().len(), pool.inner_pool.status().ready_bytes);
 
 	// Import block 2 with the transaction included.
 	let block_2_header = api.push_block(2, vec![uxt.clone()], true);
@@ -62,19 +66,31 @@ async fn tx_broadcast_enters_pool() {
 	// Announce block 2 to the pool.
 	let event = ChainEvent::NewBestBlock { hash: block_2, tree_route: None };
 	pool.inner_pool.maintain(event).await;
+	assert_eq!(0, pool.inner_pool.status().ready);
 
-	assert_eq!(0, pool.status().ready);
+	let event = get_next_event!(&mut pool_middleware);
+	assert_eq!(
+		event,
+		MiddlewarePoolEvent::TransactionStatus {
+			transaction: xt.clone(),
+			status: TxStatusTypeTest::InBlock((block_2, 0))
+		}
+	);
 
-	// Stop call can still be made.
+	// The future broadcast awaits for the finalized status to be reached.
+	// Force the future to exit by calling stop.
 	let _: () = tx_api
 		.call("transaction_unstable_stop", rpc_params![&operation_id])
 		.await
 		.unwrap();
+
+	// Ensure the broadcast future finishes.
+	let _ = get_next_event!(&mut exec_middleware);
 }
 
 #[tokio::test]
 async fn tx_broadcast_invalid_tx() {
-	let (_, pool, _, tx_api, mut exec_recv, _) = setup_api();
+	let (_, pool, _, tx_api, mut exec_middleware, _) = setup_api();
 
 	// Invalid parameters.
 	let err = tx_api
@@ -97,7 +113,7 @@ async fn tx_broadcast_invalid_tx() {
 	// Await the broadcast future to exit.
 	// Without this we'd be subject to races, where we try to call the stop before the tx is
 	// dropped.
-	exec_recv.recv().await.unwrap();
+	let _ = get_next_event!(&mut exec_middleware);
 
 	// The broadcast future was dropped, and the operation is no longer active.
 	// When the operation is not active, either from the tx being finalized or a
