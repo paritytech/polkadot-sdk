@@ -341,6 +341,8 @@ pub mod pallet {
 			period: BlockNumberFor<T>,
 			retries: u8,
 		},
+		/// Cancel a retry configuration for some task.
+		RetryCancelled { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The call for the provided hash was not found so the task has been aborted.
 		CallUnavailable { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task was unable to be renewed since the agenda is full at that block.
@@ -566,6 +568,45 @@ pub mod pallet {
 				period,
 				retries,
 			});
+			Ok(())
+		}
+
+		/// Removes the retry configuration of a task.
+		#[pallet::call_index(8)]
+		#[pallet::weight(<T as Config>::WeightInfo::cancel_retry())]
+		pub fn cancel_retry(
+			origin: OriginFor<T>,
+			task: TaskAddress<BlockNumberFor<T>>,
+		) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let (when, index) = task;
+			let agenda = Agenda::<T>::get(when);
+			let scheduled = agenda
+				.get(index as usize)
+				.and_then(Option::as_ref)
+				.ok_or(Error::<T>::NotFound)?;
+			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
+			Retries::<T>::remove((when, index));
+			Self::deposit_event(Event::RetryCancelled { task, id: None });
+			Ok(())
+		}
+
+		/// Cancel the retry configuration of a named task.
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::cancel_retry_named())]
+		pub fn cancel_retry_named(origin: OriginFor<T>, id: TaskName) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let (when, agenda_index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
+			let agenda = Agenda::<T>::get(when);
+			let scheduled = agenda
+				.get(agenda_index as usize)
+				.and_then(Option::as_ref)
+				.ok_or(Error::<T>::NotFound)?;
+			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
+			Retries::<T>::remove((when, agenda_index));
+			Self::deposit_event(Event::RetryCancelled { task: (when, agenda_index), id: Some(id) });
 			Ok(())
 		}
 	}

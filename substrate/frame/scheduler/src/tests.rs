@@ -1851,9 +1851,11 @@ fn cancel_retries_works() {
 		assert!(logger::log().is_empty());
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
 		// cancel the retry config for 20
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 0, 1));
+		assert_ok!(Scheduler::cancel_retry(root().into(), (4, 0)));
+		assert_eq!(Retries::<Test>::iter().count(), 1);
 		// cancel the retry config for 42
-		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 0, 1));
+		assert_ok!(Scheduler::cancel_retry_named(root().into(), [1u8; 32]));
+		assert_eq!(Retries::<Test>::iter().count(), 0);
 		run_to_block(4);
 		// both tasks failed and there are no more retries, so they are evicted
 		assert_eq!(Agenda::<Test>::get(4).len(), 0);

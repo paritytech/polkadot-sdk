@@ -378,5 +378,41 @@ benchmarks! {
 		);
 	}
 
+	cancel_retry {
+		let s = T::MaxScheduledPerBlock::get();
+		let when = BLOCK_NUMBER.into();
+
+		fill_schedule::<T>(when, s)?;
+		let name = u32_to_name(s - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let (when, index) = address;
+		let period = BlockNumberFor::<T>::one();
+		assert!(Scheduler::<T>::set_retry(RawOrigin::Root.into(), (when, index), 10, period).is_ok());
+	}: _(RawOrigin::Root, (when, index))
+	verify {
+		assert!(!Retries::<T>::contains_key((when, index)));
+		assert_last_event::<T>(
+			Event::RetryCancelled { task: address, id: None }.into(),
+		);
+	}
+
+	cancel_retry_named {
+		let s = T::MaxScheduledPerBlock::get();
+		let when = BLOCK_NUMBER.into();
+
+		fill_schedule::<T>(when, s)?;
+		let name = u32_to_name(s - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let (when, index) = address;
+		let period = BlockNumberFor::<T>::one();
+		assert!(Scheduler::<T>::set_retry_named(RawOrigin::Root.into(), name, 10, period).is_ok());
+	}: _(RawOrigin::Root, name)
+	verify {
+		assert!(!Retries::<T>::contains_key((when, index)));
+		assert_last_event::<T>(
+			Event::RetryCancelled { task: address, id: Some(name) }.into(),
+		);
+	}
+
 	impl_benchmark_test_suite!(Scheduler, crate::mock::new_test_ext(), crate::mock::Test);
 }
