@@ -128,6 +128,10 @@ impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionB
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		self.0.implicit()
 	}
+
+	fn weight(&self) -> frame_support::weights::Weight {
+		self.0.weight()
+	}
 }
 
 impl<T: Config + Send + Sync, Context, S: TransactionExtension<T::RuntimeCall, Context>>
