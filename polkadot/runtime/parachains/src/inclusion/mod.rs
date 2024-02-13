@@ -25,7 +25,6 @@ use crate::{
 	paras::{self, SetGoAhead},
 	scheduler::{self, AvailabilityTimeoutStatus},
 	shared::{self, AllowedRelayParentsTracker},
-	util::strip_candidate_core_index,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::{
@@ -619,6 +618,11 @@ impl<T: Config> Pallet<T> {
 			return Ok(ProcessedCandidates::default())
 		}
 
+		let core_index_enabled = configuration::Pallet::<T>::config()
+			.node_features
+			.get(FeatureIndex::InjectCoreIndex as usize)
+			.map(|b| *b)
+			.unwrap_or(false);
 		let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
 		let validators = shared::Pallet::<T>::active_validator_keys();
 
@@ -683,18 +687,15 @@ impl<T: Config> Pallet<T> {
 				};
 
 				let para_id = backed_candidate.descriptor().para_id;
-				let core_idx =
-					if let Some(core_idx) = strip_candidate_core_index::<T>(backed_candidate) {
-						core_idx
-					} else {
-						*scheduled.get(&para_id).ok_or(Error::<T>::UnscheduledCandidate)?
-					};
+				let core_idx = if let Some(core_idx) =
+					backed_candidate.assumed_core_index(core_index_enabled)
+				{
+					core_idx
+				} else {
+					*scheduled.get(&para_id).ok_or(Error::<T>::UnscheduledCandidate)?
+				};
 
-				log::debug!(target: LOG_TARGET, "Candidate {:?} on {:?}, core_index_hack = {}", backed_candidate.hash(), core_idx, configuration::Pallet::<T>::config()
-					.node_features
-					.get(FeatureIndex::InjectCoreIndex as usize)
-					.map(|b| *b)
-					.unwrap_or(false));
+				log::debug!(target: LOG_TARGET, "Candidate {:?} on {:?}, core_index_enabled = {}", backed_candidate.hash(), core_idx, core_index_enabled);
 
 				check_assignment_in_order(core_idx)?;
 
@@ -754,16 +755,16 @@ impl<T: Config> Pallet<T> {
 
 					let mut backer_idx_and_attestation =
 						Vec::<(ValidatorIndex, ValidityAttestation)>::with_capacity(
-							backed_candidate.validator_indices.count_ones(),
+							backed_candidate.validator_indices(core_index_enabled).count_ones(),
 						);
 					let candidate_receipt = backed_candidate.receipt();
 
 					for ((bit_idx, _), attestation) in backed_candidate
-						.validator_indices
+						.validator_indices(core_index_enabled)
 						.iter()
 						.enumerate()
 						.filter(|(_, signed)| **signed)
-						.zip(backed_candidate.validity_votes.iter().cloned())
+						.zip(backed_candidate.validity_votes().iter().cloned())
 					{
 						let val_idx =
 							group_vals.get(bit_idx).expect("this query succeeded above; qed");
@@ -798,16 +799,18 @@ impl<T: Config> Pallet<T> {
 				bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 
 			Self::deposit_event(Event::<T>::CandidateBacked(
-				candidate.candidate.to_plain(),
-				candidate.candidate.commitments.head_data.clone(),
+				candidate.candidate().to_plain(),
+				candidate.candidate().commitments.head_data.clone(),
 				core.0,
 				group,
 			));
 
-			let candidate_hash = candidate.candidate.hash();
+			let candidate_hash = candidate.candidate().hash();
 
-			let (descriptor, commitments) =
-				(candidate.candidate.descriptor, candidate.candidate.commitments);
+			let (descriptor, commitments) = (
+				candidate.candidate().descriptor.clone(),
+				candidate.candidate().commitments.clone(),
+			);
 
 			<PendingAvailability<T>>::insert(
 				&para_id,
@@ -1259,19 +1262,19 @@ impl<T: Config> CandidateCheckContext<T> {
 
 		ensure!(
 			backed_candidate.descriptor().para_head ==
-				backed_candidate.candidate.commitments.head_data.hash(),
+				backed_candidate.candidate().commitments.head_data.hash(),
 			Error::<T>::ParaHeadMismatch,
 		);
 
 		if let Err(err) = self.check_validation_outputs(
 			para_id,
 			relay_parent_number,
-			&backed_candidate.candidate.commitments.head_data,
-			&backed_candidate.candidate.commitments.new_validation_code,
-			backed_candidate.candidate.commitments.processed_downward_messages,
-			&backed_candidate.candidate.commitments.upward_messages,
-			BlockNumberFor::<T>::from(backed_candidate.candidate.commitments.hrmp_watermark),
-			&backed_candidate.candidate.commitments.horizontal_messages,
+			&backed_candidate.candidate().commitments.head_data,
+			&backed_candidate.candidate().commitments.new_validation_code,
+			backed_candidate.candidate().commitments.processed_downward_messages,
+			&backed_candidate.candidate().commitments.upward_messages,
+			BlockNumberFor::<T>::from(backed_candidate.candidate().commitments.hrmp_watermark),
+			&backed_candidate.candidate().commitments.horizontal_messages,
 		) {
 			log::debug!(
 				target: LOG_TARGET,

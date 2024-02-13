@@ -17,7 +17,7 @@
 //! Utilities that don't belong to any particular module but may draw
 //! on all modules.
 
-use bitvec::{field::BitField, vec::BitVec};
+use bitvec::field::BitField;
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
 	vstaging::node_features::FeatureIndex, BackedCandidate, CoreIndex, Id as ParaId,
@@ -124,29 +124,36 @@ mod tests {
 
 /// Filters out all candidates that have multiple cores assigned and no
 /// `CoreIndex` injected.
-pub(crate) fn elastic_scaling_mvp_filter<T: configuration::Config + scheduler::Config>(candidates: &mut Vec<BackedCandidate<T::Hash>>) {
+pub(crate) fn elastic_scaling_mvp_filter<T: configuration::Config + scheduler::Config>(
+	candidates: &mut Vec<BackedCandidate<T::Hash>>,
+) {
 	if !configuration::Pallet::<T>::config()
 		.node_features
 		.get(FeatureIndex::InjectCoreIndex as usize)
 		.map(|b| *b)
-		.unwrap_or(false) {
-			// we don't touch the candidates, since we don't expect block producers
-			// to inject `CoreIndex`.
-			return
-		}
+		.unwrap_or(false)
+	{
+		// we don't touch the candidates, since we don't expect block producers
+		// to inject `CoreIndex`.
+		return
+	}
+
 	// TODO: determine cores assigned to this para.
 	let multiple_cores_asigned = true;
-	candidates.retain(|candidate|  !multiple_cores_asigned || has_core_index::<T>(candidate) );
+	candidates.retain(|candidate| !multiple_cores_asigned || has_core_index::<T>(candidate, true));
 }
 
 // Returns `true` if the candidate contains an injected `CoreIndex`.
-fn has_core_index<T: configuration::Config + scheduler::Config>(candidate: &BackedCandidate<T::Hash>) -> bool {
+fn has_core_index<T: configuration::Config + scheduler::Config>(
+	candidate: &BackedCandidate<T::Hash>,
+	core_index_enabled: bool,
+) -> bool {
 	// After stripping the 8 bit extensions, the `validator_indices` field length is expected
 	// to be equal to backing group size. If these don't match, the `CoreIndex` is badly encoded,
 	// or not supported.
-	let core_idx_offset = candidate.validator_indices.len().saturating_sub(8);
-	let (validator_indices_slice, core_idx_slice) =
-		candidate.validator_indices.split_at(core_idx_offset);
+	let core_idx_offset = candidate.validator_indices(core_index_enabled).len().saturating_sub(8);
+	let validator_indices_raw = candidate.validator_indices(core_index_enabled);
+	let (validator_indices_slice, core_idx_slice) = validator_indices_raw.split_at(core_idx_offset);
 	let core_idx: u8 = core_idx_slice.load();
 
 	let current_block = frame_system::Pallet::<T>::block_number();
@@ -157,41 +164,13 @@ fn has_core_index<T: configuration::Config + scheduler::Config>(candidate: &Back
 		current_block,
 	) {
 		Some(group_idx) => group_idx,
-		None => return false
+		None => return false,
 	};
-	
 
 	let group_validators = match <scheduler::Pallet<T>>::group_validators(group_idx) {
 		Some(validators) => validators,
-		None => return false
+		None => return false,
 	};
-		
+
 	group_validators.len() == validator_indices_slice.len()
-}
-
-/// Strips and returns the `CoreIndex` encoded in the `validator_indices` of `BackedCandidate`
-/// if `FeatureIndex::InjectCoreIndex` is enabled and supported by block producer.
-///
-/// Otherwise it returns `None`.
-pub(crate) fn strip_candidate_core_index<T: configuration::Config>(
-	backed_candidate: &mut BackedCandidate<T::Hash>,
-) -> Option<CoreIndex> {
-	// This flag tells us if the block producers must enable Elastic Scaling MVP hack.
-	// It extends `BackedCandidate::validity_indices` to store a 8 bit core index.
-	let core_index_hack = configuration::Pallet::<T>::config()
-		.node_features
-		.get(FeatureIndex::InjectCoreIndex as usize)
-		.map(|b| *b)
-		.unwrap_or(false);
-
-	if core_index_hack {
-		let core_idx_offset = backed_candidate.validator_indices.len().saturating_sub(8);
-		let (validator_indices_slice, core_idx_slice) =
-			backed_candidate.validator_indices.split_at(core_idx_offset);
-		let core_idx: u8 = core_idx_slice.load();
-		backed_candidate.validator_indices = BitVec::from(validator_indices_slice);
-		Some(CoreIndex(core_idx as u32))
-	} else {
-		None
-	}
 }

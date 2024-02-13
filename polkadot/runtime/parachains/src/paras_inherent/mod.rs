@@ -31,7 +31,8 @@ use crate::{
 	paras,
 	scheduler::{self, FreedReason},
 	shared::{self, AllowedRelayParentsTracker},
-	ParaId, util::elastic_scaling_mvp_filter,
+	util::elastic_scaling_mvp_filter,
+	ParaId,
 };
 use bitvec::prelude::BitVec;
 use frame_support::{
@@ -41,20 +42,17 @@ use frame_support::{
 	traits::Randomness,
 };
 
-use crate::util::strip_candidate_core_index;
-
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
 use primitives::{
-	effective_minimum_backing_votes, BackedCandidate, CandidateHash, CandidateReceipt,
-	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex, DisputeStatementSet,
-	InherentData as ParachainsInherentData, MultiDisputeStatementSet, ScrapedOnChainVotes,
-	SessionIndex, SignedAvailabilityBitfields, SigningContext, UncheckedSignedAvailabilityBitfield,
-	UncheckedSignedAvailabilityBitfields, ValidatorId, ValidatorIndex, ValidityAttestation,
-	PARACHAINS_INHERENT_IDENTIFIER,
+	effective_minimum_backing_votes, vstaging::node_features::FeatureIndex, BackedCandidate,
+	CandidateHash, CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet,
+	CoreIndex, DisputeStatementSet, InherentData as ParachainsInherentData,
+	MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex, SignedAvailabilityBitfields,
+	SigningContext, UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields,
+	ValidatorId, ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,
 };
 use rand::{seq::SliceRandom, SeedableRng};
-
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Header as HeaderT, One};
 use sp_std::{
@@ -781,7 +779,7 @@ fn apply_weight_limit<T: Config + inclusion::Config>(
 		.iter()
 		.enumerate()
 		.filter_map(|(idx, candidate)| {
-			candidate.candidate.commitments.new_validation_code.as_ref().map(|_code| idx)
+			candidate.candidate().commitments.new_validation_code.as_ref().map(|_code| idx)
 		})
 		.collect::<Vec<usize>>();
 
@@ -1096,13 +1094,18 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 	let mut filtered = false;
 
 	let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
+	let core_index_enabled = configuration::Pallet::<T>::config()
+		.node_features
+		.get(FeatureIndex::InjectCoreIndex as usize)
+		.map(|b| *b)
+		.unwrap_or(false);
 
 	// Process all backed candidates. `validator_indices` in `BackedCandidates` are indices within
 	// the validator group assigned to the parachain. To obtain this group we need:
 	// 1. Core index assigned to the parachain which has produced the candidate
 	// 2. The relay chain block number of the candidate
 	backed_candidates.retain_mut(|bc| {
-		let core_idx = if let Some(core_idx) = strip_candidate_core_index::<T>(bc) {
+		let core_idx = if let Some(core_idx) = bc.assumed_core_index(core_index_enabled) {
 			core_idx
 		} else {
 			// Get `core_idx` assigned to the `para_id` of the candidate
@@ -1148,13 +1151,17 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 
 		// Bitmask with the disabled indices within the validator group
 		let disabled_indices = BitVec::<u8, bitvec::order::Lsb0>::from_iter(validator_group.iter().map(|idx| disabled_validators.contains(idx)));
+		let mut validator_indices = bc.validator_indices(core_index_enabled);
 		// The indices of statements from disabled validators in `BackedCandidate`. We have to drop these.
-		let indices_to_drop = disabled_indices.clone() & &bc.validator_indices;
+		let indices_to_drop = disabled_indices.clone() & &validator_indices;
 		// Apply the bitmask to drop the disabled validator from `validator_indices`
-		bc.validator_indices &= !disabled_indices;
+		validator_indices &= !disabled_indices;
+		// Update the backed candidate
+		bc.set_validator_indices(validator_indices);
+
 		// Remove the corresponding votes from `validity_votes`
 		for idx in indices_to_drop.iter_ones().rev() {
-			bc.validity_votes.remove(idx);
+			bc.validity_votes_mut().remove(idx);
 		}
 
 		// If at least one statement was dropped we need to return `true`
@@ -1165,10 +1172,9 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 		// By filtering votes we might render the candidate invalid and cause a failure in
 		// [`process_candidates`]. To avoid this we have to perform a sanity check here. If there
 		// are not enough backing votes after filtering we will remove the whole candidate.
-		if bc.validity_votes.len() < effective_minimum_backing_votes(
+		if bc.validity_votes().len() < effective_minimum_backing_votes(
 			validator_group.len(),
 			minimum_backing_votes
-
 		) {
 			return false
 		}

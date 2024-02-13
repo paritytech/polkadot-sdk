@@ -488,14 +488,14 @@ fn table_attested_to_backed(
 		validator_indices.extend(core_index_to_inject);
 	}
 
-	Some(BackedCandidate {
+	Some(BackedCandidate::new(
 		candidate,
-		validity_votes: vote_positions
+		vote_positions
 			.into_iter()
 			.map(|(pos_in_votes, _pos_in_group)| validity_votes[pos_in_votes].clone())
 			.collect(),
 		validator_indices,
-	})
+	))
 }
 
 async fn store_available_data(
@@ -1702,7 +1702,7 @@ async fn post_import_statement_actions<Context>(
 				&rp_state.table_context,
 				rp_state.inject_core_index,
 			) {
-				let para_id = backed.candidate.descriptor.para_id;
+				let para_id = backed.candidate().descriptor.para_id;
 				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?candidate_hash,
@@ -1723,7 +1723,7 @@ async fn post_import_statement_actions<Context>(
 					// notify collator protocol.
 					ctx.send_message(CollatorProtocolMessage::Backed {
 						para_id,
-						para_head: backed.candidate.descriptor.para_head,
+						para_head: backed.candidate().descriptor.para_head,
 					})
 					.await;
 					// Notify statement distribution of backed candidate.
