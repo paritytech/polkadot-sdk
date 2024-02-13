@@ -149,7 +149,7 @@ fn migrate_to_v12<T: Config>() -> Weight {
 							max_validators_per_core              : pre.max_validators_per_core,
 							lookahead                            : pre.scheduling_lookahead,
 							num_cores                            : pre.coretime_cores,
-							max_availability_timeouts   : pre.on_demand_retries,
+							max_availability_timeouts            : pre.on_demand_retries,
 							on_demand_queue_max_size             : pre.on_demand_queue_max_size,
 							on_demand_target_queue_utilization   : pre.on_demand_target_queue_utilization,
 							on_demand_fee_variability            : pre.on_demand_fee_variability,
