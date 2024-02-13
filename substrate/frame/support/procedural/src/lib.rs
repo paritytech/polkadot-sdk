@@ -1734,6 +1734,12 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 ///   pub type Test4 = test4;
 /// }
 /// ```
+/// 
+/// # Legacy Ordering
+/// 
+/// An optional attribute can be defined as #[frame_support::runtime(legacy_ordering)] to 
+/// ensure that the order of hooks is same as the order of pallets (and not based on the 
+/// pallet_index). This is to support legacy runtimes and should be avoided for new ones.
 ///
 /// # Note
 ///
