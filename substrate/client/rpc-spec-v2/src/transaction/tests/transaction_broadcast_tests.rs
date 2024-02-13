@@ -422,3 +422,97 @@ async fn tx_broadcast_resubmits_invalid_tx() {
 	// Ensure the broadcast future terminated properly.
 	let _ = get_next_event!(&mut exec_middleware);
 }
+
+/// This is similar to `tx_broadcast_resubmits_invalid_tx`.
+/// However, it forces the tx to be resubmited because of the pool
+/// limits. Which is a different code path than the invalid tx.
+#[tokio::test]
+async fn tx_broadcast_resubmits_dropped_tx() {
+	let limits = PoolLimit { count: 1, total_bytes: 1000 };
+	let options = Options {
+		ready: limits.clone(),
+		future: limits,
+		reject_future_transactions: false,
+		// This ensures that a transaction is not banned.
+		ban_time: std::time::Duration::ZERO,
+	};
+
+	let (api, pool, client_mock, tx_api, _, mut pool_middleware) = setup_api(options);
+
+	let current_uxt = uxt(Alice, ALICE_NONCE);
+	let current_xt = hex_string(&current_uxt.encode());
+	// This lives in the future.
+	let future_uxt = uxt(Alice, ALICE_NONCE + 1);
+	let future_xt = hex_string(&future_uxt.encode());
+
+	// By default the `validate_transaction` mock uses priority 1 for
+	// transactions. Bump the priority to ensure other transactions
+	// are immediately dropped.
+	api.set_priority(&current_uxt, 10);
+
+	let current_operation_id: String = tx_api
+		.call("transaction_unstable_broadcast", rpc_params![&current_xt])
+		.await
+		.unwrap();
+
+	// Announce block 1 to `transaction_unstable_broadcast`.
+	let block_1_header = api.push_block(1, vec![], true);
+	let event =
+		ChainEvent::Finalized { hash: block_1_header.hash(), tree_route: Arc::from(vec![]) };
+	pool.inner_pool.maintain(event).await;
+	client_mock.trigger_import_stream(block_1_header).await;
+
+	let event = get_next_event!(&mut pool_middleware);
+	assert_eq!(
+		event,
+		MiddlewarePoolEvent::TransactionStatus {
+			transaction: current_xt.clone(),
+			status: TxStatusTypeTest::Ready,
+		}
+	);
+	assert_eq!(1, pool.inner_pool.status().ready);
+
+	// The future tx has priority 2, smaller than the current 10.
+	api.set_priority(&future_uxt, 2);
+	let future_operation_id: String = tx_api
+		.call("transaction_unstable_broadcast", rpc_params![&future_xt])
+		.await
+		.unwrap();
+	assert_ne!(current_operation_id, future_operation_id);
+
+	let block_2_header = api.push_block(2, vec![], true);
+	let event =
+		ChainEvent::Finalized { hash: block_2_header.hash(), tree_route: Arc::from(vec![]) };
+	pool.inner_pool.maintain(event).await;
+	client_mock.trigger_import_stream(block_2_header).await;
+
+	// We must have at most 1 transaction in the pool, as per limits above.
+	assert_eq!(1, pool.inner_pool.status().ready);
+
+	let event = get_next_event!(&mut pool_middleware);
+	assert_eq!(
+		event,
+		MiddlewarePoolEvent::PoolError {
+			transaction: future_xt.clone(),
+			err: "Transaction couldn't enter the pool because of the limit".into()
+		}
+	);
+
+	let block_3_header = api.push_block(3, vec![current_uxt], true);
+	let event =
+		ChainEvent::Finalized { hash: block_3_header.hash(), tree_route: Arc::from(vec![]) };
+	pool.inner_pool.maintain(event).await;
+	client_mock.trigger_import_stream(block_3_header.clone()).await;
+
+	// The first tx is in a finalzied block; the future tx must enter the pool.
+	let events = get_next_tx_events!(&mut pool_middleware, 3);
+	assert_eq!(
+		events.get(&current_xt).unwrap(),
+		&vec![
+			TxStatusTypeTest::InBlock((block_3_header.hash(), 0)),
+			TxStatusTypeTest::Finalized((block_3_header.hash(), 0))
+		]
+	);
+	// The dropped transaction was resubmitted.
+	assert_eq!(events.get(&future_xt).unwrap(), &vec![TxStatusTypeTest::Ready]);
+}
