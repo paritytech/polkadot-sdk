@@ -502,6 +502,12 @@
 <a href="#502" id="502">502</a>
 <a href="#503" id="503">503</a>
 <a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -563,7 +569,7 @@
 <span class="kw">use </span>sp_application_crypto::AppPublic;
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_consensus::SyncOracle;
-<span class="kw">use </span>sp_consensus_aura::{AuraApi, Slot, SlotDuration};
+<span class="kw">use </span>sp_consensus_aura::{AuraApi, Slot};
 <span class="kw">use </span>sp_core::crypto::Pair;
 <span class="kw">use </span>sp_inherents::CreateInherentDataProviders;
 <span class="kw">use </span>sp_keystore::KeystorePtr;
@@ -599,8 +605,6 @@
 	</span><span class="kw">pub </span>para_id: ParaId,
 	<span class="doccomment">/// A handle to the relay-chain client&#39;s &quot;Overseer&quot; or task orchestrator.
 	</span><span class="kw">pub </span>overseer_handle: OverseerHandle,
-	<span class="doccomment">/// The length of slots in this chain.
-	</span><span class="kw">pub </span>slot_duration: SlotDuration,
 	<span class="doccomment">/// The length of slots in the relay chain.
 	</span><span class="kw">pub </span>relay_chain_slot_duration: Duration,
 	<span class="doccomment">/// The underlying block proposer this should call into.
@@ -718,26 +722,6 @@
 				</span>},
 			};
 
-			<span class="kw">let </span>(slot_now, timestamp) = <span class="kw">match </span>consensus_common::relay_slot_and_timestamp(
-				<span class="kw-2">&amp;</span>relay_parent_header,
-				params.relay_chain_slot_duration,
-			) {
-				<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
-				<span class="prelude-val">Some</span>((r_s, t)) =&gt; {
-					<span class="kw">let </span>our_slot = Slot::from_timestamp(t, params.slot_duration);
-					<span class="macro">tracing::debug!</span>(
-						target: <span class="kw">crate</span>::LOG_TARGET,
-						relay_slot = <span class="question-mark">?</span>r_s,
-						para_slot = <span class="question-mark">?</span>our_slot,
-						timestamp = <span class="question-mark">?</span>t,
-						slot_duration = <span class="question-mark">?</span>params.slot_duration,
-						relay_chain_slot_duration = <span class="question-mark">?</span>params.relay_chain_slot_duration,
-						<span class="string">&quot;Adjusted relay-chain slot to parachain slot&quot;
-					</span>);
-					(our_slot, t)
-				},
-			};
-
 			<span class="kw">let </span>parent_search_params = ParentSearchParams {
 				relay_parent,
 				para_id: params.para_id,
@@ -776,14 +760,39 @@
 			<span class="kw">let </span>para_client = <span class="kw-2">&amp;*</span>params.para_client;
 			<span class="kw">let </span>keystore = <span class="kw-2">&amp;</span>params.keystore;
 			<span class="kw">let </span>can_build_upon = |block_hash| {
-				can_build_upon::&lt;<span class="kw">_</span>, <span class="kw">_</span>, P&gt;(
+				<span class="kw">let </span>slot_duration = <span class="kw">match </span>sc_consensus_aura::standalone::slot_duration_at(
+					<span class="kw-2">&amp;*</span>params.para_client,
+					block_hash,
+				) {
+					<span class="prelude-val">Ok</span>(sd) =&gt; sd,
+					<span class="prelude-val">Err</span>(err) =&gt; {
+						<span class="macro">tracing::error!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Failed to acquire parachain slot duration&quot;</span>);
+						<span class="kw">return </span><span class="prelude-val">None
+					</span>},
+				};
+				<span class="macro">tracing::debug!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>slot_duration, <span class="question-mark">?</span>block_hash, <span class="string">&quot;Parachain slot duration acquired&quot;</span>);
+				<span class="kw">let </span>(relay_slot, timestamp) = consensus_common::relay_slot_and_timestamp(
+					<span class="kw-2">&amp;</span>relay_parent_header,
+					params.relay_chain_slot_duration,
+				)<span class="question-mark">?</span>;
+				<span class="kw">let </span>slot_now = Slot::from_timestamp(timestamp, slot_duration);
+				<span class="macro">tracing::debug!</span>(
+					target: <span class="kw">crate</span>::LOG_TARGET,
+					<span class="question-mark">?</span>relay_slot,
+					para_slot = <span class="question-mark">?</span>slot_now,
+					<span class="question-mark">?</span>timestamp,
+					<span class="question-mark">?</span>slot_duration,
+					relay_chain_slot_duration = <span class="question-mark">?</span>params.relay_chain_slot_duration,
+					<span class="string">&quot;Adjusted relay-chain slot to parachain slot&quot;
+				</span>);
+				<span class="prelude-val">Some</span>(can_build_upon::&lt;<span class="kw">_</span>, <span class="kw">_</span>, P&gt;(
 					slot_now,
 					timestamp,
 					block_hash,
 					included_block,
 					para_client,
 					<span class="kw-2">&amp;</span>keystore,
-				)
+				))
 			};
 
 			<span class="comment">// Sort by depth, ascending, to choose the longest chain.
@@ -805,9 +814,12 @@
 			<span class="comment">// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
 			</span><span class="kw">for </span>n_built <span class="kw">in </span><span class="number">0</span>..<span class="number">2 </span>{
-				<span class="kw">let </span>slot_claim = <span class="kw">match </span>can_build_upon(parent_hash).<span class="kw">await </span>{
+				<span class="kw">let </span>slot_claim = <span class="kw">match </span>can_build_upon(parent_hash) {
+					<span class="prelude-val">Some</span>(fut) =&gt; <span class="kw">match </span>fut.<span class="kw">await </span>{
+						<span class="prelude-val">None </span>=&gt; <span class="kw">break</span>,
+						<span class="prelude-val">Some</span>(c) =&gt; c,
+					},
 					<span class="prelude-val">None </span>=&gt; <span class="kw">break</span>,
-					<span class="prelude-val">Some</span>(c) =&gt; c,
 				};
 
 				<span class="macro">tracing::debug!</span>(

@@ -2195,27 +2195,6 @@
 <a href="#2195" id="2195">2195</a>
 <a href="#2196" id="2196">2196</a>
 <a href="#2197" id="2197">2197</a>
-<a href="#2198" id="2198">2198</a>
-<a href="#2199" id="2199">2199</a>
-<a href="#2200" id="2200">2200</a>
-<a href="#2201" id="2201">2201</a>
-<a href="#2202" id="2202">2202</a>
-<a href="#2203" id="2203">2203</a>
-<a href="#2204" id="2204">2204</a>
-<a href="#2205" id="2205">2205</a>
-<a href="#2206" id="2206">2206</a>
-<a href="#2207" id="2207">2207</a>
-<a href="#2208" id="2208">2208</a>
-<a href="#2209" id="2209">2209</a>
-<a href="#2210" id="2210">2210</a>
-<a href="#2211" id="2211">2211</a>
-<a href="#2212" id="2212">2212</a>
-<a href="#2213" id="2213">2213</a>
-<a href="#2214" id="2214">2214</a>
-<a href="#2215" id="2215">2215</a>
-<a href="#2216" id="2216">2216</a>
-<a href="#2217" id="2217">2217</a>
-<a href="#2218" id="2218">2218</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -3157,8 +3136,6 @@
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			<span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
-
 			<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -3189,7 +3166,6 @@
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
@@ -3653,8 +3629,6 @@
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			<span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
-
 			<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -3685,7 +3659,6 @@
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
@@ -3955,15 +3928,7 @@
 				}
 
 				<span class="comment">// Move to Aura consensus.
-				</span><span class="kw">let </span>slot_duration = <span class="kw">match </span>cumulus_client_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client) {
-					<span class="prelude-val">Ok</span>(d) =&gt; d,
-					<span class="prelude-val">Err</span>(e) =&gt; {
-						<span class="macro">log::error!</span>(<span class="string">&quot;Could not get Aura slot duration: {e}&quot;</span>);
-						<span class="kw">return
-					</span>},
-				};
-
-				<span class="kw">let </span>proposer = Proposer::new(proposer_factory);
+				</span><span class="kw">let </span>proposer = Proposer::new(proposer_factory);
 
 				<span class="kw">let </span>params = AuraParams {
 					create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
@@ -3979,7 +3944,6 @@
 					collator_key,
 					para_id,
 					overseer_handle,
-					slot_duration,
 					relay_chain_slot_duration,
 					proposer,
 					collator_service,
@@ -4050,8 +4014,6 @@
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			<span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
-
 			<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -4082,7 +4044,6 @@
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
@@ -4359,8 +4320,6 @@
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			<span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
-
 			<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -4391,7 +4350,6 @@
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
