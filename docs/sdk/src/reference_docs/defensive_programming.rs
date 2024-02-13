@@ -49,10 +49,10 @@
 //!
 //!  General guidelines:
 //!
-//! - Avoid writing functions that could explicitly panic. Directly using `unwrap()` for a
-//!   [`Result`], or common errors such as accessing an out of bounds index on a collection should
-//!   not be used. Safer methods to access collection types, i.e., `get()` are available, upon which
-//!   defensive handling of the resulting [`Option`] can occur.
+//! - Avoid writing functions that could explicitly panic. Directly using `unwrap()` on a
+//!   [`Result`], or  accessing an out-of-bounds index on a collection, should
+//!   be avoided. Safer methods to access collection types, i.e., `get()` which allow
+//!   defensive handling of the resulting [`Option`] are recommended to be used.
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
 //!   performed a check beforehand) that a value won't panic upon unwrapping.  Even this is
 //!   discouraged, however, as future changes to that function could then cause that statement to
