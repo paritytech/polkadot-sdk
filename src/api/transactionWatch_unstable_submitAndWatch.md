@@ -155,7 +155,7 @@ One can build a mental model in order to understand which events can be generate
 
 - `bestChainBlockIncluded`: an optional block hash and index. A transaction is initially included in no block. It can automatically become included in a block of the best chain. A `bestChainBlockIncluded` event reports updates to this property.
 
-Note that these two properties are orthogonal to each other. In particular, a transaction can be included in a block before being validated.
+Note that these two properties are orthogonal. In particular, a transaction can be included in a block before being validated.
 
 The `finalized`, `error`, `invalid`, and `dropped` event indicate that the transaction is no longer being watched. The state of the transaction is entirely discarded.
 
