@@ -395,3 +395,21 @@ build-subkey-linux:
 #   after_script: [""]
 #   tags:
 #     - osx
+
+# bridges
+
+# we need some non-binary artifacts in our bridges+zombienet image
+prepare-bridges-zombienet-artifacts:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  before_script:
+    - mkdir -p ./artifacts/bridges-polkadot-sdk/bridges
+    - mkdir -p ./artifacts/bridges-polkadot-sdk/cumulus/zombienet
+  script:
+    - cp -r bridges/zombienet ./artifacts/bridges-polkadot-sdk/bridges/zombienet
+    - cp -r cumulus/scripts ./artifacts/bridges-polkadot-sdk/cumulus/scripts
+    - cp -r cumulus/zombienet/bridge-hubs ./artifacts/bridges-polkadot-sdk/cumulus/zombienet/bridge-hubs
