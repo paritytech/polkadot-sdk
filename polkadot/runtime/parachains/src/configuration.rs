@@ -642,7 +642,7 @@ pub mod pallet {
 			Self::set_coretime_cores_unchecked(new)
 		}
 
-		/// Set the number of retries for a particular on demand.
+		/// Set the max number of times a claim may timeout on a core before it is abandoned
 		#[pallet::call_index(7)]
 		#[pallet::weight((
 			T::WeightInfo::set_config_with_u32(),
