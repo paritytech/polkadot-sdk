@@ -42,7 +42,7 @@ use sc_network_gossip::GossipEngine;
 use sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
-use sp_blockchain::Backend as BlockchainBackend;
+use sp_blockchain::{Backend as BlockchainBackend, Error as ClientError, Result as ClientResult};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
 	check_equivocation_proof,
@@ -61,8 +61,6 @@ use std::{
 	marker::PhantomData,
 	sync::Arc,
 };
-
-use sp_std::marker::PhantomData;
 
 /// Bound for the number of pending justifications - use 2400 - the max number
 /// of justifications possible in a single session.
@@ -394,7 +392,7 @@ where
 		beefy_genesis: NumberFor<B>,
 		best_grandpa: <B as Block>::Header,
 		min_block_delta: u32,
-	) -> Result<PersistedState<B>, Error> {
+	) -> Result<PersistedState<B, AuthorityId>, Error> {
 		let blockchain = self.backend.blockchain();
 
 		let beefy_genesis = self
@@ -467,7 +465,7 @@ where
 				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?
 			}
 
-			if let Some(active) = find_authorities_change::<B>(&header) {
+			if let Some(active) = find_authorities_change::<B, AuthorityId>(&header) {
 				info!(
 					target: LOG_TARGET,
 					"🥩 Marking block {:?} as BEEFY Mandatory.",
@@ -490,7 +488,7 @@ where
 		beefy_genesis: NumberFor<B>,
 		best_grandpa: <B as Block>::Header,
 		min_block_delta: u32,
-	) -> Result<PersistedState<B>, Error> {
+	) -> Result<PersistedState<B, AuthorityId>, Error> {
 		// Initialize voter state from AUX DB if compatible.
 		if let Some(mut state) = crate::aux_schema::load_persistent(self.backend.as_ref())?
 			// Verify state pallet genesis matches runtime.
@@ -507,7 +505,7 @@ where
 			let mut header = best_grandpa.clone();
 			while *header.number() > state.best_beefy() {
 				if state.voting_oracle.can_add_session(*header.number()) {
-					if let Some(active) = find_authorities_change::<B>(&header) {
+					if let Some(active) = find_authorities_change::<B, AuthorityId>(&header) {
 						new_sessions.push((active, *header.number()));
 					}
 				}
@@ -563,7 +561,7 @@ where
 	/// Handle session changes by starting new voting round for mandatory blocks.
 	fn init_session_at(
 		&mut self,
-		persisted_state: &mut PersistedState<B>,
+		persisted_state: &mut PersistedState<B, AuthorityId>,
 		validator_set: ValidatorSet<AuthorityId>,
 		new_session_start: NumberFor<B>,
 	) {
@@ -602,28 +600,31 @@ where
 }
 
 /// A BEEFY worker/voter that follows the BEEFY protocol
-pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
-	pub base: BeefyWorkerBase<B, BE, RuntimeApi>,
+pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
+	pub base: BeefyWorkerBase<B, BE, RuntimeApi, AuthorityId>,
 
 	// utils
 	pub payload_provider: P,
 	pub sync: Arc<S>,
 
 	// communication (created once, but returned and reused if worker is restarted/reinitialized)
-	pub comms: BeefyComms<B>,
+	pub comms: BeefyComms<B, AuthorityId>,
 
 	// channels
 	/// Links between the block importer, the background voter and the RPC layer.
-	pub links: BeefyVoterLinks<B>,
+	pub links: BeefyVoterLinks<B, AuthorityId>,
 
 	// voter state
 	/// Buffer holding justifications for future processing.
-	pub pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
+	pub pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B, AuthorityId>>,
 	/// Persisted voter state.
-	pub persisted_state: PersistedState<B>,
+	pub persisted_state: PersistedState<B, AuthorityId>,
 }
 
-impl<B, BE, P, R, S> BeefyWorker<B, BE, P, R, S>
+impl<B, BE, P, R, S, AuthorityId> BeefyWorker<B, BE, P, R, S, AuthorityId>
 where
 	B: Block + Codec,
 	BE: Backend<B>,
@@ -631,12 +632,14 @@ where
 	S: SyncOracle,
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	fn best_grandpa_block(&self) -> NumberFor<B> {
 		*self.persisted_state.voting_oracle.best_grandpa_block_header.number()
 	}
 
-	fn voting_oracle(&self) -> &VoterOracle<B> {
+	fn voting_oracle(&self) -> &VoterOracle<B, AuthorityId> {
 		&self.persisted_state.voting_oracle
 	}
 
@@ -1340,7 +1343,7 @@ pub(crate) mod tests {
 		Backend,
 	};
 
-	impl<B: super::Block> PersistedState<B> {
+	impl<B: super::Block> PersistedState<B, AuthorityId> {
 		pub fn voting_oracle(&self) -> &VoterOracle<B> {
 			&self.voting_oracle
 		}

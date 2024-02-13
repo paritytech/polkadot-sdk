@@ -74,7 +74,7 @@ pub trait AuthorityIdBound:
 	Codec
 	+ Debug
 	+ Clone
-	//+ Ord
+	+ Ord
 	//+ Sync
 	//+ Send
 	+ AsRef<[u8]>

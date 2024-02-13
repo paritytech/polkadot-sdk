@@ -50,14 +50,13 @@ where
 {
 	trace!(target: LOG_TARGET, "🥩 persisting {:?}", state);
 	AuxStore::insert_aux(backend, &[(WORKER_STATE_KEY, state.encode().as_slice())], &[])
-		.map_err(|e| Error::Backend(e.to_string()))
 }
 
-fn load_decode<BE: AuxStore, T: Decode>(backend: &BE, key: &[u8]) -> Result<Option<T>, Error> {
-	match backend.get_aux(key).map_err(|e| Error::Backend(e.to_string()))? {
+fn load_decode<BE: AuxStore, T: Decode>(backend: &BE, key: &[u8]) -> ClientResult<Option<T>> {
+	match backend.get_aux(key)? {
 		None => Ok(None),
 		Some(t) => T::decode(&mut &t[..])
-			.map_err(|e| Error::Backend(format!("BEEFY DB is corrupted: {}", e)))
+			.map_err(|e| ClientError::Backend(format!("BEEFY DB is corrupted: {}", e)))
 			.map(Some),
 	}
 }

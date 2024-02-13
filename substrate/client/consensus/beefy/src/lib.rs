@@ -490,7 +490,7 @@ where
 		if let Ok(Some(active)) = runtime.runtime_api().validator_set(header.hash()) {
 			return Ok(active)
 		} else {
-			match worker::find_authorities_change::<B>(&header) {
+			match worker::find_authorities_change::<B, AuthorityId>(&header) {
 				Some(active) => return Ok(active),
 				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
 				// there.
