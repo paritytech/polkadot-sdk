@@ -289,7 +289,7 @@
 //! The type for counting the number of proposals on-chain is represented by a `u8` number, called
 //! `proposals_count`. Every time a new proposal is added to the system, this number increases. With
 //! the proposal pallet being high in usage, it has reached `u8::MAX`'s limit of `255`, causing
-//! `proposals_count` to go to `0`. Unfortunately, this resulted in new proposals overwriting old
+//! `proposals_count` to go to `0`. Unfortunately, this results in new proposals overwriting old
 //! ones, effectively erasing any notion of past proposals!
 //!
 //! <details>
