@@ -1491,13 +1491,13 @@ mod sanitizers {
 				configuration::Pallet::<Test>::force_set_active_config(hc);
 
 				// Verify the initial state is as expected
-				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
+				assert_eq!(backed_candidates.get(0).unwrap().validity_votes().len(), 2);
 				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices.get(0).unwrap(),
+					backed_candidates.get(0).unwrap().validator_indices(false).get(0).unwrap(),
 					true
 				);
 				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices.get(1).unwrap(),
+					backed_candidates.get(0).unwrap().validator_indices(false).get(1).unwrap(),
 					true
 				);
 				let untouched = backed_candidates.get(1).unwrap().clone();
@@ -1511,14 +1511,14 @@ mod sanitizers {
 				// there should still be two backed candidates
 				assert_eq!(backed_candidates.len(), 2);
 				// but the first one should have only one validity vote
-				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 1);
+				assert_eq!(backed_candidates.get(0).unwrap().validity_votes().len(), 1);
 				// Validator 0 vote should be dropped, validator 1 - retained
 				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices.get(0).unwrap(),
+					backed_candidates.get(0).unwrap().validator_indices(false).get(0).unwrap(),
 					false
 				);
 				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices.get(1).unwrap(),
+					backed_candidates.get(0).unwrap().validator_indices(false).get(1).unwrap(),
 					true
 				);
 				// the second candidate shouldn't be modified
@@ -1535,7 +1535,7 @@ mod sanitizers {
 				set_disabled_validators(vec![0, 1]);
 
 				// Verify the initial state is as expected
-				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
+				assert_eq!(backed_candidates.get(0).unwrap().validity_votes().len(), 2);
 				let untouched = backed_candidates.get(1).unwrap().clone();
 
 				assert!(filter_backed_statements_from_disabled_validators::<Test>(

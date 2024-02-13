@@ -155,7 +155,7 @@ pub(crate) fn back_candidate(
 		validity_votes.push(ValidityAttestation::Explicit(signature).into());
 	}
 
-	let backed = BackedCandidate { candidate, validity_votes, validator_indices };
+	let backed = BackedCandidate::new(candidate, validity_votes, validator_indices);
 
 	let successfully_backed =
 		primitives::check_candidate_backing(&backed, signing_context, group.len(), |i| {
@@ -946,6 +946,7 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					vec![backed],
 					&[chain_b_assignment].into_iter().collect(),
+					&[(chain_b_assignment.1, chain_b_assignment.0)].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::UnscheduledCandidate
@@ -1001,6 +1002,12 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					vec![backed_b, backed_a],
 					&[chain_a_assignment, chain_b_assignment].into_iter().collect(),
+					&[
+						(chain_a_assignment.1, chain_a_assignment.0),
+						(chain_b_assignment.1, chain_b_assignment.0)
+					]
+					.into_iter()
+					.collect(),
 					&group_validators,
 				),
 				Error::<Test>::ScheduledOutOfOrder
@@ -1034,6 +1041,7 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					vec![backed],
 					&[chain_a_assignment].into_iter().collect(),
+					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::InsufficientBacking
@@ -1091,6 +1099,12 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					vec![backed_b, backed_a],
 					&[chain_a_assignment, chain_b_assignment].into_iter().collect(),
+					&[
+						(chain_a_assignment.1, chain_a_assignment.0),
+						(chain_b_assignment.1, chain_b_assignment.0)
+					]
+					.into_iter()
+					.collect(),
 					&group_validators,
 				),
 				Error::<Test>::DisallowedRelayParent
@@ -1129,6 +1143,7 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					vec![backed],
 					&[thread_a_assignment].into_iter().collect(),
+					&[(thread_a_assignment.1, thread_a_assignment.0)].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::NotCollatorSigned
@@ -1179,6 +1194,7 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					vec![backed],
 					&[chain_a_assignment].into_iter().collect(),
+					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::CandidateScheduledBeforeParaFree
@@ -1219,6 +1235,7 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					vec![backed],
 					&[chain_a_assignment].into_iter().collect(),
+					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::CandidateScheduledBeforeParaFree
@@ -1269,6 +1286,7 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					vec![backed],
 					&[chain_a_assignment].into_iter().collect(),
+					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::PrematureCodeUpgrade
@@ -1303,6 +1321,7 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					vec![backed],
 					&[chain_a_assignment].into_iter().collect(),
+					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
 					&group_validators,
 				),
 				Err(Error::<Test>::ValidationDataHashMismatch.into()),
@@ -1338,6 +1357,7 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					vec![backed],
 					&[chain_a_assignment].into_iter().collect(),
+					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::InvalidValidationCodeHash
@@ -1373,6 +1393,7 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					vec![backed],
 					&[chain_a_assignment].into_iter().collect(),
+					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::ParaHeadMismatch
@@ -1535,6 +1556,13 @@ fn backing_works() {
 			&[chain_a_assignment, chain_b_assignment, thread_a_assignment]
 				.into_iter()
 				.collect(),
+			&[
+				(chain_a_assignment.1, chain_a_assignment.0),
+				(chain_b_assignment.1, chain_b_assignment.0),
+				(thread_a_assignment.1, thread_a_assignment.0),
+			]
+			.into_iter()
+			.collect(),
 			&group_validators,
 		)
 		.expect("candidates scheduled, in order, and backed");
@@ -1560,16 +1588,16 @@ fn backing_works() {
 					.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
 
 				assert_eq!(
-					backed_candidate.validity_votes.len(),
-					backed_candidate.validator_indices.count_ones()
+					backed_candidate.validity_votes().len(),
+					backed_candidate.validator_indices(false).count_ones()
 				);
 				candidate_receipt_with_backers.1.extend(
 					backed_candidate
-						.validator_indices
+						.validator_indices(false)
 						.iter()
 						.enumerate()
 						.filter(|(_, signed)| **signed)
-						.zip(backed_candidate.validity_votes.iter().cloned())
+						.zip(backed_candidate.validity_votes().iter().cloned())
 						.filter_map(|((validator_index_within_group, _), attestation)| {
 							let grp_idx = get_backing_group_idx(backed_candidate.hash()).unwrap();
 							group_validators(grp_idx).map(|validator_indices| {
@@ -1747,6 +1775,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 				&allowed_relay_parents,
 				vec![backed_a],
 				&[chain_a_assignment].into_iter().collect(),
+				&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
 				&group_validators,
 			)
 			.expect("candidates scheduled, in order, and backed");
@@ -1960,6 +1989,13 @@ fn check_allowed_relay_parents() {
 			&[chain_a_assignment, chain_b_assignment, thread_a_assignment]
 				.into_iter()
 				.collect(),
+			&[
+				(chain_a_assignment.1, chain_a_assignment.0),
+				(chain_b_assignment.1, chain_b_assignment.0),
+				(thread_a_assignment.1, thread_a_assignment.0),
+			]
+			.into_iter()
+			.collect(),
 			&group_validators,
 		)
 		.expect("candidates scheduled, in order, and backed");
@@ -2196,6 +2232,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 				&allowed_relay_parents,
 				vec![backed_a],
 				&[chain_a_assignment].into_iter().collect(),
+				&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
 				&group_validators,
 			)
 			.expect("candidates scheduled, in order, and backed");
