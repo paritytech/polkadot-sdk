@@ -225,3 +225,78 @@ async fn tx_broadcast_resubmits_future_nonce_tx() {
 	let _ = get_next_event!(&mut exec_middleware);
 	let _ = get_next_event!(&mut exec_middleware);
 }
+
+/// This test is similar to `tx_broadcast_enters_pool`
+/// However the last block is announced as finalized to force the
+/// broadcast future to exit before the `stop` is called.
+#[tokio::test]
+async fn tx_broadcast_stop_after_broadcast_finishes() {
+	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) = setup_api();
+
+	// Start at block 1.
+	let block_1_header = api.push_block(1, vec![], true);
+
+	let uxt = uxt(Alice, ALICE_NONCE);
+	let xt = hex_string(&uxt.encode());
+
+	let operation_id: String =
+		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
+
+	// Announce block 1 to `transaction_unstable_broadcast`.
+	client_mock.trigger_import_stream(block_1_header).await;
+
+	// Ensure the tx propagated from `transaction_unstable_broadcast` to the transaction
+	// pool.inner_pool.
+	let event = get_next_event!(&mut pool_middleware);
+	assert_eq!(
+		event,
+		MiddlewarePoolEvent::TransactionStatus {
+			transaction: xt.clone(),
+			status: TxStatusTypeTest::Ready
+		}
+	);
+
+	assert_eq!(1, pool.inner_pool.status().ready);
+	assert_eq!(uxt.encode().len(), pool.inner_pool.status().ready_bytes);
+
+	// Import block 2 with the transaction included.
+	let block_2_header = api.push_block(2, vec![uxt.clone()], true);
+	let block_2 = block_2_header.hash();
+
+	// Announce block 2 to the pool.inner_pool.
+	let event = ChainEvent::Finalized { hash: block_2, tree_route: Arc::from(vec![]) };
+	pool.inner_pool.maintain(event).await;
+
+	assert_eq!(0, pool.inner_pool.status().ready);
+
+	let event = get_next_event!(&mut pool_middleware);
+	assert_eq!(
+		event,
+		MiddlewarePoolEvent::TransactionStatus {
+			transaction: xt.clone(),
+			status: TxStatusTypeTest::InBlock((block_2, 0))
+		}
+	);
+
+	let event = get_next_event!(&mut pool_middleware);
+	assert_eq!(
+		event,
+		MiddlewarePoolEvent::TransactionStatus {
+			transaction: xt.clone(),
+			status: TxStatusTypeTest::Finalized((block_2, 0))
+		}
+	);
+
+	// Ensure the broadcast future terminated properly.
+	let _ = get_next_event!(&mut exec_middleware);
+
+	// The operation ID is no longer valid, check that the broadcast future
+	// cleared out the inner state of the operation.
+	let err = tx_api
+		.call::<_, serde_json::Value>("transaction_unstable_stop", rpc_params![&operation_id])
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(err) if err.code() == json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid operation id"
+	);
+}
