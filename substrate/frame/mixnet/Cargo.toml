@@ -1,7 +1,7 @@
 [package]
 description = "FRAME's mixnet pallet"
 name = "pallet-mixnet"
-version = "0.1.0-dev"
+version = "0.4.0"
 license = "Apache-2.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
@@ -20,7 +20,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 frame-benchmarking = { default-features = false, optional = true, path = "../benchmarking" }
 frame-support = { default-features = false, path = "../support" }
 frame-system = { default-features = false, path = "../system" }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.195", default-features = false, features = ["derive"] }
 sp-application-crypto = { default-features = false, path = "../../primitives/application-crypto" }

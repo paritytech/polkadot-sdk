@@ -4,7 +4,7 @@ description = "Types and utilities for creating and working with parachains"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "6.0.0"
 
 [lints]
 workspace = true
@@ -21,7 +21,7 @@ sp-core = { path = "../../substrate/primitives/core", default-features = false, 
 sp-weights = { path = "../../substrate/primitives/weights", default-features = false }
 polkadot-core-primitives = { path = "../core-primitives", default-features = false }
 derive_more = "0.99.11"
-bounded-collections = { version = "0.1.8", default-features = false, features = ["serde"] }
+bounded-collections = { version = "0.2.0", default-features = false, features = ["serde"] }
 
 # all optional crates.
 serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }

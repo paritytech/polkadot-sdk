@@ -1,6 +1,6 @@
 [package]
 name = "sp-consensus"
-version = "0.10.0-dev"
+version = "0.32.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 async-trait = "0.1.74"
 futures = { version = "0.3.21", features = ["thread-pool"] }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 thiserror = "1.0.48"
 sp-core = { path = "../../core" }
 sp-inherents = { path = "../../inherents" }

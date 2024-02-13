@@ -372,7 +372,7 @@ fn handle_job_finish(
 			?artifact_id,
 			?worker,
 			worker_rip = idle_worker.is_none(),
-			"execution worker concluded, error occurred: {:?}",
+			"execution worker concluded, error occurred: {}",
 			err
 		);
 	} else {

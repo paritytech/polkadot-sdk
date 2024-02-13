@@ -105,6 +105,9 @@ pub mod __private {
 	};
 	pub use sp_std::{mem, slice, vec};
 	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
+
+	#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]
+	pub use sp_runtime_interface::polkavm::{polkavm_abi, polkavm_export};
 }
 
 #[cfg(feature = "std")]
@@ -282,7 +285,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// #
 /// # /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro
 /// # /// in a real runtime.
-/// # pub struct Runtime {}
+/// # pub enum Runtime {}
 /// #
 /// # sp_api::decl_runtime_apis! {
 /// #     /// Declare the api trait.
@@ -361,7 +364,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// let's say you want to implement a staging version of the runtime api and put it behind a
 /// feature flag. You can do it this way:
 /// ```ignore
-/// pub struct Runtime {}
+/// pub enum Runtime {}
 /// sp_api::decl_runtime_apis! {
 ///     pub trait ApiWithStagingMethod {
 ///         fn stable_one(data: u64);
