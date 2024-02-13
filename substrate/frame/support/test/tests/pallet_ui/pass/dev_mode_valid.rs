@@ -17,7 +17,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{derive_impl, traits::ConstU32};
+use frame_support::{derive_impl, traits::ConstU32, traits::ConstU64};
 
 pub use pallet::*;
 
