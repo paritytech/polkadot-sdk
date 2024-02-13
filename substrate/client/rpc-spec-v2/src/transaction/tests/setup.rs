@@ -50,7 +50,7 @@ fn create_basic_pool_with_genesis(
 			.map(|blocks| blocks[0].0.header.hash())
 			.expect("there is block 0. qed")
 	};
-	BasicPool::new_test(test_api, genesis_hash, genesis_hash)
+	BasicPool::new_test(test_api, genesis_hash, genesis_hash, Default::default())
 }
 
 fn maintained_pool() -> (BasicPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
