@@ -27,7 +27,7 @@
 //! running despite unexpected behavior, input or events which may arise in runtime. Normally,
 //! unforeseen circumstances may cause the program to stop or, in the Rust context, `panic!`.
 //! Defensive practices allow for these circumstances to be accounted for ahead of time and for them
-//! to be handled in a graceful manner, which is in the line of the intended, fault-tolerant
+//! to be handled in a graceful manner, which is in the line of the intended, fault-tolerant and deterministic
 //! behavior of blockchains.
 //!
 //! The Polkadot SDK is both built to reflect these principles and to facilitate their usage
