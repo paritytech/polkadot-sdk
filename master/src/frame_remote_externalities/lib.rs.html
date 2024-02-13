@@ -1561,6 +1561,20 @@
 <a href="#1561" id="1561">1561</a>
 <a href="#1562" id="1562">1562</a>
 <a href="#1563" id="1563">1563</a>
+<a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2826,7 +2840,11 @@
 <span class="attr">#[cfg(all(test, feature = <span class="string">&quot;remote-test&quot;</span>))]
 </span><span class="kw">mod </span>remote_tests {
 	<span class="kw">use </span><span class="kw">super</span>::test_prelude::<span class="kw-2">*</span>;
-	<span class="kw">use </span>std::os::unix::fs::MetadataExt;
+	<span class="kw">use </span>std::{env, os::unix::fs::MetadataExt};
+
+	<span class="kw">fn </span>endpoint() -&gt; String {
+		env::var(<span class="string">&quot;TEST_WS&quot;</span>).unwrap_or_else(|<span class="kw">_</span>| DEFAULT_HTTP_ENDPOINT.to_string())
+	}
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>state_version_is_kept_and_can_be_altered() {
@@ -2836,6 +2854,7 @@
 		<span class="comment">// first, build a snapshot.
 		</span><span class="kw">let </span>ext = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
@@ -2877,6 +2896,7 @@
 		<span class="comment">// first, build a snapshot.
 		</span><span class="kw">let </span>ext = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
@@ -2904,6 +2924,7 @@
 		<span class="comment">// create an ext with children keys
 		</span><span class="kw">let </span>child_ext = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
 				child_trie: <span class="bool-val">true</span>,
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
@@ -2916,6 +2937,7 @@
 		<span class="comment">// create an ext without children keys
 		</span><span class="kw">let </span>ext = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
@@ -2941,6 +2963,7 @@
 			.mode(Mode::OfflineOrElseOnline(
 				OfflineConfig { state_snapshot: SnapshotConfig::new(CACHE) },
 				OnlineConfig {
+					transport: endpoint().clone().into(),
 					pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
 					child_trie: <span class="bool-val">false</span>,
 					state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
@@ -2982,6 +3005,7 @@
 		init_logger();
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				..Default::default()
@@ -2997,6 +3021,7 @@
 		init_logger();
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned(), <span class="string">&quot;Multisig&quot;</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				..Default::default()
@@ -3014,6 +3039,7 @@
 
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
 				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
@@ -3043,6 +3069,7 @@
 		init_logger();
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
 				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Crowdloan&quot;</span>.to_owned()],
 				child_trie: <span class="bool-val">true</span>,
@@ -3074,7 +3101,7 @@
 		init_logger();
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: <span class="macro">std::option_env!</span>(<span class="string">&quot;TEST_WS&quot;</span>).unwrap().to_owned().into(),
+				transport: endpoint().clone().into(),
 				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Staking&quot;</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				..Default::default()
@@ -3093,7 +3120,7 @@
 		init_logger();
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: <span class="macro">std::option_env!</span>(<span class="string">&quot;TEST_WS&quot;</span>).unwrap().to_owned().into(),
+				transport: endpoint().clone().into(),
 				..Default::default()
 			}))
 			.build()
@@ -3106,9 +3133,10 @@
 	</span><span class="kw">async fn </span>can_fetch_in_parallel() {
 		init_logger();
 
-		<span class="kw">let </span>uri = String::from(<span class="string">&quot;wss://kusama-bridge-hub-rpc.polkadot.io:443&quot;</span>);
-		<span class="kw">let </span><span class="kw-2">mut </span>builder = Builder::&lt;Block&gt;::new()
-			.mode(Mode::Online(OnlineConfig { transport: uri.into(), ..Default::default() }));
+		<span class="kw">let </span><span class="kw-2">mut </span>builder = Builder::&lt;Block&gt;::new().mode(Mode::Online(OnlineConfig {
+			transport: endpoint().clone().into(),
+			..Default::default()
+		}));
 		builder.init_remote_client().<span class="kw">await</span>.unwrap();
 
 		<span class="kw">let </span>at = builder.as_online().at.unwrap();
