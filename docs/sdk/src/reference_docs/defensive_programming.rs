@@ -245,7 +245,7 @@
 //! #### The problem with 'default' wrapped operations
 //!
 //! **Wrapped operations** cause the overflow to wrap around to either the maximum or minimum of
-//! that type. Imagine this in the context of a blockchain, where there are balances, voting
+//! that type. Imagine this in the context of a blockchain, where there are account balances, voting
 //! counters, nonces for transactions, and other aspects of a blockchain.
 //!
 //! Some of these mechanisms can be more critical than others. It's for this reason that we may
