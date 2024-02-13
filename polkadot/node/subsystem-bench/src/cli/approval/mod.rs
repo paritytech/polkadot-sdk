@@ -48,9 +48,7 @@ use polkadot_primitives::{
 use polkadot_subsystem_bench::{
 	configuration::{TestAuthorities, TestConfiguration},
 	dummy_builder,
-	environment::{
-		BenchmarkUsage, TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT,
-	},
+	environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
 	mock::{
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
@@ -884,7 +882,7 @@ pub async fn bench_approvals(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: ApprovalTestState,
-) -> BenchmarkUsage {
+) {
 	let producer_rx = state
 		.start_message_production(
 			env.network(),
@@ -902,7 +900,7 @@ pub async fn bench_approvals_run(
 	env: &mut TestEnvironment,
 	state: ApprovalTestState,
 	producer_rx: oneshot::Receiver<()>,
-) -> BenchmarkUsage {
+) {
 	let config = env.config().clone();
 
 	env.metrics().set_n_validators(config.n_validators);
@@ -1063,5 +1061,8 @@ pub async fn bench_approvals_run(
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
-	env.collect_resource_usage(benchmark_name, &["approval-distribution", "approval-voting"])
+	println!(
+		"{}",
+		env.collect_resource_usage(benchmark_name, &["approval-distribution", "approval-voting"])
+	);
 }

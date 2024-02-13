@@ -54,7 +54,7 @@ use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use polkadot_subsystem_bench::{
 	configuration::TestConfiguration,
 	dummy_builder,
-	environment::{BenchmarkUsage, TestEnvironmentDependencies},
+	environment::TestEnvironmentDependencies,
 	mock::{
 		av_store::{self, MockAvailabilityStore},
 		chain_api::{ChainApiState, MockChainApi},
@@ -435,7 +435,7 @@ pub async fn benchmark_availability_read(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: TestState,
-) -> BenchmarkUsage {
+) {
 	let config = env.config().clone();
 
 	env.import_block(new_block_import_info(Hash::repeat_byte(1), 1)).await;
@@ -496,14 +496,15 @@ pub async fn benchmark_availability_read(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(benchmark_name, &["availability-recovery"])
+
+	println!("{}", env.collect_resource_usage(benchmark_name, &["availability-recovery"]));
 }
 
 pub async fn benchmark_availability_write(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: TestState,
-) -> BenchmarkUsage {
+) {
 	let config = env.config().clone();
 
 	env.metrics().set_n_validators(config.n_validators);
@@ -657,10 +658,13 @@ pub async fn benchmark_availability_write(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(
-		benchmark_name,
-		&["availability-distribution", "bitfield-distribution", "availability-store"],
-	)
+	println!(
+		"{}",
+		env.collect_resource_usage(
+			benchmark_name,
+			&["availability-distribution", "bitfield-distribution", "availability-store"],
+		)
+	);
 }
 
 pub fn peer_bitfield_message_v2(

@@ -12,10 +12,10 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot. If not, see <http://www.gnu.org/licenses/>.
 
-//! A tool for running subsystem benchmark tests designed for development and
-//! CI regression testing.
+//! A tool for running subsystem benchmark tests
+//! designed for development and CI regression testing.
 
 use approval::{bench_approvals, ApprovalsOptions};
 use availability::{cli::DataAvailabilityReadOptions, prepare_test, TestState};
@@ -50,7 +50,6 @@ pub enum TestObjective {
 	DataAvailabilityWrite,
 	/// Benchmark the approval-voting and approval-distribution subsystems.
 	ApprovalVoting(ApprovalsOptions),
-	Unimplemented,
 }
 
 impl std::fmt::Display for TestObjective {
@@ -62,7 +61,7 @@ impl std::fmt::Display for TestObjective {
 				Self::DataAvailabilityRead(_) => "DataAvailabilityRead",
 				Self::DataAvailabilityWrite => "DataAvailabilityWrite",
 				Self::ApprovalVoting(_) => "ApprovalVoting",
-				Self::Unimplemented => "Unimplemented",
+				// Self::Unimplemented => "Unimplemented",
 			}
 		)
 	}
@@ -174,7 +173,7 @@ impl BenchCli {
 			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 			display_configuration(&test_config);
 
-			let usage = match objective {
+			match objective {
 				TestObjective::DataAvailabilityRead(ref _opts) => {
 					let mut state = TestState::new(objective, &test_config);
 					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
@@ -198,9 +197,7 @@ impl BenchCli {
 						approval::prepare_test(test_config.clone(), options.clone());
 					env.runtime().block_on(bench_approvals(&benchmark_name, &mut env, state))
 				},
-				TestObjective::Unimplemented => todo!(),
 			};
-			println!("{}", usage);
 		}
 
 		if let Some(agent_running) = agent_running {
