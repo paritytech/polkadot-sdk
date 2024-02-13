@@ -71,7 +71,7 @@ build-malus:
     - .common-refs
     - .run-immediately
     - .collect-artifacts
-  palallel:
+  parallel:
     matrix:
       - FORKLIFT_compression_type: none
       - FORKLIFT_compression_type: lzma2
