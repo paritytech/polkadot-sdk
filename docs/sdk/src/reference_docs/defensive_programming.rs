@@ -61,7 +61,7 @@
 //! - If you are writing a function that could panic, [be sure to document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
 //! - Carefully handle mathematical operations.  Many seemingly, simplistic operations, such as
 //!   **arithmetic** in the runtime, could present a number of issues [(see more later in this
-//!   document)](#integer-overflow).
+//!   document)](#integer-overflow). Use checked arithmetic wherever possible.
 //!
 //! ### Examples of when to `panic!`
 //!
