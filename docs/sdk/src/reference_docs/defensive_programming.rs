@@ -124,7 +124,7 @@
 //! (from the `MAX` back to zero).
 //!
 //! In the context of runtime development, we don't always have control over what is being supplied
-//! as a parameter. For example, even this simple adding function could present one of two outcomes
+//! as a parameter. For example, even this simple add function could present one of two outcomes
 //! depending on whether it is in **release** or **debug** mode:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", naive_add)]
 //!
