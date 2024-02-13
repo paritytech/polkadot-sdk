@@ -352,14 +352,13 @@ fn fill_claimqueue_fills() {
 		schedule_blank_para(para_b);
 		schedule_blank_para(para_c);
 
-		// start a new session to activate, 3 validators for 3 cores.
+		// start a new session to activate, 2 validators for 2 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
 				new_config: default_config(),
 				validators: vec![
 					ValidatorId::from(Sr25519Keyring::Alice.public()),
 					ValidatorId::from(Sr25519Keyring::Bob.public()),
-					ValidatorId::from(Sr25519Keyring::Charlie.public()),
 				],
 				..Default::default()
 			}),
