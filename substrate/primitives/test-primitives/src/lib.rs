@@ -26,8 +26,8 @@ use sp_application_crypto::sr25519;
 
 pub use sp_core::{hash::H256, RuntimeDebug};
 use sp_runtime::traits::{
-	BlakeTwo256, CreateInherent, CreateSignedTransaction, CreateTransaction,
-	Extrinsic as ExtrinsicT, Verify,
+	BlakeTwo256, CreateInherent, CreateSignedTransaction, CreateTransaction, CreateTransactionBase,
+	ExtrinsicLike, Verify,
 };
 use sp_std::vec::Vec;
 
@@ -48,7 +48,7 @@ impl serde::Serialize for Extrinsic {
 	}
 }
 
-impl ExtrinsicT for Extrinsic {
+impl ExtrinsicLike for Extrinsic {
 	fn is_signed(&self) -> Option<bool> {
 		if let Extrinsic::IncludeData(_) = *self {
 			Some(false)
@@ -66,17 +66,17 @@ impl ExtrinsicT for Extrinsic {
 	}
 }
 
-impl CreateInherent for Extrinsic {
+impl CreateTransactionBase for Extrinsic {
 	type Call = Extrinsic;
+}
 
+impl CreateInherent for Extrinsic {
 	fn create_inherent(call: Self::Call) -> Self {
 		call
 	}
 }
 
 impl CreateTransaction for Extrinsic {
-	type Call = Extrinsic;
-
 	type Extension = ();
 
 	fn create_transaction(call: Self::Call, _extension: Self::Extension) -> Self {
@@ -85,8 +85,6 @@ impl CreateTransaction for Extrinsic {
 }
 
 impl CreateSignedTransaction for Extrinsic {
-	type Call = Extrinsic;
-
 	type SignaturePayload = ();
 
 	fn create_signed_transaction(call: Self::Call, _extension: Self::SignaturePayload) -> Self {

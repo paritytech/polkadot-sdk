@@ -1292,7 +1292,7 @@ pub trait Block:
 	+ 'static
 {
 	/// Type for extrinsics.
-	type Extrinsic: Member + Codec + Extrinsic + MaybeSerialize;
+	type Extrinsic: Member + Codec + ExtrinsicLike + MaybeSerialize;
 	/// Header type.
 	type Header: Header<Hash = Self::Hash> + MaybeSerializeDeserialize;
 	/// Block hash type.
@@ -1316,7 +1316,46 @@ pub trait Block:
 }
 
 /// Something that acts like an `Extrinsic`.
+#[deprecated = "Use `ExtrinsicLike` along with the `CreateTransaction` trait family instead"]
 pub trait Extrinsic: Sized {
+	/// The function call.
+	type Call: TypeInfo;
+
+	/// The payload we carry for signed extrinsics.
+	///
+	/// Usually it will contain a `Signature` and
+	/// may include some additional data that are specific to signed
+	/// extrinsics.
+	type SignaturePayload: SignaturePayload;
+
+	/// Is this `Extrinsic` signed?
+	/// If no information are available about signed/unsigned, `None` should be returned.
+	fn is_signed(&self) -> Option<bool> {
+		None
+	}
+
+	/// Returns `true` if this `Extrinsic` is bare.
+	fn is_bare(&self) -> bool {
+		!self
+			.is_signed()
+			.expect("`is_signed` must return `Some` on production extrinsics; qed")
+	}
+
+	/// Create a new old-school extrinsic, either a bare extrinsic if `_signed_data` is `None` or
+	/// a signed transaction is it is `Some`.
+	fn new(_call: Self::Call, _signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
+		None
+	}
+
+	/// Create a new inherent extrinsic.
+	fn new_inherent(function: Self::Call) -> Self {
+		#[allow(deprecated)]
+		Self::new(function, None).expect("Extrinsic must provide inherents; qed")
+	}
+}
+
+/// Something that acts like an `Extrinsic`.
+pub trait ExtrinsicLike: Sized {
 	/// Is this `Extrinsic` signed?
 	/// If no information are available about signed/unsigned, `None` should be returned.
 	#[deprecated = "Use and implement `!is_bare()` instead"]
@@ -1333,11 +1372,37 @@ pub trait Extrinsic: Sized {
 	}
 }
 
+#[allow(deprecated)]
+impl<T> ExtrinsicLike for T
+where
+	T: Extrinsic,
+{
+	fn is_signed(&self) -> Option<bool> {
+		#[allow(deprecated)]
+		<Self as Extrinsic>::is_signed(&self)
+	}
+
+	fn is_bare(&self) -> bool {
+		<Self as Extrinsic>::is_bare(&self)
+	}
+}
+
 /// TODO: docs
-pub trait CreateTransaction {
+pub trait CreateTransactionBase: ExtrinsicLike {
 	/// The function call.
 	type Call: TypeInfo;
+}
 
+#[allow(deprecated)]
+impl<T> CreateTransactionBase for T
+where
+	T: Extrinsic,
+{
+	type Call = <T as Extrinsic>::Call;
+}
+
+/// TODO: docs
+pub trait CreateTransaction: CreateTransactionBase {
 	/// The extension.
 	type Extension: TypeInfo;
 
@@ -1346,10 +1411,7 @@ pub trait CreateTransaction {
 }
 
 /// TODO: docs
-pub trait CreateSignedTransaction {
-	/// The function call.
-	type Call: TypeInfo;
-
+pub trait CreateSignedTransaction: CreateTransactionBase {
 	/// The extension.
 	type SignaturePayload: SignaturePayload;
 
@@ -1357,13 +1419,34 @@ pub trait CreateSignedTransaction {
 	fn create_signed_transaction(call: Self::Call, signed_data: Self::SignaturePayload) -> Self;
 }
 
-/// TODO: docs
-pub trait CreateInherent {
-	/// The function call.
-	type Call: TypeInfo;
+#[allow(deprecated)]
+impl<T> CreateSignedTransaction for T
+where
+	T: Extrinsic,
+{
+	type SignaturePayload = <T as Extrinsic>::SignaturePayload;
 
+	fn create_signed_transaction(call: Self::Call, signed_data: Self::SignaturePayload) -> Self {
+		#[allow(deprecated)]
+		<Self as Extrinsic>::new(call, Some(signed_data))
+			.expect("impl should provide signed tx constructor")
+	}
+}
+
+/// TODO: docs
+pub trait CreateInherent: CreateTransactionBase {
 	/// TODO: docs
 	fn create_inherent(call: Self::Call) -> Self;
+}
+
+#[allow(deprecated)]
+impl<T> CreateInherent for T
+where
+	T: Extrinsic,
+{
+	fn create_inherent(call: Self::Call) -> Self {
+		<Self as Extrinsic>::new_inherent(call)
+	}
 }
 
 /// Something that acts like a [`SignaturePayload`](Extrinsic::SignaturePayload) of an

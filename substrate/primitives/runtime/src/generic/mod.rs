@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! Generic implementations of [`crate::traits::Header`], [`crate::traits::Block`] and
-//! [`crate::traits::Extrinsic`].
+//! [`crate::traits::ExtrinsicLike`].
 
 mod block;
 mod checked_extrinsic;

@@ -61,7 +61,7 @@ use sp_runtime::{
 	app_crypto::RuntimeAppPublic,
 	traits::{
 		CreateInherent, CreateSignedTransaction as CreateSignedTransactionT, CreateTransaction,
-		Extrinsic as ExtrinsicT, IdentifyAccount, One,
+		CreateTransactionBase, ExtrinsicLike, IdentifyAccount, One,
 	},
 	RuntimeDebug,
 };
@@ -478,10 +478,11 @@ pub trait SigningTypes: crate::Config {
 /// A definition of types required to submit transactions from within the runtime.
 pub trait SendTransactionTypes<LocalCall> {
 	/// The extrinsic type expected by the runtime.
-	type Extrinsic: ExtrinsicT /* <Call = Self::OverarchingCall> */ + codec::Encode
-		+ CreateTransaction<Call = Self::OverarchingCall>
-		+ CreateSignedTransactionT<Call = Self::OverarchingCall>
-		+ CreateInherent<Call = Self::OverarchingCall>;
+	type Extrinsic: ExtrinsicLike /* <Call = Self::OverarchingCall> */ + codec::Encode
+		+ CreateTransactionBase<Call = Self::OverarchingCall>
+		+ CreateTransaction
+		+ CreateSignedTransactionT
+		+ CreateInherent;
 	/// The runtime's call type.
 	///
 	/// This has additional bound to be able to be created from pallet-local `Call` types.
