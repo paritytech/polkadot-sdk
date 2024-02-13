@@ -105,7 +105,7 @@ macro_rules! get_next_tx_events {
 			let event = get_next_event!($middleware);
 			match event {
 				crate::transaction::tests::middleware_pool::MiddlewarePoolEvent::TransactionStatus { transaction, status } => {
-					events.insert(transaction, status);
+                    events.entry(transaction).or_insert_with(|| vec![]).push(status);
 				},
 				_ => panic!("Expected TransactionStatus"),
 			};

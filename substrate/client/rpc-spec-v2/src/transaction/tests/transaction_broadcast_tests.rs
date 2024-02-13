@@ -195,8 +195,8 @@ async fn tx_broadcast_resubmits_future_nonce_tx() {
 	// Collect the events of both transactions.
 	let events = get_next_tx_events!(&mut pool_middleware, 2);
 	// Transactions entered the ready queue.
-	assert_eq!(events.get(&current_xt).unwrap(), &TxStatusTypeTest::Ready);
-	assert_eq!(events.get(&future_xt).unwrap(), &TxStatusTypeTest::Ready);
+	assert_eq!(events.get(&current_xt).unwrap(), &vec![TxStatusTypeTest::Ready]);
+	assert_eq!(events.get(&future_xt).unwrap(), &vec![TxStatusTypeTest::Ready]);
 
 	let event = ChainEvent::NewBestBlock { hash: block_2, tree_route: None };
 	pool.inner_pool.maintain(event).await;
@@ -213,13 +213,15 @@ async fn tx_broadcast_resubmits_future_nonce_tx() {
 	assert_eq!(0, pool.inner_pool.status().ready);
 	assert_eq!(0, pool.inner_pool.status().future);
 
-	let events = get_next_tx_events!(&mut pool_middleware, 2);
-	assert_eq!(events.get(&current_xt).unwrap(), &TxStatusTypeTest::InBlock((block_3, 0)));
-	assert_eq!(events.get(&future_xt).unwrap(), &TxStatusTypeTest::InBlock((block_3, 1)));
-
-	let events = get_next_tx_events!(&mut pool_middleware, 2);
-	assert_eq!(events.get(&current_xt).unwrap(), &TxStatusTypeTest::Finalized((block_3, 0)));
-	assert_eq!(events.get(&future_xt).unwrap(), &TxStatusTypeTest::Finalized((block_3, 1)));
+	let events = get_next_tx_events!(&mut pool_middleware, 4);
+	assert_eq!(
+		events.get(&current_xt).unwrap(),
+		&vec![TxStatusTypeTest::InBlock((block_3, 0)), TxStatusTypeTest::Finalized((block_3, 0))]
+	);
+	assert_eq!(
+		events.get(&future_xt).unwrap(),
+		&vec![TxStatusTypeTest::InBlock((block_3, 1)), TxStatusTypeTest::Finalized((block_3, 1))]
+	);
 
 	// Both broadcast futures must exit.
 	let _ = get_next_event!(&mut exec_middleware);
