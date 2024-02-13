@@ -92,12 +92,13 @@ use polkadot_node_subsystem::{
 		RuntimeApiRequest, StatementDistributionMessage, StoreAvailableDataError,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
+	SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::{FetchError as ImplicitViewFetchError, View as ImplicitView},
-	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
-	request_validator_groups, request_validators,
+	executor_params_at_relay_parent, request_availability_cores, request_from_runtime,
+	request_session_index_for_child, request_validator_groups, request_validators,
 	runtime::{
 		self, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
 	},
@@ -106,8 +107,8 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	vstaging::{node_features::FeatureIndex, NodeFeatures},
 	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex, Hash,
-	Id as ParaId, PersistedValidationData, PvfExecKind, SigningContext, ValidationCode,
+	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex, GroupRotationInfo,
+	Hash, Id as ParaId, PersistedValidationData, PvfExecKind, SigningContext, ValidationCode,
 	ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
@@ -209,7 +210,7 @@ struct PerRelayParentState {
 	prospective_parachains_mode: ProspectiveParachainsMode,
 	/// The hash of the relay parent on top of which this job is doing it's work.
 	parent: Hash,
-	/// The `CoreIndex` assigned to the local validator at this relay parent.
+	/// The `ParaId` assigned to the local validator at this relay parent.
 	assigned_para: Option<ParaId>,
 	/// The `CoreIndex` assigned to the local validator at this relay parent.
 	assigned_core: Option<CoreIndex>,
@@ -384,7 +385,7 @@ struct AttestingData {
 	backing: Vec<ValidatorIndex>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct TableContext {
 	validator: Option<Validator>,
 	groups: HashMap<CoreIndex, Vec<ValidatorIndex>>,
@@ -1006,37 +1007,55 @@ macro_rules! try_runtime_api {
 	};
 }
 
-#[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
-async fn core_index_from_statement<Context>(
-	ctx: &mut Context,
+#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
+async fn core_index_from_statement<Sender>(
+	sender: &mut Sender,
 	relay_parent: Hash,
 	statement: &SignedFullStatementWithPVD,
-) -> Result<Option<CoreIndex>, Error> {
+) -> Result<Option<CoreIndex>, Error>
+where
+	Sender: SubsystemSender<RuntimeApiMessage> + Clone,
+{
 	let parent = relay_parent;
 
-	let (groups, cores) = futures::try_join!(
-		request_validator_groups(parent, ctx.sender()).await,
-		request_from_runtime(parent, ctx.sender(), |tx| {
-			RuntimeApiRequest::AvailabilityCores(tx)
-		},)
-		.await,
-	)
-	.map_err(Error::JoinMultiple)?;
-	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
-	let cores = try_runtime_api!(cores);
+	let (validator_groups, group_rotation_info) = request_validator_groups(parent, sender)
+		.await
+		.await
+		.map_err(Error::RuntimeApiUnavailable)?
+		.map_err(Error::FetchValidatorGroups)?;
 
+	let cores = request_availability_cores(parent, sender)
+		.await
+		.await
+		.map_err(Error::RuntimeApiUnavailable)?
+		.map_err(Error::FetchAvailabilityCores)?;
+
+	let compact_statement = statement.as_unchecked();
+	let candidate_hash = CandidateHash(*compact_statement.unchecked_payload().candidate_hash());
+
+	gum::trace!(target: LOG_TARGET, ?group_rotation_info, ?statement, ?validator_groups, ?cores, ?candidate_hash, "Extracting core index from statement");
+
+	Ok(core_index_from_statement_inner(&cores, &validator_groups, &group_rotation_info, statement))
+}
+
+pub(crate) fn core_index_from_statement_inner(
+	cores: &[CoreState],
+	validator_groups: &[Vec<ValidatorIndex>],
+	group_rotation_info: &GroupRotationInfo,
+	statement: &SignedFullStatementWithPVD,
+) -> Option<CoreIndex> {
 	let statement_validator_index = statement.validator_index();
 	for (group_index, group) in validator_groups.iter().enumerate() {
 		for validator_index in group {
 			if *validator_index == statement_validator_index {
-				return Ok(Some(
+				return Some(
 					group_rotation_info.core_for_group(GroupIndex(group_index as u32), cores.len()),
-				))
+				)
 			}
 		}
 	}
 
-	Ok(None)
+	None
 }
 
 /// Load the data necessary to do backing work on top of a relay-parent.
@@ -1651,10 +1670,11 @@ async fn import_statement<Context>(
 
 	let stmt = primitive_statement_to_table(statement);
 
-	let core = core_index_from_statement(ctx, rp_state.parent, statement)
+	let core = core_index_from_statement(ctx.sender(), rp_state.parent, statement)
 		.await
-		.unwrap()
-		.unwrap();
+		.map_err(|_| Error::CoreIndexUnavailable)?
+		.ok_or(Error::CoreIndexUnavailable)?;
+
 	Ok(rp_state.table.import_statement(&rp_state.table_context, core, stmt))
 }
 
@@ -2088,6 +2108,14 @@ async fn handle_second_message<Context>(
 
 		return Ok(())
 	}
+
+	gum::debug!(
+		target: LOG_TARGET,
+		our_assignment_core = ?rp_state.assigned_core,
+		our_assignment_para = ?rp_state.assigned_para,
+		collation = ?candidate.descriptor().para_id,
+		"Current assignments vs collation",
+	);
 
 	// If the message is a `CandidateBackingMessage::Second`, sign and dispatch a
 	// Seconded statement only if we have not signed a Valid statement for the requested candidate.

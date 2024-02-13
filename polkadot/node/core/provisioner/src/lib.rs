@@ -683,11 +683,11 @@ async fn request_backable_candidates(
 
 		// We're currently fetching based on para id. This has to be chagned to query prospective
 		// parachains via core index. We should be calling this once per para rather than per core.
-		// TODO: Fix after https://github.com/paritytech/polkadot-sdk/pull/3160
+		// TODO: Fix after https://github.com/paritytech/polkadot-sdk/pull/3233
 		let response = get_backable_candidate(relay_parent, para_id, required_path, sender).await?;
 		match response {
 			Some((hash, relay_parent)) => {
-				if selected_candidates.iter().position(|bc| &(hash, relay_parent) == bc).is_none() {
+				if !selected_candidates.iter().any(|bc| &(hash, relay_parent) == bc) {
 					selected_candidates.push((hash, relay_parent))
 				}
 			},
