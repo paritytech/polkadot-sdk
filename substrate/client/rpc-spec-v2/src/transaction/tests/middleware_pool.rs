@@ -57,6 +57,9 @@ pub enum MiddlewarePoolEvent {
 	},
 }
 
+/// The channel that receives events when the broadcast futures are dropped.
+pub type MiddlewarePoolRecv = mpsc::UnboundedReceiver<MiddlewarePoolEvent>;
+
 /// Add a middleware to the transaction pool.
 ///
 /// This wraps the `submit_and_watch` to gain access to the events.
@@ -68,9 +71,7 @@ pub struct MiddlewarePool {
 
 impl MiddlewarePool {
 	/// Construct a new [`MiddlewarePool`].
-	pub fn new(
-		pool: Arc<BasicPool<TestApi, Block>>,
-	) -> (Self, mpsc::UnboundedReceiver<MiddlewarePoolEvent>) {
+	pub fn new(pool: Arc<BasicPool<TestApi, Block>>) -> (Self, MiddlewarePoolRecv) {
 		let (sender, recv) = mpsc::unbounded_channel();
 		(MiddlewarePool { inner_pool: pool, sender }, recv)
 	}

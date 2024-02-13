@@ -18,5 +18,6 @@
 
 mod executor;
 mod middleware_pool;
+mod setup;
 
 mod transaction_broadcast_tests;

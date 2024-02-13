@@ -16,135 +16,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{
-	chain_head::test_utils::ChainHeadMockClient,
-	hex_string,
-	transaction::{
-		api::TransactionBroadcastApiServer, error::json_rpc_spec,
-		TransactionBroadcast as RpcTransactionBroadcast,
-	},
-};
+use crate::{hex_string, transaction::error::json_rpc_spec};
 use assert_matches::assert_matches;
 use codec::Encode;
-use futures::Future;
-use jsonrpsee::{core::error::Error, rpc_params, RpcModule};
-use sc_transaction_pool::*;
+use jsonrpsee::{core::error::Error, rpc_params};
 use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionPool};
-use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
-use std::{pin::Pin, sync::Arc, time::Duration};
-use substrate_test_runtime_client::{prelude::*, AccountKeyring::*, Client};
-use substrate_test_runtime_transaction_pool::{uxt, TestApi};
-use tokio::sync::mpsc;
+use std::time::Duration;
+use substrate_test_runtime_client::AccountKeyring::*;
+use substrate_test_runtime_transaction_pool::uxt;
 
-type Block = substrate_test_runtime_client::runtime::Block;
-
-/// Wrap the `TaskExecutor` to know when the broadcast future is dropped.
-#[derive(Clone)]
-struct TaskExecutorBroadcast {
-	executor: TaskExecutor,
-	sender: mpsc::UnboundedSender<()>,
-}
-
-/// The channel that receives events when the broadcast futures are dropped.
-type TaskExecutorRecv = mpsc::UnboundedReceiver<()>;
-
-impl TaskExecutorBroadcast {
-	/// Construct a new `TaskExecutorBroadcast` and a receiver to know when the broadcast futures
-	/// are dropped.
-	fn new() -> (Self, TaskExecutorRecv) {
-		let (sender, recv) = mpsc::unbounded_channel();
-
-		(Self { executor: TaskExecutor::new(), sender }, recv)
-	}
-}
-
-impl SpawnNamed for TaskExecutorBroadcast {
-	fn spawn(
-		&self,
-		name: &'static str,
-		group: Option<&'static str>,
-		future: futures::future::BoxFuture<'static, ()>,
-	) {
-		let sender = self.sender.clone();
-		let future = Box::pin(async move {
-			future.await;
-			let _ = sender.send(());
-		});
-
-		self.executor.spawn(name, group, future)
-	}
-
-	fn spawn_blocking(
-		&self,
-		name: &'static str,
-		group: Option<&'static str>,
-		future: futures::future::BoxFuture<'static, ()>,
-	) {
-		let sender = self.sender.clone();
-		let future = Box::pin(async move {
-			future.await;
-			let _ = sender.send(());
-		});
-
-		self.executor.spawn_blocking(name, group, future)
-	}
-}
-
-/// Initial Alice account nonce.
-const ALICE_NONCE: u64 = 209;
-
-fn create_basic_pool_with_genesis(
-	test_api: Arc<TestApi>,
-) -> (BasicPool<TestApi, Block>, Pin<Box<dyn Future<Output = ()> + Send>>) {
-	let genesis_hash = {
-		test_api
-			.chain()
-			.read()
-			.block_by_number
-			.get(&0)
-			.map(|blocks| blocks[0].0.header.hash())
-			.expect("there is block 0. qed")
-	};
-	BasicPool::new_test(test_api, genesis_hash, genesis_hash)
-}
-
-fn maintained_pool() -> (BasicPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
-	let api = Arc::new(TestApi::with_alice_nonce(ALICE_NONCE));
-	let (pool, background_task) = create_basic_pool_with_genesis(api.clone());
-
-	let thread_pool = futures::executor::ThreadPool::new().unwrap();
-	thread_pool.spawn_ok(background_task);
-	(pool, api, thread_pool)
-}
-
-fn setup_api() -> (
-	Arc<TestApi>,
-	Arc<BasicPool<TestApi, Block>>,
-	Arc<ChainHeadMockClient<Client<Backend>>>,
-	RpcModule<
-		RpcTransactionBroadcast<BasicPool<TestApi, Block>, ChainHeadMockClient<Client<Backend>>>,
-	>,
-	TaskExecutorRecv,
-) {
-	let (pool, api, _) = maintained_pool();
-	let pool = Arc::new(pool);
-
-	let builder = TestClientBuilder::new();
-	let client = Arc::new(builder.build());
-	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
-
-	let (task_executor, executor_recv) = TaskExecutorBroadcast::new();
-
-	let tx_api =
-		RpcTransactionBroadcast::new(client_mock.clone(), pool.clone(), Arc::new(task_executor))
-			.into_rpc();
-
-	(api, pool, client_mock, tx_api, executor_recv)
-}
+use crate::transaction::tests::setup::{setup_api, ALICE_NONCE};
 
 #[tokio::test]
 async fn tx_broadcast_enters_pool() {
-	let (api, pool, client_mock, tx_api, _) = setup_api();
+	let (api, pool, client_mock, tx_api, _, _) = setup_api();
 
 	// Start at block 1.
 	let block_1_header = api.push_block(1, vec![], true);
@@ -176,7 +61,7 @@ async fn tx_broadcast_enters_pool() {
 
 	// Announce block 2 to the pool.
 	let event = ChainEvent::NewBestBlock { hash: block_2, tree_route: None };
-	pool.maintain(event).await;
+	pool.inner_pool.maintain(event).await;
 
 	assert_eq!(0, pool.status().ready);
 
@@ -189,7 +74,7 @@ async fn tx_broadcast_enters_pool() {
 
 #[tokio::test]
 async fn tx_broadcast_invalid_tx() {
-	let (_, pool, _, tx_api, mut exec_recv) = setup_api();
+	let (_, pool, _, tx_api, mut exec_recv, _) = setup_api();
 
 	// Invalid parameters.
 	let err = tx_api
@@ -228,7 +113,7 @@ async fn tx_broadcast_invalid_tx() {
 
 #[tokio::test]
 async fn tx_invalid_stop() {
-	let (_, _, _, tx_api, _) = setup_api();
+	let (_, _, _, tx_api, _, _) = setup_api();
 
 	// Make an invalid stop call.
 	let err = tx_api
