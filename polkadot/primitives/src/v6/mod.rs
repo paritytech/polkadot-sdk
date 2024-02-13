@@ -16,7 +16,7 @@
 
 //! `V6` Primitives.
 
-use bitvec::vec::BitVec;
+use bitvec::{field::BitField, vec::BitVec};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_std::{
@@ -704,17 +704,41 @@ pub type UncheckedSignedAvailabilityBitfields = Vec<UncheckedSignedAvailabilityB
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct BackedCandidate<H = Hash> {
 	/// The candidate referred to.
-	pub candidate: CommittedCandidateReceipt<H>,
+	candidate: CommittedCandidateReceipt<H>,
 	/// The validity votes themselves, expressed as signatures.
-	pub validity_votes: Vec<ValidityAttestation>,
+	validity_votes: Vec<ValidityAttestation>,
 	/// The indices of the validators within the group, expressed as a bitfield.
-	pub validator_indices: BitVec<u8, bitvec::order::Lsb0>,
+	validator_indices: BitVec<u8, bitvec::order::Lsb0>,
 }
 
 impl<H> BackedCandidate<H> {
+	/// Constructor
+	pub fn new(
+		candidate: CommittedCandidateReceipt<H>,
+		validity_votes: Vec<ValidityAttestation>,
+		validator_indices: BitVec<u8, bitvec::order::Lsb0>,
+	) -> Self {
+		Self { candidate, validity_votes, validator_indices }
+	}
+
 	/// Get a reference to the descriptor of the para.
 	pub fn descriptor(&self) -> &CandidateDescriptor<H> {
 		&self.candidate.descriptor
+	}
+
+	/// Get a reference to the descriptor of the para.
+	pub fn candidate(&self) -> &CommittedCandidateReceipt<H> {
+		&self.candidate
+	}
+
+	/// Get a reference to the descriptor of the para.
+	pub fn validity_votes(&self) -> &[ValidityAttestation] {
+		&self.validity_votes
+	}
+
+	/// Get a reference to the descriptor of the para.
+	pub fn validity_votes_mut(&mut self) -> &mut Vec<ValidityAttestation> {
+		&mut self.validity_votes
 	}
 
 	/// Compute this candidate's hash.
@@ -731,6 +755,38 @@ impl<H> BackedCandidate<H> {
 		H: Clone,
 	{
 		self.candidate.to_plain()
+	}
+
+	/// Get validator indices mutable reference
+	pub fn validator_indices(&self, core_index_enabled: bool) -> BitVec<u8, bitvec::order::Lsb0> {
+		// This flag tells us if the block producers must enable Elastic Scaling MVP hack.
+		// It extends `BackedCandidate::validity_indices` to store a 8 bit core index.
+		if core_index_enabled {
+			let core_idx_offset = self.validator_indices.len().saturating_sub(8);
+			let (validator_indices_slice, _core_idx_slice) =
+				self.validator_indices.split_at(core_idx_offset);
+			BitVec::from(validator_indices_slice)
+		} else {
+			self.validator_indices.clone()
+		}
+	}
+
+	/// Update the validator indices in the candidate
+	pub fn set_validator_indices(&mut self, new_indices: BitVec<u8, bitvec::order::Lsb0>) {
+		self.validator_indices = new_indices;
+	}
+
+	/// Return the assumed core index of the backed candidate if any.
+	pub fn assumed_core_index(&self, core_index_enabled: bool) -> Option<CoreIndex> {
+		if core_index_enabled {
+			let core_idx_offset = self.validator_indices.len().saturating_sub(8);
+			let (_validator_indices_slice, core_idx_slice) =
+				self.validator_indices.split_at(core_idx_offset);
+			let core_idx: u8 = core_idx_slice.load();
+			Some(CoreIndex(core_idx as u32))
+		} else {
+			None
+		}
 	}
 }
 
