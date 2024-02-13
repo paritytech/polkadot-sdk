@@ -40,7 +40,7 @@ chain = "glutton-westend-local-{{id}}"
 
     [parachains.collator]
     name = "collator"
-    image = "{{COL_IMAGE}}"
+    image = "{{CUMULUS_IMAGE}}"
     args = ["-lparachain=debug"]
 
 {% endfor %}
