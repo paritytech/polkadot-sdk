@@ -165,7 +165,7 @@
 //! This is an example of a valid operation:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", checked_add_example)]
 //!
-//! This is an example of an invalid operation, in this case, a simulated integer overflow, which
+//! This is an example of an invalid operation. In this case, a simulated integer overflow, which
 //! would simply result in `None`:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
