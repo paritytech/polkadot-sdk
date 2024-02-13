@@ -20,7 +20,7 @@ async-trait = "0.1.74"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.1"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 thiserror = "1.0"
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
