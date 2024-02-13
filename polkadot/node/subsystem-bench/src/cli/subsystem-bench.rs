@@ -18,12 +18,8 @@
 //! CI regression testing.
 
 use approval::{bench_approvals, ApprovalsOptions};
-use availability::{
-	cli::{DataAvailabilityReadOptions, NetworkEmulation},
-	prepare_test, TestState,
-};
+use availability::{cli::DataAvailabilityReadOptions, prepare_test, TestState};
 use clap::Parser;
-use clap_num::number_range;
 use color_eyre::eyre;
 use colored::Colorize;
 use polkadot_subsystem_bench::{
@@ -43,14 +39,6 @@ mod availability;
 mod valgrind;
 
 const LOG_TARGET: &str = "subsystem-bench::cli";
-
-fn le_100(s: &str) -> Result<usize, String> {
-	number_range(s, 0, 100)
-}
-
-fn le_5000(s: &str) -> Result<usize, String> {
-	number_range(s, 0, 5000)
-}
 
 /// Supported test objectives
 #[derive(Debug, Clone, Parser, Serialize, Deserialize)]
@@ -111,7 +99,7 @@ fn generate_pov_sizes(count: usize, min_kib: usize, max_kib: usize) -> Vec<usize
 }
 
 impl TestSequence {
-	pub fn into_vec(self) -> Vec<CliTestConfiguration> {
+	fn into_vec(self) -> Vec<CliTestConfiguration> {
 		self.test_configurations
 			.into_iter()
 			.map(|mut v| {
@@ -127,7 +115,7 @@ impl TestSequence {
 }
 
 impl TestSequence {
-	pub fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
+	fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
 		let string = String::from_utf8(std::fs::read(path)?).expect("File is valid UTF8");
 		Ok(serde_yaml::from_str(&string).expect("File is valid test sequence YA"))
 	}
@@ -136,30 +124,6 @@ impl TestSequence {
 #[derive(Debug, Parser)]
 #[allow(missing_docs)]
 struct BenchCli {
-	#[arg(long, value_enum, ignore_case = true, default_value_t = NetworkEmulation::Ideal)]
-	/// The type of network to be emulated
-	pub network: NetworkEmulation,
-
-	#[clap(short, long)]
-	/// The bandwidth of emulated remote peers in KiB
-	pub peer_bandwidth: Option<usize>,
-
-	#[clap(short, long)]
-	/// The bandwidth of our node in KiB
-	pub bandwidth: Option<usize>,
-
-	#[clap(long, value_parser=le_100)]
-	/// Emulated peer connection ratio [0-100].
-	pub connectivity: Option<usize>,
-
-	#[clap(long, value_parser=le_5000)]
-	/// Mean remote peer latency in milliseconds [0-5000].
-	pub peer_mean_latency: Option<usize>,
-
-	#[clap(long, value_parser=le_5000)]
-	/// Remote peer latency standard deviation
-	pub peer_latency_std_dev: Option<f64>,
-
 	#[clap(long, default_value_t = false)]
 	/// Enable CPU Profiling with Pyroscope
 	pub profile: bool,
@@ -175,10 +139,6 @@ struct BenchCli {
 	#[clap(long, default_value_t = false)]
 	/// Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind must be in the PATH
 	pub cache_misses: bool,
-
-	#[clap(long, default_value_t = false)]
-	/// Shows the output in YAML format
-	pub yaml_output: bool,
 
 	#[arg(required = true)]
 	/// Path to the test sequence configuration file
@@ -240,13 +200,7 @@ impl BenchCli {
 				},
 				TestObjective::Unimplemented => todo!(),
 			};
-
-			let output = if self.yaml_output {
-				serde_yaml::to_string(&vec![usage])?
-			} else {
-				usage.to_string()
-			};
-			println!("{}", output);
+			println!("{}", usage);
 		}
 
 		if let Some(agent_running) = agent_running {

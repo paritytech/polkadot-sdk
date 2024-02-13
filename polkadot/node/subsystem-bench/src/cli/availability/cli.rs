@@ -16,15 +16,6 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
-#[value(rename_all = "kebab-case")]
-#[non_exhaustive]
-pub enum NetworkEmulation {
-	Ideal,
-	Healthy,
-	Degraded,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
 #[clap(rename_all = "kebab-case")]
 #[allow(missing_docs)]
