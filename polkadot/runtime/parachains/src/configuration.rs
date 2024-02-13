@@ -1231,7 +1231,7 @@ pub mod pallet {
 		/// To be used if authorization is checked otherwise.
 		pub fn set_coretime_cores_unchecked(new: u32) -> DispatchResult {
 			Self::schedule_config_update(|config| {
-				config.scheduler_params.coretime_cores = new;
+				config.scheduler_params.num_cores = new;
 			})
 		}
 	}

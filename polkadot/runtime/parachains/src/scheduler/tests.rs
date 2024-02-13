@@ -114,7 +114,7 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 			group_rotation_frequency: 10,
 			paras_availability_period: 3,
 			lookahead: 2,
-			coretime_cores: 3,
+			num_cores: 3,
 			max_availability_timeouts: 1,
 			..Default::default()
 		},

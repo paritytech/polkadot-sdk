@@ -318,7 +318,7 @@ fn setting_pending_config_members() {
 				paras_availability_period: 10,
 				max_validators_per_core: None,
 				lookahead: 3,
-				coretime_cores: 2,
+				num_cores: 2,
 				max_availability_timeouts: 5,
 				on_demand_queue_max_size: 10_000u32,
 				on_demand_base_fee: 10_000_000u128,
@@ -349,7 +349,7 @@ fn setting_pending_config_members() {
 			.unwrap();
 		Configuration::set_coretime_cores(
 			RuntimeOrigin::root(),
-			new_config.scheduler_params.coretime_cores,
+			new_config.scheduler_params.num_cores,
 		)
 		.unwrap();
 		Configuration::set_max_availability_timeouts(

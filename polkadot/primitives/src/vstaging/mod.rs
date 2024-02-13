@@ -90,7 +90,7 @@ pub struct SchedulerParams<BlockNumber> {
 	/// The amount of blocks ahead to schedule paras.
 	pub lookahead: u32,
 	/// How many cores are managed by the coretime chain.
-	pub coretime_cores: u32,
+	pub num_cores: u32,
 	/// The max number of times a claim can time out in availability
 	pub max_availability_timeouts: u32,
 	/// The maximum queue size of the pay as you go module.
@@ -115,7 +115,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 			paras_availability_period: 1u32.into(),
 			max_validators_per_core: Default::default(),
 			lookahead: 1,
-			coretime_cores: Default::default(),
+			num_cores: Default::default(),
 			max_availability_timeouts: Default::default(),
 			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 			on_demand_target_queue_utilization: Perbill::from_percent(25),

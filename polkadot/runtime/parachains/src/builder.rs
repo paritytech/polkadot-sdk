@@ -682,7 +682,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		// We are currently in Session 0, so these changes will take effect in Session 2.
 		Self::setup_para_ids(used_cores);
 		configuration::ActiveConfig::<T>::mutate(|c| {
-			c.scheduler_params.coretime_cores = used_cores;
+			c.scheduler_params.num_cores = used_cores;
 		});
 
 		let validator_ids = Self::generate_validator_pairs(self.max_validators());
