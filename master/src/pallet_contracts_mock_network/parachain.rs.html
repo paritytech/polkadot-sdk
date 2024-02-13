@@ -346,9 +346,6 @@
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -388,13 +385,11 @@
 
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
-<span class="attr">#[allow(deprecated)]
-</span><span class="kw">use </span>xcm_builder::CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
 	ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
-	FrameTransactionalProcessor, FungiblesAdapter, IsConcrete, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, SignedAccountId32AsNative, SignedToAccountId32,
+	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, IsConcrete, NativeAsset,
+	NoChecking, ParentAsSuperuser, ParentIsPreset, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, WithComputedOrigin,
 };
 <span class="kw">use </span>xcm_executor::{traits::JustTry, Config, XcmExecutor};
@@ -535,9 +530,8 @@
 		units_per_mb * (weight.proof_size() <span class="kw">as </span>u128) / (WEIGHT_PROOF_SIZE_PER_MB <span class="kw">as </span>u128)
 }
 
-<span class="attr">#[allow(deprecated)]
-</span><span class="kw">pub type </span>LocalBalancesTransactor =
-	XcmCurrencyAdapter&lt;Balances, IsConcrete&lt;TokenLocation&gt;, SovereignAccountOf, AccountId, ()&gt;;
+<span class="kw">pub type </span>LocalBalancesTransactor =
+	FungibleAdapter&lt;Balances, IsConcrete&lt;TokenLocation&gt;, SovereignAccountOf, AccountId, ()&gt;;
 
 <span class="kw">pub struct </span>FromLocationToAsset&lt;Location, AssetId&gt;(PhantomData&lt;(Location, AssetId)&gt;);
 <span class="kw">impl </span>MaybeEquivalence&lt;Location, AssetIdForAssets&gt;

@@ -297,7 +297,7 @@
 									<span class="macro-nonterminal">$crate::macros::cumulus_pallet_xcmp_queue::Event::XcmpMessageSent </span>{ .. }
 								) =&gt; {},
 								RuntimeEvent::Balances(
-									<span class="macro-nonterminal">$crate::macros::pallet_balances::Event::Withdraw </span>{ who: sender, amount }
+									<span class="macro-nonterminal">$crate::macros::pallet_balances::Event::Burned </span>{ who: sender, amount }
 								) =&gt; {},
 							]
 						);
@@ -311,7 +311,7 @@
 							<span class="macro-nonterminal">$receiver_para</span>,
 							<span class="macro">vec!</span>[
 								RuntimeEvent::Balances(
-									<span class="macro-nonterminal">$crate::macros::pallet_balances::Event::Deposit </span>{ who: receiver, .. }
+									<span class="macro-nonterminal">$crate::macros::pallet_balances::Event::Minted </span>{ who: receiver, .. }
 								) =&gt; {},
 								RuntimeEvent::MessageQueue(
 									<span class="macro-nonterminal">$crate::macros::pallet_message_queue::Event::Processed </span>{ success: <span class="bool-val">true</span>, .. }

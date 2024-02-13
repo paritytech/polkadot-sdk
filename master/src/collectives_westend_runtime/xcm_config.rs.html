@@ -347,9 +347,6 @@
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -388,13 +385,11 @@
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
 <span class="kw">use </span>westend_runtime_constants::xcm <span class="kw">as </span>xcm_constants;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
-<span class="attr">#[allow(deprecated)]
-</span><span class="kw">use </span>xcm_builder::CurrencyAdapter;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor, IsConcrete,
-	LocatableAssetId, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset,
+	DenyThenTry, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter,
+	IsConcrete, LocatableAssetId, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
@@ -437,9 +432,8 @@
 	</span>AccountId32Aliases&lt;RelayNetwork, AccountId&gt;,
 );
 
-<span class="doccomment">/// Means for transacting the native currency on this chain.
-</span><span class="attr">#[allow(deprecated)]
-</span><span class="kw">pub type </span>CurrencyTransactor = CurrencyAdapter&lt;
+<span class="doccomment">/// Means for transacting the native currency on this chain.#[allow(deprecated)]
+</span><span class="kw">pub type </span>FungibleTransactor = FungibleAdapter&lt;
 	<span class="comment">// Use this currency:
 	</span>Balances,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
@@ -614,7 +608,7 @@
 <span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
 	<span class="kw">type </span>RuntimeCall = RuntimeCall;
 	<span class="kw">type </span>XcmSender = XcmRouter;
-	<span class="kw">type </span>AssetTransactor = CurrencyTransactor;
+	<span class="kw">type </span>AssetTransactor = FungibleTransactor;
 	<span class="kw">type </span>OriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="comment">// Collectives does not recognize a reserve location for any asset. Users must teleport WND
 	// where allowed (e.g. with the Relay Chain).

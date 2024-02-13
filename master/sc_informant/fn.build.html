@@ -5,7 +5,7 @@
     format: <a class="struct" href="struct.OutputFormat.html" title="struct sc_informant::OutputFormat">OutputFormat</a>
 )<span class="where fmt-newline">where
     N: NetworkStatusProvider,
-    S: <a class="trait" href="../sc_network_sync/types/trait.SyncStatusProvider.html" title="trait sc_network_sync::types::SyncStatusProvider">SyncStatusProvider</a>&lt;B&gt;,
+    S: SyncStatusProvider&lt;B&gt;,
     C: UsageProvider&lt;B&gt; + HeaderMetadata&lt;B&gt; + BlockchainEvents&lt;B&gt;,
     &lt;C as HeaderMetadata&lt;B&gt;&gt;::Error: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Display.html" title="trait core::fmt::Display">Display</a>,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Builds the informant and returns a <code>Future</code> that drives the informant.</p>
 </div></details></section></div></main></body></html>
