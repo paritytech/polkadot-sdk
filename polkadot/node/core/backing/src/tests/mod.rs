@@ -924,19 +924,19 @@ fn backing_works_while_validation_ongoing() {
 
 		let candidates = rx.await.unwrap();
 		assert_eq!(1, candidates.len());
-		assert_eq!(candidates[0].validity_votes.len(), 3);
+		assert_eq!(candidates[0].validity_votes().len(), 3);
 
 		assert!(candidates[0]
-			.validity_votes
+			.validity_votes()
 			.contains(&ValidityAttestation::Implicit(signed_a.signature().clone())));
 		assert!(candidates[0]
-			.validity_votes
+			.validity_votes()
 			.contains(&ValidityAttestation::Explicit(signed_b.signature().clone())));
 		assert!(candidates[0]
-			.validity_votes
+			.validity_votes()
 			.contains(&ValidityAttestation::Explicit(signed_c.signature().clone())));
 		assert_eq!(
-			candidates[0].validator_indices,
+			candidates[0].validator_indices(false),
 			bitvec::bitvec![u8, bitvec::order::Lsb0; 1, 0, 1, 1],
 		);
 
@@ -1617,8 +1617,8 @@ fn candidate_backing_reorders_votes() {
 	let expected_attestations =
 		vec![fake_attestation(1).into(), fake_attestation(3).into(), fake_attestation(5).into()];
 
-	assert_eq!(backed.validator_indices, expected_bitvec);
-	assert_eq!(backed.validity_votes, expected_attestations);
+	assert_eq!(backed.validator_indices(false), expected_bitvec);
+	assert_eq!(backed.validity_votes(), expected_attestations);
 }
 
 // Test whether we retry on failed PoV fetching.
