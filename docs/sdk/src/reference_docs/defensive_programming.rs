@@ -84,8 +84,8 @@
 //! }
 //! ```
 //!
-//! There are other such examples throughout various pallets, mostly those who are crucial to the
-//! blockchain's function.
+//! There are other such examples in various pallets, mostly those that are crucial to the
+//! blockchain's functionality.
 //!
 //! ### Defensive Traits
 //!
