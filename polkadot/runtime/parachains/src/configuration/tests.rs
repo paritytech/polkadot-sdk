@@ -352,7 +352,7 @@ fn setting_pending_config_members() {
 			new_config.scheduler_params.coretime_cores,
 		)
 		.unwrap();
-		Configuration::set_on_demand_retries(
+		Configuration::set_max_availability_timeouts(
 			RuntimeOrigin::root(),
 			new_config.scheduler_params.max_availability_timeouts,
 		)

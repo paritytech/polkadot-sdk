@@ -648,7 +648,7 @@ pub mod pallet {
 			T::WeightInfo::set_config_with_u32(),
 			DispatchClass::Operational,
 		))]
-		pub fn set_on_demand_retries(origin: OriginFor<T>, new: u32) -> DispatchResult {
+		pub fn set_max_availability_timeouts(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
 				config.scheduler_params.max_availability_timeouts = new;
