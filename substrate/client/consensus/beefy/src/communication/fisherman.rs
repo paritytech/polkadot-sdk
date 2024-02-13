@@ -279,7 +279,10 @@ where
 		} else {
 			let canonical_hhp = self.canonical_hash_header_payload(number)?;
 			if vote.commitment.payload != canonical_hhp.payload {
-				let ancestry_proof = self.generate_ancestry_proof_opt(canonical_hhp.hash, number);
+				let ancestry_proof = self.generate_ancestry_proof_opt(
+					self.backend.blockchain().info().finalized_hash,
+					number,
+				);
 				let proof = ForkEquivocationProof {
 					commitment: vote.commitment,
 					signatories: vec![(vote.id, vote.signature)],
@@ -340,7 +343,10 @@ where
 		} else {
 			let canonical_hhp = self.canonical_hash_header_payload(number)?;
 			if commitment.payload != canonical_hhp.payload {
-				let ancestry_proof = self.generate_ancestry_proof_opt(canonical_hhp.hash, number);
+				let ancestry_proof = self.generate_ancestry_proof_opt(
+					self.backend.blockchain().info().finalized_hash,
+					number,
+				);
 				let validator_set = self.active_validator_set_at(canonical_hhp.hash)?;
 				if signatures.len() != validator_set.validators().len() {
 					// invalid proof
