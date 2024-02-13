@@ -446,6 +446,30 @@
 <a href="#446" id="446">446</a>
 <a href="#447" id="447">447</a>
 <a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -466,6 +490,7 @@
 
 </span><span class="kw">use </span>std::{
 	collections::HashMap,
+	ffi::OsString,
 	fs::{<span class="self">self</span>, File, OpenOptions},
 	path::{Path, PathBuf},
 	process::Command,
@@ -504,9 +529,24 @@
 }
 
 <span class="doccomment">/// Copy the `node-template` to the given path.
-</span><span class="kw">fn </span>copy_node_template(node_template: <span class="kw-2">&amp;</span>Path, dest_path: <span class="kw-2">&amp;</span>Path) {
+</span><span class="kw">fn </span>copy_node_template(node_template: <span class="kw-2">&amp;</span>Path, node_template_folder: <span class="kw-2">&amp;</span>OsString, dest_path: <span class="kw-2">&amp;</span>Path) {
 	<span class="kw">let </span>options = CopyOptions::new();
 	dir::copy(node_template, dest_path, <span class="kw-2">&amp;</span>options).expect(<span class="string">&quot;Copies node-template to tmp dir&quot;</span>);
+
+	<span class="kw">let </span>dest_path = dest_path.join(node_template_folder);
+
+	dir::get_dir_content(dest_path.join(<span class="string">&quot;env-setup&quot;</span>))
+		.expect(<span class="string">&quot;`env-setup` directory should exist&quot;</span>)
+		.files
+		.iter()
+		.for_each(|f| {
+			fs::copy(
+				f,
+				dest_path.join(PathBuf::from(f).file_name().expect(<span class="string">&quot;File has a file name.&quot;</span>)),
+			)
+			.expect(<span class="string">&quot;Copying from `env-setup` directory works&quot;</span>);
+		});
+	dir::remove(dest_path.join(<span class="string">&quot;env-setup&quot;</span>)).expect(<span class="string">&quot;Deleting `env-setup works`&quot;</span>);
 }
 
 <span class="doccomment">/// Find all `Cargo.toml` files in the given path.
@@ -643,6 +683,9 @@
 	commit_id: <span class="kw-2">&amp;</span>str,
 ) {
 	<span class="kw">let </span><span class="kw-2">mut </span>workspace = Table::new();
+
+	workspace.insert(<span class="string">&quot;resolver&quot;</span>, value(<span class="string">&quot;2&quot;</span>));
+
 	workspace.insert(<span class="string">&quot;members&quot;</span>, value(Array::from_iter(members.iter())));
 	<span class="kw">let </span><span class="kw-2">mut </span>workspace_dependencies = Table::new();
 	deps.values()
@@ -664,6 +707,8 @@
 	workspace.insert(<span class="string">&quot;package&quot;</span>, Item::Table(package));
 
 	workspace.insert(<span class="string">&quot;dependencies&quot;</span>, Item::Table(workspace_dependencies));
+
+	workspace.insert(<span class="string">&quot;lints&quot;</span>, Item::Table(Table::new()));
 	cargo_toml.insert(<span class="string">&quot;workspace&quot;</span>, Item::Table(workspace));
 
 	<span class="kw">let </span><span class="kw-2">mut </span>panic_unwind = Table::new();
@@ -742,7 +787,7 @@
 		.file_name()
 		.expect(<span class="string">&quot;Node template folder is last element of path&quot;</span>)
 		.to_owned();
-	copy_node_template(<span class="kw-2">&amp;</span>options.node_template, build_dir.path());
+	copy_node_template(<span class="kw-2">&amp;</span>options.node_template, <span class="kw-2">&amp;</span>node_template_folder, build_dir.path());
 
 	<span class="comment">// The path to the node-template in the build dir.
 	</span><span class="kw">let </span>node_template_path = build_dir.path().join(node_template_folder);
@@ -877,6 +922,7 @@ frame-system = { workspace = true }
 		);
 
 		<span class="kw">let </span>expected_toml = <span class="string">r#&quot;[workspace]
+resolver = &quot;2&quot;
 members = [&quot;node&quot;, &quot;pallets/template&quot;, &quot;runtime&quot;]
 
 [workspace.package]
@@ -885,6 +931,8 @@ edition = &quot;2021&quot;
 [workspace.dependencies]
 frame-system = { version = &quot;4.0.0-dev&quot;, default-features = true, git = &quot;https://github.com/paritytech/polkadot-sdk.git&quot;, rev = &quot;commit_id&quot; }
 sp-io = { version = &quot;7.0.0&quot;, git = &quot;https://github.com/paritytech/polkadot-sdk.git&quot;, rev = &quot;commit_id&quot; }
+
+[workspace.lints]
 
 [profile]
 
