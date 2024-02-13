@@ -210,7 +210,7 @@
 //!
 //! ### Saturating Operations
 //!
-//! Saturating a number limits it to the type's upper or lower bound, no matter the integer would
+//! Saturating a number limits it to the type's upper or lower bound, even if the integer were to
 //! overflow in runtime. For example, adding to `u32::MAX` would simply limit itself to `u32::MAX`:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
