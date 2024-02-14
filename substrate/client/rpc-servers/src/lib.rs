@@ -31,9 +31,7 @@ use hyper::{
 };
 use jsonrpsee::{
 	server::{
-		middleware::{
-			http::{HostFilterLayer, ProxyGetRequestLayer},
-		},
+		middleware::http::{HostFilterLayer, ProxyGetRequestLayer},
 		stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
 	},
 	Methods, RpcModule,
@@ -42,13 +40,12 @@ use tokio::net::TcpListener;
 use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-
 pub use jsonrpsee::{
 	core::{
 		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 		traits::IdProvider,
 	},
-	server::middleware::rpc::RpcServiceBuilder
+	server::middleware::rpc::RpcServiceBuilder,
 };
 pub use middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
 
@@ -194,7 +191,8 @@ where
 
 				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
 				let rate_limit = rate_limit.map(|r| RateLimitLayer::per_minute(r));
-				let rpc_middleware = RpcServiceBuilder::new().option_layer(rate_limit).option_layer(metrics.clone());
+				let rpc_middleware =
+					RpcServiceBuilder::new().option_layer(rate_limit).option_layer(metrics.clone());
 
 				let mut svc =
 					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);

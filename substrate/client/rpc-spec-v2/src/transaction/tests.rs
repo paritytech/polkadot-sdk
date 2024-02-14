@@ -24,7 +24,7 @@ use crate::{
 use assert_matches::assert_matches;
 use codec::Encode;
 use futures::Future;
-use jsonrpsee::{MethodsError as Error, rpc_params, RpcModule};
+use jsonrpsee::{rpc_params, MethodsError as Error, RpcModule};
 use sc_transaction_pool::*;
 use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionPool};
 use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
