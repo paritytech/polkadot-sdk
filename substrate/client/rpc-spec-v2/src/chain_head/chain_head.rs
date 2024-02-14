@@ -165,7 +165,7 @@ fn ensure_hash_uniqueness<Block: BlockT>(hashes: &[Block::Hash]) -> Result<(), C
 	let mut set = HashSet::new();
 	hashes.iter().try_for_each(|hash| {
 		if !set.insert(hash) {
-			Err(ChainHeadRpcError::InvalidBlock)
+			Err(ChainHeadRpcError::InvalidDuplicateHashes)
 		} else {
 			Ok(())
 		}
