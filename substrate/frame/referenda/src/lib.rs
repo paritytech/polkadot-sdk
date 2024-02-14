@@ -434,6 +434,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[cfg(any(feature = "std", test))]
 		fn integrity_test() {
 			Self::do_integrity_test()
 		}
