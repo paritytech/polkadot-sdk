@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add Paseo NetworkId to XCM
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      A new NetworkId was added to XCMv4 for the new [Paseo testnet](https://forum.polkadot.network/t/the-new-polkadot-community-testnet/4956).
+      Conversion from v4::NetworkId to v3::NetworkId is now fallible because of this extra variant.
+
+crates:
+  - staging-xcm
