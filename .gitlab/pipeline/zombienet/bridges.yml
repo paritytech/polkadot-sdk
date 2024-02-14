@@ -54,12 +54,9 @@ zombienet-bridges-0001-asset-transfer-works:
     - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-new-test.sh 0001-asset-transfer --docker
     - echo "Done"
 
-# Sometimes the relayer syncs multiple parachain heads in the beginning leading to test failures.
-# Issue: https://github.com/paritytech/parity-bridges-common/issues/2838
-# TODO: uncomment test after issue is fixed
-#zombienet-bridges-0002-mandatory-headers-synced-while-idle:
-#  extends:
-#    - .zombienet-bridges-common
-#  script:
-#    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-new-test.sh 0002-mandatory-headers-synced-while-idle --docker
-#    - echo "Done"
+zombienet-bridges-0002-mandatory-headers-synced-while-idle:
+  extends:
+    - .zombienet-bridges-common
+  script:
+    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-new-test.sh 0002-mandatory-headers-synced-while-idle --docker
+    - echo "Done"
