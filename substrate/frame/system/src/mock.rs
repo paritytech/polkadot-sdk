@@ -18,13 +18,8 @@
 use crate::{self as frame_system, *};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
 };
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, Perbill,
-};
+use sp_runtime::BuildStorage, Perbill;
 
 type Block = mocking::MockBlock<Test>;
 
@@ -89,14 +84,10 @@ impl OnKilledAccount<u64> for RecordKilled {
 impl Config for Test {
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type DbWeight = DbWeight;
 	type Version = Version;
 	type AccountData = u32;
 	type OnKilledAccount = RecordKilled;
-	type MaxConsumers = ConstU32<16>;
 }
 
 pub type SysEvent = frame_system::Event<Test>;
