@@ -30,7 +30,7 @@ Additionally, the `chainHead_unstable_body`, `chainHead_unstable_call`, and `cha
 
 ## The `withRuntime` parameter
 
-If the `withRuntime` parameter is `true`, then blocks shouldn't (and can't) be reported to JSON-RPC clients before the JSON-RPC server has finished obtaining the runtime specification of the blocks that it reports. This includes the finalized block reported in the `initialized` event.
+If the `withRuntime` parameter is `true`, then blocks shouldn't (and can't) be reported to JSON-RPC clients before the JSON-RPC server has finished obtaining the runtime specification of the blocks that it reports. This includes the finalized blocks reported in the `initialized` event.
 
 If `withRuntime` is `false`, then the `initialized` event must be sent back quickly after the function returns. If `withRuntime` is `true`, then the JSON-RPC server can take as much time as it wants to send back the `initialized` event.
 
@@ -298,7 +298,7 @@ Calling `chainHead_unstable_unfollow` on a subscription that has produced a `sto
 
 ## Pinning
 
-The current finalized block reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, is automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_unstable_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_unstable_unpin`.
+The finalized blocks reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, are automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_unstable_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_unstable_unpin`.
 
 When a block is unpinned, on-going calls to `chainHead_unstable_body`, `chainHead_unstable_call` and `chainHead_unstable_storage` against this block will still finish normally.
 
