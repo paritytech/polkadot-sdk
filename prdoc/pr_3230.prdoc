@@ -15,5 +15,5 @@ doc:
 
       Added:
       - Add prometheus RPC `substrate_rpc_sessions_time` to collect the duration for each WebSocket
-      session in seconds.
+      session.
 crates: [ ]
