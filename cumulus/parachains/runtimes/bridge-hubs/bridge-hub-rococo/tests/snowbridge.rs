@@ -102,7 +102,7 @@ pub fn transfer_token_to_ethereum_insufficient_fund() {
 		H160::random(),
 		H160::random(),
 		DefaultBridgeHubEthereumBaseFee::get(),
-		FailedToTransactAsset("InsufficientBalance"),
+		FailedToTransactAsset("Funds are unavailable"),
 	)
 }
 

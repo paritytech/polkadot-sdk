@@ -224,6 +224,7 @@ cargo-check-benches:
       git merge --verbose --no-edit FETCH_HEAD;
       fi
       fi'
+    - !reference [.forklift-cache, before_script]
   parallel: 2
   script:
     - mkdir -p ./artifacts/benches/$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA

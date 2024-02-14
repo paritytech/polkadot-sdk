@@ -29,7 +29,7 @@ sp-authority-discovery = { path = "../../../../substrate/primitives/authority-di
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 maplit = "1.0.2"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 env_logger = "0.9.0"
 assert_matches = "1.4.0"
 rand_chacha = "0.3.1"

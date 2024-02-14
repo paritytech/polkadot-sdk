@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 serde = { version = "1.0.195", default-features = false }
 serde_derive = { version = "1.0.117", optional = true }
 static_assertions = "1.1.0"
