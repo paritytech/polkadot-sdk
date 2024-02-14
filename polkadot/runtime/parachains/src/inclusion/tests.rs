@@ -1233,7 +1233,7 @@ fn candidate_checks() {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
-				new_validation_code: Some(vec![5, 6, 7, 8].into()),
+				new_validation_code: Some(dummy_validation_code()),
 				persisted_validation_data_hash: make_vdata_hash(chain_a).unwrap(),
 				hrmp_watermark: RELAY_PARENT_NUM,
 				..Default::default()
@@ -1257,7 +1257,7 @@ fn candidate_checks() {
 				assert_eq!(expected_at, 12);
 				Paras::schedule_code_upgrade(
 					chain_a,
-					vec![1, 2, 3, 4].into(),
+					vec![9, 8, 7, 6, 5, 4, 3, 2, 1].into(),
 					expected_at,
 					&cfg,
 					SetGoAhead::Yes,
@@ -1317,7 +1317,7 @@ fn candidate_checks() {
 				pov_hash: Hash::repeat_byte(1),
 				persisted_validation_data_hash: make_vdata_hash(chain_a).unwrap(),
 				hrmp_watermark: RELAY_PARENT_NUM,
-				validation_code: ValidationCode(vec![1]),
+				validation_code: ValidationCode(vec![9, 8, 7, 6, 5, 4, 3, 2, 1]),
 				..Default::default()
 			}
 			.build();
@@ -1726,7 +1726,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
 			persisted_validation_data_hash: make_vdata_hash(chain_a).unwrap(),
-			new_validation_code: Some(vec![1, 2, 3].into()),
+			new_validation_code: Some(vec![9, 8, 7, 6, 5, 4, 3, 2, 1].into()),
 			hrmp_watermark: RELAY_PARENT_NUM,
 			..Default::default()
 		}
@@ -2133,7 +2133,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		shared::Pallet::<Test>::set_active_validators_ascending(validator_public.clone());
 		shared::Pallet::<Test>::set_session_index(5);
 
-		let new_validation_code: ValidationCode = vec![1, 2, 3, 4, 5].into();
+		let new_validation_code: ValidationCode = vec![9, 8, 7, 6, 5, 4, 3, 2, 1].into();
 		let new_validation_code_hash = new_validation_code.hash();
 
 		// Otherwise upgrade is no-op.
