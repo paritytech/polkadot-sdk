@@ -26,7 +26,7 @@ pub struct NativeAsset;
 impl ContainsPair<Asset, Location> for NativeAsset {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		log::trace!(target: "xcm::contains", "NativeAsset asset: {:?}, origin: {:?}", asset, origin);
-		matches!(asset.id, AssetId(ref id) if id == origin)
+		matches!(asset.id, AssetId(ref id) if id.chain_location() == *origin)
 	}
 }
 
