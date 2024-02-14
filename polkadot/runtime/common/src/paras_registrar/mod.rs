@@ -26,7 +26,7 @@ use frame_support::{
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
-use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
+use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
 use runtime_parachains::{
 	configuration, ensure_parachain,
 	paras::{self, ParaGenesisArgs, SetGoAhead},
@@ -657,7 +657,7 @@ impl<T: Config> Pallet<T> {
 		para_kind: ParaKind,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
 		let config = configuration::Pallet::<T>::config();
-		ensure!(validation_code.0.len() > 0, Error::<T>::InvalidCode);
+		ensure!(validation_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
 		ensure!(validation_code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
 		ensure!(
 			genesis_head.0.len() <= config.max_head_data_size as usize,
@@ -712,7 +712,7 @@ mod tests {
 	};
 	use frame_system::limits;
 	use pallet_balances::Error as BalancesError;
-	use primitives::{Balance, BlockNumber, SessionIndex};
+	use primitives::{Balance, BlockNumber, SessionIndex, MAX_CODE_SIZE};
 	use runtime_parachains::{configuration, origin, shared};
 	use sp_core::H256;
 	use sp_io::TestExternalities;
@@ -849,7 +849,7 @@ mod tests {
 
 		configuration::GenesisConfig::<Test> {
 			config: configuration::HostConfiguration {
-				max_code_size: 2 * 1024 * 1024,      // 2 MB
+				max_code_size: MAX_CODE_SIZE,
 				max_head_data_size: 1 * 1024 * 1024, // 1 MB
 				..Default::default()
 			},
@@ -1518,7 +1518,7 @@ mod benchmarking {
 	use crate::traits::Registrar as RegistrarT;
 	use frame_support::assert_ok;
 	use frame_system::RawOrigin;
-	use primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE};
+	use primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MIN_CODE_SIZE};
 	use runtime_parachains::{paras, shared, Origin as ParaOrigin};
 	use sp_runtime::traits::Bounded;
 
@@ -1649,7 +1649,7 @@ mod benchmarking {
 		}
 
 		schedule_code_upgrade {
-			let b in 1 .. MAX_CODE_SIZE;
+			let b in MIN_CODE_SIZE .. MAX_CODE_SIZE;
 			let new_code = ValidationCode(vec![0; b as usize]);
 			let para_id = ParaId::from(1000);
 		}: _(RawOrigin::Root, para_id, new_code)

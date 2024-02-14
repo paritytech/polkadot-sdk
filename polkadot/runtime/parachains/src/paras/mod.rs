@@ -119,7 +119,7 @@ use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{
 	ConsensusLog, HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, UpgradeGoAhead,
-	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature,
+	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature, MIN_CODE_SIZE,
 };
 use scale_info::{Type, TypeInfo};
 use sp_core::RuntimeDebug;
@@ -1233,7 +1233,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(Self::can_upgrade_validation_code(id), Error::<T>::CannotUpgradeCode);
 		let config = configuration::Pallet::<T>::config();
 		// Validation code sanity checks:
-		ensure!(new_code.check_sanity(), Error::<T>::InvalidCode);
+		ensure!(new_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
 		ensure!(new_code.0.len() <= config.max_code_size as usize, Error::<T>::InvalidCode);
 
 		let current_block = frame_system::Pallet::<T>::block_number();
@@ -1897,7 +1897,8 @@ impl<T: Config> Pallet<T> {
 		let mut weight = T::DbWeight::get().reads(1);
 
 		// Should be prevented by checks in `schedule_code_upgrade_external`
-		if !new_code.check_sanity() || new_code.0.len() > cfg.max_code_size as usize {
+		let new_code_len = new_code.0.len();
+		if new_code_len < MIN_CODE_SIZE as usize || new_code_len > cfg.max_code_size as usize {
 			log::warn!(target: LOG_TARGET, "attempted to schedule an upgrade with invalid new validation code",);
 			return weight
 		}
