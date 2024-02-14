@@ -87,13 +87,11 @@ impl OnKilledAccount<u64> for RecordKilled {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type BlockHashCount = ConstU64<10>;
 	type DbWeight = DbWeight;
 	type Version = Version;
 	type AccountData = u32;
