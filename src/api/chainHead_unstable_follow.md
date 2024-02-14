@@ -14,7 +14,7 @@ This function works as follows:
 
 - When called, returns an opaque `followSubscription` that can used to match events and in various other `chainHead`-prefixed functions.
 
-- Later, generates an `initialized` notification (see below) containing the hash of the current finalized block, and, if `withRuntime` is `true`, the runtime specification of the runtime of the current finalized block.
+- Later, generates an `initialized` notification (see below) containing the hashes of the last finalized blocks, and, if `withRuntime` is `true`, the runtime specification of the runtime of the current finalized block.
 
 - Afterwards, generates one `newBlock` notification (see below) for each non-finalized block currently in the node's memory (including all forks), then a `bestBlockChanged` notification. The notifications must be sent in an ordered way such that the parent of each block either can be found in an earlier notification or is the current finalized block.
 
@@ -62,14 +62,21 @@ Where `subscription` is the value returned by this function, and `result` can be
 ```json
 {
     "event": "initialized",
-    "finalizedBlockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "finalizedBlockHashes": [
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ],
     "finalizedBlockRuntime": ...
 }
 ```
 
 The `initialized` event is always the first event to be sent back, and is only ever sent back once per subscription.
 
-`finalizedBlockRuntime` is present if and only if `withRuntime`, the parameter to this function, is `true`.
+`finalizedBlockHashes` contains a list of finalized blocks, of at least one element, ordered by increasing block number. The last element in this list is the current finalized block.
+
+**Note**: The RPC server is encouraged to include around 1 minute of finalized blocks in this list. These blocks are also pinned, and the user is responsible of unpinning. This information is useful for the JSON-RPC clients that resubscribe to the `chainHead_unstable_follow` function after a disconnection.
+
+`finalizedBlockRuntime` is present if and only if `withRuntime`, the parameter to this function, is `true`. It coresponds to the last finalized block from the `finalizedBlockHashes` list.
 
 The format of `finalizedBlockRuntime` is described later down this page.
 
