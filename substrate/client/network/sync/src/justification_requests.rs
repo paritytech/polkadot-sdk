@@ -16,6 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Justification requests scheduling. [`ExtraRequests`] manages requesting justifications
+//! from peers taking into account forks and their finalization (dropping pending requests
+//! that don't make sense after one of the forks is finalized).
+
 use crate::{
 	request_metrics::Metrics,
 	strategy::chain_sync::{PeerSync, PeerSyncState},
