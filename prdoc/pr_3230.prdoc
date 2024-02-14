@@ -6,7 +6,7 @@ title: rpc server remove prometheus metrics `substrate_rpc_requests_started/fini
 doc:
   - audience: Node Operator
     description: |
-      Updates the jsonrpc library to v0.22
+      This PR updates the rpc server library to `jsonrpsee v0.22` to utilize new APIs.
 
       Breaking changes:
       - Remove prometheus RPC metrics `substrate_rpc_requests_started` and `substrate_rpc_requests_finished`.
