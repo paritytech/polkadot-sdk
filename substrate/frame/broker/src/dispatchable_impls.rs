@@ -396,8 +396,11 @@ impl<T: Config> Pallet<T> {
 		owner: Option<T::AccountId>,
 	) -> Result<VoucherId, DispatchError> {
 		let voucher_id = NextVoucherId::<T>::get();
+		// TODO: What upper limit should we put on the expiry time?
 		let voucher = Voucher { benefactor: who.clone(), amount, owner: owner.clone(), expiry };
 
+		// Use broker account as a holding account for these funds before they're exchanged for
+		// credits. This should probably be a separate holding account.
 		T::Currency::transfer(&who, &Self::account_id(), amount, Expendable)?;
 		NextVoucherId::<T>::mutate(|v| *v = v.saturating_add(1));
 		Vouchers::<T>::insert(voucher_id, voucher);
@@ -421,7 +424,7 @@ impl<T: Config> Pallet<T> {
 		let voucher = Vouchers::<T>::get(&voucher_id).ok_or(Error::<T>::UnknownVoucher)?;
 		ensure!(voucher.benefactor == who, Error::<T>::NotBenefactor);
 		ensure!(voucher.owner.is_none(), Error::<T>::AlreadyAssigned);
-		ensure!(status.last_committed_timeslice < voucher.expiry, Error::<T>::AlreadyExpired);
+		ensure!(status.last_committed_timeslice <= voucher.expiry, Error::<T>::AlreadyExpired);
 
 		Vouchers::<T>::mutate(voucher_id, |v| {
 			if let Some(voucher) = v {
@@ -446,7 +449,7 @@ impl<T: Config> Pallet<T> {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let voucher = Vouchers::<T>::get(&voucher_id).ok_or(Error::<T>::UnknownVoucher)?;
 		ensure!(voucher.owner == Some(who.clone()), Error::<T>::NotOwner);
-		ensure!(status.last_committed_timeslice < voucher.expiry, Error::<T>::AlreadyExpired);
+		ensure!(status.last_committed_timeslice <= voucher.expiry, Error::<T>::AlreadyExpired);
 
 		let amount = voucher.amount;
 		let rc_amount = T::ConvertBalance::convert(amount);
@@ -458,8 +461,10 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_drop_voucher(voucher_id: VoucherId) -> DispatchResult {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let voucher = Vouchers::<T>::get(&voucher_id).ok_or(Error::<T>::UnknownVoucher)?;
-		ensure!(status.last_committed_timeslice >= voucher.expiry, Error::<T>::StillValid);
+		ensure!(status.last_committed_timeslice > voucher.expiry, Error::<T>::StillValid);
 
+		// TODO: should we allow the benefactor to request a refund for a fixed time after the
+		// voucher expires?
 		Vouchers::<T>::remove(&voucher_id);
 		Self::deposit_event(Event::VoucherDropped { voucher_id, amount: voucher.amount });
 		Ok(())
