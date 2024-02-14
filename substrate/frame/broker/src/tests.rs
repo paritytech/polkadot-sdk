@@ -1134,6 +1134,7 @@ fn vouchers_work() {
 
 		// Exchange this voucher for credit.
 		assert_eq!(balance(3), 0);
+		assert!(CoretimeCredit::get().get(&3).is_none());
 		assert_ok!(Broker::do_exchange_voucher(2, voucher_id, 3));
 		System::assert_last_event(
 			Event::CreditPurchased { who: 2, beneficiary: 3, amount: 100 }.into(),
@@ -1141,9 +1142,7 @@ fn vouchers_work() {
 
 		assert_eq!(balance(1), 900);
 		assert_eq!(balance(2), 0);
-		// Needs a mock for credit_account
-		// assert_eq!(balance(3), 100);
-		// assert_eq!(balance(broker_account), 0);
+		assert_eq!(CoretimeCredit::get().get(&3).unwrap(), &100);
 	});
 }
 
