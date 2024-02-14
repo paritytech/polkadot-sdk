@@ -83,7 +83,6 @@ pub use sc_network_transactions::config::{TransactionImport, TransactionImportFu
 pub use sc_rpc::{
 	RandomIntegerSubscriptionId, RandomStringSubscriptionId, RpcSubscriptionIdProvider,
 };
-pub use sc_rpc_server::{MetricsLayer, RateLimitLayer, RpcMiddlewareBuilder};
 pub use sc_tracing::TracingReceiver;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
 pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
@@ -117,7 +116,9 @@ impl RpcHandlers {
 		// This limit is used to prevent panics and is large enough.
 		const TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
 
-		self.0.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).await
+		self.0
+			.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE)
+			.await
 	}
 
 	/// Provides access to the underlying `RpcModule`
@@ -390,6 +391,7 @@ where
 
 	let addr = config.rpc_addr.unwrap_or_else(|| ([127, 0, 0, 1], config.rpc_port).into());
 	let backup_addr = backup_port(addr);
+	let metrics = sc_rpc_server::RpcMetrics::new(config.prometheus_registry())?;
 
 	let server_config = sc_rpc_server::Config {
 		addrs: [addr, backup_addr],
@@ -400,11 +402,10 @@ where
 		message_buffer_capacity: config.rpc_message_buffer_capacity,
 		rpc_api: gen_rpc_module(deny_unsafe(addr, &config.rpc_methods))?,
 		metrics,
-		rate_limit: config.rpc_rate_limit,
 		id_provider: rpc_id_provider,
 		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
-		rpc_middleware,
+		rate_limit: config.rpc_rate_limit,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773
