@@ -26,7 +26,6 @@ use primitives::{
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 use crate::{configuration, hrmp, paras, scheduler};
-
 /// Make the persisted validation data for a particular parachain, a specified relay-parent and it's
 /// storage root.
 ///
@@ -102,26 +101,6 @@ pub fn take_active_subset<T: Clone>(active: &[ValidatorIndex], set: &[T]) -> Vec
 	subset
 }
 
-#[cfg(test)]
-mod tests {
-
-	use sp_std::vec::Vec;
-
-	use crate::util::{split_active_subset, take_active_subset};
-	use primitives::ValidatorIndex;
-
-	#[test]
-	fn take_active_subset_is_compatible_with_split_active_subset() {
-		let active: Vec<_> = vec![ValidatorIndex(1), ValidatorIndex(7), ValidatorIndex(3)];
-		let validators = vec![9, 1, 6, 7, 4, 5, 2, 3, 0, 8];
-		let (selected, unselected) = split_active_subset(&active, &validators);
-		let selected2 = take_active_subset(&active, &validators);
-		assert_eq!(selected, selected2);
-		assert_eq!(unselected, vec![9, 6, 4, 5, 2, 0, 8]);
-		assert_eq!(selected, vec![1, 3, 7]);
-	}
-}
-
 /// Filters out all candidates that have multiple cores assigned and no
 /// `CoreIndex` injected.
 pub(crate) fn elastic_scaling_mvp_filter<T: configuration::Config + scheduler::Config>(
@@ -173,4 +152,52 @@ fn has_core_index<T: configuration::Config + scheduler::Config>(
 	};
 
 	group_validators.len() == validator_indices_slice.len()
+}
+
+#[cfg(test)]
+mod tests {
+
+use bitvec::vec::BitVec;
+use sp_std::vec::Vec;
+use test_helpers::{dummy_candidate_descriptor, dummy_hash};
+
+	use crate::util::{has_core_index, split_active_subset, take_active_subset};
+	use primitives::{BackedCandidate, CandidateCommitments, CommittedCandidateReceipt, PersistedValidationData, ValidatorIndex};
+	use bitvec::bitvec;
+
+	#[test]
+	fn take_active_subset_is_compatible_with_split_active_subset() {
+		let active: Vec<_> = vec![ValidatorIndex(1), ValidatorIndex(7), ValidatorIndex(3)];
+		let validators = vec![9, 1, 6, 7, 4, 5, 2, 3, 0, 8];
+		let (selected, unselected) = split_active_subset(&active, &validators);
+		let selected2 = take_active_subset(&active, &validators);
+		assert_eq!(selected, selected2);
+		assert_eq!(unselected, vec![9, 6, 4, 5, 2, 0, 8]);
+		assert_eq!(selected, vec![1, 3, 7]);
+	}
+
+	pub fn dummy_bitvec(size: usize) ->  BitVec<u8, bitvec::order::Lsb0> {
+		bitvec![u8, bitvec::order::Lsb0; 0; size]
+	}
+	
+	#[test]
+	fn has_core_index_works() {
+		let mut descriptor = dummy_candidate_descriptor(dummy_hash());
+		let empty_hash = sp_core::H256::zero();
+
+		descriptor.para_id = 1000.into();
+		descriptor.persisted_validation_data_hash = empty_hash;
+		let committed_receipt = CommittedCandidateReceipt {
+			descriptor,
+			commitments: CandidateCommitments::default(),
+		};
+	
+		let candidate = BackedCandidate::new(
+			committed_receipt.clone(),
+			Vec::new(),
+			dummy_bitvec(5),
+		);
+
+		assert_eq!(has_core_index::<T: configuration::Config + scheduler::Config>(&candidate, false), false);
+	}
 }
