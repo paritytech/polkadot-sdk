@@ -136,6 +136,8 @@ pub enum NetworkId {
 	Westend,
 	/// The Rococo testnet Relay-chain.
 	Rococo,
+	/// The Paseo testnet Relay-chain.
+	Paseo,
 	/// The Wococo testnet Relay-chain.
 	Wococo,
 	/// An Ethereum network specified by its chain ID.
