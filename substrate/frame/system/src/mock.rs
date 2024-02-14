@@ -19,7 +19,7 @@ use crate::{self as frame_system, *};
 use frame_support::{
 	derive_impl, parameter_types,
 };
-use sp_runtime::BuildStorage, Perbill;
+use sp_runtime::{BuildStorage, Perbill};
 
 type Block = mocking::MockBlock<Test>;
 
