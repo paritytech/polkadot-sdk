@@ -31,7 +31,7 @@ use crate::{
 	paras,
 	scheduler::{self, FreedReason},
 	shared::{self, AllowedRelayParentsTracker},
-	util::elastic_scaling_mvp_filter,
+	util::filter_elastic_scaling_candidates,
 	ParaId,
 };
 use bitvec::prelude::BitVec;
@@ -592,7 +592,7 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
-		elastic_scaling_mvp_filter::<T>(&mut backed_candidates);
+		filter_elastic_scaling_candidates::<T>(&mut backed_candidates);
 
 		let SanitizedBackedCandidates { backed_candidates, votes_from_disabled_were_dropped } =
 			sanitize_backed_candidates::<T, _>(

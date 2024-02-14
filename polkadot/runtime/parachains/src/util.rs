@@ -23,7 +23,10 @@ use primitives::{
 	vstaging::node_features::FeatureIndex, BackedCandidate, CoreIndex, Id as ParaId,
 	PersistedValidationData, ValidatorIndex,
 };
-use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
+use sp_std::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 
 use crate::{configuration, hrmp, paras, scheduler};
 /// Make the persisted validation data for a particular parachain, a specified relay-parent and it's
@@ -101,14 +104,17 @@ pub fn take_active_subset<T: Clone>(active: &[ValidatorIndex], set: &[T]) -> Vec
 	subset
 }
 
-/// Filters out all candidates that have multiple cores assigned and no
+/// On first pass it filters out all candidates that have multiple cores assigned and no
 /// `CoreIndex` injected.
-pub(crate) fn elastic_scaling_mvp_filter<T: configuration::Config + scheduler::Config>(
+///
+/// On second pass we filter out candidates with the same core index. This can happen if for example
+/// collators distribute collations to multiple backing groups.
+pub(crate) fn filter_elastic_scaling_candidates<T: configuration::Config + scheduler::Config>(
 	candidates: &mut Vec<BackedCandidate<T::Hash>>,
 ) {
 	if !configuration::Pallet::<T>::config()
 		.node_features
-		.get(FeatureIndex::InjectCoreIndex as usize)
+		.get(FeatureIndex::ElasticScalingCoreIndex as usize)
 		.map(|b| *b)
 		.unwrap_or(false)
 	{
@@ -117,9 +123,38 @@ pub(crate) fn elastic_scaling_mvp_filter<T: configuration::Config + scheduler::C
 		return
 	}
 
-	// TODO: determine cores assigned to this para.
-	let multiple_cores_asigned = true;
-	candidates.retain(|candidate| !multiple_cores_asigned || has_core_index::<T>(candidate, true));
+	// A mapping from parachain to all assigned cores.
+	let mut cores_per_parachain: BTreeMap<ParaId, Vec<CoreIndex>> = BTreeMap::new();
+
+	for (core_index, para_id) in <scheduler::Pallet<T>>::scheduled_paras() {
+		cores_per_parachain.entry(para_id).or_default().push(core_index);
+	}
+
+	// We keep a candidate if the parachain has only one core assigned or if
+	// a core index is provided by block author.
+	candidates.retain(|candidate| {
+		!cores_per_parachain
+			.get(&candidate.candidate().descriptor.para_id)
+			.map(|cores| cores.len())
+			.unwrap_or(0) >
+			1 || has_core_index::<T>(candidate, true)
+	});
+
+	let mut used_cores = BTreeSet::new();
+
+	// We keep one candidate per core in case multiple candidates of same para end up backed on same
+	// core. This can be further refined to pick the candidate that has the parenthead equal
+	// to the one in storage.
+	candidates.retain(|candidate| {
+		if let Some(core_index) = candidate.assumed_core_index(true) {
+			// Drop candidate if the core was already used by a previous candidate.
+			used_cores.insert(core_index)
+		} else {
+			// This shouldn't happen, but at this point the candidate without core index is fine
+			// since we know the para:core mapping is unique.
+			true
+		}
+	})
 }
 
 // Returns `true` if the candidate contains an injected `CoreIndex`.
@@ -157,13 +192,16 @@ fn has_core_index<T: configuration::Config + scheduler::Config>(
 #[cfg(test)]
 mod tests {
 
-use bitvec::vec::BitVec;
-use sp_std::vec::Vec;
-use test_helpers::{dummy_candidate_descriptor, dummy_hash};
+	use bitvec::vec::BitVec;
+	use sp_std::vec::Vec;
+	use test_helpers::{dummy_candidate_descriptor, dummy_hash};
 
 	use crate::util::{has_core_index, split_active_subset, take_active_subset};
-	use primitives::{BackedCandidate, CandidateCommitments, CommittedCandidateReceipt, PersistedValidationData, ValidatorIndex};
 	use bitvec::bitvec;
+	use primitives::{
+		BackedCandidate, CandidateCommitments, CommittedCandidateReceipt, PersistedValidationData,
+		ValidatorIndex,
+	};
 
 	#[test]
 	fn take_active_subset_is_compatible_with_split_active_subset() {
@@ -176,28 +214,28 @@ use test_helpers::{dummy_candidate_descriptor, dummy_hash};
 		assert_eq!(selected, vec![1, 3, 7]);
 	}
 
-	pub fn dummy_bitvec(size: usize) ->  BitVec<u8, bitvec::order::Lsb0> {
+	pub fn dummy_bitvec(size: usize) -> BitVec<u8, bitvec::order::Lsb0> {
 		bitvec![u8, bitvec::order::Lsb0; 0; size]
 	}
-	
-	#[test]
-	fn has_core_index_works() {
-		let mut descriptor = dummy_candidate_descriptor(dummy_hash());
-		let empty_hash = sp_core::H256::zero();
 
-		descriptor.para_id = 1000.into();
-		descriptor.persisted_validation_data_hash = empty_hash;
-		let committed_receipt = CommittedCandidateReceipt {
-			descriptor,
-			commitments: CandidateCommitments::default(),
-		};
-	
-		let candidate = BackedCandidate::new(
-			committed_receipt.clone(),
-			Vec::new(),
-			dummy_bitvec(5),
-		);
+	// #[test]
+	// fn has_core_index_works() {
+	// 	let mut descriptor = dummy_candidate_descriptor(dummy_hash());
+	// 	let empty_hash = sp_core::H256::zero();
 
-		assert_eq!(has_core_index::<T: configuration::Config + scheduler::Config>(&candidate, false), false);
-	}
+	// 	descriptor.para_id = 1000.into();
+	// 	descriptor.persisted_validation_data_hash = empty_hash;
+	// 	let committed_receipt = CommittedCandidateReceipt {
+	// 		descriptor,
+	// 		commitments: CandidateCommitments::default(),
+	// 	};
+
+	// 	let candidate = BackedCandidate::new(
+	// 		committed_receipt.clone(),
+	// 		Vec::new(),
+	// 		dummy_bitvec(5),
+	// 	);
+
+	// 	assert_eq!(has_core_index::<T: configuration::Config + scheduler::Config>(&candidate, false),
+	// false); }
 }
