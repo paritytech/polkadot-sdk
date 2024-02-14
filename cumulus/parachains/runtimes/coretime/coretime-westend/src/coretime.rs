@@ -100,7 +100,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => log::debug!(
 				target: "runtime::coretime",
 				"Request to update schedulable cores sent successfully."
 			),
@@ -130,7 +130,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => log::debug!(
 				target: "runtime::coretime",
 				"Request for revenue information sent successfully."
 			),
@@ -159,7 +159,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => log::debug!(
 				target: "runtime::coretime",
 				"Instruction to credit account sent successfully."
 			),
@@ -194,7 +194,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => log::debug!(
 				target: "runtime::coretime",
 				"Core assignment sent successfully."
 			),
