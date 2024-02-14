@@ -1896,7 +1896,13 @@ impl<T: Config> Pallet<T> {
 	) -> Weight {
 		let mut weight = T::DbWeight::get().reads(1);
 
-		// Enacting this should be prevented by the `can_schedule_upgrade`
+		// Should be prevented by checks in `schedule_code_upgrade_external`
+		if !new_code.check_sanity() || new_code.0.len() > cfg.max_code_size as usize {
+			log::warn!(target: LOG_TARGET, "attempted to schedule an upgrade with invalid new validation code",);
+			return weight
+		}
+
+		// Enacting this should be prevented by the `can_upgrade_validation_code`
 		if FutureCodeHash::<T>::contains_key(&id) {
 			// This branch should never be reached. Signalling an upgrade is disallowed for a para
 			// that already has one upgrade scheduled.
