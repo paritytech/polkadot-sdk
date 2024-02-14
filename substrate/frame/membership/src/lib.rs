@@ -27,7 +27,7 @@ use frame_support::{
 	traits::{ChangeMembers, Contains, Get, InitializeMembers, SortedMembers},
 	BoundedVec,
 };
-use sp_runtime::traits::StaticLookup;
+use sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
 use sp_std::prelude::*;
 
 pub mod migrations;
@@ -163,12 +163,16 @@ pub mod pallet {
 		///
 		/// May only be called from `T::AddOrigin`.
 		#[pallet::call_index(0)]
-		#[pallet::weight({50_000_000})]
-		pub fn add_member(origin: OriginFor<T>, who: AccountIdLookupOf<T>) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::add_member(T::MaxMembers::get()))]
+		pub fn add_member(
+			origin: OriginFor<T>,
+			who: AccountIdLookupOf<T>,
+		) -> DispatchResultWithPostInfo {
 			T::AddOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
 
 			let mut members = <Members<T, I>>::get();
+			let init_length = members.len();
 			let location = members.binary_search(&who).err().ok_or(Error::<T, I>::AlreadyMember)?;
 			members
 				.try_insert(location, who.clone())
@@ -179,19 +183,24 @@ pub mod pallet {
 			T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
 
 			Self::deposit_event(Event::MemberAdded);
-			Ok(())
+
+			Ok(Some(T::WeightInfo::add_member(init_length as u32)).into())
 		}
 
 		/// Remove a member `who` from the set.
 		///
 		/// May only be called from `T::RemoveOrigin`.
 		#[pallet::call_index(1)]
-		#[pallet::weight({50_000_000})]
-		pub fn remove_member(origin: OriginFor<T>, who: AccountIdLookupOf<T>) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::remove_member(T::MaxMembers::get()))]
+		pub fn remove_member(
+			origin: OriginFor<T>,
+			who: AccountIdLookupOf<T>,
+		) -> DispatchResultWithPostInfo {
 			T::RemoveOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
 
 			let mut members = <Members<T, I>>::get();
+			let init_length = members.len();
 			let location = members.binary_search(&who).ok().ok_or(Error::<T, I>::NotMember)?;
 			members.remove(location);
 
@@ -201,7 +210,7 @@ pub mod pallet {
 			Self::rejig_prime(&members);
 
 			Self::deposit_event(Event::MemberRemoved);
-			Ok(())
+			Ok(Some(T::WeightInfo::remove_member(init_length as u32)).into())
 		}
 
 		/// Swap out one member `remove` for another `add`.
@@ -210,18 +219,18 @@ pub mod pallet {
 		///
 		/// Prime membership is *not* passed from `remove` to `add`, if extant.
 		#[pallet::call_index(2)]
-		#[pallet::weight({50_000_000})]
+		#[pallet::weight(T::WeightInfo::swap_member(T::MaxMembers::get()))]
 		pub fn swap_member(
 			origin: OriginFor<T>,
 			remove: AccountIdLookupOf<T>,
 			add: AccountIdLookupOf<T>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			T::SwapOrigin::ensure_origin(origin)?;
 			let remove = T::Lookup::lookup(remove)?;
 			let add = T::Lookup::lookup(add)?;
 
 			if remove == add {
-				return Ok(())
+				return Ok(().into());
 			}
 
 			let mut members = <Members<T, I>>::get();
@@ -236,7 +245,7 @@ pub mod pallet {
 			Self::rejig_prime(&members);
 
 			Self::deposit_event(Event::MembersSwapped);
-			Ok(())
+			Ok(Some(T::WeightInfo::swap_member(members.len() as u32)).into())
 		}
 
 		/// Change the membership to a new set, disregarding the existing membership. Be nice and
@@ -244,7 +253,7 @@ pub mod pallet {
 		///
 		/// May only be called from `T::ResetOrigin`.
 		#[pallet::call_index(3)]
-		#[pallet::weight({50_000_000})]
+		#[pallet::weight(T::WeightInfo::reset_members(members.len().unique_saturated_into()))]
 		pub fn reset_members(origin: OriginFor<T>, members: Vec<T::AccountId>) -> DispatchResult {
 			T::ResetOrigin::ensure_origin(origin)?;
 
@@ -267,13 +276,19 @@ pub mod pallet {
 		///
 		/// Prime membership is passed from the origin account to `new`, if extant.
 		#[pallet::call_index(4)]
-		#[pallet::weight({50_000_000})]
-		pub fn change_key(origin: OriginFor<T>, new: AccountIdLookupOf<T>) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::change_key(T::MaxMembers::get()))]
+		pub fn change_key(
+			origin: OriginFor<T>,
+			new: AccountIdLookupOf<T>,
+		) -> DispatchResultWithPostInfo {
 			let remove = ensure_signed(origin)?;
 			let new = T::Lookup::lookup(new)?;
 
+			let mut members_length = T::MaxMembers::get();
+
 			if remove != new {
 				let mut members = <Members<T, I>>::get();
+				members_length = members.len() as u32;
 				let location =
 					members.binary_search(&remove).ok().ok_or(Error::<T, I>::NotMember)?;
 				let _ = members.binary_search(&new).err().ok_or(Error::<T, I>::AlreadyMember)?;
@@ -295,28 +310,29 @@ pub mod pallet {
 			}
 
 			Self::deposit_event(Event::KeyChanged);
-			Ok(())
+			Ok(Some(T::WeightInfo::change_key(members_length)).into())
 		}
 
 		/// Set the prime member. Must be a current member.
 		///
 		/// May only be called from `T::PrimeOrigin`.
 		#[pallet::call_index(5)]
-		#[pallet::weight({50_000_000})]
-		pub fn set_prime(origin: OriginFor<T>, who: AccountIdLookupOf<T>) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::set_prime(T::MaxMembers::get()))]
+		pub fn set_prime(origin: OriginFor<T>, who: AccountIdLookupOf<T>) -> DispatchResultWithPostInfo {
 			T::PrimeOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
-			Self::members().binary_search(&who).ok().ok_or(Error::<T, I>::NotMember)?;
+			let members = Self::members();
+			members.binary_search(&who).ok().ok_or(Error::<T, I>::NotMember)?;
 			Prime::<T, I>::put(&who);
 			T::MembershipChanged::set_prime(Some(who));
-			Ok(())
+			Ok(Some(T::WeightInfo::set_prime(members.len() as u32)).into())
 		}
 
 		/// Remove the prime member if it exists.
 		///
 		/// May only be called from `T::PrimeOrigin`.
 		#[pallet::call_index(6)]
-		#[pallet::weight({50_000_000})]
+		#[pallet::weight(T::WeightInfo::clear_prime())]
 		pub fn clear_prime(origin: OriginFor<T>) -> DispatchResult {
 			T::PrimeOrigin::ensure_origin(origin)?;
 			Prime::<T, I>::kill();
@@ -442,7 +458,7 @@ mod benchmark {
 		}
 
 		// er keep the prime common between incoming and outgoing to make sure it is rejigged.
-		reset_member {
+		reset_members {
 			let m in 1 .. T::MaxMembers::get();
 
 			let members = (1..m+1).map(|i| account("member", i, SEED)).collect::<Vec<T::AccountId>>();
@@ -500,8 +516,7 @@ mod benchmark {
 		}
 
 		clear_prime {
-			let m in 1 .. T::MaxMembers::get();
-			let members = (0..m).map(|i| account("member", i, SEED)).collect::<Vec<T::AccountId>>();
+			let members = (0..T::MaxMembers::get()).map(|i| account("member", i, SEED)).collect::<Vec<T::AccountId>>();
 			let prime = members.last().cloned().unwrap();
 			set_members::<T, I>(members, None);
 		}: {
