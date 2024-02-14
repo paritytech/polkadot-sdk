@@ -98,6 +98,6 @@ module.exports = {
             throw new Error("Unexpected parachain header import: " + newParachainHeaders + " / " + maxNewParachainHeaders);
         }
 
-        return newParachainHeaders;
+        return hasBestBridgedParachainHeader;
     },
 }
