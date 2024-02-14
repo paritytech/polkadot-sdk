@@ -59,7 +59,7 @@ mod tests {
 	#[docify::export]
 	#[test]
 	fn example_transfer() {
-		let transfer_program = Xcm::<()>(vec![
+		let _transfer_program = Xcm::<()>(vec![
 			WithdrawAsset((Here, 100u128).into()),
 			BuyExecution { fees: (Here, 100u128).into(), weight_limit: Unlimited },
 			DepositAsset {
