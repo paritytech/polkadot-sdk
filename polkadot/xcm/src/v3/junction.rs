@@ -107,14 +107,16 @@ impl TryFrom<OldNetworkId> for NetworkId {
 
 impl From<NewNetworkId> for Option<NetworkId> {
 	fn from(new: NewNetworkId) -> Self {
-		Some(NetworkId::from(new))
+		NetworkId::try_from(new).ok()
 	}
 }
 
-impl From<NewNetworkId> for NetworkId {
-	fn from(new: NewNetworkId) -> Self {
+impl TryFrom<NewNetworkId> for NetworkId {
+	type Error = ();
+
+	fn try_from(new: NewNetworkId) -> Result<Self, Self::Error> {
 		use NewNetworkId::*;
-		match new {
+		Ok(match new {
 			ByGenesis(hash) => Self::ByGenesis(hash),
 			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
 			Polkadot => Self::Polkadot,
@@ -126,7 +128,8 @@ impl From<NewNetworkId> for NetworkId {
 			BitcoinCore => Self::BitcoinCore,
 			BitcoinCash => Self::BitcoinCash,
 			PolkadotBulletin => Self::PolkadotBulletin,
-		}
+			Paseo => return Err(()),
+		})
 	}
 }
 
@@ -448,17 +451,17 @@ impl TryFrom<NewJunction> for Junction {
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
 			AccountId32 { network: maybe_network, id } =>
-				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
+				Self::AccountId32 { network: maybe_network.map(|network| network.try_into()).transpose()?, id },
 			AccountIndex64 { network: maybe_network, index } =>
-				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
+				Self::AccountIndex64 { network: maybe_network.map(|network| network.try_into()).transpose()?, index },
 			AccountKey20 { network: maybe_network, key } =>
-				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
+				Self::AccountKey20 { network: maybe_network.map(|network| network.try_into()).transpose()?, key },
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
 			GeneralKey { length, data } => Self::GeneralKey { length, data },
 			OnlyChild => Self::OnlyChild,
 			Plurality { id, part } => Self::Plurality { id, part },
-			GlobalConsensus(network) => Self::GlobalConsensus(network.into()),
+			GlobalConsensus(network) => Self::GlobalConsensus(network.try_into()?),
 		})
 	}
 }
