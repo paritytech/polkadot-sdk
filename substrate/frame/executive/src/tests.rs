@@ -38,11 +38,18 @@ use frame_support::{
 	traits::{fungible, ConstU8, Currency, IsInherent},
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
 };
-use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
+use frame_system::{
+	pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo, Phase,
+};
 use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::CurrencyAdapter;
 
 const TEST_KEY: &[u8] = b":test:key:";
+
+fn assert_execution_phase<T: frame_system::Config>(want: &Phase) {
+	let got = frame_system::ExecutionPhase::<T>::get().unwrap();
+	assert_eq!(want, &got, "Wrong execution phase");
+}
 
 #[frame_support::pallet(dev_mode)]
 mod custom {
@@ -181,6 +188,7 @@ mod custom2 {
 				!MockedSystemCallbacks::pre_inherent_called(),
 				"Pre inherent hook goes after on_initialize"
 			);
+			assert_execution_phase::<T>(&Phase::Initialization);
 
 			Weight::from_parts(0, 0)
 		}
@@ -188,20 +196,28 @@ mod custom2 {
 		fn on_idle(_: BlockNumberFor<T>, _: Weight) -> Weight {
 			assert!(
 				MockedSystemCallbacks::post_transactions_called(),
-				"Post transactions hook goes before after on_idle"
+				"Post transactions hook goes before on_idle"
 			);
+			assert_execution_phase::<T>(&Phase::Finalization);
+
 			Weight::from_parts(0, 0)
 		}
 
 		fn on_finalize(_: BlockNumberFor<T>) {
 			assert!(
 				MockedSystemCallbacks::post_transactions_called(),
-				"Post transactions hook goes before after on_finalize"
+				"Post transactions hook goes before on_finalize"
 			);
+			assert_execution_phase::<T>(&Phase::Finalization);
 		}
 
 		fn on_runtime_upgrade() -> Weight {
 			sp_io::storage::set(super::TEST_KEY, "module".as_bytes());
+			assert!(
+				!frame_system::ExecutionPhase::<T>::exists(),
+				"Runtime upgrades do not have a phase"
+			);
+
 			Weight::from_parts(0, 0)
 		}
 	}
@@ -217,6 +233,17 @@ mod custom2 {
 			assert!(MockedSystemCallbacks::post_inherent_called());
 			assert!(!MockedSystemCallbacks::post_transactions_called());
 			assert!(System::inherents_applied());
+
+			assert!(matches!(
+				frame_system::ExecutionPhase::<T>::get(),
+				Some(frame_system::Phase::ApplyExtrinsic(_) | frame_system::Phase::AfterInherent)
+			));
+
+			Ok(())
+		}
+
+		pub fn assert_extrinsic_phase(_: OriginFor<T>, expected: u32) -> DispatchResult {
+			assert_execution_phase::<T>(&Phase::ApplyExtrinsic(expected));
 
 			Ok(())
 		}
@@ -242,6 +269,19 @@ mod custom2 {
 
 			Ok(())
 		}
+
+		#[pallet::weight((0, DispatchClass::Mandatory))]
+		pub fn assert_inherent_phase(_: OriginFor<T>, expected: u32) -> DispatchResult {
+			assert_execution_phase::<T>(&Phase::ApplyInherent(expected));
+
+			Ok(())
+		}
+
+		pub fn assert_optional_inherent_phase(_: OriginFor<T>, expected: u32) -> DispatchResult {
+			assert_execution_phase::<T>(&Phase::ApplyInherent(expected));
+
+			Ok(())
+		}
 	}
 
 	#[pallet::inherent]
@@ -257,7 +297,13 @@ mod custom2 {
 		}
 
 		fn is_inherent(call: &Self::Call) -> bool {
-			matches!(call, Call::<T>::inherent {} | Call::<T>::optional_inherent {})
+			matches!(
+				call,
+				Call::<T>::inherent {} |
+					Call::<T>::optional_inherent {} |
+					Call::<T>::assert_inherent_phase { .. } |
+					Call::<T>::assert_optional_inherent_phase { .. }
+			)
 		}
 	}
 
@@ -270,6 +316,8 @@ mod custom2 {
 			match call {
 				Call::allowed_unsigned { .. } |
 				Call::optional_inherent { .. } |
+				Call::assert_inherent_phase { .. } |
+				Call::assert_optional_inherent_phase { .. } |
 				Call::inherent { .. } => Ok(()),
 				_ => Err(UnknownTransaction::NoUnsignedValidator.into()),
 			}
@@ -405,6 +453,7 @@ impl PreInherents for MockedSystemCallbacks {
 		SystemCallbacksCalled::set(1);
 		// Change the storage to modify the root hash:
 		frame_support::storage::unhashed::put(b":pre_inherent", b"0");
+		assert_eq!(frame_system::ExecutionPhase::<Runtime>::get(), Some(Phase::Initialization));
 	}
 }
 
@@ -414,6 +463,7 @@ impl PostInherents for MockedSystemCallbacks {
 		SystemCallbacksCalled::set(2);
 		// Change the storage to modify the root hash:
 		frame_support::storage::unhashed::put(b":post_inherent", b"0");
+		assert_execution_phase::<Runtime>(&Phase::AfterInherent);
 	}
 }
 
@@ -423,6 +473,7 @@ impl PostTransactions for MockedSystemCallbacks {
 		SystemCallbacksCalled::set(3);
 		// Change the storage to modify the root hash:
 		frame_support::storage::unhashed::put(b":post_transaction", b"0");
+		assert_execution_phase::<Runtime>(&Phase::Finalization);
 	}
 }
 
@@ -922,6 +973,7 @@ fn all_weights_are_recorded_correctly() {
 
 		let block_number = 1;
 
+		frame_system::ExecutionPhase::<Runtime>::kill();
 		Executive::initialize_block(&Header::new_from_number(block_number));
 
 		// Reset the last runtime upgrade info, to make the second call to `on_runtime_upgrade`
@@ -930,20 +982,21 @@ fn all_weights_are_recorded_correctly() {
 		MockedSystemCallbacks::reset();
 
 		// All weights that show up in the `initialize_block_impl`
-		let custom_runtime_upgrade_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();
-		let runtime_upgrade_weight =
-			<AllPalletsWithSystem as OnRuntimeUpgrade>::on_runtime_upgrade();
-		let on_initialize_weight =
-			<AllPalletsWithSystem as OnInitialize<u64>>::on_initialize(block_number);
+		frame_system::ExecutionPhase::<Runtime>::kill();
+		let custom_ra_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();
+
+		frame_system::ExecutionPhase::<Runtime>::kill();
+		let ra_weight = <AllPalletsWithSystem as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+		frame_system::ExecutionPhase::<Runtime>::put(Phase::Initialization);
+		let init_weight = <AllPalletsWithSystem as OnInitialize<u64>>::on_initialize(block_number);
+
 		let base_block_weight = <Runtime as frame_system::Config>::BlockWeights::get().base_block;
 
 		// Weights are recorded correctly
 		assert_eq!(
 			frame_system::Pallet::<Runtime>::block_weight().total(),
-			custom_runtime_upgrade_weight +
-				runtime_upgrade_weight +
-				on_initialize_weight +
-				base_block_weight,
+			custom_ra_weight + ra_weight + init_weight + base_block_weight,
 		);
 	});
 }
@@ -1243,10 +1296,11 @@ fn callbacks_in_block_execution_works() {
 	callbacks_in_block_execution_works_inner(true);
 }
 
+/// Produces a block with `0..15` inherents and `0..15` transactions and runs tests on that.
 fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 	MbmActive::set(mbms_active);
 
-	for (n_in, n_tx) in (0..10usize).zip(0..10usize) {
+	for (n_in, n_tx) in (0..15usize).zip(0..15usize) {
 		let mut extrinsics = Vec::new();
 
 		let header = new_test_ext(10).execute_with(|| {
@@ -1256,9 +1310,19 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 			for i in 0..n_in {
 				let xt = if i % 2 == 0 {
-					TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None)
+					TestXt::new(
+						RuntimeCall::Custom2(custom2::Call::assert_inherent_phase {
+							expected: i as u32,
+						}),
+						None,
+					)
 				} else {
-					TestXt::new(RuntimeCall::Custom2(custom2::Call::optional_inherent {}), None)
+					TestXt::new(
+						RuntimeCall::Custom2(custom2::Call::assert_optional_inherent_phase {
+							expected: i as u32,
+						}),
+						None,
+					)
 				};
 				Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
 				extrinsics.push(xt);
@@ -1266,7 +1330,9 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 			for t in 0..n_tx {
 				let xt = TestXt::new(
-					RuntimeCall::Custom2(custom2::Call::some_call {}),
+					RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase {
+						expected: extrinsics.len() as u32,
+					}),
 					sign_extra(1, t as u64, 0),
 				);
 				// Extrinsics can be applied even when MBMs are active. Only the `execute_block`
@@ -1277,11 +1343,12 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 			Executive::finalize_block()
 		});
-		assert_eq!(SystemCallbacksCalled::get(), 3);
+		assert!(MockedSystemCallbacks::post_inherent_called());
 
 		new_test_ext(10).execute_with(|| {
+			MockedSystemCallbacks::reset();
 			let header = std::panic::catch_unwind(|| {
-				Executive::execute_block(Block::new(header, extrinsics));
+				Executive::execute_block(Block::new(header.clone(), extrinsics.clone()));
 			});
 
 			match header {
@@ -1386,4 +1453,58 @@ fn is_inherent_works() {
 
 	let ext = TestXt::new(RuntimeCall::Custom2(custom2::Call::allowed_unsigned {}), None);
 	assert!(!Runtime::is_inherent(&ext), "Unsigned ext are not automatically inherents");
+}
+
+#[test]
+fn extrinsic_index_is_correct() {
+	let in1 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_inherent_phase { expected: 0 }),
+		None,
+	);
+	let in2 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_inherent_phase { expected: 1 }),
+		None,
+	);
+	let xt1 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase { expected: 2 }),
+		sign_extra(1, 0, 0),
+	);
+	let xt2 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase { expected: 3 }),
+		sign_extra(1, 1, 0),
+	);
+	let xt3 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase { expected: 4 }),
+		sign_extra(1, 2, 0),
+	);
+
+	let header = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new_from_number(1));
+
+		Executive::apply_extrinsic(in1.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(in2.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(xt2.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(xt3.clone()).unwrap().unwrap();
+
+		Executive::finalize_block()
+	});
+
+	new_test_ext(1).execute_with(|| {
+		Executive::execute_block(Block::new(
+			header.clone(),
+			vec![in1.clone(), in2.clone(), xt1.clone(), xt2.clone(), xt3.clone()],
+		));
+	});
+
+	#[cfg(feature = "try-runtime")]
+	new_test_ext(1).execute_with(|| {
+		Executive::try_execute_block(
+			Block::new(header, vec![in1, in2, xt1, xt2, xt3]),
+			true,
+			true,
+			frame_try_runtime::TryStateSelect::All,
+		)
+		.unwrap();
+	});
 }
