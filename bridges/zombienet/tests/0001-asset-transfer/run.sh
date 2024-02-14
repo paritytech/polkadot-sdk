@@ -5,7 +5,7 @@ set -e
 source "${BASH_SOURCE%/*}/../../utils/common.sh"
 source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
 
-${BASH_SOURCE%/*}/../../environments/rococo-westend/spawn.sh --init &
+${BASH_SOURCE%/*}/../../environments/rococo-westend/spawn.sh --init --start-relayer &
 env_pid=$!
 
 ensure_process_file $env_pid $TEST_DIR/rococo.env 400
