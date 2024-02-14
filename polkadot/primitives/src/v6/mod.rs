@@ -750,12 +750,6 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 	group_len: usize,
 	validator_lookup: impl Fn(usize) -> Option<ValidatorId>,
 ) -> Result<usize, ()> {
-	log::debug!(
-		target: LOG_TARGET,
-		"checking candidate {:?}",
-		backed
-	);
-
 	if backed.validator_indices.len() != group_len {
 		log::debug!(
 			target: LOG_TARGET,
