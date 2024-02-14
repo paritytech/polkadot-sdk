@@ -462,8 +462,6 @@ fn seconding_sanity_check_allowed() {
 			))
 		);
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
-
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
@@ -598,8 +596,6 @@ fn seconding_sanity_check_disallowed() {
 				_
 			))
 		);
-
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -855,8 +851,6 @@ fn prospective_parachains_reject_candidate() {
 			))
 		);
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
-
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
@@ -993,8 +987,6 @@ fn second_multiple_candidates_per_relay_parent() {
 				)
 			);
 
-			assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
-
 			assert_matches!(
 				virtual_overseer.recv().await,
 				AllMessages::StatementDistribution(
@@ -1125,8 +1117,6 @@ fn backing_works() {
 			))
 		);
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
-
 		assert_validate_seconded_candidate(
 			&mut virtual_overseer,
 			candidate_a.descriptor().relay_parent,
@@ -1139,7 +1129,6 @@ fn backing_works() {
 		)
 		.await;
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
@@ -1175,8 +1164,6 @@ fn backing_works() {
 		let statement = CandidateBackingMessage::Statement(leaf_parent, signed_b.clone());
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
-
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		virtual_overseer
 	});
@@ -1561,29 +1548,6 @@ fn seconding_sanity_check_occupy_same_depth() {
 
 			assert_matches!(
 				virtual_overseer.recv().await,
-				AllMessages::RuntimeApi(
-					RuntimeApiMessage::Request(_parent, RuntimeApiRequest::ValidatorGroups(tx))
-				) => {
-					let (groups, mut rotation) = test_state.validator_groups.clone();
-					if leaf_hash == _parent {
-						rotation.now = 100;
-					}
-					tx.send(Ok((groups, rotation))).unwrap();
-				}
-			);
-
-			// Check that subsystem job issues a request for the availability cores.
-			assert_matches!(
-				virtual_overseer.recv().await,
-				AllMessages::RuntimeApi(
-					RuntimeApiMessage::Request(_parent, RuntimeApiRequest::AvailabilityCores(tx))
-				) => {
-					tx.send(Ok(test_state.availability_cores.clone())).unwrap();
-				}
-			);
-
-			assert_matches!(
-				virtual_overseer.recv().await,
 				AllMessages::StatementDistribution(
 					StatementDistributionMessage::Share(
 						parent_hash,
@@ -1720,8 +1684,6 @@ fn occupied_core_assignment() {
 				_
 			))
 		);
-
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,

@@ -681,9 +681,8 @@ async fn request_backable_candidates(
 			CoreState::Free => continue,
 		};
 
-		// We're currently fetching based on para id. This has to be chagned to query prospective
-		// parachains via core index. We should be calling this once per para rather than per core.
-		// TODO: Fix after https://github.com/paritytech/polkadot-sdk/pull/3233
+		// We should be calling this once per para rather than per core.
+		// TODO: Will be fixed in https://github.com/paritytech/polkadot-sdk/pull/3233
 		let response = get_backable_candidate(relay_parent, para_id, required_path, sender).await?;
 		match response {
 			Some((hash, relay_parent)) => {
@@ -732,7 +731,7 @@ async fn select_candidates(
 			)
 			.await?,
 	};
-	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backedable candidates");
+	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backeable candidates");
 
 	// now get the backed candidates corresponding to these candidate receipts
 	let (tx, rx) = oneshot::channel();

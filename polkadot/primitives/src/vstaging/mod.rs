@@ -64,16 +64,13 @@ pub mod node_features {
 		/// Tells if tranch0 assignments could be sent in a single certificate.
 		/// Reserved for: `<https://github.com/paritytech/polkadot-sdk/issues/628>`
 		EnableAssignmentsV2 = 0,
-		/// First unassigned feature bit.
-		/// Every time a new feature flag is assigned it should take this value.
-		/// and this should be incremented.
-		FirstUnassigned = 1,
-		/// Experimental features start at bit 16. Note that experimental features pop in and out
-		/// of exsitence without warning.
-		///
 		/// This feature enables the extension of `BackedCandidate::validator_indices` by 8 bit.
 		/// The value stored there represents the assumed core index where the candidates
 		/// are backed.
-		InjectCoreIndex = 16,
+		ElasticScalingCoreIndex = 1,
+		/// First unassigned feature bit.
+		/// Every time a new feature flag is assigned it should take this value.
+		/// and this should be incremented.
+		FirstUnassigned = 2,
 	}
 }

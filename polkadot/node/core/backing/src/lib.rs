@@ -92,13 +92,12 @@ use polkadot_node_subsystem::{
 		RuntimeApiRequest, StatementDistributionMessage, StoreAvailableDataError,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
-	SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::{FetchError as ImplicitViewFetchError, View as ImplicitView},
-	executor_params_at_relay_parent, request_availability_cores, request_from_runtime,
-	request_session_index_for_child, request_validator_groups, request_validators,
+	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
+	request_validator_groups, request_validators,
 	runtime::{
 		self, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
 	},
@@ -228,8 +227,15 @@ struct PerRelayParentState {
 	fallbacks: HashMap<CandidateHash, AttestingData>,
 	/// The minimum backing votes threshold.
 	minimum_backing_votes: u32,
-	/// If true, we're appendindg extra bits in the BackedCandidate validator indices bitfield.
+	/// If true, we're appendindg extra bits in the BackedCandidate validator indices bitfield,
+	/// which represent the assigned core index.
 	inject_core_index: bool,
+	/// Number of cores.
+	n_cores: usize,
+	/// The validator groups at this relay parent.
+	validator_groups: Vec<Vec<ValidatorIndex>>,
+	/// The associated group rotation information.
+	group_rotation_info: GroupRotationInfo,
 }
 
 struct PerCandidateState {
@@ -1007,49 +1013,23 @@ macro_rules! try_runtime_api {
 	};
 }
 
-#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn core_index_from_statement<Sender>(
-	sender: &mut Sender,
-	relay_parent: Hash,
+fn core_index_from_statement(
+	validator_groups: &[Vec<ValidatorIndex>],
+	group_rotation_info: &GroupRotationInfo,
+	n_cores: usize,
 	statement: &SignedFullStatementWithPVD,
-) -> Result<Option<CoreIndex>, Error>
-where
-	Sender: SubsystemSender<RuntimeApiMessage> + Clone,
-{
-	let parent = relay_parent;
-
-	let (validator_groups, group_rotation_info) = request_validator_groups(parent, sender)
-		.await
-		.await
-		.map_err(Error::RuntimeApiUnavailable)?
-		.map_err(Error::FetchValidatorGroups)?;
-
-	let cores = request_availability_cores(parent, sender)
-		.await
-		.await
-		.map_err(Error::RuntimeApiUnavailable)?
-		.map_err(Error::FetchAvailabilityCores)?;
-
+) -> Option<CoreIndex> {
 	let compact_statement = statement.as_unchecked();
 	let candidate_hash = CandidateHash(*compact_statement.unchecked_payload().candidate_hash());
 
-	gum::trace!(target: LOG_TARGET, ?group_rotation_info, ?statement, ?validator_groups, ?cores, ?candidate_hash, "Extracting core index from statement");
+	gum::trace!(target: LOG_TARGET, ?group_rotation_info, ?statement, ?validator_groups, ?n_cores, ?candidate_hash, "Extracting core index from statement");
 
-	Ok(core_index_from_statement_inner(&cores, &validator_groups, &group_rotation_info, statement))
-}
-
-pub(crate) fn core_index_from_statement_inner(
-	cores: &[CoreState],
-	validator_groups: &[Vec<ValidatorIndex>],
-	group_rotation_info: &GroupRotationInfo,
-	statement: &SignedFullStatementWithPVD,
-) -> Option<CoreIndex> {
 	let statement_validator_index = statement.validator_index();
 	for (group_index, group) in validator_groups.iter().enumerate() {
 		for validator_index in group {
 			if *validator_index == statement_validator_index {
 				return Some(
-					group_rotation_info.core_for_group(GroupIndex(group_index as u32), cores.len()),
+					group_rotation_info.core_for_group(GroupIndex(group_index as u32), n_cores),
 				)
 			}
 		}
@@ -1084,7 +1064,7 @@ async fn construct_per_relay_parent_state<Context>(
 	let inject_core_index = request_node_features(parent, session_index, ctx.sender())
 		.await?
 		.unwrap_or(NodeFeatures::EMPTY)
-		.get(FeatureIndex::InjectCoreIndex as usize)
+		.get(FeatureIndex::ElasticScalingCoreIndex as usize)
 		.map(|b| *b)
 		.unwrap_or(false);
 
@@ -1178,6 +1158,9 @@ async fn construct_per_relay_parent_state<Context>(
 		fallbacks: HashMap::new(),
 		minimum_backing_votes,
 		inject_core_index,
+		n_cores,
+		validator_groups,
+		group_rotation_info,
 	}))
 }
 
@@ -1670,10 +1653,13 @@ async fn import_statement<Context>(
 
 	let stmt = primitive_statement_to_table(statement);
 
-	let core = core_index_from_statement(ctx.sender(), rp_state.parent, statement)
-		.await
-		.map_err(|_| Error::CoreIndexUnavailable)?
-		.ok_or(Error::CoreIndexUnavailable)?;
+	let core = core_index_from_statement(
+		&rp_state.validator_groups,
+		&rp_state.group_rotation_info,
+		rp_state.n_cores,
+		statement,
+	)
+	.ok_or(Error::CoreIndexUnavailable)?;
 
 	Ok(rp_state.table.import_statement(&rp_state.table_context, core, stmt))
 }

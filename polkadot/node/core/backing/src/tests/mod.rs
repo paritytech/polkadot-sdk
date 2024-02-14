@@ -327,30 +327,6 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 	);
 }
 
-pub(crate) async fn assert_core_index_from_statement(
-	virtual_overseer: &mut VirtualOverseer,
-	test_state: &TestState,
-) {
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_parent, RuntimeApiRequest::ValidatorGroups(tx))
-		) => {
-			tx.send(Ok(test_state.validator_groups.clone())).unwrap();
-		}
-	);
-
-	// Check that subsystem job issues a request for the availability cores.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_parent, RuntimeApiRequest::AvailabilityCores(tx))
-		) => {
-			tx.send(Ok(test_state.availability_cores.clone())).unwrap();
-		}
-	);
-}
-
 async fn assert_validation_requests(
 	virtual_overseer: &mut VirtualOverseer,
 	validation_code: ValidationCode,
@@ -483,8 +459,6 @@ fn backing_second_works() {
 			}
 		);
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
-
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
@@ -581,7 +555,6 @@ fn backing_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 		assert_validation_requests(&mut virtual_overseer, validation_code_ab.clone()).await;
 
 		// Sending a `Statement::Seconded` for our assignment will start
@@ -641,8 +614,6 @@ fn backing_works() {
 			}
 		);
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
-
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
@@ -668,8 +639,6 @@ fn backing_works() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_b.clone());
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
-
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
@@ -737,20 +706,20 @@ fn extract_core_index_from_statement_works() {
 	.flatten()
 	.expect("should be signed");
 
-	let core_index_1 = core_index_from_statement_inner(
-		&test_state.availability_cores,
+	let core_index_1 = core_index_from_statement(
 		&test_state.validator_groups.0,
 		&test_state.validator_groups.1,
+		test_state.availability_cores.len(),
 		&signed_statement_1,
 	)
 	.unwrap();
 
 	assert_eq!(core_index_1, CoreIndex(0));
 
-	let core_index_2 = core_index_from_statement_inner(
-		&test_state.availability_cores,
+	let core_index_2 = core_index_from_statement(
 		&test_state.validator_groups.0,
 		&test_state.validator_groups.1,
+		test_state.availability_cores.len(),
 		&signed_statement_2,
 	)
 	.unwrap();
@@ -841,7 +810,6 @@ fn backing_works_while_validation_ongoing() {
 		let statement =
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		assert_validation_requests(&mut virtual_overseer, validation_code_abc.clone()).await;
 
@@ -891,7 +859,6 @@ fn backing_works_while_validation_ongoing() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_b.clone());
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		// Candidate gets backed entirely by other votes.
 		assert_matches!(
@@ -911,8 +878,6 @@ fn backing_works_while_validation_ongoing() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_c.clone());
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
-
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		let (tx, rx) = oneshot::channel();
 		let msg = CandidateBackingMessage::GetBackedCandidates(
@@ -1012,7 +977,6 @@ fn backing_misbehavior_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		assert_matches!(
@@ -1068,8 +1032,6 @@ fn backing_misbehavior_works() {
 				}
 		);
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
-
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
@@ -1100,8 +1062,6 @@ fn backing_misbehavior_works() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, valid_2.clone());
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
-
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1278,7 +1238,6 @@ fn backing_dont_second_invalid() {
 				tx.send(Ok(())).unwrap();
 			}
 		);
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1350,7 +1309,6 @@ fn backing_second_after_first_fails_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
@@ -1495,7 +1453,6 @@ fn backing_works_after_failed_validation() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
@@ -1700,7 +1657,6 @@ fn retry_works() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
@@ -1721,8 +1677,6 @@ fn retry_works() {
 		let statement =
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_b.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
-
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		// Not deterministic which message comes first:
 		for _ in 0u32..5 {
@@ -1766,7 +1720,6 @@ fn retry_works() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_c.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		assert_matches!(
@@ -1891,14 +1844,11 @@ fn observes_backing_even_if_not_validator() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
-
 		let statement =
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_b.clone());
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::Provisioner(
@@ -1915,8 +1865,6 @@ fn observes_backing_even_if_not_validator() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_c.clone());
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
-
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
@@ -1983,8 +1931,6 @@ fn cannot_second_multiple_candidates_per_parent() {
 				tx.send(Ok(())).unwrap();
 			}
 		);
-
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -2220,8 +2166,6 @@ fn disabled_validator_doesnt_distribute_statement_on_receiving_statement() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
-
 		// Ensure backing subsystem is not doing any work
 		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
 
@@ -2313,8 +2257,6 @@ fn validator_ignores_statements_from_disabled_validators() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement_3 }).await;
 
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
-
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
@@ -2400,8 +2342,6 @@ fn validator_ignores_statements_from_disabled_validators() {
 				tx.send(Ok(())).unwrap();
 			}
 		);
-
-		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
