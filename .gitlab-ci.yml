@@ -21,7 +21,8 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  # CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  CI_IMAGE: "docker.io/paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240109"
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
@@ -230,7 +231,7 @@ include:
   stage: .post
   rules:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
-      when: on_failure
+      when: never
   variables:
     PROJECT_ID: "${CI_PROJECT_ID}"
     PROJECT_NAME: "${CI_PROJECT_NAME}"
@@ -245,6 +246,7 @@ remove-cancel-pipeline-message:
   stage: .post
   rules:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
+      when: never
   variables:
     PROJECT_ID: "${CI_PROJECT_ID}"
     PROJECT_NAME: "${CI_PROJECT_NAME}"

@@ -285,6 +285,7 @@ impl Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = ();
 }
 
 impl mock_msg_queue::Config for Runtime {
