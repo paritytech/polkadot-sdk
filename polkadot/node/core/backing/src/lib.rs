@@ -230,8 +230,8 @@ struct PerRelayParentState {
 	/// If true, we're appendindg extra bits in the BackedCandidate validator indices bitfield,
 	/// which represent the assigned core index.
 	inject_core_index: bool,
-	/// Number of cores.
-	n_cores: usize,
+	/// The core state for all cores
+	cores: Vec<CoreState>,
 	/// The validator groups at this relay parent.
 	validator_groups: Vec<Vec<ValidatorIndex>>,
 	/// The associated group rotation information.
@@ -1016,21 +1016,48 @@ macro_rules! try_runtime_api {
 fn core_index_from_statement(
 	validator_groups: &[Vec<ValidatorIndex>],
 	group_rotation_info: &GroupRotationInfo,
-	n_cores: usize,
+	cores: &[CoreState],
 	statement: &SignedFullStatementWithPVD,
 ) -> Option<CoreIndex> {
 	let compact_statement = statement.as_unchecked();
 	let candidate_hash = CandidateHash(*compact_statement.unchecked_payload().candidate_hash());
 
-	gum::trace!(target: LOG_TARGET, ?group_rotation_info, ?statement, ?validator_groups, ?n_cores, ?candidate_hash, "Extracting core index from statement");
+	let n_cores = cores.len();
+
+	gum::trace!(target: LOG_TARGET, ?group_rotation_info, ?statement, ?validator_groups, n_cores = ?cores.len() , ?candidate_hash, "Extracting core index from statement");
 
 	let statement_validator_index = statement.validator_index();
 	for (group_index, group) in validator_groups.iter().enumerate() {
 		for validator_index in group {
 			if *validator_index == statement_validator_index {
-				return Some(
-					group_rotation_info.core_for_group(GroupIndex(group_index as u32), n_cores),
-				)
+				// First check if the statement para id matches the core assignment.
+				let core_index =
+					group_rotation_info.core_for_group(GroupIndex(group_index as u32), n_cores);
+
+				if core_index.0 as usize > n_cores {
+					gum::warn!(target: LOG_TARGET, ?candidate_hash, ?core_index, n_cores, "Invalid CoreIndex");
+					return None
+				}
+
+				if let StatementWithPVD::Seconded(candidate, _pvd) = statement.payload() {
+					let candidate_para_id = candidate.descriptor.para_id;
+					let assigned_para_id = match &cores[core_index.0 as usize] {
+						CoreState::Free => {
+							gum::debug!(target: LOG_TARGET, ?candidate_hash, "Invalid CoreIndex, core is not assigned to any para_id");
+							return None
+						},
+						CoreState::Occupied(occupied) => occupied.candidate_descriptor.para_id,
+						CoreState::Scheduled(scheduled) => scheduled.para_id,
+					};
+
+					if assigned_para_id != candidate_para_id {
+						gum::debug!(target: LOG_TARGET, ?candidate_hash, ?core_index, ?assigned_para_id, ?candidate_para_id, "Invalid CoreIndex, core is assigned to a different para_id");
+						return None
+					}
+					return Some(core_index)
+				} else {
+					return Some(core_index)
+				}
 			}
 		}
 	}
@@ -1111,7 +1138,7 @@ async fn construct_per_relay_parent_state<Context>(
 	let mut assigned_core = None;
 	let mut assigned_para = None;
 
-	for (idx, core) in cores.into_iter().enumerate() {
+	for (idx, core) in cores.iter().enumerate() {
 		let core_para_id = match core {
 			CoreState::Scheduled(scheduled) => scheduled.para_id,
 			CoreState::Occupied(occupied) =>
@@ -1158,7 +1185,7 @@ async fn construct_per_relay_parent_state<Context>(
 		fallbacks: HashMap::new(),
 		minimum_backing_votes,
 		inject_core_index,
-		n_cores,
+		cores,
 		validator_groups,
 		group_rotation_info,
 	}))
@@ -1656,7 +1683,7 @@ async fn import_statement<Context>(
 	let core = core_index_from_statement(
 		&rp_state.validator_groups,
 		&rp_state.group_rotation_info,
-		rp_state.n_cores,
+		&rp_state.cores,
 		statement,
 	)
 	.ok_or(Error::CoreIndexUnavailable)?;
