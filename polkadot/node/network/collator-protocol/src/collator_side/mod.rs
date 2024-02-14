@@ -31,7 +31,7 @@ use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
 		incoming::{self, OutgoingResponse},
-		v1 as request_v1, v2 as request_v2, v3 as request_v3, IncomingRequestReceiver,
+		v1 as request_v1, v2 as request_v2, IncomingRequestReceiver,
 	},
 	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
 	Versioned, View,
@@ -722,18 +722,10 @@ async fn advertise_collation<Context>(
 
 		let collation_message = match protocol_version {
 			CollationVersion::V2 => {
-				let wire_message = if collation.maybe_parent_head_data.is_none() {
-					protocol_v2::CollatorProtocolMessage::AdvertiseCollationV2 {
-						relay_parent,
-						candidate_hash: *candidate_hash,
-						parent_head_data_hash: collation.parent_head_data_hash,
-					}
-				} else {
-					protocol_v2::CollatorProtocolMessage::AdvertiseCollationV3 {
-						relay_parent,
-						candidate_hash: *candidate_hash,
-						parent_head_data_hash: collation.parent_head_data_hash,
-					}
+				let wire_message = protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
+					relay_parent,
+					candidate_hash: *candidate_hash,
+					parent_head_data_hash: collation.parent_head_data_hash,
 				};
 				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 			},
@@ -867,20 +859,19 @@ async fn send_collation(
 
 	// The response payload is the same for v1 and v2 versions of protocol
 	// and doesn't have v2 alias for simplicity.
-	let send_result = if let Some(parent_head_data) = maybe_parent_head_data {
-		let result =
-			Ok(request_v3::CollationFetchingResponse::Collation { receipt, pov, parent_head_data });
-		let response =
-			OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
-		request.send_outgoing_response_with_head_data(response)
+	let result = if let Some(parent_head_data) = maybe_parent_head_data {
+		Ok(request_v1::CollationFetchingResponse::CollationWithParentHeadData {
+			receipt,
+			pov,
+			parent_head_data,
+		})
 	} else {
-		let result = Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov));
-		let response =
-			OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
-		request.send_outgoing_response(response)
+		Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov))
 	};
+	let response =
+		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
 
-	if let Err(_) = send_result {
+	if let Err(_) = request.send_outgoing_response(response) {
 		gum::warn!(target: LOG_TARGET, "Sending collation response failed");
 	}
 
@@ -924,10 +915,8 @@ async fn handle_incoming_peer_message<Context>(
 				.await;
 		},
 		Versioned::V1(V1::AdvertiseCollation(_)) |
-		Versioned::V2(V2::AdvertiseCollationV2 { .. }) |
-		Versioned::V2(V2::AdvertiseCollationV3 { .. }) |
-		Versioned::V3(V2::AdvertiseCollationV2 { .. }) |
-		Versioned::V3(V2::AdvertiseCollationV3 { .. }) => {
+		Versioned::V2(V2::AdvertiseCollation { .. }) |
+		Versioned::V3(V2::AdvertiseCollation { .. }) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -1046,8 +1035,6 @@ async fn handle_incoming_request<Context>(
 				VersionedCollationRequest::V1(_) if !mode.is_enabled() =>
 					per_relay_parent.collations.values_mut().next(),
 				VersionedCollationRequest::V2(req) =>
-					per_relay_parent.collations.get_mut(&req.payload.candidate_hash),
-				VersionedCollationRequest::V3(req) =>
 					per_relay_parent.collations.get_mut(&req.payload.candidate_hash),
 				_ => {
 					gum::warn!(

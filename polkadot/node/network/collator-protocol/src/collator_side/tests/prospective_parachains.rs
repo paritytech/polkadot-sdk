@@ -471,12 +471,10 @@ fn advertise_and_send_collation_by_hash() {
 					rx.await,
 					Ok(full_response) => {
 						// Response is the same for v2.
-						let request_v1::CollationFetchingResponse::Collation(receipt, pov): request_v1::CollationFetchingResponse
-							= request_v1::CollationFetchingResponse::decode(
-								&mut full_response.result
-								.expect("We should have a proper answer").as_ref()
-						)
-						.expect("Decoding should work");
+						let (receipt, pov) = decode_collation_response(
+							full_response.result
+							.expect("We should have a proper answer").as_ref()
+						);
 						assert_eq!(receipt, candidate);
 						assert_eq!(pov, pov_block);
 					}

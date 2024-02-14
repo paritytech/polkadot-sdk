@@ -421,7 +421,7 @@ async fn advertise_collation(
 ) {
 	let wire_message = match candidate {
 		Some((candidate_hash, parent_head_data_hash)) =>
-			Versioned::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollationV2 {
+			Versioned::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 				relay_parent,
 				candidate_hash,
 				parent_head_data_hash,

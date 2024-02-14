@@ -32,9 +32,7 @@ use std::{collections::VecDeque, future::Future, pin::Pin, task::Poll};
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
-	request_response::{
-		outgoing::RequestError, v1 as request_v1, v3 as request_v3, OutgoingResult,
-	},
+	request_response::{outgoing::RequestError, v1 as request_v1, OutgoingResult},
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
@@ -104,9 +102,6 @@ pub struct PendingCollation {
 	pub prospective_candidate: Option<ProspectiveCandidate>,
 	/// Hash of the candidate's commitments.
 	pub commitments_hash: Option<Hash>,
-	/// Whether the collation was advertised with elastic scaling enabled.
-	/// If it was, the validator will request the parent-head data along with the collation.
-	pub with_elastic_scaling: bool,
 }
 
 impl PendingCollation {
@@ -115,7 +110,6 @@ impl PendingCollation {
 		para_id: ParaId,
 		peer_id: &PeerId,
 		prospective_candidate: Option<ProspectiveCandidate>,
-		with_elastic_scaling: bool,
 	) -> Self {
 		Self {
 			relay_parent,
@@ -123,7 +117,6 @@ impl PendingCollation {
 			peer_id: *peer_id,
 			prospective_candidate,
 			commitments_hash: None,
-			with_elastic_scaling,
 		}
 	}
 }
@@ -141,8 +134,6 @@ pub struct BlockedAdvertisement {
 	pub candidate_relay_parent: Hash,
 	/// Hash of the candidate.
 	pub candidate_hash: CandidateHash,
-	/// Whether the collation was advertised with elastic scaling enabled.
-	pub with_elastic_scaling: bool,
 }
 
 /// Performs a sanity check between advertised and fetched collations.
@@ -326,7 +317,7 @@ pub(super) struct CollationFetchRequest {
 	/// The network protocol version the collator is using.
 	pub collator_protocol_version: CollationVersion,
 	/// Responses from collator.
-	pub from_collator: BoxFuture<'static, OutgoingResult<VersionedResponse>>,
+	pub from_collator: BoxFuture<'static, OutgoingResult<request_v1::CollationFetchingResponse>>,
 	/// Handle used for checking if this request was cancelled.
 	pub cancellation_token: CancellationToken,
 	/// A jaeger span corresponding to the lifetime of the request.
@@ -335,13 +326,11 @@ pub(super) struct CollationFetchRequest {
 	pub _lifetime_timer: Option<HistogramTimer>,
 }
 
-pub enum VersionedResponse {
-	V1(request_v1::CollationFetchingResponse),
-	V3(request_v3::CollationFetchingResponse),
-}
-
 impl Future for CollationFetchRequest {
-	type Output = (CollationEvent, std::result::Result<VersionedResponse, CollationFetchError>);
+	type Output = (
+		CollationEvent,
+		std::result::Result<request_v1::CollationFetchingResponse, CollationFetchError>,
+	);
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
 		// First check if this fetch request was cancelled.

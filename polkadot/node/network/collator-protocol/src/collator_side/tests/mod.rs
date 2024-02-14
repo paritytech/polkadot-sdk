@@ -592,7 +592,7 @@ async fn expect_advertise_collation_msg(
 					) => {
 						assert_matches!(
 							wire_message,
-							protocol_v2::CollatorProtocolMessage::AdvertiseCollationV2 {
+							protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 								relay_parent,
 								candidate_hash,
 								..
@@ -626,6 +626,18 @@ async fn send_peer_view_change(
 		)),
 	)
 	.await;
+}
+
+fn decode_collation_response(bytes: &[u8]) -> (CandidateReceipt, PoV) {
+	let response: request_v1::CollationFetchingResponse =
+		request_v1::CollationFetchingResponse::decode(&mut &bytes[..])
+			.expect("Decoding should work");
+	match response {
+		request_v1::CollationFetchingResponse::Collation(receipt, pov) => (receipt, pov),
+		request_v1::CollationFetchingResponse::CollationWithParentHeadData {
+			receipt, pov, ..
+		} => (receipt, pov),
+	}
 }
 
 #[test]
@@ -737,12 +749,10 @@ fn advertise_and_send_collation() {
 			assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(receipt, pov): request_v1::CollationFetchingResponse
-						= request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result
-							.expect("We should have a proper answer").as_ref()
-					)
-					.expect("Decoding should work");
+					let (receipt, pov) = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 					assert_eq!(receipt, candidate);
 					assert_eq!(pov, pov_block);
 				}
@@ -1339,12 +1349,10 @@ where
 			let feedback_tx = assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(receipt, pov): request_v1::CollationFetchingResponse
-						= request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result
-							.expect("We should have a proper answer").as_ref()
-					)
-					.expect("Decoding should work");
+					let (receipt, pov) = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 					assert_eq!(receipt, candidate);
 					assert_eq!(pov, pov_block);
 
@@ -1376,12 +1384,10 @@ where
 			assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(receipt, pov): request_v1::CollationFetchingResponse
-						= request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result
-							.expect("We should have a proper answer").as_ref()
-					)
-					.expect("Decoding should work");
+					let (receipt, pov) = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 					assert_eq!(receipt, candidate);
 					assert_eq!(pov, pov_block);
 
@@ -1470,11 +1476,10 @@ fn connect_to_buffered_groups() {
 			assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(..) =
-						request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result.expect("We should have a proper answer").as_ref(),
-						)
-						.expect("Decoding should work");
+					let _ = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 				}
 			);
 

@@ -820,7 +820,7 @@ pub mod v2 {
 		/// Advertise a collation to a validator. Can only be sent once the peer has
 		/// declared that they are a collator with given ID.
 		#[codec(index = 1)]
-		AdvertiseCollationV2 {
+		AdvertiseCollation {
 			/// Hash of the relay parent advertised collation is based on.
 			relay_parent: Hash,
 			/// Candidate hash.
@@ -831,16 +831,6 @@ pub mod v2 {
 		/// A collation sent to a validator was seconded.
 		#[codec(index = 4)]
 		CollationSeconded(Hash, UncheckedSignedFullStatement),
-		/// Same as `AdvertiseCollationV2`, but triggers a different req/response version.
-		#[codec(index = 5)]
-		AdvertiseCollationV3 {
-			/// Hash of the relay parent advertised collation is based on.
-			relay_parent: Hash,
-			/// Candidate hash.
-			candidate_hash: CandidateHash,
-			/// Parachain head data hash before candidate execution.
-			parent_head_data_hash: Hash,
-		},
 	}
 
 	/// All network messages on the validation peer-set.
