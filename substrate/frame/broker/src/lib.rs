@@ -169,7 +169,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextVoucherId<T> = StorageValue<_, VoucherId, ValueQuery>;
 
-	/// Coretime Vouchers which can be exchanged for credits.
+	/// Coretime Vouchers which can be exchanged for coretime credits.
 	#[pallet::storage]
 	pub type Vouchers<T> = StorageMap<_, Blake2_128Concat, VoucherId, VoucherOf<T>, OptionQuery>;
 

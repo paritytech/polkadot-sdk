@@ -1146,6 +1146,52 @@ fn vouchers_work() {
 	});
 }
 
-// TODO: Add a test for pre-assigned vouchers
+#[test]
+fn preassigned_vouchers_work() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let broker_account = Broker::account_id();
+		assert_eq!(balance(broker_account), 0);
+
+		// Generate a voucher with an owner.
+		assert_eq!(NextVoucherId::<Test>::get(), 0);
+		let voucher_id = Broker::do_purchase_voucher(1, 100, 10, Some(2)).unwrap();
+		System::assert_last_event(
+			Event::VoucherPurchased {
+				voucher_id,
+				benefactor: 1,
+				amount: 100,
+				expiry: 10,
+				owner: Some(2),
+			}
+			.into(),
+		);
+		assert!(matches!(
+			Vouchers::<Test>::get(voucher_id).unwrap(),
+			Voucher { benefactor, amount, owner, .. }
+			if benefactor == 1 && amount == 100 && owner.unwrap() == 2
+		));
+		assert_eq!(NextVoucherId::<Test>::get(), 1);
+		assert_eq!(balance(1), 900);
+		assert_eq!(balance(broker_account), 100);
+
+		// Voucher can't be reassigned.
+		assert_noop!(Broker::do_assign_voucher(1, voucher_id, 3), Error::<Test>::AlreadyAssigned);
+
+		// Exchange this voucher for credit.
+		assert_eq!(balance(3), 0);
+		assert!(CoretimeCredit::get().get(&3).is_none());
+		assert_ok!(Broker::do_exchange_voucher(2, voucher_id, 3));
+		System::assert_last_event(
+			Event::CreditPurchased { who: 2, beneficiary: 3, amount: 100 }.into(),
+		);
+
+		assert_eq!(balance(1), 900);
+		assert_eq!(balance(2), 0);
+		assert_eq!(CoretimeCredit::get().get(&3).unwrap(), &100);
+	});
+}
+
 // TODO: Add a test for expiry path of vouchers
 // TODO: Flesh out sad path testing
