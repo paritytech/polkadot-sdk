@@ -1,4 +1,4 @@
-title: Ensure `TracksInfo` tracks are sorted by ID.
+title: "Ensure `TracksInfo` tracks are sorted by ID."
 
 doc:
   - audience: Node Dev
