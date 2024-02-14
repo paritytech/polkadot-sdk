@@ -958,7 +958,11 @@ where
 		Arc::new(TransactionPoolAdapter { pool: transaction_pool, client: client.clone() }),
 		config.prometheus_config.as_ref().map(|config| &config.registry),
 	)?;
-	spawn_handle.spawn("network-transactions-handler", Some("networking"), tx_handler.run());
+	spawn_handle.spawn_blocking(
+		"network-transactions-handler",
+		Some("networking"),
+		tx_handler.run(),
+	);
 
 	spawn_handle.spawn_blocking(
 		"chain-sync-network-service-provider",
