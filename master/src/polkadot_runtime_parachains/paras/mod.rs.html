@@ -2290,6 +2290,19 @@
 <a href="#2290" id="2290">2290</a>
 <a href="#2291" id="2291">2291</a>
 <a href="#2292" id="2292">2292</a>
+<a href="#2293" id="2293">2293</a>
+<a href="#2294" id="2294">2294</a>
+<a href="#2295" id="2295">2295</a>
+<a href="#2296" id="2296">2296</a>
+<a href="#2297" id="2297">2297</a>
+<a href="#2298" id="2298">2298</a>
+<a href="#2299" id="2299">2299</a>
+<a href="#2300" id="2300">2300</a>
+<a href="#2301" id="2301">2301</a>
+<a href="#2302" id="2302">2302</a>
+<a href="#2303" id="2303">2303</a>
+<a href="#2304" id="2304">2304</a>
+<a href="#2305" id="2305">2305</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2411,7 +2424,7 @@
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>primitives::{
 	ConsensusLog, HeadData, Id <span class="kw">as </span>ParaId, PvfCheckStatement, SessionIndex, UpgradeGoAhead,
-	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature,
+	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature, MIN_CODE_SIZE,
 };
 <span class="kw">use </span>scale_info::{Type, TypeInfo};
 <span class="kw">use </span>sp_core::RuntimeDebug;
@@ -2971,6 +2984,8 @@
 		</span>PvfCheckSubjectInvalid,
 		<span class="doccomment">/// Parachain cannot currently schedule a code upgrade.
 		</span>CannotUpgradeCode,
+		<span class="doccomment">/// Invalid validation code size.
+		</span>InvalidCode,
 	}
 
 	<span class="doccomment">/// All currently active PVF pre-checking votes.
@@ -3522,6 +3537,10 @@
 		<span class="comment">// Check that we can schedule an upgrade at all.
 		</span><span class="macro">ensure!</span>(<span class="self">Self</span>::can_upgrade_validation_code(id), Error::&lt;T&gt;::CannotUpgradeCode);
 		<span class="kw">let </span>config = configuration::Pallet::&lt;T&gt;::config();
+		<span class="comment">// Validation code sanity checks:
+		</span><span class="macro">ensure!</span>(new_code.<span class="number">0</span>.len() &gt;= MIN_CODE_SIZE <span class="kw">as </span>usize, Error::&lt;T&gt;::InvalidCode);
+		<span class="macro">ensure!</span>(new_code.<span class="number">0</span>.len() &lt;= config.max_code_size <span class="kw">as </span>usize, Error::&lt;T&gt;::InvalidCode);
+
 		<span class="kw">let </span>current_block = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="comment">// Schedule the upgrade with a delay just like if a parachain triggered the upgrade.
 		</span><span class="kw">let </span>upgrade_block = current_block.saturating_add(config.validation_upgrade_delay);
@@ -4182,7 +4201,14 @@
 	) -&gt; Weight {
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads(<span class="number">1</span>);
 
-		<span class="comment">// Enacting this should be prevented by the `can_schedule_upgrade`
+		<span class="comment">// Should be prevented by checks in `schedule_code_upgrade_external`
+		</span><span class="kw">let </span>new_code_len = new_code.<span class="number">0</span>.len();
+		<span class="kw">if </span>new_code_len &lt; MIN_CODE_SIZE <span class="kw">as </span>usize || new_code_len &gt; cfg.max_code_size <span class="kw">as </span>usize {
+			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;attempted to schedule an upgrade with invalid new validation code&quot;</span>,);
+			<span class="kw">return </span>weight
+		}
+
+		<span class="comment">// Enacting this should be prevented by the `can_upgrade_validation_code`
 		</span><span class="kw">if </span>FutureCodeHash::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>id) {
 			<span class="comment">// This branch should never be reached. Signalling an upgrade is disallowed for a para
 			// that already has one upgrade scheduled.

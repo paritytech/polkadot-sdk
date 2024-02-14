@@ -1931,6 +1931,9 @@
 <a href="#1931" id="1931">1931</a>
 <a href="#1932" id="1932">1932</a>
 <a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2294,6 +2297,9 @@
 
 <span class="doccomment">/// The key type ID for parachain assignment key.
 </span><span class="kw">pub const </span>ASSIGNMENT_KEY_TYPE_ID: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;asgn&quot;</span>);
+
+<span class="doccomment">/// Compressed or not the wasm blob can never be less than 9 bytes.
+</span><span class="kw">pub const </span>MIN_CODE_SIZE: u32 = <span class="number">9</span>;
 
 <span class="doccomment">/// Maximum compressed code size we support right now.
 /// At the moment we have runtime upgrade on chain, which restricts scalability severely. If we want
