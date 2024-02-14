@@ -50,7 +50,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
-			fungible::{hold, Balanced, Credit, Mutate},
+			fungible::{Balanced, Credit, Mutate},
 			EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
@@ -70,9 +70,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Currency used to pay for Coretime.
-		type Currency: Mutate<Self::AccountId>
-			+ hold::Mutate<Self::AccountId>
-			+ Balanced<Self::AccountId>;
+		type Currency: Mutate<Self::AccountId> + Balanced<Self::AccountId>;
 
 		/// The origin test needed for administrating this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
