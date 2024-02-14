@@ -78,6 +78,13 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -112,6 +119,9 @@
 	<span class="doccomment">/// Wait-for-continue event not generated.
 	</span><span class="attr">#[error(<span class="string">&quot;Wait for continue event was not generated for the subscription&quot;</span>)]
 	</span>InvalidContinue,
+	<span class="doccomment">/// Received duplicate hashes for the `chainHead_unpin` method.
+	</span><span class="attr">#[error(<span class="string">&quot;Received duplicate hashes for the `chainHead_unpin` method&quot;</span>)]
+	</span>InvalidDuplicateHashes,
 	<span class="doccomment">/// Invalid parameter provided to the RPC method.
 	</span><span class="attr">#[error(<span class="string">&quot;Invalid parameter: {0}&quot;</span>)]
 	</span>InvalidParam(String),
@@ -129,6 +139,8 @@
 	</span><span class="kw">pub const </span>INVALID_RUNTIME_CALL: i32 = -<span class="number">32802</span>;
 	<span class="doccomment">/// Wait-for-continue event not generated.
 	</span><span class="kw">pub const </span>INVALID_CONTINUE: i32 = -<span class="number">32803</span>;
+	<span class="doccomment">/// Received duplicate hashes for the `chainHead_unpin` method.
+	</span><span class="kw">pub const </span>INVALID_DUPLICATE_HASHES: i32 = -<span class="number">32804</span>;
 }
 
 <span class="doccomment">/// General purpose errors, as defined in
@@ -151,6 +163,8 @@
 				ErrorObject::owned(rpc_spec_v2::INVALID_RUNTIME_CALL, msg, <span class="prelude-val">None</span>::&lt;()&gt;),
 			Error::InvalidContinue =&gt;
 				ErrorObject::owned(rpc_spec_v2::INVALID_CONTINUE, msg, <span class="prelude-val">None</span>::&lt;()&gt;),
+			Error::InvalidDuplicateHashes =&gt;
+				ErrorObject::owned(rpc_spec_v2::INVALID_DUPLICATE_HASHES, msg, <span class="prelude-val">None</span>::&lt;()&gt;),
 			Error::InvalidParam(<span class="kw">_</span>) =&gt;
 				ErrorObject::owned(json_rpc_spec::INVALID_PARAM_ERROR, msg, <span class="prelude-val">None</span>::&lt;()&gt;),
 			Error::InternalError(<span class="kw">_</span>) =&gt;

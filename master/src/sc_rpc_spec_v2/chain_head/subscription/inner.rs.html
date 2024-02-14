@@ -1370,6 +1370,92 @@
 <a href="#1370" id="1370">1370</a>
 <a href="#1371" id="1371">1371</a>
 <a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
+<a href="#1374" id="1374">1374</a>
+<a href="#1375" id="1375">1375</a>
+<a href="#1376" id="1376">1376</a>
+<a href="#1377" id="1377">1377</a>
+<a href="#1378" id="1378">1378</a>
+<a href="#1379" id="1379">1379</a>
+<a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
+<a href="#1386" id="1386">1386</a>
+<a href="#1387" id="1387">1387</a>
+<a href="#1388" id="1388">1388</a>
+<a href="#1389" id="1389">1389</a>
+<a href="#1390" id="1390">1390</a>
+<a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
+<a href="#1408" id="1408">1408</a>
+<a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
+<a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
+<a href="#1425" id="1425">1425</a>
+<a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1394,7 +1480,7 @@
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="kw">use </span>std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	sync::{atomic::AtomicBool, Arc},
 	time::{Duration, Instant},
 };
@@ -2122,11 +2208,27 @@
 		}
 	}
 
+	<span class="doccomment">/// Ensure the provided hashes are unique.
+	</span><span class="kw">fn </span>ensure_hash_uniqueness(
+		hashes: <span class="kw">impl </span>IntoIterator&lt;Item = Block::Hash&gt; + Clone,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubscriptionManagementError&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>set = HashSet::new();
+		hashes.into_iter().try_for_each(|hash| {
+			<span class="kw">if </span>!set.insert(hash) {
+				<span class="prelude-val">Err</span>(SubscriptionManagementError::DuplicateHashes)
+			} <span class="kw">else </span>{
+				<span class="prelude-val">Ok</span>(())
+			}
+		})
+	}
+
 	<span class="kw">pub fn </span>unpin_blocks(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		sub_id: <span class="kw-2">&amp;</span>str,
 		hashes: <span class="kw">impl </span>IntoIterator&lt;Item = Block::Hash&gt; + Clone,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubscriptionManagementError&gt; {
+		<span class="self">Self</span>::ensure_hash_uniqueness(hashes.clone())<span class="question-mark">?</span>;
+
 		<span class="kw">let </span><span class="prelude-val">Some</span>(sub) = <span class="self">self</span>.subs.get_mut(sub_id) <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(SubscriptionManagementError::SubscriptionAbsent)
 		};
@@ -2355,6 +2457,76 @@
 		</span><span class="macro">assert_eq!</span>(sub_state.unregister_block(hash), <span class="bool-val">false</span>);
 		<span class="kw">let </span>block_state = sub_state.blocks.get(<span class="kw-2">&amp;</span>hash);
 		<span class="macro">assert!</span>(block_state.is_none());
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>unpin_duplicate_hashes() {
+		<span class="kw">let </span>(backend, <span class="kw-2">mut </span>client) = init_backend();
+		<span class="kw">let </span>block = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(<span class="number">0</span>)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		<span class="kw">let </span>hash_1 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		<span class="kw">let </span>block = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
+			.on_parent_block(hash_1)
+			.with_parent_block_number(<span class="number">1</span>)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		<span class="kw">let </span>hash_2 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		<span class="kw">let </span>block = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
+			.on_parent_block(hash_2)
+			.with_parent_block_number(<span class="number">2</span>)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		<span class="kw">let </span>hash_3 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+
+		<span class="kw">let </span><span class="kw-2">mut </span>subs =
+			SubscriptionsInner::new(<span class="number">10</span>, Duration::from_secs(<span class="number">10</span>), MAX_OPERATIONS_PER_SUB, backend);
+		<span class="kw">let </span>id_1 = <span class="string">&quot;abc&quot;</span>.to_string();
+		<span class="kw">let </span>id_2 = <span class="string">&quot;abcd&quot;</span>.to_string();
+
+		<span class="comment">// Pin all blocks for the first subscription.
+		</span><span class="kw">let </span>_stop = subs.insert_subscription(id_1.clone(), <span class="bool-val">true</span>).unwrap();
+		<span class="macro">assert_eq!</span>(subs.pin_block(<span class="kw-2">&amp;</span>id_1, hash_1).unwrap(), <span class="bool-val">true</span>);
+		<span class="macro">assert_eq!</span>(subs.pin_block(<span class="kw-2">&amp;</span>id_1, hash_2).unwrap(), <span class="bool-val">true</span>);
+		<span class="macro">assert_eq!</span>(subs.pin_block(<span class="kw-2">&amp;</span>id_1, hash_3).unwrap(), <span class="bool-val">true</span>);
+
+		<span class="comment">// Pin only block 2 for the second subscription.
+		</span><span class="kw">let </span>_stop = subs.insert_subscription(id_2.clone(), <span class="bool-val">true</span>).unwrap();
+		<span class="macro">assert_eq!</span>(subs.pin_block(<span class="kw-2">&amp;</span>id_2, hash_2).unwrap(), <span class="bool-val">true</span>);
+
+		<span class="comment">// Check reference count.
+		</span><span class="macro">assert_eq!</span>(<span class="kw-2">*</span>subs.global_blocks.get(<span class="kw-2">&amp;</span>hash_1).unwrap(), <span class="number">1</span>);
+		<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>subs.global_blocks.get(<span class="kw-2">&amp;</span>hash_2).unwrap(), <span class="number">2</span>);
+		<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>subs.global_blocks.get(<span class="kw-2">&amp;</span>hash_3).unwrap(), <span class="number">1</span>);
+
+		<span class="comment">// Unpin the same block twice.
+		</span><span class="kw">let </span>err = subs.unpin_blocks(<span class="kw-2">&amp;</span>id_1, <span class="macro">vec!</span>[hash_1, hash_1, hash_2, hash_2]).unwrap_err();
+		<span class="macro">assert_eq!</span>(err, SubscriptionManagementError::DuplicateHashes);
+
+		<span class="comment">// Check reference count must be unaltered.
+		</span><span class="macro">assert_eq!</span>(<span class="kw-2">*</span>subs.global_blocks.get(<span class="kw-2">&amp;</span>hash_1).unwrap(), <span class="number">1</span>);
+		<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>subs.global_blocks.get(<span class="kw-2">&amp;</span>hash_2).unwrap(), <span class="number">2</span>);
+		<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>subs.global_blocks.get(<span class="kw-2">&amp;</span>hash_3).unwrap(), <span class="number">1</span>);
+
+		<span class="comment">// Unpin the blocks correctly.
+		</span>subs.unpin_blocks(<span class="kw-2">&amp;</span>id_1, <span class="macro">vec!</span>[hash_1, hash_2]).unwrap();
+		<span class="macro">assert_eq!</span>(subs.global_blocks.get(<span class="kw-2">&amp;</span>hash_1), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>subs.global_blocks.get(<span class="kw-2">&amp;</span>hash_2).unwrap(), <span class="number">1</span>);
+		<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>subs.global_blocks.get(<span class="kw-2">&amp;</span>hash_3).unwrap(), <span class="number">1</span>);
 	}
 
 	<span class="attr">#[test]

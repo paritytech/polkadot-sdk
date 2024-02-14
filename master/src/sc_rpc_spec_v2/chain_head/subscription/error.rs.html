@@ -64,6 +64,10 @@
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -104,6 +108,9 @@
 	<span class="doccomment">/// The specified subscription ID is not present.
 	</span><span class="attr">#[error(<span class="string">&quot;Subscription is absent&quot;</span>)]
 	</span>SubscriptionAbsent,
+	<span class="doccomment">/// The unpin method was called with duplicate hashes.
+	</span><span class="attr">#[error(<span class="string">&quot;Duplicate hashes&quot;</span>)]
+	</span>DuplicateHashes,
 	<span class="doccomment">/// Custom error.
 	</span><span class="attr">#[error(<span class="string">&quot;Subscription error {0}&quot;</span>)]
 	</span>Custom(String),
@@ -118,7 +125,8 @@
 			</span>(<span class="self">Self</span>::Blockchain(<span class="kw">_</span>), <span class="self">Self</span>::Blockchain(<span class="kw">_</span>)) |
 			(<span class="self">Self</span>::BlockHashAbsent, <span class="self">Self</span>::BlockHashAbsent) |
 			(<span class="self">Self</span>::BlockHeaderAbsent, <span class="self">Self</span>::BlockHeaderAbsent) |
-			(<span class="self">Self</span>::SubscriptionAbsent, <span class="self">Self</span>::SubscriptionAbsent) =&gt; <span class="bool-val">true</span>,
+			(<span class="self">Self</span>::SubscriptionAbsent, <span class="self">Self</span>::SubscriptionAbsent) |
+			(<span class="self">Self</span>::DuplicateHashes, <span class="self">Self</span>::DuplicateHashes) =&gt; <span class="bool-val">true</span>,
 			(<span class="self">Self</span>::Custom(lhs), <span class="self">Self</span>::Custom(rhs)) =&gt; lhs == rhs,
 			<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 		}
