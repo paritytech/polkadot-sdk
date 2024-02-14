@@ -24,12 +24,6 @@ echo -e "Sleeping 90s before starting relayer ...\n"
 sleep 90
 ${BASH_SOURCE%/*}/../../environments/rococo-westend/start_relayer.sh $rococo_dir $westend_dir relayer_pid
 
-# Sometimes the relayer syncs 2 parachain heads in the begining leading to test failures.
-# We do this as a workaround.
-# TODO: investigate. Not sure if it's expected.
-echo -e "Sleeping 90s before runing the tests ...\n"
-sleep 90
-
 run_zndsl ${BASH_SOURCE%/*}/rococo-to-westend.zndsl $westend_dir
 run_zndsl ${BASH_SOURCE%/*}/westend-to-rococo.zndsl $rococo_dir
 
