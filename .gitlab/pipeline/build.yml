@@ -314,8 +314,9 @@ build-linux-substrate:
     # tldr: we need to checkout the branch HEAD explicitly because of our dynamic versioning approach while building the substrate binary
     # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
     - git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA"
+    - !reference [.forklift-cache, before_script]
   script:
-    - WASM_BUILD_NO_COLOR=1 time cargo build --locked --release -p staging-node-cli
+    - time WASM_BUILD_NO_COLOR=1 cargo build --locked --release -p staging-node-cli
     - mv $CARGO_TARGET_DIR/release/substrate-node ./artifacts/substrate/substrate
     - echo -n "Substrate version = "
     - if [ "${CI_COMMIT_TAG}" ]; then
@@ -352,9 +353,10 @@ build-runtimes-polkavm:
     CARGO_TARGET_DIR: "$CI_PROJECT_DIR/target"
   before_script:
     - mkdir -p ./artifacts/subkey
+    - !reference [.forklift-cache, before_script]
   script:
     - cd ./substrate/bin/utils/subkey
-    - SKIP_WASM_BUILD=1 time cargo build --locked --release
+    - time SKIP_WASM_BUILD=1 cargo build --locked --release
     # - cd -
     # - mv $CARGO_TARGET_DIR/release/subkey ./artifacts/subkey/.
     # - echo -n "Subkey version = "
@@ -393,3 +395,21 @@ build-subkey-linux:
 #   after_script: [""]
 #   tags:
 #     - osx
+
+# bridges
+
+# we need some non-binary artifacts in our bridges+zombienet image
+prepare-bridges-zombienet-artifacts:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  before_script:
+    - mkdir -p ./artifacts/bridges-polkadot-sdk/bridges
+    - mkdir -p ./artifacts/bridges-polkadot-sdk/cumulus/zombienet
+  script:
+    - cp -r bridges/zombienet ./artifacts/bridges-polkadot-sdk/bridges/zombienet
+    - cp -r cumulus/scripts ./artifacts/bridges-polkadot-sdk/cumulus/scripts
+    - cp -r cumulus/zombienet/bridge-hubs ./artifacts/bridges-polkadot-sdk/cumulus/zombienet/bridge-hubs
