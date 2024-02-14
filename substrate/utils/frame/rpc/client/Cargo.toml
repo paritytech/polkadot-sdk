@@ -20,7 +20,7 @@ sc-rpc-api = { path = "../../../../client/rpc-api" }
 async-trait = "0.1.74"
 serde = "1"
 sp-runtime = { path = "../../../../primitives/runtime" }
-log = "0.4"
+log = { workspace = true, default-features = true }
 
 [dev-dependencies]
 tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread", "sync"] }
