@@ -23,9 +23,8 @@ use crate as pallet_statement;
 use frame_support::{
 	derive_impl, ord_parameter_types,
 	traits::{ConstU32, ConstU64},
-	weights::constants::RocksDbWeight,
 };
-use sp_core::Pair;
+use sp_core::{Pair};
 use sp_runtime::{
 	traits::IdentityLookup,
 	AccountId32, BuildStorage,

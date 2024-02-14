@@ -23,16 +23,11 @@ use crate as scheduler;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU32, ConstU64, Contains, EitherOfDiverse, EqualPrivilegeOnly, OnFinalize, OnInitialize,
+		ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly, OnFinalize, OnInitialize,
 	},
-	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, Perbill,
-};
+use sp_runtime::{BuildStorage, Perbill};
 
 // Logger module to track execution.
 #[frame_support::pallet]
