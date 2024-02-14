@@ -482,7 +482,6 @@
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
 <a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 
@@ -673,7 +672,6 @@
 			<span class="kw">let </span>channel_id: ChannelId = origin.into();
 
 			<span class="kw">let </span>nonce = snowbridge_pallet_outbound_queue::Nonce::&lt;Runtime&gt;::try_get(channel_id);
-			<span class="macro">dbg!</span>(<span class="kw-2">&amp;</span>nonce);
 			<span class="macro">assert_ok!</span>(nonce);
 			<span class="macro">assert_eq!</span>(nonce.unwrap(), <span class="number">1</span>);
 
