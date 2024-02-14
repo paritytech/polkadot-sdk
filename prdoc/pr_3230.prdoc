@@ -6,9 +6,15 @@ title: rpc server: remove prometheus metrics `substrate_rpc_requests_started/fin
 doc:
   - audience: Node Operator
     description: |
-    This commit updates the jsonrpc library to v0.22 and it has the following breaking changes:
+    This updates the jsonrpc library to v0.22.
+
+    Breaking changes:
       - Remove prometheus RPC metrics `substrate_rpc_requests_started` and `substrate_rpc_requests_finished`.
       - The RPC server now disconnects inactive peers that didn't acknowledge WebSocket
       pings more than three times in time.
+
+    Added:
+      - Add prometheus RPC `substrate_rpc_sessions_time` to collect how long time each WebSocket
+      session take.
 
 crates: []
