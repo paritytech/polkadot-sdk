@@ -160,7 +160,7 @@ fn parse_hex_param(param: String) -> Result<Vec<u8>, ChainHeadRpcError> {
 	}
 }
 
-/// Ensure the provide hashes are unique.
+/// Ensure the provided hashes are unique.
 fn ensure_hash_uniqueness<Block: BlockT>(hashes: &[Block::Hash]) -> Result<(), ChainHeadRpcError> {
 	let mut set = HashSet::new();
 	hashes.iter().try_for_each(|hash| {
