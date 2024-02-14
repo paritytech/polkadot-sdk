@@ -121,17 +121,27 @@ pub struct TestConfiguration {
 	pub num_blocks: usize,
 }
 
-/// Helper struct for authority related state.
-#[derive(Clone)]
-pub struct TestAuthorities {
-	pub keyring: Keyring,
-	pub validator_public: Vec<ValidatorId>,
-	pub validator_authority_id: Vec<AuthorityDiscoveryId>,
-	pub validator_babe_id: Vec<AuthorityId>,
-	pub validator_assignment_id: Vec<AssignmentId>,
-	pub key_seeds: Vec<String>,
-	pub peer_ids: Vec<PeerId>,
-	pub peer_id_to_authority: HashMap<PeerId, AuthorityDiscoveryId>,
+impl Default for TestConfiguration {
+	fn default() -> Self {
+		Self {
+			n_validators: Default::default(),
+			n_cores: Default::default(),
+			needed_approvals: default_needed_approvals(),
+			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
+			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
+			n_delay_tranches: default_n_delay_tranches(),
+			no_show_slots: default_no_show_slots(),
+			max_validators_per_core: default_backing_group_size(),
+			min_pov_size: default_pov_size(),
+			max_pov_size: default_pov_size(),
+			pov_sizes: Default::default(),
+			peer_bandwidth: default_bandwidth(),
+			bandwidth: default_bandwidth(),
+			latency: Default::default(),
+			connectivity: default_connectivity(),
+			num_blocks: Default::default(),
+		}
+	}
 }
 
 impl TestConfiguration {
@@ -187,6 +197,19 @@ impl TestConfiguration {
 			peer_id_to_authority,
 		}
 	}
+}
+
+/// Helper struct for authority related state.
+#[derive(Clone)]
+pub struct TestAuthorities {
+	pub keyring: Keyring,
+	pub validator_public: Vec<ValidatorId>,
+	pub validator_authority_id: Vec<AuthorityDiscoveryId>,
+	pub validator_babe_id: Vec<AuthorityId>,
+	pub validator_assignment_id: Vec<AssignmentId>,
+	pub key_seeds: Vec<String>,
+	pub peer_ids: Vec<PeerId>,
+	pub peer_id_to_authority: HashMap<PeerId, AuthorityDiscoveryId>,
 }
 
 /// Sample latency (in milliseconds) from a normal distribution with parameters

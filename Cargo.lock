@@ -12352,6 +12352,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-bench",
  "rand",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
