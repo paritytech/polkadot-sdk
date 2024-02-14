@@ -1714,7 +1714,7 @@ async fn unpin_duplicate_hashes() {
 
 	// Can unpin blocks.
 	let _res: () = api
-		.call("chainHead_unstable_unpin", rpc_params![&sub_id, &block_hash, &block_hash_2])
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, vec![&block_hash, &block_hash_2]])
 		.await
 		.unwrap();
 }
