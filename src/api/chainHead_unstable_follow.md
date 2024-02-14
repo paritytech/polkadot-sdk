@@ -74,7 +74,7 @@ The `initialized` event is always the first event to be sent back, and is only e
 
 `finalizedBlockHashes` contains a list of finalized blocks, of at least one element, ordered by increasing block number. The last element in this list is the current finalized block.
 
-**Note**: The RPC server is encouraged to include around 1 minute of finalized blocks in this list. These blocks are also pinned, and the user is responsible of unpinning. This information is useful for the JSON-RPC clients that resubscribe to the `chainHead_unstable_follow` function after a disconnection.
+**Note**: The RPC server is encouraged to include around 1 minute of finalized blocks in this list. These blocks are also pinned, and the user is responsible for unpinning them. This information is useful for the JSON-RPC clients that resubscribe to the `chainHead_unstable_follow` function after a disconnection.
 
 `finalizedBlockRuntime` is present if and only if `withRuntime`, the parameter to this function, is `true`. It coresponds to the last finalized block from the `finalizedBlockHashes` list.
 
