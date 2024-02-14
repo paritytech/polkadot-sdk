@@ -1313,10 +1313,8 @@ mod tests {
 		traits::{ConstU32, ConstU64, OnInitialize},
 	};
 	use frame_system::ensure_signed;
-	use sp_core::H256;
 	use sp_runtime::{
 		testing::Header,
-		traits::{BlakeTwo256, IdentityLookup},
 		BuildStorage,
 	};
 	use substrate_test_utils::assert_eq_uvec;

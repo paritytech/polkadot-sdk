@@ -27,13 +27,12 @@ use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, Pays},
 	error::BadOrigin,
 	parameter_types, storage,
-	traits::{ConstU32, ConstU64, Contains},
+	traits::{ConstU64, Contains},
 	weights::Weight,
 };
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
-use sp_core::H256;
 use sp_runtime::{
-	traits::{BlakeTwo256, Dispatchable, Hash, IdentityLookup},
+	traits::{BlakeTwo256, Dispatchable, Hash},
 	BuildStorage, DispatchError, TokenError,
 };
 
