@@ -927,6 +927,119 @@ fn set_named_retry_works() {
 }
 
 #[test]
+fn retry_periodic_full_cycle() {
+	new_test_ext().execute_with(|| {
+		// tasks fail after we pass block 1000
+		Threshold::<Test>::put((1, 1000));
+		// task 42 at #4, every 100 blocks, 4 times
+		assert_ok!(Scheduler::do_schedule_named(
+			[42u8; 32],
+			DispatchTime::At(10),
+			Some((100, 4)),
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+
+		assert!(Agenda::<Test>::get(10)[0].is_some());
+		// 42 will be retried 2 times every block
+		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 2, 1));
+		assert_eq!(Retries::<Test>::iter().count(), 1);
+		run_to_block(9);
+		assert!(logger::log().is_empty());
+		assert!(Agenda::<Test>::get(10)[0].is_some());
+		// 42 runs successfully once, it will run again at block 110
+		run_to_block(10);
+		assert!(Agenda::<Test>::get(10).is_empty());
+		assert!(Agenda::<Test>::get(110)[0].is_some());
+		assert_eq!(Retries::<Test>::iter().count(), 1);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+		// nothing changed
+		run_to_block(109);
+		assert!(Agenda::<Test>::get(110)[0].is_some());
+		// original task still has 2 remaining retries
+		assert_eq!(Retries::<Test>::get((110, 0)).unwrap().remaining, 2);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+		// make 42 fail next block
+		Threshold::<Test>::put((1, 2));
+		// 42 will fail because we're outside the set threshold (block number in `1..2`), so it
+		// should be retried next block (at block 111)
+		run_to_block(110);
+		// should be queued for the normal period of 100 blocks
+		assert!(Agenda::<Test>::get(210)[0].is_some());
+		// should also be queued to be retried next block
+		assert!(Agenda::<Test>::get(111)[0].is_some());
+		// 42 retry clone has consumed one retry attempt
+		assert_eq!(Retries::<Test>::get((111, 0)).unwrap().remaining, 1);
+		// 42 original task still has the original remaining attempts
+		assert_eq!(Retries::<Test>::get((210, 0)).unwrap().remaining, 2);
+		assert_eq!(Retries::<Test>::iter().count(), 2);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+		// 42 retry will fail again
+		run_to_block(111);
+		// should still be queued for the normal period
+		assert!(Agenda::<Test>::get(210)[0].is_some());
+		// should be queued to be retried next block
+		assert!(Agenda::<Test>::get(112)[0].is_some());
+		// 42 has consumed another retry attempt
+		assert_eq!(Retries::<Test>::get((210, 0)).unwrap().remaining, 2);
+		assert_eq!(Retries::<Test>::get((112, 0)).unwrap().remaining, 0);
+		assert_eq!(Retries::<Test>::iter().count(), 2);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+		// 42 retry will fail again
+		run_to_block(112);
+		// should still be queued for the normal period
+		assert!(Agenda::<Test>::get(210)[0].is_some());
+		// 42 retry clone ran out of retries, must have been evicted
+		assert_eq!(Agenda::<Test>::iter().count(), 1);
+
+		// advance
+		run_to_block(209);
+		// should still be queued for the normal period
+		assert!(Agenda::<Test>::get(210)[0].is_some());
+		// 42 retry clone ran out of retries, must have been evicted
+		assert_eq!(Agenda::<Test>::iter().count(), 1);
+		// 42 should fail again and should spawn another retry clone
+		run_to_block(210);
+		// should be queued for the normal period of 100 blocks
+		assert!(Agenda::<Test>::get(310)[0].is_some());
+		// should also be queued to be retried next block
+		assert!(Agenda::<Test>::get(211)[0].is_some());
+		// 42 retry clone has consumed one retry attempt
+		assert_eq!(Retries::<Test>::get((211, 0)).unwrap().remaining, 1);
+		// 42 original task still has the original remaining attempts
+		assert_eq!(Retries::<Test>::get((310, 0)).unwrap().remaining, 2);
+		assert_eq!(Retries::<Test>::iter().count(), 2);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+		// make 42 run successfully again
+		Threshold::<Test>::put((1, 1000));
+		// 42 retry clone should now succeed
+		run_to_block(211);
+		// should be queued for the normal period of 100 blocks
+		assert!(Agenda::<Test>::get(310)[0].is_some());
+		// retry was successful, retry task should have been discarded
+		assert_eq!(Agenda::<Test>::iter().count(), 1);
+		// 42 original task still has the original remaining attempts
+		assert_eq!(Retries::<Test>::get((310, 0)).unwrap().remaining, 2);
+		assert_eq!(Retries::<Test>::iter().count(), 1);
+		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32)]);
+
+		// fast forward to the last periodic run of 42
+		run_to_block(310);
+		// 42 was successful, the period ended as this was the 4th scheduled periodic run so 42 must
+		// have been discarded
+		assert_eq!(Agenda::<Test>::iter().count(), 0);
+		// agenda is empty so no retries should exist
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32), (root(), 42u32)]);
+	});
+}
+
+#[test]
 fn reschedule_works() {
 	new_test_ext().execute_with(|| {
 		let call =
