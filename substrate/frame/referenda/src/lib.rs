@@ -433,6 +433,10 @@ pub mod pallet {
 			Self::do_try_state()?;
 			Ok(())
 		}
+
+		fn integrity_test() {
+			Self::do_integrity_test()
+		}
 	}
 
 	#[pallet::call]
@@ -1302,6 +1306,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		if let Some(hash) = MetadataOf::<T, I>::take(index) {
 			Self::deposit_event(Event::<T, I>::MetadataCleared { index, hash });
 		}
+	}
+
+	#[cfg(any(feature = "std", test))]
+	fn do_integrity_test() {
+		T::Tracks::check_integrity().expect("Track configuration is not valid.");
 	}
 
 	/// Ensure the correctness of the state of this pallet.
