@@ -155,7 +155,12 @@ pub trait TracksInfo<Balance, Moment> {
 
 	/// Return the track info for track `id`, by default this just looks it up in `Self::tracks()`.
 	fn info(id: Self::Id) -> Option<&'static TrackInfo<Balance, Moment>> {
-		Self::tracks().iter().find(|x| x.0 == id).map(|x| &x.1)
+		let tracks = Self::tracks();
+		let maybe_index = tracks.binary_search_by_key(&id, |t| t.0).ok()?;
+
+		tracks.get(maybe_index).map(|(_, info)| info)
+	}
+
 	/// Check assumptions about the static data that this trait provides.
 	fn check_integrity() -> Result<(), ()>
 	where
