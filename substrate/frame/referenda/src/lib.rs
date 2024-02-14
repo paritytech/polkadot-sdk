@@ -1310,7 +1310,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	#[cfg(any(feature = "std", test))]
 	fn do_integrity_test() {
-		T::Tracks::check_integrity().expect("Track configuration is not valid.");
+		T::Tracks::check_integrity().expect("Static tracks configuration is valid.");
 	}
 
 	/// Ensure the correctness of the state of this pallet.
