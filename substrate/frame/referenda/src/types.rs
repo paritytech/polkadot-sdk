@@ -684,4 +684,69 @@ mod tests {
 		assert_eq!(c.delay(pc(30).less_epsilon()), pc(100));
 		assert_eq!(c.delay(pc(0)), pc(100));
 	}
+
+	#[test]
+	fn tracks_integrity_check_detects_unsorted() {
+		use crate::mock::RuntimeOrigin;
+
+		pub struct BadTracksInfo;
+		impl TracksInfo<u64, u64> for BadTracksInfo {
+			type Id = u8;
+			type RuntimeOrigin = <RuntimeOrigin as OriginTrait>::PalletsOrigin;
+			fn tracks() -> &'static [(Self::Id, TrackInfo<u64, u64>)] {
+				static DATA: [(u8, TrackInfo<u64, u64>); 2] = [
+					(
+						1u8,
+						TrackInfo {
+							name: "root",
+							max_deciding: 1,
+							decision_deposit: 10,
+							prepare_period: 4,
+							decision_period: 4,
+							confirm_period: 2,
+							min_enactment_period: 4,
+							min_approval: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(50),
+								ceil: Perbill::from_percent(100),
+							},
+							min_support: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(0),
+								ceil: Perbill::from_percent(100),
+							},
+						},
+					),
+					(
+						0u8,
+						TrackInfo {
+							name: "none",
+							max_deciding: 3,
+							decision_deposit: 1,
+							prepare_period: 2,
+							decision_period: 2,
+							confirm_period: 1,
+							min_enactment_period: 2,
+							min_approval: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(95),
+								ceil: Perbill::from_percent(100),
+							},
+							min_support: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(90),
+								ceil: Perbill::from_percent(100),
+							},
+						},
+					),
+				];
+				&DATA[..]
+			}
+			fn track_for(_: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
+				unimplemented!()
+			}
+		}
+
+		assert!(BadTracksInfo::check_integrity().is_err(), "Should detect unsorted tracks.");
+	}
 }
