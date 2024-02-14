@@ -18,7 +18,7 @@
 //! programs. Each program is a series of instructions, which get executed one after the other by
 //! the virtual machine. These instructions aim to encompass all major things users typically do in
 //! consensus systems. There are instructions on asset transferring, teleporting, locking, among
-//! others. New instructions are added via the [RFC process](https://github.com/paritytech/xcm-format/blob/master/proposals/0032-process.md).
+//! others. New instructions are added and changes to the XCVM are made via the [RFC process](https://github.com/paritytech/xcm-format/blob/master/proposals/0032-process.md).
 //!
 //! ## In Polkadot SDK
 //!
