@@ -644,7 +644,7 @@ mod tests {
 	impl<Context> TransactionExtension<TestCall, Context> for DummyExtension {
 		type Val = ();
 		type Pre = ();
-		impl_tx_ext_default!(TestCall; Context; implicit validate prepare);
+		impl_tx_ext_default!(TestCall; Context; validate prepare);
 	}
 
 	type Ex = UncheckedExtrinsic<TestAccountId, TestCall, TestSig, DummyExtension>;

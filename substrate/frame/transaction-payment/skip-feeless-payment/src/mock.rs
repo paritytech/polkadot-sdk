@@ -48,7 +48,7 @@ impl TransactionExtensionBase for DummyExtension {
 impl<C> TransactionExtension<RuntimeCall, C> for DummyExtension {
 	type Val = ();
 	type Pre = ();
-	impl_tx_ext_default!(RuntimeCall; C; implicit, validate);
+	impl_tx_ext_default!(RuntimeCall; C; validate);
 	fn prepare(
 		self,
 		_val: Self::Val,
