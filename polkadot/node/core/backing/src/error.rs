@@ -63,12 +63,6 @@ pub enum Error {
 	#[error("Fetching validation code by hash failed {0:?}, {1:?}")]
 	FetchValidationCode(ValidationCodeHash, RuntimeApiError),
 
-	#[error("Fetching validator groups failed")]
-	FetchValidatorGroups(RuntimeApiError),
-
-	#[error("Fetching availability cores failed")]
-	FetchAvailabilityCores(RuntimeApiError),
-
 	#[error("Fetching Runtime API version failed {0:?}")]
 	FetchRuntimeApiVersion(RuntimeApiError),
 
