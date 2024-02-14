@@ -10,4 +10,4 @@ doc:
       Conversion from v4::NetworkId to v3::NetworkId is now fallible because of this extra variant.
 
 crates:
-  - staging-xcm
+  - name: "staging-xcm"
