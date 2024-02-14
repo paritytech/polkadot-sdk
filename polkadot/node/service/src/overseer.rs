@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{AuthorityDiscoveryApi, Block, Error, Hash, IsParachainNode, Registry};
-use polkadot_node_subsystem_types::DefaultSubsystemClient;
+use polkadot_node_subsystem_types::{DefaultSubsystemClient, RuntimeApiSubsystemClient};
 use polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemError};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_core::traits::SpawnNamed;
@@ -74,14 +74,16 @@ pub use polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsyste
 pub use polkadot_node_core_provisioner::ProvisionerSubsystem;
 pub use polkadot_node_core_pvf_checker::PvfCheckerSubsystem;
 pub use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
-use polkadot_node_subsystem_util::rand::{self, SeedableRng};
+use polkadot_node_subsystem::OverseerSubsystemContext;
+use polkadot_node_subsystem_util::{
+	rand::{self, SeedableRng},
+	Subsystem,
+};
 pub use polkadot_statement_distribution::StatementDistributionSubsystem;
 
 /// Arguments passed for overseer construction.
 pub struct OverseerGenArgs<'a, Spawner, RuntimeClient>
 where
-	RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
-	RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
 	Spawner: 'static + SpawnNamed + Clone + Unpin,
 {
 	/// Runtime client generic, providing the `ProvieRuntimeApi` trait besides others.
@@ -89,7 +91,9 @@ where
 	/// Underlying network service implementation.
 	pub network_service: Arc<sc_network::NetworkService<Block, Hash>>,
 	/// Underlying syncing service implementation.
-	pub sync_service: Arc<sc_network_sync::SyncingService<Block>>,
+	pub sync_service: Arc<sc_network_sync::SyncingService<Block>>, /* TODOR , Box<dyn
+	                                                                * sp_consensus::SyncOracle +
+	                                                                * Send> */
 	/// Underlying authority discovery service.
 	pub authority_discovery_service: AuthorityDiscoveryService,
 	/// Collations request receiver for network protocol v1.
@@ -351,8 +355,43 @@ where
 	Ok(builder)
 }
 
+pub type InitializedCollatorOverseerBuilder<Spawner, SubsystemClient, ChainApi> =
+	InitializedOverseerBuilder<
+		SpawnGlue<Spawner>,
+		Arc<SubsystemClient>,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		AvailabilityRecoverySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		RuntimeApiSubsystem<SubsystemClient>,
+		DummySubsystem,
+		NetworkBridgeRxSubsystem<
+			Arc<sc_network::NetworkService<Block, Hash>>,
+			AuthorityDiscoveryService,
+		>,
+		NetworkBridgeTxSubsystem<
+			Arc<sc_network::NetworkService<Block, Hash>>,
+			AuthorityDiscoveryService,
+		>,
+		ChainApi,
+		CollationGenerationSubsystem,
+		CollatorProtocolSubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		ProspectiveParachainsSubsystem,
+	>;
+
 /// Obtain a prepared collator `Overseer`, that is initialized with all default values.
-pub fn collator_overseer_builder<Spawner, RuntimeClient>(
+pub fn generic_collator_overseer_builder<Spawner, SubsystemClient, ChainApi>(
 	OverseerGenArgs {
 		runtime_client,
 		network_service,
@@ -367,63 +406,26 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		overseer_message_channel_capacity_override,
 		req_protocol_names,
 		peerset_protocol_names,
-		offchain_transaction_pool_factory,
+		offchain_transaction_pool_factory: _,
 		notification_services,
-	}: OverseerGenArgs<Spawner, RuntimeClient>,
-) -> Result<
-	InitializedOverseerBuilder<
-		SpawnGlue<Spawner>,
-		Arc<DefaultSubsystemClient<RuntimeClient>>,
-		DummySubsystem,
-		DummySubsystem,
-		DummySubsystem,
-		DummySubsystem,
-		DummySubsystem,
-		AvailabilityRecoverySubsystem,
-		DummySubsystem,
-		DummySubsystem,
-		DummySubsystem,
-		RuntimeApiSubsystem<DefaultSubsystemClient<RuntimeClient>>,
-		DummySubsystem,
-		NetworkBridgeRxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
-			AuthorityDiscoveryService,
-		>,
-		NetworkBridgeTxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
-			AuthorityDiscoveryService,
-		>,
-		ChainApiSubsystem<RuntimeClient>,
-		CollationGenerationSubsystem,
-		CollatorProtocolSubsystem,
-		DummySubsystem,
-		DummySubsystem,
-		DummySubsystem,
-		DummySubsystem,
-		DummySubsystem,
-		DummySubsystem,
-		ProspectiveParachainsSubsystem,
-	>,
-	Error,
->
+	}: OverseerGenArgs<Spawner, SubsystemClient>,
+	chain_api: ChainApi,
+) -> Result<InitializedCollatorOverseerBuilder<Spawner, SubsystemClient, ChainApi>, Error>
 where
-	RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
-	RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
 	Spawner: 'static + SpawnNamed + Clone + Unpin,
+	ChainApi: Subsystem<
+		OverseerSubsystemContext<polkadot_node_subsystem_types::messages::ChainApiMessage>,
+		SubsystemError,
+	>,
+	SubsystemClient: RuntimeApiSubsystemClient + std::marker::Sync + std::marker::Send + 'static,
 {
 	use polkadot_node_subsystem_util::metrics::Metrics;
 
-	let metrics = <OverseerMetrics as MetricsTrait>::register(registry)?;
 	let notification_sinks = Arc::new(Mutex::new(HashMap::new()));
 
 	let spawner = SpawnGlue(spawner);
 
 	let network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)?;
-
-	let runtime_api_client = Arc::new(DefaultSubsystemClient::new(
-		runtime_client.clone(),
-		offchain_transaction_pool_factory,
-	));
 
 	let builder = Overseer::builder()
 		.network_bridge_tx(NetworkBridgeTxSubsystem::new(
@@ -454,7 +456,7 @@ where
 		.candidate_backing(DummySubsystem)
 		.candidate_validation(DummySubsystem)
 		.pvf_checker(DummySubsystem)
-		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
+		.chain_api(chain_api)
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
 			let side = match is_parachain_node {
@@ -475,7 +477,7 @@ where
 		})
 		.provisioner(DummySubsystem)
 		.runtime_api(RuntimeApiSubsystem::new(
-			runtime_api_client.clone(),
+			runtime_client.clone(),
 			Metrics::register(registry)?,
 			spawner.clone(),
 		))
@@ -490,8 +492,8 @@ where
 		.activation_external_listeners(Default::default())
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
-		.supports_parachains(runtime_api_client)
-		.metrics(metrics)
+		.supports_parachains(runtime_client)
+		.metrics(Metrics::register(registry)?)
 		.spawner(spawner);
 
 	let builder = if let Some(capacity) = overseer_message_channel_capacity_override {
@@ -500,6 +502,65 @@ where
 		builder
 	};
 	Ok(builder)
+}
+
+/// Obtain a prepared collator `Overseer`, that is initialized with all default values.
+pub fn collator_overseer_builder<Spawner, RuntimeClient>(
+	OverseerGenArgs {
+		runtime_client,
+		network_service,
+		sync_service,
+		authority_discovery_service,
+		collation_req_v1_receiver,
+		collation_req_v2_receiver,
+		available_data_req_receiver,
+		registry,
+		spawner,
+		is_parachain_node,
+		overseer_message_channel_capacity_override,
+		req_protocol_names,
+		peerset_protocol_names,
+		offchain_transaction_pool_factory,
+		notification_services,
+	}: OverseerGenArgs<Spawner, RuntimeClient>,
+) -> Result<
+	InitializedCollatorOverseerBuilder<
+		Spawner,
+		DefaultSubsystemClient<RuntimeClient>,
+		ChainApiSubsystem<RuntimeClient>,
+	>,
+	Error,
+>
+where
+	RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
+	RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+	Spawner: 'static + SpawnNamed + Clone + Unpin,
+{
+	use polkadot_node_subsystem_util::metrics::Metrics;
+
+	let chain_api = ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?);
+	let runtime_client = Arc::new(DefaultSubsystemClient::new(
+		runtime_client,
+		offchain_transaction_pool_factory.clone(),
+	));
+	let args = OverseerGenArgs {
+		runtime_client,
+		network_service,
+		sync_service,
+		authority_discovery_service,
+		collation_req_v1_receiver,
+		collation_req_v2_receiver,
+		available_data_req_receiver,
+		registry,
+		spawner,
+		is_parachain_node,
+		overseer_message_channel_capacity_override,
+		req_protocol_names,
+		peerset_protocol_names,
+		offchain_transaction_pool_factory,
+		notification_services,
+	};
+	generic_collator_overseer_builder(args, chain_api)
 }
 
 /// Trait for the `fn` generating the overseer.
