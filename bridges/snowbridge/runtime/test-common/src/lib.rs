@@ -188,7 +188,6 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 			let channel_id: ChannelId = origin.into();
 
 			let nonce = snowbridge_pallet_outbound_queue::Nonce::<Runtime>::try_get(channel_id);
-			dbg!(&nonce);
 			assert_ok!(nonce);
 			assert_eq!(nonce.unwrap(), 1);
 
