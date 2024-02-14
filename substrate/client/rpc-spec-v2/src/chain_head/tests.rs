@@ -1618,6 +1618,108 @@ async fn follow_with_unpin() {
 }
 
 #[tokio::test]
+async fn unpin_duplicate_hashes() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let mut client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: 3,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+		},
+	)
+	.into_rpc();
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let sub_id = sub.subscription_id();
+	let sub_id = serde_json::to_string(&sub_id).unwrap();
+
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Ensure the imported block is propagated and pinned for this subscription.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	// Try to unpin duplicate hashes.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, vec![&block_hash, &block_hash]],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_DUPLICATE_HASHES && err.message() == "Received duplicate hashes for the `chainHead_unpin` method"
+	);
+
+	// Block tree:
+	//   finalized_block -> block -> block2
+	let block2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_hash_2 = format!("{:?}", block2.header.hash());
+	client.import(BlockOrigin::Own, block2.clone()).await.unwrap();
+
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	// Try to unpin duplicate hashes.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, vec![&block_hash, &block_hash_2, &block_hash]],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_DUPLICATE_HASHES && err.message() == "Received duplicate hashes for the `chainHead_unpin` method"
+	);
+
+	// Can unpin blocks.
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, vec![&block_hash, &block_hash_2]])
+		.await
+		.unwrap();
+}
+
+#[tokio::test]
 async fn follow_with_multiple_unpin_hashes() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
