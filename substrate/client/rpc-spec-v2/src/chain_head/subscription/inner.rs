@@ -1056,8 +1056,16 @@ mod tests {
 		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
 
 		// Unpin the same block twice.
-		subs.unpin_blocks(&id_1, vec![hash_1, hash_1, hash_2, hash_2]).unwrap();
-		// Check reference count.
+		let err = subs.unpin_blocks(&id_1, vec![hash_1, hash_1, hash_2, hash_2]).unwrap_err();
+		assert_eq!(err, SubscriptionManagementError::DuplicateHashes);
+
+		// Check reference count must be unaltered.
+		assert_eq!(*subs.global_blocks.get(&hash_1).unwrap(), 1);
+		assert_eq!(*subs.global_blocks.get(&hash_2).unwrap(), 2);
+		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
+
+		// Unpin the blocks correctly.
+		subs.unpin_blocks(&id_1, vec![hash_1, hash_2]).unwrap();
 		assert_eq!(subs.global_blocks.get(&hash_1), None);
 		assert_eq!(*subs.global_blocks.get(&hash_2).unwrap(), 1);
 		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
