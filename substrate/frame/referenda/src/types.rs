@@ -144,7 +144,10 @@ pub trait TracksInfo<Balance, Moment> {
 	/// The origin type from which a track is implied.
 	type RuntimeOrigin;
 
-	/// Return the array of known tracks and their information.
+	/// Sorted array of known tracks and their information.
+	///
+	/// The array MUST be sorted by `Id`. Consumers of this trait are advised to assert
+	/// [`check_integrity`] prior to any use.
 	fn tracks() -> &'static [(Self::Id, TrackInfo<Balance, Moment>)];
 
 	/// Determine the voting track for the given `origin`.
@@ -153,6 +156,17 @@ pub trait TracksInfo<Balance, Moment> {
 	/// Return the track info for track `id`, by default this just looks it up in `Self::tracks()`.
 	fn info(id: Self::Id) -> Option<&'static TrackInfo<Balance, Moment>> {
 		Self::tracks().iter().find(|x| x.0 == id).map(|x| &x.1)
+	/// Check assumptions about the static data that this trait provides.
+	fn check_integrity() -> Result<(), ()>
+	where
+		Balance: 'static,
+		Moment: 'static,
+	{
+		if Self::tracks().windows(2).all(|w| w[0].0 < w[1].0) {
+			Ok(())
+		} else {
+			Err(())
+		}
 	}
 }
 
