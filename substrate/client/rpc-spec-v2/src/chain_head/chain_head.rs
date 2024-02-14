@@ -49,7 +49,7 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::{traits::CallContext, Bytes};
 use sp_rpc::list::ListOrValue;
 use sp_runtime::traits::Block as BlockT;
-use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
 
@@ -158,18 +158,6 @@ fn parse_hex_param(param: String) -> Result<Vec<u8>, ChainHeadRpcError> {
 		Ok(bytes) => Ok(bytes),
 		Err(_) => Err(ChainHeadRpcError::InvalidParam(param)),
 	}
-}
-
-/// Ensure the provided hashes are unique.
-fn ensure_hash_uniqueness<Block: BlockT>(hashes: &[Block::Hash]) -> Result<(), ChainHeadRpcError> {
-	let mut set = HashSet::new();
-	hashes.iter().try_for_each(|hash| {
-		if !set.insert(hash) {
-			Err(ChainHeadRpcError::InvalidDuplicateHashes)
-		} else {
-			Ok(())
-		}
-	})
 }
 
 #[async_trait]
@@ -422,10 +410,8 @@ where
 		let result = match hash_or_hashes {
 			ListOrValue::Value(hash) =>
 				self.subscriptions.unpin_blocks(&follow_subscription, [hash]),
-			ListOrValue::List(hashes) => {
-				ensure_hash_uniqueness::<Block>(&hashes)?;
-				self.subscriptions.unpin_blocks(&follow_subscription, hashes)
-			},
+			ListOrValue::List(hashes) =>
+				self.subscriptions.unpin_blocks(&follow_subscription, hashes),
 		};
 
 		match result {
@@ -438,6 +424,8 @@ where
 				// Block is not part of the subscription.
 				Err(ChainHeadRpcError::InvalidBlock)
 			},
+			Err(SubscriptionManagementError::DuplicateHashes) =>
+				Err(ChainHeadRpcError::InvalidDuplicateHashes),
 			Err(_) => Err(ChainHeadRpcError::InvalidBlock),
 		}
 	}

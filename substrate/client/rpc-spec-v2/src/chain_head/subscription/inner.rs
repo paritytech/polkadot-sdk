@@ -22,7 +22,7 @@ use sc_client_api::Backend;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::Block as BlockT;
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	sync::{atomic::AtomicBool, Arc},
 	time::{Duration, Instant},
 };
@@ -750,11 +750,27 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		}
 	}
 
+	/// Ensure the provided hashes are unique.
+	fn ensure_hash_uniqueness(
+		hashes: impl IntoIterator<Item = Block::Hash> + Clone,
+	) -> Result<(), SubscriptionManagementError> {
+		let mut set = HashSet::new();
+		hashes.into_iter().try_for_each(|hash| {
+			if !set.insert(hash) {
+				Err(SubscriptionManagementError::DuplicateHashes)
+			} else {
+				Ok(())
+			}
+		})
+	}
+
 	pub fn unpin_blocks(
 		&mut self,
 		sub_id: &str,
 		hashes: impl IntoIterator<Item = Block::Hash> + Clone,
 	) -> Result<(), SubscriptionManagementError> {
+		Self::ensure_hash_uniqueness(hashes.clone())?;
+
 		let Some(sub) = self.subs.get_mut(sub_id) else {
 			return Err(SubscriptionManagementError::SubscriptionAbsent)
 		};
