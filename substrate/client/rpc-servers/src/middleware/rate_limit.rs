@@ -71,7 +71,7 @@ where
 		let service = self.service.clone();
 
 		async move {
-			// Random delay between 0-50ms to poll waiting futures.
+			// Random delay between 0-50ms to poll waiting futures until completion.
 			rate_limit.until_ready_with_jitter(Jitter::up_to(MAX_JITTER_DELAY)).await;
 			service.call(req).await
 		}

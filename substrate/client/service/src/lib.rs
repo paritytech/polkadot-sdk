@@ -391,25 +391,6 @@ where
 	let addr = config.rpc_addr.unwrap_or_else(|| ([127, 0, 0, 1], config.rpc_port).into());
 	let backup_addr = backup_port(addr);
 
-	// hack(niklasad1): ideally metrics should only be required in the RpcMiddleware
-	// but because we the `RpcMiddleware` must be instantiated here to allow users
-	// to inject their own middleware and we can't modify it in `start_rpc_server`.
-	//
-	// At this point it's not known whether connection protocol is
-	// HTTP or WebSocket i.e. the HTTP request needs to inspected to determine
-	// that.
-	//
-	// Thus, we are doing a hack to share metrics between the middleware and rpc server
-	// and the metrics needs to passed via server_config below otherwise `unknown` is used
-	// as protocol in the prometheus metrics because the shared state is modified when
-	// the connection has been established.
-	let metrics =
-		sc_rpc_server::RpcMetrics::new(config.prometheus_registry())?.map(|m| MetricsLayer::new(m));
-	let rate_limit = config.rpc_rate_limit.map(|r| RateLimitLayer::per_minute(r));
-	let rpc_middleware = RpcMiddlewareBuilder::new()
-		.option_layer(rate_limit)
-		.option_layer(metrics.clone());
-
 	let server_config = sc_rpc_server::Config {
 		addrs: [addr, backup_addr],
 		max_connections: config.rpc_max_connections,
@@ -419,6 +400,7 @@ where
 		message_buffer_capacity: config.rpc_message_buffer_capacity,
 		rpc_api: gen_rpc_module(deny_unsafe(addr, &config.rpc_methods))?,
 		metrics,
+		rate_limit: config.rpc_rate_limit,
 		id_provider: rpc_id_provider,
 		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
