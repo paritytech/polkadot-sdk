@@ -412,9 +412,9 @@ impl TestEnvironment {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BenchmarkUsage {
-	benchmark_name: String,
-	network_usage: Vec<ResourceUsage>,
-	cpu_usage: Vec<ResourceUsage>,
+	pub benchmark_name: String,
+	pub network_usage: Vec<ResourceUsage>,
+	pub cpu_usage: Vec<ResourceUsage>,
 }
 
 impl std::fmt::Display for BenchmarkUsage {

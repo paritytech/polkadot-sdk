@@ -74,20 +74,6 @@ pub struct TestSequence {
 	test_configurations: Vec<CliTestConfiguration>,
 }
 
-fn random_uniform_sample<T: Into<usize> + From<usize>>(min_value: T, max_value: T) -> T {
-	Uniform::from(min_value.into()..=max_value.into())
-		.sample(&mut thread_rng())
-		.into()
-}
-
-fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
-	random_uniform_sample(min_pov_size, max_pov_size)
-}
-
-fn generate_pov_sizes(count: usize, min_kib: usize, max_kib: usize) -> Vec<usize> {
-	(0..count).map(|_| random_pov_size(min_kib * 1024, max_kib * 1024)).collect()
-}
-
 impl TestSequence {
 	fn into_vec(self) -> Vec<CliTestConfiguration> {
 		self.test_configurations
@@ -102,9 +88,7 @@ impl TestSequence {
 			})
 			.collect()
 	}
-}
 
-impl TestSequence {
 	fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
 		let string = String::from_utf8(std::fs::read(path)?).expect("File is valid UTF8");
 		Ok(serde_yaml::from_str(&string).expect("File is valid test sequence YA"))
@@ -165,7 +149,7 @@ impl BenchCli {
 			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {:?}", objective).green(), test_config);
 
-			match objective {
+			let usage = match objective {
 				TestObjective::DataAvailabilityRead(opts) => {
 					let mut state = availability::TestState::new(&test_config);
 					let (mut env, _protocol_config) = availability::prepare_test(
@@ -202,6 +186,7 @@ impl BenchCli {
 					))
 				},
 			};
+			println!("{}", usage);
 		}
 
 		if let Some(agent_running) = agent_running {
@@ -211,6 +196,20 @@ impl BenchCli {
 
 		Ok(())
 	}
+}
+
+fn random_uniform_sample<T: Into<usize> + From<usize>>(min_value: T, max_value: T) -> T {
+	Uniform::from(min_value.into()..=max_value.into())
+		.sample(&mut thread_rng())
+		.into()
+}
+
+fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
+	random_uniform_sample(min_pov_size, max_pov_size)
+}
+
+fn generate_pov_sizes(count: usize, min_kib: usize, max_kib: usize) -> Vec<usize> {
+	(0..count).map(|_| random_pov_size(min_kib * 1024, max_kib * 1024)).collect()
 }
 
 fn main() -> eyre::Result<()> {
