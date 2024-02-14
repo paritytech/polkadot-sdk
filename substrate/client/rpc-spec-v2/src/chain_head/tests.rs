@@ -1673,7 +1673,7 @@ async fn unpin_duplicate_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_DUPLICATE_HASHES && err.message() == "Received duplicate hashes for the `chainHead_unpin` method"
+		Error::JsonRpc(err) if err.code() == super::error::rpc_spec_v2::INVALID_DUPLICATE_HASHES && err.message() == "Received duplicate hashes for the `chainHead_unpin` method"
 	);
 
 	// Block tree:
@@ -1708,7 +1708,7 @@ async fn unpin_duplicate_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_DUPLICATE_HASHES && err.message() == "Received duplicate hashes for the `chainHead_unpin` method"
+		Error::JsonRpc(err) if err.code() == super::error::rpc_spec_v2::INVALID_DUPLICATE_HASHES && err.message() == "Received duplicate hashes for the `chainHead_unpin` method"
 	);
 
 	// Can unpin blocks.
