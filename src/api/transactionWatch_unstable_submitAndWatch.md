@@ -43,25 +43,6 @@ Multiple `validated` events can be generated during the lifetime of a transactio
 
 **Note**: In theory, this event could include a field indicating the block against which this transaction was validated. It has been decided to not include this field for pragmatic reasons: implementing it might be complicated, and it is not very useful for a JSON-RPC client to know this information.
 
-### broadcasted
-
-```json
-{
-    "event": "broadcasted",
-    "numPeers": ...
-}
-```
-
-The `broadcasted` event indicates the number of other peers this transaction has been broadcasted to.
-
-`numPeers` is the total number of individual peers this transaction has been broadcasted to.
-
-The JSON-RPC server doesn't (and can't) offer any guarantee that these peers have received the transaction or have saved it in their own transactions pool. In other words, no matter how large the value in `numPeers` is, no guarantee is offered that shutting down the local node will lead to the transaction being included.
-
-**Note**: In principle, a value of `numPeers` equal to 0 guarantees that shutting down the local node will lead to the transaction _not_ being included, assuming that the JSON-RPC server isn't a block producer and that no other node has submitted the same transaction. However, because JSON-RPC servers are allowed to delay or skip events, the JSON-RPC client can never be sure that `numPeers` was still equal to 0 when shutting down the node.
-
-If multiple `broadcasted` events happen in a row, the JSON-RPC server is allowed to skip all but the last.
-
 ### bestChainBlockIncluded
 
 ```json
@@ -154,14 +135,11 @@ No more event will be generated about this transaction.
 ```json
 {
     "event": "dropped",
-    "broadcasted": true,
     "error": "..."
 }
 ```
 
 The `dropped` event indicates that the client wasn't capable of keeping track of this transaction.
-
-If the `broadcasted` field is `true`, then this transaction has been sent to other peers and might still be included in the chain in the future. No guarantee is offered that the transaction will be included in the chain even if `broadcasted` is `true`. However, if `broadcasted` is `false`, then it is guaranteed that this transaction will not be included, unless it has been submitted in parallel on a different node.
 
 This can happen for example if the JSON-RPC server's transactions pool is full, if the JSON-RPC server's resources have reached their limit, if the block the transaction is included in takes too long to be finalized, or the syncing requires a gap in the chain that prevents the JSON-RPC server from knowing whether the transaction has been included and/or finalized.
 
@@ -177,13 +155,11 @@ One can build a mental model in order to understand which events can be generate
 
 - `bestChainBlockIncluded`: an optional block hash and index. A transaction is initially included in no block. It can automatically become included in a block of the best chain. A `bestChainBlockIncluded` event reports updates to this property.
 
-- `numBroadcastedPeers`: _integer_. A transaction is initially broadcasted to 0 other peers. After a transaction is in the `isValidated: yes` and `bestChainBlockIncluded: none` states, the number of broadcaster peers can increase. This number never decreases and is never reset to 0, even if a transaction becomes `isValidated: not-yet`. The `broadcasted` event is used to report about updates to this value.
-
-Note that these three properties are orthogonal to each other, except for the fact that `numBroadcastedPeers` can only increase when `isValidated: yes` and `bestChainBlockIncluded: none`. In particular, a transaction can be included in a block before being validated or broadcasted.
+Note that these two properties are orthogonal. In particular, a transaction can be included in a block before being validated.
 
 The `finalized`, `error`, `invalid`, and `dropped` event indicate that the transaction is no longer being watched. The state of the transaction is entirely discarded.
 
-JSON-RPC servers are allowed to skip sending events as long as it properly keeps the JSON-RPC client up to date with the state of the transaction. In other words, multiple `validated`, `broadcasted`, or `bestChainBlockIncluded` events in a row might be merged into one.
+JSON-RPC servers are allowed to skip sending events as long as it properly keeps the JSON-RPC client up to date with the state of the transaction. In other words, multiple `validated` or `bestChainBlockIncluded` events in a row might be merged into one.
 
 **Note**: In order to implement this properly, JSON-RPC servers should maintain a buffer of three notifications (one for each property), and overwrite any unsent notification with a more recent status update.
 
