@@ -682,7 +682,7 @@
 		<span class="kw">let </span>request = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;grandpa_roundState&quot;,&quot;params&quot;:[],&quot;id&quot;:0}&quot;#</span>;
 		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
 
-		<span class="macro">assert_eq!</span>(expected_response, response.result);
+		<span class="macro">assert_eq!</span>(expected_response, response);
 	}
 
 	<span class="attr">#[tokio::test]
@@ -704,7 +704,7 @@
 
 		<span class="kw">let </span>request = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;grandpa_roundState&quot;,&quot;params&quot;:[],&quot;id&quot;:0}&quot;#</span>;
 		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
-		<span class="macro">assert_eq!</span>(expected_response, response.result);
+		<span class="macro">assert_eq!</span>(expected_response, response);
 	}
 
 	<span class="attr">#[tokio::test]
@@ -726,7 +726,7 @@
 			</span>.unwrap();
 		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;result&quot;:false,&quot;id&quot;:1}&quot;#</span>;
 
-		<span class="macro">assert_eq!</span>(response.result, expected);
+		<span class="macro">assert_eq!</span>(response, expected);
 	}
 
 	<span class="kw">fn </span>create_justification() -&gt; GrandpaJustification&lt;Block&gt; {

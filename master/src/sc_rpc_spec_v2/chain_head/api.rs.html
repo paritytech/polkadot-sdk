@@ -180,7 +180,7 @@
 	},
 	common::events::StorageQuery,
 };
-<span class="kw">use </span>jsonrpsee::proc_macros::rpc;
+<span class="kw">use </span>jsonrpsee::{proc_macros::rpc, server::ResponsePayload};
 <span class="kw">use </span>sp_rpc::list::ListOrValue;
 
 <span class="attr">#[rpc(client, server)]
@@ -213,7 +213,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash: Hash,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, Error&gt;;
+	) -&gt; ResponsePayload&lt;<span class="lifetime">&#39;static</span>, MethodResponse&gt;;
 
 	<span class="doccomment">/// Retrieves the header of a pinned block.
 	///
@@ -246,7 +246,7 @@
 		hash: Hash,
 		items: Vec&lt;StorageQuery&lt;String&gt;&gt;,
 		child_trie: <span class="prelude-ty">Option</span>&lt;String&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, Error&gt;;
+	) -&gt; ResponsePayload&lt;<span class="lifetime">&#39;static</span>, MethodResponse&gt;;
 
 	<span class="doccomment">/// Call into the Runtime API at a specified block&#39;s state.
 	///
@@ -260,7 +260,7 @@
 		hash: Hash,
 		function: String,
 		call_parameters: String,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, Error&gt;;
+	) -&gt; ResponsePayload&lt;<span class="lifetime">&#39;static</span>, MethodResponse&gt;;
 
 	<span class="doccomment">/// Unpin a block or multiple blocks reported by the `follow` method.
 	///

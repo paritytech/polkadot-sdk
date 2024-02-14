@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"sc_rpc_server":[["impl&lt;'a, S&gt; RpcServiceT&lt;'a&gt; for <a class=\"struct\" href=\"sc_rpc_server/middleware/metrics/struct.Metrics.html\" title=\"struct sc_rpc_server::middleware::metrics::Metrics\">Metrics</a>&lt;S&gt;<span class=\"where fmt-newline\">where\n    S: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html\" title=\"trait core::marker::Sync\">Sync</a> + RpcServiceT&lt;'a&gt;,</span>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

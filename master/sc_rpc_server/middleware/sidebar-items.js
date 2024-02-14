@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["RpcMetrics"]};
+window.SIDEBAR_ITEMS = {"mod":["metrics"]};

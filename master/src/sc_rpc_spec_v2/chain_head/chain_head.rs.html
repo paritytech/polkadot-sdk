@@ -463,6 +463,53 @@
 <a href="#463" id="463">463</a>
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -501,7 +548,8 @@
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>futures::future::FutureExt;
 <span class="kw">use </span>jsonrpsee::{
-	core::async_trait, types::SubscriptionId, PendingSubscriptionSink, SubscriptionSink,
+	core::async_trait, server::ResponsePayload, types::SubscriptionId, MethodResponseFuture,
+	PendingSubscriptionSink, SubscriptionSink,
 };
 <span class="kw">use </span>log::debug;
 <span class="kw">use </span>sc_client_api::{
@@ -683,16 +731,17 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash: Block::Hash,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, ChainHeadRpcError&gt; {
+	) -&gt; ResponsePayload&lt;<span class="lifetime">&#39;static</span>, MethodResponse&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>block_guard = <span class="kw">match </span><span class="self">self</span>.subscriptions.lock_block(<span class="kw-2">&amp;</span>follow_subscription, hash, <span class="number">1</span>) {
 			<span class="prelude-val">Ok</span>(block) =&gt; block,
 			<span class="prelude-val">Err</span>(SubscriptionManagementError::SubscriptionAbsent) |
-			<span class="prelude-val">Err</span>(SubscriptionManagementError::ExceededLimits) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(MethodResponse::LimitReached),
+			<span class="prelude-val">Err</span>(SubscriptionManagementError::ExceededLimits) =&gt;
+				<span class="kw">return </span>ResponsePayload::success(MethodResponse::LimitReached),
 			<span class="prelude-val">Err</span>(SubscriptionManagementError::BlockHashAbsent) =&gt; {
 				<span class="comment">// Block is not part of the subscription.
-				</span><span class="kw">return </span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidBlock.into())
+				</span><span class="kw">return </span>ResponsePayload::error(ChainHeadRpcError::InvalidBlock);
 			},
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidBlock.into()),
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 		};
 
 		<span class="kw">let </span>operation_id = block_guard.operation().operation_id();
@@ -719,7 +768,7 @@
 					hash
 				);
 				<span class="self">self</span>.subscriptions.remove_subscription(<span class="kw-2">&amp;</span>follow_subscription);
-				<span class="kw">return </span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidBlock.into())
+				<span class="kw">return </span>ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
 			},
 			<span class="prelude-val">Err</span>(error) =&gt; FollowEvent::&lt;Block::Hash&gt;::OperationError(OperationError {
 				operation_id: operation_id.clone(),
@@ -727,8 +776,20 @@
 			}),
 		};
 
-		<span class="kw">let _ </span>= block_guard.response_sender().unbounded_send(event);
-		<span class="prelude-val">Ok</span>(MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items: <span class="prelude-val">None </span>}))
+		<span class="kw">let </span>(rp, rp_fut) = method_started_response(operation_id, <span class="prelude-val">None</span>);
+
+		<span class="kw">let </span>fut = <span class="kw">async move </span>{
+			<span class="comment">// Events should only by generated
+			// if the response was successfully propagated.
+			</span><span class="kw">if </span>rp_fut.<span class="kw">await</span>.is_err() {
+				<span class="kw">return</span>;
+			}
+			<span class="kw">let _ </span>= block_guard.response_sender().unbounded_send(event);
+		};
+
+		<span class="self">self</span>.executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
+
+		rp
 	}
 
 	<span class="kw">fn </span>chain_head_unstable_header(
@@ -759,31 +820,40 @@
 		hash: Block::Hash,
 		items: Vec&lt;StorageQuery&lt;String&gt;&gt;,
 		child_trie: <span class="prelude-ty">Option</span>&lt;String&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, ChainHeadRpcError&gt; {
+	) -&gt; ResponsePayload&lt;<span class="lifetime">&#39;static</span>, MethodResponse&gt; {
 		<span class="comment">// Gain control over parameter parsing and returned error.
-		</span><span class="kw">let </span>items = items
+		</span><span class="kw">let </span>items = <span class="kw">match </span>items
 			.into_iter()
 			.map(|query| {
 				<span class="kw">let </span>key = StorageKey(parse_hex_param(query.key)<span class="question-mark">?</span>);
 				<span class="prelude-val">Ok</span>(StorageQuery { key, query_type: query.query_type })
 			})
-			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, ChainHeadRpcError&gt;&gt;()<span class="question-mark">?</span>;
+			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, ChainHeadRpcError&gt;&gt;()
+		{
+			<span class="prelude-val">Ok</span>(items) =&gt; items,
+			<span class="prelude-val">Err</span>(err) =&gt; {
+				<span class="kw">return </span>ResponsePayload::error(err);
+			},
+		};
 
-		<span class="kw">let </span>child_trie = child_trie
-			.map(|child_trie| parse_hex_param(child_trie))
-			.transpose()<span class="question-mark">?
-			</span>.map(ChildInfo::new_default_from_vec);
+		<span class="kw">let </span>child_trie = <span class="kw">match </span>child_trie.map(|child_trie| parse_hex_param(child_trie)).transpose()
+		{
+			<span class="prelude-val">Ok</span>(c) =&gt; c.map(ChildInfo::new_default_from_vec),
+			<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span>ResponsePayload::error(e),
+		};
 
 		<span class="kw">let </span><span class="kw-2">mut </span>block_guard =
 			<span class="kw">match </span><span class="self">self</span>.subscriptions.lock_block(<span class="kw-2">&amp;</span>follow_subscription, hash, items.len()) {
 				<span class="prelude-val">Ok</span>(block) =&gt; block,
 				<span class="prelude-val">Err</span>(SubscriptionManagementError::SubscriptionAbsent) |
-				<span class="prelude-val">Err</span>(SubscriptionManagementError::ExceededLimits) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(MethodResponse::LimitReached),
+				<span class="prelude-val">Err</span>(SubscriptionManagementError::ExceededLimits) =&gt; {
+					<span class="kw">return </span>ResponsePayload::success(MethodResponse::LimitReached);
+				},
 				<span class="prelude-val">Err</span>(SubscriptionManagementError::BlockHashAbsent) =&gt; {
 					<span class="comment">// Block is not part of the subscription.
-					</span><span class="kw">return </span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidBlock.into())
+					</span><span class="kw">return </span>ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
 				},
-				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidBlock.into()),
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 			};
 
 		<span class="kw">let </span><span class="kw-2">mut </span>storage_client = ChainHeadStorage::&lt;Client, Block, BE&gt;::new(
@@ -799,16 +869,21 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>items = items;
 		items.truncate(num_operations);
 
+		<span class="kw">let </span>(rp, rp_is_success) = method_started_response(operation_id, <span class="prelude-val">Some</span>(discarded));
+
 		<span class="kw">let </span>fut = <span class="kw">async move </span>{
+			<span class="comment">// Events should only by generated
+			// if the response was successfully propagated.
+			</span><span class="kw">if </span>rp_is_success.<span class="kw">await</span>.is_err() {
+				<span class="kw">return</span>;
+			}
 			storage_client.generate_events(block_guard, hash, items, child_trie).<span class="kw">await</span>;
 		};
 
 		<span class="self">self</span>.executor
 			.spawn_blocking(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
-		<span class="prelude-val">Ok</span>(MethodResponse::Started(MethodResponseStarted {
-			operation_id,
-			discarded_items: <span class="prelude-val">Some</span>(discarded),
-		}))
+
+		rp
 	}
 
 	<span class="kw">fn </span>chain_head_unstable_call(
@@ -817,29 +892,31 @@
 		hash: Block::Hash,
 		function: String,
 		call_parameters: String,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, ChainHeadRpcError&gt; {
-		<span class="kw">let </span>call_parameters = Bytes::from(parse_hex_param(call_parameters)<span class="question-mark">?</span>);
+	) -&gt; ResponsePayload&lt;<span class="lifetime">&#39;static</span>, MethodResponse&gt; {
+		<span class="kw">let </span>call_parameters = <span class="kw">match </span>parse_hex_param(call_parameters) {
+			<span class="prelude-val">Ok</span>(hex) =&gt; Bytes::from(hex),
+			<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>ResponsePayload::error(err),
+		};
 
 		<span class="kw">let </span><span class="kw-2">mut </span>block_guard = <span class="kw">match </span><span class="self">self</span>.subscriptions.lock_block(<span class="kw-2">&amp;</span>follow_subscription, hash, <span class="number">1</span>) {
 			<span class="prelude-val">Ok</span>(block) =&gt; block,
 			<span class="prelude-val">Err</span>(SubscriptionManagementError::SubscriptionAbsent) |
 			<span class="prelude-val">Err</span>(SubscriptionManagementError::ExceededLimits) =&gt; {
 				<span class="comment">// Invalid invalid subscription ID.
-				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(MethodResponse::LimitReached)
+				</span><span class="kw">return </span>ResponsePayload::success(MethodResponse::LimitReached)
 			},
 			<span class="prelude-val">Err</span>(SubscriptionManagementError::BlockHashAbsent) =&gt; {
 				<span class="comment">// Block is not part of the subscription.
-				</span><span class="kw">return </span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidBlock.into())
+				</span><span class="kw">return </span>ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
 			},
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidBlock.into()),
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 		};
 
 		<span class="comment">// Reject subscription if with_runtime is false.
 		</span><span class="kw">if </span>!block_guard.has_runtime() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidRuntimeCall(
+			<span class="kw">return </span>ResponsePayload::error(ChainHeadRpcError::InvalidRuntimeCall(
 				<span class="string">&quot;The runtime updates flag must be set&quot;</span>.to_string(),
-			)
-			.into())
+			));
 		}
 
 		<span class="kw">let </span>operation_id = block_guard.operation().operation_id();
@@ -860,11 +937,20 @@
 				})
 			});
 
-		<span class="kw">let _ </span>= block_guard.response_sender().unbounded_send(event);
-		<span class="prelude-val">Ok</span>(MethodResponse::Started(MethodResponseStarted {
-			operation_id: operation_id.clone(),
-			discarded_items: <span class="prelude-val">None</span>,
-		}))
+		<span class="kw">let </span>(rp, rp_fut) = method_started_response(operation_id, <span class="prelude-val">None</span>);
+
+		<span class="kw">let </span>fut = <span class="kw">async move </span>{
+			<span class="comment">// Events should only by generated
+			// if the response was successfully propagated.
+			</span><span class="kw">if </span>rp_fut.<span class="kw">await</span>.is_err() {
+				<span class="kw">return</span>;
+			}
+			<span class="kw">let _ </span>= block_guard.response_sender().unbounded_send(event);
+		};
+
+		<span class="self">self</span>.executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
+
+		rp
 	}
 
 	<span class="kw">fn </span>chain_head_unstable_unpin(
@@ -927,5 +1013,13 @@
 
 		<span class="prelude-val">Ok</span>(())
 	}
+}
+
+<span class="kw">fn </span>method_started_response(
+	operation_id: String,
+	discarded_items: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+) -&gt; (ResponsePayload&lt;<span class="lifetime">&#39;static</span>, MethodResponse&gt;, MethodResponseFuture) {
+	<span class="kw">let </span>rp = MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items });
+	ResponsePayload::success(rp).notify_on_completion()
 }
 </code></pre></div></section></main></body></html>

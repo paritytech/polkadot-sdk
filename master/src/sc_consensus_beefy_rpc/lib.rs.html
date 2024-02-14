@@ -286,8 +286,6 @@
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -474,10 +472,10 @@
 	</span><span class="kw">async fn </span>uninitialized_rpc_handler() {
 		<span class="kw">let </span>(rpc, <span class="kw">_</span>) = setup_io_handler();
 		<span class="kw">let </span>request = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;beefy_getFinalizedHead&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&quot;#</span>;
-		<span class="kw">let </span>expected_response = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;error&quot;:{&quot;code&quot;:1,&quot;message&quot;:&quot;BEEFY RPC endpoint not ready&quot;},&quot;id&quot;:1}&quot;#</span>.to_string();
+		<span class="kw">let </span>expected_response = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;error&quot;:{&quot;code&quot;:1,&quot;message&quot;:&quot;BEEFY RPC endpoint not ready&quot;},&quot;id&quot;:1}&quot;#</span>;
 		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
 
-		<span class="macro">assert_eq!</span>(expected_response, response.result);
+		<span class="macro">assert_eq!</span>(expected_response, response);
 	}
 
 	<span class="attr">#[tokio::test]
@@ -495,20 +493,18 @@
 			\&quot;jsonrpc\&quot;:\&quot;2.0\&quot;,\
 			\&quot;result\&quot;:\&quot;0x2f0039e93a27221fcf657fb877a1d4f60307106113e885096cb44a461cd0afbf\&quot;,\
 			\&quot;id\&quot;:1\
-		}&quot;
-		</span>.to_string();
+		}&quot;</span>;
 		<span class="kw">let </span>not_ready = <span class="string">&quot;{\
 			\&quot;jsonrpc\&quot;:\&quot;2.0\&quot;,\
 			\&quot;error\&quot;:{\&quot;code\&quot;:1,\&quot;message\&quot;:\&quot;BEEFY RPC endpoint not ready\&quot;},\
 			\&quot;id\&quot;:1\
-		}&quot;
-		</span>.to_string();
+		}&quot;</span>;
 
 		<span class="kw">let </span>deadline = std::time::Instant::now() + std::time::Duration::from_secs(<span class="number">2</span>);
 		<span class="kw">while </span>std::time::Instant::now() &lt; deadline {
 			<span class="kw">let </span>(response, <span class="kw">_</span>) = io.raw_json_request(request, <span class="number">1</span>).<span class="kw">await</span>.expect(<span class="string">&quot;RPC requests work&quot;</span>);
-			<span class="kw">if </span>response.result != not_ready {
-				<span class="macro">assert_eq!</span>(response.result, expected);
+			<span class="kw">if </span>response != not_ready {
+				<span class="macro">assert_eq!</span>(response, expected);
 				<span class="comment">// Success
 				</span><span class="kw">return
 			</span>}
@@ -539,7 +535,7 @@
 			</span>.unwrap();
 		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;result&quot;:false,&quot;id&quot;:1}&quot;#</span>;
 
-		<span class="macro">assert_eq!</span>(response.result, expected);
+		<span class="macro">assert_eq!</span>(response, expected);
 	}
 
 	<span class="kw">fn </span>create_finality_proof() -&gt; BeefyVersionedFinalityProof&lt;Block&gt; {

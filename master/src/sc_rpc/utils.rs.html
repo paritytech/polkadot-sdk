@@ -226,6 +226,12 @@
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -308,7 +314,7 @@
 			Either::Left((<span class="prelude-val">Ok</span>(sink), <span class="kw">_</span>)) =&gt; <span class="kw">break </span>sink,
 			Either::Right((<span class="prelude-val">Some</span>(msg), f)) =&gt; {
 				<span class="kw">if </span>buf.push_back(msg).is_err() {
-					<span class="macro">log::warn!</span>(target: <span class="string">&quot;rpc&quot;</span>, <span class="string">&quot;Subscription::accept failed buffer limit={} exceed; dropping subscription&quot;</span>, buf.max_cap);
+					<span class="macro">log::warn!</span>(target: <span class="string">&quot;rpc&quot;</span>, <span class="string">&quot;Subscription::accept failed buffer limit={} exceeded; dropping subscription&quot;</span>, buf.max_cap);
 					<span class="kw">return
 				</span>}
 				accept_fut = f;
@@ -353,7 +359,13 @@
 			<span class="comment">// New item from the stream
 			</span>Either::Right((Either::Right((<span class="prelude-val">Some</span>(v), n)), c)) =&gt; {
 				<span class="kw">if </span>buf.push_back(v).is_err() {
-					<span class="macro">log::warn!</span>(target: <span class="string">&quot;rpc&quot;</span>, <span class="string">&quot;Subscription buffer limit={} exceed; dropping subscription&quot;</span>, buf.max_cap);
+					<span class="macro">log::warn!</span>(
+						target: <span class="string">&quot;rpc&quot;</span>,
+						<span class="string">&quot;Subscription buffer limit={} exceeded for subscription={} conn_id={}; dropping subscription&quot;</span>,
+						buf.max_cap,
+						sink.method_name(),
+						sink.connection_id()
+					);
 					<span class="kw">return
 				</span>}
 
