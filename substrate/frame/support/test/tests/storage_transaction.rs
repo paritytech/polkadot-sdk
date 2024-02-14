@@ -24,7 +24,7 @@ use frame_support::{
 	storage::{with_transaction, TransactionOutcome::*},
 	transactional,
 };
-use sp_core::{sr25519};
+use sp_core::sr25519;
 use sp_io::TestExternalities;
 use sp_runtime::{
 	generic,
