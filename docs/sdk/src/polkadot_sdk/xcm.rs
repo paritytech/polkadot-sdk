@@ -14,9 +14,9 @@
 //! achieves consensus in some way.
 //!
 //! XCM is executed on a virtual machine called the XCVM.
-//! Scripts can be written with the XCM language, which are often called XCMs, messages or XCM programs.
-//! Each program is a series of instructions, which get executed one after the other by the
-//! virtual machine. These instructions aim to encompass all major things users typically do in
+//! Scripts can be written with the XCM language, which are often called XCMs, messages or XCM
+//! programs. Each program is a series of instructions, which get executed one after the other by
+//! the virtual machine. These instructions aim to encompass all major things users typically do in
 //! consensus systems. There are instructions on asset transferring, teleporting, locking, among
 //! others. New instructions are added via the [RFC process](https://github.com/paritytech/xcm-format/blob/master/proposals/0032-process.md).
 //!
