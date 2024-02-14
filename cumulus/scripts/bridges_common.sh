@@ -2,7 +2,7 @@
 
 function relayer_path() {
     local default_path=~/local_bridge_testing/bin/substrate-relay
-    local path="${SUBSTRATE_RELAY_PATH:-$default_path}"
+    local path="${SUBSTRATE_RELAY_BINARY:-$default_path}"
     echo "$path"
 }
 

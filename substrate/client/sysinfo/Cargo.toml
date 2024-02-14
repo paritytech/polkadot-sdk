@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 futures = "0.3.19"
 libc = "0.2"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 rand = "0.8.5"
 rand_pcg = "0.3.1"
 derive_more = "0.99"
