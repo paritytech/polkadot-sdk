@@ -1,5 +1,5 @@
 Description: User is able to transfer ROC from Rococo Asset Hub to Westend Asset Hub and back
-Network: ../../../../cumulus/zombienet/bridge-hubs/bridge_hub_westend_local_network.toml
+Network: ../../environments/rococo-westend/bridge_hub_westend_local_network.toml
 Creds: config
 
 # send wROC back to Alice from Westend AH to Rococo AH

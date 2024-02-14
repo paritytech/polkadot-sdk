@@ -1,5 +1,5 @@
 Description: While relayer is idle, we only sync mandatory Westend (and a single Westend BH) headers to Rococo BH.
-Network: ../../../../cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.toml
+Network: ../../environments/rococo-westend/bridge_hub_rococo_local_network.toml
 Creds: config
 
 # ensure that relayer is only syncing mandatory headers while idle. This includes both headers that were

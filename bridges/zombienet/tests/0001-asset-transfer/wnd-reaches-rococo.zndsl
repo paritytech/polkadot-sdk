@@ -1,5 +1,5 @@
 Description: User is able to transfer WND from Westend Asset Hub to Rococo Asset Hub and back
-Network: ../../../../cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.toml
+Network: ../../environments/rococo-westend/bridge_hub_rococo_local_network.toml
 Creds: config
 
 # send WND to //Alice from Westend AH to Rococo AH

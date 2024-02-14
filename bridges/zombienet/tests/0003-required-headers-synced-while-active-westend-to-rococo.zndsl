@@ -1,5 +1,5 @@
 Description: While relayer is active, we only sync mandatory and required Westend (and Westend BH) headers to Rococo BH.
-Network: ../../../cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.toml
+Network: ../environments/rococo-westend/bridge_hub_rococo_local_network.toml
 Creds: config
 
 # step 1: initialize Rococo AH

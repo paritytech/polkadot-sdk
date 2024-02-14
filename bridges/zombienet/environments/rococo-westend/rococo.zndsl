@@ -1,5 +1,5 @@
 Description: User is able to transfer WND from Westend Asset Hub to Rococo Asset Hub and back
-Network: ../../../../cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.toml
+Network: ./bridge_hub_rococo_local_network.toml
 Creds: config
 
 # relay is already started - let's wait until with-Westend GRANPDA pallet is initialized at Rococo
