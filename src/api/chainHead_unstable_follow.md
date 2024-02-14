@@ -14,7 +14,7 @@ This function works as follows:
 
 - When called, returns an opaque `followSubscription` that can used to match events and in various other `chainHead`-prefixed functions.
 
-- Later, generates an `initialized` notification (see below) containing the hashes of the last finalized blocks, and, if `withRuntime` is `true`, the runtime specification of the runtime of the current finalized block.
+- Later, generates an `initialized` notification (see below) containing the hashes of the latest finalized blocks, and, if `withRuntime` is `true`, the runtime specification of the runtime of the current finalized block.
 
 - Afterwards, generates one `newBlock` notification (see below) for each non-finalized block currently in the node's memory (including all forks), then a `bestBlockChanged` notification. The notifications must be sent in an ordered way such that the parent of each block either can be found in an earlier notification or is the current finalized block.
 
