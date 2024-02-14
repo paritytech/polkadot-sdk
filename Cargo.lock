@@ -114,9 +114,9 @@ dependencies = [
 
 [[package]]
 name = "ahash"
-version = "0.7.6"
+version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcb51a0695d8f838b1ee009b3fbf66bda078cd64590202a864a8f3e8c4315c47"
+checksum = "891477e0c6a8957309ee5c45a6368af3ae14bb510732d2684ffa19af310920f9"
 dependencies = [
  "getrandom 0.2.10",
  "once_cell",
@@ -125,9 +125,9 @@ dependencies = [
 
 [[package]]
 name = "ahash"
-version = "0.8.7"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c3a9648d43b9cd48db467b3f87fdd6e146bcc88ab0180006cef2179fe11d01"
+checksum = "42cd52102d3df161c77a887b608d7a4897d7cc112886a9537b738a887a03aaff"
 dependencies = [
  "cfg-if",
  "getrandom 0.2.10",
@@ -4375,9 +4375,9 @@ dependencies = [
 
 [[package]]
 name = "curve25519-dalek"
-version = "4.1.1"
+version = "4.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e89b8c6a2e4b1f45971ad09761aafb85514a84744b67a95e32c3cc1352d1f65c"
+checksum = "0a677b8922c94e01bdbb12126b0bc852f00447528dee1782229af9c720c3f348"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -4811,7 +4811,7 @@ version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f628eaec48bfd21b865dc2950cfa014450c01d2fa2b69a86c2fd5844ec523c0"
 dependencies = [
- "curve25519-dalek 4.1.1",
+ "curve25519-dalek 4.1.2",
  "ed25519",
  "rand_core 0.6.4",
  "serde",
@@ -4840,7 +4840,7 @@ version = "4.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d9ce6874da5d4415896cd45ffbc4d1cfc0c4f9c079427bd870742c30f2f65a9"
 dependencies = [
- "curve25519-dalek 4.1.1",
+ "curve25519-dalek 4.1.2",
  "ed25519",
  "hashbrown 0.14.3",
  "hex",
@@ -6229,7 +6229,7 @@ version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 dependencies = [
- "ahash 0.7.6",
+ "ahash 0.7.8",
 ]
 
 [[package]]
@@ -6238,7 +6238,7 @@ version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
 dependencies = [
- "ahash 0.8.7",
+ "ahash 0.8.8",
 ]
 
 [[package]]
@@ -6247,7 +6247,7 @@ version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
 dependencies = [
- "ahash 0.8.7",
+ "ahash 0.8.8",
  "allocator-api2",
  "serde",
 ]
@@ -8127,7 +8127,7 @@ dependencies = [
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "c2-chacha",
- "curve25519-dalek 4.1.1",
+ "curve25519-dalek 4.1.2",
  "either",
  "hashlink",
  "lioness",
@@ -8901,9 +8901,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.18.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
+checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
 
 [[package]]
 name = "oorandom"
@@ -13312,6 +13312,7 @@ dependencies = [
  "staging-chain-spec-builder",
  "staging-node-cli",
  "staging-parachain-info",
+ "staging-xcm",
  "subkey",
  "substrate-wasm-builder",
 ]
@@ -15764,7 +15765,7 @@ dependencies = [
 name = "sc-consensus-grandpa"
 version = "0.19.0"
 dependencies = [
- "ahash 0.8.7",
+ "ahash 0.8.8",
  "array-bytes 6.1.0",
  "assert_matches",
  "async-trait",
@@ -16150,7 +16151,7 @@ dependencies = [
 name = "sc-network-gossip"
 version = "0.34.0"
 dependencies = [
- "ahash 0.8.7",
+ "ahash 0.8.8",
  "async-trait",
  "futures",
  "futures-timer",
@@ -16433,11 +16434,13 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "pretty_assertions",
+ "rand",
  "sc-block-builder",
  "sc-chain-spec",
  "sc-client-api",
  "sc-rpc",
  "sc-service",
+ "sc-transaction-pool",
  "sc-transaction-pool-api",
  "sc-utils",
  "serde",
@@ -16453,6 +16456,7 @@ dependencies = [
  "sp-version",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
+ "substrate-test-runtime-transaction-pool",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -16839,7 +16843,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "772575a524feeb803e5b0fcbc6dd9f367e579488197c94c6e4023aad2305774d"
 dependencies = [
- "ahash 0.8.7",
+ "ahash 0.8.8",
  "cfg-if",
  "hashbrown 0.13.2",
 ]
@@ -16885,7 +16889,7 @@ dependencies = [
  "aead 0.5.2",
  "arrayref",
  "arrayvec 0.7.4",
- "curve25519-dalek 4.1.1",
+ "curve25519-dalek 4.1.2",
  "getrandom_or_panic",
  "merlin 3.0.0",
  "rand_core 0.6.4",
@@ -17574,7 +17578,7 @@ dependencies = [
  "aes-gcm 0.9.4",
  "blake2 0.10.6",
  "chacha20poly1305",
- "curve25519-dalek 4.1.1",
+ "curve25519-dalek 4.1.2",
  "rand_core 0.6.4",
  "ring 0.16.20",
  "rustc_version 0.4.0",
@@ -18855,7 +18859,7 @@ name = "sp-statement-store"
 version = "10.0.0"
 dependencies = [
  "aes-gcm 0.10.3",
- "curve25519-dalek 4.1.1",
+ "curve25519-dalek 4.1.2",
  "ed25519-dalek",
  "hkdf",
  "parity-scale-codec",
@@ -18982,7 +18986,7 @@ dependencies = [
 name = "sp-trie"
 version = "29.0.0"
 dependencies = [
- "ahash 0.8.7",
+ "ahash 0.8.8",
  "array-bytes 6.1.0",
  "criterion 0.4.0",
  "hash-db",
@@ -22067,7 +22071,7 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb66477291e7e8d2b0ff1bcb900bf29489a9692816d79874bea351e7a8b6de96"
 dependencies = [
- "curve25519-dalek 4.1.1",
+ "curve25519-dalek 4.1.2",
  "rand_core 0.6.4",
  "serde",
  "zeroize",

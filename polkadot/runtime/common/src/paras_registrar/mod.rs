@@ -26,7 +26,7 @@ use frame_support::{
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
-use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
+use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
 use runtime_parachains::{
 	configuration, ensure_parachain,
 	paras::{self, ParaGenesisArgs, SetGoAhead},
@@ -182,8 +182,8 @@ pub mod pallet {
 		ParaLocked,
 		/// The ID given for registration has not been reserved.
 		NotReserved,
-		/// Registering parachain with empty code is not allowed.
-		EmptyCode,
+		/// The validation code is invalid.
+		InvalidCode,
 		/// Cannot perform a parachain slot / lifecycle swap. Check that the state of both paras
 		/// are correct for the swap to work.
 		CannotSwap,
@@ -657,7 +657,7 @@ impl<T: Config> Pallet<T> {
 		para_kind: ParaKind,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
 		let config = configuration::Pallet::<T>::config();
-		ensure!(validation_code.0.len() > 0, Error::<T>::EmptyCode);
+		ensure!(validation_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
 		ensure!(validation_code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
 		ensure!(
 			genesis_head.0.len() <= config.max_head_data_size as usize,
@@ -712,7 +712,7 @@ mod tests {
 	};
 	use frame_system::limits;
 	use pallet_balances::Error as BalancesError;
-	use primitives::{Balance, BlockNumber, SessionIndex};
+	use primitives::{Balance, BlockNumber, SessionIndex, MAX_CODE_SIZE};
 	use runtime_parachains::{configuration, origin, shared};
 	use sp_core::H256;
 	use sp_io::TestExternalities;
@@ -849,7 +849,7 @@ mod tests {
 
 		configuration::GenesisConfig::<Test> {
 			config: configuration::HostConfiguration {
-				max_code_size: 2 * 1024 * 1024,      // 2 MB
+				max_code_size: MAX_CODE_SIZE,
 				max_head_data_size: 1 * 1024 * 1024, // 1 MB
 				..Default::default()
 			},
@@ -1028,6 +1028,51 @@ mod tests {
 			assert_eq!(
 				Balances::reserved_balance(&1),
 				<Test as Config>::ParaDeposit::get() + head_deposit + validation_code_deposit
+			);
+		});
+	}
+
+	#[test]
+	fn schedule_code_upgrade_validates_code() {
+		new_test_ext().execute_with(|| {
+			const START_SESSION_INDEX: SessionIndex = 1;
+			run_to_session(START_SESSION_INDEX);
+
+			let para_id = LOWEST_PUBLIC_ID;
+			assert!(!Parachains::is_parathread(para_id));
+
+			let validation_code = test_validation_code(32);
+			assert_ok!(Registrar::reserve(RuntimeOrigin::signed(1)));
+			assert_eq!(Balances::reserved_balance(&1), <Test as Config>::ParaDeposit::get());
+			assert_ok!(Registrar::register(
+				RuntimeOrigin::signed(1),
+				para_id,
+				test_genesis_head(32),
+				validation_code.clone(),
+			));
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+
+			run_to_session(START_SESSION_INDEX + 2);
+			assert!(Parachains::is_parathread(para_id));
+
+			let new_code = test_validation_code(0);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(1),
+					para_id,
+					new_code.clone(),
+				),
+				paras::Error::<Test>::InvalidCode
+			);
+
+			let new_code = test_validation_code(max_code_size() as usize + 1);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(1),
+					para_id,
+					new_code.clone(),
+				),
+				paras::Error::<Test>::InvalidCode
 			);
 		});
 	}
@@ -1310,7 +1355,7 @@ mod tests {
 				RuntimeOrigin::signed(1),
 				para_id,
 				vec![1; 3].into(),
-				vec![1, 2, 3].into(),
+				test_validation_code(32)
 			));
 
 			assert_noop!(Registrar::add_lock(RuntimeOrigin::signed(2), para_id), BadOrigin);
@@ -1473,7 +1518,7 @@ mod benchmarking {
 	use crate::traits::Registrar as RegistrarT;
 	use frame_support::assert_ok;
 	use frame_system::RawOrigin;
-	use primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE};
+	use primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MIN_CODE_SIZE};
 	use runtime_parachains::{paras, shared, Origin as ParaOrigin};
 	use sp_runtime::traits::Bounded;
 
@@ -1604,7 +1649,7 @@ mod benchmarking {
 		}
 
 		schedule_code_upgrade {
-			let b in 1 .. MAX_CODE_SIZE;
+			let b in MIN_CODE_SIZE .. MAX_CODE_SIZE;
 			let new_code = ValidationCode(vec![0; b as usize]);
 			let para_id = ParaId::from(1000);
 		}: _(RawOrigin::Root, para_id, new_code)

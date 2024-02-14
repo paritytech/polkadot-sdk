@@ -424,6 +424,8 @@ where
 				// Block is not part of the subscription.
 				Err(ChainHeadRpcError::InvalidBlock)
 			},
+			Err(SubscriptionManagementError::DuplicateHashes) =>
+				Err(ChainHeadRpcError::InvalidDuplicateHashes),
 			Err(_) => Err(ChainHeadRpcError::InvalidBlock),
 		}
 	}

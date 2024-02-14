@@ -19,7 +19,7 @@ serde = { version = "1.0.195", optional = true }
 codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1", optional = true }
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 alloy-primitives = { version = "0.4.2", default-features = false, features = ["rlp"] }
 alloy-sol-types = { version = "0.4.2", default-features = false }
 alloy-rlp = { version = "0.3.3", default-features = false, features = ["derive"] }
