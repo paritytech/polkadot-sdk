@@ -90,25 +90,14 @@ impl Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = ConstU64<10>;
 	type DbWeight = DbWeight;
 	type Version = Version;
-	type PalletInfo = PalletInfo;
 	type AccountData = u32;
-	type OnNewAccount = ();
 	type OnKilledAccount = RecordKilled;
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
 }
 
