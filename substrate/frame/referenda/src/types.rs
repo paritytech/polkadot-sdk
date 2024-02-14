@@ -162,7 +162,7 @@ pub trait TracksInfo<Balance, Moment> {
 	}
 
 	/// Check assumptions about the static data that this trait provides.
-	fn check_integrity() -> Result<(), ()>
+	fn check_integrity() -> Result<(), &'static str>
 	where
 		Balance: 'static,
 		Moment: 'static,
@@ -170,7 +170,7 @@ pub trait TracksInfo<Balance, Moment> {
 		if Self::tracks().windows(2).all(|w| w[0].0 < w[1].0) {
 			Ok(())
 		} else {
-			Err(())
+			Err("The tracks that were returned by `tracks` were not sorted by `Id`")
 		}
 	}
 }
@@ -752,6 +752,9 @@ mod tests {
 			}
 		}
 
-		assert!(BadTracksInfo::check_integrity().is_err(), "Should detect unsorted tracks.");
+		assert_eq!(
+			BadTracksInfo::check_integrity(),
+			Err("The tracks that were returned by `tracks` were not sorted by `Id`")
+		);
 	}
 }
