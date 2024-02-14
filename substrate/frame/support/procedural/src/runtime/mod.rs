@@ -21,8 +21,8 @@
 //! in order to get all the pallet parts for each pallet.
 //!
 //! Pallets can define their parts:
-//!  - Implicitly: `System: frame_system`
-//!  - Explicitly: `System: frame_system + Pallet + Call`
+//!  - Implicitly: `pub type System = frame_system;`
+//!  - Explicitly: `pub type System = frame_system + Pallet + Call;`
 //!
 //! The `runtime` transitions from the implicit definition to the explicit one.
 //! From the explicit state, Substrate expands the pallets with additional information
@@ -106,11 +106,11 @@
 //! 		                    pub type Balances = pallet_balances;
 //!                         }
 //! 					}]
-//! 					pattern = [{ System: frame_system }]
+//! 					pattern = [{ System = frame_system }]
 //! 				}
 //! 			}
 //! 		}]
-//! 		pattern = [{ Balances: pallet_balances }]
+//! 		pattern = [{ Balances = pallet_balances }]
 //! 	}
 //! }
 //! ```
@@ -133,12 +133,12 @@
 //! 		             pub type Balances = pallet_balances;
 //!                  }
 //! 			}]
-//! 			pattern = [{ System: frame_system }]
-//! 			tokens = [{ ::{Pallet, Call} }]
+//! 			pattern = [{ System = frame_system }]
+//! 			tokens = [{ ::{+ Pallet + Call} }]
 //! 		}
 //! 	}]
-//! 	pattern = [{ Balances: pallet_balances }]
-//! 	tokens = [{ ::{Pallet, Call} }]
+//! 	pattern = [{ Balances = pallet_balances }]
+//! 	tokens = [{ ::{+ Pallet + Call} }]
 //! }
 //! ```
 //! After dealing with `pallet_balances`, the inner `match_and_insert` will expand to:
@@ -156,8 +156,8 @@
 //! 		    pub type Balances = pallet_balances + Pallet + Call; // Explicit definition of parts
 //!         }
 //! 	}]
-//! 	pattern = [{ System: frame_system }]
-//! 	tokens = [{ ::{Pallet, Call} }]
+//! 	pattern = [{ System = frame_system }]
+//! 	tokens = [{ ::{+ Pallet + Call} }]
 //! }
 //! ```
 //!
@@ -184,18 +184,18 @@
 //! ...
 //! ```
 //!
-//! Visualizing the entire flow of `construct_runtime!`, it would look like the following:
+//! Visualizing the entire flow of `#[frame_support::runtime]`, it would look like the following:
 //!
 //! ```ignore
-//! +----------------------+     +---------------------+     +-------------------+
-//! |                      |     | (defined in pallet) |     |                   |
-//! | runtime | --> |  tt_default_parts!  | --> | match_and_insert! |
-//! | w/ no pallet parts   |     |                     |     |                   |
-//! +----------------------+     +---------------------+     +-------------------+
+//! +----------------------+     +------------------------+     +-------------------+
+//! |                      |     | (defined in pallet)    |     |                   |
+//! | runtime              | --> |  tt_default_parts_v2!  | --> | match_and_insert! |
+//! | w/ no pallet parts   |     |                        |     |                   |
+//! +----------------------+     +------------------------+     +-------------------+
 //!
 //!     +----------------------+
 //!     |                      |
-//! --> | runtime |
+//! --> | runtime              |
 //!     |  w/ pallet parts     |
 //!     +----------------------+
 //! ```
