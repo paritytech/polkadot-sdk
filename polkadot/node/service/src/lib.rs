@@ -1099,9 +1099,9 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					overseer_message_channel_capacity_override,
 					req_protocol_names,
 					peerset_protocol_names,
-					offchain_transaction_pool_factory: OffchainTransactionPoolFactory::new(
+					offchain_transaction_pool_factory: Some(OffchainTransactionPoolFactory::new(
 						transaction_pool.clone(),
-					),
+					)),
 					notification_services,
 				},
 				ext_overseer_args,

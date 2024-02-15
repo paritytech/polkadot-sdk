@@ -91,9 +91,7 @@ where
 	/// Underlying network service implementation.
 	pub network_service: Arc<sc_network::NetworkService<Block, Hash>>,
 	/// Underlying syncing service implementation.
-	pub sync_service: Arc<sc_network_sync::SyncingService<Block>>, /* TODOR , Box<dyn
-	                                                                * sp_consensus::SyncOracle +
-	                                                                * Send> */
+	pub sync_service: Arc<dyn consensus_common::SyncOracle + Send + Sync>,
 	/// Underlying authority discovery service.
 	pub authority_discovery_service: AuthorityDiscoveryService,
 	/// Collations request receiver for network protocol v1.
@@ -116,7 +114,7 @@ where
 	/// `PeerSet` protocol names to protocols mapping.
 	pub peerset_protocol_names: PeerSetProtocolNames,
 	/// The offchain transaction pool factory.
-	pub offchain_transaction_pool_factory: OffchainTransactionPoolFactory<Block>,
+	pub offchain_transaction_pool_factory: Option<OffchainTransactionPoolFactory<Block>>,
 	/// Notification services for validation/collation protocols.
 	pub notification_services: HashMap<PeerSet, Box<dyn NotificationService>>,
 }
@@ -233,7 +231,9 @@ where
 
 	let runtime_api_client = Arc::new(DefaultSubsystemClient::new(
 		runtime_client.clone(),
-		offchain_transaction_pool_factory,
+		offchain_transaction_pool_factory.ok_or_else(|| SubsystemError::Context(
+			"transaction pool factory is not provided for the runtime client of validator's Overseer ".to_string(),
+		))?,
 	));
 
 	let builder = Overseer::builder()
@@ -541,7 +541,9 @@ where
 	let chain_api = ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?);
 	let runtime_client = Arc::new(DefaultSubsystemClient::new(
 		runtime_client,
-		offchain_transaction_pool_factory.clone(),
+		offchain_transaction_pool_factory.clone().ok_or_else(|| SubsystemError::Context(
+			"transaction pool factory is not provided for the runtime client of collator's Overseer ".to_string(),
+		))?,
 	));
 	let args = OverseerGenArgs {
 		runtime_client,
