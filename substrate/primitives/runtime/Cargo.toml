@@ -34,7 +34,7 @@ sp-std = { path = "../std", default-features = false }
 sp-weights = { path = "../weights", default-features = false }
 docify = { version = "0.2.7" }
 
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b", optional = true }
+simple-mermaid = { version = "0.1.1", optional = true }
 
 [dev-dependencies]
 rand = "0.8.5"

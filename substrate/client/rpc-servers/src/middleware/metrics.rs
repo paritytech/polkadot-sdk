@@ -18,8 +18,6 @@
 
 //! RPC middleware to collect prometheus metrics on RPC calls.
 
-use crate::Transport;
-
 use std::{
 	future::Future,
 	pin::Pin,
@@ -151,30 +149,22 @@ impl RpcMetrics {
 /// Metrics layer.
 #[derive(Clone)]
 pub struct MetricsLayer {
-	metrics: RpcMetrics,
-	transport_label: Transport,
+	inner: RpcMetrics,
+	transport_label: &'static str,
 }
 
 impl MetricsLayer {
 	/// Create a new [`MetricsLayer`].
-	pub fn new(metrics: RpcMetrics, transport_label: Transport) -> Self {
-		Self { metrics, transport_label }
+	pub fn new(metrics: RpcMetrics, transport_label: &'static str) -> Self {
+		Self { inner: metrics, transport_label }
 	}
 
-	pub(crate) fn on_connect(&self) {
-		if self.is_ws() {
-			self.metrics.ws_connect();
-		}
+	pub(crate) fn ws_connect(&self) {
+		self.inner.ws_connect();
 	}
 
-	pub(crate) fn on_disconnect(&self, now: Instant) {
-		if self.is_ws() {
-			self.metrics.ws_disconnect(now);
-		}
-	}
-
-	fn is_ws(&self) -> bool {
-		matches!(self.transport_label, Transport::WebSocket)
+	pub(crate) fn ws_disconnect(&self, now: Instant) {
+		self.inner.ws_disconnect(now)
 	}
 }
 
@@ -182,7 +172,7 @@ impl<S> tower::Layer<S> for MetricsLayer {
 	type Service = Metrics<S>;
 
 	fn layer(&self, inner: S) -> Self::Service {
-		Metrics::new(inner, self.metrics.clone(), self.transport_label)
+		Metrics::new(inner, self.inner.clone(), self.transport_label)
 	}
 }
 
@@ -191,12 +181,12 @@ impl<S> tower::Layer<S> for MetricsLayer {
 pub struct Metrics<S> {
 	service: S,
 	metrics: RpcMetrics,
-	transport_label: Transport,
+	transport_label: &'static str,
 }
 
 impl<S> Metrics<S> {
 	/// Create a new metrics middleware.
-	pub fn new(service: S, metrics: RpcMetrics, transport_label: Transport) -> Metrics<S> {
+	pub fn new(service: S, metrics: RpcMetrics, transport_label: &'static str) -> Metrics<S> {
 		Metrics { service, metrics, transport_label }
 	}
 }
@@ -213,13 +203,13 @@ where
 		log::trace!(
 			target: "rpc_metrics",
 			"[{}] on_call name={} params={:?}",
-			self.transport_label.as_str(),
+			self.transport_label,
 			req.method_name(),
 			req.params(),
 		);
 		self.metrics
 			.calls_started
-			.with_label_values(&[self.transport_label.as_str(), req.method_name()])
+			.with_label_values(&[self.transport_label, req.method_name()])
 			.inc();
 
 		ResponseFuture {
@@ -240,7 +230,7 @@ pub struct ResponseFuture<'a, F> {
 	metrics: RpcMetrics,
 	req: Request<'a>,
 	now: Instant,
-	transport_label: Transport,
+	transport_label: &'static str,
 }
 
 impl<'a, F> std::fmt::Debug for ResponseFuture<'a, F> {
@@ -258,7 +248,7 @@ impl<'a, F: Future<Output = MethodResponse>> Future for ResponseFuture<'a, F> {
 		let res = this.fut.poll(cx);
 		if let Poll::Ready(rp) = &res {
 			let method_name = this.req.method_name();
-			let transport_label = &this.transport_label.as_str();
+			let transport_label = &this.transport_label;
 			let now = this.now;
 			let metrics = &this.metrics;
 

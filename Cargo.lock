@@ -5438,7 +5438,6 @@ dependencies = [
  "pallet-examples",
  "parity-scale-codec",
  "scale-info",
- "simple-mermaid",
  "sp-api",
  "sp-arithmetic",
  "sp-block-builder",
@@ -17553,8 +17552,9 @@ dependencies = [
 
 [[package]]
 name = "simple-mermaid"
-version = "0.1.0"
-source = "git+https://github.com/kianenigma/simple-mermaid.git?rev=e48b187bcfd5cc75111acd9d241f1bd36604344b#e48b187bcfd5cc75111acd9d241f1bd36604344b"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "620a1d43d70e142b1d46a929af51d44f383db9c7a2ec122de2cd992ccfcf3c18"
 
 [[package]]
 name = "siphasher"

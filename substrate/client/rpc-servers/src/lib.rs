@@ -82,28 +82,6 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub rate_limit: Option<u32>,
 }
 
-/// Represents the transport protocol the RPC connection was made on.
-#[derive(Debug, Copy, Clone)]
-pub enum Transport {
-	/// WebSocket
-	WebSocket,
-	/// Http
-	Http,
-	/// Unknown
-	Unknown,
-}
-
-impl Transport {
-	/// Get the str reprensenation of the [`Transport`].
-	pub const fn as_str(&self) -> &'static str {
-		match self {
-			Self::WebSocket => "ws",
-			Self::Http => "http",
-			Self::Unknown => "unknown",
-		}
-	}
-}
-
 #[derive(Clone)]
 struct PerConnection<RpcMiddleware, HttpMiddleware> {
 	methods: Methods,
@@ -187,7 +165,7 @@ where
 
 				let is_websocket = ws::is_upgrade_request(&req);
 				let transport_label =
-					if is_websocket { Transport::WebSocket } else { Transport::Http };
+					if is_websocket { "ws" } else { "http" };
 
 				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
 				let rate_limit = rate_limit.map(|r| RateLimitLayer::per_minute(r));
@@ -204,9 +182,9 @@ where
 						// Spawn a task to handle when the connection is closed.
 						tokio_handle.spawn(async move {
 							let now = std::time::Instant::now();
-							metrics.as_ref().map(|m| m.on_connect());
+							metrics.as_ref().map(|m| m.ws_connect());
 							on_disconnect.await;
-							metrics.as_ref().map(|m| m.on_disconnect(now));
+							metrics.as_ref().map(|m| m.ws_disconnect(now));
 						});
 					}
 

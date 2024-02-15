@@ -116,9 +116,7 @@ impl RpcHandlers {
 		// This limit is used to prevent panics and is large enough.
 		const TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
 
-		self.0
-			.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE)
-			.await
+		self.0.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).await
 	}
 
 	/// Provides access to the underlying `RpcModule`
