@@ -24,12 +24,12 @@
 /// The parachain runtime for this example
 pub mod parachain;
 
-/// The relay chain runtime for this example
+/// The relay chain runtime for this example.
 pub mod relay_chain;
 
-/// The network for this example
+/// The network for this example.
 pub mod network;
 
-/// Tests for this example
+/// Tests for this example.
 #[cfg(test)]
 pub mod tests;
