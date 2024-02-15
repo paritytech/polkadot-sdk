@@ -16502,6 +16502,7 @@ dependencies = [
  "hyper",
  "jsonrpsee",
  "log",
+ "parking_lot 0.12.1",
  "pin-project",
  "serde_json",
  "substrate-prometheus-endpoint",
