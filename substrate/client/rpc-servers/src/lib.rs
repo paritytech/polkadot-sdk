@@ -55,6 +55,7 @@ const MEGABYTE: u32 = 1024 * 1024;
 pub type Server = jsonrpsee::server::ServerHandle;
 
 /// RPC server configuration.
+#[derive(Debug)]
 pub struct Config<'a, M: Send + Sync + 'static> {
 	/// Socket addresses.
 	pub addrs: [SocketAddr; 2],
@@ -82,7 +83,7 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub rate_limit: Option<u32>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct PerConnection<RpcMiddleware, HttpMiddleware> {
 	methods: Methods,
 	stop_handle: StopHandle,
