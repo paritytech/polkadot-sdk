@@ -28,7 +28,7 @@ runtime-benchmarks = [
 ]
 
 [dependencies]
-jsonrpsee = { version = "0.20.3", features = ["server"] }
+jsonrpsee = { version = "0.22", features = ["server"] }
 thiserror = "1.0.48"
 futures = "0.3.21"
 rand = "0.8.5"
