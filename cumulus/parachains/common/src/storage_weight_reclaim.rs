@@ -13,11 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Mechanism to reclaim PoV weight after an extrinsic has been applied.
+//! Mechanism to reclaim PoV proof size weight after an extrinsic has been applied.
 
 use codec::{Decode, Encode};
 use cumulus_primitives_core::Weight;
-use cumulus_primitives_proof_size_hostfunction::storage_proof_size::storage_proof_size;
+use cumulus_primitives_proof_size_hostfunction::{
+    storage_proof_size::storage_proof_size, PROOF_RECORDING_DISABLED,
+};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	weights::WeightMeter,
@@ -33,10 +35,7 @@ use sp_std::marker::PhantomData;
 
 const LOG_TARGET: &'static str = "runtime::storage_reclaim";
 
-/// Indicates that proof recording was disabled on the node side.
-const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
-
-/// StorageWeightReclaimer is a mechanism for manually reclaiming storage weight.
+/// `StorageWeightReclaimer` is a mechanism for manually reclaiming storage weight.
 ///
 /// It internally keeps track of the proof size and storage weight at initialization time. At
 /// reclaim  it computes the real consumed storage weight and refunds excess weight.
@@ -62,8 +61,8 @@ pub struct StorageWeightReclaimer {
 }
 
 impl StorageWeightReclaimer {
-	/// Creates a new `StorageWeightReclaimer` instance and initializes it with the current storage
-	/// weight and reported proof size from the node.
+	/// Creates a new `StorageWeightReclaimer` instance and initializes it with the storage
+	/// size provided by `weight_meter` and reported proof size from the node.
 	pub fn start(weight_meter: &WeightMeter) -> StorageWeightReclaimer {
 		let previous_remaining_proof_weight = weight_meter.remaining().proof_size();
 		let previous_reported_proof_size = get_proof_size();
@@ -82,7 +81,10 @@ impl StorageWeightReclaimer {
 			self.previous_remaining_proof_weight.saturating_sub(current_remaining_weight);
 		let used_storage_proof = current_storage_proof_size.saturating_sub(initial_proof_size);
 		let reclaimable = used_weight.saturating_sub(used_storage_proof);
-		log::trace!(target: LOG_TARGET, "Found reclaimable storage weight. benchmarked_weight: {used_weight}, consumed_weight: {used_storage_proof}, reclaimable: {reclaimable}");
+		log::trace!(
+			target: LOG_TARGET,
+			"Found reclaimable storage weight. benchmarked: {used_weight}, consumed: {used_storage_proof}"
+		);
 
 		self.previous_remaining_proof_weight = current_remaining_weight.saturating_add(reclaimable);
 		self.previous_reported_proof_size = Some(current_storage_proof_size);
@@ -162,20 +164,29 @@ where
 	) -> Result<(), TransactionValidityError> {
 		if let Some(Some(pre_dispatch_proof_size)) = pre {
 			let Some(post_dispatch_proof_size) = get_proof_size() else {
-				log::debug!(target: LOG_TARGET, "Proof recording enabled during pre-dispatch, now disabled. This should not happen.");
+				log::debug!(
+					target: LOG_TARGET,
+					"Proof recording enabled during pre-dispatch, now disabled. This should not happen."
+				);
 				return Ok(())
 			};
 			let benchmarked_weight = info.weight.proof_size();
 			let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
 
 			if consumed_weight > benchmarked_weight {
-				log::debug!(target: LOG_TARGET, "Benchmarked storage weight smaller than consumed storage weight. benchmarked_weight: {benchmarked_weight} consumed_weight: {consumed_weight}");
+				log::debug!(
+					target: LOG_TARGET,
+					"Benchmarked storage weight smaller than consumed storage weight. benchmarked: {benchmarked_weight} consumed: {consumed_weight}"
+				);
 				return Ok(())
 			}
 
 			let reclaimable_storage_part =
 				benchmarked_weight.saturating_sub(consumed_weight as u64);
-			log::trace!(target: LOG_TARGET,"Reclaiming storage weight. benchmarked_weight: {benchmarked_weight}, consumed_weight: {consumed_weight}, reclaimable: {reclaimable_storage_part}");
+			log::trace!(
+				target: LOG_TARGET,
+				"Reclaiming storage weight. benchmarked: {benchmarked_weight}, consumed: {consumed_weight}"
+			);
 			frame_system::BlockWeight::<T>::mutate(|current| {
 				current.reduce(Weight::from_parts(0, reclaimable_storage_part), info.class)
 			});
