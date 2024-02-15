@@ -45,8 +45,8 @@
 //! If any change in A's state implies a change in B's state, then we say A is interior to B.
 #![doc = simple_mermaid::mermaid!("../mermaid/location_hierarchy.mmd")]
 //!
-//! Parachains are interior to their relaychain, since a change in their state implies a change in
-//! the relaychain's state.
+//! Parachains are interior to their Relay Chain, since a change in their state implies a change in
+//! the Relay Chain's state.
 //!
 //! Because of this hierarchy, the way we represent locations is with both a number of **parents**,
 //! times we move __up__ the hierarchy, and a sequence of **junctions**, the steps we take __down__
