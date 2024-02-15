@@ -1,6 +1,6 @@
-//! # Relay asset transactor
+//! # Relay Asset Transactor
 //!
-//! This example shows how to configure a parachain to only deal with the relay chain token.
+//! This example shows how to configure a parachain to only deal with the Relay Chain token.
 //!
 //! The first step is using the [`xcm_builder::CurrencyAdapter`] to create an `AssetTransactor` that
 //! can handle the relay chain token.
