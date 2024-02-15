@@ -9,9 +9,9 @@
   rules:
     - !reference [.build-refs, rules]
     - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/
-      variables:
-        DOCKER_IMAGES_VERSION: ${CI_COMMIT_SHORT_SHA}
   before_script:
+    # Docker images have different tag in merge queues
+    - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
     - echo "Zombienet Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
     - echo "${GH_DIR}"
