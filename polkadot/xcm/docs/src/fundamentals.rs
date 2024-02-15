@@ -15,7 +15,7 @@
 //!
 //! XCM is the language, it deals with interpreting and executing programs.
 //! It does not deal with actually **sending** these programs from one consensus system to another.
-//! This responsability falls to a transport protocol.
+//! This responsibility falls to a transport protocol.
 //! XCM can even be interpreted on the local system, with no need of a transport protocol.
 //! However, automatic and composable workflows can be achieved via the use of one.
 //!
