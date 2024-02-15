@@ -409,4 +409,4 @@ prepare-bridges-zombienet-artifacts:
   before_script:
     - mkdir -p ./artifacts/bridges-polkadot-sdk/bridges
   script:
-    - cp -r bridges/zombienet ./artifacts/bridges-polkadot-sdk/bridges/zombienet
+    - cp -r bridges/testing ./artifacts/bridges-polkadot-sdk/bridges/testing
