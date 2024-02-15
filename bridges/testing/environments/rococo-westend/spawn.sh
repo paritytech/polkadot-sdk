@@ -26,11 +26,11 @@ done
 logs_dir=$TEST_DIR/logs
 helper_script="${BASH_SOURCE%/*}/helper.sh"
 
-rococo_def=$POLKADOT_SDK_PATH/cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.toml
+rococo_def=${BASH_SOURCE%/*}/bridge_hub_rococo_local_network.toml
 start_zombienet $TEST_DIR $rococo_def rococo_dir rococo_pid
 echo
 
-westend_def=$POLKADOT_SDK_PATH/cumulus/zombienet/bridge-hubs/bridge_hub_westend_local_network.toml
+westend_def=${BASH_SOURCE%/*}/bridge_hub_westend_local_network.toml
 start_zombienet $TEST_DIR $westend_def westend_dir westend_pid
 echo
 
