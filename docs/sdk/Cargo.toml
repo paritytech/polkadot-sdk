@@ -22,7 +22,7 @@ pallet-examples = { path = "../../substrate/frame/examples" }
 pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }
 
 # How we build docs in rust-docs
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b" }
+simple-mermaid = "0.1.1"
 docify = "0.2.7"
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
@@ -67,6 +67,9 @@ pallet-referenda = { path = "../../substrate/frame/referenda" }
 pallet-broker = { path = "../../substrate/frame/broker" }
 pallet-babe = { path = "../../substrate/frame/babe" }
 
+
+# XCM
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
 
 [dev-dependencies]
 parity-scale-codec = "3.6.5"

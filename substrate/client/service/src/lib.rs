@@ -38,7 +38,7 @@ use std::{collections::HashMap, net::SocketAddr};
 
 use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};
-use jsonrpsee::{core::Error as JsonRpseeError, RpcModule};
+use jsonrpsee::RpcModule;
 use log::{debug, error, warn};
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
 use sc_network::{
@@ -109,17 +109,14 @@ impl RpcHandlers {
 	pub async fn rpc_query(
 		&self,
 		json_query: &str,
-	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), JsonRpseeError> {
+	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), serde_json::Error> {
 		// Because `tokio::sync::mpsc::channel` is used under the hood
 		// it will panic if it's set to usize::MAX.
 		//
 		// This limit is used to prevent panics and is large enough.
 		const TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
 
-		self.0
-			.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE)
-			.await
-			.map(|(method_res, recv)| (method_res.result, recv))
+		self.0.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).await
 	}
 
 	/// Provides access to the underlying `RpcModule`
