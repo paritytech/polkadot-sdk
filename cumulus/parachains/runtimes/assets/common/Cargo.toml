@@ -21,6 +21,7 @@ sp-api = { path = "../../../../../substrate/primitives/api", default-features = 
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
 pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
+pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
 
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }

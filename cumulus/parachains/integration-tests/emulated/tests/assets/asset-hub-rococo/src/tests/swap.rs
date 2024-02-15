@@ -13,9 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
-use rococo_system_emulated_network::penpal_emulated_chain::LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3;
-use sp_runtime::ModuleError;
+use crate::imports::*;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
@@ -128,7 +126,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			.unwrap();
 
 	// 1. Create asset on penpal and, 2. Create foreign asset on asset_hub_rococo
-	super::penpal_create_foreign_asset_on_asset_hub(
+	penpal_create_foreign_asset_on_asset_hub(
 		asset_id_on_penpal,
 		foreign_asset_at_asset_hub_rococo,
 		ah_as_seen_by_penpal,

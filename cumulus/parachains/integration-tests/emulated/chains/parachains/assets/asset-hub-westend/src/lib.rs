@@ -55,5 +55,5 @@ decl_test_parachains! {
 impl_accounts_helpers_for_parachain!(AssetHubWestend);
 impl_assert_events_helpers_for_parachain!(AssetHubWestend);
 impl_assets_helpers_for_parachain!(AssetHubWestend, Westend);
-impl_foreign_assets_helpers_for_parachain!(AssetHubWestend, Westend);
+impl_foreign_assets_helpers_for_parachain!(AssetHubWestend);
 impl_xcm_helpers_for_parachain!(AssetHubWestend);

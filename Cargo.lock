@@ -833,6 +833,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "penpal-runtime",
  "rococo-runtime",
  "rococo-system-emulated-network",
  "sp-runtime",
@@ -1079,6 +1080,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "pallet-asset-conversion",
+ "pallet-assets",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
@@ -11558,6 +11560,7 @@ dependencies = [
  "penpal-runtime",
  "rococo-emulated-chain",
  "sp-core",
+ "staging-xcm",
  "westend-emulated-chain",
 ]
 

@@ -23,6 +23,7 @@ use super::{
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset},
 	TrustBackedAssetsAsLocation,
+	ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger,
 };
 use frame_support::{
 	parameter_types,
@@ -67,7 +68,9 @@ use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 parameter_types! {
 	pub const TokenLocation: Location = Location::parent();
+	pub const TokenLocationAsNative: Location = Location::here();
 	pub const TokenLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
+	pub const TokenLocationAsNativeV3: xcm::v3::Location = xcm::v3::Location::here();
 	pub const RelayNetwork: NetworkId = NetworkId::Rococo;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
@@ -119,7 +122,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	IsConcrete<TokenLocation>,
+	(IsConcrete<TokenLocation>, IsConcrete<TokenLocationAsNative>),
 	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -522,15 +525,6 @@ pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentia
 	TrustBackedAssetsInstance,
 >;
 
-/// Multiplier used for dedicated `TakeFirstAssetTrader` with `ForeignAssets` instance.
-pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
-	AssetFeeAsExistentialDepositMultiplier<
-		Runtime,
-		WeightToFee,
-		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>,
-		ForeignAssetsInstance,
-	>;
-
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
@@ -571,6 +565,7 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader = (
+		UsingComponents<WeightToFee, TokenLocationAsNative, AccountId, Balances, ToStakingPot<Runtime>>,
 		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
 			TokenLocationV3,
@@ -601,7 +596,7 @@ impl xcm_executor::Config for XcmConfig {
 		// `pallet_assets` instance - `ForeignAssets`.
 		cumulus_primitives_utility::TakeFirstAssetTrader<
 			AccountId,
-			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger,
+			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger<Runtime, WeightToFee, Balances, ForeignAssetsInstance>,
 			ForeignAssetsConvertedConcreteId,
 			ForeignAssets,
 			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
