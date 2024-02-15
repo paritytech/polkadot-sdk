@@ -2266,9 +2266,8 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		composite_enum, config, disable_frame_system_supertrait_check, error, event,
 		extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
-		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
-		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
-		whitelist_storage,
+		import_section, inherent, no_default, no_default_bounds, pallet_section, storage_prefix,
+		storage_version, type_value, unbounded, validate_unsigned, weight, whitelist_storage,
 	};
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
@@ -2710,7 +2709,7 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	pub use frame_support_procedural::storage;
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the conditions for a
 	/// given work item to be valid.
 	///
@@ -2718,21 +2717,21 @@ pub mod pallet_macros {
 	/// should have the same signature as the function it is attached to, except that it should
 	/// return a `bool` instead.
 	pub use frame_support_procedural::task_condition;
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the index of a given
 	/// work item.
 	///
 	/// It takes an integer literal as input, which is then used to define the index. This
 	/// index should be unique for each function in the `impl` block.
 	pub use frame_support_procedural::task_index;
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define an iterator over the
 	/// available work items for a task.
 	///
 	/// It takes an iterator as input that yields a tuple with same types as the function
 	/// arguments.
 	pub use frame_support_procedural::task_list;
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) define the weight of a given work
 	/// item.
 	///
@@ -2765,6 +2764,61 @@ pub mod pallet_macros {
 	/// Now, this can be executed as follows:
 	#[doc = docify::embed!("src/tests/tasks.rs", tasks_work)]
 	pub use frame_support_procedural::tasks_experimental;
+
+	/// Allows a pallet to declare a type as an origin.
+	///
+	/// If defined as such, this type will be amalgamated at the runtime level into
+	/// `RuntimeOrigin`, very similar to [`call`], [`error`] and [`event`]. See
+	/// [`composite_enum`] for similar cases.
+	///
+	/// Origin is a complex FRAME topics and is further explained in `polkadot_sdk_docs`.
+	///
+	/// ## Syntax Variants
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	///     # use frame_support::pallet_prelude::*;
+	///     # #[pallet::config]
+	///     # pub trait Config: frame_system::Config {}
+	///     # #[pallet::pallet]
+	///     # pub struct Pallet<T>(_);
+	/// 	/// On the spot declaration.
+	///     #[pallet::origin]
+	/// 	#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	/// 	pub enum Origin {
+	/// 		Foo,
+	/// 		Bar,
+	/// 	}
+	/// }
+	/// ```
+	///
+	/// Or, more commonly used:/
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	///     # use frame_support::pallet_prelude::*;
+	///     # #[pallet::config]
+	///     # pub trait Config: frame_system::Config {}
+	///     # #[pallet::pallet]
+	///     # pub struct Pallet<T>(_);
+	/// 	#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	/// 	pub enum RawOrigin {
+	/// 		Foo,
+	/// 		Bar,
+	/// 	}
+	///
+	/// 	#[pallet::origin]
+	/// 	pub type Origin = RawOrigin;
+	/// }
+	/// ```
+	///
+	/// ## Warning
+	///
+	/// Modifying any pallet's origin type will cause the runtime level origin type to also
+	/// change in encoding. If stored anywhere on-chain, this will require a data migration.
+	pub use frame_support_procedural::origin;
 }
 
 #[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]
