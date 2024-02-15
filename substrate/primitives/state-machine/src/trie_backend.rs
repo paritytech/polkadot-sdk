@@ -74,6 +74,9 @@ pub trait TrieCacheProvider<H: Hasher> {
 	fn merge<'a>(&'a self, other: Self::Cache<'a>, new_root: H::Out);
 }
 
+// TODO pass DBLocation from backend (no use of having
+// something u64 in structs for rocksdb or old paritydb).
+// (for no_std it is ()).
 #[cfg(feature = "std")]
 impl<H: Hasher> TrieCacheProvider<H> for LocalTrieCache<H, DBLocation> {
 	type Cache<'a> = TrieCache<'a, H, DBLocation> where H: 'a;
@@ -231,33 +234,26 @@ impl<H: Hasher> AsDB<H> for MemoryDB<H> {
 }
 
 #[cfg(feature = "std")]
-type DefaultRecorder<H> = sp_trie::recorder::Recorder<H>;
+type DefaultRecorder<H> = sp_trie::recorder::Recorder<H, DBLocation>;
 
 #[cfg(not(feature = "std"))]
 type DefaultRecorder<H> = UnimplementedRecorderProvider<H>;
 
 /// Builder for creating a [`TrieBackend`].
-pub struct TrieBackendBuilder<H: Hasher, C = DefaultCache<H, DBLocation>,
-	R = DefaultRecorder<H>,
-> {
+pub struct TrieBackendBuilder<H: Hasher, C = DefaultCache<H, DBLocation>, R = DefaultRecorder<H>> {
 	storage: Box<dyn AsDB<H>>,
 	root: H::Out,
 	recorder: Option<R>,
 	cache: Option<C>,
 }
 
-impl<H, C, R> TrieBackendBuilder<S, H, C, R>
+impl<H, C, R> TrieBackendBuilder<H, C, R>
 where
 	H: Hasher,
 {
 	/// Create a new builder instance.
 	pub fn new(storage: Box<dyn AsDB<H>>, root: H::Out) -> Self {
-		Self {
-			storage,
-			root,
-			recorder: None,
-			cache: None,
-		}
+		Self { storage, root, recorder: None, cache: None }
 	}
 }
 
@@ -267,12 +263,7 @@ where
 {
 	/// Create a new builder instance.
 	pub fn new_with_cache(storage: Box<dyn AsDB<H>>, root: H::Out, cache: C) -> Self {
-		Self {
-			storage,
-			root,
-			recorder: None,
-			cache: Some(cache),
-		}
+		Self { storage, root, recorder: None, cache: Some(cache) }
 	}
 	/// Wrap the given [`TrieBackend`].
 	///
@@ -281,7 +272,7 @@ where
 	/// backend.
 	///
 	/// The backend storage and the cache will be taken from `other`.
-	pub fn wrap(other: &TrieBackend<H, C, R>) -> TrieBackendBuilder<H, &C, R> {
+	pub fn wrap(mut other: TrieBackend<H, C, R>) -> TrieBackendBuilder<H, C, R> {
 		TrieBackendBuilder {
 			root: *other.essence.root(),
 			recorder: None,
@@ -371,7 +362,8 @@ fn access_cache<T, R>(cell: &CacheCell<T>, callback: impl FnOnce(&mut T) -> R) -
 /// Patricia trie-based backend. Transaction type is an overlay of changes to commit.
 pub struct TrieBackend<
 	H: Hasher,
-	C = DefaultCache<H>,
+	C = DefaultCache<H, DBLocation>,
+	// dblocation for size of structs
 	R = DefaultRecorder<H>,
 > {
 	pub(crate) essence: TrieBackendEssence<H, C, R>,
@@ -381,7 +373,7 @@ pub struct TrieBackend<
 impl<
 		H: Hasher,
 		C: TrieCacheProvider<H> + Send + Sync,
-		R: TrieRecorderProvider<H> + Send + Sync,
+		R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
 	> TrieBackend<H, C, R>
 where
 	H::Out: Codec,
@@ -417,49 +409,58 @@ where
 	}
 
 	#[cfg(feature = "std")]
-	/// Get estimated proof size if recording is enabled.
-	pub fn estimate_proof_size(&self) -> Option<usize> {
-		self.essence.estimate_proof_size()
+	/// Set recorder. Returns the previous recorder.
+	pub fn set_recorder(&self, recorder: Option<R>) -> Option<R> {
+		self.essence.set_recorder(recorder)
 	}
 
 	#[cfg(feature = "std")]
-	/// Set recorder. Returns the previous recorder.
-	pub fn set_recorder(&self, recorder: Option<Recorder<H>>) -> Option<Recorder<H>> {
-		self.essence.set_recorder(recorder)
+	/// Set recorder temporarily. Previous recorder is restored when the returned guard is dropped.
+	pub fn with_recorder(&self, recorder: R) -> WithRecorder<H, C, R> {
+		WithRecorder::new(self, recorder)
 	}
 
 	/// Extract the [`StorageProof`].
 	///
 	/// This only returns `Some` when there was a recorder set.
-	pub fn extract_proof(mut self) -> Option<StorageProof> {
-		self.essence.recorder.take().and_then(|r| r.drain_storage_proof())
+	pub fn extract_proof(&self) -> Option<StorageProof> {
+		self.essence.recorder.write().take().and_then(|r| r.drain_storage_proof())
 	}
 }
 
-impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H>, R: TrieRecorderProvider<H>>
-	sp_std::fmt::Debug for TrieBackend<S, H, C, R>
+#[cfg(feature = "std")]
+pub struct WithRecorder<'a, H, C, R>
+where
+	H: Hasher,
+	H::Out: Codec,
+	C: TrieCacheProvider<H> + Send + Sync,
+	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
 {
-	backend: &'a TrieBackend<H, C>,
-	recorder: Option<Recorder<H>>,
+	backend: &'a TrieBackend<H, C, R>,
+	recorder: Option<R>,
 }
 
 #[cfg(feature = "std")]
-impl<'a, H: Hasher, C: TrieCacheProvider<H>> WithRecorder<'a, H, C>
+impl<'a, H, C, R> WithRecorder<'a, H, C, R>
 where
+	H: Hasher,
 	H::Out: Codec,
-	C: Send + Sync,
+	C: TrieCacheProvider<H> + Send + Sync,
+	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
 {
-	fn new(backend: &'a TrieBackend<H, C>, recorder: Recorder<H>) -> Self {
+	fn new(backend: &'a TrieBackend<H, C, R>, recorder: R) -> Self {
 		let prev_recorder = backend.set_recorder(Some(recorder));
 		Self { backend, recorder: prev_recorder }
 	}
 }
 
 #[cfg(feature = "std")]
-impl<'a, H: Hasher, C: TrieCacheProvider<H>> Drop for WithRecorder<'_, H, C>
+impl<'a, H, C, R> Drop for WithRecorder<'_, H, C, R>
 where
+	H: Hasher,
 	H::Out: Codec,
-	C: Send + Sync,
+	C: TrieCacheProvider<H> + Send + Sync,
+	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
 {
 	fn drop(&mut self) {
 		self.backend.set_recorder(self.recorder.take());
@@ -467,19 +468,27 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<'a, H: Hasher, C: TrieCacheProvider<H>> core::ops::Deref for WithRecorder<'a, H, C>
+impl<'a, H, C, R> core::ops::Deref for WithRecorder<'a, H, C, R>
 where
+	H: Hasher,
 	H::Out: Codec,
-	C: Send + Sync,
+	C: TrieCacheProvider<H> + Send + Sync,
+	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
 {
-	type Target = TrieBackend<H, C>;
+	type Target = TrieBackend<H, C, R>;
 
 	fn deref(&self) -> &Self::Target {
 		self.backend
 	}
 }
 
-impl<H: Hasher, C: TrieCacheProvider<H>> sp_std::fmt::Debug for TrieBackend<H, C> {
+
+impl<H, C, R> sp_std::fmt::Debug for TrieBackend<H, C, R>
+where
+	H: Hasher,
+	C: TrieCacheProvider<H>,
+	R: TrieRecorderProvider<H, DBLocation>,
+{
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
 		write!(f, "TrieBackend")
 	}
@@ -488,7 +497,7 @@ impl<H: Hasher, C: TrieCacheProvider<H>> sp_std::fmt::Debug for TrieBackend<H, C
 impl<
 		H: Hasher,
 		C: TrieCacheProvider<H> + Send + Sync,
-		R: TrieRecorderProvider<H> + Send + Sync,
+		R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
 	> Backend<H> for TrieBackend<H, C, R>
 where
 	H::Out: Ord + Codec,

@@ -11417,7 +11417,7 @@ checksum = "16b56e3a2420138bdb970f84dfb9c774aea80fa0e7371549eedec0d80c209c67"
 [[package]]
 name = "parity-db"
 version = "0.4.13"
-source = "git+https://github.com/cheme/parity-db.git?branch=cheme/multi-tree#f2c8dcebab52c2c00072b60999c16ff7eff2e27e"
+source = "git+https://github.com/paritytech/parity-db.git?branch=master#c9125f876a753ea18dd18cc589b5560cc3c7cd75"
 dependencies = [
  "blake2 0.10.6",
  "crc32fast",

@@ -134,12 +134,14 @@ where
 					None, None, None, None, None, None, None, None, None, None, None, None, None,
 					None, None, None,
 				];
+				let mut i_hash = 0;
 				for i in 0..nibble_ops::NIBBLE_LENGTH {
 					if bitmap.value_at(i) {
 						let count = <Compact<u32>>::decode(&mut input)?.0 as usize;
 						let range = input.take(count)?;
 						children[i] = Some(if count == H::LENGTH {
-							NodeHandlePlan::Hash(range)
+							i_hash += 1;
+							NodeHandlePlan::Hash(range, i_hash - 1)
 						} else {
 							NodeHandlePlan::Inline(range)
 						});

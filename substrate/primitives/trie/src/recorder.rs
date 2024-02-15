@@ -33,7 +33,7 @@ use std::{
 		Arc,
 	},
 };
-use trie_db::{node_db::Hasher, RecordedForKey, TrieAccess};
+use trie_db::{node_db::Hasher, Location, RecordedForKey, TrieAccess};
 
 const LOG_TARGET: &str = "trie-recorder";
 
@@ -82,30 +82,32 @@ impl<H> Default for RecorderInner<H> {
 /// Owns the recorded data. Is used to transform data into a storage
 /// proof and to provide transaction support. The `as_trie_recorder` method provides a
 /// [`trie_db::TrieDB`] compatible recorder that implements the actual recording logic.
-pub struct Recorder<H: Hasher> {
+pub struct Recorder<H: Hasher, L: Location> {
 	inner: Arc<Mutex<RecorderInner<H::Out>>>,
 	/// The estimated encoded size of the storage proof this recorder will produce.
 	///
 	/// We store this in an atomic to be able to fetch the value while the `inner` is may locked.
 	encoded_size_estimation: Arc<AtomicUsize>,
+	_ph: PhantomData<L>,
 }
 
-impl<H: Hasher> Default for Recorder<H> {
+impl<H: Hasher, L: Location> Default for Recorder<H, L> {
 	fn default() -> Self {
-		Self { inner: Default::default(), encoded_size_estimation: Arc::new(0.into()) }
+		Self { inner: Default::default(), encoded_size_estimation: Arc::new(0.into()), _ph: PhantomData }
 	}
 }
 
-impl<H: Hasher> Clone for Recorder<H> {
+impl<H: Hasher, L: Location> Clone for Recorder<H, L> {
 	fn clone(&self) -> Self {
 		Self {
 			inner: self.inner.clone(),
 			encoded_size_estimation: self.encoded_size_estimation.clone(),
+_ph: PhantomData,
 		}
 	}
 }
 
-impl<H: Hasher> Recorder<H> {
+impl<H: Hasher, L: Location> Recorder<H, L> {
 	/// Returns [`RecordedForKey`] per recorded key per trie.
 	///
 	/// There are multiple tries when working with e.g. child tries.
@@ -120,8 +122,8 @@ impl<H: Hasher> Recorder<H> {
 	///
 	/// NOTE: This locks a mutex that stays locked until the return value is dropped.
 	#[inline]
-	pub fn as_trie_recorder<L: Copy + Default>(&self, storage_root: H::Out) -> TrieRecorder<'_, H, L> {
-		TrieRecorder::<H> {
+	pub fn as_trie_recorder(&self, storage_root: H::Out) -> TrieRecorder<'_, H, L> {
+		TrieRecorder::<H, L> {
 			inner: self.inner.lock(),
 			storage_root,
 			encoded_size_estimation: self.encoded_size_estimation.clone(),
@@ -236,22 +238,22 @@ impl<H: Hasher> Recorder<H> {
 	}
 }
 
-impl<H: Hasher> crate::ProofSizeProvider for Recorder<H> {
+impl<H: Hasher, L: Location> crate::ProofSizeProvider for Recorder<H, L> {
 	fn estimate_encoded_size(&self) -> usize {
 		Recorder::estimate_encoded_size(self)
 	}
 }
 
 /// The [`TrieRecorder`](trie_db::TrieRecorder) implementation.
-pub struct TrieRecorder<'a, H: Hasher> {
+pub struct TrieRecorder<'a, H: Hasher, L: Location> {
 	inner: MutexGuard<'a, RecorderInner<H::Out>>,
 	storage_root: H::Out,
 	encoded_size_estimation: Arc<AtomicUsize>,
-	_phantom: PhantomData<H>,
+	_phantom: PhantomData<(H, L)>,
 }
 
-impl<H: Hasher> crate::TrieRecorderProvider<H> for Recorder<H> {
-	type Recorder<'a> = TrieRecorder<'a, H> where H: 'a;
+impl<H: Hasher, L: Location> crate::TrieRecorderProvider<H, L> for Recorder<H, L> {
+	type Recorder<'a> = TrieRecorder<'a, H, L> where H: 'a, L: 'a;
 
 	fn drain_storage_proof(self) -> Option<StorageProof> {
 		Some(Recorder::drain_storage_proof(self))
@@ -262,7 +264,7 @@ impl<H: Hasher> crate::TrieRecorderProvider<H> for Recorder<H> {
 	}
 }
 
-impl<'a, H: Hasher> TrieRecorder<'a, H> {
+impl<'a, H: Hasher, L: Location> TrieRecorder<'a, H, L> {
 	/// Update the recorded keys entry for the given `full_key`.
 	fn update_recorded_keys(&mut self, full_key: &[u8], access: RecordedForKey) {
 		let inner = self.inner.deref_mut();
@@ -306,7 +308,7 @@ impl<'a, H: Hasher> TrieRecorder<'a, H> {
 	}
 }
 
-impl<'a, H: Hasher, L: Copy + Default> trie_db::TrieRecorder<H::Out, L> for TrieRecorder<'a, H, L> {
+impl<'a, H: Hasher, L: Location> trie_db::TrieRecorder<H::Out, L> for TrieRecorder<'a, H, L> {
 	fn record(&mut self, access: TrieAccess<H::Out, L>) {
 		let mut encoded_size_update = 0;
 
@@ -432,7 +434,7 @@ mod tests {
 
 	type MemoryDB = crate::MemoryDB<sp_core::Blake2Hasher>;
 	type Layout = crate::LayoutV1<sp_core::Blake2Hasher, ()>;
-	type Recorder = super::Recorder<sp_core::Blake2Hasher>;
+	type Recorder = super::Recorder<sp_core::Blake2Hasher, ()>;
 
 	const TEST_DATA: &[(&[u8], &[u8])] =
 		&[(b"key1", &[1; 64]), (b"key2", &[2; 64]), (b"key3", &[3; 64]), (b"key4", &[4; 64])];
@@ -645,7 +647,7 @@ mod tests {
 		let recorder = Recorder::default();
 
 		{
-			let trie_recorder = recorder.as_trie_recorder::<()>(root);
+			let trie_recorder = recorder.as_trie_recorder(root);
 			assert!(matches!(trie_recorder.trie_nodes_recorded_for_key(key), RecordedForKey::None));
 		}
 
@@ -679,19 +681,19 @@ mod tests {
 
 		recorder.rollback_transaction().unwrap();
 		{
-			let trie_recorder = recorder.as_trie_recorder::<()>(root);
+			let trie_recorder = recorder.as_trie_recorder(root);
 			assert!(matches!(trie_recorder.trie_nodes_recorded_for_key(key), RecordedForKey::Hash));
 		}
 
 		recorder.rollback_transaction().unwrap();
 		{
-			let trie_recorder = recorder.as_trie_recorder::<()>(root);
+			let trie_recorder = recorder.as_trie_recorder(root);
 			assert!(matches!(trie_recorder.trie_nodes_recorded_for_key(key), RecordedForKey::None));
 		}
 
 		recorder.start_transaction();
 		{
-			let mut trie_recorder = recorder.as_trie_recorder::<()>(root);
+			let mut trie_recorder = recorder.as_trie_recorder(root);
 			let trie = TrieDBBuilder::<Layout>::new(&db, &root)
 				.with_recorder(&mut trie_recorder)
 				.build();
@@ -722,7 +724,7 @@ mod tests {
 
 		recorder.rollback_transaction().unwrap();
 		{
-			let trie_recorder = recorder.as_trie_recorder::<()>(root);
+			let trie_recorder = recorder.as_trie_recorder(root);
 			assert!(matches!(
 				trie_recorder.trie_nodes_recorded_for_key(key),
 				RecordedForKey::Value
@@ -731,7 +733,7 @@ mod tests {
 
 		recorder.rollback_transaction().unwrap();
 		{
-			let trie_recorder = recorder.as_trie_recorder::<()>(root);
+			let trie_recorder = recorder.as_trie_recorder(root);
 			assert!(matches!(trie_recorder.trie_nodes_recorded_for_key(key), RecordedForKey::None));
 		}
 	}

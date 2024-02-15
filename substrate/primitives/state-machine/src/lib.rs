@@ -594,7 +594,7 @@ mod execution {
 		}
 
 		let recorder = sp_trie::recorder::Recorder::default();
-		let proving_backend = trie_backend.with_recorder(recorder);
+		let proving_backend = trie_backend.with_recorder(recorder.clone());
 		let mut count = 0;
 
 		let mut child_roots = HashSet::new();
@@ -653,7 +653,7 @@ mod execution {
 						switch_child_key = Some(key);
 						break
 					}
-				} else if proving_backend.estimate_proof_size().unwrap_or(0) <= size_limit {
+				} else if recorder.estimate_encoded_size() <= size_limit {
 					count += 1;
 				} else {
 					break

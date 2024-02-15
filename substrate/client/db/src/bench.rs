@@ -317,7 +317,6 @@ fn state_err() -> String {
 
 impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 	type Error = <DbState<Hasher> as StateBackend<Hasher>>::Error;
-	type TrieBackendStorage = <DbState<Hasher> as StateBackend<Hasher>>::TrieBackendStorage;
 	type RawIter = RawIter<Hasher>;
 
 	fn storage(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {

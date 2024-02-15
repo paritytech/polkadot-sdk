@@ -678,7 +678,7 @@ mod tests {
 	type MemoryDB = crate::MemoryDB<sp_core::Blake2Hasher>;
 	type Layout = crate::LayoutV1<sp_core::Blake2Hasher, ()>;
 	type Cache = super::SharedTrieCache<sp_core::Blake2Hasher, ()>;
-	type Recorder = crate::recorder::Recorder<sp_core::Blake2Hasher>;
+	type Recorder = crate::recorder::Recorder<sp_core::Blake2Hasher, ()>;
 
 	const TEST_DATA: &[(&[u8], &[u8])] =
 		&[(b"key1", b"val1"), (b"key2", &[2; 64]), (b"key3", b"val3"), (b"key4", &[4; 64])];

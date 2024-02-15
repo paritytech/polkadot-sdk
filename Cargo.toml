@@ -615,6 +615,5 @@ zeroize = { opt-level = 3 }
 
 [patch.crates-io]
 trie-db = { git = "https://github.com/cheme/trie.git", branch = "cheme/new-trie" }
-#parity-db = { git = "https://github.com/paritytech/parity-db.git", branch = "multi_tree_option" }
+parity-db = { git = "https://github.com/paritytech/parity-db.git", branch = "master" }
 #parity-db = { git = "https://github.com/MattHalpinParity/parity-db.git", branch = "multi_tree" }
-parity-db = { git = "https://github.com/cheme/parity-db.git", branch = "cheme/multi-tree" }

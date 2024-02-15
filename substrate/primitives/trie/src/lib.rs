@@ -51,9 +51,9 @@ use trie_db::proof::{generate_proof, verify_proof};
 pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
-	CError, Changeset, DBValue, ExistingChangesetNode, NewChangesetNode, Query, Recorder, Trie,
-	TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator, TrieDBRawIterator, TrieLayout,
-	TrieRecorder,
+	CError, Changeset, DBValue, ExistingChangesetNode, Location, NewChangesetNode, Query, Recorder,
+	Trie, TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator, TrieDBRawIterator,
+	TrieLayout, TrieRecorder,
 };
 pub use trie_db::{
 	node_db::{Hasher, Prefix},
@@ -72,7 +72,7 @@ pub struct LayoutV1<H, DL>(PhantomData<(H, DL)>);
 impl<H, DL> TrieLayout for LayoutV0<H, DL>
 where
 	H: Hasher,
-	DL: trie_db::Location,
+	DL: Location,
 {
 	const USE_EXTENSION: bool = false;
 	const ALLOW_EMPTY: bool = true;
@@ -86,7 +86,7 @@ where
 impl<H, DL> TrieConfiguration for LayoutV0<H, DL>
 where
 	H: Hasher,
-	DL: trie_db::Location,
+	DL: Location,
 {
 	fn trie_root<I, A, B>(input: I) -> <Self::Hash as Hasher>::Out
 	where
@@ -120,7 +120,7 @@ where
 impl<H, DL> TrieLayout for LayoutV1<H, DL>
 where
 	H: Hasher,
-	DL: trie_db::Location,
+	DL: Location,
 {
 	const USE_EXTENSION: bool = false;
 	const ALLOW_EMPTY: bool = true;
@@ -134,7 +134,7 @@ where
 impl<H, DL> TrieConfiguration for LayoutV1<H, DL>
 where
 	H: Hasher,
-	DL: trie_db::Location,
+	DL: Location,
 {
 	fn trie_root<I, A, B>(input: I) -> <Self::Hash as Hasher>::Out
 	where
@@ -176,9 +176,9 @@ pub type DBLocation = ();
 ///
 /// Types implementing this trait can be used to maintain recorded state
 /// across operations on different [`trie_db::TrieDB`] instances.
-pub trait TrieRecorderProvider<H: Hasher> {
+pub trait TrieRecorderProvider<H: Hasher, L: Location> {
 	/// Recorder type that is going to be returned by implementors of this trait.
-	type Recorder<'a>: trie_db::TrieRecorder<H::Out> + 'a
+	type Recorder<'a>: trie_db::TrieRecorder<H::Out, L> + 'a
 	where
 		Self: 'a;
 
