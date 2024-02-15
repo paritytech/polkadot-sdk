@@ -1977,6 +1977,14 @@
 <a href="#1977" id="1977">1977</a>
 <a href="#1978" id="1978">1978</a>
 <a href="#1979" id="1979">1979</a>
+<a href="#1980" id="1980">1980</a>
+<a href="#1981" id="1981">1981</a>
+<a href="#1982" id="1982">1982</a>
+<a href="#1983" id="1983">1983</a>
+<a href="#1984" id="1984">1984</a>
+<a href="#1985" id="1985">1985</a>
+<a href="#1986" id="1986">1986</a>
+<a href="#1987" id="1987">1987</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2542,6 +2550,12 @@
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>force_era)]
 	</span><span class="kw">pub type </span>ForceEra&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, Forcing, ValueQuery&gt;;
+
+	<span class="doccomment">/// Maximum staked rewards, i.e. the percentage of the era inflation that
+	/// is used for stake rewards.
+	/// See [Era payout](./index.html#era-payout).
+	</span><span class="attr">#[pallet::storage]
+	</span><span class="kw">pub type </span>MaxStakedRewards&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, Percent, OptionQuery&gt;;
 
 	<span class="doccomment">/// The percentage of the slash that is distributed to reporters.
 	///
@@ -3696,6 +3710,7 @@
 			max_validator_count: ConfigOp&lt;u32&gt;,
 			chill_threshold: ConfigOp&lt;Percent&gt;,
 			min_commission: ConfigOp&lt;Perbill&gt;,
+			max_staked_rewards: ConfigOp&lt;Percent&gt;,
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 
@@ -3715,6 +3730,7 @@
 			<span class="macro">config_op_exp!</span>(MaxValidatorsCount&lt;T&gt;, max_validator_count);
 			<span class="macro">config_op_exp!</span>(ChillThreshold&lt;T&gt;, chill_threshold);
 			<span class="macro">config_op_exp!</span>(MinCommission&lt;T&gt;, min_commission);
+			<span class="macro">config_op_exp!</span>(MaxStakedRewards&lt;T&gt;, max_staked_rewards);
 			<span class="prelude-val">Ok</span>(())
 		}
 		<span class="doccomment">/// Declare a `controller` to stop participating as either a validator or nominator.

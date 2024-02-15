@@ -10,8 +10,8 @@
     notification_service: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn NotificationService&gt;
 )<span class="where fmt-newline">where
     B: Block,
-    C: BlockchainEvents&lt;B&gt; + <a class="trait" href="../sp_api/trait.ProvideRuntimeApi.html" title="trait sp_api::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;B&gt; + HeaderBackend&lt;B&gt;,
-    C::<a class="associatedtype" href="../sp_api/trait.ProvideRuntimeApi.html#associatedtype.Api" title="type sp_api::ProvideRuntimeApi::Api">Api</a>: MixnetApi&lt;B&gt;,
+    C: BlockchainEvents&lt;B&gt; + ProvideRuntimeApi&lt;B&gt; + HeaderBackend&lt;B&gt;,
+    C::Api: MixnetApi&lt;B&gt;,
     S: <a class="trait" href="../sp_consensus/trait.SyncOracle.html" title="trait sp_consensus::SyncOracle">SyncOracle</a>,
     N: NetworkStateInfo + NetworkNotification + NetworkPeers,
     P: TransactionPool&lt;Block = B&gt; + LocalTransactionPool&lt;Block = B&gt; + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Run the mixnet service. If <code>keystore</code> is <code>None</code>, the service will not attempt to register the

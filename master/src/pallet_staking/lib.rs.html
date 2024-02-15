@@ -1217,6 +1217,14 @@
 <a href="#1217" id="1217">1217</a>
 <a href="#1218" id="1218">1218</a>
 <a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1421,6 +1429,12 @@
 //! ```nocompile
 //! remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
 //! ```
+//!
+//! Note, however, that it is possible to set a cap on the total `staker_payout` for the era through
+//! the `MaxStakersRewards` storage type. The `era_payout` implementor must ensure that the
+//! `max_payout = remaining_payout + (staker_payout * max_stakers_rewards)`. The excess payout that
+//! is not allocated for stakers is the era remaining reward.
+//!
 //! The remaining reward is send to the configurable end-point [`Config::RewardRemainder`].
 //!
 //! ### Reward Calculation
@@ -2116,8 +2130,10 @@
 <span class="doccomment">/// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
 </span><span class="kw">pub struct </span>ConvertCurve&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;Balance: AtLeast32BitUnsigned + Clone, T: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>PiecewiseLinear&lt;<span class="lifetime">&#39;static</span>&gt;&gt;&gt;
-	EraPayout&lt;Balance&gt; <span class="kw">for </span>ConvertCurve&lt;T&gt;
+<span class="kw">impl</span>&lt;Balance, T&gt; EraPayout&lt;Balance&gt; <span class="kw">for </span>ConvertCurve&lt;T&gt;
+<span class="kw">where
+	</span>Balance: AtLeast32BitUnsigned + Clone + Copy,
+	T: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>PiecewiseLinear&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
 {
 	<span class="kw">fn </span>era_payout(
 		total_staked: Balance,
@@ -2131,7 +2147,7 @@
 			<span class="comment">// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 			</span>era_duration_millis,
 		);
-		<span class="kw">let </span>rest = max_payout.saturating_sub(validator_payout.clone());
+		<span class="kw">let </span>rest = max_payout.saturating_sub(validator_payout);
 		(validator_payout, rest)
 	}
 }

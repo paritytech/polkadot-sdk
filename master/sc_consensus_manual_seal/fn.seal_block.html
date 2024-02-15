@@ -3,7 +3,7 @@
 )<span class="where fmt-newline">where
     B: BlockT,
     BI: BlockImport&lt;B, Error = <a class="enum" href="../sp_consensus/error/enum.Error.html" title="enum sp_consensus::error::Error">Error</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
-    C: HeaderBackend&lt;B&gt; + <a class="trait" href="../sp_api/trait.ProvideRuntimeApi.html" title="trait sp_api::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;B&gt;,
+    C: HeaderBackend&lt;B&gt; + ProvideRuntimeApi&lt;B&gt;,
     E: <a class="trait" href="../sp_consensus/trait.Environment.html" title="trait sp_consensus::Environment">Environment</a>&lt;B&gt;,
     E::<a class="associatedtype" href="../sp_consensus/trait.Environment.html#associatedtype.Proposer" title="type sp_consensus::Environment::Proposer">Proposer</a>: <a class="trait" href="../sp_consensus/trait.Proposer.html" title="trait sp_consensus::Proposer">Proposer</a>&lt;B, Proof = P&gt;,
     TP: TransactionPool&lt;Block = B&gt;,

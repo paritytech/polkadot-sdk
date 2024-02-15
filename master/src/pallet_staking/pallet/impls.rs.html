@@ -2043,6 +2043,15 @@
 <a href="#2043" id="2043">2043</a>
 <a href="#2044" id="2044">2044</a>
 <a href="#2045" id="2045">2045</a>
+<a href="#2046" id="2046">2046</a>
+<a href="#2047" id="2047">2047</a>
+<a href="#2048" id="2048">2048</a>
+<a href="#2049" id="2049">2049</a>
+<a href="#2050" id="2050">2050</a>
+<a href="#2051" id="2051">2051</a>
+<a href="#2052" id="2052">2052</a>
+<a href="#2053" id="2053">2053</a>
+<a href="#2054" id="2054">2054</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2081,7 +2090,7 @@
 <span class="kw">use </span>pallet_session::historical;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
-	Perbill,
+	Perbill, Percent,
 };
 <span class="kw">use </span>sp_staking::{
 	currency_to_vote::CurrencyToVote,
@@ -2552,8 +2561,17 @@
 				.saturated_into::&lt;u64&gt;();
 			<span class="kw">let </span>staked = <span class="self">Self</span>::eras_total_stake(<span class="kw-2">&amp;</span>active_era.index);
 			<span class="kw">let </span>issuance = T::Currency::total_issuance();
+
 			<span class="kw">let </span>(validator_payout, remainder) =
 				T::EraPayout::era_payout(staked, issuance, era_duration);
+
+			<span class="kw">let </span>total_payout = validator_payout.saturating_add(remainder);
+			<span class="kw">let </span>max_staked_rewards =
+				MaxStakedRewards::&lt;T&gt;::get().unwrap_or(Percent::from_percent(<span class="number">100</span>));
+
+			<span class="comment">// apply cap to validators payout and add difference to remainder.
+			</span><span class="kw">let </span>validator_payout = validator_payout.min(max_staked_rewards * total_payout);
+			<span class="kw">let </span>remainder = total_payout.saturating_sub(validator_payout);
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::EraPaid {
 				era_index: active_era.index,
