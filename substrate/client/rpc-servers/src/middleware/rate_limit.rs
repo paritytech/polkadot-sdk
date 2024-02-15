@@ -26,7 +26,7 @@ use governor::{
 	state::{InMemoryState, NotKeyed},
 };
 use jsonrpsee::{
-	server::middleware::rpc::{RpcServiceT, ResponseFuture},
+	server::middleware::rpc::{ResponseFuture, RpcServiceT},
 	types::{ErrorObject, Id, Request},
 	MethodResponse,
 };
@@ -75,5 +75,8 @@ where
 }
 
 fn reject_too_many_calls(id: Id, limit: NonZeroU32) -> MethodResponse {
-	MethodResponse::error(id, ErrorObject::owned(-32999, "RPC rate limit", Some(format!("{limit} calls/min exceeded"))))
+	MethodResponse::error(
+		id,
+		ErrorObject::owned(-32999, "RPC rate limit", Some(format!("{limit} calls/min exceeded"))),
+	)
 }
