@@ -55,6 +55,7 @@ fn set_staking_configs_works() {
 			ConfigOp::Set(10),
 			ConfigOp::Set(20),
 			ConfigOp::Set(Percent::from_percent(75)),
+			ConfigOp::Set(Zero::zero()),
 			ConfigOp::Set(Zero::zero())
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 1_500);
@@ -63,10 +64,12 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxValidatorsCount::<Test>::get(), Some(20));
 		assert_eq!(ChillThreshold::<Test>::get(), Some(Percent::from_percent(75)));
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
+		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(0)));
 
 		// noop does nothing
 		assert_storage_noop!(assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -83,6 +86,7 @@ fn set_staking_configs_works() {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+			ConfigOp::Remove,
 			ConfigOp::Remove
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 0);
@@ -91,6 +95,7 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxValidatorsCount::<Test>::get(), None);
 		assert_eq!(ChillThreshold::<Test>::get(), None);
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
+		assert_eq!(MaxStakedRewards::<Test>::get(), None);
 	});
 }
 
@@ -1737,6 +1742,74 @@ fn rebond_emits_right_value_in_event() {
 		// Event emitted should be correct, only 800
 		assert_eq!(*staking_events().last().unwrap(), Event::Bonded { stash: 11, amount: 800 });
 	});
+}
+
+#[test]
+fn max_staked_rewards_default_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_eq!(<MaxStakedRewards<Test>>::get(), None);
+
+		let default_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
+		assert!(default_stakers_payout > 0);
+		start_active_era(1);
+
+		// the final stakers reward is the same as the reward before applied the cap.
+		assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
+
+		// which is the same behaviour if the `MaxStakedRewards` is set to 100%.
+		<MaxStakedRewards<Test>>::set(Some(Percent::from_parts(100)));
+
+		let default_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
+		assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
+	})
+}
+
+#[test]
+fn max_staked_rewards_works() {
+	ExtBuilder::default().nominate(true).build_and_execute(|| {
+		let max_staked_rewards = 10;
+
+		// sets new max staked rewards through set_staking_configs.
+		assert_ok!(Staking::set_staking_configs(
+			RuntimeOrigin::root(),
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Set(Percent::from_percent(max_staked_rewards)),
+		));
+
+		assert_eq!(<MaxStakedRewards<Test>>::get(), Some(Percent::from_percent(10)));
+
+		// check validators account state.
+		assert_eq!(Session::validators().len(), 2);
+		assert!(Session::validators().contains(&11) & Session::validators().contains(&21));
+		// balance of the mock treasury account is 0
+		assert_eq!(RewardRemainderUnbalanced::get(), 0);
+
+		let max_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
+
+		start_active_era(1);
+
+		let treasury_payout = RewardRemainderUnbalanced::get();
+		let validators_payout = ErasValidatorReward::<Test>::get(0).unwrap();
+		let total_payout = treasury_payout + validators_payout;
+
+		// max stakers payout (without max staked rewards cap applied) is larger than the final
+		// validator rewards. The final payment and remainder should be adjusted by redestributing
+		// the era inflation to apply the cap...
+		assert!(max_stakers_payout > validators_payout);
+
+		// .. which means that the final validator payout is 10% of the total payout..
+		assert_eq!(validators_payout, Percent::from_percent(max_staked_rewards) * total_payout);
+		// .. and the remainder 90% goes to the treasury.
+		assert_eq!(
+			treasury_payout,
+			Percent::from_percent(100 - max_staked_rewards) * (treasury_payout + validators_payout)
+		);
+	})
 }
 
 #[test]
@@ -5543,7 +5616,8 @@ fn chill_other_works() {
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
-				ConfigOp::Remove
+				ConfigOp::Remove,
+				ConfigOp::Noop,
 			));
 
 			// Still can't chill these users
@@ -5564,7 +5638,8 @@ fn chill_other_works() {
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Noop,
-				ConfigOp::Noop
+				ConfigOp::Noop,
+				ConfigOp::Noop,
 			));
 
 			// Still can't chill these users
@@ -5585,7 +5660,8 @@ fn chill_other_works() {
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Noop,
-				ConfigOp::Noop
+				ConfigOp::Noop,
+				ConfigOp::Noop,
 			));
 
 			// Still can't chill these users
@@ -5606,7 +5682,8 @@ fn chill_other_works() {
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Set(Percent::from_percent(75)),
-				ConfigOp::Noop
+				ConfigOp::Noop,
+				ConfigOp::Noop,
 			));
 
 			// 16 people total because tests start with 2 active one
@@ -5652,6 +5729,7 @@ fn capped_stakers_works() {
 			ConfigOp::Set(max),
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+			ConfigOp::Noop,
 		));
 
 		// can create `max - validator_count` validators
@@ -5722,6 +5800,7 @@ fn capped_stakers_works() {
 			ConfigOp::Remove,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
+			ConfigOp::Noop,
 		));
 		assert_ok!(Staking::nominate(RuntimeOrigin::signed(last_nominator), vec![1]));
 		assert_ok!(Staking::validate(
@@ -5757,6 +5836,7 @@ fn min_commission_works() {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Set(Perbill::from_percent(10)),
+			ConfigOp::Noop,
 		));
 
 		// can't make it less than 10 now
