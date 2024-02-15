@@ -22,7 +22,13 @@
 
 pub mod middleware;
 
-use std::{convert::Infallible, error::Error as StdError, net::SocketAddr, time::Duration};
+use std::{
+	convert::Infallible,
+	error::Error as StdError,
+	net::SocketAddr,
+	sync::{Arc, Mutex},
+	time::Duration,
+};
 
 use http::header::HeaderValue;
 use hyper::{
@@ -48,6 +54,8 @@ pub use jsonrpsee::core::{
 	traits::IdProvider,
 };
 pub use middleware::{MetricsLayer, RpcMetrics};
+
+use crate::middleware::chain_head::{ChainHeadLayer, ConnectionData};
 
 const MEGABYTE: u32 = 1024 * 1024;
 
@@ -142,6 +150,9 @@ pub async fn start_server<M: Send + Sync + 'static>(
 	let make_service = make_service_fn(move |_conn: &AddrStream| {
 		let cfg = cfg.clone();
 
+		// Chain head data is per connection.
+		let chain_head_data = Arc::new(Mutex::new(ConnectionData::default()));
+
 		async move {
 			let cfg = cfg.clone();
 
@@ -152,8 +163,13 @@ pub async fn start_server<M: Send + Sync + 'static>(
 				let is_websocket = ws::is_upgrade_request(&req);
 				let transport_label = if is_websocket { "ws" } else { "http" };
 
+				// Order of the requests matter here, the metrics layer should be the first to not
+				// miss metrics.
 				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
-				let rpc_middleware = RpcServiceBuilder::new().option_layer(metrics.clone());
+				let chain_head = ChainHeadLayer::new(chain_head_data.clone());
+
+				let rpc_middleware =
+					RpcServiceBuilder::new().option_layer(metrics.clone()).layer(chain_head);
 				let mut svc =
 					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
 

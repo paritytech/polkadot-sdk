@@ -18,6 +18,7 @@
 
 //! JSON-RPC specific middleware.
 
+pub mod chain_head;
 pub mod metrics;
 
 pub use metrics::*;
