@@ -156,6 +156,17 @@
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -178,7 +189,8 @@
 <span class="kw">pub use </span>xcm_emulator;
 
 <span class="comment">// Substrate
-</span><span class="kw">use </span>grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
+</span><span class="kw">use </span>beefy_primitives::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
+<span class="kw">use </span>grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
 <span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
 <span class="kw">use </span>sp_consensus_babe::AuthorityId <span class="kw">as </span>BabeId;
 <span class="kw">use </span>sp_core::{sr25519, storage::Storage, Pair, Public};
@@ -194,7 +206,6 @@
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>parachains_common::{AccountId, AuraId};
 <span class="kw">use </span>polkadot_primitives::{AssignmentId, ValidatorId};
-<span class="kw">use </span>polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
 
 <span class="kw">pub const </span>XCM_V2: u32 = <span class="number">2</span>;
 <span class="kw">pub const </span>XCM_V3: u32 = <span class="number">3</span>;
@@ -310,8 +321,19 @@
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
+		BeefyId,
 	)&gt; {
-		<span class="macro">vec!</span>[get_authority_keys_from_seed_no_beefy(<span class="string">&quot;Alice&quot;</span>)]
+		<span class="kw">let </span>seed = <span class="string">&quot;Alice&quot;</span>;
+		<span class="macro">vec!</span>[(
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//stash&quot;</span>, seed)),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(seed),
+			get_from_seed::&lt;BabeId&gt;(seed),
+			get_from_seed::&lt;GrandpaId&gt;(seed),
+			get_from_seed::&lt;ValidatorId&gt;(seed),
+			get_from_seed::&lt;AssignmentId&gt;(seed),
+			get_from_seed::&lt;AuthorityDiscoveryId&gt;(seed),
+			get_from_seed::&lt;BeefyId&gt;(seed),
+		)]
 	}
 }
 </code></pre></div></section></main></body></html>

@@ -94,7 +94,6 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -122,8 +121,7 @@
 
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>emulated_integration_tests_common::{
-	accounts, build_genesis_storage, get_account_id_from_seed, get_from_seed, get_host_config,
-	validators,
+	accounts, build_genesis_storage, get_account_id_from_seed, get_host_config, validators,
 };
 <span class="kw">use </span>parachains_common::Balance;
 <span class="kw">use </span>rococo_runtime_constants::currency::UNITS <span class="kw">as </span>ROC;
@@ -168,7 +166,7 @@
 							x.<span class="number">4</span>.clone(),
 							x.<span class="number">5</span>.clone(),
 							x.<span class="number">6</span>.clone(),
-							get_from_seed::&lt;BeefyId&gt;(<span class="string">&quot;Alice&quot;</span>),
+							x.<span class="number">7</span>.clone(),
 						),
 					)
 				})

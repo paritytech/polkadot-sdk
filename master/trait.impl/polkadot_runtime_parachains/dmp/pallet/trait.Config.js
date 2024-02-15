@@ -1,5 +1,4 @@
 (function() {var implementors = {
-"emulated_integration_tests_common":[],
 "polkadot_test_runtime":[["impl <a class=\"trait\" href=\"polkadot_runtime_parachains/dmp/pallet/trait.Config.html\" title=\"trait polkadot_runtime_parachains::dmp::pallet::Config\">Config</a> for <a class=\"struct\" href=\"polkadot_test_runtime/struct.Runtime.html\" title=\"struct polkadot_test_runtime::Runtime\">Runtime</a>"]],
 "rococo_runtime":[["impl <a class=\"trait\" href=\"polkadot_runtime_parachains/dmp/pallet/trait.Config.html\" title=\"trait polkadot_runtime_parachains::dmp::pallet::Config\">Config</a> for <a class=\"struct\" href=\"rococo_runtime/struct.Runtime.html\" title=\"struct rococo_runtime::Runtime\">Runtime</a>"]],
 "westend_runtime":[["impl <a class=\"trait\" href=\"polkadot_runtime_parachains/dmp/pallet/trait.Config.html\" title=\"trait polkadot_runtime_parachains::dmp::pallet::Config\">Config</a> for <a class=\"struct\" href=\"westend_runtime/struct.Runtime.html\" title=\"struct westend_runtime::Runtime\">Runtime</a>"]]
