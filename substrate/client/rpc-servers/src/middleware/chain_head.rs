@@ -37,7 +37,7 @@ use pin_project::pin_project;
 /// The per connectin data needed to manage chainHead subscriptions.
 #[derive(Default)]
 pub struct ConnectionData {
-	/// Active `chainHeda_follow` subscriptions for this connection.
+	/// Active `chainHead_follow` subscriptions for this connection.
 	subscriptions: HashSet<String>,
 }
 
