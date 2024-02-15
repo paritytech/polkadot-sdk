@@ -24,7 +24,7 @@ sc-tracing = { path = "../../../substrate/client/tracing" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 primitives = { package = "polkadot-primitives", path = "../../primitives" }
 bs58 = { version = "0.5.0", features = ["alloc"] }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_cmd = "2.0.4"

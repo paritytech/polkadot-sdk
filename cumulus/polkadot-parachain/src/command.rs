@@ -585,7 +585,7 @@ pub fn run() -> Result<()> {
 			match cmd {
 				BenchmarkCmd::Pallet(cmd) =>
 					if cfg!(feature = "runtime-benchmarks") {
-						runner.sync_run(|config| cmd.run::<Block, ReclaimHostFunctions>(config))
+						runner.sync_run(|config| cmd.run::<sp_runtime::traits::HashingFor<Block>, ReclaimHostFunctions>(config))
 					} else {
 						Err("Benchmarking wasn't enabled when building the node. \
 				You can enable it with `--features runtime-benchmarks`."
@@ -696,7 +696,7 @@ pub fn run() -> Result<()> {
 					.map(|r| r.0)
 					.map_err(Into::into),
 
-					AssetHubKusama | AssetHubWestend =>
+					AssetHubKusama =>
 						crate::service::start_asset_hub_node::<
 							RuntimeApi,
 							AuraId,
@@ -705,7 +705,7 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 
-				    AssetHubRococo =>
+				    AssetHubRococo | AssetHubWestend =>
 						crate::service::start_asset_hub_lookahead_node::<
 						RuntimeApi,
 							AuraId,
@@ -714,8 +714,17 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 
-					CollectivesPolkadot | CollectivesWestend =>
+					CollectivesPolkadot =>
 						crate::service::start_generic_aura_node::<
+							RuntimeApi,
+							AuraId,
+						>(config, polkadot_config, collator_options, id, hwbench)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
+
+					CollectivesWestend =>
+						crate::service::start_generic_aura_lookahead_node::<
 							RuntimeApi,
 							AuraId,
 						>(config, polkadot_config, collator_options, id, hwbench)
@@ -764,7 +773,7 @@ pub fn run() -> Result<()> {
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =>
-							crate::service::start_generic_aura_node::<
+							crate::service::start_generic_aura_lookahead_node::<
 								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
@@ -773,7 +782,7 @@ pub fn run() -> Result<()> {
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =>
-							crate::service::start_generic_aura_node::<
+							crate::service::start_generic_aura_lookahead_node::<
 								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
@@ -788,7 +797,7 @@ pub fn run() -> Result<()> {
 						chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
 						chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
 						chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment =>
-							crate::service::start_generic_aura_node::<
+							crate::service::start_generic_aura_lookahead_node::<
 								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
@@ -825,7 +834,7 @@ pub fn run() -> Result<()> {
 						chain_spec::people::PeopleRuntimeType::Westend |
 						chain_spec::people::PeopleRuntimeType::WestendLocal |
 						chain_spec::people::PeopleRuntimeType::WestendDevelopment =>
-							crate::service::start_generic_aura_node::<
+							crate::service::start_generic_aura_lookahead_node::<
 								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)

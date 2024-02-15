@@ -22,6 +22,7 @@
 
 #![allow(missing_docs)]
 
+use futures::channel::oneshot;
 use polkadot_cli::{
 	service::{
 		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
@@ -30,7 +31,6 @@ use polkadot_cli::{
 	},
 	validator_overseer_builder, Cli,
 };
-use polkadot_node_core_candidate_validation::find_validation_data;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use polkadot_primitives::{CandidateDescriptor, CandidateReceipt};
@@ -82,7 +82,7 @@ where
 					CandidateBackingMessage::Second(
 						relay_parent,
 						ref candidate,
-						ref _validation_data,
+						ref validation_data,
 						ref _pov,
 					),
 			} => {
@@ -112,6 +112,7 @@ where
 					let (sender, receiver) = std::sync::mpsc::channel();
 					let mut new_sender = subsystem_sender.clone();
 					let _candidate = candidate.clone();
+					let validation_data = validation_data.clone();
 					self.spawner.spawn_blocking(
 						"malus-get-validation-data",
 						Some("malus"),
@@ -124,22 +125,51 @@ where
 								.unwrap()
 								.len();
 							gum::trace!(target: MALUS, "Validators {}", n_validators);
-							match find_validation_data(&mut new_sender, &_candidate.descriptor())
-								.await
-							{
-								Ok(Some((validation_data, validation_code))) => {
-									sender
-										.send(Some((
-											validation_data,
-											validation_code,
-											n_validators,
-										)))
-										.expect("channel is still open");
-								},
-								_ => {
-									sender.send(None).expect("channel is still open");
-								},
-							}
+
+							let validation_code = {
+								let validation_code_hash =
+									_candidate.descriptor().validation_code_hash;
+								let (tx, rx) = oneshot::channel();
+								new_sender
+									.send_message(RuntimeApiMessage::Request(
+										relay_parent,
+										RuntimeApiRequest::ValidationCodeByHash(
+											validation_code_hash,
+											tx,
+										),
+									))
+									.await;
+
+								let code = rx.await.expect("Querying the RuntimeApi should work");
+								match code {
+									Err(e) => {
+										gum::error!(
+											target: MALUS,
+											?validation_code_hash,
+											error = %e,
+											"Failed to fetch validation code",
+										);
+
+										sender.send(None).expect("channel is still open");
+										return
+									},
+									Ok(None) => {
+										gum::debug!(
+											target: MALUS,
+											?validation_code_hash,
+											"Could not find validation code on chain",
+										);
+
+										sender.send(None).expect("channel is still open");
+										return
+									},
+									Ok(Some(c)) => c,
+								}
+							};
+
+							sender
+								.send(Some((validation_data, validation_code, n_validators)))
+								.expect("channel is still open");
 						}),
 					);
 

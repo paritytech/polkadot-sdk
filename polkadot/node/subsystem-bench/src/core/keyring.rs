@@ -17,7 +17,6 @@
 use polkadot_primitives::ValidatorId;
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::AppCrypto;
-pub use sp_core::sr25519;
 use sp_core::sr25519::Public;
 use sp_keystore::Keystore;
 use std::sync::Arc;
@@ -35,13 +34,17 @@ impl Default for Keyring {
 }
 
 impl Keyring {
-	pub fn sr25519_new(&self, name: String) -> Public {
+	pub fn sr25519_new(&self, seed: &str) -> Public {
 		self.keystore
-			.sr25519_generate_new(ValidatorId::ID, Some(&format!("//{}", name)))
+			.sr25519_generate_new(ValidatorId::ID, Some(seed))
 			.expect("Insert key into keystore")
 	}
 
 	pub fn keystore(&self) -> Arc<dyn Keystore> {
 		self.keystore.clone()
+	}
+
+	pub fn keystore_ref(&self) -> &LocalKeystore {
+		self.keystore.as_ref()
 	}
 }

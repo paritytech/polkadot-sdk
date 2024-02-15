@@ -1,0 +1,18 @@
+TestConfiguration:
+# Test 1
+- objective: !ApprovalVoting
+    last_considered_tranche: 89
+    coalesce_mean: 3.0
+    coalesce_std_dev: 1.0
+    stop_when_approved: true
+    coalesce_tranche_diff: 12
+    workdir_prefix: "/tmp/"
+    enable_assignments_v2: true
+    num_no_shows_per_candidate: 10
+  n_validators: 500
+  n_cores: 100
+  min_pov_size: 1120
+  max_pov_size: 5120
+  peer_bandwidth: 524288000000
+  bandwidth: 524288000000
+  num_blocks: 10
