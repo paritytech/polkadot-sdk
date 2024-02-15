@@ -123,7 +123,7 @@ pub type BoundedCallOf<T> =
 	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 /// The configuration of the retry mechanism for a given task along with its current state.
-#[derive(Clone, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Copy, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct RetryConfig<Period> {
 	/// Initial amount of retries allowed.
 	total_retries: u8,
@@ -1286,14 +1286,18 @@ impl<T: Config> Pallet<T> {
 			Err(()) => Err((Overweight, Some(task))),
 			Ok(result) => {
 				let failed = result.is_err();
+				let maybe_retry_config = Retries::<T>::take((when, agenda_index));
 				Self::deposit_event(Event::Dispatched {
 					task: (when, agenda_index),
 					id: task.maybe_id,
 					result,
 				});
 
-				if failed {
-					Self::schedule_retry(weight, now, when, agenda_index, &task);
+				match maybe_retry_config {
+					Some(retry_config) if failed => {
+						Self::schedule_retry(weight, now, when, agenda_index, &task, retry_config);
+					},
+					_ => {},
 				}
 
 				if let &Some((period, count)) = &task.maybe_periodic {
@@ -1304,21 +1308,14 @@ impl<T: Config> Pallet<T> {
 					}
 					let wake = now.saturating_add(period);
 					match Self::place_task(wake, task) {
-						Ok(new_address) => {
-							if let Some(RetryConfig { total_retries, remaining, period }) =
-								Retries::<T>::take((when, agenda_index))
-							{
-								Retries::<T>::insert(
-									new_address,
-									RetryConfig { total_retries, remaining, period },
-								);
-							}
-						},
+						Ok(new_address) =>
+							if let Some(retry_config) = maybe_retry_config {
+								Retries::<T>::insert(new_address, retry_config);
+							},
 						Err((_, task)) => {
 							// TODO: Leave task in storage somewhere for it to be rescheduled
 							// manually.
 							T::Preimages::drop(&task.call);
-							Retries::<T>::remove((when, agenda_index));
 							Self::deposit_event(Event::PeriodicFailed {
 								task: (when, agenda_index),
 								id: task.maybe_id,
@@ -1326,7 +1323,6 @@ impl<T: Config> Pallet<T> {
 						},
 					}
 				} else {
-					Retries::<T>::remove((when, agenda_index));
 					T::Preimages::drop(&task.call);
 				}
 				Ok(())
@@ -1384,6 +1380,7 @@ impl<T: Config> Pallet<T> {
 		when: BlockNumberFor<T>,
 		agenda_index: u32,
 		task: &ScheduledOf<T>,
+		retry_config: RetryConfig<BlockNumberFor<T>>,
 	) {
 		if weight
 			.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerBlock::get()))
@@ -1396,39 +1393,27 @@ impl<T: Config> Pallet<T> {
 			return;
 		}
 
-		// Check if we have a retry configuration set.
-		if let Some(RetryConfig { total_retries, mut remaining, period }) =
-			Retries::<T>::take((when, agenda_index))
-		{
-			// If we're going to run this task again and it's the original one, keep its retry
-			// config in storage at the original location.
-			if task.maybe_periodic.is_some() && remaining == total_retries {
-				Retries::<T>::insert(
-					(when, agenda_index),
-					RetryConfig { total_retries, remaining, period },
-				);
-			}
-			remaining = match remaining.checked_sub(1) {
-				Some(n) => n,
-				None => return,
-			};
-			let wake = now.saturating_add(period);
-			match Self::place_task(wake, task.as_retry()) {
-				Ok(address) => {
-					// Reinsert the retry config to the new address of the task after it was
-					// placed.
-					Retries::<T>::insert(address, RetryConfig { total_retries, remaining, period });
-				},
-				Err((_, task)) => {
-					// TODO: Leave task in storage somewhere for it to be
-					// rescheduled manually.
-					T::Preimages::drop(&task.call);
-					Self::deposit_event(Event::RetryFailed {
-						task: (when, agenda_index),
-						id: task.maybe_id,
-					});
-				},
-			}
+		let RetryConfig { total_retries, mut remaining, period } = retry_config;
+		remaining = match remaining.checked_sub(1) {
+			Some(n) => n,
+			None => return,
+		};
+		let wake = now.saturating_add(period);
+		match Self::place_task(wake, task.as_retry()) {
+			Ok(address) => {
+				// Reinsert the retry config to the new address of the task after it was
+				// placed.
+				Retries::<T>::insert(address, RetryConfig { total_retries, remaining, period });
+			},
+			Err((_, task)) => {
+				// TODO: Leave task in storage somewhere for it to be
+				// rescheduled manually.
+				T::Preimages::drop(&task.call);
+				Self::deposit_event(Event::RetryFailed {
+					task: (when, agenda_index),
+					id: task.maybe_id,
+				});
+			},
 		}
 	}
 

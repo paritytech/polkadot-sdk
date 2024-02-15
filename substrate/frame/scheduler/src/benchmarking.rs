@@ -324,12 +324,13 @@ benchmarks! {
 		let address = Lookup::<T>::get(name).unwrap();
 		let period: BlockNumberFor<T> = 1u32.into();
 		let root: <T as Config>::PalletsOrigin = frame_system::RawOrigin::Root.into();
-		Retries::<T>::insert(address, RetryConfig { total_retries: 10, remaining: 10, period });
+		let retry_config = RetryConfig { total_retries: 10, remaining: 10, period };
+		Retries::<T>::insert(address, retry_config);
 		let (mut when, index) = address;
 		let task = Agenda::<T>::get(when)[index as usize].clone().unwrap();
 		let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 	}: {
-		Scheduler::<T>::schedule_retry(&mut weight_counter, when, when, index, &task);
+		Scheduler::<T>::schedule_retry(&mut weight_counter, when, when, index, &task, retry_config);
 	} verify {
 		when = when + BlockNumberFor::<T>::one();
 		assert_eq!(
