@@ -26,9 +26,7 @@ use crate::{
 	},
 	configuration::{TestAuthorities, TestConfiguration},
 	dummy_builder,
-	environment::{
-		BenchmarkUsage, TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT,
-	},
+	environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
 	mock::{
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
@@ -39,6 +37,7 @@ use crate::{
 		new_network, HandleNetworkMessage, NetworkEmulatorHandle, NetworkInterface,
 		NetworkInterfaceReceiver,
 	},
+	usage::BenchmarkUsage,
 	NODE_UNDER_TEST,
 };
 use colored::Colorize;
@@ -836,8 +835,14 @@ fn build_overseer(
 pub fn prepare_test(
 	config: TestConfiguration,
 	options: ApprovalsOptions,
+	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, ApprovalTestState) {
-	prepare_test_inner(config, TestEnvironmentDependencies::default(), options)
+	prepare_test_inner(
+		config,
+		TestEnvironmentDependencies::default(),
+		options,
+		with_prometheus_endpoint,
+	)
 }
 
 /// Build the test environment for an Approval benchmark.
@@ -845,6 +850,7 @@ fn prepare_test_inner(
 	config: TestConfiguration,
 	dependencies: TestEnvironmentDependencies,
 	options: ApprovalsOptions,
+	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, ApprovalTestState) {
 	gum::info!("Prepare test state");
 	let state = ApprovalTestState::new(&config, options, &dependencies);
@@ -873,6 +879,7 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			state.test_authorities.clone(),
+			with_prometheus_endpoint,
 		),
 		state,
 	)

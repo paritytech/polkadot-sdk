@@ -20,8 +20,8 @@ use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	mock::AlwaysSupportsParachains,
 	network::NetworkEmulatorHandle,
+	usage::{BenchmarkUsage, ResourceUsage},
 };
-use colored::Colorize;
 use core::time::Duration;
 use futures::{Future, FutureExt};
 use polkadot_node_subsystem::{messages::AllMessages, Overseer, SpawnGlue, TimeoutExt};
@@ -31,7 +31,6 @@ use polkadot_node_subsystem_util::metrics::prometheus::{
 };
 use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
 use sc_service::{SpawnTaskHandle, TaskManager};
-use serde::{Deserialize, Serialize};
 use std::net::{Ipv4Addr, SocketAddr};
 use tokio::runtime::Handle;
 
@@ -202,6 +201,7 @@ impl TestEnvironment {
 		overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 		overseer_handle: OverseerHandle,
 		authorities: TestAuthorities,
+		with_prometheus_endpoint: bool,
 	) -> Self {
 		let metrics = TestEnvironmentMetrics::new(&dependencies.registry)
 			.expect("Metrics need to be registered");
@@ -209,19 +209,21 @@ impl TestEnvironment {
 		let spawn_handle = dependencies.task_manager.spawn_handle();
 		spawn_handle.spawn_blocking("overseer", "overseer", overseer.run().boxed());
 
-		let registry_clone = dependencies.registry.clone();
-		dependencies.task_manager.spawn_handle().spawn_blocking(
-			"prometheus",
-			"test-environment",
-			async move {
-				prometheus_endpoint::init_prometheus(
-					SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
-					registry_clone,
-				)
-				.await
-				.unwrap();
-			},
-		);
+		if with_prometheus_endpoint {
+			let registry_clone = dependencies.registry.clone();
+			dependencies.task_manager.spawn_handle().spawn_blocking(
+				"prometheus",
+				"test-environment",
+				async move {
+					prometheus_endpoint::init_prometheus(
+						SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
+						registry_clone,
+					)
+					.await
+					.unwrap();
+				},
+			);
+		}
 
 		TestEnvironment {
 			runtime_handle: dependencies.runtime.handle().clone(),
@@ -407,43 +409,5 @@ impl TestEnvironment {
 		});
 
 		usage
-	}
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BenchmarkUsage {
-	pub benchmark_name: String,
-	pub network_usage: Vec<ResourceUsage>,
-	pub cpu_usage: Vec<ResourceUsage>,
-}
-
-impl std::fmt::Display for BenchmarkUsage {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(
-			f,
-			"\n{}\n\n{}\n{}\n\n{}\n{}\n",
-			self.benchmark_name.purple(),
-			format!("{:<32}{:>12}{:>12}", "Network usage, KiB", "total", "per block").blue(),
-			self.network_usage
-				.iter()
-				.map(|v| v.to_string())
-				.collect::<Vec<String>>()
-				.join("\n"),
-			format!("{:<32}{:>12}{:>12}", "CPU usage in seconds", "total", "per block").blue(),
-			self.cpu_usage.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n")
-		)
-	}
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ResourceUsage {
-	resource_name: String,
-	total: f64,
-	per_block: f64,
-}
-
-impl std::fmt::Display for ResourceUsage {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{:<32}{:>12.3}{:>12.3}", self.resource_name.cyan(), self.total, self.per_block)
 	}
 }

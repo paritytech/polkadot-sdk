@@ -17,7 +17,7 @@
 use crate::{
 	configuration::TestConfiguration,
 	dummy_builder,
-	environment::{BenchmarkUsage, TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
+	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
 	mock::{
 		av_store::{self, MockAvailabilityStore},
 		chain_api::{ChainApiState, MockChainApi},
@@ -26,6 +26,7 @@ use crate::{
 		AlwaysSupportsParachains,
 	},
 	network::new_network,
+	usage::BenchmarkUsage,
 };
 use av_store::NetworkAvailabilityState;
 use av_store_helpers::new_av_store;
@@ -153,8 +154,15 @@ pub fn prepare_test(
 	config: TestConfiguration,
 	state: &mut TestState,
 	mode: TestDataAvailability,
+	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
-	prepare_test_inner(config, state, mode, TestEnvironmentDependencies::default())
+	prepare_test_inner(
+		config,
+		state,
+		mode,
+		TestEnvironmentDependencies::default(),
+		with_prometheus_endpoint,
+	)
 }
 
 fn prepare_test_inner(
@@ -162,6 +170,7 @@ fn prepare_test_inner(
 	state: &mut TestState,
 	mode: TestDataAvailability,
 	dependencies: TestEnvironmentDependencies,
+	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	// Generate test authorities.
 	let test_authorities = config.generate_authorities();
@@ -307,6 +316,7 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			test_authorities,
+			with_prometheus_endpoint,
 		),
 		req_cfgs,
 	)

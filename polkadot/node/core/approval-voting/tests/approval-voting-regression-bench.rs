@@ -17,7 +17,23 @@
 use polkadot_subsystem_bench::{
 	approval::{bench_approvals, prepare_test, ApprovalsOptions},
 	configuration::TestConfiguration,
+	usage::BenchmarkUsage,
 };
+
+fn main() -> Result<(), String> {
+	let mut messages = vec![];
+
+	messages.extend(approvals_no_shows());
+	messages.extend(approvals_throughput());
+	messages.extend(approvals_throughput_best_case());
+
+	if messages.is_empty() {
+		Ok(())
+	} else {
+		eprintln!("{}", messages.join("\n"));
+		Err("Regressions found".to_string())
+	}
+}
 
 fn test_configuration() -> TestConfiguration {
 	let mut config = TestConfiguration::default();
@@ -32,92 +48,93 @@ fn test_configuration() -> TestConfiguration {
 	config
 }
 
-#[test]
+fn run_benchmark(test_case: &str, options: ApprovalsOptions) -> BenchmarkUsage {
+	let (mut env, state) = prepare_test(test_configuration(), options, false);
+	let usage = env.runtime().block_on(bench_approvals(test_case, &mut env, state));
+	println!("{}", usage);
+	usage
+}
+
 fn approvals_no_shows() {
-	let options = ApprovalsOptions {
-		coalesce_mean: 3.0,
-		coalesce_std_dev: 1.0,
-		enable_assignments_v2: true,
-		last_considered_tranche: 89,
-		stop_when_approved: true,
-		coalesce_tranche_diff: 12,
-		num_no_shows_per_candidate: 10,
-		workdir_prefix: "/tmp".to_string(),
-	};
-	let (mut env, state) = prepare_test(test_configuration(), options);
+	let mut messages = vec![];
+	let usage = run_benchmark(
+		"approvals_no_shows",
+		ApprovalsOptions {
+			coalesce_mean: 3.0,
+			coalesce_std_dev: 1.0,
+			enable_assignments_v2: true,
+			last_considered_tranche: 89,
+			stop_when_approved: true,
+			coalesce_tranche_diff: 12,
+			num_no_shows_per_candidate: 10,
+			workdir_prefix: "/tmp".to_string(),
+		},
+	);
 
-	let usage = env.runtime().block_on(bench_approvals("approvals_no_shows", &mut env, state));
+	messages.extend(usage.check_network_usage(&[
+		("Received from peers", 6900.000, 7000.000),
+		("Sent to peers", 8000.000, 8100.000),
+	]));
+	messages.extend(usage.check_cpu_usage(&[
+		("approval-distribution", 0.700, 0.800),
+		("approval-voting", 1.100, 1.200),
+	]));
 
-	println!("{usage}");
-
-	assert!(false)
+	messages
 }
 
-#[test]
 fn approvals_throughput() {
-	let options = ApprovalsOptions {
-		coalesce_mean: 3.0,
-		coalesce_std_dev: 1.0,
-		enable_assignments_v2: true,
-		last_considered_tranche: 89,
-		stop_when_approved: false,
-		coalesce_tranche_diff: 12,
-		num_no_shows_per_candidate: 0,
-		workdir_prefix: "/tmp".to_string(),
-	};
-	let (mut env, state) = prepare_test(test_configuration(), options);
+	let mut messages = vec![];
+	let usage = run_benchmark(
+		"approvals_throughput",
+		ApprovalsOptions {
+			coalesce_mean: 3.0,
+			coalesce_std_dev: 1.0,
+			enable_assignments_v2: true,
+			last_considered_tranche: 89,
+			stop_when_approved: false,
+			coalesce_tranche_diff: 12,
+			num_no_shows_per_candidate: 0,
+			workdir_prefix: "/tmp".to_string(),
+		},
+	);
 
-	let usage = env.runtime().block_on(bench_approvals("approvals_throughput", &mut env, state));
+	messages.extend(usage.check_network_usage(&[
+		("Received from peers", 52900.000, 53000.000),
+		("Sent to peers", 63500.000, 63600.000),
+	]));
+	messages.extend(usage.check_cpu_usage(&[
+		("approval-distribution", 6.300, 6.400),
+		("approval-voting", 9.400, 9.500),
+	]));
 
-	println!("{usage}");
-
-	assert!(false)
+	messages
 }
 
-#[test]
-fn approvals_throughput_best_case() {
-	let options = ApprovalsOptions {
-		coalesce_mean: 4.0,
-		coalesce_std_dev: 2.0,
-		enable_assignments_v2: true,
-		last_considered_tranche: 90,
-		stop_when_approved: true,
-		coalesce_tranche_diff: 13,
-		num_no_shows_per_candidate: 1,
-		workdir_prefix: "/tmp".to_string(),
-	};
-	let (mut env, state) = prepare_test(test_configuration(), options);
+fn approvals_throughput_best_case() -> Vec<String> {
+	let mut messages = vec![];
+	let usage = run_benchmark(
+		"approvals_throughput_best_case",
+		ApprovalsOptions {
+			coalesce_mean: 3.0,
+			coalesce_std_dev: 1.0,
+			enable_assignments_v2: true,
+			last_considered_tranche: 89,
+			stop_when_approved: true,
+			coalesce_tranche_diff: 12,
+			num_no_shows_per_candidate: 0,
+			workdir_prefix: "/tmp".to_string(),
+		},
+	);
 
-	let usage =
-		env.runtime()
-			.block_on(bench_approvals("approvals_throughput_best_case", &mut env, state));
+	messages.extend(usage.check_network_usage(&[
+		("Received from peers", 2900.000, 3000.000),
+		("Sent to peers", 3200.000, 3300.000),
+	]));
+	messages.extend(usage.check_cpu_usage(&[
+		("approval-distribution", 0.400, 0.500),
+		("approval-voting", 0.600, 0.700),
+	]));
 
-	println!("{usage}");
-
-	assert!(false)
-}
-
-#[test]
-fn approvals_throughput_no_optimisations_enabled() {
-	let options = ApprovalsOptions {
-		coalesce_mean: 1.0,
-		coalesce_std_dev: 0.0,
-		enable_assignments_v2: false,
-		last_considered_tranche: 89,
-		stop_when_approved: false,
-		coalesce_tranche_diff: 12,
-		num_no_shows_per_candidate: 0,
-		workdir_prefix: "/tmp".to_string(),
-	};
-	let (mut env, state) = prepare_test(test_configuration(), options);
-
-	let usage = env.runtime().block_on(bench_approvals(
-		"approvals_throughput_no_optimisations_enabled",
-		&mut env,
-		state,
-	));
-
-	println!("{usage}");
-
-	assert!(false)
+	messages
 }

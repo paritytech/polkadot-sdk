@@ -156,6 +156,7 @@ impl BenchCli {
 						test_config,
 						&mut state,
 						availability::TestDataAvailability::Read(opts),
+						true,
 					);
 					env.runtime().block_on(availability::benchmark_availability_read(
 						&benchmark_name,
@@ -169,6 +170,7 @@ impl BenchCli {
 						test_config,
 						&mut state,
 						availability::TestDataAvailability::Write,
+						true,
 					);
 					env.runtime().block_on(availability::benchmark_availability_write(
 						&benchmark_name,
@@ -178,7 +180,7 @@ impl BenchCli {
 				},
 				TestObjective::ApprovalVoting(ref options) => {
 					let (mut env, state) =
-						approval::prepare_test(test_config.clone(), options.clone());
+						approval::prepare_test(test_config.clone(), options.clone(), true);
 					env.runtime().block_on(approval::bench_approvals(
 						&benchmark_name,
 						&mut env,
