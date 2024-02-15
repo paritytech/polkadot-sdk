@@ -9,7 +9,7 @@ asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-asset-hub
 bridge-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-rococo-local" within 60 seconds
 
 # step 3: ensure that initialization has completed
-asset-hub-rococo-collator1: js-script ../helpers/wait-hrmp-channel-opened.js with "1013" within 600 seconds
+asset-hub-rococo-collator1: js-script ../js-helpers/wait-hrmp-channel-opened.js with "1013" within 600 seconds
 
 # step 4: send message from Rococo to Westend
 asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "reserve-transfer-assets-from-asset-hub-rococo-local" within 60 seconds
@@ -20,7 +20,7 @@ asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "reserve-transf
 bridge-hub-rococo-collator1: run ../scripts/start-relayer.sh within 60 seconds
 
 # step 6: ensure that relayer won't sync any extra headers while delivering messages and confirmations
-bridge-hub-rococo-collator1: js-script ../helpers/only-required-headers-synced-when-active.js with "500,westend-at-rococo" within 600 seconds
+bridge-hub-rococo-collator1: js-script ../js-helpers/only-required-headers-synced-when-active.js with "500,westend-at-rococo" within 600 seconds
 
 # wait until other network test has completed OR exit with an error too
 asset-hub-rococo-collator1: run ../scripts/sync-exit.sh within 600 seconds
