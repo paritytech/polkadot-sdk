@@ -2,6 +2,8 @@
 
 set -e
 
+trap 'kill -9 -$$ || echo "Environment already teared down"' SIGINT SIGTERM EXIT
+
 test=$1
 shift
 
@@ -43,5 +45,3 @@ export TEST_DIR=`mktemp -d /tmp/bridges-tests-run-XXXXX`
 echo -e "Test folder: $TEST_DIR\n"
 
 ${BASH_SOURCE%/*}/tests/$test/run.sh
-
-kill -9 -$$ || echo "Environment already teared down"

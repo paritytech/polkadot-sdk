@@ -4,17 +4,20 @@ set -e
 
 trap "trap - SIGTERM && kill -9 -$$" SIGINT SIGTERM EXIT
 
-source "${BASH_SOURCE%/*}/../../utils/common.sh"
 source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
 
 # whether to init the chains (open HRMP channels, set XCM version, create reserve assets, etc)
 init=0
+start_relayer=0
 while [ $# -ne 0 ]
 do
     arg="$1"
     case "$arg" in
         --init)
             init=1
+            ;;
+        --start-relayer)
+            start_relayer=1
             ;;
     esac
     shift
@@ -55,17 +58,13 @@ if [[ $init -eq 1 ]]; then
   run_zndsl ${BASH_SOURCE%/*}/westend-init.zndsl $westend_dir
 fi
 
-relay_log=$logs_dir/relay.log
-echo -e "Starting rococo-westend relay. Logs available at: $relay_log\n"
-start_background_process "$helper_script run-relay" $relay_log relay_pid
+if [[ $start_relayer -eq 1 ]]; then
+  ${BASH_SOURCE%/*}/start_relayer.sh $rococo_dir $westend_dir relayer_pid
+fi
 
-run_zndsl ${BASH_SOURCE%/*}/rococo.zndsl $rococo_dir
 echo $rococo_dir > $TEST_DIR/rococo.env
-echo
-
-run_zndsl ${BASH_SOURCE%/*}/westend.zndsl $westend_dir
 echo $westend_dir > $TEST_DIR/westend.env
 echo
 
-wait -n $rococo_pid $westend_pid $relay_pid
+wait -n $rococo_pid $westend_pid $relayer_pid
 kill -9 -$$
