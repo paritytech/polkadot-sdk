@@ -13,7 +13,7 @@ pub const ALICE: AccountId32 = AccountId32::new([0u8; 32]);
 pub const BOB: AccountId32 = AccountId32::new([1u8; 32]);
 pub const UNITS: u64 = 10_000_000_000;
 pub const CENTS: u64 = 100_000_000;
-pub const INITIAL_BALANCE: u64 = 1 * UNITS;
+pub const INITIAL_BALANCE: u64 = UNITS;
 
 decl_test_parachain! {
 	pub struct ParaA {

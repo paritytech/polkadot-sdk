@@ -4,7 +4,7 @@ use frame::runtime::prelude::*;
 use frame::traits::{Nothing, Everything};
 use frame::deps::frame_system;
 use xcm_builder::{
-    IsConcrete, CurrencyAdapter, HashedDescription, DescribeFamily, DescribeAllTerminal,
+    IsConcrete, FungibleAdapter, HashedDescription, DescribeFamily, DescribeAllTerminal,
     EnsureXcmOrigin, SignedToAccountId32, AccountId32Aliases, FrameTransactionalProcessor,
 };
 use xcm::v4::prelude::*;
@@ -28,21 +28,21 @@ mod asset_transactor {
     use super::*;
 
     /// AssetTransactor for handling the relay chain token
-    pub type CurrencyTransactor = CurrencyAdapter<
-        // Use this Currency implementation
+    pub type FungibleTransactor = FungibleAdapter<
+        // Use this `fungible` implementation
         Balances,
-        // Use this transactor for dealing with the native token
+        // This transactor handles the native token
         IsConcrete<HereLocation>,
         // How to convert an XCM Location into a local account id
         LocationToAccountId,
-        // The account id type, needed because Currency is generic over it
+        // The account id type, needed because `fungible` is generic over it
         AccountId,
         // Not tracking teleports
         (),
     >;
 
     /// All asset transactors, in this case only one
-    pub type AssetTransactor = CurrencyTransactor;
+    pub type AssetTransactor = FungibleTransactor;
 }
 
 mod weigher {

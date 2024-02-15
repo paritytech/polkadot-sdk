@@ -104,7 +104,7 @@ pub mod pallet {
                 Ok(xcm) => {
                     let location = (Parent, Parachain(sender.into()));
                     match T::XcmExecutor::prepare_and_execute(location, xcm, &mut message_hash, max_weight, Weight::zero()) {
-                        Outcome::Error { error } => (Err(error.clone()), Event::Fail(Some(hash), error)),
+                        Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
                         Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
                         // As far as the caller is concerned, this was dispatched without error, so
                         // we just report the weight used.
@@ -131,7 +131,7 @@ pub mod pallet {
                 let _ = XcmpMessageFormat::decode(&mut data_ref)
                     .expect("Simulator encodes with versioned xcm format; qed");
 
-                let mut remaining_fragments = &data_ref[..];
+                let mut remaining_fragments = data_ref;
                 while !remaining_fragments.is_empty() {
                     if let Ok(xcm) =
                         VersionedXcm::<T::RuntimeCall>::decode(&mut remaining_fragments)
