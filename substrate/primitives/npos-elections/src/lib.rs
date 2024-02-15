@@ -79,7 +79,7 @@ use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_arithmetic::{traits::Zero, Normalizable, PerThing, Rational128, ThresholdOrd};
-use sp_core::{bounded::BoundedVec, RuntimeDebug};
+use sp_core::RuntimeDebug;
 use sp_std::{
 	cell::RefCell, cmp::Ordering, collections::btree_map::BTreeMap, prelude::*, rc::Rc, vec,
 };
@@ -109,7 +109,7 @@ pub use reduce::reduce;
 pub use traits::{IdentifierT, PerThing128};
 
 /// The errors that might occur in this crate and `frame-election-provider-solution-type`.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, RuntimeDebug, Clone)]
 pub enum Error {
 	/// While going from solution indices to ratio, the weight of all the edges has gone above the
 	/// total.
@@ -213,6 +213,25 @@ impl sp_std::cmp::Ord for ElectionScore {
 impl sp_std::cmp::PartialOrd for ElectionScore {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		Some(self.cmp(other))
+	}
+}
+
+/// Note: this sum is saturating. TODO(gpestana): maybe impl CheckedAdd instead.
+impl std::ops::Add for ElectionScore {
+	type Output = Self;
+
+	fn add(self, other: Self) -> Self {
+		Self {
+			minimal_stake: self.minimal_stake.saturating_add(other.minimal_stake),
+			sum_stake: self.sum_stake.saturating_add(other.sum_stake),
+			sum_stake_squared: self.sum_stake_squared.saturating_add(other.sum_stake_squared),
+		}
+	}
+}
+
+impl std::ops::AddAssign for ElectionScore {
+	fn add_assign(&mut self, rhs: Self) {
+		*self = *self + rhs;
 	}
 }
 
@@ -443,17 +462,18 @@ impl<AccountId> Default for Support<AccountId> {
 	}
 }
 
+impl<AccountId> Backings for &Support<AccountId> {
+	fn total(&self) -> ExtendedBalance {
+		self.total
+	}
+}
+
 /// A target-major representation of the the election outcome.
 ///
 /// Essentially a flat variant of [`SupportMap`].
 ///
 /// The main advantage of this is that it is encodable.
 pub type Supports<A> = Vec<(A, Support<A>)>;
-
-/// Same as `Supports` but bounded by `B`.
-///
-/// To note, the inner `Support` is still unbounded.
-pub type BoundedSupports<A, B> = BoundedVec<(A, Support<A>), B>;
 
 /// Linkage from a winner to their [`Support`].
 ///
@@ -498,23 +518,34 @@ pub trait EvaluateSupport {
 
 impl<AccountId: IdentifierT> EvaluateSupport for Supports<AccountId> {
 	fn evaluate(&self) -> ElectionScore {
-		let mut minimal_stake = ExtendedBalance::max_value();
-		let mut sum_stake: ExtendedBalance = Zero::zero();
-		// NOTE: The third element might saturate but fine for now since this will run on-chain and
-		// need to be fast.
-		let mut sum_stake_squared: ExtendedBalance = Zero::zero();
-
-		for (_, support) in self {
-			sum_stake = sum_stake.saturating_add(support.total);
-			let squared = support.total.saturating_mul(support.total);
-			sum_stake_squared = sum_stake_squared.saturating_add(squared);
-			if support.total < minimal_stake {
-				minimal_stake = support.total;
-			}
-		}
-
-		ElectionScore { minimal_stake, sum_stake, sum_stake_squared }
+		evaluate_support(self.iter().map(|(_, s)| s))
 	}
+}
+
+/// Generic representation of a support.
+pub trait Backings {
+	/// The total backing of an individual target.
+	fn total(&self) -> ExtendedBalance;
+}
+
+/// General evaluation of a list of backings that returns an election score.
+pub fn evaluate_support(backings: impl Iterator<Item = impl Backings>) -> ElectionScore {
+	let mut minimal_stake = ExtendedBalance::max_value();
+	let mut sum_stake: ExtendedBalance = Zero::zero();
+	// NOTE: The third element might saturate but fine for now since this will run on-chain and
+	// need to be fast.
+	let mut sum_stake_squared: ExtendedBalance = Zero::zero();
+
+	for support in backings {
+		sum_stake = sum_stake.saturating_add(support.total());
+		let squared = support.total().saturating_mul(support.total());
+		sum_stake_squared = sum_stake_squared.saturating_add(squared);
+		if support.total() < minimal_stake {
+			minimal_stake = support.total();
+		}
+	}
+
+	ElectionScore { minimal_stake, sum_stake, sum_stake_squared }
 }
 
 /// Converts raw inputs to types used in this crate.

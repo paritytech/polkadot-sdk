@@ -18,9 +18,7 @@
 //! Staking FRAME Pallet.
 
 use codec::Codec;
-use frame_election_provider_support::{
-	ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
-};
+use frame_election_provider_support::{ElectionProvider, SortedListProvider, VoteWeight};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -32,8 +30,8 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
-	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
-	ArithmeticError, Perbill, Percent,
+	traits::{CheckedSub, One, SaturatedConversion, StaticLookup, Zero},
+	ArithmeticError, Perbill, Percent, Saturating,
 };
 
 use sp_staking::{
@@ -60,11 +58,10 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_election_provider_support::ElectionDataProvider;
-
-	use crate::{BenchmarkingConfig, PagedExposureMetadata};
-
 	use super::*;
+
+	use crate::{BenchmarkingConfig, PagedExposureMetadata, SnapshotStatus};
+	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(14);
@@ -129,6 +126,9 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Pallet<Self>,
+			Pages = ConstU32<1>,
+			MaxWinnersPerPage = <Self::ElectionProvider as ElectionProvider>::MaxWinnersPerPage,
+			MaxBackersPerWinner = <Self::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
 		>;
 
 		/// Something that defines the maximum number of nominations per nominator.
@@ -216,6 +216,10 @@ pub mod pallet {
 		/// without handling it in a migration.
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
+
+		/// The absolute maximum of next winner validators this pallet should return.
+		#[pallet::constant]
+		type MaxValidatorSet: Get<u32>;
 
 		/// The fraction of the validator set that is safe to be offending.
 		/// After the threshold is reached a new era will be forced.
@@ -659,6 +663,43 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
+	/// Voter snapshot progress status.
+	///
+	/// If the status is `Ongoing`, it keeps track of the last voter account returned in the
+	/// snapshot.
+	#[pallet::storage]
+	pub(crate) type VoterSnapshotStatus<T: Config> =
+		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
+
+	/// Target snapshot progress status.
+	///
+	/// If the status is `Ongoing`, it keeps track of the last target account returned in the
+	/// snapshot.
+	#[pallet::storage]
+	pub(crate) type TargetSnapshotStatus<T: Config> =
+		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
+
+	/// Keeps track of an ongoing multi-page election solution request and the block the first paged
+	/// was requested, if any. In addition, it also keeps track of the current era that is being
+	/// plannet.
+	#[pallet::storage]
+	pub(crate) type ElectingStartedAt<T: Config> =
+		StorageValue<_, (BlockNumberFor<T>, EraIndex), OptionQuery>;
+
+	// TODO:
+	// * maybe use pallet-paged-list? (https://paritytech.github.io/polkadot-sdk/master/pallet_paged_list/index.html)
+	#[pallet::storage]
+	pub(crate) type ElectableStashes<T: Config> =
+		StorageValue<_, BoundedVec<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
+
+	/// Lock for election data provider.
+	///
+	/// While the lock is set, the data to build a snapshot is frozen, i.e. the returned data from
+	/// `ElectionDataProvider` implementation will not change.
+	#[pallet::storage]
+	#[pallet::getter(fn election_data_lock)]
+	pub(crate) type ElectionDataLock<T: Config> = StorageValue<_, (), OptionQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -722,10 +763,6 @@ pub mod pallet {
 					),
 					_ => Ok(()),
 				});
-				assert!(
-					ValidatorCount::<T>::get() <=
-						<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
-				);
 			}
 
 			// all voters are reported to the `VoterList`.
@@ -851,8 +888,49 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			// just return the weight of the on_finalize.
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			let pages: BlockNumberFor<T> =
+				<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get().into();
+
+			if let Some((started_at, planning_era)) = ElectingStartedAt::<T>::get() {
+				let remaining_pages =
+					pages.saturating_sub(One::one()).saturating_sub(now.saturating_sub(started_at));
+
+				if remaining_pages == Zero::zero() {
+					Self::do_elect_paged(Zero::zero());
+
+					// last page, reset elect status and update era.
+					crate::log!(info, "elect(): finished fetching all paged solutions");
+					CurrentEra::<T>::set(Some(planning_era));
+					ElectingStartedAt::<T>::kill();
+				} else {
+					crate::log!(
+						info,
+						"elect(): progressing with calling elect, remaining pages {}",
+						remaining_pages
+					);
+
+					Self::do_elect_paged(remaining_pages.saturated_into::<PageIndex>());
+				}
+			} else {
+				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
+
+				if now == (next_election.saturating_sub(pages)) {
+					// start calling elect.
+					crate::log!(
+						info,
+						"elect(): next election in {} pages, start fetching solution pages.",
+						pages,
+					);
+					ElectingStartedAt::<T>::set(Some((
+						now,
+						CurrentEra::<T>::get().unwrap_or_default().saturating_add(1),
+					)));
+
+					Self::do_elect_paged(pages.saturated_into::<PageIndex>().saturating_sub(1));
+				}
+			};
+			// return the weight of the on_finalize.
 			T::DbWeight::get().reads(1)
 		}
 
@@ -878,12 +956,6 @@ pub mod pallet {
 			);
 			// and that MaxNominations is always greater than 1, since we count on this.
 			assert!(!MaxNominationsOf::<T>::get().is_zero());
-
-			// ensure election results are always bounded with the same value
-			assert!(
-				<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get() ==
-					<T::GenesisElectionProvider as ElectionProviderBase>::MaxWinners::get()
-			);
 
 			assert!(
 				T::SlashDeferDuration::get() < T::BondingDuration::get() || T::BondingDuration::get() == 0,
@@ -1357,18 +1429,11 @@ pub mod pallet {
 			#[pallet::compact] new: u32,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			// ensure new validator count does not exceed maximum winners
-			// support by election provider.
-			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
-				Error::<T>::TooManyValidators
-			);
 			ValidatorCount::<T>::put(new);
 			Ok(())
 		}
 
-		/// Increments the ideal number of validators upto maximum of
-		/// `ElectionProviderBase::MaxWinners`.
+		/// Increments the ideal number of validators.
 		///
 		/// The dispatch origin must be Root.
 		///
@@ -1383,17 +1448,11 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let old = ValidatorCount::<T>::get();
 			let new = old.checked_add(additional).ok_or(ArithmeticError::Overflow)?;
-			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
-				Error::<T>::TooManyValidators
-			);
-
 			ValidatorCount::<T>::put(new);
 			Ok(())
 		}
 
-		/// Scale up the ideal number of validators by a factor upto maximum of
-		/// `ElectionProviderBase::MaxWinners`.
+		/// Scale up the ideal number of validators by a factor.
 		///
 		/// The dispatch origin must be Root.
 		///
@@ -1405,11 +1464,6 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let old = ValidatorCount::<T>::get();
 			let new = old.checked_add(factor.mul_floor(old)).ok_or(ArithmeticError::Overflow)?;
-
-			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
-				Error::<T>::TooManyValidators
-			);
 
 			ValidatorCount::<T>::put(new);
 			Ok(())

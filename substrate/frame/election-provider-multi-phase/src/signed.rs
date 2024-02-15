@@ -489,7 +489,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Infallible
 	pub fn finalize_signed_phase_accept_solution(
-		ready_solution: ReadySolution<T::AccountId, T::MaxWinners>,
+		ready_solution: ReadySolution<T::AccountId>,
 		who: &T::AccountId,
 		deposit: BalanceOf<T>,
 		call_fee: BalanceOf<T>,
@@ -655,22 +655,6 @@ mod tests {
 			assert_noop!(
 				MultiPhase::create_snapshot(),
 				ElectionError::DataProvider("Ensure voters bounds: bounds exceeded."),
-			);
-		})
-	}
-
-	#[test]
-	fn desired_targets_greater_than_max_winners() {
-		ExtBuilder::default().build_and_execute(|| {
-			// given desired_targets bigger than MaxWinners
-			DesiredTargets::set(4);
-			MaxWinners::set(3);
-
-			// snapshot not created because data provider returned an unexpected number of
-			// desired_targets
-			assert_noop!(
-				MultiPhase::create_snapshot_external(),
-				ElectionError::DataProvider("desired_targets must not be greater than MaxWinners."),
 			);
 		})
 	}

@@ -19,7 +19,7 @@ use super::*;
 use crate::{self as multi_phase, signed::GeometricDepositBase, unsigned::MinerConfig};
 use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBounds},
-	data_provider, onchain, ElectionDataProvider, NposSolution, SequentialPhragmen,
+	data_provider, onchain, ElectionDataProvider, NposSolution, PageIndex, SequentialPhragmen,
 };
 pub use frame_support::derive_impl;
 use frame_support::{
@@ -307,7 +307,6 @@ parameter_types! {
 	pub static MaxElectableTargets: TargetIndex = TargetIndex::max_value();
 
 	#[derive(Debug)]
-	pub static MaxWinners: u32 = 200;
 	// `ElectionBounds` and `OnChainElectionsBounds` are defined separately to set them independently in the tests.
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static OnChainElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
@@ -321,17 +320,30 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, Balancing>;
 	type DataProvider = StakingMock;
 	type WeightInfo = ();
-	type MaxWinners = MaxWinners;
+	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type MaxWinnersPerPage = ConstU32<{ u32::MAX }>;
+	type Pages = ConstU32<0>;
 	type Bounds = OnChainElectionsBounds;
 }
 
 pub struct MockFallback;
-impl ElectionProviderBase for MockFallback {
+impl ElectionProvider for MockFallback {
 	type BlockNumber = BlockNumber;
 	type AccountId = AccountId;
 	type Error = &'static str;
 	type DataProvider = StakingMock;
-	type MaxWinners = MaxWinners;
+	type MaxWinnersPerPage = ConstU32<{ u32::MAX }>;
+	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type Pages = ConstU32<0>;
+
+	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		if OnChainFallback::get() {
+			onchain::OnChainExecution::<OnChainSeqPhragmen>::elect(page)
+				.map_err(|_| "OnChainSequentialPhragmen failed")
+		} else {
+			Err("NoFallback.")
+		}
+	}
 }
 
 impl InstantElectionProvider for MockFallback {
@@ -373,7 +385,7 @@ impl MinerConfig for Runtime {
 	type MaxLength = MinerMaxLength;
 	type MaxWeight = MinerMaxWeight;
 	type MaxVotesPerVoter = <StakingMock as ElectionDataProvider>::MaxVotesPerVoter;
-	type MaxWinners = MaxWinners;
+	type MaxWinners = ConstU32<{ u32::MAX }>;
 	type Solution = TestNposSolution;
 
 	fn solution_weight(v: u32, t: u32, a: u32, d: u32) -> Weight {
@@ -415,7 +427,7 @@ impl crate::Config for Runtime {
 	type GovernanceFallback =
 		frame_election_provider_support::onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	type MaxWinners = MaxWinners;
+	type MaxWinners = ConstU32<{ u32::MAX }>;
 	type MinerConfig = Self;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, Balancing>;
 	type ElectionBounds = ElectionsBounds;
@@ -458,7 +470,10 @@ impl ElectionDataProvider for StakingMock {
 	type AccountId = AccountId;
 	type MaxVotesPerVoter = MaxNominations;
 
-	fn electable_targets(bounds: DataProviderBounds) -> data_provider::Result<Vec<AccountId>> {
+	fn electable_targets(
+		bounds: DataProviderBounds,
+		_remaining_pages: PageIndex,
+	) -> data_provider::Result<Vec<AccountId>> {
 		let targets = Targets::get();
 
 		if !DataProviderAllowBadData::get() &&
@@ -470,7 +485,10 @@ impl ElectionDataProvider for StakingMock {
 		Ok(targets)
 	}
 
-	fn electing_voters(bounds: DataProviderBounds) -> data_provider::Result<Vec<VoterOf<Runtime>>> {
+	fn electing_voters(
+		bounds: DataProviderBounds,
+		_reamining_pages: PageIndex,
+	) -> data_provider::Result<Vec<VoterOf<Runtime>>> {
 		let mut voters = Voters::get();
 
 		if !DataProviderAllowBadData::get() {
