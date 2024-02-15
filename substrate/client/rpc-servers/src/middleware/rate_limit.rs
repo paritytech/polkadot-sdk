@@ -18,18 +18,20 @@
 
 //! RPC rate limiting middleware.
 
-use futures::future::{BoxFuture, FutureExt};
+use std::{num::NonZeroU32, sync::Arc};
+
 use governor::{
 	clock::DefaultClock,
 	middleware::NoOpMiddleware,
 	state::{InMemoryState, NotKeyed},
-	Jitter,
 };
-use jsonrpsee::{server::middleware::rpc::RpcServiceT, types::Request, MethodResponse};
-use std::{num::NonZeroU32, sync::Arc, time::Duration};
+use jsonrpsee::{
+	server::middleware::rpc::{RpcServiceT, ResponseFuture},
+	types::{ErrorObject, Id, Request},
+	MethodResponse,
+};
 
 type RateLimitInner = governor::RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
-const MAX_JITTER_DELAY: Duration = Duration::from_millis(50);
 
 /// JSON-RPC rate limit middleware layer.
 #[derive(Debug, Clone)]
@@ -58,19 +60,20 @@ impl<S> tower::Layer<S> for RateLimitLayer {
 
 impl<'a, S> RpcServiceT<'a> for RateLimit<S>
 where
-	S: Send + Sync + RpcServiceT<'a> + Clone + 'static,
+	S: Send + Sync + RpcServiceT<'a>,
 {
-	type Future = BoxFuture<'a, MethodResponse>;
+	type Future = ResponseFuture<S::Future>;
 
 	fn call(&self, req: Request<'a>) -> Self::Future {
-		let rate_limit = self.rate_limit.clone();
-		let service = self.service.clone();
-
-		async move {
-			// Random delay between 0-50ms to poll waiting futures until completion.
-			rate_limit.until_ready_with_jitter(Jitter::up_to(MAX_JITTER_DELAY)).await;
-			service.call(req).await
+		if let Err(err) = self.rate_limit.check() {
+			let limit = err.quota().burst_size();
+			ResponseFuture::ready(reject_too_many_calls(req.id, limit))
+		} else {
+			ResponseFuture::future(self.service.call(req))
 		}
-		.boxed()
 	}
+}
+
+fn reject_too_many_calls(id: Id, limit: NonZeroU32) -> MethodResponse {
+	MethodResponse::error(id, ErrorObject::owned(-32999, "RPC rate limit", Some(format!("{limit} calls/min exceeded"))))
 }
