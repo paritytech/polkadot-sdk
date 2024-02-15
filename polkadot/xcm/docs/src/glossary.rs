@@ -40,7 +40,7 @@
 //! A way of transferring assets between two consensus systems without the need of a third party.
 //! It consists of the sender system burning the asset that wants to be sent over and the recipient
 //! minting an equivalent amount of that asset. It requires a lot of trust between the two systems,
-//! since failure to mint or burn will reduce the total issuance of the token.
+//! since failure to mint or burn will reduce or increase the total issuance of the token.
 //!
 //! ## Reserve asset transfer
 //!
