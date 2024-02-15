@@ -91,10 +91,10 @@ where
 	while let Some(item) = iter_node.next() {
 		let item = item.map_err(|e| format!("TrieDB node iterator error: {}", e))?;
 		let Some(key_value) = iter_node.item_from_raw(&item) else { continue };
-		let location = item.2.node_plan().additional_ref_location(item.2.locations());
 		let (key, value) = key_value.map_err(|e| format!("TrieDB node iterator error: {}", e))?;
 		if key[..].starts_with(sp_core::storage::well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX)
 		{
+			let location = item.2.node_plan().additional_ref_location(item.2.locations());
 			let prefixed_key = PrefixedStorageKey::new(key);
 			let (_type, unprefixed) = ChildType::from_prefixed_key(&prefixed_key).unwrap();
 			child_roots.push((ChildInfo::new_default(unprefixed), value, location.unwrap_or_default()));

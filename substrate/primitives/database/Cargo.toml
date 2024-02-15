@@ -14,4 +14,4 @@ readme = "README.md"
 kvdb = "0.13.0"
 parking_lot = "0.12.1"
 trie-db = { version = "0.28.0", default-features = false }
-parity-db = "0.4.8"
+parity-db = "0.4.13"
