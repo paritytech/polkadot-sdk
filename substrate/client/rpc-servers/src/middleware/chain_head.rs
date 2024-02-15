@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! RPC middleware to collect prometheus metrics on RPC calls.
+//! RPC middleware to ensure chainHead methods are called from a single connection.
 
 use std::{
 	collections::HashSet,
@@ -100,10 +100,9 @@ where
 		if method_name == CHAIN_HEAD_FOLLOW {
 			println!("Calling chainHEDA method");
 
-			return ResponseFuture {
+			return ResponseFuture::Register {
 				fut: self.service.call(req.clone()),
-				connection_data: Some(self.connection_data.clone()),
-				error: None,
+				connection_data: self.connection_data.clone(),
 			}
 		}
 
@@ -126,10 +125,8 @@ where
 				{
 					log::debug!("{} called without a valid follow subscription", method_name);
 
-					return ResponseFuture {
-						fut: self.service.call(req.clone()),
-						connection_data: None,
-						error: Some(MethodResponse::error(
+					return ResponseFuture::Ready {
+						response: Some(MethodResponse::error(
 							req.id(),
 							jsonrpsee::types::error::ErrorObject::owned(
 								-32602,
@@ -142,7 +139,7 @@ where
 			}
 		}
 
-		ResponseFuture { fut: self.service.call(req.clone()), connection_data: None, error: None }
+		ResponseFuture::Forward { fut: self.service.call(req.clone()) }
 	}
 }
 
@@ -191,13 +188,35 @@ fn get_method_result(response: &MethodResponse) -> Option<String> {
 	Some(res.clone())
 }
 
-/// Response future for metrics.
-#[pin_project]
-pub struct ResponseFuture<F> {
-	#[pin]
-	fut: F,
-	connection_data: Option<Arc<Mutex<ConnectionData>>>,
-	error: Option<MethodResponse>,
+/// Response future for chainHead middleware.
+#[pin_project(project = ResponseFutureProj)]
+pub enum ResponseFuture<F> {
+	/// The response is propagated immediately without calling other layers.
+	///
+	/// This is used in case of an error.
+	Ready {
+		/// The response provided to the client directly.
+		///
+		/// This is `Option` to consume the value and return a `MethodResponse`
+		/// from the projected structure.
+		response: Option<MethodResponse>,
+	},
+
+	/// Forward the call to another layer.
+	Forward {
+		/// The future response value.
+		#[pin]
+		fut: F,
+	},
+
+	/// Forward the call to another layer and store the subscription ID of the response.
+	Register {
+		/// The future response value.
+		#[pin]
+		fut: F,
+		/// Connection data that captures the subscription ID.
+		connection_data: Arc<Mutex<ConnectionData>>,
+	},
 }
 
 impl<'a, F> std::fmt::Debug for ResponseFuture<F> {
@@ -212,24 +231,20 @@ impl<F: Future<Output = MethodResponse>> Future for ResponseFuture<F> {
 	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		let this = self.project();
 
-		if let Some(err) = this.error.take() {
-			return Poll::Ready(err);
-		}
-
-		let res = this.fut.poll(cx);
-		let connection_data = this.connection_data;
-
-		match (&res, connection_data) {
-			(Poll::Ready(rp), Some(connection_data)) => {
-				println!("Response sub: {:?}", rp.to_result());
-				if let Some(subscription_id) = get_method_result(rp) {
-					connection_data.lock().unwrap().subscriptions.insert(subscription_id);
+		match this {
+			ResponseFutureProj::Ready { response } =>
+				Poll::Ready(response.take().expect("Value is set; qed")),
+			ResponseFutureProj::Forward { fut } => fut.poll(cx),
+			ResponseFutureProj::Register { fut, connection_data } => {
+				let res = fut.poll(cx);
+				if let Poll::Ready(response) = &res {
+					if let Some(subscription_id) = get_method_result(response) {
+						println!("SSub id {:?}", subscription_id);
+						connection_data.lock().unwrap().subscriptions.insert(subscription_id);
+					}
 				}
+				res
 			},
-
-			_ => {},
 		}
-
-		res
 	}
 }
