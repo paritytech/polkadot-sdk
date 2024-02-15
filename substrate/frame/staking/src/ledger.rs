@@ -32,7 +32,7 @@
 //! state consistency.
 
 use frame_support::{
-	defensive, ensure,
+	defensive,
 	traits::{LockableCurrency, WithdrawReasons},
 };
 use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingAccount, StakingInterface};
@@ -227,7 +227,10 @@ impl<T: Config> StakingLedger<T> {
 	pub(crate) fn kill(stash: &T::AccountId) -> Result<(), Error<T>> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
-		ensure!(crate::Pallet::<T>::status(stash) == Ok(StakerStatus::Idle), Error::<T>::BadState);
+		debug_assert!(
+			crate::Pallet::<T>::status(stash) == Ok(StakerStatus::Idle),
+			"ledger being killed before set as Idle"
+		);
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
 			T::Currency::remove_lock(STAKING_ID, &ledger.stash);

@@ -141,12 +141,14 @@ fn kill_stash_works() {
 }
 
 #[test]
+#[should_panic = "ledger being killed before set as Idle"]
 fn kill_ledger_preconditions_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Account 11 (also controller) is stashed and locked
 		assert_eq!(Staking::bonded(&11), Some(11));
-		// Trying to call `Ledger::kill` directly will fail.
-		assert!(StakingLedger::<Test>::kill(&11).is_err());
+		// Trying to call `Ledger::kill` directly without chilling the staker before go through but
+		// raise alert.
+		assert!(StakingLedger::<Test>::kill(&11).is_ok());
 	})
 }
 
