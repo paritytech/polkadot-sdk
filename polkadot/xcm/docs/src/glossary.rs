@@ -33,7 +33,7 @@
 //!
 //! ## Sovereign account
 //!
-//! An account on a consensus system that is controlled by an account in another consensus system.
+//! An account in a consensus system that is controlled by an account in another consensus system.
 //!
 //! ## Teleport
 //!
