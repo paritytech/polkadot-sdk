@@ -13,10 +13,11 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
 //! Dummy subsystem mocks.
-use paste::paste;
 
 use futures::FutureExt;
+use paste::paste;
 use polkadot_node_subsystem::{overseer, SpawnedSubsystem, SubsystemError};
 use std::time::Duration;
 use tokio::time::sleep;

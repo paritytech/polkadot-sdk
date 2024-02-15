@@ -773,6 +773,8 @@ mod dummy {
 /// Similarly an empty password (ending the `SURI` with `///`) is perfectly valid and will
 /// generally be equivalent to no password at all.
 ///
+/// The `password` is used as salt when generating the seed from the BIP-39 key phrase.
+///
 /// # Example
 ///
 /// Parse [`DEV_PHRASE`] secret uri with junction:

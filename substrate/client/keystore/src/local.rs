@@ -37,7 +37,7 @@ use sp_core::bandersnatch;
 }
 
 sp_keystore::bls_experimental_enabled! {
-use sp_core::{bls377, bls381, ecdsa_bls377};
+use sp_core::{bls377, bls381, ecdsa_bls377, KeccakHasher};
 }
 
 use crate::{Error, Result};
@@ -47,6 +47,13 @@ pub struct LocalKeystore(RwLock<KeystoreInner>);
 
 impl LocalKeystore {
 	/// Create a local keystore from filesystem.
+	///
+	/// The keystore will be created at `path`. The keystore optionally supports to encrypt/decrypt
+	/// the keys in the keystore using `password`.
+	///
+	/// NOTE: Even when passing a `password`, the keys on disk appear to look like normal secret
+	/// uris. However, without having the correct password the secret uri will not generate the
+	/// correct private key. See [`SecretUri`](sp_core::crypto::SecretUri) for more information.
 	pub fn open<T: Into<PathBuf>>(path: T, password: Option<SecretString>) -> Result<Self> {
 		let inner = KeystoreInner::open(path, password)?;
 		Ok(Self(RwLock::new(inner)))
@@ -390,6 +397,20 @@ impl Keystore for LocalKeystore {
 		) -> std::result::Result<Option<ecdsa_bls377::Signature>, TraitError> {
 			self.sign::<ecdsa_bls377::Pair>(key_type, public, msg)
 		}
+
+			fn ecdsa_bls377_sign_with_keccak256(
+			&self,
+			key_type: KeyTypeId,
+			public: &ecdsa_bls377::Public,
+			msg: &[u8],
+		) -> std::result::Result<Option<ecdsa_bls377::Signature>, TraitError> {
+			 let sig = self.0
+			.read()
+			.key_pair_by_type::<ecdsa_bls377::Pair>(public, key_type)?
+			.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
+			Ok(sig)
+		}
+
 
 	}
 }

@@ -305,8 +305,14 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 			vec![
 				WithdrawAsset(fees.clone().into()),
 				BuyExecution { fees, weight_limit: Unlimited },
+				// `SetAppendix` ensures that `fees` are not trapped in any case, for example, when
+				// `ExportXcm::validate` encounters an error during the processing of
+				// `ExportMessage`.
+				SetAppendix(Xcm(vec![DepositAsset {
+					assets: AllCounted(1).into(),
+					beneficiary: local_from_bridge,
+				}])),
 				export_instruction,
-				DepositAsset { assets: All.into(), beneficiary: local_from_bridge },
 			]
 		} else {
 			vec![export_instruction]

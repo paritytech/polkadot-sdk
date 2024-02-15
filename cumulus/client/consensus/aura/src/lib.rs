@@ -42,7 +42,14 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
-use std::{convert::TryFrom, marker::PhantomData, sync::Arc};
+use std::{
+	convert::TryFrom,
+	marker::PhantomData,
+	sync::{
+		atomic::{AtomicU64, Ordering},
+		Arc,
+	},
+};
 
 mod import_queue;
 
@@ -61,6 +68,7 @@ pub struct AuraConsensus<B, CIDP, W> {
 	create_inherent_data_providers: Arc<CIDP>,
 	aura_worker: Arc<Mutex<W>>,
 	slot_duration: SlotDuration,
+	last_slot_processed: Arc<AtomicU64>,
 	_phantom: PhantomData<B>,
 }
 
@@ -70,6 +78,7 @@ impl<B, CIDP, W> Clone for AuraConsensus<B, CIDP, W> {
 			create_inherent_data_providers: self.create_inherent_data_providers.clone(),
 			aura_worker: self.aura_worker.clone(),
 			slot_duration: self.slot_duration,
+			last_slot_processed: self.last_slot_processed.clone(),
 			_phantom: PhantomData,
 		}
 	}
@@ -156,6 +165,7 @@ where
 		Box::new(AuraConsensus {
 			create_inherent_data_providers: Arc::new(create_inherent_data_providers),
 			aura_worker: Arc::new(Mutex::new(worker)),
+			last_slot_processed: Default::default(),
 			slot_duration,
 			_phantom: PhantomData,
 		})
@@ -220,6 +230,18 @@ where
 			// we should be able to use the maximum pov size.
 			Some((validation_data.max_pov_size / 2) as usize),
 		);
+
+		// With async backing this function will be called every relay chain block.
+		//
+		// Most parachains currently run with 12 seconds slots and thus, they would try to produce
+		// multiple blocks per slot which very likely would fail on chain. Thus, we have this "hack"
+		// to only produce on block per slot.
+		//
+		// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
+		// obsolete and also the underlying issue will be fixed.
+		if self.last_slot_processed.fetch_max(*info.slot, Ordering::Relaxed) >= *info.slot {
+			return None
+		}
 
 		let res = self.aura_worker.lock().await.on_slot(info).await?;
 

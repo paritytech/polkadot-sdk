@@ -41,7 +41,7 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, Page, SessionIndex, Stake,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -150,6 +150,9 @@ impl<T: Config> Pallet<T> {
 			// Already checked that this won't overflow by entry condition.
 			let value = old_total.defensive_saturating_sub(new_total);
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: value });
+
+			// notify listeners.
+			T::EventListeners::on_withdraw(controller, value);
 		}
 
 		Ok(used_weight)

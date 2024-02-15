@@ -48,7 +48,7 @@ frame-system = { path = "../../../frame/system" }
 pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false }
 
 # These dependencies are used for the node template's RPCs
-jsonrpsee = { version = "0.20.3", features = ["server"] }
+jsonrpsee = { version = "0.22", features = ["server"] }
 sp-api = { path = "../../../primitives/api" }
 sc-rpc-api = { path = "../../../client/rpc-api" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
