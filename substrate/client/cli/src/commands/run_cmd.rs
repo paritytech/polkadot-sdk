@@ -82,12 +82,11 @@ pub struct RunCmd {
 	)]
 	pub rpc_methods: RpcMethods,
 
-	/// Rate limit the number of RPC calls a connection is allowed
-	/// to perform per minute.
+	/// RPC rate limiting (calls/minute) for each connection.
 	///
 	/// This is disabled by default.
 	///
-	/// For example `--rpc-rate-limit 10` will allow
+	/// For example `--rpc-rate-limit 10` will maximum allow
 	/// 10 calls per minute.
 	#[arg(long)]
 	pub rpc_rate_limit: Option<u32>,

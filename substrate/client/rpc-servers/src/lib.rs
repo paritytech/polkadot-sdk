@@ -164,8 +164,7 @@ where
 					cfg.clone();
 
 				let is_websocket = ws::is_upgrade_request(&req);
-				let transport_label =
-					if is_websocket { "ws" } else { "http" };
+				let transport_label = if is_websocket { "ws" } else { "http" };
 
 				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
 				let rate_limit = rate_limit.map(|r| RateLimitLayer::per_minute(r));

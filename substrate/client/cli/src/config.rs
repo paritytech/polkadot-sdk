@@ -338,7 +338,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)
 	}
 
-	/// Rate limit per minute
+	/// Rate limit calls per minute.
 	fn rpc_rate_limit(&self) -> Result<Option<u32>> {
 		Ok(None)
 	}
