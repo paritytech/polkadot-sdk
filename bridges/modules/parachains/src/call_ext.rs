@@ -17,6 +17,7 @@
 use crate::{Config, Pallet, RelayBlockNumber};
 use bp_parachains::BestParaHeadHash;
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
+use bp_runtime::OwnedBridgeModule;
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType};
 use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
@@ -141,6 +142,10 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 			None => return Ok(ValidTransaction::default()),
 		};
 
+		if Pallet::<T, I>::ensure_not_halted().is_err() {
+			return InvalidTransaction::Call.into()
+		}
+
 		if SubmitParachainHeadsHelper::<T, I>::is_obsolete(&update) {
 			return InvalidTransaction::Stale.into()
 		}
@@ -160,10 +165,11 @@ where
 mod tests {
 	use crate::{
 		mock::{run_test, RuntimeCall, TestRuntime},
-		CallSubType, ParaInfo, ParasInfo, RelayBlockNumber,
+		CallSubType, PalletOperatingMode, ParaInfo, ParasInfo, RelayBlockNumber,
 	};
 	use bp_parachains::BestParaHeadHash;
 	use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
+	use bp_runtime::BasicOperatingMode;
 
 	fn validate_submit_parachain_heads(
 		num: RelayBlockNumber,
@@ -172,7 +178,7 @@ mod tests {
 		RuntimeCall::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads {
 			at_relay_block: (num, Default::default()),
 			parachains,
-			parachain_heads_proof: ParaHeadsProof(Vec::new()),
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
 		})
 		.check_obsolete_submit_parachain_heads()
 		.is_ok()
@@ -218,6 +224,17 @@ mod tests {
 			// rejected
 			sync_to_relay_header_10();
 			assert!(!validate_submit_parachain_heads(20, vec![(ParaId(1), [1u8; 32].into())]));
+		});
+	}
+
+	#[test]
+	fn extension_rejects_header_if_pallet_is_halted() {
+		run_test(|| {
+			// when pallet is halted => tx is rejected
+			sync_to_relay_header_10();
+			PalletOperatingMode::<TestRuntime, ()>::put(BasicOperatingMode::Halted);
+
+			assert!(!validate_submit_parachain_heads(15, vec![(ParaId(1), [2u8; 32].into())]));
 		});
 	}
 

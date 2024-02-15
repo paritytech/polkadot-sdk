@@ -863,7 +863,7 @@ mod tests {
 	use super::*;
 
 	use frame_support::{
-		assert_noop, assert_ok, parameter_types,
+		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{ConstU32, OnFinalize, OnInitialize},
 	};
 	use primitives::Id as ParaId;
@@ -888,9 +888,9 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			Crowdloan: crowdloan,
 		}
 	);
 
@@ -900,6 +900,7 @@ mod tests {
 
 	type BlockNumber = u64;
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -941,8 +942,8 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 

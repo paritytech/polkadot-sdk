@@ -101,10 +101,10 @@ pub use bench::BenchmarkingState;
 const CACHE_HEADERS: usize = 8;
 
 /// DB-backed patricia trie state, transaction type is an overlay of changes to commit.
-pub type DbState<B> = sp_state_machine::TrieBackend<HashingFor<B>>;
+pub type DbState<H> = sp_state_machine::TrieBackend<H>;
 
 /// Builder for [`DbState`].
-pub type DbStateBuilder<B> = sp_state_machine::TrieBackendBuilder<HashingFor<B>>;
+pub type DbStateBuilder<Hasher> = sp_state_machine::TrieBackendBuilder<Hasher>;
 
 /// Hash type that this backend uses for the database.
 pub type DbHash = sp_core::H256;
@@ -128,13 +128,17 @@ enum DbExtrinsic<B: BlockT> {
 /// It makes sure that the hash we are using stays pinned in storage
 /// until this structure is dropped.
 pub struct RefTrackingState<Block: BlockT> {
-	state: DbState<Block>,
+	state: DbState<HashingFor<Block>>,
 	storage: StorageDb<Block>,
 	parent_hash: Option<Block::Hash>,
 }
 
 impl<B: BlockT> RefTrackingState<B> {
-	fn new(state: DbState<B>, storage: StorageDb<B>, parent_hash: Option<B::Hash>) -> Self {
+	fn new(
+		state: DbState<HashingFor<B>>,
+		storage: StorageDb<B>,
+		parent_hash: Option<B::Hash>,
+	) -> Self {
 		RefTrackingState { state, parent_hash, storage }
 	}
 }
@@ -157,12 +161,12 @@ impl<Block: BlockT> std::fmt::Debug for RefTrackingState<Block> {
 
 /// A raw iterator over the `RefTrackingState`.
 pub struct RawIter<B: BlockT> {
-	inner: <DbState<B> as StateBackend<HashingFor<B>>>::RawIter,
+	inner: <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::RawIter,
 }
 
 impl<B: BlockT> StorageIterator<HashingFor<B>> for RawIter<B> {
 	type Backend = RefTrackingState<B>;
-	type Error = <DbState<B> as StateBackend<HashingFor<B>>>::Error;
+	type Error = <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::Error;
 
 	fn next_key(&mut self, backend: &Self::Backend) -> Option<Result<StorageKey, Self::Error>> {
 		self.inner.next_key(&backend.state)
@@ -181,7 +185,7 @@ impl<B: BlockT> StorageIterator<HashingFor<B>> for RawIter<B> {
 }
 
 impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
-	type Error = <DbState<B> as StateBackend<HashingFor<B>>>::Error;
+	type Error = <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::Error;
 	type RawIter = RawIter<B>;
 
 	fn storage(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
@@ -312,6 +316,16 @@ pub enum BlocksPruning {
 	KeepFinalized,
 	/// Keep N recent finalized blocks.
 	Some(u32),
+}
+
+impl BlocksPruning {
+	/// True if this is an archive pruning mode (either KeepAll or KeepFinalized).
+	pub fn is_archive(&self) -> bool {
+		match *self {
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => true,
+			BlocksPruning::Some(_) => false,
+		}
+	}
 }
 
 /// Where to find the database..
@@ -2095,7 +2109,7 @@ impl<Block: BlockT> Backend<Block> {
 
 	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
 		let root = EmptyStorage::<Block>::new().0; // Empty trie
-		let db_state = DbStateBuilder::<Block>::new(Box::new(self.storage.clone()), root)
+		let db_state = DbStateBuilder::<HashingFor<Block>>::new(Box::new(self.storage.clone()), root)
 			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
 			.build();
 		let state = RefTrackingState::new(db_state, self.storage.clone(), None);
@@ -2586,7 +2600,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if hash == self.blockchain.meta.read().genesis_hash {
 			if let Some(genesis_state) = &*self.genesis_state.read() {
 				let root = genesis_state.root;
-				let db_state = DbStateBuilder::<Block>::new(Box::new(genesis_state.clone()), root)
+				let db_state = DbStateBuilder::<HashingFor<Block>>::new(Box::new(genesis_state.clone()), root)
 					.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
 					.build();
 
@@ -2605,7 +2619,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					}) {
 					let root = hdr.state_root;
 					let db_state =
-						DbStateBuilder::<Block>::new(Box::new(self.storage.clone()), root)
+						DbStateBuilder::<HashingFor<Block>>::new(Box::new(self.storage.clone()), root)
 							.with_optional_cache(
 								self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
 							)

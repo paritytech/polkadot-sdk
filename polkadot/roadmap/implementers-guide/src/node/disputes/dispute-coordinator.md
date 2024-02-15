@@ -13,6 +13,7 @@ In particular the dispute-coordinator is responsible for:
 - Ensuring backing votes will never get overridden by explicit votes.
 - Coordinating actual participation in a dispute, ensuring that the node participates in any justified dispute in a way
   that ensures resolution of disputes on the network even in the case of many disputes raised (flood/DoS scenario).
+- Ensuring disabled validators are not able to spam disputes.
 - Ensuring disputes resolve, even for candidates on abandoned forks as much as reasonably possible, to rule out "free
   tries" and thus guarantee our gambler's ruin property.
 - Providing an API for chain selection, so we can prevent finalization of any chain which has included candidates for
@@ -79,7 +80,7 @@ game, so we are not too woried about colluding approval voters getting away slas
 maintained anyway. There is however a separate problem, from colluding approval-voters, that is "lazy" approval voters.
 If it were easy and reliable for approval-voters to reconsider their vote, in case of an actual dispute, then they don't
 have a direct incentive (apart from playing a part in securing the network) to properly run the validation function at
-all - they could just always vote "valid" totally risk free. (While they would alwasy risk a slash by voting invalid.)
+all - they could just always vote "valid" totally risk free. (While they would always risk a slash by voting invalid.)
 
 
 So we do want to fetch approval votes from approval-voting. Importing votes is most efficient when batched. At the same
@@ -125,7 +126,7 @@ moment the dispute concludes! Two concerns that come to mind, are easily address
    enough: We are worried about lazy approval checkers, the system does not need to be perfect. It should be enough if
    there is some risk of getting caught.
 2. We are not worried about the dispute not concluding, as nodes will always send their own vote, regardless of it being
-   an explict or an already existing approval-vote.
+   an explicit or an already existing approval-vote.
 
 Conclusion: As long as we make sure, if our own approval vote gets imported (which would prevent dispute participation)
 to also distribute it via dispute-distribution, disputes can conclude. To mitigate raciness with approval-voting
@@ -243,6 +244,9 @@ if any of the following holds true:
 - The dispute is already confirmed: Meaning that 1/3+1 nodes already participated, as this suggests in our threat model
   that there was at least one honest node that already voted, so the dispute must be genuine.
 
+In addition to that, we only participate in a non-confirmed dispute if at least one vote against the candidate is from
+a non-disabled validator.
+
 Note: A node might be out of sync with the chain and we might only learn about a block, including a candidate, after we
 learned about the dispute. This means, we have to re-evaluate participation decisions on block import!
 
@@ -301,13 +305,14 @@ conditions are satisfied:
 - the candidate under dispute was not seen included nor backed on any chain
 - the dispute is not confirmed
 - we haven't cast a vote for the dispute
+- at least one vote against the candidate is from a non-disabled validator
 
 Whenever any vote on a dispute is imported these conditions are checked. If the dispute is found not to be potential
 spam, then spam slots for the disputed candidate hash are cleared. This decrements the spam count for every validator
 which had voted invalid.
 
 To keep spam slots from filling up unnecessarily we want to clear spam slots whenever a candidate is seen to be backed
-or included. Fortunately this behavior is acheived by clearing slots on vote import as described above. Because on chain
+or included. Fortunately this behavior is achieved by clearing slots on vote import as described above. Because on chain
 backing votes are processed when a block backing the disputed candidate is discovered, spam slots are cleared for every
 backed candidate. Included candidates have also been seen as backed on the same fork, so decrementing spam slots is
 handled in that case as well.
@@ -317,6 +322,23 @@ rate limited and concern only real candidates. For approval votes a similar argu
 approval-voting), but we also don't import them until a dispute already concluded. For actual dispute votes we need two
 opposing votes, so there must be an explicit `invalid` vote in the import. Only a third of the validators can be
 malicious, so spam disk usage is limited to `2*vote_size*n/3*NUM_SPAM_SLOTS`, with `n` being the number of validators.
+
+### Disabling
+
+Once a validator has committed an offence (e.g. losing a dispute), it is considered disabled for the rest of the era.
+In addition to using the on-chain state of disabled validators, we also keep track of validators who lost a dispute
+off-chain. The reason for this is a dispute can be raised for a candidate in a previous era, which means that a
+validator that is going to be slashed for it might not even be in the current active set. That means it can't be
+disabled on-chain. We need a way to prevent someone from disputing all valid candidates in the previous era. We do this
+by keeping track of the validators who lost a dispute in the past few sessions and use that list in addition to the
+on-chain disabled validators state. In addition to past session misbehavior, this also heps in case a slash is delayed.
+
+When we receive a dispute statements set, we do the following:
+1. Take the on-chain state of disabled validators at the relay parent block.
+1. Take a list of those who lost a dispute in that session in the order that prioritizes the biggest and newest offence.
+1. Combine the two lists and take the first byzantine threshold validators from it.
+1. If the dispute is unconfimed, check if all votes against the candidate are from disabled validators.
+If so, we don't participate in the dispute, but record the votes.
 
 ### Backing Votes
 
@@ -422,7 +444,7 @@ from them, so they would be an easy DoS target.
 
 In summary: The availability system was designed for raising disputes in a meaningful and secure way after availability
 was reached. Trying to raise disputes before does not meaningfully contribute to the systems security/might even weaken
-it as attackers are warned before availability is reached, while at the same time adding signficant amount of
+it as attackers are warned before availability is reached, while at the same time adding significant amount of
 complexity. We therefore punt on such disputes and concentrate on disputes the system was designed to handle.
 
 ### No Disputes for Already Finalized Blocks

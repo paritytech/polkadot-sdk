@@ -22,11 +22,11 @@
 pub mod bench_utils;
 
 pub mod chain_spec;
-mod genesis;
 
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use std::{
+	collections::HashSet,
 	future::Future,
 	net::{IpAddr, Ipv4Addr, SocketAddr},
 	time::Duration,
@@ -57,7 +57,7 @@ use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Hash as PHash, PersistedValidationData};
+use polkadot_primitives::{CandidateHash, CollatorPair, Hash as PHash, PersistedValidationData};
 use polkadot_service::ProvideRuntimeApi;
 use sc_consensus::ImportQueue;
 use sc_network::{
@@ -85,7 +85,6 @@ use substrate_test_client::{
 
 pub use chain_spec::*;
 pub use cumulus_test_runtime as runtime;
-pub use genesis::*;
 pub use sp_keyring::Sr25519Keyring as Keyring;
 
 const LOG_TARGET: &str = "cumulus-test-service";
@@ -144,12 +143,13 @@ pub type TransactionPool = Arc<sc_transaction_pool::FullPool<Block, Client>>;
 pub struct FailingRecoveryHandle {
 	overseer_handle: OverseerHandle,
 	counter: u32,
+	failed_hashes: HashSet<CandidateHash>,
 }
 
 impl FailingRecoveryHandle {
 	/// Create a new FailingRecoveryHandle
 	pub fn new(overseer_handle: OverseerHandle) -> Self {
-		Self { overseer_handle, counter: 0 }
+		Self { overseer_handle, counter: 0, failed_hashes: Default::default() }
 	}
 }
 
@@ -160,11 +160,15 @@ impl RecoveryHandle for FailingRecoveryHandle {
 		message: AvailabilityRecoveryMessage,
 		origin: &'static str,
 	) {
-		// For every 5th block we immediately signal unavailability to trigger
-		// a retry.
-		if self.counter % 5 == 0 {
+		let AvailabilityRecoveryMessage::RecoverAvailableData(ref receipt, _, _, _) = message;
+		let candidate_hash = receipt.hash();
+
+		// For every 3rd block we immediately signal unavailability to trigger
+		// a retry. The same candidate is never failed multiple times to ensure progress.
+		if self.counter % 3 == 0 && self.failed_hashes.insert(candidate_hash) {
+			tracing::info!(target: LOG_TARGET, ?candidate_hash, "Failing pov recovery.");
+
 			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, back_sender) = message;
-			tracing::info!(target: LOG_TARGET, "Failing pov recovery.");
 			back_sender
 				.send(Err(RecoveryError::Unavailable))
 				.expect("Return channel should work here.");
@@ -175,23 +179,24 @@ impl RecoveryHandle for FailingRecoveryHandle {
 	}
 }
 
+/// Assembly of PartialComponents (enough to run chain ops subcommands)
+pub type Service = PartialComponents<
+	Client,
+	Backend,
+	(),
+	sc_consensus::import_queue::BasicQueue<Block>,
+	sc_transaction_pool::FullPool<Block, Client>,
+	ParachainBlockImport,
+>;
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
 /// be able to perform chain operations.
 pub fn new_partial(
 	config: &mut Configuration,
-) -> Result<
-	PartialComponents<
-		Client,
-		Backend,
-		(),
-		sc_consensus::import_queue::BasicQueue<Block>,
-		sc_transaction_pool::FullPool<Block, Client>,
-		ParachainBlockImport,
-	>,
-	sc_service::Error,
-> {
+	enable_import_proof_record: bool,
+) -> Result<Service, sc_service::Error> {
 	let heap_pages = config
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
@@ -208,10 +213,16 @@ pub fn new_partial(
 		sc_executor::NativeElseWasmExecutor::<RuntimeExecutor>::new_with_wasm_executor(wasm);
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(config, None, executor)?;
+		sc_service::new_full_parts_record_import::<Block, RuntimeApi, _>(
+			config,
+			None,
+			executor,
+			enable_import_proof_record,
+		)?;
 	let client = Arc::new(client);
 
-	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let block_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
 	let registry = config.prometheus_registry();
 
@@ -260,6 +271,7 @@ async fn build_relay_chain_interface(
 				polkadot_service::IsParachainNode::Collator(CollatorPair::generate().0)
 			},
 			None,
+			polkadot_service::CollatorOverseerGen,
 		)
 		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
@@ -302,19 +314,21 @@ pub async fn start_node_impl<RB>(
 	rpc_ext_builder: RB,
 	consensus: Consensus,
 	collator_options: CollatorOptions,
+	proof_recording_during_import: bool,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
 	Arc<NetworkService<Block, H256>>,
 	RpcHandlers,
 	TransactionPool,
+	Arc<Backend>,
 )>
 where
 	RB: Fn(Arc<Client>) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error> + Send + 'static,
 {
 	let mut parachain_config = prepare_node_config(parachain_config);
 
-	let params = new_partial(&mut parachain_config)?;
+	let params = new_partial(&mut parachain_config, proof_recording_during_import)?;
 
 	let transaction_pool = params.transaction_pool.clone();
 	let mut task_manager = params.task_manager;
@@ -430,7 +444,7 @@ where
 						let relay_chain_interface = relay_chain_interface_for_closure.clone();
 						async move {
 							let parachain_inherent =
-							cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
+							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
 								relay_parent,
 								&relay_chain_interface,
 								&validation_data,
@@ -470,7 +484,7 @@ where
 
 	start_network.start_network();
 
-	Ok((task_manager, client, network, rpc_handlers, transaction_pool))
+	Ok((task_manager, client, network, rpc_handlers, transaction_pool, backend))
 }
 
 /// A Cumulus test node instance used for testing.
@@ -488,6 +502,8 @@ pub struct TestNode {
 	pub rpc_handlers: RpcHandlers,
 	/// Node's transaction pool
 	pub transaction_pool: TransactionPool,
+	/// Node's backend
+	pub backend: Arc<Backend>,
 }
 
 #[allow(missing_docs)]
@@ -513,6 +529,7 @@ pub struct TestNodeBuilder {
 	consensus: Consensus,
 	relay_chain_mode: RelayChainMode,
 	endowed_accounts: Vec<AccountId>,
+	record_proof_during_import: bool,
 }
 
 impl TestNodeBuilder {
@@ -537,6 +554,7 @@ impl TestNodeBuilder {
 			consensus: Consensus::RelayChain,
 			endowed_accounts: Default::default(),
 			relay_chain_mode: RelayChainMode::Embedded,
+			record_proof_during_import: true,
 		}
 	}
 
@@ -649,6 +667,12 @@ impl TestNodeBuilder {
 		self
 	}
 
+	/// Record proofs during import.
+	pub fn import_proof_recording(mut self, should_record_proof: bool) -> TestNodeBuilder {
+		self.record_proof_during_import = should_record_proof;
+		self
+	}
+
 	/// Build the [`TestNode`].
 	pub async fn build(self) -> TestNode {
 		let parachain_config = node_config(
@@ -677,24 +701,26 @@ impl TestNodeBuilder {
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
 
 		let multiaddr = parachain_config.network.listen_addresses[0].clone();
-		let (task_manager, client, network, rpc_handlers, transaction_pool) = start_node_impl(
-			parachain_config,
-			self.collator_key,
-			relay_chain_config,
-			self.para_id,
-			self.wrap_announce_block,
-			false,
-			|_| Ok(jsonrpsee::RpcModule::new(())),
-			self.consensus,
-			collator_options,
-		)
-		.await
-		.expect("could not create Cumulus test service");
+		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
+			start_node_impl(
+				parachain_config,
+				self.collator_key,
+				relay_chain_config,
+				self.para_id,
+				self.wrap_announce_block,
+				false,
+				|_| Ok(jsonrpsee::RpcModule::new(())),
+				self.consensus,
+				collator_options,
+				self.record_proof_during_import,
+			)
+			.await
+			.expect("could not create Cumulus test service");
 
 		let peer_id = network.local_peer_id();
 		let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
-		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool }
+		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool, backend }
 	}
 }
 
@@ -719,7 +745,7 @@ pub fn node_config(
 	let role = if is_collator { Role::Authority } else { Role::Full };
 	let key_seed = key.to_seed();
 	let mut spec =
-		Box::new(chain_spec::get_chain_spec_with_extra_endowed(para_id, endowed_accounts));
+		Box::new(chain_spec::get_chain_spec_with_extra_endowed(Some(para_id), endowed_accounts));
 
 	let mut storage = spec.as_storage_builder().build_storage().expect("could not build storage");
 
@@ -774,6 +800,7 @@ pub fn node_config(
 		rpc_id_provider: None,
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9945,
+		rpc_message_buffer_capacity: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -893,7 +920,7 @@ pub fn run_relay_chain_validator_node(
 ) -> polkadot_test_service::PolkadotTestNode {
 	let mut config = polkadot_test_service::node_config(
 		storage_update_func,
-		tokio_handle,
+		tokio_handle.clone(),
 		key,
 		boot_nodes,
 		true,
@@ -907,5 +934,7 @@ pub fn run_relay_chain_validator_node(
 	workers_path.pop();
 	workers_path.pop();
 
-	polkadot_test_service::run_validator_node(config, Some(workers_path))
+	tokio_handle.block_on(async move {
+		polkadot_test_service::run_validator_node(config, Some(workers_path))
+	})
 }

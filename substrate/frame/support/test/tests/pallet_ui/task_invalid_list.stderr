@@ -1,0 +1,20 @@
+error: unused import: `frame_system::pallet_prelude::OriginFor`
+  --> tests/pallet_ui/task_invalid_list.rs:21:6
+   |
+21 |     use frame_system::pallet_prelude::OriginFor;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error[E0689]: can't call method `map` on ambiguous numeric type `{integer}`
+  --> tests/pallet_ui/task_invalid_list.rs:18:1
+   |
+18 | #[frame_support::pallet(dev_mode)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `frame_support::pallet` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: you must specify a concrete type for this numeric value, like `i32`
+   |
+33 |         #[pallet::task_list(0_i32)]
+   |                             ~~~~~

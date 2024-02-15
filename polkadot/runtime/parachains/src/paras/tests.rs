@@ -67,6 +67,16 @@ fn submit_super_majority_pvf_votes(
 		.for_each(sign_and_include_pvf_check_statement);
 }
 
+fn test_validation_code_1() -> ValidationCode {
+	let validation_code = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+	ValidationCode(validation_code)
+}
+
+fn test_validation_code_2() -> ValidationCode {
+	let validation_code = vec![9, 8, 7, 6, 5, 4, 3, 2, 1];
+	ValidationCode(validation_code)
+}
+
 fn run_to_block(to: BlockNumber, new_session: Option<Vec<BlockNumber>>) {
 	let keystore: KeystorePtr = Arc::new(LocalKeystore::in_memory());
 	for validator in VALIDATORS.iter() {
@@ -284,7 +294,7 @@ fn para_past_code_pruning_in_initialize() {
 		let id = ParaId::from(0u32);
 		let at_block: BlockNumber = 10;
 		let included_block: BlockNumber = 12;
-		let validation_code = ValidationCode(vec![4, 5, 6]);
+		let validation_code = test_validation_code_2();
 
 		Paras::increase_code_ref(&validation_code.hash(), &validation_code);
 		PastCodeHash::<Test>::insert(&(id, at_block), &validation_code.hash());
@@ -377,8 +387,8 @@ fn note_past_code_sets_up_pruning_correctly() {
 		let id_a = ParaId::from(0u32);
 		let id_b = ParaId::from(1u32);
 
-		Paras::note_past_code(id_a, 10, 12, ValidationCode(vec![1, 2, 3]).hash());
-		Paras::note_past_code(id_b, 20, 23, ValidationCode(vec![4, 5, 6]).hash());
+		Paras::note_past_code(id_a, 10, 12, test_validation_code_1().hash());
+		Paras::note_past_code(id_b, 20, 23, test_validation_code_2().hash());
 
 		assert_eq!(PastCodePruning::<Test>::get(), vec![(id_a, 12), (id_b, 23)]);
 		assert_eq!(
@@ -398,7 +408,7 @@ fn code_upgrade_applied_after_delay() {
 	let validation_upgrade_delay = 5;
 	let validation_upgrade_cooldown = 10;
 
-	let original_code = ValidationCode(vec![1, 2, 3]);
+	let original_code = test_validation_code_1();
 	let paras = vec![(
 		0u32.into(),
 		ParaGenesisArgs {
@@ -425,7 +435,7 @@ fn code_upgrade_applied_after_delay() {
 		check_code_is_stored(&original_code);
 
 		let para_id = ParaId::from(0);
-		let new_code = ValidationCode(vec![4, 5, 6]);
+		let new_code = test_validation_code_2();
 
 		// Wait for at least one session change to set active validators.
 		const EXPECTED_SESSION: SessionIndex = 1;
@@ -436,7 +446,13 @@ fn code_upgrade_applied_after_delay() {
 			// this parablock is in the context of block 1.
 			let expected_at = 1 + validation_upgrade_delay;
 			let next_possible_upgrade_at = 1 + validation_upgrade_cooldown;
-			Paras::schedule_code_upgrade(para_id, new_code.clone(), 1, &Configuration::config());
+			Paras::schedule_code_upgrade(
+				para_id,
+				new_code.clone(),
+				1,
+				&Configuration::config(),
+				SetGoAhead::Yes,
+			);
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -505,12 +521,133 @@ fn code_upgrade_applied_after_delay() {
 }
 
 #[test]
+fn code_upgrade_applied_without_setting_go_ahead_signal() {
+	let code_retention_period = 10;
+	let validation_upgrade_delay = 5;
+	let validation_upgrade_cooldown = 10;
+
+	let original_code = test_validation_code_1();
+	let paras = vec![(
+		0u32.into(),
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code.clone(),
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration {
+				code_retention_period,
+				validation_upgrade_delay,
+				validation_upgrade_cooldown,
+				..Default::default()
+			},
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		check_code_is_stored(&original_code);
+
+		let para_id = ParaId::from(0);
+		let new_code = test_validation_code_2();
+
+		// Wait for at least one session change to set active validators.
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(2, Some(vec![1]));
+		assert_eq!(Paras::current_code(&para_id), Some(original_code.clone()));
+
+		let (expected_at, next_possible_upgrade_at) = {
+			// this parablock is in the context of block 1.
+			let expected_at = 1 + validation_upgrade_delay;
+			let next_possible_upgrade_at = 1 + validation_upgrade_cooldown;
+			// `set_go_ahead` parameter set to `false` which prevents signaling the parachain
+			// with the `GoAhead` signal.
+			Paras::schedule_code_upgrade(
+				para_id,
+				new_code.clone(),
+				1,
+				&Configuration::config(),
+				SetGoAhead::No,
+			);
+			// Include votes for super-majority.
+			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+
+			Paras::note_new_head(para_id, Default::default(), 1);
+
+			assert!(Paras::past_code_meta(&para_id).most_recent_change().is_none());
+			assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(expected_at));
+			assert_eq!(FutureCodeHash::<Test>::get(&para_id), Some(new_code.hash()));
+			assert_eq!(UpcomingUpgrades::<Test>::get(), vec![]);
+			assert_eq!(UpgradeCooldowns::<Test>::get(), vec![(para_id, next_possible_upgrade_at)]);
+			assert_eq!(Paras::current_code(&para_id), Some(original_code.clone()));
+			check_code_is_stored(&original_code);
+			check_code_is_stored(&new_code);
+
+			(expected_at, next_possible_upgrade_at)
+		};
+
+		run_to_block(expected_at, None);
+
+		// the candidate is in the context of the parent of `expected_at`,
+		// thus does not trigger the code upgrade. However, now the `UpgradeGoAheadSignal`
+		// should not be set.
+		{
+			Paras::note_new_head(para_id, Default::default(), expected_at - 1);
+
+			assert!(Paras::past_code_meta(&para_id).most_recent_change().is_none());
+			assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(expected_at));
+			assert_eq!(FutureCodeHash::<Test>::get(&para_id), Some(new_code.hash()));
+			assert!(UpgradeGoAheadSignal::<Test>::get(&para_id).is_none());
+			assert_eq!(Paras::current_code(&para_id), Some(original_code.clone()));
+			check_code_is_stored(&original_code);
+			check_code_is_stored(&new_code);
+		}
+
+		run_to_block(expected_at + 1, None);
+
+		// the candidate is in the context of `expected_at`, and triggers
+		// the upgrade.
+		{
+			Paras::note_new_head(para_id, Default::default(), expected_at);
+
+			assert_eq!(Paras::past_code_meta(&para_id).most_recent_change(), Some(expected_at));
+			assert_eq!(
+				PastCodeHash::<Test>::get(&(para_id, expected_at)),
+				Some(original_code.hash()),
+			);
+			assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
+			assert!(FutureCodeHash::<Test>::get(&para_id).is_none());
+			assert!(UpgradeGoAheadSignal::<Test>::get(&para_id).is_none());
+			assert_eq!(Paras::current_code(&para_id), Some(new_code.clone()));
+			assert_eq!(
+				UpgradeRestrictionSignal::<Test>::get(&para_id),
+				Some(UpgradeRestriction::Present),
+			);
+			assert_eq!(UpgradeCooldowns::<Test>::get(), vec![(para_id, next_possible_upgrade_at)]);
+			check_code_is_stored(&original_code);
+			check_code_is_stored(&new_code);
+		}
+
+		run_to_block(next_possible_upgrade_at + 1, None);
+
+		{
+			assert!(UpgradeRestrictionSignal::<Test>::get(&para_id).is_none());
+			assert!(UpgradeCooldowns::<Test>::get().is_empty());
+		}
+	});
+}
+
+#[test]
 fn code_upgrade_applied_after_delay_even_when_late() {
 	let code_retention_period = 10;
 	let validation_upgrade_delay = 5;
 	let validation_upgrade_cooldown = 10;
 
-	let original_code = ValidationCode(vec![1, 2, 3]);
+	let original_code = test_validation_code_1();
 	let paras = vec![(
 		0u32.into(),
 		ParaGenesisArgs {
@@ -535,7 +672,7 @@ fn code_upgrade_applied_after_delay_even_when_late() {
 
 	new_test_ext(genesis_config).execute_with(|| {
 		let para_id = ParaId::from(0);
-		let new_code = ValidationCode(vec![4, 5, 6]);
+		let new_code = test_validation_code_2();
 
 		// Wait for at least one session change to set active validators.
 		const EXPECTED_SESSION: SessionIndex = 1;
@@ -546,7 +683,13 @@ fn code_upgrade_applied_after_delay_even_when_late() {
 			// this parablock is in the context of block 1.
 			let expected_at = 1 + validation_upgrade_delay;
 			let next_possible_upgrade_at = 1 + validation_upgrade_cooldown;
-			Paras::schedule_code_upgrade(para_id, new_code.clone(), 1, &Configuration::config());
+			Paras::schedule_code_upgrade(
+				para_id,
+				new_code.clone(),
+				1,
+				&Configuration::config(),
+				SetGoAhead::Yes,
+			);
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -617,14 +760,20 @@ fn submit_code_change_when_not_allowed_is_err() {
 
 	new_test_ext(genesis_config).execute_with(|| {
 		let para_id = ParaId::from(0);
-		let new_code = ValidationCode(vec![4, 5, 6]);
-		let newer_code = ValidationCode(vec![4, 5, 6, 7]);
+		let new_code = test_validation_code_1();
+		let newer_code = test_validation_code_2();
 
 		// Wait for at least one session change to set active validators.
 		const EXPECTED_SESSION: SessionIndex = 1;
 		run_to_block(1, Some(vec![1]));
 
-		Paras::schedule_code_upgrade(para_id, new_code.clone(), 1, &Configuration::config());
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			1,
+			&Configuration::config(),
+			SetGoAhead::Yes,
+		);
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -636,7 +785,13 @@ fn submit_code_change_when_not_allowed_is_err() {
 		// ignore it. Note that this is only true from perspective of this module.
 		run_to_block(2, None);
 		assert!(!Paras::can_upgrade_validation_code(para_id));
-		Paras::schedule_code_upgrade(para_id, newer_code.clone(), 2, &Configuration::config());
+		Paras::schedule_code_upgrade(
+			para_id,
+			newer_code.clone(),
+			2,
+			&Configuration::config(),
+			SetGoAhead::Yes,
+		);
 		assert_eq!(
 			FutureCodeUpgrades::<Test>::get(&para_id),
 			Some(1 + validation_upgrade_delay), /* did not change since the same assertion from
@@ -687,14 +842,20 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 
 	new_test_ext(genesis_config).execute_with(|| {
 		let para_id = 0u32.into();
-		let new_code = ValidationCode(vec![4, 5, 6]);
-		let newer_code = ValidationCode(vec![4, 5, 6, 7]);
+		let new_code = test_validation_code_1();
+		let newer_code = test_validation_code_2();
 
 		// Wait for at least one session change to set active validators.
 		const EXPECTED_SESSION: SessionIndex = 1;
 		run_to_block(1, Some(vec![1]));
 
-		Paras::schedule_code_upgrade(para_id, new_code.clone(), 0, &Configuration::config());
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			0,
+			&Configuration::config(),
+			SetGoAhead::Yes,
+		);
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -713,7 +874,13 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 		assert!(!Paras::can_upgrade_validation_code(para_id));
 
 		// And scheduling another upgrade does not do anything. `expected_at` is still the same.
-		Paras::schedule_code_upgrade(para_id, newer_code.clone(), 30, &Configuration::config());
+		Paras::schedule_code_upgrade(
+			para_id,
+			newer_code.clone(),
+			30,
+			&Configuration::config(),
+			SetGoAhead::Yes,
+		);
 		assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(0 + validation_upgrade_delay));
 	});
 }
@@ -723,7 +890,7 @@ fn full_parachain_cleanup_storage() {
 	let code_retention_period = 20;
 	let validation_upgrade_delay = 1 + 5;
 
-	let original_code = ValidationCode(vec![1, 2, 3]);
+	let original_code = test_validation_code_1();
 	let paras = vec![(
 		0u32.into(),
 		ParaGenesisArgs {
@@ -753,7 +920,7 @@ fn full_parachain_cleanup_storage() {
 		check_code_is_stored(&original_code);
 
 		let para_id = ParaId::from(0);
-		let new_code = ValidationCode(vec![4, 5, 6]);
+		let new_code = test_validation_code_2();
 
 		// Wait for at least one session change to set active validators.
 		const EXPECTED_SESSION: SessionIndex = 1;
@@ -765,7 +932,13 @@ fn full_parachain_cleanup_storage() {
 		let expected_at = {
 			// this parablock is in the context of block 1.
 			let expected_at = 1 + validation_upgrade_delay;
-			Paras::schedule_code_upgrade(para_id, new_code.clone(), 1, &Configuration::config());
+			Paras::schedule_code_upgrade(
+				para_id,
+				new_code.clone(),
+				1,
+				&Configuration::config(),
+				SetGoAhead::Yes,
+			);
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -830,8 +1003,8 @@ fn full_parachain_cleanup_storage() {
 fn cannot_offboard_ongoing_pvf_check() {
 	let para_id = ParaId::from(0);
 
-	let existing_code: ValidationCode = vec![1, 2, 3].into();
-	let new_code: ValidationCode = vec![3, 2, 1].into();
+	let existing_code = test_validation_code_1();
+	let new_code = test_validation_code_2();
 
 	let paras = vec![(
 		para_id,
@@ -860,6 +1033,7 @@ fn cannot_offboard_ongoing_pvf_check() {
 			new_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
+			SetGoAhead::Yes,
 		);
 		assert!(!Paras::pvfs_require_precheck().is_empty());
 
@@ -988,7 +1162,7 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 		ParaGenesisArgs {
 			para_kind: ParaKind::Parachain,
 			genesis_head: dummy_head_data(),
-			validation_code: vec![1, 2, 3].into(),
+			validation_code: test_validation_code_1(),
 		},
 	)];
 
@@ -1010,9 +1184,15 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 		const EXPECTED_SESSION: SessionIndex = 1;
 
 		let para_id = ParaId::from(0);
-		let old_code: ValidationCode = vec![1, 2, 3].into();
-		let new_code: ValidationCode = vec![4, 5, 6].into();
-		Paras::schedule_code_upgrade(para_id, new_code.clone(), 0, &Configuration::config());
+		let old_code = test_validation_code_1();
+		let new_code = test_validation_code_2();
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			0,
+			&Configuration::config(),
+			SetGoAhead::Yes,
+		);
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
@@ -1049,7 +1229,7 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 #[test]
 fn code_ref_is_cleaned_correctly() {
 	new_test_ext(Default::default()).execute_with(|| {
-		let code: ValidationCode = vec![1, 2, 3].into();
+		let code = test_validation_code_1();
 		Paras::increase_code_ref(&code.hash(), &code);
 		Paras::increase_code_ref(&code.hash(), &code);
 
@@ -1074,8 +1254,8 @@ fn pvf_check_coalescing_onboarding_and_upgrade() {
 
 	let a = ParaId::from(111);
 	let b = ParaId::from(222);
-	let existing_code: ValidationCode = vec![1, 2, 3].into();
-	let validation_code: ValidationCode = vec![3, 2, 1].into();
+	let existing_code = test_validation_code_1();
+	let validation_code = test_validation_code_2();
 
 	let paras = vec![(
 		a,
@@ -1120,6 +1300,7 @@ fn pvf_check_coalescing_onboarding_and_upgrade() {
 			validation_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
+			SetGoAhead::Yes,
 		);
 		assert!(!Paras::pvfs_require_precheck().is_empty());
 
@@ -1149,7 +1330,7 @@ fn pvf_check_coalescing_onboarding_and_upgrade() {
 fn pvf_check_onboarding_reject_on_expiry() {
 	let pvf_voting_ttl = 2;
 	let a = ParaId::from(111);
-	let validation_code: ValidationCode = vec![3, 2, 1].into();
+	let validation_code = test_validation_code_1();
 
 	let genesis_config = MockGenesisConfig {
 		configuration: crate::configuration::GenesisConfig {
@@ -1197,8 +1378,8 @@ fn pvf_check_onboarding_reject_on_expiry() {
 #[test]
 fn pvf_check_upgrade_reject() {
 	let a = ParaId::from(111);
-	let old_code: ValidationCode = vec![1, 2, 3].into();
-	let new_code: ValidationCode = vec![3, 2, 1].into();
+	let old_code = test_validation_code_1();
+	let new_code = test_validation_code_2();
 
 	let paras = vec![(
 		a,
@@ -1224,7 +1405,13 @@ fn pvf_check_upgrade_reject() {
 		// Expected current session index.
 		const EXPECTED_SESSION: SessionIndex = 1;
 
-		Paras::schedule_code_upgrade(a, new_code.clone(), RELAY_PARENT, &Configuration::config());
+		Paras::schedule_code_upgrade(
+			a,
+			new_code.clone(),
+			RELAY_PARENT,
+			&Configuration::config(),
+			SetGoAhead::Yes,
+		);
 		check_code_is_stored(&new_code);
 
 		// 1/3 of validators vote against `new_code`. PVF should not be rejected yet.
@@ -1260,8 +1447,8 @@ fn pvf_check_upgrade_reject() {
 
 #[test]
 fn pvf_check_submit_vote() {
-	let code_a: ValidationCode = vec![3, 2, 1].into();
-	let code_b: ValidationCode = vec![1, 2, 3].into();
+	let code_a = test_validation_code_1();
+	let code_b = test_validation_code_2();
 
 	let check = |stmt: PvfCheckStatement| -> (Result<_, _>, Result<_, _>) {
 		let validators = &[
@@ -1377,8 +1564,8 @@ fn pvf_check_submit_vote() {
 #[test]
 fn include_pvf_check_statement_refunds_weight() {
 	let a = ParaId::from(111);
-	let old_code: ValidationCode = vec![1, 2, 3].into();
-	let new_code: ValidationCode = vec![3, 2, 1].into();
+	let old_code = test_validation_code_1();
+	let new_code = test_validation_code_2();
 
 	let paras = vec![(
 		a,
@@ -1404,7 +1591,13 @@ fn include_pvf_check_statement_refunds_weight() {
 		// Expected current session index.
 		const EXPECTED_SESSION: SessionIndex = 1;
 
-		Paras::schedule_code_upgrade(a, new_code.clone(), RELAY_PARENT, &Configuration::config());
+		Paras::schedule_code_upgrade(
+			a,
+			new_code.clone(),
+			RELAY_PARENT,
+			&Configuration::config(),
+			SetGoAhead::Yes,
+		);
 
 		let mut stmts = IntoIterator::into_iter([0, 1, 2, 3])
 			.map(|i| {
@@ -1437,7 +1630,7 @@ fn include_pvf_check_statement_refunds_weight() {
 fn add_trusted_validation_code_inserts_with_no_users() {
 	// This test is to ensure that trusted validation code is inserted into the storage
 	// with the reference count equal to 0.
-	let validation_code = ValidationCode(vec![1, 2, 3]);
+	let validation_code = test_validation_code_1();
 	new_test_ext(Default::default()).execute_with(|| {
 		assert_ok!(Paras::add_trusted_validation_code(
 			RuntimeOrigin::root(),
@@ -1451,7 +1644,7 @@ fn add_trusted_validation_code_inserts_with_no_users() {
 fn add_trusted_validation_code_idempotent() {
 	// This test makes sure that calling add_trusted_validation_code twice with the same
 	// parameters is a no-op.
-	let validation_code = ValidationCode(vec![1, 2, 3]);
+	let validation_code = test_validation_code_1();
 	new_test_ext(Default::default()).execute_with(|| {
 		assert_ok!(Paras::add_trusted_validation_code(
 			RuntimeOrigin::root(),
@@ -1470,7 +1663,7 @@ fn add_trusted_validation_code_idempotent() {
 fn poke_unused_validation_code_removes_code_cleanly() {
 	// This test makes sure that calling poke_unused_validation_code with a code that is currently
 	// in the storage but has no users will remove it cleanly from the storage.
-	let validation_code = ValidationCode(vec![1, 2, 3]);
+	let validation_code = test_validation_code_1();
 	new_test_ext(Default::default()).execute_with(|| {
 		assert_ok!(Paras::add_trusted_validation_code(
 			RuntimeOrigin::root(),
@@ -1489,7 +1682,7 @@ fn poke_unused_validation_code_removes_code_cleanly() {
 #[test]
 fn poke_unused_validation_code_doesnt_remove_code_with_users() {
 	let para_id = 100.into();
-	let validation_code = ValidationCode(vec![1, 2, 3]);
+	let validation_code = test_validation_code_1();
 	new_test_ext(Default::default()).execute_with(|| {
 		// First we add the code to the storage.
 		assert_ok!(Paras::add_trusted_validation_code(
@@ -1499,7 +1692,13 @@ fn poke_unused_validation_code_doesnt_remove_code_with_users() {
 
 		// Then we add a user to the code, say by upgrading.
 		run_to_block(2, None);
-		Paras::schedule_code_upgrade(para_id, validation_code.clone(), 1, &Configuration::config());
+		Paras::schedule_code_upgrade(
+			para_id,
+			validation_code.clone(),
+			1,
+			&Configuration::config(),
+			SetGoAhead::Yes,
+		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 
 		// Finally we poke the code, which should not remove it from the storage.
@@ -1519,7 +1718,7 @@ fn increase_code_ref_doesnt_have_allergy_on_add_trusted_validation_code() {
 	// to a disaster.
 	// NOTE that this test is extra paranoid, as it is not really possible to hit
 	// `decrease_code_ref` without calling `increase_code_ref` first.
-	let code = ValidationCode(vec![1, 2, 3]);
+	let code = test_validation_code_1();
 
 	new_test_ext(Default::default()).execute_with(|| {
 		assert_ok!(Paras::add_trusted_validation_code(RuntimeOrigin::root(), code.clone()));
@@ -1543,7 +1742,7 @@ fn add_trusted_validation_code_insta_approval() {
 	// `add_trusted_validation_code` and uses the `CodeByHash::contains_key` which is what
 	// `add_trusted_validation_code` uses.
 	let para_id = 100.into();
-	let validation_code = ValidationCode(vec![1, 2, 3]);
+	let validation_code = test_validation_code_1();
 	let validation_upgrade_delay = 25;
 	let minimum_validation_upgrade_delay = 2;
 	let genesis_config = MockGenesisConfig {
@@ -1564,7 +1763,13 @@ fn add_trusted_validation_code_insta_approval() {
 
 		// Then some parachain upgrades it's code with the relay-parent 1.
 		run_to_block(2, None);
-		Paras::schedule_code_upgrade(para_id, validation_code.clone(), 1, &Configuration::config());
+		Paras::schedule_code_upgrade(
+			para_id,
+			validation_code.clone(),
+			1,
+			&Configuration::config(),
+			SetGoAhead::Yes,
+		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 
 		// Verify that the code upgrade has `expected_at` set to `26`.
@@ -1584,7 +1789,7 @@ fn add_trusted_validation_code_enacts_existing_pvf_vote() {
 	// already going through PVF pre-checking voting will conclude the voting and enact the
 	// code upgrade.
 	let para_id = 100.into();
-	let validation_code = ValidationCode(vec![1, 2, 3]);
+	let validation_code = test_validation_code_1();
 	let validation_upgrade_delay = 25;
 	let minimum_validation_upgrade_delay = 2;
 	let genesis_config = MockGenesisConfig {
@@ -1600,7 +1805,13 @@ fn add_trusted_validation_code_enacts_existing_pvf_vote() {
 	new_test_ext(genesis_config).execute_with(|| {
 		// First, some parachain upgrades it's code with the relay-parent 1.
 		run_to_block(2, None);
-		Paras::schedule_code_upgrade(para_id, validation_code.clone(), 1, &Configuration::config());
+		Paras::schedule_code_upgrade(
+			para_id,
+			validation_code.clone(),
+			1,
+			&Configuration::config(),
+			SetGoAhead::Yes,
+		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 
 		// No upgrade should be scheduled at this point. PVF pre-checking vote should run for
@@ -1667,7 +1878,7 @@ fn verify_para_head_is_externally_accessible() {
 
 #[test]
 fn most_recent_context() {
-	let validation_code: ValidationCode = vec![1, 2, 3].into();
+	let validation_code = test_validation_code_1();
 
 	let genesis_config = MockGenesisConfig::default();
 

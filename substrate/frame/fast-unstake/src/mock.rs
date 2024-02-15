@@ -17,7 +17,7 @@
 
 use crate::{self as fast_unstake};
 use frame_support::{
-	assert_ok,
+	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
 	traits::{ConstU64, Currency},
@@ -32,7 +32,6 @@ use pallet_staking::{Exposure, IndividualExposure, StakerStatus};
 use sp_std::prelude::*;
 
 pub type AccountId = u128;
-pub type Nonce = u32;
 pub type BlockNumber = u64;
 pub type Balance = u128;
 pub type T = Runtime;
@@ -44,30 +43,13 @@ parameter_types! {
 		);
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = Nonce;
-	type RuntimeCall = RuntimeCall;
-	type Hash = sp_core::H256;
-	type Hashing = sp_runtime::traits::BlakeTwo256;
+	type Block = Block;
+	type AccountData = pallet_balances::AccountData<Balance>;
+	// we use U128 account id in order to get a better iteration order out of a map.
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -94,7 +76,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 pallet_staking_reward_curve::build! {
@@ -151,7 +133,7 @@ impl pallet_staking::Config for Runtime {
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = ();
 	type HistoryDepth = ConstU32<84>;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();
 	type ElectionProvider = MockElection;
 	type GenesisElectionProvider = Self::ElectionProvider;
@@ -159,6 +141,7 @@ impl pallet_staking::Config for Runtime {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
@@ -192,14 +175,12 @@ impl fast_unstake::Config for Runtime {
 	type BatchSize = BatchSize;
 	type WeightInfo = ();
 	type MaxErasToCheckPerBlock = ConstU32<16>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type MaxBackersPerValidator = ConstU32<128>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
@@ -263,7 +244,7 @@ impl ExtBuilder {
 				(v, Exposure { total: 0, own: 0, others })
 			})
 			.for_each(|(validator, exposure)| {
-				pallet_staking::ErasStakers::<T>::insert(era, validator, exposure);
+				pallet_staking::EraInfo::<T>::set_exposure(era, &validator, exposure);
 			});
 	}
 
@@ -361,10 +342,11 @@ pub fn assert_unstaked(stash: &AccountId) {
 }
 
 pub fn create_exposed_nominator(exposed: AccountId, era: u32) {
-	// create an exposed nominator in era 1
-	pallet_staking::ErasStakers::<T>::mutate(era, VALIDATORS_PER_ERA, |expo| {
-		expo.others.push(IndividualExposure { who: exposed, value: 0 as Balance });
-	});
+	// create an exposed nominator in passed era
+	let mut exposure = pallet_staking::EraInfo::<T>::get_full_exposure(era, &VALIDATORS_PER_ERA);
+	exposure.others.push(IndividualExposure { who: exposed, value: 0 as Balance });
+	pallet_staking::EraInfo::<T>::set_exposure(era, &VALIDATORS_PER_ERA, exposure);
+
 	Balances::make_free_balance_be(&exposed, 100);
 	assert_ok!(Staking::bond(
 		RuntimeOrigin::signed(exposed),

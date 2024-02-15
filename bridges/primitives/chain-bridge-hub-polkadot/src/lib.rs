@@ -17,22 +17,24 @@
 //! Module with configuration which reflects BridgeHubPolkadot runtime setup
 //! (AccountId, Headers, Hashes...)
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
 use bp_runtime::{
-	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, Parachain,
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 use frame_support::dispatch::DispatchClass;
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::Vec;
 
 /// BridgeHubPolkadot parachain.
 #[derive(RuntimeDebug)]
 pub struct BridgeHubPolkadot;
 
 impl Chain for BridgeHubPolkadot {
+	const ID: ChainId = *b"bhpd";
+
 	type BlockNumber = BlockNumber;
 	type Hash = Hash;
 	type Hasher = Hasher;
@@ -57,6 +59,16 @@ impl Chain for BridgeHubPolkadot {
 
 impl Parachain for BridgeHubPolkadot {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_POLKADOT_PARACHAIN_ID;
+}
+
+impl ChainWithMessages for BridgeHubPolkadot {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
+		WITH_BRIDGE_HUB_POLKADOT_MESSAGES_PALLET_NAME;
+
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 }
 
 /// Identifier of BridgeHubPolkadot in the Polkadot relay chain.

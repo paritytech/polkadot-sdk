@@ -1,6 +1,6 @@
 [package]
 name = "sp-weights"
-version = "20.0.0"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,38 +9,46 @@ repository.workspace = true
 description = "Types and traits for interfacing between the host and the wasm runtime."
 documentation = "https://docs.rs/sp-wasm-interface"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+bounded-collections = { version = "0.2.0", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", default-features = false, optional = true, features = ["derive", "alloc"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.195", default-features = false, optional = true, features = ["alloc", "derive"] }
 smallvec = "1.11.0"
-sp-arithmetic = { path = "../arithmetic", default-features = false}
-sp-core = { path = "../core", default-features = false}
-sp-debug-derive = { path = "../debug-derive", default-features = false}
-sp-std = { path = "../std", default-features = false}
+sp-arithmetic = { path = "../arithmetic", default-features = false }
+sp-debug-derive = { path = "../debug-derive", default-features = false }
+sp-std = { path = "../std", default-features = false }
+schemars = { version = "0.8.3", default-features = false, optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
+	"bounded-collections/std",
 	"codec/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-arithmetic/std",
-	"sp-core/std",
 	"sp-debug-derive/std",
 	"sp-std/std",
 ]
 # By default some types have documentation, `full-metadata-docs` allows to add documentation to
 # more types in the metadata.
-full-metadata-docs = [ "scale-info/docs" ]
+full-metadata-docs = ["scale-info/docs"]
 
 # Serde support without relying on std features.
 serde = [
+	"bounded-collections/serde",
 	"dep:serde",
 	"scale-info/serde",
 	"sp-arithmetic/serde",
-	"sp-core/serde",
+]
+
+json-schema = [
+	"dep:schemars",
 ]

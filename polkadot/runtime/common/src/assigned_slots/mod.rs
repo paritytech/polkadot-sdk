@@ -636,7 +636,7 @@ mod tests {
 
 	use crate::{assigned_slots, mock::TestRegistrar, slots};
 	use ::test_helpers::{dummy_head_data, dummy_validation_code};
-	use frame_support::{assert_noop, assert_ok, parameter_types};
+	use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
 	use frame_system::EnsureRoot;
 	use pallet_balances;
 	use primitives::BlockNumber;
@@ -658,13 +658,13 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Configuration: parachains_configuration::{Pallet, Call, Storage, Config<T>},
-			ParasShared: parachains_shared::{Pallet, Call, Storage},
-			Parachains: parachains_paras::{Pallet, Call, Storage, Config<T>, Event},
-			Slots: slots::{Pallet, Call, Storage, Event<T>},
-			AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			Configuration: parachains_configuration,
+			ParasShared: parachains_shared,
+			Parachains: parachains_paras,
+			Slots: slots,
+			AssignedSlots: assigned_slots,
 		}
 	);
 
@@ -679,6 +679,8 @@ mod tests {
 	parameter_types! {
 		pub const BlockHashCount: u32 = 250;
 	}
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -720,8 +722,8 @@ mod tests {
 		type MaxReserves = ();
 		type ReserveIdentifier = [u8; 8];
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 
@@ -740,9 +742,12 @@ mod tests {
 		type QueueFootprinter = ();
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type OnNewHead = ();
+		type AssignCoretime = ();
 	}
 
-	impl parachains_shared::Config for Test {}
+	impl parachains_shared::Config for Test {
+		type DisabledValidators = ();
+	}
 
 	parameter_types! {
 		pub const LeasePeriod: BlockNumber = 3;

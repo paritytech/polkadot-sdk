@@ -1,0 +1,9 @@
+title: Remove im-online pallet from Rococo and Westend
+author: s0me0ne-unkn0wn
+topic: Pallets
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

@@ -4,8 +4,11 @@ cargo-clippy:
     - .docker-env
     - .common-refs
     - .pipeline-stopper-artifacts
+  variables:
+    RUSTFLAGS: "-D warnings"
   script:
-    - SKIP_WASM_BUILD=1 env -u RUSTFLAGS cargo clippy --all-targets --locked --workspace
+    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --locked --workspace
+    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --all-features --locked --workspace
 
 check-try-runtime:
   stage: check
@@ -20,17 +23,6 @@ check-try-runtime:
     # add after https://github.com/paritytech/substrate/pull/14502 is merged
     # experimental code may rely on try-runtime and vice-versa
     - time cargo check --locked --all --features try-runtime,experimental
-
-cargo-fmt-manifest:
-  stage: check
-  extends:
-    - .docker-env
-    - .common-refs
-  script:
-    - cargo install zepter --locked --version 0.11.0 -q -f --no-default-features && zepter --version
-    - echo "👉 Hello developer! If you see this CI check failing then it means that one of the your changes in a Cargo.toml file introduced ill-formatted or unsorted features. Please take a look at 'docs/STYLE_GUIDE.md#manifest-formatting' to find out more."
-    - zepter format features --check
-  allow_failure: true # Experimental
 
 # FIXME
 .cargo-deny-licenses:
@@ -76,11 +68,7 @@ test-rust-features:
     - .kubernetes-env
     - .test-refs-no-trigger-prs-only
   script:
-    - git clone
-      --depth=1
-      --branch="master"
-      https://github.com/paritytech/pipeline-scripts
-    - bash ./pipeline-scripts/rust-features.sh .
+    - bash .gitlab/rust-features.sh .
 
 job-starter:
   stage: check
@@ -92,17 +80,22 @@ job-starter:
   script:
     - echo ok
 
-test-rust-feature-propagation:
+check-rust-feature-propagation:
   stage: check
   extends:
     - .kubernetes-env
-    - .test-pr-refs
+    - .common-refs
   script:
-    - cargo install --locked --version 0.11.1 -q -f zepter && zepter --version
-    - echo "👉 Hello developer! If you see this CI check failing then it means that one of the crates is missing a feature for one of its dependencies. The output below tells you which feature needs to be added for which dependency to which crate. You can do this by modifying the Cargo.toml file. For more context see the MR where this check was introduced https://github.com/paritytech/substrate/pull/14660"
-    - zepter lint propagate-feature --feature try-runtime --left-side-feature-missing=ignore --workspace --feature-enables-dep="try-runtime:frame-try-runtime" --locked
-    - zepter lint propagate-feature --feature runtime-benchmarks --left-side-feature-missing=ignore --workspace --feature-enables-dep="runtime-benchmarks:frame-benchmarking" --locked
-    - zepter lint propagate-feature --feature std --left-side-feature-missing=ignore --workspace --locked
+    - zepter run check
+
+check-toml-format:
+  stage: check
+  extends:
+    - .kubernetes-env
+    - .common-refs
+  script:
+    - taplo format --check --config .config/taplo.toml
+    - echo "Please run `taplo format --config .config/taplo.toml` to fix any toml formatting issues"
 
 # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
 .check-runtime-migration:
@@ -113,13 +106,21 @@ test-rust-feature-propagation:
   script:
     - |
       export RUST_LOG=remote-ext=debug,runtime=debug
-      echo "---------- Running try-runtime for ${NETWORK} ----------"
-      time cargo install --locked --git https://github.com/paritytech/try-runtime-cli --rev a93c9b5abe5d31a4cf1936204f7e5c489184b521
-      time cargo build --release --locked -p "$NETWORK"-runtime --features try-runtime
-      time try-runtime \
-          --runtime ./target/release/wbuild/"$NETWORK"-runtime/target/wasm32-unknown-unknown/release/"$NETWORK"_runtime.wasm \
-          on-runtime-upgrade --checks=pre-and-post live --uri wss://${NETWORK}-try-runtime-node.parity-chains.parity.io:443
 
+      echo "---------- Downloading try-runtime CLI ----------"
+      curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.5.0/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+      chmod +x ./try-runtime
+
+      echo "---------- Building ${PACKAGE} runtime ----------"
+      time cargo build --release --locked -p "$PACKAGE" --features try-runtime
+
+      echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
+      time ./try-runtime ${COMMAND_EXTRA_ARGS} \
+          --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
+          on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
+      sleep 5
+
+# Check runtime migrations for Parity managed relay chains
 check-runtime-migration-westend:
   stage: check
   extends:
@@ -128,19 +129,113 @@ check-runtime-migration-westend:
     - .check-runtime-migration
   variables:
     NETWORK: "westend"
+    PACKAGE: "westend-runtime"
+    WASM: "westend_runtime.compact.compressed.wasm"
+    URI: "wss://westend-try-runtime-node.parity-chains.parity.io:443"
+    SUBCOMMAND_EXTRA_ARGS: "--no-weight-warnings"
 
 check-runtime-migration-rococo:
   stage: check
-  # DAG
-  needs:
-    - job: check-runtime-migration-westend
-      artifacts: false
   extends:
     - .docker-env
     - .test-pr-refs
     - .check-runtime-migration
   variables:
     NETWORK: "rococo"
+    PACKAGE: "rococo-runtime"
+    WASM: "rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-try-runtime-node.parity-chains.parity.io:443"
+    SUBCOMMAND_EXTRA_ARGS: "--no-weight-warnings"
+
+# Check runtime migrations for Parity managed asset hub chains
+check-runtime-migration-asset-hub-westend:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "asset-hub-westend"
+    PACKAGE: "asset-hub-westend-runtime"
+    WASM: "asset_hub_westend_runtime.compact.compressed.wasm"
+    URI: "wss://westend-asset-hub-rpc.polkadot.io:443"
+
+check-runtime-migration-asset-hub-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "asset-hub-rococo"
+    PACKAGE: "asset-hub-rococo-runtime"
+    WASM: "asset_hub_rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-asset-hub-rpc.polkadot.io:443"
+
+# Check runtime migrations for Parity managed bridge hub chains
+check-runtime-migration-bridge-hub-westend:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "bridge-hub-westend"
+    PACKAGE: "bridge-hub-westend-runtime"
+    WASM: "bridge_hub_westend_runtime.compact.compressed.wasm"
+    URI: "wss://westend-bridge-hub-rpc.polkadot.io:443"
+
+check-runtime-migration-bridge-hub-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "bridge-hub-rococo"
+    PACKAGE: "bridge-hub-rococo-runtime"
+    WASM: "bridge_hub_rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-bridge-hub-rpc.polkadot.io:443"
+
+# Check runtime migrations for Parity managed contract chains
+check-runtime-migration-contracts-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "contracts-rococo"
+    PACKAGE: "contracts-rococo-runtime"
+    WASM: "contracts_rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-contracts-rpc.polkadot.io:443"
+
+# Check runtime migrations for Parity managed collectives chains
+check-runtime-migration-collectives-westend:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "collectives-westend"
+    PACKAGE: "collectives-westend-runtime"
+    WASM: "collectives_westend_runtime.compact.compressed.wasm"
+    URI: "wss://westend-collectives-rpc.polkadot.io:443"
+    COMMAND_EXTRA_ARGS: "--disable-spec-name-check"
+
+# Check runtime migrations for Parity managed coretime chain
+check-runtime-migration-coretime-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "coretime-rococo"
+    PACKAGE: "coretime-rococo-runtime"
+    WASM: "coretime_rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-coretime-rpc.polkadot.io:443"
 
 find-fail-ci-phrase:
   stage: check

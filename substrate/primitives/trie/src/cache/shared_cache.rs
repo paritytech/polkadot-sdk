@@ -18,18 +18,22 @@
 ///! Provides the [`SharedNodeCache`], the [`SharedValueCache`] and the [`SharedTrieCache`]
 ///! that combines both caches and is exported to the outside.
 use super::{CacheSize, NodeCached};
-use hashbrown::{hash_set::Entry as SetEntry, HashSet};
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
 use schnellru::LruMap;
 use std::{
+	collections::{hash_map::Entry as SetEntry, HashMap},
 	hash::{BuildHasher, Hasher as _},
 	sync::Arc,
 };
 use trie_db::{node::NodeOwned, node_db::Hasher, CachedValue};
 
 lazy_static::lazy_static! {
-	static ref RANDOM_STATE: ahash::RandomState = ahash::RandomState::default();
+	static ref RANDOM_STATE: ahash::RandomState = {
+		use rand::Rng;
+		let mut rng = rand::thread_rng();
+		ahash::RandomState::generate_with(rng.gen(), rng.gen(), rng.gen(), rng.gen())
+	};
 }
 
 pub struct SharedNodeCacheLimiter {
@@ -143,7 +147,7 @@ pub struct SharedValueCacheLimiter {
 	heap_size: usize,
 
 	/// A set with all of the keys deduplicated to save on memory.
-	known_storage_keys: HashSet<Arc<[u8]>>,
+	known_storage_keys: HashMap<Arc<[u8]>, (), ahash::RandomState>,
 
 	/// A counter with the number of elements that got evicted from the cache.
 	///
@@ -184,10 +188,10 @@ where
 				}
 
 				self.heap_size += new_item_heap_size;
-				entry.insert();
+				entry.insert(());
 			},
 			SetEntry::Occupied(entry) => {
-				key.storage_key = entry.get().clone();
+				key.storage_key = entry.key().clone();
 			},
 		}
 
@@ -500,7 +504,7 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>, L> SharedValueCache<H
 					max_inline_size,
 					max_heap_size,
 					heap_size: 0,
-					known_storage_keys: Default::default(),
+					known_storage_keys: HashMap::with_hasher(RANDOM_STATE.clone()),
 					items_evicted: 0,
 					max_items_evicted: 0, // Will be set during `update`.
 				},
@@ -800,7 +804,9 @@ mod tests {
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
 		assert_eq!(
 			3, // Two instances inside the cache + one extra in `known_storage_keys`.
-			Arc::strong_count(cache.lru.limiter_mut().known_storage_keys.get(&key[..]).unwrap())
+			Arc::strong_count(
+				cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).unwrap().0
+			)
 		);
 		assert_eq!(key.len(), cache.lru.limiter().heap_size);
 		assert_eq!(cache.lru.len(), 2);
@@ -814,7 +820,9 @@ mod tests {
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
 		assert_eq!(
 			3,
-			Arc::strong_count(cache.lru.limiter_mut().known_storage_keys.get(&key[..]).unwrap())
+			Arc::strong_count(
+				cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).unwrap().0
+			)
 		);
 		assert_eq!(key.len(), cache.lru.limiter().heap_size);
 		assert_eq!(cache.lru.len(), 2);
@@ -834,7 +842,9 @@ mod tests {
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
 		assert_eq!(
 			3,
-			Arc::strong_count(cache.lru.limiter_mut().known_storage_keys.get(&key[..]).unwrap())
+			Arc::strong_count(
+				cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).unwrap().0
+			)
 		);
 		assert_eq!(key.len(), cache.lru.limiter().heap_size);
 		assert_eq!(cache.lru.len(), 2);
@@ -855,7 +865,7 @@ mod tests {
 		assert_eq!(cache.lru.limiter().items_evicted, 2);
 		assert_eq!(10, cache.lru.len());
 		assert_eq!(10, cache.lru.limiter_mut().known_storage_keys.len());
-		assert!(cache.lru.limiter_mut().known_storage_keys.get(&key[..]).is_none());
+		assert!(cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).is_none());
 		assert_eq!(key.len() * 10, cache.lru.limiter().heap_size);
 		assert_eq!(cache.lru.len(), 10);
 		assert!(cache.lru.limiter().heap_size <= cache.lru.limiter().max_heap_size);
@@ -876,6 +886,6 @@ mod tests {
 			vec![],
 		);
 
-		assert!(cache.lru.limiter_mut().known_storage_keys.get(&key[..]).is_none());
+		assert!(cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).is_none());
 	}
 }

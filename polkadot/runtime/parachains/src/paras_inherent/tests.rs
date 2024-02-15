@@ -25,7 +25,8 @@ mod enter {
 	use super::*;
 	use crate::{
 		builder::{Bench, BenchBuilder},
-		mock::{new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
+		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
+		scheduler::common::Assignment,
 	};
 	use assert_matches::assert_matches;
 	use frame_support::assert_ok;
@@ -39,6 +40,7 @@ mod enter {
 		backed_and_concluding: BTreeMap<u32, u32>,
 		num_validators_per_core: u32,
 		code_upgrade: Option<u32>,
+		fill_claimqueue: bool,
 	}
 
 	fn make_inherent_data(
@@ -48,6 +50,7 @@ mod enter {
 			backed_and_concluding,
 			num_validators_per_core,
 			code_upgrade,
+			fill_claimqueue,
 		}: TestConfig,
 	) -> Bench<Test> {
 		let builder = BenchBuilder::<Test>::new()
@@ -58,7 +61,15 @@ mod enter {
 			.set_max_validators_per_core(num_validators_per_core)
 			.set_dispute_statements(dispute_statements)
 			.set_backed_and_concluding_cores(backed_and_concluding)
-			.set_dispute_sessions(&dispute_sessions[..]);
+			.set_dispute_sessions(&dispute_sessions[..])
+			.set_fill_claimqueue(fill_claimqueue);
+
+		// Setup some assignments as needed:
+		mock_assigner::Pallet::<Test>::set_core_count(builder.max_cores());
+		for core_index in 0..builder.max_cores() {
+			// Core index == para_id in this case
+			mock_assigner::Pallet::<Test>::add_test_assignment(Assignment::Bulk(core_index.into()));
+		}
 
 		if let Some(code_size) = code_upgrade {
 			builder.set_code_upgrade(code_size).build()
@@ -88,6 +99,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			// We expect the scenario to have cores 0 & 1 with pending availability. The backed
@@ -238,6 +250,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -308,6 +321,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 6,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -376,6 +390,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 4,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -460,6 +475,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -544,6 +560,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -627,6 +644,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -666,15 +684,9 @@ mod enter {
 			// * 3 disputes.
 			assert_eq!(limit_inherent_data.disputes.len(), 2);
 
-			assert_ok!(Pallet::<Test>::enter(
-				frame_system::RawOrigin::None.into(),
-				limit_inherent_data,
-			));
-
-			// TODO [now]: this assertion fails with async backing runtime.
 			assert_eq!(
-				// The length of this vec is equal to the number of candidates, so we know our 2
-				// backed candidates did not get filtered out
+				// The length of this vec is equal to the number of candidates, so we know 1
+				// candidate got filtered out
 				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
 				1
 			);
@@ -684,6 +696,11 @@ mod enter {
 				Pallet::<Test>::on_chain_votes().unwrap().session,
 				2
 			);
+
+			assert_ok!(Pallet::<Test>::enter(
+				frame_system::RawOrigin::None.into(),
+				limit_inherent_data,
+			));
 		});
 	}
 
@@ -713,6 +730,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -778,6 +796,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -841,6 +860,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -905,6 +925,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1205,10 +1226,34 @@ mod sanitizers {
 		}
 	}
 
-	#[test]
-	fn candidates() {
-		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+	mod candidates {
+		use crate::{
+			mock::set_disabled_validators,
+			scheduler::{common::Assignment, ParasEntry},
+		};
+		use sp_std::collections::vec_deque::VecDeque;
+
+		use super::*;
+
+		// Backed candidates and scheduled parachains used for `sanitize_backed_candidates` testing
+		struct TestData {
+			backed_candidates: Vec<BackedCandidate>,
+			scheduled_paras: BTreeMap<primitives::Id, CoreIndex>,
+		}
+
+		// Generate test data for the candidates and assert that the evnironment is set as expected
+		// (check the comments for details)
+		fn get_test_data() -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
+
+			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
+			// votes) won't behave correctly
+			shared::Pallet::<Test>::add_allowed_relay_parent(
+				default_header().hash(),
+				Default::default(),
+				RELAY_PARENT_NUM,
+				1,
+			);
 
 			let header = default_header();
 			let relay_parent = header.hash();
@@ -1223,6 +1268,7 @@ mod sanitizers {
 				keyring::Sr25519Keyring::Bob,
 				keyring::Sr25519Keyring::Charlie,
 				keyring::Sr25519Keyring::Dave,
+				keyring::Sr25519Keyring::Eve,
 			];
 			for validator in validators.iter() {
 				Keystore::sr25519_generate_new(
@@ -1233,14 +1279,42 @@ mod sanitizers {
 				.unwrap();
 			}
 
-			let has_concluded_invalid =
-				|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
+			// Set active validators in `shared` pallet
+			let validator_ids =
+				validators.iter().map(|v| v.public().into()).collect::<Vec<ValidatorId>>();
+			shared::Pallet::<Test>::set_active_validators_ascending(validator_ids);
 
+			// Two scheduled parachains - ParaId(1) on CoreIndex(0) and ParaId(2) on CoreIndex(1)
 			let scheduled = (0_usize..2)
 				.into_iter()
 				.map(|idx| (ParaId::from(1_u32 + idx as u32), CoreIndex::from(idx as u32)))
 				.collect::<BTreeMap<_, _>>();
 
+			// Set the validator groups in `scheduler`
+			scheduler::Pallet::<Test>::set_validator_groups(vec![
+				vec![ValidatorIndex(0), ValidatorIndex(1)],
+				vec![ValidatorIndex(2), ValidatorIndex(3)],
+			]);
+
+			// Update scheduler's claimqueue with the parachains
+			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+				(
+					CoreIndex::from(0),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(1) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(1),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(1) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+			]));
+
+			// Callback used for backing candidates
 			let group_validators = |group_index: GroupIndex| {
 				match group_index {
 					group_index if group_index == GroupIndex::from(0) => Some(vec![0, 1]),
@@ -1250,6 +1324,7 @@ mod sanitizers {
 				.map(|m| m.into_iter().map(ValidatorIndex).collect::<Vec<_>>())
 			};
 
+			// Two backed candidates from each parachain
 			let backed_candidates = (0_usize..2)
 				.into_iter()
 				.map(|idx0| {
@@ -1278,29 +1353,80 @@ mod sanitizers {
 				})
 				.collect::<Vec<_>>();
 
-			// happy path
+			// State sanity checks
 			assert_eq!(
-				sanitize_backed_candidates::<Test, _>(
-					backed_candidates.clone(),
-					has_concluded_invalid,
-					&scheduled
-				),
-				backed_candidates
+				<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
+				vec![(CoreIndex(0), ParaId::from(1)), (CoreIndex(1), ParaId::from(2))]
+			);
+			assert_eq!(
+				shared::Pallet::<Test>::active_validator_indices(),
+				vec![
+					ValidatorIndex(0),
+					ValidatorIndex(1),
+					ValidatorIndex(2),
+					ValidatorIndex(3),
+					ValidatorIndex(4)
+				]
 			);
 
-			// nothing is scheduled, so no paraids match, thus all backed candidates are skipped
-			{
-				let scheduled = &BTreeMap::new();
-				assert!(sanitize_backed_candidates::<Test, _>(
-					backed_candidates.clone(),
-					has_concluded_invalid,
-					&scheduled
-				)
-				.is_empty());
-			}
+			TestData { backed_candidates, scheduled_paras: scheduled }
+		}
 
-			// candidates that have concluded as invalid are filtered out
-			{
+		#[test]
+		fn happy_path() {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData { backed_candidates, scheduled_paras: scheduled } = get_test_data();
+
+				let has_concluded_invalid =
+					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
+
+				assert_eq!(
+					sanitize_backed_candidates::<Test, _>(
+						backed_candidates.clone(),
+						&<shared::Pallet<Test>>::allowed_relay_parents(),
+						has_concluded_invalid,
+						&scheduled
+					),
+					SanitizedBackedCandidates {
+						backed_candidates,
+						votes_from_disabled_were_dropped: false
+					}
+				);
+
+				{}
+			});
+		}
+
+		// nothing is scheduled, so no paraids match, thus all backed candidates are skipped
+		#[test]
+		fn nothing_scheduled() {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData { backed_candidates, scheduled_paras: _ } = get_test_data();
+				let scheduled = &BTreeMap::new();
+				let has_concluded_invalid =
+					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
+
+				let SanitizedBackedCandidates {
+					backed_candidates: sanitized_backed_candidates,
+					votes_from_disabled_were_dropped,
+				} = sanitize_backed_candidates::<Test, _>(
+					backed_candidates.clone(),
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					has_concluded_invalid,
+					&scheduled,
+				);
+
+				assert!(sanitized_backed_candidates.is_empty());
+				assert!(!votes_from_disabled_were_dropped);
+			});
+		}
+
+		// candidates that have concluded as invalid are filtered out
+		#[test]
+		fn invalid_are_filtered_out() {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData { backed_candidates, scheduled_paras: scheduled } = get_test_data();
+
 				// mark every second one as concluded invalid
 				let set = {
 					let mut set = std::collections::HashSet::new();
@@ -1313,16 +1439,114 @@ mod sanitizers {
 				};
 				let has_concluded_invalid =
 					|_idx: usize, candidate: &BackedCandidate| set.contains(&candidate.hash());
-				assert_eq!(
-					sanitize_backed_candidates::<Test, _>(
-						backed_candidates.clone(),
-						has_concluded_invalid,
-						&scheduled
-					)
-					.len(),
-					backed_candidates.len() / 2
+				let SanitizedBackedCandidates {
+					backed_candidates: sanitized_backed_candidates,
+					votes_from_disabled_were_dropped,
+				} = sanitize_backed_candidates::<Test, _>(
+					backed_candidates.clone(),
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					has_concluded_invalid,
+					&scheduled,
 				);
-			}
-		});
+
+				assert_eq!(sanitized_backed_candidates.len(), backed_candidates.len() / 2);
+				assert!(!votes_from_disabled_were_dropped);
+			});
+		}
+
+		#[test]
+		fn disabled_non_signing_validator_doesnt_get_filtered() {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
+
+				// Disable Eve
+				set_disabled_validators(vec![4]);
+
+				let before = backed_candidates.clone();
+
+				// Eve is disabled but no backing statement is signed by it so nothing should be
+				// filtered
+				assert!(!filter_backed_statements_from_disabled_validators::<Test>(
+					&mut backed_candidates,
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&scheduled_paras
+				));
+				assert_eq!(backed_candidates, before);
+			});
+		}
+
+		#[test]
+		fn drop_statements_from_disabled_without_dropping_candidate() {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
+
+				// Disable Alice
+				set_disabled_validators(vec![0]);
+
+				// Update `minimum_backing_votes` in HostConfig. We want `minimum_backing_votes` set
+				// to one so that the candidate will have enough backing votes even after dropping
+				// Alice's one.
+				let mut hc = configuration::Pallet::<Test>::config();
+				hc.minimum_backing_votes = 1;
+				configuration::Pallet::<Test>::force_set_active_config(hc);
+
+				// Verify the initial state is as expected
+				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
+				assert_eq!(
+					backed_candidates.get(0).unwrap().validator_indices.get(0).unwrap(),
+					true
+				);
+				assert_eq!(
+					backed_candidates.get(0).unwrap().validator_indices.get(1).unwrap(),
+					true
+				);
+				let untouched = backed_candidates.get(1).unwrap().clone();
+
+				assert!(filter_backed_statements_from_disabled_validators::<Test>(
+					&mut backed_candidates,
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&scheduled_paras
+				));
+
+				// there should still be two backed candidates
+				assert_eq!(backed_candidates.len(), 2);
+				// but the first one should have only one validity vote
+				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 1);
+				// Validator 0 vote should be dropped, validator 1 - retained
+				assert_eq!(
+					backed_candidates.get(0).unwrap().validator_indices.get(0).unwrap(),
+					false
+				);
+				assert_eq!(
+					backed_candidates.get(0).unwrap().validator_indices.get(1).unwrap(),
+					true
+				);
+				// the second candidate shouldn't be modified
+				assert_eq!(*backed_candidates.get(1).unwrap(), untouched);
+			});
+		}
+
+		#[test]
+		fn drop_candidate_if_all_statements_are_from_disabled() {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
+
+				// Disable Alice and Bob
+				set_disabled_validators(vec![0, 1]);
+
+				// Verify the initial state is as expected
+				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
+				let untouched = backed_candidates.get(1).unwrap().clone();
+
+				assert!(filter_backed_statements_from_disabled_validators::<Test>(
+					&mut backed_candidates,
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&scheduled_paras
+				));
+
+				assert_eq!(backed_candidates.len(), 1);
+				assert_eq!(*backed_candidates.get(0).unwrap(), untouched);
+			});
+		}
 	}
 }

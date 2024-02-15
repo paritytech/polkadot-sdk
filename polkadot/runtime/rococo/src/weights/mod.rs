@@ -16,7 +16,8 @@
 //! A list of the different weight modules for our runtime.
 
 pub mod frame_system;
-pub mod pallet_balances;
+pub mod pallet_asset_rate;
+pub mod pallet_balances_balances;
 pub mod pallet_balances_nis_counterpart_balances;
 pub mod pallet_bounties;
 pub mod pallet_child_bounties;
@@ -45,10 +46,12 @@ pub mod runtime_common_assigned_slots;
 pub mod runtime_common_auctions;
 pub mod runtime_common_claims;
 pub mod runtime_common_crowdloan;
+pub mod runtime_common_identity_migrator;
 pub mod runtime_common_paras_registrar;
 pub mod runtime_common_slots;
 pub mod runtime_parachains_assigner_on_demand;
 pub mod runtime_parachains_configuration;
+pub mod runtime_parachains_coretime;
 pub mod runtime_parachains_disputes;
 pub mod runtime_parachains_hrmp;
 pub mod runtime_parachains_inclusion;

@@ -9,12 +9,15 @@ homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 array-bytes = "6.1"
-clap = { version = "4.4.4", features = ["derive"] }
-log = "0.4.17"
+clap = { version = "4.4.18", features = ["derive"] }
+log = { workspace = true, default-features = true }
 node-primitives = { path = "../primitives" }
 node-testing = { path = "../testing" }
 kitchensink-runtime = { path = "../runtime" }
@@ -22,8 +25,8 @@ sc-client-api = { path = "../../../client/api" }
 sc-client-db = { path = "../../../client/db" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
-serde = "1.0.188"
-serde_json = "1.0.107"
+serde = "1.0.195"
+serde_json = "1.0.111"
 derive_more = { version = "0.99.17", default-features = false, features = ["display"] }
 kvdb = "0.13.0"
 kvdb-rocksdb = "0.19.0"
@@ -32,7 +35,7 @@ sp-core = { path = "../../../primitives/core" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sc-basic-authorship = { path = "../../../client/basic-authorship" }
 sp-inherents = { path = "../../../primitives/inherents" }
-sp-timestamp = { path = "../../../primitives/timestamp", default-features = false}
+sp-timestamp = { path = "../../../primitives/timestamp", default-features = false }
 sp-tracing = { path = "../../../primitives/tracing" }
 trie-db = "0.28.0"
 tempfile = "3.1.0"

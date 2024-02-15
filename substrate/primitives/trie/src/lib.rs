@@ -30,6 +30,9 @@ mod storage_proof;
 mod trie_codec;
 mod trie_stream;
 
+#[cfg(feature = "std")]
+pub mod proof_size_extension;
+
 /// Our `NodeCodec`-specific error.
 pub use error::Error;
 /// The Substrate format implementation of `NodeCodec`.
@@ -168,6 +171,29 @@ pub type DBLocation = u64;
 
 #[cfg(not(feature = "std"))]
 pub type DBLocation = ();
+
+/// Type that is able to provide a [`trie_db::TrieRecorder`].
+///
+/// Types implementing this trait can be used to maintain recorded state
+/// across operations on different [`trie_db::TrieDB`] instances.
+pub trait TrieRecorderProvider<H: Hasher> {
+	/// Recorder type that is going to be returned by implementors of this trait.
+	type Recorder<'a>: trie_db::TrieRecorder<H::Out> + 'a
+	where
+		Self: 'a;
+
+	/// Create a [`StorageProof`] derived from the internal state.
+	fn drain_storage_proof(self) -> Option<StorageProof>;
+
+	/// Provide a recorder implementing [`trie_db::TrieRecorder`].
+	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_>;
+}
+
+/// Type that is able to provide a proof size estimation.
+pub trait ProofSizeProvider {
+	/// Returns the storage proof size.
+	fn estimate_encoded_size(&self) -> usize;
+}
 
 /// TrieDB error over `TrieConfiguration` trait.
 pub type TrieError<L> = trie_db::TrieError<TrieHash<L>, CError<L>>;

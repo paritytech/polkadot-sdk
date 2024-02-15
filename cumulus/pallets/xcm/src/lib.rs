@@ -20,25 +20,18 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, DecodeLimit, Encode};
-use cumulus_primitives_core::{
-	relay_chain::BlockNumber as RelayBlockNumber, DmpMessageHandler, ParaId,
-};
-use frame_support::weights::Weight;
+use codec::{Decode, Encode};
+use cumulus_primitives_core::ParaId;
 pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_runtime::{traits::BadOrigin, RuntimeDebug};
-use sp_std::{convert::TryFrom, prelude::*};
-use xcm::{
-	latest::{ExecuteXcm, Outcome, Parent, Xcm},
-	VersionedXcm, MAX_XCM_DECODE_DEPTH,
-};
+use sp_std::prelude::*;
+use xcm::latest::{ExecuteXcm, Outcome};
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -52,17 +45,7 @@ pub mod pallet {
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 	}
 
-	#[pallet::error]
-	pub enum Error<T> {}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
-
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Downward message is invalid XCM.
 		/// \[ id \]
@@ -85,6 +68,9 @@ pub mod pallet {
 		SiblingParachain(ParaId),
 	}
 
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
 	impl From<ParaId> for Origin {
 		fn from(id: ParaId) -> Origin {
 			Origin::SiblingParachain(id)
@@ -94,75 +80,6 @@ pub mod pallet {
 		fn from(id: u32) -> Origin {
 			Origin::SiblingParachain(id.into())
 		}
-	}
-}
-
-/// For an incoming downward message, this just adapts an XCM executor and executes DMP messages
-/// immediately. Their origin is asserted to be the Parent location.
-///
-/// The weight `limit` is only respected as the maximum for an individual message.
-///
-/// Because this largely ignores the given weight limit, it probably isn't good for most production
-/// uses. Use DmpQueue pallet for a more robust design.
-pub struct UnlimitedDmpExecution<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> DmpMessageHandler for UnlimitedDmpExecution<T> {
-	fn handle_dmp_messages(
-		iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
-		limit: Weight,
-	) -> Weight {
-		let mut used = Weight::zero();
-		for (_sent_at, data) in iter {
-			let id = sp_io::hashing::blake2_256(&data[..]);
-			let msg = VersionedXcm::<T::RuntimeCall>::decode_all_with_depth_limit(
-				MAX_XCM_DECODE_DEPTH,
-				&mut data.as_slice(),
-			)
-			.map(Xcm::<T::RuntimeCall>::try_from);
-			match msg {
-				Err(_) => Pallet::<T>::deposit_event(Event::InvalidFormat(id)),
-				Ok(Err(())) => Pallet::<T>::deposit_event(Event::UnsupportedVersion(id)),
-				Ok(Ok(x)) => {
-					let outcome = T::XcmExecutor::execute_xcm(Parent, x, id, limit);
-					used = used.saturating_add(outcome.weight_used());
-					Pallet::<T>::deposit_event(Event::ExecutedDownward(id, outcome));
-				},
-			}
-		}
-		used
-	}
-}
-
-/// For an incoming downward message, this just adapts an XCM executor and executes DMP messages
-/// immediately. Their origin is asserted to be the Parent location.
-///
-/// This respects the given weight limit and silently drops messages if they would break it. It
-/// probably isn't good for most production uses. Use DmpQueue pallet for a more robust design.
-pub struct LimitAndDropDmpExecution<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> DmpMessageHandler for LimitAndDropDmpExecution<T> {
-	fn handle_dmp_messages(
-		iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
-		limit: Weight,
-	) -> Weight {
-		let mut used = Weight::zero();
-		for (_sent_at, data) in iter {
-			let id = sp_io::hashing::blake2_256(&data[..]);
-			let msg = VersionedXcm::<T::RuntimeCall>::decode_all_with_depth_limit(
-				MAX_XCM_DECODE_DEPTH,
-				&mut data.as_slice(),
-			)
-			.map(Xcm::<T::RuntimeCall>::try_from);
-			match msg {
-				Err(_) => Pallet::<T>::deposit_event(Event::InvalidFormat(id)),
-				Ok(Err(())) => Pallet::<T>::deposit_event(Event::UnsupportedVersion(id)),
-				Ok(Ok(x)) => {
-					let weight_limit = limit.saturating_sub(used);
-					let outcome = T::XcmExecutor::execute_xcm(Parent, x, id, weight_limit);
-					used = used.saturating_add(outcome.weight_used());
-					Pallet::<T>::deposit_event(Event::ExecutedDownward(id, outcome));
-				},
-			}
-		}
-		used
 	}
 }
 

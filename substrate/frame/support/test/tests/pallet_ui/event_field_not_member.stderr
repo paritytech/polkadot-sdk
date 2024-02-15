@@ -1,21 +1,21 @@
 error[E0277]: the trait bound `<T as pallet::Config>::Bar: Clone` is not satisfied
-  --> tests/pallet_ui/event_field_not_member.rs:40:7
+  --> tests/pallet_ui/event_field_not_member.rs:41:7
    |
-40 |         B { b: T::Bar },
+41 |         B { b: T::Bar },
    |             ^ the trait `Clone` is not implemented for `<T as pallet::Config>::Bar`
 
 error[E0369]: binary operation `==` cannot be applied to type `&<T as pallet::Config>::Bar`
-  --> tests/pallet_ui/event_field_not_member.rs:40:7
+  --> tests/pallet_ui/event_field_not_member.rs:41:7
    |
-40 |         B { b: T::Bar },
+41 |         B { b: T::Bar },
    |             ^
 
 error[E0277]: `<T as pallet::Config>::Bar` doesn't implement `std::fmt::Debug`
-  --> tests/pallet_ui/event_field_not_member.rs:40:7
+  --> tests/pallet_ui/event_field_not_member.rs:41:7
    |
-40 |         B { b: T::Bar },
+41 |         B { b: T::Bar },
    |             ^ `<T as pallet::Config>::Bar` cannot be formatted using `{:?}` because it doesn't implement `std::fmt::Debug`
    |
    = help: the trait `std::fmt::Debug` is not implemented for `<T as pallet::Config>::Bar`
    = note: required for `&<T as pallet::Config>::Bar` to implement `std::fmt::Debug`
-   = note: required for the cast from `&<T as pallet::Config>::Bar` to the object type `dyn std::fmt::Debug`
+   = note: required for the cast from `&&<T as pallet::Config>::Bar` to `&dyn std::fmt::Debug`

@@ -16,13 +16,13 @@
 
 //! A queue that handles requests for PVF execution.
 
-use super::worker_intf::Outcome;
+use super::worker_interface::Outcome;
 use crate::{
 	artifacts::{ArtifactId, ArtifactPathId},
 	host::ResultSender,
 	metrics::Metrics,
-	worker_intf::{IdleWorker, WorkerHandle},
-	InvalidCandidate, ValidationError, LOG_TARGET,
+	worker_interface::{IdleWorker, WorkerHandle},
+	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 use futures::{
 	channel::mpsc,
@@ -30,6 +30,7 @@ use futures::{
 	stream::{FuturesUnordered, StreamExt as _},
 	Future, FutureExt,
 };
+use polkadot_node_core_pvf_common::SecurityStatus;
 use polkadot_primitives::{ExecutorParams, ExecutorParamsHash};
 use slotmap::HopSlotMap;
 use std::{
@@ -139,8 +140,10 @@ struct Queue {
 
 	// Some variables related to the current session.
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
+	security_status: SecurityStatus,
 
 	/// The queue of jobs that are waiting for a worker to pick up.
 	queue: VecDeque<ExecuteJob>,
@@ -152,16 +155,20 @@ impl Queue {
 	fn new(
 		metrics: Metrics,
 		program_path: PathBuf,
+		cache_path: PathBuf,
 		worker_capacity: usize,
 		spawn_timeout: Duration,
 		node_version: Option<String>,
+		security_status: SecurityStatus,
 		to_queue_rx: mpsc::Receiver<ToQueue>,
 	) -> Self {
 		Self {
 			metrics,
 			program_path,
+			cache_path,
 			spawn_timeout,
 			node_version,
+			security_status,
 			to_queue_rx,
 			queue: VecDeque::new(),
 			mux: Mux::new(),
@@ -335,20 +342,27 @@ fn handle_job_finish(
 		},
 		Outcome::InvalidCandidate { err, idle_worker } => (
 			Some(idle_worker),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::WorkerReportedError(err))),
+			Err(ValidationError::Invalid(InvalidCandidate::WorkerReportedInvalid(err))),
 			None,
 		),
-		Outcome::InternalError { err } => (None, Err(ValidationError::InternalError(err)), None),
+		Outcome::InternalError { err } => (None, Err(ValidationError::Internal(err)), None),
+		// Either the worker or the job timed out. Kill the worker in either case. Treated as
+		// definitely-invalid, because if we timed out, there's no time left for a retry.
 		Outcome::HardTimeout =>
-			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)), None),
+			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None),
 		// "Maybe invalid" errors (will retry).
-		Outcome::IoErr => (
+		Outcome::WorkerIntfErr => (
 			None,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			None,
 		),
-		Outcome::Panic { err } =>
-			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::Panic(err))), None),
+		Outcome::JobDied { err } => (
+			None,
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))),
+			None,
+		),
+		Outcome::JobError { err } =>
+			(None, Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))), None),
 	};
 
 	queue.metrics.execute_finished();
@@ -358,7 +372,7 @@ fn handle_job_finish(
 			?artifact_id,
 			?worker,
 			worker_rip = idle_worker.is_none(),
-			"execution worker concluded, error occurred: {:?}",
+			"execution worker concluded, error occurred: {}",
 			err
 		);
 	} else {
@@ -405,9 +419,11 @@ fn spawn_extra_worker(queue: &mut Queue, job: ExecuteJob) {
 	queue.mux.push(
 		spawn_worker_task(
 			queue.program_path.clone(),
+			queue.cache_path.clone(),
 			job,
 			queue.spawn_timeout,
 			queue.node_version.clone(),
+			queue.security_status.clone(),
 		)
 		.boxed(),
 	);
@@ -423,18 +439,22 @@ fn spawn_extra_worker(queue: &mut Queue, job: ExecuteJob) {
 /// execute other jobs with a compatible execution environment.
 async fn spawn_worker_task(
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	job: ExecuteJob,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
+	security_status: SecurityStatus,
 ) -> QueueEvent {
 	use futures_timer::Delay;
 
 	loop {
-		match super::worker_intf::spawn(
+		match super::worker_interface::spawn(
 			&program_path,
+			&cache_path,
 			job.executor_params.clone(),
 			spawn_timeout,
 			node_version.as_deref(),
+			security_status.clone(),
 		)
 		.await
 		{
@@ -480,7 +500,7 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 	queue.mux.push(
 		async move {
 			let _timer = execution_timer;
-			let outcome = super::worker_intf::start_work(
+			let outcome = super::worker_interface::start_work(
 				idle,
 				job.artifact.clone(),
 				job.exec_timeout,
@@ -496,17 +516,21 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 pub fn start(
 	metrics: Metrics,
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	worker_capacity: usize,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
+	security_status: SecurityStatus,
 ) -> (mpsc::Sender<ToQueue>, impl Future<Output = ()>) {
 	let (to_queue_tx, to_queue_rx) = mpsc::channel(20);
 	let run = Queue::new(
 		metrics,
 		program_path,
+		cache_path,
 		worker_capacity,
 		spawn_timeout,
 		node_version,
+		security_status,
 		to_queue_rx,
 	)
 	.run();

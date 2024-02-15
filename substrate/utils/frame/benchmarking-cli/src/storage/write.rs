@@ -18,10 +18,10 @@
 use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::{DbHash, DbState, DbStateBuilder};
-use sp_api::StateBackend;
 use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Transaction};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
+use sp_state_machine::Backend as StateBackend;
 use sp_trie::MemoryDB;
 
 use log::{info, trace};
@@ -57,7 +57,7 @@ impl StorageCmd {
 		let best_hash = client.usage_info().chain.best_hash;
 		let header = client.header(best_hash)?.ok_or("Header not found")?;
 		let original_root = *header.state_root();
-		let trie = DbStateBuilder::<Block>::new(Box::new(storage.clone()), original_root).build();
+		let trie = DbStateBuilder::<HashingFor<Block>>::new(Box::new(storage.clone()), original_root).build();
 
 		info!("Preparing keys from block {}", best_hash);
 		// Load all KV pairs and randomly shuffle them.
@@ -163,7 +163,7 @@ impl StorageCmd {
 /// if `child_info` exist then it means this is a child tree key
 fn measure_write<Block: BlockT>(
 	db: Arc<dyn sp_database::Database<DbHash>>,
-	trie: &DbState<Block>,
+	trie: &DbState<HashingFor<Block>>,
 	key: Vec<u8>,
 	new_v: Vec<u8>,
 	version: StateVersion,
@@ -196,9 +196,10 @@ fn measure_write<Block: BlockT>(
 /// Checks if a new value causes any collision in tree updates
 /// returns true if there is no collision
 /// if `child_info` exist then it means this is a child tree key
+/// TODO variant with Prefixed or with location
 fn check_new_value<Block: BlockT>(
 	db: Arc<dyn sp_database::Database<DbHash>>,
-	trie: &DbState<Block>,
+	trie: &DbState<HashingFor<Block>>,
 	key: &Vec<u8>,
 	new_v: &Vec<u8>,
 	version: StateVersion,

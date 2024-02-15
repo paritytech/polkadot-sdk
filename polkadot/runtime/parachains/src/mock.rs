@@ -17,15 +17,20 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner, assigner_on_demand, assigner_parachains, configuration, disputes, dmp, hrmp,
+	assigner_coretime, assigner_on_demand, assigner_parachains, configuration, coretime, disputes,
+	dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, origin, paras,
 	paras::ParaKind,
-	paras_inherent, scheduler, session_info, shared, ParaId,
+	paras_inherent, scheduler,
+	scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
+	session_info, shared, ParaId,
 };
+use frame_support::pallet_prelude::*;
+use primitives::CoreIndex;
 
 use frame_support::{
-	assert_ok, parameter_types,
+	assert_ok, derive_impl, parameter_types,
 	traits::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},
@@ -45,7 +50,9 @@ use sp_runtime::{
 	transaction_validity::TransactionPriority,
 	BuildStorage, FixedU128, Perbill, Permill,
 };
+use sp_std::collections::vec_deque::VecDeque;
 use std::{cell::RefCell, collections::HashMap};
+use xcm::v4::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -62,9 +69,11 @@ frame_support::construct_runtime!(
 		ParaInclusion: inclusion,
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
-		Assigner: assigner,
-		OnDemandAssigner: assigner_on_demand,
+		MockAssigner: mock_assigner,
 		ParachainsAssigner: assigner_parachains,
+		OnDemandAssigner: assigner_on_demand,
+		CoretimeAssigner: assigner_coretime,
+		Coretime: coretime,
 		Initializer: initializer,
 		Dmp: dmp,
 		Hrmp: hrmp,
@@ -94,6 +103,7 @@ parameter_types! {
 
 pub type AccountId = u64;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -135,8 +145,8 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type WeightInfo = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -176,13 +186,29 @@ impl crate::initializer::Config for Test {
 	type Randomness = TestRandomness<Self>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type WeightInfo = ();
+	type CoretimeOnNewSession = Coretime;
 }
 
 impl crate::configuration::Config for Test {
 	type WeightInfo = crate::configuration::TestWeightInfo;
 }
 
-impl crate::shared::Config for Test {}
+pub struct MockDisabledValidators {}
+impl frame_support::traits::DisabledValidators for MockDisabledValidators {
+	/// Returns true if the given validator is disabled.
+	fn is_disabled(index: u32) -> bool {
+		disabled_validators().iter().any(|v| *v == index)
+	}
+
+	/// Returns a hardcoded list (`DISABLED_VALIDATORS`) of disabled validators
+	fn disabled_validators() -> Vec<u32> {
+		disabled_validators()
+	}
+}
+
+impl crate::shared::Config for Test {
+	type DisabledValidators = MockDisabledValidators;
+}
 
 impl origin::Config for Test {}
 
@@ -215,6 +241,7 @@ impl crate::paras::Config for Test {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = TestNextSessionRotation;
 	type OnNewHead = ();
+	type AssignCoretime = ();
 }
 
 impl crate::dmp::Config for Test {}
@@ -286,7 +313,7 @@ impl crate::disputes::SlashingHandler<BlockNumber> for Test {
 }
 
 impl crate::scheduler::Config for Test {
-	type AssignmentProvider = Assigner;
+	type AssignmentProvider = MockAssigner;
 }
 
 pub struct TestMessageQueueWeight;
@@ -340,22 +367,45 @@ impl pallet_message_queue::Config for Test {
 	type ServiceWeight = MessageQueueServiceWeight;
 }
 
-impl assigner::Config for Test {
-	type ParachainsAssignmentProvider = ParachainsAssigner;
-	type OnDemandAssignmentProvider = OnDemandAssigner;
-}
-
-impl assigner_parachains::Config for Test {}
-
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
 }
+
+impl assigner_parachains::Config for Test {}
 
 impl assigner_on_demand::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
 	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
+}
+
+impl assigner_coretime::Config for Test {}
+
+parameter_types! {
+	pub const BrokerId: u32 = 10u32;
+}
+
+impl coretime::Config for Test {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = pallet_balances::Pallet<Test>;
+	type BrokerId = BrokerId;
+	type WeightInfo = crate::coretime::TestWeightInfo;
+	type SendXcm = DummyXcmSender;
+}
+
+pub struct DummyXcmSender;
+impl SendXcm for DummyXcmSender {
+	type Ticket = ();
+	fn validate(_: &mut Option<Location>, _: &mut Option<Xcm<()>>) -> SendResult<Self::Ticket> {
+		Ok(((), Assets::new()))
+	}
+
+	/// Actually carry out the delivery operation for a previously validated message sending.
+	fn deliver(_ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		Ok([0u8; 32])
+	}
 }
 
 impl crate::inclusion::Config for Test {
@@ -387,6 +437,104 @@ impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 	type Identification = ();
 	type IdentificationOf = FoolIdentificationOf;
 }
+
+/// A mock assigner which acts as the scheduler's `AssignmentProvider` for tests. The mock
+/// assigner provides bare minimum functionality to test scheduler internals. Since they
+/// have no direct effect on scheduler state, AssignmentProvider functions such as
+/// `push_back_assignment` can be left empty.
+pub mod mock_assigner {
+	use crate::scheduler::common::Assignment;
+
+	use super::*;
+	pub use pallet::*;
+
+	#[frame_support::pallet]
+	pub mod pallet {
+		use super::*;
+
+		#[pallet::pallet]
+		#[pallet::without_storage_info]
+		pub struct Pallet<T>(_);
+
+		#[pallet::config]
+		pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
+
+		#[pallet::storage]
+		pub(super) type MockAssignmentQueue<T: Config> =
+			StorageValue<_, VecDeque<Assignment>, ValueQuery>;
+
+		#[pallet::storage]
+		pub(super) type MockProviderConfig<T: Config> =
+			StorageValue<_, AssignmentProviderConfig<BlockNumber>, OptionQuery>;
+
+		#[pallet::storage]
+		pub(super) type MockCoreCount<T: Config> = StorageValue<_, u32, OptionQuery>;
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Adds a claim to the `MockAssignmentQueue` this claim can later be popped by the
+		/// scheduler when filling the claim queue for tests.
+		pub fn add_test_assignment(assignment: Assignment) {
+			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
+		}
+
+		// This configuration needs to be customized to service `get_provider_config` in
+		// scheduler tests.
+		pub fn set_assignment_provider_config(config: AssignmentProviderConfig<BlockNumber>) {
+			MockProviderConfig::<T>::set(Some(config));
+		}
+
+		// Allows for customized core count in scheduler tests, rather than a core count
+		// derived from on-demand config + parachain count.
+		pub fn set_core_count(count: u32) {
+			MockCoreCount::<T>::set(Some(count));
+		}
+	}
+
+	impl<T: Config> AssignmentProvider<BlockNumber> for Pallet<T> {
+		// With regards to popping_assignments, the scheduler just needs to be tested under
+		// the following two conditions:
+		// 1. An assignment is provided
+		// 2. No assignment is provided
+		// A simple assignment queue populated to fit each test fulfills these needs.
+		fn pop_assignment_for_core(_core_idx: CoreIndex) -> Option<Assignment> {
+			let mut queue: VecDeque<Assignment> = MockAssignmentQueue::<T>::get();
+			let front = queue.pop_front();
+			// Write changes to storage.
+			MockAssignmentQueue::<T>::set(queue);
+			front
+		}
+
+		// We don't care about core affinity in the test assigner
+		fn report_processed(_assignment: Assignment) {}
+
+		// The results of this are tested in assigner_on_demand tests. No need to represent it
+		// in the mock assigner.
+		fn push_back_assignment(_assignment: Assignment) {}
+
+		// Gets the provider config we set earlier using `set_assignment_provider_config`, falling
+		// back to the on demand parachain configuration if none was set.
+		fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber> {
+			match MockProviderConfig::<T>::get() {
+				Some(config) => config,
+				None => AssignmentProviderConfig {
+					max_availability_timeouts: 1,
+					ttl: BlockNumber::from(5u32),
+				},
+			}
+		}
+		#[cfg(any(feature = "runtime-benchmarks", test))]
+		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
+			Assignment::Bulk(para_id)
+		}
+
+		fn session_core_count() -> u32 {
+			MockCoreCount::<T>::get().unwrap_or(5)
+		}
+	}
+}
+
+impl mock_assigner::pallet::Config for Test {}
 
 pub struct FoolIdentificationOf;
 impl sp_runtime::traits::Convert<AccountId, Option<()>> for FoolIdentificationOf {
@@ -430,6 +578,8 @@ thread_local! {
 
 	pub static AVAILABILITY_REWARDS: RefCell<HashMap<ValidatorIndex, usize>>
 		= RefCell::new(HashMap::new());
+
+	pub static DISABLED_VALIDATORS: RefCell<Vec<u32>> = RefCell::new(vec![]);
 }
 
 pub fn backing_rewards() -> HashMap<ValidatorIndex, usize> {
@@ -438,6 +588,10 @@ pub fn backing_rewards() -> HashMap<ValidatorIndex, usize> {
 
 pub fn availability_rewards() -> HashMap<ValidatorIndex, usize> {
 	AVAILABILITY_REWARDS.with(|r| r.borrow().clone())
+}
+
+pub fn disabled_validators() -> Vec<u32> {
+	DISABLED_VALIDATORS.with(|r| r.borrow().clone())
 }
 
 parameter_types! {
@@ -578,4 +732,8 @@ pub(crate) fn deregister_parachain(id: ParaId) {
 /// Calls `schedule_para_cleanup` in a new storage transactions, since it assumes rollback on error.
 pub(crate) fn try_deregister_parachain(id: ParaId) -> crate::DispatchResult {
 	frame_support::storage::transactional::with_storage_layer(|| Paras::schedule_para_cleanup(id))
+}
+
+pub(crate) fn set_disabled_validators(disabled: Vec<u32>) {
+	DISABLED_VALIDATORS.with(|d| *d.borrow_mut() = disabled)
 }

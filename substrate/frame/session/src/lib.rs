@@ -918,6 +918,10 @@ impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 	fn is_disabled(index: u32) -> bool {
 		<Pallet<T>>::disabled_validators().binary_search(&index).is_ok()
 	}
+
+	fn disabled_validators() -> Vec<u32> {
+		<Pallet<T>>::disabled_validators()
+	}
 }
 
 /// Wraps the author-scraping logic for consensus engines that can recover

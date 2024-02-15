@@ -1,9 +1,13 @@
 [package]
 name = "polkadot-node-core-runtime-api"
-version = "1.0.0"
+version = "7.0.0"
+description = "Wrapper around the parachain-related runtime APIs"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"
@@ -21,7 +25,7 @@ polkadot-node-subsystem-types = { path = "../../subsystem-types" }
 sp-api = { path = "../../../../substrate/primitives/api" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = { version = "0.3.21", features = ["thread-pool"] }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-node-primitives = { path = "../../primitives" }

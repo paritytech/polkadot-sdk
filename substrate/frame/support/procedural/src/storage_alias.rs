@@ -17,8 +17,8 @@
 
 //! Implementation of the `storage_alias` attribute macro.
 
-use crate::counter_prefix;
-use frame_support_procedural_tools::generate_crate_access_2018;
+use crate::{counter_prefix, pallet::parse::helper};
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{
@@ -199,7 +199,7 @@ impl StorageType {
 	/// Generate the actual type declaration.
 	fn generate_type_declaration(
 		&self,
-		crate_: &Ident,
+		crate_: &syn::Path,
 		storage_instance: &StorageInstance,
 		storage_name: &Ident,
 		storage_generics: Option<&SimpleGenerics>,
@@ -475,7 +475,7 @@ enum PrefixType {
 /// Implementation of the `storage_alias` attribute macro.
 pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> Result<TokenStream> {
 	let input = syn::parse2::<Input>(input)?;
-	let crate_ = generate_crate_access_2018("frame-support")?;
+	let crate_ = generate_access_from_frame_or_crate("frame-support")?;
 
 	let prefix_type = if attributes.is_empty() {
 		PrefixType::Compatibility
@@ -527,7 +527,7 @@ struct StorageInstance {
 
 /// Generate the [`StorageInstance`] for the storage alias.
 fn generate_storage_instance(
-	crate_: &Ident,
+	crate_: &syn::Path,
 	storage_name: &Ident,
 	storage_generics: Option<&SimpleGenerics>,
 	storage_where_clause: Option<&WhereClause>,
@@ -619,10 +619,11 @@ fn generate_storage_instance(
 	let counter_code = is_counted_map.then(|| {
 		let counter_name = Ident::new(&counter_prefix(&name_str), Span::call_site());
 		let counter_storage_name_str = counter_prefix(&storage_name_str);
+		let storage_prefix_hash = helper::two128_str(&counter_storage_name_str);
 
 		quote! {
 			#visibility struct #counter_name< #impl_generics >(
-				#crate_::__private::sp_std::marker::PhantomData<(#type_generics)>
+				::core::marker::PhantomData<(#type_generics)>
 			) #where_clause;
 
 			impl<#impl_generics> #crate_::traits::StorageInstance
@@ -633,6 +634,9 @@ fn generate_storage_instance(
 				}
 
 				const STORAGE_PREFIX: &'static str = #counter_storage_name_str;
+				fn storage_prefix_hash() -> [u8; 16] {
+					#storage_prefix_hash
+				}
 			}
 
 			impl<#impl_generics> #crate_::storage::types::CountedStorageMapInstance
@@ -643,11 +647,13 @@ fn generate_storage_instance(
 		}
 	});
 
+	let storage_prefix_hash = helper::two128_str(&storage_name_str);
+
 	// Implement `StorageInstance` trait.
 	let code = quote! {
 		#[allow(non_camel_case_types)]
 		#visibility struct #name< #impl_generics >(
-			#crate_::__private::sp_std::marker::PhantomData<(#type_generics)>
+			::core::marker::PhantomData<(#type_generics)>
 		) #where_clause;
 
 		impl<#impl_generics> #crate_::traits::StorageInstance
@@ -658,6 +664,9 @@ fn generate_storage_instance(
 			}
 
 			const STORAGE_PREFIX: &'static str = #storage_name_str;
+			fn storage_prefix_hash() -> [u8; 16] {
+				#storage_prefix_hash
+			}
 		}
 
 		#counter_code

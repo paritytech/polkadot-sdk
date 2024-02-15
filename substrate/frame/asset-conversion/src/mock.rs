@@ -19,12 +19,18 @@
 
 use super::*;
 use crate as pallet_asset_conversion;
-
+use core::default::Default;
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	instances::{Instance1, Instance2},
 	ord_parameter_types, parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64},
+	traits::{
+		tokens::{
+			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
+			imbalance::ResolveAssetTo,
+		},
+		AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64,
+	},
 	PalletId,
 };
 use frame_system::{EnsureSigned, EnsureSignedBy};
@@ -48,6 +54,7 @@ construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -87,7 +94,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 impl pallet_assets::Config<Instance1> for Test {
@@ -141,38 +148,37 @@ impl pallet_assets::Config<Instance2> for Test {
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
-	pub storage AllowMultiAssetPools: bool = true;
-	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0); // should be non-zero if AllowMultiAssetPools is true, otherwise can be zero
+	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
+	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
 ord_parameter_types! {
 	pub const AssetConversionOrigin: u128 = AccountIdConversion::<u128>::into_account_truncating(&AssetConversionPalletId::get());
 }
 
+pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, u128>;
+pub type AscendingLocator = Ascending<u128, NativeOrWithId<u32>>;
+pub type WithFirstAssetLocator = WithFirstAsset<Native, u128, NativeOrWithId<u32>>;
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type AssetBalance = <Self as pallet_balances::Config>::Balance;
-	type AssetId = u32;
+	type Balance = <Self as pallet_balances::Config>::Balance;
+	type HigherPrecisionBalance = sp_core::U256;
+	type AssetKind = NativeOrWithId<u32>;
+	type Assets = NativeAndAssets;
+	type PoolId = (Self::AssetKind, Self::AssetKind);
+	type PoolLocator = Chain<WithFirstAssetLocator, AscendingLocator>;
 	type PoolAssetId = u32;
-	type Assets = Assets;
 	type PoolAssets = PoolAssets;
+	type PoolSetupFee = ConstU128<100>; // should be more or equal to the existential deposit
+	type PoolSetupFeeAsset = Native;
+	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type PalletId = AssetConversionPalletId;
 	type WeightInfo = ();
 	type LPFee = ConstU32<3>; // means 0.3%
-	type PoolSetupFee = ConstU128<100>; // should be more or equal to the existential deposit
-	type PoolSetupFeeReceiver = AssetConversionOrigin;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
 	type MintMinLiquidity = ConstU128<100>; // 100 is good enough when the main currency has 12 decimals.
-
-	type Balance = u128;
-	type HigherPrecisionBalance = sp_core::U256;
-
-	type MultiAssetId = NativeOrAssetId<u32>;
-	type MultiAssetIdConverter = NativeOrAssetIdConverter<u32>;
-
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }

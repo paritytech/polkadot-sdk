@@ -812,9 +812,8 @@ pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
 #[cfg(test)]
 mod tests {
 	use crate::{in_mem::Blockchain, NewBlockState};
-	use sp_api::HeaderT;
 	use sp_blockchain::Backend;
-	use sp_runtime::{ConsensusEngineId, Justifications};
+	use sp_runtime::{traits::Header as HeaderT, ConsensusEngineId, Justifications};
 	use substrate_test_runtime::{Block, Header, H256};
 
 	pub const ID1: ConsensusEngineId = *b"TST1";

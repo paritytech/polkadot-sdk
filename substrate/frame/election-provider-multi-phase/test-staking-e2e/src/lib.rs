@@ -53,9 +53,9 @@ fn log_current_time() {
 
 #[test]
 fn block_progression_works() {
-	let (mut ext, pool_state, _) = ExtBuilder::default().build_offchainify();
+	let (ext, pool_state, _) = ExtBuilder::default().build_offchainify();
 
-	ext.execute_with(|| {
+	execute_with(ext, || {
 		assert_eq!(active_era(), 0);
 		assert_eq!(Session::current_index(), 0);
 		assert!(ElectionProviderMultiPhase::current_phase().is_off());
@@ -70,9 +70,9 @@ fn block_progression_works() {
 		assert!(ElectionProviderMultiPhase::current_phase().is_signed());
 	});
 
-	let (mut ext, pool_state, _) = ExtBuilder::default().build_offchainify();
+	let (ext, pool_state, _) = ExtBuilder::default().build_offchainify();
 
-	ext.execute_with(|| {
+	execute_with(ext, || {
 		assert_eq!(active_era(), 0);
 		assert_eq!(Session::current_index(), 0);
 		assert!(ElectionProviderMultiPhase::current_phase().is_off());
@@ -93,12 +93,12 @@ fn offchainify_works() {
 
 	let staking_builder = StakingExtBuilder::default();
 	let epm_builder = EpmExtBuilder::default();
-	let (mut ext, pool_state, _) = ExtBuilder::default()
+	let (ext, pool_state, _) = ExtBuilder::default()
 		.epm(epm_builder)
 		.staking(staking_builder)
 		.build_offchainify();
 
-	ext.execute_with(|| {
+	execute_with(ext, || {
 		// test ocw progression and solution queue if submission when unsigned phase submission is
 		// not delayed.
 		for _ in 0..100 {
@@ -142,9 +142,9 @@ fn offchainify_works() {
 /// restarts. Note that in this test case, the emergency throttling is disabled.
 fn enters_emergency_phase_after_forcing_before_elect() {
 	let epm_builder = EpmExtBuilder::default().disable_emergency_throttling();
-	let (mut ext, pool_state, _) = ExtBuilder::default().epm(epm_builder).build_offchainify();
+	let (ext, pool_state, _) = ExtBuilder::default().epm(epm_builder).build_offchainify();
 
-	ext.execute_with(|| {
+	execute_with(ext, || {
 		log!(
 			trace,
 			"current validators (staking): {:?}",
@@ -213,12 +213,12 @@ fn continous_slashes_below_offending_threshold() {
 	let staking_builder = StakingExtBuilder::default().validator_count(10);
 	let epm_builder = EpmExtBuilder::default().disable_emergency_throttling();
 
-	let (mut ext, pool_state, _) = ExtBuilder::default()
+	let (ext, pool_state, _) = ExtBuilder::default()
 		.epm(epm_builder)
 		.staking(staking_builder)
 		.build_offchainify();
 
-	ext.execute_with(|| {
+	execute_with(ext, || {
 		assert_eq!(Session::validators().len(), 10);
 		let mut active_validator_set = Session::validators();
 
@@ -271,12 +271,12 @@ fn set_validation_intention_after_chilled() {
 	use frame_election_provider_support::SortedListProvider;
 	use pallet_staking::{Event, Forcing, Nominators};
 
-	let (mut ext, pool_state, _) = ExtBuilder::default()
+	let (ext, pool_state, _) = ExtBuilder::default()
 		.epm(EpmExtBuilder::default())
 		.staking(StakingExtBuilder::default())
 		.build_offchainify();
 
-	ext.execute_with(|| {
+	execute_with(ext, || {
 		assert_eq!(active_era(), 0);
 		// validator is part of the validator set.
 		assert!(Session::validators().contains(&41));
@@ -334,11 +334,11 @@ fn set_validation_intention_after_chilled() {
 fn ledger_consistency_active_balance_below_ed() {
 	use pallet_staking::{Error, Event};
 
-	let (mut ext, pool_state, _) =
+	let (ext, pool_state, _) =
 		ExtBuilder::default().staking(StakingExtBuilder::default()).build_offchainify();
 
-	ext.execute_with(|| {
-		assert_eq!(Staking::ledger(&11).unwrap().active, 1000);
+	execute_with(ext, || {
+		assert_eq!(Staking::ledger(11.into()).unwrap().active, 1000);
 
 		// unbonding total of active stake fails because the active ledger balance would fall
 		// below the `MinNominatorBond`.
@@ -356,13 +356,13 @@ fn ledger_consistency_active_balance_below_ed() {
 
 		// the active balance of the ledger entry is 0, while total balance is 1000 until
 		// `withdraw_unbonded` is called.
-		assert_eq!(Staking::ledger(&11).unwrap().active, 0);
-		assert_eq!(Staking::ledger(&11).unwrap().total, 1000);
+		assert_eq!(Staking::ledger(11.into()).unwrap().active, 0);
+		assert_eq!(Staking::ledger(11.into()).unwrap().total, 1000);
 
 		// trying to withdraw the unbonded balance won't work yet because not enough bonding
 		// eras have passed.
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
-		assert_eq!(Staking::ledger(&11).unwrap().total, 1000);
+		assert_eq!(Staking::ledger(11.into()).unwrap().total, 1000);
 
 		// tries to reap stash after chilling, which fails since the stash total balance is
 		// above ED.
@@ -384,6 +384,144 @@ fn ledger_consistency_active_balance_below_ed() {
 			pool_state,
 		);
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
-		assert_eq!(Staking::ledger(&11), None);
+		assert!(Staking::ledger(11.into()).is_err());
+	});
+}
+
+#[test]
+/// Automatic withdrawal of unlocking funds in staking propagates to the nomination pools and its
+/// state correctly.
+///
+/// The staking pallet may withdraw unlocking funds from a pool's bonded account without a pool
+/// member or operator calling explicitly `Call::withdraw*`. This test verifies that the member's
+/// are eventually paid and the `TotalValueLocked` is kept in sync in those cases.
+fn automatic_unbonding_pools() {
+	use pallet_nomination_pools::TotalValueLocked;
+
+	// closure to fetch the staking unlocking chunks of an account.
+	let unlocking_chunks_of = |account: AccountId| -> usize {
+		Staking::ledger(sp_staking::StakingAccount::Controller(account))
+			.unwrap()
+			.unlocking
+			.len()
+	};
+
+	let (ext, pool_state, _) = ExtBuilder::default()
+		.pools(PoolsExtBuilder::default().max_unbonding(1))
+		.staking(StakingExtBuilder::default().max_unlocking(1).bonding_duration(2))
+		.build_offchainify();
+
+	execute_with(ext, || {
+		assert_eq!(<Runtime as pallet_staking::Config>::MaxUnlockingChunks::get(), 1);
+		assert_eq!(<Runtime as pallet_staking::Config>::BondingDuration::get(), 2);
+		assert_eq!(<Runtime as pallet_nomination_pools::Config>::MaxUnbonding::get(), 1);
+
+		// init state of pool members.
+		let init_free_balance_2 = Balances::free_balance(2);
+		let init_free_balance_3 = Balances::free_balance(3);
+
+		let pool_bonded_account = Pools::create_bonded_account(1);
+
+		// creates a pool with 5 bonded, owned by 1.
+		assert_ok!(Pools::create(RuntimeOrigin::signed(1), 5, 1, 1, 1));
+		assert_eq!(locked_amount_for(pool_bonded_account), 5);
+
+		let init_tvl = TotalValueLocked::<Runtime>::get();
+
+		// 2 joins the pool.
+		assert_ok!(Pools::join(RuntimeOrigin::signed(2), 10, 1));
+		assert_eq!(locked_amount_for(pool_bonded_account), 15);
+
+		// 3 joins the pool.
+		assert_ok!(Pools::join(RuntimeOrigin::signed(3), 10, 1));
+		assert_eq!(locked_amount_for(pool_bonded_account), 25);
+
+		assert_eq!(TotalValueLocked::<Runtime>::get(), 25);
+
+		// currently unlocking 0 chunks in the bonded pools ledger.
+		assert_eq!(unlocking_chunks_of(pool_bonded_account), 0);
+
+		// unbond 2 from pool.
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(2), 2, 10));
+
+		// amount is still locked in the pool, needs to wait for unbonding period.
+		assert_eq!(locked_amount_for(pool_bonded_account), 25);
+
+		// max chunks in the ledger are now filled up (`MaxUnlockingChunks == 1`).
+		assert_eq!(unlocking_chunks_of(pool_bonded_account), 1);
+
+		// tries to unbond 3 from pool. it will fail since there are no unlocking chunks left
+		// available and the current in the queue haven't been there for more than bonding
+		// duration.
+		assert_err!(
+			Pools::unbond(RuntimeOrigin::signed(3), 3, 10),
+			pallet_staking::Error::<Runtime>::NoMoreChunks
+		);
+
+		assert_eq!(current_era(), 0);
+
+		// progress over bonding duration.
+		for _ in 0..=<Runtime as pallet_staking::Config>::BondingDuration::get() {
+			start_next_active_era(pool_state.clone()).unwrap();
+		}
+		assert_eq!(current_era(), 3);
+		System::reset_events();
+
+		let locked_before_withdraw_pool = locked_amount_for(pool_bonded_account);
+		assert_eq!(Balances::free_balance(pool_bonded_account), 26);
+
+		// now unbonding 3 will work, although the pool's ledger still has the unlocking chunks
+		// filled up.
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(3), 3, 10));
+		assert_eq!(unlocking_chunks_of(pool_bonded_account), 1);
+
+		assert_eq!(
+			staking_events(),
+			[
+				// auto-withdraw happened as expected to release 2's unbonding funds, but the funds
+				// were not transfered to 2 and stay in the pool's tranferrable balance instead.
+				pallet_staking::Event::Withdrawn { stash: 7939698191839293293, amount: 10 },
+				pallet_staking::Event::Unbonded { stash: 7939698191839293293, amount: 10 }
+			]
+		);
+
+		// balance of the pool remains the same, it hasn't withdraw explicitly from the pool yet.
+		assert_eq!(Balances::free_balance(pool_bonded_account), 26);
+		// but the locked amount in the pool's account decreases due to the auto-withdraw:
+		assert_eq!(locked_before_withdraw_pool - 10, locked_amount_for(pool_bonded_account));
+
+		// TVL correctly updated.
+		assert_eq!(TotalValueLocked::<Runtime>::get(), 25 - 10);
+
+		// however, note that the withdrawing from the pool still works for 2, the funds are taken
+		// from the pool's free balance.
+		assert_eq!(Balances::free_balance(pool_bonded_account), 26);
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(2), 2, 10));
+		assert_eq!(Balances::free_balance(pool_bonded_account), 16);
+
+		assert_eq!(Balances::free_balance(2), 20);
+		assert_eq!(TotalValueLocked::<Runtime>::get(), 15);
+
+		// 3 cannot withdraw yet.
+		assert_err!(
+			Pools::withdraw_unbonded(RuntimeOrigin::signed(3), 3, 10),
+			pallet_nomination_pools::Error::<Runtime>::CannotWithdrawAny
+		);
+
+		// progress over bonding duration.
+		for _ in 0..=<Runtime as pallet_staking::Config>::BondingDuration::get() {
+			start_next_active_era(pool_state.clone()).unwrap();
+		}
+		assert_eq!(current_era(), 6);
+		System::reset_events();
+
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(3), 3, 10));
+
+		// final conditions are the expected.
+		assert_eq!(Balances::free_balance(pool_bonded_account), 6); // 5 init bonded + ED
+		assert_eq!(Balances::free_balance(2), init_free_balance_2);
+		assert_eq!(Balances::free_balance(3), init_free_balance_3);
+
+		assert_eq!(TotalValueLocked::<Runtime>::get(), init_tvl);
 	});
 }

@@ -6,27 +6,30 @@ description = "Primitives for Sassafras consensus"
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository = "https://github.com/paritytech/polkadot-sdk/"
 documentation = "https://docs.rs/sp-consensus-sassafras"
 readme = "README.md"
 publish = false
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 scale-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.163", default-features = false, features = ["derive"], optional = true }
-sp-api = { version = "4.0.0-dev", default-features = false, path = "../../api" }
-sp-application-crypto = { version = "23.0.0", default-features = false, path = "../../application-crypto", features = ["bandersnatch-experimental"] }
-sp-consensus-slots = { version = "0.10.0-dev", default-features = false, path = "../slots" }
-sp-core = { version = "21.0.0", default-features = false, path = "../../core", features = ["bandersnatch-experimental"] }
-sp-runtime = { version = "24.0.0", default-features = false, path = "../../runtime" }
-sp-std = { version = "8.0.0", default-features = false, path = "../../std" }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.195", default-features = false, features = ["derive"], optional = true }
+sp-api = { path = "../../api", default-features = false }
+sp-application-crypto = { path = "../../application-crypto", default-features = false, features = ["bandersnatch-experimental"] }
+sp-consensus-slots = { path = "../slots", default-features = false }
+sp-core = { path = "../../core", default-features = false, features = ["bandersnatch-experimental"] }
+sp-runtime = { path = "../../runtime", default-features = false }
+sp-std = { path = "../../std", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"scale-codec/std",
 	"scale-info/std",

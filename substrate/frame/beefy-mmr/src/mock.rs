@@ -19,16 +19,15 @@ use std::vec;
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64},
+	construct_runtime, derive_impl, parameter_types,
+	traits::{ConstU32, ConstU64},
 };
 use sp_consensus_beefy::mmr::MmrLeafVersion;
-use sp_core::H256;
 use sp_io::TestExternalities;
 use sp_runtime::{
 	app_crypto::ecdsa::Public,
 	impl_opaque_keys,
-	traits::{BlakeTwo256, ConvertInto, IdentityLookup, Keccak256, OpaqueKeys},
+	traits::{ConvertInto, Keccak256, OpaqueKeys},
 	BuildStorage,
 };
 use sp_state_machine::BasicExternalities;
@@ -50,38 +49,17 @@ type Block = frame_system::mocking::MockBlock<Test>;
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		Mmr: pallet_mmr::{Pallet, Storage},
-		Beefy: pallet_beefy::{Pallet, Config<T>, Storage},
-		BeefyMmr: pallet_beefy_mmr::{Pallet, Storage},
+		System: frame_system,
+		Session: pallet_session,
+		Mmr: pallet_mmr,
+		Beefy: pallet_beefy,
+		BeefyMmr: pallet_beefy_mmr,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_session::Config for Test {

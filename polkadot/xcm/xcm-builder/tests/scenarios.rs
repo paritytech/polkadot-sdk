@@ -55,9 +55,15 @@ fn withdraw_and_deposit_works() {
 				beneficiary: Parachain(other_para_id).into(),
 			},
 		]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(Parachain(PARA_ID), message, hash, weight);
-		assert_eq!(r, Outcome::Complete(weight));
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			Parachain(PARA_ID),
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
+		);
+		assert_eq!(r, Outcome::Complete { used: weight });
 		let other_para_acc: AccountId = ParaId::from(other_para_id).into_account_truncating();
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - amount);
 		assert_eq!(Balances::free_balance(other_para_acc), amount);
@@ -79,19 +85,19 @@ fn transfer_asset_works() {
 			assets: (Here, amount).into(),
 			beneficiary: AccountId32 { network: None, id: bob.clone().into() }.into(),
 		}]);
-		let hash = fake_message_hash(&message);
-		// Use `execute_xcm_in_credit` here to pass through the barrier
-		let r = XcmExecutor::<XcmConfig>::execute_xcm_in_credit(
+		let mut hash = fake_message_hash(&message);
+		// Use `prepare_and_execute` here to pass through the barrier
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			AccountId32 { network: None, id: ALICE.into() },
 			message,
-			hash,
+			&mut hash,
 			weight,
 			weight,
 		);
 		System::assert_last_event(
 			pallet_balances::Event::Transfer { from: ALICE, to: bob.clone(), amount }.into(),
 		);
-		assert_eq!(r, Outcome::Complete(weight));
+		assert_eq!(r, Outcome::Complete { used: weight });
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE - amount);
 		assert_eq!(Balances::free_balance(bob), INITIAL_BALANCE + amount);
 	});
@@ -129,14 +135,20 @@ fn report_holding_works() {
 			// is not triggered becasue the deposit fails
 			ReportHolding { response_info: response_info.clone(), assets: All.into() },
 		]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(Parachain(PARA_ID), message, hash, weight);
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			Parachain(PARA_ID),
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
+		);
 		assert_eq!(
 			r,
-			Outcome::Incomplete(
-				weight - BaseXcmWeight::get(),
-				XcmError::FailedToTransactAsset("AccountIdConversionFailed")
-			)
+			Outcome::Incomplete {
+				used: weight - BaseXcmWeight::get(),
+				error: XcmError::FailedToTransactAsset("AccountIdConversionFailed")
+			}
 		);
 		// there should be no query response sent for the failed deposit
 		assert_eq!(mock::sent_xcm(), vec![]);
@@ -153,9 +165,15 @@ fn report_holding_works() {
 			// used to get a notification in case of success
 			ReportHolding { response_info: response_info.clone(), assets: AllCounted(1).into() },
 		]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(Parachain(PARA_ID), message, hash, weight);
-		assert_eq!(r, Outcome::Complete(weight));
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			Parachain(PARA_ID),
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
+		);
+		assert_eq!(r, Outcome::Complete { used: weight });
 		let other_para_acc: AccountId = ParaId::from(other_para_id).into_account_truncating();
 		assert_eq!(Balances::free_balance(other_para_acc), amount);
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - 2 * amount);
@@ -174,7 +192,7 @@ fn report_holding_works() {
 }
 
 /// Scenario:
-/// A parachain wants to move KSM from Kusama to Statemine.
+/// A parachain wants to move KSM from Kusama to Asset Hub.
 /// The parachain sends an XCM to withdraw funds combined with a teleport to the destination.
 ///
 /// This way of moving funds from a relay to a parachain will only work for trusted chains.
@@ -182,12 +200,12 @@ fn report_holding_works() {
 ///
 /// Asserts that the balances are updated accordingly and the correct XCM is sent.
 #[test]
-fn teleport_to_statemine_works() {
+fn teleport_to_asset_hub_works() {
 	use xcm::opaque::latest::prelude::*;
 	let para_acc: AccountId = ParaId::from(PARA_ID).into_account_truncating();
 	let balances = vec![(ALICE, INITIAL_BALANCE), (para_acc.clone(), INITIAL_BALANCE)];
 	kusama_like_with_balances(balances).execute_with(|| {
-		let statemine_id = 1000;
+		let asset_hub_id = 1000;
 		let other_para_id = 3000;
 		let amount = REGISTER_AMOUNT;
 		let teleport_effects = vec![
@@ -209,9 +227,15 @@ fn teleport_to_statemine_works() {
 				xcm: Xcm(teleport_effects.clone()),
 			},
 		]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(Parachain(PARA_ID), message, hash, weight);
-		assert_eq!(r, Outcome::Complete(weight));
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			Parachain(PARA_ID),
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
+		);
+		assert_eq!(r, Outcome::Complete { used: weight });
 		let expected_msg = Xcm(vec![ReceiveTeleportedAsset((Parent, amount).into()), ClearOrigin]
 			.into_iter()
 			.chain(teleport_effects.clone().into_iter())
@@ -222,19 +246,25 @@ fn teleport_to_statemine_works() {
 			vec![(Parachain(other_para_id).into(), expected_msg, expected_hash,)]
 		);
 
-		// teleports are allowed from statemine to kusama.
+		// teleports are allowed from asset hub to kusama.
 		let message = Xcm(vec![
 			WithdrawAsset((Here, amount).into()),
 			buy_execution(),
 			InitiateTeleport {
 				assets: All.into(),
-				dest: Parachain(statemine_id).into(),
+				dest: Parachain(asset_hub_id).into(),
 				xcm: Xcm(teleport_effects.clone()),
 			},
 		]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(Parachain(PARA_ID), message, hash, weight);
-		assert_eq!(r, Outcome::Complete(weight));
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			Parachain(PARA_ID),
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
+		);
+		assert_eq!(r, Outcome::Complete { used: weight });
 		// 2 * amount because of the other teleport above
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - 2 * amount);
 		let expected_msg = Xcm(vec![ReceiveTeleportedAsset((Parent, amount).into()), ClearOrigin]
@@ -246,7 +276,7 @@ fn teleport_to_statemine_works() {
 			mock::sent_xcm(),
 			vec![
 				(Parachain(other_para_id).into(), expected_msg.clone(), expected_hash,),
-				(Parachain(statemine_id).into(), expected_msg, expected_hash,)
+				(Parachain(asset_hub_id).into(), expected_msg, expected_hash,)
 			]
 		);
 	});
@@ -282,10 +312,16 @@ fn reserve_based_transfer_works() {
 				xcm: Xcm(transfer_effects.clone()),
 			},
 		]);
-		let hash = fake_message_hash(&message);
+		let mut hash = fake_message_hash(&message);
 		let weight = BaseXcmWeight::get() * 3;
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(Parachain(PARA_ID), message, hash, weight);
-		assert_eq!(r, Outcome::Complete(weight));
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			Parachain(PARA_ID),
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
+		);
+		assert_eq!(r, Outcome::Complete { used: weight });
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - amount);
 		let expected_msg = Xcm(vec![ReserveAssetDeposited((Parent, amount).into()), ClearOrigin]
 			.into_iter()

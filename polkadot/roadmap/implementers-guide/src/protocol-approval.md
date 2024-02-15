@@ -189,9 +189,10 @@ Assignment criteria compute actual assignments using stories and the validators'
 Assignment criteria output a `Position` consisting of both a `ParaId` to be checked, as well as a precedence
 `DelayTranche` for when the assignment becomes valid.
 
-Assignment criteria come in three flavors, `RelayVRFModulo`, `RelayVRFDelay` and `RelayEquivocation`.  Among these, both
-`RelayVRFModulo` and `RelayVRFDelay` run a VRF whose input is the output of a `RelayVRFStory`, while `RelayEquivocation`
-runs a VRF whose input is the output of a `RelayEquivocationStory`.
+Assignment criteria come in four flavors, `RelayVRFModuloCompact`, `RelayVRFDelay`, `RelayEquivocation` and the
+deprecated `RelayVRFModulo`.  Among these, `RelayVRFModulo`, `RelayVRFModuloCompact` and `RelayVRFDelay` run a
+VRF whose input is the output of a `RelayVRFStory`, while `RelayEquivocation` runs a VRF whose input is the
+output of a `RelayEquivocationStory`.
 
 Among these, we have two distinct VRF output computations:
 
@@ -202,6 +203,12 @@ leaving, that availability core.  We drop any samples that return no candidate b
 sampled availability core in this relay chain block.  We choose three samples initially, but we could make Polkadot more
 secure and efficient by increasing this to four or five, and reducing the backing checks accordingly.  All successful
 `RelayVRFModulo` samples are assigned delay tranche zero.
+
+`RelayVRFModuloCompact` runs a single samples whose VRF input is the `RelayVRFStory` and the sample count. Similar
+to `RelayVRFModulo` introduces multiple core assignments for tranche zero. It computes the VRF output with
+`schnorrkel::vrf::VRFInOut::make_bytes` using the context "A&V Core v2" and samples up to 160 bytes of the output
+as an array of `u32`. Then reduces each `u32` modulo the number of availability cores, and outputs up
+to `relay_vrf_modulo_samples` availability core indices.
 
 There is no sampling process for `RelayVRFDelay` and `RelayEquivocation`.  We instead run them on specific candidates
 and they compute a delay from their VRF output.  `RelayVRFDelay` runs for all candidates included under, aka declared
@@ -223,14 +230,14 @@ We track all validators' announced approval assignments for each candidate assoc
 tells us which validators were assigned to which candidates.
 
 We permit at most one assignment per candidate per story per validator, so one validator could be assigned under both
-the `RelayVRFDelay` and `RelayEquivocation` criteria, but not under both `RelayVRFModulo` and `RelayVRFDelay` criteria,
-since those both use the same story.  We permit only one approval vote per candidate per validator, which counts for any
-applicable criteria.
+the `RelayVRFDelay` and `RelayEquivocation` criteria, but not under both `RelayVRFModulo/RelayVRFModuloCompact`
+and `RelayVRFDelay` criteria, since those both use the same story.  We permit only one approval vote per candidate per
+validator, which counts for any applicable criteria.
 
 We announce, and start checking for, our own assignments when the delay of their tranche is reached, but only if the
-tracker says the assignee candidate requires more approval checkers.  We never announce an assignment we believe
-unnecessary because early announcements gives an adversary information.  All delay tranche zero assignments always get
-announced, which includes all `RelayVRFModulo` assignments.
+tracker says the assignee candidate requires more approval checkers.  We never announce an assignment we believe unnecessary
+because early announcements gives an adversary information.  All delay tranche zero assignments always get announced,
+which includes all `RelayVRFModulo` and `RelayVRFModuloCompact` assignments.
 
 In other words, if some candidate `C` needs more approval checkers by the time we reach round `t` then any validators
 with an assignment to `C` in delay tranche `t` gossip their send assignment notice for `C`, and begin reconstruction and
@@ -289,6 +296,18 @@ provide somewhat more security.
 
 TODO: When?  Is this optimal for the network?  etc.
 
+## Approval coalescing
+To reduce the necessary network bandwidth and cpu time when a validator has more than one candidate to approve we are
+doing our best effort to send a single message that approves all available candidates with a single signature.
+The implemented heuristic, is that each time we are ready to create a signature and send a vote for a candidate we
+delay sending it until one of three things happen:
+- We gathered a maximum of `MAX_APPROVAL_COALESCE_COUNT` candidates that we have already checked and we are
+  ready to sign approval for.
+- `MAX_APPROVAL_COALESCE_WAIT_TICKS` have passed since checking oldest candidate and we were ready to sign
+  and send the approval message.
+- We are already in the last third of the no-show period in order to avoid creating accidental no-shows, which in
+  turn might trigger other assignments.
+
 ## On-chain verification
 
 We should verify approval on-chain to reward approval checkers. We therefore require the "no show" timeout to be longer
@@ -318,12 +337,12 @@ finality.  We might explore limits on postponement too, but this sounds much har
 
 ## Parameters
 
-We prefer doing approval checkers assignments under `RelayVRFModulo` as opposed to `RelayVRFDelay` because
-`RelayVRFModulo` avoids giving individual checkers too many assignments and tranche zero assignments benefit security
-the most.  We suggest assigning at least 16 checkers under `RelayVRFModulo` although assignment levels have never been
-properly analyzed.
+We prefer doing approval checkers assignments under `RelayVRFModulo` or `RelayVRFModuloCompact` as opposed to
+`RelayVRFDelay` because `RelayVRFModulo` avoids giving individual checkers too many assignments and tranche zero
+assignments benefit security the most.  We suggest assigning at least 16 checkers under `RelayVRFModulo` or
+`RelayVRFModuloCompact` although assignment levels have never been properly analyzed.
 
-Our delay criteria `RelayVRFDelay` and `RelayEquivocation` both have two primary paramaters, expected checkers per
+Our delay criteria `RelayVRFDelay` and `RelayEquivocation` both have two primary parameters, expected checkers per
 tranche and the zeroth delay tranche width.
 
 We require expected checkers per tranche to be less than three because otherwise an adversary with 1/3 stake could force

@@ -16,10 +16,9 @@
 
 //! PVF artifacts (final compiled code blobs).
 //!
-//!	# Lifecycle of an artifact
+//! # Lifecycle of an artifact
 //!
-//! 1. During node start-up, the artifacts cache is cleaned up. This means that all local artifacts
-//!    stored on-disk are cleared, and we start with an empty [`Artifacts`] table.
+//! 1. During node start-up, we prune all the cached artifacts, if any.
 //!
 //! 2. In order to be executed, a PVF should be prepared first. This means that artifacts should
 //!    have an [`ArtifactState::Prepared`] entry for that artifact in the table. If not, the
@@ -55,16 +54,36 @@
 //!    older by a predefined parameter. This process is run very rarely (say, once a day). Once the
 //!    artifact is expired it is removed from disk eagerly atomically.
 
-use crate::host::PrepareResultSender;
+use crate::{host::PrecheckResultSender, worker_interface::WORKER_DIR_PREFIX};
 use always_assert::always;
 use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsHash;
 use std::{
 	collections::HashMap,
+	fs,
 	path::{Path, PathBuf},
 	time::{Duration, SystemTime},
 };
+
+/// The extension to use for cached artifacts.
+const ARTIFACT_EXTENSION: &str = "pvf";
+
+/// The prefix that artifacts used to start with under the old naming scheme.
+const ARTIFACT_OLD_PREFIX: &str = "wasmtime_";
+
+pub fn generate_artifact_path(cache_path: &Path) -> PathBuf {
+	let file_name = {
+		use array_bytes::Hex;
+		use rand::RngCore;
+		let mut bytes = [0u8; 64];
+		rand::thread_rng().fill_bytes(&mut bytes);
+		bytes.hex("0x")
+	};
+	let mut artifact_path = cache_path.join(file_name);
+	artifact_path.set_extension(ARTIFACT_EXTENSION);
+	artifact_path
+}
 
 /// Identifier of an artifact. Encodes a code hash of the PVF and a hash of executor parameter set.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -74,8 +93,6 @@ pub struct ArtifactId {
 }
 
 impl ArtifactId {
-	const PREFIX: &'static str = "wasmtime_";
-
 	/// Creates a new artifact ID with the given hash.
 	pub fn new(code_hash: ValidationCodeHash, executor_params_hash: ExecutorParamsHash) -> Self {
 		Self { code_hash, executor_params_hash }
@@ -84,28 +101,6 @@ impl ArtifactId {
 	/// Returns an artifact ID that corresponds to the PVF with given executor params.
 	pub fn from_pvf_prep_data(pvf: &PvfPrepData) -> Self {
 		Self::new(pvf.code_hash(), pvf.executor_params().hash())
-	}
-
-	/// Tries to recover the artifact id from the given file name.
-	#[cfg(test)]
-	pub fn from_file_name(file_name: &str) -> Option<Self> {
-		use polkadot_core_primitives::Hash;
-		use std::str::FromStr as _;
-
-		let file_name = file_name.strip_prefix(Self::PREFIX)?;
-		let (code_hash_str, executor_params_hash_str) = file_name.split_once('_')?;
-		let code_hash = Hash::from_str(code_hash_str).ok()?.into();
-		let executor_params_hash =
-			ExecutorParamsHash::from_hash(Hash::from_str(executor_params_hash_str).ok()?);
-
-		Some(Self { code_hash, executor_params_hash })
-	}
-
-	/// Returns the expected path to this artifact given the root of the cache.
-	pub fn path(&self, cache_path: &Path) -> PathBuf {
-		let file_name =
-			format!("{}{:#x}_{:#x}", Self::PREFIX, self.code_hash, self.executor_params_hash);
-		cache_path.join(file_name)
 	}
 }
 
@@ -123,17 +118,20 @@ pub struct ArtifactPathId {
 }
 
 impl ArtifactPathId {
-	pub(crate) fn new(artifact_id: ArtifactId, cache_path: &Path) -> Self {
-		Self { path: artifact_id.path(cache_path), id: artifact_id }
+	pub(crate) fn new(artifact_id: ArtifactId, path: &Path) -> Self {
+		Self { id: artifact_id, path: path.to_owned() }
 	}
 }
 
+#[derive(Debug)]
 pub enum ArtifactState {
 	/// The artifact is ready to be used by the executor.
 	///
 	/// That means that the artifact should be accessible through the path obtained by the artifact
 	/// id (unless, it was removed externally).
 	Prepared {
+		/// The path of the compiled artifact.
+		path: PathBuf,
 		/// The time when the artifact was last needed.
 		///
 		/// This is updated when we get the heads up for this artifact or when we just discover
@@ -145,7 +143,7 @@ pub enum ArtifactState {
 	/// A task to prepare this artifact is scheduled.
 	Preparing {
 		/// List of result senders that are waiting for a response.
-		waiting_for_response: Vec<PrepareResultSender>,
+		waiting_for_response: Vec<PrecheckResultSender>,
 		/// The number of times this artifact has failed to prepare.
 		num_failures: u32,
 	},
@@ -163,31 +161,46 @@ pub enum ArtifactState {
 
 /// A container of all known artifact ids and their states.
 pub struct Artifacts {
-	artifacts: HashMap<ArtifactId, ArtifactState>,
+	inner: HashMap<ArtifactId, ArtifactState>,
 }
 
 impl Artifacts {
-	/// Initialize a blank cache at the given path. This will clear everything present at the
-	/// given path, to be populated over time.
-	///
-	/// The recognized artifacts will be filled in the table and unrecognized will be removed.
-	pub async fn new(cache_path: &Path) -> Self {
-		// Make sure that the cache path directory and all its parents are created.
-		// First delete the entire cache. Nodes are long-running so this should populate shortly.
-		let _ = tokio::fs::remove_dir_all(cache_path).await;
-		let _ = tokio::fs::create_dir_all(cache_path).await;
-
-		Self { artifacts: HashMap::new() }
+	#[cfg(test)]
+	pub(crate) fn empty() -> Self {
+		Self { inner: HashMap::new() }
 	}
 
 	#[cfg(test)]
-	pub(crate) fn empty() -> Self {
-		Self { artifacts: HashMap::new() }
+	fn len(&self) -> usize {
+		self.inner.len()
+	}
+
+	/// Create an empty table and the cache directory on-disk if it doesn't exist.
+	pub async fn new(cache_path: &Path) -> Self {
+		// Make sure that the cache path directory and all its parents are created.
+		let _ = tokio::fs::create_dir_all(cache_path).await;
+
+		// Delete any leftover artifacts and worker dirs from previous runs. We don't delete the
+		// entire cache directory in case the user made a mistake and set it to e.g. their home
+		// directory. This is a best-effort to do clean-up, so ignore any errors.
+		for entry in fs::read_dir(cache_path).into_iter().flatten().flatten() {
+			let path = entry.path();
+			let Some(file_name) = path.file_name().and_then(|f| f.to_str()) else { continue };
+			if path.is_dir() && file_name.starts_with(WORKER_DIR_PREFIX) {
+				let _ = fs::remove_dir_all(path);
+			} else if path.extension().map_or(false, |ext| ext == ARTIFACT_EXTENSION) ||
+				file_name.starts_with(ARTIFACT_OLD_PREFIX)
+			{
+				let _ = fs::remove_file(path);
+			}
+		}
+
+		Self { inner: HashMap::new() }
 	}
 
 	/// Returns the state of the given artifact by its ID.
 	pub fn artifact_state_mut(&mut self, artifact_id: &ArtifactId) -> Option<&mut ArtifactState> {
-		self.artifacts.get_mut(artifact_id)
+		self.inner.get_mut(artifact_id)
 	}
 
 	/// Inform the table about the artifact with the given ID. The state will be set to "preparing".
@@ -197,53 +210,53 @@ impl Artifacts {
 	pub fn insert_preparing(
 		&mut self,
 		artifact_id: ArtifactId,
-		waiting_for_response: Vec<PrepareResultSender>,
+		waiting_for_response: Vec<PrecheckResultSender>,
 	) {
 		// See the precondition.
 		always!(self
-			.artifacts
+			.inner
 			.insert(artifact_id, ArtifactState::Preparing { waiting_for_response, num_failures: 0 })
 			.is_none());
 	}
 
 	/// Insert an artifact with the given ID as "prepared".
 	///
-	/// This function must be used only for brand-new artifacts and should never be used for
-	/// replacing existing ones.
+	/// This function should only be used to build the artifact table at startup with valid
+	/// artifact caches.
 	#[cfg(test)]
-	pub fn insert_prepared(
+	pub(crate) fn insert_prepared(
 		&mut self,
 		artifact_id: ArtifactId,
+		path: PathBuf,
 		last_time_needed: SystemTime,
 		prepare_stats: PrepareStats,
 	) {
 		// See the precondition.
 		always!(self
-			.artifacts
-			.insert(artifact_id, ArtifactState::Prepared { last_time_needed, prepare_stats })
+			.inner
+			.insert(artifact_id, ArtifactState::Prepared { path, last_time_needed, prepare_stats })
 			.is_none());
 	}
 
-	/// Remove and retrieve the artifacts from the table that are older than the supplied
-	/// Time-To-Live.
-	pub fn prune(&mut self, artifact_ttl: Duration) -> Vec<ArtifactId> {
+	/// Remove artifacts older than the given TTL and return id and path of the removed ones.
+	pub fn prune(&mut self, artifact_ttl: Duration) -> Vec<(ArtifactId, PathBuf)> {
 		let now = SystemTime::now();
 
 		let mut to_remove = vec![];
-		for (k, v) in self.artifacts.iter() {
-			if let ArtifactState::Prepared { last_time_needed, .. } = *v {
+		for (k, v) in self.inner.iter() {
+			if let ArtifactState::Prepared { last_time_needed, ref path, .. } = *v {
 				if now
 					.duration_since(last_time_needed)
 					.map(|age| age > artifact_ttl)
 					.unwrap_or(false)
 				{
-					to_remove.push(k.clone());
+					to_remove.push((k.clone(), path.clone()));
 				}
 			}
 		}
 
 		for artifact in &to_remove {
-			self.artifacts.remove(artifact);
+			self.inner.remove(&artifact.0);
 		}
 
 		to_remove
@@ -252,68 +265,33 @@ impl Artifacts {
 
 #[cfg(test)]
 mod tests {
-	use super::{ArtifactId, Artifacts};
-	use polkadot_primitives::ExecutorParamsHash;
-	use sp_core::H256;
-	use std::{path::Path, str::FromStr};
-
-	#[test]
-	fn from_file_name() {
-		assert!(ArtifactId::from_file_name("").is_none());
-		assert!(ArtifactId::from_file_name("junk").is_none());
-
-		assert_eq!(
-			ArtifactId::from_file_name(
-				"wasmtime_0x0022800000000000000000000000000000000000000000000000000000000000_0x0033900000000000000000000000000000000000000000000000000000000000"
-			),
-			Some(ArtifactId::new(
-				hex_literal::hex![
-					"0022800000000000000000000000000000000000000000000000000000000000"
-				]
-				.into(),
-				ExecutorParamsHash::from_hash(sp_core::H256(hex_literal::hex![
-					"0033900000000000000000000000000000000000000000000000000000000000"
-				])),
-			)),
-		);
-	}
-
-	#[test]
-	fn path() {
-		let path = Path::new("/test");
-		let hash =
-			H256::from_str("1234567890123456789012345678901234567890123456789012345678901234")
-				.unwrap();
-
-		assert_eq!(
-			ArtifactId::new(hash.into(), ExecutorParamsHash::from_hash(hash)).path(path).to_str(),
-			Some(
-				"/test/wasmtime_0x1234567890123456789012345678901234567890123456789012345678901234_0x1234567890123456789012345678901234567890123456789012345678901234"
-			),
-		);
-	}
+	use super::*;
 
 	#[tokio::test]
-	async fn artifacts_removes_cache_on_startup() {
-		let fake_cache_path = crate::worker_intf::tmpfile("test-cache").await.unwrap();
-		let fake_artifact_path = {
-			let mut p = fake_cache_path.clone();
-			p.push("wasmtime_0x1234567890123456789012345678901234567890123456789012345678901234");
-			p
-		};
+	async fn cache_cleared_on_startup() {
+		let tempdir = tempfile::tempdir().unwrap();
+		let cache_path = tempdir.path();
 
-		// create a tmp cache with 1 artifact.
+		// These should be cleared.
+		fs::write(cache_path.join("abcd.pvf"), "test").unwrap();
+		fs::write(cache_path.join("wasmtime_..."), "test").unwrap();
+		fs::create_dir(cache_path.join("worker-dir-prepare-test")).unwrap();
 
-		std::fs::create_dir_all(&fake_cache_path).unwrap();
-		std::fs::File::create(fake_artifact_path).unwrap();
+		// These should not be touched.
+		fs::write(cache_path.join("abcd.pvfartifact"), "test").unwrap();
+		fs::write(cache_path.join("polkadot_..."), "test").unwrap();
+		fs::create_dir(cache_path.join("worker-prepare-test")).unwrap();
 
-		// this should remove it and re-create.
+		let artifacts = Artifacts::new(cache_path).await;
 
-		let p = &fake_cache_path;
-		Artifacts::new(p).await;
-
-		assert_eq!(std::fs::read_dir(&fake_cache_path).unwrap().count(), 0);
-
-		std::fs::remove_dir_all(fake_cache_path).unwrap();
+		let entries: Vec<String> = fs::read_dir(&cache_path)
+			.unwrap()
+			.map(|entry| entry.unwrap().file_name().into_string().unwrap())
+			.collect();
+		assert_eq!(entries.len(), 3);
+		assert!(entries.contains(&String::from("abcd.pvfartifact")));
+		assert!(entries.contains(&String::from("polkadot_...")));
+		assert!(entries.contains(&String::from("worker-prepare-test")));
+		assert_eq!(artifacts.len(), 0);
 	}
 }
