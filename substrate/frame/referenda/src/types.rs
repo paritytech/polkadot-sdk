@@ -147,7 +147,7 @@ pub trait TracksInfo<Balance, Moment> {
 	/// Sorted array of known tracks and their information.
 	///
 	/// The array MUST be sorted by `Id`. Consumers of this trait are advised to assert
-	/// [`check_integrity`] prior to any use.
+	/// [`Self::check_integrity`] prior to any use.
 	fn tracks() -> &'static [(Self::Id, TrackInfo<Balance, Moment>)];
 
 	/// Determine the voting track for the given `origin`.
