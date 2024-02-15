@@ -343,6 +343,7 @@ members = [
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
+	"substrate/frame/referenda-tracks",
 	"substrate/frame/remark",
 	"substrate/frame/root-offences",
 	"substrate/frame/root-testing",

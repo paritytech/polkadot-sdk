@@ -1,0 +1,67 @@
+[package]
+name = "pallet-referenda-tracks"
+version = "4.0.0-dev"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository.workspace = true
+description = "FRAME pallet to manage voting tracks in referenda"
+readme = "README.md"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.188", optional = true }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
+pallet-referenda = { path = "../referenda", default-features = false }
+
+[dev-dependencies]
+sp-core = { path = "../../primitives/core", default-features = false}
+pallet-scheduler = { path = "../scheduler" }
+pallet-preimage = { path = "../preimage" }
+pallet-balances = { path = "../balances" }
+
+[features]
+default = [ "std" ]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-referenda/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-referenda/std",
+	"scale-info/std",
+	"serde",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-scheduler/try-runtime",
+	"pallet-preimage/try-runtime",
+	"pallet-referenda/try-runtime",
+	"sp-runtime/try-runtime",
+]
