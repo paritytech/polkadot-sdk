@@ -284,29 +284,28 @@ pub mod pallet {
 			let remove = ensure_signed(origin)?;
 			let new = T::Lookup::lookup(new)?;
 
-			let mut members_length = T::MaxMembers::get();
+			if remove == new {
+				return Ok(().into());
+			}
 
-			if remove != new {
-				let mut members = <Members<T, I>>::get();
-				members_length = members.len() as u32;
-				let location =
-					members.binary_search(&remove).ok().ok_or(Error::<T, I>::NotMember)?;
-				let _ = members.binary_search(&new).err().ok_or(Error::<T, I>::AlreadyMember)?;
-				members[location] = new.clone();
-				members.sort();
+			let mut members = <Members<T, I>>::get();
+			let members_length = members.len() as u32;
+			let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NotMember)?;
+			let _ = members.binary_search(&new).err().ok_or(Error::<T, I>::AlreadyMember)?;
+			members[location] = new.clone();
+			members.sort();
 
-				<Members<T, I>>::put(&members);
+			<Members<T, I>>::put(&members);
 
-				T::MembershipChanged::change_members_sorted(
-					&[new.clone()],
-					&[remove.clone()],
-					&members[..],
-				);
+			T::MembershipChanged::change_members_sorted(
+				&[new.clone()],
+				&[remove.clone()],
+				&members[..],
+			);
 
-				if Prime::<T, I>::get() == Some(remove) {
-					Prime::<T, I>::put(&new);
-					T::MembershipChanged::set_prime(Some(new));
-				}
+			if Prime::<T, I>::get() == Some(remove) {
+				Prime::<T, I>::put(&new);
+				T::MembershipChanged::set_prime(Some(new));
 			}
 
 			Self::deposit_event(Event::KeyChanged);
@@ -318,7 +317,10 @@ pub mod pallet {
 		/// May only be called from `T::PrimeOrigin`.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::set_prime(T::MaxMembers::get()))]
-		pub fn set_prime(origin: OriginFor<T>, who: AccountIdLookupOf<T>) -> DispatchResultWithPostInfo {
+		pub fn set_prime(
+			origin: OriginFor<T>,
+			who: AccountIdLookupOf<T>,
+		) -> DispatchResultWithPostInfo {
 			T::PrimeOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			let members = Self::members();
@@ -546,7 +548,8 @@ mod tests {
 	};
 
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
+		assert_noop, assert_ok, assert_storage_noop, derive_impl, ord_parameter_types,
+		parameter_types,
 		traits::{ConstU32, ConstU64, StorageVersion},
 	};
 	use frame_system::EnsureSignedBy;
@@ -759,6 +762,17 @@ mod tests {
 	}
 
 	#[test]
+	fn swap_member_with_identical_arguments_changes_nothing() {
+		new_test_ext().execute_with(|| {
+			assert_storage_noop!(assert_ok!(Membership::swap_member(
+				RuntimeOrigin::signed(3),
+				10,
+				10
+			)));
+		});
+	}
+
+	#[test]
 	fn change_key_works() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 10));
@@ -784,6 +798,13 @@ mod tests {
 			assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 5));
 			assert_eq!(Membership::members(), vec![5, 20, 30]);
 			assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
+		});
+	}
+
+	#[test]
+	fn change_key_with_same_caller_as_argument_changes_nothing() {
+		new_test_ext().execute_with(|| {
+			assert_storage_noop!(assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 10)));
 		});
 	}
 
