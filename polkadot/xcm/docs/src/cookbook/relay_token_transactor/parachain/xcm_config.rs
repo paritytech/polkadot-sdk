@@ -24,38 +24,56 @@ pub type LocationToAccountId = (
     AccountId32Aliases<ThisNetwork, AccountId>,
 );
 
+/// Configuration related to asset transactors
 #[docify::export]
 mod asset_transactor {
     use super::*;
 
+    parameter_types! {
+        pub ParentRelayLocation: Location = Location::parent();
+    }
+
     /// AssetTransactor for handling the relay chain token
     pub type FungibleTransactor = FungibleAdapter<
-        // Use this `fungible` implementation
+        // Use this implementation of the `fungible::*` traits.
+        // `Balances` is the name given to the balances pallet in this particular recipe.
+        // Any implementation of the traits would suffice.
         Balances,
-        // This transactor for dealing with the relay chain token
-        IsConcrete<RelayLocation>,
-        // How to convert an XCM Location into a local account id
+        // This transactor deals with the native token of the Relay Chain.
+        // This token is referenced by the Location of the Relay Chain relative to this chain
+        // -- Location::parent().
+        IsConcrete<ParentRelayLocation>,
+        // How to convert an XCM Location into a local account id.
+        // This is also something that's configured in the XCM executor.
         LocationToAccountId,
-        // The account id type, needed because `fungible` is generic over it
+        // The type for account ids, only needed because `fungible` is generic over it.
         AccountId,
-        // Not tracking teleports
+        // Not tracking teleports.
+        // This recipe only uses reserve asset transfers to handle the Relay Chain token.
         (),
     >;
 
-    /// All asset transactors, in this case only one
+    /// Actual configuration item that'll be set in the XCM config.
+    /// A tuple could be used here to have multiple transactors, each (potentially) handling
+    /// different assets.
+    /// In this recipe, we only have one.
     pub type AssetTransactor = FungibleTransactor;
 }
 
+/// Configuration related to token reserves
 #[docify::export]
 mod is_reserve {
     use super::*;
 
     parameter_types! {
+        /// Reserves are specified using a pair `(AssetFilter, Location)`.
+        /// Each pair means that the specified Location is a reserve for all the assets in AssetsFilter.
+        /// Here, we are specifying that the Relay Chain is the reserve location for its native token.
         pub RelayTokenForRelay: (AssetFilter, Location) =
           (Wild(AllOf { id: AssetId(Parent.into()), fun: WildFungible }), Parent.into());
     }
 
-    /// Put it all together
+    /// The wrapper type xcm_builder::Case is needed in order to use this in the configuration.
     pub type IsReserve = xcm_builder::Case<RelayTokenForRelay>;
 }
 
@@ -81,6 +99,7 @@ impl xcm_executor::Config for XcmConfig {
     type XcmSender = ();
     type AssetTransactor = asset_transactor::AssetTransactor;
     type OriginConverter = ();
+    // The declaration of which Locations are reserves for which Assets.
     type IsReserve = is_reserve::IsReserve;
     type IsTeleporter = ();
     type UniversalLocation = UniversalLocation;
@@ -139,7 +158,7 @@ impl pallet_xcm::Config for Runtime {
     // A currency to pay for things and its matcher, we are using the relay token
 	type Currency = Balances;
 	type CurrencyMatcher = IsConcrete<RelayLocation>;
-    // Pallet benchmarks, no need for this example
+    // Pallet benchmarks, no need for this recipe
 	type WeightInfo = pallet_xcm::TestWeightInfo;
     // Runtime types
     type RuntimeOrigin = RuntimeOrigin;

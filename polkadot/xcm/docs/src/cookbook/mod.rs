@@ -1,7 +1,9 @@
 //! # XCM Cookbook
 //!
-//! A collection of tested examples to do useful things in XCM.
+//! A collection of XCM recipes.
+//!
+//! Each recipe is tested and explains all the code necessary to run it -- they're not just snippets to copy and paste.
 
-/// Configuring a parachain that only uses the relay chain token.
-/// Useful for a parachain that only wants to deal with DOT.
+/// Configuring a parachain that only uses the Relay Chain native token.
+/// In the case of Polkadot, this recipe will show you how to launch a parachain with no native token -- dealing only on DOT.
 pub mod relay_token_transactor;

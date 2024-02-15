@@ -14,6 +14,7 @@ use xcm::v4::prelude::*;
 
 mod xcm_config;
 use xcm_config::XcmConfig;
+pub use xcm_config::LocationToAccountId;
 
 pub type AccountId = AccountId32;
 pub type Balance = u64;

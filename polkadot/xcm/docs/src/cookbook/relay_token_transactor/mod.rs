@@ -2,7 +2,7 @@
 //!
 //! This example shows how to configure a parachain to only deal with the Relay Chain token.
 //!
-//! The first step is using the [`xcm_builder::CurrencyAdapter`] to create an `AssetTransactor` that
+//! The first step is using the [`xcm_builder::FungibleAdapter`] to create an `AssetTransactor` that
 //! can handle the relay chain token.
 #![doc = docify::embed!("src/cookbook/relay_token_transactor/parachain/xcm_config.rs", asset_transactor)]
 //!

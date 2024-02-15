@@ -27,7 +27,7 @@ pub type LocationToAccountId = (
 mod asset_transactor {
     use super::*;
 
-    /// AssetTransactor for handling the relay chain token
+    /// AssetTransactor for handling the Relay Chain token
     pub type FungibleTransactor = FungibleAdapter<
         // Use this `fungible` implementation
         Balances,

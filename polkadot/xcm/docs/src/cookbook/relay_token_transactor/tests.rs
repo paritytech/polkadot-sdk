@@ -2,22 +2,26 @@ use frame::testing_prelude::*;
 use test_log::test;
 use xcm::prelude::*;
 use xcm_simulator::TestExt;
+use xcm_executor::traits::ConvertLocation;
 
 use super::{
 	network::{MockNet, ParaA, Relay, ALICE, BOB, CENTS, INITIAL_BALANCE},
 	parachain, relay_chain,
 };
 
-// Scenario:
-// ALICE on the relay chain holds some relay chain token.
-// She reserve transfers it to BOB's account on the parachain.
-// BOB ends up having some relay chain token derivatives on the parachain.
-//
-// NOTE: We could've used ALICE on both chains because it's a different account,
-// but using ALICE and BOB makes it clearer.
 #[docify::export]
 #[test]
 fn reserve_asset_transfers_work() {
+	// Scenario:
+	// ALICE on the relay chain holds some of Relay Chain's native tokens.
+	// She transfers them to BOB's account on the parachain using a reserve transfer.
+	// BOB receives Relay Chain native token derivatives on the parachain,
+	// which are backed one-to-one with the real tokens on the Relay Chain.
+	//
+	// NOTE: We could've used ALICE on both chains because it's a different account,
+	// but using ALICE and BOB makes it clearer.
+
+	// We restart the mock network.
 	MockNet::reset();
 
 	// ALICE starts with INITIAL_BALANCE on the relay chain
@@ -30,48 +34,60 @@ fn reserve_asset_transfers_work() {
 		assert_eq!(parachain::Balances::free_balance(&BOB), 0);
 	});
 
-	// ALICE on the relay chain sends some relay token to BOB on the parachain
-	// Because of how the network is set up, us sending the native token and
-	// the parachain recognizing the relay as the reserve for its token, `transfer_assets`
-	// determines a reserve transfer should be done with the local chain as the reserve.
+	// ALICE on the Relay Chain sends some Relay Chain native tokens to BOB on the parachain.
+	// The transfer is done with the `transfer_assets` extrinsic in the XCM pallet.
+	// The extrinsic figures out it should do a reserve asset transfer
+	// with the local chain as reserve.
 	Relay::execute_with(|| {
-		let destination: MultiLocation = Parachain(2222).into();
-		let beneficiary: MultiLocation =
+		// The parachain id is specified in the network.rs file in this recipe.
+		let destination: Location = Parachain(2222).into();
+		let beneficiary: Location =
 			AccountId32 { id: BOB.clone().into(), network: Some(NetworkId::Polkadot) }.into();
 		// We need to use `u128` here for the conversion to work properly.
 		// If we don't specify anything, it will be a `u64`, which the conversion
-		// will turn into a non fungible token instead of a fungible one.
-		let assets: MultiAssets = (Here, 50u128 * CENTS as u128).into();
+		// will turn into a non-fungible token instead of a fungible one.
+		let assets: Assets = (Here, 50u128 * CENTS as u128).into();
 		assert_ok!(relay_chain::XcmPallet::transfer_assets(
 			relay_chain::RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedMultiLocation::V3(destination)),
-			Box::new(VersionedMultiLocation::V3(beneficiary)),
-			Box::new(VersionedMultiAssets::V3(assets)),
+			Box::new(VersionedLocation::V4(destination.clone())),
+			Box::new(VersionedLocation::V4(beneficiary)),
+			Box::new(VersionedAssets::V4(assets)),
 			0,
 			WeightLimit::Unlimited,
 		));
 
-		// ALICE now has less relay chain token
+		// ALICE now has less Relay Chain tokens.
 		assert_eq!(relay_chain::Balances::free_balance(&ALICE), INITIAL_BALANCE - 50 * CENTS);
+
+		// The funds of the sovereign account of the parachain increase by 50 cents,
+		// the ones transferred over to BOB.
+		// The funds in this sovereign account represent how many Relay Chain tokens
+		// have been sent to this parachain.
+		// If the parachain wants to send those assets somewhere else they have to go
+		// via the reserve, and this balance is updated accordingly.
+		// This is why the derivatives are backed one-to-one.
+		let parachains_sovereign_account =
+			relay_chain::LocationToAccountId::convert_location(&destination).unwrap();
+		assert_eq!(relay_chain::Balances::free_balance(&parachains_sovereign_account), 50 * CENTS);
 	});
 
-	// On the parachain, BOB has received the derivative tokens
 	ParaA::execute_with(|| {
+		// On the parachain, BOB has received the derivative tokens
 		assert_eq!(parachain::Balances::free_balance(&BOB), 50 * CENTS);
 
 		// BOB gives back half to ALICE in the relay chain
-		let destination: MultiLocation = Parent.into();
-		let beneficiary: MultiLocation =
+		let destination: Location = Parent.into();
+		let beneficiary: Location =
 			AccountId32 { id: ALICE.clone().into(), network: Some(NetworkId::Polkadot) }.into();
-		// We specify `Parent` because we are referencing the relay chain token.
+		// We specify `Parent` because we are referencing the Relay Chain token.
 		// This chain doesn't have a token of its own, so we always refer to this token,
-		// and we do so by the location of the relay chain.
-		let assets: MultiAssets = (Parent, 25u128 * CENTS as u128).into();
+		// and we do so by the Location of the Relay Chain.
+		let assets: Assets = (Parent, 25u128 * CENTS as u128).into();
 		assert_ok!(parachain::XcmPallet::transfer_assets(
 			parachain::RuntimeOrigin::signed(BOB),
-			Box::new(VersionedMultiLocation::V3(destination)),
-			Box::new(VersionedMultiLocation::V3(beneficiary)),
-			Box::new(VersionedMultiAssets::V3(assets)),
+			Box::new(VersionedLocation::V4(destination)),
+			Box::new(VersionedLocation::V4(beneficiary)),
+			Box::new(VersionedAssets::V4(assets)),
 			0,
 			WeightLimit::Unlimited,
 		));
@@ -80,11 +96,20 @@ fn reserve_asset_transfers_work() {
 		assert_eq!(parachain::Balances::free_balance(&BOB), 25 * CENTS);
 	});
 
-	// ALICE's balance increases
 	Relay::execute_with(|| {
+		// ALICE's balance increases
 		assert_eq!(
 			relay_chain::Balances::free_balance(&ALICE),
 			INITIAL_BALANCE - 50 * CENTS + 25 * CENTS
+		);
+
+		// The funds in the parachain's sovereign account decrease.
+		let parachain: Location = Parachain(2222).into();
+		let parachains_sovereign_account =
+			relay_chain::LocationToAccountId::convert_location(&parachain).unwrap();
+		assert_eq!(
+			relay_chain::Balances::free_balance(&parachains_sovereign_account),
+			25 * CENTS
 		);
 	});
 }
