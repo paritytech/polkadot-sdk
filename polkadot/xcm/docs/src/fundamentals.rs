@@ -50,7 +50,7 @@
 //!
 //! Because of this hierarchy, the way we represent locations is with both a number of **parents**,
 //! times we move __up__ the hierarchy, and a sequence of **junctions**, the steps we take __down__
-//! the hierarchy after going up the specified amount of parents.
+//! the hierarchy after going up the specified number of parents.
 //!
 //! In Rust, this is specified with the following datatype:
 //! ```ignore
