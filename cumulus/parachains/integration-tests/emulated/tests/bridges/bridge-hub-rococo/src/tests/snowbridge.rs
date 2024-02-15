@@ -478,7 +478,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Deposit{ who, amount })
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
 					if *who == TREASURY_ACCOUNT.into() && *amount == 16903333
 			)),
 			"Snowbridge sovereign takes local fee."
@@ -487,7 +487,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Deposit{ who, amount })
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
 					if *who == assethub_sovereign && *amount == 2680000000000,
 			)),
 			"AssetHub sovereign takes remote fee."

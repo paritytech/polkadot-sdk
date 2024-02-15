@@ -84,14 +84,12 @@ use xcm_executor::traits::JustTry;
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
 use polkadot_parachain_primitives::primitives::Sibling;
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-	EnsureXcmOrigin, FixedWeightBounds, IsConcrete, NativeAsset, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	UsingComponents,
+	EnsureXcmOrigin, FixedWeightBounds, FungibleAdapter, IsConcrete, NativeAsset,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -109,7 +107,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("test-parachain"),
 	impl_name: create_runtime_str!("test-parachain"),
 	authoring_version: 1,
-	spec_version: 1_006_000,
+	spec_version: 1_007_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -350,8 +348,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting assets on this chain.
-#[allow(deprecated)]
-pub type CurrencyTransactor = CurrencyAdapter<
+pub type CurrencyTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
