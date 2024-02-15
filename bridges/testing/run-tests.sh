@@ -28,7 +28,7 @@ done
 # assuming that we'll be using native provide && all processes will be executing locally
 # (we need absolute paths here, because they're used when scripts are called by zombienet from tmp folders)
 export POLKADOT_SDK_PATH=`realpath $(dirname "$0")/../..`
-export BRIDGE_TESTS_FOLDER=$POLKADOT_SDK_PATH/bridges/zombienet/tests
+export BRIDGE_TESTS_FOLDER=$POLKADOT_SDK_PATH/bridges/testing/tests
 
 # set pathc to binaries
 if [ "$ZOMBIENET_DOCKER_PATHS" -eq 1 ]; then
