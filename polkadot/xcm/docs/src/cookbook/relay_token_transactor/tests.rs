@@ -13,7 +13,7 @@ use super::{
 // She reserve transfers it to BOB's account on the parachain.
 // BOB ends up having some relay chain token derivatives on the parachain.
 //
-// NOTE: We could've used both ALICE on both chains because it's a different account,
+// NOTE: We could've used ALICE on both chains because it's a different account,
 // but using ALICE and BOB makes it clearer.
 #[docify::export]
 #[test]
