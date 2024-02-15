@@ -83,12 +83,13 @@ where
 
 	fn call(&self, req: Request<'a>) -> Self::Future {
 		const CHAIN_HEAD_FOLLOW: &str = "chainHead_unstable_follow";
-		const CHAIN_HEAD_CALL_METHODS: [&str; 7] = [
+		const CHAIN_HEAD_CALL_METHODS: [&str; 8] = [
 			"chainHead_unstable_body",
 			"chainHead_unstable_header",
 			"chainHead_unstable_call",
 			"chainHead_unstable_unpin",
 			"chainHead_unstable_continue",
+			"chainHead_unstable_storage",
 			"chainHead_unstable_stopOperation",
 			"chainHead_unstable_unfollow",
 		];
@@ -97,6 +98,8 @@ where
 
 		// Intercept the subscription ID returned by the `chainHead_follow` method.
 		if method_name == CHAIN_HEAD_FOLLOW {
+			println!("Calling chainHEDA method");
+
 			return ResponseFuture {
 				fut: self.service.call(req.clone()),
 				connection_data: Some(self.connection_data.clone()),
@@ -107,8 +110,11 @@ where
 		// Ensure the subscription ID of those methods corresponds to a subscription ID
 		// of this connection.
 		if CHAIN_HEAD_CALL_METHODS.contains(&method_name) {
+			println!("Calling other methods");
+
 			let params = req.params();
 			let follow_subscription = get_subscription_id(params);
+			println!("follow_subscription: {:?}", follow_subscription);
 
 			if let Some(follow_subscription) = follow_subscription {
 				if !self
@@ -141,25 +147,48 @@ where
 }
 
 /// Extract the subscription ID from the provided parameters.
+///
+/// We make the assumption that all `chainHead` methods are given the
+/// subscription ID as a first parameter.
+///
+/// This method handles positional and named `camelCase` parameters.
 fn get_subscription_id<'a>(params: Params<'a>) -> Option<String> {
 	// Support positional parameters.
 	if let Ok(follow_subscription) = params.sequence().next::<String>() {
-		return Some(follow_subscription);
+		return Some(follow_subscription)
 	}
 
-	let Ok(value) = params.parse::<serde_json::Value>() else {
-		return None;
-	};
+	// Support named parameters.
+	let Ok(value) = params.parse::<serde_json::Value>() else { return None };
 
-	let serde_json::Value::Object(map) = value else {
-		return None;
-	};
-
+	let serde_json::Value::Object(map) = value else { return None };
 	if let Some(serde_json::Value::String(subscription_id)) = map.get("followSubscription") {
-		return Some(subscription_id.clone());
+		return Some(subscription_id.clone())
 	}
 
 	None
+}
+
+/// Extract the result of a jsonrpc object.
+///
+/// The function extracts the `result` field from the JSON-RPC response.
+///
+/// In this example, the result is `tfMQUZekzJLorGlR`.
+/// ```ignore
+/// "{"jsonrpc":"2.0","result":"tfMQUZekzJLorGlR","id":0}"
+/// ```
+fn get_method_result(response: &MethodResponse) -> Option<String> {
+	if response.is_error() {
+		return None
+	}
+
+	let result = response.as_result();
+	let Ok(value) = serde_json::from_str(result) else { return None };
+
+	let serde_json::Value::Object(map) = value else { return None };
+	let Some(serde_json::Value::String(res)) = map.get("result") else { return None };
+
+	Some(res.clone())
 }
 
 /// Response future for metrics.
@@ -191,12 +220,13 @@ impl<F: Future<Output = MethodResponse>> Future for ResponseFuture<F> {
 		let connection_data = this.connection_data;
 
 		match (&res, connection_data) {
-			(Poll::Ready(rp), Some(connection_data)) =>
-				if rp.is_success() {
-					// if let Some(subscription_id) = rp.subscription_id() {
-					// 	connection_data.lock().subscriptions.insert(subscription_id);
-					// }
-				},
+			(Poll::Ready(rp), Some(connection_data)) => {
+				println!("Response sub: {:?}", rp.to_result());
+				if let Some(subscription_id) = get_method_result(rp) {
+					connection_data.lock().unwrap().subscriptions.insert(subscription_id);
+				}
+			},
+
 			_ => {},
 		}
 
