@@ -22,7 +22,7 @@
 //! runtime.
 //!
 //! Composite enums are generally convertible to their individual parts as such:
-//!
+#![doc = simple_mermaid::mermaid!("../../../mermaid/outer_runtime_type.mmd")]
 //!
 //! In that one can always convert from the inner type into the outer type, but not visa versa. This
 //! is usually expressed by implementing `From`, `TryFrom`, `From<Result<_>>` and similar traits.
