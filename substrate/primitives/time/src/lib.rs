@@ -29,24 +29,15 @@ use sp_runtime::traits::Member;
 
 /// Provides the current time.
 pub trait InstantProvider<I: Instant> {
-	/// Monotonicity assumptions about `now()`.
-	///
-	/// Some pallets may restrict themselves to only work with monotonic clocks.
-	const MONOTIC: Monotonicity;
-
 	/// Returns the current time.
 	fn now() -> I;
 }
 
-/// What to assume about two directly consecutive calls to a function `f`.
-pub enum Monotonicity {
-	/// No implied correlation between two calls to `f`.
-	None,
-	/// `f() <= f()` always holds.
-	MonotonicIncrease,
-	/// `f() < f()` always holds.
-	StrictMonotonicIncrease,
-}
+/// Marker trait for `InstantProvider`s where `now() <= now()` always holds.
+pub trait MonotonicIncrease {}
+
+/// Marker trait for `InstantProvider`s where `now() < now()` always holds.
+pub trait StrictMonotonicIncrease: MonotonicIncrease {}
 
 /// An instant or "time point".
 pub trait Instant:
