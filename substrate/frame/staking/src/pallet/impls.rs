@@ -957,9 +957,10 @@ impl<T: Config> Pallet<T> {
 
 		// target list may contain chilled validators and dangling (i.e. unbonded) targets, filter
 		// those.
-		let mut targets_iter = T::TargetList::iter()
-			.filter(|t| Self::status(&t) != Ok(StakerStatus::Idle))
-			.filter(|t| !Self::status(&t).is_err());
+		let mut targets_iter = T::TargetList::iter().filter(|t| match Self::status(&t) {
+			Ok(StakerStatus::Idle) | Err(_) => false,
+			Ok(_) => true,
+		});
 
 		while all_targets.len() < final_predicted_len as usize &&
 			targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
@@ -1007,14 +1008,14 @@ impl<T: Config> Pallet<T> {
 				Nominators::<T>::insert(who, nominations);
 				T::EventListeners::on_nominator_add(who, nomination_accounts);
 			},
+			(true, false) => {
+				defensive!("unexpected state.");
+			},
 			(_, true) => {
 				// update nominations or un-chill nominator.
 				let prev_nominations = Self::nominations(who).unwrap_or_default();
 				Nominators::<T>::insert(who, nominations);
 				T::EventListeners::on_nominator_update(who, prev_nominations, nomination_accounts);
-			},
-			(true, false) => {
-				defensive!("unexpected state.");
 			},
 		};
 
@@ -1030,6 +1031,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// A chilled nominator is removed from the `Nominators` map, and the nominator's new state must
 	/// be signalled to [`T::EventListeners`].
+	///
+	/// Returns `true` if the nominator was successfully chilled, `false` otherwise.
 	pub(crate) fn do_chill_nominator(who: &T::AccountId) -> bool {
 		Nominators::<T>::take(who).map_or(false, |nominations| {
 			T::EventListeners::on_nominator_remove(who, nominations.clone().targets.into());
@@ -1046,10 +1049,8 @@ impl<T: Config> Pallet<T> {
 	/// to `Nominators` or `VoterList` outside of this function is almost certainly wrong.
 	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
 		let outcome = match Self::status(who) {
-			Ok(StakerStatus::Nominator(_)) | Ok(StakerStatus::Validator) => {
-				let outcome = Self::do_chill_nominator(who);
-				outcome
-			},
+			Ok(StakerStatus::Nominator(_)) | Ok(StakerStatus::Validator) =>
+				Self::do_chill_nominator(who),
 			// not an active nominator, do nothing.
 			Err(_) | Ok(StakerStatus::Idle) => false,
 		};
@@ -1092,14 +1093,15 @@ impl<T: Config> Pallet<T> {
 	/// Tries to chill a validator.
 	///
 	/// A chilled validator is removed from the `Validators` map.
+	///
+	/// Returns `true` if the validator was successfully chilled, `false` otherwise.
 	pub(crate) fn do_chill_validator(who: &T::AccountId) -> bool {
-		match Validators::<T>::contains_key(who) {
-			true => {
-				Validators::<T>::remove(who);
-				T::EventListeners::on_validator_idle(who);
-				true
-			},
-			false => false,
+		if Validators::<T>::contains_key(who) {
+			Validators::<T>::remove(who);
+			T::EventListeners::on_validator_idle(who);
+			true
+		} else {
+			false
 		}
 	}
 

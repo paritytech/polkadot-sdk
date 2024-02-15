@@ -690,7 +690,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// removed from the target list IFF its score is 0. Otherwise, its score should be kept up to
 	/// date as if the validator was active.
 	fn on_validator_remove(who: &T::AccountId) {
-		log!(debug, "on_validator_remove: {:?}", who,);
+		log!(debug, "on_validator_remove: {:?} with status {:?}", who, T::Staking::status(who));
 
 		// validator must be idle before removing completely.
 		match T::Staking::status(who) {
@@ -706,10 +706,11 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			},
 		};
 
-		// remove from target list IIF score is zero.
+		// remove from target list IIF score is zero. If `score != 0`, the target still has active
+		// nominations, thus we keep it in the target list with corresponding approval stake.
 		if T::TargetList::get_score(who).unwrap_or_default().is_zero() {
 			let _ = T::TargetList::on_remove(who)
-				.defensive_proof("target exists as per the check above; qed.");
+				.defensive_proof("target exists as the target score exists; qed.");
 		}
 	}
 

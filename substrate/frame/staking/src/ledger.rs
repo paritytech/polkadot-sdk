@@ -42,12 +42,6 @@ use crate::{
 	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
 };
 
-impl<T: Config> Into<Stake<BalanceOf<T>>> for StakingLedger<T> {
-	fn into(self) -> Stake<BalanceOf<T>> {
-		Stake { total: self.total, active: self.active }
-	}
-}
-
 impl<T: Config> StakingLedger<T> {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn default_from(stash: T::AccountId) -> Self {
@@ -79,6 +73,10 @@ impl<T: Config> StakingLedger<T> {
 			// controllers are deprecated and mapped 1-1 to stashes.
 			controller: Some(stash),
 		}
+	}
+
+	pub fn stake(&self) -> Stake<BalanceOf<T>> {
+		Stake { total: self.total, active: self.active }
 	}
 
 	/// Returns the paired account, if any.
@@ -179,16 +177,13 @@ impl<T: Config> StakingLedger<T> {
         })?;
 
 		// previous stake is the current stake in storage.
-		let prev_stake: Option<Stake<_>> = match Ledger::<T>::get(&controller) {
-			Some(current_ledger) => Some(current_ledger.into()),
-			None => None,
-		};
+		let prev_stake = Ledger::<T>::get(&controller).map(|ledger| ledger.stake());
 
 		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
 		Ledger::<T>::insert(controller, &self);
 
 		// fire `on_stake_update` if there was a stake update.
-		let new_stake: Stake<_> = self.clone().into();
+		let new_stake: Stake<_> = self.stake();
 		if new_stake != prev_stake.unwrap_or_default() {
 			T::EventListeners::on_stake_update(&self.stash, prev_stake, new_stake);
 		}
