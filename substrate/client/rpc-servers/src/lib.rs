@@ -22,7 +22,9 @@
 
 pub mod middleware;
 
-use std::{convert::Infallible, error::Error as StdError, net::SocketAddr, time::Duration, num::NonZeroU32};
+use std::{
+	convert::Infallible, error::Error as StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
+};
 
 use http::header::HeaderValue;
 use hyper::{

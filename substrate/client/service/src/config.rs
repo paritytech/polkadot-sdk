@@ -39,8 +39,8 @@ use sp_core::crypto::SecretString;
 use std::{
 	io, iter,
 	net::SocketAddr,
-	path::{Path, PathBuf},
 	num::NonZeroU32,
+	path::{Path, PathBuf},
 };
 use tempfile::TempDir;
 

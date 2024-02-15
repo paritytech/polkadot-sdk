@@ -34,8 +34,10 @@ use sc_service::{
 	ChainSpec, Role,
 };
 use sc_telemetry::TelemetryEndpoints;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::num::NonZeroU32;
+use std::{
+	net::{IpAddr, Ipv4Addr, SocketAddr},
+	num::NonZeroU32,
+};
 
 /// The `run` command used to run a node.
 #[derive(Debug, Clone, Parser)]
