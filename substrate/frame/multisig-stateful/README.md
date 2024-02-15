@@ -1,11 +1,13 @@
 # Multisig Stateful Pallet
 
-A module to facilitate **stateful** multisig accounts. The statefulness of this means that we store a multisig account id in the state with  
-related info (owners, threshold,..etc). The module affords enhanced control over administrative operations such as adding/removing owners, changing the threshold, account deletion, canceling an existing proposal. Each owner can approve/revoke a proposal.  
 
-It is superior in functionality to the stateless multisig as well as the pure-proxy as it keeps the multisig account in the state and allows for more control over the account itself.
+A pallet to facilitate enhanced multisig accounts. The main enhancement is that we store a multisig account in the state with related info (owners, threshold,..etc). The module affords enhanced control over administrative operations such as adding/removing owners, changing the threshold, account deletion, canceling an existing proposal. Each owner can approve/revoke a proposal while still exists. The proposal is **not** intended for migrating or getting rid of existing multisig. It's to allow both options to coexist.
 
-We use `proposal` in this module to refer to an extrinsic that is to be dispatched from a multisig account after getting enough approvals.
+For the rest of the document we use the following terms:
+
+* `proposal` to refer to an extrinsic that is to be dispatched from a multisig account after getting enough approvals.
+* `Stateful Multisig` to refer to the proposed pallet.
+* `Stateless Multi` to refer to the current multisig pallet in polkadot-sdk.
 
 ## Use Cases
 
@@ -17,8 +19,7 @@ Multisig accounts can be used for joint accounts where multiple individuals need
 business accounts.
 
 * Decentralized Autonomous Organizations (DAOs):
-DAOs can utilize multisig accounts to ensure that decisions are made collectively. Multiple key holders can be required to approve changes to the organization's rules or  
-the allocation of funds.
+DAOs can utilize multisig accounts to ensure that decisions are made collectively. Multiple key holders can be required to approve changes to the organization's rules or the allocation of funds.
 
 ... and much more.
 
@@ -32,8 +33,7 @@ A stateless multisig account is a multisig account that is not stored in the sta
 
 ### Extrensics (Frame/Multisig vs Stateful Multisig) -- Skip if not familiar with Frame/Multisig
 
-Main distinction in proposal approvals and execution between this implementation and the frame/multisig one is that this module  
-has an extrinsic for each step of the process instead of having one entry point that can accept a `CallOrHash`:  
+Main distinction in proposal approvals and execution between this implementation and the frame/multisig one is that this module  has an extrinsic for each step of the process instead of having one entry point that can accept a `CallOrHash`:  
 
 1. Start Proposal
 2. Approve (called N times based on the threshold needed)
@@ -41,64 +41,24 @@ has an extrinsic for each step of the process instead of having one entry point 
 
 This is illustrated in the sequence diagram later in the README.
 
-### Technical Comparison
-
-Although a stateful multisig account might seem more expensive than a stateless one because it is stored in the state while stateless multisig is not, We see (on paper) that the stateless footprint is actually larger than the stateful one on the blockchain as for each extrinsic call in a stateless multisig, the caller needs to send all the owners and other parameters which are all stored on the blockchain itself.
-
-TODO: Add benchmark results for both stateless and stateful multisig. (main thing to measure is the storage of extrinsics cost) over one year with 1K multisig accounts,
-each with 5-100 users and doing 50 proposals per day.
+Later we'll explain performance impact and how the suggested pallet is superior to existing stateless multisig and the effect on the blockchain footprint.
 
 ## Sequence Diagrams
+                               
+![multisig operations](https://github.com/paritytech/polkadot-sdk/assets/2677789/7f16b2ab-50c6-44d1-8cc3-680cd404385b)
+Notes on above diagram:
 
-This is a sequence diagram for a multisig account with 5 owners and a threshold of 3. The multisig account is created with Alice, Bob, Charlie, Dave and Eve as initial owners. The multisig account is used to dispatch a call, which is approved by Bob and Charlie reaching the threshold of 3 including Alice as she started the proposal. The call is then executed by Dave (any owner of the multisig can execute the call even if they haven't approved once the proposal exceeds the required threshold).
-
-       ┌─┐             ┌─┐              ┌─┐               ┌─┐            ┌─┐                                                    
-       ║"│             ║"│              ║"│               ║"│            ║"│                                                    
-       └┬┘             └┬┘              └┬┘               └┬┘            └┬┘                                                    
-       ┌┼┐             ┌┼┐              ┌┼┐               ┌┼┐            ┌┼┐                                                    
-        │               │                │                 │              │            ┌────────┐                               
-       ┌┴┐             ┌┴┐              ┌┴┐               ┌┴┐            ┌┴┐           │Multisig│                               
-      Alice            Bob            Charlie            Dave            Eve           └───┬────┘                               
-        │               │             Create Multisig Account             │                │  ╔═════════════════════════════╗   
-        │─────────────────────────────────────────────────────────────────────────────────>│  ║Owners: Alice, Bob, Charlie ░║   
-        │               │                │                │               │                │  ║Threshold: 3                 ║   
-        │               │                │                │               │                │  ╚═════════════════════════════╝   
-        │               │                │Start Proposal  │               │                │  ╔════════════════════════════════╗
-        │─────────────────────────────────────────────────────────────────────────────────>│  ║Proposal #1                    ░║
-        │               │                │                │               │                │  ║Status: Pending Approval (1/3)  ║
-        │               │                │                │               │                │  ╚════════════════════════════════╝
-        │               │                │      Approve Proposal #1       │                │  ╔═════════════╗                   
-        │               │─────────────────────────────────────────────────────────────────>│  ║Approval    ░║                   
-        │               │                │                │               │                │  ║Status: 2/3  ║                   
-        │               │                │                │               │                │  ╚═════════════╝                   
-        │               │                │              Approve Proposal #1                │  ╔═════════════╗                   
-        │               │                │────────────────────────────────────────────────>│  ║Approval    ░║                   
-        │               │                │                │               │                │  ║Status: 3/3  ║                   
-        │               │                │                │               │                │  ╚═════════════╝                   
-        │               │                │                │  Execute Approved Proposal #1  │  ╔═══════════════╗                 
-        │               │                │                │ ───────────────────────────────>  ║dispatch call ░║                 
-      Alice            Bob            Charlie            Dave            Eve           ┌───┴──╚═══════════════╝                 
-       ┌─┐             ┌─┐              ┌─┐               ┌─┐            ┌─┐           │Multisig│                               
-       ║"│             ║"│              ║"│               ║"│            ║"│           └────────┘                               
-       └┬┘             └┬┘              └┬┘               └┬┘            └┬┘                                                    
-       ┌┼┐             ┌┼┐              ┌┼┐               ┌┼┐            ┌┼┐                                                    
-        │               │                │                 │              │                                                     
-       ┌┴┐             ┌┴┐              ┌┴┐               ┌┴┐            ┌┴┐                                                    
+* It's a 3 step process to execute a proposal. (Start Proposal --> Approvals --> Execute Proposal)
+* `Execute` is an explicit extrinsic for a simpler API. It can be optimized to be executed automatically after getting enough approvals.
+* Any user can create a multisig account and they don't need to be part of it. (Alice in the diagram)
+* A proposal is any extrinsic including control extrinsics (e.g. add/remove owner, change threshold,..etc).
+* Any multisig account owner can start a proposal on behalf of the multisig account. (Bob in the diagram)
+* Any multisig account owener can execute proposal if it's approved by enough owners. (Dave in the diagram)       
 
 ## Tehcnical Overview
-
-### Storage/State
-
-* We use 2 storage maps to store mutlisig accounts and proposals.
-* The storage have 2 main lists:  
-  * owners related to a a multisig account
-  * approvers in each proposal  
-
-For optimization we're using BoundedBTreeSet to allow for efficient lookups and removals. Especially in the case of approvers, we need to be able to remove an approver from the list when they revoke their approval. (which we do lazily when `execute_proposal` is called)
-
 ### State Transition Functions
 
-All functions have rustdoc in the code. Here is a brief overview of the functions:
+All functions have detailed rustdoc in [PR#3300](https://github.com/paritytech/polkadot-sdk/pull/3300). Here is a brief overview of the functions:
 
 * `create_multisig` - Create a multisig account with a given threshold and initial owners. (Needs Deposit)
 * `start_proposal` - Start a multisig proposal. (Needs Deposit)
@@ -107,7 +67,7 @@ All functions have rustdoc in the code. Here is a brief overview of the function
 * `execute_proposal` - Execute a multisig proposal. (Releases Deposit)
 * `cancel_own_proposal` - Cancel a multisig proposal started by the caller in case no other owners approved it yet. (Releases Deposit)
 
-Note: Next functions need to be called from the multisig account itself.
+Note: Next functions need to be called from the multisig account itself. Deposits are reserved from the multisig account as well.
 
 * `add_owner` - Add a new owner to a multisig account. (Needs Deposit)
 * `remove_owner` - Remove an owner from a multisig account. (Releases Deposit)
@@ -115,10 +75,162 @@ Note: Next functions need to be called from the multisig account itself.
 * `cancel_proposal` - Cancel a multisig proposal. (Releases Deposit)
 * `delete_multisig` - Delete a multisig account. (Releases Deposit)
 
-### Considerations
+### Storage/State
 
-* For cases when a multisig has pending proposals and an owner is removed, we make sure that all pending proposals are canceled (lazily when `execute_proposal` is called).
-* Changing thresholds during a pending proposal is allowed without issues. We make sure that the proposal is executed with the threshold the latest threshold set.
+* Use 2 main storage maps to store mutlisig accounts and proposals.
+
+```rust
+#[pallet::storage]
+  pub type MultisigAccount<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, MultisigAccountDetails<T>>;
+
+/// The set of open multisig proposals. A proposal is uniquely identified by the multisig account and the call hash.
+/// (maybe a nonce as well in the future)
+#[pallet::storage]
+pub type PendingProposals<T: Config> = StorageDoubleMap<
+    _,
+    Twox64Concat,
+    T::AccountId, // Multisig Account
+    Blake2_128Concat,
+    T::Hash, // Call Hash
+    MultisigProposal<T>,
+>;
+```
+
+As for the values:
+
+```rust
+pub struct MultisigAccountDetails<T: Config> {
+	/// The owners of the multisig account. This is a BoundedBTreeSet to ensure faster operations (add, remove).
+	/// As well as lookups and faster set operations to ensure approvers is always a subset from owners. (e.g. in case of removal of an owner during an active proposal)
+	pub owners: BoundedBTreeSet<T::AccountId, T::MaxSignatories>,
+	/// The threshold of approvers required for the multisig account to be able to execute a call.
+	pub threshold: u32,
+	pub creator: T::AccountId,
+	pub deposit: BalanceOf<T>,
+}
+```
+
+```rust
+pub struct MultisigProposal<T: Config> {
+    /// Proposal creator.
+    pub creator: T::AccountId,
+    pub creation_deposit: BalanceOf<T>,
+    /// The extrinsic when the multisig operation was opened.
+    pub when: Timepoint<BlockNumberFor<T>>,
+    /// The approvers achieved so far, including the depositor.
+    /// The approvers are stored in a BoundedBTreeSet to ensure faster lookup and operations (approve, revoke).
+    /// It's also bounded to ensure that the size don't go over the required limit by the Runtime.
+    pub approvers: BoundedBTreeSet<T::AccountId, T::MaxSignatories>,
+    /// The block number until which this multisig operation is valid. None means no expiry.
+    pub expire_after: Option<BlockNumberFor<T>>,
+}
+```
+
+For optimization we're using BoundedBTreeSet to allow for efficient lookups and removals. Especially in the case of approvers, we need to be able to remove an approver from the list when they revoke their approval. (which we do lazily when `execute_proposal` is called).
+
+There's an extra storage map for the deposits of the multisig accounts per owner added. This is to ensure that we can release the deposits when the multisig removes them even if the constant deposit per owner changed in the runtime later on.
+
+### Considerations & Edge cases
+
+#### Removing an owner from the multisig account during an active proposal
+
+ We need to ensure that the approvers are always a subset from owners. This is also partially why we're using BoundedBTreeSet for owners and approvers. Once execute proposal is called we ensure that the proposal is still valid and the approvers are still a subset from current owners.
+
+#### Multisig account deletion and cleaning up existing proposals
+
+Once the last owner of a multisig account is removed or the multisig approved the account deletion we delete the multisig accound from the state and keep the proposals until someone calls `cleanup_proposals` multiple times which iterates over a max limit per extrinsic. This is to ensure we don't have unbounded iteration over the proposals. Users are already incentivized to call `cleanup_proposals` to get their deposits back.
+
+#### Multisig account deletion and existing deposits
+
+We currently just delete the account without checking for deposits (Would like to hear your thoughts here). We can either
+
+* Don't make deposits to begin with and make it a fee.
+* Transfer to treasury.
+* Error on deletion. (don't like this)
+
+#### Approving a proposal after the threshold is changed
+
+We always use latest threshold and don't store each proposal with different threshold. This allows the following:
+
+* In case threshold is lower than the number of approvers then the proposal is still valid.  
+* In case threshold is higher than the number of approvers then we catch it during execute proposal and error.
+### Performance
+
+Doing back of the envelop calculation to proof that the stateful multisig is more efficient than the stateless multisig given it's smaller footprint size on blocks.
+
+Quick review over the extrinsics for both as it affects the block size:
+
+Stateless Multisig:
+Both `as_multi` and `approve_as_multi` has a similar parameters:
+
+```rust
+origin: OriginFor<T>,
+threshold: u16,
+other_signatories: Vec<T::AccountId>,
+maybe_timepoint: Option<Timepoint<BlockNumberFor<T>>>,
+call_hash: [u8; 32],
+max_weight: Weight,
+```
+
+Stateful Multisig:
+We have the following extrinsics:
+
+```rust
+pub fn start_proposal(
+			origin: OriginFor<T>,
+			multisig_account: T::AccountId,
+			call_hash: T::Hash,
+		)
+```
+
+```rust
+pub fn approve(
+			origin: OriginFor<T>,
+			multisig_account: T::AccountId,
+			call_hash: T::Hash,
+		)
+```
+
+```rust
+pub fn execute_proposal(
+			origin: OriginFor<T>,
+			multisig_account: T::AccountId,
+			call: Box<<T as Config>::RuntimeCall>,
+		)
+```
+
+The main takeway is that we don't need to pass the threshold and other signatories in the extrinsics. This is because we already have the threshold and signatories in the state (only once).
+
+So now for the caclulations, given the following:
+
+* K is the number of multisig accounts.
+* N is number of owners in each multisig account.
+* For each proposal we need to have 2N/3 approvals.
+
+The table calculates if each of the K multisig accounts has one proposal and it gets approved by the 2N/3 and then executed. How much did the total Blocks and States sizes increased by the end of the day.
+
+Note: We're not calculating the cost of proposal as both in statefull and stateless multisig they're almost the same and gets cleaned up from the state once the proposal is executed or canceled.
+
+Stateless effect on blocksizes = 2/3*K*N^2 (as each user of the 2/3 users will need to call approve_as_multi with all the other signatories(N) in extrinsic body)
+
+Stateful effect on blocksizes = K * N (as each user will need to call approve with the multisig account only in extrinsic body)
+
+Stateless effect on statesizes = Nil (as the multisig account is not stored in the state)
+
+Stateful effect on statesizes = K*N (as each multisig account (K) will be stored with all the owners (K) in the state)
+
+| Pallet         |  Block Size   | State Size |
+|----------------|:-------------:|-----------:|
+| Stateless      |     2/3*K*N^2 |        Nil |
+| Stateful       |          K*N  |       K*N  |
+
+Simplified table removing K from the equation:
+| Pallet         |  Block Size   | State Size |
+|----------------|:-------------:|-----------:|
+| Stateless      |           N^2 |        Nil |
+| Stateful       |           N   |         N  |
+
+So even though the stateful multisig has a larger state size, it's still more efficient in terms of block size and total footprint on the blockchain.
 
 ### Development Testing
 
