@@ -172,7 +172,8 @@ where
 				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
 				let rate_limit = rate_limit.map(|r| RateLimitLayer::per_minute(r));
 
-				// NOTE: The metrics needs to run first to include rate-limited calls in the metrics.
+				// NOTE: The metrics needs to run first to include rate-limited calls in the
+				// metrics.
 				let rpc_middleware =
 					RpcServiceBuilder::new().option_layer(metrics.clone()).option_layer(rate_limit);
 
