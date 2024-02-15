@@ -2,11 +2,11 @@
 
 # ignore zombienet as they do some deliberate custom toml stuff
 exclude = [
+	"bridges/testing/**",
 	"cumulus/zombienet/**",
 	"polkadot/node/malus/integrationtests/**",
 	"polkadot/zombienet_tests/**",
 	"substrate/zombienet/**",
-	"bridges/testing/**"
 ]
 
 # global rules
