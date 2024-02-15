@@ -88,7 +88,8 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type MaxHolds = ConstU32<1>;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 pallet_staking_reward_curve::build! {
@@ -200,7 +201,6 @@ type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
 pub enum Runtime {
-		Pools: pallet_nomination_pools::{Pallet, Call, Storage, Event<T>, FreezeReason},
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
