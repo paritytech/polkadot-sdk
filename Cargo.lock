@@ -13303,16 +13303,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "polkadot-sdk-docs-runtimes"
-version = "0.0.1"
-dependencies = [
- "frame",
- "parity-scale-codec",
- "polkadot-sdk-docs",
- "scale-info",
-]
-
-[[package]]
 name = "polkadot-service"
 version = "7.0.0"
 dependencies = [

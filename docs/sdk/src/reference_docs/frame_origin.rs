@@ -127,8 +127,8 @@
 //!
 //! [^1]: [Reference](https://github.com/paritytech/polkadot-sdk/blob/edd95b3749754d2ed0c5738588e872c87be91624/substrate/frame/democracy/src/lib.rs#L1603-L1633).
 //! [^2]: Inherents are essentially unsigned extrinsics that need an [`frame_system::ensure_none`]
-//!     origin check, and through the virtue of being an inherent, are agreed upon by all
-//!     validators.
+//! origin check, and through the virtue of being an inherent, are agreed upon by all
+//! validators.
 
 use frame::prelude::*;
 
