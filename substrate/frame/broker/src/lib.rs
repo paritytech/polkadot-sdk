@@ -274,10 +274,10 @@ pub mod pallet {
 		},
 		/// A new sale has been initialized.
 		SaleInitialized {
-			/// The local block number at which the sale will/did start.
-			sale_start: BlockNumberFor<T>,
+			/// The relay block number at which the sale will/did start.
+			sale_start: RelayBlockNumberOf<T>,
 			/// The length in blocks of the Leadin Period (where the price is decreasing).
-			leadin_length: BlockNumberFor<T>,
+			leadin_length: RelayBlockNumberOf<T>,
 			/// The price of Bulk Coretime at the beginning of the Leadin Period.
 			start_price: BalanceOf<T>,
 			/// The price of Bulk Coretime after the Leadin Period.

@@ -21,7 +21,7 @@ use sp_arithmetic::{
 	traits::{One, SaturatedConversion, Saturating, Zero},
 	FixedPointNumber,
 };
-use sp_runtime::traits::ConvertBack;
+use sp_runtime::traits::{BlockNumberProvider, ConvertBack};
 use sp_std::{vec, vec::Vec};
 use CompletionStatus::Complete;
 
@@ -146,7 +146,7 @@ impl<T: Config> Pallet<T> {
 		config: &ConfigRecordOf<T>,
 		status: &StatusRecord,
 	) -> Option<()> {
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = <<<T as crate::Config>::Coretime as CoretimeInterface>::RealyChainBlockNumberProvider as BlockNumberProvider>::current_block_number();
 
 		let pool_item =
 			ScheduleItem { assignment: CoreAssignment::Pool, mask: CoreMask::complete() };
