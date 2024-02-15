@@ -31,7 +31,6 @@ use cumulus_relay_chain_interface::RelayChainError;
 
 use crate::BlockChainRpcClient;
 
-
 fn build_overseer(
 	connector: OverseerConnector,
 	args: OverseerGenArgs<sc_service::SpawnTaskHandle, BlockChainRpcClient>,

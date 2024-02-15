@@ -390,7 +390,7 @@ pub type InitializedCollatorOverseerBuilder<Spawner, SubsystemClient, ChainApi> 
 		ProspectiveParachainsSubsystem,
 	>;
 
-/// Obtain a prepared collator `Overseer`, that is initialized with all default values.
+/// Generic constructor for collator `Overseer` builder.
 pub fn generic_collator_overseer_builder<Spawner, SubsystemClient, ChainApi>(
 	OverseerGenArgs {
 		runtime_client,
