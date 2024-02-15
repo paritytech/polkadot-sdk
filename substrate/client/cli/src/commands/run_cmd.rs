@@ -35,6 +35,7 @@ use sc_service::{
 };
 use sc_telemetry::TelemetryEndpoints;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::num::NonZeroU32;
 
 /// The `run` command used to run a node.
 #[derive(Debug, Clone, Parser)]
@@ -89,7 +90,7 @@ pub struct RunCmd {
 	/// For example `--rpc-rate-limit 10` will maximum allow
 	/// 10 calls per minute.
 	#[arg(long)]
-	pub rpc_rate_limit: Option<u32>,
+	pub rpc_rate_limit: Option<NonZeroU32>,
 
 	/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
@@ -408,7 +409,7 @@ impl CliConfiguration for RunCmd {
 		Ok(self.rpc_max_subscriptions_per_connection)
 	}
 
-	fn rpc_rate_limit(&self) -> Result<Option<u32>> {
+	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
 		Ok(self.rpc_rate_limit)
 	}
 

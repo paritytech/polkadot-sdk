@@ -22,7 +22,7 @@
 
 pub mod middleware;
 
-use std::{convert::Infallible, error::Error as StdError, net::SocketAddr, time::Duration};
+use std::{convert::Infallible, error::Error as StdError, net::SocketAddr, time::Duration, num::NonZeroU32};
 
 use http::header::HeaderValue;
 use hyper::{
@@ -80,7 +80,7 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	/// Tokio runtime handle.
 	pub tokio_handle: tokio::runtime::Handle,
 	/// Rate limit calls per minute.
-	pub rate_limit: Option<u32>,
+	pub rate_limit: Option<NonZeroU32>,
 }
 
 #[derive(Debug, Clone)]

@@ -40,6 +40,7 @@ use std::{
 	io, iter,
 	net::SocketAddr,
 	path::{Path, PathBuf},
+	num::NonZeroU32,
 };
 use tempfile::TempDir;
 
@@ -103,7 +104,7 @@ pub struct Configuration {
 	/// The number of messages the JSON-RPC server is allowed to keep in memory.
 	pub rpc_message_buffer_capacity: u32,
 	/// RPC rate limit per minut
-	pub rpc_rate_limit: Option<u32>,
+	pub rpc_rate_limit: Option<NonZeroU32>,
 	/// Prometheus endpoint configuration. `None` if disabled.
 	pub prometheus_config: Option<PrometheusConfig>,
 	/// Telemetry service URL. `None` if disabled.

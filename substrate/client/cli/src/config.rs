@@ -33,7 +33,7 @@ use sc_service::{
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 use sc_tracing::logging::LoggerBuilder;
-use std::{net::SocketAddr, path::PathBuf};
+use std::{net::SocketAddr, path::PathBuf, num::NonZeroU32};
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -339,7 +339,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	}
 
 	/// Rate limit calls per minute.
-	fn rpc_rate_limit(&self) -> Result<Option<u32>> {
+	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
 		Ok(None)
 	}
 

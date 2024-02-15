@@ -37,12 +37,8 @@ pub struct RateLimitLayer(governor::Quota);
 
 impl RateLimitLayer {
 	/// Create new rate limit enforced per minute.
-	///
-	/// # Panics
-	///
-	/// Panics if n is zero.
-	pub fn per_minute(n: u32) -> Self {
-		Self(governor::Quota::per_minute(NonZeroU32::new(n).unwrap()))
+	pub fn per_minute(n: NonZeroU32) -> Self {
+		Self(governor::Quota::per_minute(n))
 	}
 }
 
