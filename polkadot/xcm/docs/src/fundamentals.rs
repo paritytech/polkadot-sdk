@@ -91,7 +91,7 @@
 //! We want to be able to reference assets in our XCM programs, if only to be able to pay for fees.
 //! Assets are represented using locations.
 //!
-//! The native asset of a chain is represented by the location to that chain.
+//! The native asset of a chain is represented by the location of that chain.
 //! For example, DOT is represented by the location of the Polkadot relaychain.
 //! If the interpreting chain has its own asset, it would be represented by `Here`.
 //!
