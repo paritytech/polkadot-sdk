@@ -165,6 +165,8 @@ where
 	Call: Clone,
 	PalletsOrigin: Clone,
 {
+	/// Create a new task to be used for retry attempts of the original one. The cloned task will
+	/// have the same `priority`, `call` and `origin`, but will always be non-periodic and unnamed.
 	pub fn as_retry(&self) -> Self {
 		Self {
 			maybe_id: None,
