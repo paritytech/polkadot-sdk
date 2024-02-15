@@ -93,7 +93,11 @@ pub struct Recorder<H: Hasher, L: Location> {
 
 impl<H: Hasher, L: Location> Default for Recorder<H, L> {
 	fn default() -> Self {
-		Self { inner: Default::default(), encoded_size_estimation: Arc::new(0.into()), _ph: PhantomData }
+		Self {
+			inner: Default::default(),
+			encoded_size_estimation: Arc::new(0.into()),
+			_ph: PhantomData,
+		}
 	}
 }
 
@@ -102,7 +106,7 @@ impl<H: Hasher, L: Location> Clone for Recorder<H, L> {
 		Self {
 			inner: self.inner.clone(),
 			encoded_size_estimation: self.encoded_size_estimation.clone(),
-_ph: PhantomData,
+			_ph: PhantomData,
 		}
 	}
 }

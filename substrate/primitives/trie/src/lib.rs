@@ -607,45 +607,60 @@ mod tests {
 	use codec::{Compact, Decode, Encode};
 	use sp_core::Blake2Hasher;
 	use trie_db::{
-		node_db::{Hasher, NodeDB},
+		node_db::{Hasher, NodeDB, NodeDBMut},
 		DBValue, NodeCodec as NodeCodecT, Trie,
 	};
 	use trie_standardmap::{Alphabet, StandardMap, ValueMode};
 
 	type LayoutV0 = super::LayoutV0<Blake2Hasher, ()>;
 	type LayoutV1 = super::LayoutV1<Blake2Hasher, ()>;
+	type LayoutV0T = super::LayoutV0<Blake2Hasher, Option<usize>>;
+	type LayoutV1T = super::LayoutV1<Blake2Hasher, Option<usize>>;
 
-	type MemoryDBMeta<H> =
-		trie_db::memory_db::MemoryDB<H, trie_db::memory_db::HashKey<H>, trie_db::DBValue>;
+	type MemoryDBMeta = trie_db::memory_db::MemoryDB<
+		Blake2Hasher,
+		trie_db::memory_db::HashKey<Blake2Hasher>,
+		trie_db::DBValue,
+	>;
+
+	type MemTreeDBMeta = trie_db::mem_tree_db::MemTreeDB<Blake2Hasher>;
 
 	fn hashed_null_node<T: TrieConfiguration>() -> TrieHash<T> {
 		<T::Codec as NodeCodecT>::hashed_null_node()
 	}
 
-	fn check_equivalent<T: TrieConfiguration>(input: &Vec<(&[u8], &[u8])>) {
-		{
-			let closed_form = T::trie_root(input.clone());
-			let d = T::trie_root_unhashed(input.clone());
-			println!("Data: {:#x?}, {:#x?}", d, Blake2Hasher::hash(&d[..]));
-			let persistent = {
-				let mut memdb = MemoryDBMeta::default();
-				let mut t = TrieDBMutBuilder::<T>::new(&mut memdb).build();
-				for (x, y) in input.iter().rev() {
-					t.insert(x, y).unwrap();
-				}
-				t.commit().root_hash()
-			};
-			assert_eq!(closed_form, persistent);
-		}
+	fn check_equivalent<T, D>(input: &Vec<(&[u8], &[u8])>)
+	where
+		T: TrieConfiguration,
+		D: NodeDBMut<T::Hash, DBValue, T::Location> + Default,
+	{
+		let closed_form = T::trie_root(input.clone());
+		let d = T::trie_root_unhashed(input.clone());
+		println!("Data: {:#x?}, {:#x?}", d, Blake2Hasher::hash(&d[..]));
+		let persistent = {
+			let mut memdb = D::default();
+			let mut t = TrieDBMutBuilder::<T>::new(&mut memdb).build();
+			for (x, y) in input.iter().rev() {
+				t.insert(x, y).unwrap();
+			}
+			t.commit().root_hash()
+		};
+		assert_eq!(closed_form, persistent);
 	}
 
-	fn check_iteration<T: TrieConfiguration>(input: &Vec<(&[u8], &[u8])>) {
-		let mut memdb = MemoryDBMeta::default();
+	fn check_iteration<T, D>(input: &Vec<(&[u8], &[u8])>)
+	where
+		T: TrieConfiguration,
+		D: NodeDBMut<T::Hash, DBValue, T::Location> + Default,
+	{
+		let mut memdb = D::default();
 		let mut t = TrieDBMutBuilder::<T>::new(&mut memdb).build();
 		for (x, y) in input.clone() {
 			t.insert(x, y).unwrap();
 		}
-		let root = t.commit().apply_to(&mut memdb);
+		let changes = t.commit();
+		let root = changes.root_hash();
+		memdb.apply_changeset(changes);
 		let t = TrieDBBuilder::<T>::new(&memdb, &root).build();
 		assert_eq!(
 			input.iter().map(|(i, j)| (i.to_vec(), j.to_vec())).collect::<Vec<_>>(),
@@ -657,10 +672,14 @@ mod tests {
 	}
 
 	fn check_input(input: &Vec<(&[u8], &[u8])>) {
-		check_equivalent::<LayoutV0>(input);
-		check_iteration::<LayoutV0>(input);
-		check_equivalent::<LayoutV1>(input);
-		check_iteration::<LayoutV1>(input);
+		check_equivalent::<LayoutV0, MemoryDBMeta>(input);
+		check_iteration::<LayoutV0, MemoryDBMeta>(input);
+		check_equivalent::<LayoutV1, MemoryDBMeta>(input);
+		check_iteration::<LayoutV1, MemoryDBMeta>(input);
+		check_equivalent::<LayoutV0T, MemTreeDBMeta>(input);
+		check_iteration::<LayoutV0T, MemTreeDBMeta>(input);
+		check_equivalent::<LayoutV1T, MemTreeDBMeta>(input);
+		check_iteration::<LayoutV1T, MemTreeDBMeta>(input);
 	}
 
 	#[test]
@@ -790,10 +809,15 @@ mod tests {
 
 	#[test]
 	fn random_should_work() {
-		random_should_work_inner::<LayoutV1>();
-		random_should_work_inner::<LayoutV0>();
+		random_should_work_inner::<LayoutV1T, MemTreeDBMeta>();
+		random_should_work_inner::<LayoutV1, MemoryDBMeta>();
+		random_should_work_inner::<LayoutV0, MemoryDBMeta>();
 	}
-	fn random_should_work_inner<L: TrieConfiguration>() {
+	fn random_should_work_inner<L, D>()
+	where
+		L: TrieConfiguration,
+		D: NodeDBMut<L::Hash, DBValue, L::Location> + Default,
+	{
 		let mut seed = <Blake2Hasher as Hasher>::Out::zero();
 		for test_i in 0..10_000 {
 			if test_i % 50 == 0 {
@@ -809,13 +833,14 @@ mod tests {
 			.make_with(seed.as_fixed_bytes_mut());
 
 			let real = L::trie_root(x.clone());
-			let mut memdb = MemoryDB::default();
+			let mut memdb = D::default();
 
 			let commit = {
 				let memtrie = populate_trie::<L>(&mut memdb, &x);
 				memtrie.commit()
 			};
-			let root = commit.apply_to(&mut memdb);
+			let root = commit.root_hash();
+			memdb.apply_changeset(commit);
 
 			if root != real {
 				println!("TRIE MISMATCH");
@@ -828,7 +853,9 @@ mod tests {
 			assert_eq!(root, real);
 			let mut memtrie = TrieDBMutBuilder::<L>::from_existing(&memdb, root).build();
 			unpopulate_trie::<L>(&mut memtrie, &x);
-			let root = memtrie.commit().apply_to(&mut memdb);
+			let commit = memtrie.commit();
+			let root = commit.root_hash();
+			memdb.apply_changeset(commit);
 			let hashed_null_node = hashed_null_node::<L>();
 			if root != hashed_null_node {
 				println!("- TRIE MISMATCH");
@@ -897,10 +924,15 @@ mod tests {
 
 	#[test]
 	fn iterator_works() {
-		iterator_works_inner::<LayoutV1>();
-		iterator_works_inner::<LayoutV0>();
+		iterator_works_inner::<LayoutV1T, MemTreeDBMeta>();
+		iterator_works_inner::<LayoutV1, MemoryDBMeta>();
+		iterator_works_inner::<LayoutV0, MemoryDBMeta>();
 	}
-	fn iterator_works_inner<Layout: TrieConfiguration>() {
+	fn iterator_works_inner<L, D>()
+	where
+		L: TrieConfiguration,
+		D: NodeDBMut<L::Hash, DBValue, L::Location> + Default,
+	{
 		let pairs = vec![
 			(
 				array_bytes::hex2bytes_unchecked("0103000000000000000464"),
@@ -912,11 +944,13 @@ mod tests {
 			),
 		];
 
-		let mut mdb = MemoryDB::default();
-		let t = populate_trie::<Layout>(&mut mdb, &pairs);
-		let root = t.commit().apply_to(&mut mdb);
+		let mut mdb = D::default();
+		let t = populate_trie::<L>(&mut mdb, &pairs);
+		let changes = t.commit();
+		let root = changes.root_hash();
+		mdb.apply_changeset(changes);
 
-		let trie = TrieDBBuilder::<Layout>::new(&mdb, &root).build();
+		let trie = TrieDBBuilder::<L>::new(&mdb, &root).build();
 
 		let iter = trie.iter().unwrap();
 		let mut iter_pairs = Vec::new();
