@@ -31,7 +31,7 @@
 /// Fundamentals of the XCM language. The virtual machine, instructions, locations and assets.
 pub mod fundamentals;
 
-/// Step-by-step guides to setup an XCM environment and start hacking.
+/// Step-by-step guides to set up an XCM environment and start hacking.
 pub mod guides;
 
 /// Useful recipes for programs and configurations.
