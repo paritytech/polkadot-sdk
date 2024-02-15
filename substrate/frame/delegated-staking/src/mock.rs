@@ -143,7 +143,7 @@ impl delegated_staking::Config for Runtime {
 }
 
 frame_support::construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
