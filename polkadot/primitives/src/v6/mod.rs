@@ -362,6 +362,9 @@ pub const PARACHAINS_INHERENT_IDENTIFIER: InherentIdentifier = *b"parachn0";
 /// The key type ID for parachain assignment key.
 pub const ASSIGNMENT_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"asgn");
 
+/// Compressed or not the wasm blob can never be less than 9 bytes.
+pub const MIN_CODE_SIZE: u32 = 9;
+
 /// Maximum compressed code size we support right now.
 /// At the moment we have runtime upgrade on chain, which restricts scalability severely. If we want
 /// to have bigger values, we should fix that first.

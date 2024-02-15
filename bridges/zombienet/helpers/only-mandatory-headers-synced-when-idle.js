@@ -10,7 +10,7 @@ async function run(nodeName, networkInfo, args) {
 
     // start listening to new blocks
     let totalGrandpaHeaders = 0;
-    let totalParachainHeaders = 0;
+    let initialParachainHeaderImported = false;
     api.rpc.chain.subscribeNewHeads(async function (header) {
         const apiAtParent = await api.at(header.parentHash);
         const apiAtCurrent = await api.at(header.hash);
@@ -22,7 +22,7 @@ async function run(nodeName, networkInfo, args) {
             apiAtCurrent,
             currentEvents,
         );
-        totalParachainHeaders += await utils.ensureOnlyInitialParachainHeaderImported(
+        initialParachainHeaderImported = await utils.ensureOnlyInitialParachainHeaderImported(
             bridgedChain,
             apiAtParent,
             apiAtCurrent,
@@ -36,7 +36,7 @@ async function run(nodeName, networkInfo, args) {
     if (totalGrandpaHeaders == 0) {
         throw new Error("No bridged relay chain headers imported");
     }
-    if (totalParachainHeaders == 0) {
+    if (!initialParachainHeaderImported) {
         throw new Error("No bridged parachain headers imported");
     }
 }

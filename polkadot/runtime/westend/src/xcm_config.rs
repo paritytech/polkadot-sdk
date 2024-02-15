@@ -39,15 +39,13 @@ use westend_runtime_constants::{
 	xcm::body::{FELLOWSHIP_ADMIN_INDEX, TREASURER_INDEX},
 };
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
 	ChildParachainConvertsVia, DescribeBodyTerminal, DescribeFamily, FrameTransactionalProcessor,
-	HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	FungibleAdapter, HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
@@ -75,8 +73,7 @@ pub type LocationConverter = (
 	HashedDescription<AccountId, DescribeFamily<DescribeBodyTerminal>>,
 );
 
-#[allow(deprecated)]
-pub type LocalAssetTransactor = XcmCurrencyAdapter<
+pub type LocalAssetTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
