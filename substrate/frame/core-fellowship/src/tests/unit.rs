@@ -164,10 +164,20 @@ fn next_demotion(who: u64) -> u64 {
 }
 
 // helper function for offboard timeout.
-fn offboard_timeout(who: u64) -> u64 {
+fn estimate_offboard_timeout(who: u64) -> u64 {
 	let member = Member::<Test>::get(who).unwrap();
 	let offboard_timeout = Params::<Test>::get().offboard_timeout;
 	member.last_proof + offboard_timeout
+}
+
+fn evidence(e: u32) -> Evidence<Test, ()> {
+	e.encode()
+		.into_iter()
+		.cycle()
+		.take(1024)
+		.collect::<Vec<_>>()
+		.try_into()
+		.expect("Static length matches")
 }
 
 #[test]
@@ -210,7 +220,7 @@ fn induct_works() {
 		assert_noop!(CoreFellowship::induct(signed(10), 10), DispatchError::BadOrigin);
 		assert_noop!(CoreFellowship::induct(signed(0), 10), DispatchError::BadOrigin);
 		assert_ok!(CoreFellowship::induct(signed(1), 10));
-		assert_eq!(offboard_timeout(10), 2);
+		assert_eq!(estimate_offboard_timeout(10), 2);
 		assert_noop!(CoreFellowship::induct(signed(1), 10), Error::<Test>::AlreadyInducted);
 	});
 }
@@ -379,4 +389,50 @@ fn active_changing_get_salary_works() {
 			assert_eq!(CoreFellowship::get_salary(i as u16, &(10 + i)), i * 10);
 		}
 	});
+}
+
+#[test]
+fn submit_evidence_member_retention_invariant() {
+	new_test_ext().execute_with(|| {
+		use frame_support::pallet_prelude::DispatchError::Other;
+		
+		let params = ParamsType {
+			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90],
+			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+			demotion_period: [1, 2, 0, 4, 5, 6, 0, 0, 9],
+			min_promotion_period: [1, 2, 3, 4, 5, 10, 15, 20, 30],
+			offboard_timeout: 1,
+		};
+		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
+
+		set_rank(10, 7);
+		assert_ok!(CoreFellowship::import(signed(10)));
+		CoreFellowship::submit_evidence(signed(10), Wish::Retention, evidence(1));
+
+		// Invariant violated
+		assert_eq!(CoreFellowship::do_try_state(), Err(Other("Member with no demotion period can not wish to retain")));
+	})
+}
+
+#[test]
+fn submit_evidence_candidate_retention_invariant() {
+	new_test_ext().execute_with(|| {
+		use frame_support::pallet_prelude::DispatchError::Other;
+		
+		let params = ParamsType {
+			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90],
+			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+			demotion_period: [1, 2, 0, 4, 5, 6, 0, 0, 9],
+			min_promotion_period: [1, 2, 3, 4, 5, 10, 15, 20, 30],
+			offboard_timeout: 1,
+		};
+		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
+
+		set_rank(10, 0);
+		assert_ok!(CoreFellowship::import(signed(10)));
+		CoreFellowship::submit_evidence(signed(10), Wish::Retention, evidence(1));
+
+		// Invariant violated
+		assert_eq!(CoreFellowship::do_try_state(), Err(Other("Rentention disallowed for Rank < 1")));
+	})
 }

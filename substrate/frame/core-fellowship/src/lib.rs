@@ -568,12 +568,13 @@ pub mod pallet {
 		/// `ranked_member`:
 		/// * for members with non zero demotion periods, the `last_proof` block (i.e. the estimated time for re-approving a rank)
 		/// should always be greater than the current block.
+		/// * members with zero demotion period should not submit an evidence with a wish to retain, subsequently no promotion 
+		/// available for max_rank() members.
 		/// 
 		/// `unranked_member`:
-		/// * for candidates, 
-		/// - the `last_proof` block(i.e. the estimated time before offboarding) 
-		/// should always be greater than the current block.
-		/// - evidence should only be submitted with a `Wish:Promotion`.
+		/// * for candidates, the `last_proof` block(i.e. the estimated time before offboarding) should always be greater than 
+		/// the current block.
+		/// * evidence should only be submitted with a `Wish:Promotion`.
 		#[cfg(any(feature = "try-runtime", test))]
 		pub fn do_try_state() -> Result<(), TryRuntimeError> {
 			// Check invariants for each member tracked by the pallet
@@ -595,32 +596,29 @@ pub mod pallet {
 		}
 
 		fn ranked_member(rank: RankOf<T, I>, who: &T::AccountId, member_status: MemberStatusOf<T>, params: ParamsOf<T, I>) -> Result<(), TryRuntimeError> {
+
+			let now = frame_system::Pallet::<T>::block_number();
+    		let rank_index = Self::rank_to_index(rank).ok_or(Error::<T, I>::InvalidRank)?;
+			let demotion_period = params.demotion_period[rank_index];
+
+    		// Determine if a demotion period is applicable
+    		let demotion_period_applicable = demotion_period != Zero::zero();
+
 			// If member has evidence submitted, ensure it aligns with their rank and wish
 			if let Some((wish, _)) = MemberEvidence::<T, I>::get(&who) {
 				match wish {
 					Wish::Retention => {
-						
-						ensure!(rank < 7, "Member at exclusive rank cannot retain further");
-						// propose the addition of T::Members::exclusive_rank()
+						ensure!(demotion_period_applicable, TryRuntimeError::Other("Member with no demotion period can not wish to retain"));
 					},
 					Wish::Promotion => {
-						
-						ensure!(rank < 9, "Member at max rank cannot be promoted");
+						ensure!(rank < 9, TryRuntimeError::Other("Member at max rank cannot be promoted"));
 						// propose the addition of T::Members::max_rank()
 					},
 				}
 			}
 			
-			let now = frame_system::Pallet::<T>::block_number();
-			let rank_index = Self::rank_to_index(rank).ok_or(Error::<T, I>::InvalidRank)?;
-			let demotion_period = if params.demotion_period[rank_index] != Zero::zero() {
-				Some(params.demotion_period[rank_index])
-			} else {
-				None
-			};
-		
-			if let Some(period) = demotion_period {
-				let demotion_due = member_status.last_proof.saturating_add(period);
+			if demotion_period_applicable {
+				let demotion_due = member_status.last_proof.saturating_add(demotion_period);
 				ensure!(now < demotion_due, TryRuntimeError::Other("Member is outside the demotion period, indicating potential rank inconsistency"));
 			}
 			Ok(())
