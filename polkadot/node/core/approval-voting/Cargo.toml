@@ -60,7 +60,7 @@ polkadot-subsystem-bench = { path = "../../subsystem-bench" }
 name = "approval-voting-regression-bench"
 path = "tests/approval-voting-regression-bench.rs"
 harness = false
-required-features = ["subsystem-bench"]
+required-features = ["subsystem-benchmarks"]
 
 [features]
-subsystem-bench = []
+subsystem-benchmarks = []

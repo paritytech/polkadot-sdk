@@ -44,6 +44,7 @@ fn test_configuration() -> TestConfiguration {
 	config.peer_bandwidth = 524288000000;
 	config.bandwidth = 524288000000;
 	config.num_blocks = 10;
+	config.generate_pov_sizes();
 
 	config
 }
@@ -55,7 +56,7 @@ fn run_benchmark(test_case: &str, options: ApprovalsOptions) -> BenchmarkUsage {
 	usage
 }
 
-fn approvals_no_shows() {
+fn approvals_no_shows() -> Vec<String> {
 	let mut messages = vec![];
 	let usage = run_benchmark(
 		"approvals_no_shows",
@@ -83,7 +84,7 @@ fn approvals_no_shows() {
 	messages
 }
 
-fn approvals_throughput() {
+fn approvals_throughput() -> Vec<String> {
 	let mut messages = vec![];
 	let usage = run_benchmark(
 		"approvals_throughput",

@@ -23,8 +23,6 @@ use colored::Colorize;
 use polkadot_subsystem_bench::{approval, availability, configuration};
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
-use rand::thread_rng;
-use rand_distr::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -76,17 +74,7 @@ pub struct TestSequence {
 
 impl TestSequence {
 	fn into_vec(self) -> Vec<CliTestConfiguration> {
-		self.test_configurations
-			.into_iter()
-			.map(|mut v| {
-				v.test_config.pov_sizes = generate_pov_sizes(
-					v.test_config.n_cores,
-					v.test_config.min_pov_size,
-					v.test_config.max_pov_size,
-				);
-				v
-			})
-			.collect()
+		self.test_configuration
 	}
 
 	fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
@@ -142,12 +130,13 @@ impl BenchCli {
 		let num_steps = test_sequence.len();
 		gum::info!("{}", format!("Sequence contains {} step(s)", num_steps).bright_purple());
 
-		for (index, CliTestConfiguration { objective, test_config }) in
+		for (index, CliTestConfiguration { objective, mut test_config }) in
 			test_sequence.into_iter().enumerate()
 		{
 			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, objective);
 			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {:?}", objective).green(), test_config);
+			test_config.generate_pov_sizes();
 
 			let usage = match objective {
 				TestObjective::DataAvailabilityRead(opts) => {
@@ -198,20 +187,6 @@ impl BenchCli {
 
 		Ok(())
 	}
-}
-
-fn random_uniform_sample<T: Into<usize> + From<usize>>(min_value: T, max_value: T) -> T {
-	Uniform::from(min_value.into()..=max_value.into())
-		.sample(&mut thread_rng())
-		.into()
-}
-
-fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
-	random_uniform_sample(min_pov_size, max_pov_size)
-}
-
-fn generate_pov_sizes(count: usize, min_kib: usize, max_kib: usize) -> Vec<usize> {
-	(0..count).map(|_| random_pov_size(min_kib * 1024, max_kib * 1024)).collect()
 }
 
 fn main() -> eyre::Result<()> {

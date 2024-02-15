@@ -20,7 +20,7 @@ use crate::keyring::Keyring;
 use itertools::Itertools;
 use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId};
 use rand::thread_rng;
-use rand_distr::{Distribution, Normal};
+use rand_distr::{Distribution, Normal, Uniform};
 use sc_network::PeerId;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::AuthorityId;
@@ -145,6 +145,10 @@ impl Default for TestConfiguration {
 }
 
 impl TestConfiguration {
+	pub fn generate_pov_sizes(&mut self) {
+		self.pov_sizes = generate_pov_sizes(self.n_cores, self.min_pov_size, self.max_pov_size);
+	}
+
 	pub fn pov_sizes(&self) -> &[usize] {
 		&self.pov_sizes
 	}
@@ -197,6 +201,20 @@ impl TestConfiguration {
 			peer_id_to_authority,
 		}
 	}
+}
+
+fn random_uniform_sample<T: Into<usize> + From<usize>>(min_value: T, max_value: T) -> T {
+	Uniform::from(min_value.into()..=max_value.into())
+		.sample(&mut thread_rng())
+		.into()
+}
+
+fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
+	random_uniform_sample(min_pov_size, max_pov_size)
+}
+
+fn generate_pov_sizes(count: usize, min_kib: usize, max_kib: usize) -> Vec<usize> {
+	(0..count).map(|_| random_pov_size(min_kib * 1024, max_kib * 1024)).collect()
 }
 
 /// Helper struct for authority related state.
