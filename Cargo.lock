@@ -13262,11 +13262,20 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "docify",
  "frame",
+ "frame-system",
  "kitchensink-runtime",
  "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collective",
  "pallet-default-config-example",
+ "pallet-democracy",
  "pallet-examples",
+ "pallet-multisig",
+ "pallet-proxy",
  "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-utility",
  "parity-scale-codec",
  "sc-cli",
  "sc-client-db",
@@ -13291,6 +13300,16 @@ dependencies = [
  "staging-parachain-info",
  "subkey",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "polkadot-sdk-docs-runtimes"
+version = "0.0.1"
+dependencies = [
+ "frame",
+ "parity-scale-codec",
+ "polkadot-sdk-docs",
+ "scale-info",
 ]
 
 [[package]]

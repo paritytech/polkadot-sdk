@@ -101,7 +101,7 @@
 //! * Before even getting started, what is with all of this `<T: Config>`? We link to
 //! [`crate::reference_docs::trait_based_programming`].
 //! * First, the name. Why is this called `pallet::call`? This goes back to `enum Call`, which is
-//! explained in [`crate::reference_docs::frame_composite_enums`]. Build on top of this!
+//! explained in [`crate::reference_docs::frame_runtime_types`]. Build on top of this!
 //! * Then, what is `origin`? Just an account id? [`crate::reference_docs::frame_origin`].
 //! * Then, what is `DispatchResult`? Why is this called *dispatch*? Probably something that can be
 //! explained in the documentation of [`frame::prelude::DispatchResult`].
