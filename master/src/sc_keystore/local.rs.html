@@ -830,6 +830,13 @@
 <a href="#830" id="830">830</a>
 <a href="#831" id="831">831</a>
 <a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -879,6 +886,13 @@
 
 <span class="kw">impl </span>LocalKeystore {
 	<span class="doccomment">/// Create a local keystore from filesystem.
+	///
+	/// The keystore will be created at `path`. The keystore optionally supports to encrypt/decrypt
+	/// the keys in the keystore using `password`.
+	///
+	/// NOTE: Even when passing a `password`, the keys on disk appear to look like normal secret
+	/// uris. However, without having the correct password the secret uri will not generate the
+	/// correct private key. See [`SecretUri`](sp_core::crypto::SecretUri) for more information.
 	</span><span class="kw">pub fn </span>open&lt;T: Into&lt;PathBuf&gt;&gt;(path: T, password: <span class="prelude-ty">Option</span>&lt;SecretString&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>inner = KeystoreInner::open(path, password)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(RwLock::new(inner)))

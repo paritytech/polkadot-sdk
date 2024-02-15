@@ -1522,6 +1522,8 @@
 <a href="#1522" id="1522">1522</a>
 <a href="#1523" id="1523">1523</a>
 <a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2296,6 +2298,8 @@
 /// Notably, integer junction indices may be legally prefixed with arbitrary number of zeros.
 /// Similarly an empty password (ending the `SURI` with `///`) is perfectly valid and will
 /// generally be equivalent to no password at all.
+///
+/// The `password` is used as salt when generating the seed from the BIP-39 key phrase.
 ///
 /// # Example
 ///
