@@ -60,7 +60,7 @@
 //! }
 //! ```
 //!
-//! Many junctions are available, parachains, pallets, 32 and 20 byte accounts, governance bodies,
+//! Many junctions are available; parachains, pallets, 32 and 20 byte accounts, governance bodies,
 //! and arbitrary indices are the most common.
 //! A full list of available junctions can be found in the [format](https://github.com/paritytech/xcm-format#interior-locations--junctions)
 //! and [Junction enum](xcm::v3::prelude::Junction).
