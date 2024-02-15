@@ -23,7 +23,7 @@
 //! It's the virtual machine that executes XCM programs.
 //! It is a specification that comes with the language.
 //!
-//! For this docs, we'll use a Rust implementation of XCM and the XCVM, consisting of the following
+//! For these docs, we'll use a Rust implementation of XCM and the XCVM, consisting of the following
 //! parts:
 //! - XCM: Holds the definition of an XCM program, the instructions and main concepts.
 //! - Executor: Implements the XCVM, capable of executing XCMs. Highly configurable.
