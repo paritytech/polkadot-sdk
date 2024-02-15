@@ -386,7 +386,7 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 			let engine_consumed_total =
 				store.fuel_consumed().expect("Fuel metering is enabled; qed");
 			let gas_meter = store.data_mut().ext().gas_meter_mut();
-			gas_meter.charge_fuel(engine_consumed_total)?;
+			let _ = gas_meter.sync_from_executor(engine_consumed_total)?;
 			store.into_data().to_execution_result(result)
 		};
 
