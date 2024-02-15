@@ -129,7 +129,7 @@ benchmarks! {
 			ValidationCode(vec![0]),
 			expired,
 			&config,
-			SetGoAhead::Yes,
+			EnactUpgradeDirectly::No,
 		);
 	}: _(RawOrigin::Root, para_id, new_head)
 	verify {

@@ -177,7 +177,7 @@ where
 				validation_code,
 				/* relay_parent_number */ 1u32.into(),
 				&configuration::Pallet::<T>::config(),
-				SetGoAhead::Yes,
+				EnactUpgradeDirectly::No,
 			);
 		} else {
 			let r = Pallet::<T>::schedule_para_initialize(

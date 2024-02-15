@@ -386,16 +386,19 @@ pub(crate) enum PvfCheckCause<BlockNumber> {
 		///
 		/// See https://github.com/paritytech/polkadot/issues/4601 for detailed explanation.
 		included_at: BlockNumber,
-		/// Whether or not the given para should be sent the `GoAhead` signal.
-		set_go_ahead: SetGoAhead,
+		/// Whether or not the upgrade should be enacted directly.
+		///
+		/// If set to `Yes` it means that no `GoAheadSignal` will be set and the parachain code
+		/// will also be overwritten directly.
+		enact_upgrade_directly: EnactUpgradeDirectly,
 	},
 }
 
-/// Should the `GoAhead` signal be set after a successful check of the new wasm binary?
+/// Should the upgrade of the validation code be enacted directly after the checks succeeded?
 #[derive(Debug, Copy, Clone, PartialEq, TypeInfo, Decode, Encode)]
-pub enum SetGoAhead {
-	Yes,
+pub enum EnactUpgradeDirectly {
 	No,
+	Yes,
 }
 
 impl<BlockNumber> PvfCheckCause<BlockNumber> {
@@ -880,21 +883,9 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let maybe_prior_code_hash = CurrentCodeHash::<T>::get(&para);
 			let new_code_hash = new_code.hash();
 			Self::increase_code_ref(&new_code_hash, &new_code);
-			CurrentCodeHash::<T>::insert(&para, new_code_hash);
-
-			let now = frame_system::Pallet::<T>::block_number();
-			if let Some(prior_code_hash) = maybe_prior_code_hash {
-				Self::note_past_code(para, now, now, prior_code_hash);
-			} else {
-				log::error!(
-					target: LOG_TARGET,
-					"Pallet paras storage is inconsistent, prior code not found {:?}",
-					&para
-				);
-			}
+			Self::set_current_code(para, new_code_hash, frame_system::Pallet::<T>::block_number());
 			Self::deposit_event(Event::CurrentCodeUpdated(para));
 			Ok(())
 		}
@@ -928,7 +919,7 @@ pub mod pallet {
 				new_code,
 				relay_parent_number,
 				&config,
-				SetGoAhead::No,
+				EnactUpgradeDirectly::Yes,
 			);
 			Self::deposit_event(Event::CodeUpgradeScheduled(para));
 			Ok(())
@@ -1227,7 +1218,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn schedule_code_upgrade_external(
 		id: ParaId,
 		new_code: ValidationCode,
-		set_go_ahead: SetGoAhead,
+		enact_upgrade_directly: EnactUpgradeDirectly,
 	) -> DispatchResult {
 		// Check that we can schedule an upgrade at all.
 		ensure!(Self::can_upgrade_validation_code(id), Error::<T>::CannotUpgradeCode);
@@ -1239,7 +1230,7 @@ impl<T: Config> Pallet<T> {
 		let current_block = frame_system::Pallet::<T>::block_number();
 		// Schedule the upgrade with a delay just like if a parachain triggered the upgrade.
 		let upgrade_block = current_block.saturating_add(config.validation_upgrade_delay);
-		Self::schedule_code_upgrade(id, new_code, upgrade_block, &config, set_go_ahead);
+		Self::schedule_code_upgrade(id, new_code, upgrade_block, &config, enact_upgrade_directly);
 		Self::deposit_event(Event::CodeUpgradeScheduled(id));
 		Ok(())
 	}
@@ -1580,14 +1571,14 @@ impl<T: Config> Pallet<T> {
 				PvfCheckCause::Onboarding(id) => {
 					weight += Self::proceed_with_onboarding(*id, sessions_observed);
 				},
-				PvfCheckCause::Upgrade { id, included_at, set_go_ahead } => {
+				PvfCheckCause::Upgrade { id, included_at, enact_upgrade_directly } => {
 					weight += Self::proceed_with_upgrade(
 						*id,
 						code_hash,
 						now,
 						*included_at,
 						cfg,
-						*set_go_ahead,
+						*enact_upgrade_directly,
 					);
 				},
 			}
@@ -1621,43 +1612,45 @@ impl<T: Config> Pallet<T> {
 		now: BlockNumberFor<T>,
 		relay_parent_number: BlockNumberFor<T>,
 		cfg: &configuration::HostConfiguration<BlockNumberFor<T>>,
-		set_go_ahead: SetGoAhead,
+		enact_upgrade_directly: EnactUpgradeDirectly,
 	) -> Weight {
 		let mut weight = Weight::zero();
 
-		// Compute the relay-chain block number starting at which the code upgrade is ready to be
-		// applied.
-		//
-		// The first parablock that has a relay-parent higher or at the same height of `expected_at`
-		// will trigger the code upgrade. The parablock that comes after that will be validated
-		// against the new validation code.
-		//
-		// Here we are trying to choose the block number that will have `validation_upgrade_delay`
-		// blocks from the relay-parent of inclusion of the the block that scheduled code upgrade
-		// but no less than `minimum_validation_upgrade_delay`. We want this delay out of caution
-		// so that when the last vote for pre-checking comes the parachain will have some time until
-		// the upgrade finally takes place.
-		let expected_at = cmp::max(
-			relay_parent_number + cfg.validation_upgrade_delay,
-			now + cfg.minimum_validation_upgrade_delay,
-		);
+		if enact_upgrade_directly == EnactUpgradeDirectly::Yes {
+			FutureCodeHash::<T>::remove(&id);
+			weight.saturating_add(Self::set_current_code(id, *code_hash, now));
+		} else {
+			// Compute the relay-chain block number starting at which the code upgrade is ready to
+			// be applied.
+			//
+			// The first parablock that has a relay-parent higher or at the same height of
+			// `expected_at` will trigger the code upgrade. The parablock that comes after that will
+			// be validated against the new validation code.
+			//
+			// Here we are trying to choose the block number that will have
+			// `validation_upgrade_delay` blocks from the relay-parent of inclusion of the the block
+			// that scheduled code upgrade but no less than `minimum_validation_upgrade_delay`. We
+			// want this delay out of caution so that when the last vote for pre-checking comes the
+			// parachain will have some time until the upgrade finally takes place.
+			let expected_at = cmp::max(
+				relay_parent_number + cfg.validation_upgrade_delay,
+				now + cfg.minimum_validation_upgrade_delay,
+			);
 
-		weight += T::DbWeight::get().reads_writes(1, 4);
-		FutureCodeUpgrades::<T>::insert(&id, expected_at);
+			weight += T::DbWeight::get().reads_writes(1, 4);
+			FutureCodeUpgrades::<T>::insert(&id, expected_at);
 
-		// Only set an upcoming upgrade if `GoAhead` signal should be set for the respective para.
-		if set_go_ahead == SetGoAhead::Yes {
 			UpcomingUpgrades::<T>::mutate(|upcoming_upgrades| {
 				let insert_idx = upcoming_upgrades
 					.binary_search_by_key(&expected_at, |&(_, b)| b)
 					.unwrap_or_else(|idx| idx);
 				upcoming_upgrades.insert(insert_idx, (id, expected_at));
 			});
-		}
 
-		let expected_at = expected_at.saturated_into();
-		let log = ConsensusLog::ParaScheduleUpgradeCode(id, *code_hash, expected_at);
-		<frame_system::Pallet<T>>::deposit_log(log.into());
+			let expected_at = expected_at.saturated_into();
+			let log = ConsensusLog::ParaScheduleUpgradeCode(id, *code_hash, expected_at);
+			<frame_system::Pallet<T>>::deposit_log(log.into());
+		}
 
 		weight
 	}
@@ -1892,7 +1885,7 @@ impl<T: Config> Pallet<T> {
 		new_code: ValidationCode,
 		inclusion_block_number: BlockNumberFor<T>,
 		cfg: &configuration::HostConfiguration<BlockNumberFor<T>>,
-		set_go_ahead: SetGoAhead,
+		enact_upgrade_directly: EnactUpgradeDirectly,
 	) -> Weight {
 		let mut weight = T::DbWeight::get().reads(1);
 
@@ -1949,7 +1942,11 @@ impl<T: Config> Pallet<T> {
 		});
 
 		weight += Self::kick_off_pvf_check(
-			PvfCheckCause::Upgrade { id, included_at: inclusion_block_number, set_go_ahead },
+			PvfCheckCause::Upgrade {
+				id,
+				included_at: inclusion_block_number,
+				enact_upgrade_directly,
+			},
 			code_hash,
 			new_code,
 			cfg,
@@ -2061,24 +2058,10 @@ impl<T: Config> Pallet<T> {
 					log::error!(target: LOG_TARGET, "Missing future code hash for {:?}", &id);
 					return T::DbWeight::get().reads_writes(3, 1 + 3)
 				};
-				let maybe_prior_code_hash = CurrentCodeHash::<T>::get(&id);
-				CurrentCodeHash::<T>::insert(&id, &new_code_hash);
 
-				let log = ConsensusLog::ParaUpgradeCode(id, new_code_hash);
-				<frame_system::Pallet<T>>::deposit_log(log.into());
+				let weight = Self::set_current_code(id, new_code_hash, expected_at);
 
-				// `now` is only used for registering pruning as part of `fn note_past_code`
-				let now = <frame_system::Pallet<T>>::block_number();
-
-				let weight = if let Some(prior_code_hash) = maybe_prior_code_hash {
-					Self::note_past_code(id, expected_at, now, prior_code_hash)
-				} else {
-					log::error!(target: LOG_TARGET, "Missing prior code hash for para {:?}", &id);
-					Weight::zero()
-				};
-
-				// add 1 to writes due to heads update.
-				weight + T::DbWeight::get().reads_writes(3, 1 + 3)
+				weight + T::DbWeight::get().reads_writes(3, 3)
 			} else {
 				T::DbWeight::get().reads_writes(1, 1 + 0)
 			}
@@ -2092,6 +2075,34 @@ impl<T: Config> Pallet<T> {
 		};
 
 		weight.saturating_add(T::OnNewHead::on_new_head(id, &new_head))
+	}
+
+	/// Set the current code for the given parachain.
+	// `at` for para-triggered replacement is the block number of the relay-chain
+	// block in whose context the parablock was executed
+	// (i.e. number of `relay_parent` in the receipt)
+	pub(crate) fn set_current_code(
+		id: ParaId,
+		new_code_hash: ValidationCodeHash,
+		at: BlockNumberFor<T>,
+	) -> Weight {
+		let maybe_prior_code_hash = CurrentCodeHash::<T>::get(&id);
+		CurrentCodeHash::<T>::insert(&id, &new_code_hash);
+
+		let log = ConsensusLog::ParaUpgradeCode(id, new_code_hash);
+		<frame_system::Pallet<T>>::deposit_log(log.into());
+
+		// `now` is only used for registering pruning as part of `fn note_past_code`
+		let now = <frame_system::Pallet<T>>::block_number();
+
+		let weight = if let Some(prior_code_hash) = maybe_prior_code_hash {
+			Self::note_past_code(id, at, now, prior_code_hash)
+		} else {
+			log::error!(target: LOG_TARGET, "Missing prior code hash for para {:?}", &id);
+			Weight::zero()
+		};
+
+		weight + T::DbWeight::get().writes(1)
 	}
 
 	/// Returns the list of PVFs (aka validation code) that require casting a vote by a validator in
