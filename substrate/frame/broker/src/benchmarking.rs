@@ -771,7 +771,7 @@ mod benches {
 		let core_count = n.try_into().unwrap();
 		let config = new_config_record::<T>();
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = <<<T as crate::Config>::Coretime as CoretimeInterface>::RealyChainBlockNumberProvider as BlockNumberProvider>::current_block_number();
 		let price = 10u32.into();
 		let commit_timeslice = Broker::<T>::latest_timeslice_ready_to_commit(&config);
 		let sale = SaleInfoRecordOf::<T> {
