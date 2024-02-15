@@ -1750,6 +1750,7 @@ mod benches {
 		[runtime_parachains::paras, Paras]
 		[runtime_parachains::paras_inherent, ParaInherent]
 		[runtime_parachains::assigner_on_demand, OnDemandAssignmentProvider]
+		[runtime_parachains::coretime, Coretime]
 		// Substrate
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
