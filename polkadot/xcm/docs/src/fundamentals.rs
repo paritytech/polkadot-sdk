@@ -108,7 +108,7 @@
 //!
 //! ## Instructions
 //!
-//! Given the vocabulary to talk about both locations, chains and accounts, and assets, we now need
+//! Given the vocabulary to talk about both locations -- chains and accounts -- and assets, we now need
 //! a way to express what we want the consensus system to do when executing our programs.
 //! We need a way of writing our programs.
 //!
