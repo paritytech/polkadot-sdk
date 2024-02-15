@@ -22,7 +22,7 @@ use std::{
 	collections::HashSet,
 	future::Future,
 	pin::Pin,
-	sync::{Arc, Mutex},
+	sync::Arc,
 	task::{Context, Poll},
 };
 
@@ -31,6 +31,7 @@ use jsonrpsee::{
 	types::{Params, Request},
 	MethodResponse,
 };
+use parking_lot::Mutex;
 use pin_project::pin_project;
 
 /// The per connectin data needed to manage chainHead subscriptions.
@@ -98,8 +99,6 @@ where
 
 		// Intercept the subscription ID returned by the `chainHead_follow` method.
 		if method_name == CHAIN_HEAD_FOLLOW {
-			println!("Calling chainHEDA method");
-
 			return ResponseFuture::Register {
 				fut: self.service.call(req.clone()),
 				connection_data: self.connection_data.clone(),
@@ -109,22 +108,11 @@ where
 		// Ensure the subscription ID of those methods corresponds to a subscription ID
 		// of this connection.
 		if CHAIN_HEAD_CALL_METHODS.contains(&method_name) {
-			println!("Calling other methods");
-
 			let params = req.params();
 			let follow_subscription = get_subscription_id(params);
-			println!("follow_subscription: {:?}", follow_subscription);
 
 			if let Some(follow_subscription) = follow_subscription {
-				if !self
-					.connection_data
-					.lock()
-					.unwrap()
-					.subscriptions
-					.contains(&follow_subscription)
-				{
-					log::debug!("{} called without a valid follow subscription", method_name);
-
+				if !self.connection_data.lock().subscriptions.contains(&follow_subscription) {
 					return ResponseFuture::Ready {
 						response: Some(MethodResponse::error(
 							req.id(),
@@ -239,8 +227,7 @@ impl<F: Future<Output = MethodResponse>> Future for ResponseFuture<F> {
 				let res = fut.poll(cx);
 				if let Poll::Ready(response) = &res {
 					if let Some(subscription_id) = get_method_result(response) {
-						println!("SSub id {:?}", subscription_id);
-						connection_data.lock().unwrap().subscriptions.insert(subscription_id);
+						connection_data.lock().subscriptions.insert(subscription_id);
 					}
 				}
 				res
