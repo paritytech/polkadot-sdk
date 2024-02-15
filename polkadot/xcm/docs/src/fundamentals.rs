@@ -1,7 +1,7 @@
 //! # XCM Fundamentals
 //!
-//! XCM standardizes usual actions users take in consensus systems.
-//! For example, dealing with assets locally, on other chains, and locking them.
+//! XCM standardizes usual actions users take in consensus systems, for example
+//! dealing with assets locally, on other chains, and locking them.
 //! XCM programs can both be executed locally or sent to a different consensus system.
 //! Examples of consensus systems are blockchains and smart contracts.
 //!
