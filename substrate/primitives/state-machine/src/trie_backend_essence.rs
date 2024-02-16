@@ -206,9 +206,7 @@ pub struct TrieBackendEssence<H: Hasher, C, R> {
 	#[cfg(feature = "std")]
 	pub(crate) cache: RwLock<Cache<H::Out>>,
 	pub(crate) trie_node_cache: Option<C>,
-	pub(crate) recorder: RwLock<Option<R>>, /* TODO how to lift this RwLock (at least make it
-	                                         * refcell
-	                                         * for no_std */
+	pub(crate) recorder: R,
 }
 
 impl<H, C, R> TrieBackendEssence<H, C, R>
@@ -230,7 +228,7 @@ where
 			#[cfg(feature = "std")]
 			cache: RwLock::new(Cache::new()),
 			trie_node_cache: cache,
-			recorder: RwLock::new(None),
+			recorder: None.into(),
 		}
 	}
 
@@ -248,7 +246,7 @@ where
 			#[cfg(feature = "std")]
 			cache: RwLock::new(Cache::new()),
 			trie_node_cache: cache,
-			recorder: RwLock::new(recorder),
+			recorder: recorder.into(),
 		}
 	}
 
@@ -274,12 +272,12 @@ where
 
 	/// Set recorder. Returns old recorder if any.
 	#[cfg(feature = "std")]
-	pub fn set_recorder(&self, recorder: Option<R>) -> Option<R> {
+	pub fn set_recorder(&self, recorder: Option<R>) -> R {
 		if recorder.is_some() {
 			// TODO try without reset.
 			self.reset_cache();
 		}
-		core::mem::replace(&mut *self.recorder.write(), recorder)
+		self.recorder.set_recorder(recorder.into())
 	}
 
 	#[cfg(feature = "std")]
@@ -313,8 +311,7 @@ where
 		let mut cache = self.trie_node_cache.as_ref().map(|c| c.as_trie_db_cache(storage_root));
 		let cache = cache.as_mut().map(|c| c as _);
 
-		let recorder = self.recorder.read();
-		let mut recorder = recorder.as_ref().map(|r| r.as_trie_recorder(storage_root));
+		let mut recorder = self.recorder.as_trie_recorder(storage_root);
 		let recorder = match recorder.as_mut() {
 			Some(recorder) => Some(recorder as &mut dyn TrieRecorder<H::Out, DBLocation>),
 			None => None,
@@ -338,8 +335,7 @@ where
 		) -> (Option<H::Out>, RE),
 	) -> RE {
 		let storage_root = storage_root.unwrap_or_else(|| self.root);
-		let recorder = self.recorder.read();
-		let mut recorder = recorder.as_ref().map(|r| r.as_trie_recorder(storage_root));
+		let mut recorder = self.recorder.as_trie_recorder(storage_root);
 		let recorder = match recorder.as_mut() {
 			Some(recorder) => Some(recorder as &mut dyn TrieRecorder<H::Out, DBLocation>),
 			None => None,

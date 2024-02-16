@@ -176,7 +176,10 @@ pub type DBLocation = ();
 ///
 /// Types implementing this trait can be used to maintain recorded state
 /// across operations on different [`trie_db::TrieDB`] instances.
-pub trait TrieRecorderProvider<H: Hasher, L: Location>: Default {
+///
+/// Default value is an active recorder.
+/// Recorder can be inactive when initiated from `None`.
+pub trait TrieRecorderProvider<H: Hasher, L: Location>: Default + From<Option<Self>> {
 	/// Recorder type that is going to be returned by implementors of this trait.
 	type Recorder<'a>: trie_db::TrieRecorder<H::Out, L> + 'a
 	where
@@ -185,8 +188,12 @@ pub trait TrieRecorderProvider<H: Hasher, L: Location>: Default {
 	/// Create a [`StorageProof`] derived from the internal state.
 	fn drain_storage_proof(&self) -> Option<StorageProof>;
 
-	/// Provide a recorder implementing [`trie_db::TrieRecorder`].
-	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_>;
+	/// Provide a recorder implementing [`trie_db::TrieRecorder`] if active.
+	fn as_trie_recorder(&self, storage_root: H::Out) -> Option<Self::Recorder<'_>>;
+
+	/// Replace recorder content, possibly unactivating it.
+	/// Return old recorder.
+	fn set_recorder(&self, r: Self) -> Self;
 }
 
 /// Type that is able to provide a proof size estimation.

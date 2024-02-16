@@ -23,8 +23,7 @@ use cumulus_primitives_core::{
 use scale_info::TypeInfo;
 use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
-use sp_std::vec::Vec;
-use sp_std::boxed::Box;
+use sp_std::{boxed::Box, vec::Vec};
 use sp_trie::{StorageProof, EMPTY_PREFIX};
 
 /// The capacity of the upward message queue of a parachain on the relay chain.
