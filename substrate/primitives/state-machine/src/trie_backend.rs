@@ -175,8 +175,8 @@ pub struct UnimplementedRecorderProvider<H> {
 }
 
 #[cfg(not(feature = "std"))]
-impl<H: Hasher> trie_db::TrieRecorder<H::Out> for UnimplementedRecorderProvider<H> {
-	fn record<'a>(&mut self, _access: trie_db::TrieAccess<'a, H::Out>) {
+impl<H: Hasher> trie_db::TrieRecorder<H::Out, DBLocation> for UnimplementedRecorderProvider<H> {
+	fn record<'a>(&mut self, _access: trie_db::TrieAccess<'a, H::Out, DBLocation>) {
 		unimplemented!()
 	}
 
@@ -186,15 +186,22 @@ impl<H: Hasher> trie_db::TrieRecorder<H::Out> for UnimplementedRecorderProvider<
 }
 
 #[cfg(not(feature = "std"))]
-impl<H: Hasher> TrieRecorderProvider<H> for UnimplementedRecorderProvider<H> {
+impl<H: Hasher> TrieRecorderProvider<H, DBLocation> for UnimplementedRecorderProvider<H> {
 	type Recorder<'a> = UnimplementedRecorderProvider<H> where H: 'a;
 
-	fn drain_storage_proof(self) -> Option<StorageProof> {
+	fn drain_storage_proof(&self) -> Option<StorageProof> {
 		unimplemented!()
 	}
 
 	fn as_trie_recorder(&self, _storage_root: H::Out) -> Self::Recorder<'_> {
 		unimplemented!()
+	}
+}
+
+#[cfg(not(feature = "std"))]
+impl<H: Hasher> Default for UnimplementedRecorderProvider<H> {
+	fn default() -> Self {
+UnimplementedRecorderProvider { _phantom: core::marker::PhantomData }
 	}
 }
 
@@ -435,7 +442,12 @@ where
 	///
 	/// This only returns `Some` when there was a recorder set.
 	pub fn extract_proof(&self) -> Option<StorageProof> {
-		self.essence.recorder.write().take().and_then(|r| r.drain_storage_proof())
+
+		#[cfg(feature = "std")]
+		let r = &mut *self.essence.recorder.write();
+		#[cfg(not(feature = "std"))]
+		let r = &mut *self.essence.recorder.borrow_mut();
+		r.take().and_then(|r| r.drain_storage_proof())
 	}
 }
 

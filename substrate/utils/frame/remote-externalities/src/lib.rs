@@ -68,7 +68,7 @@ struct Snapshot<B: BlockT> {
 	state_version: StateVersion,
 	block_hash: B::Hash,
 	// <Vec<Key, (Value, MemoryDbRefCount)>>
-	raw_storage: Vec<(B::Hash, (Vec<u8>, i32))>,
+	raw_storage: Vec<(Vec<u8>, (Vec<u8>, i32))>,
 	storage_root: B::Hash,
 }
 
@@ -76,7 +76,7 @@ impl<B: BlockT> Snapshot<B> {
 	pub fn new(
 		state_version: StateVersion,
 		block_hash: B::Hash,
-		raw_storage: Vec<(B::Hash, (Vec<u8>, i32))>,
+		raw_storage: Vec<(Vec<u8>, (Vec<u8>, i32))>,
 		storage_root: B::Hash,
 	) -> Self {
 		Self {

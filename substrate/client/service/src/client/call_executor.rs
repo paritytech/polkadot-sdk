@@ -221,7 +221,7 @@ where
 		match recorder {
 			Some(recorder) => {
 				let backend = state.as_trie_backend();
-				let backend = backend.with_recorder(recorder.clone());
+				let backend = backend.with_temp_recorder(recorder.clone());
 				let mut state_machine = StateMachine::new(
 					&*backend,
 					changes,
