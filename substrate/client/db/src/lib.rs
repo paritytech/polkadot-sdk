@@ -2109,9 +2109,10 @@ impl<Block: BlockT> Backend<Block> {
 
 	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
 		let root = EmptyStorage::<Block>::new().0; // Empty trie
-		let db_state = DbStateBuilder::<HashingFor<Block>>::new(Box::new(self.storage.clone()), root)
-			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
-			.build();
+		let db_state =
+			DbStateBuilder::<HashingFor<Block>>::new(Box::new(self.storage.clone()), root)
+				.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
+				.build();
 		let state = RefTrackingState::new(db_state, self.storage.clone(), None);
 		RecordStatsState::new(state, None, self.state_usage.clone())
 	}
@@ -2600,9 +2601,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if hash == self.blockchain.meta.read().genesis_hash {
 			if let Some(genesis_state) = &*self.genesis_state.read() {
 				let root = genesis_state.root;
-				let db_state = DbStateBuilder::<HashingFor<Block>>::new(Box::new(genesis_state.clone()), root)
-					.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
-					.build();
+				let db_state =
+					DbStateBuilder::<HashingFor<Block>>::new(Box::new(genesis_state.clone()), root)
+						.with_optional_cache(
+							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
+						)
+						.build();
 
 				let state = RefTrackingState::new(db_state, self.storage.clone(), None);
 				return Ok(RecordStatsState::new(state, None, self.state_usage.clone()))
@@ -2618,12 +2622,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
 					}) {
 					let root = hdr.state_root;
-					let db_state =
-						DbStateBuilder::<HashingFor<Block>>::new(Box::new(self.storage.clone()), root)
-							.with_optional_cache(
-								self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-							)
-							.build();
+					let db_state = DbStateBuilder::<HashingFor<Block>>::new(
+						Box::new(self.storage.clone()),
+						root,
+					)
+					.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
+					.build();
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
 				} else {

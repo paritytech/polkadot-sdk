@@ -19,8 +19,6 @@
 //! State backend that's useful for benchmarking
 
 use crate::{DbState, DbStateBuilder};
-use trie_db::{Hasher as DbHasher, Prefix};
-use kvdb::{DBTransaction, KeyValueDB};
 use linked_hash_map::LinkedHashMap;
 use parking_lot::Mutex;
 use sp_core::{
@@ -61,11 +59,11 @@ struct KeyTracker {
 pub struct BenchmarkingState<Hasher: Hash> {
 	root: Cell<Hasher::Output>,
 	genesis_root: Hasher::Output,
-	genesis: MemoryDB<HashingFor<B>>,
+	genesis: MemoryDB<Hasher>,
 	state: RefCell<Option<State<Hasher>>>,
 	key_tracker: Arc<Mutex<KeyTracker>>,
 	whitelist: RefCell<Vec<TrackedStorageKey>>,
-	proof_recorder: Option<sp_trie::recorder::Recorder<Hasher>>,
+	proof_recorder: Option<sp_trie::recorder::Recorder<Hasher, DBLocation>>,
 	proof_recorder_root: Cell<Hasher::Output>,
 	shared_trie_cache: SharedTrieCache<Hasher, DBLocation>,
 }
@@ -143,7 +141,8 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 
 		state.add_whitelist_to_tracker();
 
-		*state.state.borrow_mut() = Some(DbStateBuilder::<B>::new(Box::new(mdb), root).build());
+		*state.state.borrow_mut() =
+			Some(DbStateBuilder::<Hasher>::new(Box::new(mdb), root).build());
 
 		let child_delta = genesis.children_default.values().map(|child_content| {
 			(
@@ -169,7 +168,7 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 		self.root.set(self.genesis_root);
 		let db = Box::new(self.genesis.clone());
 		*self.state.borrow_mut() = Some(
-			DbStateBuilder::<B>::new(db, self.root.get())
+			DbStateBuilder::<Hasher>::new(db, self.root.get())
 				.with_optional_recorder(self.proof_recorder.clone())
 				.with_cache(self.shared_trie_cache.local_cache())
 				.build(),
@@ -414,9 +413,9 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<Hasher::Out>>)>,
 		state_version: StateVersion,
-	) -> TrieCommit<Hasher> {
+	) -> TrieCommit<Hasher::Out> {
 		self.state
 			.borrow()
 			.as_ref()
@@ -430,7 +429,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (TrieCommit<Hasher>, bool) {
+	) -> (TrieCommit<Hasher::Out>, bool) {
 		self.state.borrow().as_ref().map_or_else(
 			|| (TrieCommit::unchanged(self.genesis_root), true),
 			|s| s.child_storage_root(child_info, delta, state_version),
@@ -454,7 +453,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 
 	fn commit(
 		&self,
-		transaction: TrieCommit<Hasher>,
+		transaction: TrieCommit<Hasher::Out>,
 		main_storage_changes: StorageCollection,
 		child_storage_changes: ChildStorageCollection,
 	) -> Result<(), Self::Error> {
