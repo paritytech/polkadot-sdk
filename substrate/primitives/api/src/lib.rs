@@ -124,6 +124,7 @@ pub use sp_runtime::TransactionOutcome;
 pub use sp_state_machine::StorageProof;
 #[cfg(feature = "std")]
 use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
+use sp_trie::DBLocation;
 use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;
@@ -515,7 +516,7 @@ pub use sp_api_proc_macro::mock_impl_runtime_apis;
 
 /// A type that records all accessed trie nodes and generates a proof out of it.
 #[cfg(feature = "std")]
-pub type ProofRecorder<B> = sp_trie::recorder::Recorder<HashingFor<B>>;
+pub type ProofRecorder<B> = sp_trie::recorder::Recorder<HashingFor<B>, DBLocation>;
 
 #[cfg(feature = "std")]
 pub type StorageChanges<Block> = sp_state_machine::StorageChanges<HashingFor<Block>>;
