@@ -20,7 +20,9 @@ use crate::{error::Error as CliError, Result, Signals, SubstrateCli};
 use chrono::prelude::*;
 use futures::{future::FutureExt, Future};
 use log::info;
-use sc_service::{Configuration, Error as ServiceError, TaskManager};
+use sc_service::{
+	config::RpcBatchRequestConfig, Configuration, Error as ServiceError, TaskManager,
+};
 use sc_utils::metrics::{TOKIO_THREADS_ALIVE, TOKIO_THREADS_TOTAL};
 use std::{marker::PhantomData, time::Duration};
 
@@ -271,6 +273,7 @@ mod tests {
 				rpc_max_subs_per_conn: Default::default(),
 				rpc_message_buffer_capacity: Default::default(),
 				rpc_port: 9944,
+				rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 				prometheus_config: None,
 				telemetry_endpoints: None,
 				default_heap_pages: None,
