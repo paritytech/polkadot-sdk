@@ -26,6 +26,9 @@ frame-system = { default-features = false, path = "../../system" }
 
 log = { version = "0.4.17", default-features = false }
 
+# Optional imports for benchmarking
+frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
+
 [dev-dependencies]
 sp-std = { default-features = false, path = "../../../primitives/std" }
 sp-core = { default-features = false, path = "../../../primitives/core" }
@@ -34,12 +37,14 @@ sp-runtime = { default-features = false, path = "../../../primitives/runtime", f
 sp-tracing = { default-features = false, path = "../../../primitives/tracing" }
 pallet-bags-list = { default-features = false, path = "../../bags-list", features = ["try-runtime"] }
 pallet-balances = { default-features = false, path = "../../balances" }
+frame-benchmarking = { path = "../../benchmarking" }
 
 [features]
 default = ["std"]
 
 std = [
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -58,6 +63,7 @@ std = [
 ]
 
 runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",

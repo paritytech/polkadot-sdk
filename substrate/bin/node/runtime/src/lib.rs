@@ -2408,6 +2408,7 @@ mod benches {
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_society, Society]
 		[pallet_staking, Staking]
+		[pallet_stake_tracker, StakeTracker]
 		[pallet_state_trie_migration, StateTrieMigration]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::<Runtime>]

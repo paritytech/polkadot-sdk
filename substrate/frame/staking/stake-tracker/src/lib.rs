@@ -89,8 +89,10 @@ use sp_staking::{
 };
 use sp_std::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
-#[cfg(test)]
-mod mock;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
 
