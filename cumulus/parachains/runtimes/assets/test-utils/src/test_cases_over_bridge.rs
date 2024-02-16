@@ -71,7 +71,8 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ cumulus_pallet_xcmp_queue::Config,
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,
@@ -347,7 +348,8 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
 		+ pallet_assets::Config<ForeignAssetsPalletInstance>
-		+ pallet_asset_conversion::Config,
+		+ pallet_asset_conversion::Config
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]> + From<[u8; 32]>,
@@ -602,7 +604,8 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_xcm_bridge_hub_router::Config<XcmBridgeHubRouterInstance>,
+		+ pallet_xcm_bridge_hub_router::Config<XcmBridgeHubRouterInstance>
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,

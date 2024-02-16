@@ -25,6 +25,7 @@ sp-std = { path = "../../../../../substrate/primitives/std", default-features = 
 sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
+pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 
 # Cumulus
 asset-test-utils = { path = "../../assets/test-utils" }
@@ -73,6 +74,7 @@ std = [
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
 	"pallet-bridge-relayers/std",
+	"pallet-timestamp/std",
 	"pallet-utility/std",
 	"parachains-common/std",
 	"parachains-runtimes-test-utils/std",
