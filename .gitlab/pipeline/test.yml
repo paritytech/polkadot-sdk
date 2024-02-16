@@ -494,7 +494,7 @@ test-syscalls:
       fi
   allow_failure: false # this rarely triggers in practice
 
-subsystem-bench:
+subsystem-regression-tests:
   stage: test
   extends:
     - .docker-env
