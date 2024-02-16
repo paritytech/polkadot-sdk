@@ -230,15 +230,23 @@ impl CandidateVoteState<CandidateVotes> {
 	}
 
 	/// Create a new `CandidateVoteState` from already existing votes.
-	pub fn new(votes: CandidateVotes, env: &CandidateEnvironment, now: Timestamp) -> Self {
+	pub fn new(
+		votes: CandidateVotes,
+		env: &CandidateEnvironment,
+		now: Timestamp,
+		mut is_disabled: impl FnMut(&ValidatorIndex) -> bool,
+	) -> Self {
 		let own_vote = OwnVoteState::new(&votes, env);
 
 		let n_validators = env.validators().len();
 
 		let supermajority_threshold = polkadot_primitives::supermajority_threshold(n_validators);
 
-		// We have a dispute, if we have votes on both sides:
-		let is_disputed = !votes.invalid.is_empty() && !votes.valid.raw().is_empty();
+		// We have a dispute, if we have votes on both sides, with at least one invalid vote
+		// from non-disabled validator.
+		let has_non_disabled_invalid_votes =
+			votes.invalid.keys().filter(|i| !is_disabled(i)).next().is_some();
+		let is_disputed = has_non_disabled_invalid_votes && !votes.valid.raw().is_empty();
 
 		let (dispute_status, byzantine_threshold_against) = if is_disputed {
 			let mut status = DisputeStatus::active();
@@ -272,6 +280,7 @@ impl CandidateVoteState<CandidateVotes> {
 		env: &CandidateEnvironment,
 		statements: Vec<(SignedDisputeStatement, ValidatorIndex)>,
 		now: Timestamp,
+		is_disabled: impl FnMut(&ValidatorIndex) -> bool,
 	) -> ImportResult {
 		let (mut votes, old_state) = self.into_old_state();
 
@@ -344,7 +353,7 @@ impl CandidateVoteState<CandidateVotes> {
 			}
 		}
 
-		let new_state = Self::new(votes, env, now);
+		let new_state = Self::new(votes, env, now, is_disabled);
 
 		ImportResult {
 			old_state,
@@ -540,6 +549,7 @@ impl ImportResult {
 		env: &CandidateEnvironment,
 		approval_votes: HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>,
 		now: Timestamp,
+		is_disabled: impl FnMut(&ValidatorIndex) -> bool,
 	) -> Self {
 		let Self {
 			old_state,
@@ -584,7 +594,7 @@ impl ImportResult {
 			}
 		}
 
-		let new_state = CandidateVoteState::new(votes, env, now);
+		let new_state = CandidateVoteState::new(votes, env, now, is_disabled);
 
 		Self {
 			old_state,

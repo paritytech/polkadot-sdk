@@ -986,6 +986,29 @@ impl Initialized {
 		};
 
 		let n_validators = env.validators().len();
+		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
+		// combine on-chain with off-chain disabled validators
+		// process disabled validators in the following order:
+		// - on-chain disabled validators
+		// - prioritized order of off-chain disabled validators
+		// deduplicate the list and take at most `byzantine_threshold` validators
+		let disabled_validators = {
+			let mut d: HashSet<ValidatorIndex> = HashSet::new();
+			for v in env
+				.disabled_indices()
+				.iter()
+				.cloned()
+				.chain(self.offchain_disabled_validators.iter(session))
+			{
+				if d.len() == byzantine_threshold {
+					break
+				}
+				d.insert(v);
+			}
+			d
+		};
+
+		let is_disabled = |v: &ValidatorIndex| disabled_validators.contains(v);
 
 		gum::trace!(
 			target: LOG_TARGET,
@@ -1004,7 +1027,7 @@ impl Initialized {
 		// us from seeing the backing votes by withholding arbitrary blocks, and hence we do
 		// not have a `CandidateReceipt` available.
 		let old_state = match votes_in_db.map(CandidateVotes::from) {
-			Some(votes) => CandidateVoteState::new(votes, &env, now),
+			Some(votes) => CandidateVoteState::new(votes, &env, now, is_disabled),
 			None =>
 				if let MaybeCandidateReceipt::Provides(candidate_receipt) = candidate_receipt {
 					CandidateVoteState::new_from_receipt(candidate_receipt)
@@ -1032,7 +1055,8 @@ impl Initialized {
 			.collect::<Vec<_>>();
 
 		let import_result = {
-			let intermediate_result = old_state.import_statements(&env, statements, now);
+			let intermediate_result =
+				old_state.import_statements(&env, statements, now, is_disabled);
 
 			// Handle approval vote import:
 			//
@@ -1075,7 +1099,7 @@ impl Initialized {
 							count = votes.len(),
 							"Successfully received approval votes."
 						);
-						intermediate_result.import_approval_votes(&env, votes, now)
+						intermediate_result.import_approval_votes(&env, votes, now, is_disabled)
 					},
 				}
 			} else {
@@ -1099,36 +1123,13 @@ impl Initialized {
 
 		let new_state = import_result.new_state();
 
-		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
-		// combine on-chain with off-chain disabled validators
-		// process disabled validators in the following order:
-		// - on-chain disabled validators
-		// - prioritized order of off-chain disabled validators
-		// deduplicate the list and take at most `byzantine_threshold` validators
-		let disabled_validators = {
-			let mut d: HashSet<ValidatorIndex> = HashSet::new();
-			for v in env
-				.disabled_indices()
-				.iter()
-				.cloned()
-				.chain(self.offchain_disabled_validators.iter(session))
-			{
-				if d.len() == byzantine_threshold {
-					break
-				}
-				d.insert(v);
-			}
-			d
-		};
-
 		let is_included = self.scraper.is_candidate_included(&candidate_hash);
 		let is_backed = self.scraper.is_candidate_backed(&candidate_hash);
 		let own_vote_missing = new_state.own_vote_missing();
 		let is_disputed = new_state.is_disputed();
 		let is_confirmed = new_state.is_confirmed();
-		let potential_spam = is_potential_spam(&self.scraper, &new_state, &candidate_hash, |v| {
-			disabled_validators.contains(v)
-		});
+		let potential_spam =
+			is_potential_spam(&self.scraper, &new_state, &candidate_hash, is_disabled);
 		let allow_participation = !potential_spam;
 
 		gum::trace!(

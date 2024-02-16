@@ -369,11 +369,11 @@ impl DisputeCoordinatorSubsystem {
 						continue
 					},
 				};
-			let vote_state = CandidateVoteState::new(votes, &env, now);
 			let onchain_disabled = env.disabled_indices();
-			let potential_spam = is_potential_spam(&scraper, &vote_state, candidate_hash, |v| {
-				onchain_disabled.contains(v)
-			});
+			let is_disabled = |v: &ValidatorIndex| onchain_disabled.contains(v);
+			let vote_state = CandidateVoteState::new(votes, &env, now, is_disabled);
+			let potential_spam =
+				is_potential_spam(&scraper, &vote_state, candidate_hash, is_disabled);
 			let is_included =
 				scraper.is_candidate_included(&vote_state.votes().candidate_receipt.hash());
 
