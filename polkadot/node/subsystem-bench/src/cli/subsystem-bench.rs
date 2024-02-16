@@ -74,7 +74,7 @@ pub struct TestSequence {
 
 impl TestSequence {
 	fn into_vec(self) -> Vec<CliTestConfiguration> {
-		self.test_configuration
+		self.test_configurations
 	}
 
 	fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
