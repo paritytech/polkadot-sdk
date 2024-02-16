@@ -9,9 +9,6 @@ dir = "target/nextest"
 # This section defines the default nextest profile. Custom profiles are layered
 # on top of the default profile.
 [profile.default]
-# Skip subsystems regression benchmarks
-filter = 'not deps(/polkadot-subsystem-bench/)'
-
 # "retries" defines the number of times a test should be retried. If set to a
 # non-zero value, tests that succeed on a subsequent attempt will be marked as
 # non-flaky. Can be overridden through the `--retries` option.

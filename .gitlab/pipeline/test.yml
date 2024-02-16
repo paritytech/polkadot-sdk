@@ -25,6 +25,7 @@ test-linux-stable:
     # "upgrade_version_checks_should_work" is currently failing
     - |
       time cargo nextest run \
+        --filter-expr 'not deps(/polkadot-subsystem-bench/)' \
         --workspace \
         --locked \
         --release \
