@@ -47,6 +47,9 @@ pub enum DisputeStatus {
 	/// we have seen the candidate included already/participated successfully ourselves).
 	#[codec(index = 3)]
 	Confirmed,
+	/// The dispute is not confirmed and potentially a spam.
+	#[codec(index = 4)]
+	PotentialSpam,
 }
 
 impl DisputeStatus {
@@ -55,36 +58,43 @@ impl DisputeStatus {
 		DisputeStatus::Active
 	}
 
+	/// Initialize the status to the potentially spam state.
+	pub fn potential_spam() -> DisputeStatus {
+		DisputeStatus::PotentialSpam
+	}
+
 	/// Move status to confirmed status, if not yet concluded/confirmed already.
 	pub fn confirm(self) -> DisputeStatus {
 		match self {
 			DisputeStatus::Active => DisputeStatus::Confirmed,
 			DisputeStatus::Confirmed => DisputeStatus::Confirmed,
+			DisputeStatus::PotentialSpam => DisputeStatus::Confirmed,
 			DisputeStatus::ConcludedFor(_) | DisputeStatus::ConcludedAgainst(_) => self,
 		}
 	}
 
-	/// Check whether the dispute is not a spam dispute.
+	/// Check whether the dispute has been confirmed or concluded.
 	pub fn is_confirmed_concluded(&self) -> bool {
 		match self {
-			&DisputeStatus::Confirmed |
-			&DisputeStatus::ConcludedFor(_) |
+			DisputeStatus::Confirmed |
+			DisputeStatus::ConcludedFor(_) |
 			DisputeStatus::ConcludedAgainst(_) => true,
-			&DisputeStatus::Active => false,
+			DisputeStatus::Active => false,
+			DisputeStatus::PotentialSpam => false,
 		}
 	}
 
 	/// Concluded valid?
 	pub fn has_concluded_for(&self) -> bool {
 		match self {
-			&DisputeStatus::ConcludedFor(_) => true,
+			DisputeStatus::ConcludedFor(_) => true,
 			_ => false,
 		}
 	}
 	/// Concluded invalid?
 	pub fn has_concluded_against(&self) -> bool {
 		match self {
-			&DisputeStatus::ConcludedAgainst(_) => true,
+			DisputeStatus::ConcludedAgainst(_) => true,
 			_ => false,
 		}
 	}
@@ -93,7 +103,8 @@ impl DisputeStatus {
 	/// candidate. This may be a no-op if the status was already concluded.
 	pub fn conclude_for(self, now: Timestamp) -> DisputeStatus {
 		match self {
-			DisputeStatus::Active | DisputeStatus::Confirmed => DisputeStatus::ConcludedFor(now),
+			DisputeStatus::Active | DisputeStatus::Confirmed | DisputeStatus::PotentialSpam =>
+				DisputeStatus::ConcludedFor(now),
 			DisputeStatus::ConcludedFor(at) => DisputeStatus::ConcludedFor(std::cmp::min(at, now)),
 			against => against,
 		}
@@ -103,7 +114,7 @@ impl DisputeStatus {
 	/// candidate. This may be a no-op if the status was already concluded.
 	pub fn conclude_against(self, now: Timestamp) -> DisputeStatus {
 		match self {
-			DisputeStatus::Active | DisputeStatus::Confirmed =>
+			DisputeStatus::Active | DisputeStatus::Confirmed | DisputeStatus::PotentialSpam =>
 				DisputeStatus::ConcludedAgainst(now),
 			DisputeStatus::ConcludedFor(at) =>
 				DisputeStatus::ConcludedAgainst(std::cmp::min(at, now)),
@@ -116,16 +127,25 @@ impl DisputeStatus {
 	pub fn is_possibly_invalid(&self) -> bool {
 		match self {
 			DisputeStatus::Active |
+			DisputeStatus::PotentialSpam |
 			DisputeStatus::Confirmed |
 			DisputeStatus::ConcludedAgainst(_) => true,
 			DisputeStatus::ConcludedFor(_) => false,
 		}
 	}
 
+	/// Whether the disputed candidate is potential spam.
+	pub fn is_potential_spam(&self) -> bool {
+		match self {
+			DisputeStatus::PotentialSpam => true,
+			_ => false,
+		}
+	}
+
 	/// Yields the timestamp this dispute concluded at, if any.
 	pub fn concluded_at(&self) -> Option<Timestamp> {
 		match self {
-			DisputeStatus::Active | DisputeStatus::Confirmed => None,
+			DisputeStatus::Active | DisputeStatus::Confirmed | DisputeStatus::PotentialSpam => None,
 			DisputeStatus::ConcludedFor(at) | DisputeStatus::ConcludedAgainst(at) => Some(*at),
 		}
 	}
