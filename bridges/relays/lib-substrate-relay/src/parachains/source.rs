@@ -120,9 +120,14 @@ where
 					// `max_header_id` is not set. There is no limit.
 					AvailableHeader::Available(on_chain_para_head_id)
 				},
-				AvailableHeader::Available(max_head_id) => {
+				AvailableHeader::Available(max_head_id) if on_chain_para_head_id >= max_head_id => {
 					// We report at most `max_header_id`.
 					AvailableHeader::Available(std::cmp::min(on_chain_para_head_id, max_head_id))
+				},
+				AvailableHeader::Available(_) => {
+					// the `max_head_id` is not yet available at the source chain => wait and avoid
+					// syncing extra headers
+					AvailableHeader::Unavailable
 				},
 			}
 		}
