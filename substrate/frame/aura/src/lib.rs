@@ -168,7 +168,6 @@ pub mod pallet {
 
 	/// The current authority set.
 	#[pallet::storage]
-	#[pallet::getter(fn authorities)]
 	pub(super) type Authorities<T: Config> =
 		StorageValue<_, BoundedVec<T::AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
@@ -176,7 +175,6 @@ pub mod pallet {
 	///
 	/// This will be set in `on_initialize`.
 	#[pallet::storage]
-	#[pallet::getter(fn current_slot)]
 	pub(super) type CurrentSlot<T: Config> = StorageValue<_, Slot, ValueQuery>;
 
 	#[pallet::genesis_config]
@@ -204,7 +202,7 @@ impl<T: Config> Pallet<T> {
 		if new.is_empty() {
 			log::warn!(target: LOG_TARGET, "Ignoring empty authority change.");
 
-			return
+			return;
 		}
 
 		<Authorities<T>>::put(&new);
@@ -241,7 +239,7 @@ impl<T: Config> Pallet<T> {
 		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
 		for (id, mut data) in pre_runtime_digests {
 			if id == AURA_ENGINE_ID {
-				return Slot::decode(&mut data).ok()
+				return Slot::decode(&mut data).ok();
 			}
 		}
 
@@ -311,6 +309,48 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+
+	/// Returns the current set of Aura authorities.
+	///
+	/// This function retrieves the current set of authorities responsible for producing blocks in
+	/// the Aura consensus mechanism. The authorities are returned as a `BoundedVec` to ensure the
+	/// collection does not exceed a predefined maximum size, which is specified by
+	/// the `MaxAuthorities` trait bound.
+	///
+	/// # Returns
+	///
+	/// A `BoundedVec` containing the current set of Aura authorities. The type of each authority
+	/// is defined by `T::AuthorityId`, which is associated with the specific implementation of the
+	/// Aura consensus in the pallet.
+	///
+	/// # Deprecation note
+	///
+	/// This function will be deprecated in future releases. It is recommended not to use it in new
+	/// developments.
+	pub fn authorities() -> BoundedVec<T::AuthorityId, T::MaxAuthorities> {
+		<Authorities<T> as frame_support::storage::StorageValue<
+			BoundedVec<T::AuthorityId, T::MaxAuthorities>,
+		>>::get()
+	}
+
+	/// Returns the current slot number in the Aura consensus mechanism.
+	///
+	/// This function fetches the current slot number, which represents a fixed period of time
+	/// during which an authority is expected to produce a block. The slot number is essential
+	/// for the functioning of the Aura consensus, as it dictates the rotation of block production
+	/// responsibilities among the authorities.
+	///
+	/// # Returns
+	///
+	/// A value of type `Slot`, representing the current slot number in the Aura consensus mechanism.
+	///
+	/// # Deprecation note
+	///
+	/// This function will be deprecated in future releases. It is recommended not to use it in new
+	/// developments.
+	pub fn current_slot() -> Slot {
+		<CurrentSlot<T> as frame_support::storage::StorageValue<Slot>>::get()
+	}
 }
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
@@ -369,7 +409,7 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 			if id == AURA_ENGINE_ID {
 				let slot = Slot::decode(&mut data).ok()?;
 				let author_index = *slot % Self::authorities_len() as u64;
-				return Some(author_index as u32)
+				return Some(author_index as u32);
 			}
 		}
 
