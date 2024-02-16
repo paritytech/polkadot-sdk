@@ -1164,8 +1164,6 @@
 <a href="#1164" id="1164">1164</a>
 <a href="#1165" id="1165">1165</a>
 <a href="#1166" id="1166">1166</a>
-<a href="#1167" id="1167">1167</a>
-<a href="#1168" id="1168">1168</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1237,8 +1235,6 @@
 <span class="kw">pub use </span>sp_runtime::{MultiAddress, Perbill, Permill};
 <span class="kw">use </span>xcm_config::{XcmOriginToTransactDispatchOrigin, XcmRouter};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">use </span>bp_runtime::Chain;
 <span class="kw">use </span>bp_runtime::HeaderId;
 
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
@@ -2159,7 +2155,7 @@
 			<span class="kw">impl </span>BridgeMessagesConfig&lt;bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance&gt; <span class="kw">for </span>Runtime {
 				<span class="kw">fn </span>is_relayer_rewarded(relayer: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; bool {
 					<span class="kw">let </span>bench_lane_id = &lt;<span class="self">Self </span><span class="kw">as </span>BridgeMessagesConfig&lt;bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance&gt;&gt;::bench_lane_id();
-					<span class="kw">let </span>bridged_chain_id = bp_bridge_hub_rococo::BridgeHubRococo::ID;
+					<span class="kw">let </span>bridged_chain_id = bridge_to_rococo_config::BridgeHubRococoChainId::get();
 					pallet_bridge_relayers::Pallet::&lt;Runtime&gt;::relayer_reward(
 						relayer,
 						bp_relayers::RewardsAccountParams::new(
