@@ -121,7 +121,6 @@ fn main() -> Result<()> {
 						collator.create_collation_function(full_node.task_manager.spawn_handle()),
 					),
 					para_id,
-					with_elastic_scaling: false,
 				};
 				overseer_handle
 					.send_msg(CollationGenerationMessage::Initialize(config), "Collator")

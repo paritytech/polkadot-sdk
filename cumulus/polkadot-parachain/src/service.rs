@@ -977,7 +977,6 @@ pub async fn start_rococo_parachain_node(
 				collator_service,
 				authoring_duration: Duration::from_millis(1500),
 				reinitialize: false,
-				with_elastic_scaling: false,
 			};
 
 			let fut = aura::run::<
@@ -1474,7 +1473,6 @@ where
 				collator_service,
 				authoring_duration: Duration::from_millis(1500),
 				reinitialize: false,
-				with_elastic_scaling: false,
 			};
 
 			let fut =
@@ -1770,7 +1768,6 @@ where
 					authoring_duration: Duration::from_millis(1500),
 					reinitialize: true, /* we need to always re-initialize for asset-hub moving
 					                     * to aura */
-					with_elastic_scaling: false,
 				};
 
 				aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params)
@@ -1873,7 +1870,6 @@ where
 				collator_service,
 				authoring_duration: Duration::from_millis(1500),
 				reinitialize: false,
-				with_elastic_scaling: false,
 			};
 
 			let fut =
@@ -2184,7 +2180,6 @@ pub async fn start_contracts_rococo_node(
 				// Very limited proposal time.
 				authoring_duration: Duration::from_millis(1500),
 				reinitialize: false,
-				with_elastic_scaling: false,
 			};
 
 			let fut = aura::run::<

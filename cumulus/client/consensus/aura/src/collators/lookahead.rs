@@ -107,9 +107,6 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
 	pub authoring_duration: Duration,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
-	/// Whether elastic scaling is enabled for this collation.
-	/// If it is, the collator will send the parent-head data along with the collation.
-	pub with_elastic_scaling: bool,
 }
 
 /// Run async-backing-friendly Aura.
@@ -155,7 +152,6 @@ where
 			params.collator_key,
 			params.para_id,
 			params.reinitialize,
-			params.with_elastic_scaling,
 		)
 		.await;
 

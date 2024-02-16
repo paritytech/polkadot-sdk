@@ -824,7 +824,6 @@ fn test_collator_generation_msg() -> CollationGenerationMessage {
 		key: CollatorPair::generate().0,
 		collator: Some(Box::new(|_, _| TestCollator.boxed())),
 		para_id: Default::default(),
-		with_elastic_scaling: false,
 	})
 }
 struct TestCollator;

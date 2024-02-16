@@ -117,7 +117,6 @@ fn test_config<Id: Into<ParaId>>(para_id: Id) -> CollationGenerationConfig {
 		key: CollatorPair::generate().0,
 		collator: Some(Box::new(|_: Hash, _vd: &PersistedValidationData| TestCollator.boxed())),
 		para_id: para_id.into(),
-		with_elastic_scaling: false,
 	}
 }
 
@@ -126,7 +125,6 @@ fn test_config_no_collator<Id: Into<ParaId>>(para_id: Id) -> CollationGeneration
 		key: CollatorPair::generate().0,
 		collator: None,
 		para_id: para_id.into(),
-		with_elastic_scaling: false,
 	}
 }
 

@@ -220,7 +220,6 @@ pub mod relay_chain_driven {
 					this_rx.await.ok().flatten()
 				})
 			})),
-			with_elastic_scaling: false,
 		};
 
 		overseer_handle
@@ -244,9 +243,8 @@ pub async fn initialize_collator_subsystems(
 	key: CollatorPair,
 	para_id: ParaId,
 	reinitialize: bool,
-	with_elastic_scaling: bool,
 ) {
-	let config = CollationGenerationConfig { key, para_id, collator: None, with_elastic_scaling };
+	let config = CollationGenerationConfig { key, para_id, collator: None };
 
 	if reinitialize {
 		overseer_handle
