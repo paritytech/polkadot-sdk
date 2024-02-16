@@ -100,7 +100,7 @@ use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
-	traits::{AtLeast32BitUnsigned, Convert, Saturating, TrailingZeroInput},
+	traits::{AtLeast32BitUnsigned, Convert, CreateInherent, Saturating, TrailingZeroInput},
 	PerThing, Perbill, Permill, RuntimeDebug, SaturatedConversion,
 };
 use sp_staking::{
@@ -644,7 +644,8 @@ impl<T: Config> Pallet<T> {
 				call,
 			);
 
-			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+			let xt = T::Extrinsic::create_inherent(call.into());
+			SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 				.map_err(|_| OffchainErr::SubmitTransaction)?;
 
 			Ok(())

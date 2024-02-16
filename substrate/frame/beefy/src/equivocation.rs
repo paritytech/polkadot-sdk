@@ -40,6 +40,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use log::{error, info};
 use sp_consensus_beefy::{EquivocationProof, ValidatorSetId, KEY_TYPE as BEEFY_KEY_TYPE};
 use sp_runtime::{
+	traits::CreateInherent,
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
@@ -155,7 +156,8 @@ where
 			key_owner_proof,
 		};
 
-		let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+		let xt = T::Extrinsic::create_inherent(call.into());
+		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report."),
 			Err(e) => error!(target: LOG_TARGET, "Error submitting equivocation report: {:?}", e),

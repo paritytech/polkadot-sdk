@@ -69,7 +69,7 @@ use sp_consensus_sassafras::{
 use sp_io::hashing;
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{One, Zero},
+	traits::{CreateInherent, One, Zero},
 	BoundToRuntimeAppPublic,
 };
 use sp_std::prelude::Vec;
@@ -1018,7 +1018,8 @@ impl<T: Config> Pallet<T> {
 	pub fn submit_tickets_unsigned_extrinsic(tickets: Vec<TicketEnvelope>) -> bool {
 		let tickets = BoundedVec::truncate_from(tickets);
 		let call = Call::submit_tickets { tickets };
-		match SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+		let xt = T::Extrinsic::create_inherent(call.into());
+		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(_) => true,
 			Err(e) => {
 				error!(target: LOG_TARGET, "Error submitting tickets {:?}", e);

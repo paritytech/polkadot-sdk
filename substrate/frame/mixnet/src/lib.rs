@@ -40,7 +40,7 @@ use sp_mixnet::types::{
 	AuthorityId, AuthoritySignature, KxPublic, Mixnode, MixnodesErr, PeerId, SessionIndex,
 	SessionPhase, SessionStatus, KX_PUBLIC_SIZE,
 };
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{traits::CreateInherent, RuntimeDebug};
 use sp_std::{cmp::Ordering, vec::Vec};
 
 const LOG_TARGET: &str = "runtime::mixnet";
@@ -528,7 +528,8 @@ impl<T: Config> Pallet<T> {
 			return false
 		};
 		let call = Call::register { registration, signature };
-		match SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+		let xt = T::Extrinsic::create_inherent(call.into());
+		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(()) => true,
 			Err(()) => {
 				log::debug!(

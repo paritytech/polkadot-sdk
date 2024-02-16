@@ -124,7 +124,7 @@ use primitives::{
 use scale_info::{Type, TypeInfo};
 use sp_core::RuntimeDebug;
 use sp_runtime::{
-	traits::{AppVerify, One, Saturating},
+	traits::{AppVerify, CreateInherent, One, Saturating},
 	DispatchResult, SaturatedConversion,
 };
 use sp_std::{cmp, collections::btree_set::BTreeSet, mem, prelude::*};
@@ -2112,9 +2112,10 @@ impl<T: Config> Pallet<T> {
 	) {
 		use frame_system::offchain::SubmitTransaction;
 
-		if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+		let xt = T::Extrinsic::create_inherent(
 			Call::include_pvf_check_statement { stmt, signature }.into(),
-		) {
+		);
+		if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			log::error!(target: LOG_TARGET, "Error submitting pvf check statement: {:?}", e,);
 		}
 	}
