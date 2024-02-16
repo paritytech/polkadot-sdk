@@ -837,6 +837,13 @@
 <a href="#837" id="837">837</a>
 <a href="#838" id="838">838</a>
 <a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -982,7 +989,14 @@
 }
 
 <span class="kw">impl </span>Keystore <span class="kw">for </span>LocalKeystore {
-	<span class="kw">fn </span>insert(
+	<span class="doccomment">/// Insert a new secret key.
+	///
+	/// WARNING: if the secret keypair has been manually generated using a password
+	/// (e.g. using methods such as [`sp_core::crypto::Pair::from_phrase`]) then such
+	/// a password must match the one used to open the keystore via [`LocalKeystore::open`].
+	/// If the passwords doesn&#39;t match then the inserted key ends up being unusable under
+	/// the current keystore instance.
+	</span><span class="kw">fn </span>insert(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		suri: <span class="kw-2">&amp;</span>str,

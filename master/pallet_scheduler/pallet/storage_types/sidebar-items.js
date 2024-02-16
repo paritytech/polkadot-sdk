@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Agenda","IncompleteSince","Lookup"]};
+window.SIDEBAR_ITEMS = {"struct":["Agenda","IncompleteSince","Lookup","Retries"]};
