@@ -44,8 +44,8 @@ use sc_network::{
 };
 use sc_service::{
 	config::{
-		DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, WasmExecutionMethod,
-		WasmtimeInstantiationStrategy, RpcBatchRequestConfig
+		DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, RpcBatchRequestConfig,
+		WasmExecutionMethod, WasmtimeInstantiationStrategy,
 	},
 	BasePath, BlocksPruning, Configuration, Role, RpcHandlers, TaskManager,
 };

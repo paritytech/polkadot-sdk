@@ -18,6 +18,7 @@
 
 //! Service configuration.
 
+pub use jsonrpsee::server::BatchRequestConfig as RpcBatchRequestConfig;
 use prometheus_endpoint::Registry;
 use sc_chain_spec::ChainSpec;
 pub use sc_client_db::{BlocksPruning, Database, DatabaseSource, PruningMode};
@@ -35,7 +36,6 @@ pub use sc_network::{
 };
 pub use sc_telemetry::TelemetryEndpoints;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
-pub use jsonrpsee::server::BatchRequestConfig as RpcBatchRequestConfig;
 use sp_core::crypto::SecretString;
 use std::{
 	io, iter,

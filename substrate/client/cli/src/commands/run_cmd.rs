@@ -30,7 +30,7 @@ use crate::{
 use clap::Parser;
 use regex::Regex;
 use sc_service::{
-	config::{BasePath, PrometheusConfig, TransactionPoolOptions, RpcBatchRequestConfig},
+	config::{BasePath, PrometheusConfig, RpcBatchRequestConfig, TransactionPoolOptions},
 	ChainSpec, Role,
 };
 use sc_telemetry::TelemetryEndpoints;

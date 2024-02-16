@@ -28,7 +28,7 @@ use sc_consensus::{
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, NetworkConfiguration, OffchainWorkerConfig,
-		PruningMode, WasmExecutionMethod, WasmtimeInstantiationStrategy, RpcBatchRequestConfig,
+		PruningMode, RpcBatchRequestConfig, WasmExecutionMethod, WasmtimeInstantiationStrategy,
 	},
 	BasePath, Configuration, Role,
 };

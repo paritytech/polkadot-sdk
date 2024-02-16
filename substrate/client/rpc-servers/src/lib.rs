@@ -43,11 +43,13 @@ use tokio::net::TcpListener;
 use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use jsonrpsee::core::{
-	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
-	traits::IdProvider,
+pub use jsonrpsee::{
+	core::{
+		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
+		traits::IdProvider,
+	},
+	server::BatchRequestConfig,
 };
-pub use jsonrpsee::server::BatchRequestConfig;
 pub use middleware::{MetricsLayer, RpcMetrics};
 
 const MEGABYTE: u32 = 1024 * 1024;

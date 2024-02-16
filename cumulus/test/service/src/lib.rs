@@ -67,7 +67,7 @@ use sc_network::{
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
-		OffchainWorkerConfig, PruningMode, WasmExecutionMethod, RpcBatchRequestConfig
+		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, WasmExecutionMethod,
 	},
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,

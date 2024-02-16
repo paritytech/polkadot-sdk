@@ -28,7 +28,8 @@ use sc_service::{
 	config::{
 		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
 		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
-		RpcMethods, TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod, RpcBatchRequestConfig,
+		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
+		WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };

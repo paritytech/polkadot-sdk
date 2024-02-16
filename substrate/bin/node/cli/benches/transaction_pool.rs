@@ -26,7 +26,7 @@ use node_primitives::AccountId;
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, NetworkConfiguration, OffchainWorkerConfig,
-		PruningMode, TransactionPoolOptions, RpcBatchRequestConfig
+		PruningMode, RpcBatchRequestConfig, TransactionPoolOptions,
 	},
 	BasePath, Configuration, Role,
 };
