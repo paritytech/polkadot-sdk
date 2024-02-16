@@ -1650,10 +1650,12 @@ impl<T: Config> Pallet<T> {
 			if a.consumers > 0 {
 				a.consumers -= 1;
 			} else {
-				log::error!(
+				// For moonbeam the consumers make no sense as this counter exist only to know when we can remove the account
+				// And we never remove the account on moonbeam because we can't remove the nonce due to immortal eth transactions.
+				/*log::error!(
 					target: LOG_TARGET,
 					"Logic error: Unexpected underflow in reducing consumer",
-				);
+				);*/
 			}
 		})
 	}
