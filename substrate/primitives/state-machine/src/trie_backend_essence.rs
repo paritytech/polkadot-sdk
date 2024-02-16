@@ -33,8 +33,8 @@ use sp_trie::{
 	read_child_trie_first_descedant_value, read_child_trie_hash, read_child_trie_value,
 	read_trie_first_descendant_value, read_trie_value, read_trie_value_with_location,
 	trie_types::{TrieDBBuilder, TrieError},
-	ChildChangeset, DBValue, KeySpacedDB, MerkleValue, NodeCodec,
-	Trie, TrieCache, TrieDBRawIterator, TrieRecorder, TrieRecorderProvider,
+	ChildChangeset, DBValue, KeySpacedDB, MerkleValue, NodeCodec, Trie, TrieCache,
+	TrieDBRawIterator, TrieRecorder, TrieRecorderProvider,
 };
 #[cfg(feature = "std")]
 use std::collections::HashMap;
@@ -795,7 +795,7 @@ mod test {
 		trie.insert(b"3", &[1]).expect("insert failed");
 		trie.insert(b"4", &[1]).expect("insert failed");
 		trie.insert(b"6", &[1]).expect("insert failed");
-		let commit = trie.commit();
+		let commit = trie.commit_with_keyspace(child_info.keyspace());
 		let root_1 = commit.apply_to(&mut mdb);
 
 		// Contains child trie
