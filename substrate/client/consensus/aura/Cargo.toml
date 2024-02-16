@@ -20,7 +20,7 @@ async-trait = "0.1.74"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3.21"
 log = { workspace = true, default-features = true }
-thiserror = "1.0"
+thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-block-builder = { path = "../../block-builder" }
 sc-client-api = { path = "../../api" }

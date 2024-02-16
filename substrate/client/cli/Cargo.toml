@@ -29,9 +29,9 @@ parity-scale-codec = "3.6.1"
 rand = "0.8.5"
 regex = "1.6.0"
 rpassword = "7.0.0"
-serde = "1.0.196"
-serde_json = "1.0.113"
-thiserror = "1.0.48"
+serde = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
+thiserror = { workspace = true }
 bip39 = "2.0.0"
 tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "signal"] }
 sc-client-api = { path = "../api" }
