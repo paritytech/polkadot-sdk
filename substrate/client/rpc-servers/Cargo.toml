@@ -16,11 +16,14 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.20.3", features = ["server"] }
+jsonrpsee = { version = "0.22", features = ["server"] }
 log = { workspace = true, default-features = true }
-serde_json = "1.0.111"
+serde_json = "1.0.113"
 tokio = { version = "1.22.0", features = ["parking_lot"] }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
 tower-http = { version = "0.4.0", features = ["cors"] }
 tower = { version = "0.4.13", features = ["util"] }
 http = "0.2.8"
+hyper = "0.14.27"
+futures = "0.3.29"
+pin-project = "1.1.3"

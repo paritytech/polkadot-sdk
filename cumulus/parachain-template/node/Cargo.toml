@@ -14,13 +14,13 @@ publish = false
 workspace = true
 
 [dependencies]
-clap = { version = "4.4.18", features = ["derive"] }
+clap = { version = "4.5.0", features = ["derive"] }
 log = { workspace = true, default-features = true }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-serde = { version = "1.0.195", features = ["derive"] }
-jsonrpsee = { version = "0.20.3", features = ["server"] }
+serde = { version = "1.0.196", features = ["derive"] }
+jsonrpsee = { version = "0.22", features = ["server"] }
 futures = "0.3.28"
-serde_json = "1.0.111"
+serde_json = "1.0.113"
 
 # Local
 parachain-template-runtime = { path = "../runtime" }

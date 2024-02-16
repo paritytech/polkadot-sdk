@@ -568,6 +568,12 @@ pub mod pallet {
 	#[pallet::getter(fn force_era)]
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
 
+	/// Maximum staked rewards, i.e. the percentage of the era inflation that
+	/// is used for stake rewards.
+	/// See [Era payout](./index.html#era-payout).
+	#[pallet::storage]
+	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
+
 	/// The percentage of the slash that is distributed to reporters.
 	///
 	/// The rest of the slashed value is handled by the `Slash`.
@@ -1771,6 +1777,7 @@ pub mod pallet {
 			max_validator_count: ConfigOp<u32>,
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
+			max_staked_rewards: ConfigOp<Percent>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -1790,6 +1797,7 @@ pub mod pallet {
 			config_op_exp!(MaxValidatorsCount<T>, max_validator_count);
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
+			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
