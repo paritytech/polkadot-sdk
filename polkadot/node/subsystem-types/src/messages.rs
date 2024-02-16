@@ -1116,7 +1116,7 @@ pub type FragmentTreeMembership = Vec<(Hash, Vec<usize>)>;
 /// of on-chain ancestors of the parachain. (backed, available or timed out).
 #[derive(Debug, Clone, PartialEq)]
 pub struct AncestorState {
-	/// Record how many times it appears in the on-chain availability cores. Will be non-zero
+	/// Record how many times it appears in the on-chain availability cores. Will greater than 1
 	/// only if the parachain has cycles.
 	/// If a candidate is timed out, it's assumed that all of its `count` occupied cores are timed
 	/// out.

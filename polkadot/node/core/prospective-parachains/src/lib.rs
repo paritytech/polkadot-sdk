@@ -607,7 +607,7 @@ fn answer_get_backable_candidates(
 	};
 
 	let backable_candidates: Vec<_> = tree
-		.select_children(ancestors.clone(), count, |candidate| storage.is_backed(candidate))
+		.find_backable_chain(ancestors.clone(), count, |candidate| storage.is_backed(candidate))
 		.into_iter()
 		.filter_map(|child_hash| {
 			storage.relay_parent_by_candidate_hash(&child_hash).map_or_else(
