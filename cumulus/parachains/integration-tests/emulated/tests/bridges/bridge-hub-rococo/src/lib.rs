@@ -14,13 +14,15 @@
 // limitations under the License.
 
 // Substrate
-pub use frame_support::assert_ok;
+pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
+pub use sp_runtime::DispatchError;
 
 // Polkadot
 pub use xcm::{
+	latest::ParentThen,
 	prelude::{AccountId32 as AccountId32Junction, *},
 	v3::{
-		Error,
+		self, Error,
 		NetworkId::{Rococo as RococoId, Westend as WestendId},
 	},
 };
@@ -51,12 +53,17 @@ pub use rococo_westend_system_emulated_network::{
 	bridge_hub_rococo_emulated_chain::{
 		genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoParaPallet as BridgeHubRococoPallet,
 	},
-	rococo_emulated_chain::RococoRelayPallet as RococoPallet,
+	penpal_emulated_chain::PenpalAParaPallet as PenpalAPallet,
+	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 	AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 	AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
-	AssetHubWestendParaReceiver as AssetHubWestendReceiver, BridgeHubRococoPara as BridgeHubRococo,
+	AssetHubWestendParaReceiver as AssetHubWestendReceiver,
+	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
+	BridgeHubRococoParaReceiver as BridgeHubRococoReceiver,
 	BridgeHubRococoParaSender as BridgeHubRococoSender, BridgeHubWestendPara as BridgeHubWestend,
-	RococoRelay as Rococo,
+	PenpalAPara as PenpalA, PenpalAParaReceiver as PenpalAReceiver,
+	PenpalAParaSender as PenpalASender, RococoRelay as Rococo,
+	RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 };
 
 pub const ASSET_ID: u32 = 1;

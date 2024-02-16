@@ -21,7 +21,7 @@
 //! order to get all the pallet parts for each pallet.
 //!
 //! Pallets can define their parts:
-//!  - Implicitely: `System: frame_system`
+//!  - Implicitly: `System: frame_system`
 //!  - Explicitly: `System: frame_system::{Pallet, Call}`
 //!
 //! The `construct_runtime` transitions from the implicit definition to the explict one.
@@ -172,7 +172,7 @@
 //!
 //! This call has no implicit pallet parts, thus it will expand to the runtime construction:
 //! ```ignore
-//! pub struct Runtime { ... }
+//! pub enum Runtime { ... }
 //! pub struct Call { ... }
 //! impl Call ...
 //! pub enum Origin { ... }
@@ -253,7 +253,7 @@ pub fn construct_runtime(input: TokenStream) -> TokenStream {
 	let res = res.unwrap_or_else(|e| e.to_compile_error());
 
 	let res = expander::Expander::new("construct_runtime")
-		.dry(std::env::var("FRAME_EXPAND").is_err())
+		.dry(std::env::var("EXPAND_MACROS").is_err())
 		.verbose(true)
 		.write_to_out_dir(res)
 		.expect("Does not fail because of IO in OUT_DIR; qed");
@@ -342,7 +342,7 @@ fn construct_runtime_final_expansion(
 			syn::Error::new(
 				pallets_token.span.join(),
 				"`System` pallet declaration is missing. \
-			 Please add this line: `System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},`",
+			 Please add this line: `System: frame_system,`",
 			)
 		})?;
 	if !system_pallet.cfg_pattern.is_empty() {
@@ -386,6 +386,7 @@ fn construct_runtime_final_expansion(
 	let pallet_to_index = decl_pallet_runtime_setup(&name, &pallets, &scrate);
 
 	let dispatch = expand::expand_outer_dispatch(&name, system_pallet, &pallets, &scrate);
+	let tasks = expand::expand_outer_task(&name, &pallets, &scrate);
 	let metadata = expand::expand_runtime_metadata(
 		&name,
 		&pallets,
@@ -474,6 +475,8 @@ fn construct_runtime_final_expansion(
 		#pallet_to_index
 
 		#dispatch
+
+		#tasks
 
 		#metadata
 

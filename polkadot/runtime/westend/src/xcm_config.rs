@@ -21,10 +21,10 @@ use super::{
 	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
 	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
-
+use crate::governance::pallet_custom_origins::Treasurer;
 use frame_support::{
-	match_types, parameter_types,
-	traits::{Everything, Nothing},
+	parameter_types,
+	traits::{Contains, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -34,29 +34,34 @@ use runtime_common::{
 };
 use sp_core::ConstU32;
 use westend_runtime_constants::{
-	currency::CENTS, system_parachain::*, xcm::body::FELLOWSHIP_ADMIN_INDEX,
+	currency::CENTS,
+	system_parachain::*,
+	xcm::body::{FELLOWSHIP_ADMIN_INDEX, TREASURER_INDEX},
 };
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, CurrencyAdapter as XcmCurrencyAdapter, DescribeBodyTerminal,
-	DescribeFamily, HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	ChildParachainConvertsVia, DescribeBodyTerminal, DescribeFamily, FrameTransactionalProcessor,
+	HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub const TokenLocation: Location = Here.into_location();
+	pub const RootLocation: Location = Location::here();
 	pub const ThisNetwork: NetworkId = Westend;
-	pub const UniversalLocation: InteriorMultiLocation = X1(GlobalConsensus(ThisNetwork::get()));
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetwork::get())].into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(TokenLocation::get());
+	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
@@ -70,12 +75,13 @@ pub type LocationConverter = (
 	HashedDescription<AccountId, DescribeFamily<DescribeBodyTerminal>>,
 );
 
+#[allow(deprecated)]
 pub type LocalAssetTransactor = XcmCurrencyAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<TokenLocation>,
-	// We can convert the MultiLocations with our converter above:
+	// We can convert the Locations with our converter above:
 	LocationConverter,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -108,31 +114,49 @@ pub type XcmRouter = WithUniqueTopic<
 >;
 
 parameter_types! {
-	pub const AssetHub: MultiLocation = Parachain(ASSET_HUB_ID).into_location();
-	pub const Collectives: MultiLocation = Parachain(COLLECTIVES_ID).into_location();
-	pub const BridgeHub: MultiLocation = Parachain(BRIDGE_HUB_ID).into_location();
-	pub const Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub const WndForAssetHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), AssetHub::get());
-	pub const WndForCollectives: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Collectives::get());
-	pub const WndForBridgeHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), BridgeHub::get());
-	pub const MaxInstructions: u32 = 100;
-	pub const MaxAssetsIntoHolding: u32 = 64;
+	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
+	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
+	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
+	pub People: Location = Parachain(PEOPLE_ID).into_location();
+	pub Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
+	pub WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
+	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
+	pub WndForBridgeHub: (AssetFilter, Location) = (Wnd::get(), BridgeHub::get());
+	pub WndForPeople: (AssetFilter, Location) = (Wnd::get(), People::get());
+	pub MaxInstructions: u32 = 100;
+	pub MaxAssetsIntoHolding: u32 = 64;
 }
 
 pub type TrustedTeleporters = (
 	xcm_builder::Case<WndForAssetHub>,
 	xcm_builder::Case<WndForCollectives>,
 	xcm_builder::Case<WndForBridgeHub>,
+	xcm_builder::Case<WndForPeople>,
 );
 
-match_types! {
-	pub type OnlyParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-	};
-	pub type CollectivesOrFellows: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(COLLECTIVES_ID)) } |
-		MultiLocation { parents: 0, interior: X2(Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }) }
-	};
+pub struct OnlyParachains;
+impl Contains<Location> for OnlyParachains {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Parachain(_)]))
+	}
+}
+
+pub struct CollectivesOrFellows;
+impl Contains<Location> for CollectivesOrFellows {
+	fn contains(location: &Location) -> bool {
+		matches!(
+			location.unpack(),
+			(0, [Parachain(COLLECTIVES_ID)]) |
+				(0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+		)
+	}
+}
+
+pub struct LocalPlurality;
+impl Contains<Location> for LocalPlurality {
+	fn contains(loc: &Location) -> bool {
+		matches!(loc.unpack(), (0, [Plurality { .. }]))
+	}
 }
 
 /// The barriers one of which must be passed for an XCM message to be executed.
@@ -154,6 +178,10 @@ pub type Barrier = TrailingSetTopicAsId<(
 		ConstU32<8>,
 	>,
 )>;
+
+/// Locations that will not be charged fees in the executor, neither for execution nor delivery.
+/// We only waive fees for system functions, which these locations represent.
+pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurality);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -181,7 +209,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponents<
-		SystemParachains,
+		WaivedLocations,
 		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
@@ -189,6 +217,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 parameter_types! {
@@ -198,13 +227,14 @@ parameter_types! {
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 	// FellowshipAdmin pluralistic body.
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
+	// `Treasurer` pluralistic body.
+	pub const TreasurerBodyId: BodyId = BodyId::Index(TREASURER_INDEX);
 }
 
-/// Type to convert the `GeneralAdmin` origin to a Plurality `MultiLocation` value.
+/// Type to convert the `GeneralAdmin` origin to a Plurality `Location` value.
 pub type GeneralAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, GeneralAdmin, GeneralAdminBodyId>;
 
-/// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
 /// location of this chain.
 pub type LocalOriginToLocation = (
 	GeneralAdminToPlurality,
@@ -212,23 +242,28 @@ pub type LocalOriginToLocation = (
 	SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>,
 );
 
-/// Type to convert the `StakingAdmin` origin to a Plurality `MultiLocation` value.
+/// Type to convert the `StakingAdmin` origin to a Plurality `Location` value.
 pub type StakingAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, StakingAdmin, StakingAdminBodyId>;
 
-/// Type to convert the `FellowshipAdmin` origin to a Plurality `MultiLocation` value.
+/// Type to convert the `FellowshipAdmin` origin to a Plurality `Location` value.
 pub type FellowshipAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, FellowshipAdmin, FellowshipAdminBodyId>;
 
-/// Type to convert a pallet `Origin` type value into a `MultiLocation` value which represents an
+/// Type to convert the `Treasurer` origin to a Plurality `Location` value.
+pub type TreasurerToPlurality = OriginToPluralityVoice<RuntimeOrigin, Treasurer, TreasurerBodyId>;
+
+/// Type to convert a pallet `Origin` type value into a `Location` value which represents an
 /// interior location of this chain for a destination chain.
 pub type LocalPalletOriginToLocation = (
-	// GeneralAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// GeneralAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	GeneralAdminToPlurality,
-	// StakingAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// StakingAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	StakingAdminToPlurality,
-	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	FellowshipAdminToPlurality,
+	// `Treasurer` origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	TreasurerToPlurality,
 );
 
 impl pallet_xcm::Config for Runtime {

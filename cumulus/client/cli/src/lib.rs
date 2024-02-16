@@ -23,20 +23,18 @@ use std::{
 	io::{self, Write},
 	net::SocketAddr,
 	path::PathBuf,
+	sync::Arc,
 };
 
 use codec::Encode;
 use sc_chain_spec::ChainSpec;
-use sc_client_api::ExecutorProvider;
+use sc_client_api::HeaderBackend;
 use sc_service::{
 	config::{PrometheusConfig, TelemetryEndpoints},
 	BasePath, TransactionPoolOptions,
 };
 use sp_core::hexdisplay::HexDisplay;
-use sp_runtime::{
-	traits::{Block as BlockT, Hash as HashT, Header as HeaderT, Zero},
-	StateVersion,
-};
+use sp_runtime::traits::{Block as BlockT, Zero};
 use url::Url;
 
 /// The `purge-chain` command used to remove the whole chain: the parachain and the relay chain.
@@ -129,9 +127,30 @@ impl sc_cli::CliConfiguration for PurgeChainCmd {
 	}
 }
 
-/// Command for exporting the genesis state of the parachain
+/// Get the SCALE encoded genesis header of the parachain.
+pub fn get_raw_genesis_header<B, C>(client: Arc<C>) -> sc_cli::Result<Vec<u8>>
+where
+	B: BlockT,
+	C: HeaderBackend<B> + 'static,
+{
+	let genesis_hash =
+		client
+			.hash(Zero::zero())?
+			.ok_or(sc_cli::Error::Client(sp_blockchain::Error::Backend(
+				"Failed to lookup genesis block hash when exporting genesis head data.".into(),
+			)))?;
+	let genesis_header = client.header(genesis_hash)?.ok_or(sc_cli::Error::Client(
+		sp_blockchain::Error::Backend(
+			"Failed to lookup genesis header by hash when exporting genesis head data.".into(),
+		),
+	))?;
+
+	Ok(genesis_header.encode())
+}
+
+/// Command for exporting the genesis head data of the parachain
 #[derive(Debug, clap::Parser)]
-pub struct ExportGenesisStateCommand {
+pub struct ExportGenesisHeadCommand {
 	/// Output file name or stdout if unspecified.
 	#[arg()]
 	pub output: Option<PathBuf>,
@@ -145,24 +164,18 @@ pub struct ExportGenesisStateCommand {
 	pub shared_params: sc_cli::SharedParams,
 }
 
-impl ExportGenesisStateCommand {
-	/// Run the export-genesis-state command
-	pub fn run<Block: BlockT>(
-		&self,
-		chain_spec: &dyn ChainSpec,
-		client: &impl ExecutorProvider<Block>,
-	) -> sc_cli::Result<()> {
-		let state_version = sc_chain_spec::resolve_state_version_from_wasm(
-			&chain_spec.build_storage()?,
-			client.executor(),
-		)?;
-
-		let block: Block = generate_genesis_block(chain_spec, state_version)?;
-		let raw_header = block.header().encode();
+impl ExportGenesisHeadCommand {
+	/// Run the export-genesis-head command
+	pub fn run<B, C>(&self, client: Arc<C>) -> sc_cli::Result<()>
+	where
+		B: BlockT,
+		C: HeaderBackend<B> + 'static,
+	{
+		let raw_header = get_raw_genesis_header(client)?;
 		let output_buf = if self.raw {
 			raw_header
 		} else {
-			format!("0x{:?}", HexDisplay::from(&block.header().encode())).into_bytes()
+			format!("0x{:?}", HexDisplay::from(&raw_header)).into_bytes()
 		};
 
 		if let Some(output) = &self.output {
@@ -175,43 +188,7 @@ impl ExportGenesisStateCommand {
 	}
 }
 
-/// Generate the genesis block from a given ChainSpec.
-pub fn generate_genesis_block<Block: BlockT>(
-	chain_spec: &dyn ChainSpec,
-	genesis_state_version: StateVersion,
-) -> Result<Block, String> {
-	let storage = chain_spec.build_storage()?;
-
-	let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
-		let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-			child_content.data.clone().into_iter().collect(),
-			genesis_state_version,
-		);
-		(sk.clone(), state_root.encode())
-	});
-	let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-		storage.top.clone().into_iter().chain(child_roots).collect(),
-		genesis_state_version,
-	);
-
-	let extrinsics_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-		Vec::new(),
-		genesis_state_version,
-	);
-
-	Ok(Block::new(
-		<<Block as BlockT>::Header as HeaderT>::new(
-			Zero::zero(),
-			extrinsics_root,
-			state_root,
-			Default::default(),
-			Default::default(),
-		),
-		Default::default(),
-	))
-}
-
-impl sc_cli::CliConfiguration for ExportGenesisStateCommand {
+impl sc_cli::CliConfiguration for ExportGenesisHeadCommand {
 	fn shared_params(&self) -> &sc_cli::SharedParams {
 		&self.shared_params
 	}

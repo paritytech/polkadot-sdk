@@ -1,0 +1,24 @@
+[package]
+name = "sp-crypto-hashing-proc-macro"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository.workspace = true
+description = "Procedural macros for calculating static hashes."
+documentation = "https://docs.rs/sp-crypto-hashing-proc-macro"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.28"
+syn = { version = "2.0.48", features = ["full", "parsing"] }
+sp-crypto-hashing = { path = "..", default-features = false }

@@ -4,8 +4,11 @@ description = "Procedural macros for XCM"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "7.0.0"
 publish = true
+
+[lints]
+workspace = true
 
 [lib]
 proc-macro = true
@@ -13,9 +16,9 @@ proc-macro = true
 [dependencies]
 proc-macro2 = "1.0.56"
 quote = "1.0.28"
-syn = "2.0.38"
+syn = "2.0.48"
 Inflector = "0.11.4"
 
 [dev-dependencies]
-trybuild = { version = "1.0.74", features = ["diff"] }
+trybuild = { version = "1.0.88", features = ["diff"] }
 xcm = { package = "staging-xcm", path = ".." }

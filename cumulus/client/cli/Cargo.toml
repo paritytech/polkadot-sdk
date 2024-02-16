@@ -1,13 +1,16 @@
 [package]
 name = "cumulus-client-cli"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Parachain node CLI utilities."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
-clap = { version = "4.4.6", features = ["derive"] }
+clap = { version = "4.4.18", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 url = "2.4.0"
 
@@ -18,3 +21,4 @@ sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
 sc-service = { path = "../../../substrate/client/service" }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-blockchain = { path = "../../../substrate/primitives/blockchain" }

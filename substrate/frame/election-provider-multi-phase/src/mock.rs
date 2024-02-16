@@ -19,9 +19,9 @@ use super::*;
 use crate::{self as multi_phase, signed::GeometricDepositBase, unsigned::MinerConfig};
 use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBounds},
-	data_provider, onchain, ElectionDataProvider, NposSolution, SequentialPhragmen,
+	data_provider, onchain, ElectionDataProvider, NposSolution, PageIndex, SequentialPhragmen,
 };
-pub use frame_support::{assert_noop, assert_ok, derive_impl, pallet_prelude::GetDefault};
+pub use frame_support::derive_impl;
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Hooks},
@@ -54,11 +54,10 @@ pub type UncheckedExtrinsic =
 	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, (), ()>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Event<T>, Config<T>},
-		Balances: pallet_balances::{Pallet, Call, Event<T>, Config<T>},
-		MultiPhase: multi_phase::{Pallet, Call, Event<T>},
+	pub enum Runtime {
+		System: frame_system,
+		Balances: pallet_balances,
+		MultiPhase: multi_phase,
 	}
 );
 
@@ -109,6 +108,15 @@ pub fn roll_to_with_ocw(n: BlockNumber) {
 		System::set_block_number(i);
 		MultiPhase::on_initialize(i);
 		MultiPhase::offchain_worker(i);
+	}
+}
+
+pub fn roll_to_round(n: u32) {
+	assert!(MultiPhase::round() <= n);
+
+	while MultiPhase::round() != n {
+		roll_to_signed();
+		frame_support::assert_ok!(MultiPhase::elect());
 	}
 }
 
@@ -251,7 +259,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 #[derive(Default, Eq, PartialEq, Debug, Clone, Copy)]
@@ -292,7 +299,6 @@ parameter_types! {
 	pub static SignedMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerTxPriority: u64 = 100;
 	pub static BetterSignedThreshold: Perbill = Perbill::zero();
-	pub static BetterUnsignedThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
 	pub static MinerMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerMaxLength: u32 = 256;
@@ -301,7 +307,6 @@ parameter_types! {
 	pub static MaxElectableTargets: TargetIndex = TargetIndex::max_value();
 
 	#[derive(Debug)]
-	pub static MaxWinners: u32 = 200;
 	// `ElectionBounds` and `OnChainElectionsBounds` are defined separately to set them independently in the tests.
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static OnChainElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
@@ -315,17 +320,30 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, Balancing>;
 	type DataProvider = StakingMock;
 	type WeightInfo = ();
-	type MaxWinners = MaxWinners;
+	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type MaxWinnersPerPage = ConstU32<{ u32::MAX }>;
+	type Pages = ConstU32<0>;
 	type Bounds = OnChainElectionsBounds;
 }
 
 pub struct MockFallback;
-impl ElectionProviderBase for MockFallback {
+impl ElectionProvider for MockFallback {
 	type BlockNumber = BlockNumber;
 	type AccountId = AccountId;
 	type Error = &'static str;
 	type DataProvider = StakingMock;
-	type MaxWinners = MaxWinners;
+	type MaxWinnersPerPage = ConstU32<{ u32::MAX }>;
+	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type Pages = ConstU32<0>;
+
+	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		if OnChainFallback::get() {
+			onchain::OnChainExecution::<OnChainSeqPhragmen>::elect(page)
+				.map_err(|_| "OnChainSequentialPhragmen failed")
+		} else {
+			Err("NoFallback.")
+		}
+	}
 }
 
 impl InstantElectionProvider for MockFallback {
@@ -367,7 +385,7 @@ impl MinerConfig for Runtime {
 	type MaxLength = MinerMaxLength;
 	type MaxWeight = MinerMaxWeight;
 	type MaxVotesPerVoter = <StakingMock as ElectionDataProvider>::MaxVotesPerVoter;
-	type MaxWinners = MaxWinners;
+	type MaxWinners = ConstU32<{ u32::MAX }>;
 	type Solution = TestNposSolution;
 
 	fn solution_weight(v: u32, t: u32, a: u32, d: u32) -> Weight {
@@ -390,7 +408,6 @@ impl crate::Config for Runtime {
 	type EstimateCallFee = frame_support::traits::ConstU32<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
-	type BetterUnsignedThreshold = BetterUnsignedThreshold;
 	type BetterSignedThreshold = BetterSignedThreshold;
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = MinerTxPriority;
@@ -410,7 +427,7 @@ impl crate::Config for Runtime {
 	type GovernanceFallback =
 		frame_election_provider_support::onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	type MaxWinners = MaxWinners;
+	type MaxWinners = ConstU32<{ u32::MAX }>;
 	type MinerConfig = Self;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, Balancing>;
 	type ElectionBounds = ElectionsBounds;
@@ -453,7 +470,10 @@ impl ElectionDataProvider for StakingMock {
 	type AccountId = AccountId;
 	type MaxVotesPerVoter = MaxNominations;
 
-	fn electable_targets(bounds: DataProviderBounds) -> data_provider::Result<Vec<AccountId>> {
+	fn electable_targets(
+		bounds: DataProviderBounds,
+		_remaining_pages: PageIndex,
+	) -> data_provider::Result<Vec<AccountId>> {
 		let targets = Targets::get();
 
 		if !DataProviderAllowBadData::get() &&
@@ -465,7 +485,10 @@ impl ElectionDataProvider for StakingMock {
 		Ok(targets)
 	}
 
-	fn electing_voters(bounds: DataProviderBounds) -> data_provider::Result<Vec<VoterOf<Runtime>>> {
+	fn electing_voters(
+		bounds: DataProviderBounds,
+		_reamining_pages: PageIndex,
+	) -> data_provider::Result<Vec<VoterOf<Runtime>>> {
 		let mut voters = Voters::get();
 
 		if !DataProviderAllowBadData::get() {
@@ -529,10 +552,7 @@ impl ExtBuilder {
 		<BetterSignedThreshold>::set(p);
 		self
 	}
-	pub fn better_unsigned_threshold(self, p: Perbill) -> Self {
-		<BetterUnsignedThreshold>::set(p);
-		self
-	}
+
 	pub fn phases(self, signed: BlockNumber, unsigned: BlockNumber) -> Self {
 		<SignedPhase>::set(signed);
 		<UnsignedPhase>::set(unsigned);
@@ -634,9 +654,9 @@ impl ExtBuilder {
 
 		#[cfg(feature = "try-runtime")]
 		ext.execute_with(|| {
-			assert_ok!(<MultiPhase as frame_support::traits::Hooks<u64>>::try_state(
-				System::block_number()
-			));
+			frame_support::assert_ok!(
+				<MultiPhase as frame_support::traits::Hooks<u64>>::try_state(System::block_number())
+			);
 		});
 	}
 }

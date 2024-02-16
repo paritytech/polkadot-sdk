@@ -1,22 +1,24 @@
 [package]
 name = "polkadot-node-core-pvf-prepare-worker"
 description = "Polkadot crate that contains the logic for preparing PVFs. Used by the polkadot-prepare-worker binary."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 blake3 = "1.5"
 cfg-if = "1.0"
 gum = { package = "tracing-gum", path = "../../../gum" }
-libc = "0.2.139"
+libc = "0.2.152"
 rayon = "1.5.1"
 tracking-allocator = { package = "staging-tracking-allocator", path = "../../../tracking-allocator" }
 tikv-jemalloc-ctl = { version = "0.5.0", optional = true }
 tikv-jemallocator = { version = "0.5.0", optional = true }
-os_pipe = "1.1.4"
-nix = { version = "0.27.1", features = ["resource", "process"]}
+nix = { version = "0.27.1", features = ["process", "resource", "sched"] }
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 

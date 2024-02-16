@@ -33,8 +33,8 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{
 	approval::{
-		v1::{BlockApprovalMeta, IndirectSignedApprovalVote},
-		v2::{CandidateBitfield, IndirectAssignmentCertV2},
+		v1::BlockApprovalMeta,
+		v2::{CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 	},
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
 	CollationSecondedSignal, DisputeMessage, DisputeStatus, ErasureChunk, PoV,
@@ -42,14 +42,15 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
-	async_backing, slashing, vstaging::NodeFeatures, AuthorityDiscoveryId, BackedCandidate,
-	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, CollatorId,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, PvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
-	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, slashing,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
+	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
+	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreState,
+	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Header as BlockHeader,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecKind, SessionIndex,
+	SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -720,6 +721,9 @@ pub enum RuntimeApiRequest {
 	AsyncBackingParams(RuntimeApiSender<async_backing::AsyncBackingParams>),
 	/// Get the node features.
 	NodeFeatures(SessionIndex, RuntimeApiSender<NodeFeatures>),
+	/// Approval voting params
+	/// `V10`
+	ApprovalVotingParams(SessionIndex, RuntimeApiSender<ApprovalVotingParams>),
 }
 
 impl RuntimeApiRequest {
@@ -751,6 +755,9 @@ impl RuntimeApiRequest {
 
 	/// `Node features`
 	pub const NODE_FEATURES_RUNTIME_REQUIREMENT: u32 = 9;
+
+	/// `approval_voting_params`
+	pub const APPROVAL_VOTING_PARAMS_REQUIREMENT: u32 = 10;
 }
 
 /// A message to the Runtime API subsystem.
@@ -823,8 +830,10 @@ pub enum ProvisionerMessage {
 /// Message to the Collation Generation subsystem.
 #[derive(Debug)]
 pub enum CollationGenerationMessage {
-	/// Initialize the collation generation subsystem
+	/// Initialize the collation generation subsystem.
 	Initialize(CollationGenerationConfig),
+	/// Reinitialize the collation generation subsystem, overriding the existing config.
+	Reinitialize(CollationGenerationConfig),
 	/// Submit a collation to the subsystem. This will package it into a signed
 	/// [`CommittedCandidateReceipt`] and distribute along the network to validators.
 	///
@@ -936,7 +945,7 @@ pub enum ApprovalVotingMessage {
 	/// protocol.
 	///
 	/// Should not be sent unless the block hash within the indirect vote is known.
-	CheckAndImportApproval(IndirectSignedApprovalVote, oneshot::Sender<ApprovalCheckResult>),
+	CheckAndImportApproval(IndirectSignedApprovalVoteV2, oneshot::Sender<ApprovalCheckResult>),
 	/// Returns the highest possible ancestor hash of the provided block hash which is
 	/// acceptable to vote on finality for.
 	/// The `BlockNumber` provided is the number of the block's ancestor which is the
@@ -952,7 +961,7 @@ pub enum ApprovalVotingMessage {
 	/// requires calling into `approval-distribution`: Calls should be infrequent and bounded.
 	GetApprovalSignaturesForCandidate(
 		CandidateHash,
-		oneshot::Sender<HashMap<ValidatorIndex, ValidatorSignature>>,
+		oneshot::Sender<HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>>,
 	),
 }
 
@@ -968,7 +977,7 @@ pub enum ApprovalDistributionMessage {
 	/// Distribute an approval vote for the local validator. The approval vote is assumed to be
 	/// valid, relevant, and the corresponding approval already issued.
 	/// If not, the subsystem is free to drop the message.
-	DistributeApproval(IndirectSignedApprovalVote),
+	DistributeApproval(IndirectSignedApprovalVoteV2),
 	/// An update from the network bridge.
 	#[from]
 	NetworkBridgeUpdate(NetworkBridgeEvent<net_protocol::ApprovalDistributionMessage>),
@@ -976,7 +985,7 @@ pub enum ApprovalDistributionMessage {
 	/// Get all approval signatures for all chains a candidate appeared in.
 	GetApprovalSignatures(
 		HashSet<(Hash, CandidateIndex)>,
-		oneshot::Sender<HashMap<ValidatorIndex, ValidatorSignature>>,
+		oneshot::Sender<HashMap<ValidatorIndex, (Hash, Vec<CandidateIndex>, ValidatorSignature)>>,
 	),
 	/// Approval checking lag update measured in blocks.
 	ApprovalCheckingLagUpdate(BlockNumber),
@@ -1119,14 +1128,16 @@ pub enum ProspectiveParachainsMessage {
 	/// has been backed. This requires that the candidate was successfully introduced in
 	/// the past.
 	CandidateBacked(ParaId, CandidateHash),
-	/// Get a backable candidate hash along with its relay parent for the given parachain,
+	/// Get N backable candidate hashes along with their relay parents for the given parachain,
 	/// under the given relay-parent hash, which is a descendant of the given candidate hashes.
+	/// N should represent the number of scheduled cores of this ParaId.
 	/// Returns `None` on the channel if no such candidate exists.
-	GetBackableCandidate(
+	GetBackableCandidates(
 		Hash,
 		ParaId,
+		u32,
 		Vec<CandidateHash>,
-		oneshot::Sender<Option<(CandidateHash, Hash)>>,
+		oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 	),
 	/// Get the hypothetical frontier membership of candidates with the given properties
 	/// under the specified active leaves' fragment trees.

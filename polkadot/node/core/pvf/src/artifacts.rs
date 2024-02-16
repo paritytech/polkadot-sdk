@@ -18,8 +18,7 @@
 //!
 //! # Lifecycle of an artifact
 //!
-//! 1. During node start-up, we will check the cached artifacts, if any. The stale and corrupted
-//!    ones are pruned. The valid ones are registered in the [`Artifacts`] table.
+//! 1. During node start-up, we prune all the cached artifacts, if any.
 //!
 //! 2. In order to be executed, a PVF should be prepared first. This means that artifacts should
 //!    have an [`ArtifactState::Prepared`] entry for that artifact in the table. If not, the
@@ -55,27 +54,35 @@
 //!    older by a predefined parameter. This process is run very rarely (say, once a day). Once the
 //!    artifact is expired it is removed from disk eagerly atomically.
 
-use crate::{host::PrecheckResultSender, LOG_TARGET};
+use crate::{host::PrecheckResultSender, worker_interface::WORKER_DIR_PREFIX};
 use always_assert::always;
-use polkadot_core_primitives::Hash;
-use polkadot_node_core_pvf_common::{
-	error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData, RUNTIME_VERSION,
-};
-use polkadot_node_primitives::NODE_VERSION;
+use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsHash;
 use std::{
 	collections::HashMap,
+	fs,
 	path::{Path, PathBuf},
-	str::FromStr as _,
 	time::{Duration, SystemTime},
 };
 
-const RUNTIME_PREFIX: &str = "wasmtime_v";
-const NODE_PREFIX: &str = "polkadot_v";
+/// The extension to use for cached artifacts.
+const ARTIFACT_EXTENSION: &str = "pvf";
 
-fn artifact_prefix() -> String {
-	format!("{}{}_{}{}", RUNTIME_PREFIX, RUNTIME_VERSION, NODE_PREFIX, NODE_VERSION)
+/// The prefix that artifacts used to start with under the old naming scheme.
+const ARTIFACT_OLD_PREFIX: &str = "wasmtime_";
+
+pub fn generate_artifact_path(cache_path: &Path) -> PathBuf {
+	let file_name = {
+		use array_bytes::Hex;
+		use rand::RngCore;
+		let mut bytes = [0u8; 64];
+		rand::thread_rng().fill_bytes(&mut bytes);
+		bytes.hex("0x")
+	};
+	let mut artifact_path = cache_path.join(file_name);
+	artifact_path.set_extension(ARTIFACT_EXTENSION);
+	artifact_path
 }
 
 /// Identifier of an artifact. Encodes a code hash of the PVF and a hash of executor parameter set.
@@ -94,35 +101,6 @@ impl ArtifactId {
 	/// Returns an artifact ID that corresponds to the PVF with given executor params.
 	pub fn from_pvf_prep_data(pvf: &PvfPrepData) -> Self {
 		Self::new(pvf.code_hash(), pvf.executor_params().hash())
-	}
-
-	/// Returns the canonical path to the concluded artifact.
-	pub(crate) fn path(&self, cache_path: &Path, checksum: &str) -> PathBuf {
-		let file_name = format!(
-			"{}_{:#x}_{:#x}_0x{}",
-			artifact_prefix(),
-			self.code_hash,
-			self.executor_params_hash,
-			checksum
-		);
-		cache_path.join(file_name)
-	}
-
-	/// Tries to recover the artifact id from the given file name.
-	/// Return `None` if the given file name is invalid.
-	/// VALID_NAME := <PREFIX> _ <CODE_HASH> _ <PARAM_HASH> _ <CHECKSUM>
-	fn from_file_name(file_name: &str) -> Option<Self> {
-		let file_name = file_name.strip_prefix(&artifact_prefix())?.strip_prefix('_')?;
-		let parts: Vec<&str> = file_name.split('_').collect();
-
-		if let [code_hash, param_hash, _checksum] = parts[..] {
-			let code_hash = Hash::from_str(code_hash).ok()?.into();
-			let executor_params_hash =
-				ExecutorParamsHash::from_hash(Hash::from_str(param_hash).ok()?);
-			return Some(Self { code_hash, executor_params_hash })
-		}
-
-		None
 	}
 }
 
@@ -193,133 +171,31 @@ impl Artifacts {
 	}
 
 	#[cfg(test)]
-	pub(crate) fn len(&self) -> usize {
+	fn len(&self) -> usize {
 		self.inner.len()
 	}
 
-	/// Create an empty table and populate it with valid artifacts as [`ArtifactState::Prepared`],
-	/// if any. The existing caches will be checked by their file name to determine whether they are
-	/// valid, e.g., matching the current node version. The ones deemed invalid will be pruned.
-	pub async fn new_and_prune(cache_path: &Path) -> Self {
-		let mut artifacts = Self { inner: HashMap::new() };
-		artifacts.insert_and_prune(cache_path).await;
-		artifacts
-	}
-
-	async fn insert_and_prune(&mut self, cache_path: &Path) {
-		async fn is_corrupted(path: &Path) -> bool {
-			let checksum = match tokio::fs::read(path).await {
-				Ok(bytes) => blake3::hash(&bytes),
-				Err(err) => {
-					// just remove the file if we cannot read it
-					gum::warn!(
-						target: LOG_TARGET,
-						?err,
-						"unable to read artifact {:?} when checking integrity, removing...",
-						path,
-					);
-					return true
-				},
-			};
-
-			if let Some(file_name) = path.file_name() {
-				if let Some(file_name) = file_name.to_str() {
-					return !file_name.ends_with(checksum.to_hex().as_str())
-				}
-			}
-			true
-		}
-
-		// Insert the entry into the artifacts table if it is valid.
-		// Otherwise, prune it.
-		async fn insert_or_prune(
-			artifacts: &mut Artifacts,
-			entry: &tokio::fs::DirEntry,
-			cache_path: &Path,
-		) {
-			let file_type = entry.file_type().await;
-			let file_name = entry.file_name();
-
-			match file_type {
-				Ok(file_type) =>
-					if !file_type.is_file() {
-						return
-					},
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?err,
-						"unable to get file type for {:?}",
-						file_name,
-					);
-					return
-				},
-			}
-
-			if let Some(file_name) = file_name.to_str() {
-				let id = ArtifactId::from_file_name(file_name);
-				let path = cache_path.join(file_name);
-
-				if id.is_none() || is_corrupted(&path).await {
-					gum::warn!(
-						target: LOG_TARGET,
-						"discarding invalid artifact {:?}",
-						&path,
-					);
-					let _ = tokio::fs::remove_file(&path).await;
-					return
-				}
-
-				if let Some(id) = id {
-					gum::debug!(
-						target: LOG_TARGET,
-						"reusing existing {:?} for node version v{}",
-						&path,
-						NODE_VERSION,
-					);
-					artifacts.insert_prepared(id, path, SystemTime::now(), Default::default());
-				}
-			} else {
-				gum::warn!(
-					target: LOG_TARGET,
-					"non-Unicode file name {:?} found in {:?}",
-					file_name,
-					cache_path,
-				);
-			}
-		}
-
+	/// Create an empty table and the cache directory on-disk if it doesn't exist.
+	pub async fn new(cache_path: &Path) -> Self {
 		// Make sure that the cache path directory and all its parents are created.
 		let _ = tokio::fs::create_dir_all(cache_path).await;
 
-		let mut dir = match tokio::fs::read_dir(cache_path).await {
-			Ok(dir) => dir,
-			Err(err) => {
-				gum::error!(
-					target: LOG_TARGET,
-					?err,
-					"failed to read dir {:?}",
-					cache_path,
-				);
-				return
-			},
-		};
-
-		loop {
-			match dir.next_entry().await {
-				Ok(Some(entry)) => insert_or_prune(self, &entry, cache_path).await,
-				Ok(None) => break,
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?err,
-						"error processing artifacts in {:?}",
-						cache_path,
-					);
-					break
-				},
+		// Delete any leftover artifacts and worker dirs from previous runs. We don't delete the
+		// entire cache directory in case the user made a mistake and set it to e.g. their home
+		// directory. This is a best-effort to do clean-up, so ignore any errors.
+		for entry in fs::read_dir(cache_path).into_iter().flatten().flatten() {
+			let path = entry.path();
+			let Some(file_name) = path.file_name().and_then(|f| f.to_str()) else { continue };
+			if path.is_dir() && file_name.starts_with(WORKER_DIR_PREFIX) {
+				let _ = fs::remove_dir_all(path);
+			} else if path.extension().map_or(false, |ext| ext == ARTIFACT_EXTENSION) ||
+				file_name.starts_with(ARTIFACT_OLD_PREFIX)
+			{
+				let _ = fs::remove_file(path);
 			}
 		}
+
+		Self { inner: HashMap::new() }
 	}
 
 	/// Returns the state of the given artifact by its ID.
@@ -347,6 +223,7 @@ impl Artifacts {
 	///
 	/// This function should only be used to build the artifact table at startup with valid
 	/// artifact caches.
+	#[cfg(test)]
 	pub(crate) fn insert_prepared(
 		&mut self,
 		artifact_id: ArtifactId,
@@ -388,151 +265,33 @@ impl Artifacts {
 
 #[cfg(test)]
 mod tests {
-	use super::{artifact_prefix as prefix, ArtifactId, Artifacts, NODE_VERSION, RUNTIME_VERSION};
-	use polkadot_primitives::ExecutorParamsHash;
-	use rand::Rng;
-	use sp_core::H256;
-	use std::{
-		fs,
-		io::Write,
-		path::{Path, PathBuf},
-		str::FromStr,
-	};
-
-	fn rand_hash(len: usize) -> String {
-		let mut rng = rand::thread_rng();
-		let hex: Vec<_> = "0123456789abcdef".chars().collect();
-		(0..len).map(|_| hex[rng.gen_range(0..hex.len())]).collect()
-	}
-
-	fn file_name(code_hash: &str, param_hash: &str, checksum: &str) -> String {
-		format!("{}_0x{}_0x{}_0x{}", prefix(), code_hash, param_hash, checksum)
-	}
-
-	fn create_artifact(
-		dir: impl AsRef<Path>,
-		prefix: &str,
-		code_hash: impl AsRef<str>,
-		params_hash: impl AsRef<str>,
-	) -> (PathBuf, String) {
-		fn artifact_path_without_checksum(
-			dir: impl AsRef<Path>,
-			prefix: &str,
-			code_hash: impl AsRef<str>,
-			params_hash: impl AsRef<str>,
-		) -> PathBuf {
-			let mut path = dir.as_ref().to_path_buf();
-			let file_name =
-				format!("{}_0x{}_0x{}", prefix, code_hash.as_ref(), params_hash.as_ref(),);
-			path.push(file_name);
-			path
-		}
-
-		let (code_hash, params_hash) = (code_hash.as_ref(), params_hash.as_ref());
-		let path = artifact_path_without_checksum(dir, prefix, code_hash, params_hash);
-		let mut file = fs::File::create(&path).unwrap();
-
-		let content = format!("{}{}", code_hash, params_hash).into_bytes();
-		file.write_all(&content).unwrap();
-		let checksum = blake3::hash(&content).to_hex().to_string();
-
-		(path, checksum)
-	}
-
-	fn create_rand_artifact(dir: impl AsRef<Path>, prefix: &str) -> (PathBuf, String) {
-		create_artifact(dir, prefix, rand_hash(64), rand_hash(64))
-	}
-
-	fn concluded_path(path: impl AsRef<Path>, checksum: &str) -> PathBuf {
-		let path = path.as_ref();
-		let mut file_name = path.file_name().unwrap().to_os_string();
-		file_name.push("_0x");
-		file_name.push(checksum);
-		path.with_file_name(file_name)
-	}
-
-	#[test]
-	fn artifact_prefix() {
-		assert_eq!(prefix(), format!("wasmtime_v{}_polkadot_v{}", RUNTIME_VERSION, NODE_VERSION));
-	}
-
-	#[test]
-	fn from_file_name() {
-		assert!(ArtifactId::from_file_name("").is_none());
-		assert!(ArtifactId::from_file_name("junk").is_none());
-
-		let file_name = file_name(
-			"0022800000000000000000000000000000000000000000000000000000000000",
-			"0033900000000000000000000000000000000000000000000000000000000000",
-			"00000000000000000000000000000000",
-		);
-
-		assert_eq!(
-			ArtifactId::from_file_name(&file_name),
-			Some(ArtifactId::new(
-				hex_literal::hex![
-					"0022800000000000000000000000000000000000000000000000000000000000"
-				]
-				.into(),
-				ExecutorParamsHash::from_hash(sp_core::H256(hex_literal::hex![
-					"0033900000000000000000000000000000000000000000000000000000000000"
-				])),
-			)),
-		);
-	}
-
-	#[test]
-	fn path() {
-		let dir = Path::new("/test");
-		let code_hash = "1234567890123456789012345678901234567890123456789012345678901234";
-		let params_hash = "4321098765432109876543210987654321098765432109876543210987654321";
-		let checksum = "34567890123456789012345678901234";
-		let file_name = file_name(code_hash, params_hash, checksum);
-
-		let code_hash = H256::from_str(code_hash).unwrap();
-		let params_hash = H256::from_str(params_hash).unwrap();
-		let path = ArtifactId::new(code_hash.into(), ExecutorParamsHash::from_hash(params_hash))
-			.path(dir, checksum);
-
-		assert_eq!(path.to_str().unwrap(), format!("/test/{}", file_name));
-	}
+	use super::*;
 
 	#[tokio::test]
-	async fn remove_stale_cache_on_startup() {
-		let cache_dir = tempfile::Builder::new().prefix("test-cache-").tempdir().unwrap();
+	async fn cache_cleared_on_startup() {
+		let tempdir = tempfile::tempdir().unwrap();
+		let cache_path = tempdir.path();
 
-		// invalid prefix
-		create_rand_artifact(&cache_dir, "");
-		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v");
-		create_rand_artifact(&cache_dir, "wasmtime_v8.0.0_polkadot_v1.0.0");
+		// These should be cleared.
+		fs::write(cache_path.join("abcd.pvf"), "test").unwrap();
+		fs::write(cache_path.join("wasmtime_..."), "test").unwrap();
+		fs::create_dir(cache_path.join("worker-dir-prepare-test")).unwrap();
 
-		let prefix = prefix();
+		// These should not be touched.
+		fs::write(cache_path.join("abcd.pvfartifact"), "test").unwrap();
+		fs::write(cache_path.join("polkadot_..."), "test").unwrap();
+		fs::create_dir(cache_path.join("worker-prepare-test")).unwrap();
 
-		// no checksum
-		create_rand_artifact(&cache_dir, &prefix);
+		let artifacts = Artifacts::new(cache_path).await;
 
-		// invalid hashes
-		let (path, checksum) = create_artifact(&cache_dir, &prefix, "000", "000001");
-		let new_path = concluded_path(&path, &checksum);
-		fs::rename(&path, &new_path).unwrap();
-
-		// checksum tampered
-		let (path, checksum) = create_rand_artifact(&cache_dir, &prefix);
-		let new_path = concluded_path(&path, checksum.chars().rev().collect::<String>().as_str());
-		fs::rename(&path, &new_path).unwrap();
-
-		// valid
-		let (path, checksum) = create_rand_artifact(&cache_dir, &prefix);
-		let new_path = concluded_path(&path, &checksum);
-		fs::rename(&path, &new_path).unwrap();
-
-		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 7);
-
-		let artifacts = Artifacts::new_and_prune(cache_dir.path()).await;
-
-		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 1);
-		assert_eq!(artifacts.len(), 1);
-
-		fs::remove_dir_all(cache_dir).unwrap();
+		let entries: Vec<String> = fs::read_dir(&cache_path)
+			.unwrap()
+			.map(|entry| entry.unwrap().file_name().into_string().unwrap())
+			.collect();
+		assert_eq!(entries.len(), 3);
+		assert!(entries.contains(&String::from("abcd.pvfartifact")));
+		assert!(entries.contains(&String::from("polkadot_...")));
+		assert!(entries.contains(&String::from("worker-prepare-test")));
+		assert_eq!(artifacts.len(), 0);
 	}
 }

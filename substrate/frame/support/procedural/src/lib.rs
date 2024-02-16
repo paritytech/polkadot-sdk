@@ -18,12 +18,14 @@
 //! Proc macro of Support code for the runtime.
 
 #![recursion_limit = "512"]
+#![deny(rustdoc::broken_intra_doc_links)]
 
 mod benchmark;
 mod construct_runtime;
 mod crate_version;
 mod derive_impl;
 mod dummy_part_checker;
+mod dynamic_params;
 mod key_prefix;
 mod match_and_insert;
 mod no_bound;
@@ -432,10 +434,7 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 	if cfg!(any(feature = "std", feature = "try-runtime")) {
 		no_bound::debug::derive_debug_no_bound(input)
 	} else {
-		let input: syn::DeriveInput = match syn::parse(input) {
-			Ok(input) => input,
-			Err(e) => return e.to_compile_error().into(),
-		};
+		let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
 		let name = &input.ident;
 		let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -460,13 +459,10 @@ pub fn derive_partial_eq_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::partial_eq::derive_partial_eq_no_bound(input)
 }
 
-/// derive Eq but do no bound any generic. Docs are at `frame_support::EqNoBound`.
+/// Derive [`Eq`] but do no bound any generic. Docs are at `frame_support::EqNoBound`.
 #[proc_macro_derive(EqNoBound)]
 pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
-	let input: syn::DeriveInput = match syn::parse(input) {
-		Ok(input) => input,
-		Err(e) => return e.to_compile_error().into(),
-	};
+	let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -477,6 +473,19 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 		};
 	)
 	.into()
+}
+
+/// Derive [`PartialOrd`] but do not bound any generic. Docs are at
+/// `frame_support::PartialOrdNoBound`.
+#[proc_macro_derive(PartialOrdNoBound)]
+pub fn derive_partial_ord_no_bound(input: TokenStream) -> TokenStream {
+	no_bound::partial_ord::derive_partial_ord_no_bound(input)
+}
+
+/// Derive [`Ord`] but do no bound any generic. Docs are at `frame_support::OrdNoBound`.
+#[proc_macro_derive(OrdNoBound)]
+pub fn derive_ord_no_bound(input: TokenStream) -> TokenStream {
+	no_bound::ord::derive_ord_no_bound(input)
 }
 
 /// derive `Default` but do no bound any generic. Docs are at `frame_support::DefaultNoBound`.
@@ -646,7 +655,6 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// ```
 ///
 /// where `TestDefaultConfig` was defined and registered as follows:
-///
 /// ```ignore
 /// pub struct TestDefaultConfig;
 ///
@@ -673,7 +681,6 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// ```
 ///
 /// The above call to `derive_impl` would expand to roughly the following:
-///
 /// ```ignore
 /// impl frame_system::Config for Test {
 ///     use frame_system::config_preludes::TestDefaultConfig;
@@ -881,17 +888,20 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	let item = syn::parse_macro_input!(item as TraitItemType);
 	if item.ident != "RuntimeCall" &&
 		item.ident != "RuntimeEvent" &&
+		item.ident != "RuntimeTask" &&
 		item.ident != "RuntimeOrigin" &&
 		item.ident != "RuntimeHoldReason" &&
 		item.ident != "RuntimeFreezeReason" &&
+		item.ident != "RuntimeParameters" &&
 		item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
 			item,
-			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, `RuntimeOrigin` or `PalletInfo`",
+			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, \
+			`RuntimeTask`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
 		)
 		.to_compile_error()
-		.into();
+		.into()
 	}
 	tokens
 }
@@ -1512,9 +1522,60 @@ pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 /// For ease of usage, when no `#[derive]` attributes are found for the enum under
 /// `#[pallet::composite_enum]`, the aforementioned traits are automatically derived for it. The
 /// inverse is also true: if there are any `#[derive]` attributes found for the enum, then no traits
-/// will automatically be derived for it.
+/// will automatically be derived for it (this implies that you need to provide the
+/// `frame_support::traits::VariantCount` implementation).
 #[proc_macro_attribute]
 pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::tasks_experimental`.
+#[proc_macro_attribute]
+pub fn tasks_experimental(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::task_list`.
+#[proc_macro_attribute]
+pub fn task_list(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::task_condition`.
+#[proc_macro_attribute]
+pub fn task_condition(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::task_weight`.
+#[proc_macro_attribute]
+pub fn task_weight(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::task_index`.
+#[proc_macro_attribute]
+pub fn task_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
@@ -1626,4 +1687,53 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 		#internal_mod
 	}
 	.into()
+}
+
+/// Mark a module that contains dynamic parameters.
+///
+/// See the `pallet_parameters` for a full example.
+///
+/// # Arguments
+///
+/// The macro accepts two positional arguments, of which the second is optional.
+///
+/// ## Aggregated Enum Name
+///
+/// This sets the name that the aggregated Key-Value enum will be named after. Common names would be
+/// `RuntimeParameters`, akin to `RuntimeCall`, `RuntimeOrigin` etc. There is no default value for
+/// this argument.
+///
+/// ## Parameter Storage Backend
+///
+/// The second argument provides access to the storage of the parameters. It can either be set on
+/// on this attribute, or on the inner ones. If set on both, the inner one takes precedence.
+#[proc_macro_attribute]
+pub fn dynamic_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_params(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
+}
+
+/// Define a module inside a [`macro@dynamic_params`] module that contains dynamic parameters.
+///
+/// See the `pallet_parameters` for a full example.
+///
+/// # Argument
+///
+/// This attribute takes one optional argument. The argument can either be put here or on the
+/// surrounding `#[dynamic_params]` attribute. If set on both, the inner one takes precedence.
+#[proc_macro_attribute]
+pub fn dynamic_pallet_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_pallet_params(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
+}
+
+/// Used internally by [`dynamic_params`].
+#[doc(hidden)]
+#[proc_macro_attribute]
+pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_aggregated_params_internal(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
 }

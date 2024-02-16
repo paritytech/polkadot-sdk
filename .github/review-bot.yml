@@ -1,38 +1,24 @@
 rules:
   - name: CI files
+    countAuthor: true
     condition:
-      include: 
+      include:
         - ^\.gitlab-ci\.yml
         - ^docker/.*
         - ^\.github/.*
         - ^\.gitlab/.*
         - ^\.config/nextest.toml
         - ^\.cargo/.*
-      exclude: 
+      exclude:
         - ^\.gitlab/pipeline/zombienet.*
-    minApprovals: 2
-    type: basic
-    teams:
-      - ci
-      - release-engineering
-
-  - name: Audit rules
-    type: basic
-    condition:
-      include: 
-        - ^polkadot/runtime\/(kusama|polkadot|common)\/.*
-        - ^polkadot/primitives/src\/.+\.rs$
-        - ^substrate/primitives/.*
-        - ^substrate/frame/.*
-      exclude: 
-        - ^polkadot/runtime\/(kusama|polkadot)\/src\/weights\/.+\.rs$
-        - ^substrate\/frame\/.+\.md$
-    minApprovals: 1
-    allowedToSkipRule:
-      teams:
-        - core-devs
-    teams:
-      - srlabs
+    type: "or"
+    reviewers:
+      - minApprovals: 2
+        teams:
+          - ci
+      - minApprovals: 2
+        teams:
+          - core-devs
 
   - name: Core developers
     countAuthor: true
@@ -41,13 +27,8 @@ rules:
         - .*
       # excluding files from 'Runtime files' and 'CI files' rules
       exclude:
-        - ^polkadot/runtime/(kusama|polkadot)/src/[^/]+\.rs$
-        - ^cumulus/parachains/runtimes/assets/(asset-hub-kusama|asset-hub-polkadot)/src/[^/]+\.rs$
-        - ^cumulus/parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$
-        - ^cumulus/parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$
         - ^cumulus/parachains/common/src/[^/]+\.rs$
         - ^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|election|nomination-pools/.*|staking/.*|aura/.*))
-        - ^polkadot/runtime/(kusama|polkadot)/src/[^/]+\.rs$
         - ^\.gitlab-ci\.yml
         - ^docker/.*
         - ^\.github/.*
@@ -59,28 +40,10 @@ rules:
     teams:
       - core-devs
 
-  # cumulus
-  - name: Runtime files cumulus
-    countAuthor: true
-    condition:
-      include:
-        - ^cumulus/parachains/runtimes/assets/(asset-hub-kusama|asset-hub-polkadot)/src/[^/]+\.rs$
-        - ^cumulus/parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$
-        - ^cumulus/parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$
-        - ^cumulus/parachains/common/src/[^/]+\.rs$
-    type: and-distinct
-    reviewers:
-      - minApprovals: 1
-        teams:
-          - locks-review
-      - minApprovals: 1
-        teams:
-          - polkadot-review
-
   # if there are any changes in the bridges subtree (in case of backport changes back to bridges repo)
   - name: Bridges subtree files
     type: basic
-    condition: 
+    condition:
       include:
         - ^bridges/.*
     minApprovals: 1
@@ -88,10 +51,9 @@ rules:
       - bridges-core
 
   # substrate
-
   - name: FRAME coders substrate
     condition:
-      include: 
+      include:
         - ^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|election|nomination-pools/.*|staking/.*|aura/.*))
     type: "and"
     reviewers:
@@ -104,8 +66,9 @@ rules:
 
   # Protection of THIS file
   - name: Review Bot
+    countAuthor: true
     condition:
-      include: 
+      include:
         - review-bot\.yml
     type: "and"
     reviewers:
@@ -115,9 +78,6 @@ rules:
       - minApprovals: 1
         teams:
           - locks-review
-      - minApprovals: 1
-        teams:
-          - ci
 
 preventReviewRequests:
   teams:

@@ -4,7 +4,7 @@
 
 This repository contains both the Cumulus SDK and also specific chains implemented on top of this SDK.
 
-If you only want to run a **Polkadot Parachain Node**, check out our [container section](./docs/container.md).
+If you only want to run a **Polkadot Parachain Node**, check out our [container section](./docs/contributor/container.md).
 
 ## Cumulus SDK
 
@@ -34,7 +34,7 @@ A Polkadot [collator](https://wiki.polkadot.network/docs/en/learn-collator) for 
 `polkadot-parachain` binary (previously called `polkadot-collator`).
 
 You may run `polkadot-parachain` locally after building it or using one of the container option described
-[here](./docs/container.md).
+[here](./docs/contributor/container.md).
 
 ### Relay Chain Interaction
 To operate a parachain node, a connection to the corresponding relay chain is necessary. This can be achieved in one of
@@ -242,7 +242,7 @@ Once the executable is built, launch collators for each parachain (repeat once e
 ./target/release/polkadot-parachain --chain $CHAIN --validator
 ```
 
-You can also build [using a container](./docs/container.md).
+You can also build [using a container](./docs/contributor/container.md).
 
 ### Parachains
 

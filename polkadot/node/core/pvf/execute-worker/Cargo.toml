@@ -1,17 +1,20 @@
 [package]
 name = "polkadot-node-core-pvf-execute-worker"
 description = "Polkadot crate that contains the logic for executing PVFs. Used by the polkadot-execute-worker binary."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 cpu-time = "1.0.0"
 gum = { package = "tracing-gum", path = "../../../gum" }
-os_pipe = "1.1.4"
-nix = { version = "0.27.1", features = ["resource", "process"]}
-libc = "0.2.139"
+cfg-if = "1.0"
+nix = { version = "0.27.1", features = ["process", "resource", "sched"] }
+libc = "0.2.152"
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 

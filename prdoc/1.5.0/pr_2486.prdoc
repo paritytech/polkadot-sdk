@@ -1,0 +1,25 @@
+title: "PVF: Add Secure Validator Mode"
+
+author: mrcnski
+topic: node
+
+doc:
+  - audience: Node Operator
+    description: |
+      Secure Validator Mode has been enabled for Polkadot validators by default.
+      This enforces PVF validation security, and prevents starting a validator node if some security features are missing on the machine.
+      SVM can be disabled using the `--insecure-validator-i-know-what-i-do` flag.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates:
+  - name: polkadot-cli
+  - name: polkadot-node-core-pvf
+  - name: polkadot-node-core-pvf-common
+  - name: polkadot-node-core-pvf-prepare-worker
+  - name: polkadot-node-core-pvf-execute-worker
+
+host_functions: []

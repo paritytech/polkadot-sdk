@@ -255,6 +255,20 @@ fn change_controller_works() {
 		assert_eq!(Staking::bonded(&stash), Some(stash));
 		mock::start_active_era(1);
 
+		// fetch the ledger from storage and check if the controller is correct.
+		let ledger = Staking::ledger(StakingAccount::Stash(stash)).unwrap();
+		assert_eq!(ledger.controller(), Some(stash));
+
+		// same if we fetch the ledger by controller.
+		let ledger = Staking::ledger(StakingAccount::Controller(stash)).unwrap();
+		assert_eq!(ledger.controller, Some(stash));
+		assert_eq!(ledger.controller(), Some(stash));
+
+		// the raw storage ledger's controller is always `None`. however, we can still fetch the
+		// correct controller with `ledger.controler()`.
+		let raw_ledger = <Ledger<Test>>::get(&stash).unwrap();
+		assert_eq!(raw_ledger.controller, None);
+
 		// `controller` is no longer in control. `stash` is now controller.
 		assert_noop!(
 			Staking::validate(RuntimeOrigin::signed(controller), ValidatorPrefs::default()),
@@ -757,12 +771,12 @@ fn double_staking_should_fail() {
 	// * an account already bonded as stash cannot be be stashed again.
 	// * an account already bonded as stash cannot nominate.
 	// * an account already bonded as controller can nominate.
-	ExtBuilder::default().build_and_execute(|| {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
 		let arbitrary_value = 5;
 		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
 			0,
 			arbitrary_value,
-			RewardDestination::default(),
+			RewardDestination::Staked,
 			false,
 		)
 		.unwrap();
@@ -772,7 +786,7 @@ fn double_staking_should_fail() {
 			Staking::bond(
 				RuntimeOrigin::signed(stash),
 				arbitrary_value.into(),
-				RewardDestination::default()
+				RewardDestination::Staked,
 			),
 			Error::<Test>::AlreadyBonded,
 		);
@@ -791,12 +805,12 @@ fn double_controlling_attempt_should_fail() {
 	// should test (in the same order):
 	// * an account already bonded as controller CANNOT be reused as the controller of another
 	//   account.
-	ExtBuilder::default().build_and_execute(|| {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
 		let arbitrary_value = 5;
 		let (stash, _) = testing_utils::create_unique_stash_controller::<Test>(
 			0,
 			arbitrary_value,
-			RewardDestination::default(),
+			RewardDestination::Staked,
 			false,
 		)
 		.unwrap();
@@ -806,7 +820,7 @@ fn double_controlling_attempt_should_fail() {
 			Staking::bond(
 				RuntimeOrigin::signed(stash),
 				arbitrary_value.into(),
-				RewardDestination::default()
+				RewardDestination::Staked,
 			),
 			Error::<Test>::AlreadyBonded,
 		);
@@ -1054,8 +1068,8 @@ fn reward_destination_works() {
 		mock::start_active_era(1);
 		mock::make_all_reward_payment(0);
 
-		// Check that RewardDestination is Staked (default)
-		assert_eq!(Staking::payee(11.into()), RewardDestination::Staked);
+		// Check that RewardDestination is Staked
+		assert_eq!(Staking::payee(11.into()), Some(RewardDestination::Staked));
 		// Check that reward went to the stash account of validator
 		assert_eq!(Balances::free_balance(11), 1000 + total_payout_0);
 		// Check that amount at stake increased accordingly
@@ -1084,7 +1098,7 @@ fn reward_destination_works() {
 		mock::make_all_reward_payment(1);
 
 		// Check that RewardDestination is Stash
-		assert_eq!(Staking::payee(11.into()), RewardDestination::Stash);
+		assert_eq!(Staking::payee(11.into()), Some(RewardDestination::Stash));
 		// Check that reward went to the stash account
 		assert_eq!(Balances::free_balance(11), 1000 + total_payout_0 + total_payout_1);
 		// Record this value
@@ -1118,7 +1132,7 @@ fn reward_destination_works() {
 		mock::make_all_reward_payment(2);
 
 		// Check that RewardDestination is Account(11)
-		assert_eq!(Staking::payee(11.into()), RewardDestination::Account(11));
+		assert_eq!(Staking::payee(11.into()), Some(RewardDestination::Account(11)));
 		// Check that reward went to the controller account
 		assert_eq!(Balances::free_balance(11), recorded_stash_balance + total_payout_2);
 		// Check that amount at stake is NOT increased
@@ -1732,6 +1746,7 @@ fn reward_to_stake_works() {
 		.set_status(31, StakerStatus::Idle)
 		.set_status(41, StakerStatus::Idle)
 		.set_stake(21, 2000)
+		.try_state(false)
 		.build_and_execute(|| {
 			assert_eq!(Staking::validator_count(), 2);
 			// Confirm account 10 and 20 are validators
@@ -2056,14 +2071,14 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider() {
 
 			// winners should be 21 and 31. Otherwise this election is taking duplicates into
 			// account.
-			let supports = <Test as Config>::ElectionProvider::elect().unwrap();
-			assert_eq!(
-				supports,
-				vec![
-					(21, Support { total: 1800, voters: vec![(21, 1000), (1, 400), (3, 400)] }),
-					(31, Support { total: 2200, voters: vec![(31, 1000), (1, 600), (3, 600)] })
-				],
-			);
+			let supports = <Test as Config>::ElectionProvider::elect(0).unwrap();
+
+			let expected_supports = vec![
+				(21, Support { total: 1800, voters: vec![(21, 1000), (1, 400), (3, 400)] }),
+				(31, Support { total: 2200, voters: vec![(31, 1000), (1, 600), (3, 600)] }),
+			];
+
+			assert_eq!(supports, to_bounded_supports(expected_supports));
 		});
 }
 
@@ -2108,14 +2123,13 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider_elected() {
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![21]));
 
 			// winners should be 21 and 11.
-			let supports = <Test as Config>::ElectionProvider::elect().unwrap();
-			assert_eq!(
-				supports,
-				vec![
-					(11, Support { total: 1500, voters: vec![(11, 1000), (1, 500)] }),
-					(21, Support { total: 2500, voters: vec![(21, 1000), (1, 500), (3, 1000)] })
-				],
-			);
+			let supports = <Test as Config>::ElectionProvider::elect(0).unwrap();
+			let expected_supports = vec![
+				(11, Support { total: 1500, voters: vec![(11, 1000), (1, 500)] }),
+				(21, Support { total: 2500, voters: vec![(21, 1000), (1, 500), (3, 1000)] }),
+			];
+
+			assert_eq!(supports, to_bounded_supports(expected_supports));
 		});
 }
 
@@ -2186,7 +2200,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		let _ = Balances::make_free_balance_be(&2, stake);
 
 		// only slashes out of bonded stake are applied. without this line, it is 0.
-		Staking::bond(RuntimeOrigin::signed(2), stake - 1, RewardDestination::default()).unwrap();
+		Staking::bond(RuntimeOrigin::signed(2), stake - 1, RewardDestination::Staked).unwrap();
 		// Override exposure of 11
 		EraInfo::<Test>::set_exposure(
 			0,
@@ -4972,14 +4986,15 @@ mod election_data_provider {
 			.build_and_execute(|| {
 				// default bounds are unbounded.
 				assert_ok!(<Staking as ElectionDataProvider>::electing_voters(
-					DataProviderBounds::default()
+					DataProviderBounds::default(),
+					0
 				));
 				assert_eq!(MinimumActiveStake::<Test>::get(), 10);
 
 				// remove staker with lower bond by limiting the number of voters and check
 				// `MinimumActiveStake` again after electing voters.
 				let bounds = ElectionBoundsBuilder::default().voters_count(5.into()).build();
-				assert_ok!(<Staking as ElectionDataProvider>::electing_voters(bounds.voters));
+				assert_ok!(<Staking as ElectionDataProvider>::electing_voters(bounds.voters, 0));
 				assert_eq!(MinimumActiveStake::<Test>::get(), 50);
 			});
 	}
@@ -4990,7 +5005,8 @@ mod election_data_provider {
 		ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 			// default bounds are unbounded.
 			assert_ok!(<Staking as ElectionDataProvider>::electing_voters(
-				DataProviderBounds::default()
+				DataProviderBounds::default(),
+				0
 			));
 			assert_eq!(<Test as Config>::VoterList::count(), 0);
 			assert_eq!(MinimumActiveStake::<Test>::get(), 0);
@@ -5002,13 +5018,15 @@ mod election_data_provider {
 			assert_eq!(MinNominatorBond::<Test>::get(), 1);
 			assert_eq!(<Test as Config>::VoterList::count(), 4);
 
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(4), 5, Default::default(),));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(4), 5, RewardDestination::Staked,));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(4), vec![1]));
 			assert_eq!(<Test as Config>::VoterList::count(), 5);
 
-			let voters_before =
-				<Staking as ElectionDataProvider>::electing_voters(DataProviderBounds::default())
-					.unwrap();
+			let voters_before = <Staking as ElectionDataProvider>::electing_voters(
+				DataProviderBounds::default(),
+				0,
+			)
+			.unwrap();
 			assert_eq!(MinimumActiveStake::<Test>::get(), 5);
 
 			// update minimum nominator bond.
@@ -5018,9 +5036,11 @@ mod election_data_provider {
 			// lower than `MinNominatorBond`.
 			assert_eq!(<Test as Config>::VoterList::count(), 5);
 
-			let voters =
-				<Staking as ElectionDataProvider>::electing_voters(DataProviderBounds::default())
-					.unwrap();
+			let voters = <Staking as ElectionDataProvider>::electing_voters(
+				DataProviderBounds::default(),
+				0,
+			)
+			.unwrap();
 			assert_eq!(voters_before, voters);
 
 			// minimum active stake is lower than `MinNominatorBond`.
@@ -5038,6 +5058,7 @@ mod election_data_provider {
 				assert_eq!(Staking::weight_of(&101), 500);
 				let voters = <Staking as ElectionDataProvider>::electing_voters(
 					DataProviderBounds::default(),
+					0,
 				)
 				.unwrap();
 				assert_eq!(voters.len(), 5);
@@ -5053,6 +5074,7 @@ mod election_data_provider {
 
 				let voters = <Staking as ElectionDataProvider>::electing_voters(
 					DataProviderBounds::default(),
+					0,
 				)
 				.unwrap();
 				// number of returned voters decreases since ledger entry of stash 101 is now
@@ -5074,7 +5096,8 @@ mod election_data_provider {
 		ExtBuilder::default().nominate(false).build_and_execute(|| {
 			// default bounds are unbounded.
 			assert!(<Validators<Test>>::iter().map(|(x, _)| x).all(|v| Staking::electing_voters(
-				DataProviderBounds::default()
+				DataProviderBounds::default(),
+				0
 			)
 			.unwrap()
 			.into_iter()
@@ -5127,12 +5150,15 @@ mod election_data_provider {
 				// 11 is taken;
 				// we finish since the 2x limit is reached.
 				assert_eq!(
-					Staking::electing_voters(bounds_builder.voters_count(2.into()).build().voters)
-						.unwrap()
-						.iter()
-						.map(|(stash, _, _)| stash)
-						.copied()
-						.collect::<Vec<_>>(),
+					Staking::electing_voters(
+						bounds_builder.voters_count(2.into()).build().voters,
+						0
+					)
+					.unwrap()
+					.iter()
+					.map(|(stash, _, _)| stash)
+					.copied()
+					.collect::<Vec<_>>(),
 					vec![11],
 				);
 			});
@@ -5150,32 +5176,42 @@ mod election_data_provider {
 
 				// if voter count limit is less..
 				assert_eq!(
-					Staking::electing_voters(bounds_builder.voters_count(1.into()).build().voters)
-						.unwrap()
-						.len(),
+					Staking::electing_voters(
+						bounds_builder.voters_count(1.into()).build().voters,
+						0
+					)
+					.unwrap()
+					.len(),
 					1
 				);
 
 				// if voter count limit is equal..
 				assert_eq!(
-					Staking::electing_voters(bounds_builder.voters_count(5.into()).build().voters)
-						.unwrap()
-						.len(),
+					Staking::electing_voters(
+						bounds_builder.voters_count(5.into()).build().voters,
+						0
+					)
+					.unwrap()
+					.len(),
 					5
 				);
 
 				// if voter count limit is more.
 				assert_eq!(
-					Staking::electing_voters(bounds_builder.voters_count(55.into()).build().voters)
-						.unwrap()
-						.len(),
+					Staking::electing_voters(
+						bounds_builder.voters_count(55.into()).build().voters,
+						0
+					)
+					.unwrap()
+					.len(),
 					5
 				);
 
 				// if target count limit is more..
 				assert_eq!(
 					Staking::electable_targets(
-						bounds_builder.targets_count(6.into()).build().targets
+						bounds_builder.targets_count(6.into()).build().targets,
+						0,
 					)
 					.unwrap()
 					.len(),
@@ -5185,7 +5221,8 @@ mod election_data_provider {
 				// if target count limit is equal..
 				assert_eq!(
 					Staking::electable_targets(
-						bounds_builder.targets_count(4.into()).build().targets
+						bounds_builder.targets_count(4.into()).build().targets,
+						0,
 					)
 					.unwrap()
 					.len(),
@@ -5195,7 +5232,8 @@ mod election_data_provider {
 				// if target limit count is less, then we return an error.
 				assert_eq!(
 					Staking::electable_targets(
-						bounds_builder.targets_count(1.into()).build().targets
+						bounds_builder.targets_count(1.into()).build().targets,
+						0
 					)
 					.unwrap_err(),
 					"Target snapshot too big"
@@ -5208,25 +5246,25 @@ mod election_data_provider {
 		ExtBuilder::default().build_and_execute(|| {
 			// voters: set size bounds that allows only for 1 voter.
 			let bounds = ElectionBoundsBuilder::default().voters_size(26.into()).build();
-			let elected = Staking::electing_voters(bounds.voters).unwrap();
+			let elected = Staking::electing_voters(bounds.voters, 0).unwrap();
 			assert!(elected.encoded_size() == 26 as usize);
 			let prev_len = elected.len();
 
 			// larger size bounds means more quota for voters.
 			let bounds = ElectionBoundsBuilder::default().voters_size(100.into()).build();
-			let elected = Staking::electing_voters(bounds.voters).unwrap();
+			let elected = Staking::electing_voters(bounds.voters, 0).unwrap();
 			assert!(elected.encoded_size() <= 100 as usize);
 			assert!(elected.len() > 1 && elected.len() > prev_len);
 
 			// targets: set size bounds that allows for only one target to fit in the snapshot.
 			let bounds = ElectionBoundsBuilder::default().targets_size(10.into()).build();
-			let elected = Staking::electable_targets(bounds.targets).unwrap();
+			let elected = Staking::electable_targets(bounds.targets, 0).unwrap();
 			assert!(elected.encoded_size() == 9 as usize);
 			let prev_len = elected.len();
 
 			// larger size bounds means more space for targets.
 			let bounds = ElectionBoundsBuilder::default().targets_size(100.into()).build();
-			let elected = Staking::electable_targets(bounds.targets).unwrap();
+			let elected = Staking::electable_targets(bounds.targets, 0).unwrap();
 			assert!(elected.encoded_size() <= 100 as usize);
 			assert!(elected.len() > 1 && elected.len() > prev_len);
 		});
@@ -5270,7 +5308,7 @@ mod election_data_provider {
 				// even through 61 has nomination quota of 2 at the time of the election, all the
 				// nominations (5) will be used.
 				assert_eq!(
-					Staking::electing_voters(DataProviderBounds::default())
+					Staking::electing_voters(DataProviderBounds::default(), 0)
 						.unwrap()
 						.iter()
 						.map(|(stash, _, targets)| (*stash, targets.len()))
@@ -5294,7 +5332,7 @@ mod election_data_provider {
 				// nominations of controller 70 won't be added due to voter size limit exceeded.
 				let bounds = ElectionBoundsBuilder::default().voters_size(100.into()).build();
 				assert_eq!(
-					Staking::electing_voters(bounds.voters)
+					Staking::electing_voters(bounds.voters, 0)
 						.unwrap()
 						.iter()
 						.map(|(stash, _, targets)| (*stash, targets.len()))
@@ -5311,7 +5349,7 @@ mod election_data_provider {
 				// include the electing voters of 70.
 				let bounds = ElectionBoundsBuilder::default().voters_size(1_000.into()).build();
 				assert_eq!(
-					Staking::electing_voters(bounds.voters)
+					Staking::electing_voters(bounds.voters, 0)
 						.unwrap()
 						.iter()
 						.map(|(stash, _, targets)| (*stash, targets.len()))
@@ -5398,6 +5436,28 @@ fn count_check_works() {
 				suppressed: false,
 			},
 		);
+	})
+}
+
+#[test]
+#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"number of entries in payee storage items does not match the number of bonded ledgers\")"]
+fn check_payee_invariant1_works() {
+	// A bonded ledger should always have an assigned `Payee` This test should panic as we verify
+	// that a bad state will panic due to the `try_state` checks in the `post_checks` in `mock`.
+	ExtBuilder::default().build_and_execute(|| {
+		let rogue_ledger = StakingLedger::<Test>::new(123456, 20);
+		Ledger::<Test>::insert(123456, rogue_ledger);
+	})
+}
+
+#[test]
+#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"number of entries in payee storage items does not match the number of bonded ledgers\")"]
+fn check_payee_invariant2_works() {
+	// The number of entries in both `Payee` and of bonded staking ledgers should match. This test
+	// should panic as we verify that a bad state will panic due to the `try_state` checks in the
+	// `post_checks` in `mock`.
+	ExtBuilder::default().build_and_execute(|| {
+		Payee::<Test>::insert(1111, RewardDestination::Staked);
 	})
 }
 
@@ -5767,7 +5827,7 @@ fn change_of_absolute_max_nominations() {
 			let bounds = DataProviderBounds::default();
 
 			// 3 validators and 3 nominators
-			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 3);
+			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 3);
 
 			// abrupt change from 16 to 4, everyone should be fine.
 			AbsoluteMaxNominations::set(4);
@@ -5778,7 +5838,7 @@ fn change_of_absolute_max_nominations() {
 					.collect::<Vec<_>>(),
 				vec![(101, 2), (71, 3), (61, 1)]
 			);
-			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 3);
+			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 3);
 
 			// abrupt change from 4 to 3, everyone should be fine.
 			AbsoluteMaxNominations::set(3);
@@ -5789,7 +5849,7 @@ fn change_of_absolute_max_nominations() {
 					.collect::<Vec<_>>(),
 				vec![(101, 2), (71, 3), (61, 1)]
 			);
-			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 3);
+			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 3);
 
 			// abrupt change from 3 to 2, this should cause some nominators to be non-decodable, and
 			// thus non-existent unless if they update.
@@ -5806,7 +5866,7 @@ fn change_of_absolute_max_nominations() {
 			// but its value cannot be decoded and default is returned.
 			assert!(Nominators::<Test>::get(71).is_none());
 
-			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 2);
+			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 2);
 			assert!(Nominators::<Test>::contains_key(101));
 
 			// abrupt change from 2 to 1, this should cause some nominators to be non-decodable, and
@@ -5823,7 +5883,7 @@ fn change_of_absolute_max_nominations() {
 			assert!(Nominators::<Test>::contains_key(61));
 			assert!(Nominators::<Test>::get(71).is_none());
 			assert!(Nominators::<Test>::get(61).is_some());
-			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 1);
+			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 1);
 
 			// now one of them can revive themselves by re-nominating to a proper value.
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(71), vec![1]));
@@ -5865,7 +5925,7 @@ fn nomination_quota_max_changes_decoding() {
 				vec![(70, 3), (101, 2), (50, 4), (30, 4), (60, 1)]
 			);
 			// 4 validators and 4 nominators
-			assert_eq!(Staking::electing_voters(unbonded_election).unwrap().len(), 4 + 4);
+			assert_eq!(Staking::electing_voters(unbonded_election, 0).unwrap().len(), 4 + 4);
 		});
 }
 
@@ -6206,7 +6266,7 @@ fn proportional_ledger_slash_works() {
 #[test]
 fn reducing_max_unlocking_chunks_abrupt() {
 	// Concern is on validators only
-	// By Default 11, 10 are stash and ctrl and 21,20
+	// By Default 11, 10 are stash and ctlr and 21,20
 	ExtBuilder::default().build_and_execute(|| {
 		// given a staker at era=10 and MaxUnlockChunks set to 2
 		MaxUnlockingChunks::set(2);
@@ -6720,7 +6780,7 @@ mod ledger {
 
 	#[test]
 	fn paired_account_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			assert_ok!(Staking::bond(
 				RuntimeOrigin::signed(10),
 				100,
@@ -6755,7 +6815,7 @@ mod ledger {
 
 	#[test]
 	fn get_ledger_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			// stash does not exist
 			assert!(StakingLedger::<Test>::get(StakingAccount::Stash(42)).is_err());
 
@@ -6805,7 +6865,7 @@ mod ledger {
 			assert_ok!(ledger.clone().bond(reward_dest));
 			assert!(StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
 			assert!(<Bonded<Test>>::get(&42).is_some());
-			assert_eq!(<Payee<Test>>::get(&42), reward_dest);
+			assert_eq!(<Payee<Test>>::get(&42), Some(reward_dest));
 
 			// cannot bond again.
 			assert!(ledger.clone().bond(reward_dest).is_err());
@@ -6843,7 +6903,7 @@ mod ledger {
 				Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Controller),
 				Error::<Test>::ControllerDeprecated
 			);
-			assert_eq!(Payee::<Test>::get(&11), RewardDestination::Staked);
+			assert_eq!(Payee::<Test>::get(&11), Some(RewardDestination::Staked));
 		})
 	}
 
@@ -6853,18 +6913,364 @@ mod ledger {
 		ExtBuilder::default().build_and_execute(|| {
 			// migrate a `Controller` variant to `Account` variant.
 			Payee::<Test>::insert(11, RewardDestination::Controller);
-			assert_eq!(Payee::<Test>::get(&11), RewardDestination::Controller);
+			assert_eq!(Payee::<Test>::get(&11), Some(RewardDestination::Controller));
 			assert_ok!(Staking::update_payee(RuntimeOrigin::signed(11), 11));
-			assert_eq!(Payee::<Test>::get(&11), RewardDestination::Account(11));
+			assert_eq!(Payee::<Test>::get(&11), Some(RewardDestination::Account(11)));
 
 			// Do not migrate a variant if not `Controller`.
 			Payee::<Test>::insert(21, RewardDestination::Stash);
-			assert_eq!(Payee::<Test>::get(&21), RewardDestination::Stash);
+			assert_eq!(Payee::<Test>::get(&21), Some(RewardDestination::Stash));
 			assert_noop!(
 				Staking::update_payee(RuntimeOrigin::signed(11), 21),
 				Error::<Test>::NotController
 			);
-			assert_eq!(Payee::<Test>::get(&21), RewardDestination::Stash);
+			assert_eq!(Payee::<Test>::get(&21), Some(RewardDestination::Stash));
+		})
+	}
+
+	#[test]
+	fn deprecate_controller_batch_works_full_weight() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Given:
+
+			let start = 1001;
+			let mut controllers: Vec<_> = vec![];
+			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
+				let ctlr: u64 = n.into();
+				let stash: u64 = (n + 10000).into();
+
+				Ledger::<Test>::insert(
+					ctlr,
+					StakingLedger {
+						controller: None,
+						total: (10 + ctlr).into(),
+						active: (10 + ctlr).into(),
+						..StakingLedger::default_from(stash)
+					},
+				);
+				Bonded::<Test>::insert(stash, ctlr);
+				Payee::<Test>::insert(stash, RewardDestination::Staked);
+
+				controllers.push(ctlr);
+			}
+
+			// When:
+
+			let bounded_controllers: BoundedVec<
+				_,
+				<Test as Config>::MaxControllersInDeprecationBatch,
+			> = BoundedVec::try_from(controllers).unwrap();
+
+			// Only `AdminOrigin` can sign.
+			assert_noop!(
+				Staking::deprecate_controller_batch(
+					RuntimeOrigin::signed(2),
+					bounded_controllers.clone()
+				),
+				BadOrigin
+			);
+
+			let result =
+				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
+			assert_ok!(result);
+			assert_eq!(
+				result.unwrap().actual_weight.unwrap(),
+				<Test as Config>::WeightInfo::deprecate_controller_batch(
+					<Test as Config>::MaxControllersInDeprecationBatch::get()
+				)
+			);
+
+			// Then:
+
+			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
+				let ctlr: u64 = n.into();
+				let stash: u64 = (n + 10000).into();
+
+				// Ledger no longer keyed by controller.
+				assert_eq!(Ledger::<Test>::get(ctlr), None);
+				// Bonded now maps to the stash.
+				assert_eq!(Bonded::<Test>::get(stash), Some(stash));
+
+				// Ledger is now keyed by stash.
+				let ledger_updated = Ledger::<Test>::get(stash).unwrap();
+				assert_eq!(ledger_updated.stash, stash);
+
+				// Check `active` and `total` values match the original ledger set by controller.
+				assert_eq!(ledger_updated.active, (10 + ctlr).into());
+				assert_eq!(ledger_updated.total, (10 + ctlr).into());
+			}
+		})
+	}
+
+	#[test]
+	fn deprecate_controller_batch_works_half_weight() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Given:
+
+			let start = 1001;
+			let mut controllers: Vec<_> = vec![];
+			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
+				let ctlr: u64 = n.into();
+
+				// Only half of entries are unique pairs.
+				let stash: u64 = if n % 2 == 0 { (n + 10000).into() } else { ctlr };
+
+				Ledger::<Test>::insert(
+					ctlr,
+					StakingLedger { controller: None, ..StakingLedger::default_from(stash) },
+				);
+				Bonded::<Test>::insert(stash, ctlr);
+				Payee::<Test>::insert(stash, RewardDestination::Staked);
+
+				controllers.push(ctlr);
+			}
+
+			// When:
+			let bounded_controllers: BoundedVec<
+				_,
+				<Test as Config>::MaxControllersInDeprecationBatch,
+			> = BoundedVec::try_from(controllers.clone()).unwrap();
+
+			let result =
+				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
+			assert_ok!(result);
+			assert_eq!(
+				result.unwrap().actual_weight.unwrap(),
+				<Test as Config>::WeightInfo::deprecate_controller_batch(controllers.len() as u32)
+			);
+
+			// Then:
+
+			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
+				let unique_pair = n % 2 == 0;
+				let ctlr: u64 = n.into();
+				let stash: u64 = if unique_pair { (n + 10000).into() } else { ctlr };
+
+				// Side effect of migration for unique pair.
+				if unique_pair {
+					assert_eq!(Ledger::<Test>::get(ctlr), None);
+				}
+				// Bonded maps to the stash.
+				assert_eq!(Bonded::<Test>::get(stash), Some(stash));
+
+				// Ledger is keyed by stash.
+				let ledger_updated = Ledger::<Test>::get(stash).unwrap();
+				assert_eq!(ledger_updated.stash, stash);
+			}
+		})
+	}
+
+	#[test]
+	fn deprecate_controller_batch_skips_unmigrated_controller_payees() {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
+			// Given:
+
+			let stash: u64 = 1000;
+			let ctlr: u64 = 1001;
+
+			Ledger::<Test>::insert(
+				ctlr,
+				StakingLedger { controller: None, ..StakingLedger::default_from(stash) },
+			);
+			Bonded::<Test>::insert(stash, ctlr);
+			#[allow(deprecated)]
+			Payee::<Test>::insert(stash, RewardDestination::Controller);
+
+			// When:
+
+			let bounded_controllers: BoundedVec<
+				_,
+				<Test as Config>::MaxControllersInDeprecationBatch,
+			> = BoundedVec::try_from(vec![ctlr]).unwrap();
+
+			let result =
+				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
+			assert_ok!(result);
+			assert_eq!(
+				result.unwrap().actual_weight.unwrap(),
+				<Test as Config>::WeightInfo::deprecate_controller_batch(1 as u32)
+			);
+
+			// Then:
+
+			// Esure deprecation did not happen.
+			assert_eq!(Ledger::<Test>::get(ctlr).is_some(), true);
+
+			// Bonded still keyed by controller.
+			assert_eq!(Bonded::<Test>::get(stash), Some(ctlr));
+
+			// Ledger is still keyed by controller.
+			let ledger_updated = Ledger::<Test>::get(ctlr).unwrap();
+			assert_eq!(ledger_updated.stash, stash);
+		})
+	}
+}
+
+pub mod multi_page_staking {
+	use super::*;
+	use frame_election_provider_support::ElectionDataProvider;
+
+	#[test]
+	fn multi_page_target_snapshot_works() {
+		ExtBuilder::default().nominate(true).build_and_execute(|| {
+			let bounds = ElectionBoundsBuilder::default().targets_count(2.into()).build().targets;
+
+			// fetch from page 3 to 0.
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electable_targets(bounds, 3).unwrap(),
+				vec![31, 21]
+			);
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electable_targets(bounds, 2).unwrap(),
+				vec![11]
+			);
+			// all targets consumed now, thus remaining calls are empty vecs.
+			assert!(<Staking as ElectionDataProvider>::electable_targets(bounds, 1)
+				.unwrap()
+				.is_empty());
+			assert_eq!(TargetSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+
+			assert!(<Staking as ElectionDataProvider>::electable_targets(bounds, 0)
+				.unwrap()
+				.is_empty());
+
+			// once we reach page 0, the status reset.
+			assert_eq!(TargetSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+			// and requesting a nsew snapshot can restart
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electable_targets(bounds, 1).unwrap(),
+				vec![31, 21]
+			);
+		})
+	}
+
+	#[test]
+	fn multi_page_voter_snapshot_works() {
+		ExtBuilder::default().nominate(true).build_and_execute(|| {
+			let bounds = ElectionBoundsBuilder::default().voters_count(3.into()).build().voters;
+
+			// fetch from page 3 to 0.
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electing_voters(bounds, 3)
+					.unwrap()
+					.iter()
+					.map(|(x, _, _)| *x)
+					.collect::<Vec<_>>(),
+				vec![11, 21, 31]
+			);
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electing_voters(bounds, 2)
+					.unwrap()
+					.iter()
+					.map(|(x, _, _)| *x)
+					.collect::<Vec<_>>(),
+				vec![101]
+			);
+			// all voters consumed now, thus remaining calls are empty vecs.
+			assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
+				.unwrap()
+				.is_empty());
+			assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+
+			assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
+				.unwrap()
+				.is_empty());
+
+			// once we reach page 0, the status reset.
+			assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+			// and requesting a nsew snapshot can restart
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
+					.unwrap()
+					.iter()
+					.map(|(x, _, _)| *x)
+					.collect::<Vec<_>>(),
+				vec![11, 21, 31]
+			);
+		})
+	}
+
+	#[test]
+	fn collect_exposures_multi_page_elect_works() {
+		ExtBuilder::default().exposures_page_size(2).build_and_execute(|| {
+			let current_era = CurrentEra::<Test>::get().unwrap();
+			let exposure_one = Exposure {
+				total: 1000 + 700,
+				own: 1000,
+				others: vec![
+					IndividualExposure { who: 101, value: 500 },
+					IndividualExposure { who: 102, value: 100 },
+					IndividualExposure { who: 103, value: 100 },
+				],
+			};
+
+			let exposure_two = Exposure {
+				total: 1000 + 1000,
+				own: 1000,
+				others: vec![
+					IndividualExposure { who: 104, value: 500 },
+					IndividualExposure { who: 105, value: 500 },
+				],
+			};
+
+			// call set of update 2x exposure. It should pad all full vec of individual pages,
+			// including those already stored in storage.
+			EraInfo::<Test>::set_or_update_exposure(current_era, &10, exposure_one.clone());
+			EraInfo::<Test>::set_or_update_exposure(current_era, &10, exposure_two.clone());
+
+			// metadata OK.
+			assert_eq!(
+				ErasStakersOverview::<Test>::get(0, &10).unwrap(),
+				PagedExposureMetadata { total: 2700, own: 1000, nominator_count: 5, page_count: 3 },
+			);
+
+			// paged exposures OK.
+			assert_eq!(
+				ErasStakersPaged::<Test>::get((0, &10, 0)).unwrap(),
+				ExposurePage {
+					page_total: 600,
+					others: vec!(
+						IndividualExposure { who: 101, value: 500 },
+						IndividualExposure { who: 102, value: 100 }
+					)
+				},
+			);
+			assert_eq!(
+				ErasStakersPaged::<Test>::get((0, &10, 1)).unwrap(),
+				ExposurePage {
+					page_total: 600,
+					others: vec!(
+						IndividualExposure { who: 103, value: 100 },
+						IndividualExposure { who: 105, value: 500 }
+					)
+				},
+			);
+			assert_eq!(
+				ErasStakersPaged::<Test>::get((0, &10, 2)).unwrap(),
+				ExposurePage {
+					page_total: 500,
+					others: vec!(IndividualExposure { who: 104, value: 500 })
+				},
+			);
+
+			// no page 3
+			assert!(ErasStakersPaged::<Test>::get((0, &10, 3)).is_none());
+
+			// full exposures OK.
+			assert_eq!(
+				Staking::eras_stakers(active_era(), &10),
+				Exposure {
+					total: 2700,
+					own: 1000,
+					others: vec!(
+						IndividualExposure { who: 101, value: 500 },
+						IndividualExposure { who: 102, value: 100 },
+						IndividualExposure { who: 103, value: 100 },
+						IndividualExposure { who: 105, value: 500 },
+						IndividualExposure { who: 104, value: 500 }
+					)
+				}
+			);
 		})
 	}
 }

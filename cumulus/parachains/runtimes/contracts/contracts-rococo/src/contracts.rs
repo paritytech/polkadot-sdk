@@ -26,7 +26,7 @@ use pallet_contracts::{
 };
 use sp_runtime::Perbill;
 
-pub use parachains_common::{rococo::currency::deposit, AVERAGE_ON_INITIALIZE_RATIO};
+use testnet_parachains_constants::rococo::currency::deposit;
 
 // Prints debug output of the `contracts` pallet to stdout if the node is
 // started with `-lruntime::contracts=debug`.

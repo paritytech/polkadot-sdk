@@ -1,6 +1,6 @@
 [package]
 name = "sp-npos-elections"
-version = "4.0.0-dev"
+version = "26.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,24 +9,27 @@ repository.workspace = true
 description = "NPoS election algorithm primitives"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", default-features = false, features = ["derive", "alloc"], optional = true }
-sp-arithmetic = { path = "../arithmetic", default-features = false}
-sp-core = { path = "../core", default-features = false}
-sp-runtime = { path = "../runtime", default-features = false}
-sp-std = { path = "../std", default-features = false}
+serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"], optional = true }
+sp-arithmetic = { path = "../arithmetic", default-features = false }
+sp-core = { path = "../core", default-features = false }
+sp-runtime = { path = "../runtime", default-features = false }
+sp-std = { path = "../std", default-features = false }
 
 [dev-dependencies]
 rand = "0.8.5"
 substrate-test-utils = { path = "../../test-utils" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 bench = []
 std = [
 	"codec/std",

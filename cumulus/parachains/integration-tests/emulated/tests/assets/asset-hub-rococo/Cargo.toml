@@ -7,28 +7,32 @@ license = "Apache-2.0"
 description = "Asset Hub Rococo runtime integration tests with xcm-emulator"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 assert_matches = "1.5.0"
 
 # Substrate
-sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false}
-frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false}
-pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false}
-pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false}
-pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false}
+sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
+frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
+pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
+pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
+pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false}
-pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
-xcm-executor = { package = "staging-xcm-executor",  path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
+pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false }
 rococo-runtime = { path = "../../../../../../../polkadot/runtime/rococo" }
 
 # Cumulus
 asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
 parachains-common = { path = "../../../../../../parachains/common" }
+cumulus-pallet-parachain-system = { path = "../../../../../../pallets/parachain-system", default-features = false }
+testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["rococo"] }
 asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
-penpal-runtime = { path = "../../../../../runtimes/testing/penpal" }
-rococo-system-emulated-network ={ path = "../../../networks/rococo-system" }
+rococo-system-emulated-network = { path = "../../../networks/rococo-system" }

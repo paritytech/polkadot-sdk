@@ -18,11 +18,12 @@ way. The Polkadot SDK comprises three main pieces of software:
 [![Polkadot-license](https://img.shields.io/badge/License-GPL3-blue)](./polkadot/LICENSE)
 
 Implementation of a node for the https://polkadot.network in Rust, using the Substrate framework. This directory
-currently contains runtimes for the Polkadot, Kusama, Westend, and Rococo networks. In the future, these will be
-relocated to the [`runtimes`](https://github.com/polkadot-fellows/runtimes/) repository.
+currently contains runtimes for the Westend and Rococo test networks. Polkadot, Kusama and their system chain runtimes
+are located in the [`runtimes`](https://github.com/polkadot-fellows/runtimes/) repository maintained by
+[the Polkadot Technical Fellowship](https://polkadot-fellows.github.io/dashboard/#/overview).
 
 ## [Substrate](./substrate/)
- [![SubstrateRustDocs](https://img.shields.io/badge/Rust_Docs-Substrate-24CC85?logo=rust)](https://paritytech.github.io/substrate/master/substrate/index.html)
+ [![SubstrateRustDocs](https://img.shields.io/badge/Rust_Docs-Substrate-24CC85?logo=rust)](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/substrate/index.html)
  [![Substrate-license](https://img.shields.io/badge/License-GPL3%2FApache2.0-blue)](./substrate/README.md#LICENSE)
 
 Substrate is the primary blockchain SDK used by developers to create the parachains that make up the Polkadot network.
@@ -30,10 +31,30 @@ Additionally, it allows for the development of self-sovereign blockchains that o
 Polkadot.
 
 ## [Cumulus](./cumulus/)
-[![CumulusRustDocs](https://img.shields.io/badge/Rust_Docs-Cumulus-222222?logo=rust)](https://paritytech.github.io/cumulus/cumulus_client_collator/index.html)
+[![CumulusRustDocs](https://img.shields.io/badge/Rust_Docs-Cumulus-222222?logo=rust)](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html)
 [![Cumulus-license](https://img.shields.io/badge/License-GPL3-blue)](./cumulus/LICENSE)
 
 Cumulus is a set of tools for writing Substrate-based Polkadot parachains.
+
+## Releases
+
+> [!NOTE]  
+> Our release process is still Work-In-Progress and may not yet reflect the aspired outline here.
+
+The Polkadot-SDK has two release channels: `stable` and `nightly`. Production software is advised to only use `stable`.
+`nightly` is meant for tinkerers to try out the latest features. The detailed release process is described in
+[RELEASE.md](docs/RELEASE.md).
+
+### Stable
+
+`stable` releases have a support duration of **three months**. In this period, the release will not have any breaking
+changes. It will receive bug fixes, security fixes, performance fixes and new non-breaking features on a **two week**
+cadence.
+
+### Nightly
+
+`nightly` releases are released every night from the `master` branch, potentially with breaking changes. They have
+pre-release version numbers in the format `major.0.0-nightlyYYMMDD`.
 
 ## Upstream Dependencies
 
@@ -46,12 +67,12 @@ Below are the primary upstream dependencies utilized in this project:
 
 ## Security
 
-The security policy and procedures can be found in [docs/SECURITY.md](./docs/SECURITY.md).
+The security policy and procedures can be found in [docs/contributor/SECURITY.md](./docs/contributor/SECURITY.md).
 
 ## Contributing & Code of Conduct
 
-Ensure you follow our [contribution guidelines](./docs/CONTRIBUTING.md). In every interaction and contribution, this
-project adheres to the [Contributor Covenant Code of Conduct](./docs/CODE_OF_CONDUCT.md).
+Ensure you follow our [contribution guidelines](./docs/contributor/CONTRIBUTING.md). In every interaction and
+contribution, this project adheres to the [Contributor Covenant Code of Conduct](./docs/contributor/CODE_OF_CONDUCT.md).
 
 ## Additional Resources
 

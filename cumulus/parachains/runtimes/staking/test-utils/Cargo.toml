@@ -1,0 +1,8 @@
+[package]
+name = "staking-test-utils"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Test utils for Staking Chain runtimes."
+
+[dependencies]

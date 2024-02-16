@@ -6,7 +6,7 @@ on:
 jobs:
   trigger-merge-queue-action:
     runs-on: ubuntu-latest
-    environment: master
+    environment: merge-queues
     steps:
       - name: Generate token
         id: app_token

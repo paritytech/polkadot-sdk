@@ -1,62 +1,66 @@
 [package]
 name = "glutton-westend-runtime"
-version = "1.0.0"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Glutton parachain runtime."
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true}
-frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false}
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false}
-frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false}
-frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true}
-frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true}
-pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false}
-pallet-glutton = { path = "../../../../../substrate/frame/glutton", default-features = false, optional = true}
-pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false, optional = true}
+frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
+frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
+frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false }
+frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
+frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true }
+pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false }
+pallet-glutton = { path = "../../../../../substrate/frame/glutton", default-features = false, optional = true }
+pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false, optional = true }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
-sp-api = { path = "../../../../../substrate/primitives/api", default-features = false}
-sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false}
+sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
+sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false }
 sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
 sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
-sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false}
+sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false}
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
-sp-session = { path = "../../../../../substrate/primitives/session", default-features = false}
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false}
-sp-storage = { path = "../../../../../substrate/primitives/storage", default-features = false}
-sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false}
-sp-version = { path = "../../../../../substrate/primitives/version", default-features = false}
+sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
+sp-session = { path = "../../../../../substrate/primitives/session", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+sp-storage = { path = "../../../../../substrate/primitives/storage", default-features = false }
+sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false }
+sp-version = { path = "../../../../../substrate/primitives/version", default-features = false }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
 cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-timestamp = { path = "../../../../primitives/timestamp", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
+testnet-parachains-constants = { path = "../../constants", default-features = false, features = ["westend"] }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
@@ -109,6 +113,7 @@ std = [
 	"sp-storage/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
+	"testnet-parachains-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
@@ -130,9 +135,9 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-experimental = [ "pallet-aura/experimental" ]
+experimental = ["pallet-aura/experimental"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
-# to make it smaller like logging for example.
-on-chain-release-build = [ "sp-api/disable-logging" ]
+# to make it smaller, like logging for example.
+on-chain-release-build = ["sp-api/disable-logging"]

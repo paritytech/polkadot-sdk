@@ -5,19 +5,22 @@ authors.workspace = true
 edition.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "test-parachain"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = "0.1.73"
-clap = { version = "4.4.6", features = ["derive"] }
+async-trait = "0.1.74"
+clap = { version = "4.4.18", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-criterion = { version = "0.5.1", features = [ "async_tokio" ] }
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+criterion = { version = "0.5.1", features = ["async_tokio"] }
+jsonrpsee = { version = "0.20.3", features = ["server"] }
 rand = "0.8.5"
-serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.108"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
 tokio = { version = "1.32.0", features = ["macros"] }
 tracing = "0.1.37"
 url = "2.4.0"
@@ -44,7 +47,7 @@ sp-core = { path = "../../../substrate/primitives/core" }
 sp-io = { path = "../../../substrate/primitives/io" }
 sp-api = { path = "../../../substrate/primitives/api" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
 sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
@@ -68,16 +71,16 @@ cumulus-client-cli = { path = "../../client/cli" }
 parachains-common = { path = "../../parachains/common" }
 cumulus-client-consensus-common = { path = "../../client/consensus/common" }
 cumulus-client-consensus-relay-chain = { path = "../../client/consensus/relay-chain" }
+cumulus-client-parachain-inherent = { path = "../../client/parachain-inherent" }
 cumulus-client-service = { path = "../../client/service" }
 cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
 cumulus-relay-chain-inprocess-interface = { path = "../../client/relay-chain-inprocess-interface" }
 cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface" }
 cumulus-test-runtime = { path = "../runtime" }
 cumulus-relay-chain-minimal-node = { path = "../../client/relay-chain-minimal-node" }
 cumulus-client-pov-recovery = { path = "../../client/pov-recovery" }
 cumulus-test-relay-sproof-builder = { path = "../relay-sproof-builder" }
-cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp" }
 
 [dev-dependencies]

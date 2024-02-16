@@ -1,6 +1,6 @@
 [package]
 name = "sp-debug-derive"
-version = "8.0.0"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,6 +9,8 @@ repository.workspace = true
 description = "Macros to derive runtime debug implementation."
 documentation = "https://docs.rs/sp-debug-derive"
 
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -18,11 +20,11 @@ proc-macro = true
 
 [dependencies]
 quote = "1.0.28"
-syn = "2.0.38"
+syn = "2.0.48"
 proc-macro2 = "1.0.56"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = []
 # By default `RuntimeDebug` implements `Debug` that outputs `<wasm:stripped>` when `std` is
 # disabled. However, sometimes downstream users need to have the real `Debug` implementation for

@@ -59,23 +59,21 @@ type ParachainBackend = TFullBackend<Block>;
 
 type ParachainBlockImport = TParachainBlockImport<Block, Arc<ParachainClient>, ParachainBackend>;
 
+/// Assembly of PartialComponents (enough to run chain ops subcommands)
+pub type Service = PartialComponents<
+	ParachainClient,
+	ParachainBackend,
+	(),
+	sc_consensus::DefaultImportQueue<Block>,
+	sc_transaction_pool::FullPool<Block, ParachainClient>,
+	(ParachainBlockImport, Option<Telemetry>, Option<TelemetryWorkerHandle>),
+>;
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
 /// be able to perform chain operations.
-pub fn new_partial(
-	config: &Configuration,
-) -> Result<
-	PartialComponents<
-		ParachainClient,
-		ParachainBackend,
-		(),
-		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::FullPool<Block, ParachainClient>,
-		(ParachainBlockImport, Option<Telemetry>, Option<TelemetryWorkerHandle>),
-	>,
-	sc_service::Error,
-> {
+pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error> {
 	let telemetry = config
 		.telemetry_endpoints
 		.clone()

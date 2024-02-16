@@ -8,12 +8,12 @@ license = "GPL-3.0-only"
 resolver = "2"
 
 members = [
-	"developer-hub",
 	"bridges/bin/runtime-common",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
 	"bridges/modules/parachains",
 	"bridges/modules/relayers",
+	"bridges/modules/xcm-bridge-hub",
 	"bridges/modules/xcm-bridge-hub-router",
 	"bridges/primitives/chain-asset-hub-rococo",
 	"bridges/primitives/chain-asset-hub-westend",
@@ -23,8 +23,8 @@ members = [
 	"bridges/primitives/chain-bridge-hub-rococo",
 	"bridges/primitives/chain-bridge-hub-westend",
 	"bridges/primitives/chain-kusama",
-	"bridges/primitives/chain-polkadot-bulletin",
 	"bridges/primitives/chain-polkadot",
+	"bridges/primitives/chain-polkadot-bulletin",
 	"bridges/primitives/chain-rococo",
 	"bridges/primitives/chain-westend",
 	"bridges/primitives/header-chain",
@@ -34,7 +34,23 @@ members = [
 	"bridges/primitives/relayers",
 	"bridges/primitives/runtime",
 	"bridges/primitives/test-utils",
+	"bridges/primitives/xcm-bridge-hub",
 	"bridges/primitives/xcm-bridge-hub-router",
+	"bridges/snowbridge/pallets/ethereum-client",
+	"bridges/snowbridge/pallets/ethereum-client/fixtures",
+	"bridges/snowbridge/pallets/inbound-queue",
+	"bridges/snowbridge/pallets/inbound-queue/fixtures",
+	"bridges/snowbridge/pallets/outbound-queue",
+	"bridges/snowbridge/pallets/outbound-queue/merkle-tree",
+	"bridges/snowbridge/pallets/outbound-queue/runtime-api",
+	"bridges/snowbridge/pallets/system",
+	"bridges/snowbridge/pallets/system/runtime-api",
+	"bridges/snowbridge/primitives/beacon",
+	"bridges/snowbridge/primitives/core",
+	"bridges/snowbridge/primitives/ethereum",
+	"bridges/snowbridge/primitives/router",
+	"bridges/snowbridge/runtime/runtime-common",
+	"bridges/snowbridge/runtime/test-common",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
 	"cumulus/client/consensus/aura",
@@ -42,6 +58,7 @@ members = [
 	"cumulus/client/consensus/proposer",
 	"cumulus/client/consensus/relay-chain",
 	"cumulus/client/network",
+	"cumulus/client/parachain-inherent",
 	"cumulus/client/pov-recovery",
 	"cumulus/client/relay-chain-inprocess-interface",
 	"cumulus/client/relay-chain-interface",
@@ -65,16 +82,22 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend",
+	"cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend",
+	"cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-rococo",
+	"cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal",
 	"cumulus/parachains/integration-tests/emulated/chains/relays/rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/relays/westend",
 	"cumulus/parachains/integration-tests/emulated/common",
 	"cumulus/parachains/integration-tests/emulated/networks/rococo-system",
+	"cumulus/parachains/integration-tests/emulated/networks/rococo-westend-system",
 	"cumulus/parachains/integration-tests/emulated/networks/westend-system",
 	"cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-westend",
+	"cumulus/parachains/integration-tests/emulated/tests/people/people-rococo",
+	"cumulus/parachains/integration-tests/emulated/tests/people/people-westend",
 	"cumulus/parachains/pallets/collective-content",
 	"cumulus/parachains/pallets/parachain-info",
 	"cumulus/parachains/pallets/ping",
@@ -84,21 +107,28 @@ members = [
 	"cumulus/parachains/runtimes/assets/test-utils",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend",
+	"cumulus/parachains/runtimes/bridge-hubs/common",
 	"cumulus/parachains/runtimes/bridge-hubs/test-utils",
 	"cumulus/parachains/runtimes/collectives/collectives-westend",
+	"cumulus/parachains/runtimes/constants",
 	"cumulus/parachains/runtimes/contracts/contracts-rococo",
+	"cumulus/parachains/runtimes/staking/staking-westend",
+	"cumulus/parachains/runtimes/coretime/coretime-rococo",
+	"cumulus/parachains/runtimes/coretime/coretime-westend",
 	"cumulus/parachains/runtimes/glutton/glutton-westend",
 	"cumulus/parachains/runtimes/staking/staking-rococo",
+	"cumulus/parachains/runtimes/people/people-rococo",
+	"cumulus/parachains/runtimes/people/people-westend",
 	"cumulus/parachains/runtimes/starters/seedling",
 	"cumulus/parachains/runtimes/starters/shell",
 	"cumulus/parachains/runtimes/test-utils",
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/rococo-parachain",
-	"cumulus/parachains/testnets-common",
 	"cumulus/polkadot-parachain",
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
+	"cumulus/primitives/proof-size-hostfunction",
 	"cumulus/primitives/timestamp",
 	"cumulus/primitives/utility",
 	"cumulus/test/client",
@@ -106,6 +136,7 @@ members = [
 	"cumulus/test/runtime",
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
+	"docs/sdk",
 	"polkadot",
 	"polkadot/cli",
 	"polkadot/core-primitives",
@@ -123,8 +154,8 @@ members = [
 	"polkadot/node/core/parachains-inherent",
 	"polkadot/node/core/prospective-parachains",
 	"polkadot/node/core/provisioner",
-	"polkadot/node/core/pvf-checker",
 	"polkadot/node/core/pvf",
+	"polkadot/node/core/pvf-checker",
 	"polkadot/node/core/pvf/common",
 	"polkadot/node/core/pvf/execute-worker",
 	"polkadot/node/core/pvf/prepare-worker",
@@ -147,10 +178,11 @@ members = [
 	"polkadot/node/overseer",
 	"polkadot/node/primitives",
 	"polkadot/node/service",
+	"polkadot/node/subsystem",
+	"polkadot/node/subsystem-bench",
 	"polkadot/node/subsystem-test-helpers",
 	"polkadot/node/subsystem-types",
 	"polkadot/node/subsystem-util",
-	"polkadot/node/subsystem",
 	"polkadot/node/test/client",
 	"polkadot/node/test/service",
 	"polkadot/node/tracking-allocator",
@@ -179,8 +211,8 @@ members = [
 	"polkadot/utils/generate-bags",
 	"polkadot/utils/remote-ext-tests/bags-list",
 	"polkadot/xcm",
-	"polkadot/xcm/pallet-xcm-benchmarks",
 	"polkadot/xcm/pallet-xcm",
+	"polkadot/xcm/pallet-xcm-benchmarks",
 	"polkadot/xcm/procedural",
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
@@ -232,8 +264,8 @@ members = [
 	"substrate/client/merkle-mountain-range",
 	"substrate/client/merkle-mountain-range/rpc",
 	"substrate/client/mixnet",
-	"substrate/client/network-gossip",
 	"substrate/client/network",
+	"substrate/client/network-gossip",
 	"substrate/client/network/bitswap",
 	"substrate/client/network/common",
 	"substrate/client/network/light",
@@ -243,10 +275,10 @@ members = [
 	"substrate/client/network/transactions",
 	"substrate/client/offchain",
 	"substrate/client/proposer-metrics",
+	"substrate/client/rpc",
 	"substrate/client/rpc-api",
 	"substrate/client/rpc-servers",
 	"substrate/client/rpc-spec-v2",
-	"substrate/client/rpc",
 	"substrate/client/service",
 	"substrate/client/service/test",
 	"substrate/client/state-db",
@@ -260,6 +292,8 @@ members = [
 	"substrate/client/transaction-pool",
 	"substrate/client/transaction-pool/api",
 	"substrate/client/utils",
+	"substrate/deprecated/hashing",
+	"substrate/deprecated/hashing/proc-macro",
 	"substrate/frame",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
@@ -274,8 +308,8 @@ members = [
 	"substrate/frame/bags-list/fuzzer",
 	"substrate/frame/bags-list/remote-tests",
 	"substrate/frame/balances",
-	"substrate/frame/beefy-mmr",
 	"substrate/frame/beefy",
+	"substrate/frame/beefy-mmr",
 	"substrate/frame/benchmarking",
 	"substrate/frame/benchmarking/pov",
 	"substrate/frame/bounties",
@@ -284,13 +318,14 @@ members = [
 	"substrate/frame/collective",
 	"substrate/frame/contracts",
 	"substrate/frame/contracts/fixtures",
-	"substrate/frame/contracts/fixtures/contracts/common",
-	"substrate/frame/contracts/uapi",
 	"substrate/frame/contracts/mock-network",
 	"substrate/frame/contracts/proc-macro",
+	"substrate/frame/contracts/uapi",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
 	"substrate/frame/democracy",
+	"substrate/frame/election-provider-multi-block",
+	"substrate/frame/election-provider-multi-block/integration-tests",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
 	"substrate/frame/election-provider-support",
@@ -306,6 +341,7 @@ members = [
 	"substrate/frame/examples/kitchensink",
 	"substrate/frame/examples/offchain-worker",
 	"substrate/frame/examples/split",
+	"substrate/frame/examples/tasks",
 	"substrate/frame/executive",
 	"substrate/frame/fast-unstake",
 	"substrate/frame/glutton",
@@ -323,7 +359,6 @@ members = [
 	"substrate/frame/nft-fractionalization",
 	"substrate/frame/nfts",
 	"substrate/frame/nfts/runtime-api",
-	"substrate/frame/nicks",
 	"substrate/frame/nis",
 	"substrate/frame/node-authorization",
 	"substrate/frame/nomination-pools",
@@ -335,6 +370,7 @@ members = [
 	"substrate/frame/offences/benchmarking",
 	"substrate/frame/paged-list",
 	"substrate/frame/paged-list/fuzzer",
+	"substrate/frame/parameters",
 	"substrate/frame/preimage",
 	"substrate/frame/proxy",
 	"substrate/frame/ranked-collective",
@@ -345,6 +381,7 @@ members = [
 	"substrate/frame/root-testing",
 	"substrate/frame/safe-mode",
 	"substrate/frame/salary",
+	"substrate/frame/sassafras",
 	"substrate/frame/scheduler",
 	"substrate/frame/scored-pool",
 	"substrate/frame/session",
@@ -404,9 +441,9 @@ members = [
 	"substrate/primitives/consensus/slots",
 	"substrate/primitives/core",
 	"substrate/primitives/core/fuzz",
-	"substrate/primitives/core/hashing",
-	"substrate/primitives/core/hashing/proc-macro",
 	"substrate/primitives/crypto/ec-utils",
+	"substrate/primitives/crypto/hashing",
+	"substrate/primitives/crypto/hashing/proc-macro",
 	"substrate/primitives/database",
 	"substrate/primitives/debug-derive",
 	"substrate/primitives/externalities",
@@ -424,12 +461,12 @@ members = [
 	"substrate/primitives/offchain",
 	"substrate/primitives/panic-handler",
 	"substrate/primitives/rpc",
+	"substrate/primitives/runtime",
 	"substrate/primitives/runtime-interface",
 	"substrate/primitives/runtime-interface/proc-macro",
-	"substrate/primitives/runtime-interface/test-wasm-deprecated",
-	"substrate/primitives/runtime-interface/test-wasm",
 	"substrate/primitives/runtime-interface/test",
-	"substrate/primitives/runtime",
+	"substrate/primitives/runtime-interface/test-wasm",
+	"substrate/primitives/runtime-interface/test-wasm-deprecated",
 	"substrate/primitives/session",
 	"substrate/primitives/staking",
 	"substrate/primitives/state-machine",
@@ -468,9 +505,42 @@ members = [
 	"substrate/utils/frame/try-runtime/cli",
 	"substrate/utils/prometheus",
 	"substrate/utils/wasm-builder",
- 	"cumulus/parachains/integration-tests/emulated/networks/rococo-westend-system",
 ]
-default-members = [ "polkadot", "substrate/bin/node/cli" ]
+default-members = ["polkadot", "substrate/bin/node/cli"]
+
+[workspace.lints.rust]
+suspicious_double_ref_op = { level = "allow", priority = 2 }
+
+[workspace.lints.clippy]
+all = { level = "allow", priority = 0 }
+correctness = { level = "warn", priority = 1 }
+complexity = { level = "warn", priority = 1 }
+if-same-then-else = { level = "allow", priority = 2 }
+zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
+type_complexity = { level = "allow", priority = 2 }                  # raison d'etre
+nonminimal-bool = { level = "allow", priority = 2 }                  # maybe
+borrowed-box = { level = "allow", priority = 2 }                     # Reasonable to fix this one
+too-many-arguments = { level = "allow", priority = 2 }               # (Turning this on would lead to)
+needless-lifetimes = { level = "allow", priority = 2 }               # generated code
+unnecessary_cast = { level = "allow", priority = 2 }                 # Types may change
+identity-op = { level = "allow", priority = 2 }                      # One case where we do 0 +
+useless_conversion = { level = "allow", priority = 2 }               # Types may change
+unit_arg = { level = "allow", priority = 2 }                         # stylistic
+option-map-unit-fn = { level = "allow", priority = 2 }               # stylistic
+bind_instead_of_map = { level = "allow", priority = 2 }              # stylistic
+erasing_op = { level = "allow", priority = 2 }                       # E.g. 0 * DOLLARS
+eq_op = { level = "allow", priority = 2 }                            # In tests we test equality.
+while_immutable_condition = { level = "allow", priority = 2 }        # false positives
+needless_option_as_deref = { level = "allow", priority = 2 }         # false positives
+derivable_impls = { level = "allow", priority = 2 }                  # false positives
+stable_sort_primitive = { level = "allow", priority = 2 }            # prefer stable sort
+extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
+default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
+
+[workspace.dependencies]
+polkavm-linker = "0.8.2"
+polkavm-derive = "0.8.0"
+log = { version = "0.4.20", default-features = false }
 
 [profile.release]
 # Polkadot runtime requires unwinding.
@@ -531,6 +601,7 @@ num-bigint = { opt-level = 3 }
 parking_lot = { opt-level = 3 }
 parking_lot_core = { opt-level = 3 }
 percent-encoding = { opt-level = 3 }
+polkavm-linker = { opt-level = 3 }
 primitive-types = { opt-level = 3 }
 reed-solomon-novelpoly = { opt-level = 3 }
 ring = { opt-level = 3 }

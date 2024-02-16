@@ -178,7 +178,7 @@ pub struct Storage {
 
 /// Storage change set
 #[derive(RuntimeDebug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, PartialEq, Eq))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, PartialEq, Eq, Clone))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct StorageChangeSet<Hash> {
 	/// Block hash
@@ -414,12 +414,13 @@ impl ChildTrieParentKeyId {
 ///
 /// V0 and V1 uses a same trie implementation, but V1 will write external value node in the trie for
 /// value with size at least `TRIE_VALUE_NODE_THRESHOLD`.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Encode, Decode))]
 pub enum StateVersion {
 	/// Old state version, no value nodes.
 	V0 = 0,
 	/// New state version can use value nodes.
+	#[default]
 	V1 = 1,
 }
 
@@ -429,12 +430,6 @@ impl Display for StateVersion {
 			StateVersion::V0 => f.write_str("0"),
 			StateVersion::V1 => f.write_str("1"),
 		}
-	}
-}
-
-impl Default for StateVersion {
-	fn default() -> Self {
-		StateVersion::V1
 	}
 }
 

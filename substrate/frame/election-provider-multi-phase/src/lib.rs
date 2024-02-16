@@ -101,9 +101,8 @@
 //! unsigned transaction, thus the name _unsigned_ phase. This unsigned transaction can never be
 //! valid if propagated, and it acts similar to an inherent.
 //!
-//! Validators will only submit solutions if the one that they have computed is sufficiently better
-//! than the best queued one (see [`pallet::Config::BetterUnsignedThreshold`]) and will limit the
-//! weight of the solution to [`MinerConfig::MaxWeight`].
+//! Validators will only submit solutions if the one that they have computed is strictly better than
+//! the best queued one and will limit the weight of the solution to [`MinerConfig::MaxWeight`].
 //!
 //! The unsigned phase can be made passive depending on how the previous signed phase went, by
 //! setting the first inner value of [`Phase`] to `false`. For now, the signed phase is always
@@ -234,7 +233,7 @@ use codec::{Decode, Encode};
 use frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder, SizeBound},
 	BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
-	ElectionProviderBase, InstantElectionProvider, NposSolution,
+	InstantElectionProvider, NposSolution, BoundedSupports
 };
 use frame_support::{
 	dispatch::DispatchClass,
@@ -249,8 +248,9 @@ use sp_arithmetic::{
 	traits::{CheckedAdd, Zero},
 	UpperOf,
 };
-use sp_npos_elections::{BoundedSupports, ElectionScore, IdentifierT, Supports, VoteWeight};
+use sp_npos_elections::{ElectionScore, IdentifierT, Supports, VoteWeight};
 use sp_runtime::{
+	traits::ConstU32,
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
@@ -275,14 +275,14 @@ pub mod migrations;
 pub mod signed;
 pub mod unsigned;
 pub mod weights;
-use unsigned::VoterOf;
-pub use weights::WeightInfo;
 
 pub use signed::{
 	BalanceOf, GeometricDepositBase, NegativeImbalanceOf, PositiveImbalanceOf, SignedSubmission,
 	SignedSubmissionOf, SignedSubmissions, SubmissionIndicesOf,
 };
+use unsigned::VoterOf;
 pub use unsigned::{Miner, MinerConfig};
+pub use weights::WeightInfo;
 
 /// The solution type used by this crate.
 pub type SolutionOf<T> = <T as MinerConfig>::Solution;
@@ -295,7 +295,7 @@ pub type SolutionTargetIndexOf<T> = <SolutionOf<T> as NposSolution>::TargetIndex
 pub type SolutionAccuracyOf<T> =
 	<SolutionOf<<T as crate::Config>::MinerConfig> as NposSolution>::Accuracy;
 /// The fallback election type.
-pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProviderBase>::Error;
+pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProvider>::Error;
 
 /// Configuration for the benchmarks of the pallet.
 pub trait BenchmarkingConfig {
@@ -598,11 +598,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type BetterSignedThreshold: Get<Perbill>;
 
-		/// The minimum amount of improvement to the solution score that defines a solution as
-		/// "better" in the Unsigned phase.
-		#[pallet::constant]
-		type BetterUnsignedThreshold: Get<Perbill>;
-
 		/// The repeat threshold of the offchain worker.
 		///
 		/// For example, if it is 5, that means that at least 5 blocks will elapse between attempts
@@ -658,13 +653,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type SignedDepositWeight: Get<BalanceOf<Self>>;
 
-		/// The maximum number of winners that can be elected by this `ElectionProvider`
-		/// implementation.
-		///
-		/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
-		#[pallet::constant]
-		type MaxWinners: Get<u32>;
-
 		/// Something that calculates the signed deposit base based on the signed submissions queue
 		/// size.
 		type SignedDepositBase: Convert<usize, BalanceOf<Self>>;
@@ -691,7 +679,8 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Self::DataProvider,
-			MaxWinners = Self::MaxWinners,
+			MaxWinnersPerPage = ConstU32< { u32::MAX } >,
+			MaxBackersPerWinner = ConstU32< { u32::MAX } >,
 		>;
 
 		/// Configuration of the governance-only fallback.
@@ -702,7 +691,6 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Self::DataProvider,
-			MaxWinners = Self::MaxWinners,
 		>;
 
 		/// OCW election solution miner algorithm implementation.
@@ -1024,6 +1012,7 @@ pub mod pallet {
 
 			// ensure solution is timely.
 			ensure!(Self::current_phase().is_signed(), Error::<T>::PreDispatchEarlySubmission);
+			ensure!(raw_solution.round == Self::round(), Error::<T>::PreDispatchDifferentRound);
 
 			// NOTE: this is the only case where having separate snapshot would have been better
 			// because could do just decode_len. But we can create abstractions to do this.
@@ -1197,6 +1186,8 @@ pub mod pallet {
 		BoundNotMet,
 		/// Submitted solution has too many winners
 		TooManyWinners,
+		/// Sumission was prepared for a different round.
+		PreDispatchDifferentRound,
 	}
 
 	#[pallet::validate_unsigned]
@@ -1278,6 +1269,7 @@ pub mod pallet {
 	/// Snapshot data of the round.
 	///
 	/// This is created at the beginning of the signed phase and cleared upon calling `elect`.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
 	#[pallet::getter(fn snapshot)]
 	pub type Snapshot<T: Config> = StorageValue<_, RoundSnapshot<T::AccountId, VoterOf<T>>>;
@@ -1285,6 +1277,7 @@ pub mod pallet {
 	/// Desired number of targets to elect for this round.
 	///
 	/// Only exists when [`Snapshot`] is present.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
 	#[pallet::getter(fn desired_targets)]
 	pub type DesiredTargets<T> = StorageValue<_, u32>;
@@ -1292,6 +1285,7 @@ pub mod pallet {
 	/// The metadata of the [`RoundSnapshot`]
 	///
 	/// Only exists when [`Snapshot`] is present.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
 	#[pallet::getter(fn snapshot_metadata)]
 	pub type SnapshotMetadata<T: Config> = StorageValue<_, SolutionOrSnapshotSize>;
@@ -1354,6 +1348,39 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 }
 
+/// This wrapper is created for handling the synchronization of [`Snapshot`], [`SnapshotMetadata`]
+/// and [`DesiredTargets`] storage items.
+pub struct SnapshotWrapper<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: Config> SnapshotWrapper<T> {
+	/// Kill all snapshot related storage items at the same time.
+	pub fn kill() {
+		<Snapshot<T>>::kill();
+		<SnapshotMetadata<T>>::kill();
+		<DesiredTargets<T>>::kill();
+	}
+	/// Set all snapshot related storage items at the same time.
+	pub fn set(metadata: SolutionOrSnapshotSize, desired_targets: u32, buffer: &[u8]) {
+		<SnapshotMetadata<T>>::put(metadata);
+		<DesiredTargets<T>>::put(desired_targets);
+		sp_io::storage::set(&<Snapshot<T>>::hashed_key(), &buffer);
+	}
+
+	/// Check if all of the storage items exist at the same time or all of the storage items do not
+	/// exist.
+	#[cfg(feature = "try-runtime")]
+	pub fn is_consistent() -> bool {
+		let snapshots = [
+			<Snapshot<T>>::exists(),
+			<SnapshotMetadata<T>>::exists(),
+			<DesiredTargets<T>>::exists(),
+		];
+
+		// All should either exist or not exist
+		snapshots.iter().skip(1).all(|v| snapshots[0] == *v)
+	}
+}
+
 impl<T: Config> Pallet<T> {
 	/// Internal logic of the offchain worker, to be executed only when the offchain lock is
 	/// acquired with success.
@@ -1405,9 +1432,6 @@ impl<T: Config> Pallet<T> {
 			SolutionOrSnapshotSize { voters: voters.len() as u32, targets: targets.len() as u32 };
 		log!(info, "creating a snapshot with metadata {:?}", metadata);
 
-		<SnapshotMetadata<T>>::put(metadata);
-		<DesiredTargets<T>>::put(desired_targets);
-
 		// instead of using storage APIs, we do a manual encoding into a fixed-size buffer.
 		// `encoded_size` encodes it without storing it anywhere, this should not cause any
 		// allocation.
@@ -1422,7 +1446,7 @@ impl<T: Config> Pallet<T> {
 		// buffer should have not re-allocated since.
 		debug_assert!(buffer.len() == size && size == buffer.capacity());
 
-		sp_io::storage::set(&<Snapshot<T>>::hashed_key(), &buffer);
+		SnapshotWrapper::<T>::set(metadata, desired_targets, &buffer);
 	}
 
 	/// Parts of [`create_snapshot`] that happen outside of this pallet.
@@ -1432,7 +1456,8 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(Vec<T::AccountId>, Vec<VoterOf<T>>, u32), ElectionError<T>> {
 		let election_bounds = T::ElectionBounds::get();
 
-		let targets = T::DataProvider::electable_targets(election_bounds.targets)
+		// NOTE: this implementation expects a single-page election provider.
+		let targets = T::DataProvider::electable_targets(election_bounds.targets, Zero::zero())
 			.and_then(|t| {
 				election_bounds.ensure_targets_limits(
 					CountBound(t.len() as u32),
@@ -1442,7 +1467,7 @@ impl<T: Config> Pallet<T> {
 			})
 			.map_err(ElectionError::DataProvider)?;
 
-		let voters = T::DataProvider::electing_voters(election_bounds.voters)
+		let voters = T::DataProvider::electing_voters(election_bounds.voters, Zero::zero())
 			.and_then(|v| {
 				election_bounds.ensure_voters_limits(
 					CountBound(v.len() as u32),
@@ -1452,7 +1477,7 @@ impl<T: Config> Pallet<T> {
 			})
 			.map_err(ElectionError::DataProvider)?;
 
-		let mut desired_targets = <Pallet<T> as ElectionProviderBase>::desired_targets_checked()
+		let mut desired_targets = <Pallet<T> as ElectionProvider>::desired_targets_checked()
 			.map_err(|e| ElectionError::DataProvider(e))?;
 
 		// If `desired_targets` > `targets.len()`, cap `desired_targets` to that level and emit a
@@ -1503,13 +1528,6 @@ impl<T: Config> Pallet<T> {
 		);
 	}
 
-	/// Kill everything created by [`Pallet::create_snapshot`].
-	pub fn kill_snapshot() {
-		<Snapshot<T>>::kill();
-		<SnapshotMetadata<T>>::kill();
-		<DesiredTargets<T>>::kill();
-	}
-
 	/// Checks the feasibility of a solution.
 	pub fn feasibility_check(
 		raw_solution: RawSolution<SolutionOf<T::MinerConfig>>,
@@ -1544,8 +1562,8 @@ impl<T: Config> Pallet<T> {
 		// Phase is off now.
 		Self::phase_transition(Phase::Off);
 
-		// Kill snapshots.
-		Self::kill_snapshot();
+		// Kill snapshot and relevant metadata (everything created by [`SnapshotMetadata::set`]).
+		SnapshotWrapper::<T>::kill();
 	}
 
 	fn do_elect() -> Result<BoundedSupportsOf<Self>, ElectionError<T>> {
@@ -1616,15 +1634,7 @@ impl<T: Config> Pallet<T> {
 	// - [`DesiredTargets`] exists if and only if [`Snapshot`] is present.
 	// - [`SnapshotMetadata`] exist if and only if [`Snapshot`] is present.
 	fn try_state_snapshot() -> Result<(), TryRuntimeError> {
-		if <Snapshot<T>>::exists() &&
-			<SnapshotMetadata<T>>::exists() &&
-			<DesiredTargets<T>>::exists()
-		{
-			Ok(())
-		} else if !<Snapshot<T>>::exists() &&
-			!<SnapshotMetadata<T>>::exists() &&
-			!<DesiredTargets<T>>::exists()
-		{
+		if SnapshotWrapper::<T>::is_consistent() {
 			Ok(())
 		} else {
 			Err("If snapshot exists, metadata and desired targets should be set too. Otherwise, none should be set.".into())
@@ -1694,23 +1704,16 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> ElectionProviderBase for Pallet<T> {
+impl<T: Config> ElectionProvider for Pallet<T> {
 	type AccountId = T::AccountId;
 	type BlockNumber = BlockNumberFor<T>;
 	type Error = ElectionError<T>;
-	type MaxWinners = T::MaxWinners;
+	type MaxWinnersPerPage = ConstU32<{ u32::MAX }>;
+	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type Pages = ConstU32<0>;
 	type DataProvider = T::DataProvider;
-}
 
-impl<T: Config> ElectionProvider for Pallet<T> {
-	fn ongoing() -> bool {
-		match Self::current_phase() {
-			Phase::Off => false,
-			_ => true,
-		}
-	}
-
-	fn elect() -> Result<BoundedSupportsOf<Self>, Self::Error> {
+	fn elect(_remaining_pages: u32) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		match Self::do_elect() {
 			Ok(supports) => {
 				// All went okay, record the weight, put sign to be Off, clean snapshot, etc.
@@ -1759,18 +1762,14 @@ mod feasibility_check {
 			assert!(MultiPhase::current_phase().is_signed());
 			let solution = raw_solution();
 
-			// For whatever reason it might be:
-			<Snapshot<Runtime>>::kill();
+			// kill `Snapshot`, `SnapshotMetadata` and `DesiredTargets` for the storage state to
+			// be consistent, by using the `SnapshotWrapper` for the try_state checks to pass.
+			<SnapshotWrapper<Runtime>>::kill();
 
 			assert_noop!(
 				MultiPhase::feasibility_check(solution, COMPUTE),
 				FeasibilityError::SnapshotUnavailable
 			);
-
-			// kill also `SnapshotMetadata` and `DesiredTargets` for the storage state to be
-			// consistent for the try_state checks to pass.
-			<SnapshotMetadata<Runtime>>::kill();
-			<DesiredTargets<Runtime>>::kill();
 		})
 	}
 
@@ -2011,7 +2010,7 @@ mod tests {
 			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
 			assert!(MultiPhase::snapshot().is_some());
 
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert!(MultiPhase::current_phase().is_off());
 			assert!(MultiPhase::snapshot().is_none());
@@ -2075,7 +2074,7 @@ mod tests {
 			roll_to(30);
 			assert!(MultiPhase::current_phase().is_unsigned_open_at(20));
 
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert!(MultiPhase::current_phase().is_off());
 			assert!(MultiPhase::snapshot().is_none());
@@ -2122,7 +2121,7 @@ mod tests {
 			roll_to(30);
 			assert!(MultiPhase::current_phase().is_signed());
 
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert!(MultiPhase::current_phase().is_off());
 			assert!(MultiPhase::snapshot().is_none());
@@ -2161,7 +2160,7 @@ mod tests {
 			assert!(MultiPhase::current_phase().is_off());
 
 			// This module is now only capable of doing on-chain backup.
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert!(MultiPhase::current_phase().is_off());
 
@@ -2197,7 +2196,7 @@ mod tests {
 			assert_eq!(MultiPhase::round(), 1);
 
 			// An unexpected call to elect.
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			// We surely can't have any feasible solutions. This will cause an on-chain election.
 			assert_eq!(
@@ -2248,7 +2247,7 @@ mod tests {
 			}
 
 			// an unexpected call to elect.
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			// all storage items must be cleared.
 			assert_eq!(MultiPhase::round(), 2);
@@ -2319,7 +2318,7 @@ mod tests {
 			));
 
 			roll_to(30);
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2376,7 +2375,7 @@ mod tests {
 			));
 			assert!(MultiPhase::queued_solution().is_some());
 
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2418,7 +2417,7 @@ mod tests {
 
 			// Zilch solutions thus far, but we get a result.
 			assert!(MultiPhase::queued_solution().is_none());
-			let supports = MultiPhase::elect().unwrap();
+			let supports = MultiPhase::elect(0).unwrap();
 
 			assert_eq!(
 				supports,
@@ -2460,7 +2459,7 @@ mod tests {
 
 			// Zilch solutions thus far.
 			assert!(MultiPhase::queued_solution().is_none());
-			assert_eq!(MultiPhase::elect().unwrap_err(), ElectionError::Fallback("NoFallback."));
+			assert_eq!(MultiPhase::elect(0).unwrap_err(), ElectionError::Fallback("NoFallback."));
 			// phase is now emergency.
 			assert_eq!(MultiPhase::current_phase(), Phase::Emergency);
 			// snapshot is still there until election finalizes.
@@ -2494,7 +2493,7 @@ mod tests {
 
 			// Zilch solutions thus far.
 			assert!(MultiPhase::queued_solution().is_none());
-			assert_eq!(MultiPhase::elect().unwrap_err(), ElectionError::Fallback("NoFallback."));
+			assert_eq!(MultiPhase::elect(0).unwrap_err(), ElectionError::Fallback("NoFallback."));
 
 			// phase is now emergency.
 			assert_eq!(MultiPhase::current_phase(), Phase::Emergency);
@@ -2512,7 +2511,7 @@ mod tests {
 			// something is queued now
 			assert!(MultiPhase::queued_solution().is_some());
 			// next election call with fix everything.;
-			assert!(MultiPhase::elect().is_ok());
+			assert!(MultiPhase::elect(0).is_ok());
 			assert_eq!(MultiPhase::current_phase(), Phase::Off);
 
 			assert_eq!(
@@ -2564,7 +2563,7 @@ mod tests {
 			assert_eq!(MultiPhase::current_phase(), Phase::Off);
 
 			// On-chain backup works though.
-			let supports = MultiPhase::elect().unwrap();
+			let supports = MultiPhase::elect(0).unwrap();
 			assert!(supports.len() > 0);
 
 			assert_eq!(
@@ -2603,7 +2602,7 @@ mod tests {
 			assert_eq!(MultiPhase::current_phase(), Phase::Off);
 
 			roll_to(29);
-			let err = MultiPhase::elect().unwrap_err();
+			let err = MultiPhase::elect(0).unwrap_err();
 			assert_eq!(err, ElectionError::Fallback("NoFallback."));
 			assert_eq!(MultiPhase::current_phase(), Phase::Emergency);
 

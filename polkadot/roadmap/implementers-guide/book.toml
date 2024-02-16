@@ -15,7 +15,7 @@ renderer = ["html"]
 
 [output.html]
 additional-css = ["last-changed.css"]
-additional-js = ["mermaid.min.js", "mermaid-init.js"]
+additional-js = ["mermaid-init.js", "mermaid.min.js"]
 # Repository URL used in the last-changed link.
 git-repository-url = "https://github.com/paritytech/polkadot-sdk"
 

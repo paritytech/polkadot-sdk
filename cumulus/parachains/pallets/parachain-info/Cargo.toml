@@ -2,24 +2,27 @@
 authors.workspace = true
 edition.workspace = true
 name = "staging-parachain-info"
-version = "0.1.0"
+version = "0.7.0"
 license = "Apache-2.0"
 description = "Pallet to store the parachain ID"
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
-frame-support = { path = "../../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../../substrate/frame/system", default-features = false}
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false }
 
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false}
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false}
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 
 cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-primitives-core/std",

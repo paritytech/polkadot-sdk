@@ -1,6 +1,6 @@
 [package]
 name = "pallet-treasury"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,6 +8,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME pallet to manage treasury"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -17,17 +20,17 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 	"max-encoded-len",
 ] }
-docify = "0.2.0"
+docify = "0.2.7"
 impl-trait-for-tuples = "0.2.2"
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", features = ["derive"], optional = true }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-pallet-balances = { path = "../balances", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false, optional = true}
+serde = { version = "1.0.195", features = ["derive"], optional = true }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+pallet-balances = { path = "../balances", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false, optional = true }
 
 [dev-dependencies]
 sp-io = { path = "../../primitives/io" }
@@ -35,7 +38,7 @@ pallet-utility = { path = "../utility" }
 sp-core = { path = "../../primitives/core", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

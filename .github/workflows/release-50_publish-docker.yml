@@ -104,7 +104,7 @@ jobs:
           fetch_release_artifacts
 
       - name: Cache the artifacts
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
         with:
           key: artifacts-${{ env.BINARY }}-${{ github.sha }}
           path: |
@@ -121,7 +121,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Get artifacts from cache
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
         with:
           key: artifacts-${{ env.BINARY }}-${{ github.sha }}
           fail-on-cache-miss: true
@@ -220,6 +220,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       polkadot_apt_version: ${{ steps.fetch-latest-apt.outputs.polkadot_apt_version }}
+      polkadot_container_tag: ${{ steps.fetch-latest-apt.outputs.polkadot_container_tag }}
     container:
       image: paritytech/parity-keyring
       options: --user root
@@ -230,7 +231,9 @@ jobs:
           apt update
           apt show polkadot
           version=$(apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
+          tag=$(echo $version | sed 's/-.*//')
           echo "polkadot_apt_version=v$version" >> $GITHUB_OUTPUT
+          echo "polkadot_container_tag=v$tag" >> $GITHUB_OUTPUT
           echo "You passed ${{ inputs.version }} but this is ignored"
           echo "We use the version from the Debian Package: $version"
 
@@ -247,7 +250,7 @@ jobs:
         uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
 
       - name: Cache Docker layers
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
         with:
          path: /tmp/.buildx-cache
          key: ${{ runner.os }}-buildx-${{ github.sha }}
@@ -276,7 +279,7 @@ jobs:
           # TODO: It would be good to get rid of this GHA that we don't really need.
           tags: |
             parity/polkadot:latest
-            parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}
+            parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_container_tag }}
           build-args: |
             VCS_REF=${{ github.ref }}
             POLKADOT_VERSION=${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}

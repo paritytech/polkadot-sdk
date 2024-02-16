@@ -299,6 +299,7 @@ pub mod weights;
 mod pallet;
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
+use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
@@ -338,9 +339,10 @@ macro_rules! log {
 	};
 }
 
-/// Maximum number of winners (aka. active validators), as defined in the election provider of this
-/// pallet.
-pub type MaxWinnersOf<T> = <<T as Config>::ElectionProvider as frame_election_provider_support::ElectionProviderBase>::MaxWinners;
+/// Maximum number of exposures (validators) that each page of our [`Config::ElectionProvider`]
+/// might return.
+pub type MaxExposuresPerPageOf<T> =
+	<<T as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage;
 
 /// Maximum number of nominations per nominator.
 pub type MaxNominationsOf<T> =
@@ -371,6 +373,13 @@ pub struct ActiveEraInfo {
 	/// Start can be none if start hasn't been set for the era yet,
 	/// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
 	start: Option<u64>,
+}
+
+/// Pointer to the last iterated indices for targets and voters used when generating the snapshot.
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub(crate) struct LastIteratedStakers<AccountId> {
+	voter: AccountId,
+	target: AccountId,
 }
 
 /// Reward points of an era. Used to split era total payout between validators.
@@ -407,12 +416,6 @@ pub enum RewardDestination<AccountId> {
 	None,
 }
 
-impl<AccountId> Default for RewardDestination<AccountId> {
-	fn default() -> Self {
-		RewardDestination::Staked
-	}
-}
-
 /// Preference of what happens regarding validation.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
 pub struct ValidatorPrefs {
@@ -435,6 +438,23 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Era number at which point it'll be unlocked.
 	#[codec(compact)]
 	era: EraIndex,
+}
+
+/// Status of a paged snapshot progress.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum SnapshotStatus<AccountId> {
+	/// Paged snapshot is in progress, the `AccountId` was the last staker iterated.
+	Ongoing(AccountId),
+	/// All the stakers in the system have been consumed since the snapshot started.
+	Consumed,
+	/// Waiting for a new snapshot to be requested.
+	Waiting,
+}
+
+impl<AccountId> Default for SnapshotStatus<AccountId> {
+	fn default() -> Self {
+		Self::Waiting
+	}
 }
 
 /// The ledger of a (bonded) stash.
@@ -1198,9 +1218,79 @@ impl<T: Config> EraInfo<T> {
 		});
 	}
 
+	/// Store or update exposure for elected validators at the start of the planning era.
+	///
+	/// An exposure for a given validator may be collected from multiple election results page, thus
+	/// the previously stored exposure must be updated.
+	pub fn set_or_update_exposure(
+		era: EraIndex,
+		validator: &T::AccountId,
+		exposure: Exposure<T::AccountId, BalanceOf<T>>,
+	) {
+		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
+		let nominator_count = exposure.others.len();
+		let expected_page_count = nominator_count
+			.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
+			.saturating_div(page_size as usize);
+
+		let (exposure_metadata, mut exposure_pages) = exposure.into_pages(page_size);
+		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
+
+		// get previous exposure and metadata, if it exists.
+		let (metadata, exposures, start_from) = if let Some(mut stored_metadata) =
+			<ErasStakersOverview<T>>::get(era, &validator)
+		{
+			// how many individual exposures should be crammed into the last stored exposure
+			// page of this validator until its full.
+			let fill_in_count = (page_size * stored_metadata.page_count)
+				.saturating_sub(stored_metadata.nominator_count);
+
+			// *take* first `fill_in_count` individual exposures from the exposure pages to add
+			// them to the last stored exposures page.
+			let fill_in_exposures = if let Some(page) = exposure_pages.get_mut(0) {
+				page.from_split_others(fill_in_count as usize)
+			} else {
+				Default::default()
+			};
+
+			// TODO: this can probably be optimized so that the paged_exposure.others don't
+			// need to be decoded/encoded. However, the codec is bounded per max exposures per
+			// page (do not touch ALL the exposed validator pages).
+			<ErasStakersPaged<T>>::mutate((era, &validator, stored_metadata.page_count), |page| {
+				if let Some(page) = page {
+					(*page).page_total += fill_in_exposures.page_total;
+					(*page).others.extend(fill_in_exposures.others);
+				} else {
+					// defensive?
+				}
+			});
+			stored_metadata.update(exposure_metadata, page_size);
+
+			let start_from = stored_metadata.page_count.saturating_sub(1);
+			(stored_metadata, exposure_pages, start_from)
+		} else {
+			// new exposure, insert exposure pages, metadata and start from page idx 0.
+			(exposure_metadata, exposure_pages, 0)
+		};
+
+		exposures.iter().enumerate().for_each(|(page, paged_exposure)| {
+			<ErasStakersPaged<T>>::insert(
+				(era, &validator, (start_from as usize + page) as Page),
+				&paged_exposure,
+			);
+		});
+		<ErasStakersOverview<T>>::insert(era, &validator, &metadata);
+	}
+
 	/// Store total exposure for all the elected validators in the era.
 	pub(crate) fn set_total_stake(era: EraIndex, total_stake: BalanceOf<T>) {
 		<ErasTotalStake<T>>::insert(era, total_stake);
+	}
+
+	pub(crate) fn add_total_stake(era: EraIndex, stake: BalanceOf<T>) {
+		<ErasTotalStake<T>>::mutate(era, |total_stake| {
+			*total_stake += stake;
+		});
 	}
 }
 

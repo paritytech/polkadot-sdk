@@ -506,6 +506,21 @@ impl OnNewHead for Tuple {
 	}
 }
 
+/// Assign coretime to some parachain.
+///
+/// This assigns coretime to a parachain without using the coretime chain. Thus, this should only be
+/// used for testing purposes.
+pub trait AssignCoretime {
+	/// ONLY USE FOR TESTING OR GENESIS.
+	fn assign_coretime(id: ParaId) -> DispatchResult;
+}
+
+impl AssignCoretime for () {
+	fn assign_coretime(_: ParaId) -> DispatchResult {
+		Ok(())
+	}
+}
+
 pub trait WeightInfo {
 	fn force_set_current_code(c: u32) -> Weight;
 	fn force_set_current_head(s: u32) -> Weight;
@@ -605,6 +620,13 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Runtime hook for assigning coretime for a given parachain.
+		///
+		/// This is only used at genesis or by root.
+		///
+		/// TODO: Remove once coretime is the standard accross all chains.
+		type AssignCoretime: AssignCoretime;
 	}
 
 	#[pallet::event]
@@ -838,6 +860,8 @@ pub mod pallet {
 					panic!("empty validation code is not allowed in genesis");
 				}
 				Pallet::<T>::initialize_para_now(&mut parachains, *id, genesis_args);
+				T::AssignCoretime::assign_coretime(*id)
+					.expect("Assigning coretime works at genesis; qed");
 			}
 			// parachains are flushed on drop
 		}

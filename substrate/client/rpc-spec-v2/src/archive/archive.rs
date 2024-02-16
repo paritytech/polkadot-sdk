@@ -20,25 +20,58 @@
 
 use crate::{
 	archive::{error::Error as ArchiveError, ArchiveApiServer},
-	chain_head::hex_string,
-	MethodResult,
+	common::events::{ArchiveStorageResult, PaginatedStorageQuery},
+	hex_string, MethodResult,
 };
 
 use codec::Encode;
 use jsonrpsee::core::{async_trait, RpcResult};
 use sc_client_api::{
-	Backend, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, StorageProvider,
+	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
+	StorageProvider,
 };
 use sp_api::{CallApiAt, CallContext};
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata,
 };
-use sp_core::Bytes;
+use sp_core::{Bytes, U256};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	SaturatedConversion,
 };
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
+
+use super::archive_storage::ArchiveStorage;
+
+/// The configuration of [`Archive`].
+pub struct ArchiveConfig {
+	/// The maximum number of items the `archive_storage` can return for a descendant query before
+	/// pagination is required.
+	pub max_descendant_responses: usize,
+	/// The maximum number of queried items allowed for the `archive_storage` at a time.
+	pub max_queried_items: usize,
+}
+
+/// The maximum number of items the `archive_storage` can return for a descendant query before
+/// pagination is required.
+///
+/// Note: this is identical to the `chainHead` value.
+const MAX_DESCENDANT_RESPONSES: usize = 5;
+
+/// The maximum number of queried items allowed for the `archive_storage` at a time.
+///
+/// Note: A queried item can also be a descendant query which can return up to
+/// `MAX_DESCENDANT_RESPONSES`.
+const MAX_QUERIED_ITEMS: usize = 8;
+
+impl Default for ArchiveConfig {
+	fn default() -> Self {
+		Self {
+			max_descendant_responses: MAX_DESCENDANT_RESPONSES,
+			max_queried_items: MAX_QUERIED_ITEMS,
+		}
+	}
+}
 
 /// An API for archive RPC calls.
 pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
@@ -48,8 +81,13 @@ pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 	backend: Arc<BE>,
 	/// The hexadecimal encoded hash of the genesis block.
 	genesis_hash: String,
+	/// The maximum number of items the `archive_storage` can return for a descendant query before
+	/// pagination is required.
+	storage_max_descendant_responses: usize,
+	/// The maximum number of queried items allowed for the `archive_storage` at a time.
+	storage_max_queried_items: usize,
 	/// Phantom member to pin the block type.
-	_phantom: PhantomData<(Block, BE)>,
+	_phantom: PhantomData<Block>,
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
@@ -58,9 +96,17 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 		client: Arc<Client>,
 		backend: Arc<BE>,
 		genesis_hash: GenesisHash,
+		config: ArchiveConfig,
 	) -> Self {
 		let genesis_hash = hex_string(&genesis_hash.as_ref());
-		Self { client, backend, genesis_hash, _phantom: PhantomData }
+		Self {
+			client,
+			backend,
+			genesis_hash,
+			storage_max_descendant_responses: config.max_descendant_responses,
+			storage_max_queried_items: config.max_queried_items,
+			_phantom: PhantomData,
+		}
 	}
 }
 
@@ -81,7 +127,6 @@ impl<BE, Block, Client> ArchiveApiServer<Block::Hash> for Archive<BE, Block, Cli
 where
 	Block: BlockT + 'static,
 	Block::Header: Unpin,
-	<<Block as BlockT>::Header as HeaderT>::Number: From<u64>,
 	BE: Backend<Block> + 'static,
 	Client: BlockBackend<Block>
 		+ ExecutorProvider<Block>
@@ -120,11 +165,14 @@ where
 	}
 
 	fn archive_unstable_hash_by_height(&self, height: u64) -> RpcResult<Vec<String>> {
-		let height: NumberFor<Block> = height.into();
+		let height: NumberFor<Block> = U256::from(height)
+			.try_into()
+			.map_err(|_| ArchiveError::InvalidParam(format!("Invalid block height: {}", height)))?;
+
 		let finalized_num = self.client.info().finalized_number;
 
 		if finalized_num >= height {
-			let Ok(Some(hash)) = self.client.block_hash(height.into()) else { return Ok(vec![]) };
+			let Ok(Some(hash)) = self.client.block_hash(height) else { return Ok(vec![]) };
 			return Ok(vec![hex_string(&hash.as_ref())])
 		}
 
@@ -184,5 +232,49 @@ where
 			Ok(result) => MethodResult::ok(hex_string(&result)),
 			Err(error) => MethodResult::err(error.to_string()),
 		})
+	}
+
+	fn archive_unstable_storage(
+		&self,
+		hash: Block::Hash,
+		items: Vec<PaginatedStorageQuery<String>>,
+		child_trie: Option<String>,
+	) -> RpcResult<ArchiveStorageResult> {
+		let items = items
+			.into_iter()
+			.map(|query| {
+				let key = StorageKey(parse_hex_param(query.key)?);
+				let pagination_start_key = query
+					.pagination_start_key
+					.map(|key| parse_hex_param(key).map(|key| StorageKey(key)))
+					.transpose()?;
+
+				// Paginated start key is only supported
+				if pagination_start_key.is_some() && !query.query_type.is_descendant_query() {
+					return Err(ArchiveError::InvalidParam(
+						"Pagination start key is only supported for descendants queries"
+							.to_string(),
+					))
+				}
+
+				Ok(PaginatedStorageQuery {
+					key,
+					query_type: query.query_type,
+					pagination_start_key,
+				})
+			})
+			.collect::<Result<Vec<_>, ArchiveError>>()?;
+
+		let child_trie = child_trie
+			.map(|child_trie| parse_hex_param(child_trie))
+			.transpose()?
+			.map(ChildInfo::new_default_from_vec);
+
+		let storage_client = ArchiveStorage::new(
+			self.client.clone(),
+			self.storage_max_descendant_responses,
+			self.storage_max_queried_items,
+		);
+		Ok(storage_client.handle_query(hash, items, child_trie))
 	}
 }
