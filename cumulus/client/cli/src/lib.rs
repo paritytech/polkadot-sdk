@@ -443,6 +443,14 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		Ok(self.base.rpc_max_subscriptions_per_connection)
 	}
 
+	fn rpc_buffer_capacity_per_connection(&self) -> Result<u32> {
+		Ok(self.base.rpc_message_buffer_capacity_per_connection)
+	}
+
+	fn rpc_batch_config(&self) -> Result<RpcBatchRequestConfig> {
+		self.base.rpc_batch_config()
+	}
+
 	fn transaction_pool(&self, is_dev: bool) -> sc_cli::Result<TransactionPoolOptions> {
 		self.base.transaction_pool(is_dev)
 	}

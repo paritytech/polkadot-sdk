@@ -35,6 +35,7 @@ pub use sc_network::{
 };
 pub use sc_telemetry::TelemetryEndpoints;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
+pub use jsonrpsee::server::BatchRequestConfig as RpcBatchRequestConfig;
 use sp_core::crypto::SecretString;
 use std::{
 	io, iter,
@@ -102,6 +103,8 @@ pub struct Configuration {
 	pub rpc_port: u16,
 	/// The number of messages the JSON-RPC server is allowed to keep in memory.
 	pub rpc_message_buffer_capacity: u32,
+	/// JSON-RPC server batch config.
+	pub rpc_batch_config: RpcBatchRequestConfig,
 	/// Prometheus endpoint configuration. `None` if disabled.
 	pub prometheus_config: Option<PrometheusConfig>,
 	/// Telemetry service URL. `None` if disabled.

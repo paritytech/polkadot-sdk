@@ -47,6 +47,7 @@ pub use jsonrpsee::core::{
 	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	traits::IdProvider,
 };
+pub use jsonrpsee::server::BatchRequestConfig;
 pub use middleware::{MetricsLayer, RpcMetrics};
 
 const MEGABYTE: u32 = 1024 * 1024;
@@ -79,6 +80,8 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub id_provider: Option<Box<dyn IdProvider>>,
 	/// Tokio runtime handle.
 	pub tokio_handle: tokio::runtime::Handle,
+	/// Batch request config.
+	pub batch_config: BatchRequestConfig,
 }
 
 /// Start RPC server listening on given address.
@@ -87,6 +90,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 ) -> Result<Server, Box<dyn StdError + Send + Sync>> {
 	let Config {
 		addrs,
+		batch_config,
 		cors,
 		max_payload_in_mb,
 		max_payload_out_mb,
@@ -122,6 +126,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		)
 		.set_http_middleware(http_middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
+		.set_batch_request_config(batch_config)
 		.custom_tokio_runtime(tokio_handle.clone());
 
 	if let Some(provider) = id_provider {
