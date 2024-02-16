@@ -27,18 +27,14 @@ use codec::Codec;
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
-#[cfg(feature = "std")]
-use sp_std::sync::Arc;
-#[cfg(feature = "std")]
-use sp_trie::recorder::Recorder;
 use sp_std::{boxed::Box, marker::PhantomData, vec::Vec};
 use sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
 	read_child_trie_first_descedant_value, read_child_trie_hash, read_child_trie_value,
 	read_trie_first_descendant_value, read_trie_value, read_trie_value_with_location,
 	trie_types::{TrieDBBuilder, TrieError},
-	ChildChangeset, DBValue, KeySpacedDB, MerkleValue, NodeCodec, PrefixedMemoryDB, Trie,
-	TrieCache, TrieDBRawIterator, TrieRecorder, TrieRecorderProvider, ProofSizeProvider,
+	ChildChangeset, DBValue, KeySpacedDB, MerkleValue, NodeCodec,
+	Trie, TrieCache, TrieDBRawIterator, TrieRecorder, TrieRecorderProvider,
 };
 #[cfg(feature = "std")]
 use std::collections::HashMap;
@@ -210,8 +206,9 @@ pub struct TrieBackendEssence<H: Hasher, C, R> {
 	#[cfg(feature = "std")]
 	pub(crate) cache: RwLock<Cache<H::Out>>,
 	pub(crate) trie_node_cache: Option<C>,
-	pub(crate) recorder: RwLock<Option<R>>, // TODO how to lift this RwLock (at least make it refcell
-											// for no_std
+	pub(crate) recorder: RwLock<Option<R>>, /* TODO how to lift this RwLock (at least make it
+	                                         * refcell
+	                                         * for no_std */
 }
 
 impl<H, C, R> TrieBackendEssence<H, C, R>
@@ -776,7 +773,7 @@ mod test {
 	use sp_core::Blake2Hasher;
 	use sp_trie::{
 		cache::LocalTrieCache, trie_types::TrieDBMutBuilderV1 as TrieDBMutBuilder, KeySpacedDB,
-		MemoryDB,
+		PrefixedMemoryDB,
 	};
 
 	#[test]
@@ -785,7 +782,7 @@ mod test {
 		let child_info = ChildInfo::new_default(b"MyChild");
 		let child_info = &child_info;
 		// Contains values
-		let mut mdb = MemoryDB::<Blake2Hasher>::default();
+		let mut mdb = PrefixedMemoryDB::<Blake2Hasher>::default();
 		let mut trie = TrieDBMutBuilder::new(&mdb).build();
 		trie.insert(b"3", &[1]).expect("insert failed");
 		trie.insert(b"4", &[1]).expect("insert failed");
@@ -807,11 +804,11 @@ mod test {
 			.expect("insert failed");
 		let root_2 = trie.commit().apply_to(&mut mdb);
 
-		let essence_1 =
-			TrieBackendEssence::<_, LocalTrieCache<_, _>, sp_trie::recorder::Recorder<_, _>>::new(
-				Box::new(mdb),
-				root_1,
-			);
+		let essence_1 = TrieBackendEssence::<
+			_,
+			LocalTrieCache<_, _>,
+			sp_trie::recorder::Recorder<_, _>,
+		>::new(Box::new(mdb), root_1);
 		let essence_1 = TrieBackend::from_essence(essence_1);
 
 		assert_eq!(essence_1.next_storage_key(b"2"), Ok(Some(b"3".to_vec())));
@@ -820,7 +817,7 @@ mod test {
 		assert_eq!(essence_1.next_storage_key(b"5"), Ok(Some(b"6".to_vec())));
 		assert_eq!(essence_1.next_storage_key(b"6"), Ok(None));
 
-		let mdb = essence_1.backend_storage().as_mem_db().unwrap().clone();
+		let mdb = essence_1.backend_storage().as_prefixed_mem_db().unwrap().clone();
 		let essence_2 = TrieBackendEssence::<
 			_,
 			LocalTrieCache<_, DBLocation>,

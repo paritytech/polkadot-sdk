@@ -32,10 +32,11 @@ use sp_core::storage::{ChildInfo, StateVersion};
 #[cfg(feature = "std")]
 use sp_trie::{
 	cache::{LocalTrieCache, TrieCache},
-	recorder::Recorder,
 	StorageProof,
 };
-use sp_trie::{ChildChangeset, DBValue, MemoryDB, MerkleValue, TrieRecorderProvider};
+use sp_trie::{
+	ChildChangeset, DBValue, MemoryDB, MerkleValue, PrefixedMemoryDB, TrieRecorderProvider,
+};
 #[cfg(not(feature = "std"))]
 use sp_trie::{Error, NodeCodec};
 
@@ -211,10 +212,22 @@ pub trait AsDB<H: Hasher>: NodeDB<H, DBValue, DBLocation> {
 	fn as_mem_db(&self) -> Option<&MemoryDB<H>> {
 		None
 	}
+
+	/// Returns the underlying `MemoryDB` if this is a `PrefixedMemoryDB`.
+	fn as_prefixed_mem_db(&self) -> Option<&PrefixedMemoryDB<H>> {
+		None
+	}
+
 	/// Returns the underlying `MemoryDB` if this is a `MemoryDB`.
 	fn as_mem_db_mut(&mut self) -> Option<&mut MemoryDB<H>> {
 		None
 	}
+
+	/// Returns the underlying `MemoryDB` if this is a `MemoryDB`.
+	fn as_prefixed_mem_db_mut(&mut self) -> Option<&mut PrefixedMemoryDB<H>> {
+		None
+	}
+
 	/// Returns the underlying `NodeDB`.
 	fn as_node_db(&self) -> &dyn NodeDB<H, DBValue, DBLocation>;
 }
@@ -225,6 +238,20 @@ impl<H: Hasher> AsDB<H> for MemoryDB<H> {
 	}
 
 	fn as_mem_db_mut(&mut self) -> Option<&mut MemoryDB<H>> {
+		Some(self)
+	}
+
+	fn as_node_db(&self) -> &dyn NodeDB<H, DBValue, DBLocation> {
+		self
+	}
+}
+
+impl<H: Hasher> AsDB<H> for PrefixedMemoryDB<H> {
+	fn as_prefixed_mem_db(&self) -> Option<&PrefixedMemoryDB<H>> {
+		Some(self)
+	}
+
+	fn as_prefixed_mem_db_mut(&mut self) -> Option<&mut PrefixedMemoryDB<H>> {
 		Some(self)
 	}
 
@@ -466,7 +493,6 @@ where
 		self.backend
 	}
 }
-
 
 impl<H, C, R> sp_std::fmt::Debug for TrieBackend<H, C, R>
 where
@@ -1487,7 +1513,8 @@ pub mod tests {
 		];
 
 		fn check_estimation(backend: &TrieBackend<BlakeTwo256>, has_cache: bool) {
-			let estimation = backend.essence.recorder.read().as_ref().unwrap().estimate_encoded_size();
+			let estimation =
+				backend.essence.recorder.read().as_ref().unwrap().estimate_encoded_size();
 			let storage_proof = backend.extract_proof().unwrap();
 			let storage_proof_size =
 				storage_proof.into_nodes().into_iter().map(|n| n.encoded_size()).sum::<usize>();

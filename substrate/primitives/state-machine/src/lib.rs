@@ -1724,10 +1724,11 @@ mod tests {
 			trie.commit().apply_to(&mut mdb)
 		};
 
-		let remote_backend: TrieBackend<BlakeTwo256> = TrieBackendBuilder::<_>::new(Box::new(mdb), root)
-			.with_optional_cache(None)
-			.with_optional_recorder(None)
-			.build();
+		let remote_backend: TrieBackend<BlakeTwo256> =
+			TrieBackendBuilder::<_>::new(Box::new(mdb), root)
+				.with_optional_cache(None)
+				.with_optional_recorder(None)
+				.build();
 
 		let (proof, count) =
 			prove_range_read_with_size(remote_backend, None, None, 1000, None).unwrap();

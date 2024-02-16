@@ -462,7 +462,13 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			if let Some(mut db) = state.backend_storage_mut().as_mem_db_mut() {
 				let root = transaction.apply_to(&mut db);
 				self.root.set(root);
+			} else if let Some(mut db) = state.backend_storage_mut().as_prefixed_mem_db_mut() {
+				let root = transaction.apply_to(&mut db);
+				self.root.set(root);
+			} else {
+				unreachable!()
 			}
+
 			// Track DB Writes
 			main_storage_changes.iter().for_each(|(key, _)| {
 				self.add_write_key(None, key);

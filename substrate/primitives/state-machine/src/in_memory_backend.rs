@@ -24,7 +24,7 @@ use crate::{
 };
 use codec::Codec;
 use sp_core::storage::{ChildInfo, StateVersion, Storage};
-use sp_trie::{empty_trie_root, LayoutV1, MemoryDB};
+use sp_trie::{empty_trie_root, LayoutV1, PrefixedMemoryDB};
 use std::collections::{BTreeMap, HashMap};
 use trie_db::node_db::Hasher;
 
@@ -34,7 +34,8 @@ where
 	H: Hasher + 'static,
 	H::Out: Codec + Ord,
 {
-	let db = MemoryDB::default();
+	let db = PrefixedMemoryDB::default();
+	//	let db = MemoryDB::default();
 	// V1 is same as V0 for an empty trie.
 	TrieBackendBuilder::new(Box::new(db), empty_trie_root::<LayoutV1<H, ()>>()).build()
 }
@@ -80,6 +81,11 @@ where
 		if let Some(mut mdb) = self.backend_storage_mut().as_mem_db_mut() {
 			let root = transaction.apply_to(&mut mdb);
 			self.set_root(root);
+		} else if let Some(mut mdb) = self.backend_storage_mut().as_prefixed_mem_db_mut() {
+			let root = transaction.apply_to(&mut mdb);
+			self.set_root(root);
+		} else {
+			unreachable!()
 		}
 	}
 
@@ -91,18 +97,23 @@ where
 	/// Clone this backend if it backed by in-memory storage.
 	/// Note that this will clone the underlying storage.
 	pub fn clone_in_mem(&self) -> Option<Self> {
-		self.backend_storage()
-			.as_mem_db()
-			.map(|memdb| TrieBackendBuilder::new(Box::new(memdb.clone()), *self.root()).build())
+		if let Some(db) = self.backend_storage().as_mem_db() {
+			Some(TrieBackendBuilder::new(Box::new(db.clone()), *self.root()).build())
+		} else if let Some(db) = self.backend_storage().as_prefixed_mem_db() {
+			Some(TrieBackendBuilder::new(Box::new(db.clone()), *self.root()).build())
+		} else {
+			None
+		}
 	}
 }
 
-impl<H> Default for TrieBackend<H>
+impl<H> TrieBackend<H>
 where
 	H: Hasher + 'static,
 	H::Out: Codec + Ord,
 {
-	fn default() -> Self {
+	/// New in memory backend.
+	pub fn default() -> Self {
 		new_in_mem()
 	}
 }
