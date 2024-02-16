@@ -362,6 +362,9 @@ pub const PARACHAINS_INHERENT_IDENTIFIER: InherentIdentifier = *b"parachn0";
 /// The key type ID for parachain assignment key.
 pub const ASSIGNMENT_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"asgn");
 
+/// Compressed or not the wasm blob can never be less than 9 bytes.
+pub const MIN_CODE_SIZE: u32 = 9;
+
 /// Maximum compressed code size we support right now.
 /// At the moment we have runtime upgrade on chain, which restricts scalability severely. If we want
 /// to have bigger values, we should fix that first.
@@ -1340,12 +1343,8 @@ impl DisputeStatement {
 
 	/// Statement is backing statement.
 	pub fn is_backing(&self) -> bool {
-		match *self {
-			Self::Valid(ValidDisputeStatementKind::BackingSeconded(_)) |
-			Self::Valid(ValidDisputeStatementKind::BackingValid(_)) => true,
-			Self::Valid(ValidDisputeStatementKind::Explicit) |
-			Self::Valid(ValidDisputeStatementKind::ApprovalChecking) |
-			Self::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_)) |
+		match self {
+			Self::Valid(s) => s.is_backing(),
 			Self::Invalid(_) => false,
 		}
 	}
@@ -1372,6 +1371,19 @@ pub enum ValidDisputeStatementKind {
 	/// is set to more than 1.
 	#[codec(index = 4)]
 	ApprovalCheckingMultipleCandidates(Vec<CandidateHash>),
+}
+
+impl ValidDisputeStatementKind {
+	/// Whether the statement is from the backing phase.
+	pub fn is_backing(&self) -> bool {
+		match self {
+			ValidDisputeStatementKind::BackingSeconded(_) |
+			ValidDisputeStatementKind::BackingValid(_) => true,
+			ValidDisputeStatementKind::Explicit |
+			ValidDisputeStatementKind::ApprovalChecking |
+			ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_) => false,
+		}
+	}
 }
 
 /// Different kinds of statements of invalidity on a candidate.

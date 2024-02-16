@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "1.5.0"
+version = "4.0.0"
 authors.workspace = true
 build = "build.rs"
 edition.workspace = true
@@ -16,13 +16,13 @@ path = "src/main.rs"
 
 [dependencies]
 async-trait = "0.1.74"
-clap = { version = "4.4.11", features = ["derive"] }
+clap = { version = "4.5.0", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.28"
 hex-literal = "0.4.1"
-log = "0.4.20"
-serde = { version = "1.0.193", features = ["derive"] }
-serde_json = "1.0.108"
+log = { workspace = true, default-features = true }
+serde = { version = "1.0.196", features = ["derive"] }
+serde_json = "1.0.113"
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
@@ -38,10 +38,11 @@ coretime-rococo-runtime = { path = "../parachains/runtimes/coretime/coretime-roc
 coretime-westend-runtime = { path = "../parachains/runtimes/coretime/coretime-westend" }
 bridge-hub-westend-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 penpal-runtime = { path = "../parachains/runtimes/testing/penpal" }
+jsonrpsee = { version = "0.22", features = ["server"] }
 people-rococo-runtime = { path = "../parachains/runtimes/people/people-rococo" }
 people-westend-runtime = { path = "../parachains/runtimes/people/people-westend" }
-jsonrpsee = { version = "0.16.2", features = ["server"] }
 parachains-common = { path = "../parachains/common" }
+testnet-parachains-constants = { path = "../parachains/runtimes/constants", default-features = false, features = ["rococo", "westend"] }
 
 # Substrate
 frame-benchmarking = { path = "../../substrate/frame/benchmarking" }
@@ -102,10 +103,10 @@ cumulus-client-consensus-aura = { path = "../client/consensus/aura" }
 cumulus-client-consensus-relay-chain = { path = "../client/consensus/relay-chain" }
 cumulus-client-consensus-common = { path = "../client/consensus/common" }
 cumulus-client-consensus-proposer = { path = "../client/consensus/proposer" }
+cumulus-client-parachain-inherent = { path = "../client/parachain-inherent" }
 cumulus-client-service = { path = "../client/service" }
 cumulus-primitives-aura = { path = "../primitives/aura" }
 cumulus-primitives-core = { path = "../primitives/core" }
-cumulus-primitives-parachain-inherent = { path = "../primitives/parachain-inherent" }
 cumulus-relay-chain-interface = { path = "../client/relay-chain-interface" }
 color-print = "0.3.4"
 
@@ -166,4 +167,7 @@ try-runtime = [
 	"polkadot-service/try-runtime",
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
+]
+fast-runtime = [
+	"bridge-hub-rococo-runtime/fast-runtime",
 ]

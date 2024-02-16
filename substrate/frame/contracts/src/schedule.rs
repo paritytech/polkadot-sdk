@@ -21,13 +21,11 @@
 use crate::{weights::WeightInfo, Config};
 
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{weights::Weight, DefaultNoBound};
-use pallet_contracts_proc_macro::{ScheduleDebug, WeightDebug};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::RuntimeDebug;
-use sp_std::marker::PhantomData;
 
 /// Definition of the cost schedule and other parameterizations for the wasm vm.
 ///
@@ -41,11 +39,7 @@ use sp_std::marker::PhantomData;
 /// fn create_schedule<T: Config>() -> Schedule<T> {
 ///     Schedule {
 ///         limits: Limits {
-/// 		        globals: 3,
-/// 		        parameters: 3,
 /// 		        memory_pages: 16,
-/// 		        table_size: 3,
-/// 		        br_table_size: 3,
 /// 		        .. Default::default()
 /// 	        },
 ///         instruction_weights: InstructionWeights {
@@ -57,7 +51,8 @@ use sp_std::marker::PhantomData;
 /// ```
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(bound(serialize = "", deserialize = "")))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, ScheduleDebug, DefaultNoBound, TypeInfo)]
+#[cfg_attr(feature = "runtime-benchmarks", derive(frame_support::DebugNoBound))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, DefaultNoBound, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct Schedule<T: Config> {
 	/// Describes the upper limits on various metrics.
@@ -72,42 +67,14 @@ pub struct Schedule<T: Config> {
 
 /// Describes the upper limits on various metrics.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = "runtime-benchmarks", derive(Debug))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub struct Limits {
 	/// The maximum number of topics supported by an event.
 	pub event_topics: u32,
 
-	/// Maximum number of globals a module is allowed to declare.
-	///
-	/// Globals are not limited through the linear memory limit `memory_pages`.
-	pub globals: u32,
-
-	/// Maximum number of locals a function can have.
-	///
-	/// As wasm engine initializes each of the local, we need to limit their number to confine
-	/// execution costs.
-	pub locals: u32,
-
-	/// Maximum numbers of parameters a function can have.
-	///
-	/// Those need to be limited to prevent a potentially exploitable interaction with
-	/// the stack height instrumentation: The costs of executing the stack height
-	/// instrumentation for an indirectly called function scales linearly with the amount
-	/// of parameters of this function. Because the stack height instrumentation itself is
-	/// is not weight metered its costs must be static (via this limit) and included in
-	/// the costs of the instructions that cause them (call, call_indirect).
-	pub parameters: u32,
-
 	/// Maximum number of memory pages allowed for a contract.
 	pub memory_pages: u32,
-
-	/// Maximum number of elements allowed in a table.
-	///
-	/// Currently, the only type of element that is allowed in a table is funcref.
-	pub table_size: u32,
-
-	/// Maximum number of elements that can appear as immediate value to the br_table instruction.
-	pub br_table_size: u32,
 
 	/// The maximum length of a subject in bytes used for PRNG generation.
 	pub subject_len: u32,
@@ -130,7 +97,8 @@ impl Limits {
 /// Gas metering of Wasm executed instructions is being done on the engine side.
 /// This struct holds a reference value used to gas units scaling between host and engine.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, ScheduleDebug, TypeInfo)]
+#[cfg_attr(feature = "runtime-benchmarks", derive(frame_support::DebugNoBound))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct InstructionWeights<T: Config> {
 	/// Base instruction `ref_time` Weight.
@@ -143,7 +111,8 @@ pub struct InstructionWeights<T: Config> {
 
 /// Describes the weight for each imported function that a contract is allowed to call.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, WeightDebug, TypeInfo)]
+#[cfg_attr(feature = "runtime-benchmarks", derive(pallet_contracts_proc_macro::WeightDebug))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct HostFnWeights<T: Config> {
 	/// Weight of calling `seal_caller`.
@@ -358,22 +327,9 @@ macro_rules! cost_args {
 	}
 }
 
-macro_rules! cost_instr_no_params {
-	($name:ident) => {
-		cost_args!($name, 1).ref_time() as u32
-	};
-}
-
 macro_rules! cost {
 	($name:ident) => {
 		cost_args!($name, 1)
-	};
-}
-
-macro_rules! cost_instr {
-	($name:ident, $num_params:expr) => {
-		cost_instr_no_params!($name)
-			.saturating_sub((cost_instr_no_params!(instr_i64const) / 2).saturating_mul($num_params))
 	};
 }
 
@@ -381,13 +337,7 @@ impl Default for Limits {
 	fn default() -> Self {
 		Self {
 			event_topics: 4,
-			globals: 256,
-			locals: 1024,
-			parameters: 128,
 			memory_pages: 16,
-			// 4k function pointers (This is in count not bytes).
-			table_size: 4096,
-			br_table_size: 256,
 			subject_len: 32,
 			payload_len: 16 * 1024,
 			runtime_memory: 1024 * 1024 * 128,
@@ -396,10 +346,13 @@ impl Default for Limits {
 }
 
 impl<T: Config> Default for InstructionWeights<T> {
-	/// We price both `i64.const` and `drop` as `instr_i64const / 2`. The reason
-	/// for that is that we cannot benchmark either of them on its own.
+	/// We execute 6 different instructions therefore we have to divide the actual
+	/// computed gas costs by 6 to have a rough estimate as to how expensive each
+	/// single executed instruction is going to be.
 	fn default() -> Self {
-		Self { base: cost_instr!(instr_i64const, 1), _phantom: PhantomData }
+		let instr_cost = cost!(instr_i64_load_store).ref_time() as u32;
+		let base = instr_cost / 6;
+		Self { base, _phantom: PhantomData }
 	}
 }
 
@@ -486,17 +439,5 @@ impl<T: Config> Default for HostFnWeights<T> {
 			remove_delegate_dependency: cost!(remove_delegate_dependency),
 			_phantom: PhantomData,
 		}
-	}
-}
-
-#[cfg(test)]
-mod test {
-	use super::*;
-	use crate::tests::Test;
-
-	#[test]
-	fn print_test_schedule() {
-		let schedule = Schedule::<Test>::default();
-		println!("{:#?}", schedule);
 	}
 }

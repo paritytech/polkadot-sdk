@@ -37,10 +37,10 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::XcmAsPlainPayload,
 };
-use frame_support::traits::{Get, OnFinalize, OnInitialize};
+use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_runtimes_test_utils::{
-	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf,
+	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
 };
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header as HeaderT, AccountId32};
@@ -112,6 +112,7 @@ where
 /// Also verifies relayer transaction signed extensions work as intended.
 pub fn relayed_incoming_message_works<RuntimeHelper>(
 	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	bridged_para_id: u32,
 	bridged_chain_id: bp_runtime::ChainId,
@@ -146,6 +147,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 		RuntimeHelper::MPI,
 	>(
 		collator_session_key,
+		slot_durations,
 		runtime_para_id,
 		sibling_parachain_id,
 		local_relay_chain_id,
@@ -244,6 +246,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 /// Also verifies relayer transaction signed extensions work as intended.
 pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	bridged_para_id: u32,
 	sibling_parachain_id: u32,
@@ -281,6 +284,7 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 		RuntimeHelper::MPI,
 	>(
 		collator_session_key,
+		slot_durations,
 		runtime_para_id,
 		sibling_parachain_id,
 		local_relay_chain_id,
@@ -418,9 +422,9 @@ where
 			(),
 		>(
 			LaneId::default(),
-			vec![xcm::v3::Instruction::<()>::ClearOrigin; 1_024].into(),
+			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
 			1,
-			X2(GlobalConsensus(Polkadot), Parachain(1_000)),
+			[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
 			1,
 			5,
 			1_000,
@@ -442,16 +446,8 @@ where
 			message_proof,
 			helpers::relayer_id_at_bridged_chain::<RuntimeHelper::Runtime, RuntimeHelper::MPI>(),
 		);
-		let estimated_fee = compute_extrinsic_fee(batch);
 
-		log::error!(
-			target: "bridges::estimate",
-			"Estimate fee: {:?} for single message delivery for runtime: {:?}",
-			estimated_fee,
-			<RuntimeHelper::Runtime as frame_system::Config>::Version::get(),
-		);
-
-		estimated_fee
+		compute_extrinsic_fee(batch)
 	})
 }
 
@@ -527,15 +523,7 @@ where
 			message_delivery_proof,
 			unrewarded_relayers,
 		);
-		let estimated_fee = compute_extrinsic_fee(batch);
 
-		log::error!(
-			target: "bridges::estimate",
-			"Estimate fee: {:?} for single message confirmation for runtime: {:?}",
-			estimated_fee,
-			<RuntimeHelper::Runtime as frame_system::Config>::Version::get(),
-		);
-
-		estimated_fee
+		compute_extrinsic_fee(batch)
 	})
 }

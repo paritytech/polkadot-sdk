@@ -20,6 +20,7 @@ pub mod xcm_helpers;
 pub use xcm_emulator;
 
 // Substrate
+use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
@@ -34,12 +35,12 @@ use parachains_common::BlockNumber;
 use polkadot_runtime_parachains::configuration::HostConfiguration;
 
 // Cumulus
-use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId};
+use parachains_common::{AccountId, AuraId};
 use polkadot_primitives::{AssignmentId, ValidatorId};
-use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
 
 pub const XCM_V2: u32 = 2;
 pub const XCM_V3: u32 = 3;
+pub const XCM_V4: u32 = 4;
 pub const REF_TIME_THRESHOLD: u64 = 33;
 pub const PROOF_SIZE_THRESHOLD: u64 = 33;
 
@@ -99,7 +100,7 @@ pub mod accounts {
 	pub const CHARLIE: &str = "Charlie";
 	pub const DAVE: &str = "Dave";
 	pub const EVE: &str = "Eve";
-	pub const FERDIE: &str = "Ferdei";
+	pub const FERDIE: &str = "Ferdie";
 	pub const ALICE_STASH: &str = "Alice//stash";
 	pub const BOB_STASH: &str = "Bob//stash";
 	pub const CHARLIE_STASH: &str = "Charlie//stash";
@@ -129,19 +130,6 @@ pub mod accounts {
 pub mod collators {
 	use super::*;
 
-	pub fn invulnerables_asset_hub_polkadot() -> Vec<(AccountId, AssetHubPolkadotAuraId)> {
-		vec![
-			(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_from_seed::<AssetHubPolkadotAuraId>("Alice"),
-			),
-			(
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_from_seed::<AssetHubPolkadotAuraId>("Bob"),
-			),
-		]
-	}
-
 	pub fn invulnerables() -> Vec<(AccountId, AuraId)> {
 		vec![
 			(
@@ -164,7 +152,18 @@ pub mod validators {
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
+		BeefyId,
 	)> {
-		vec![get_authority_keys_from_seed_no_beefy("Alice")]
+		let seed = "Alice";
+		vec![(
+			get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+			get_account_id_from_seed::<sr25519::Public>(seed),
+			get_from_seed::<BabeId>(seed),
+			get_from_seed::<GrandpaId>(seed),
+			get_from_seed::<ValidatorId>(seed),
+			get_from_seed::<AssignmentId>(seed),
+			get_from_seed::<AuthorityDiscoveryId>(seed),
+			get_from_seed::<BeefyId>(seed),
+		)]
 	}
 }

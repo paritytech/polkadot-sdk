@@ -365,7 +365,7 @@ pub fn benchmark_cpu(limit: ExecutionLimit) -> Throughput {
 
 	let run = || -> Result<(), ()> {
 		clobber_slice(&mut buffer);
-		hash = sp_core::hashing::blake2_256(&buffer);
+		hash = sp_crypto_hashing::blake2_256(&buffer);
 		clobber_slice(&mut hash);
 
 		Ok(())

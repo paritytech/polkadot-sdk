@@ -51,6 +51,17 @@ pub mod logger {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	#[pallet::storage]
+	pub type Threshold<T: Config> = StorageValue<_, (BlockNumberFor<T>, BlockNumberFor<T>)>;
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Under the threshold.
+		TooEarly,
+		/// Over the threshold.
+		TooLate,
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
@@ -89,6 +100,20 @@ pub mod logger {
 			});
 			Ok(())
 		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(*weight)]
+		pub fn timed_log(origin: OriginFor<T>, i: u32, weight: Weight) -> DispatchResult {
+			let now = frame_system::Pallet::<T>::block_number();
+			let (start, end) = Threshold::<T>::get().unwrap_or((0u32.into(), u32::MAX.into()));
+			ensure!(now >= start, Error::<T>::TooEarly);
+			ensure!(now <= end, Error::<T>::TooLate);
+			Self::deposit_event(Event::Logged(i, weight));
+			Log::mutate(|log| {
+				log.push((origin.caller().clone(), i));
+			});
+			Ok(())
+		}
 	}
 }
 
@@ -97,10 +122,10 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Logger: logger::{Pallet, Call, Event<T>},
-		Scheduler: scheduler::{Pallet, Call, Storage, Event<T>},
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason},
+		System: frame_system,
+		Logger: logger,
+		Scheduler: scheduler,
+		Preimage: pallet_preimage,
 	}
 );
 
@@ -196,6 +221,21 @@ impl WeightInfo for TestWeightInfo {
 		Weight::from_parts(50, 0)
 	}
 	fn cancel_named(_s: u32) -> Weight {
+		Weight::from_parts(50, 0)
+	}
+	fn schedule_retry(_s: u32) -> Weight {
+		Weight::from_parts(100000, 0)
+	}
+	fn set_retry() -> Weight {
+		Weight::from_parts(50, 0)
+	}
+	fn set_retry_named() -> Weight {
+		Weight::from_parts(50, 0)
+	}
+	fn cancel_retry() -> Weight {
+		Weight::from_parts(50, 0)
+	}
+	fn cancel_retry_named() -> Weight {
 		Weight::from_parts(50, 0)
 	}
 }
