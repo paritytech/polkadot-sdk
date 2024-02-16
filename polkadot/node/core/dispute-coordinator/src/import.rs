@@ -237,8 +237,12 @@ impl CandidateVoteState<CandidateVotes> {
 
 		let supermajority_threshold = polkadot_primitives::supermajority_threshold(n_validators);
 
-		// We have a dispute, if we have votes on both sides:
-		let is_disputed = !votes.invalid.is_empty() && !votes.valid.raw().is_empty();
+		// We have a dispute, if we have votes on both sides from non-disabled validators:
+		let all_invalid_votes_disabled =
+			votes.invalid.keys().all(|i| env.disabled_indices().contains(i));
+		let is_disputed = !all_invalid_votes_disabled &&
+			!votes.invalid.is_empty() &&
+			!votes.valid.raw().is_empty();
 
 		let (dispute_status, byzantine_threshold_against) = if is_disputed {
 			let mut status = DisputeStatus::active();
