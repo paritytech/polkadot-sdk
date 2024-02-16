@@ -124,3 +124,7 @@ serial-integration = { max-threads = 1 }
 [[profile.default.overrides]]
 filter = 'test(/(^ui$|_ui|ui_)/)'
 test-group = 'serial-integration'
+
+# Skip subsystems regression benchmarks
+[[profile.default.overrides]]
+filter = 'not deps(/polkadot-subsystem-bench/)'
