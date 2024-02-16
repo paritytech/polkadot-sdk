@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # import common functions
-source "$(dirname "$0")"/bridges_common.sh
+source "${BASH_SOURCE%/*}/../../utils/bridges.sh"
 
 # Expected sovereign accounts.
 #
