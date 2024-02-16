@@ -11158,7 +11158,6 @@ dependencies = [
 name = "parachains-runtimes-test-utils"
 version = "6.0.0"
 dependencies = [
- "assets-common",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
