@@ -1,4 +1,5 @@
 // This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -27,6 +28,9 @@ use sp_core::traits::RuntimeCode;
 use sp_std::{boxed::Box, vec::Vec};
 use trie_db::node_db::Hasher;
 
+// TODO should parameterized location from db
+// as we currently add overhead to rocksdb and old paritydb in the
+// struct size (not that much , not a priority)
 /// DB location hint for a trie node.
 pub type DBLocation = sp_trie::DBLocation;
 use sp_trie::{ChildChangeset, MerkleValue};
