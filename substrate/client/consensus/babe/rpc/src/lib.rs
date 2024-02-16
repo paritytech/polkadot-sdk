@@ -260,7 +260,7 @@ mod tests {
 		let (response, _) = api.raw_json_request(request, 1).await.unwrap();
 		let expected = r#"{"jsonrpc":"2.0","result":{"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY":{"primary":[0],"secondary":[1,2,4],"secondary_vrf":[]}},"id":1}"#;
 
-		assert_eq!(&response.result, expected);
+		assert_eq!(response, expected);
 	}
 
 	#[tokio::test]
@@ -272,6 +272,6 @@ mod tests {
 		let (response, _) = api.raw_json_request(request, 1).await.unwrap();
 		let expected = r#"{"jsonrpc":"2.0","error":{"code":-32601,"message":"RPC call is unsafe to be called externally"},"id":1}"#;
 
-		assert_eq!(&response.result, expected);
+		assert_eq!(response, expected);
 	}
 }
