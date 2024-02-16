@@ -223,6 +223,7 @@ std = [
 
 runtime-benchmarks = [
 	"bridge-hub-common/runtime-benchmarks",
+	"bridge-hub-test-utils/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",

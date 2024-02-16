@@ -73,3 +73,7 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 ]
+
+runtime-benchmarks = [
+	"assets-common/runtime-benchmarks"
+]

@@ -84,3 +84,7 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 ]
+
+runtime-benchmarks = [
+	"asset-test-utils/runtime-benchmarks"
+]
