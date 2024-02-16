@@ -295,6 +295,7 @@ members = [
 	"substrate/frame",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
+	"substrate/frame/asset-conversion/ops",
 	"substrate/frame/asset-rate",
 	"substrate/frame/assets",
 	"substrate/frame/atomic-swap",

@@ -869,6 +869,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-asset-conversion",
+ "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-assets",
  "pallet-aura",
@@ -991,6 +992,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-asset-conversion",
+ "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-assets",
  "pallet-aura",
@@ -6975,6 +6977,7 @@ dependencies = [
  "node-primitives",
  "pallet-alliance",
  "pallet-asset-conversion",
+ "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-rate",
  "pallet-asset-tx-payment",
@@ -9024,6 +9027,28 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "primitive-types",
+ "scale-info",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-asset-conversion-ops"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",

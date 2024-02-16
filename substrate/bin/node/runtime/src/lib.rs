@@ -1719,6 +1719,19 @@ impl pallet_asset_conversion::Config for Runtime {
 	type BenchmarkHelper = ();
 }
 
+impl pallet_asset_conversion_ops::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PriorAccountIdConverter = pallet_asset_conversion::AccountIdConverterNoSeed<(
+		NativeOrWithId<u32>,
+		NativeOrWithId<u32>,
+	)>;
+	type AssetsRefund = <Runtime as pallet_asset_conversion::Config>::Assets;
+	type PoolAssetsRefund = <Runtime as pallet_asset_conversion::Config>::PoolAssets;
+	type PoolAssetsTeam = <Runtime as pallet_asset_conversion::Config>::PoolAssets;
+	type DepositAsset = Balances;
+	type WeightInfo = pallet_asset_conversion_ops::weights::SubstrateWeight<Runtime>;
+}
+
 parameter_types! {
 	pub const QueueCount: u32 = 300;
 	pub const MaxQueueLen: u32 = 1000;
@@ -2254,6 +2267,7 @@ construct_runtime!(
 		Mixnet: pallet_mixnet,
 		Parameters: pallet_parameters,
 		SkipFeelessPayment: pallet_skip_feeless_payment,
+		AssetConversionMigration: pallet_asset_conversion_ops = 200,
 	}
 );
 
@@ -2412,6 +2426,7 @@ mod benches {
 		[pallet_whitelist, Whitelist]
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
+		[pallet_asset_conversion_ops, AssetConversionMigration]
 	);
 }
 

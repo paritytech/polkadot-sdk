@@ -374,6 +374,18 @@ impl pallet_asset_conversion::Config for Runtime {
 	>;
 }
 
+impl pallet_asset_conversion_ops::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PriorAccountIdConverter = pallet_asset_conversion::AccountIdConverterNoSeed<
+		<Runtime as pallet_asset_conversion::Config>::PoolId,
+	>;
+	type AssetsRefund = <Runtime as pallet_asset_conversion::Config>::Assets;
+	type PoolAssetsRefund = <Runtime as pallet_asset_conversion::Config>::PoolAssets;
+	type PoolAssetsTeam = <Runtime as pallet_asset_conversion::Config>::PoolAssets;
+	type DepositAsset = Balances;
+	type WeightInfo = weights::pallet_asset_conversion_ops::WeightInfo<Runtime>;
+}
+
 parameter_types! {
 	// we just reuse the same deposits
 	pub const ForeignAssetsAssetDeposit: Balance = AssetDeposit::get();
@@ -946,6 +958,9 @@ construct_runtime!(
 
 		#[cfg(feature = "state-trie-version-1")]
 		StateTrieMigration: pallet_state_trie_migration = 70,
+
+		// TODO
+		AssetConversionMigration: pallet_asset_conversion_ops = 200,
 	}
 );
 
@@ -972,24 +987,6 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
-parameter_types! {
-	pub PerAccountMigrationWeight: Weight = {
-		// 2 balance + 2 deposit
-		<Runtime as frame_system::Config>::DbWeight::get().reads(5)
-			.saturating_add(
-				<weights::pallet_assets_local::WeightInfo<Runtime> as pallet_assets::WeightInfo>::transfer()
-			).saturating_add(
-				<weights::pallet_assets_foreign::WeightInfo<Runtime> as pallet_assets::WeightInfo>::transfer()
-			).saturating_add(
-				<weights::pallet_assets_local::WeightInfo<Runtime> as pallet_assets::WeightInfo>::refund_other()
-			).saturating_add(
-				<weights::pallet_assets_foreign::WeightInfo<Runtime> as pallet_assets::WeightInfo>::refund_other()
-			).saturating_add( // team reset
-				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
-			)
-	};
-}
-
 /// Migrations to apply on runtime upgrade.
 #[allow(deprecated)]
 pub type Migrations = (
@@ -999,24 +996,6 @@ pub type Migrations = (
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
-	// unreleased
-	pallet_asset_conversion::migration::new_pool_account_id::Migrate<
-		Runtime,
-		pallet_asset_conversion::WithFirstAsset<
-			TokenLocationV3,
-			AccountId,
-			xcm::v3::Location,
-			pallet_asset_conversion::AccountIdConverterNoSeed<(
-				xcm::v3::Location,
-				xcm::v3::Location,
-			)>,
-		>,
-		<Runtime as pallet_asset_conversion::Config>::PoolAssets,
-		<Runtime as pallet_asset_conversion::Config>::Assets,
-		<Runtime as pallet_asset_conversion::Config>::PoolAssets,
-		Balances,
-		PerAccountMigrationWeight,
-	>,
 );
 
 /// Migration to initialize storage versions for pallets added after genesis.
@@ -1101,6 +1080,7 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm_bridge_hub_router, ToWestend]
+		[pallet_asset_conversion_ops, AssetConversionMigration]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
