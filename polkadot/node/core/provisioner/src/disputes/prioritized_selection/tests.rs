@@ -402,7 +402,7 @@ impl TestDisputes {
 		onchain_votes_count: usize,
 	) {
 		let concluded_at = match dispute.2 {
-			DisputeStatus::Active | DisputeStatus::Confirmed | DisputeStatus::PotentialSpam => None,
+			DisputeStatus::Active | DisputeStatus::Confirmed => None,
 			DisputeStatus::ConcludedAgainst(_) | DisputeStatus::ConcludedFor(_) => Some(1),
 		};
 		self.onchain_disputes.insert(

@@ -1292,11 +1292,7 @@ impl Initialized {
 							session,
 							"New dispute initiated for candidate.",
 						);
-						if potential_spam {
-							DisputeStatus::potential_spam()
-						} else {
-							DisputeStatus::active()
-						}
+						DisputeStatus::active()
 					});
 
 				*status = *new_status;
@@ -1626,7 +1622,7 @@ fn determine_undisputed_chain(
 	let is_possibly_invalid = |session, candidate_hash| {
 		recent_disputes
 			.get(&(session, candidate_hash))
-			.map_or(false, |status| status.is_possibly_invalid() && !status.is_potential_spam())
+			.map_or(false, |status| status.is_possibly_invalid())
 	};
 
 	for (i, BlockDescription { session, candidates, .. }) in block_descriptions.iter().enumerate() {
