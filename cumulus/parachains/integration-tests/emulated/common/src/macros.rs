@@ -87,7 +87,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 									$crate::macros::cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }
 								) => {},
 								RuntimeEvent::Balances(
-									$crate::macros::pallet_balances::Event::Withdraw { who: sender, amount }
+									$crate::macros::pallet_balances::Event::Burned { who: sender, amount }
 								) => {},
 							]
 						);
@@ -101,7 +101,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 							$receiver_para,
 							vec![
 								RuntimeEvent::Balances(
-									$crate::macros::pallet_balances::Event::Deposit { who: receiver, .. }
+									$crate::macros::pallet_balances::Event::Minted { who: receiver, .. }
 								) => {},
 								RuntimeEvent::MessageQueue(
 									$crate::macros::pallet_message_queue::Event::Processed { success: true, .. }
