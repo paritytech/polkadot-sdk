@@ -435,6 +435,8 @@ where
 	#[cfg(feature = "std")]
 	/// Set recorder temporarily. Previous recorder is restored when the returned guard is dropped.
 	pub fn with_temp_recorder(&self, recorder: R) -> WithRecorder<H, C, R> {
+		//let proving_backend =
+		//	TrieBackendBuilder::wrap(trie_backend).with_recorder(Default::default()).build();
 		WithRecorder::new(self, recorder)
 	}
 
@@ -442,12 +444,11 @@ where
 	///
 	/// This only returns `Some` when there was a recorder set.
 	pub fn extract_proof(&self) -> Option<StorageProof> {
-
 		#[cfg(feature = "std")]
-		let r = &mut *self.essence.recorder.write();
+		let r = & *self.essence.recorder.read();
 		#[cfg(not(feature = "std"))]
-		let r = &mut *self.essence.recorder.borrow_mut();
-		r.take().and_then(|r| r.drain_storage_proof())
+		let r = &self.essence.recorder;
+		r.as_ref().and_then(|r| r.drain_storage_proof())
 	}
 }
 

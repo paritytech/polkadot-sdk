@@ -45,29 +45,32 @@ mod tests {
 	use sp_state_machine::TestExternalities;
 	use sp_trie::{
 		proof_size_extension::ProofSizeExt, recorder::Recorder, LayoutV1, PrefixedMemoryDB,
-		TrieDBMutBuilder, TrieMut,
+		TrieDBMutBuilder, DBLocation,
 	};
 
 	use crate::{storage_proof_size, PROOF_RECORDING_DISABLED};
 
 	const TEST_DATA: &[(&[u8], &[u8])] = &[(b"key1", &[1; 64]), (b"key2", &[2; 64])];
 
-	type TestLayout = LayoutV1<sp_core::Blake2Hasher>;
+	type TestLayout = LayoutV1<sp_core::Blake2Hasher, DBLocation>;
 
-	fn get_prepared_test_externalities() -> (TestExternalities<Blake2Hasher>, Recorder<Blake2Hasher>)
+	fn get_prepared_test_externalities() -> (TestExternalities<Blake2Hasher>, Recorder<Blake2Hasher, DBLocation>)
 	{
 		let mut db = PrefixedMemoryDB::default();
-		let mut root = Default::default();
 
-		{
-			let mut trie = TrieDBMutBuilder::<TestLayout>::new(&mut db, &mut root).build();
+		let root = {
+			let mut trie = TrieDBMutBuilder::<TestLayout>::new(&mut db).build();
 			for (k, v) in TEST_DATA {
 				trie.insert(k, v).expect("Inserts data");
 			}
+			let change_set = trie.commit();
+			let root = change_set.root_hash();
+			change_set.apply_to(&mut db);
+			root
 		}
 
-		let recorder: sp_trie::recorder::Recorder<Blake2Hasher> = Default::default();
-		let trie_backend = sp_state_machine::TrieBackendBuilder::new(db, root)
+		let recorder: sp_trie::recorder::Recorder<Blake2Hasher, DBLocation> = Default::default();
+		let trie_backend = sp_state_machine::TrieBackendBuilder::new(Box::new(db), root)
 			.with_recorder(recorder.clone())
 			.build();
 

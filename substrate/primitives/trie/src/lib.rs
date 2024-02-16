@@ -176,7 +176,7 @@ pub type DBLocation = ();
 ///
 /// Types implementing this trait can be used to maintain recorded state
 /// across operations on different [`trie_db::TrieDB`] instances.
-pub trait TrieRecorderProvider<H: Hasher, L: Location>: Default {
+pub trait TrieRecorderProvider<H: Hasher, L: Location> {
 	/// Recorder type that is going to be returned by implementors of this trait.
 	type Recorder<'a>: trie_db::TrieRecorder<H::Out, L> + 'a
 	where
