@@ -42,7 +42,7 @@ impl OnUnbalanced<Credit<AccountId, Balances>> for CreditToCollatorPot {
 /// `construct_runtime` of the Relay chain.
 #[derive(Encode, Decode)]
 enum RelayRuntimePallets {
-	#[codec(index = 74)]
+	#[codec(index = 66)]
 	Coretime(CoretimeProviderCalls),
 }
 
@@ -86,6 +86,12 @@ impl CoretimeInterface for CoretimeAllocator {
 		use crate::coretime::CoretimeProviderCalls::RequestCoreCount;
 		let request_core_count_call = RelayRuntimePallets::Coretime(RequestCoreCount(count));
 
+		// Weight for `request_core_count` from westend benchmarks:
+		// `ref_time` = 7889000 + (3 * 25000000) + (1 * 100000000) = 182889000
+		// `proof_size` = 1636
+		// Add 5% to each component and round to 2 significant figures.
+		let call_weight = Weight::from_parts(190_000_000, 1700);
+
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
@@ -93,13 +99,13 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(1000000000, 200000),
+				require_weight_at_most: call_weight,
 				call: request_core_count_call.encode().into(),
 			},
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => log::debug!(
 				target: "runtime::coretime",
 				"Request to update schedulable cores sent successfully."
 			),
@@ -129,7 +135,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => log::debug!(
 				target: "runtime::coretime",
 				"Request for revenue information sent successfully."
 			),
@@ -158,7 +164,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => log::debug!(
 				target: "runtime::coretime",
 				"Instruction to credit account sent successfully."
 			),
@@ -180,6 +186,12 @@ impl CoretimeInterface for CoretimeAllocator {
 		let assign_core_call =
 			RelayRuntimePallets::Coretime(AssignCore(core, begin, assignment, end_hint));
 
+		// Weight for `assign_core` from westend benchmarks:
+		// `ref_time` = 10177115 + (1 * 25000000) + (2 * 100000000) + (57600 * 13932) = 937660315
+		// `proof_size` = 3612
+		// Add 5% to each component and round to 2 significant figures.
+		let call_weight = Weight::from_parts(980_000_000, 3800);
+
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
@@ -187,13 +199,13 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(1_000_000_000, 200000),
+				require_weight_at_most: call_weight,
 				call: assign_core_call.encode().into(),
 			},
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => log::debug!(
 				target: "runtime::coretime",
 				"Core assignment sent successfully."
 			),
@@ -225,7 +237,8 @@ impl pallet_broker::Config for Runtime {
 	type TimeslicePeriod = ConstU32<10>;
 	#[cfg(not(feature = "fast-runtime"))]
 	type TimeslicePeriod = ConstU32<80>;
-	type MaxLeasedCores = ConstU32<50>;
+	// We don't actually need any leases at launch but set to 10 in case we want to sudo some in.
+	type MaxLeasedCores = ConstU32<10>;
 	type MaxReservedCores = ConstU32<10>;
 	type Coretime = CoretimeAllocator;
 	type ConvertBalance = sp_runtime::traits::Identity;
