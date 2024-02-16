@@ -97,12 +97,20 @@ pub(crate) struct SizeOnlyRecorderProvider<H: Hasher> {
 }
 
 impl<H: Hasher> SizeOnlyRecorderProvider<H> {
+	/// Create a new instance of [`SizeOnlyRecorderProvider`]
 	pub fn new() -> Self {
 		Self {
 			seen_nodes: Default::default(),
 			encoded_size: Default::default(),
 			recorded_keys: Default::default(),
 		}
+	}
+
+	/// Reset a new instance of [`SizeOnlyRecorderProvider`]
+	pub fn reset(&mut self) {
+		self.seen_nodes.borrow_mut().clear();
+		*self.encoded_size.borrow_mut() = 0;
+		self.recorded_keys.borrow_mut().clear();
 	}
 }
 

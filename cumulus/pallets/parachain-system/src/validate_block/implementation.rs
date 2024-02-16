@@ -283,6 +283,7 @@ fn run_with_externalities_and_recorder<B: BlockT, R, F: FnOnce() -> R>(
 	let mut overlay = sp_state_machine::OverlayedChanges::default();
 	let mut ext = Ext::<B>::new(&mut overlay, backend);
 
+	recorder.reset();
 	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
 }
 
