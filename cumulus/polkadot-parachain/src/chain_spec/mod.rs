@@ -31,6 +31,7 @@ pub mod people;
 pub mod rococo_parachain;
 pub mod seedling;
 pub mod shell;
+pub mod staking;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;

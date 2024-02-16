@@ -55,6 +55,7 @@ enum Runtime {
 	Glutton,
 	GluttonWestend,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
+	StakingRococo,
 	Coretime(chain_spec::coretime::CoretimeRuntimeType),
 	People(chain_spec::people::PeopleRuntimeType),
 }
@@ -123,6 +124,8 @@ fn runtime(id: &str) -> Runtime {
 		Runtime::GluttonWestend
 	} else if id.starts_with("glutton") {
 		Runtime::Glutton
+	} else if id.starts_with("staking-rococo") {
+		Runtime::StakingRococo
 	} else if id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) {
 		Runtime::People(id.parse::<chain_spec::people::PeopleRuntimeType>().expect("Invalid value"))
 	} else {
@@ -209,6 +212,10 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"contracts-rococo" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/contracts-rococo.json")[..],
 		)?),
+
+		// -- Staking Rococo
+		"staking-rococo-dev" =>
+			Box::new(chain_spec::staking::staking_rococo_development_config()),
 
 		// -- BridgeHub
 		bridge_like_id
@@ -430,7 +437,7 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
-			Runtime::Penpal(_) | Runtime::Default => {
+			Runtime::StakingRococo | Runtime::Penpal(_) | Runtime::Default => {
 				let $partials = new_partial::<RuntimeApi, _>(
 					&$config,
 					crate::service::rococo_parachain_build_import_queue,
@@ -495,7 +502,7 @@ macro_rules! construct_async_run {
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
 			},
-			Runtime::Penpal(_) | Runtime::Default => {
+			Runtime::StakingRococo | Runtime::Penpal(_) | Runtime::Default => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<
 						RuntimeApi,
@@ -727,6 +734,14 @@ pub fn run() -> Result<()> {
 							RuntimeApi,
 							AuraId,
 						>(config, polkadot_config, collator_options, id, hwbench)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
+
+					Runtime::StakingRococo => crate::service::start_generic_aura_node::<
+						RuntimeApi,
+						AuraId,
+					>(config, polkadot_config, collator_options, id, hwbench)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),

@@ -116,6 +116,7 @@ members = [
 	"cumulus/parachains/runtimes/coretime/coretime-rococo",
 	"cumulus/parachains/runtimes/coretime/coretime-westend",
 	"cumulus/parachains/runtimes/glutton/glutton-westend",
+	"cumulus/parachains/runtimes/staking/staking-rococo",
 	"cumulus/parachains/runtimes/people/people-rococo",
 	"cumulus/parachains/runtimes/people/people-westend",
 	"cumulus/parachains/runtimes/starters/seedling",

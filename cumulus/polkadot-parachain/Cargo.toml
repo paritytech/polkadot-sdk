@@ -39,6 +39,7 @@ coretime-rococo-runtime = { path = "../parachains/runtimes/coretime/coretime-roc
 coretime-westend-runtime = { path = "../parachains/runtimes/coretime/coretime-westend" }
 bridge-hub-westend-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 penpal-runtime = { path = "../parachains/runtimes/testing/penpal" }
+staking-rococo-runtime = { path = "../parachains/runtimes/staking/staking-rococo" }
 jsonrpsee = { version = "0.20.3", features = ["server"] }
 people-rococo-runtime = { path = "../parachains/runtimes/people/people-rococo" }
 people-westend-runtime = { path = "../parachains/runtimes/people/people-westend" }
@@ -139,6 +140,7 @@ runtime-benchmarks = [
 	"glutton-westend-runtime/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
+	"staking-rococo-runtime/runtime-benchmarks",
 	"people-rococo-runtime/runtime-benchmarks",
 	"people-westend-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
@@ -162,6 +164,7 @@ try-runtime = [
 	"glutton-westend-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"penpal-runtime/try-runtime",
+	"staking-rococo-runtime/try-runtime",
 	"people-rococo-runtime/try-runtime",
 	"people-westend-runtime/try-runtime",
 	"polkadot-cli/try-runtime",
