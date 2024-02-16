@@ -1387,7 +1387,7 @@ where
 	}
 }
 
-/// TODO: docs
+/// Common interface for the `CreateTransaction` trait family to unify the `Call` type.
 pub trait CreateTransactionBase: ExtrinsicLike {
 	/// The function call.
 	type Call: TypeInfo;
@@ -1401,21 +1401,21 @@ where
 	type Call = <T as Extrinsic>::Call;
 }
 
-/// TODO: docs
+/// Interface for creating a transaction.
 pub trait CreateTransaction: CreateTransactionBase {
 	/// The extension.
 	type Extension: TypeInfo;
 
-	/// TODO: docs
+	/// Create a transaction using the call and the desired transaction extension.
 	fn create_transaction(call: Self::Call, extension: Self::Extension) -> Self;
 }
 
-/// TODO: docs
+/// Interface for creating an old-school signed transaction.
 pub trait CreateSignedTransaction: CreateTransactionBase {
 	/// The extension.
 	type SignaturePayload: SignaturePayload;
 
-	/// TODO: docs
+	/// Create an old-school signed transaction.
 	fn create_signed_transaction(call: Self::Call, signed_data: Self::SignaturePayload) -> Self;
 }
 
@@ -1433,9 +1433,9 @@ where
 	}
 }
 
-/// TODO: docs
+/// Interface for creating an inherent.
 pub trait CreateInherent: CreateTransactionBase {
-	/// TODO: docs
+	/// Create an inherent.
 	fn create_inherent(call: Self::Call) -> Self;
 }
 
