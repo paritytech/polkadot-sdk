@@ -265,6 +265,7 @@ where
 	pub fn new_with_cache(storage: Box<dyn AsDB<H>>, root: H::Out, cache: C) -> Self {
 		Self { storage, root, recorder: None, cache: Some(cache) }
 	}
+
 	/// Wrap the given [`TrieBackend`].
 	///
 	/// This can be used for example if all accesses to the trie should
@@ -272,6 +273,7 @@ where
 	/// backend.
 	///
 	/// The backend storage and the cache will be taken from `other`.
+	/// TODO rem (use with_temp_recorder instead).
 	pub fn wrap(mut other: TrieBackend<H, C, R>) -> TrieBackendBuilder<H, C, R> {
 		TrieBackendBuilder {
 			root: *other.essence.root(),
@@ -416,7 +418,7 @@ where
 
 	#[cfg(feature = "std")]
 	/// Set recorder temporarily. Previous recorder is restored when the returned guard is dropped.
-	pub fn with_recorder(&self, recorder: R) -> WithRecorder<H, C, R> {
+	pub fn with_temp_recorder(&self, recorder: R) -> WithRecorder<H, C, R> {
 		WithRecorder::new(self, recorder)
 	}
 
@@ -1150,7 +1152,7 @@ pub mod tests {
 	) {
 		let trie_backend = test_trie(state_version, cache, recorder);
 		assert!(trie_backend
-			.with_recorder(Recorder::default())
+			.with_temp_recorder(Recorder::default())
 			.extract_proof()
 			.unwrap()
 			.is_empty());
@@ -1166,7 +1168,7 @@ pub mod tests {
 		recorder: Option<Recorder>,
 	) {
 		let trie_backend = test_trie(state_version, cache, recorder);
-		let backend = trie_backend.with_recorder(Recorder::default());
+		let backend = trie_backend.with_temp_recorder(Recorder::default());
 		assert_eq!(backend.storage(b"key").unwrap(), Some(b"value".to_vec()));
 		assert!(!backend.extract_proof().unwrap().is_empty());
 	}
@@ -1219,7 +1221,7 @@ pub mod tests {
 				}
 
 				trie.essence.trie_node_cache = cache.as_ref().map(|c| c.local_cache());
-				let proving = trie.with_recorder(Recorder::default());
+				let proving = trie.with_temp_recorder(Recorder::default());
 				assert_eq!(proving.storage(&[42]).unwrap().unwrap(), vec![42; size_content]);
 
 				let proof = proving.extract_proof().unwrap();
@@ -1264,7 +1266,7 @@ pub mod tests {
 				(0..64).for_each(|i| assert_eq!(trie.storage(&[i]).unwrap().unwrap(), vec![i]));
 
 				trie.essence.trie_node_cache = cache.as_ref().map(|c| c.local_cache());
-				let proving = trie.with_recorder(Recorder::default());
+				let proving = trie.with_temp_recorder(Recorder::default());
 
 				(0..63).for_each(|i| {
 					assert_eq!(proving.next_storage_key(&[i]).unwrap(), Some(vec![i + 1]))
@@ -1334,7 +1336,7 @@ pub mod tests {
 				(0..64).for_each(|i| assert_eq!(trie.storage(&[i]).unwrap().unwrap(), vec![i]));
 
 				trie.essence.trie_node_cache = cache.as_ref().map(|c| c.local_cache());
-				let proving = trie.with_recorder(Recorder::default());
+				let proving = trie.with_temp_recorder(Recorder::default());
 
 				assert_eq!(proving.storage(&[42]).unwrap().unwrap(), vec![42]);
 
@@ -1351,7 +1353,7 @@ pub mod tests {
 				std::mem::drop(proving);
 
 				trie.essence.trie_node_cache = cache.as_ref().map(|c| c.local_cache());
-				let proving = trie.with_recorder(Recorder::default());
+				let proving = trie.with_temp_recorder(Recorder::default());
 
 				assert_eq!(proving.child_storage(child_info_1, &[64]), Ok(Some(vec![64])));
 				assert_eq!(proving.child_storage(child_info_1, &[25]), Ok(None));
@@ -1418,7 +1420,7 @@ pub mod tests {
 			.root_hash();
 		let trie = in_memory.as_trie_backend_mut();
 		let nodes = {
-			let backend = trie.with_recorder(Default::default());
+			let backend = trie.with_temp_recorder(Default::default());
 			let value = backend.child_storage(child_info_1, &[65]).unwrap().unwrap();
 			let value_hash = BlakeTwo256::hash(&value);
 			assert_eq!(value, vec![65; 128]);
@@ -1468,7 +1470,7 @@ pub mod tests {
 		{
 			// Record the access
 			trie.essence.trie_node_cache = Some(cache.local_cache());
-			let proving = trie.with_recorder(Recorder::default());
+			let proving = trie.with_temp_recorder(Recorder::default());
 			assert_eq!(proving.child_storage(child_info_1, &[65]), Ok(Some(vec![65; 128])));
 
 			let proof = proving.extract_proof().unwrap();
@@ -1516,7 +1518,7 @@ pub mod tests {
 		}
 
 		for n in 0..keys.len() {
-			let backend = trie_backend.with_recorder(Default::default());
+			let backend = trie_backend.with_temp_recorder(Default::default());
 
 			// Read n keys
 			(0..n).for_each(|i| {
@@ -1615,7 +1617,7 @@ pub mod tests {
 				assert_eq!(in_memory_root, trie_root);
 
 				trie.essence.trie_node_cache = cache.as_ref().map(|c| c.local_cache());
-				let proving = trie.with_recorder(Recorder::default());
+				let proving = trie.with_temp_recorder(Recorder::default());
 
 				assert_eq!(proving.storage(&key).unwrap().unwrap(), top_trie_val);
 				assert_eq!(

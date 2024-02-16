@@ -358,7 +358,7 @@ mod execution {
 		H::Out: Ord + 'static + codec::Codec,
 		Exec: CodeExecutor + 'static + Clone,
 	{
-		let proving_backend = trie_backend.with_recorder(Default::default());
+		let proving_backend = trie_backend.with_temp_recorder(Default::default());
 
 		let result = StateMachine::<_, H, Exec>::new(
 			&*proving_backend,
@@ -594,7 +594,7 @@ mod execution {
 		}
 
 		let recorder = sp_trie::recorder::Recorder::default();
-		let proving_backend = trie_backend.with_recorder(recorder.clone());
+		let proving_backend = trie_backend.with_temp_recorder(recorder.clone());
 		let mut count = 0;
 
 		let mut child_roots = HashSet::new();
@@ -718,7 +718,7 @@ mod execution {
 		H::Out: Ord + Codec,
 	{
 		let recorder = sp_trie::recorder::Recorder::default();
-		let proving_backend = trie_backend.with_recorder(recorder.clone());
+		let proving_backend = trie_backend.with_temp_recorder(recorder.clone());
 		let mut count = 0;
 		let iter = proving_backend
 			// NOTE: Even though the loop below doesn't use these values
@@ -775,7 +775,7 @@ mod execution {
 		I: IntoIterator,
 		I::Item: AsRef<[u8]>,
 	{
-		let proving_backend = trie_backend.with_recorder(Default::default());
+		let proving_backend = trie_backend.with_temp_recorder(Default::default());
 		for key in keys.into_iter() {
 			proving_backend
 				.storage(key.as_ref())
@@ -800,7 +800,7 @@ mod execution {
 		I: IntoIterator,
 		I::Item: AsRef<[u8]>,
 	{
-		let proving_backend = trie_backend.with_recorder(Default::default());
+		let proving_backend = trie_backend.with_temp_recorder(Default::default());
 		for key in keys.into_iter() {
 			proving_backend
 				.child_storage(child_info, key.as_ref())
@@ -1602,7 +1602,7 @@ mod tests {
 			let trie: InMemoryBackend<BlakeTwo256> =
 				(storage.clone(), StateVersion::default()).into();
 			let trie_root = *trie.root();
-			let backend = trie.with_recorder(Default::default());
+			let backend = trie.with_temp_recorder(Default::default());
 			let mut queries = Vec::new();
 			for c in 0..(5 + nb_child_trie / 2) {
 				// random existing query
