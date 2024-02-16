@@ -23,7 +23,7 @@ use log::{debug, info};
 use parking_lot::Mutex;
 use sc_client_api::{Backend, CallExecutor};
 use sc_network::{
-	config::{MultiaddrWithPeerId, NetworkConfiguration, TransportConfig},
+	config::{MultiaddrWithPeerId, NetworkConfiguration, RpcBatchRequestConfig, TransportConfig},
 	multiaddr, NetworkBlock, NetworkPeers, NetworkStateInfo,
 };
 use sc_network_sync::SyncingService;
@@ -254,6 +254,7 @@ fn node_config<
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9944,
 		rpc_message_buffer_capacity: Default::default(),
+		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
