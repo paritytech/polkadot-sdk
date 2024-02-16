@@ -56,7 +56,7 @@ impl BenchmarkUsage {
 
 fn check_usage(
 	benchmark_name: &str,
-	usage: &Vec<ResourceUsage>,
+	usage: &[ResourceUsage],
 	checks: &[ResourceUsageCheck],
 ) -> Vec<String> {
 	checks
