@@ -30,7 +30,7 @@ use codec::Encode;
 use sc_chain_spec::ChainSpec;
 use sc_client_api::HeaderBackend;
 use sc_service::{
-	config::{PrometheusConfig, TelemetryEndpoints},
+	config::{PrometheusConfig, RpcBatchRequestConfig, TelemetryEndpoints},
 	BasePath, TransactionPoolOptions,
 };
 use sp_core::hexdisplay::HexDisplay;
@@ -443,11 +443,11 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		Ok(self.base.rpc_max_subscriptions_per_connection)
 	}
 
-	fn rpc_buffer_capacity_per_connection(&self) -> Result<u32> {
+	fn rpc_buffer_capacity_per_connection(&self) -> sc_cli::Result<u32> {
 		Ok(self.base.rpc_message_buffer_capacity_per_connection)
 	}
 
-	fn rpc_batch_config(&self) -> Result<RpcBatchRequestConfig> {
+	fn rpc_batch_config(&self) -> sc_cli::Result<RpcBatchRequestConfig> {
 		self.base.rpc_batch_config()
 	}
 
