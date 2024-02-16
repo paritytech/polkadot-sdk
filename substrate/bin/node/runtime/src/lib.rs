@@ -2267,7 +2267,7 @@ construct_runtime!(
 		Mixnet: pallet_mixnet,
 		Parameters: pallet_parameters,
 		SkipFeelessPayment: pallet_skip_feeless_payment,
-		AssetConversionMigration: pallet_asset_conversion_ops = 200,
+		AssetConversionMigration: pallet_asset_conversion_ops,
 	}
 );
 

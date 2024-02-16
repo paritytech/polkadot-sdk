@@ -959,7 +959,8 @@ construct_runtime!(
 		#[cfg(feature = "state-trie-version-1")]
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
-		// TODO
+		// TODO: the pallet instance should be removed once all pools have migrated
+		// to the new account IDs.
 		AssetConversionMigration: pallet_asset_conversion_ops = 200,
 	}
 );

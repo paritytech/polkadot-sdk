@@ -47,7 +47,7 @@ use frame_support::traits::{
 	AccountTouch,
 };
 use pallet_asset_conversion::{PoolLocator, Pools};
-use sp_runtime::traits::{One, TryConvert, Zero};
+use sp_runtime::traits::{TryConvert, Zero};
 use sp_std::boxed::Box;
 
 #[frame_support::pallet]

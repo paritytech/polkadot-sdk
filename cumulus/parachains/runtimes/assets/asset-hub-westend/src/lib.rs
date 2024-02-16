@@ -931,7 +931,8 @@ construct_runtime!(
 		PoolAssets: pallet_assets::<Instance3> = 55,
 		AssetConversion: pallet_asset_conversion = 56,
 
-		// TODO
+		// TODO: the pallet instance should be removed once all pools have migrated
+		// to the new account IDs.
 		AssetConversionMigration: pallet_asset_conversion_ops = 200,
 	}
 );
