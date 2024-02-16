@@ -21,8 +21,8 @@ scale-info = { version = "2.10.0", default-features = false, features = [
 ] }
 log = { version = "0.4.17", default-features = false }
 
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
 
 sp-io = { path = "../../primitives/io", default-features = false}
 sp-std = { path = "../../primitives/std", default-features = false}

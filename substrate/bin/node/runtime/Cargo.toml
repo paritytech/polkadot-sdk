@@ -83,7 +83,6 @@ pallet-contracts = { path = "../../../frame/contracts", default-features = false
 pallet-conviction-voting = { path = "../../../frame/conviction-voting", default-features = false }
 pallet-core-fellowship = { path = "../../../frame/core-fellowship", default-features = false }
 pallet-democracy = { path = "../../../frame/democracy", default-features = false }
-pallet-election-provider-multi-phase = { path = "../../../frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "../../../frame/election-provider-support/benchmarking", default-features = false, optional = true }
 pallet-elections-phragmen = { path = "../../../frame/elections-phragmen", default-features = false }
 pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
@@ -184,7 +183,6 @@ std = [
 	"pallet-conviction-voting/std",
 	"pallet-core-fellowship/std",
 	"pallet-democracy/std",
-	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen/std",
 	"pallet-example-tasks/std",
@@ -289,7 +287,6 @@ runtime-benchmarks = [
 	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-core-fellowship/runtime-benchmarks",
 	"pallet-democracy/runtime-benchmarks",
-	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
 	"pallet-example-tasks/runtime-benchmarks",
@@ -368,7 +365,6 @@ try-runtime = [
 	"pallet-conviction-voting/try-runtime",
 	"pallet-core-fellowship/try-runtime",
 	"pallet-democracy/try-runtime",
-	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
 	"pallet-example-tasks/try-runtime",
 	"pallet-fast-unstake/try-runtime",

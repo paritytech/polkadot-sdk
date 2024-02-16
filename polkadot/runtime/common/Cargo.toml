@@ -45,7 +45,7 @@ pallet-vesting = { path = "../../../substrate/frame/vesting", default-features =
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
 pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false, optional = true }
-pallet-election-provider-multi-phase = { path = "../../../substrate/frame/election-provider-multi-phase", default-features = false }
+pallet-election-provider-multi-block = { path = "../../../substrate/frame/election-provider-multi-block", default-features = false }
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -89,7 +89,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-broker/std",
-	"pallet-election-provider-multi-phase/std",
+	"pallet-election-provider-multi-block/std",
 	"pallet-fast-unstake/std",
 	"pallet-identity/std",
 	"pallet-session/std",
@@ -130,7 +130,7 @@ runtime-benchmarks = [
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-broker/runtime-benchmarks",
-	"pallet-election-provider-multi-phase/runtime-benchmarks",
+  #"pallet-election-provider-multi-block/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
@@ -155,7 +155,7 @@ try-runtime = [
 	"pallet-babe?/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-broker/try-runtime",
-	"pallet-election-provider-multi-phase/try-runtime",
+	"pallet-election-provider-multi-block/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-session/try-runtime",

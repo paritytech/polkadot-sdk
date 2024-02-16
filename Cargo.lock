@@ -6994,7 +6994,6 @@ dependencies = [
  "pallet-conviction-voting",
  "pallet-core-fellowship",
  "pallet-democracy",
- "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
  "pallet-example-tasks",
@@ -9726,33 +9725,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-election-provider-e2e-test"
-version = "1.0.0"
-dependencies = [
- "frame-election-provider-support",
- "frame-support",
- "frame-system",
- "log",
- "pallet-bags-list",
- "pallet-balances",
- "pallet-election-provider-multi-phase",
- "pallet-nomination-pools",
- "pallet-session",
- "pallet-staking",
- "pallet-timestamp",
- "parity-scale-codec",
- "parking_lot 0.12.1",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-npos-elections",
- "sp-runtime",
- "sp-staking",
- "sp-std 14.0.0",
- "sp-tracing 16.0.0",
-]
-
-[[package]]
 name = "pallet-election-provider-multi-block"
 version = "4.0.0-dev"
 dependencies = [
@@ -9767,33 +9739,8 @@ dependencies = [
  "sp-io",
  "sp-npos-elections",
  "sp-runtime",
- "sp-std 8.0.0",
- "sp-tracing 10.0.0",
-]
-
-[[package]]
-name = "pallet-election-provider-multi-phase"
-version = "27.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-election-provider-support",
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances",
- "pallet-election-provider-support-benchmarking",
- "parity-scale-codec",
- "parking_lot 0.12.1",
- "rand",
- "scale-info",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-npos-elections",
- "sp-runtime",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
- "strum 0.24.1",
 ]
 
 [[package]]
@@ -9831,8 +9778,8 @@ dependencies = [
  "sp-npos-elections",
  "sp-runtime",
  "sp-staking",
- "sp-std 8.0.0",
- "sp-tracing 10.0.0",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
  "substrate-test-utils",
 ]
 
@@ -13215,7 +13162,7 @@ dependencies = [
  "pallet-babe",
  "pallet-balances",
  "pallet-broker",
- "pallet-election-provider-multi-phase",
+ "pallet-election-provider-multi-block",
  "pallet-fast-unstake",
  "pallet-identity",
  "pallet-session",
@@ -21708,7 +21655,7 @@ dependencies = [
  "pallet-collective",
  "pallet-conviction-voting",
  "pallet-democracy",
- "pallet-election-provider-multi-phase",
+ "pallet-election-provider-multi-block",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
  "pallet-fast-unstake",

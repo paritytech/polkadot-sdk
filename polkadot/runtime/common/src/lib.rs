@@ -80,6 +80,11 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight =
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
+// Election voter index type.
+pub type VoterIndex = u16;
+// Election target index type.
+pub type TargetIndex = u16;
+
 // Common constants used in all runtimes.
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 4096;
