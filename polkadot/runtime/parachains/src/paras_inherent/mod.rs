@@ -24,11 +24,8 @@
 use crate::{
 	configuration,
 	disputes::DisputesHandler,
-	inclusion,
-	inclusion::CandidateCheckContext,
-	initializer,
+	inclusion, initializer,
 	metrics::METRICS,
-	paras,
 	scheduler::{self, FreedReason},
 	shared::{self, AllowedRelayParentsTracker},
 	ParaId,
@@ -250,7 +247,7 @@ pub mod pallet {
 		// Handle timeouts for any availability core work.
 		let freed_timeout = if <scheduler::Pallet<T>>::availability_timeout_check_required() {
 			let pred = <scheduler::Pallet<T>>::availability_timeout_predicate();
-			<inclusion::Pallet<T>>::collect_pending(pred)
+			<inclusion::Pallet<T>>::collect_timedout(pred)
 		} else {
 			Vec::new()
 		};
@@ -572,7 +569,7 @@ impl<T: Config> Pallet<T> {
 		// work has now concluded.
 		let freed_concluded =
 			<inclusion::Pallet<T>>::update_pending_availability_and_get_freed_cores::<_>(
-				expected_bits,
+				&allowed_relay_parents,
 				&validator_public[..],
 				bitfields.clone(),
 				<scheduler::Pallet<T>>::core_para,
@@ -612,24 +609,13 @@ impl<T: Config> Pallet<T> {
 		} = sanitize_backed_candidates::<T, _>(
 			backed_candidates,
 			&allowed_relay_parents,
-			|candidate_idx: usize,
-			 backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>|
-			 -> bool {
-				let para_id = backed_candidate.descriptor().para_id;
-				let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
-				let check_ctx = CandidateCheckContext::<T>::new(prev_context);
-
-				// never include a concluded-invalid candidate
-				current_concluded_invalid_disputes.contains(&backed_candidate.hash()) ||
-					// Instead of checking the candidates with code upgrades twice
-					// move the checking up here and skip it in the training wheels fallback.
-					// That way we avoid possible duplicate checks while assuring all
-					// backed candidates fine to pass on.
-					//
-					// NOTE: this is the only place where we check the relay-parent.
-					check_ctx
-						.verify_backed_candidate(&allowed_relay_parents, candidate_idx, backed_candidate.candidate())
-						.is_err()
+			|backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>| -> bool {
+				// TODO: see this old comment // NOTE: this is the only place where we check the
+				// relay-parent. never include a concluded-invalid candidate. we don't need to
+				// check for descendants of concluded-invalid candidates as those descendants
+				// have already been evicted from the cores and the included head data won't
+				// match.
+				current_concluded_invalid_disputes.contains(&backed_candidate.hash())
 			},
 			scheduled,
 			core_index_enabled,
@@ -982,7 +968,7 @@ struct SanitizedBackedCandidates<Hash> {
 /// occupied core index.
 fn sanitize_backed_candidates<
 	T: crate::inclusion::Config,
-	F: FnMut(usize, &BackedCandidate<T::Hash>) -> bool,
+	F: FnMut(&BackedCandidate<T::Hash>) -> bool,
 >(
 	mut backed_candidates: Vec<BackedCandidate<T::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
@@ -992,8 +978,8 @@ fn sanitize_backed_candidates<
 ) -> SanitizedBackedCandidates<T::Hash> {
 	// Remove any candidates that were concluded invalid.
 	// This does not assume sorting.
-	backed_candidates.indexed_retain(move |candidate_idx, backed_candidate| {
-		!candidate_has_concluded_invalid_dispute_or_is_invalid(candidate_idx, backed_candidate)
+	backed_candidates.retain(move |backed_candidate| {
+		!candidate_has_concluded_invalid_dispute_or_is_invalid(backed_candidate)
 	});
 
 	let initial_candidate_count = backed_candidates.len();
