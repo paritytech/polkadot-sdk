@@ -132,9 +132,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Some(details) => details,
 			None => return DepositConsequence::UnknownAsset,
 		};
-		if details.status == AssetStatus::Destroying {
-			return DepositConsequence::UnknownAsset
-		}
 		if increase_supply && details.supply.checked_add(&amount).is_none() {
 			return DepositConsequence::Overflow
 		}
@@ -177,9 +174,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		if details.status == AssetStatus::Frozen {
 			return Frozen
-		}
-		if details.status == AssetStatus::Destroying {
-			return UnknownAsset
 		}
 		if amount.is_zero() {
 			return Success
