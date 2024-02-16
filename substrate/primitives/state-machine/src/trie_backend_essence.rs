@@ -214,6 +214,7 @@ pub struct TrieBackendEssence<H: Hasher, C, R> {
 impl<H, C, R> TrieBackendEssence<H, C, R>
 where
 	H: Hasher,
+	R: TrieRecorderProvider<H, DBLocation>,
 {
 	/// Create new trie-based backend.
 	pub fn new(storage: Box<dyn AsDB<H>>, root: H::Out) -> Self {
@@ -275,6 +276,7 @@ where
 	#[cfg(feature = "std")]
 	pub fn set_recorder(&self, recorder: Option<R>) -> Option<R> {
 		if recorder.is_some() {
+			// TODO try without reset.
 			self.reset_cache();
 		}
 		core::mem::replace(&mut *self.recorder.write(), recorder)

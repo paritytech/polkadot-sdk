@@ -30,12 +30,10 @@ use alloc::boxed::Box;
 use codec::Codec;
 use sp_core::storage::{ChildInfo, StateVersion};
 #[cfg(feature = "std")]
+use sp_trie::cache::{LocalTrieCache, TrieCache};
 use sp_trie::{
-	cache::{LocalTrieCache, TrieCache},
-	StorageProof,
-};
-use sp_trie::{
-	ChildChangeset, DBValue, MemoryDB, MerkleValue, PrefixedMemoryDB, TrieRecorderProvider,
+	ChildChangeset, DBValue, MemoryDB, MerkleValue, PrefixedMemoryDB, StorageProof,
+	TrieRecorderProvider,
 };
 #[cfg(not(feature = "std"))]
 use sp_trie::{Error, NodeCodec};
@@ -287,6 +285,7 @@ where
 impl<H, C, R> TrieBackendBuilder<H, C, R>
 where
 	H: Hasher,
+	R: TrieRecorderProvider<H, DBLocation>,
 {
 	/// Create a new builder instance.
 	pub fn new_with_cache(storage: Box<dyn AsDB<H>>, root: H::Out, cache: C) -> Self {
@@ -382,13 +381,12 @@ pub struct TrieBackend<
 	next_storage_key_cache: CacheCell<Option<CachedIter<H, C, R>>>,
 }
 
-impl<
-		H: Hasher,
-		C: TrieCacheProvider<H> + Send + Sync,
-		R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
-	> TrieBackend<H, C, R>
+impl<H, C, R> TrieBackend<H, C, R>
 where
+	H: Hasher,
 	H::Out: Codec,
+	C: TrieCacheProvider<H> + Send + Sync,
+	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
 {
 	#[cfg(test)]
 	pub(crate) fn from_essence(essence: TrieBackendEssence<H, C, R>) -> Self {
@@ -420,6 +418,7 @@ where
 		self.essence.root()
 	}
 
+	// TODO in use??
 	#[cfg(feature = "std")]
 	/// Set recorder. Returns the previous recorder.
 	pub fn set_recorder(&self, recorder: Option<R>) -> Option<R> {

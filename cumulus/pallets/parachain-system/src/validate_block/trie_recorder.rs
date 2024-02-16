@@ -109,7 +109,7 @@ impl<H: Hasher> SizeOnlyRecorderProvider<H> {
 impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for SizeOnlyRecorderProvider<H> {
 	type Recorder<'a> = SizeOnlyRecorder<'a, H> where H: 'a;
 
-	fn drain_storage_proof(self) -> Option<StorageProof> {
+	fn drain_storage_proof(&self) -> Option<StorageProof> {
 		None
 	}
 

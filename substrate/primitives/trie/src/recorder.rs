@@ -143,7 +143,7 @@ impl<H: Hasher, L: Location> Recorder<H, L> {
 	/// If you don't want to drain the recorded state, use [`Self::to_storage_proof`].
 	///
 	/// Returns the [`StorageProof`].
-	pub fn drain_storage_proof(self) -> StorageProof {
+	pub fn drain_storage_proof(&self) -> StorageProof {
 		let mut recorder = mem::take(&mut *self.inner.lock());
 		StorageProof::new(recorder.accessed_nodes.drain().map(|(_, v)| v))
 	}
@@ -259,7 +259,7 @@ pub struct TrieRecorder<'a, H: Hasher, L: Location> {
 impl<H: Hasher, L: Location> crate::TrieRecorderProvider<H, L> for Recorder<H, L> {
 	type Recorder<'a> = TrieRecorder<'a, H, L> where H: 'a, L: 'a;
 
-	fn drain_storage_proof(self) -> Option<StorageProof> {
+	fn drain_storage_proof(&self) -> Option<StorageProof> {
 		Some(Recorder::drain_storage_proof(self))
 	}
 

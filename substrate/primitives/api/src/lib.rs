@@ -124,6 +124,7 @@ pub use sp_runtime::TransactionOutcome;
 pub use sp_state_machine::StorageProof;
 #[cfg(feature = "std")]
 use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
+#[cfg(feature = "std")]
 use sp_trie::DBLocation;
 use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]

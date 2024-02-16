@@ -176,14 +176,14 @@ pub type DBLocation = ();
 ///
 /// Types implementing this trait can be used to maintain recorded state
 /// across operations on different [`trie_db::TrieDB`] instances.
-pub trait TrieRecorderProvider<H: Hasher, L: Location> {
+pub trait TrieRecorderProvider<H: Hasher, L: Location>: Default {
 	/// Recorder type that is going to be returned by implementors of this trait.
 	type Recorder<'a>: trie_db::TrieRecorder<H::Out, L> + 'a
 	where
 		Self: 'a;
 
 	/// Create a [`StorageProof`] derived from the internal state.
-	fn drain_storage_proof(self) -> Option<StorageProof>;
+	fn drain_storage_proof(&self) -> Option<StorageProof>;
 
 	/// Provide a recorder implementing [`trie_db::TrieRecorder`].
 	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_>;
