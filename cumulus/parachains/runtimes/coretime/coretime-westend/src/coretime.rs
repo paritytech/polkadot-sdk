@@ -42,7 +42,7 @@ impl OnUnbalanced<Credit<AccountId, Balances>> for CreditToCollatorPot {
 /// `construct_runtime` of the Relay chain.
 #[derive(Encode, Decode)]
 enum RelayRuntimePallets {
-	#[codec(index = 74)]
+	#[codec(index = 66)]
 	Coretime(CoretimeProviderCalls),
 }
 
