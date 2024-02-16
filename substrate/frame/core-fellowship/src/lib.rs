@@ -56,7 +56,6 @@
 //! cannot be approved - they must proceed only to promotion prior to the offboard timeout elapsing.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "128"]
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
