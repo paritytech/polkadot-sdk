@@ -69,7 +69,7 @@ fn check_usage(
 }
 
 fn check_resource_usage(
-	usage: &Vec<ResourceUsage>,
+	usage: &[ResourceUsage],
 	(resource_name, min, max): &ResourceUsageCheck,
 ) -> Option<String> {
 	if let Some(usage) = usage.iter().find(|v| v.resource_name == *resource_name) {
