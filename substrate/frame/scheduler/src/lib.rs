@@ -582,14 +582,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let (when, index) = task;
-			let agenda = Agenda::<T>::get(when);
-			let scheduled = agenda
-				.get(index as usize)
-				.and_then(Option::as_ref)
-				.ok_or(Error::<T>::NotFound)?;
-			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
-			Retries::<T>::remove((when, index));
+			Self::do_cancel_retry(origin.caller(), task)?;
 			Self::deposit_event(Event::RetryCancelled { task, id: None });
 			Ok(())
 		}
@@ -600,15 +593,9 @@ pub mod pallet {
 		pub fn cancel_retry_named(origin: OriginFor<T>, id: TaskName) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let (when, agenda_index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
-			let agenda = Agenda::<T>::get(when);
-			let scheduled = agenda
-				.get(agenda_index as usize)
-				.and_then(Option::as_ref)
-				.ok_or(Error::<T>::NotFound)?;
-			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
-			Retries::<T>::remove((when, agenda_index));
-			Self::deposit_event(Event::RetryCancelled { task: (when, agenda_index), id: Some(id) });
+			let task = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
+			Self::do_cancel_retry(origin.caller(), task)?;
+			Self::deposit_event(Event::RetryCancelled { task, id: Some(id) });
 			Ok(())
 		}
 	}
@@ -1135,6 +1122,20 @@ impl<T: Config> Pallet<T> {
 		Self::cleanup_agenda(when);
 		Self::deposit_event(Event::Canceled { when, index });
 		Self::place_task(new_time, task).map_err(|x| x.0)
+	}
+
+	fn do_cancel_retry(
+		origin: &T::PalletsOrigin,
+		(when, index): TaskAddress<BlockNumberFor<T>>,
+	) -> Result<(), DispatchError> {
+		let agenda = Agenda::<T>::get(when);
+		let scheduled = agenda
+			.get(index as usize)
+			.and_then(Option::as_ref)
+			.ok_or(Error::<T>::NotFound)?;
+		Self::ensure_privilege(origin, &scheduled.origin)?;
+		Retries::<T>::remove((when, index));
+		Ok(())
 	}
 }
 
