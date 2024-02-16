@@ -24,11 +24,8 @@
 use crate::{
 	configuration,
 	disputes::DisputesHandler,
-	inclusion,
-	inclusion::CandidateCheckContext,
-	initializer,
+	inclusion, initializer,
 	metrics::METRICS,
-	paras,
 	scheduler::{self, FreedReason},
 	shared::{self, AllowedRelayParentsTracker},
 	util::filter_elastic_scaling_candidates,
@@ -248,7 +245,7 @@ pub mod pallet {
 		// Handle timeouts for any availability core work.
 		let freed_timeout = if <scheduler::Pallet<T>>::availability_timeout_check_required() {
 			let pred = <scheduler::Pallet<T>>::availability_timeout_predicate();
-			<inclusion::Pallet<T>>::collect_pending(pred)
+			<inclusion::Pallet<T>>::collect_timedout(pred)
 		} else {
 			Vec::new()
 		};
@@ -570,7 +567,7 @@ impl<T: Config> Pallet<T> {
 		// work has now concluded.
 		let freed_concluded =
 			<inclusion::Pallet<T>>::update_pending_availability_and_get_freed_cores::<_>(
-				expected_bits,
+				&allowed_relay_parents,
 				&validator_public[..],
 				bitfields.clone(),
 				<scheduler::Pallet<T>>::core_para,
@@ -586,9 +583,13 @@ impl<T: Config> Pallet<T> {
 		let freed = collect_all_freed_cores::<T, _>(freed_concluded.iter().cloned());
 
 		<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(freed, now);
-		let scheduled = <scheduler::Pallet<T>>::scheduled_paras()
-			.map(|(core_idx, para_id)| (para_id, core_idx))
-			.collect();
+		let scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> =
+			<scheduler::Pallet<T>>::scheduled_paras()
+				.map(|(core_index, para_id)| (para_id, core_index))
+				.fold(BTreeMap::new(), |mut acc, (para_id, core_index)| {
+					acc.entry(para_id).or_insert_with(|| BTreeSet::new()).insert(core_index);
+					acc
+				});
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
@@ -598,24 +599,13 @@ impl<T: Config> Pallet<T> {
 			sanitize_backed_candidates::<T, _>(
 				backed_candidates,
 				&allowed_relay_parents,
-				|candidate_idx: usize,
-				 backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>|
-				 -> bool {
-					let para_id = backed_candidate.descriptor().para_id;
-					let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
-					let check_ctx = CandidateCheckContext::<T>::new(prev_context);
-
-					// never include a concluded-invalid candidate
-					current_concluded_invalid_disputes.contains(&backed_candidate.hash()) ||
-					// Instead of checking the candidates with code upgrades twice
-					// move the checking up here and skip it in the training wheels fallback.
-					// That way we avoid possible duplicate checks while assuring all
-					// backed candidates fine to pass on.
-					//
-					// NOTE: this is the only place where we check the relay-parent.
-					check_ctx
-						.verify_backed_candidate(&allowed_relay_parents, candidate_idx, backed_candidate)
-						.is_err()
+				|backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>| -> bool {
+					// TODO: see this old comment // NOTE: this is the only place where we check the
+					// relay-parent. never include a concluded-invalid candidate. we don't need to
+					// check for descendants of concluded-invalid candidates as those descendants
+					// have already been evicted from the cores and the included head data won't
+					// match.
+					current_concluded_invalid_disputes.contains(&backed_candidate.hash())
 				},
 				&scheduled,
 			);
@@ -628,7 +618,6 @@ impl<T: Config> Pallet<T> {
 		if context == ProcessInherentDataContext::Enter {
 			ensure!(!votes_from_disabled_were_dropped, Error::<T>::BackedByDisabled);
 		}
-		let scheduled_by_core = <scheduler::Pallet<T>>::scheduled_paras().collect();
 
 		// Process backed candidates according to scheduled cores.
 		let inclusion::ProcessedCandidates::<<HeaderFor<T> as HeaderT>::Hash> {
@@ -637,8 +626,7 @@ impl<T: Config> Pallet<T> {
 		} = <inclusion::Pallet<T>>::process_candidates(
 			&allowed_relay_parents,
 			backed_candidates.clone(),
-			&scheduled,
-			&scheduled_by_core,
+			scheduled,
 			<scheduler::Pallet<T>>::group_validators,
 		)?;
 		// Note which of the scheduled cores were actually occupied by a backed candidate.
@@ -944,28 +932,27 @@ struct SanitizedBackedCandidates<Hash> {
 /// occupied core index.
 fn sanitize_backed_candidates<
 	T: crate::inclusion::Config,
-	F: FnMut(usize, &BackedCandidate<T::Hash>) -> bool,
+	F: FnMut(&BackedCandidate<T::Hash>) -> bool,
 >(
 	mut backed_candidates: Vec<BackedCandidate<T::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	mut candidate_has_concluded_invalid_dispute_or_is_invalid: F,
-	scheduled: &BTreeMap<ParaId, CoreIndex>,
+	scheduled: &BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 ) -> SanitizedBackedCandidates<T::Hash> {
 	// Remove any candidates that were concluded invalid.
 	// This does not assume sorting.
-	backed_candidates.indexed_retain(move |candidate_idx, backed_candidate| {
-		!candidate_has_concluded_invalid_dispute_or_is_invalid(candidate_idx, backed_candidate)
+	backed_candidates.retain(move |backed_candidate| {
+		!candidate_has_concluded_invalid_dispute_or_is_invalid(backed_candidate)
 	});
 
-	// Assure the backed candidate's `ParaId`'s core is free.
-	// This holds under the assumption that `Scheduler::schedule` is called _before_.
-	// We don't check the relay-parent because this is done in the closure when
+	// TODO: Assure the backed candidate's `ParaId`' has enough scheduled cores. We currently only
+	// check that we have one This holds under the assumption that `Scheduler::schedule` is called
+	// _before_. We don't check the relay-parent because this is done in the closure when
 	// constructing the inherent and during actual processing otherwise.
-
 	backed_candidates.retain(|backed_candidate| {
 		let desc = backed_candidate.descriptor();
 
-		scheduled.get(&desc.para_id).is_some()
+		!scheduled.get(&desc.para_id).map(|s| s.is_empty()).unwrap_or(true)
 	});
 
 	// Filter out backing statements from disabled validators
@@ -974,16 +961,6 @@ fn sanitize_backed_candidates<
 		&allowed_relay_parents,
 		scheduled,
 	);
-
-	// Sort the `Vec` last, once there is a guarantee that these
-	// `BackedCandidates` references the expected relay chain parent,
-	// but more importantly are scheduled for a free core.
-	// This both avoids extra work for obviously invalid candidates,
-	// but also allows this to be done in place.
-	backed_candidates.sort_by(|x, y| {
-		// Never panics, since we filtered all panic arguments out in the previous `fn retain`.
-		scheduled[&x.descriptor().para_id].cmp(&scheduled[&y.descriptor().para_id])
-	});
 
 	SanitizedBackedCandidates {
 		backed_candidates,
@@ -1078,7 +1055,7 @@ fn limit_and_sanitize_disputes<
 fn filter_backed_statements_from_disabled_validators<T: shared::Config + scheduler::Config>(
 	backed_candidates: &mut Vec<BackedCandidate<<T as frame_system::Config>::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-	scheduled: &BTreeMap<ParaId, CoreIndex>,
+	scheduled: &BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 ) -> bool {
 	let disabled_validators =
 		BTreeSet::<_>::from_iter(shared::Pallet::<T>::disabled_validators().into_iter());
@@ -1105,12 +1082,17 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 	// 1. Core index assigned to the parachain which has produced the candidate
 	// 2. The relay chain block number of the candidate
 	backed_candidates.retain_mut(|bc| {
+		// Get `core_idx` assigned to the `para_id` of the candidate
 		let core_idx = if let Some(core_idx) = bc.assumed_core_index(core_index_enabled) {
 			core_idx
 		} else {
-			// Get `core_idx` assigned to the `para_id` of the candidate
+			// Otherwise, it means that elastic scaling is not enabled. We get the first scheduled core for this para (there should only be one).
 			match scheduled.get(&bc.descriptor().para_id) {
-				Some(core_idx) => *core_idx,
+				Some(cores) => if let Some(core_idx) = cores.first() {
+					*core_idx
+				} else {
+					return false
+				},
 				None => {
 					log::debug!(target: LOG_TARGET, "Can't get core idx of a backed candidate for para id {:?}. Dropping the candidate.", bc.descriptor().para_id);
 					return false

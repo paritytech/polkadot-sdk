@@ -470,22 +470,22 @@ pub fn backing_state<T: initializer::Config>(
 		// But at the moment only one candidate can be pending availability per
 		// parachain.
 		crate::inclusion::PendingAvailability::<T>::get(&para_id)
-			.and_then(|pending| {
-				let commitments =
-					crate::inclusion::PendingAvailabilityCommitments::<T>::get(&para_id);
-				commitments.map(move |c| (pending, c))
+			.map(|pending_candidates| {
+				pending_candidates
+					.into_iter()
+					.map(|candidate| {
+						CandidatePendingAvailability {
+							candidate_hash: candidate.candidate_hash(),
+							descriptor: candidate.candidate_descriptor().clone(),
+							commitments: candidate.candidate_commitments().clone(),
+							relay_parent_number: candidate.relay_parent_number(),
+							max_pov_size: constraints.max_pov_size, /* assume always same in
+							                                         * session. */
+						}
+					})
+					.collect()
 			})
-			.map(|(pending, commitments)| {
-				CandidatePendingAvailability {
-					candidate_hash: pending.candidate_hash(),
-					descriptor: pending.candidate_descriptor().clone(),
-					commitments,
-					relay_parent_number: pending.relay_parent_number(),
-					max_pov_size: constraints.max_pov_size, // assume always same in session.
-				}
-			})
-			.into_iter()
-			.collect()
+			.unwrap_or_else(|| vec![])
 	};
 
 	Some(BackingState { constraints, pending_availability })
