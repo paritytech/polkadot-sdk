@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 jsonrpsee = { version = "0.22", features = ["http-client"] }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 log = { workspace = true, default-features = true }
-serde = "1.0.195"
+serde = "1.0.196"
 sp-core = { path = "../../../primitives/core" }
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
