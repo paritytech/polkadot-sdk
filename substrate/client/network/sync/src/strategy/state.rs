@@ -330,11 +330,6 @@ impl<B: BlockT> StateStrategy<B> {
 		}
 	}
 
-	/// Get the number of peers known to syncing.
-	pub fn num_peers(&self) -> usize {
-		self.peers.len()
-	}
-
 	/// Get actions that should be performed by the owner on [`WarpSync`]'s behalf
 	#[must_use]
 	pub fn actions(&mut self) -> impl Iterator<Item = StateStrategyAction<B>> {

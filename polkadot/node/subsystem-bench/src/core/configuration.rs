@@ -13,21 +13,18 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-//
-//! Test configuration definition and helpers.
-use super::*;
-use itertools::Itertools;
-use keyring::Keyring;
-use sc_network::PeerId;
-use sp_consensus_babe::AuthorityId;
-use std::{collections::HashMap, path::Path};
 
-use crate::TestObjective;
+//! Test configuration definition and helpers.
+
+use crate::{core::keyring::Keyring, TestObjective};
+use itertools::Itertools;
 use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId};
 use rand::thread_rng;
 use rand_distr::{Distribution, Normal, Uniform};
-
+use sc_network::PeerId;
 use serde::{Deserialize, Serialize};
+use sp_consensus_babe::AuthorityId;
+use std::{collections::HashMap, path::Path};
 
 pub fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
 	random_uniform_sample(min_pov_size, max_pov_size)

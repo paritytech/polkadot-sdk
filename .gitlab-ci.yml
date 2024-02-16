@@ -121,9 +121,8 @@ default:
   before_script:
     - 'curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"'
     - chmod +x forklift
-    - mkdir .forklift
-    - cp $FL_FORKLIFT_CONFIG .forklift/config.toml
-    - export FORKLIFT_PACKAGE_SUFFIX=${CI_JOB_NAME/ [0-9 \/]*}
+    - mkdir ~/.forklift
+    - cp $FL_FORKLIFT_CONFIG ~/.forklift/config.toml
     - shopt -s expand_aliases
     - export PATH=$PATH:$(pwd)
     - |
@@ -131,11 +130,8 @@ default:
       echo "FORKLIFT_BYPASS not set, creating alias cargo='forklift cargo'"
       alias cargo="forklift cargo"
       fi
-    - ls -al
-    - rm -f forklift.sock
     #
     - echo "FL_FORKLIFT_VERSION ${FL_FORKLIFT_VERSION}"
-    - echo "FORKLIFT_PACKAGE_SUFFIX $FORKLIFT_PACKAGE_SUFFIX"
 
 .common-refs:
   rules:

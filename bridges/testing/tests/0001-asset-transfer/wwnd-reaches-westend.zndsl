@@ -1,0 +1,10 @@
+Description: User is able to transfer ROC from Rococo Asset Hub to Westend Asset Hub and back
+Network: ../../environments/rococo-westend/bridge_hub_westend_local_network.toml
+Creds: config
+
+# send wWND back to Alice from Rococo AH to Westend AH
+asset-hub-westend-collator1: run ../../environments/rococo-westend/helper.sh with "withdraw-reserve-assets-from-asset-hub-rococo-local" within 120 seconds
+
+# check that //Alice received the wWND on Westend AH
+# (we wait until //Alice account increases here - there are no other transactions that may increase it)
+asset-hub-westend-collator1: js-script ../../js-helpers/native-assets-balance-increased.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" within 300 seconds
