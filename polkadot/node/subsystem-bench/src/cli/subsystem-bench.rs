@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot. If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! A tool for running subsystem benchmark tests
 //! designed for development and CI regression testing.
@@ -73,10 +73,6 @@ pub struct TestSequence {
 }
 
 impl TestSequence {
-	fn into_vec(self) -> Vec<CliTestConfiguration> {
-		self.test_configurations
-	}
-
 	fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
 		let string = String::from_utf8(std::fs::read(path)?).expect("File is valid UTF8");
 		Ok(serde_yaml::from_str(&string).expect("File is valid test sequence YA"))
@@ -126,7 +122,7 @@ impl BenchCli {
 
 		let test_sequence = TestSequence::new_from_file(Path::new(&self.path))
 			.expect("File exists")
-			.into_vec();
+			.test_configurations;
 		let num_steps = test_sequence.len();
 		gum::info!("{}", format!("Sequence contains {} step(s)", num_steps).bright_purple());
 
