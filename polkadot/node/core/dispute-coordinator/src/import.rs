@@ -52,7 +52,8 @@ pub struct CandidateEnvironment<'a> {
 	executor_params: &'a ExecutorParams,
 	/// Validator indices controlled by this node.
 	controlled_indices: HashSet<ValidatorIndex>,
-	/// Indices of disabled validators at the `relay_parent`.
+	/// Indices of on-chain disabled validators at the `relay_parent` combined
+	/// with the off-chain state.
 	disabled_indices: HashSet<ValidatorIndex>,
 }
 
@@ -67,16 +68,15 @@ impl<'a> CandidateEnvironment<'a> {
 		runtime_info: &'a mut RuntimeInfo,
 		session_index: SessionIndex,
 		relay_parent: Hash,
+		disabled_offchain: impl IntoIterator<Item = ValidatorIndex>,
 	) -> Option<CandidateEnvironment<'a>> {
-		let disabled_indices = runtime_info
+		let disabled_onchain = runtime_info
 			.get_disabled_validators(ctx.sender(), relay_parent)
 			.await
 			.unwrap_or_else(|err| {
 				gum::info!(target: LOG_TARGET, ?err, "Failed to get disabled validators");
 				Vec::new()
-			})
-			.into_iter()
-			.collect();
+			});
 
 		let (session, executor_params) = match runtime_info
 			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
@@ -85,6 +85,24 @@ impl<'a> CandidateEnvironment<'a> {
 			Ok(extended_session_info) =>
 				(&extended_session_info.session_info, &extended_session_info.executor_params),
 			Err(_) => return None,
+		};
+
+		let n_validators = session.validators.len();
+		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
+		// combine on-chain with off-chain disabled validators
+		// process disabled validators in the following order:
+		// - on-chain disabled validators
+		// - prioritized order of off-chain disabled validators
+		// deduplicate the list and take at most `byzantine_threshold` validators
+		let disabled_indices = {
+			let mut d: HashSet<ValidatorIndex> = HashSet::new();
+			for v in disabled_onchain.into_iter().chain(disabled_offchain.into_iter()) {
+				if d.len() == byzantine_threshold {
+					break
+				}
+				d.insert(v);
+			}
+			d
 		};
 
 		let controlled_indices = find_controlled_validator_indices(keystore, &session.validators);
@@ -116,7 +134,7 @@ impl<'a> CandidateEnvironment<'a> {
 		&self.controlled_indices
 	}
 
-	/// Indices of disabled validators at the `relay_parent`.
+	/// Indices of off-chain and on-chain disabled validators.
 	pub fn disabled_indices(&'a self) -> &'a HashSet<ValidatorIndex> {
 		&self.disabled_indices
 	}
@@ -230,12 +248,7 @@ impl CandidateVoteState<CandidateVotes> {
 	}
 
 	/// Create a new `CandidateVoteState` from already existing votes.
-	pub fn new(
-		votes: CandidateVotes,
-		env: &CandidateEnvironment,
-		now: Timestamp,
-		mut is_disabled: impl FnMut(&ValidatorIndex) -> bool,
-	) -> Self {
+	pub fn new(votes: CandidateVotes, env: &CandidateEnvironment, now: Timestamp) -> Self {
 		let own_vote = OwnVoteState::new(&votes, env);
 
 		let n_validators = env.validators().len();
@@ -245,7 +258,7 @@ impl CandidateVoteState<CandidateVotes> {
 		// We have a dispute, if we have votes on both sides, with at least one invalid vote
 		// from non-disabled validator or with votes on both sides and confirmed.
 		let has_non_disabled_invalid_votes =
-			votes.invalid.keys().find(|i| !is_disabled(i)).is_some();
+			votes.invalid.keys().find(|i| !env.disabled_indices().contains(i)).is_some();
 		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
 		let votes_on_both_sides = !votes.valid.raw().is_empty() && !votes.invalid.is_empty();
 		let is_confirmed =
@@ -283,7 +296,6 @@ impl CandidateVoteState<CandidateVotes> {
 		env: &CandidateEnvironment,
 		statements: Vec<(SignedDisputeStatement, ValidatorIndex)>,
 		now: Timestamp,
-		is_disabled: impl FnMut(&ValidatorIndex) -> bool,
 	) -> ImportResult {
 		let (mut votes, old_state) = self.into_old_state();
 
@@ -356,7 +368,7 @@ impl CandidateVoteState<CandidateVotes> {
 			}
 		}
 
-		let new_state = Self::new(votes, env, now, is_disabled);
+		let new_state = Self::new(votes, env, now);
 
 		ImportResult {
 			old_state,
@@ -552,7 +564,6 @@ impl ImportResult {
 		env: &CandidateEnvironment,
 		approval_votes: HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>,
 		now: Timestamp,
-		is_disabled: impl FnMut(&ValidatorIndex) -> bool,
 	) -> Self {
 		let Self {
 			old_state,
@@ -597,7 +608,7 @@ impl ImportResult {
 			}
 		}
 
-		let new_state = CandidateVoteState::new(votes, env, now, is_disabled);
+		let new_state = CandidateVoteState::new(votes, env, now);
 
 		Self {
 			old_state,
