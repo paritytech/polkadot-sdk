@@ -82,38 +82,12 @@ pub struct SubmitTransaction<T: SendTransactionTypes<OverarchingCall>, Overarchi
 	_phantom: sp_std::marker::PhantomData<(T, OverarchingCall)>,
 }
 
-// TODO [#2415]: Avoid splitting call and the totally opaque `signature`; `CreateTransaction` trait
-// should provide something which impls `Encode`, which can be sent onwards to
-// `sp_io::offchain::submit_transaction`. There's no great need to split things up as in here.
 impl<T, LocalCall> SubmitTransaction<T, LocalCall>
 where
 	T: SendTransactionTypes<LocalCall>,
 {
-	/// Submit transaction onchain by providing the call and an optional signature
-	pub fn submit_general_transaction(
-		call: <T as SendTransactionTypes<LocalCall>>::OverarchingCall,
-		extension: <T::Extrinsic as CreateTransaction>::Extension,
-	) -> Result<(), ()> {
-		let xt = T::Extrinsic::create_transaction(call, extension);
-		sp_io::offchain::submit_transaction(xt.encode())
-	}
-
-	/// Submit transaction onchain by providing the call and an optional signature
-	pub fn submit_signed_transaction(
-		call: <T as SendTransactionTypes<LocalCall>>::OverarchingCall,
-		signature: <T::Extrinsic as CreateSignedTransactionT>::SignaturePayload,
-	) -> Result<(), ()> {
-		// TODO: Use regular transaction API instead.
-		#[allow(deprecated)]
-		let xt = T::Extrinsic::create_signed_transaction(call, signature);
-		sp_io::offchain::submit_transaction(xt.encode())
-	}
-
-	/// A convenience method to submit an unsigned transaction onchain.
-	pub fn submit_unsigned_transaction(
-		call: <T as SendTransactionTypes<LocalCall>>::OverarchingCall,
-	) -> Result<(), ()> {
-		let xt = <T::Extrinsic as CreateInherent>::create_inherent(call);
+	/// A convenience method to submit an extrinsic onchain.
+	pub fn submit_transaction(xt: T::Extrinsic) -> Result<(), ()> {
 		sp_io::offchain::submit_transaction(xt.encode())
 	}
 }
@@ -510,10 +484,7 @@ pub trait CreateSignedTransaction<LocalCall>:
 		public: Self::Public,
 		account: Self::AccountId,
 		nonce: Self::Nonce,
-	) -> Option<(
-		Self::OverarchingCall,
-		<Self::Extrinsic as CreateSignedTransactionT>::SignaturePayload,
-	)>;
+	) -> Option<Self::Extrinsic>;
 }
 
 /// A message signer.
@@ -572,13 +543,13 @@ pub trait SendSignedTransaction<
 			account.id,
 			account_data.nonce,
 		);
-		let (call, signature) = T::create_transaction::<C>(
+		let transaction = T::create_transaction::<C>(
 			call.into(),
 			account.public.clone(),
 			account.id.clone(),
 			account_data.nonce,
 		)?;
-		let res = SubmitTransaction::<T, LocalCall>::submit_signed_transaction(call, signature);
+		let res = SubmitTransaction::<T, LocalCall>::submit_transaction(transaction);
 
 		if res.is_ok() {
 			// increment the nonce. This is fine, since the code should always
@@ -615,7 +586,8 @@ pub trait SendUnsignedTransaction<T: SigningTypes + SendTransactionTypes<LocalCa
 
 	/// Submits an unsigned call to the transaction pool.
 	fn submit_unsigned_transaction(&self, call: LocalCall) -> Option<Result<(), ()>> {
-		Some(SubmitTransaction::<T, LocalCall>::submit_unsigned_transaction(call.into()))
+		let xt = T::Extrinsic::create_inherent(call.into());
+		Some(SubmitTransaction::<T, LocalCall>::submit_transaction(xt))
 	}
 }
 

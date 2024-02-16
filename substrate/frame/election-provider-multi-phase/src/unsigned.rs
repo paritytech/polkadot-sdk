@@ -37,6 +37,7 @@ use sp_npos_elections::{
 };
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageValueRef},
+	traits::CreateInherent,
 	DispatchError, SaturatedConversion,
 };
 use sp_std::prelude::*;
@@ -276,7 +277,8 @@ impl<T: Config> Pallet<T> {
 	fn submit_call(call: Call<T>) -> Result<(), MinerError> {
 		log!(debug, "miner submitting a solution as an unsigned transaction");
 
-		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+		let xt = T::Extrinsic::create_inherent(call.into());
+		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map_err(|_| MinerError::PoolSubmissionFailed)
 	}
 

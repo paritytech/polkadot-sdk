@@ -56,7 +56,7 @@ use primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::Convert,
+	traits::{Convert, CreateInherent},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
@@ -691,7 +691,7 @@ where
 		dispute_proof: DisputeProof,
 		key_owner_proof: <T as Config>::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
-		use frame_system::offchain::SubmitTransaction;
+		use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
 
 		let session_index = dispute_proof.time_slot.session_index;
 		let validator_index = dispute_proof.validator_index.0;
@@ -702,7 +702,8 @@ where
 			key_owner_proof,
 		};
 
-		match SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+		let xt = <T as SendTransactionTypes<Call<T>>>::Extrinsic::create_inherent(call.into());
+		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(()) => {
 				log::info!(
 					target: LOG_TARGET,
