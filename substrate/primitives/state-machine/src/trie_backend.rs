@@ -266,23 +266,6 @@ where
 		Self { storage, root, recorder: None, cache: Some(cache) }
 	}
 
-	/// Wrap the given [`TrieBackend`].
-	///
-	/// This can be used for example if all accesses to the trie should
-	/// be recorded while some other functionality still uses the non-recording
-	/// backend.
-	///
-	/// The backend storage and the cache will be taken from `other`.
-	/// TODO rem (use with_temp_recorder instead).
-	pub fn wrap(mut other: TrieBackend<H, C, R>) -> TrieBackendBuilder<H, C, R> {
-		TrieBackendBuilder {
-			root: *other.essence.root(),
-			recorder: None,
-			cache: other.essence.trie_node_cache.take(),
-			storage: other.essence.storage,
-		}
-	}
-
 	/// Use the given optional `recorder` for the to be configured [`TrieBackend`].
 	pub fn with_optional_recorder(self, recorder: Option<R>) -> Self {
 		Self { recorder, ..self }
