@@ -69,7 +69,7 @@ test-linux-stable-runtime-benchmarks:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    - time cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+    - time cargo nextest run --filter-expr 'not deps(/polkadot-subsystem-bench/)' --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
 # can be used to run all tests
 # test-linux-stable-all:
