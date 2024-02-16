@@ -867,6 +867,11 @@
 <a href="#867" id="867">867</a>
 <a href="#868" id="868">868</a>
 <a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -890,6 +895,15 @@
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/wasm_binary.rs&quot;</span>));
 
+<span class="doccomment">/// Provides the `WASM_BINARY` build with `fast-runtime` feature enabled.
+///
+/// This is for example useful for local test chains.
+</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">pub mod </span>fast_runtime_binary {
+	<span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/fast_runtime_binary.rs&quot;</span>));
+}
+
+<span class="kw">mod </span>coretime;
 <span class="kw">mod </span>weights;
 <span class="kw">pub mod </span>xcm_config;
 
@@ -934,7 +948,7 @@
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_config::{
-	FellowshipLocation, GovernanceLocation, WndRelayLocation, XcmOriginToTransactDispatchOrigin,
+	FellowshipLocation, GovernanceLocation, TokenRelayLocation, XcmOriginToTransactDispatchOrigin,
 };
 
 <span class="doccomment">/// The address format for describing accounts.
@@ -967,6 +981,7 @@
 
 <span class="doccomment">/// Migrations to apply on runtime upgrade.
 </span><span class="kw">pub type </span>Migrations = (
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
 	<span class="comment">// permanent
 	</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
 );
@@ -992,7 +1007,7 @@
 	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;coretime-westend&quot;</span>),
 	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;coretime-westend&quot;</span>),
 	authoring_version: <span class="number">1</span>,
-	spec_version: <span class="number">1_007_000</span>,
+	spec_version: <span class="number">1_007_001</span>,
 	impl_version: <span class="number">0</span>,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: <span class="number">0</span>,
@@ -1139,8 +1154,6 @@
 	UNINCLUDED_SEGMENT_CAPACITY,
 &gt;;
 
-<span class="kw">impl </span>parachain_info::Config <span class="kw">for </span>Runtime {}
-
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub </span>MessageQueueServiceWeight: Weight = Perbill::from_percent(<span class="number">35</span>) * RuntimeBlockWeights::get().max_block;
 }
@@ -1167,6 +1180,8 @@
 	<span class="kw">type </span>ServiceWeight = MessageQueueServiceWeight;
 }
 
+<span class="kw">impl </span>parachain_info::Config <span class="kw">for </span>Runtime {}
+
 <span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
 
 <span class="macro">parameter_types! </span>{
@@ -1182,7 +1197,7 @@
 
 <span class="macro">parameter_types! </span>{
 	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
-	</span><span class="kw">pub </span>FeeAssetId: AssetId = AssetId(WndRelayLocation::get());
+	</span><span class="kw">pub </span>FeeAssetId: AssetId = AssetId(TokenRelayLocation::get());
 	<span class="doccomment">/// The base fee for the message delivery fees.
 	</span><span class="kw">pub const </span>BaseDeliveryFee: u128 = CENTS.saturating_mul(<span class="number">3</span>);
 }
@@ -1285,12 +1300,6 @@
 	<span class="kw">type </span>WeightInfo = weights::pallet_utility::WeightInfo&lt;Runtime&gt;;
 }
 
-<span class="kw">impl </span>pallet_sudo::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>RuntimeCall = RuntimeCall;
-	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>WeightInfo = pallet_sudo::weights::SubstrateWeight&lt;Runtime&gt;;
-}
-
 <span class="comment">// Create the runtime by composing the FRAME pallets that were previously configured.
 </span><span class="macro">construct_runtime!</span>(
 	<span class="kw">pub enum </span>Runtime
@@ -1322,8 +1331,8 @@
 		</span>Utility: pallet_utility = <span class="number">40</span>,
 		Multisig: pallet_multisig = <span class="number">41</span>,
 
-		<span class="comment">// Sudo
-		</span>Sudo: pallet_sudo = <span class="number">100</span>,
+		<span class="comment">// The main stage.
+		</span>Broker: pallet_broker = <span class="number">50</span>,
 	}
 );
 
@@ -1334,6 +1343,7 @@
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[pallet_timestamp, Timestamp]
 		[pallet_balances, Balances]
+		[pallet_broker, Broker]
 		[pallet_collator_selection, CollatorSelection]
 		[pallet_session, SessionBench::&lt;Runtime&gt;]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
@@ -1566,7 +1576,7 @@
 			<span class="kw">impl </span>cumulus_pallet_session_benchmarking::Config <span class="kw">for </span>Runtime {}
 
 			<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
-			<span class="kw">use </span>xcm_config::WndRelayLocation;
+			<span class="kw">use </span>xcm_config::TokenRelayLocation;
 
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
@@ -1593,7 +1603,7 @@
 
 			<span class="macro">parameter_types! </span>{
 				<span class="kw">pub </span>ExistentialDepositAsset: <span class="prelude-ty">Option</span>&lt;Asset&gt; = <span class="prelude-val">Some</span>((
-					WndRelayLocation::get(),
+					TokenRelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
 			}
@@ -1607,13 +1617,13 @@
 				&gt;;
 				<span class="kw">type </span>AccountIdConverter = xcm_config::LocationToAccountId;
 				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {
-					<span class="prelude-val">Ok</span>(WndRelayLocation::get())
+					<span class="prelude-val">Ok</span>(TokenRelayLocation::get())
 				}
 				<span class="kw">fn </span>worst_case_holding(_depositable_count: u32) -&gt; Assets {
 					<span class="comment">// just concrete assets according to relay chain.
 					</span><span class="kw">let </span>assets: Vec&lt;Asset&gt; = <span class="macro">vec!</span>[
 						Asset {
-							id: AssetId(WndRelayLocation::get()),
+							id: AssetId(TokenRelayLocation::get()),
 							fun: Fungible(<span class="number">1_000_000 </span>* UNITS),
 						}
 					];
@@ -1623,8 +1633,8 @@
 
 			<span class="macro">parameter_types! </span>{
 				<span class="kw">pub const </span>TrustedTeleporter: <span class="prelude-ty">Option</span>&lt;(Location, Asset)&gt; = <span class="prelude-val">Some</span>((
-					WndRelayLocation::get(),
-					Asset { fun: Fungible(UNITS), id: AssetId(WndRelayLocation::get()) },
+					TokenRelayLocation::get(),
+					Asset { fun: Fungible(UNITS), id: AssetId(TokenRelayLocation::get()) },
 				));
 				<span class="kw">pub const </span>CheckedAccount: <span class="prelude-ty">Option</span>&lt;(AccountId, xcm_builder::MintLocation)&gt; = <span class="prelude-val">None</span>;
 				<span class="kw">pub const </span>TrustedReserve: <span class="prelude-ty">Option</span>&lt;(Location, Asset)&gt; = <span class="prelude-val">None</span>;
@@ -1639,7 +1649,7 @@
 
 				<span class="kw">fn </span>get_asset() -&gt; Asset {
 					Asset {
-						id: AssetId(WndRelayLocation::get()),
+						id: AssetId(TokenRelayLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -1662,23 +1672,23 @@
 				}
 
 				<span class="kw">fn </span>transact_origin_and_runtime_call() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, RuntimeCall), BenchmarkError&gt; {
-					<span class="prelude-val">Ok</span>((WndRelayLocation::get(), frame_system::Call::remark_with_event { remark: <span class="macro">vec!</span>[] }.into()))
+					<span class="prelude-val">Ok</span>((TokenRelayLocation::get(), frame_system::Call::remark_with_event { remark: <span class="macro">vec!</span>[] }.into()))
 				}
 
 				<span class="kw">fn </span>subscribe_origin() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {
-					<span class="prelude-val">Ok</span>(WndRelayLocation::get())
+					<span class="prelude-val">Ok</span>(TokenRelayLocation::get())
 				}
 
 				<span class="kw">fn </span>claimable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Assets), BenchmarkError&gt; {
-					<span class="kw">let </span>origin = WndRelayLocation::get();
-					<span class="kw">let </span>assets: Assets = (AssetId(WndRelayLocation::get()), <span class="number">1_000 </span>* UNITS).into();
+					<span class="kw">let </span>origin = TokenRelayLocation::get();
+					<span class="kw">let </span>assets: Assets = (AssetId(TokenRelayLocation::get()), <span class="number">1_000 </span>* UNITS).into();
 					<span class="kw">let </span>ticket = Location { parents: <span class="number">0</span>, interior: Here };
 					<span class="prelude-val">Ok</span>((origin, ticket, assets))
 				}
 
 				<span class="kw">fn </span>fee_asset() -&gt; <span class="prelude-ty">Result</span>&lt;Asset, BenchmarkError&gt; {
 					<span class="prelude-val">Ok</span>(Asset {
-						id: AssetId(WndRelayLocation::get()),
+						id: AssetId(TokenRelayLocation::get()),
 						fun: Fungible(<span class="number">1_000_000 </span>* UNITS),
 					})
 				}

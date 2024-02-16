@@ -428,7 +428,7 @@
 		XcmGeneric::&lt;Runtime&gt;::clear_transact_status()
 	}
 	<span class="kw">fn </span>universal_origin(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Junction) -&gt; Weight {
-		XcmGeneric::&lt;Runtime&gt;::universal_origin()
+		Weight::MAX
 	}
 	<span class="kw">fn </span>export_message(<span class="kw">_</span>: <span class="kw-2">&amp;</span>NetworkId, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Junctions, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Weight {
 		Weight::MAX

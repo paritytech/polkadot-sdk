@@ -288,6 +288,14 @@
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -319,6 +327,8 @@
 	<span class="comment">// Benchmarks
 	</span>RococoDevelopment,
 
+	<span class="comment">// Live
+	</span>Westend,
 	<span class="comment">// Local
 	</span>WestendLocal,
 	<span class="comment">// Benchmarks
@@ -333,6 +343,7 @@
 			rococo::CORETIME_ROCOCO =&gt; <span class="prelude-val">Ok</span>(CoretimeRuntimeType::Rococo),
 			rococo::CORETIME_ROCOCO_LOCAL =&gt; <span class="prelude-val">Ok</span>(CoretimeRuntimeType::RococoLocal),
 			rococo::CORETIME_ROCOCO_DEVELOPMENT =&gt; <span class="prelude-val">Ok</span>(CoretimeRuntimeType::RococoDevelopment),
+			westend::CORETIME_WESTEND =&gt; <span class="prelude-val">Ok</span>(CoretimeRuntimeType::Westend),
 			westend::CORETIME_WESTEND_LOCAL =&gt; <span class="prelude-val">Ok</span>(CoretimeRuntimeType::WestendLocal),
 			westend::CORETIME_WESTEND_DEVELOPMENT =&gt; <span class="prelude-val">Ok</span>(CoretimeRuntimeType::WestendDevelopment),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Value &#39;{}&#39; is not configured yet&quot;</span>, value)),
@@ -346,6 +357,7 @@
 			CoretimeRuntimeType::Rococo =&gt; rococo::CORETIME_ROCOCO,
 			CoretimeRuntimeType::RococoLocal =&gt; rococo::CORETIME_ROCOCO_LOCAL,
 			CoretimeRuntimeType::RococoDevelopment =&gt; rococo::CORETIME_ROCOCO_DEVELOPMENT,
+			CoretimeRuntimeType::Westend =&gt; westend::CORETIME_WESTEND,
 			CoretimeRuntimeType::WestendLocal =&gt; westend::CORETIME_WESTEND_LOCAL,
 			CoretimeRuntimeType::WestendDevelopment =&gt; westend::CORETIME_WESTEND_DEVELOPMENT,
 		}
@@ -355,7 +367,7 @@
 <span class="kw">impl </span>From&lt;CoretimeRuntimeType&gt; <span class="kw">for </span>ChainType {
 	<span class="kw">fn </span>from(runtime_type: CoretimeRuntimeType) -&gt; <span class="self">Self </span>{
 		<span class="kw">match </span>runtime_type {
-			CoretimeRuntimeType::Rococo =&gt; ChainType::Live,
+			CoretimeRuntimeType::Rococo | CoretimeRuntimeType::Westend =&gt; ChainType::Live,
 			CoretimeRuntimeType::RococoLocal | CoretimeRuntimeType::WestendLocal =&gt;
 				ChainType::Local,
 			CoretimeRuntimeType::RococoDevelopment | CoretimeRuntimeType::WestendDevelopment =&gt;
@@ -372,12 +384,15 @@
 	<span class="kw">pub fn </span>load_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>ChainSpec&gt;, String&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
 			CoretimeRuntimeType::Rococo =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../../parachains/chain-specs/coretime-rococo.json&quot;</span>)[..],
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/coretime-rococo.json&quot;</span>)[..],
 			)<span class="question-mark">?</span>)),
 			CoretimeRuntimeType::RococoLocal =&gt;
 				<span class="prelude-val">Ok</span>(Box::new(rococo::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">&quot;rococo-local&quot;</span>))),
 			CoretimeRuntimeType::RococoDevelopment =&gt;
 				<span class="prelude-val">Ok</span>(Box::new(rococo::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">&quot;rococo-dev&quot;</span>))),
+			CoretimeRuntimeType::Westend =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../../parachains/chain-specs/coretime-westend.json&quot;</span>)[..],
+			)<span class="question-mark">?</span>)),
 			CoretimeRuntimeType::WestendLocal =&gt;
 				<span class="prelude-val">Ok</span>(Box::new(westend::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">&quot;westend-local&quot;</span>))),
 			CoretimeRuntimeType::WestendDevelopment =&gt;
@@ -503,6 +518,7 @@
 	<span class="kw">use </span>parachains_common::{AccountId, AuraId, Balance};
 	<span class="kw">use </span>sp_core::sr25519;
 
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-westend&quot;</span>;
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-westend-local&quot;</span>;
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-westend-dev&quot;</span>;
 	<span class="kw">const </span>CORETIME_WESTEND_ED: Balance = coretime_westend_runtime::ExistentialDeposit::get();

@@ -36,7 +36,7 @@
 <span class="item-spacer"></span>    fn <a href="#method.chain_head_unstable_unpin" class="fn">chain_head_unstable_unpin</a>&lt;'life0, 'async_trait&gt;(
         &amp;'life0 self,
         follow_subscription: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
-        hash_or_hashes: ListOrValue&lt;Hash&gt;
+        hash_or_hashes: <a class="enum" href="../../../sp_rpc/list/enum.ListOrValue.html" title="enum sp_rpc::list::ListOrValue">ListOrValue</a>&lt;Hash&gt;
     ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, Error&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
        <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'async_trait,
              'life0: 'async_trait</span> { ... }
@@ -113,7 +113,7 @@ block.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.chain_head_unstable_unpin" class="method"><a class="src rightside" href="../../../src/sc_rpc_spec_v2/chain_head/api.rs.html#32">source</a><h4 class="code-header">fn <a href="#method.chain_head_unstable_unpin" class="fn">chain_head_unstable_unpin</a>&lt;'life0, 'async_trait&gt;(
     &amp;'life0 self,
     follow_subscription: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
-    hash_or_hashes: ListOrValue&lt;Hash&gt;
+    hash_or_hashes: <a class="enum" href="../../../sp_rpc/list/enum.ListOrValue.html" title="enum sp_rpc::list::ListOrValue">ListOrValue</a>&lt;Hash&gt;
 ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, Error&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
     Self: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'async_trait,
     'life0: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Unpin a block or multiple blocks reported by the <code>follow</code> method.</p>

@@ -199,7 +199,7 @@
 </span><span class="kw">pub type </span>RCBlockNumberOf&lt;T&gt; = &lt;RCBlockNumberProviderOf&lt;T&gt; <span class="kw">as </span>BlockNumberProvider&gt;::BlockNumber;
 
 <span class="doccomment">/// Relay chain block number provider of `T` that implements [`CoretimeInterface`].
-</span><span class="kw">pub type </span>RCBlockNumberProviderOf&lt;T&gt; = &lt;T <span class="kw">as </span>CoretimeInterface&gt;::RealyChainBlockNumberProvider;
+</span><span class="kw">pub type </span>RCBlockNumberProviderOf&lt;T&gt; = &lt;T <span class="kw">as </span>CoretimeInterface&gt;::RelayChainBlockNumberProvider;
 
 <span class="doccomment">/// Type able to accept Coretime scheduling instructions and provide certain usage information.
 /// Generally implemented by the Relay-chain or some means of communicating with it.
@@ -213,7 +213,7 @@
 	</span><span class="kw">type </span>Balance: AtLeast32BitUnsigned;
 
 	<span class="doccomment">/// A provider for the relay chain block number.
-	</span><span class="kw">type </span>RealyChainBlockNumberProvider: BlockNumberProvider;
+	</span><span class="kw">type </span>RelayChainBlockNumberProvider: BlockNumberProvider;
 
 	<span class="doccomment">/// Requests the Relay-chain to alter the number of schedulable cores to `count`. Under normal
 	/// operation, the Relay-chain SHOULD send a `notify_core_count(count)` message back.
@@ -276,7 +276,7 @@
 <span class="kw">impl </span>CoretimeInterface <span class="kw">for </span>() {
 	<span class="kw">type </span>AccountId = ();
 	<span class="kw">type </span>Balance = u64;
-	<span class="kw">type </span>RealyChainBlockNumberProvider = ();
+	<span class="kw">type </span>RelayChainBlockNumberProvider = ();
 
 	<span class="kw">fn </span>request_core_count(_count: CoreIndex) {}
 	<span class="kw">fn </span>request_revenue_info_at(_when: RCBlockNumberOf&lt;<span class="self">Self</span>&gt;) {}

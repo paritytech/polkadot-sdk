@@ -5068,7 +5068,7 @@
 <span class="kw">impl </span>CoretimeInterface <span class="kw">for </span>CoretimeProvider {
 	<span class="kw">type </span>AccountId = AccountId;
 	<span class="kw">type </span>Balance = Balance;
-	<span class="kw">type </span>RealyChainBlockNumberProvider = System;
+	<span class="kw">type </span>RelayChainBlockNumberProvider = System;
 	<span class="kw">fn </span>request_core_count(_count: CoreIndex) {}
 	<span class="kw">fn </span>request_revenue_info_at(_when: u32) {}
 	<span class="kw">fn </span>credit_account(_who: <span class="self">Self</span>::AccountId, _amount: <span class="self">Self</span>::Balance) {}
