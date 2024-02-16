@@ -258,7 +258,7 @@ impl CandidateVoteState<CandidateVotes> {
 		// We have a dispute, if we have votes on both sides, with at least one invalid vote
 		// from non-disabled validator or with votes on both sides and confirmed.
 		let has_non_disabled_invalid_votes =
-			votes.invalid.keys().find(|i| !env.disabled_indices().contains(i)).is_some();
+			votes.invalid.keys().any(|i| !env.disabled_indices().contains(i));
 		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
 		let votes_on_both_sides = !votes.valid.raw().is_empty() && !votes.invalid.is_empty();
 		let is_confirmed =
