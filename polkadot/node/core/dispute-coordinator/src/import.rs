@@ -243,15 +243,18 @@ impl CandidateVoteState<CandidateVotes> {
 		let supermajority_threshold = polkadot_primitives::supermajority_threshold(n_validators);
 
 		// We have a dispute, if we have votes on both sides, with at least one invalid vote
-		// from non-disabled validator.
+		// from non-disabled validator or with votes on both sides and confirmed.
 		let has_non_disabled_invalid_votes =
 			votes.invalid.keys().filter(|i| !is_disabled(i)).next().is_some();
-		let is_disputed = has_non_disabled_invalid_votes && !votes.valid.raw().is_empty();
+		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
+		let votes_on_both_sides = !votes.valid.raw().is_empty() && !votes.invalid.is_empty();
+		let is_confirmed =
+			votes_on_both_sides && (votes.voted_indices().len() > byzantine_threshold);
+		let is_disputed =
+			is_confirmed || (has_non_disabled_invalid_votes && !votes.valid.raw().is_empty());
 
 		let (dispute_status, byzantine_threshold_against) = if is_disputed {
 			let mut status = DisputeStatus::active();
-			let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
-			let is_confirmed = votes.voted_indices().len() > byzantine_threshold;
 			if is_confirmed {
 				status = status.confirm();
 			};
