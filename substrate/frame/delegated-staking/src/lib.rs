@@ -355,8 +355,8 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 
 	#[transactional]
 	fn withdraw(
-		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
 		value: Self::Balance,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
@@ -680,6 +680,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		_stash: Self::AccountId,
 		_num_slashing_spans: u32,
 	) -> Result<bool, DispatchError> {
+		// FIXME(ank4n): Support withdrawing to self account.
 		defensive_assert!(false, "not supported for delegated impl of staking interface");
 		Err(Error::<T>::NotSupported.into())
 	}

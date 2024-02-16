@@ -79,6 +79,7 @@ pub trait DelegationInterface {
 	fn kill_delegatee(delegatee: &Self::AccountId) -> DispatchResult;
 
 	/// Bond all fund that is delegated but not staked.
+	/// FIXME(ank4n): Should not be allowed as withdrawn funds would get restaked.
 	fn bond_all(delegatee: &Self::AccountId) -> DispatchResult;
 
 	/// Request withdrawal of unbonded stake of `delegatee` belonging to the provided `delegator`.

@@ -948,7 +948,6 @@ pub mod pallet {
 			}
 
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
-
 			let stash_balance = Self::stakeable_balance(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
