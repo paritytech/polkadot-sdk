@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet_xcm] Forgotten migration to XCMv4 + added `try-state` to the `pallet_xcm`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The current release includes the new `XCMv4`, so the runtimes must incorporate
+      a migration `pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>` to ensure
+      proper data migration in `pallet_xcm`.
+
+crates: 
+  - name: pallet-xcm

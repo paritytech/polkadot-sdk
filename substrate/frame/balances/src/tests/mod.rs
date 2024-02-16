@@ -126,8 +126,10 @@ impl pallet_transaction_payment::Config for Test {
 	type FeeMultiplierUpdate = ();
 }
 
+pub(crate) type Balance = u64;
+
 impl Config for Test {
-	type Balance = u64;
+	type Balance = Balance;
 	type DustRemoval = DustTrap;
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
@@ -140,7 +142,6 @@ impl Config for Test {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = ConstU32<2>;
-	type MaxHolds = ConstU32<3>;
 }
 
 #[derive(Clone)]

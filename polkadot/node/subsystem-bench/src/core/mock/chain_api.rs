@@ -13,19 +13,18 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-//!
+
 //! A generic runtime api subsystem mockup suitable to be used in benchmarks.
 
-use polkadot_primitives::Header;
-
+use futures::FutureExt;
+use itertools::Itertools;
 use polkadot_node_subsystem::{
 	messages::ChainApiMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
+use polkadot_primitives::Header;
 use sp_core::H256;
 use std::collections::HashMap;
-
-use futures::FutureExt;
 
 const LOG_TARGET: &str = "subsystem-bench::chain-api-mock";
 
@@ -36,6 +35,12 @@ pub struct ChainApiState {
 
 pub struct MockChainApi {
 	state: ChainApiState,
+}
+
+impl ChainApiState {
+	fn get_header_by_number(&self, requested_number: u32) -> Option<&Header> {
+		self.block_headers.values().find(|header| header.number == requested_number)
+	}
 }
 
 impl MockChainApi {
@@ -77,9 +82,44 @@ impl MockChainApi {
 									.expect("Relay chain block hashes are known"),
 							)));
 						},
-						ChainApiMessage::Ancestors { hash: _hash, k: _k, response_channel } => {
-							// For our purposes, no ancestors is fine.
-							let _ = response_channel.send(Ok(Vec::new()));
+						ChainApiMessage::FinalizedBlockNumber(val) => {
+							val.send(Ok(0)).unwrap();
+						},
+						ChainApiMessage::FinalizedBlockHash(requested_number, sender) => {
+							let hash = self
+								.state
+								.get_header_by_number(requested_number)
+								.expect("Unknow block number")
+								.hash();
+							sender.send(Ok(Some(hash))).unwrap();
+						},
+						ChainApiMessage::BlockNumber(requested_hash, sender) => {
+							sender
+								.send(Ok(Some(
+									self.state
+										.block_headers
+										.get(&requested_hash)
+										.expect("Unknown block hash")
+										.number,
+								)))
+								.unwrap();
+						},
+						ChainApiMessage::Ancestors { hash, k: _, response_channel } => {
+							let block_number = self
+								.state
+								.block_headers
+								.get(&hash)
+								.expect("Unknown block hash")
+								.number;
+							let ancestors = self
+								.state
+								.block_headers
+								.iter()
+								.filter(|(_, header)| header.number < block_number)
+								.sorted_by(|a, b| a.1.number.cmp(&b.1.number))
+								.map(|(hash, _)| *hash)
+								.collect_vec();
+							response_channel.send(Ok(ancestors)).unwrap();
 						},
 						_ => {
 							unimplemented!("Unexpected chain-api message")

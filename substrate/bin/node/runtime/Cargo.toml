@@ -25,7 +25,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 ] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
 static_assertions = "1.1.0"
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 serde_json = { version = "1.0.111", default-features = false, features = ["alloc", "arbitrary_precision"] }
 
 # pallet-asset-conversion: turn on "num-traits" feature
@@ -142,6 +142,7 @@ pallet-vesting = { path = "../../../frame/vesting", default-features = false }
 pallet-whitelist = { path = "../../../frame/whitelist", default-features = false }
 pallet-tx-pause = { path = "../../../frame/tx-pause", default-features = false }
 pallet-safe-mode = { path = "../../../frame/safe-mode", default-features = false }
+pallet-parameters = { path = "../../../frame/parameters", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
@@ -209,6 +210,7 @@ std = [
 	"pallet-nomination-pools/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences/std",
+	"pallet-parameters/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-ranked-collective/std",
@@ -310,6 +312,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-offences-benchmarking/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
+	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-ranked-collective/runtime-benchmarks",
@@ -386,6 +389,7 @@ try-runtime = [
 	"pallet-nis/try-runtime",
 	"pallet-nomination-pools/try-runtime",
 	"pallet-offences/try-runtime",
+	"pallet-parameters/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-ranked-collective/try-runtime",

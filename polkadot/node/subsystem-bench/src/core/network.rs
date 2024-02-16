@@ -10,13 +10,12 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-//!
+
 //! Implements network emulation and interfaces to control and specialize
 //! network peer behaviour.
-//
+
 //	     [TestEnvironment]
 // 	  [NetworkEmulatorHandle]
 // 			    ||
@@ -34,44 +33,52 @@
 //               |
 //     Subsystems under test
 
-use crate::core::configuration::random_latency;
-
-use super::{
-	configuration::{TestAuthorities, TestConfiguration},
+use crate::core::{
+	configuration::{random_latency, TestAuthorities, TestConfiguration},
 	environment::TestEnvironmentDependencies,
-	*,
+	NODE_UNDER_TEST,
 };
 use colored::Colorize;
 use futures::{
-	channel::{mpsc, oneshot},
+	channel::{
+		mpsc,
+		mpsc::{UnboundedReceiver, UnboundedSender},
+		oneshot,
+	},
 	lock::Mutex,
 	stream::FuturesUnordered,
+	Future, FutureExt, StreamExt,
 };
-
+use itertools::Itertools;
 use net_protocol::{
+	peer_set::{ProtocolVersion, ValidationVersion},
 	request_response::{Recipient, Requests, ResponseSender},
-	VersionedValidationProtocol,
+	ObservedRole, VersionedValidationProtocol,
 };
 use parity_scale_codec::Encode;
+use polkadot_node_network_protocol::{self as net_protocol, Versioned};
+use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, NetworkBridgeEvent};
+use polkadot_node_subsystem_util::metrics::prometheus::{
+	self, CounterVec, Opts, PrometheusError, Registry,
+};
+use polkadot_overseer::AllMessages;
 use polkadot_primitives::AuthorityDiscoveryId;
 use prometheus_endpoint::U64;
 use rand::{seq::SliceRandom, thread_rng};
 use sc_network::{
 	request_responses::{IncomingRequest, OutgoingResponse},
-	RequestFailure,
+	PeerId, RequestFailure,
 };
 use sc_service::SpawnTaskHandle;
 use std::{
 	collections::HashMap,
 	sync::Arc,
+	task::Poll,
 	time::{Duration, Instant},
 };
 
-use polkadot_node_network_protocol::{self as net_protocol, Versioned};
+const LOG_TARGET: &str = "subsystem-bench::network";
 
-use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender};
-
-use futures::{Future, FutureExt, StreamExt};
 // An emulated node egress traffic rate_limiter.
 #[derive(Debug)]
 pub struct RateLimit {
@@ -142,7 +149,7 @@ impl RateLimit {
 /// peer(`AuthorityDiscoveryId``).
 pub enum NetworkMessage {
 	/// A gossip message from peer to node.
-	MessageFromPeer(VersionedValidationProtocol),
+	MessageFromPeer(PeerId, VersionedValidationProtocol),
 	/// A gossip message from node to a peer.
 	MessageFromNode(AuthorityDiscoveryId, VersionedValidationProtocol),
 	/// A request originating from our node
@@ -155,9 +162,9 @@ impl NetworkMessage {
 	/// Returns the size of the encoded message or request
 	pub fn size(&self) -> usize {
 		match &self {
-			NetworkMessage::MessageFromPeer(Versioned::V2(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromPeer(Versioned::V1(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromPeer(Versioned::V3(message)) => message.encoded_size(),
+			NetworkMessage::MessageFromPeer(_, Versioned::V2(message)) => message.encoded_size(),
+			NetworkMessage::MessageFromPeer(_, Versioned::V1(message)) => message.encoded_size(),
+			NetworkMessage::MessageFromPeer(_, Versioned::V3(message)) => message.encoded_size(),
 			NetworkMessage::MessageFromNode(_peer_id, Versioned::V2(message)) =>
 				message.encoded_size(),
 			NetworkMessage::MessageFromNode(_peer_id, Versioned::V1(message)) =>
@@ -198,8 +205,6 @@ struct ProxiedResponse {
 	pub sender: oneshot::Sender<OutgoingResponse>,
 	pub result: Result<Vec<u8>, RequestFailure>,
 }
-
-use std::task::Poll;
 
 impl Future for ProxiedRequest {
 	// The sender and result.
@@ -262,9 +267,9 @@ impl NetworkInterface {
 							task_rx_limiter.lock().await.reap(size).await;
 							rx_network.inc_received(size);
 
-							// To be able to apply the configured bandwidth limits for responses being sent 
-							// over channels, we need to implement a simple proxy that allows this loop 
-							// to receive the response and enforce the configured bandwidth before 
+							// To be able to apply the configured bandwidth limits for responses being sent
+							// over channels, we need to implement a simple proxy that allows this loop
+							// to receive the response and enforce the configured bandwidth before
 							// sending it to the original recipient.
 							if let NetworkMessage::RequestFromPeer(request) = peer_message {
 								let (response_sender, response_receiver) = oneshot::channel();
@@ -430,6 +435,7 @@ pub struct EmulatedPeerHandle {
 	messages_tx: UnboundedSender<NetworkMessage>,
 	/// Send actions to be performed by the peer.
 	actions_tx: UnboundedSender<NetworkMessage>,
+	peer_id: PeerId,
 }
 
 impl EmulatedPeerHandle {
@@ -441,7 +447,7 @@ impl EmulatedPeerHandle {
 	/// Send a message to the node.
 	pub fn send_message(&self, message: VersionedValidationProtocol) {
 		self.actions_tx
-			.unbounded_send(NetworkMessage::MessageFromPeer(message))
+			.unbounded_send(NetworkMessage::MessageFromPeer(self.peer_id, message))
 			.expect("Peer action channel hangup");
 	}
 
@@ -613,6 +619,7 @@ pub fn new_peer(
 	stats: Arc<PeerEmulatorStats>,
 	to_network_interface: UnboundedSender<NetworkMessage>,
 	latency_ms: usize,
+	peer_id: PeerId,
 ) -> EmulatedPeerHandle {
 	let (messages_tx, messages_rx) = mpsc::unbounded::<NetworkMessage>();
 	let (actions_tx, actions_rx) = mpsc::unbounded::<NetworkMessage>();
@@ -641,7 +648,7 @@ pub fn new_peer(
 		.boxed(),
 	);
 
-	EmulatedPeerHandle { messages_tx, actions_tx }
+	EmulatedPeerHandle { messages_tx, actions_tx, peer_id }
 }
 
 /// Book keeping of sent and received bytes.
@@ -719,6 +726,28 @@ pub struct NetworkEmulatorHandle {
 	validator_authority_ids: HashMap<AuthorityDiscoveryId, usize>,
 }
 
+impl NetworkEmulatorHandle {
+	/// Generates peer_connected messages for all peers in `test_authorities`
+	pub fn generate_peer_connected(&self) -> Vec<AllMessages> {
+		self.peers
+			.iter()
+			.filter(|peer| peer.is_connected())
+			.map(|peer| {
+				let network = NetworkBridgeEvent::PeerConnected(
+					peer.handle().peer_id,
+					ObservedRole::Full,
+					ProtocolVersion::from(ValidationVersion::V3),
+					None,
+				);
+
+				AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(
+					network,
+				))
+			})
+			.collect_vec()
+	}
+}
+
 /// Create a new emulated network based on `config`.
 /// Each emulated peer will run the specified `handlers` to process incoming messages.
 pub fn new_network(
@@ -753,6 +782,7 @@ pub fn new_network(
 					stats,
 					to_network_interface.clone(),
 					random_latency(config.latency.as_ref()),
+					*authorities.peer_ids.get(peer_index).unwrap(),
 				)),
 			)
 		})
@@ -760,10 +790,14 @@ pub fn new_network(
 
 	let connected_count = config.connected_count();
 
-	let (_connected, to_disconnect) = peers.partial_shuffle(&mut thread_rng(), connected_count);
+	let mut peers_indicies = (0..n_peers).collect_vec();
+	let (_connected, to_disconnect) =
+		peers_indicies.partial_shuffle(&mut thread_rng(), connected_count);
 
-	for peer in to_disconnect {
-		peer.disconnect();
+	// Node under test is always mark as disconnected.
+	peers[NODE_UNDER_TEST as usize].disconnect();
+	for peer in to_disconnect.iter().skip(1) {
+		peers[*peer].disconnect();
 	}
 
 	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
@@ -786,6 +820,7 @@ pub fn new_network(
 }
 
 /// Errors that can happen when sending data to emulated peers.
+#[derive(Clone, Debug)]
 pub enum EmulatedPeerError {
 	NotConnected,
 }
@@ -880,10 +915,6 @@ impl NetworkEmulatorHandle {
 		self.peer_stats(0).inc_received(bytes);
 	}
 }
-
-use polkadot_node_subsystem_util::metrics::prometheus::{
-	self, CounterVec, Opts, PrometheusError, Registry,
-};
 
 /// Emulated network metrics.
 #[derive(Clone)]
@@ -1003,9 +1034,8 @@ impl RequestExt for Requests {
 
 #[cfg(test)]
 mod tests {
-	use std::time::Instant;
-
 	use super::RateLimit;
+	use std::time::Instant;
 
 	#[tokio::test]
 	async fn test_expected_rate() {
