@@ -39,7 +39,7 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, DescribeBodyTerminal, DescribeFamily, FixedWeightBounds,
+	ChildParachainConvertsVia, DescribeAllTerminal, DescribeFamily, FixedWeightBounds,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsChildSystemParachain,
 	IsConcrete, MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
@@ -63,8 +63,8 @@ pub type LocationConverter = (
 	ChildParachainConvertsVia<ParaId, AccountId>,
 	// We can directly alias an `AccountId32` into a local account.
 	AccountId32Aliases<ThisNetwork, AccountId>,
-	// Allow governance body to be used as a sovereign account.
-	HashedDescription<AccountId, DescribeFamily<DescribeBodyTerminal>>,
+	// Foreign locations alias into accounts according to a hash of their standard description.
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
 
 /// Our asset transactor. This is what allows us to interest with the runtime facilities from the
