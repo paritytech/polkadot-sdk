@@ -90,7 +90,7 @@ pub struct RunCmd {
 	/// This is disabled by default.
 	///
 	/// For example `--rpc-rate-limit 10` will maximum allow
-	/// 10 calls per minute.
+	/// 10 calls per minute per connection.
 	#[arg(long)]
 	pub rpc_rate_limit: Option<NonZeroU32>,
 
