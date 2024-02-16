@@ -537,6 +537,7 @@ default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
 [workspace.dependencies]
 polkavm-linker = "0.8.2"
 polkavm-derive = "0.8.0"
+log = { version = "0.4.20", default-features = false }
 
 [profile.release]
 # Polkadot runtime requires unwinding.
