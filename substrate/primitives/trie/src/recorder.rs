@@ -29,6 +29,7 @@ use std::{
 	mem,
 	ops::DerefMut,
 	sync::{
+		atomic::{AtomicUsize, Ordering},
 		Arc,
 	},
 };
@@ -64,11 +65,6 @@ struct RecorderInner<H> {
 	///
 	/// Mapping: `Hash(Node) -> Node`.
 	accessed_nodes: HashMap<H, Vec<u8>>,
-
-	/// The estimated encoded size of the storage proof this recorder will produce.
-	///
-	/// We store this in an atomic to be able to fetch the value while the `inner` is may locked.
-	encoded_size_estimation: usize,
 }
 
 impl<H> Default for RecorderInner<H> {
@@ -77,7 +73,6 @@ impl<H> Default for RecorderInner<H> {
 			recorded_keys: Default::default(),
 			accessed_nodes: Default::default(),
 			transactions: Vec::new(),
-			encoded_size_estimation: 0,
 		}
 	}
 }
@@ -88,15 +83,19 @@ impl<H> Default for RecorderInner<H> {
 /// proof and to provide transaction support. The `as_trie_recorder` method provides a
 /// [`trie_db::TrieDB`] compatible recorder that implements the actual recording logic.
 pub struct Recorder<H: Hasher, L: Location> {
-	inner: Mutex<Option<Arc<Mutex<RecorderInner<H::Out>>>>>,
+	inner: Arc<Mutex<RecorderInner<H::Out>>>,
+	/// The estimated encoded size of the storage proof this recorder will produce.
+	///
+	/// We store this in an atomic to be able to fetch the value while the `inner` is may locked.
+	encoded_size_estimation: Arc<AtomicUsize>,
 	_ph: PhantomData<L>,
 }
 
 impl<H: Hasher, L: Location> Default for Recorder<H, L> {
 	fn default() -> Self {
 		Self {
-			// default to an active recorder.
-			inner: Mutex::new(Some(Arc::new(Mutex::new(Default::default())))),
+			inner: Default::default(),
+			encoded_size_estimation: Arc::new(0.into()),
 			_ph: PhantomData,
 		}
 	}
@@ -104,8 +103,11 @@ impl<H: Hasher, L: Location> Default for Recorder<H, L> {
 
 impl<H: Hasher, L: Location> Clone for Recorder<H, L> {
 	fn clone(&self) -> Self {
-		let inner = self.inner.lock().clone();
-		Self { inner: Mutex::new(inner), _ph: PhantomData }
+		Self {
+			inner: self.inner.clone(),
+			encoded_size_estimation: self.encoded_size_estimation.clone(),
+			_ph: PhantomData,
+		}
 	}
 }
 
@@ -114,7 +116,7 @@ impl<H: Hasher, L: Location> Recorder<H, L> {
 	///
 	/// There are multiple tries when working with e.g. child tries.
 	pub fn recorded_keys(&self) -> HashMap<<H as Hasher>::Out, HashMap<Arc<[u8]>, RecordedForKey>> {
-		self.inner.lock().as_ref().map(|i| i.lock().recorded_keys.clone()).unwrap_or_default()
+		self.inner.lock().recorded_keys.clone()
 	}
 
 	/// Returns the recorder as [`TrieRecorder`](trie_db::TrieRecorder) compatible type.
@@ -124,12 +126,12 @@ impl<H: Hasher, L: Location> Recorder<H, L> {
 	///
 	/// NOTE: This locks a mutex that stays locked until the return value is dropped.
 	#[inline]
-	pub fn as_trie_recorder(&self, storage_root: H::Out) -> Option<TrieRecorder<H, L>> {
-		let lock = self.inner.lock();
-		if let Some(l) = lock.as_ref() {
-			Some(TrieRecorder::<H, L> { inner: l.lock(), storage_root, _phantom: PhantomData })
-		} else {
-			None
+	pub fn as_trie_recorder(&self, storage_root: H::Out) -> TrieRecorder<'_, H, L> {
+		TrieRecorder::<H, L> {
+			inner: self.inner.lock(),
+			storage_root,
+			encoded_size_estimation: self.encoded_size_estimation.clone(),
+			_phantom: PhantomData,
 		}
 	}
 
@@ -141,13 +143,9 @@ impl<H: Hasher, L: Location> Recorder<H, L> {
 	/// If you don't want to drain the recorded state, use [`Self::to_storage_proof`].
 	///
 	/// Returns the [`StorageProof`].
-	pub fn drain_storage_proof(&self) -> Option<StorageProof> {
-		let Some(recorder) = mem::replace(&mut *self.inner.lock(), Some(Default::default()))
-		else {
-			return None;
-		};
-		let mut recorder = recorder.lock();
-		Some(StorageProof::new(recorder.accessed_nodes.drain().map(|(_, v)| v)))
+	pub fn drain_storage_proof(&self) -> StorageProof {
+		let mut recorder = mem::take(&mut *self.inner.lock());
+		StorageProof::new(recorder.accessed_nodes.drain().map(|(_, v)| v))
 	}
 
 	/// Convert the recording to a [`StorageProof`].
@@ -157,11 +155,8 @@ impl<H: Hasher, L: Location> Recorder<H, L> {
 	///
 	/// Returns the [`StorageProof`].
 	pub fn to_storage_proof(&self) -> StorageProof {
-		self.inner
-			.lock()
-			.as_ref()
-			.map(|r| StorageProof::new(r.lock().accessed_nodes.values().cloned()))
-			.unwrap_or_else(|| StorageProof::empty())
+		let recorder = self.inner.lock();
+		StorageProof::new(recorder.accessed_nodes.values().cloned())
 	}
 
 	/// Returns the estimated encoded size of the proof.
@@ -169,34 +164,32 @@ impl<H: Hasher, L: Location> Recorder<H, L> {
 	/// The estimation is based on all the nodes that were accessed until now while
 	/// accessing the trie.
 	pub fn estimate_encoded_size(&self) -> usize {
-		self.inner.lock().as_ref().map(|l| l.lock().encoded_size_estimation).unwrap_or(0)
+		self.encoded_size_estimation.load(Ordering::Relaxed)
 	}
 
 	/// Reset the state.
 	///
 	/// This discards all recorded data.
 	pub fn reset(&self) {
-		let _ = mem::replace(&mut *self.inner.lock(), Some(Default::default()));
+		mem::take(&mut *self.inner.lock());
+		self.encoded_size_estimation.store(0, Ordering::Relaxed);
 	}
 
 	/// Start a new transaction.
 	pub fn start_transaction(&self) {
-		self.inner.lock().as_mut().map(|i| i.lock().transactions.push(Default::default()));
+		let mut inner = self.inner.lock();
+		inner.transactions.push(Default::default());
 	}
 
 	/// Rollback the latest transaction.
 	///
 	/// Returns an error if there wasn't any active transaction.
 	pub fn rollback_transaction(&self) -> Result<(), ()> {
-		let mut lock = self.inner.lock();
-		let Some(inner) = lock.as_mut() else {
-			return Ok(());
-		};
-		let mut inner = inner.lock();
+		let mut inner = self.inner.lock();
 
 		// We locked `inner` and can just update the encoded size locally and then store it back to
 		// the atomic.
-		let mut new_encoded_size_estimation = inner.encoded_size_estimation;
+		let mut new_encoded_size_estimation = self.encoded_size_estimation.load(Ordering::Relaxed);
 		let transaction = inner.transactions.pop().ok_or(())?;
 
 		transaction.accessed_nodes.into_iter().for_each(|n| {
@@ -216,7 +209,8 @@ impl<H: Hasher, L: Location> Recorder<H, L> {
 			});
 		});
 
-		inner.encoded_size_estimation = new_encoded_size_estimation;
+		self.encoded_size_estimation
+			.store(new_encoded_size_estimation, Ordering::Relaxed);
 
 		Ok(())
 	}
@@ -225,11 +219,7 @@ impl<H: Hasher, L: Location> Recorder<H, L> {
 	///
 	/// Returns an error if there wasn't any active transaction.
 	pub fn commit_transaction(&self) -> Result<(), ()> {
-		let mut lock = self.inner.lock();
-		let Some(inner) = lock.as_mut() else {
-			return Ok(());
-		};
-		let mut inner = inner.lock();
+		let mut inner = self.inner.lock();
 
 		let transaction = inner.transactions.pop().ok_or(())?;
 
@@ -262,6 +252,7 @@ impl<H: Hasher, L: Location> crate::ProofSizeProvider for Recorder<H, L> {
 pub struct TrieRecorder<'a, H: Hasher, L: Location> {
 	inner: MutexGuard<'a, RecorderInner<H::Out>>,
 	storage_root: H::Out,
+	encoded_size_estimation: Arc<AtomicUsize>,
 	_phantom: PhantomData<(H, L)>,
 }
 
@@ -269,34 +260,11 @@ impl<H: Hasher, L: Location> crate::TrieRecorderProvider<H, L> for Recorder<H, L
 	type Recorder<'a> = TrieRecorder<'a, H, L> where H: 'a, L: 'a;
 
 	fn drain_storage_proof(&self) -> Option<StorageProof> {
-		Recorder::drain_storage_proof(self)
+		Some(Recorder::drain_storage_proof(self))
 	}
 
-	fn as_trie_recorder(&self, storage_root: H::Out) -> Option<Self::Recorder<'_>> {
+	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_> {
 		Recorder::as_trie_recorder(&self, storage_root)
-	}
-
-	fn set_recorder(&self, r: Self) -> Self {
-		{
-		let mut r_lock = r.inner.lock();
-		let mut s_lock = self.inner.lock();
-		*r_lock = core::mem::replace(&mut *s_lock, core::mem::take(&mut *r_lock));
-		}
-		r
-	}
-}
-
-impl<H: Hasher, L: Location> From<Option<Recorder<H, L>>> for Recorder<H, L> {
-	fn from(r: Option<Recorder<H, L>>) -> Self {
-		if let Some(r) = r {
-			r
-		} else {
-			Self {
-				// inactive from none
-				inner: Mutex::new(None),
-				_ph: PhantomData,
-			}
-		}
 	}
 }
 
@@ -451,8 +419,7 @@ impl<'a, H: Hasher, L: Location> trie_db::TrieRecorder<H::Out, L> for TrieRecord
 			},
 		};
 
-		let inner = self.inner.deref_mut();
-		inner.encoded_size_estimation += encoded_size_update;
+		self.encoded_size_estimation.fetch_add(encoded_size_update, Ordering::Relaxed);
 	}
 
 	fn trie_nodes_recorded_for_key(&self, key: &[u8]) -> RecordedForKey {

@@ -196,19 +196,6 @@ impl<H: Hasher> TrieRecorderProvider<H> for UnimplementedRecorderProvider<H> {
 	fn as_trie_recorder(&self, _storage_root: H::Out) -> Self::Recorder<'_> {
 		unimplemented!()
 	}
-
-	fn set_recorder(&self, _: Self) -> Self {
-		unimplemented!()
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl<H: Hasher> From<Option<UnimplementedRecorderProvider<H>>>
-	for UnimplementedRecorderProvider<H>
-{
-	fn from(_: Option<UnimplementedRecorderProvider<H>>) -> UnimplementedRecorderProvider<H> {
-		unimplemented!()
-	}
 }
 
 #[cfg(feature = "std")]
@@ -434,7 +421,7 @@ where
 	// TODO in use??
 	#[cfg(feature = "std")]
 	/// Set recorder. Returns the previous recorder.
-	pub fn set_recorder(&self, recorder: Option<R>) -> R {
+	pub fn set_recorder(&self, recorder: Option<R>) -> Option<R> {
 		self.essence.set_recorder(recorder)
 	}
 
@@ -448,7 +435,7 @@ where
 	///
 	/// This only returns `Some` when there was a recorder set.
 	pub fn extract_proof(&self) -> Option<StorageProof> {
-		self.essence.recorder.drain_storage_proof()
+		self.essence.recorder.write().take().and_then(|r| r.drain_storage_proof())
 	}
 }
 
@@ -461,7 +448,7 @@ where
 	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
 {
 	backend: &'a TrieBackend<H, C, R>,
-	recorder: R,
+	recorder: Option<R>,
 }
 
 #[cfg(feature = "std")]
@@ -487,8 +474,7 @@ where
 	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
 {
 	fn drop(&mut self) {
-		self.backend
-			.set_recorder(Some(core::mem::replace(&mut self.recorder, None.into())));
+		self.backend.set_recorder(self.recorder.take());
 	}
 }
 
@@ -1526,7 +1512,8 @@ pub mod tests {
 		];
 
 		fn check_estimation(backend: &TrieBackend<BlakeTwo256>, has_cache: bool) {
-			let estimation = backend.essence.recorder.estimate_encoded_size();
+			let estimation =
+				backend.essence.recorder.read().as_ref().unwrap().estimate_encoded_size();
 			let storage_proof = backend.extract_proof().unwrap();
 			let storage_proof_size =
 				storage_proof.into_nodes().into_iter().map(|n| n.encoded_size()).sum::<usize>();

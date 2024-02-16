@@ -35,8 +35,10 @@ use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
 use sp_std::prelude::*;
 
-type TrieBackend<B> =
-	sp_state_machine::TrieBackend<HashingFor<B>, trie_cache::CacheProvider<HashingFor<B>>>;
+type TrieBackend<B> = sp_state_machine::TrieBackend<
+	HashingFor<B>,
+	trie_cache::CacheProvider<HashingFor<B>>,
+>;
 
 type Ext<'a, B> = sp_state_machine::Ext<'a, HashingFor<B>, TrieBackend<B>>;
 

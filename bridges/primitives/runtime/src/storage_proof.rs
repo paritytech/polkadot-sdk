@@ -19,13 +19,13 @@
 use crate::StrippableError;
 use codec::{Decode, Encode};
 use frame_support::PalletError;
+use trie_db::node_db::{Hasher, EMPTY_PREFIX};
 use scale_info::TypeInfo;
 use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use sp_trie::{
 	read_trie_value, LayoutV1, MemoryDB, Recorder, StorageProof, Trie, TrieConfiguration,
 	TrieDBBuilder, TrieError, TrieHash,
 };
-use trie_db::node_db::{Hasher, EMPTY_PREFIX};
 
 /// Raw storage proof type (just raw trie nodes).
 pub type RawStorageProof = Vec<Vec<u8>>;
@@ -109,14 +109,8 @@ where
 	/// incomplete or otherwise invalid proof, this function returns an error.
 	pub fn read_value(&mut self, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
 		// LayoutV1 or LayoutV0 is identical for proof that only read values.
-		read_trie_value::<LayoutV1<H, ()>, _>(
-			&self.db,
-			&self.root,
-			key,
-			Some(&mut self.recorder),
-			None,
-		)
-		.map_err(|_| Error::StorageValueUnavailable)
+		read_trie_value::<LayoutV1<H, ()>, _>(&self.db, &self.root, key, Some(&mut self.recorder), None)
+			.map_err(|_| Error::StorageValueUnavailable)
 	}
 
 	/// Reads and decodes a value from the available subset of storage. If the value cannot be read

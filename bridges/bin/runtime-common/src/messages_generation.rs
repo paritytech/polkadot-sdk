@@ -120,7 +120,8 @@ where
 	let storage_key = storage_keys::inbound_lane_data_key(B::BRIDGED_MESSAGES_PALLET_NAME, &lane).0;
 	let mut mdb = MemoryDB::default();
 	let root = {
-		let mut trie = TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb).build();
+		let mut trie =
+			TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb).build();
 		let inbound_lane_data = grow_trie_leaf_value(inbound_lane_data.encode(), size);
 		trie.insert(&storage_key, &inbound_lane_data)
 			.map_err(|_| "TrieMut::insert has failed")

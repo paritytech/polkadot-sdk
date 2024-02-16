@@ -50,8 +50,7 @@ impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>, ()> for TrieCache<'a, H> {
 			H::Out,
 			<NodeCodec<H> as trie_db::NodeCodec>::Error,
 		>,
-	) -> trie_db::Result<&NodeOwned<H::Out, ()>, H::Out, <NodeCodec<H> as trie_db::NodeCodec>::Error>
-	{
+	) -> trie_db::Result<&NodeOwned<H::Out, ()>, H::Out, <NodeCodec<H> as trie_db::NodeCodec>::Error> {
 		match self.node_cache.entry(hash) {
 			Entry::Occupied(entry) => Ok(entry.into_mut()),
 			Entry::Vacant(entry) => Ok(entry.insert(fetch_node()?)),
@@ -66,7 +65,8 @@ impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>, ()> for TrieCache<'a, H> {
 		self.node_cache.get(hash)
 	}
 
-	fn insert_new_node(&mut self, _hash: &H::Out) {}
+	fn insert_new_node(&mut self, _hash: &H::Out) {
+	}
 }
 
 /// Provider of [`TrieCache`] instances.
