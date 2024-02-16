@@ -20,7 +20,7 @@ sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-fea
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
 sp-staking = { path = "../../../../../substrate/primitives/staking", default-features = false, features=["serde"] }
 pallet-staking = { path = "../../../../../substrate/frame/staking", default-features = false }
-pallet-election-provider-multi-phase = { path = "../../../../../substrate/frame/election-provider-multi-phase", default-features = false }
+pallet-election-provider-multi-block = { path = "../../../../../substrate/frame/election-provider-multi-block", default-features = false }
 
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
@@ -54,7 +54,7 @@ std = [
 	"xcm/std",
 	"sp-staking/std",
 	"pallet-staking/std",
-	"pallet-election-provider-multi-phase/std",
+	"pallet-election-provider-multi-block/std",
 ]
 
 runtime-benchmarks = [
@@ -67,5 +67,4 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
-	"pallet-election-provider-multi-phase/runtime-benchmarks",
 ]
