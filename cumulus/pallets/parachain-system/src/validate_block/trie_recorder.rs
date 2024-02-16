@@ -27,8 +27,8 @@ use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	rc::Rc,
 };
-use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof};
-use trie_db::{Hasher, RecordedForKey, TrieAccess};
+use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof, DBLocation};
+use trie_db::{node_db::Hasher, RecordedForKey, TrieAccess};
 
 /// A trie recorder that only keeps track of the proof size.
 ///
@@ -40,8 +40,8 @@ pub(crate) struct SizeOnlyRecorder<'a, H: Hasher> {
 	recorded_keys: RefMut<'a, BTreeMap<Rc<[u8]>, RecordedForKey>>,
 }
 
-impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<'a, H> {
-	fn record(&mut self, access: TrieAccess<'_, H::Out>) {
+impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out, DBLocation> for SizeOnlyRecorder<'a, H> {
+	fn record(&mut self, access: TrieAccess<'_, H::Out, DBLocation>) {
 		let mut encoded_size_update = 0;
 		match access {
 			TrieAccess::NodeOwned { hash, node_owned } =>
@@ -106,7 +106,7 @@ impl<H: Hasher> SizeOnlyRecorderProvider<H> {
 	}
 }
 
-impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for SizeOnlyRecorderProvider<H> {
+impl<H: Hasher> sp_trie::TrieRecorderProvider<H, DBLocation> for SizeOnlyRecorderProvider<H> {
 	type Recorder<'a> = SizeOnlyRecorder<'a, H> where H: 'a;
 
 	fn drain_storage_proof(&self) -> Option<StorageProof> {
@@ -122,7 +122,7 @@ impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for SizeOnlyRecorderPr
 	}
 }
 
-impl<H: trie_db::Hasher> ProofSizeProvider for SizeOnlyRecorderProvider<H> {
+impl<H: Hasher> ProofSizeProvider for SizeOnlyRecorderProvider<H> {
 	fn estimate_encoded_size(&self) -> usize {
 		*self.encoded_size.borrow()
 	}
