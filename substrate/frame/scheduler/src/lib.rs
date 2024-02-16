@@ -502,10 +502,10 @@ pub mod pallet {
 		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
 		/// normally while the task is retrying.
 		///
-		/// Tasks scheduled as a result of a retry for a periodic task are unnamed,
-		/// non-periodic clones of the original task and will have their own retry configuration
-		/// derived from the original task's configuration, but will have a lower value for
-		/// `remaining` than the original `total_retries`.
+		/// Tasks scheduled as a result of a retry for a periodic task are unnamed, non-periodic
+		/// clones of the original task. Their retry configuration will be derived from the
+		/// original task's configuration, but will have a lower value for `remaining` than the
+		/// original `total_retries`.
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry())]
 		pub fn set_retry(
@@ -539,10 +539,10 @@ pub mod pallet {
 		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
 		/// normally while the task is retrying.
 		///
-		/// Tasks scheduled as a result of a named retry for a periodic task are unnamed,
-		/// non-periodic clones of the original task and will have their own retry configuration
-		/// derived from the original task's configuration, but will have a lower value for
-		/// `remaining` than the original `total_retries`.
+		/// Tasks scheduled as a result of a retry for a periodic task are unnamed, non-periodic
+		/// clones of the original task. Their retry configuration will be derived from the
+		/// original task's configuration, but will have a lower value for `remaining` than the
+		/// original `total_retries`.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named())]
 		pub fn set_retry_named(
