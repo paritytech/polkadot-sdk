@@ -310,6 +310,7 @@ pub fn delta_trie_root<L: TrieConfiguration, I, A, B, V>(
 	delta: I,
 	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>, L::Location>>,
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
+	keyspace: Option<&[u8]>,
 ) -> Result<trie_db::Changeset<TrieHash<L>, L::Location>, Box<TrieError<L>>>
 where
 	I: IntoIterator<Item = (A, B, Option<trie_db::triedbmut::TreeRefChangeset<L>>)>,
@@ -331,7 +332,11 @@ where
 			None => trie.remove_with_tree_ref(key.borrow(), set)?,
 		};
 	}
-	Ok(trie.commit())
+	if let Some(ks) = keyspace {
+		Ok(trie.commit_with_keyspace(ks))
+	} else {
+		Ok(trie.commit())
+	}
 }
 
 /// Read a value from the trie.
@@ -468,6 +473,7 @@ where
 		delta.into_iter().map(|(k, v)| (k, v, None)),
 		recorder,
 		cache,
+		Some(keyspace),
 	)
 }
 
@@ -1067,6 +1073,7 @@ mod tests {
 				.map(|(k, v)| (k.as_slice(), v.as_ref().map(Vec::as_slice), None)),
 			None,
 			None,
+			None,
 		)
 		.unwrap()
 		.root_hash();
@@ -1076,6 +1083,7 @@ mod tests {
 			invalid_delta
 				.iter()
 				.map(|(k, v)| (k.as_slice(), v.as_ref().map(Vec::as_slice), None)),
+			None,
 			None,
 			None,
 		)

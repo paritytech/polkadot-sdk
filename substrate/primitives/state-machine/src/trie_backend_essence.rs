@@ -661,6 +661,7 @@ where
 						delta,
 						recorder,
 						cache,
+						None,
 					),
 				StateVersion::V1 =>
 					delta_trie_root::<sp_trie::LayoutV1<H, DBLocation>, _, _, _, _>(
@@ -669,6 +670,7 @@ where
 						delta,
 						recorder,
 						cache,
+						None,
 					),
 			};
 
@@ -805,39 +807,11 @@ mod test {
 			.expect("insert failed");
 		let root_2 = trie.commit().apply_to(&mut mdb);
 
-		let essence_1 = TrieBackendEssence::<
-			_,
-			LocalTrieCache<_, DBLocation>,
-			sp_trie::recorder::Recorder<_>,
-		>::new(Box::new(mdb), root_1);
-		let mut mdb = essence_1.backend_storage().as_mem_db().unwrap().clone();
-		{
-			let mut trie = TrieDBMutBuilder::new(&mut mdb, &mut root_1).build();
-			trie.insert(b"3", &[1]).expect("insert failed");
-			trie.insert(b"4", &[1]).expect("insert failed");
-			trie.insert(b"6", &[1]).expect("insert failed");
-		}
-		{
-			let mut mdb = KeySpacedDBMut::new(&mut mdb, child_info.keyspace());
-			// reuse of root_1 implicitly assert child trie root is same
-			// as top trie (contents must remain the same).
-			let mut trie = TrieDBMutBuilder::new(&mut mdb, &mut root_1).build();
-			trie.insert(b"3", &[1]).expect("insert failed");
-			trie.insert(b"4", &[1]).expect("insert failed");
-			trie.insert(b"6", &[1]).expect("insert failed");
-		}
-		{
-			let mut trie = TrieDBMutBuilder::new(&mut mdb, &mut root_2).build();
-			trie.insert(child_info.prefixed_storage_key().as_slice(), root_1.as_ref())
-				.expect("insert failed");
-		};
-
 		let essence_1 =
-			TrieBackendEssence::<_, _, LocalTrieCache<_>, sp_trie::recorder::Recorder<_>>::new(
+			TrieBackendEssence::<_, LocalTrieCache<_, _>, sp_trie::recorder::Recorder<_, _>>::new(
 				Box::new(mdb),
 				root_1,
 			);
-		let mdb = essence_1.backend_storage().clone();
 		let essence_1 = TrieBackend::from_essence(essence_1);
 
 		assert_eq!(essence_1.next_storage_key(b"2"), Ok(Some(b"3".to_vec())));
@@ -846,10 +820,11 @@ mod test {
 		assert_eq!(essence_1.next_storage_key(b"5"), Ok(Some(b"6".to_vec())));
 		assert_eq!(essence_1.next_storage_key(b"6"), Ok(None));
 
+		let mdb = essence_1.backend_storage().as_mem_db().unwrap().clone();
 		let essence_2 = TrieBackendEssence::<
 			_,
 			LocalTrieCache<_, DBLocation>,
-			sp_trie::recorder::Recorder<_>,
+			sp_trie::recorder::Recorder<_, _>,
 		>::new(Box::new(mdb), root_2);
 
 		assert_eq!(essence_2.next_child_storage_key(child_info, b"2"), Ok(Some(b"3".to_vec())));

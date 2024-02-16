@@ -673,7 +673,7 @@ pub mod tests {
 
 	const CHILD_KEY_1: &[u8] = b"sub1";
 
-	type Recorder = sp_trie::recorder::Recorder<BlakeTwo256>;
+	type Recorder = sp_trie::recorder::Recorder<BlakeTwo256, DBLocation>;
 	type Cache = LocalTrieCache<BlakeTwo256, DBLocation>;
 	type SharedCache = SharedTrieCache<BlakeTwo256, DBLocation>;
 
@@ -805,7 +805,7 @@ pub mod tests {
 	) -> TrieBackend<BlakeTwo256> {
 		let (mdb, root) = test_db(hashed_value);
 
-		TrieBackendBuilder::new(Box::new(mdb), root)
+		TrieBackendBuilder::<BlakeTwo256>::new(Box::new(mdb), root)
 			.with_optional_cache(cache)
 			.with_optional_recorder(recorder)
 			.build()
@@ -819,7 +819,7 @@ pub mod tests {
 	) -> TrieBackend<BlakeTwo256> {
 		let (mdb, root) = test_db_with_hex_keys(hashed_value, keys);
 
-		TrieBackendBuilder::new(Box::new(mdb), root)
+		TrieBackendBuilder::<BlakeTwo256>::new(Box::new(mdb), root)
 			.with_optional_cache(cache)
 			.with_optional_recorder(recorder)
 			.build()
@@ -1502,7 +1502,7 @@ pub mod tests {
 		];
 
 		fn check_estimation(backend: &TrieBackend<BlakeTwo256>, has_cache: bool) {
-			let estimation = backend.estimate_proof_size().unwrap();
+			let estimation = backend.essence.recorder.read().as_ref().unwrap().estimate_encoded_size();
 			let storage_proof = backend.extract_proof().unwrap();
 			let storage_proof_size =
 				storage_proof.into_nodes().into_iter().map(|n| n.encoded_size()).sum::<usize>();
