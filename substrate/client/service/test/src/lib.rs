@@ -23,13 +23,13 @@ use log::{debug, info};
 use parking_lot::Mutex;
 use sc_client_api::{Backend, CallExecutor};
 use sc_network::{
-	config::{MultiaddrWithPeerId, NetworkConfiguration, RpcBatchRequestConfig, TransportConfig},
+	config::{MultiaddrWithPeerId, NetworkConfiguration, TransportConfig},
 	multiaddr, NetworkBlock, NetworkPeers, NetworkStateInfo,
 };
 use sc_network_sync::SyncingService;
 use sc_service::{
 	client::Client,
-	config::{BasePath, DatabaseSource, KeystoreConfig},
+	config::{BasePath, DatabaseSource, KeystoreConfig, RpcBatchRequestConfig},
 	BlocksPruning, ChainSpecExtension, Configuration, Error, GenericChainSpec, Role,
 	RuntimeGenesis, SpawnTaskHandle, TaskManager,
 };
