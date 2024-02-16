@@ -29,3 +29,5 @@ have correct values) in the `./run-tests.sh`.
 After that, you could run tests with the `./run-tests.sh` command. Hopefully, it'll show the
 "All tests have completed successfully" message in the end. Otherwise, it'll print paths to zombienet
 process logs, which, in turn, may be used to track locations of all spinned relay and parachain nodes.
+
+trigger CI
