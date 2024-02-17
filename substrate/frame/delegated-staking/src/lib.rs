@@ -277,38 +277,7 @@ pub mod pallet {
 			num_slashing_spans: u32,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let mut ledger = DelegationLedger::<T>::get(&who).ok_or(Error::<T>::NotDelegate)?;
-
-			// if we do not already have enough funds to be claimed, try withdraw some more.
-			if ledger.unclaimed_withdrawals < amount {
-				let pre_total =
-					T::CoreStaking::stake(&who).defensive()?.total;
-				// fixme(ank4n) handle killing of stash
-				let _stash_killed: bool =
-					T::CoreStaking::withdraw_unbonded(who.clone(), num_slashing_spans)
-						.map_err(|_| Error::<T>::WithdrawFailed)?;
-
-				let post_total =
-					T::CoreStaking::stake(&who).defensive()?.total;
-
-				let new_withdrawn =
-					post_total.checked_sub(&pre_total).defensive_ok_or(Error::<T>::BadState)?;
-
-				ledger.unclaimed_withdrawals = ledger
-					.unclaimed_withdrawals
-					.checked_add(&new_withdrawn)
-					.ok_or(ArithmeticError::Overflow)?;
-			}
-
-
-			ensure!(
-				ledger.unclaimed_withdrawals > amount,
-				Error::<T>::NotEnoughFunds
-			);
-
-			ledger.save(&who);
-
-			Self::delegation_withdraw(&delegator, &who, amount)
+			Self::do_release(&who, &delegator, amount, num_slashing_spans)
 		}
 
 		/// Migrate delegated fund.
@@ -463,9 +432,87 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn do_release(delegate: &T::AccountId, delegator: &T::AccountId, value: BalanceOf<T>) {
-		// let mut ledger =
-		// 	DelegationLedger::<T>::get(delegate).defensive_ok_or(Error::<T>::NotDelegate)?;
+	fn do_release(
+		who: &T::AccountId,
+		delegator: &T::AccountId,
+		amount: BalanceOf<T>,
+		num_slashing_spans: u32,
+	) -> DispatchResult {
+		let mut ledger = DelegationLedger::<T>::get(who).ok_or(Error::<T>::NotDelegate)?;
+		let mut delegation = Delegation::<T>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
+
+		// make sure delegation to be released is sound.
+		ensure!(&delegation.delegate == who, Error::<T>::NotDelegate);
+		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
+
+		// if we do not already have enough funds to be claimed, try withdraw some more.
+		if ledger.unclaimed_withdrawals < amount {
+			ledger = Self::withdraw_unbounded(who, num_slashing_spans)?;
+		}
+
+		// if we still do not have enough funds to release, abort.
+		ensure!(ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
+
+		// book keep into ledger
+		ledger.total_delegated = ledger.total_delegated.checked_sub(&amount).defensive_ok_or(ArithmeticError::Overflow)?;
+		ledger.unclaimed_withdrawals =
+			ledger.unclaimed_withdrawals.checked_sub(&amount).defensive_ok_or(ArithmeticError::Overflow)?;
+		ledger.save(who);
+
+		// book keep delegation
+		delegation.amount = delegation.amount.checked_sub(&amount).defensive_ok_or(ArithmeticError::Overflow)?;
+
+		// remove delegator if nothing delegated anymore
+		if delegation.amount == BalanceOf::<T>::zero() {
+			<Delegators<T>>::remove(delegator);
+		} else {
+			delegation.save(delegator);
+		}
+
+		let released = T::Currency::release(
+			&HoldReason::Delegating.into(),
+			&delegator,
+			amount,
+			Precision::BestEffort,
+		)?;
+
+		defensive_assert!(released == amount, "hold should have been released fully");
+
+		Self::deposit_event(Event::<T>::Withdrawn {
+			delegate: who.clone(),
+			delegator: delegator.clone(),
+			amount,
+		});
+
+		Ok(())
+	}
+
+	fn withdraw_unbounded(
+		delegate: &T::AccountId,
+		num_slashing_spans: u32,
+	) -> Result<DelegationLedger<T>, DispatchError> {
+		let mut ledger = DelegationLedger::<T>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
+
+		let pre_total = T::CoreStaking::stake(delegate).defensive()?.total;
+
+		// fixme(ank4n) handle killing of stash
+		let _stash_killed: bool =
+			T::CoreStaking::withdraw_unbonded(delegate.clone(), num_slashing_spans)
+				.map_err(|_| Error::<T>::WithdrawFailed)?;
+
+		let post_total = T::CoreStaking::stake(delegate).defensive()?.total;
+
+		let new_withdrawn =
+			post_total.checked_sub(&pre_total).defensive_ok_or(Error::<T>::BadState)?;
+
+		ledger.unclaimed_withdrawals = ledger
+			.unclaimed_withdrawals
+			.checked_add(&new_withdrawn)
+			.ok_or(ArithmeticError::Overflow)?;
+
+		ledger.clone().save(delegate);
+
+		Ok(ledger)
 	}
 	// FIXME(ank4n): remove this
 	fn delegation_withdraw(

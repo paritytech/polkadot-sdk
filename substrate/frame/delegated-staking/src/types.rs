@@ -59,7 +59,7 @@ impl<T: Config> Delegation<T> {
 /// This keeps track of the active balance of the `delegate` that is made up from the funds that are
 /// currently delegated to this `delegate`. It also tracks the pending slashes yet to be applied
 /// among other things.
-#[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Default, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct DelegationLedger<T: Config> {
 	/// Where the reward should be paid out.
