@@ -566,6 +566,7 @@
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -971,6 +972,7 @@
 		id_provider: rpc_id_provider,
 		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
+		rate_limit: config.rpc_rate_limit,
 	};
 
 	<span class="comment">// TODO: https://github.com/paritytech/substrate/issues/13773

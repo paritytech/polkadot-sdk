@@ -652,6 +652,12 @@
 <a href="#652" id="652">652</a>
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -687,7 +693,7 @@
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 <span class="kw">use </span>sc_tracing::logging::LoggerBuilder;
-<span class="kw">use </span>std::{net::SocketAddr, path::PathBuf};
+<span class="kw">use </span>std::{net::SocketAddr, num::NonZeroU32, path::PathBuf};
 
 <span class="doccomment">/// The maximum number of characters for a node name.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NODE_NAME_MAX_LENGTH: usize = <span class="number">64</span>;
@@ -992,6 +998,11 @@
 		<span class="prelude-val">Ok</span>(RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)
 	}
 
+	<span class="doccomment">/// Rate limit calls per minute.
+	</span><span class="kw">fn </span>rpc_rate_limit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;&gt; {
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+	}
+
 	<span class="doccomment">/// Get the prometheus configuration (`None` if disabled)
 	///
 	/// By default this is `None`.
@@ -1164,6 +1175,7 @@
 			rpc_max_subs_per_conn: <span class="self">self</span>.rpc_max_subscriptions_per_connection()<span class="question-mark">?</span>,
 			rpc_port: DCV::rpc_listen_port(),
 			rpc_message_buffer_capacity: <span class="self">self</span>.rpc_buffer_capacity_per_connection()<span class="question-mark">?</span>,
+			rpc_rate_limit: <span class="self">self</span>.rpc_rate_limit()<span class="question-mark">?</span>,
 			prometheus_config: <span class="self">self
 				</span>.prometheus_config(DCV::prometheus_listen_port(), <span class="kw-2">&amp;</span>chain_spec)<span class="question-mark">?</span>,
 			telemetry_endpoints,

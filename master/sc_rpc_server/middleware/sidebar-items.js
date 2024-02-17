@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["metrics"]};
+window.SIDEBAR_ITEMS = {"mod":["metrics","rate_limit"]};

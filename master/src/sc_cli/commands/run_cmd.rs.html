@@ -517,6 +517,22 @@
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
 <a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -553,7 +569,10 @@
 	ChainSpec, Role,
 };
 <span class="kw">use </span>sc_telemetry::TelemetryEndpoints;
-<span class="kw">use </span>std::net::{IpAddr, Ipv4Addr, SocketAddr};
+<span class="kw">use </span>std::{
+	net::{IpAddr, Ipv4Addr, SocketAddr},
+	num::NonZeroU32,
+};
 
 <span class="doccomment">/// The `run` command used to run a node.
 </span><span class="attr">#[derive(Debug, Clone, Parser)]
@@ -600,6 +619,15 @@
 		verbatim_doc_comment
 	)]
 	</span><span class="kw">pub </span>rpc_methods: RpcMethods,
+
+	<span class="doccomment">/// RPC rate limiting (calls/minute) for each connection.
+	///
+	/// This is disabled by default.
+	///
+	/// For example `--rpc-rate-limit 10` will maximum allow
+	/// 10 calls per minute per connection.
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>rpc_rate_limit: <span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;,
 
 	<span class="doccomment">/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	</span><span class="attr">#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
@@ -916,6 +944,10 @@
 
 	<span class="kw">fn </span>rpc_max_subscriptions_per_connection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_max_subscriptions_per_connection)
+	}
+
+	<span class="kw">fn </span>rpc_rate_limit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;&gt; {
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_rate_limit)
 	}
 
 	<span class="kw">fn </span>transaction_pool(<span class="kw-2">&amp;</span><span class="self">self</span>, is_dev: bool) -&gt; <span class="prelude-ty">Result</span>&lt;TransactionPoolOptions&gt; {

@@ -331,6 +331,9 @@
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -372,6 +375,7 @@
 <span class="kw">use </span>std::{
 	io, iter,
 	net::SocketAddr,
+	num::NonZeroU32,
 	path::{Path, PathBuf},
 };
 <span class="kw">use </span>tempfile::TempDir;
@@ -435,6 +439,8 @@
 	</span><span class="kw">pub </span>rpc_port: u16,
 	<span class="doccomment">/// The number of messages the JSON-RPC server is allowed to keep in memory.
 	</span><span class="kw">pub </span>rpc_message_buffer_capacity: u32,
+	<span class="doccomment">/// RPC rate limit per minute.
+	</span><span class="kw">pub </span>rpc_rate_limit: <span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;,
 	<span class="doccomment">/// Prometheus endpoint configuration. `None` if disabled.
 	</span><span class="kw">pub </span>prometheus_config: <span class="prelude-ty">Option</span>&lt;PrometheusConfig&gt;,
 	<span class="doccomment">/// Telemetry service URL. `None` if disabled.

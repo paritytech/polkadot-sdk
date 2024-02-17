@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["start_server"],"mod":["middleware"],"struct":["Config","RandomIntegerIdProvider","RandomStringIdProvider"],"trait":["IdProvider"],"type":["Server"]};
+window.SIDEBAR_ITEMS = {"fn":["start_server"],"mod":["middleware"],"struct":["Config","RandomIntegerIdProvider","RandomStringIdProvider","RpcServiceBuilder"],"trait":["IdProvider"],"type":["Server"]};

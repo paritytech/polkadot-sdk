@@ -254,6 +254,20 @@
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -278,7 +292,9 @@
 
 </span><span class="kw">pub mod </span>middleware;
 
-<span class="kw">use </span>std::{convert::Infallible, error::Error <span class="kw">as </span>StdError, net::SocketAddr, time::Duration};
+<span class="kw">use </span>std::{
+	convert::Infallible, error::Error <span class="kw">as </span>StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
+};
 
 <span class="kw">use </span>http::header::HeaderValue;
 <span class="kw">use </span>hyper::{
@@ -287,10 +303,7 @@
 };
 <span class="kw">use </span>jsonrpsee::{
 	server::{
-		middleware::{
-			http::{HostFilterLayer, ProxyGetRequestLayer},
-			rpc::RpcServiceBuilder,
-		},
+		middleware::http::{HostFilterLayer, ProxyGetRequestLayer},
 		stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
 	},
 	Methods, RpcModule,
@@ -299,11 +312,14 @@
 <span class="kw">use </span>tower::Service;
 <span class="kw">use </span>tower_http::cors::{AllowOrigin, CorsLayer};
 
-<span class="kw">pub use </span>jsonrpsee::core::{
-	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
-	traits::IdProvider,
+<span class="kw">pub use </span>jsonrpsee::{
+	core::{
+		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
+		traits::IdProvider,
+	},
+	server::middleware::rpc::RpcServiceBuilder,
 };
-<span class="kw">pub use </span>middleware::{MetricsLayer, RpcMetrics};
+<span class="kw">pub use </span>middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
 
 <span class="kw">const </span>MEGABYTE: u32 = <span class="number">1024 </span>* <span class="number">1024</span>;
 
@@ -335,12 +351,26 @@
 	</span><span class="kw">pub </span>id_provider: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>IdProvider&gt;&gt;,
 	<span class="doccomment">/// Tokio runtime handle.
 	</span><span class="kw">pub </span>tokio_handle: tokio::runtime::Handle,
+	<span class="doccomment">/// Rate limit calls per minute.
+	</span><span class="kw">pub </span>rate_limit: <span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;,
+}
+
+<span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">struct </span>PerConnection&lt;RpcMiddleware, HttpMiddleware&gt; {
+	methods: Methods,
+	stop_handle: StopHandle,
+	metrics: <span class="prelude-ty">Option</span>&lt;RpcMetrics&gt;,
+	tokio_handle: tokio::runtime::Handle,
+	service_builder: TowerServiceBuilder&lt;RpcMiddleware, HttpMiddleware&gt;,
 }
 
 <span class="doccomment">/// Start RPC server listening on given address.
-</span><span class="kw">pub async fn </span>start_server&lt;M: Send + Sync + <span class="lifetime">&#39;static</span>&gt;(
+</span><span class="kw">pub async fn </span>start_server&lt;M&gt;(
 	config: Config&lt;<span class="lifetime">&#39;_</span>, M&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Server, Box&lt;<span class="kw">dyn </span>StdError + Send + Sync&gt;&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Server, Box&lt;<span class="kw">dyn </span>StdError + Send + Sync&gt;&gt;
+<span class="kw">where
+	</span>M: Send + Sync,
+{
 	<span class="kw">let </span>Config {
 		addrs,
 		cors,
@@ -353,6 +383,7 @@
 		id_provider,
 		tokio_handle,
 		rpc_api,
+		rate_limit,
 	} = config;
 
 	<span class="kw">let </span>std_listener = TcpListener::bind(addrs.as_slice()).<span class="kw">await</span><span class="question-mark">?</span>.into_std()<span class="question-mark">?</span>;
@@ -409,7 +440,13 @@
 				<span class="kw">let </span>transport_label = <span class="kw">if </span>is_websocket { <span class="string">&quot;ws&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;http&quot; </span>};
 
 				<span class="kw">let </span>metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
-				<span class="kw">let </span>rpc_middleware = RpcServiceBuilder::new().option_layer(metrics.clone());
+				<span class="kw">let </span>rate_limit = rate_limit.map(|r| RateLimitLayer::per_minute(r));
+
+				<span class="comment">// NOTE: The metrics needs to run first to include rate-limited calls in the
+				// metrics.
+				</span><span class="kw">let </span>rpc_middleware =
+					RpcServiceBuilder::new().option_layer(metrics.clone()).option_layer(rate_limit);
+
 				<span class="kw">let </span><span class="kw-2">mut </span>svc =
 					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
 
@@ -500,14 +537,5 @@
 	} <span class="kw">else </span>{
 		<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, [<span class="string">&quot;*&quot;</span>])
 	}
-}
-
-<span class="attr">#[derive(Clone)]
-</span><span class="kw">struct </span>PerConnection&lt;RpcMiddleware, HttpMiddleware&gt; {
-	methods: Methods,
-	stop_handle: StopHandle,
-	metrics: <span class="prelude-ty">Option</span>&lt;RpcMetrics&gt;,
-	tokio_handle: tokio::runtime::Handle,
-	service_builder: TowerServiceBuilder&lt;RpcMiddleware, HttpMiddleware&gt;,
 }
 </code></pre></div></section></main></body></html>
