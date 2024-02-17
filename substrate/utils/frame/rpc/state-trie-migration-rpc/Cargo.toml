@@ -32,4 +32,4 @@ sc-rpc-api = { path = "../../../../client/rpc-api" }
 sp-runtime = { path = "../../../../primitives/runtime" }
 
 [dev-dependencies]
-serde_json = "1.0.111"
+serde_json = "1.0.113"
