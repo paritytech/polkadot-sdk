@@ -272,7 +272,7 @@ pub trait StakingInterface {
 	/// Checks whether an account `staker` has been exposed in an era.
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool;
 
-	/// Return the status of the given staker, `None` if not staked at all.
+	/// Return the status of the given staker, `Err` if not staked at all.
 	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError>;
 
 	/// Checks whether or not this is a validator account.
