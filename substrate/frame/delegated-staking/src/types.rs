@@ -38,30 +38,19 @@ pub struct Delegation<T: Config> {
     pub delegate: T::AccountId,
     /// The amount delegated.
     pub amount: BalanceOf<T>,
-    /// The `delegator` account who is delegating.
-    #[codec(skip)]
-    pub delegator: Option<T::AccountId>,
 }
 
 impl<T: Config> Delegation<T> {
     pub(crate) fn get(delegator: &T::AccountId) -> Option<Self> {
-        <Delegators<T>>::get(delegator).map(|d| d.with_key(delegator))
-    }
-
-    /// consumes self and returns a new copy with the key.
-    fn with_key(self, key: &T::AccountId) -> Self {
-        Delegation { delegator: Some(key.clone()), ..self }
+        <Delegators<T>>::get(delegator)
     }
 
     pub(crate) fn from(delegate: &T::AccountId, amount: BalanceOf<T>) -> Self {
-        Delegation { delegate: delegate.clone(), amount, delegator: None }
+        Delegation { delegate: delegate.clone(), amount }
     }
 
-    pub(crate) fn save(self, key: &T::AccountId) -> Self {
-        let new_val = self.with_key(key);
-        <Delegators<T>>::insert(key, &new_val);
-
-        new_val
+    pub(crate) fn save(self, key: &T::AccountId) {
+        <Delegators<T>>::insert(key, self)
     }
 
 }
@@ -88,9 +77,6 @@ pub struct DelegationLedger<T: Config> {
     pub pending_slash: BalanceOf<T>,
     /// Whether this `delegate` is blocked from receiving new delegations.
     pub blocked: bool,
-    /// The `delegate` account associated with the ledger.
-    #[codec(skip)]
-    pub delegate: Option<T::AccountId>,
 }
 
 
@@ -103,17 +89,12 @@ impl<T: Config> DelegationLedger<T> {
             hold: Zero::zero(),
             pending_slash: Zero::zero(),
             blocked: false,
-            delegate: None,
         }
     }
 
-    /// consumes self and returns a new copy with the key.
-    fn with_key(self, key: &T::AccountId) -> Self {
-        DelegationLedger { delegate: Some(key.clone()), ..self }
-    }
 
     pub(crate) fn get(key: &T::AccountId) -> Option<Self> {
-        <Delegates<T>>::get(key).map(|d| d.with_key(key))
+        <Delegates<T>>::get(key)
     }
 
     /// Balance that is stakeable.
@@ -130,10 +111,7 @@ impl<T: Config> DelegationLedger<T> {
         self.total_delegated.saturating_sub(self.hold)
     }
 
-    pub(crate) fn save(self, key: &T::AccountId) -> Self {
-        let new_val = self.with_key(key);
-        <Delegates<T>>::insert(key, &new_val);
-
-        new_val
+    pub(crate) fn save(self, key: &T::AccountId) {
+        <Delegates<T>>::insert(key, self)
     }
 }

@@ -399,7 +399,6 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 				Delegation {
 					delegate: delegate.clone(),
 					amount: updated_delegate_balance,
-					delegator: Some(proxy_delegator.clone()),
 				}
 			);
 		}
