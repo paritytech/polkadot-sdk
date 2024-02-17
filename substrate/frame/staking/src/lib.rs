@@ -420,7 +420,6 @@ impl<AccountId: Clone> RewardDestination<AccountId> {
 			},
 		}
 	}
-
 }
 
 /// Preference of what happens regarding validation.

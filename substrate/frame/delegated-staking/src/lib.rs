@@ -454,13 +454,21 @@ impl<T: Config> Pallet<T> {
 		ensure!(ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
 
 		// book keep into ledger
-		ledger.total_delegated = ledger.total_delegated.checked_sub(&amount).defensive_ok_or(ArithmeticError::Overflow)?;
-		ledger.unclaimed_withdrawals =
-			ledger.unclaimed_withdrawals.checked_sub(&amount).defensive_ok_or(ArithmeticError::Overflow)?;
+		ledger.total_delegated = ledger
+			.total_delegated
+			.checked_sub(&amount)
+			.defensive_ok_or(ArithmeticError::Overflow)?;
+		ledger.unclaimed_withdrawals = ledger
+			.unclaimed_withdrawals
+			.checked_sub(&amount)
+			.defensive_ok_or(ArithmeticError::Overflow)?;
 		ledger.save(who);
 
 		// book keep delegation
-		delegation.amount = delegation.amount.checked_sub(&amount).defensive_ok_or(ArithmeticError::Overflow)?;
+		delegation.amount = delegation
+			.amount
+			.checked_sub(&amount)
+			.defensive_ok_or(ArithmeticError::Overflow)?;
 
 		// remove delegator if nothing delegated anymore
 		if delegation.amount == BalanceOf::<T>::zero() {

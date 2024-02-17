@@ -373,7 +373,7 @@ use sp_runtime::{
 	},
 	FixedPointNumber, Perbill,
 };
-use sp_staking::{EraIndex, StakingInterface, delegation::DelegationInterface};
+use sp_staking::{delegation::DelegationInterface, EraIndex, StakingInterface};
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
@@ -2264,9 +2264,9 @@ pub mod pallet {
 			ensure!(!withdrawn_points.is_empty(), Error::<T>::CannotWithdrawAny);
 
 			let mut sum_unlocked_points: BalanceOf<T> = Zero::zero();
-			let balance_to_unbond = withdrawn_points
-				.iter()
-				.fold(BalanceOf::<T>::zero(), |accumulator, (era, unlocked_points)| {
+			let balance_to_unbond = withdrawn_points.iter().fold(
+				BalanceOf::<T>::zero(),
+				|accumulator, (era, unlocked_points)| {
 					sum_unlocked_points = sum_unlocked_points.saturating_add(*unlocked_points);
 					if let Some(era_pool) = sub_pools.with_era.get_mut(era) {
 						let balance_to_unbond = era_pool.dissolve(*unlocked_points);
@@ -2279,15 +2279,20 @@ pub mod pallet {
 						// era-less pool.
 						accumulator.saturating_add(sub_pools.no_era.dissolve(*unlocked_points))
 					}
-				});
+				},
+			);
 			// fixme(ank4n): Transfer whatever is minimum transferable.
 			// Withdraw upto limit and return the amount withdrawn and whether stash killed.
 
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
 			// `transferrable_balance` is correct.
 			// fixme(ank4n): Handle result.
-			let _withdraw_result =
-				T::Staking::delegate_withdraw(&bonded_pool.bonded_account(), &member_account, balance_to_unbond, num_slashing_spans)?;
+			let _withdraw_result = T::Staking::delegate_withdraw(
+				&bonded_pool.bonded_account(),
+				&member_account,
+				balance_to_unbond,
+				num_slashing_spans,
+			)?;
 
 			// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.
@@ -2295,7 +2300,6 @@ pub mod pallet {
 			// 	!stash_killed || caller == bonded_pool.roles.depositor,
 			// 	Error::<T>::Defensive(DefensiveError::BondedStashKilledPrematurely)
 			// );
-
 
 			Self::deposit_event(Event::<T>::Withdrawn {
 				member: member_account.clone(),
