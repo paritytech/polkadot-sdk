@@ -18,6 +18,10 @@
 
 //! JSON-RPC specific middleware.
 
+/// Grafana metrics middleware.
 pub mod metrics;
+/// Rate limit middleware.
+pub mod rate_limit;
 
 pub use metrics::*;
+pub use rate_limit::*;
