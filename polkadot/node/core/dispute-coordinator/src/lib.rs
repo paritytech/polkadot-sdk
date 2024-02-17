@@ -341,6 +341,8 @@ impl DisputeCoordinatorSubsystem {
 				runtime_info,
 				highest_session,
 				leaf_hash,
+				// on startup we don't have any off-chain disabled state
+				std::iter::empty(),
 			)
 			.await
 			{
@@ -370,10 +372,9 @@ impl DisputeCoordinatorSubsystem {
 					},
 				};
 			let vote_state = CandidateVoteState::new(votes, &env, now);
-			let onchain_disabled = env.disabled_indices();
-			let potential_spam = is_potential_spam(&scraper, &vote_state, candidate_hash, |v| {
-				onchain_disabled.contains(v)
-			});
+			let is_disabled = |v: &ValidatorIndex| env.disabled_indices().contains(v);
+			let potential_spam =
+				is_potential_spam(&scraper, &vote_state, candidate_hash, is_disabled);
 			let is_included =
 				scraper.is_candidate_included(&vote_state.votes().candidate_receipt.hash());
 
