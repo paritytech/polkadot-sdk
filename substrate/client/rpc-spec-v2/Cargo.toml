@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.20.3", features = ["client-core", "macros", "server"] }
+jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
 # Internal chain structures for "chain_spec".
 sc-chain-spec = { path = "../chain-spec" }
 # Pool for submitting extrinsics required by "transaction"
@@ -44,7 +44,7 @@ futures-util = { version = "0.3.30", default-features = false }
 rand = "0.8.5"
 
 [dev-dependencies]
-serde_json = "1.0.111"
+serde_json = "1.0.113"
 tokio = { version = "1.22.0", features = ["macros"] }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }
