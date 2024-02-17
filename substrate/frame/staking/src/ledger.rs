@@ -16,6 +16,20 @@
 // limitations under the License.
 
 //! A Ledger implementation for stakers.
+//!
+//! A [`StakingLedger`] encapsulates all the state and logic related to the stake of bonded
+//! stakers, namely, it handles the following storage items:
+//! * [`Bonded`]: mutates and reads the state of the controller <> stash bond map (to be deprecated
+//! soon);
+//! * [`Ledger`]: mutates and reads the state of all the stakers. The [`Ledger`] storage item stores
+//!   instances of [`StakingLedger`] keyed by the staker's controller account and should be mutated
+//!   and read through the [`StakingLedger`] API;
+//! * [`Payee`]: mutates and reads the reward destination preferences for a bonded stash.
+//! * Staking locks: mutates the locks for staking.
+//!
+//! NOTE: All the storage operations related to the staking ledger (both reads and writes) *MUST* be
+//! performed through the methods exposed by the [`StakingLedger`] implementation in order to ensure
+//! state consistency.
 
 use frame_support::defensive;
 use sp_staking::{StakingAccount, StakingInterface};
