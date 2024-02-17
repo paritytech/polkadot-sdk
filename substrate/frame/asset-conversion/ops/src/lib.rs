@@ -79,7 +79,7 @@ pub mod pallet {
 		>;
 
 		/// Retrieves information about an existing deposit for a given account ID and asset from
-		/// the [`Self::Assets`] registry and can initiate the refund.
+		/// the [`pallet_asset_conversion::Config::Assets`] registry and can initiate the refund.
 		type AssetsRefund: Refund<
 			Self::AccountId,
 			AssetId = Self::AssetKind,
@@ -87,18 +87,21 @@ pub mod pallet {
 		>;
 
 		/// Retrieves information about an existing deposit for a given account ID and asset from
-		/// the [`Self::PoolAssets`] registry and can initiate the refund.
+		/// the [`pallet_asset_conversion::Config::PoolAssets`] registry and can initiate the
+		/// refund.
 		type PoolAssetsRefund: Refund<
 			Self::AccountId,
 			AssetId = Self::PoolAssetId,
 			Balance = <Self::DepositAsset as FungibleInspect<Self::AccountId>>::Balance,
 		>;
 
-		/// Means to reset the team for assets from the [`Self::PoolAssets`] registry.
+		/// Means to reset the team for assets from the
+		/// [`pallet_asset_conversion::Config::PoolAssets`] registry.
 		type PoolAssetsTeam: ResetTeam<Self::AccountId, AssetId = Self::PoolAssetId>;
 
-		/// Registry of an asset used as an account deposit for the [`Self::Assets`] and
-		/// [`Self::PoolAssets`] registries.
+		/// Registry of an asset used as an account deposit for the
+		/// [`pallet_asset_conversion::Config::Assets`] and
+		/// [`pallet_asset_conversion::Config::PoolAssets`] registries.
 		type DepositAsset: FungibleMutate<Self::AccountId>;
 
 		/// Weight information for extrinsics in this pallet.

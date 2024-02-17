@@ -9087,7 +9087,6 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types",
  "scale-info",
- "sp-api",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
