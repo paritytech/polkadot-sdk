@@ -1387,6 +1387,11 @@
 <a href="#1387" id="1387">1387</a>
 <a href="#1388" id="1388">1388</a>
 <a href="#1389" id="1389">1389</a>
+<a href="#1390" id="1390">1390</a>
+<a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1821,6 +1826,11 @@
 		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 			<span class="self">Self</span>::do_try_state()<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+		</span><span class="kw">fn </span>integrity_test() {
+			T::Tracks::check_integrity().expect(<span class="string">&quot;Static tracks configuration is valid.&quot;</span>);
 		}
 	}
 
