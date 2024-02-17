@@ -514,51 +514,6 @@ impl<T: Config> Pallet<T> {
 
 		Ok(ledger)
 	}
-	// FIXME(ank4n): remove this
-	fn delegation_withdraw(
-		delegator: &T::AccountId,
-		delegate: &T::AccountId,
-		value: BalanceOf<T>,
-	) -> DispatchResult {
-		let mut delegation_register =
-			<Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		ensure!(delegation_register.unbonded_balance() >= value, Error::<T>::BadState);
-
-		delegation_register.total_delegated.saturating_reduce(value);
-		<Delegates<T>>::insert(delegate, delegation_register);
-
-		let delegation = <Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
-		// delegator should already be delegating to `delegate`
-		ensure!(&delegation.delegate == delegate, Error::<T>::NotDelegate);
-		ensure!(delegation.amount >= value, Error::<T>::NotEnoughFunds);
-		let updated_delegate_balance = delegation.amount.saturating_sub(value);
-
-		// remove delegator if nothing delegated anymore
-		if updated_delegate_balance == BalanceOf::<T>::zero() {
-			<Delegators<T>>::remove(delegator);
-		} else {
-			<Delegators<T>>::insert(
-				delegator,
-				Delegation::<T>::from(delegate, updated_delegate_balance),
-			);
-		}
-
-		let released = T::Currency::release(
-			&HoldReason::Delegating.into(),
-			&delegator,
-			value,
-			Precision::BestEffort,
-		)?;
-
-		defensive_assert!(released == value, "hold should have been released fully");
-		Self::deposit_event(Event::<T>::Withdrawn {
-			delegate: delegate.clone(),
-			delegator: delegator.clone(),
-			amount: value,
-		});
-
-		Ok(())
-	}
 }
 
 #[cfg(any(test, feature = "try-runtime"))]

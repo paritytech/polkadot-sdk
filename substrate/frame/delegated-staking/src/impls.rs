@@ -64,8 +64,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		}
 
 		if Self::is_delegator(who) {
-			let delegation =
-				Delegation::<T>::get(who).defensive_ok_or(Error::<T>::BadState)?;
+			let delegation = Delegation::<T>::get(who).defensive_ok_or(Error::<T>::BadState)?;
 			return Ok(delegation.amount)
 		}
 
@@ -236,9 +235,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		_proxy_delegator: &Self::AccountId,
 		reward_destination: &Self::AccountId,
 	) -> DispatchResult {
-		Self::migrate_to_delegate(RawOrigin::Signed(who.clone()).into(),
-								  reward_destination.clone()
-		)
+		Self::migrate_to_delegate(RawOrigin::Signed(who.clone()).into(), reward_destination.clone())
 	}
 
 	fn block_delegations(delegate: &Self::AccountId) -> DispatchResult {
@@ -280,19 +277,12 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		value: Self::Balance,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
-		// check how much is already unbonded
-		let delegation_register = <Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		let unbonded_balance = delegation_register.unbonded_balance();
-
-		if unbonded_balance < value {
-			// fixme(ank4n) handle killing of stash
-			let amount_to_withdraw = value.saturating_sub(unbonded_balance);
-			let _stash_killed: bool =
-				T::CoreStaking::withdraw_exact(delegate, amount_to_withdraw, num_slashing_spans)
-					.map_err(|_| Error::<T>::WithdrawFailed)?;
-		}
-
-		Self::delegation_withdraw(delegator, delegate, value)
+		Self::release(
+			RawOrigin::Signed(delegate.clone()).into(),
+			delegator.clone(),
+			value,
+			num_slashing_spans,
+		)
 	}
 
 	fn apply_slash(
@@ -303,8 +293,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	) -> DispatchResult {
 		let mut delegation_register =
 			<Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		let delegation =
-			<Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
+		let delegation = <Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
 
 		ensure!(&delegation.delegate == delegate, Error::<T>::NotDelegate);
 		ensure!(delegation.amount >= value, Error::<T>::NotEnoughFunds);
@@ -345,8 +334,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			<DelegateMigration<T>>::get(delegate).ok_or(Error::<T>::NotMigrating)?;
 		// proxy delegator must exist
 		// let (assigned_delegate, delegate_balance) =
-		let delegation =
-			<Delegators<T>>::get(&proxy_delegator).ok_or(Error::<T>::BadState)?;
+		let delegation = <Delegators<T>>::get(&proxy_delegator).ok_or(Error::<T>::BadState)?;
 		ensure!(delegation.delegate == *delegate, Error::<T>::BadState);
 
 		// make sure proxy delegator has enough balance to support this migration.
@@ -363,10 +351,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			// else update proxy delegator
 			<Delegators<T>>::insert(
 				&proxy_delegator,
-				Delegation {
-					delegate: delegate.clone(),
-					amount: updated_delegate_balance,
-				}
+				Delegation { delegate: delegate.clone(), amount: updated_delegate_balance },
 			);
 		}
 
@@ -437,61 +422,61 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 }
 
 impl<T: Config> StakingDelegationSupport for Pallet<T> {
-    type Balance = BalanceOf<T>;
-    type AccountId = T::AccountId;
-    fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
-        <Delegates<T>>::get(who)
-            .map(|delegate| delegate.delegated_balance())
-            .unwrap_or_default()
-    }
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
+	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
+		<Delegates<T>>::get(who)
+			.map(|delegate| delegate.delegated_balance())
+			.unwrap_or_default()
+	}
 
-    fn restrict_reward_destination(
-        who: &Self::AccountId,
-        reward_destination: Option<Self::AccountId>,
-    ) -> bool {
-        let maybe_register = <Delegates<T>>::get(who);
+	fn restrict_reward_destination(
+		who: &Self::AccountId,
+		reward_destination: Option<Self::AccountId>,
+	) -> bool {
+		let maybe_register = <Delegates<T>>::get(who);
 
-        if maybe_register.is_none() {
-            // no restrictions for non delegates.
-            return false;
-        }
+		if maybe_register.is_none() {
+			// no restrictions for non delegates.
+			return false;
+		}
 
-        // restrict if reward destination is not set
-        if reward_destination.is_none() {
-            return true;
-        }
+		// restrict if reward destination is not set
+		if reward_destination.is_none() {
+			return true;
+		}
 
-        let register = maybe_register.expect("checked above; qed");
-        let reward_acc = reward_destination.expect("checked above; qed");
+		let register = maybe_register.expect("checked above; qed");
+		let reward_acc = reward_destination.expect("checked above; qed");
 
-        // restrict if reward account is not what delegate registered.
-        register.payee != reward_acc
-    }
+		// restrict if reward account is not what delegate registered.
+		register.payee != reward_acc
+	}
 
-    fn is_delegate(who: &Self::AccountId) -> bool {
-        Self::is_delegate(who)
-    }
+	fn is_delegate(who: &Self::AccountId) -> bool {
+		Self::is_delegate(who)
+	}
 
-    fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-        ensure!(Self::is_delegate(who), Error::<T>::NotSupported);
+	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		ensure!(Self::is_delegate(who), Error::<T>::NotSupported);
 
-        // delegation register should exist since `who` is a delegate.
-        let delegation_register = <Delegates<T>>::get(who).defensive_ok_or(Error::<T>::BadState)?;
+		// delegation register should exist since `who` is a delegate.
+		let delegation_register = <Delegates<T>>::get(who).defensive_ok_or(Error::<T>::BadState)?;
 
-        ensure!(delegation_register.total_delegated >= amount, Error::<T>::NotEnoughFunds);
-        ensure!(delegation_register.pending_slash <= amount, Error::<T>::UnappliedSlash);
-        let updated_register = DelegationLedger { hold: amount, ..delegation_register };
-        <Delegates<T>>::insert(who, updated_register);
+		ensure!(delegation_register.total_delegated >= amount, Error::<T>::NotEnoughFunds);
+		ensure!(delegation_register.pending_slash <= amount, Error::<T>::UnappliedSlash);
+		let updated_register = DelegationLedger { hold: amount, ..delegation_register };
+		<Delegates<T>>::insert(who, updated_register);
 
-        Ok(())
-    }
+		Ok(())
+	}
 
-    fn report_slash(who: &Self::AccountId, slash: Self::Balance) {
-        <Delegates<T>>::mutate(who, |maybe_register| match maybe_register {
-            Some(register) => register.pending_slash.saturating_accrue(slash),
-            None => {
-                defensive!("should not be called on non-delegate");
-            },
-        });
-    }
+	fn report_slash(who: &Self::AccountId, slash: Self::Balance) {
+		<Delegates<T>>::mutate(who, |maybe_register| match maybe_register {
+			Some(register) => register.pending_slash.saturating_accrue(slash),
+			None => {
+				defensive!("should not be called on non-delegate");
+			},
+		});
+	}
 }
