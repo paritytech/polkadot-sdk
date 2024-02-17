@@ -67,9 +67,13 @@ use frame_support::{
 		DefensiveOption, Imbalance, OnUnbalanced,
 	},
 	transactional,
+	weights::Weight,
 };
 
-use sp_runtime::{traits::{Zero, AccountIdConversion}, DispatchResult, Perbill, RuntimeDebug, Saturating};
+use sp_runtime::{
+	traits::{AccountIdConversion, Zero},
+	DispatchResult, Perbill, RuntimeDebug, Saturating,
+};
 use sp_staking::{
 	delegation::{DelegationInterface, StakingDelegationSupport},
 	EraIndex, Stake, StakerStatus, StakingInterface,
@@ -82,6 +86,7 @@ pub type BalanceOf<T> =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use frame_system::{ensure_signed, pallet_prelude::*};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -187,6 +192,74 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type DelegateMigration<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, T::AccountId, OptionQuery>;
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Register an account to be a `Delegate`.
+		///
+		/// `Delegate` accounts accepts delegations from other `delegator`s and stake funds on their
+		/// behalf.
+		#[pallet::call_index(0)]
+		#[pallet::weight(Weight::default())]
+		pub fn register_as_delegate(
+			origin: OriginFor<T>,
+			reward_account: T::AccountId,
+		) -> DispatchResult {
+			todo!()
+		}
+
+		/// Migrate from a `Nominator` account to `Delegate` account.
+		#[pallet::call_index(1)]
+		#[pallet::weight(Weight::default())]
+		pub fn migrate_to_delegate(
+			origin: OriginFor<T>,
+			reward_account: T::AccountId,
+		) -> DispatchResult {
+			todo!()
+		}
+
+		/// Release delegated amount to delegator.
+		///
+		/// Tries to withdraw unbonded fund if needed from staking and release amount to delegator.
+		///
+		/// Only `delegate` account can call this.
+		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::default())]
+		pub fn release (
+			origin: OriginFor<T>,
+			delegator: T::AccountId,
+			amount: BalanceOf<T>,
+			num_slashing_spans: u32,
+		) -> DispatchResult {
+			todo!()
+		}
+
+		/// Migrate delegated fund.
+		///
+		/// This moves delegator funds from `pxoxy_delegator` account to `delegator` account.
+		///
+		/// Only `delegate` account can call this.
+		#[pallet::call_index(3)]
+		#[pallet::weight(Weight::default())]
+		pub fn migrate_delegation(origin: OriginFor<T>, delegator: T::AccountId, amount: BalanceOf<T>) -> DispatchResult{
+			todo!()
+		}
+
+		/// Delegate funds to a `Delegate` account.
+		#[pallet::call_index(4)]
+		#[pallet::weight(Weight::default())]
+		// FIXME(ank4n): rename to `delegate`
+		pub fn delegate_funds(origin: OriginFor<T>, delegate: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+			todo!()
+		}
+
+		/// Add funds to an existing delegation.
+		#[pallet::call_index(5)]
+		#[pallet::weight(Weight::default())]
+		pub fn delegate_extra(origin: OriginFor<T>, delegate: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+			todo!()
+		}
+	}
 }
 
 /// Register of all delegations to a `Delegate`.
@@ -256,8 +329,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	}
 
 	fn unbonded_balance(who: &Self::AccountId) -> Self::Balance {
-		<Delegates<T>>::get(who)
-			.map_or_else(|| 0u32.into(), |register| register.unbonded_balance())
+		<Delegates<T>>::get(who).map_or_else(|| 0u32.into(), |register| register.unbonded_balance())
 	}
 
 	fn accept_delegations(
@@ -568,8 +640,7 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 		ensure!(Self::is_delegate(who), Error::<T>::NotSupported);
 
 		// delegation register should exist since `who` is a delegate.
-		let delegation_register =
-			<Delegates<T>>::get(who).defensive_ok_or(Error::<T>::BadState)?;
+		let delegation_register = <Delegates<T>>::get(who).defensive_ok_or(Error::<T>::BadState)?;
 
 		ensure!(delegation_register.total_delegated >= amount, Error::<T>::NotEnoughFunds);
 		ensure!(delegation_register.pending_slash <= amount, Error::<T>::UnappliedSlash);
