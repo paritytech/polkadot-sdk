@@ -270,7 +270,6 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		}
 	}
 
-	#[transactional]
 	fn delegate_withdraw(
 		delegate: &Self::AccountId,
 		delegator: &Self::AccountId,
