@@ -2287,7 +2287,7 @@ pub mod pallet {
 			// `transferrable_balance` is correct.
 			// fixme(ank4n): Handle result.
 			let _withdraw_result =
-				T::Staking::withdraw(&bonded_pool.bonded_account(), &member_account, balance_to_unbond, num_slashing_spans)?;
+				T::Staking::delegate_withdraw(&bonded_pool.bonded_account(), &member_account, balance_to_unbond, num_slashing_spans)?;
 
 			// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.

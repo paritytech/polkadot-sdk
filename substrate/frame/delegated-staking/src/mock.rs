@@ -21,6 +21,7 @@ use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
 	traits::{ConstU64, Currency},
+	PalletId,
 };
 
 use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
@@ -134,8 +135,12 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const DelegatedStakingPalletId: PalletId = PalletId(*b"py/dlstk");
+}
 impl delegated_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type PalletId = DelegatedStakingPalletId;
 	type Currency = Balances;
 	type OnSlash = ();
 	type RuntimeHoldReason = RuntimeHoldReason;

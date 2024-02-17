@@ -20,7 +20,7 @@
 
 //! An implementation of a delegation system for staking that can be utilised using
 //! [`DelegationInterface`]. In future, if exposed via extrinsic, these primitives could also be
-//! used by off-chain entities, smart contracts or by other parachains via xcm.
+//! used by off-chain entities, or by foreign multi-locations (via xcm).
 //!
 //! Delegate: Someone who accepts delegations. An account can set their intention to accept
 //! delegations by calling [`DelegationInterface::accept_delegations`]. This account cannot have
@@ -69,7 +69,7 @@ use frame_support::{
 	transactional,
 };
 
-use sp_runtime::{traits::Zero, DispatchResult, Perbill, RuntimeDebug, Saturating};
+use sp_runtime::{traits::{Zero, AccountIdConversion}, DispatchResult, Perbill, RuntimeDebug, Saturating};
 use sp_staking::{
 	delegation::{DelegationInterface, StakingDelegationSupport},
 	EraIndex, Stake, StakerStatus, StakingInterface,
@@ -90,6 +90,10 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// Injected identifier for the pallet.
+		#[pallet::constant]
+		type PalletId: Get<frame_support::PalletId>;
 
 		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ FunMutate<Self::AccountId>
@@ -207,18 +211,38 @@ pub struct DelegationLedger<T: Config> {
 	pub pending_slash: BalanceOf<T>,
 	/// Whether this `delegate` is blocked from receiving new delegations.
 	pub blocked: bool,
+	/// The `delegate` account associated with the ledger.
+	#[codec(skip)]
+	delegate: Option<T::AccountId>,
+}
+
+/// The type of pot account being created.
+#[derive(Encode, Decode)]
+enum AccountType {
+	/// Funds that are withdrawn from the staking ledger but not claimed by the `delegator` yet.
+	UnclaimedWithdrawal,
+	/// A proxy delegator account created for a nominator who migrated to a `delegate` account.
+	///
+	/// Funds for unmigrated `delegator` accounts of the `delegate` are kept here.
+	ProxyDelegator,
 }
 
 impl<T: Config> DelegationLedger<T> {
-	/// balance that can be staked.
+	/// Balance that is stakeable.
 	pub fn delegated_balance(&self) -> BalanceOf<T> {
 		// do not allow to stake more than unapplied slash
 		self.total_delegated.saturating_sub(self.pending_slash)
 	}
 
-	/// balance that is delegated but not bonded.
+	/// Balance that is delegated but not bonded.
+	///
+	/// Can be funds that are unbonded but not withdrawn.
 	pub fn unbonded_balance(&self) -> BalanceOf<T> {
 		self.total_delegated.saturating_sub(self.hold)
+	}
+
+	pub fn unclaimed_withdraw_account(&self) -> T::AccountId {
+		T::PalletId::get().into_sub_account_truncating(self.delegate.clone())
 	}
 }
 
@@ -264,6 +288,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 				hold: Zero::zero(),
 				pending_slash: Zero::zero(),
 				blocked: false,
+				delegate: Some(who.clone()),
 			},
 		);
 
@@ -348,7 +373,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	}
 
 	#[transactional]
-	fn withdraw(
+	fn delegate_withdraw(
 		delegate: &Self::AccountId,
 		delegator: &Self::AccountId,
 		value: Self::Balance,

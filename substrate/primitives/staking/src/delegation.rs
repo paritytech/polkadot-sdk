@@ -87,7 +87,7 @@ pub trait DelegationInterface {
 	///
 	/// Important: It is upto `delegate` to enforce which `delegator` can withdraw `value`. The
 	/// withdrawn value is released in `delegator`'s account.
-	fn withdraw(
+	fn delegate_withdraw(
 		delegate: &Self::AccountId,
 		delegator: &Self::AccountId,
 		value: Self::Balance,
