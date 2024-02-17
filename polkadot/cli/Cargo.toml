@@ -19,7 +19,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 cfg-if = "1.0"
-clap = { version = "4.4.18", features = ["derive"], optional = true }
+clap = { version = "4.5.0", features = ["derive"], optional = true }
 log = { workspace = true, default-features = true }
 thiserror = "1.0.48"
 futures = "0.3.21"

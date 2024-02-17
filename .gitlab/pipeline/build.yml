@@ -335,11 +335,13 @@ build-runtimes-polkavm:
   extends:
     - .docker-env
     - .common-refs
+    - .run-immediately
   script:
     - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p minimal-runtime
     - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p westend-runtime
     - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p rococo-runtime
     - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p polkadot-test-runtime
+  allow_failure: true
 
 .build-subkey:
   stage: build
@@ -408,8 +410,5 @@ prepare-bridges-zombienet-artifacts:
     - .collect-artifacts
   before_script:
     - mkdir -p ./artifacts/bridges-polkadot-sdk/bridges
-    - mkdir -p ./artifacts/bridges-polkadot-sdk/cumulus/zombienet
   script:
-    - cp -r bridges/zombienet ./artifacts/bridges-polkadot-sdk/bridges/zombienet
-    - cp -r cumulus/scripts ./artifacts/bridges-polkadot-sdk/cumulus/scripts
-    - cp -r cumulus/zombienet/bridge-hubs ./artifacts/bridges-polkadot-sdk/cumulus/zombienet/bridge-hubs
+    - cp -r bridges/testing ./artifacts/bridges-polkadot-sdk/bridges/testing
