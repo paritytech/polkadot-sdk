@@ -51,6 +51,7 @@ use std::{
 };
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
 use tokio_retry::{strategy::FixedInterval, Retry};
+use tokio::task;
 
 type KeyValue = (StorageKey, StorageData);
 type TopKeyValues = Vec<KeyValue>;
@@ -875,9 +876,8 @@ where
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<ChildKeyValues, &'static str> {
 		let child_roots = top_kv
-			.iter()
-			.filter(|(k, _)| is_default_child_storage_key(k.as_ref()))
-			.map(|(k, _)| k.clone())
+			.into_iter()
+			.filter_map(|(k, _)| is_default_child_storage_key(k.as_ref()).then(|| k.clone()))
 			.collect::<Vec<_>>();
 
 		if child_roots.is_empty() {
@@ -893,34 +893,60 @@ where
 
 		let at = self.as_online().at_expected();
 
-		let client = self.as_online().rpc_client();
+		// Create an Arc to share ownership of the client.
+		let client = Arc::new(self.as_online().rpc_client().clone());
 		let mut child_kv = vec![];
-		for prefixed_top_key in child_roots {
-			let child_keys =
-				Self::rpc_child_get_keys(client, &prefixed_top_key, StorageKey(vec![]), at).await?;
 
-			let child_kv_inner =
-				Self::rpc_child_get_storage_paged(client, &prefixed_top_key, child_keys, at)
-					.await?;
+		// Spawn tasks for each child root and collect their handles.
+		let handles: Vec<_> = child_roots.into_iter().map(|prefixed_top_key| {
+			let client = Arc::clone(&client); // Increase the reference count of the Arc.
+			task::spawn(async move {
+				// Asynchronously retrieve child keys using the RPC client.
+				let child_keys =
+					Self::rpc_child_get_keys(&client, &prefixed_top_key, StorageKey(vec![]), at)
+						.await?;
 
-			let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
-			let un_prefixed = match ChildType::from_prefixed_key(&prefixed_top_key) {
-				Some((ChildType::ParentKeyId, storage_key)) => storage_key,
-				None => {
-					log::error!(target: LOG_TARGET, "invalid key: {:?}", prefixed_top_key);
-					return Err("Invalid child key")
+				// Asynchronously retrieve child storage data using the RPC client.
+				let child_kv_inner =
+					Self::rpc_child_get_storage_paged(&client, &prefixed_top_key, child_keys, at)
+						.await?;
+
+				let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
+				let un_prefixed = match ChildType::from_prefixed_key(&prefixed_top_key) {
+					Some((ChildType::ParentKeyId, storage_key)) => storage_key,
+					None => {
+						log::error!(target: LOG_TARGET, "invalid key: {:?}", prefixed_top_key);
+						return Err("Invalid child key")
+					},
+				};
+
+				let info = ChildInfo::new_default(un_prefixed);
+				let key_values =
+					child_kv_inner.iter().cloned().map(|(k, v)| (k.0, v.0)).collect::<Vec<_>>();
+				Ok((info, child_kv_inner, key_values))
+			})
+		}).collect();
+
+		// Process the results of each task.
+		for handle in handles {
+			match handle.await {
+				Ok(result) => {
+					match result {
+						Ok((info, child_kv_inner, key_values)) => {
+							child_kv.push((info.clone(), child_kv_inner));
+							for (k, v) in key_values {
+								pending_ext.insert_child(info.clone(), k, v);
+							}
+						},
+						Err(_) => return Err("Error inserting child key".into()),
+					}
 				},
-			};
-
-			let info = ChildInfo::new_default(un_prefixed);
-			let key_values =
-				child_kv_inner.iter().cloned().map(|(k, v)| (k.0, v.0)).collect::<Vec<_>>();
-			child_kv.push((info.clone(), child_kv_inner));
-			for (k, v) in key_values {
-				pending_ext.insert_child(info.clone(), k, v);
+				// If there is an error while awaiting the task, return an error indicating a problem processing child data.
+				Err(_) => return Err("Error in processing child key".into()),
 			}
 		}
 
+		// Return the collected child key-value pairs.
 		Ok(child_kv)
 	}
 
