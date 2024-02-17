@@ -21,6 +21,15 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+/// Provides the `WASM_BINARY` build with `fast-runtime` feature enabled.
+///
+/// This is for example useful for local test chains.
+#[cfg(feature = "std")]
+pub mod fast_runtime_binary {
+	include!(concat!(env!("OUT_DIR"), "/fast_runtime_binary.rs"));
+}
+
+mod coretime;
 mod weights;
 pub mod xcm_config;
 
@@ -65,7 +74,7 @@ use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::Weig
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::latest::prelude::*;
 use xcm_config::{
-	FellowshipLocation, GovernanceLocation, WndRelayLocation, XcmOriginToTransactDispatchOrigin,
+	FellowshipLocation, GovernanceLocation, TokenRelayLocation, XcmOriginToTransactDispatchOrigin,
 };
 
 /// The address format for describing accounts.
@@ -98,6 +107,7 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
@@ -123,7 +133,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("coretime-westend"),
 	impl_name: create_runtime_str!("coretime-westend"),
 	authoring_version: 1,
-	spec_version: 1_007_000,
+	spec_version: 1_007_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 0,
@@ -270,8 +280,6 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	UNINCLUDED_SEGMENT_CAPACITY,
 >;
 
-impl parachain_info::Config for Runtime {}
-
 parameter_types! {
 	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
 }
@@ -298,6 +306,8 @@ impl pallet_message_queue::Config for Runtime {
 	type ServiceWeight = MessageQueueServiceWeight;
 }
 
+impl parachain_info::Config for Runtime {}
+
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 parameter_types! {
@@ -313,7 +323,7 @@ pub type RootOrFellows = EitherOfDiverse<
 
 parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = AssetId(WndRelayLocation::get());
+	pub FeeAssetId: AssetId = AssetId(TokenRelayLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
@@ -416,12 +426,6 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
-impl pallet_sudo::Config for Runtime {
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
-}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -453,8 +457,8 @@ construct_runtime!(
 		Utility: pallet_utility = 40,
 		Multisig: pallet_multisig = 41,
 
-		// Sudo
-		Sudo: pallet_sudo = 100,
+		// The main stage.
+		Broker: pallet_broker = 50,
 	}
 );
 
@@ -465,6 +469,7 @@ mod benches {
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[pallet_timestamp, Timestamp]
 		[pallet_balances, Balances]
+		[pallet_broker, Broker]
 		[pallet_collator_selection, CollatorSelection]
 		[pallet_session, SessionBench::<Runtime>]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
@@ -697,7 +702,7 @@ impl_runtime_apis! {
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			use xcm::latest::prelude::*;
-			use xcm_config::WndRelayLocation;
+			use xcm_config::TokenRelayLocation;
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
@@ -724,7 +729,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
-					WndRelayLocation::get(),
+					TokenRelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
 			}
@@ -738,13 +743,13 @@ impl_runtime_apis! {
 				>;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(WndRelayLocation::get())
+					Ok(TokenRelayLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just concrete assets according to relay chain.
 					let assets: Vec<Asset> = vec![
 						Asset {
-							id: AssetId(WndRelayLocation::get()),
+							id: AssetId(TokenRelayLocation::get()),
 							fun: Fungible(1_000_000 * UNITS),
 						}
 					];
@@ -754,8 +759,8 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					WndRelayLocation::get(),
-					Asset { fun: Fungible(UNITS), id: AssetId(WndRelayLocation::get()) },
+					TokenRelayLocation::get(),
+					Asset { fun: Fungible(UNITS), id: AssetId(TokenRelayLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				pub const TrustedReserve: Option<(Location, Asset)> = None;
@@ -770,7 +775,7 @@ impl_runtime_apis! {
 
 				fn get_asset() -> Asset {
 					Asset {
-						id: AssetId(WndRelayLocation::get()),
+						id: AssetId(TokenRelayLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -793,23 +798,23 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					Ok((WndRelayLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((TokenRelayLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					Ok(WndRelayLocation::get())
+					Ok(TokenRelayLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
-					let origin = WndRelayLocation::get();
-					let assets: Assets = (AssetId(WndRelayLocation::get()), 1_000 * UNITS).into();
+					let origin = TokenRelayLocation::get();
+					let assets: Assets = (AssetId(TokenRelayLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
 
 				fn fee_asset() -> Result<Asset, BenchmarkError> {
 					Ok(Asset {
-						id: AssetId(WndRelayLocation::get()),
+						id: AssetId(TokenRelayLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					})
 				}
