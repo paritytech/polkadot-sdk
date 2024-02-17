@@ -96,7 +96,7 @@ pub struct DelegationLedger<T: Config> {
 
 
 impl<T: Config> DelegationLedger<T> {
-    pub fn new(reward_destination: &T::AccountId) -> Self {
+    pub(crate) fn new(reward_destination: &T::AccountId) -> Self {
         DelegationLedger {
             payee: reward_destination.clone(),
             total_delegated: Zero::zero(),
@@ -112,12 +112,12 @@ impl<T: Config> DelegationLedger<T> {
         DelegationLedger { delegate: Some(key.clone()), ..self }
     }
 
-    fn get(key: &T::AccountId) -> Option<Self> {
+    pub(crate) fn get(key: &T::AccountId) -> Option<Self> {
         <Delegates<T>>::get(key).map(|d| d.with_key(key))
     }
 
     /// Balance that is stakeable.
-    pub fn delegated_balance(&self) -> BalanceOf<T> {
+    pub(crate) fn delegated_balance(&self) -> BalanceOf<T> {
         // do not allow to stake more than unapplied slash
         self.total_delegated.saturating_sub(self.pending_slash)
     }
@@ -125,11 +125,12 @@ impl<T: Config> DelegationLedger<T> {
     /// Balance that is delegated but not bonded.
     ///
     /// Can be funds that are unbonded but not withdrawn.
-    pub fn unbonded_balance(&self) -> BalanceOf<T> {
+    pub(crate) fn unbonded_balance(&self) -> BalanceOf<T> {
+        // fixme(ank4n) Remove hold and get balance from removing withdrawal_unclaimed.
         self.total_delegated.saturating_sub(self.hold)
     }
 
-    pub fn save(self, key: &T::AccountId) -> Self {
+    pub(crate) fn save(self, key: &T::AccountId) -> Self {
         let new_val = self.with_key(key);
         <Delegates<T>>::insert(key, &new_val);
 

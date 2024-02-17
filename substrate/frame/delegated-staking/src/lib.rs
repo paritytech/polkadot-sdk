@@ -78,8 +78,8 @@ use frame_support::{
 };
 
 use sp_runtime::{
-	traits::{AccountIdConversion, Zero},
-	DispatchResult, Perbill, RuntimeDebug, Saturating,
+	traits::{AccountIdConversion, Zero, CheckedAdd},
+	DispatchResult, Perbill, RuntimeDebug, Saturating, ArithmeticError,
 };
 use sp_staking::{
 	delegation::{DelegationInterface, StakingDelegationSupport},
@@ -378,33 +378,31 @@ impl<T: Config> Pallet<T> {
 		delegate: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		// let mut ledger = <Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		// ensure!(!ledger.blocked, Error::<T>::DelegationsBlocked);
-		//
-		// let new_delegation_amount =
-		// 	if let Some((current_delegate, current_delegation)) = <Delegators<T>>::get(delegator) {
-		// 		ensure!(&current_delegate == delegate, Error::<T>::InvalidDelegation);
-		// 		value.saturating_add(current_delegation)
-		// 	} else {
-		// 		value
-		// 	};
-		//
-		// delegation_register.total_delegated.saturating_accrue(value);
-		//
-		// <Delegators<T>>::insert(delegator, (delegate, new_delegation_amount));
-		// <Delegates<T>>::insert(delegate, delegation_register);
-		//
-		// T::Currency::hold(&HoldReason::Delegating.into(), &delegator, value)?;
-		//
-		// Self::deposit_event(Event::<T>::Delegated {
-		// 	delegate: delegate.clone(),
-		// 	delegator: delegator.clone(),
-		// 	amount: value,
-		// });
-		//
-		// Ok(())
+		let mut ledger = DelegationLedger::<T>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
+		ensure!(!ledger.blocked, Error::<T>::DelegationsBlocked);
 
-		todo!()
+		let new_delegation_amount =
+			if let Some(existing_delegation) = Delegation::<T>::get(delegator) {
+				ensure!(&existing_delegation.delegate == delegate, Error::<T>::InvalidDelegation);
+				existing_delegation.amount.checked_add(&amount).ok_or(ArithmeticError::Overflow)?
+			} else {
+				amount
+			};
+
+		Delegation::<T>::from(delegate, new_delegation_amount).save(delegator);
+
+		ledger.total_delegated = ledger.total_delegated.checked_add(&new_delegation_amount).ok_or(ArithmeticError::Overflow)?;
+		ledger.save(delegate);
+
+		T::Currency::hold(&HoldReason::Delegating.into(), &delegator, amount)?;
+
+		Self::deposit_event(Event::<T>::Delegated {
+			delegate: delegate.clone(),
+			delegator: delegator.clone(),
+			amount,
+		});
+
+		Ok(())
 	}
 	fn delegation_withdraw(
 		delegator: &T::AccountId,
