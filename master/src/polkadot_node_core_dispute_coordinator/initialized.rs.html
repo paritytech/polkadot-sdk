@@ -1696,26 +1696,6 @@
 <a href="#1696" id="1696">1696</a>
 <a href="#1697" id="1697">1697</a>
 <a href="#1698" id="1698">1698</a>
-<a href="#1699" id="1699">1699</a>
-<a href="#1700" id="1700">1700</a>
-<a href="#1701" id="1701">1701</a>
-<a href="#1702" id="1702">1702</a>
-<a href="#1703" id="1703">1703</a>
-<a href="#1704" id="1704">1704</a>
-<a href="#1705" id="1705">1705</a>
-<a href="#1706" id="1706">1706</a>
-<a href="#1707" id="1707">1707</a>
-<a href="#1708" id="1708">1708</a>
-<a href="#1709" id="1709">1709</a>
-<a href="#1710" id="1710">1710</a>
-<a href="#1711" id="1711">1711</a>
-<a href="#1712" id="1712">1712</a>
-<a href="#1713" id="1713">1713</a>
-<a href="#1714" id="1714">1714</a>
-<a href="#1715" id="1715">1715</a>
-<a href="#1716" id="1716">1716</a>
-<a href="#1717" id="1717">1717</a>
-<a href="#1718" id="1718">1718</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1735,7 +1715,7 @@
 </span><span class="doccomment">//! Dispute coordinator subsystem in initialized state (after first active leaf is received).
 
 </span><span class="kw">use </span>std::{
-	collections::{BTreeMap, HashSet, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	sync::Arc,
 };
 
@@ -2688,6 +2668,7 @@
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>.runtime_info,
 			session,
 			relay_parent,
+			<span class="self">self</span>.offchain_disabled_validators.iter(session),
 		)
 		.<span class="kw">await
 		</span>{
@@ -2817,36 +2798,14 @@
 
 		<span class="kw">let </span>new_state = import_result.new_state();
 
-		<span class="kw">let </span>byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
-		<span class="comment">// combine on-chain with off-chain disabled validators
-		// process disabled validators in the following order:
-		// - on-chain disabled validators
-		// - prioritized order of off-chain disabled validators
-		// deduplicate the list and take at most `byzantine_threshold` validators
-		</span><span class="kw">let </span>disabled_validators = {
-			<span class="kw">let </span><span class="kw-2">mut </span>d: HashSet&lt;ValidatorIndex&gt; = HashSet::new();
-			<span class="kw">for </span>v <span class="kw">in </span>env
-				.disabled_indices()
-				.iter()
-				.cloned()
-				.chain(<span class="self">self</span>.offchain_disabled_validators.iter(session))
-			{
-				<span class="kw">if </span>d.len() == byzantine_threshold {
-					<span class="kw">break
-				</span>}
-				d.insert(v);
-			}
-			d
-		};
-
 		<span class="kw">let </span>is_included = <span class="self">self</span>.scraper.is_candidate_included(<span class="kw-2">&amp;</span>candidate_hash);
 		<span class="kw">let </span>is_backed = <span class="self">self</span>.scraper.is_candidate_backed(<span class="kw-2">&amp;</span>candidate_hash);
 		<span class="kw">let </span>own_vote_missing = new_state.own_vote_missing();
 		<span class="kw">let </span>is_disputed = new_state.is_disputed();
 		<span class="kw">let </span>is_confirmed = new_state.is_confirmed();
-		<span class="kw">let </span>potential_spam = is_potential_spam(<span class="kw-2">&amp;</span><span class="self">self</span>.scraper, <span class="kw-2">&amp;</span>new_state, <span class="kw-2">&amp;</span>candidate_hash, |v| {
-			disabled_validators.contains(v)
-		});
+		<span class="kw">let </span>is_disabled = |v: <span class="kw-2">&amp;</span>ValidatorIndex| env.disabled_indices().contains(v);
+		<span class="kw">let </span>potential_spam =
+			is_potential_spam(<span class="kw-2">&amp;</span><span class="self">self</span>.scraper, <span class="kw-2">&amp;</span>new_state, <span class="kw-2">&amp;</span>candidate_hash, is_disabled);
 		<span class="kw">let </span>allow_participation = !potential_spam;
 
 		<span class="macro">gum::trace!</span>(
@@ -2857,7 +2816,7 @@
 			<span class="question-mark">?</span>candidate_hash,
 			confirmed = <span class="question-mark">?</span>new_state.is_confirmed(),
 			has_invalid_voters = <span class="question-mark">?</span>!import_result.new_invalid_voters().is_empty(),
-			n_disabled_validators = <span class="question-mark">?</span>disabled_validators.len(),
+			n_disabled_validators = <span class="question-mark">?</span>env.disabled_indices().len(),
 			<span class="string">&quot;Is spam?&quot;
 		</span>);
 
@@ -3157,6 +3116,7 @@
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>.runtime_info,
 			session,
 			candidate_receipt.descriptor.relay_parent,
+			<span class="self">self</span>.offchain_disabled_validators.iter(session),
 		)
 		.<span class="kw">await
 		</span>{

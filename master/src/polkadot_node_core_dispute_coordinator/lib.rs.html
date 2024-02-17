@@ -604,6 +604,7 @@
 <a href="#604" id="604">604</a>
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -947,6 +948,8 @@
 				runtime_info,
 				highest_session,
 				leaf_hash,
+				<span class="comment">// on startup we don&#39;t have any off-chain disabled state
+				</span>std::iter::empty(),
 			)
 			.<span class="kw">await
 			</span>{
@@ -976,10 +979,9 @@
 					</span>},
 				};
 			<span class="kw">let </span>vote_state = CandidateVoteState::new(votes, <span class="kw-2">&amp;</span>env, now);
-			<span class="kw">let </span>onchain_disabled = env.disabled_indices();
-			<span class="kw">let </span>potential_spam = is_potential_spam(<span class="kw-2">&amp;</span>scraper, <span class="kw-2">&amp;</span>vote_state, candidate_hash, |v| {
-				onchain_disabled.contains(v)
-			});
+			<span class="kw">let </span>is_disabled = |v: <span class="kw-2">&amp;</span>ValidatorIndex| env.disabled_indices().contains(v);
+			<span class="kw">let </span>potential_spam =
+				is_potential_spam(<span class="kw-2">&amp;</span>scraper, <span class="kw-2">&amp;</span>vote_state, candidate_hash, is_disabled);
 			<span class="kw">let </span>is_included =
 				scraper.is_candidate_included(<span class="kw-2">&amp;</span>vote_state.votes().candidate_receipt.hash());
 
