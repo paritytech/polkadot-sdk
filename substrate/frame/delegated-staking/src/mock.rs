@@ -238,27 +238,27 @@ pub(crate) fn fund(who: &AccountId, amount: Balance) {
 /// `delegate_amount` is incremented by the amount `increment` starting with `base_delegate_amount`
 /// from lower index to higher index of delegators.
 pub(crate) fn setup_delegation_stake(
-	delegatee: AccountId,
+	delegate: AccountId,
 	reward_acc: AccountId,
 	delegators: Vec<AccountId>,
 	base_delegate_amount: Balance,
 	increment: Balance,
 ) -> Balance {
-	fund(&delegatee, 100);
-	assert_ok!(DelegatedStaking::accept_delegations(&delegatee, &reward_acc));
+	fund(&delegate, 100);
+	assert_ok!(DelegatedStaking::accept_delegations(&delegate, &reward_acc));
 	let mut delegated_amount: Balance = 0;
 	for (index, delegator) in delegators.iter().enumerate() {
 		let amount_to_delegate = base_delegate_amount + increment * index as Balance;
 		delegated_amount += amount_to_delegate;
 
 		fund(delegator, amount_to_delegate + ExistentialDeposit::get());
-		assert_ok!(DelegatedStaking::delegate(delegator, &delegatee, amount_to_delegate));
-		assert_ok!(DelegatedStaking::bond_all(&delegatee));
+		assert_ok!(DelegatedStaking::delegate(delegator, &delegate, amount_to_delegate));
+		assert_ok!(DelegatedStaking::bond_all(&delegate));
 	}
 
 	// sanity checks
-	assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), delegated_amount);
-	assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
+	assert_eq!(DelegatedStaking::stakeable_balance(&delegate), delegated_amount);
+	assert_eq!(DelegatedStaking::unbonded_balance(&delegate), 0);
 
 	delegated_amount
 }

@@ -608,7 +608,7 @@ pub fn do_slash<T: Config>(
 			Err(_) => return, // nothing to do.
 		};
 
-	let lazy_slash = T::DelegationSupport::is_delegatee(stash);
+	let lazy_slash = T::DelegationSupport::is_delegate(stash);
 	let value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
 
 	if value.is_zero() {

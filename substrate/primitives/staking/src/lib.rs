@@ -293,7 +293,7 @@ pub trait StakingInterface {
 
 	/// Release all funds bonded for stake.
 	///
-	/// Unsafe, only used for migration of delegatee accounts.
+	/// Unsafe, only used for migration of `delegate` accounts.
 	fn release_all(who: &Self::AccountId);
 
 	#[cfg(feature = "runtime-benchmarks")]

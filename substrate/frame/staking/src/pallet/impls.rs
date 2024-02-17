@@ -1098,7 +1098,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
-		if T::DelegationSupport::is_delegatee(who) {
+		if T::DelegationSupport::is_delegate(who) {
 			return T::DelegationSupport::stakeable_balance(who);
 		}
 
@@ -1109,7 +1109,7 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		reward_destination: Option<T::AccountId>,
 	) -> bool {
-		if T::DelegationSupport::is_delegatee(who) {
+		if T::DelegationSupport::is_delegate(who) {
 			return T::DelegationSupport::restrict_reward_destination(who, reward_destination);
 		}
 
@@ -1120,7 +1120,7 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> sp_runtime::DispatchResult {
-		if T::DelegationSupport::is_delegatee(who) {
+		if T::DelegationSupport::is_delegate(who) {
 			return T::DelegationSupport::update_hold(who, amount);
 		}
 
@@ -1882,7 +1882,7 @@ impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 	fn stakeable_balance(_who: &Self::AccountId) -> Self::Balance {
 		BalanceOf::<T>::zero()
 	}
-	fn is_delegatee(_who: &Self::AccountId) -> bool {
+	fn is_delegate(_who: &Self::AccountId) -> bool {
 		false
 	}
 	fn update_hold(_who: &Self::AccountId, _amount: Self::Balance) -> sp_runtime::DispatchResult {

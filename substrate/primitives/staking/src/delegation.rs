@@ -44,60 +44,61 @@ pub trait DelegationInterface {
 
 	/// Set intention to accept delegations.
 	fn accept_delegations(
-		delegatee: &Self::AccountId,
+		delegate: &Self::AccountId,
 		reward_destination: &Self::AccountId,
 	) -> DispatchResult;
 
-	/// Migrate an nominator account into a delegatee.
+	/// Migrate a nominator account into a `delegate`.
 	///
 	/// # Arguments
 	///
-	/// * `new_delegatee`: This is the current nominator account. Funds will be moved from this
-	///   account to `proxy_delegator` and delegated back to `new_delegatee`.
+	/// * `new_delegate`: This is the current nominator account. Funds will be moved from this
+	///   account to `proxy_delegator` and delegated back to `new_delegate`.
 	/// * `proxy_delegator`: All existing staked funds will be moved to this account. Future
 	///   migration of funds from `proxy_delegator` to `delegator` is possible via calling
 	///   [`Self::migrate_delegator`].
-	///  * `payee`: Delegatees need to set where they want their rewards to be paid out.
+	/// * `payee`: `Delegate` needs to set where they want their rewards to be paid out. This can be
+	///   anything other than the `delegate` account itself.
 	///
 	/// This is similar to [`Self::accept_delegations`] but allows a current nominator to migrate to
-	/// a delegatee.
+	/// a `delegate`.
 	fn migrate_accept_delegations(
-		new_delegatee: &Self::AccountId,
+		new_delegate: &Self::AccountId,
 		proxy_delegator: &Self::AccountId,
 		payee: &Self::AccountId,
 	) -> DispatchResult;
 
 	/// Stop accepting new delegations to this account.
-	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult;
+	fn block_delegations(delegate: &Self::AccountId) -> DispatchResult;
 
 	/// Unblock delegations to this account.
-	fn unblock_delegations(delegatee: &Self::AccountId) -> DispatchResult;
+	fn unblock_delegations(delegate: &Self::AccountId) -> DispatchResult;
 
-	/// Remove oneself as Delegatee.
+	/// Remove oneself as a `delegate`.
 	///
-	/// This will only succeed if all delegations to this delegatee are withdrawn.
-	fn kill_delegatee(delegatee: &Self::AccountId) -> DispatchResult;
+	/// This will only succeed if all delegations to this `delegate` are withdrawn.
+	fn kill_delegate(delegate: &Self::AccountId) -> DispatchResult;
 
 	/// Bond all fund that is delegated but not staked.
 	/// FIXME(ank4n): Should not be allowed as withdrawn funds would get restaked.
-	fn bond_all(delegatee: &Self::AccountId) -> DispatchResult;
+	fn bond_all(delegate: &Self::AccountId) -> DispatchResult;
 
-	/// Request withdrawal of unbonded stake of `delegatee` belonging to the provided `delegator`.
+	/// Request withdrawal of unbonded stake of `delegate` belonging to the provided `delegator`.
 	///
-	/// Important: It is upto `delegatee` to enforce which `delegator` can withdraw `value`. The
+	/// Important: It is upto `delegate` to enforce which `delegator` can withdraw `value`. The
 	/// withdrawn value is released in `delegator`'s account.
 	fn withdraw(
-		delegatee: &Self::AccountId,
+		delegate: &Self::AccountId,
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 		num_slashing_spans: u32,
 	) -> DispatchResult;
 
-	/// Applies a pending slash on delegatee by passing a delegator account who should be slashed
+	/// Applies a pending slash on `delegate` by passing a delegator account who should be slashed
 	/// and the value to be slashed. Optionally also takes a reporter account who will be rewarded
 	/// from part of the slash imbalance.
 	fn apply_slash(
-		delegatee: &Self::AccountId,
+		delegate: &Self::AccountId,
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 		reporter: Option<Self::AccountId>,
@@ -105,19 +106,19 @@ pub trait DelegationInterface {
 
 	/// Move a delegated amount from `proxy_delegator` to `new_delegator`.
 	///
-	/// Delegatee must have used [`Self::migrate_accept_delegations`] to setup a `proxy_delegator`.
+	/// `Delegate` must have used [`Self::migrate_accept_delegations`] to setup a `proxy_delegator`.
 	/// This is useful for migrating old pool accounts using direct staking to lazily move
 	/// delegators to the new delegated pool account.
 	fn migrate_delegator(
-		delegatee: &Self::AccountId,
+		delegate: &Self::AccountId,
 		new_delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
 
-	/// As a `delegator`, delegate some funds to a Delegatee
+	/// Delegate some funds to a `delegate` account.
 	fn delegate(
 		delegator: &Self::AccountId,
-		delegatee: &Self::AccountId,
+		delegate: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
 }
@@ -151,11 +152,11 @@ pub trait StakingDelegationSupport {
 	}
 
 	/// Returns true if `who` accepts delegations for stake.
-	fn is_delegatee(who: &Self::AccountId) -> bool;
+	fn is_delegate(who: &Self::AccountId) -> bool;
 
 	/// Update amount held for bonded stake.
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
 
-	/// Reports an ongoing slash to the delegatee account that would be applied lazily.
+	/// Reports an ongoing slash to the `delegate` account that would be applied lazily.
 	fn report_slash(who: &Self::AccountId, slash: Self::Balance);
 }
