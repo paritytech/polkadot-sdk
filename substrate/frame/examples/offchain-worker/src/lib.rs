@@ -332,7 +332,6 @@ pub mod pallet {
 	///
 	/// This is used to calculate average price, should have bounded size.
 	#[pallet::storage]
-	#[pallet::getter(fn prices)]
 	pub(super) type Prices<T: Config> = StorageValue<_, BoundedVec<u32, T::MaxPrices>, ValueQuery>;
 
 	/// Defines the block when next unsigned transaction will be accepted.
@@ -341,7 +340,6 @@ pub mod pallet {
 	/// we only allow one transaction every `T::UnsignedInterval` blocks.
 	/// This storage entry defines when new transaction is going to be accepted.
 	#[pallet::storage]
-	#[pallet::getter(fn next_unsigned_at)]
 	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 }
 
