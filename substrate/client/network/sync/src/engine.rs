@@ -206,6 +206,10 @@ pub struct Peer<B: BlockT> {
 	pub info: ExtendedPeerInfo<B>,
 	/// Holds a set of blocks known to this peer.
 	pub known_blocks: LruHashSet<B::Hash>,
+	/// Instant when the last notification was sent to peer.
+	last_notification_sent: Instant,
+	/// Instant when the last notification was received from peer.
+	last_notification_received: Instant,
 	/// Is the peer inbound.
 	inbound: bool,
 }
@@ -243,6 +247,9 @@ pub struct SyncingEngine<B: BlockT, Client> {
 
 	/// All connected peers. Contains both full and light node peers.
 	peers: HashMap<PeerId, Peer<B>>,
+
+	/// Evicted peers
+	evicted: HashSet<PeerId>,
 
 	/// List of nodes for which we perform additional logging because they are important for the
 	/// user.
@@ -297,9 +304,6 @@ pub struct SyncingEngine<B: BlockT, Client> {
 
 	/// Handle to `PeerStore`.
 	peer_store_handle: PeerStoreHandle,
-
-	/// Instant when the last notification was sent or received.
-	last_notification_io: Instant,
 
 	/// Pending responses
 	pending_responses: PendingResponses<B>,
@@ -469,6 +473,7 @@ where
 				strategy,
 				network_service,
 				peers: HashMap::new(),
+				evicted: HashSet::new(),
 				block_announce_data_cache: LruMap::new(ByLength::new(cache_capacity)),
 				block_announce_protocol_name,
 				block_announce_validator: BlockAnnounceValidatorStream::new(
@@ -492,7 +497,6 @@ where
 				tick_timeout,
 				syncing_started: None,
 				peer_store_handle,
-				last_notification_io: Instant::now(),
 				metrics: if let Some(r) = metrics_registry {
 					match Metrics::register(r, is_major_syncing.clone()) {
 						Ok(metrics) => Some(metrics),
@@ -587,6 +591,7 @@ where
 			},
 		};
 		peer.known_blocks.insert(hash);
+		peer.last_notification_received = Instant::now();
 
 		if peer.info.roles.is_full() {
 			let is_best = match announce.state.unwrap_or(BlockState::Best) {
@@ -638,7 +643,7 @@ where
 					data: Some(data.clone()),
 				};
 
-				self.last_notification_io = Instant::now();
+				peer.last_notification_sent = Instant::now();
 				let _ = self.notification_service.send_sync_notification(peer_id, message.encode());
 			}
 		}
@@ -787,29 +792,44 @@ where
 				return
 			}
 
-			self.syncing_started = None;
-			self.last_notification_io = Instant::now();
-		}
-
-		// if syncing hasn't sent or received any blocks within `INACTIVITY_EVICT_THRESHOLD`,
-		// it means the local node has stalled and is connected to peers who either don't
-		// consider it connected or are also all stalled. In order to unstall the node,
-		// disconnect all peers and allow `ProtocolController` to establish new connections.
-		if self.last_notification_io.elapsed() > INACTIVITY_EVICT_THRESHOLD {
-			log::debug!(
-				target: LOG_TARGET,
-				"syncing has halted due to inactivity, evicting all peers",
-			);
-
-			for peer in self.peers.keys() {
-				self.network_service.report_peer(*peer, rep::INACTIVE_SUBSTREAM);
-				self.network_service
-					.disconnect_peer(*peer, self.block_announce_protocol_name.clone());
+			// reset all timers for peers so that they're not evicted immediately
+			// after the initial wait period is over
+			for context in self.peers.values_mut() {
+				context.last_notification_received = Instant::now();
+				context.last_notification_sent = Instant::now();
 			}
 
-			// after all the peers have been evicted, start timer again to prevent evicting
-			// new peers that join after the old peer have been evicted
-			self.last_notification_io = Instant::now();
+			self.syncing_started = None;
+		}
+
+		// go over all connected peers and check if any of them have been idle for a while. Idle
+		// in this case means that we haven't sent or received block announcements to/from this
+		// peer. This can happen because `Notifications` doesn't report to `SyncingEngine` if
+		// the inbound substream has been closed which indicates that the remote peer is no longer
+		// interested in sending more block announces.
+		for (peer_id, context) in self.peers.iter() {
+			// keep track of evicted peers who haven't been fully disconnected yet
+			// to prevent disconnecting the same peer multiple times.
+			if self.evicted.contains(peer_id) {
+				continue
+			}
+
+			let last_received_late =
+				context.last_notification_received.elapsed() > INACTIVITY_EVICT_THRESHOLD;
+			let last_sent_late =
+				context.last_notification_sent.elapsed() > INACTIVITY_EVICT_THRESHOLD;
+
+			if last_received_late && last_sent_late {
+				log::debug!(
+					target: LOG_TARGET,
+					"evict {peer_id} since it has been idling for too long",
+				);
+
+				self.network_service.report_peer(*peer_id, rep::INACTIVE_SUBSTREAM);
+				self.network_service
+					.disconnect_peer(*peer_id, self.block_announce_protocol_name.clone());
+				self.evicted.insert(*peer_id);
+			}
 		}
 	}
 
@@ -929,6 +949,7 @@ where
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
+				self.evicted.remove(&peer);
 				self.on_sync_peer_disconnected(peer);
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
@@ -945,7 +966,6 @@ where
 					return
 				};
 
-				self.last_notification_io = Instant::now();
 				self.push_block_announce_validation(peer, announce);
 			},
 		}
@@ -1141,6 +1161,8 @@ where
 				NonZeroUsize::new(MAX_KNOWN_BLOCKS).expect("Constant is nonzero"),
 			),
 			inbound: direction.is_inbound(),
+			last_notification_sent: Instant::now(),
+			last_notification_received: Instant::now(),
 		};
 
 		// Only forward full peers to syncing strategy.
