@@ -1887,7 +1887,7 @@ impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 	}
 	fn update_hold(_who: &Self::AccountId, _amount: Self::Balance) -> sp_runtime::DispatchResult {
 		defensive!("delegation update_hold should not be have been called for NoDelegation");
-		Err(Error::<T>::NotEnoughFunds.into())
+		Err(Error::<T>::BadState.into())
 	}
 
 	fn report_slash(_who: &Self::AccountId, _slash: Self::Balance) {
