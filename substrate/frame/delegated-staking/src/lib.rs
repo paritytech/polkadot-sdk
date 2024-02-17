@@ -83,10 +83,11 @@ use sp_std::{convert::TryInto, prelude::*};
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 
+use frame_system::{ensure_signed, pallet_prelude::*, RawOrigin};
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_system::{ensure_signed, pallet_prelude::*};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -180,7 +181,7 @@ pub mod pallet {
 	pub(crate) type Delegators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, (T::AccountId, BalanceOf<T>), OptionQuery>;
 
-	/// Map of Delegate to their Ledger.
+	/// Map of `Delegate` to their Ledger.
 	#[pallet::storage]
 	pub(crate) type Delegates<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegationLedger<T>, OptionQuery>;
@@ -205,7 +206,23 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			reward_account: T::AccountId,
 		) -> DispatchResult {
-			todo!()
+			let who = ensure_signed(origin)?;
+
+			// Existing `delegate` cannot register again.
+			ensure!(!Self::is_delegate(&who), Error::<T>::NotAllowed);
+
+			// A delegator cannot become a `delegate`.
+			ensure!(!Self::is_delegator(&who), Error::<T>::NotAllowed);
+
+			// payee account cannot be same as `delegate`
+			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
+
+			// They cannot be already a direct staker in the staking pallet.
+			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaker);
+
+			DelegationLedger::<T>::new(&reward_account).save(&who);
+
+			Ok(())
 		}
 
 		/// Migrate from a `Nominator` account to `Delegate` account.
@@ -301,6 +318,29 @@ enum AccountType {
 }
 
 impl<T: Config> DelegationLedger<T> {
+	pub fn new(reward_destination: &T::AccountId) -> Self {
+		DelegationLedger {
+			payee: reward_destination.clone(),
+			total_delegated: Zero::zero(),
+			hold: Zero::zero(),
+			pending_slash: Zero::zero(),
+			blocked: false,
+			delegate: None,
+		}
+	}
+
+	/// consumes self and returns a new copy with the key.
+	fn with_key(self, key: &T::AccountId) -> Self {
+		DelegationLedger {
+			delegate: Some(key.clone()),
+			..self
+		}
+	}
+
+	fn get(key: &T::AccountId) -> Option<Self<>>{
+		<Delegates<T>>::get(key).map(|d| d.with_key(key))
+	}
+
 	/// Balance that is stakeable.
 	pub fn delegated_balance(&self) -> BalanceOf<T> {
 		// do not allow to stake more than unapplied slash
@@ -316,6 +356,16 @@ impl<T: Config> DelegationLedger<T> {
 
 	pub fn unclaimed_withdraw_account(&self) -> T::AccountId {
 		T::PalletId::get().into_sub_account_truncating(self.delegate.clone())
+	}
+
+	pub fn save(self, key: &T::AccountId) -> Self {
+		let new_val = self.with_key(key);
+		<Delegates<T>>::insert(
+			key,
+			&new_val,
+		);
+
+		new_val
 	}
 }
 
@@ -336,35 +386,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		who: &Self::AccountId,
 		reward_destination: &Self::AccountId,
 	) -> DispatchResult {
-		// Existing `delegate` cannot register again.
-		ensure!(!<Delegates<T>>::contains_key(who), Error::<T>::NotAllowed);
-
-		// A delegator cannot become a `delegate`.
-		ensure!(!<Delegators<T>>::contains_key(who), Error::<T>::NotAllowed);
-
-		// payee account cannot be same as `delegate`
-		ensure!(reward_destination != who, Error::<T>::InvalidRewardDestination);
-
-		// make sure they are not already a direct staker or they are migrating.
-		ensure!(
-			T::CoreStaking::status(who).is_err() || <DelegateMigration<T>>::contains_key(who),
-			Error::<T>::AlreadyStaker
-		);
-
-		// already checked that `delegate` exist
-		<Delegates<T>>::insert(
-			who,
-			DelegationLedger {
-				payee: reward_destination.clone(),
-				total_delegated: Zero::zero(),
-				hold: Zero::zero(),
-				pending_slash: Zero::zero(),
-				blocked: false,
-				delegate: Some(who.clone()),
-			},
-		);
-
-		Ok(())
+		Self::register_as_delegate(RawOrigin::Signed(who.clone()).into(), reward_destination.clone())
 	}
 
 	/// Transfers funds from current staked account to `proxy_delegator`. Current staked account
@@ -855,6 +877,12 @@ impl<T: Config> Pallet<T> {
 
 	fn is_migrating(delegate: &T::AccountId) -> bool {
 		<DelegateMigration<T>>::contains_key(delegate)
+	}
+
+
+	/// Returns true if who is not already staking.
+	fn not_direct_staker(who: &T::AccountId) -> bool {
+		T::CoreStaking::status(&who).is_err()
 	}
 
 	fn delegation_withdraw(
