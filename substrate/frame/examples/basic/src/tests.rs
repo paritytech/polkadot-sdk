@@ -135,9 +135,9 @@ fn it_works_for_optional_value() {
 #[test]
 fn it_works_for_default_value() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Example::foo(), 24);
+		assert_eq!(<Foo<Test>>::get(), 24);
 		assert_ok!(Example::accumulate_foo(RuntimeOrigin::signed(1), 1));
-		assert_eq!(Example::foo(), 25);
+		assert_eq!(<Foo<Test>>::get(), 25);
 	});
 }
 

@@ -383,12 +383,10 @@ pub mod pallet {
 
 	// A map that has enumerable entries.
 	#[pallet::storage]
-	#[pallet::getter(fn bar)]
 	pub(super) type Bar<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::Balance>;
 
 	// this one uses the query kind: `ValueQuery`, we'll demonstrate the usage of 'mutate' API.
 	#[pallet::storage]
-	#[pallet::getter(fn foo)]
 	pub(super) type Foo<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
 
 	#[pallet::storage]
