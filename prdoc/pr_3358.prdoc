@@ -6,5 +6,6 @@ doc:
       This PR fixes the issue that periodically caused
       finality stalls on Kusama due to disputes happening
       there in combination with disputes spam protection mechanism.
+      See: https://github.com/paritytech/polkadot-sdk/issues/3345
 
 crates: [ ]
