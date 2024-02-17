@@ -232,46 +232,13 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	/// Transfers funds from current staked account to `proxy_delegator`. Current staked account
 	/// becomes a `delegate` with `proxy_delegator` delegating stakes to it.
 	fn migrate_accept_delegations(
-		new_delegate: &Self::AccountId,
-		proxy_delegator: &Self::AccountId,
-		payee: &Self::AccountId,
+		who: &Self::AccountId,
+		_proxy_delegator: &Self::AccountId,
+		reward_destination: &Self::AccountId,
 	) -> DispatchResult {
-		ensure!(new_delegate != proxy_delegator, Error::<T>::InvalidDelegation);
-
-		// ensure proxy delegator has at least minimum balance to keep the account alive.
-		ensure!(
-			T::Currency::reducible_balance(
-				proxy_delegator,
-				Preservation::Expendable,
-				Fortitude::Polite
-			) > Zero::zero(),
-			Error::<T>::NotEnoughFunds
-		);
-
-		// ensure staker is a nominator
-		let status = T::CoreStaking::status(new_delegate)?;
-		match status {
-			StakerStatus::Nominator(_) => (),
-			_ => return Err(Error::<T>::InvalidDelegation.into()),
-		}
-
-		<DelegateMigration<T>>::insert(&new_delegate, &proxy_delegator);
-		let stake = T::CoreStaking::stake(new_delegate)?;
-
-		// unlock funds from staker
-		T::CoreStaking::release_all(new_delegate);
-
-		// try transferring the staked amount. This should never fail but if it does, it indicates
-		// bad state and we abort.
-		T::Currency::transfer(new_delegate, proxy_delegator, stake.total, Preservation::Expendable)
-			.map_err(|_| Error::<T>::BadState)?;
-
-		// delegate from new delegator to staker.
-		// todo(ank4n) : inline this fn and propagate payee to core staking..
-		Self::accept_delegations(new_delegate, payee)?;
-
-		Self::delegate(proxy_delegator, new_delegate, stake.total)?;
-		Self::bond_all(new_delegate)
+		Self::migrate_to_delegate(RawOrigin::Signed(who.clone()).into(),
+								  reward_destination.clone()
+		)
 	}
 
 	fn block_delegations(delegate: &Self::AccountId) -> DispatchResult {

@@ -215,14 +215,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			// They cannot be already a direct staker in the staking pallet.
-			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaker);
-
 			// Existing `delegate` cannot register again.
 			ensure!(!Self::is_delegate(&who), Error::<T>::NotAllowed);
 
 			// A delegator cannot become a `delegate`.
 			ensure!(!Self::is_delegator(&who), Error::<T>::NotAllowed);
+
+			// They cannot be already a direct staker in the staking pallet.
+			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaker);
 
 			// Reward account cannot be same as `delegate` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
@@ -242,6 +242,9 @@ pub mod pallet {
 			reward_account: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// Ensure is not already a delegate.
+			ensure!(!Self::is_delegate(&who), Error::<T>::NotAllowed);
+
 			ensure!(Self::is_direct_nominator(&who), Error::<T>::NotAllowed);
 
 			// Reward account cannot be same as `delegate` account.
@@ -308,7 +311,7 @@ pub mod pallet {
 
 
 impl<T: Config> Pallet<T> {
-	fn sub_account(account_type: AccountType, delegate_account: T::AccountId) -> T::AccountId {
+	pub(crate) fn sub_account(account_type: AccountType, delegate_account: T::AccountId) -> T::AccountId {
 		T::PalletId::get().into_sub_account_truncating((account_type, delegate_account.clone()))
 	}
 
@@ -318,10 +321,6 @@ impl<T: Config> Pallet<T> {
 
 	fn is_delegator(who: &T::AccountId) -> bool {
 		<Delegators<T>>::contains_key(who)
-	}
-
-	fn is_migrating(delegate: &T::AccountId) -> bool {
-		<DelegateMigration<T>>::contains_key(delegate)
 	}
 
 	/// Returns true if who is not already staking.
@@ -337,22 +336,26 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn do_migrate_to_delegate(who: &T::AccountId, reward_account: &T::AccountId) -> DispatchResult {
+		// We create a proxy delegator that will keep all the delegation funds until funds are
+		// transferred to actual delegator.
+		let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, who.clone());
+
+		// Transfer minimum balance to proxy delegator.
+		T::Currency::transfer(who, &proxy_delegator, T::Currency::minimum_balance(), Preservation::Protect)
+			.map_err(|_| Error::<T>::NotEnoughFunds)?;
+
 		// Get current stake
 		let stake = T::CoreStaking::stake(who)?;
 
 		// release funds from core staking.
 		T::CoreStaking::release_all(who);
 
-		// We create a proxy delegator that will keep all the delegation funds until funds are
-		// transferred to actual delegator.
-		let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, who.clone());
-
 		// transferring just released staked amount. This should never fail but if it does, it
 		// indicates bad state and we abort.
 		T::Currency::transfer(who, &proxy_delegator, stake.total, Preservation::Protect)
 			.map_err(|_| Error::<T>::BadState)?;
 
-		let ledger = DelegationLedger::<T>::new(&reward_account).save(&who);
+		DelegationLedger::<T>::new(&reward_account).save(&who);
 		// FIXME(ank4n) expose set payee in staking interface.
 		// T::CoreStaking::set_payee(who, reward_account)
 
@@ -394,7 +397,7 @@ impl<T: Config> Pallet<T> {
 		ledger.total_delegated = ledger.total_delegated.checked_add(&new_delegation_amount).ok_or(ArithmeticError::Overflow)?;
 		ledger.save(delegate);
 
-		T::Currency::hold(&HoldReason::Delegating.into(), &delegator, amount)?;
+		T::Currency::hold(&HoldReason::Delegating.into(), delegator, amount)?;
 
 		Self::deposit_event(Event::<T>::Delegated {
 			delegate: delegate.clone(),

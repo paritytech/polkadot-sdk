@@ -448,11 +448,9 @@ mod integration {
 			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
 			// will be moved and delegated back to this old nominator account. This should be funded
 			// with at least ED.
-			let proxy_delegator = 202;
-			fund(&proxy_delegator, ExistentialDeposit::get());
+			let proxy_delegator = DelegatedStaking::sub_account(AccountType::ProxyDelegator, 200);
 
 			assert_ok!(DelegatedStaking::migrate_accept_delegations(&200, &proxy_delegator, &201));
-			assert!(DelegatedStaking::is_migrating(&200));
 
 			// verify all went well
 			let mut expected_proxy_delegated_amount = staked_amount;
@@ -460,7 +458,8 @@ mod integration {
 				Balances::balance_on_hold(&HoldReason::Delegating.into(), &proxy_delegator),
 				expected_proxy_delegated_amount
 			);
-			assert_eq!(Balances::free_balance(200), 5000 - staked_amount);
+			// ED + stake amount is transferred from delegate to proxy delegator account.
+			assert_eq!(Balances::free_balance(200), 5000 - staked_amount - ExistentialDeposit::get());
 			assert_eq!(DelegatedStaking::stake(&200).unwrap(), init_stake);
 			assert_eq!(DelegatedStaking::delegated_balance(&200), 4000);
 			assert_eq!(DelegatedStaking::unbonded_balance(&200), 0);
@@ -488,8 +487,6 @@ mod integration {
 				assert_eq!(DelegatedStaking::delegated_balance(&200), 4000);
 				assert_eq!(DelegatedStaking::unbonded_balance(&200), 0);
 			}
-
-			assert!(!DelegatedStaking::is_migrating(&200));
 
 			// cannot use migrate delegator anymore
 			assert_noop!(
