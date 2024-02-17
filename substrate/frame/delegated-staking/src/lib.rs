@@ -44,6 +44,16 @@
 //! to apply slash. It is `delegate`'s responsibility to apply slashes for each delegator, one at a
 //! time. Staking pallet ensures the pending slash never exceeds staked amount and would freeze
 //! further withdraws until pending slashes are applied.
+//!
+//!
+//! ### Note about minimum balance
+//!
+//! When registering as `delegate`, a sub account for unclaimed withdrawals are created and funded
+//! with `ExistentialDeposit`. If the `delegate` is migrating from being a `Nominator`, another
+//! sub account is created for managing funds of delegators who have not yet migrated their funds
+//! to won account. These accounts are funded by the `Delegate` and it should have enough free
+//! balance to cover these. When these accounts are not killed (not needed anymore), the funds are
+//! returned to the `Delegate`.
 
 #[cfg(test)]
 mod mock;
@@ -71,15 +81,15 @@ use frame_support::{
 			Balanced, Inspect as FunInspect, Mutate as FunMutate,
 		},
 		tokens::{fungible::Credit, Fortitude, Precision, Preservation},
-		DefensiveOption, Imbalance, OnUnbalanced,
+		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
 	transactional,
 	weights::Weight,
 };
 
 use sp_runtime::{
-	traits::{AccountIdConversion, Zero, CheckedAdd},
-	DispatchResult, Perbill, RuntimeDebug, Saturating, ArithmeticError,
+	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
+	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_staking::{
 	delegation::{DelegationInterface, StakingDelegationSupport},
@@ -266,7 +276,39 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 			num_slashing_spans: u32,
 		) -> DispatchResult {
-			todo!()
+			let who = ensure_signed(origin)?;
+			let mut ledger = DelegationLedger::<T>::get(&who).ok_or(Error::<T>::NotDelegate)?;
+
+			// if we do not already have enough funds to be claimed, try withdraw some more.
+			if ledger.unclaimed_withdrawals < amount {
+				let pre_total =
+					T::CoreStaking::stake(&who).defensive()?.total;
+				// fixme(ank4n) handle killing of stash
+				let _stash_killed: bool =
+					T::CoreStaking::withdraw_unbonded(who.clone(), num_slashing_spans)
+						.map_err(|_| Error::<T>::WithdrawFailed)?;
+
+				let post_total =
+					T::CoreStaking::stake(&who).defensive()?.total;
+
+				let new_withdrawn =
+					post_total.checked_sub(&pre_total).defensive_ok_or(Error::<T>::BadState)?;
+
+				ledger.unclaimed_withdrawals = ledger
+					.unclaimed_withdrawals
+					.checked_add(&new_withdrawn)
+					.ok_or(ArithmeticError::Overflow)?;
+			}
+
+
+			ensure!(
+				ledger.unclaimed_withdrawals > amount,
+				Error::<T>::NotEnoughFunds
+			);
+
+			ledger.save(&who);
+
+			Self::delegation_withdraw(&delegator, &who, amount)
 		}
 
 		/// Migrate delegated fund.
@@ -309,9 +351,11 @@ pub mod pallet {
 	}
 }
 
-
 impl<T: Config> Pallet<T> {
-	pub(crate) fn sub_account(account_type: AccountType, delegate_account: T::AccountId) -> T::AccountId {
+	pub(crate) fn sub_account(
+		account_type: AccountType,
+		delegate_account: T::AccountId,
+	) -> T::AccountId {
 		T::PalletId::get().into_sub_account_truncating((account_type, delegate_account.clone()))
 	}
 
@@ -341,8 +385,13 @@ impl<T: Config> Pallet<T> {
 		let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, who.clone());
 
 		// Transfer minimum balance to proxy delegator.
-		T::Currency::transfer(who, &proxy_delegator, T::Currency::minimum_balance(), Preservation::Protect)
-			.map_err(|_| Error::<T>::NotEnoughFunds)?;
+		T::Currency::transfer(
+			who,
+			&proxy_delegator,
+			T::Currency::minimum_balance(),
+			Preservation::Protect,
+		)
+		.map_err(|_| Error::<T>::NotEnoughFunds)?;
 
 		// Get current stake
 		let stake = T::CoreStaking::stake(who)?;
@@ -387,14 +436,20 @@ impl<T: Config> Pallet<T> {
 		let new_delegation_amount =
 			if let Some(existing_delegation) = Delegation::<T>::get(delegator) {
 				ensure!(&existing_delegation.delegate == delegate, Error::<T>::InvalidDelegation);
-				existing_delegation.amount.checked_add(&amount).ok_or(ArithmeticError::Overflow)?
+				existing_delegation
+					.amount
+					.checked_add(&amount)
+					.ok_or(ArithmeticError::Overflow)?
 			} else {
 				amount
 			};
 
 		Delegation::<T>::from(delegate, new_delegation_amount).save(delegator);
 
-		ledger.total_delegated = ledger.total_delegated.checked_add(&new_delegation_amount).ok_or(ArithmeticError::Overflow)?;
+		ledger.total_delegated = ledger
+			.total_delegated
+			.checked_add(&new_delegation_amount)
+			.ok_or(ArithmeticError::Overflow)?;
 		ledger.save(delegate);
 
 		T::Currency::hold(&HoldReason::Delegating.into(), delegator, amount)?;
@@ -407,6 +462,12 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+
+	fn do_release(delegate: &T::AccountId, delegator: &T::AccountId, value: BalanceOf<T>) {
+		// let mut ledger =
+		// 	DelegationLedger::<T>::get(delegate).defensive_ok_or(Error::<T>::NotDelegate)?;
+	}
+	// FIXME(ank4n): remove this
 	fn delegation_withdraw(
 		delegator: &T::AccountId,
 		delegate: &T::AccountId,
@@ -419,8 +480,7 @@ impl<T: Config> Pallet<T> {
 		delegation_register.total_delegated.saturating_reduce(value);
 		<Delegates<T>>::insert(delegate, delegation_register);
 
-		let delegation =
-			<Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
+		let delegation = <Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
 		// delegator should already be delegating to `delegate`
 		ensure!(&delegation.delegate == delegate, Error::<T>::NotDelegate);
 		ensure!(delegation.amount >= value, Error::<T>::NotEnoughFunds);
@@ -430,7 +490,10 @@ impl<T: Config> Pallet<T> {
 		if updated_delegate_balance == BalanceOf::<T>::zero() {
 			<Delegators<T>>::remove(delegator);
 		} else {
-			<Delegators<T>>::insert(delegator, Delegation::<T>::from(delegate, updated_delegate_balance));
+			<Delegators<T>>::insert(
+				delegator,
+				Delegation::<T>::from(delegate, updated_delegate_balance),
+			);
 		}
 
 		let released = T::Currency::release(
