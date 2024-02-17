@@ -34,10 +34,36 @@ pub(crate) enum AccountType {
 #[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct Delegation<T: Config> {
-    // The target of delegation.
+    /// The target of delegation.
     pub delegate: T::AccountId,
-    // The amount delegated.
+    /// The amount delegated.
     pub amount: BalanceOf<T>,
+    /// The `delegator` account who is delegating.
+    #[codec(skip)]
+    pub delegator: Option<T::AccountId>,
+}
+
+impl<T: Config> Delegation<T> {
+    pub(crate) fn get(delegator: &T::AccountId) -> Option<Self> {
+        <Delegators<T>>::get(delegator).map(|d| d.with_key(delegator))
+    }
+
+    /// consumes self and returns a new copy with the key.
+    fn with_key(self, key: &T::AccountId) -> Self {
+        Delegation { delegator: Some(key.clone()), ..self }
+    }
+
+    pub(crate) fn from(delegate: &T::AccountId, amount: BalanceOf<T>) -> Self {
+        Delegation { delegate: delegate.clone(), amount, delegator: None }
+    }
+
+    pub(crate) fn save(self, key: &T::AccountId) -> Self {
+        let new_val = self.with_key(key);
+        <Delegators<T>>::insert(key, &new_val);
+
+        new_val
+    }
+
 }
 
 /// Ledger of all delegations to a `Delegate`.

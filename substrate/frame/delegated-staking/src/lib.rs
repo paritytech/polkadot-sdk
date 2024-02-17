@@ -186,7 +186,7 @@ pub mod pallet {
 	/// want to restrict delegators to delegate only to one account.
 	#[pallet::storage]
 	pub(crate) type Delegators<T: Config> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, (T::AccountId, BalanceOf<T>), OptionQuery>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, Delegation<T>, OptionQuery>;
 
 	/// Map of `Delegate` to their Ledger.
 	#[pallet::storage]
@@ -352,7 +352,7 @@ impl<T: Config> Pallet<T> {
 		T::Currency::transfer(who, &proxy_delegator, stake.total, Preservation::Protect)
 			.map_err(|_| Error::<T>::BadState)?;
 
-		DelegationLedger::<T>::new(&reward_account).save(&who);
+		let ledger = DelegationLedger::<T>::new(&reward_account).save(&who);
 		// FIXME(ank4n) expose set payee in staking interface.
 		// T::CoreStaking::set_payee(who, reward_account)
 
@@ -378,9 +378,8 @@ impl<T: Config> Pallet<T> {
 		delegate: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		// let mut delegation_register =
-		// 	<Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		// ensure!(!delegation_register.blocked, Error::<T>::DelegationsBlocked);
+		// let mut ledger = <Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
+		// ensure!(!ledger.blocked, Error::<T>::DelegationsBlocked);
 		//
 		// let new_delegation_amount =
 		// 	if let Some((current_delegate, current_delegation)) = <Delegators<T>>::get(delegator) {
@@ -419,18 +418,18 @@ impl<T: Config> Pallet<T> {
 		delegation_register.total_delegated.saturating_reduce(value);
 		<Delegates<T>>::insert(delegate, delegation_register);
 
-		let (assigned_delegate, delegate_balance) =
+		let delegation =
 			<Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
 		// delegator should already be delegating to `delegate`
-		ensure!(&assigned_delegate == delegate, Error::<T>::NotDelegate);
-		ensure!(delegate_balance >= value, Error::<T>::NotEnoughFunds);
-		let updated_delegate_balance = delegate_balance.saturating_sub(value);
+		ensure!(&delegation.delegate == delegate, Error::<T>::NotDelegate);
+		ensure!(delegation.amount >= value, Error::<T>::NotEnoughFunds);
+		let updated_delegate_balance = delegation.amount.saturating_sub(value);
 
 		// remove delegator if nothing delegated anymore
 		if updated_delegate_balance == BalanceOf::<T>::zero() {
 			<Delegators<T>>::remove(delegator);
 		} else {
-			<Delegators<T>>::insert(delegator, (delegate, updated_delegate_balance));
+			<Delegators<T>>::insert(delegator, Delegation::<T>::from(delegate, updated_delegate_balance));
 		}
 
 		let released = T::Currency::release(

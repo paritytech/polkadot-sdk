@@ -64,9 +64,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		}
 
 		if Self::is_delegator(who) {
-			let (_, delegation_amount) =
-				<Delegators<T>>::get(who).defensive_ok_or(Error::<T>::BadState)?;
-			return Ok(delegation_amount)
+			let delegation =
+				Delegation::<T>::get(who).defensive_ok_or(Error::<T>::BadState)?;
+			return Ok(delegation.amount)
 		}
 
 		Err(Error::<T>::NotSupported.into())
@@ -336,11 +336,11 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	) -> DispatchResult {
 		let mut delegation_register =
 			<Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		let (assigned_delegate, delegate_balance) =
+		let delegation =
 			<Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
 
-		ensure!(&assigned_delegate == delegate, Error::<T>::NotDelegate);
-		ensure!(delegate_balance >= value, Error::<T>::NotEnoughFunds);
+		ensure!(&delegation.delegate == delegate, Error::<T>::NotDelegate);
+		ensure!(delegation.amount >= value, Error::<T>::NotEnoughFunds);
 
 		let (mut credit, _missing) =
 			T::Currency::slash(&HoldReason::Delegating.into(), &delegator, value);
@@ -377,15 +377,16 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		let proxy_delegator =
 			<DelegateMigration<T>>::get(delegate).ok_or(Error::<T>::NotMigrating)?;
 		// proxy delegator must exist
-		let (assigned_delegate, delegate_balance) =
+		// let (assigned_delegate, delegate_balance) =
+		let delegation =
 			<Delegators<T>>::get(&proxy_delegator).ok_or(Error::<T>::BadState)?;
-		ensure!(assigned_delegate == *delegate, Error::<T>::BadState);
+		ensure!(delegation.delegate == *delegate, Error::<T>::BadState);
 
 		// make sure proxy delegator has enough balance to support this migration.
-		ensure!(delegate_balance >= value, Error::<T>::NotEnoughFunds);
+		ensure!(delegation.amount >= value, Error::<T>::NotEnoughFunds);
 
 		// remove delegation of `value` from `proxy_delegator`.
-		let updated_delegate_balance = delegate_balance.saturating_sub(value);
+		let updated_delegate_balance = delegation.amount.saturating_sub(value);
 
 		// if all funds are migrated out of proxy delegator, clean up.
 		if updated_delegate_balance == BalanceOf::<T>::zero() {
@@ -393,7 +394,14 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			<DelegateMigration<T>>::remove(delegate);
 		} else {
 			// else update proxy delegator
-			<Delegators<T>>::insert(&proxy_delegator, (delegate, updated_delegate_balance));
+			<Delegators<T>>::insert(
+				&proxy_delegator,
+				Delegation {
+					delegate: delegate.clone(),
+					amount: updated_delegate_balance,
+					delegator: Some(proxy_delegator.clone()),
+				}
+			);
 		}
 
 		let released = T::Currency::release(
@@ -410,7 +418,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			.map_err(|_| Error::<T>::BadState)?;
 
 		// add the above removed delegation to `new_delegator`.
-		<Delegators<T>>::insert(new_delegator, (delegate, value));
+		Delegation::<T>::from(delegate, value).save(new_delegator);
 		// hold the funds again in the new delegator account.
 		T::Currency::hold(&HoldReason::Delegating.into(), &new_delegator, value)?;
 
@@ -438,16 +446,16 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		}
 
 		let new_delegation_amount =
-			if let Some((current_delegate, current_delegation)) = <Delegators<T>>::get(delegator) {
-				ensure!(&current_delegate == delegate, Error::<T>::InvalidDelegation);
-				value.saturating_add(current_delegation)
+			if let Some(current_delegation) = <Delegators<T>>::get(delegator) {
+				ensure!(&current_delegation.delegate == delegate, Error::<T>::InvalidDelegation);
+				value.saturating_add(current_delegation.amount)
 			} else {
 				value
 			};
 
 		delegation_register.total_delegated.saturating_accrue(value);
 
-		<Delegators<T>>::insert(delegator, (delegate, new_delegation_amount));
+		Delegation::<T>::from(delegate, new_delegation_amount).save(delegator);
 		<Delegates<T>>::insert(delegate, delegation_register);
 
 		T::Currency::hold(&HoldReason::Delegating.into(), &delegator, value)?;
