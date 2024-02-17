@@ -1313,10 +1313,7 @@ mod tests {
 		traits::{ConstU32, ConstU64, OnInitialize},
 	};
 	use frame_system::ensure_signed;
-	use sp_runtime::{
-		testing::Header,
-		BuildStorage,
-	};
+	use sp_runtime::{testing::Header, BuildStorage};
 	use substrate_test_utils::assert_eq_uvec;
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]

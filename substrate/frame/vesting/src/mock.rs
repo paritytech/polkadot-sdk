@@ -19,10 +19,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, WithdrawReasons},
 };
-use sp_runtime::{
-	traits::Identity,
-	BuildStorage,
-};
+use sp_runtime::{traits::Identity, BuildStorage};
 
 use super::*;
 use crate as pallet_vesting;

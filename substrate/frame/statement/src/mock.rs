@@ -24,11 +24,8 @@ use frame_support::{
 	derive_impl, ord_parameter_types,
 	traits::{ConstU32, ConstU64},
 };
-use sp_core::{Pair};
-use sp_runtime::{
-	traits::IdentityLookup,
-	AccountId32, BuildStorage,
-};
+use sp_core::Pair;
+use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

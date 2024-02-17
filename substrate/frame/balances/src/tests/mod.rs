@@ -26,15 +26,15 @@ use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	parameter_types,
 	traits::{
-		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced,
-		StorageMapShim, StoredMap, VariantCount, WhitelistedStorageKeys,
+		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced, StorageMapShim,
+		StoredMap, VariantCount, WhitelistedStorageKeys,
 	},
 	weights::{IdentityFee, Weight},
 };
 use frame_system::{self as system, RawOrigin};
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter, Multiplier};
 use scale_info::TypeInfo;
-use sp_core::{hexdisplay::HexDisplay};
+use sp_core::hexdisplay::HexDisplay;
 use sp_io;
 use sp_runtime::{
 	traits::{BadOrigin, SignedExtension, Zero},

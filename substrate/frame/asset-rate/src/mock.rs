@@ -18,11 +18,8 @@
 //! The crate's mock.
 
 use crate as pallet_asset_rate;
-use frame_support::{
-	derive_impl,
-	traits::{ConstU64},
-};
-use sp_runtime::{BuildStorage};
+use frame_support::{derive_impl, traits::ConstU64};
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

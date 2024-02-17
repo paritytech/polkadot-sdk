@@ -24,7 +24,7 @@ use frame_support::{
 	derive_impl,
 	traits::{ConstU32, ConstU64},
 };
-use sp_runtime::{BuildStorage};
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

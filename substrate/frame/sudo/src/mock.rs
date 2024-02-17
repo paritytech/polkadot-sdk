@@ -19,10 +19,7 @@
 
 use super::*;
 use crate as sudo;
-use frame_support::{
-	derive_impl,
-	traits::Contains,
-};
+use frame_support::{derive_impl, traits::Contains};
 use sp_io;
 use sp_runtime::BuildStorage;
 

@@ -20,10 +20,7 @@
 use super::*;
 use crate as pallet_timestamp;
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::ConstU64,
-};
+use frame_support::{derive_impl, parameter_types, traits::ConstU64};
 use sp_io::TestExternalities;
 use sp_runtime::BuildStorage;
 

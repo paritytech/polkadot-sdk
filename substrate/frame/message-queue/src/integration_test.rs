@@ -37,9 +37,7 @@ use crate::{
 };
 
 use crate as pallet_message_queue;
-use frame_support::{
-	derive_impl, parameter_types,
-};
+use frame_support::{derive_impl, parameter_types};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rand_distr::Pareto;
 use std::collections::{BTreeMap, BTreeSet};

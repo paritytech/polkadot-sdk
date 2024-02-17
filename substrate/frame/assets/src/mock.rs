@@ -26,7 +26,7 @@ use frame_support::{
 	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64},
 };
 use sp_io::storage;
-use sp_runtime::{BuildStorage};
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

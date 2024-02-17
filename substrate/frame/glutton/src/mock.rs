@@ -19,7 +19,7 @@ use super::*;
 use crate as pallet_glutton;
 
 use frame_support::{assert_ok, derive_impl};
-use sp_runtime::{BuildStorage};
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

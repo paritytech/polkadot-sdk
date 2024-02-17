@@ -23,7 +23,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
 };
-use sp_runtime::{BuildStorage};
+use sp_runtime::BuildStorage;
 
 use super::*;
 use crate as pallet_conviction_voting;

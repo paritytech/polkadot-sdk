@@ -168,13 +168,10 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
-	use frame_support::{
-		derive_impl, parameter_types,
-		traits::{ConstU32},
-	};
+	use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;
-	use sp_core::{crypto::key_types};
+	use sp_core::crypto::key_types;
 	use sp_io::TestExternalities;
 	use sp_runtime::{
 		testing::UintAuthorityId,

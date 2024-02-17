@@ -27,12 +27,7 @@ use frame_support::{
 	traits::{ConstU32, ConstU64, Hooks, OneSessionHandler},
 };
 use pallet_staking::StakerStatus;
-use sp_runtime::{
-	curve::PiecewiseLinear,
-	testing::UintAuthorityId,
-	traits::Zero,
-	BuildStorage,
-};
+use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{EraIndex, SessionIndex};
 use sp_std::collections::btree_map::BTreeMap;
 

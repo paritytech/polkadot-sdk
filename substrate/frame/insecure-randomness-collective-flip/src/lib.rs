@@ -163,10 +163,7 @@ mod tests {
 	use crate as pallet_insecure_randomness_collective_flip;
 
 	use sp_core::H256;
-	use sp_runtime::{
-		traits::Header as _,
-		BuildStorage,
-	};
+	use sp_runtime::{traits::Header as _, BuildStorage};
 
 	use frame_support::{
 		derive_impl, parameter_types,
