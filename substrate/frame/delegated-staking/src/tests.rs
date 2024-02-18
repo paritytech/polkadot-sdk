@@ -494,7 +494,7 @@ mod integration {
 			// cannot use migrate delegator anymore
 			assert_noop!(
 				DelegatedStaking::migrate_delegator(&200, &305, 1),
-				Error::<T>::NotMigrating
+				Error::<T>::NotEnoughFunds
 			);
 		});
 	}

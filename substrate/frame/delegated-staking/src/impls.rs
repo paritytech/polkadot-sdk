@@ -318,61 +318,16 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	}
 
 	/// Move funds from proxy delegator to actual delegator.
-	#[transactional]
 	fn migrate_delegator(
 		delegate: &Self::AccountId,
 		new_delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult {
-		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
-		// make sure new delegator is not an existing delegator or a delegate
-		ensure!(!<Delegates<T>>::contains_key(new_delegator), Error::<T>::NotAllowed);
-		ensure!(!<Delegators<T>>::contains_key(new_delegator), Error::<T>::NotAllowed);
-		// ensure we are migrating
-		let proxy_delegator =
-			<DelegateMigration<T>>::get(delegate).ok_or(Error::<T>::NotMigrating)?;
-		// proxy delegator must exist
-		// let (assigned_delegate, delegate_balance) =
-		let delegation = <Delegators<T>>::get(&proxy_delegator).ok_or(Error::<T>::BadState)?;
-		ensure!(delegation.delegate == *delegate, Error::<T>::BadState);
-
-		// make sure proxy delegator has enough balance to support this migration.
-		ensure!(delegation.amount >= value, Error::<T>::NotEnoughFunds);
-
-		// remove delegation of `value` from `proxy_delegator`.
-		let updated_delegate_balance = delegation.amount.saturating_sub(value);
-
-		// if all funds are migrated out of proxy delegator, clean up.
-		if updated_delegate_balance == BalanceOf::<T>::zero() {
-			<Delegators<T>>::remove(&proxy_delegator);
-			<DelegateMigration<T>>::remove(delegate);
-		} else {
-			// else update proxy delegator
-			<Delegators<T>>::insert(
-				&proxy_delegator,
-				Delegation { delegate: delegate.clone(), amount: updated_delegate_balance },
-			);
-		}
-
-		let released = T::Currency::release(
-			&HoldReason::Delegating.into(),
-			&proxy_delegator,
+		Self::migrate_delegation(
+			RawOrigin::Signed(delegate.clone()).into(),
+			new_delegator.clone(),
 			value,
-			Precision::BestEffort,
-		)?;
-
-		defensive_assert!(released == value, "hold should have been released fully");
-
-		// transfer the withdrawn value to `new_delegator`.
-		T::Currency::transfer(&proxy_delegator, new_delegator, value, Preservation::Expendable)
-			.map_err(|_| Error::<T>::BadState)?;
-
-		// add the above removed delegation to `new_delegator`.
-		Delegation::<T>::from(delegate, value).save(new_delegator);
-		// hold the funds again in the new delegator account.
-		T::Currency::hold(&HoldReason::Delegating.into(), &new_delegator, value)?;
-
-		Ok(())
+		)
 	}
 
 	fn delegate(
