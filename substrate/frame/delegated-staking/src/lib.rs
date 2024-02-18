@@ -18,6 +18,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
+// FIXME(ank4n): fix docs
 //! An implementation of a delegation system for staking that can be utilised using
 //! [`DelegationInterface`]. In future, if exposed via extrinsic, these primitives could also be
 //! used by off-chain entities, or by foreign multi-locations (via xcm).

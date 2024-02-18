@@ -378,6 +378,7 @@ use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 use sp_runtime::TryRuntimeError;
+use adapter::PoolAdapter;
 
 /// The log target of this pallet.
 pub const LOG_TARGET: &str = "runtime::nomination-pools";
@@ -399,6 +400,7 @@ mod tests;
 
 pub mod migration;
 pub mod weights;
+mod adapter;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -1056,7 +1058,7 @@ impl<T: Config> BondedPool<T> {
 		// `pallet-nomination-pool`. This means reducible balance always returns balance preserving
 		// ED in the account. What we want though is transferable balance given the account can be
 		// dusted.
-		T::Currency::balance(&account)
+		T::PoolAdapter::balance(&account)
 			.saturating_sub(T::Staking::active_stake(&account).unwrap_or_default())
 	}
 
@@ -1256,7 +1258,7 @@ impl<T: Config> BondedPool<T> {
 		// Cache the value
 		let bonded_account = self.bonded_account();
 		// TODO(ank4n) joining a pool: delegate funds to pool account..
-		T::Currency::transfer(
+		T::PoolAdapter::delegate(
 			who,
 			&bonded_account,
 			amount,
@@ -1655,6 +1657,9 @@ pub mod pallet {
 
 		/// The maximum length, in bytes, that a pools metadata maybe.
 		type MaxMetadataLen: Get<u32>;
+
+		/// An adapter to support delegated to direct staking.
+		type PoolAdapter: PoolAdapter<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
 	}
 
 	/// The sum of funds across all pools.
@@ -2292,12 +2297,10 @@ pub mod pallet {
 				// order to ensure members can leave the pool and it can be destroyed.
 				.min(bonded_pool.transferable_balance());
 
-			// fixme(ank4n): Fix for delegated
-			T::Currency::transfer(
-				&bonded_pool.bonded_account(),
+			T::PoolAdapter::release_delegation(
 				&member_account,
+				&bonded_pool.bonded_account(),
 				balance_to_unbond,
-				Preservation::Expendable,
 			)
 			.defensive()?;
 
@@ -2879,11 +2882,12 @@ impl<T: Config> Pallet<T> {
 			"could not transfer all amount to depositor while dissolving pool"
 		);
 		defensive_assert!(
-			T::Currency::total_balance(&bonded_pool.bonded_account()) == Zero::zero(),
+			T::PoolAdapter::total_balance(&bonded_pool.bonded_account()) == Zero::zero(),
 			"dissolving pool should not have any balance"
 		);
 		// NOTE: Defensively force set balance to zero.
 		T::Currency::set_balance(&reward_account, Zero::zero());
+		// fixme(ank4n): Can't do this with delegated?
 		T::Currency::set_balance(&bonded_pool.bonded_account(), Zero::zero());
 
 		Self::deposit_event(Event::<T>::Destroyed { pool_id: bonded_pool.id });
@@ -3460,7 +3464,7 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::Staking::active_stake(&pool_account).unwrap_or_default();
-			let total_balance = T::Currency::total_balance(&pool_account);
+			let total_balance = T::PoolAdapter::total_balance(&pool_account);
 
 			assert!(
 				total_balance >= bonded_balance + sum_unbonding_balance,

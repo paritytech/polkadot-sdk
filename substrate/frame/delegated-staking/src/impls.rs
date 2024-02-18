@@ -16,8 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Implementations of public traits, namely [StakingInterface], [DelegationInterface] and
-//! [StakingDelegationSupport].
+//! Implementations of public traits, namely [StakingInterface], and [StakingDelegationSupport].
 
 use super::*;
 
@@ -124,6 +123,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	/// Not supported, call [`DelegationInterface::delegate_withdraw`]
+	/// FIXME(ank4n): Support it!!
 	fn withdraw_unbonded(
 		_stash: Self::AccountId,
 		_num_slashing_spans: u32,
