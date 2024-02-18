@@ -204,7 +204,7 @@ impl<
 	) -> result::Result<AssetsInHolding, XcmError> {
 		log::trace!(
 			target: "xcm::fungible_adapter",
-			"deposit_asset what: {:?}, who: {:?}",
+			"withdraw_asset what: {:?}, who: {:?}",
 			what, who,
 		);
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;

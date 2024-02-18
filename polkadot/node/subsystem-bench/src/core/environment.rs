@@ -13,28 +13,31 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
 //! Test environment implementation
+
 use crate::{
-	core::{mock::AlwaysSupportsParachains, network::NetworkEmulatorHandle},
+	core::{
+		configuration::TestAuthorities, mock::AlwaysSupportsParachains,
+		network::NetworkEmulatorHandle,
+	},
 	TestConfiguration,
 };
 use colored::Colorize;
 use core::time::Duration;
 use futures::{Future, FutureExt};
-use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
-
 use polkadot_node_subsystem::{messages::AllMessages, Overseer, SpawnGlue, TimeoutExt};
 use polkadot_node_subsystem_types::Hash;
 use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, Gauge, Histogram, PrometheusError, Registry, U64,
 };
-
+use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
 use sc_service::{SpawnTaskHandle, TaskManager};
+use serde::{Deserialize, Serialize};
 use std::net::{Ipv4Addr, SocketAddr};
 use tokio::runtime::Handle;
 
 const LOG_TARGET: &str = "subsystem-bench::environment";
-use super::configuration::TestAuthorities;
 
 /// Test environment/configuration metrics
 #[derive(Clone)]
@@ -347,57 +350,102 @@ impl TestEnvironment {
 		}
 	}
 
-	/// Display network usage stats.
-	pub fn display_network_usage(&self) {
-		let stats = self.network().peer_stats(0);
-
-		let total_node_received = stats.received() / 1024;
-		let total_node_sent = stats.sent() / 1024;
-
-		println!(
-			"\nPayload bytes received from peers: {}, {}",
-			format!("{:.2} KiB total", total_node_received).blue(),
-			format!("{:.2} KiB/block", total_node_received / self.config().num_blocks)
-				.bright_blue()
-		);
-
-		println!(
-			"Payload bytes sent to peers: {}, {}",
-			format!("{:.2} KiB total", total_node_sent).blue(),
-			format!("{:.2} KiB/block", total_node_sent / self.config().num_blocks).bright_blue()
-		);
+	pub fn collect_resource_usage(
+		&self,
+		benchmark_name: &str,
+		subsystems_under_test: &[&str],
+	) -> BenchmarkUsage {
+		BenchmarkUsage {
+			benchmark_name: benchmark_name.to_string(),
+			network_usage: self.network_usage(),
+			cpu_usage: self.cpu_usage(subsystems_under_test),
+		}
 	}
 
-	/// Print CPU usage stats in the CLI.
-	pub fn display_cpu_usage(&self, subsystems_under_test: &[&str]) {
+	fn network_usage(&self) -> Vec<ResourceUsage> {
+		let stats = self.network().peer_stats(0);
+		let total_node_received = (stats.received() / 1024) as f64;
+		let total_node_sent = (stats.sent() / 1024) as f64;
+		let num_blocks = self.config().num_blocks as f64;
+
+		vec![
+			ResourceUsage {
+				resource_name: "Received from peers".to_string(),
+				total: total_node_received,
+				per_block: total_node_received / num_blocks,
+			},
+			ResourceUsage {
+				resource_name: "Sent to peers".to_string(),
+				total: total_node_sent,
+				per_block: total_node_sent / num_blocks,
+			},
+		]
+	}
+
+	fn cpu_usage(&self, subsystems_under_test: &[&str]) -> Vec<ResourceUsage> {
 		let test_metrics = super::display::parse_metrics(self.registry());
+		let mut usage = vec![];
+		let num_blocks = self.config().num_blocks as f64;
 
 		for subsystem in subsystems_under_test.iter() {
 			let subsystem_cpu_metrics =
 				test_metrics.subset_with_label_value("task_group", subsystem);
 			let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-			println!(
-				"{} CPU usage {}",
-				subsystem.to_string().bright_green(),
-				format!("{:.3}s", total_cpu).bright_purple()
-			);
-			println!(
-				"{} CPU usage per block {}",
-				subsystem.to_string().bright_green(),
-				format!("{:.3}s", total_cpu / self.config().num_blocks as f64).bright_purple()
-			);
+			usage.push(ResourceUsage {
+				resource_name: subsystem.to_string(),
+				total: total_cpu,
+				per_block: total_cpu / num_blocks,
+			});
 		}
 
 		let test_env_cpu_metrics =
 			test_metrics.subset_with_label_value("task_group", "test-environment");
 		let total_cpu = test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-		println!(
-			"Total test environment CPU usage {}",
-			format!("{:.3}s", total_cpu).bright_purple()
-		);
-		println!(
-			"Test environment CPU usage per block {}",
-			format!("{:.3}s", total_cpu / self.config().num_blocks as f64).bright_purple()
+
+		usage.push(ResourceUsage {
+			resource_name: "Test environment".to_string(),
+			total: total_cpu,
+			per_block: total_cpu / num_blocks,
+		});
+
+		usage
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BenchmarkUsage {
+	benchmark_name: String,
+	network_usage: Vec<ResourceUsage>,
+	cpu_usage: Vec<ResourceUsage>,
+}
+
+impl std::fmt::Display for BenchmarkUsage {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(
+			f,
+			"\n{}\n\n{}\n{}\n\n{}\n{}\n",
+			self.benchmark_name.purple(),
+			format!("{:<32}{:>12}{:>12}", "Network usage, KiB", "total", "per block").blue(),
+			self.network_usage
+				.iter()
+				.map(|v| v.to_string())
+				.collect::<Vec<String>>()
+				.join("\n"),
+			format!("{:<32}{:>12}{:>12}", "CPU usage in seconds", "total", "per block").blue(),
+			self.cpu_usage.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n")
 		)
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ResourceUsage {
+	resource_name: String,
+	total: f64,
+	per_block: f64,
+}
+
+impl std::fmt::Display for ResourceUsage {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "{:<32}{:>12.3}{:>12.3}", self.resource_name.cyan(), self.total, self.per_block)
 	}
 }
