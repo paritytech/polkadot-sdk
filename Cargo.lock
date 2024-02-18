@@ -18720,7 +18720,6 @@ dependencies = [
  "rand_chacha 0.2.2",
  "sp-core",
  "sp-externalities 0.25.0",
- "thiserror",
 ]
 
 [[package]]
