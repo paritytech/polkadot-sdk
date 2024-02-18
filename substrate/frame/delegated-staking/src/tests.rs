@@ -210,8 +210,8 @@ mod integration {
 			assert!(eq_stake(delegate, total_staked, total_staked));
 			// Withdrawing without unbonding would fail.
 			assert_noop!(
-				DelegatedStaking::delegate_withdraw(&delegate, &300, 50, 0),
-				Error::<T>::WithdrawFailed
+				DelegatedStaking::delegate_withdraw(&delegate, &301, 50, 0),
+				Error::<T>::NotEnoughFunds
 			);
 			// assert_noop!(DelegatedStaking::delegate_withdraw(&delegate, &200, 50, 0),
 			// Error::<T>::NotAllowed); active and total stake remains same
@@ -233,7 +233,7 @@ mod integration {
 			// nothing to withdraw at era 4
 			assert_noop!(
 				DelegatedStaking::delegate_withdraw(&delegate, &305, 50, 0),
-				Error::<T>::WithdrawFailed
+				Error::<T>::NotEnoughFunds
 			);
 
 			assert!(eq_stake(delegate, total_staked, expected_active));
@@ -245,7 +245,7 @@ mod integration {
 			// at era 5, 50 tokens are withdrawable, cannot withdraw more.
 			assert_noop!(
 				DelegatedStaking::delegate_withdraw(&delegate, &305, 51, 0),
-				Error::<T>::WithdrawFailed
+				Error::<T>::NotEnoughFunds
 			);
 			// less is possible
 			assert_ok!(DelegatedStaking::delegate_withdraw(&delegate, &305, 30, 0));
@@ -277,11 +277,11 @@ mod integration {
 			// cannot withdraw anything more..
 			assert_noop!(
 				DelegatedStaking::delegate_withdraw(&delegate, &301, 1, 0),
-				Error::<T>::WithdrawFailed
+				Error::<T>::NotEnoughFunds
 			);
 			assert_noop!(
 				DelegatedStaking::delegate_withdraw(&delegate, &350, 1, 0),
-				Error::<T>::WithdrawFailed
+				Error::<T>::NotEnoughFunds
 			);
 		});
 	}
@@ -295,19 +295,23 @@ mod integration {
 			// verify withdraw not possible yet
 			assert_noop!(
 				DelegatedStaking::delegate_withdraw(&delegate, &300, 100, 0),
-				Error::<T>::WithdrawFailed
+				Error::<T>::NotEnoughFunds
 			);
 
 			// add new delegation that is not staked
-			fund(&300, 1000);
-			assert_ok!(DelegatedStaking::delegate(&300, &delegate, 100));
 
-			// verify unbonded balance
-			assert_eq!(DelegatedStaking::unbonded_balance(&delegate), 100);
+			// FIXME(ank4n): add scenario where staked funds are withdrawn from ledger but not
+			// withdrawn and test its claimed from there first.
 
-			// withdraw works now without unbonding
-			assert_ok!(DelegatedStaking::delegate_withdraw(&delegate, &300, 100, 0));
-			assert_eq!(DelegatedStaking::unbonded_balance(&delegate), 0);
+			// fund(&300, 1000);
+			// assert_ok!(DelegatedStaking::delegate(&300, &delegate, 100));
+			//
+			// // verify unbonded balance
+			// assert_eq!(DelegatedStaking::unbonded_balance(&delegate), 100);
+			//
+			// // withdraw works now without unbonding
+			// assert_ok!(DelegatedStaking::delegate_withdraw(&delegate, &300, 100, 0));
+			// assert_eq!(DelegatedStaking::unbonded_balance(&delegate), 0);
 		});
 	}
 

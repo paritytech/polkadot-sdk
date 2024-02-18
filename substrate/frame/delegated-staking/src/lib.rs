@@ -151,8 +151,6 @@ pub mod pallet {
 		WithdrawFailed,
 		/// This operation is not supported with Delegation Staking.
 		NotSupported,
-		/// This `delegate` is not set as a migrating account.
-		NotMigrating,
 		/// Account does not accept delegations.
 		NotAcceptingDelegations,
 	}
@@ -193,14 +191,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type Delegates<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegationLedger<T>, OptionQuery>;
-
-	/// Map of Delegate and its proxy delegator account while its actual delegators are migrating.
-	///
-	/// Helps ensure correctness of ongoing migration of a direct nominator to a `delegate`. If a
-	/// `delegate` does not exist, it implies it is not going through migration.
-	#[pallet::storage]
-	pub(crate) type DelegateMigration<T: Config> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, T::AccountId, OptionQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -530,7 +520,7 @@ impl<T: Config> Pallet<T> {
 		let post_total = T::CoreStaking::stake(delegate).defensive()?.total;
 
 		let new_withdrawn =
-			post_total.checked_sub(&pre_total).defensive_ok_or(Error::<T>::BadState)?;
+			pre_total.checked_sub(&post_total).defensive_ok_or(Error::<T>::BadState)?;
 
 		ledger.unclaimed_withdrawals = ledger
 			.unclaimed_withdrawals
