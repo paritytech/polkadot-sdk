@@ -735,6 +735,20 @@
 <a href="#735" id="735">735</a>
 <a href="#736" id="736">736</a>
 <a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -754,7 +768,11 @@
 
 </span><span class="doccomment">//! Keystore traits
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub mod </span>testing;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
@@ -766,24 +784,34 @@
 	ecdsa, ed25519, sr25519,
 };
 
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>alloc::{string::String, sync::Arc, vec::Vec};
 
 <span class="doccomment">/// Keystore error
-</span><span class="attr">#[derive(Debug, thiserror::Error)]
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>Error {
 	<span class="doccomment">/// Public key type is not supported
-	</span><span class="attr">#[error(<span class="string">&quot;Key not supported: {0:?}&quot;</span>)]
 	</span>KeyNotSupported(KeyTypeId),
 	<span class="doccomment">/// Validation error
-	</span><span class="attr">#[error(<span class="string">&quot;Validation error: {0}&quot;</span>)]
 	</span>ValidationError(String),
 	<span class="doccomment">/// Keystore unavailable
-	</span><span class="attr">#[error(<span class="string">&quot;Keystore unavailable&quot;</span>)]
 	</span>Unavailable,
 	<span class="doccomment">/// Programming errors
-	</span><span class="attr">#[error(<span class="string">&quot;An unknown keystore error occurred: {0}&quot;</span>)]
 	</span>Other(String),
 }
+
+<span class="kw">impl </span>core::fmt::Display <span class="kw">for </span>Error {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
+		<span class="kw">match </span><span class="self">self </span>{
+			Error::KeyNotSupported(key_type) =&gt; <span class="macro">write!</span>(fmt, <span class="string">&quot;Key not supported: {key_type:?}&quot;</span>),
+			Error::ValidationError(error) =&gt; <span class="macro">write!</span>(fmt, <span class="string">&quot;Validation error: {error}&quot;</span>),
+			Error::Unavailable =&gt; fmt.write_str(<span class="string">&quot;Keystore unavailable&quot;</span>),
+			Error::Other(error) =&gt; <span class="macro">write!</span>(fmt, <span class="string">&quot;An unknown keystore error occurred: {error}&quot;</span>),
+		}
+	}
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">impl </span>std::error::Error <span class="kw">for </span>Error {}
 
 <span class="doccomment">/// Something that generates, stores and provides access to secret keys.
 </span><span class="kw">pub trait </span>Keystore: Send + Sync {
