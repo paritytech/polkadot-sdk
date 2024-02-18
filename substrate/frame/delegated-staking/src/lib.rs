@@ -314,7 +314,10 @@ pub mod pallet {
 			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaker);
 
 			// ensure delegate is sane.
-			ensure!(DelegationLedger::<T>::can_accept_delegation(&delegate), Error::<T>::NotAcceptingDelegations);
+			ensure!(
+				DelegationLedger::<T>::can_accept_delegation(&delegate),
+				Error::<T>::NotAcceptingDelegations
+			);
 
 			let delegator_balance =
 				T::Currency::reducible_balance(&who, Preservation::Preserve, Fortitude::Polite);
@@ -328,10 +331,7 @@ pub mod pallet {
 		/// To unblock, pass false.
 		#[pallet::call_index(5)]
 		#[pallet::weight(Weight::default())]
-		pub fn block_delegations(
-			origin: OriginFor<T>,
-			block: bool,
-		) -> DispatchResult {
+		pub fn block_delegations(origin: OriginFor<T>, block: bool) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			let delegate = Delegate::<T>::from(&who)?;
@@ -403,16 +403,16 @@ impl<T: Config> Pallet<T> {
 		// FIXME(ank4n) expose set payee in staking interface.
 		// T::CoreStaking::set_payee(who, reward_account)
 
-		Self::do_delegate(&proxy_delegator, who, stake.total)?;
-		Self::do_bond(who, stake.total)
+		Self::do_delegate(&proxy_delegator, who, stake.total)
 	}
 
 	fn do_bond(delegate_acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		let delegate = Delegate::<T>::from(delegate_acc)?;
 
-		debug_assert!(amount == delegate.available_to_bond());
+		let available_to_bond = delegate.available_to_bond();
+		defensive_assert!(amount == available_to_bond, "not expected value to bond");
 
-		if delegate.is_exposed() {
+		if delegate.is_bonded() {
 			T::CoreStaking::bond_extra(&delegate.key, amount)
 		} else {
 			T::CoreStaking::bond(&delegate.key, amount, &delegate.reward_account())

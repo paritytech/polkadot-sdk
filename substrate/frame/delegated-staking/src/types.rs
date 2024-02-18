@@ -159,7 +159,7 @@ impl<T: Config> Delegate<T> {
 	}
 
 	pub(crate) fn available_to_bond(&self) -> BalanceOf<T> {
-		let exposed_stake = self.exposed_stake();
+		let exposed_stake = self.bonded_stake();
 
 		let stakeable =
 			self.ledger().map(|ledger| ledger.stakeable_balance()).unwrap_or(Zero::zero());
@@ -173,11 +173,11 @@ impl<T: Config> Delegate<T> {
 		DelegationLedger::<T>::get(&self.key)
 	}
 
-	pub(crate) fn exposed_stake(&self) -> BalanceOf<T> {
+	pub(crate) fn bonded_stake(&self) -> BalanceOf<T> {
 		T::CoreStaking::total_stake(&self.key).unwrap_or(Zero::zero())
 	}
 
-	pub(crate) fn is_exposed(&self) -> bool {
+	pub(crate) fn is_bonded(&self) -> bool {
 		T::CoreStaking::stake(&self.key).is_ok()
 	}
 

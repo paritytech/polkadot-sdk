@@ -32,11 +32,18 @@ fn create_a_delegate_with_first_delegator() {
 
 		// set intention to accept delegation.
 		fund(&delegate, 1000);
-		assert_ok!(DelegatedStaking::register_as_delegate(RawOrigin::Signed(delegate).into(), reward_account));
+		assert_ok!(DelegatedStaking::register_as_delegate(
+			RawOrigin::Signed(delegate).into(),
+			reward_account
+		));
 
 		// delegate to this account
 		fund(&delegator, 1000);
-		assert_ok!(DelegatedStaking::delegate_funds(RawOrigin::Signed(delegator).into(), delegate, 100));
+		assert_ok!(DelegatedStaking::delegate_funds(
+			RawOrigin::Signed(delegator).into(),
+			delegate,
+			100
+		));
 
 		// verify
 		assert!(DelegatedStaking::is_delegate(&delegate));
@@ -56,17 +63,26 @@ fn cannot_become_delegate() {
 
 		// an existing validator cannot become delegate
 		assert_noop!(
-			DelegatedStaking::register_as_delegate(RawOrigin::Signed(mock::GENESIS_VALIDATOR).into(), 100),
+			DelegatedStaking::register_as_delegate(
+				RawOrigin::Signed(mock::GENESIS_VALIDATOR).into(),
+				100
+			),
 			Error::<T>::AlreadyStaker
 		);
 
 		// an existing nominator cannot become delegate
 		assert_noop!(
-			DelegatedStaking::register_as_delegate(RawOrigin::Signed(mock::GENESIS_NOMINATOR_ONE).into(), 100),
+			DelegatedStaking::register_as_delegate(
+				RawOrigin::Signed(mock::GENESIS_NOMINATOR_ONE).into(),
+				100
+			),
 			Error::<T>::AlreadyStaker
 		);
 		assert_noop!(
-			DelegatedStaking::register_as_delegate(RawOrigin::Signed(mock::GENESIS_NOMINATOR_TWO).into(), 100),
+			DelegatedStaking::register_as_delegate(
+				RawOrigin::Signed(mock::GENESIS_NOMINATOR_TWO).into(),
+				100
+			),
 			Error::<T>::AlreadyStaker
 		);
 	});
@@ -84,12 +100,19 @@ fn create_multiple_delegators() {
 		assert_eq!(DelegatedStaking::stakeable_balance(&delegate), 0);
 
 		// set intention to accept delegation.
-		assert_ok!(DelegatedStaking::register_as_delegate(RawOrigin::Signed(delegate).into(), reward_account));
+		assert_ok!(DelegatedStaking::register_as_delegate(
+			RawOrigin::Signed(delegate).into(),
+			reward_account
+		));
 
 		// create 100 delegators
 		for i in 202..302 {
 			fund(&i, 100 + ExistentialDeposit::get());
-			assert_ok!(DelegatedStaking::delegate_funds(RawOrigin::Signed(i).into(), delegate, 100));
+			assert_ok!(DelegatedStaking::delegate_funds(
+				RawOrigin::Signed(i).into(),
+				delegate,
+				100
+			));
 			// Balance of 100 held on delegator account for delegating to the delegate.
 			assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &i), 100);
 		}
@@ -107,37 +130,67 @@ fn delegate_restrictions() {
 		let delegate_one = 200;
 		let delegator_one = 210;
 		fund(&delegate_one, 100);
-		assert_ok!(DelegatedStaking::register_as_delegate(RawOrigin::Signed(delegate_one).into(), delegate_one + 1));
+		assert_ok!(DelegatedStaking::register_as_delegate(
+			RawOrigin::Signed(delegate_one).into(),
+			delegate_one + 1
+		));
 		fund(&delegator_one, 200);
-		assert_ok!(DelegatedStaking::delegate_funds(RawOrigin::Signed(delegator_one).into(), delegate_one, 100));
+		assert_ok!(DelegatedStaking::delegate_funds(
+			RawOrigin::Signed(delegator_one).into(),
+			delegate_one,
+			100
+		));
 
 		let delegate_two = 300;
 		let delegator_two = 310;
 		fund(&delegate_two, 100);
-		assert_ok!(DelegatedStaking::register_as_delegate(RawOrigin::Signed(delegate_two).into(), delegate_two + 1));
+		assert_ok!(DelegatedStaking::register_as_delegate(
+			RawOrigin::Signed(delegate_two).into(),
+			delegate_two + 1
+		));
 		fund(&delegator_two, 200);
-		assert_ok!(DelegatedStaking::delegate_funds(RawOrigin::Signed(delegator_two).into(), delegate_two, 100));
+		assert_ok!(DelegatedStaking::delegate_funds(
+			RawOrigin::Signed(delegator_two).into(),
+			delegate_two,
+			100
+		));
 
 		// delegate one tries to delegate to delegate 2
 		assert_noop!(
-			DelegatedStaking::delegate_funds(RawOrigin::Signed(delegate_one).into(), delegate_two, 10),
+			DelegatedStaking::delegate_funds(
+				RawOrigin::Signed(delegate_one).into(),
+				delegate_two,
+				10
+			),
 			Error::<T>::InvalidDelegation
 		);
 
 		// delegate one tries to delegate to a delegator
 		assert_noop!(
-			DelegatedStaking::delegate_funds(RawOrigin::Signed(delegate_one).into(), delegator_one, 10),
+			DelegatedStaking::delegate_funds(
+				RawOrigin::Signed(delegate_one).into(),
+				delegator_one,
+				10
+			),
 			Error::<T>::InvalidDelegation
 		);
 		assert_noop!(
-			DelegatedStaking::delegate_funds(RawOrigin::Signed(delegate_one).into(), delegator_two, 10),
+			DelegatedStaking::delegate_funds(
+				RawOrigin::Signed(delegate_one).into(),
+				delegator_two,
+				10
+			),
 			Error::<T>::InvalidDelegation
 		);
 
 		// delegator one tries to delegate to delegate 2 as well (it already delegates to delegate
 		// 1)
 		assert_noop!(
-			DelegatedStaking::delegate_funds(RawOrigin::Signed(delegator_one).into(), delegate_two, 10),
+			DelegatedStaking::delegate_funds(
+				RawOrigin::Signed(delegator_one).into(),
+				delegate_two,
+				10
+			),
 			Error::<T>::InvalidDelegation
 		);
 	});
@@ -163,14 +216,22 @@ mod integration {
 
 			// set intention to become a delegate
 			fund(&delegate, 100);
-			assert_ok!(DelegatedStaking::register_as_delegate(RawOrigin::Signed(delegate).into(), reward_acc));
+			assert_ok!(DelegatedStaking::register_as_delegate(
+				RawOrigin::Signed(delegate).into(),
+				reward_acc
+			));
 			assert_eq!(DelegatedStaking::stakeable_balance(&delegate), 0);
 
 			let mut delegated_balance: Balance = 0;
+
 			// set some delegations
 			for delegator in 200..250 {
 				fund(&delegator, 200);
-				assert_ok!(DelegatedStaking::delegate_funds(RawOrigin::Signed(delegator).into(), delegate, 100));
+				assert_ok!(DelegatedStaking::delegate_funds(
+					RawOrigin::Signed(delegator).into(),
+					delegate,
+					100
+				));
 				delegated_balance += 100;
 				assert_eq!(
 					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
@@ -181,7 +242,12 @@ mod integration {
 
 				// unbonded balance is the newly delegated 100
 				assert_eq!(delegate_available_to_bond(&delegate), 100);
-				assert_ok!(DelegatedStaking::bond_extra(&delegate, 100));
+				if delegate_bonded(&delegate) {
+					assert_ok!(DelegatedStaking::bond_extra(&delegate, 100));
+				} else {
+					assert_ok!(DelegatedStaking::bond(&delegate, 100, &reward_acc));
+				}
+
 				// after bond, unbonded balance is 0
 				assert_eq!(delegate_available_to_bond(&delegate), 0);
 			}
@@ -213,8 +279,8 @@ mod integration {
 				DelegatedStaking::release(RawOrigin::Signed(delegate).into(), 301, 50, 0),
 				Error::<T>::NotEnoughFunds
 			);
-			// assert_noop!(DelegatedStaking::release(RawOrigin::Signed(delegate).into(), 200, 50, 0),
-			// Error::<T>::NotAllowed); active and total stake remains same
+			// assert_noop!(DelegatedStaking::release(RawOrigin::Signed(delegate).into(), 200, 50,
+			// 0), Error::<T>::NotAllowed); active and total stake remains same
 			assert!(eq_stake(delegate, total_staked, total_staked));
 
 			// 305 wants to unbond 50 in era 2, withdrawable in era 5.
@@ -304,14 +370,15 @@ mod integration {
 			// withdrawn and test its claimed from there first.
 
 			// fund(&300, 1000);
-			// assert_ok!(DelegatedStaking::delegate_funds(RawOrigin::Signed(300.into()), delegate, 100));
+			// assert_ok!(DelegatedStaking::delegate_funds(RawOrigin::Signed(300.into()), delegate,
+			// 100));
 			//
 			// // verify unbonded balance
 			// assert_eq!(delegate_available_to_bond(&delegate), 100);
 			//
 			// // withdraw works now without unbonding
-			// assert_ok!(DelegatedStaking::release(RawOrigin::Signed(delegate).into(), 300, 100, 0));
-			// assert_eq!(delegate_available_to_bond(&delegate), 0);
+			// assert_ok!(DelegatedStaking::release(RawOrigin::Signed(delegate).into(), 300, 100,
+			// 0)); assert_eq!(delegate_available_to_bond(&delegate), 0);
 		});
 	}
 
@@ -377,16 +444,28 @@ mod integration {
 			setup_delegation_stake(200, 201, (202..203).collect(), 100, 0);
 
 			// Registering again is noop
-			assert_noop!(DelegatedStaking::register_as_delegate(RawOrigin::Signed(200).into(), 201), Error::<T>::NotAllowed);
+			assert_noop!(
+				DelegatedStaking::register_as_delegate(RawOrigin::Signed(200).into(), 201),
+				Error::<T>::NotAllowed
+			);
 			// a delegator cannot become delegate
-			assert_noop!(DelegatedStaking::register_as_delegate(RawOrigin::Signed(202).into(), 203), Error::<T>::NotAllowed);
+			assert_noop!(
+				DelegatedStaking::register_as_delegate(RawOrigin::Signed(202).into(), 203),
+				Error::<T>::NotAllowed
+			);
 			// existing staker cannot become a delegate
 			assert_noop!(
-				DelegatedStaking::register_as_delegate(RawOrigin::Signed(GENESIS_NOMINATOR_ONE).into(), 201),
+				DelegatedStaking::register_as_delegate(
+					RawOrigin::Signed(GENESIS_NOMINATOR_ONE).into(),
+					201
+				),
 				Error::<T>::AlreadyStaker
 			);
 			assert_noop!(
-				DelegatedStaking::register_as_delegate(RawOrigin::Signed(GENESIS_VALIDATOR).into(), 201),
+				DelegatedStaking::register_as_delegate(
+					RawOrigin::Signed(GENESIS_VALIDATOR).into(),
+					201
+				),
 				Error::<T>::AlreadyStaker
 			);
 		});
@@ -478,7 +557,11 @@ mod integration {
 				// fund them with ED
 				fund(&delegator, ExistentialDeposit::get());
 				// migrate 1/4th amount into each delegator
-				assert_ok!(DelegatedStaking::migrate_delegation(RawOrigin::Signed(200).into(), delegator, delegator_share));
+				assert_ok!(DelegatedStaking::migrate_delegation(
+					RawOrigin::Signed(200).into(),
+					delegator,
+					delegator_share
+				));
 				assert_eq!(
 					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
 					delegator_share

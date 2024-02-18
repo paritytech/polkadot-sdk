@@ -118,7 +118,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult {
 		let delegate = Delegate::<T>::from(stash)?;
-		ensure!(delegate.exposed_stake() >= value, Error::<T>::NotEnoughFunds);
+		ensure!(delegate.bonded_stake() >= value, Error::<T>::NotEnoughFunds);
 
 		T::CoreStaking::unbond(stash, value)
 	}
@@ -346,9 +346,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
+
+	/// this balance is total delegator that can be staked, and importantly not extra balance that
+	/// is delegated but not bonded yet.
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
 		Delegate::<T>::from(who)
-			.map(|delegate| delegate.available_to_bond())
+			.map(|delegate| delegate.ledger.stakeable_balance())
 			.unwrap_or_default()
 	}
 
@@ -380,7 +383,7 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	}
 
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-	 	// fixme(ank4n): Do I really need this?
+		// fixme(ank4n): Do I really need this?
 		Ok(())
 	}
 

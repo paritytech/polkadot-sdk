@@ -32,7 +32,7 @@ use frame_election_provider_support::{
 };
 use frame_support::dispatch::RawOrigin;
 use pallet_staking::CurrentEra;
-use sp_staking::{delegation::StakingDelegationSupport, StakingInterface, Stake};
+use sp_staking::{delegation::StakingDelegationSupport, Stake, StakingInterface};
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -293,8 +293,12 @@ pub(crate) fn delegate_available_to_bond(delegate: &AccountId) -> Balance {
 	delegate.available_to_bond()
 }
 
-
 pub(crate) fn delegate_effective_balance(delegate: &AccountId) -> Balance {
 	let delegate = Delegate::<T>::from(delegate).expect("delegate should exist");
 	delegate.ledger.effective_balance()
+}
+
+pub(crate) fn delegate_bonded(delegate: &AccountId) -> bool {
+	let delegate = Delegate::<T>::from(delegate).expect("delegate should exist");
+	delegate.is_bonded()
 }
