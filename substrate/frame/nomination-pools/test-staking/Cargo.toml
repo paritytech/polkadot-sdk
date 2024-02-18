@@ -32,7 +32,6 @@ frame-election-provider-support = { path = "../../election-provider-support" }
 pallet-timestamp = { path = "../../timestamp" }
 pallet-balances = { path = "../../balances" }
 pallet-staking = { path = "../../staking" }
-pallet-delegated-staking = { path = "../../delegated-staking" }
 pallet-bags-list = { path = "../../bags-list" }
 pallet-staking-reward-curve = { path = "../../staking/reward-curve" }
 pallet-nomination-pools = { path = ".." }

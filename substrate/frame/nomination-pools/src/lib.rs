@@ -373,7 +373,7 @@ use sp_runtime::{
 	},
 	FixedPointNumber, Perbill,
 };
-use sp_staking::{delegation::DelegationInterface, EraIndex, StakingInterface};
+use sp_staking::{EraIndex, StakingInterface};
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
@@ -1259,7 +1259,7 @@ impl<T: Config> BondedPool<T> {
 		T::Currency::transfer(
 			who,
 			&bonded_account,
-			T::Currency::minimum_balance(),
+			amount,
 			match ty {
 				BondType::Create => Preservation::Expendable,
 				BondType::Later => Preservation::Preserve,
@@ -1271,19 +1271,11 @@ impl<T: Config> BondedPool<T> {
 
 		match ty {
 			// TODO(ank4n): When type create, also do accept delegation call..
-			BondType::Create => {
-				T::Staking::accept_delegations(&bonded_account, &self.reward_account())?;
-				T::Staking::delegate(&who, &bonded_account, amount)?;
-				T::Staking::bond(&bonded_account, amount, &self.reward_account())?
-			},
-
+			BondType::Create => T::Staking::bond(&bonded_account, amount, &self.reward_account())?,
 			// The pool should always be created in such a way its in a state to bond extra, but if
 			// the active balance is slashed below the minimum bonded or the account cannot be
 			// found, we exit early.
-			BondType::Later => {
-				T::Staking::delegate(&who, &bonded_account, amount)?;
-				T::Staking::bond_extra(&bonded_account, amount)?
-			},
+			BondType::Later => T::Staking::bond_extra(&bonded_account, amount)?,
 		}
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_accrue(amount);
@@ -1652,8 +1644,7 @@ pub mod pallet {
 		type U256ToBalance: Convert<U256, BalanceOf<Self>>;
 
 		/// The interface for nominating.
-		type Staking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>
-			+ DelegationInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
+		type Staking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
 
 		/// The amount of eras a `SubPools::with_era` pool can exist before it gets merged into the
 		/// `SubPools::no_era` pool. In other words, this is the amount of eras a member will be
@@ -2263,10 +2254,22 @@ pub mod pallet {
 			let withdrawn_points = member.withdraw_unlocked(current_era);
 			ensure!(!withdrawn_points.is_empty(), Error::<T>::CannotWithdrawAny);
 
+			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
+			// `transferrable_balance` is correct.
+			let stash_killed =
+				T::Staking::withdraw_unbonded(bonded_pool.bonded_account(), num_slashing_spans)?;
+
+			// defensive-only: the depositor puts enough funds into the stash so that it will only
+			// be destroyed when they are leaving.
+			ensure!(
+				!stash_killed || caller == bonded_pool.roles.depositor,
+				Error::<T>::Defensive(DefensiveError::BondedStashKilledPrematurely)
+			);
+
 			let mut sum_unlocked_points: BalanceOf<T> = Zero::zero();
-			let balance_to_unbond = withdrawn_points.iter().fold(
-				BalanceOf::<T>::zero(),
-				|accumulator, (era, unlocked_points)| {
+			let balance_to_unbond = withdrawn_points
+				.iter()
+				.fold(BalanceOf::<T>::zero(), |accumulator, (era, unlocked_points)| {
 					sum_unlocked_points = sum_unlocked_points.saturating_add(*unlocked_points);
 					if let Some(era_pool) = sub_pools.with_era.get_mut(era) {
 						let balance_to_unbond = era_pool.dissolve(*unlocked_points);
@@ -2279,27 +2282,24 @@ pub mod pallet {
 						// era-less pool.
 						accumulator.saturating_add(sub_pools.no_era.dissolve(*unlocked_points))
 					}
-				},
-			);
-			// fixme(ank4n): Transfer whatever is minimum transferable.
-			// Withdraw upto limit and return the amount withdrawn and whether stash killed.
+				})
+				// A call to this transaction may cause the pool's stash to get dusted. If this
+				// happens before the last member has withdrawn, then all subsequent withdraws will
+				// be 0. However the unbond pools do no get updated to reflect this. In the
+				// aforementioned scenario, this check ensures we don't try to withdraw funds that
+				// don't exist. This check is also defensive in cases where the unbond pool does not
+				// update its balance (e.g. a bug in the slashing hook.) We gracefully proceed in
+				// order to ensure members can leave the pool and it can be destroyed.
+				.min(bonded_pool.transferable_balance());
 
-			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
-			// `transferrable_balance` is correct.
-			// fixme(ank4n): Handle result.
-			let _withdraw_result = T::Staking::delegate_withdraw(
+			// fixme(ank4n): Fix for delegated
+			T::Currency::transfer(
 				&bonded_pool.bonded_account(),
 				&member_account,
 				balance_to_unbond,
-				num_slashing_spans,
-			)?;
-
-			// defensive-only: the depositor puts enough funds into the stash so that it will only
-			// be destroyed when they are leaving.
-			// ensure!(
-			// 	!stash_killed || caller == bonded_pool.roles.depositor,
-			// 	Error::<T>::Defensive(DefensiveError::BondedStashKilledPrematurely)
-			// );
+				Preservation::Expendable,
+			)
+			.defensive()?;
 
 			Self::deposit_event(Event::<T>::Withdrawn {
 				member: member_account.clone(),

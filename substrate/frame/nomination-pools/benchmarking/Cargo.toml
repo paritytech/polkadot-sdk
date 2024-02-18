@@ -27,7 +27,6 @@ frame-support = { path = "../../support", default-features = false }
 frame-system = { path = "../../system", default-features = false }
 pallet-bags-list = { path = "../../bags-list", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
-pallet-delegated-staking = { path = "../../delegated-staking", default-features = false }
 pallet-nomination-pools = { path = "..", default-features = false }
 
 # Substrate Primitives
@@ -56,7 +55,6 @@ std = [
 	"pallet-balances/std",
 	"pallet-nomination-pools/std",
 	"pallet-staking/std",
-	"pallet-delegated-staking/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-core/std",
@@ -76,7 +74,6 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
-	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",

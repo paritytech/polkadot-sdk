@@ -88,8 +88,8 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 }
 
 pallet_staking_reward_curve::build! {
@@ -111,7 +111,6 @@ parameter_types! {
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
-	type DelegationSupport = DelegatedStaking;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type CurrencyToVote = ();
 	type RewardRemainder = ();
@@ -168,14 +167,6 @@ impl Convert<sp_core::U256, Balance> for U256ToBalance {
 	}
 }
 
-impl pallet_delegated_staking::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type OnSlash = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type CoreStaking = Staking;
-}
-
 parameter_types! {
 	pub const PostUnbondingPoolsWindow: u32 = 10;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
@@ -189,7 +180,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type Staking = DelegatedStaking;
+	type Staking = Staking;
 	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = ConstU32<8>;
@@ -200,14 +191,13 @@ impl pallet_nomination_pools::Config for Runtime {
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
-pub enum Runtime {
+	pub enum Runtime {
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
 		Staking: pallet_staking,
 		VoterList: pallet_bags_list::<Instance1>,
 		Pools: pallet_nomination_pools,
-		DelegatedStaking: pallet_delegated_staking::{Pallet, Storage, Event<T>, HoldReason},
 	}
 );
 
