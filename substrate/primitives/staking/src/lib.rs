@@ -251,15 +251,6 @@ pub trait StakingInterface {
 		num_slashing_spans: u32,
 	) -> Result<bool, DispatchError>;
 
-	/// Unlock any funds schedule to unlock before or at the current era upto a provided limit.
-	///
-	/// Returns whether the stash was killed because of this withdraw or not.
-	fn withdraw_exact(
-		stash: &Self::AccountId,
-		amount: Self::Balance,
-		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError>;
-
 	/// The ideal number of active validators.
 	fn desired_validator_count() -> u32;
 

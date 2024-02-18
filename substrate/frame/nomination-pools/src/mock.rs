@@ -220,6 +220,14 @@ impl sp_staking::StakingInterface for StakingMock {
 	fn max_exposure_page_size() -> sp_staking::Page {
 		unimplemented!("method currently not used in testing")
 	}
+
+	fn slash_reward_fraction() -> Perbill {
+		unimplemented!("method currently not used in testing")
+	}
+
+	fn release_all(_who: &Self::AccountId) {
+		unimplemented!("method currently not used in testing")
+	}
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]

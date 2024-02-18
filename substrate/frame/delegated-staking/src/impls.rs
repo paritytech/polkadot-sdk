@@ -133,16 +133,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		Err(Error::<T>::NotSupported.into())
 	}
 
-	/// Not supported, call [`DelegationInterface::delegate_withdraw`]
-	fn withdraw_exact(
-		_stash: &Self::AccountId,
-		_amount: Self::Balance,
-		_num_slashing_spans: u32,
-	) -> Result<bool, DispatchError> {
-		defensive_assert!(false, "not supported for delegated impl of staking interface");
-		Err(Error::<T>::NotSupported.into())
-	}
-
 	fn desired_validator_count() -> u32 {
 		defensive_assert!(false, "not supported for delegated impl of staking interface");
 		T::CoreStaking::desired_validator_count()

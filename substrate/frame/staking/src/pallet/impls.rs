@@ -1769,16 +1769,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map_err(|with_post| with_post.error)
 	}
 
-	fn withdraw_exact(
-		who: &Self::AccountId,
-		amount: BalanceOf<T>,
-		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError> {
-		let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
-		Self::do_withdraw_unbonded(&ctrl, num_slashing_spans, Some(amount))
-			.map(|_| !Ledger::<T>::contains_key(&ctrl))
-	}
-
 	fn bond(
 		who: &Self::AccountId,
 		value: Self::Balance,
