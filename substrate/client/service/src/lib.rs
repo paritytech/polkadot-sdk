@@ -403,6 +403,7 @@ where
 		id_provider: rpc_id_provider,
 		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
+		rate_limit: config.rpc_rate_limit,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773
