@@ -44,17 +44,6 @@
 //! to apply slash. It is `delegate`'s responsibility to apply slashes for each delegator, one at a
 //! time. Staking pallet ensures the pending slash never exceeds staked amount and would freeze
 //! further withdraws until pending slashes are applied.
-//!
-//!
-//! ### Note about minimum balance
-//!
-//! When registering as `delegate`, a sub account for unclaimed withdrawals are created and funded
-//! with `ExistentialDeposit`. If the `delegate` is migrating from being a `Nominator`, another
-//! sub account is created for managing funds of delegators who have not yet migrated their funds
-//! to won account. These accounts are funded by the `Delegate` and it should have enough free
-//! balance to cover these. When these accounts are not killed (not needed anymore), the funds are
-//! returned to the `Delegate`.
-
 #[cfg(test)]
 mod mock;
 
@@ -77,7 +66,9 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{
-			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
+			hold::{
+				Balanced as FunHoldBalanced, Inspect as FunHoldInspect, Mutate as FunHoldMutate,
+			},
 			Balanced, Inspect as FunInspect, Mutate as FunMutate,
 		},
 		tokens::{fungible::Credit, Fortitude, Precision, Preservation},
@@ -292,7 +283,25 @@ pub mod pallet {
 			delegator: T::AccountId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
-			todo!()
+			let delegate = ensure_signed(origin)?;
+
+			// Ensure they have minimum delegation.
+			ensure!(amount >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
+
+			// Ensure delegator is sane.
+			ensure!(!Self::is_delegate(&delegator), Error::<T>::NotAllowed);
+			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
+			ensure!(Self::not_direct_staker(&delegator), Error::<T>::AlreadyStaker);
+
+			// ensure delegate is sane.
+			ensure!(Self::is_delegate(&delegate), Error::<T>::NotDelegate);
+
+			// and has some delegated balance to migrate.
+			let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, delegate);
+			let balance_remaining = Self::held_balance_of(&proxy_delegator);
+			ensure!(balance_remaining >= amount, Error::<T>::NotEnoughFunds);
+
+			Self::do_migrate_delegation(&proxy_delegator, &delegator, amount)
 		}
 
 		/// Delegate funds to a `Delegate` account.
@@ -328,6 +337,10 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_sub_account_truncating((account_type, delegate_account.clone()))
 	}
 
+	/// Balance of a delegator that is delegated.
+	pub(crate) fn held_balance_of(who: &T::AccountId) -> BalanceOf<T> {
+		T::Currency::balance_on_hold(&HoldReason::Delegating.into(), who)
+	}
 	fn is_delegate(who: &T::AccountId) -> bool {
 		<Delegates<T>>::contains_key(who)
 	}
@@ -521,6 +534,60 @@ impl<T: Config> Pallet<T> {
 		ledger.clone().save(delegate);
 
 		Ok(ledger)
+	}
+
+	/// Migrates delegation of `amount` from `source` account to `destination` account.
+	fn do_migrate_delegation(
+		source_delegator: &T::AccountId,
+		destination_delegator: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> DispatchResult {
+		let mut source_delegation =
+			Delegators::<T>::get(&source_delegator).defensive_ok_or(Error::<T>::BadState)?;
+
+		// some checks that must have already been checked before.
+		ensure!(source_delegation.amount >= amount, Error::<T>::NotEnoughFunds);
+		debug_assert!(
+			!Self::is_delegator(destination_delegator) && !Self::is_delegate(destination_delegator)
+		);
+
+		// update delegations
+		Delegation::<T>::from(&source_delegation.delegate, amount)
+			.save(destination_delegator);
+
+		source_delegation
+			.decrease_delegation(amount)
+			.defensive_ok_or(Error::<T>::BadState)?
+			.save(source_delegator);
+
+		// FIXME(ank4n): If all funds are migrated from source, it can be cleaned up and ED returned
+		// to delegate or alternatively whoever cleans it up. This could be a permission-less
+		// extrinsic.
+
+		// release funds from source
+		let released = T::Currency::release(
+			&HoldReason::Delegating.into(),
+			&source_delegator,
+			amount,
+			Precision::BestEffort,
+		)?;
+
+		defensive_assert!(released == amount, "hold should have been released fully");
+
+		// transfer the released value to `destination_delegator`.
+		// Note: The source should have been funded ED in the beginning so it should not be dusted.
+		T::Currency::transfer(
+			&source_delegator,
+			destination_delegator,
+			amount,
+			Preservation::Preserve,
+		)
+		.map_err(|_| Error::<T>::BadState)?;
+
+		// hold the funds again in the new delegator account.
+		T::Currency::hold(&HoldReason::Delegating.into(), &destination_delegator, amount)?;
+
+		Ok(())
 	}
 }
 

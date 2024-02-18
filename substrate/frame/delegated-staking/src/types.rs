@@ -49,7 +49,25 @@ impl<T: Config> Delegation<T> {
 		Delegation { delegate: delegate.clone(), amount }
 	}
 
+	/// Checked decrease of delegation amount. Consumes self and returns a new copy.
+	pub(crate) fn decrease_delegation(self, amount: BalanceOf<T>) -> Option<Self> {
+		let updated_delegation = self.amount.checked_sub(&amount)?;
+		Some(Delegation::from(&self.delegate, updated_delegation))
+	}
+
+	/// Checked increase of delegation amount. Consumes self and returns a new copy.
+	pub(crate) fn increase_delegation(self, amount: BalanceOf<T>) -> Option<Self> {
+		let updated_delegation = self.amount.checked_add(&amount)?;
+		Some(Delegation::from(&self.delegate, updated_delegation))
+	}
+
 	pub(crate) fn save(self, key: &T::AccountId) {
+		// Clean up if no delegation left.
+		if self.amount == Zero::zero() {
+			<Delegators<T>>::remove(key);
+			return;
+		}
+
 		<Delegators<T>>::insert(key, self)
 	}
 }
