@@ -49,6 +49,15 @@ impl<T: Config> Delegation<T> {
 		Delegation { delegate: delegate.clone(), amount }
 	}
 
+	pub(crate) fn can_delegate(delegator: &T::AccountId, delegate: &T::AccountId) -> bool {
+		Delegation::<T>::get(delegator)
+			.map(|delegation| delegation.delegate == delegate.clone())
+			.unwrap_or(
+				// all good if its a new delegator expect it should not am existing delegate.
+				!<Delegates::<T>>::contains_key(delegator)
+			)
+	}
+
 	/// Checked decrease of delegation amount. Consumes self and returns a new copy.
 	pub(crate) fn decrease_delegation(self, amount: BalanceOf<T>) -> Option<Self> {
 		let updated_delegation = self.amount.checked_sub(&amount)?;
@@ -77,6 +86,7 @@ impl<T: Config> Delegation<T> {
 /// This keeps track of the active balance of the `delegate` that is made up from the funds that are
 /// currently delegated to this `delegate`. It also tracks the pending slashes yet to be applied
 /// among other things.
+// FIXME(ank4n): Break up into two storage items - bookkeeping stuff and settings stuff.
 #[derive(Default, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct DelegationLedger<T: Config> {
@@ -113,6 +123,12 @@ impl<T: Config> DelegationLedger<T> {
 
 	pub(crate) fn get(key: &T::AccountId) -> Option<Self> {
 		<Delegates<T>>::get(key)
+	}
+
+	pub(crate) fn can_accept_delegation(delegate: &T::AccountId) -> bool {
+		DelegationLedger::<T>::get(delegate)
+			.map(|ledger| !ledger.blocked)
+			.unwrap_or(false)
 	}
 
 	/// Balance that is stakeable.

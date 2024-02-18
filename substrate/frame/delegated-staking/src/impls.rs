@@ -335,43 +335,11 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		delegate: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult {
-		let delegator_balance =
-			T::Currency::reducible_balance(&delegator, Preservation::Expendable, Fortitude::Polite);
-		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
-		ensure!(delegator_balance >= value, Error::<T>::NotEnoughFunds);
-		ensure!(delegate != delegator, Error::<T>::InvalidDelegation);
-
-		let mut delegation_register =
-			<Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		ensure!(!delegation_register.blocked, Error::<T>::DelegationsBlocked);
-
-		// A delegate cannot delegate.
-		if <Delegates<T>>::contains_key(delegator) {
-			return Err(Error::<T>::InvalidDelegation.into())
-		}
-
-		let new_delegation_amount =
-			if let Some(current_delegation) = <Delegators<T>>::get(delegator) {
-				ensure!(&current_delegation.delegate == delegate, Error::<T>::InvalidDelegation);
-				value.saturating_add(current_delegation.amount)
-			} else {
-				value
-			};
-
-		delegation_register.total_delegated.saturating_accrue(value);
-
-		Delegation::<T>::from(delegate, new_delegation_amount).save(delegator);
-		<Delegates<T>>::insert(delegate, delegation_register);
-
-		T::Currency::hold(&HoldReason::Delegating.into(), &delegator, value)?;
-
-		Self::deposit_event(Event::<T>::Delegated {
-			delegate: delegate.clone(),
-			delegator: delegator.clone(),
-			amount: value,
-		});
-
-		Ok(())
+		Self::delegate_funds(
+			RawOrigin::Signed(delegator.clone()).into(),
+			delegate.clone(),
+			value,
+		)
 	}
 }
 

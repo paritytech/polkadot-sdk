@@ -127,11 +127,11 @@ fn delegate_restrictions() {
 		// delegate one tries to delegate to a delegator
 		assert_noop!(
 			DelegatedStaking::delegate(&delegate_one, &delegator_one, 10),
-			Error::<T>::NotDelegate
+			Error::<T>::InvalidDelegation
 		);
 		assert_noop!(
 			DelegatedStaking::delegate(&delegate_one, &delegator_two, 10),
-			Error::<T>::NotDelegate
+			Error::<T>::InvalidDelegation
 		);
 
 		// delegator one tries to delegate to delegate 2 as well (it already delegates to delegate
@@ -403,7 +403,7 @@ mod integration {
 			// cannot delegate to it anymore
 			assert_noop!(
 				DelegatedStaking::delegate(&300, &200, 100),
-				Error::<T>::DelegationsBlocked
+				Error::<T>::NotAcceptingDelegations
 			);
 
 			// delegate can unblock delegation

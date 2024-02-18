@@ -153,8 +153,8 @@ pub mod pallet {
 		NotSupported,
 		/// This `delegate` is not set as a migrating account.
 		NotMigrating,
-		/// Delegate no longer accepting new delegations.
-		DelegationsBlocked,
+		/// Account does not accept delegations.
+		NotAcceptingDelegations,
 	}
 
 	/// A reason for placing a hold on funds.
@@ -305,26 +305,32 @@ pub mod pallet {
 		}
 
 		/// Delegate funds to a `Delegate` account.
+		///
+		/// If delegation already exists, it increases the delegation by `amount`.
 		#[pallet::call_index(4)]
 		#[pallet::weight(Weight::default())]
-		// FIXME(ank4n): rename to `delegate`
 		pub fn delegate_funds(
 			origin: OriginFor<T>,
 			delegate: T::AccountId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
-			todo!()
-		}
+			let who = ensure_signed(origin)?;
 
-		/// Add funds to an existing delegation.
-		#[pallet::call_index(5)]
-		#[pallet::weight(Weight::default())]
-		pub fn delegate_extra(
-			origin: OriginFor<T>,
-			delegate: T::AccountId,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			todo!()
+			// ensure amount is over minimum to delegate
+			ensure!(amount > T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
+
+			// ensure delegator is sane.
+			ensure!(Delegation::<T>::can_delegate(&who, &delegate), Error::<T>::InvalidDelegation);
+			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaker);
+
+			// ensure delegate is sane.
+			ensure!(DelegationLedger::<T>::can_accept_delegation(&delegate), Error::<T>::NotAcceptingDelegations);
+
+			let delegator_balance =
+				T::Currency::reducible_balance(&who, Preservation::Preserve, Fortitude::Polite);
+			ensure!(delegator_balance >= amount, Error::<T>::NotEnoughFunds);
+
+			Self::do_delegate(&who, &delegate, amount)
 		}
 	}
 }
@@ -413,7 +419,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		let mut ledger = DelegationLedger::<T>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		ensure!(!ledger.blocked, Error::<T>::DelegationsBlocked);
+		debug_assert!(!ledger.blocked);
 
 		let new_delegation_amount =
 			if let Some(existing_delegation) = Delegation::<T>::get(delegator) {
@@ -552,8 +558,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// update delegations
-		Delegation::<T>::from(&source_delegation.delegate, amount)
-			.save(destination_delegator);
+		Delegation::<T>::from(&source_delegation.delegate, amount).save(destination_delegator);
 
 		source_delegation
 			.decrease_delegation(amount)
@@ -574,7 +579,7 @@ impl<T: Config> Pallet<T> {
 
 		defensive_assert!(released == amount, "hold should have been released fully");
 
-		// transfer the released value to `destination_delegator`.
+		// transfer the released amount to `destination_delegator`.
 		// Note: The source should have been funded ED in the beginning so it should not be dusted.
 		T::Currency::transfer(
 			&source_delegator,
