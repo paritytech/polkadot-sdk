@@ -246,6 +246,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			pallet_staking::ConfigOp::Noop,
 			pallet_staking::ConfigOp::Noop,
 			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
 		));
 	});
 

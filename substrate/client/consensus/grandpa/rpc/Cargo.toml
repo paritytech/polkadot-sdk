@@ -15,10 +15,10 @@ workspace = true
 [dependencies]
 finality-grandpa = { version = "0.16.2", features = ["derive-codec"] }
 futures = "0.3.16"
-jsonrpsee = { version = "0.20.3", features = ["client-core", "macros", "server"] }
+jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
 log = { workspace = true, default-features = true }
 parity-scale-codec = { version = "3.6.1", features = ["derive"] }
-serde = { version = "1.0.195", features = ["derive"] }
+serde = { version = "1.0.196", features = ["derive"] }
 thiserror = "1.0"
 sc-client-api = { path = "../../../api" }
 sc-consensus-grandpa = { path = ".." }
