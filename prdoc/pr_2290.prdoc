@@ -3,9 +3,8 @@ title: im-online pallet offcain storage cleanup
 doc:
   - audience: Runtime Dev
     description: |
-      This is a follow-up of #2265. It blindly removes all the offchain storage values added to
-      the database by now retired im-online pallet. In absence of such values, does nothing.
+      Adds a function `clear_offchain_storage` to `pallet-im-online`. This function can be used 
+      after the pallet was removed to clear its offchain storage.
 
 crates:
   - name: pallet-im-online
-  - name: rococo-runtime

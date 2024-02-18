@@ -23,7 +23,6 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 pallet-authorship = { path = "../authorship", default-features = false }
-pallet-session = { path = "../session", default-features = false }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
 sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
 sp-io = { path = "../../primitives/io", default-features = false }
