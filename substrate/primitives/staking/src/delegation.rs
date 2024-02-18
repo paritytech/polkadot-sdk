@@ -21,6 +21,7 @@ use sp_runtime::{DispatchResult, Saturating};
 use sp_std::ops::Sub;
 
 /// Allows an account to accept stake delegations and manage its operations.
+// FIXME(ank4n): Remove this and add a new trait (in delegation pallet) for NP adapter.
 pub trait DelegationInterface {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
@@ -153,9 +154,6 @@ pub trait StakingDelegationSupport {
 
 	/// Returns true if `who` accepts delegations for stake.
 	fn is_delegate(who: &Self::AccountId) -> bool;
-
-	/// Update amount held for bonded stake.
-	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
 
 	/// Reports an ongoing slash to the `delegate` account that would be applied lazily.
 	fn report_slash(who: &Self::AccountId, slash: Self::Balance);

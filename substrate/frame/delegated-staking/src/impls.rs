@@ -382,11 +382,6 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 		Self::is_delegate(who)
 	}
 
-	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-		// fixme(ank4n): Do I really need this?
-		Ok(())
-	}
-
 	fn report_slash(who: &Self::AccountId, slash: Self::Balance) {
 		<Delegates<T>>::mutate(who, |maybe_register| match maybe_register {
 			Some(register) => register.pending_slash.saturating_accrue(slash),

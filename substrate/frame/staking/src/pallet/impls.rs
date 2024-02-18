@@ -1120,11 +1120,11 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> sp_runtime::DispatchResult {
-		if T::DelegationSupport::is_delegate(who) {
-			return T::DelegationSupport::update_hold(who, amount);
+		// only apply lock if it is not a delegate. Delegate accounts are already locked/held.
+		if !T::DelegationSupport::is_delegate(who) {
+			T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
 		}
 
-		T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
 		Ok(())
 	}
 }
@@ -1885,11 +1885,6 @@ impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 	fn is_delegate(_who: &Self::AccountId) -> bool {
 		false
 	}
-	fn update_hold(_who: &Self::AccountId, _amount: Self::Balance) -> sp_runtime::DispatchResult {
-		defensive!("delegation update_hold should not be have been called for NoDelegation");
-		Err(Error::<T>::BadState.into())
-	}
-
 	fn report_slash(_who: &Self::AccountId, _slash: Self::Balance) {
 		defensive!("delegation report_slash should not be have been called for NoDelegation");
 	}
