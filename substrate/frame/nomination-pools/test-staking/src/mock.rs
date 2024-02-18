@@ -90,7 +90,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 pallet_staking_reward_curve::build! {
@@ -232,6 +231,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
 			pallet_staking::ConfigOp::Set(10), // minimum nominator bond
+			pallet_staking::ConfigOp::Noop,
 			pallet_staking::ConfigOp::Noop,
 			pallet_staking::ConfigOp::Noop,
 			pallet_staking::ConfigOp::Noop,

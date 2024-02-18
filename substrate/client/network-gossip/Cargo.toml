@@ -1,7 +1,7 @@
 [package]
 description = "Gossiping for the Substrate network protocol"
 name = "sc-network-gossip"
-version = "0.10.0-dev"
+version = "0.34.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -21,7 +21,7 @@ ahash = "0.8.2"
 futures = "0.3.21"
 futures-timer = "3.0.1"
 libp2p = "0.51.4"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 schnellru = "0.2.1"
 tracing = "0.1.29"
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }

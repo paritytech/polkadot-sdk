@@ -1,6 +1,6 @@
 [package]
 name = "sc-authority-discovery"
-version = "0.10.0-dev"
+version = "0.34.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -29,7 +29,7 @@ multihash = { version = "0.18.1", default-features = false, features = [
 	"sha2",
 	"std",
 ] }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 prost = "0.12"
 rand = "0.8.5"
 thiserror = "1.0"

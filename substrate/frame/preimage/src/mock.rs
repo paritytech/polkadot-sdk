@@ -21,7 +21,7 @@ use super::*;
 
 use crate as pallet_preimage;
 use frame_support::{
-	derive_impl, ord_parameter_types,
+	derive_impl, ord_parameter_types, parameter_types,
 	traits::{fungible::HoldConsideration, ConstU32, ConstU64, Everything},
 	weights::constants::RocksDbWeight,
 };
@@ -82,13 +82,16 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ConstU32<2>;
 }
 
 ord_parameter_types! {
 	pub const One: u64 = 1;
+}
+
+parameter_types! {
+	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 pub struct ConvertDeposit;
@@ -103,7 +106,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureSignedBy<One, u64>;
-	type Consideration = HoldConsideration<u64, Balances, (), ConvertDeposit>;
+	type Consideration = HoldConsideration<u64, Balances, PreimageHoldReason, ConvertDeposit>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bridge-grandpa"
-version = "0.1.0"
+version = "0.7.0"
 description = "Module implementing GRANDPA on-chain light client used for bridging consensus of substrate-based chains."
 authors.workspace = true
 edition.workspace = true
@@ -14,7 +14,7 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
 finality-grandpa = { version = "0.16.2", default-features = false }
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Bridge Dependencies

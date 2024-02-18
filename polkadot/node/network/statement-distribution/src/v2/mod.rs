@@ -36,8 +36,9 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		CandidateBackingMessage, HypotheticalCandidate, HypotheticalFrontierRequest,
-		NetworkBridgeEvent, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
+		network_bridge_event::NewGossipTopology, CandidateBackingMessage, HypotheticalCandidate,
+		HypotheticalFrontierRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		ProspectiveParachainsMessage,
 	},
 	overseer, ActivatedLeaf,
 };
@@ -92,7 +93,19 @@ mod statement_store;
 #[cfg(test)]
 mod tests;
 
-const COST_UNEXPECTED_STATEMENT: Rep = Rep::CostMinor("Unexpected Statement");
+const COST_UNEXPECTED_STATEMENT_NOT_VALIDATOR: Rep =
+	Rep::CostMinor("Unexpected Statement, not a validator");
+const COST_UNEXPECTED_STATEMENT_VALIDATOR_NOT_FOUND: Rep =
+	Rep::CostMinor("Unexpected Statement, validator not found");
+const COST_UNEXPECTED_STATEMENT_INVALID_SENDER: Rep =
+	Rep::CostMinor("Unexpected Statement, invalid sender");
+const COST_UNEXPECTED_STATEMENT_BAD_ADVERTISE: Rep =
+	Rep::CostMinor("Unexpected Statement, bad advertise");
+const COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED: Rep =
+	Rep::CostMinor("Unexpected Statement, cluster rejected");
+const COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP: Rep =
+	Rep::CostMinor("Unexpected Statement, not in group");
+
 const COST_UNEXPECTED_STATEMENT_MISSING_KNOWLEDGE: Rep =
 	Rep::CostMinor("Unexpected Statement, missing knowledge for relay parent");
 const COST_EXCESSIVE_SECONDED: Rep = Rep::CostMinor("Sent Excessive `Seconded` Statements");
@@ -283,6 +296,10 @@ pub(crate) struct State {
 	candidates: Candidates,
 	per_relay_parent: HashMap<Hash, PerRelayParentState>,
 	per_session: HashMap<SessionIndex, PerSessionState>,
+	// Topology might be received before first leaf update, where we
+	// initialize the per_session_state, so cache it here until we
+	// are able to use it.
+	unused_topologies: HashMap<SessionIndex, NewGossipTopology>,
 	peers: HashMap<PeerId, PeerState>,
 	keystore: KeystorePtr,
 	authorities: HashMap<AuthorityDiscoveryId, PeerId>,
@@ -303,6 +320,7 @@ impl State {
 			authorities: HashMap::new(),
 			request_manager: RequestManager::new(),
 			response_manager: ResponseManager::new(),
+			unused_topologies: HashMap::new(),
 		}
 	}
 
@@ -449,12 +467,14 @@ pub(crate) async fn handle_network_update<Context>(
 			}
 		},
 		NetworkBridgeEvent::NewGossipTopology(topology) => {
-			let new_session_index = topology.session;
-			let new_topology = topology.topology;
-			let local_index = topology.local_index;
+			let new_session_index = &topology.session;
+			let new_topology = &topology.topology;
+			let local_index = &topology.local_index;
 
-			if let Some(per_session) = state.per_session.get_mut(&new_session_index) {
-				per_session.supply_topology(&new_topology, local_index);
+			if let Some(per_session) = state.per_session.get_mut(new_session_index) {
+				per_session.supply_topology(new_topology, *local_index);
+			} else {
+				state.unused_topologies.insert(*new_session_index, topology);
 			}
 
 			// TODO [https://github.com/paritytech/polkadot/issues/6194]
@@ -599,11 +619,12 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 			let minimum_backing_votes =
 				request_min_backing_votes(new_relay_parent, session_index, ctx.sender()).await?;
-
-			state.per_session.insert(
-				session_index,
-				PerSessionState::new(session_info, &state.keystore, minimum_backing_votes),
-			);
+			let mut per_session_state =
+				PerSessionState::new(session_info, &state.keystore, minimum_backing_votes);
+			if let Some(toplogy) = state.unused_topologies.remove(&session_index) {
+				per_session_state.supply_topology(&toplogy.topology, toplogy.local_index);
+			}
+			state.per_session.insert(session_index, per_session_state);
 		}
 
 		let per_session = state
@@ -760,6 +781,7 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 	// clean up sessions based on everything remaining.
 	let sessions: HashSet<_> = state.per_relay_parent.values().map(|r| r.session).collect();
 	state.per_session.retain(|s, _| sessions.contains(s));
+	state.unused_topologies.retain(|s, _| sessions.contains(s));
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
@@ -1076,6 +1098,7 @@ async fn send_pending_grid_messages<Context>(
 						originator,
 						peer_validator_id,
 						&compact,
+						false,
 					);
 				}
 
@@ -1368,6 +1391,7 @@ async fn circulate_statement<Context>(
 					originator,
 					target,
 					&compact_statement,
+					false,
 				);
 			},
 		}
@@ -1505,7 +1529,13 @@ async fn handle_incoming_statement<Context>(
 			// we shouldn't be receiving statements unless we're a validator
 			// this session.
 			if per_session.is_not_validator() {
-				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+				modify_reputation(
+					reputation,
+					ctx.sender(),
+					peer,
+					COST_UNEXPECTED_STATEMENT_NOT_VALIDATOR,
+				)
+				.await;
 			}
 			return
 		},
@@ -1516,7 +1546,13 @@ async fn handle_incoming_statement<Context>(
 		match per_session.groups.by_validator_index(statement.unchecked_validator_index()) {
 			Some(g) => g,
 			None => {
-				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+				modify_reputation(
+					reputation,
+					ctx.sender(),
+					peer,
+					COST_UNEXPECTED_STATEMENT_VALIDATOR_NOT_FOUND,
+				)
+				.await;
 				return
 			},
 		};
@@ -1555,38 +1591,45 @@ async fn handle_incoming_statement<Context>(
 		(active, idx)
 	};
 
-	let checked_statement =
-		if let Some((active, cluster_sender_index)) = active.zip(cluster_sender_index) {
-			match handle_cluster_statement(
-				relay_parent,
-				&mut active.cluster_tracker,
-				per_relay_parent.session,
-				&per_session.session_info,
-				statement,
-				cluster_sender_index,
-			) {
-				Ok(Some(s)) => s,
-				Ok(None) => return,
-				Err(rep) => {
-					modify_reputation(reputation, ctx.sender(), peer, rep).await;
-					return
-				},
-			}
-		} else {
-			let grid_sender_index = local_validator
-				.grid_tracker
-				.direct_statement_providers(
-					&per_session.groups,
-					statement.unchecked_validator_index(),
-					statement.unchecked_payload(),
-				)
-				.into_iter()
-				.filter_map(|i| session_info.discovery_keys.get(i.0 as usize).map(|ad| (i, ad)))
-				.filter(|(_, ad)| peer_state.is_authority(ad))
-				.map(|(i, _)| i)
-				.next();
+	let checked_statement = if let Some((active, cluster_sender_index)) =
+		active.zip(cluster_sender_index)
+	{
+		match handle_cluster_statement(
+			relay_parent,
+			&mut active.cluster_tracker,
+			per_relay_parent.session,
+			&per_session.session_info,
+			statement,
+			cluster_sender_index,
+		) {
+			Ok(Some(s)) => s,
+			Ok(None) => return,
+			Err(rep) => {
+				modify_reputation(reputation, ctx.sender(), peer, rep).await;
+				return
+			},
+		}
+	} else {
+		let grid_sender_index = local_validator
+			.grid_tracker
+			.direct_statement_providers(
+				&per_session.groups,
+				statement.unchecked_validator_index(),
+				statement.unchecked_payload(),
+			)
+			.into_iter()
+			.filter_map(|(i, validator_knows_statement)| {
+				session_info
+					.discovery_keys
+					.get(i.0 as usize)
+					.map(|ad| (i, ad, validator_knows_statement))
+			})
+			.filter(|(_, ad, _)| peer_state.is_authority(ad))
+			.map(|(i, _, validator_knows_statement)| (i, validator_knows_statement))
+			.next();
 
-			if let Some(grid_sender_index) = grid_sender_index {
+		if let Some((grid_sender_index, validator_knows_statement)) = grid_sender_index {
+			if !validator_knows_statement {
 				match handle_grid_statement(
 					relay_parent,
 					&mut local_validator.grid_tracker,
@@ -1602,11 +1645,22 @@ async fn handle_incoming_statement<Context>(
 					},
 				}
 			} else {
-				// Not a cluster or grid peer.
-				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
-				return
+				// Reward the peer for sending us the statement
+				modify_reputation(reputation, ctx.sender(), peer, BENEFIT_VALID_STATEMENT).await;
+				return;
 			}
-		};
+		} else {
+			// Not a cluster or grid peer.
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_STATEMENT_INVALID_SENDER,
+			)
+			.await;
+			return
+		}
+	};
 
 	let statement = checked_statement.payload().clone();
 	let originator_index = checked_statement.validator_index();
@@ -1625,7 +1679,13 @@ async fn handle_incoming_statement<Context>(
 		);
 
 		if let Err(BadAdvertisement) = res {
-			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_STATEMENT_BAD_ADVERTISE,
+			)
+			.await;
 			return
 		}
 	}
@@ -1733,11 +1793,11 @@ fn handle_cluster_statement(
 			Ok(ClusterAccept::WithPrejudice) => false,
 			Err(ClusterRejectIncoming::ExcessiveSeconded) => return Err(COST_EXCESSIVE_SECONDED),
 			Err(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) =>
-				return Err(COST_UNEXPECTED_STATEMENT),
+				return Err(COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED),
 			Err(ClusterRejectIncoming::NotInGroup) => {
 				// sanity: shouldn't be possible; we already filtered this
 				// out above.
-				return Err(COST_UNEXPECTED_STATEMENT)
+				return Err(COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP)
 			},
 		}
 	};
@@ -1788,6 +1848,7 @@ fn handle_grid_statement(
 		checked_statement.validator_index(),
 		grid_sender_index,
 		&checked_statement.payload(),
+		true,
 	);
 
 	Ok(checked_statement)
@@ -2366,6 +2427,7 @@ fn post_acknowledgement_statement_messages(
 			statement.validator_index(),
 			recipient,
 			statement.payload(),
+			false,
 		);
 		match peer.1.into() {
 			ValidationVersion::V2 => messages.push(Versioned::V2(
@@ -3245,6 +3307,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 				statement.unchecked_validator_index(),
 				validator_id,
 				statement.unchecked_payload(),
+				false,
 			);
 		}
 	}

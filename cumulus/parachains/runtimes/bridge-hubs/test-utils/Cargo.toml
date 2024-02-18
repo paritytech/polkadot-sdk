@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-test-utils"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Utils for BridgeHub testing"
@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 impl-trait-for-tuples = "0.2"
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 
 # Substrate
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
