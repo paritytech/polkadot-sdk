@@ -367,6 +367,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDebugBufferLen: Get<u32>;
 
+		/// Origin allowed to upload code.
+		type UploadOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
+
+		/// Origin allowed to instantiate code.
+		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
+
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 
@@ -618,7 +624,7 @@ pub mod pallet {
 			determinism: Determinism,
 		) -> DispatchResult {
 			Migration::<T>::ensure_migrated()?;
-			let origin = ensure_signed(origin)?;
+			let origin = T::UploadOrigin::ensure_origin(origin)?;
 			Self::bare_upload_code(origin, code, storage_deposit_limit.map(Into::into), determinism)
 				.map(|_| ())
 		}
@@ -767,7 +773,10 @@ pub mod pallet {
 			salt: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
-			let origin = ensure_signed(origin)?;
+
+			T::UploadOrigin::ensure_origin(origin.clone())?;
+			let origin = T::InstantiateOrigin::ensure_origin(origin)?;
+
 			let code_len = code.len() as u32;
 
 			let (module, upload_deposit) = Self::try_upload_code(
@@ -826,10 +835,11 @@ pub mod pallet {
 			salt: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
+			let origin = T::InstantiateOrigin::ensure_origin(origin)?;
 			let data_len = data.len() as u32;
 			let salt_len = salt.len() as u32;
 			let common = CommonInput {
-				origin: Origin::from_runtime_origin(origin)?,
+				origin: Origin::from_account_id(origin),
 				value,
 				data,
 				gas_limit,

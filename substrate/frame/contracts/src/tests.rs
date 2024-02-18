@@ -54,7 +54,7 @@ use frame_support::{
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
-use frame_system::{EventRecord, Phase};
+use frame_system::{EnsureSigned, EventRecord, Phase};
 use pallet_contracts_fixtures::compile_module;
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::ByteArray;
@@ -480,6 +480,8 @@ impl Config for Test {
 	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
 	type MaxStorageKeyLen = ConstU32<128>;
 	type UnsafeUnstableInterface = UnstableInterface;
+	type UploadOrigin = EnsureSigned<Self::AccountId>;
+	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Migrations = crate::migration::codegen::BenchMigrations;
@@ -5890,8 +5892,34 @@ fn root_cannot_instantiate() {
 				vec![],
 				vec![],
 			),
-			DispatchError::RootNotAllowed
+			DispatchError::BadOrigin
 		);
+	});
+}
+
+#[test]
+fn only_upload_origin_can_upload() {
+	let (wasm, _) = compile_module::<Test>("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+		assert_err!(
+			Contracts::upload_code(
+				RuntimeOrigin::root(),
+				wasm.clone(),
+				None,
+				Determinism::Enforced,
+			),
+			DispatchError::BadOrigin
+		);
+
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			wasm.clone(),
+			None,
+			Determinism::Enforced,
+		));
 	});
 }
 
