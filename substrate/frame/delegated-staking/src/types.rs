@@ -19,6 +19,7 @@
 //! Basic types used in delegated staking.
 
 use super::*;
+use std::num::FpCategory::Zero;
 
 /// The type of pot account being created.
 #[derive(Encode, Decode)]
@@ -54,7 +55,7 @@ impl<T: Config> Delegation<T> {
 			.map(|delegation| delegation.delegate == delegate.clone())
 			.unwrap_or(
 				// all good if its a new delegator expect it should not am existing delegate.
-				!<Delegates::<T>>::contains_key(delegator)
+				!<Delegates<T>>::contains_key(delegator),
 			)
 	}
 
@@ -95,10 +96,6 @@ pub struct DelegationLedger<T: Config> {
 	/// Sum of all delegated funds to this `delegate`.
 	#[codec(compact)]
 	pub total_delegated: BalanceOf<T>,
-	/// Amount that is bonded and held.
-	// FIXME(ank4n) (can we remove it)
-	#[codec(compact)]
-	pub hold: BalanceOf<T>,
 	/// Funds that are withdrawn from core staking but not released to delegator/s.
 	#[codec(compact)]
 	pub unclaimed_withdrawals: BalanceOf<T>,
@@ -114,7 +111,6 @@ impl<T: Config> DelegationLedger<T> {
 		DelegationLedger {
 			payee: reward_destination.clone(),
 			total_delegated: Zero::zero(),
-			hold: Zero::zero(),
 			unclaimed_withdrawals: Zero::zero(),
 			pending_slash: Zero::zero(),
 			blocked: false,
@@ -131,21 +127,47 @@ impl<T: Config> DelegationLedger<T> {
 			.unwrap_or(false)
 	}
 
-	/// Balance that is stakeable.
-	pub(crate) fn delegated_balance(&self) -> BalanceOf<T> {
-		// do not allow to stake more than unapplied slash
+	pub(crate) fn save(self, key: &T::AccountId) {
+		<Delegates<T>>::insert(key, self)
+	}
+
+	/// Effective total balance of the `delegate`.
+	pub(crate) fn effective_balance(&self) -> BalanceOf<T> {
+		defensive_assert!(
+			self.total_delegated > self.pending_slash,
+			"slash cannot be higher than actual balance of delegator"
+		);
+
+		// pending slash needs to be burned and cannot be used for stake.
 		self.total_delegated.saturating_sub(self.pending_slash)
 	}
 
-	/// Balance that is delegated but not bonded.
-	///
-	/// Can be funds that are unbonded but not withdrawn.
-	pub(crate) fn unbonded_balance(&self) -> BalanceOf<T> {
-		// fixme(ank4n) Remove hold and get balance from removing withdrawal_unclaimed.
-		self.total_delegated.saturating_sub(self.hold)
+	/// Balance that can be bonded in [`T::CoreStaking`].
+	pub(crate) fn balance_available_to_bond(&self) -> BalanceOf<T> {
+		self.effective_balance().saturating_sub(self.unclaimed_withdrawals)
+	}
+}
+
+pub struct Delegate<T: Config>(T::AccountId);
+
+impl<T: Config> Delegate<T> {
+	fn available_to_bond(&self) -> BalanceOf<T> {
+		let exposed_stake = self.exposed_stake();
+
+		let bondable = self.ledger().map(|ledger| {
+			ledger.balance_available_to_bond()
+		}).unwrap_or(Zero::zero());
+
+		defensive_assert!(bondable >= exposed_stake, "cannot expose more than delegate balance");
+
+		bondable.saturating_sub(exposed_stake)
 	}
 
-	pub(crate) fn save(self, key: &T::AccountId) {
-		<Delegates<T>>::insert(key, self)
+	fn ledger(&self) -> Option<DelegationLedger<T>> {
+		DelegationLedger::<T>::get(&self.0)
+	}
+
+	fn exposed_stake(&self) -> BalanceOf<T> {
+		T::CoreStaking::total_stake(&self.0).unwrap_or(Zero::zero())
 	}
 }
