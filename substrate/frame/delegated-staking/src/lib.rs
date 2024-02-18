@@ -322,6 +322,23 @@ pub mod pallet {
 
 			Self::do_delegate(&who, &delegate, amount)
 		}
+
+		/// Stop accepting new delegation.
+		///
+		/// To unblock, pass false.
+		#[pallet::call_index(5)]
+		#[pallet::weight(Weight::default())]
+		pub fn block_delegations(
+			origin: OriginFor<T>,
+			block: bool,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let delegate = Delegate::<T>::from(&who)?;
+			delegate.update_status(block).save();
+
+			Ok(())
+		}
 	}
 }
 
@@ -390,16 +407,15 @@ impl<T: Config> Pallet<T> {
 		Self::do_bond(who, stake.total)
 	}
 
-	fn do_bond(delegate: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
-		let ledger = <Delegates<T>>::get(delegate).defensive_ok_or(Error::<T>::NotDelegate)?;
+	fn do_bond(delegate_acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		let delegate = Delegate::<T>::from(delegate_acc)?;
 
-		debug_assert!(amount == ledger.unbonded_balance());
+		debug_assert!(amount == delegate.available_to_bond());
 
-		match T::CoreStaking::stake(delegate) {
-			// already bonded
-			Ok(_) => T::CoreStaking::bond_extra(delegate, amount),
-			// first bond
-			Err(_) => T::CoreStaking::bond(delegate, amount, &ledger.payee),
+		if delegate.is_exposed() {
+			T::CoreStaking::bond_extra(&delegate.key, amount)
+		} else {
+			T::CoreStaking::bond(&delegate.key, amount, &delegate.reward_account())
 		}
 	}
 

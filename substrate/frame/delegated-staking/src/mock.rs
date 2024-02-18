@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as delegated_staking};
+use crate::{self as delegated_staking, types::Delegate};
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
@@ -30,8 +30,9 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
+use frame_support::dispatch::RawOrigin;
 use pallet_staking::CurrentEra;
-use sp_staking::delegation::{DelegationInterface, StakingDelegationSupport};
+use sp_staking::{delegation::StakingDelegationSupport, StakingInterface, Stake};
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -250,20 +251,31 @@ pub(crate) fn setup_delegation_stake(
 	increment: Balance,
 ) -> Balance {
 	fund(&delegate, 100);
-	assert_ok!(DelegatedStaking::accept_delegations(&delegate, &reward_acc));
+	assert_ok!(DelegatedStaking::register_as_delegate(
+		RawOrigin::Signed(delegate).into(),
+		reward_acc
+	));
 	let mut delegated_amount: Balance = 0;
 	for (index, delegator) in delegators.iter().enumerate() {
 		let amount_to_delegate = base_delegate_amount + increment * index as Balance;
 		delegated_amount += amount_to_delegate;
 
 		fund(delegator, amount_to_delegate + ExistentialDeposit::get());
-		assert_ok!(DelegatedStaking::delegate(delegator, &delegate, amount_to_delegate));
-		assert_ok!(DelegatedStaking::bond_all(&delegate));
+		assert_ok!(DelegatedStaking::delegate_funds(
+			RawOrigin::Signed(delegator.clone()).into(),
+			delegate,
+			amount_to_delegate
+		));
+		if index == 0 {
+			assert_ok!(DelegatedStaking::bond(&delegate, amount_to_delegate, &reward_acc));
+		} else {
+			assert_ok!(DelegatedStaking::bond_extra(&delegate, amount_to_delegate));
+		}
 	}
 
 	// sanity checks
 	assert_eq!(DelegatedStaking::stakeable_balance(&delegate), delegated_amount);
-	assert_eq!(DelegatedStaking::unbonded_balance(&delegate), 0);
+	assert_eq!(Delegate::<T>::from(&delegate).unwrap().available_to_bond(), 0);
 
 	delegated_amount
 }
@@ -273,6 +285,16 @@ pub(crate) fn start_era(era: sp_staking::EraIndex) {
 }
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
-	use sp_staking::{Stake, StakingInterface};
 	Staking::stake(&who).unwrap() == Stake { total, active }
+}
+
+pub(crate) fn delegate_available_to_bond(delegate: &AccountId) -> Balance {
+	let delegate = Delegate::<T>::from(delegate).expect("delegate should exist");
+	delegate.available_to_bond()
+}
+
+
+pub(crate) fn delegate_effective_balance(delegate: &AccountId) -> Balance {
+	let delegate = Delegate::<T>::from(delegate).expect("delegate should exist");
+	delegate.ledger.effective_balance()
 }

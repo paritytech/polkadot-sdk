@@ -19,7 +19,6 @@
 //! Basic types used in delegated staking.
 
 use super::*;
-use std::num::FpCategory::Zero;
 
 /// The type of pot account being created.
 #[derive(Encode, Decode)]
@@ -134,7 +133,7 @@ impl<T: Config> DelegationLedger<T> {
 	/// Effective total balance of the `delegate`.
 	pub(crate) fn effective_balance(&self) -> BalanceOf<T> {
 		defensive_assert!(
-			self.total_delegated > self.pending_slash,
+			self.total_delegated >= self.pending_slash,
 			"slash cannot be higher than actual balance of delegator"
 		);
 
@@ -143,31 +142,55 @@ impl<T: Config> DelegationLedger<T> {
 	}
 
 	/// Balance that can be bonded in [`T::CoreStaking`].
-	pub(crate) fn balance_available_to_bond(&self) -> BalanceOf<T> {
+	pub(crate) fn stakeable_balance(&self) -> BalanceOf<T> {
 		self.effective_balance().saturating_sub(self.unclaimed_withdrawals)
 	}
 }
 
-pub struct Delegate<T: Config>(T::AccountId);
+pub struct Delegate<T: Config> {
+	pub key: T::AccountId,
+	pub ledger: DelegationLedger<T>,
+}
 
 impl<T: Config> Delegate<T> {
-	fn available_to_bond(&self) -> BalanceOf<T> {
+	pub(crate) fn from(delegate: &T::AccountId) -> Result<Delegate<T>, DispatchError> {
+		let ledger = DelegationLedger::<T>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
+		Ok(Delegate { key: delegate.clone(), ledger })
+	}
+
+	pub(crate) fn available_to_bond(&self) -> BalanceOf<T> {
 		let exposed_stake = self.exposed_stake();
 
-		let bondable = self.ledger().map(|ledger| {
-			ledger.balance_available_to_bond()
-		}).unwrap_or(Zero::zero());
+		let stakeable =
+			self.ledger().map(|ledger| ledger.stakeable_balance()).unwrap_or(Zero::zero());
 
-		defensive_assert!(bondable >= exposed_stake, "cannot expose more than delegate balance");
+		defensive_assert!(stakeable >= exposed_stake, "cannot expose more than delegate balance");
 
-		bondable.saturating_sub(exposed_stake)
+		stakeable.saturating_sub(exposed_stake)
 	}
 
-	fn ledger(&self) -> Option<DelegationLedger<T>> {
-		DelegationLedger::<T>::get(&self.0)
+	pub(crate) fn ledger(&self) -> Option<DelegationLedger<T>> {
+		DelegationLedger::<T>::get(&self.key)
 	}
 
-	fn exposed_stake(&self) -> BalanceOf<T> {
-		T::CoreStaking::total_stake(&self.0).unwrap_or(Zero::zero())
+	pub(crate) fn exposed_stake(&self) -> BalanceOf<T> {
+		T::CoreStaking::total_stake(&self.key).unwrap_or(Zero::zero())
+	}
+
+	pub(crate) fn is_exposed(&self) -> bool {
+		T::CoreStaking::stake(&self.key).is_ok()
+	}
+
+	pub(crate) fn reward_account(&self) -> &T::AccountId {
+		&self.ledger.payee
+	}
+
+	pub(crate) fn update_status(self, block: bool) -> Self {
+		Delegate { ledger: DelegationLedger { blocked: block, ..self.ledger }, ..self }
+	}
+
+	pub(crate) fn save(self) {
+		let key = self.key;
+		self.ledger.save(&key)
 	}
 }

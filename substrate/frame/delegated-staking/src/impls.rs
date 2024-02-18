@@ -91,10 +91,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	) -> DispatchResult {
 		// ensure who is not already staked
 		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::NotDelegate);
-		let delegation_register = <Delegates<T>>::get(who).ok_or(Error::<T>::NotDelegate)?;
+		let delegate = Delegate::<T>::from(who)?;
 
-		ensure!(delegation_register.unbonded_balance() >= value, Error::<T>::NotEnoughFunds);
-		ensure!(delegation_register.payee == *payee, Error::<T>::InvalidRewardDestination);
+		ensure!(delegate.available_to_bond() >= value, Error::<T>::NotEnoughFunds);
+		ensure!(delegate.ledger.payee == *payee, Error::<T>::InvalidRewardDestination);
 
 		T::CoreStaking::bond(who, value, payee)
 	}
@@ -111,19 +111,19 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
 		let delegation_register = <Delegates<T>>::get(who).ok_or(Error::<T>::NotDelegate)?;
-		ensure!(delegation_register.unbonded_balance() >= extra, Error::<T>::NotEnoughFunds);
+		ensure!(delegation_register.stakeable_balance() >= extra, Error::<T>::NotEnoughFunds);
 
 		T::CoreStaking::bond_extra(who, extra)
 	}
 
 	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult {
-		let delegation_register = <Delegates<T>>::get(stash).ok_or(Error::<T>::NotDelegate)?;
-		ensure!(delegation_register.hold >= value, Error::<T>::NotEnoughFunds);
+		let delegate = Delegate::<T>::from(stash)?;
+		ensure!(delegate.exposed_stake() >= value, Error::<T>::NotEnoughFunds);
 
 		T::CoreStaking::unbond(stash, value)
 	}
 
-	/// Not supported, call [`Delegate::withdraw`]
+	/// Not supported, call [`DelegationInterface::delegate_withdraw`]
 	fn withdraw_unbonded(
 		_stash: Self::AccountId,
 		_num_slashing_spans: u32,
@@ -133,7 +133,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		Err(Error::<T>::NotSupported.into())
 	}
 
-	/// Not supported, call [`Delegate::withdraw`]
+	/// Not supported, call [`DelegationInterface::delegate_withdraw`]
 	fn withdraw_exact(
 		_stash: &Self::AccountId,
 		_amount: Self::Balance,
@@ -205,150 +205,150 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
-impl<T: Config> DelegationInterface for Pallet<T> {
-	type Balance = BalanceOf<T>;
-	type AccountId = T::AccountId;
-
-	fn delegated_balance(who: &Self::AccountId) -> Self::Balance {
-		<Delegates<T>>::get(who)
-			.map_or_else(|| 0u32.into(), |register| register.delegated_balance())
-	}
-
-	fn unbonded_balance(who: &Self::AccountId) -> Self::Balance {
-		<Delegates<T>>::get(who).map_or_else(|| 0u32.into(), |register| register.unbonded_balance())
-	}
-
-	fn accept_delegations(
-		who: &Self::AccountId,
-		reward_destination: &Self::AccountId,
-	) -> DispatchResult {
-		Self::register_as_delegate(
-			RawOrigin::Signed(who.clone()).into(),
-			reward_destination.clone(),
-		)
-	}
-
-	/// Transfers funds from current staked account to `proxy_delegator`. Current staked account
-	/// becomes a `delegate` with `proxy_delegator` delegating stakes to it.
-	fn migrate_accept_delegations(
-		who: &Self::AccountId,
-		_proxy_delegator: &Self::AccountId,
-		reward_destination: &Self::AccountId,
-	) -> DispatchResult {
-		Self::migrate_to_delegate(RawOrigin::Signed(who.clone()).into(), reward_destination.clone())
-	}
-
-	fn block_delegations(delegate: &Self::AccountId) -> DispatchResult {
-		let mut register = <Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		register.blocked = true;
-		<Delegates<T>>::insert(delegate, register);
-
-		Ok(())
-	}
-
-	fn unblock_delegations(delegate: &Self::AccountId) -> DispatchResult {
-		let mut register = <Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		register.blocked = false;
-		<Delegates<T>>::insert(delegate, register);
-
-		Ok(())
-	}
-
-	fn kill_delegate(_delegate: &Self::AccountId) -> DispatchResult {
-		todo!()
-	}
-
-	fn bond_all(who: &Self::AccountId) -> DispatchResult {
-		let delegate = <Delegates<T>>::get(who).ok_or(Error::<T>::NotDelegate)?;
-		let amount_to_bond = delegate.unbonded_balance();
-
-		match T::CoreStaking::stake(who) {
-			// already bonded
-			Ok(_) => T::CoreStaking::bond_extra(who, amount_to_bond),
-			// first bond
-			Err(_) => T::CoreStaking::bond(who, amount_to_bond, &delegate.payee),
-		}
-	}
-
-	fn delegate_withdraw(
-		delegate: &Self::AccountId,
-		delegator: &Self::AccountId,
-		value: Self::Balance,
-		num_slashing_spans: u32,
-	) -> DispatchResult {
-		Self::release(
-			RawOrigin::Signed(delegate.clone()).into(),
-			delegator.clone(),
-			value,
-			num_slashing_spans,
-		)
-	}
-
-	fn apply_slash(
-		delegate: &Self::AccountId,
-		delegator: &Self::AccountId,
-		value: Self::Balance,
-		maybe_reporter: Option<Self::AccountId>,
-	) -> DispatchResult {
-		let mut delegation_register =
-			<Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		let delegation = <Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
-
-		ensure!(&delegation.delegate == delegate, Error::<T>::NotDelegate);
-		ensure!(delegation.amount >= value, Error::<T>::NotEnoughFunds);
-
-		let (mut credit, _missing) =
-			T::Currency::slash(&HoldReason::Delegating.into(), &delegator, value);
-		let actual_slash = credit.peek();
-		// remove the slashed amount
-		delegation_register.pending_slash.saturating_reduce(actual_slash);
-		<Delegates<T>>::insert(delegate, delegation_register);
-
-		if let Some(reporter) = maybe_reporter {
-			let reward_payout: BalanceOf<T> =
-				T::CoreStaking::slash_reward_fraction() * actual_slash;
-			let (reporter_reward, rest) = credit.split(reward_payout);
-			credit = rest;
-			// fixme(ank4n): handle error
-			let _ = T::Currency::resolve(&reporter, reporter_reward);
-		}
-
-		T::OnSlash::on_unbalanced(credit);
-		Ok(())
-	}
-
-	/// Move funds from proxy delegator to actual delegator.
-	fn migrate_delegator(
-		delegate: &Self::AccountId,
-		new_delegator: &Self::AccountId,
-		value: Self::Balance,
-	) -> DispatchResult {
-		Self::migrate_delegation(
-			RawOrigin::Signed(delegate.clone()).into(),
-			new_delegator.clone(),
-			value,
-		)
-	}
-
-	fn delegate(
-		delegator: &Self::AccountId,
-		delegate: &Self::AccountId,
-		value: Self::Balance,
-	) -> DispatchResult {
-		Self::delegate_funds(
-			RawOrigin::Signed(delegator.clone()).into(),
-			delegate.clone(),
-			value,
-		)
-	}
-}
+// impl<T: Config> DelegationInterface for Pallet<T> {
+// 	type Balance = BalanceOf<T>;
+// 	type AccountId = T::AccountId;
+//
+// 	fn delegated_balance(who: &Self::AccountId) -> Self::Balance {
+// 		<Delegates<T>>::get(who)
+// 			.map_or_else(|| 0u32.into(), |register| register.delegated_balance())
+// 	}
+//
+// 	fn unbonded_balance(who: &Self::AccountId) -> Self::Balance {
+// 		<Delegates<T>>::get(who).map_or_else(|| 0u32.into(), |register| register.stakeable_balance())
+// 	}
+//
+// 	fn accept_delegations(
+// 		who: &Self::AccountId,
+// 		reward_destination: &Self::AccountId,
+// 	) -> DispatchResult {
+// 		Self::register_as_delegate(
+// 			RawOrigin::Signed(who.clone()).into(),
+// 			reward_destination.clone(),
+// 		)
+// 	}
+//
+// 	/// Transfers funds from current staked account to `proxy_delegator`. Current staked account
+// 	/// becomes a `delegate` with `proxy_delegator` delegating stakes to it.
+// 	fn migrate_accept_delegations(
+// 		who: &Self::AccountId,
+// 		_proxy_delegator: &Self::AccountId,
+// 		reward_destination: &Self::AccountId,
+// 	) -> DispatchResult {
+// 		Self::migrate_to_delegate(RawOrigin::Signed(who.clone()).into(), reward_destination.clone())
+// 	}
+//
+// 	fn block_delegations(delegate: &Self::AccountId) -> DispatchResult {
+// 		let mut register = <Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
+// 		register.blocked = true;
+// 		<Delegates<T>>::insert(delegate, register);
+//
+// 		Ok(())
+// 	}
+//
+// 	fn unblock_delegations(delegate: &Self::AccountId) -> DispatchResult {
+// 		let mut register = <Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
+// 		register.blocked = false;
+// 		<Delegates<T>>::insert(delegate, register);
+//
+// 		Ok(())
+// 	}
+//
+// 	fn kill_delegate(_delegate: &Self::AccountId) -> DispatchResult {
+// 		todo!()
+// 	}
+//
+// 	fn bond_all(who: &Self::AccountId) -> DispatchResult {
+// 		let delegate = <Delegates<T>>::get(who).ok_or(Error::<T>::NotDelegate)?;
+// 		let amount_to_bond = delegate.stakeable_balance();
+//
+// 		match T::CoreStaking::stake(who) {
+// 			// already bonded
+// 			Ok(_) => T::CoreStaking::bond_extra(who, amount_to_bond),
+// 			// first bond
+// 			Err(_) => T::CoreStaking::bond(who, amount_to_bond, &delegate.payee),
+// 		}
+// 	}
+//
+// 	fn delegate_withdraw(
+// 		delegate: &Self::AccountId,
+// 		delegator: &Self::AccountId,
+// 		value: Self::Balance,
+// 		num_slashing_spans: u32,
+// 	) -> DispatchResult {
+// 		Self::release(
+// 			RawOrigin::Signed(delegate.clone()).into(),
+// 			delegator.clone(),
+// 			value,
+// 			num_slashing_spans,
+// 		)
+// 	}
+//
+// 	fn apply_slash(
+// 		delegate: &Self::AccountId,
+// 		delegator: &Self::AccountId,
+// 		value: Self::Balance,
+// 		maybe_reporter: Option<Self::AccountId>,
+// 	) -> DispatchResult {
+// 		let mut delegation_register =
+// 			<Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
+// 		let delegation = <Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
+//
+// 		ensure!(&delegation.delegate == delegate, Error::<T>::NotDelegate);
+// 		ensure!(delegation.amount >= value, Error::<T>::NotEnoughFunds);
+//
+// 		let (mut credit, _missing) =
+// 			T::Currency::slash(&HoldReason::Delegating.into(), &delegator, value);
+// 		let actual_slash = credit.peek();
+// 		// remove the slashed amount
+// 		delegation_register.pending_slash.saturating_reduce(actual_slash);
+// 		<Delegates<T>>::insert(delegate, delegation_register);
+//
+// 		if let Some(reporter) = maybe_reporter {
+// 			let reward_payout: BalanceOf<T> =
+// 				T::CoreStaking::slash_reward_fraction() * actual_slash;
+// 			let (reporter_reward, rest) = credit.split(reward_payout);
+// 			credit = rest;
+// 			// fixme(ank4n): handle error
+// 			let _ = T::Currency::resolve(&reporter, reporter_reward);
+// 		}
+//
+// 		T::OnSlash::on_unbalanced(credit);
+// 		Ok(())
+// 	}
+//
+// 	/// Move funds from proxy delegator to actual delegator.
+// 	fn migrate_delegator(
+// 		delegate: &Self::AccountId,
+// 		new_delegator: &Self::AccountId,
+// 		value: Self::Balance,
+// 	) -> DispatchResult {
+// 		Self::migrate_delegation(
+// 			RawOrigin::Signed(delegate.clone()).into(),
+// 			new_delegator.clone(),
+// 			value,
+// 		)
+// 	}
+//
+// 	fn delegate(
+// 		delegator: &Self::AccountId,
+// 		delegate: &Self::AccountId,
+// 		value: Self::Balance,
+// 	) -> DispatchResult {
+// 		Self::delegate_funds(
+// 			RawOrigin::Signed(delegator.clone()).into(),
+// 			delegate.clone(),
+// 			value,
+// 		)
+// 	}
+// }
 
 impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
-		<Delegates<T>>::get(who)
-			.map(|delegate| delegate.delegated_balance())
+		Delegate::<T>::from(who)
+			.map(|delegate| delegate.available_to_bond())
 			.unwrap_or_default()
 	}
 
@@ -380,16 +380,7 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	}
 
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-		ensure!(Self::is_delegate(who), Error::<T>::NotSupported);
-
-		// delegation register should exist since `who` is a delegate.
-		let delegation_register = <Delegates<T>>::get(who).defensive_ok_or(Error::<T>::BadState)?;
-
-		ensure!(delegation_register.total_delegated >= amount, Error::<T>::NotEnoughFunds);
-		ensure!(delegation_register.pending_slash <= amount, Error::<T>::UnappliedSlash);
-		let updated_register = DelegationLedger { hold: amount, ..delegation_register };
-		<Delegates<T>>::insert(who, updated_register);
-
+	 	// fixme(ank4n): Do I really need this?
 		Ok(())
 	}
 
