@@ -241,15 +241,15 @@ mod integration {
 				assert_eq!(DelegatedStaking::stakeable_balance(&delegate), delegated_balance);
 
 				// unbonded balance is the newly delegated 100
-				assert_eq!(delegate_available_to_bond(&delegate), 100);
-				if delegate_bonded(&delegate) {
+				assert_eq!(get_delegate(&delegate).available_to_bond(), 100);
+				if get_delegate(&delegate).is_bonded() {
 					assert_ok!(DelegatedStaking::bond_extra(&delegate, 100));
 				} else {
 					assert_ok!(DelegatedStaking::bond(&delegate, 100, &reward_acc));
 				}
 
 				// after bond, unbonded balance is 0
-				assert_eq!(delegate_available_to_bond(&delegate), 0);
+				assert_eq!(get_delegate(&delegate).available_to_bond(), 0);
 			}
 
 			assert_eq!(
@@ -303,9 +303,9 @@ mod integration {
 			);
 
 			assert!(eq_stake(delegate, total_staked, expected_active));
-			assert_eq!(delegate_available_to_bond(&delegate), 0);
+			assert_eq!(get_delegate(&delegate).available_to_bond(), 0);
 			// full amount is still delegated
-			assert_eq!(delegate_effective_balance(&delegate), total_staked);
+			assert_eq!(get_delegate(&delegate).ledger.effective_balance(), total_staked);
 
 			start_era(5);
 			// at era 5, 50 tokens are withdrawable, cannot withdraw more.
@@ -374,11 +374,11 @@ mod integration {
 			// 100));
 			//
 			// // verify unbonded balance
-			// assert_eq!(delegate_available_to_bond(&delegate), 100);
+			// assert_eq!(get_delegate(&delegate).available_to_bond(), 100);
 			//
 			// // withdraw works now without unbonding
 			// assert_ok!(DelegatedStaking::release(RawOrigin::Signed(delegate).into(), 300, 100,
-			// 0)); assert_eq!(delegate_available_to_bond(&delegate), 0);
+			// 0)); assert_eq!(get_delegate(&delegate).available_to_bond(), 0);
 		});
 	}
 
@@ -420,8 +420,8 @@ mod integration {
 			));
 			// amount is staked correctly
 			assert!(eq_stake(200, 100, 100));
-			assert_eq!(delegate_available_to_bond(&200), 0);
-			assert_eq!(delegate_effective_balance(&200), 100);
+			assert_eq!(get_delegate(&200).available_to_bond(), 0);
+			assert_eq!(get_delegate(&200).ledger.effective_balance(), 100);
 
 			// free balance of delegate is untouched
 			assert_eq!(Balances::free_balance(200), balance_200);
@@ -547,8 +547,8 @@ mod integration {
 				5000 - staked_amount - ExistentialDeposit::get()
 			);
 			assert_eq!(DelegatedStaking::stake(&200).unwrap(), init_stake);
-			assert_eq!(delegate_effective_balance(&200), 4000);
-			assert_eq!(delegate_available_to_bond(&200), 0);
+			assert_eq!(get_delegate(&200).ledger.effective_balance(), 4000);
+			assert_eq!(get_delegate(&200).available_to_bond(), 0);
 
 			// now lets migrate the delegators
 			let delegator_share = staked_amount / 4;
@@ -574,8 +574,8 @@ mod integration {
 
 				// delegate stake is unchanged.
 				assert_eq!(DelegatedStaking::stake(&200).unwrap(), init_stake);
-				assert_eq!(delegate_effective_balance(&200), 4000);
-				assert_eq!(delegate_available_to_bond(&200), 0);
+				assert_eq!(get_delegate(&200).ledger.effective_balance(), 4000);
+				assert_eq!(get_delegate(&200).available_to_bond(), 0);
 			}
 
 			// cannot use migrate delegator anymore

@@ -288,17 +288,11 @@ pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool 
 	Staking::stake(&who).unwrap() == Stake { total, active }
 }
 
-pub(crate) fn delegate_available_to_bond(delegate: &AccountId) -> Balance {
-	let delegate = Delegate::<T>::from(delegate).expect("delegate should exist");
-	delegate.available_to_bond()
-}
-
-pub(crate) fn delegate_effective_balance(delegate: &AccountId) -> Balance {
-	let delegate = Delegate::<T>::from(delegate).expect("delegate should exist");
-	delegate.ledger.effective_balance()
-}
-
 pub(crate) fn delegate_bonded(delegate: &AccountId) -> bool {
 	let delegate = Delegate::<T>::from(delegate).expect("delegate should exist");
 	delegate.is_bonded()
+}
+
+pub(crate) fn get_delegate(delegate: &AccountId) -> Delegate<T> {
+	Delegate::<T>::from(delegate).expect("delegate should exist")
 }
