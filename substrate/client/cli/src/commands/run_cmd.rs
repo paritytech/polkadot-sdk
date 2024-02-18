@@ -62,7 +62,7 @@ pub struct RunCmd {
 	/// Not all RPC methods are safe to be exposed publicly.
 	///
 	/// Use an RPC proxy server to filter out dangerous methods. More details:
-	/// <https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs>.
+	/// <https://docs.substrate.io/build/remote-procedure-calls/#public-rpc-interfaces>.
 	///
 	/// Use `--unsafe-rpc-external` to suppress the warning if you understand the risks.
 	#[arg(long)]
