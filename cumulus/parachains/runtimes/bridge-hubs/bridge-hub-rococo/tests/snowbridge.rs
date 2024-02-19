@@ -135,6 +135,10 @@ fn ethereum_to_polkadot_message_extrinsics_work() {
 	);
 }
 
+/// Tests that the digest items are as expected when a Ethereum Outbound message is received.
+/// If the MessageQueue pallet is configured before (i.e. the MessageQueue pallet is listed before
+/// the EthereumOutboundQueue in the construct_runtime macro) the EthereumOutboundQueue, this test
+/// will fail.
 #[test]
 pub fn test_pallet_order_works() {
 	snowbridge_runtime_test_common::test_pallet_order_works::<
