@@ -1349,7 +1349,7 @@ async fn circulate_statement<Context>(
 
 		gum::info!(target: LOG_TARGET, ?candidate_hash, ?cluster_targets, ?cluster_relevant, ?all_cluster_targets, ?grid_targets, 
 			?statement_group, 
-			?group_saved_locally , "Build targets");
+			?group_saved_locally, "Build targets");
 
 		let targets = cluster_targets
 			.into_iter()
@@ -1364,6 +1364,9 @@ async fn circulate_statement<Context>(
 	};
 
 	let mut statement_to_peers: Vec<(PeerId, ProtocolVersion)> = Vec::new();
+
+	gum::info!(target: LOG_TARGET, ?candidate_hash, targets_len = ?targets.len(), ?originator, "Circulating statement");
+
 	for (target, authority_id, kind) in targets {
 		// Find peer ID based on authority ID, and also filter to connected.
 		let peer_id: (PeerId, ProtocolVersion) = match authorities.get(&authority_id) {
@@ -1375,7 +1378,15 @@ async fn circulate_statement<Context>(
 					.protocol_version
 					.into(),
 			),
-			None | Some(_) => continue,
+			None => {
+				gum::info!(target: LOG_TARGET, ?candidate_hash, ?target, ?originator, "Could not find peer id");
+
+				continue
+			}
+			Some(p) => {
+				gum::info!(target: LOG_TARGET, ?candidate_hash, ?target, ?originator, has_knowledges = ?peers.get(p).is_some(), "Found p");
+				continue
+			},
 		};
 
 		match kind {
@@ -1384,14 +1395,16 @@ async fn circulate_statement<Context>(
 					.active
 					.as_mut()
 					.expect("cluster target means local is active validator; qed");
+				let res = active.cluster_tracker.can_send(target, originator, compact_statement.clone());
 
 				// At this point, all peers in the cluster should 'know'
 				// the candidate, so we don't expect for this to fail.
-				if let Ok(()) =
-					active.cluster_tracker.can_send(target, originator, compact_statement.clone())
+				if let Ok(()) = res
 				{
 					active.cluster_tracker.note_sent(target, originator, compact_statement.clone());
 					statement_to_peers.push(peer_id);
+				} else {
+					gum::info!(target: LOG_TARGET, ?candidate_hash, ?target, ?originator, ?kind, ?res, "Can not send");
 				}
 			},
 			DirectTargetKind::Grid => {
