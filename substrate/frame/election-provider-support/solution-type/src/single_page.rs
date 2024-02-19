@@ -341,7 +341,7 @@ pub(crate) fn into_impl(
 				#assignments.push(_feps::Assignment {
 					who: voter_at(voter_index).or_invalid_index()?,
 					distribution: vec![
-						(target_at(target_index).or_invalid_index().map_err(|e| { println!("\n\n  >> Target IDX mapping is wrong (paged now..)\n\n"); e})?, #per_thing::one())
+						(target_at(target_index).or_invalid_index()?, #per_thing::one())
 					],
 				})
 			}

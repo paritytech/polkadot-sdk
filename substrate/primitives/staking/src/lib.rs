@@ -390,7 +390,7 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 	}
 }
 
-impl<A, B: HasCompact + Default + std::ops::AddAssign + std::ops::SubAssign + Clone>
+impl<A, B: HasCompact + Default + sp_std::ops::AddAssign + sp_std::ops::SubAssign + Clone>
 	From<Vec<IndividualExposure<A, B>>> for ExposurePage<A, B>
 {
 	fn from(exposures: Vec<IndividualExposure<A, B>>) -> Self {
@@ -410,7 +410,12 @@ impl<A, B: HasCompact + Default + std::ops::AddAssign + std::ops::SubAssign + Cl
 
 impl<
 		A,
-		B: Default + HasCompact + core::fmt::Debug + std::ops::AddAssign + std::ops::SubAssign + Clone,
+		B: Default
+			+ HasCompact
+			+ core::fmt::Debug
+			+ sp_std::ops::AddAssign
+			+ sp_std::ops::SubAssign
+			+ Clone,
 	> ExposurePage<A, B>
 {
 	/// Split the current exposure page into two pages where the new page takes up to `num`

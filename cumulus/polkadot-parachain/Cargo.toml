@@ -31,7 +31,7 @@ glutton-westend-runtime = { path = "../parachains/runtimes/glutton/glutton-weste
 seedling-runtime = { path = "../parachains/runtimes/starters/seedling" }
 asset-hub-rococo-runtime = { path = "../parachains/runtimes/assets/asset-hub-rococo" }
 asset-hub-westend-runtime = { path = "../parachains/runtimes/assets/asset-hub-westend" }
-staking-westend-runtime = { path = "../parachains/runtimes/staking/staking-westend" }
+#staking-westend-runtime = { path = "../parachains/runtimes/staking/staking-westend" }
 collectives-westend-runtime = { path = "../parachains/runtimes/collectives/collectives-westend" }
 contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-rococo" }
 bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }

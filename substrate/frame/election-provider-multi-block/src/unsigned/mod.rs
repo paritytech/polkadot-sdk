@@ -21,6 +21,7 @@ pub mod miner;
 
 use crate::PageSize;
 use frame_election_provider_support::PageIndex;
+use sp_std::boxed::Box;
 
 // public re-exports.
 pub use pallet::{
@@ -127,7 +128,7 @@ pub(crate) mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			// TODO(gpestana)
-			0.into()
+			Weight::zero()
 		}
 
 		fn integrity_test() {

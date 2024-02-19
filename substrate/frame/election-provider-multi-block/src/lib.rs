@@ -368,7 +368,7 @@ pub mod pallet {
 						// enter in emergency phase?
 						log!(
 					    error,
-					    "phase `Export` has been open for too long ({} blocks). entering emergency mode",
+					    "phase `Export` has been open for too long ({:?} blocks). entering emergency mode",
 					    T::ExportPhaseLimit::get(),
 				    );
 
@@ -387,7 +387,7 @@ pub mod pallet {
 			// submission.
 			assert!(
 				T::SignedValidationPhase::get() <= T::Pages::get().into(),
-				"signed validaton phase ({}) should not be less than the number of pages per submission ({})",
+				"signed validaton phase ({:?}) should not be less than the number of pages per submission ({:?})",
 				T::SignedValidationPhase::get(),
 				T::Pages::get(),
 			);

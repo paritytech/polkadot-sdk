@@ -912,7 +912,7 @@ pub mod pallet {
 				} else {
 					crate::log!(
 						info,
-						"elect(): progressing with calling elect, remaining pages {}",
+						"elect(): progressing with calling elect, remaining pages {:?}",
 						remaining_pages
 					);
 
@@ -925,7 +925,7 @@ pub mod pallet {
 					// start calling elect.
 					crate::log!(
 						info,
-						"elect(): next election in {} pages, start fetching solution pages.",
+						"elect(): next election in {:?} pages, start fetching solution pages.",
 						pages,
 					);
 					ElectingStartedAt::<T>::set(Some((

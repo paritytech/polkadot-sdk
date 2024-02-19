@@ -35,7 +35,8 @@ use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, assignment_staked_to_ratio_normalized, ElectionResult,
 	ElectionScore, ExtendedBalance, Support,
 };
-use sp_runtime::{bounded_vec, SaturatedConversion};
+use sp_runtime::SaturatedConversion;
+use sp_std::{vec, vec::Vec};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum MinerError {
@@ -325,7 +326,8 @@ where
 		let is_trimmed = TrimmingStatus { weight: weight_trimmed, length: length_trimmed };
 
 		let round = EPM::<T>::current_round();
-		let solution_pages: BoundedVec<T::Solution, T::Pages> = bounded_vec![solution];
+		let solution_pages: BoundedVec<T::Solution, T::Pages> =
+			vec![solution].try_into().expect("fits");
 
 		Ok((PagedRawSolution { solution_pages, score, round }, is_trimmed))
 	}
@@ -513,7 +515,7 @@ where
 		// helper closures.
 		let weight_with = |active_voters: u32| -> Weight {
 			//T::solution_weight(size.voters, size.targets, active_voters, desired_winners) // TODO
-			0.into()
+			Weight::zero()
 		};
 
 		let next_voters = |current_weight: Weight, voters: u32, step: u32| -> Result<u32, ()> {

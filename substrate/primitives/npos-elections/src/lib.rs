@@ -217,7 +217,7 @@ impl sp_std::cmp::PartialOrd for ElectionScore {
 }
 
 /// Note: this sum is saturating. TODO(gpestana): maybe impl CheckedAdd instead.
-impl std::ops::Add for ElectionScore {
+impl sp_std::ops::Add for ElectionScore {
 	type Output = Self;
 
 	fn add(self, other: Self) -> Self {
@@ -229,7 +229,7 @@ impl std::ops::Add for ElectionScore {
 	}
 }
 
-impl std::ops::AddAssign for ElectionScore {
+impl sp_std::ops::AddAssign for ElectionScore {
 	fn add_assign(&mut self, rhs: Self) {
 		*self = *self + rhs;
 	}

@@ -13092,7 +13092,6 @@ dependencies = [
  "sp-version",
  "staging-xcm",
  "staking-rococo-runtime",
- "staking-westend-runtime",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
@@ -19537,6 +19536,7 @@ dependencies = [
  "staging-xcm-executor",
  "staking-common",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]

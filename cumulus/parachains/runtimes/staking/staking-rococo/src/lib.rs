@@ -10,7 +10,7 @@ mod bags_thresholds;
 mod weights;
 pub mod xcm_config;
 
-use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -49,16 +49,26 @@ use frame_system::{
 	EnsureRoot,
 };
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::{
-	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
-	rococo::currency::deposit,
-	wococo::currency::UNITS,
+use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
+use testnet_parachains_constants::rococo::currency::*;
+
+use staking_common::{TargetIndex, VoterIndex};
+
+pub use pallet_election_provider_multi_block::{
+	self as pallet_epm_core,
+	signed::{self as pallet_epm_signed},
+	unsigned::{self as pallet_unsigned, miner::Miner},
+	verifier::{self as pallet_epm_verifier},
+	Phase,
 };
+
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 
-use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
+use frame_election_provider_support::{
+	bounds::ElectionBoundsBuilder, onchain, PageIndex, SequentialPhragmen,
+};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -290,6 +300,8 @@ impl frame_system::Config for Runtime {
 	type AccountId = AccountId;
 	/// The aggregated dispatch type that is available for extrinsics.
 	type RuntimeCall = RuntimeCall;
+	/// Runtime task.
+	type RuntimeTask = ();
 	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = AccountIdLookup<AccountId, ()>;
 	/// The index type for storing how many extrinsics an account has signed.
@@ -365,7 +377,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<1>;
 }
 
@@ -400,19 +411,21 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
-	type OutboundXcmpMessageSource = XcmpQueue;
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
+	type OutboundXcmpMessageSource = XcmpQueue;
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
-	type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
-	type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
-		Runtime,
-		RELAY_CHAIN_SLOT_DURATION_MILLIS,
-		BLOCK_PROCESSING_VELOCITY,
-		UNINCLUDED_SEGMENT_CAPACITY,
-	>;
+	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
+	type ConsensusHook = ConsensusHook;
 }
+
+type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
+	Runtime,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
+>;
 
 impl parachain_info::Config for Runtime {}
 
@@ -518,12 +531,22 @@ parameter_types! {
 	pub SignedPhase: u32 = 	EPOCH_DURATION_IN_SLOTS / 4;
 	pub UnsignedPhase: u32 = EPOCH_DURATION_IN_SLOTS / 4;
 
+	pub SignedValidationPhase: BlockNumber = Pages::get();
+	pub Lookhaead: BlockNumber = Pages::get();
+	pub Pages: PageIndex = 3;
+	pub MaxWinnersPerPage: u32 = 4;
+	pub MaxBackersPerWinner: u32 = 16;
+
+	pub VoterSnapshotPerBlock: VoterIndex = 4;
+	pub TargetSnapshotPerBlock: TargetIndex = 8;
+	pub ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
+
 	pub const SignedMaxSubmissions: u32 = 128;
 	pub const SignedMaxRefunds: u32 = 128 / 4;
 	pub const SignedFixedDeposit: Balance = deposit(2, 0);
 	pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
 	pub const SignedDepositByte: Balance = deposit(0, 10) / 1024;
-	// Each good submission will get 1 WND as reward
+	// Each good submission will get 1 WND as reward296296
 	pub SignedRewardBase: Balance = 1 * UNITS;
 	pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(5u32, 10_000);
 
@@ -541,35 +564,12 @@ parameter_types! {
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
 	pub struct NposCompactSolution16::<
-		VoterIndex = u32,
-		TargetIndex = u16,
+		VoterIndex = VoterIndex,
+		TargetIndex = TargetIndex,
 		Accuracy = sp_runtime::PerU16,
 		MaxVoters = MaxElectingVoters,
 	>(16)
 );
-
-impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
-	type AccountId = AccountId;
-	type MaxLength = (); // OffchainSolutionLengthLimit;
-	type MaxWeight = (); // OffchainSolutionWeightLimit;
-	type Solution = NposCompactSolution16;
-	type MaxVotesPerVoter = <
-		<Self as pallet_election_provider_multi_phase::Config>::DataProvider
-		as
-		frame_election_provider_support::ElectionDataProvider
-	>::MaxVotesPerVoter;
-	type MaxWinners = MaxActiveValidators;
-
-	// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
-	// weight estimate function is wired to this call's weight.
-	fn solution_weight(v: u32, t: u32, a: u32, d: u32) -> Weight {
-		<
-			<Self as pallet_election_provider_multi_phase::Config>::WeightInfo
-			as
-			pallet_election_provider_multi_phase::WeightInfo
-		>::submit_unsigned(v, t, a, d)
-	}
-}
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
 where
@@ -579,49 +579,67 @@ where
 	type Extrinsic = UncheckedExtrinsic;
 }
 
-impl pallet_election_provider_multi_phase::Config for Runtime {
+impl pallet_epm_core::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type EstimateCallFee = TransactionPayment;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
-	type SignedMaxSubmissions = SignedMaxSubmissions;
-	type SignedMaxRefunds = SignedMaxRefunds;
-	type SignedRewardBase = SignedRewardBase;
-	type SignedDepositBase = pallet_election_provider_multi_phase::GeometricDepositBase<
-		Balance,
-		SignedFixedDeposit,
-		SignedDepositIncreaseFactor,
-	>;
-	type SignedDepositByte = SignedDepositByte;
-	type SignedDepositWeight = ();
-	type SignedMaxWeight =
-		<Self::MinerConfig as pallet_election_provider_multi_phase::MinerConfig>::MaxWeight;
-	type MinerConfig = Self;
-	type SlashHandler = (); // burn slashes
-	type RewardHandler = (); // nothing to do upon rewards
-	type BetterUnsignedThreshold = BetterUnsignedThreshold;
-	type BetterSignedThreshold = ();
-	type OffchainRepeat = OffchainRepeat;
-	type MinerTxPriority = NposSolutionPriority;
-	type DataProvider = Staking;
+	type SignedValidationPhase = SignedValidationPhase;
+	type Lookhaead = Lookhaead;
+	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
+	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
+	type Pages = Pages;
+	type ExportPhaseLimit = ExportPhaseLimit;
+	type Solution = NposCompactSolution16;
 	type Fallback = frame_election_provider_support::NoElection<(
 		AccountId,
 		BlockNumber,
 		Staking,
-		MaxActiveValidators,
+		MaxWinnersPerPage,
+		MaxBackersPerWinner,
 	)>;
-	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
-	type Solver = SequentialPhragmen<
-		AccountId,
-		pallet_election_provider_multi_phase::SolutionAccuracyOf<Self>,
-		(),
-	>;
-	type BenchmarkingConfig = staking_common::BenchmarkConfig;
-	type ForceOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = (); // weights::pallet_election_provider_multi_phase::WeightInfo<Self>;
-	type MaxWinners = MaxActiveValidators;
-	type ElectionBounds = ElectionBounds;
+	type Verifier = ElectionVerifierPallet;
+	type DataProvider = Staking;
+}
+
+parameter_types! {
+	pub SolutionImprovementThreshold: Perbill = Perbill::zero();
+}
+
+impl pallet_epm_verifier::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type SolutionImprovementThreshold = SolutionImprovementThreshold;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type SolutionDataProvider = ElectionSignedPallet;
+	type WeightInfo = ();
+}
+
+parameter_types! {
+	pub ElectionSubmissionDepositBase: Balance = 10;
+	pub DepositPerPage: Balance = 1;
+	pub Reward: Balance = 10;
+	pub MaxSubmissions: u32 = 5;
+}
+
+impl pallet_epm_signed::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type EstimateCallFee = TransactionPayment;
+	type OnSlash = (); // burn
+	type DepositBase = ConstDepositBase;
+	type DepositPerPage = DepositPerPage;
+	type Reward = Reward;
+	type MaxSubmissions = MaxSubmissions;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type WeightInfo = ();
+}
+
+pub struct ConstDepositBase;
+impl sp_runtime::traits::Convert<usize, Balance> for ConstDepositBase {
+	fn convert(_a: usize) -> Balance {
+		ElectionSubmissionDepositBase::get()
+	}
 }
 
 pub struct OnChainSeqPhragmen;
@@ -629,9 +647,10 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
 	type Solver = SequentialPhragmen<AccountId, staking_common::OnChainAccuracy>;
 	type DataProvider = Staking;
-	type WeightInfo = (); // weights::frame_election_provider_support::WeightInfo<Runtime>;
-	type MaxWinners = MaxActiveValidators;
 	type Bounds = ElectionBounds;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type WeightInfo = (); // weights::frame_election_provider_support::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -667,6 +686,8 @@ parameter_types! {
 	pub const MaxNominators: u32 = 64;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
+	pub const MaxControllersInDeprecationBatch: u32 = 751;
+	pub const MaxValidatorSet: u32 = 500;
 }
 
 impl pallet_staking::Config for Runtime {
@@ -685,15 +706,17 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type MaxExposurePageSize = MaxExposurePageSize;
+	type MaxValidatorSet = MaxValidatorSet;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
-	type ElectionProvider = ElectionProviderMultiPhase;
+	type ElectionProvider = ElectionProviderMultiBlock;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = staking_common::StakingBenchmarkingConfig;
 	type EventListeners = NominationPools;
 	type WeightInfo = (); // weights
@@ -763,10 +786,15 @@ construct_runtime!(
 
 		// Staking.
 		Staking: pallet_staking = 34,
-		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 35,
-		NominationPools: pallet_nomination_pools = 36,
-		FastUnstake: pallet_fast_unstake = 37,
-		VoterList: pallet_bags_list::<Instance1> = 38,
+		NominationPools: pallet_nomination_pools = 35,
+		FastUnstake: pallet_fast_unstake = 36,
+		VoterList: pallet_bags_list::<Instance1> = 37,
+
+		// Election provider core pallet and sub-pallets. Note: order matters.
+		ElectionProviderMultiBlock: pallet_epm_core = 38,
+		ElectionVerifierPallet: pallet_epm_verifier = 39,
+		ElectionSignedPallet: pallet_epm_signed = 40,
+		//ElectionUnsignedPallet: pallet_epm_unsigned = 41,
 	}
 );
 
@@ -782,6 +810,10 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_epm_core, ElectionProviderMultiBlock]
+		[pallet_epm_verifier, ElectionVerifierPallet]
+		[pallet_epm_signed, ElectionSignedPallet]
+		//[pallet_epm_unsigned, ElectionUnsignedPallet]
 	);
 }
 

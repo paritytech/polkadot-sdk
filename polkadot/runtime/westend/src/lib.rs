@@ -517,15 +517,15 @@ parameter_types! {
 		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
 	);
 
-	pub static SignedValidationPhase: BlockNumber = Pages::get();
-	pub static Lookhaead: BlockNumber = Pages::get();
-	pub static Pages: PageIndex = 3;
-	pub static MaxWinnersPerPage: u32 = 4;
-	pub static MaxBackersPerWinner: u32 = 16;
+	pub SignedValidationPhase: BlockNumber = Pages::get();
+	pub Lookhaead: BlockNumber = Pages::get();
+	pub Pages: PageIndex = 3;
+	pub MaxWinnersPerPage: u32 = 4;
+	pub MaxBackersPerWinner: u32 = 16;
 
-	pub static VoterSnapshotPerBlock: VoterIndex = 4;
-	pub static TargetSnapshotPerBlock: TargetIndex = 8;
-	pub static ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
+	pub VoterSnapshotPerBlock: VoterIndex = 4;
+	pub TargetSnapshotPerBlock: TargetIndex = 8;
+	pub ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
 
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 128;
@@ -547,7 +547,6 @@ parameter_types! {
 		ElectionBoundsBuilder::default().voters_count(MaxElectingVoters::get().into()).build();
 	// Maximum winners that can be chosen as active validators
 	pub const MaxActiveValidators: u32 = 1000;
-
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -594,7 +593,7 @@ impl pallet_epm_core::Config for Runtime {
 }
 
 parameter_types! {
-	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
+	pub SolutionImprovementThreshold: Perbill = Perbill::zero();
 }
 
 impl pallet_epm_verifier::Config for Runtime {
@@ -608,16 +607,16 @@ impl pallet_epm_verifier::Config for Runtime {
 }
 
 parameter_types! {
-	pub static ElectionSubmissionDepositBase: Balance = 10;
-	pub static DepositPerPage: Balance = 1;
-	pub static Reward: Balance = 10;
-	pub static MaxSubmissions: u32 = 5;
+	pub ElectionSubmissionDepositBase: Balance = 10;
+	pub DepositPerPage: Balance = 1;
+	pub Reward: Balance = 10;
+	pub MaxSubmissions: u32 = 5;
 }
 
 impl pallet_epm_signed::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type EstimateCallFee = ConstU32<8>;
+	type EstimateCallFee = TransactionPayment;
 	type OnSlash = (); // burn
 	type DepositBase = ConstDepositBase;
 	type DepositPerPage = DepositPerPage;
@@ -1723,9 +1722,8 @@ mod benches {
 		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_epm_core, ElectionProviderMultiBlock]
         [pallet_epm_verifier, ElectionVerifierPallet]
-        //[pallet_epm_signed, ElectionSignedPallet]
+        [pallet_epm_signed, ElectionSignedPallet]
         //[pallet_epm_unsigned, ElectionUnsignedPallet]
-    //
 		[frame_election_provider_support, ElectionProviderBench::<Runtime>]
 		[pallet_fast_unstake, FastUnstake]
 		[pallet_identity, Identity]

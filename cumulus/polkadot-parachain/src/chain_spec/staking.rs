@@ -23,7 +23,7 @@ use parachains_common::{AccountId, AuraId, Balance as StakingBalance};
 use sc_service::ChainType;
 use sp_core::sr25519;
 
-const STAKING_ROCOCO_ED: StakingBalance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+const STAKING_ROCOCO_ED: StakingBalance = staking_rococo_runtime::ExistentialDeposit::get();
 
 /// Generate the session keys from individual elements.
 ///
@@ -70,7 +70,7 @@ fn staking_rococo_like_development_config(
 			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 		],
-		parachains_common::rococo::currency::UNITS * 1_000_000,
+		testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
 		para_id.into(),
 	))
 	.with_properties(properties)
