@@ -23,7 +23,8 @@ sp-core = { path = "../../../../primitives/core" }
 sp-state-machine = { path = "../../../../primitives/state-machine" }
 sp-trie = { path = "../../../../primitives/trie" }
 trie-db = "0.28.0"
-jsonrpsee = { version = "0.20.3", features = ["client-core", "macros", "server"] }
+
+jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
 
 # Substrate Dependencies
 sc-client-api = { path = "../../../../client/api" }
@@ -31,4 +32,4 @@ sc-rpc-api = { path = "../../../../client/rpc-api" }
 sp-runtime = { path = "../../../../primitives/runtime" }
 
 [dev-dependencies]
-serde_json = "1.0.111"
+serde_json = "1.0.113"

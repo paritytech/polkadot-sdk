@@ -116,6 +116,21 @@ pub mod v1 {
 	}
 }
 
+/// Clears the pallet's offchain storage.
+///
+/// Must be put in `OffchainWorkerApi::offchain_worker` after
+/// the pallet was removed.
+pub fn clear_offchain_storage(validator_set_size: u32) {
+	(0..validator_set_size).for_each(|idx| {
+		let key = {
+			let mut key = DB_PREFIX.to_vec();
+			key.extend(idx.encode());
+			key
+		};
+		sp_runtime::offchain::storage::StorageValueRef::persistent(&key).clear();
+	});
+}
+
 #[cfg(all(feature = "try-runtime", test))]
 mod test {
 	use super::*;

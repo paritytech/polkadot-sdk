@@ -2027,7 +2027,7 @@ pub struct CoretimeProvider;
 impl CoretimeInterface for CoretimeProvider {
 	type AccountId = AccountId;
 	type Balance = Balance;
-	type RealyChainBlockNumberProvider = System;
+	type RelayChainBlockNumberProvider = System;
 	fn request_core_count(_count: CoreIndex) {}
 	fn request_revenue_info_at(_when: u32) {}
 	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {}

@@ -33,12 +33,12 @@ tokio-util = { version = "0.7.8", features = ["compat"] }
 futures = "0.3.28"
 futures-timer = "3.0.2"
 parity-scale-codec = "3.6.4"
-jsonrpsee = { version = "0.20.3", features = ["ws-client"] }
+jsonrpsee = { version = "0.22", features = ["ws-client"] }
 tracing = "0.1.37"
 async-trait = "0.1.74"
 url = "2.4.0"
-serde_json = "1.0.111"
-serde = "1.0.195"
+serde_json = "1.0.113"
+serde = "1.0.196"
 schnellru = "0.2.1"
 smoldot = { version = "0.11.0", default_features = false, features = ["std"] }
 smoldot-light = { version = "0.9.0", default_features = false, features = ["std"] }
