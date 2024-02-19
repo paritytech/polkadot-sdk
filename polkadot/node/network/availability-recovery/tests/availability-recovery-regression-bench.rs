@@ -20,7 +20,10 @@ use polkadot_subsystem_bench::{
 		TestDataAvailability, TestState,
 	},
 	configuration::{PeerLatency, TestConfiguration},
+	usage::BenchmarkUsage,
 };
+
+const BENCH_COUNT: usize = 10;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
@@ -37,15 +40,23 @@ fn main() -> Result<(), String> {
 	config.connectivity = 90;
 	config.generate_pov_sizes();
 
-	let mut state = TestState::new(&config);
-	let (mut env, _protocol_config) =
-		prepare_test(config, &mut state, TestDataAvailability::Read(options), false);
-	let usage = env.runtime().block_on(benchmark_availability_read(
-		"data_availability_read",
-		&mut env,
-		state,
-	));
-
+	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT)
+		.map(|_| {
+			let mut state = TestState::new(&config);
+			let (mut env, _protocol_config) = prepare_test(
+				config.clone(),
+				&mut state,
+				TestDataAvailability::Read(options.clone()),
+				false,
+			);
+			env.runtime().block_on(benchmark_availability_read(
+				"data_availability_read",
+				&mut env,
+				state,
+			))
+		})
+		.collect();
+	let usage = BenchmarkUsage::average(&usages);
 	println!("{}", usage);
 
 	messages.extend(usage.check_network_usage(&[

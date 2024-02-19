@@ -20,6 +20,8 @@ use polkadot_subsystem_bench::{
 	usage::BenchmarkUsage,
 };
 
+const BENCH_COUNT: usize = 10;
+
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
 
@@ -50,8 +52,13 @@ fn test_configuration() -> TestConfiguration {
 }
 
 fn run_benchmark(test_case: &str, options: ApprovalsOptions) -> BenchmarkUsage {
-	let (mut env, state) = prepare_test(test_configuration(), options, false);
-	let usage = env.runtime().block_on(bench_approvals(test_case, &mut env, state));
+	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT)
+		.map(|_| {
+			let (mut env, state) = prepare_test(test_configuration(), options.clone(), false);
+			env.runtime().block_on(bench_approvals(test_case, &mut env, state))
+		})
+		.collect();
+	let usage = BenchmarkUsage::average(&usages);
 	println!("{}", usage);
 	usage
 }

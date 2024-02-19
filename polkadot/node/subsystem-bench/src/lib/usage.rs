@@ -18,6 +18,7 @@
 
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BenchmarkUsage {
@@ -45,6 +46,18 @@ impl std::fmt::Display for BenchmarkUsage {
 }
 
 impl BenchmarkUsage {
+	pub fn average(usages: &[Self]) -> Self {
+		let all_network_usages: Vec<&ResourceUsage> =
+			usages.iter().flat_map(|v| &v.network_usage).collect();
+		let all_cpu_usage: Vec<&ResourceUsage> = usages.iter().flat_map(|v| &v.cpu_usage).collect();
+
+		Self {
+			benchmark_name: usages.get(0).map(|v| v.benchmark_name.clone()).unwrap_or_default(),
+			network_usage: ResourceUsage::average_by_resource_name(&all_network_usages),
+			cpu_usage: ResourceUsage::average_by_resource_name(&all_cpu_usage),
+		}
+	}
+
 	pub fn check_network_usage(&self, checks: &[ResourceUsageCheck]) -> Vec<String> {
 		check_usage(&self.benchmark_name, &self.network_usage, checks)
 	}
@@ -96,6 +109,22 @@ pub struct ResourceUsage {
 impl std::fmt::Display for ResourceUsage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{:<32}{:>12.3}{:>12.3}", self.resource_name.cyan(), self.total, self.per_block)
+	}
+}
+
+impl ResourceUsage {
+	fn average_by_resource_name(usages: &[&Self]) -> Vec<Self> {
+		let mut by_name: HashMap<String, Vec<&Self>> = Default::default();
+		for usage in usages {
+			by_name.entry(usage.resource_name.clone()).or_default().push(usage);
+		}
+		let mut average = vec![];
+		for (resource_name, values) in by_name {
+			let total = values.iter().map(|v| v.total).sum::<f64>() / values.len() as f64;
+			let per_block = values.iter().map(|v| v.per_block).sum::<f64>() / values.len() as f64;
+			average.push(Self { resource_name, total, per_block });
+		}
+		average
 	}
 }
 
