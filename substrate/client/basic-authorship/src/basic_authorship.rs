@@ -94,13 +94,11 @@ impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
 			client: self.client.clone(),
 			transaction_pool: self.transaction_pool.clone(),
 			metrics: self.metrics.clone(),
-			default_block_size_limit: self.default_block_size_limit.clone(),
-			soft_deadline_percent: self.soft_deadline_percent.clone(),
+			default_block_size_limit: self.default_block_size_limit,
+			soft_deadline_percent: self.soft_deadline_percent,
 			telemetry: self.telemetry.clone(),
-			include_proof_in_block_size_estimation: self
-				.include_proof_in_block_size_estimation
-				.clone(),
-			_phantom: self._phantom.clone(),
+			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
+			_phantom: self._phantom,
 		}
 	}
 }
