@@ -216,7 +216,9 @@ impl<T: Config> Pallet<T> {
 			let assignment = CoreAssignment::Task(task);
 			let schedule = BoundedVec::truncate_from(vec![ScheduleItem { mask, assignment }]);
 			Workplan::<T>::insert((region_begin, first_core), &schedule);
-			let expiring = until >= region_begin && until < region_end;
+			// Separate these to avoid missed expired leases hanging around forever.
+			let expired = until < region_end;
+			let expiring = until >= region_begin && expired;
 			if expiring {
 				// last time for this one - make it renewable.
 				let renewal_id = AllowedRenewalId { core: first_core, when: region_end };
@@ -231,7 +233,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::LeaseEnding { when: region_end, task });
 			}
 			first_core.saturating_inc();
-			!expiring
+			!expired
 		});
 		Leases::<T>::put(&leases);
 

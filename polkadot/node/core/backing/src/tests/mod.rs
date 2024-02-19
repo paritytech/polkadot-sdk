@@ -41,7 +41,7 @@ use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use sp_tracing as _;
 use statement_table::v2::Misbehavior;
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 mod prospective_parachains;
 
@@ -77,6 +77,7 @@ struct TestState {
 	signing_context: SigningContext,
 	relay_parent: Hash,
 	minimum_backing_votes: u32,
+	disabled_validators: Vec<ValidatorIndex>,
 }
 
 impl TestState {
@@ -148,6 +149,7 @@ impl Default for TestState {
 			signing_context,
 			relay_parent,
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
+			disabled_validators: Vec::new(),
 		}
 	}
 }
@@ -291,6 +293,26 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 			RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
 		)) if parent == test_state.relay_parent && session_index == test_state.signing_context.session_index => {
 			tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
+		}
+	);
+
+	// Check that subsystem job issues a request for the runtime version.
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::Version(tx))
+		) if parent == test_state.relay_parent => {
+			tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT)).unwrap();
+		}
+	);
+
+	// Check that subsystem job issues a request for the disabled validators.
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
+		) if parent == test_state.relay_parent => {
+			tx.send(Ok(test_state.disabled_validators.clone())).unwrap();
 		}
 	);
 }
@@ -1420,6 +1442,7 @@ fn candidate_backing_reorders_votes() {
 
 	let table_context = TableContext {
 		validator: None,
+		disabled_validators: Vec::new(),
 		groups: validator_groups,
 		validators: validator_public.clone(),
 	};
@@ -1954,6 +1977,310 @@ fn new_leaf_view_doesnt_clobber_old() {
 			"first leaf appears to be inactive"
 		);
 
+		virtual_overseer
+	});
+}
+
+// Test that a disabled local validator doesn't do any work on `CandidateBackingMessage::Second`
+#[test]
+fn disabled_validator_doesnt_distribute_statement_on_receiving_second() {
+	let mut test_state = TestState::default();
+	test_state.disabled_validators.push(ValidatorIndex(0));
+
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		test_startup(&mut virtual_overseer, &test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+
+		let pov_hash = pov.hash();
+		let candidate = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		let second = CandidateBackingMessage::Second(
+			test_state.relay_parent,
+			candidate.to_plain(),
+			pvd.clone(),
+			pov.clone(),
+		);
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+		// Ensure backing subsystem is not doing any work
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::stop_work(test_state.relay_parent),
+			)))
+			.await;
+		virtual_overseer
+	});
+}
+
+// Test that a disabled local validator doesn't do any work on `CandidateBackingMessage::Statement`
+#[test]
+fn disabled_validator_doesnt_distribute_statement_on_receiving_statement() {
+	let mut test_state = TestState::default();
+	test_state.disabled_validators.push(ValidatorIndex(0));
+
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		test_startup(&mut virtual_overseer, &test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+
+		let pov_hash = pov.hash();
+		let candidate = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		let public2 = Keystore::sr25519_generate_new(
+			&*test_state.keystore,
+			ValidatorId::ID,
+			Some(&test_state.validators[2].to_seed()),
+		)
+		.expect("Insert key into keystore");
+
+		let signed = SignedFullStatementWithPVD::sign(
+			&test_state.keystore,
+			StatementWithPVD::Seconded(candidate.clone(), pvd.clone()),
+			&test_state.signing_context,
+			ValidatorIndex(2),
+			&public2.into(),
+		)
+		.ok()
+		.flatten()
+		.expect("should be signed");
+
+		let statement = CandidateBackingMessage::Statement(test_state.relay_parent, signed.clone());
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
+
+		// Ensure backing subsystem is not doing any work
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::stop_work(test_state.relay_parent),
+			)))
+			.await;
+		virtual_overseer
+	});
+}
+
+// Test that a validator doesn't do any work on receiving a `CandidateBackingMessage::Statement`
+// from a disabled validator
+#[test]
+fn validator_ignores_statements_from_disabled_validators() {
+	let mut test_state = TestState::default();
+	test_state.disabled_validators.push(ValidatorIndex(2));
+
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		test_startup(&mut virtual_overseer, &test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+
+		let pov_hash = pov.hash();
+		let candidate = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+		let candidate_commitments_hash = candidate.commitments.hash();
+
+		let public2 = Keystore::sr25519_generate_new(
+			&*test_state.keystore,
+			ValidatorId::ID,
+			Some(&test_state.validators[2].to_seed()),
+		)
+		.expect("Insert key into keystore");
+
+		let signed_2 = SignedFullStatementWithPVD::sign(
+			&test_state.keystore,
+			StatementWithPVD::Seconded(candidate.clone(), pvd.clone()),
+			&test_state.signing_context,
+			ValidatorIndex(2),
+			&public2.into(),
+		)
+		.ok()
+		.flatten()
+		.expect("should be signed");
+
+		let statement_2 =
+			CandidateBackingMessage::Statement(test_state.relay_parent, signed_2.clone());
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: statement_2 }).await;
+
+		// Ensure backing subsystem is not doing any work
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// Now send a statement from a honest validator and make sure it gets processed
+		let public3 = Keystore::sr25519_generate_new(
+			&*test_state.keystore,
+			ValidatorId::ID,
+			Some(&test_state.validators[3].to_seed()),
+		)
+		.expect("Insert key into keystore");
+
+		let signed_3 = SignedFullStatementWithPVD::sign(
+			&test_state.keystore,
+			StatementWithPVD::Seconded(candidate.clone(), pvd.clone()),
+			&test_state.signing_context,
+			ValidatorIndex(3),
+			&public3.into(),
+		)
+		.ok()
+		.flatten()
+		.expect("should be signed");
+
+		let statement_3 =
+			CandidateBackingMessage::Statement(test_state.relay_parent, signed_3.clone());
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: statement_3 }).await;
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
+			) if hash == validation_code.hash() => {
+				tx.send(Ok(Some(validation_code.clone()))).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
+			) => {
+				tx.send(Ok(1u32.into())).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
+			) if sess_idx == 1 => {
+				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+			}
+		);
+
+		// Sending a `Statement::Seconded` for our assignment will start
+		// validation process. The first thing requested is the PoV.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::AvailabilityDistribution(
+				AvailabilityDistributionMessage::FetchPoV {
+					relay_parent,
+					tx,
+					..
+				}
+			) if relay_parent == test_state.relay_parent => {
+				tx.send(pov.clone()).unwrap();
+			}
+		);
+
+		// The next step is the actual request to Validation subsystem
+		// to validate the `Seconded` candidate.
+		let expected_pov = pov;
+		let expected_validation_code = validation_code;
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::CandidateValidation(
+				CandidateValidationMessage::ValidateFromExhaustive {
+					validation_data,
+					validation_code,
+					candidate_receipt,
+					pov,
+					executor_params: _,
+					exec_kind,
+					response_sender,
+				}
+			) if validation_data == pvd &&
+				validation_code == expected_validation_code &&
+				*pov == expected_pov && &candidate_receipt.descriptor == candidate.descriptor() &&
+				exec_kind == PvfExecKind::Backing &&
+				candidate_commitments_hash == candidate_receipt.commitments_hash =>
+			{
+				response_sender.send(Ok(
+					ValidationResult::Valid(CandidateCommitments {
+						head_data: expected_head_data.clone(),
+						upward_messages: Default::default(),
+						horizontal_messages: Default::default(),
+						new_validation_code: None,
+						processed_downward_messages: 0,
+						hrmp_watermark: 0,
+					}, test_state.validation_data.clone()),
+				)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::AvailabilityStore(
+				AvailabilityStoreMessage::StoreAvailableData { candidate_hash, tx, .. }
+			) if candidate_hash == candidate.hash() => {
+				tx.send(Ok(())).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::StatementDistribution(
+				StatementDistributionMessage::Share(hash, _stmt)
+			) => {
+				assert_eq!(test_state.relay_parent, hash);
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::Provisioner(
+				ProvisionerMessage::ProvisionableData(
+					_,
+					ProvisionableData::BackedCandidate(candidate_receipt)
+				)
+			) => {
+				assert_eq!(candidate_receipt, candidate.to_plain());
+			}
+		);
+
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::stop_work(test_state.relay_parent),
+			)))
+			.await;
 		virtual_overseer
 	});
 }

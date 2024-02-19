@@ -389,9 +389,11 @@ impl<
 		let credit = <F as fungibles::Balanced<AccountId>>::issue(A::get(), amount);
 		imbalance::from_fungibles(credit)
 	}
-	fn pair(amount: Self::Balance) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
-		let (a, b) = <F as fungibles::Balanced<AccountId>>::pair(A::get(), amount);
-		(imbalance::from_fungibles(a), imbalance::from_fungibles(b))
+	fn pair(
+		amount: Self::Balance,
+	) -> Result<(Debt<AccountId, Self>, Credit<AccountId, Self>), DispatchError> {
+		let (a, b) = <F as fungibles::Balanced<AccountId>>::pair(A::get(), amount)?;
+		Ok((imbalance::from_fungibles(a), imbalance::from_fungibles(b)))
 	}
 	fn rescind(amount: Self::Balance) -> Debt<AccountId, Self> {
 		let debt = <F as fungibles::Balanced<AccountId>>::rescind(A::get(), amount);

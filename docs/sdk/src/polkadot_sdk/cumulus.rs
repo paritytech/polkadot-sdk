@@ -55,7 +55,7 @@ mod tests {
 
 		#[docify::export(CR)]
 		construct_runtime!(
-			pub struct Runtime {
+			pub enum Runtime {
 				// system-level pallets.
 				System: frame_system,
 				Timestamp: pallet_timestamp,
