@@ -50,7 +50,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf,
-		TransactionExtension, TransactionExtensionBase, Zero,
+		TransactionExtension, TransactionExtensionBase, ValidateResult, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransactionBuilder,
@@ -514,14 +514,7 @@ where
 		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
-	) -> Result<
-		(
-			sp_runtime::transaction_validity::ValidTransaction,
-			Self::Val,
-			<CallOf<T::Runtime> as Dispatchable>::RuntimeOrigin,
-		),
-		sp_runtime::transaction_validity::TransactionValidityError,
-	> {
+	) -> ValidateResult<Self::Val, CallOf<T::Runtime>> {
 		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		// this is the only relevant line of code for the `pre_dispatch`
 		//

@@ -129,12 +129,12 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 					<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
 				), sp_runtime::transaction_validity::TransactionValidityError
 			> {
-				let valid = sp_runtime::transaction_validity::ValidTransaction::default();
+				let tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
 				$(
-					let v = <$filter_call as $crate::BridgeRuntimeFilterCall<$call>>::validate(call)?;
-					let valid = valid.combine_with(v);
+					let call_filter_validity = <$filter_call as $crate::BridgeRuntimeFilterCall<$call>>::validate(call)?;
+					let tx_validity = tx_validity.combine_with(call_filter_validity);
 				)*
-				Ok((valid, (), origin))
+				Ok((tx_validity, (), origin))
 			}
 
 			fn prepare(

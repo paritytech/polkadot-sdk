@@ -115,10 +115,7 @@ where
 				#[allow(deprecated)]
 				Extension::pre_dispatch_bare_compat(&self.function, info, len)?;
 				let res = self.function.dispatch(None.into());
-				let post_info = match res {
-					Ok(info) => info,
-					Err(err) => err.post_info,
-				};
+				let post_info = res.unwrap_or_else(|err| err.post_info);
 				let pd_res = res.map(|_| ()).map_err(|e| e.error);
 				// TODO: Remove below once `pre_dispatch_unsigned` is removed from `LegacyExtension`
 				//   or `LegacyExtension` is removed.

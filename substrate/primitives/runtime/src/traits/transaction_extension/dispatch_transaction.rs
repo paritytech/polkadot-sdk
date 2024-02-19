@@ -113,10 +113,7 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 	) -> Self::Result {
 		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
 		let res = call.dispatch(origin);
-		let post_info = match res {
-			Ok(info) => info,
-			Err(err) => err.post_info,
-		};
+		let post_info = res.unwrap_or_else(|err| err.post_info);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
 		T::post_dispatch(pre, info, &post_info, len, &pd_res, &())?;
 		Ok(res)

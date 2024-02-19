@@ -624,13 +624,13 @@ mod tests {
 		codec::{Decode, Encode},
 		impl_tx_ext_default,
 		testing::TestSignature as TestSig,
-		traits::{FakeDisptchable, IdentityLookup, TransactionExtension},
+		traits::{FakeDispatchable, IdentityLookup, TransactionExtension},
 	};
 	use sp_io::hashing::blake2_256;
 
 	type TestContext = IdentityLookup<u64>;
 	type TestAccountId = u64;
-	type TestCall = FakeDisptchable<Vec<u8>>;
+	type TestCall = FakeDispatchable<Vec<u8>>;
 
 	const TEST_ACCOUNT: TestAccountId = 0;
 

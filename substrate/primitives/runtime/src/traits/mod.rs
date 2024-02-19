@@ -1497,25 +1497,25 @@ impl Dispatchable for () {
 
 /// Dispatchable impl containing an arbitrary value which panics if it actually is dispatched.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct FakeDisptchable<Inner>(pub Inner);
-impl<Inner> From<Inner> for FakeDisptchable<Inner> {
+pub struct FakeDispatchable<Inner>(pub Inner);
+impl<Inner> From<Inner> for FakeDispatchable<Inner> {
 	fn from(inner: Inner) -> Self {
 		Self(inner)
 	}
 }
-impl<Inner> FakeDisptchable<Inner> {
+impl<Inner> FakeDispatchable<Inner> {
 	/// Take `self` and return the underlying inner value.
 	pub fn deconstruct(self) -> Inner {
 		self.0
 	}
 }
-impl<Inner> AsRef<Inner> for FakeDisptchable<Inner> {
+impl<Inner> AsRef<Inner> for FakeDispatchable<Inner> {
 	fn as_ref(&self) -> &Inner {
 		&self.0
 	}
 }
 
-impl<Inner> Dispatchable for FakeDisptchable<Inner> {
+impl<Inner> Dispatchable for FakeDispatchable<Inner> {
 	type RuntimeOrigin = ();
 	type Config = ();
 	type Info = ();
