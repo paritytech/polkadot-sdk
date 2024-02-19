@@ -16,7 +16,7 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 log = { workspace = true }
 rustc-hex = { version = "2.1.0", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.195", default-features = false, features = ["alloc"] }
+serde = { version = "1.0.196", default-features = false, features = ["alloc"] }
 serde_derive = { version = "1.0.117" }
 static_assertions = "1.1.0"
 
@@ -69,7 +69,7 @@ pallet-babe = { path = "../../../substrate/frame/babe" }
 pallet-treasury = { path = "../../../substrate/frame/treasury" }
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
-serde_json = "1.0.111"
+serde_json = "1.0.113"
 libsecp256k1 = "0.7.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 

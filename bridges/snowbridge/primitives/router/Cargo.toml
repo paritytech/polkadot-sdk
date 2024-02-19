@@ -12,7 +12,7 @@ categories = ["cryptography::cryptocurrencies"]
 workspace = true
 
 [dependencies]
-serde = { version = "1.0.195", optional = true, features = ["derive"] }
+serde = { version = "1.0.196", optional = true, features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 log = { workspace = true }

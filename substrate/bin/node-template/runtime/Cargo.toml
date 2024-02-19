@@ -42,7 +42,7 @@ sp-std = { path = "../../../primitives/std", default-features = false }
 sp-storage = { path = "../../../primitives/storage", default-features = false }
 sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-features = false }
 sp-version = { path = "../../../primitives/version", default-features = false, features = ["serde"] }
-serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
+serde_json = { version = "1.0.113", default-features = false, features = ["alloc"] }
 sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
 
 # Used for the node template's RPCs

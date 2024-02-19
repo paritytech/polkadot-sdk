@@ -47,6 +47,13 @@ pub struct LocalKeystore(RwLock<KeystoreInner>);
 
 impl LocalKeystore {
 	/// Create a local keystore from filesystem.
+	///
+	/// The keystore will be created at `path`. The keystore optionally supports to encrypt/decrypt
+	/// the keys in the keystore using `password`.
+	///
+	/// NOTE: Even when passing a `password`, the keys on disk appear to look like normal secret
+	/// uris. However, without having the correct password the secret uri will not generate the
+	/// correct private key. See [`SecretUri`](sp_core::crypto::SecretUri) for more information.
 	pub fn open<T: Into<PathBuf>>(path: T, password: Option<SecretString>) -> Result<Self> {
 		let inner = KeystoreInner::open(path, password)?;
 		Ok(Self(RwLock::new(inner)))
@@ -136,6 +143,13 @@ impl LocalKeystore {
 }
 
 impl Keystore for LocalKeystore {
+	/// Insert a new secret key.
+	///
+	/// WARNING: if the secret keypair has been manually generated using a password
+	/// (e.g. using methods such as [`sp_core::crypto::Pair::from_phrase`]) then such
+	/// a password must match the one used to open the keystore via [`LocalKeystore::open`].
+	/// If the passwords doesn't match then the inserted key ends up being unusable under
+	/// the current keystore instance.
 	fn insert(
 		&self,
 		key_type: KeyTypeId,

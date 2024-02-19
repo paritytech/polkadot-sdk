@@ -48,7 +48,6 @@ frame-executive = { default-features = false, path = "../frame/executive", optio
 frame-system-rpc-runtime-api = { default-features = false, path = "../frame/system/rpc/runtime-api", optional = true }
 
 docify = "0.2.7"
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b", optional = true }
 log = { workspace = true }
 
 [dev-dependencies]
@@ -78,7 +77,6 @@ std = [
 	"log/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
-	"simple-mermaid",
 	"sp-api?/std",
 	"sp-arithmetic/std",
 	"sp-block-builder?/std",
