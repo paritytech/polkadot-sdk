@@ -723,7 +723,7 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		fee: BalanceOf<T>,
 	) -> Result<
 		(
 			BalanceOf<T>,
@@ -732,7 +732,6 @@ where
 		TransactionValidityError,
 	> {
 		let tip = self.0;
-		let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
 
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
 			who, call, info, fee, tip,
@@ -860,13 +859,15 @@ where
 	type Val = (
 		// tip
 		BalanceOf<T>,
-		// who paid the fee - this is an option to allow for a Default impl.
+		// who paid the fee
 		T::AccountId,
+		// computed fee
+		BalanceOf<T>,
 	);
 	type Pre = (
 		// tip
 		BalanceOf<T>,
-		// who paid the fee - this is an option to allow for a Default impl.
+		// who paid the fee
 		T::AccountId,
 		// imbalance resulting from withdrawing the fee
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
@@ -894,7 +895,7 @@ where
 				priority: Self::get_priority(info, len, tip, final_fee),
 				..Default::default()
 			},
-			(self.0, who),
+			(self.0, who, final_fee),
 			origin,
 		))
 	}
@@ -905,12 +906,12 @@ where
 		_origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		_len: usize,
 		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (tip, who) = val;
+		let (tip, who, fee) = val;
 		// Mutating call to `withdraw_fee` to actually charge for the transaction.
-		let (_final_fee, imbalance) = self.withdraw_fee(&who, call, info, len)?;
+		let (_final_fee, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
 		Ok((tip, who, imbalance))
 	}
 
