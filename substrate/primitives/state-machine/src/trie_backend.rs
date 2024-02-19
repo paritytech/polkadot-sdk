@@ -517,13 +517,13 @@ where
 	}
 }
 
-impl<
+impl<H, C, R> Backend<H> for TrieBackend<H, C, R>
+where
 		H: Hasher,
+	H::Out: Ord + Codec,
 		C: TrieCacheProvider<H> + Send + Sync,
 		R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
-	> Backend<H> for TrieBackend<H, C, R>
-where
-	H::Out: Ord + Codec,
+
 {
 	type Error = crate::DefaultError;
 	type RawIter = crate::trie_backend_essence::RawIter<H, C, R>;
