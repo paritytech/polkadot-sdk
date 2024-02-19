@@ -18,8 +18,9 @@ way. The Polkadot SDK comprises three main pieces of software:
 [![Polkadot-license](https://img.shields.io/badge/License-GPL3-blue)](./polkadot/LICENSE)
 
 Implementation of a node for the https://polkadot.network in Rust, using the Substrate framework. This directory
-currently contains runtimes for the Polkadot, Kusama, Westend, and Rococo networks. In the future, these will be
-relocated to the [`runtimes`](https://github.com/polkadot-fellows/runtimes/) repository.
+currently contains runtimes for the Westend and Rococo test networks. Polkadot, Kusama and their system chain runtimes
+are located in the [`runtimes`](https://github.com/polkadot-fellows/runtimes/) repository maintained by
+[the Polkadot Technical Fellowship](https://polkadot-fellows.github.io/dashboard/#/overview).
 
 ## [Substrate](./substrate/)
  [![SubstrateRustDocs](https://img.shields.io/badge/Rust_Docs-Substrate-24CC85?logo=rust)](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/substrate/index.html)

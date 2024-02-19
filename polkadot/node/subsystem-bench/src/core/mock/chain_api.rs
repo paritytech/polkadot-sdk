@@ -13,20 +13,18 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-//!
+
 //! A generic runtime api subsystem mockup suitable to be used in benchmarks.
 
+use futures::FutureExt;
 use itertools::Itertools;
-use polkadot_primitives::Header;
-
 use polkadot_node_subsystem::{
 	messages::ChainApiMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
+use polkadot_primitives::Header;
 use sp_core::H256;
 use std::collections::HashMap;
-
-use futures::FutureExt;
 
 const LOG_TARGET: &str = "subsystem-bench::chain-api-mock";
 

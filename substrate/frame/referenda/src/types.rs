@@ -144,7 +144,10 @@ pub trait TracksInfo<Balance, Moment> {
 	/// The origin type from which a track is implied.
 	type RuntimeOrigin;
 
-	/// Return the array of known tracks and their information.
+	/// Sorted array of known tracks and their information.
+	///
+	/// The array MUST be sorted by `Id`. Consumers of this trait are advised to assert
+	/// [`Self::check_integrity`] prior to any use.
 	fn tracks() -> &'static [(Self::Id, TrackInfo<Balance, Moment>)];
 
 	/// Determine the voting track for the given `origin`.
@@ -152,7 +155,23 @@ pub trait TracksInfo<Balance, Moment> {
 
 	/// Return the track info for track `id`, by default this just looks it up in `Self::tracks()`.
 	fn info(id: Self::Id) -> Option<&'static TrackInfo<Balance, Moment>> {
-		Self::tracks().iter().find(|x| x.0 == id).map(|x| &x.1)
+		let tracks = Self::tracks();
+		let maybe_index = tracks.binary_search_by_key(&id, |t| t.0).ok()?;
+
+		tracks.get(maybe_index).map(|(_, info)| info)
+	}
+
+	/// Check assumptions about the static data that this trait provides.
+	fn check_integrity() -> Result<(), &'static str>
+	where
+		Balance: 'static,
+		Moment: 'static,
+	{
+		if Self::tracks().windows(2).all(|w| w[0].0 < w[1].0) {
+			Ok(())
+		} else {
+			Err("The tracks that were returned by `tracks` were not sorted by `Id`")
+		}
 	}
 }
 
@@ -669,5 +688,73 @@ mod tests {
 		assert_eq!(c.delay(pc(30)), pc(75));
 		assert_eq!(c.delay(pc(30).less_epsilon()), pc(100));
 		assert_eq!(c.delay(pc(0)), pc(100));
+	}
+
+	#[test]
+	fn tracks_integrity_check_detects_unsorted() {
+		use crate::mock::RuntimeOrigin;
+
+		pub struct BadTracksInfo;
+		impl TracksInfo<u64, u64> for BadTracksInfo {
+			type Id = u8;
+			type RuntimeOrigin = <RuntimeOrigin as OriginTrait>::PalletsOrigin;
+			fn tracks() -> &'static [(Self::Id, TrackInfo<u64, u64>)] {
+				static DATA: [(u8, TrackInfo<u64, u64>); 2] = [
+					(
+						1u8,
+						TrackInfo {
+							name: "root",
+							max_deciding: 1,
+							decision_deposit: 10,
+							prepare_period: 4,
+							decision_period: 4,
+							confirm_period: 2,
+							min_enactment_period: 4,
+							min_approval: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(50),
+								ceil: Perbill::from_percent(100),
+							},
+							min_support: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(0),
+								ceil: Perbill::from_percent(100),
+							},
+						},
+					),
+					(
+						0u8,
+						TrackInfo {
+							name: "none",
+							max_deciding: 3,
+							decision_deposit: 1,
+							prepare_period: 2,
+							decision_period: 2,
+							confirm_period: 1,
+							min_enactment_period: 2,
+							min_approval: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(95),
+								ceil: Perbill::from_percent(100),
+							},
+							min_support: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(90),
+								ceil: Perbill::from_percent(100),
+							},
+						},
+					),
+				];
+				&DATA[..]
+			}
+			fn track_for(_: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
+				unimplemented!()
+			}
+		}
+
+		assert_eq!(
+			BadTracksInfo::check_integrity(),
+			Err("The tracks that were returned by `tracks` were not sorted by `Id`")
+		);
 	}
 }

@@ -14,16 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::core::mock::TestSyncOracle;
-
-use super::*;
-
+use crate::core::{environment::TestEnvironmentDependencies, mock::TestSyncOracle};
+use polkadot_node_core_av_store::{AvailabilityStoreSubsystem, Config};
 use polkadot_node_metrics::metrics::Metrics;
-
-use polkadot_node_core_av_store::Config;
 use polkadot_node_subsystem_util::database::Database;
-
-use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
+use std::sync::Arc;
 
 mod columns {
 	pub const DATA: u32 = 0;

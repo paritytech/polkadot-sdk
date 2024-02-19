@@ -27,10 +27,10 @@ const SESSION_INDEX: SessionIndex = 1;
 const VALIDATOR_NUM: usize = 800;
 const CAUSES_NUM: usize = 100;
 fn validation_code() -> ValidationCode {
-	ValidationCode(vec![0])
+	ValidationCode(vec![1, 2, 3, 4, 5, 6, 7, 8, 9])
 }
 fn old_validation_code() -> ValidationCode {
-	ValidationCode(vec![1])
+	ValidationCode(vec![9, 8, 7, 6, 5, 4, 3, 2, 1])
 }
 
 /// Prepares the PVF check statement and the validator signature to pass into
