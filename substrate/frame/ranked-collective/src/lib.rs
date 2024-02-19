@@ -1003,5 +1003,12 @@ pub mod pallet {
 		fn demote(who: &Self::AccountId) -> DispatchResult {
 			Self::do_demote_member(who.clone(), None)
 		}
+
+		fn max_rank() -> Self::Rank {
+			MemberCount::<T, I>::iter()
+            .map(|(rank, _)| rank)
+            .max()
+            .unwrap_or(Self::min_rank())
+		}
 	}
 }

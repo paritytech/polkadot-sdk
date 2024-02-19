@@ -101,28 +101,28 @@ pub type Evidence<T, I> = BoundedVec<u8, <T as Config<I>>::EvidenceSize>;
 
 /// The status of the pallet instance.
 #[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
-pub struct ParamsType<Balance, BlockNumber, const RANKS: usize> {
+pub struct ParamsType<Balance, BlockNumber> {
 	/// The amounts to be paid when a member of a given rank (-1) is active.
-	active_salary: [Balance; RANKS],
+	active_salary: Vec<Balance>,
 	/// The amounts to be paid when a member of a given rank (-1) is passive.
-	passive_salary: [Balance; RANKS],
+	passive_salary: Vec<Balance>,
 	/// The period between which unproven members become demoted.
-	demotion_period: [BlockNumber; RANKS],
+	demotion_period: Vec<BlockNumber>,
 	/// The period between which members must wait before they may proceed to this rank.
-	min_promotion_period: [BlockNumber; RANKS],
+	min_promotion_period: Vec<BlockNumber>,
 	/// Amount by which an account can remain at rank 0 (candidate before being offboard entirely).
 	offboard_timeout: BlockNumber,
 }
 
-impl<Balance: Default + Copy, BlockNumber: Default + Copy, const RANKS: usize> Default
-	for ParamsType<Balance, BlockNumber, RANKS>
+impl<Balance: Default + Copy, BlockNumber: Default + Copy> Default
+	for ParamsType<Balance, BlockNumber>
 {
 	fn default() -> Self {
 		Self {
-			active_salary: [Balance::default(); RANKS],
-			passive_salary: [Balance::default(); RANKS],
-			demotion_period: [BlockNumber::default(); RANKS],
-			min_promotion_period: [BlockNumber::default(); RANKS],
+			active_salary: Vec::new(),
+			passive_salary: Vec::new(),
+			demotion_period: Vec::new(),
+			min_promotion_period: Vec::new(),
 			offboard_timeout: BlockNumber::default(),
 		}
 	}
@@ -149,9 +149,8 @@ pub mod pallet {
 	};
 	use frame_system::{ensure_root, pallet_prelude::*};
 
-	const RANK_COUNT: usize = 9;
-
 	#[pallet::pallet]
+	#[pallet::without_storage_info]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
@@ -195,7 +194,7 @@ pub mod pallet {
 		type EvidenceSize: Get<u32>;
 	}
 
-	pub type ParamsOf<T, I> = ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, RANK_COUNT>;
+	pub type ParamsOf<T, I> = ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>>;
 	pub type MemberStatusOf<T> = MemberStatus<BlockNumberFor<T>>;
 	pub type RankOf<T, I> = <<T as Config<I>>::Members as RankedMembers>::Rank;
 
@@ -276,6 +275,8 @@ pub mod pallet {
 		NotTracked,
 		/// Operation cannot be done yet since not enough time has passed.
 		TooSoon,
+		/// Length of parameters are incompatible.
+		IncorrectParamsLength,
 	}
 
 	#[pallet::call]
@@ -337,8 +338,22 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn set_params(origin: OriginFor<T>, params: Box<ParamsOf<T, I>>) -> DispatchResult {
 			T::ParamsOrigin::ensure_origin_or_root(origin)?;
+			//Params::<T, I>::put(params.as_ref());
+			//Self::deposit_event(Event::<T, I>::ParamsChanged { params: *params });
+			// Assume get_max_rank() is a function that retrieves the current max rank allowed.
+			let max_rank = T::Members::max_rank();
+
+			// Validate the lengths of the vectors in params are equal to max_rank.
+			let expected_length = max_rank as usize; // Convert max_rank to usize for comparison.
+			ensure!(params.active_salary.len() == expected_length &&
+					params.passive_salary.len() == expected_length &&
+					params.demotion_period.len() == expected_length &&
+					params.min_promotion_period.len() == expected_length,
+					Error::<T, I>::IncorrectParamsLength); // Ensure this error is defined in your pallet.
+	
 			Params::<T, I>::put(params.as_ref());
 			Self::deposit_event(Event::<T, I>::ParamsChanged { params: *params });
+	
 			Ok(())
 		}
 
@@ -539,7 +554,7 @@ pub mod pallet {
 		/// in the range `1..=RANK_COUNT` is `None`.
 		pub(crate) fn rank_to_index(rank: RankOf<T, I>) -> Option<usize> {
 			match TryInto::<usize>::try_into(rank) {
-				Ok(r) if r <= RANK_COUNT && r > 0 => Some(r - 1),
+				Ok(r) if r <= T::Members::max_rank().into() && r > 0 => Some(r - 1),
 				_ => return None,
 			}
 		}
