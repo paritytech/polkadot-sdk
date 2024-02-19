@@ -37,13 +37,6 @@ use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate,
 };
-<<<<<<< HEAD
-use sp_staking::{
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	OnStakingUpdate,
-};
-=======
->>>>>>> master
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;

@@ -22,11 +22,7 @@ use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Transaction};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::Backend as StateBackend;
-<<<<<<< HEAD
 use sp_trie::MemoryDB;
-=======
-use sp_trie::PrefixedMemoryDB;
->>>>>>> master
 
 use log::{info, trace};
 use rand::prelude::*;
@@ -61,11 +57,7 @@ impl StorageCmd {
 		let best_hash = client.usage_info().chain.best_hash;
 		let header = client.header(best_hash)?.ok_or("Header not found")?;
 		let original_root = *header.state_root();
-<<<<<<< HEAD
 		let trie = DbStateBuilder::<HashingFor<Block>>::new(Box::new(storage.clone()), original_root).build();
-=======
-		let trie = DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root).build();
->>>>>>> master
 
 		info!("Preparing keys from block {}", best_hash);
 		// Load all KV pairs and randomly shuffle them.

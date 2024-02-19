@@ -101,21 +101,10 @@ pub use bench::BenchmarkingState;
 const CACHE_HEADERS: usize = 8;
 
 /// DB-backed patricia trie state, transaction type is an overlay of changes to commit.
-<<<<<<< HEAD
 pub type DbState<H> = sp_state_machine::TrieBackend<H>;
 
 /// Builder for [`DbState`].
 pub type DbStateBuilder<Hasher> = sp_state_machine::TrieBackendBuilder<Hasher>;
-=======
-pub type DbState<H> = sp_state_machine::TrieBackend<Arc<dyn sp_state_machine::Storage<H>>, H>;
-
-/// Builder for [`DbState`].
-pub type DbStateBuilder<Hasher> =
-	sp_state_machine::TrieBackendBuilder<Arc<dyn sp_state_machine::Storage<Hasher>>, Hasher>;
-
-/// Length of a [`DbHash`].
-const DB_HASH_LEN: usize = 32;
->>>>>>> master
 
 /// Hash type that this backend uses for the database.
 pub type DbHash = sp_core::H256;
@@ -140,22 +129,14 @@ enum DbExtrinsic<B: BlockT> {
 /// until this structure is dropped.
 pub struct RefTrackingState<Block: BlockT> {
 	state: DbState<HashingFor<Block>>,
-<<<<<<< HEAD
 	storage: StorageDb<Block>,
-=======
-	storage: Arc<StorageDb<Block>>,
->>>>>>> master
 	parent_hash: Option<Block::Hash>,
 }
 
 impl<B: BlockT> RefTrackingState<B> {
 	fn new(
 		state: DbState<HashingFor<B>>,
-<<<<<<< HEAD
 		storage: StorageDb<B>,
-=======
-		storage: Arc<StorageDb<B>>,
->>>>>>> master
 		parent_hash: Option<B::Hash>,
 	) -> Self {
 		RefTrackingState { state, parent_hash, storage }
@@ -205,11 +186,6 @@ impl<B: BlockT> StorageIterator<HashingFor<B>> for RawIter<B> {
 
 impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 	type Error = <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::Error;
-<<<<<<< HEAD
-=======
-	type TrieBackendStorage =
-		<DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
->>>>>>> master
 	type RawIter = RawIter<B>;
 
 	fn storage(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
@@ -306,14 +282,9 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 }
 
 impl<B: BlockT> AsTrieBackend<HashingFor<B>> for RefTrackingState<B> {
-<<<<<<< HEAD
 	fn as_trie_backend(&self) -> &sp_state_machine::TrieBackend<HashingFor<B>> {
 		self.state.as_trie_backend()
 	}
-=======
-	type TrieBackendStorage =
-		<DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
->>>>>>> master
 
 	fn as_trie_backend_mut(&mut self) -> &mut sp_state_machine::TrieBackend<HashingFor<B>> {
 		self.state.as_trie_backend_mut()
@@ -2140,16 +2111,10 @@ impl<Block: BlockT> Backend<Block> {
 
 	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
 		let root = EmptyStorage::<Block>::new().0; // Empty trie
-<<<<<<< HEAD
 		let db_state =
 			DbStateBuilder::<HashingFor<Block>>::new(Box::new(self.storage.clone()), root)
 				.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
 				.build();
-=======
-		let db_state = DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
-			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
-			.build();
->>>>>>> master
 		let state = RefTrackingState::new(db_state, self.storage.clone(), None);
 		RecordStatsState::new(state, None, self.state_usage.clone())
 	}
@@ -2639,11 +2604,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			if let Some(genesis_state) = &*self.genesis_state.read() {
 				let root = genesis_state.root;
 				let db_state =
-<<<<<<< HEAD
 					DbStateBuilder::<HashingFor<Block>>::new(Box::new(genesis_state.clone()), root)
-=======
-					DbStateBuilder::<HashingFor<Block>>::new(genesis_state.clone(), root)
->>>>>>> master
 						.with_optional_cache(
 							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
 						)
@@ -2663,21 +2624,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
 					}) {
 					let root = hdr.state_root;
-<<<<<<< HEAD
 					let db_state = DbStateBuilder::<HashingFor<Block>>::new(
 						Box::new(self.storage.clone()),
 						root,
 					)
 					.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
 					.build();
-=======
-					let db_state =
-						DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
-							.with_optional_cache(
-								self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-							)
-							.build();
->>>>>>> master
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
 				} else {

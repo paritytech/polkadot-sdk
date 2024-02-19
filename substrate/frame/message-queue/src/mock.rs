@@ -23,20 +23,8 @@ pub use super::mock_helpers::*;
 use super::*;
 
 use crate as pallet_message_queue;
-<<<<<<< HEAD
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
-=======
 use frame_support::{derive_impl, parameter_types};
 use sp_runtime::BuildStorage;
->>>>>>> master
 use sp_std::collections::btree_map::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;

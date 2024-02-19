@@ -29,11 +29,7 @@ use frame_support::{
 			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
 			imbalance::ResolveAssetTo,
 		},
-<<<<<<< HEAD
-		AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64,
-=======
 		AsEnsureOriginWithArg, ConstU128, ConstU32,
->>>>>>> master
 	},
 	PalletId,
 };

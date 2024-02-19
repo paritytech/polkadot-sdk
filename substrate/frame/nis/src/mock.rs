@@ -21,14 +21,7 @@ use crate::{self as pallet_nis, Perquintill, WithMaximumOf};
 
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-<<<<<<< HEAD
-	traits::{
-		fungible::Inspect, ConstU16, ConstU32, ConstU64, Everything, OnFinalize, OnInitialize,
-		StorageMapShim,
-	},
-=======
 	traits::{fungible::Inspect, ConstU32, ConstU64, OnFinalize, OnInitialize, StorageMapShim},
->>>>>>> master
 	weights::Weight,
 	PalletId,
 };

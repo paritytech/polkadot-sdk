@@ -275,13 +275,8 @@ where
 					)
 					.await?;
 				}
-<<<<<<< HEAD
-				// authority_discovery is just a cache so let's try every leaf to detect if there
-				// are new authorities there.
-=======
 				// authority_discovery is just a cache so let's try every time we try to re-connect
 				// if new authorities are present.
->>>>>>> master
 				self.update_authority_ids(sender, session_info.discovery_keys).await;
 			}
 		}

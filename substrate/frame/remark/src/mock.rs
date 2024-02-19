@@ -18,20 +18,8 @@
 //! Test environment for remarks pallet.
 
 use crate as pallet_remark;
-<<<<<<< HEAD
-use frame_support::{
-	derive_impl,
-	traits::{ConstU16, ConstU32, ConstU64},
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
-=======
 use frame_support::derive_impl;
 use sp_runtime::BuildStorage;
->>>>>>> master
 
 pub type Block = frame_system::mocking::MockBlock<Test>;
 

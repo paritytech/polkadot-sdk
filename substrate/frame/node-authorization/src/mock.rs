@@ -20,14 +20,7 @@
 use super::*;
 use crate as pallet_node_authorization;
 
-<<<<<<< HEAD
-use frame_support::{
-	derive_impl, ord_parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-=======
 use frame_support::{derive_impl, ord_parameter_types, traits::ConstU32};
->>>>>>> master
 use frame_system::EnsureSignedBy;
 use sp_runtime::BuildStorage;
 

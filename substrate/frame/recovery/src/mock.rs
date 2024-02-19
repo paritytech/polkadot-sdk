@@ -22,16 +22,7 @@ use super::*;
 use crate as recovery;
 use frame_support::{
 	derive_impl, parameter_types,
-<<<<<<< HEAD
-	traits::{ConstU32, ConstU64, OnFinalize, OnInitialize},
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-=======
 	traits::{OnFinalize, OnInitialize},
->>>>>>> master
 };
 use sp_runtime::BuildStorage;
 

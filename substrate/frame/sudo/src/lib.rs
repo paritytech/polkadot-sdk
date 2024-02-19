@@ -351,11 +351,7 @@ pub mod pallet {
 			let sender = ensure_signed_or_root(origin)?;
 
 			if let Some(sender) = sender {
-<<<<<<< HEAD
-				if Self::key().map_or(false, |k| k == sender) {
-=======
 				if Key::<T>::get().map_or(false, |k| k == sender) {
->>>>>>> master
 					Ok(())
 				} else {
 					Err(Error::<T>::RequireSudo.into())

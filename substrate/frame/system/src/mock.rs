@@ -16,20 +16,8 @@
 // limitations under the License.
 
 use crate::{self as frame_system, *};
-<<<<<<< HEAD
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, Perbill,
-};
-=======
 use frame_support::{derive_impl, parameter_types};
 use sp_runtime::{BuildStorage, Perbill};
->>>>>>> master
 
 type Block = mocking::MockBlock<Test>;
 

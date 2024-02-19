@@ -21,14 +21,7 @@
 
 use crate as pallet_whitelist;
 
-<<<<<<< HEAD
-use frame_support::{
-	construct_runtime, derive_impl,
-	traits::{ConstU32, ConstU64, Nothing},
-};
-=======
 use frame_support::{construct_runtime, derive_impl, traits::ConstU64};
->>>>>>> master
 use frame_system::EnsureRoot;
 use sp_runtime::BuildStorage;
 

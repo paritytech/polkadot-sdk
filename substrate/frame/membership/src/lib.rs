@@ -527,11 +527,7 @@ mod tests {
 
 	use frame_support::{
 		assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-<<<<<<< HEAD
-		traits::{ConstU32, ConstU64, StorageVersion},
-=======
 		traits::{ConstU32, StorageVersion},
->>>>>>> master
 	};
 	use frame_system::EnsureSignedBy;
 

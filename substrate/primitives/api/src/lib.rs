@@ -77,10 +77,6 @@ extern crate self as sp_api;
 pub mod __private {
 	#[cfg(feature = "std")]
 	mod std_imports {
-<<<<<<< HEAD
-=======
-		pub use hash_db::Hasher;
->>>>>>> master
 		pub use sp_core::traits::CallContext;
 		pub use sp_externalities::{Extension, Extensions};
 		pub use sp_runtime::StateVersion;
@@ -88,10 +84,7 @@ pub mod __private {
 			Backend as StateBackend, InMemoryBackend, OverlayedChanges, StorageProof, TrieBackend,
 			TrieBackendBuilder,
 		};
-<<<<<<< HEAD
 		pub use trie_db::node_db::Hasher;
-=======
->>>>>>> master
 	}
 	#[cfg(feature = "std")]
 	pub use std_imports::*;
@@ -131,11 +124,8 @@ pub use sp_runtime::TransactionOutcome;
 pub use sp_state_machine::StorageProof;
 #[cfg(feature = "std")]
 use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
-<<<<<<< HEAD
 #[cfg(feature = "std")]
 use sp_trie::DBLocation;
-=======
->>>>>>> master
 use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;

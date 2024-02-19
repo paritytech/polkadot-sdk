@@ -20,10 +20,6 @@
 #![cfg(test)]
 
 use core::{cell::RefCell, marker::PhantomData};
-<<<<<<< HEAD
-use sp_core::H256;
-=======
->>>>>>> master
 use sp_runtime::{
 	traits::{BadOrigin, Dispatchable, IdentityLookup},
 	BuildStorage,

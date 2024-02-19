@@ -165,7 +165,6 @@ where
 	}
 }
 
-<<<<<<< HEAD
 /// DB location hint for a trie node.
 #[cfg(feature = "std")]
 pub type DBLocation = u64;
@@ -173,30 +172,18 @@ pub type DBLocation = u64;
 #[cfg(not(feature = "std"))]
 pub type DBLocation = ();
 
-=======
->>>>>>> master
 /// Type that is able to provide a [`trie_db::TrieRecorder`].
 ///
 /// Types implementing this trait can be used to maintain recorded state
 /// across operations on different [`trie_db::TrieDB`] instances.
-<<<<<<< HEAD
 pub trait TrieRecorderProvider<H: Hasher, L: Location> {
 	/// Recorder type that is going to be returned by implementors of this trait.
 	type Recorder<'a>: trie_db::TrieRecorder<H::Out, L> + 'a
-=======
-pub trait TrieRecorderProvider<H: Hasher> {
-	/// Recorder type that is going to be returned by implementors of this trait.
-	type Recorder<'a>: trie_db::TrieRecorder<H::Out> + 'a
->>>>>>> master
 	where
 		Self: 'a;
 
 	/// Create a [`StorageProof`] derived from the internal state.
-<<<<<<< HEAD
 	fn drain_storage_proof(&self) -> Option<StorageProof>;
-=======
-	fn drain_storage_proof(self) -> Option<StorageProof>;
->>>>>>> master
 
 	/// Provide a recorder implementing [`trie_db::TrieRecorder`].
 	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_>;

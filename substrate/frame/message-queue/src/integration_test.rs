@@ -37,14 +37,7 @@ use crate::{
 };
 
 use crate as pallet_message_queue;
-<<<<<<< HEAD
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-=======
 use frame_support::{derive_impl, parameter_types};
->>>>>>> master
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rand_distr::Pareto;
 use std::collections::{BTreeMap, BTreeSet};
@@ -87,15 +80,15 @@ impl Config for Test {
 /// # Example output
 ///
 /// ```pre
-/// Enqueued 1189 messages across 176 queues. Payload 46.97 KiB    
-/// Processing 772 of 1189 messages    
-/// Enqueued 9270 messages across 1559 queues. Payload 131.85 KiB    
-/// Processing 6262 of 9687 messages    
-/// Enqueued 5025 messages across 1225 queues. Payload 100.23 KiB    
-/// Processing 1739 of 8450 messages    
-/// Enqueued 42061 messages across 6357 queues. Payload 536.29 KiB    
-/// Processing 11675 of 48772 messages    
-/// Enqueued 20253 messages across 2420 queues. Payload 288.34 KiB    
+/// Enqueued 1189 messages across 176 queues. Payload 46.97 KiB
+/// Processing 772 of 1189 messages
+/// Enqueued 9270 messages across 1559 queues. Payload 131.85 KiB
+/// Processing 6262 of 9687 messages
+/// Enqueued 5025 messages across 1225 queues. Payload 100.23 KiB
+/// Processing 1739 of 8450 messages
+/// Enqueued 42061 messages across 6357 queues. Payload 536.29 KiB
+/// Processing 11675 of 48772 messages
+/// Enqueued 20253 messages across 2420 queues. Payload 288.34 KiB
 /// Processing 28711 of 57350 messages
 /// Processing all remaining 28639 messages
 /// ```
@@ -201,14 +194,14 @@ fn stress_test_recursive() {
 /// # Example output
 ///
 /// ```pre
-/// Enqueued 11776 messages across 2526 queues. Payload 173.94 KiB    
-/// Suspended 63 and resumed 7 queues of 2526 in total    
-/// Processing 593 messages. Resumed msgs: 11599, All msgs: 11776    
-/// Enqueued 30104 messages across 5533 queues. Payload 416.62 KiB    
-/// Suspended 24 and resumed 15 queues of 5533 in total    
-/// Processing 12841 messages. Resumed msgs: 40857, All msgs: 41287    
-/// Processing all 28016 remaining resumed messages    
-/// Resumed all 64 suspended queues    
+/// Enqueued 11776 messages across 2526 queues. Payload 173.94 KiB
+/// Suspended 63 and resumed 7 queues of 2526 in total
+/// Processing 593 messages. Resumed msgs: 11599, All msgs: 11776
+/// Enqueued 30104 messages across 5533 queues. Payload 416.62 KiB
+/// Suspended 24 and resumed 15 queues of 5533 in total
+/// Processing 12841 messages. Resumed msgs: 40857, All msgs: 41287
+/// Processing all 28016 remaining resumed messages
+/// Resumed all 64 suspended queues
 /// Processing all remaining 430 messages
 /// ```
 #[test]

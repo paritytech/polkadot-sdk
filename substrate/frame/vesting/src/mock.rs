@@ -17,16 +17,7 @@
 
 use frame_support::{
 	derive_impl, parameter_types,
-<<<<<<< HEAD
-	traits::{ConstU32, ConstU64, WithdrawReasons},
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, Identity, IdentityLookup},
-	BuildStorage,
-=======
 	traits::{ConstU32, WithdrawReasons},
->>>>>>> master
 };
 use sp_runtime::{traits::Identity, BuildStorage};
 

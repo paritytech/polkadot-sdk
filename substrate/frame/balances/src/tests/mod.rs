@@ -26,13 +26,8 @@ use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	parameter_types,
 	traits::{
-<<<<<<< HEAD
-		fungible, ConstU32, ConstU64, ConstU8, Imbalance as ImbalanceT, OnUnbalanced,
-		StorageMapShim, StoredMap, VariantCount, WhitelistedStorageKeys,
-=======
 		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced, StorageMapShim,
 		StoredMap, VariantCount, WhitelistedStorageKeys,
->>>>>>> master
 	},
 	weights::{IdentityFee, Weight},
 };

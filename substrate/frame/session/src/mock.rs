@@ -29,14 +29,7 @@ use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, BuildStorage};
 use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
-<<<<<<< HEAD
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-=======
 use frame_support::{derive_impl, parameter_types, traits::ConstU64};
->>>>>>> master
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {

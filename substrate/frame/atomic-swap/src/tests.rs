@@ -23,14 +23,6 @@ use crate as pallet_atomic_swap;
 use frame_support::{
 	derive_impl,
 	traits::{ConstU32, ConstU64},
-<<<<<<< HEAD
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-=======
->>>>>>> master
 };
 use sp_runtime::BuildStorage;
 

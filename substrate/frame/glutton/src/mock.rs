@@ -18,20 +18,8 @@
 use super::*;
 use crate as pallet_glutton;
 
-<<<<<<< HEAD
-use frame_support::{
-	assert_ok, derive_impl,
-	traits::{ConstU32, ConstU64},
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
-=======
 use frame_support::{assert_ok, derive_impl};
 use sp_runtime::BuildStorage;
->>>>>>> master
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

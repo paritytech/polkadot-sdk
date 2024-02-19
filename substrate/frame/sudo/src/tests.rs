@@ -161,11 +161,7 @@ fn set_key_emits_events_correctly() {
 fn remove_key_works() {
 	new_test_ext(1).execute_with(|| {
 		assert_ok!(Sudo::remove_key(RuntimeOrigin::signed(1)));
-<<<<<<< HEAD
-		assert!(Sudo::key().is_none());
-=======
 		assert!(Key::<Test>::get().is_none());
->>>>>>> master
 		System::assert_has_event(TestEvent::Sudo(Event::KeyRemoved {}));
 
 		assert_noop!(Sudo::remove_key(RuntimeOrigin::signed(1)), Error::<Test>::RequireSudo);
@@ -177,19 +173,11 @@ fn remove_key_works() {
 fn using_root_origin_works() {
 	new_test_ext(1).execute_with(|| {
 		assert_ok!(Sudo::remove_key(RuntimeOrigin::root()));
-<<<<<<< HEAD
-		assert!(Sudo::key().is_none());
-		System::assert_has_event(TestEvent::Sudo(Event::KeyRemoved {}));
-
-		assert_ok!(Sudo::set_key(RuntimeOrigin::root(), 1));
-		assert_eq!(Some(1), Sudo::key());
-=======
 		assert!(Key::<Test>::get().is_none());
 		System::assert_has_event(TestEvent::Sudo(Event::KeyRemoved {}));
 
 		assert_ok!(Sudo::set_key(RuntimeOrigin::root(), 1));
 		assert_eq!(Some(1), Key::<Test>::get());
->>>>>>> master
 	});
 }
 

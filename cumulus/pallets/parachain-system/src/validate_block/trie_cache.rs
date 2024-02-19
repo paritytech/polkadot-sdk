@@ -71,22 +71,14 @@ impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>, ()> for TrieCache<'a, H> {
 
 /// Provider of [`TrieCache`] instances.
 pub(crate) struct CacheProvider<H: Hasher> {
-<<<<<<< HEAD
 	node_cache: RefCell<BTreeMap<H::Out, NodeOwned<H::Out, ()>>>,
-=======
-	node_cache: RefCell<BTreeMap<H::Out, NodeOwned<H::Out>>>,
->>>>>>> master
 	/// Cache: `storage_root` => `storage_key` => `value`.
 	///
 	/// One `block` can for example use multiple tries (child tries) and we need to distinguish the
 	/// cached (`storage_key`, `value`) between them. For this we are using the `storage_root` to
 	/// distinguish them (even if the storage root is the same for two child tries, it just means
 	/// that both are exactly the same trie and there would happen no collision).
-<<<<<<< HEAD
 	value_cache: RefCell<BTreeMap<H::Out, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out, ()>>>>,
-=======
-	value_cache: RefCell<BTreeMap<H::Out, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
->>>>>>> master
 }
 
 impl<H: Hasher> CacheProvider<H> {

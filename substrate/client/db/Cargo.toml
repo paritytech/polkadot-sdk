@@ -25,11 +25,7 @@ kvdb-memorydb = "0.13.0"
 kvdb-rocksdb = { version = "0.19.0", optional = true }
 linked-hash-map = "0.5.4"
 log = { workspace = true, default-features = true }
-<<<<<<< HEAD
 parity-db = "0.4.13"
-=======
-parity-db = "0.4.12"
->>>>>>> master
 parking_lot = "0.12.1"
 sc-client-api = { path = "../api" }
 sc-state-db = { path = "../state-db" }
