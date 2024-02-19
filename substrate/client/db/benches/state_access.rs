@@ -84,7 +84,7 @@ fn insert_blocks(db: &Backend<Block>, storage: Vec<(Vec<u8>, Vec<u8>)>) -> H256 
 			.collect::<Vec<_>>();
 
 		let tx = db.state_at(parent_hash).unwrap().storage_root(
-			changes.iter().map(|(k, v)| (k.as_slice(), v.as_deref())),
+			changes.iter().map(|(k, v)| (k.as_slice(), v.as_deref(), None)),
 			StateVersion::V1,
 		);
 		header.state_root = tx.root_hash();
@@ -120,7 +120,8 @@ fn create_backend(config: BenchmarkConfig, temp_dir: &TempDir) -> Backend<Block>
 	let settings = DatabaseSettings {
 		trie_cache_maximum_size,
 		state_pruning: Some(PruningMode::ArchiveAll),
-		source: DatabaseSource::ParityDb { path },
+		source: DatabaseSource::ParityDb { path, multi_tree: true },
+		//source: DatabaseSource::ParityDb { path, multi_tree: false }, TODO both false and true?
 		blocks_pruning: BlocksPruning::KeepAll,
 	};
 

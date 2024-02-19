@@ -15656,6 +15656,7 @@ version = "0.35.0"
 dependencies = [
  "array-bytes 6.1.0",
  "criterion 0.4.0",
+ "kitchensink-runtime",
  "kvdb",
  "kvdb-memorydb",
  "kvdb-rocksdb",

@@ -30,7 +30,7 @@ use sp_core::{
 	traits::{CallContext, CodeExecutor, RuntimeCode},
 };
 use sp_runtime::traits::BlakeTwo256;
-use sp_state_machine::TestExternalities as CoreTestExternalities;
+use sp_state_machine::{DBLocation, TestExternalities as CoreTestExternalities};
 use staging_node_cli::service::RuntimeExecutor;
 
 criterion_group!(benches, bench_execute_block);
@@ -83,7 +83,7 @@ fn construct_block<E: Externalities>(
 
 	// calculate the header fields that we can.
 	let extrinsics_root =
-		LayoutV0::<BlakeTwo256>::ordered_trie_root(extrinsics.iter().map(Encode::encode))
+		LayoutV0::<BlakeTwo256, DBLocation>::ordered_trie_root(extrinsics.iter().map(Encode::encode))
 			.to_fixed_bytes()
 			.into();
 

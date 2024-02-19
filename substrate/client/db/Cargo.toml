@@ -44,6 +44,7 @@ kvdb-rocksdb = "0.19.0"
 rand = "0.8.5"
 tempfile = "3.1.0"
 quickcheck = { version = "1.0.3", default-features = false }
+kitchensink-runtime = { path = "../../bin/node/runtime" }
 sp-tracing = { path = "../../primitives/tracing" }
 array-bytes = "6.1"
 
