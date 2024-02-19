@@ -201,7 +201,7 @@ impl<H: Hasher> TrieRecorderProvider<H, DBLocation> for UnimplementedRecorderPro
 #[cfg(not(feature = "std"))]
 impl<H: Hasher> Default for UnimplementedRecorderProvider<H> {
 	fn default() -> Self {
-UnimplementedRecorderProvider { _phantom: core::marker::PhantomData }
+		UnimplementedRecorderProvider { _phantom: core::marker::PhantomData }
 	}
 }
 
@@ -445,7 +445,7 @@ where
 	/// This only returns `Some` when there was a recorder set.
 	pub fn extract_proof(&self) -> Option<StorageProof> {
 		#[cfg(feature = "std")]
-		let r = & *self.essence.recorder.read();
+		let r = &*self.essence.recorder.read();
 		#[cfg(not(feature = "std"))]
 		let r = &self.essence.recorder;
 		r.as_ref().and_then(|r| r.drain_storage_proof())

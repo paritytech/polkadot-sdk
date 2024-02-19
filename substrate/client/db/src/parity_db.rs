@@ -39,13 +39,10 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 	archive: bool,
 	multi_tree: bool,
 ) -> parity_db::Result<std::sync::Arc<dyn Database<H>>> {
-	if multi_tree {
-		unimplemented!()
-	}
 	let mut config = parity_db::Options::with_columns(path, NUM_COLUMNS as u8);
 
 	let compressed = [
-		//columns::STATE,
+		columns::STATE,
 		columns::HEADER,
 		columns::BODY,
 		columns::BODY_INDEX,
@@ -62,8 +59,12 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 	state_col.ref_counted = true;
 	state_col.preimage = true;
 	state_col.uniform = true;
-	state_col.multitree = true;
 	state_col.append_only = archive;
+
+	if multi_tree {
+		state_col.multitree = true;
+		state_col.compression = parity_db::CompressionType::NoCompression;
+	}
 
 	let tx_col = &mut config.columns[columns::TRANSACTION as usize];
 	tx_col.ref_counted = true;

@@ -177,7 +177,8 @@ fn open_database_at<Block: BlockT>(
 	archive: bool,
 ) -> OpenDbResult {
 	let db: Arc<dyn Database<DbHash>> = match &db_source {
-		DatabaseSource::ParityDb { path, multi_tree } => open_parity_db::<Block>(path, create, archive, *multi_tree)?,
+		DatabaseSource::ParityDb { path, multi_tree } =>
+			open_parity_db::<Block>(path, create, archive, *multi_tree)?,
 		#[cfg(feature = "rocksdb")]
 		DatabaseSource::RocksDb { path, cache_size } =>
 			open_kvdb_rocksdb::<Block>(path, create, *cache_size)?,
@@ -254,7 +255,12 @@ impl From<io::Error> for OpenDbError {
 	}
 }
 
-fn open_parity_db<Block: BlockT>(path: &Path, create: bool, archive: bool, multi_tree: bool) -> OpenDbResult {
+fn open_parity_db<Block: BlockT>(
+	path: &Path,
+	create: bool,
+	archive: bool,
+	multi_tree: bool,
+) -> OpenDbResult {
 	match crate::parity_db::open(path, create, false, archive, multi_tree) {
 		Ok(db) => Ok(db),
 		Err(parity_db::Error::InvalidConfiguration(_)) => {
