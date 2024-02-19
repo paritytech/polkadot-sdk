@@ -52,7 +52,7 @@ impl BenchmarkUsage {
 		let all_cpu_usage: Vec<&ResourceUsage> = usages.iter().flat_map(|v| &v.cpu_usage).collect();
 
 		Self {
-			benchmark_name: usages.get(0).map(|v| v.benchmark_name.clone()).unwrap_or_default(),
+			benchmark_name: usages.first().map(|v| v.benchmark_name.clone()).unwrap_or_default(),
 			network_usage: ResourceUsage::average_by_resource_name(&all_network_usages),
 			cpu_usage: ResourceUsage::average_by_resource_name(&all_cpu_usage),
 		}
