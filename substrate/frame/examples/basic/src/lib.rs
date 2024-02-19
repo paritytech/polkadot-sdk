@@ -286,7 +286,7 @@ pub mod pallet {
 			let _sender = ensure_signed(origin)?;
 
 			// Read the value of dummy from storage.
-			// let dummy = <Dummy<T>>::get();
+			// let dummy = Dummy::<T>::get();
 
 			// Calculate the new value.
 			// let new_dummy = dummy.map_or(increase_by, |dummy| dummy + increase_by);
@@ -425,10 +425,10 @@ impl<T: Config> Pallet<T> {
 	fn accumulate_foo(origin: T::RuntimeOrigin, increase_by: T::Balance) -> DispatchResult {
 		let _sender = ensure_signed(origin)?;
 
-		let prev = <Foo<T>>::get();
+		let prev = Foo::<T>::get();
 		// Because Foo has 'default', the type of 'foo' in closure is the raw type instead of an
 		// Option<> type.
-		let result = <Foo<T>>::mutate(|foo| {
+		let result = Foo::<T>::mutate(|foo| {
 			*foo = foo.saturating_add(increase_by);
 			*foo
 		});
