@@ -159,14 +159,27 @@ impl<T: Config> Delegate<T> {
 	}
 
 	pub(crate) fn available_to_bond(&self) -> BalanceOf<T> {
-		let exposed_stake = self.bonded_stake();
+		let bonded_stake = self.bonded_stake();
 
 		let stakeable =
 			self.ledger().map(|ledger| ledger.stakeable_balance()).unwrap_or(Zero::zero());
 
-		defensive_assert!(stakeable >= exposed_stake, "cannot expose more than delegate balance");
+		defensive_assert!(stakeable >= bonded_stake, "cannot expose more than delegate balance");
 
-		stakeable.saturating_sub(exposed_stake)
+		stakeable.saturating_sub(bonded_stake)
+	}
+
+	/// Similar to [`Self::available_to_bond`] but includes `DelegationLedger.unclaimed_withdrawals`
+	/// as well.
+	pub(crate) fn unbonded(&self) -> BalanceOf<T> {
+		let bonded_stake = self.bonded_stake();
+
+		let net_balance =
+			self.ledger().map(|ledger| ledger.effective_balance()).unwrap_or(Zero::zero());
+
+		defensive_assert!(net_balance >= bonded_stake, "cannot expose more than delegate balance");
+
+		net_balance.saturating_sub(bonded_stake)
 	}
 
 	pub(crate) fn ledger(&self) -> Option<DelegationLedger<T>> {

@@ -286,20 +286,33 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
+	/// Return balance of the `Delegate` (pool account) that is not bonded.
+	///
+	/// Equivalent to [FunInspect::balance] for non delegate accounts.
 	fn balance(who: &Self::AccountId) -> Self::Balance {
-		todo!()
+		Delegate::<T>::from(who)
+			.map(|delegate| delegate.unbonded())
+			.unwrap_or(Zero::zero())
 	}
 
+	/// Returns balance of `Delegate` account including the held balances.
+	///
+	/// Equivalent to [FunInspect::total_balance] for non delegate accounts.
 	fn total_balance(who: &Self::AccountId) -> Self::Balance {
-		todo!()
+		Delegate::<T>::from(who)
+			.map(|delegate| delegate.ledger.effective_balance())
+			.unwrap_or(Zero::zero())
 	}
 
+	/// Add initial delegation to the pool account.
+	///
+	/// Equivalent to [FunMutate::transfer] for Direct Staking.
 	fn delegate(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		todo!()
+		Pallet::<T>::delegate_funds(RawOrigin::Signed(who.clone()).into(), pool_account.clone(), amount)
 	}
 
 	fn delegate_extra(
@@ -307,7 +320,7 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		todo!()
+		Self::delegate(who, pool_account, amount)
 	}
 
 	fn release_delegation(
@@ -315,6 +328,7 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		todo!()
+		// fixme(ank4n): This should not require slashing spans.
+		Pallet::<T>::release(RawOrigin::Signed(pool_account.clone()).into(), who.clone(), amount, 0)
 	}
 }
