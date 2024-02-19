@@ -73,7 +73,7 @@ where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
-	type Val = (T::AccountId, AccountInfo<T::Nonce, T::AccountData>);
+	type Val = Option<(T::AccountId, AccountInfo<T::Nonce, T::AccountData>)>;
 	type Pre = ();
 
 	fn validate(
@@ -86,7 +86,9 @@ where
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+		let Some(who) = origin.as_system_origin_signer() else {
+			return Ok((Default::default(), None, origin))
+		};
 		let account = crate::Account::<T>::get(who);
 		if account.providers.is_zero() && account.sufficients.is_zero() {
 			// Nonce storage not paid for
@@ -110,7 +112,8 @@ where
 			longevity: TransactionLongevity::max_value(),
 			propagate: true,
 		};
-		Ok((validity, (who.clone(), account), origin))
+
+		Ok((validity, Some((who.clone(), account)), origin))
 	}
 
 	fn prepare(
@@ -122,7 +125,7 @@ where
 		_len: usize,
 		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (who, mut account) = val;
+		let Some((who, mut account)) = val else { return Ok(()) };
 		// `self.0 < account.nonce` already checked in `validate`.
 		if self.0 > account.nonce {
 			return Err(InvalidTransaction::Future.into())
@@ -241,6 +244,16 @@ mod tests {
 				&info,
 				len
 			));
+		})
+	}
+
+	#[test]
+	fn unsigned_check_nonce_works() {
+		new_test_ext().execute_with(|| {
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			assert_ok!(CheckNonce::<Test>(1).validate_only(None.into(), CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>(1).validate_and_prepare(None.into(), CALL, &info, len));
 		})
 	}
 }
