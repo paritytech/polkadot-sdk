@@ -47,8 +47,7 @@ pub use jsonrpsee::{
 		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 		traits::IdProvider,
 	},
-	server::BatchRequestConfig,
-	server::middleware::rpc::RpcServiceBuilder,
+	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
 pub use middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
 
