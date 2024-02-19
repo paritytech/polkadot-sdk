@@ -18,6 +18,7 @@
 
 //! Implementations of public traits, namely [StakingInterface], and [StakingDelegationSupport].
 
+use sp_staking::delegation::PoolAdapter;
 use super::*;
 
 /// StakingInterface implementation with delegation support.
@@ -278,5 +279,30 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 				defensive!("should not be called on non-delegate");
 			},
 		});
+	}
+}
+
+impl<T: Config> PoolAdapter for Pallet<T> {
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
+
+	fn balance(who: &Self::AccountId) -> Self::Balance {
+		todo!()
+	}
+
+	fn total_balance(who: &Self::AccountId) -> Self::Balance {
+		todo!()
+	}
+
+	fn delegate(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		todo!()
+	}
+
+	fn delegate_extra(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		todo!()
+	}
+
+	fn release_delegation(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		todo!()
 	}
 }

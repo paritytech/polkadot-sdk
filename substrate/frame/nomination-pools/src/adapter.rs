@@ -16,53 +16,52 @@
 // limitations under the License.
 
 use crate::*;
-use frame_support::traits::tokens::Balance;
 
-/// Pool adapter that supports DirectStake.
-pub struct DirectStake<T: Config>(PhantomData<T>);
+/// Basic pool adapter that only supports Direct Staking.
+///
+/// When delegating, tokens are moved between the delegator and pool account as opposed to holding
+/// tokens in delegator's accounts.
+pub struct NoDelegation<T: Config>(PhantomData<T>);
 
-impl<T: Config> sp_staking::delegation::PoolAdapter for DirectStake<T> {
-    type Balance = BalanceOf<T>;
-    type AccountId = T::AccountId;
+impl<T: Config> PoolAdapter for NoDelegation<T> {
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
 
-    fn balance(who: &Self::AccountId) -> Self::Balance {
-        T::Currency::balance(who)
-    }
+	fn balance(who: &Self::AccountId) -> Self::Balance {
+		T::Currency::balance(who)
+	}
 
-    fn total_balance(who: &Self::AccountId) -> Self::Balance {
-        T::Currency::total_balance(who)
-    }
+	fn total_balance(who: &Self::AccountId) -> Self::Balance {
+		T::Currency::total_balance(who)
+	}
 
-    fn delegate(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-        T::Currency::transfer(
-            who,
-            &pool_account,
-            amount,
-            Preservation::Expendable,
-        )?;
+	fn delegate(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		T::Currency::transfer(who, &pool_account, amount, Preservation::Expendable)?;
 
-        Ok(())
-    }
+		Ok(())
+	}
 
-    fn delegate_extra(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-        T::Currency::transfer(
-            who,
-            &pool_account,
-            amount,
-            Preservation::Preserve,
-        )?;
+	fn delegate_extra(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		T::Currency::transfer(who, &pool_account, amount, Preservation::Preserve)?;
 
-        Ok(())
-    }
+		Ok(())
+	}
 
-    fn release_delegation(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-        T::Currency::transfer(
-            &pool_account,
-            &who,
-            amount,
-            Preservation::Expendable,
-        )?;
+	fn release_delegation(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		T::Currency::transfer(&pool_account, &who, amount, Preservation::Expendable)?;
 
-        Ok(())
-    }
+		Ok(())
+	}
 }
