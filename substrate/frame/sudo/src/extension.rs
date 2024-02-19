@@ -86,7 +86,7 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> TransactionValidity {
-		let sudo_key: T::AccountId = <Key<T>>::get().ok_or(UnknownTransaction::CannotLookup)?;
+		let sudo_key: T::AccountId = Key::<T>::get().ok_or(UnknownTransaction::CannotLookup)?;
 		ensure!(*who == sudo_key, InvalidTransaction::BadSigner);
 
 		Ok(ValidTransaction {
