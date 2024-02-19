@@ -713,7 +713,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			// active nominations, thus we keep it in the target list with corresponding approval
 			// stake.
 			if score.is_zero() {
-				let _ = T::TargetList::on_remove(who).expect("target exists as per above; qed");
+				T::TargetList::on_remove(who).expect("target exists as per above; qed");
 			}
 		} else {
 			// target is not part of the list. Given the contract with staking and the checks above,
