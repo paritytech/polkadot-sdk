@@ -29,7 +29,7 @@ transactions.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.execute_and_prove" class="method"><a class="src rightside" href="../src/sp_state_machine/testing.rs.html#253">source</a><h4 class="code-header">pub fn <a href="#method.execute_and_prove" class="fn">execute_and_prove</a>&lt;R&gt;(
     &amp;mut self,
     execute: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>() -&gt; R
-) -&gt; (R, <a class="struct" href="../sp_trie/storage_proof/struct.StorageProof.html" title="struct sp_trie::storage_proof::StorageProof">StorageProof</a>)</h4></section></summary><div class="docblock"><p>Execute the given closure while <code>self</code>, with <code>proving_backend</code> as backend, is set as
+) -&gt; (R, StorageProof)</h4></section></summary><div class="docblock"><p>Execute the given closure while <code>self</code>, with <code>proving_backend</code> as backend, is set as
 externalities.</p>
 <p>This implementation will wipe the proof recorded in between calls. Consecutive calls will
 get their own proof from scratch.</p>

@@ -1138,6 +1138,9 @@
 <a href="#1138" id="1138">1138</a>
 <a href="#1139" id="1139">1139</a>
 <a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2274,7 +2277,10 @@
 				max_response_weight: max_response_weight.ref_time(),
 			},
 			UnsubscribeVersion =&gt; <span class="self">Self</span>::UnsubscribeVersion,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(()),
+			i =&gt; {
+				<span class="macro">log::debug!</span>(target: <span class="string">&quot;xcm::v3tov2&quot;</span>, <span class="string">&quot;`{i:?}` not supported by v2&quot;</span>);
+				<span class="kw">return </span><span class="prelude-val">Err</span>(());
+			},
 		})
 	}
 }
