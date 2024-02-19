@@ -5382,7 +5382,7 @@ fn locking_delegate_dependency_works() {
 	let (wasm_callee, code_hash) = compile_module::<Test>("dummy").unwrap();
 	let (wasm_other, other_code_hash) = compile_module::<Test>("call").unwrap();
 
-	// Define inputs with various actions to test adding / removing delegate_dependencies.
+	// Define inputs with various actions to test locking / unlocking delegate_dependencies.
 	// See the contract for more details.
 	let noop_input = (0u32, code_hash);
 	let lock_delegate_dependency_input = (1u32, code_hash);
@@ -5456,26 +5456,26 @@ fn locking_delegate_dependency_works() {
 			<Error<Test>>::CodeInUse
 		);
 
-		// Adding an already existing dependency should fail.
+		// Locking an already existing dependency should fail.
 		assert_err!(
 			call(&addr_caller, &lock_delegate_dependency_input).result,
 			Error::<Test>::DelegateDependencyAlreadyExists
 		);
 
-		// Adding a dependency to self should fail.
+		// Locking self should fail.
 		assert_err!(
 			call(&addr_caller, &(1u32, self_code_hash)).result,
 			Error::<Test>::CannotAddSelfAsDelegateDependency
 		);
 
-		// Adding more than the maximum allowed delegate_dependencies should fail.
+		// Locking more than the maximum allowed delegate_dependencies should fail.
 		Contracts::bare_upload_code(ALICE, wasm_other, None, Determinism::Enforced).unwrap();
 		assert_err!(
 			call(&addr_caller, &(1u32, other_code_hash)).result,
 			Error::<Test>::MaxDelegateDependenciesReached
 		);
 
-		// Removing dependency should work.
+		// Unlocking dependency should work.
 		assert_ok!(call(&addr_caller, &unlock_delegate_dependency_input).result);
 
 		// Dependency should be removed, and deposit should be returned.
@@ -5495,14 +5495,14 @@ fn locking_delegate_dependency_works() {
 			Error::<Test>::DelegateDependencyNotFound
 		);
 
-		// Adding a dependency with a storage limit too low should fail.
+		// Locking a dependency with a storage limit too low should fail.
 		DEFAULT_DEPOSIT_LIMIT.with(|c| *c.borrow_mut() = dependency_deposit - 1);
 		assert_err!(
 			call(&addr_caller, &lock_delegate_dependency_input).result,
 			Error::<Test>::StorageDepositLimitExhausted
 		);
 
-		// Since we removed the dependency we should now be able to remove the code.
+		// Since we unlocked the dependency we should now be able to remove the code.
 		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
 
 		// Calling should fail since the delegated contract is not on chain anymore.

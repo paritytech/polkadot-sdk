@@ -246,9 +246,9 @@ pub enum RuntimeCosts {
 	/// Weight of calling `instantiation_nonce`
 	InstantationNonce,
 	/// Weight of calling `lock_delegate_dependency`
-	AddDelegateDependency,
+	LockDelegateDependency,
 	/// Weight of calling `unlock_delegate_dependency`
-	RemoveDelegateDependency,
+	UnlockDelegateDependency,
 }
 
 impl RuntimeCosts {
@@ -330,8 +330,8 @@ impl RuntimeCosts {
 			ReentrantCount => s.reentrance_count,
 			AccountEntranceCount => s.account_reentrance_count,
 			InstantationNonce => s.instantiation_nonce,
-			AddDelegateDependency => s.lock_delegate_dependency,
-			RemoveDelegateDependency => s.unlock_delegate_dependency,
+			LockDelegateDependency => s.lock_delegate_dependency,
+			UnlockDelegateDependency => s.unlock_delegate_dependency,
 		};
 		RuntimeToken {
 			#[cfg(test)]
@@ -2320,7 +2320,7 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::lock_delegate_dependency`].
 	#[unstable]
 	fn lock_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
-		ctx.charge_gas(RuntimeCosts::AddDelegateDependency)?;
+		ctx.charge_gas(RuntimeCosts::LockDelegateDependency)?;
 		let code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)?;
 		ctx.ext.lock_delegate_dependency(code_hash)?;
 		Ok(())
@@ -2330,7 +2330,7 @@ pub mod env {
 	/// see [`pallet_contracts_uapi::HostFn::unlock_delegate_dependency`].
 	#[unstable]
 	fn unlock_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
-		ctx.charge_gas(RuntimeCosts::RemoveDelegateDependency)?;
+		ctx.charge_gas(RuntimeCosts::UnlockDelegateDependency)?;
 		let code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)?;
 		ctx.ext.unlock_delegate_dependency(&code_hash)?;
 		Ok(())
