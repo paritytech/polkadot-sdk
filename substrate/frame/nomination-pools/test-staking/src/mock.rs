@@ -187,6 +187,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = ConstU32<8>;
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
+	type PoolAdapter = pallet_nomination_pools::adapter::DirectStake<Self>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

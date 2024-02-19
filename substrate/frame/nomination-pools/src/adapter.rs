@@ -18,34 +18,10 @@
 use crate::*;
 use frame_support::traits::tokens::Balance;
 
-/// Pool adapter trait that can support multiple modes of staking: i.e. Delegated or Direct.
-pub trait PoolAdapter {
-    type Balance: Balance;
-    type AccountId: Clone + Debug;
-
-    /// Similar to [Inspect::balance].
-    fn balance(who: &Self::AccountId) -> Self::Balance;
-
-    /// Similar to [Inspect::total_balance].
-    fn total_balance(who: &Self::AccountId) -> Self::Balance;
-
-    /// Delegates stake from delegator to pool account.
-    ///
-    /// Similar to [Mutate::transfer] for Direct Stake.
-    fn delegate(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance, preservation: Preservation) -> DispatchResult;
-
-    /// Revoke delegation to pool account.
-    ///
-    /// Similar to [Mutate::transfer] for Direct Stake but in reverse direction to [Self::delegate].
-    fn release_delegation(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
-
-}
-
-
 /// Pool adapter that supports DirectStake.
 pub struct DirectStake<T: Config>(PhantomData<T>);
 
-impl<T: Config> PoolAdapter for DirectStake<T> {
+impl<T: Config> sp_staking::delegation::PoolAdapter for DirectStake<T> {
     type Balance = BalanceOf<T>;
     type AccountId = T::AccountId;
 
@@ -57,12 +33,23 @@ impl<T: Config> PoolAdapter for DirectStake<T> {
         T::Currency::total_balance(who)
     }
 
-    fn delegate(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance, preservation: Preservation) -> DispatchResult {
+    fn delegate(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
         T::Currency::transfer(
             who,
             &pool_account,
             amount,
-            preservation,
+            Preservation::Expendable,
+        )?;
+
+        Ok(())
+    }
+
+    fn delegate_extra(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+        T::Currency::transfer(
+            who,
+            &pool_account,
+            amount,
+            Preservation::Preserve,
         )?;
 
         Ok(())

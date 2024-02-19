@@ -373,12 +373,11 @@ use sp_runtime::{
 	},
 	FixedPointNumber, Perbill,
 };
-use sp_staking::{EraIndex, StakingInterface};
+use sp_staking::{EraIndex, StakingInterface, delegation::PoolAdapter};
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 use sp_runtime::TryRuntimeError;
-use adapter::PoolAdapter;
 
 /// The log target of this pallet.
 pub const LOG_TARGET: &str = "runtime::nomination-pools";
@@ -400,7 +399,7 @@ mod tests;
 
 pub mod migration;
 pub mod weights;
-mod adapter;
+pub mod adapter;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -1257,27 +1256,22 @@ impl<T: Config> BondedPool<T> {
 	) -> Result<BalanceOf<T>, DispatchError> {
 		// Cache the value
 		let bonded_account = self.bonded_account();
-		// TODO(ank4n) joining a pool: delegate funds to pool account..
-		T::PoolAdapter::delegate(
-			who,
-			&bonded_account,
-			amount,
-			match ty {
-				BondType::Create => Preservation::Expendable,
-				BondType::Later => Preservation::Preserve,
-			},
-		)?;
+
 		// We must calculate the points issued *before* we bond who's funds, else points:balance
 		// ratio will be wrong.
 		let points_issued = self.issue(amount);
 
 		match ty {
-			// TODO(ank4n): When type create, also do accept delegation call..
-			BondType::Create => T::Staking::bond(&bonded_account, amount, &self.reward_account())?,
+			BondType::Create => {
+				T::PoolAdapter::delegate(who, &bonded_account, amount)?;
+				T::Staking::bond(&bonded_account, amount, &self.reward_account())?
+			},
 			// The pool should always be created in such a way its in a state to bond extra, but if
 			// the active balance is slashed below the minimum bonded or the account cannot be
 			// found, we exit early.
-			BondType::Later => T::Staking::bond_extra(&bonded_account, amount)?,
+			BondType::Later => {
+				T::PoolAdapter::delegate_extra(who, &bonded_account, amount)?;
+				T::Staking::bond_extra(&bonded_account, amount)? },
 		}
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_accrue(amount);
