@@ -26,7 +26,7 @@ use polkadot_primitives::{AssignmentId, ValidatorId};
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, get_from_seed, get_host_config, validators,
+	accounts, build_genesis_storage, get_host_config, validators,
 };
 use parachains_common::Balance;
 use westend_runtime_constants::currency::UNITS as WND;
@@ -72,7 +72,7 @@ pub fn genesis() -> Storage {
 							x.4.clone(),
 							x.5.clone(),
 							x.6.clone(),
-							get_from_seed::<BeefyId>("Alice"),
+							x.7.clone(),
 						),
 					)
 				})
