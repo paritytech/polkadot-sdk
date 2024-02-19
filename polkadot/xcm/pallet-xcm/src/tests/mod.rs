@@ -472,6 +472,8 @@ fn trapped_assets_can_be_claimed() {
 /// Assert that the previous instructions effects are reverted.
 #[test]
 fn incomplete_execute_reverts_side_effects() {
+	use crate::ExecuteControllerWeightInfo;
+
 	let balances = vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE)];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 4;
@@ -495,11 +497,13 @@ fn incomplete_execute_reverts_side_effects() {
 		// all effects are reverted and balances unchanged for either sender or receiver
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE);
+		let weight =
+			<Pallet<Test> as ExecuteControllerWeightInfo>::execute() + BaseXcmWeight::get() * 4;
 		assert_eq!(
 			result,
 			Err(sp_runtime::DispatchErrorWithPostInfo {
 				post_info: frame_support::dispatch::PostDispatchInfo {
-					actual_weight: None,
+					actual_weight: Some(weight),
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
 				error: sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
