@@ -106,8 +106,8 @@ impl<H: Hasher> SizeOnlyRecorderProvider<H> {
 		}
 	}
 
-	/// Reset a new instance of [`SizeOnlyRecorderProvider`]
-	pub fn reset(&mut self) {
+	/// Reset the internal state.
+	pub fn reset(&self) {
 		self.seen_nodes.borrow_mut().clear();
 		*self.encoded_size.borrow_mut() = 0;
 		self.recorded_keys.borrow_mut().clear();

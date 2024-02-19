@@ -40,7 +40,6 @@ const LOG_TARGET: &'static str = "runtime::storage_reclaim";
 /// It internally keeps track of the proof size and storage weight at initialization time. At
 /// reclaim  it computes the real consumed storage weight and refunds excess weight.
 ///
-///
 /// # Example
 ///
 /// ```ignore
@@ -63,6 +62,7 @@ pub struct StorageWeightReclaimer {
 impl StorageWeightReclaimer {
 	/// Creates a new `StorageWeightReclaimer` instance and initializes it with the storage
 	/// size provided by `weight_meter` and reported proof size from the node.
+	#[must_use = "Must call `reclaim_with_meter` to reclaim the weight"]
 	pub fn new(weight_meter: &WeightMeter) -> StorageWeightReclaimer {
 		let previous_remaining_proof_size = weight_meter.remaining().proof_size();
 		let previous_reported_proof_size = get_proof_size();
@@ -72,11 +72,8 @@ impl StorageWeightReclaimer {
 	/// Check the consumed storage weight and calculate the consumed excess weight.
 	fn reclaim(&mut self, remaining_weight: Weight) -> Option<Weight> {
 		let current_remaining_weight = remaining_weight.proof_size();
-		let (Some(current_storage_proof_size), Some(previous_storage_proof_size)) =
-			(get_proof_size(), self.previous_reported_proof_size)
-		else {
-			return None;
-		};
+		let current_storage_proof_size = get_proof_size()?;
+		let previous_storage_proof_size = self.previous_reported_proof_size?;
 		let used_weight =
 			self.previous_remaining_proof_size.saturating_sub(current_remaining_weight);
 		let reported_used_size =
@@ -95,11 +92,9 @@ impl StorageWeightReclaimer {
 	/// Check the consumed storage weight and add the reclaimed
 	/// weight budget back to `weight_meter`.
 	pub fn reclaim_with_meter(&mut self, weight_meter: &mut WeightMeter) -> Option<Weight> {
-		let reclaimed = self.reclaim(weight_meter.remaining());
-		if let Some(ref weight) = reclaimed {
-			weight_meter.reclaim_proof_size(weight.proof_size());
-		}
-		reclaimed
+		let reclaimed = self.reclaim(weight_meter.remaining())?;
+		weight_meter.reclaim_proof_size(reclaimed.proof_size());
+		Some(reclaimed)
 	}
 }
 
@@ -152,8 +147,7 @@ where
 		_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-		let proof_size = get_proof_size();
-		Ok(proof_size)
+		Ok(get_proof_size())
 	}
 
 	fn post_dispatch(
@@ -178,7 +172,7 @@ where
 		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
 
 		if consumed_weight > benchmarked_weight {
-			log::debug!(
+			log::error!(
 				target: LOG_TARGET,
 				"Benchmarked storage weight smaller than consumed storage weight. benchmarked: {benchmarked_weight} consumed: {consumed_weight}"
 			);

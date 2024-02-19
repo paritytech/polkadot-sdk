@@ -33,7 +33,7 @@ use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
-use sp_std::{prelude::*, sync::Arc};
+use sp_std::prelude::*;
 use sp_trie::{MemoryDB, ProofSizeProvider, TrieRecorderProvider};
 use trie_recorder::SizeOnlyRecorderProvider;
 

@@ -5,7 +5,7 @@ title: PoV Reclaim Runtime Side
 author: skunert
 topic: runtime
 doc:
-  - audience: Node Dev
+  - audience: Runtime Dev
     description: |
       Adds a mechanism to reclaim proof size weight.
       1. Introduces a new `SignedExtension` that reclaims the difference
