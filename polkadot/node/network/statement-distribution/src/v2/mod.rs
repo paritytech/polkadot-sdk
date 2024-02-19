@@ -419,7 +419,7 @@ pub(crate) async fn handle_network_update<Context>(
 ) {
 	match update {
 		NetworkBridgeEvent::PeerConnected(peer_id, role, protocol_version, mut authority_ids) => {
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?protocol_version, "Peer connected");
+			gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?protocol_version, ?authority_ids, "Peer connected");
 
 			let versioned_protocol = if protocol_version != ValidationVersion::V2.into() &&
 				protocol_version != ValidationVersion::V3.into()
@@ -1379,7 +1379,7 @@ async fn circulate_statement<Context>(
 					.into(),
 			),
 			None => {
-				gum::info!(target: LOG_TARGET, ?candidate_hash, ?target, ?originator, "Could not find peer id");
+				gum::info!(target: LOG_TARGET, ?candidate_hash, ?target, ?originator, ?authority_id, "Could not find peer id");
 
 				continue
 			}
