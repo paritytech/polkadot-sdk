@@ -6256,7 +6256,7 @@ dependencies = [
 [[package]]
 name = "hash256-std-hasher"
 version = "0.15.2"
-source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#bef6e0f8124bb90a76a40d4b33f15b30760f7ff1"
+source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#e4b29e4b78d219aad99a2fa4f7a42939bd007d98"
 dependencies = [
  "crunchy",
 ]
@@ -20728,7 +20728,7 @@ dependencies = [
 [[package]]
 name = "trie-db"
 version = "0.28.0"
-source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#bef6e0f8124bb90a76a40d4b33f15b30760f7ff1"
+source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#e4b29e4b78d219aad99a2fa4f7a42939bd007d98"
 dependencies = [
  "criterion 0.5.1",
  "hash256-std-hasher 0.15.2 (git+https://github.com/cheme/trie.git?branch=cheme/new-trie)",

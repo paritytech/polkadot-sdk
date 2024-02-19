@@ -665,8 +665,7 @@ mod tests {
 			t.insert(x, y).unwrap();
 		}
 		let changes = t.commit();
-		let root = changes.root_hash();
-		memdb.apply_changeset(changes);
+		let root = memdb.apply_changeset(changes);
 		let t = TrieDBBuilder::<T>::new(&memdb, &root).build();
 		assert_eq!(
 			input.iter().map(|(i, j)| (i.to_vec(), j.to_vec())).collect::<Vec<_>>(),
@@ -841,12 +840,9 @@ mod tests {
 			let real = L::trie_root(x.clone());
 			let mut memdb = D::default();
 
-			let commit = {
-				let memtrie = populate_trie::<L>(&mut memdb, &x);
-				memtrie.commit()
-			};
-			let root = commit.root_hash();
-			memdb.apply_changeset(commit);
+			let memtrie = populate_trie::<L>(&mut memdb, &x);
+			let commit = memtrie.commit();
+			let root = memdb.apply_changeset(commit);
 
 			if root != real {
 				println!("TRIE MISMATCH");
@@ -860,8 +856,7 @@ mod tests {
 			let mut memtrie = TrieDBMutBuilder::<L>::from_existing(&memdb, root).build();
 			unpopulate_trie::<L>(&mut memtrie, &x);
 			let commit = memtrie.commit();
-			let root = commit.root_hash();
-			memdb.apply_changeset(commit);
+			let root = memdb.apply_changeset(commit);
 			let hashed_null_node = hashed_null_node::<L>();
 			if root != hashed_null_node {
 				println!("- TRIE MISMATCH");
@@ -953,8 +948,7 @@ mod tests {
 		let mut mdb = D::default();
 		let t = populate_trie::<L>(&mut mdb, &pairs);
 		let changes = t.commit();
-		let root = changes.root_hash();
-		mdb.apply_changeset(changes);
+		let root = mdb.apply_changeset(changes);
 
 		let trie = TrieDBBuilder::<L>::new(&mdb, &root).build();
 

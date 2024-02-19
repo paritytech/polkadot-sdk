@@ -58,16 +58,12 @@ mod tests {
 	{
 		let mut db = PrefixedMemoryDB::default();
 
-		let root = {
-			let mut trie = TrieDBMutBuilder::<TestLayout>::new(&mut db).build();
-			for (k, v) in TEST_DATA {
-				trie.insert(k, v).expect("Inserts data");
-			}
-			let change_set = trie.commit();
-			let root = change_set.root_hash();
-			change_set.apply_to(&mut db);
-			root
+		let mut trie = TrieDBMutBuilder::<TestLayout>::new(&mut db).build();
+		for (k, v) in TEST_DATA {
+			trie.insert(k, v).expect("Inserts data");
 		}
+		let change_set = trie.commit();
+		let root = change_set.apply_to(&mut db);
 
 		let recorder: sp_trie::recorder::Recorder<Blake2Hasher, DBLocation> = Default::default();
 		let trie_backend = sp_state_machine::TrieBackendBuilder::new(Box::new(db), root)
