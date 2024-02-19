@@ -373,7 +373,7 @@ use sp_runtime::{
 	},
 	FixedPointNumber, Perbill,
 };
-use sp_staking::{EraIndex, StakingInterface, delegation::PoolAdapter};
+use sp_staking::{delegation::PoolAdapter, EraIndex, StakingInterface};
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
@@ -397,9 +397,9 @@ pub mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod adapter;
 pub mod migration;
 pub mod weights;
-pub mod adapter;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -1271,7 +1271,8 @@ impl<T: Config> BondedPool<T> {
 			// found, we exit early.
 			BondType::Later => {
 				T::PoolAdapter::delegate_extra(who, &bonded_account, amount)?;
-				T::Staking::bond_extra(&bonded_account, amount)? },
+				T::Staking::bond_extra(&bonded_account, amount)?
+			},
 		}
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_accrue(amount);

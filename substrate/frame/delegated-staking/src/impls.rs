@@ -18,8 +18,8 @@
 
 //! Implementations of public traits, namely [StakingInterface], and [StakingDelegationSupport].
 
-use sp_staking::delegation::PoolAdapter;
 use super::*;
+use sp_staking::delegation::PoolAdapter;
 
 /// StakingInterface implementation with delegation support.
 ///
@@ -294,15 +294,27 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 		todo!()
 	}
 
-	fn delegate(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+	fn delegate(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
 		todo!()
 	}
 
-	fn delegate_extra(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+	fn delegate_extra(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
 		todo!()
 	}
 
-	fn release_delegation(who: &Self::AccountId, pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+	fn release_delegation(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
 		todo!()
 	}
 }
