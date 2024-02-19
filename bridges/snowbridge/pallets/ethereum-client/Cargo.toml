@@ -15,8 +15,8 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.195", optional = true }
-serde_json = { version = "1.0.111", optional = true }
+serde = { version = "1.0.196", optional = true }
+serde_json = { version = "1.0.113", optional = true }
 codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 ssz_rs = { version = "0.9.0", default-features = false }
@@ -45,12 +45,12 @@ pallet-timestamp = { path = "../../../../substrate/frame/timestamp", default-fea
 [dev-dependencies]
 rand = "0.8.5"
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-serde_json = "1.0.111"
+serde_json = "1.0.113"
 hex-literal = "0.4.1"
 pallet-timestamp = { path = "../../../../substrate/frame/timestamp" }
 snowbridge-pallet-ethereum-client-fixtures = { path = "./fixtures" }
 sp-io = { path = "../../../../substrate/primitives/io" }
-serde = "1.0.195"
+serde = "1.0.196"
 
 [features]
 default = ["std"]

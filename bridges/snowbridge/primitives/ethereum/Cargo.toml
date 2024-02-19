@@ -12,7 +12,7 @@ categories = ["cryptography::cryptocurrencies"]
 workspace = true
 
 [dependencies]
-serde = { version = "1.0.195", optional = true, features = ["derive"] }
+serde = { version = "1.0.196", optional = true, features = ["derive"] }
 serde-big-array = { version = "0.3.2", optional = true, features = ["const-generics"] }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
@@ -33,7 +33,7 @@ ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = fals
 [dev-dependencies]
 wasm-bindgen-test = "0.3.19"
 rand = "0.8.5"
-serde_json = "1.0.111"
+serde_json = "1.0.113"
 
 [features]
 default = ["std"]

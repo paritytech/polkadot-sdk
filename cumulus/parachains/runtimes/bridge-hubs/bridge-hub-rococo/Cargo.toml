@@ -21,7 +21,7 @@ log = { workspace = true }
 scale-info = { version = "2.10.0", default-features = false, features = [
 	"derive",
 ] }
-serde = { version = "1.0.195", optional = true, features = ["derive"] }
+serde = { version = "1.0.196", optional = true, features = ["derive"] }
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
