@@ -17,7 +17,6 @@
 
 pub mod impls;
 pub mod message_queue;
-pub mod storage_weight_reclaim;
 pub mod xcm_config;
 pub use constants::*;
 pub use opaque::*;

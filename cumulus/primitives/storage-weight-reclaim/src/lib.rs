@@ -171,21 +171,21 @@ where
 		let benchmarked_weight = info.weight.proof_size();
 		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
 
-		if consumed_weight > benchmarked_weight {
-			log::error!(
-				target: LOG_TARGET,
-				"Benchmarked storage weight smaller than consumed storage weight. benchmarked: {benchmarked_weight} consumed: {consumed_weight}"
-			);
-			return Ok(())
-		}
-
-		let reclaimable_storage_part = benchmarked_weight.saturating_sub(consumed_weight as u64);
-		log::trace!(
-			target: LOG_TARGET,
-			"Reclaiming storage weight. benchmarked: {benchmarked_weight}, consumed: {consumed_weight}"
-		);
+		let storage_size_diff = benchmarked_weight.abs_diff(consumed_weight as u64);
 		frame_system::BlockWeight::<T>::mutate(|current| {
-			current.reduce(Weight::from_parts(0, reclaimable_storage_part), info.class)
+			if consumed_weight > benchmarked_weight {
+				log::error!(
+					target: LOG_TARGET,
+					"Benchmarked storage weight smaller than consumed storage weight. benchmarked: {benchmarked_weight} consumed: {consumed_weight}"
+				);
+				current.accrue(Weight::from_parts(0, storage_size_diff), info.class)
+			} else {
+				log::trace!(
+					target: LOG_TARGET,
+					"Reclaiming storage weight. benchmarked: {benchmarked_weight}, consumed: {consumed_weight}"
+				);
+				current.reduce(Weight::from_parts(0, storage_size_diff), info.class)
+			}
 		});
 		Ok(())
 	}
@@ -314,7 +314,7 @@ mod tests {
 	}
 
 	#[test]
-	fn negative_refund_is_ignored() {
+	fn negative_refund_is_added_to_weight() {
 		let mut test_ext = setup_test_externalities(&[100, 300]);
 
 		test_ext.execute_with(|| {
@@ -344,7 +344,7 @@ mod tests {
 
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 1000)
+				Weight::from_parts(base_block_weight().ref_time(), 1100)
 			);
 		})
 	}

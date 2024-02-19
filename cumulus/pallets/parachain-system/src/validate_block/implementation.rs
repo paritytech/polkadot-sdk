@@ -178,7 +178,7 @@ where
 			.replace_implementation(host_storage_proof_size),
 	);
 
-	run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
+	run_with_externalities::<B, _, _>(&backend, || {
 		let relay_chain_proof = crate::RelayChainStateProof::new(
 			PSC::SelfParaId::get(),
 			inherent_data.validation_data.relay_parent_storage_root,
@@ -274,7 +274,7 @@ fn validate_validation_data(
 	);
 }
 
-/// Run the given closure with the externalities set.
+/// Run the given closure with the externalities and recorder set.
 fn run_with_externalities_and_recorder<B: BlockT, R, F: FnOnce() -> R>(
 	backend: &TrieBackend<B>,
 	recorder: &mut SizeOnlyRecorderProvider<HashingFor<B>>,
@@ -283,8 +283,18 @@ fn run_with_externalities_and_recorder<B: BlockT, R, F: FnOnce() -> R>(
 	let mut overlay = sp_state_machine::OverlayedChanges::default();
 	let mut ext = Ext::<B>::new(&mut overlay, backend);
 
-	recorder.reset();
 	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
+}
+
+/// Run the given closure with the externalities set.
+fn run_with_externalities<B: BlockT, R, F: FnOnce() -> R>(
+	backend: &TrieBackend<B>,
+	execute: F,
+) -> R {
+	let mut overlay = sp_state_machine::OverlayedChanges::default();
+	let mut ext = Ext::<B>::new(&mut overlay, backend);
+
+	set_and_run_with_externalities(&mut ext, || execute())
 }
 
 fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {

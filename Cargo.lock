@@ -4049,6 +4049,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-primitives-storage-weight-reclaim"
+version = "0.2.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "cumulus-primitives-proof-size-hostfunction",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "sp-trie",
+]
+
+[[package]]
 name = "cumulus-primitives-timestamp"
 version = "0.7.0"
 dependencies = [
@@ -11302,6 +11319,7 @@ dependencies = [
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -11354,7 +11372,6 @@ name = "parachains-common"
 version = "7.0.0"
 dependencies = [
  "cumulus-primitives-core",
- "cumulus-primitives-proof-size-hostfunction",
  "cumulus-primitives-utility",
  "frame-support",
  "frame-system",
@@ -11374,7 +11391,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
- "sp-trie",
  "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-executor",
