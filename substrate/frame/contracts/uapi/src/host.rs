@@ -142,6 +142,7 @@ pub trait HostFn {
 	///
 	/// Equivalent to the newer [`Self::call_v2`] version but works with
 	/// *ref_time* Weight only
+	#[deprecated(note = "Deprecated, use newer version instead")]
 	fn call_v1(
 		flags: CallFlags,
 		callee: &[u8],
@@ -178,9 +179,6 @@ pub trait HostFn {
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [NotCallable][`crate::ReturnErrorCode::NotCallable]
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
 	fn call_v2(
 		flags: CallFlags,
 		callee: &[u8],

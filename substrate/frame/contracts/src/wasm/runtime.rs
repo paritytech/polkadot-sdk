@@ -1231,7 +1231,6 @@ pub mod env {
 	/// Make a call to another contract.
 	/// See [`pallet_contracts_uapi::HostFn::call_v2`].
 	#[version(2)]
-	#[unstable]
 	fn call(
 		ctx: _,
 		memory: _,
