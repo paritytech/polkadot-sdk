@@ -22,7 +22,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, One, TransactionExtension,
-		TransactionExtensionBase, Zero,
+		TransactionExtensionBase, ValidateResult, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidityError, ValidTransaction,
@@ -85,10 +85,7 @@ where
 		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
-	) -> Result<
-		(sp_runtime::transaction_validity::ValidTransaction, Self::Val, T::RuntimeOrigin),
-		sp_runtime::transaction_validity::TransactionValidityError,
-	> {
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		let account = crate::Account::<T>::get(who);
 		if account.providers.is_zero() && account.sufficients.is_zero() {

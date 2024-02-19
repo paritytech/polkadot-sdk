@@ -21,7 +21,10 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	generic::Era,
 	impl_tx_ext_default,
-	traits::{DispatchInfoOf, SaturatedConversion, TransactionExtension, TransactionExtensionBase},
+	traits::{
+		DispatchInfoOf, SaturatedConversion, TransactionExtension, TransactionExtensionBase,
+		ValidateResult,
+	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
 
@@ -85,10 +88,7 @@ impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Cont
 		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
-	) -> Result<
-		(sp_runtime::transaction_validity::ValidTransaction, Self::Val, T::RuntimeOrigin),
-		sp_runtime::transaction_validity::TransactionValidityError,
-	> {
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		let current_u64 = <Pallet<T>>::block_number().saturated_into::<u64>();
 		let valid_till = self.0.death(current_u64);
 		Ok((

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Config, RawOrigin};
+use crate::Config;
 use codec::{Decode, Encode};
 use frame_support::{traits::OriginTrait, DefaultNoBound};
 use scale_info::TypeInfo;
@@ -74,7 +74,7 @@ impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Cont
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> sp_runtime::traits::ValidateResult<Self::Val, T::RuntimeCall> {
-		if let Some(RawOrigin::Signed(ref who)) = origin.as_system_ref() {
+		if let Some(who) = origin.as_system_signer() {
 			if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
 				return Err(InvalidTransaction::BadSigner.into())
 			}
