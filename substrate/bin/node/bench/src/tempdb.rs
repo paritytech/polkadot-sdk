@@ -24,6 +24,7 @@ use std::path::PathBuf;
 pub enum DatabaseType {
 	RocksDb,
 	ParityDb,
+	ParityDbMulti,
 }
 
 pub struct TempDatabase(tempfile::TempDir);
@@ -50,9 +51,10 @@ impl TempDatabase {
 				).expect("Database backend error");
 				sc_client_db::StorageDb::<Block> { db, state_db: None }
 			},
-			DatabaseType::ParityDb => {
+			DatabaseType::ParityDbMulti
+			| DatabaseType::ParityDb => {
 				let db = sc_client_db::open_database::<Block>(
-					&DatabaseSource::ParityDb { path: self.0.path().into() },
+					&DatabaseSource::ParityDb { path: self.0.path().into(), multi_tree: matches!(DatabaseType::ParityDbMulti, db_type) },
 					true,
 					false,
 				).expect("Database backend error");

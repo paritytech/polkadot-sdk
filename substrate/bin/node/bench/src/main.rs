@@ -119,7 +119,7 @@ fn main() {
 			]
 			.iter().flat_map(|size|
 			[
-				DatabaseType::RocksDb, DatabaseType::ParityDb
+				DatabaseType::RocksDb, DatabaseType::ParityDb, DatabaseType::ParityDbMulti,
 			]
 			.iter().map(move |db_type| (size, db_type)))
 			=> TrieReadBenchmarkDescription { database_size: *size, database_type: *db_type },
@@ -130,7 +130,8 @@ fn main() {
 			]
 			.iter().flat_map(|size|
 			[
-				DatabaseType::RocksDb, DatabaseType::ParityDb
+				DatabaseType::RocksDb, DatabaseType::ParityDb, DatabaseType::ParityDbMulti,
+
 			]
 			.iter().map(move |db_type| (size, db_type)))
 			=> TrieWriteBenchmarkDescription { database_size: *size, database_type: *db_type },
@@ -138,7 +139,7 @@ fn main() {
 			key_types: KeyTypes::Sr25519,
 			block_type: BlockType::RandomTransfersKeepAlive,
 			size: SizeType::Medium,
-			database_type: BenchDataBaseType::RocksDb,
+			database_type: BenchDataBaseType::RocksDb, // TODO some for paritydb??
 		},
 		ConstructionBenchmarkDescription {
 			key_types: KeyTypes::Sr25519,

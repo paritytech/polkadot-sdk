@@ -354,6 +354,8 @@ pub enum DatabaseSource {
 	ParityDb {
 		/// Path to the database.
 		path: PathBuf,
+		/// Multi tree state use.
+		multi_tree: bool,
 	},
 
 	/// Use a custom already-open database.

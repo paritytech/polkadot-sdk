@@ -214,13 +214,16 @@ pub enum DatabaseType {
 	RocksDb,
 	/// Parity DB backend.
 	ParityDb,
+	/// Parity DB backend, multi tree active.
+	ParityDbMulti,
 }
 
 impl DatabaseType {
 	fn into_settings(self, path: PathBuf) -> sc_client_db::DatabaseSource {
 		match self {
 			Self::RocksDb => sc_client_db::DatabaseSource::RocksDb { path, cache_size: 512 },
-			Self::ParityDb => sc_client_db::DatabaseSource::ParityDb { path },
+			Self::ParityDb => sc_client_db::DatabaseSource::ParityDb { path, multi_tree: false },
+			Self::ParityDbMulti => sc_client_db::DatabaseSource::ParityDb { path, multi_tree: true },
 		}
 	}
 }
