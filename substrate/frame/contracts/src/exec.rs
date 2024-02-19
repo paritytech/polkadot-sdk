@@ -144,7 +144,7 @@ pub trait Ext: sealing::Sealed {
 	fn call(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: Option<BalanceOf<Self::T>>,
 		to: AccountIdOf<Self::T>,
 		value: BalanceOf<Self::T>,
 		input_data: Vec<u8>,
@@ -168,7 +168,7 @@ pub trait Ext: sealing::Sealed {
 	fn instantiate(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: Option<BalanceOf<Self::T>>,
 		code: CodeHash<Self::T>,
 		value: BalanceOf<Self::T>,
 		input_data: Vec<u8>,
@@ -747,7 +747,7 @@ where
 			gas_meter,
 			Weight::zero(),
 			storage_meter,
-			BalanceOf::<T>::zero(),
+			None,
 			determinism,
 		)?;
 
@@ -779,7 +779,7 @@ where
 		gas_meter: &mut GasMeter<T>,
 		gas_limit: Weight,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
-		deposit_limit: BalanceOf<T>,
+		deposit_limit: Option<BalanceOf<T>>,
 		determinism: Determinism,
 	) -> Result<(Frame<T>, E, Option<u64>), ExecError> {
 		let (account_id, contract_info, executable, delegate_caller, entry_point, nonce) =
@@ -848,7 +848,7 @@ where
 		frame_args: FrameArgs<T, E>,
 		value_transferred: BalanceOf<T>,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<T>,
+		deposit_limit: Option<BalanceOf<T>>,
 	) -> Result<E, ExecError> {
 		if self.frames.len() == T::CallStack::size() {
 			return Err(Error::<T>::MaxCallDepthReached.into())
@@ -1185,7 +1185,7 @@ where
 	fn call(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<T>,
+		deposit_limit: Option<BalanceOf<T>>,
 		to: T::AccountId,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
@@ -1246,7 +1246,7 @@ where
 			},
 			value,
 			Weight::zero(),
-			BalanceOf::<T>::zero(),
+			None,
 		)?;
 		self.run(executable, input_data)
 	}
@@ -1254,7 +1254,7 @@ where
 	fn instantiate(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: Option<BalanceOf<Self::T>>,
 		code_hash: CodeHash<T>,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
@@ -2091,7 +2091,7 @@ mod tests {
 		let value = Default::default();
 		let recurse_ch = MockLoader::insert(Call, |ctx, _| {
 			// Try to call into yourself.
-			let r = ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![], true);
+			let r = ctx.ext.call(Weight::zero(), None, BOB, 0, vec![], true);
 
 			ReachedBottom::mutate(|reached_bottom| {
 				if !*reached_bottom {
@@ -2149,11 +2149,7 @@ mod tests {
 			});
 
 			// Call into CHARLIE contract.
-			assert_matches!(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true),
-				Ok(_)
-			);
+			assert_matches!(ctx.ext.call(Weight::zero(), None, CHARLIE, 0, vec![], true), Ok(_));
 			exec_success()
 		});
 		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
@@ -2297,8 +2293,7 @@ mod tests {
 			// ALICE is the origin of the call stack
 			assert!(ctx.ext.caller_is_origin());
 			// BOB calls CHARLIE
-			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true)
+			ctx.ext.call(Weight::zero(), None, CHARLIE, 0, vec![], true)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2396,8 +2391,7 @@ mod tests {
 			// root is the origin of the call stack.
 			assert!(ctx.ext.caller_is_root());
 			// BOB calls CHARLIE.
-			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true)
+			ctx.ext.call(Weight::zero(), None, CHARLIE, 0, vec![], true)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2430,11 +2424,7 @@ mod tests {
 			assert_eq!(*ctx.ext.address(), BOB);
 
 			// Call into charlie contract.
-			assert_matches!(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true),
-				Ok(_)
-			);
+			assert_matches!(ctx.ext.call(Weight::zero(), None, CHARLIE, 0, vec![], true), Ok(_));
 			exec_success()
 		});
 		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
@@ -2609,7 +2599,7 @@ mod tests {
 					.ext
 					.instantiate(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						None,
 						dummy_ch,
 						<Test as Config>::Currency::minimum_balance(),
 						vec![],
@@ -2685,7 +2675,7 @@ mod tests {
 				assert_matches!(
 					ctx.ext.instantiate(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						None,
 						dummy_ch,
 						<Test as Config>::Currency::minimum_balance(),
 						vec![],
@@ -2794,14 +2784,7 @@ mod tests {
 				assert_eq!(info.storage_byte_deposit, 0);
 				info.storage_byte_deposit = 42;
 				assert_eq!(
-					ctx.ext.call(
-						Weight::zero(),
-						BalanceOf::<Test>::zero(),
-						CHARLIE,
-						0,
-						vec![],
-						true
-					),
+					ctx.ext.call(Weight::zero(), None, CHARLIE, 0, vec![], true),
 					exec_trapped()
 				);
 				assert_eq!(ctx.ext.contract_info().storage_byte_deposit, 42);
@@ -2809,10 +2792,7 @@ mod tests {
 			exec_success()
 		});
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
-			assert!(ctx
-				.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true)
-				.is_ok());
+			assert!(ctx.ext.call(Weight::zero(), None, BOB, 0, vec![99], true).is_ok());
 			exec_trapped()
 		});
 
@@ -2844,7 +2824,7 @@ mod tests {
 	fn recursive_call_during_constructor_fails() {
 		let code = MockLoader::insert(Constructor, |ctx, _| {
 			assert_matches!(
-				ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), ctx.ext.address().clone(), 0, vec![], true),
+				ctx.ext.call(Weight::zero(), None, ctx.ext.address().clone(), 0, vec![], true),
 				Err(ExecError{error, ..}) if error == <Error<Test>>::ContractNotFound.into()
 			);
 			exec_success()
@@ -2994,7 +2974,7 @@ mod tests {
 		// call the contract passed as input with disabled reentry
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			let dest = Decode::decode(&mut ctx.input_data.as_ref()).unwrap();
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), dest, 0, vec![], false)
+			ctx.ext.call(Weight::zero(), None, dest, 0, vec![], false)
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3043,8 +3023,7 @@ mod tests {
 	fn call_deny_reentry() {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], false)
+				ctx.ext.call(Weight::zero(), None, CHARLIE, 0, vec![], false)
 			} else {
 				exec_success()
 			}
@@ -3052,7 +3031,7 @@ mod tests {
 
 		// call BOB with input set to '1'
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true)
+			ctx.ext.call(Weight::zero(), None, BOB, 0, vec![1], true)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -3248,7 +3227,7 @@ mod tests {
 			ctx.ext
 				.instantiate(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					None,
 					fail_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -3262,7 +3241,7 @@ mod tests {
 				.ext
 				.instantiate(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					None,
 					success_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -3271,9 +3250,7 @@ mod tests {
 				.unwrap();
 
 			// a plain call should not influence the account counter
-			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), account_id, 0, vec![], false)
-				.unwrap();
+			ctx.ext.call(Weight::zero(), None, account_id, 0, vec![], false).unwrap();
 
 			exec_success()
 		});
@@ -3791,14 +3768,7 @@ mod tests {
 			assert_eq!(ctx.ext.nonce(), 1);
 			// Should not change with a failed instantiation
 			assert_err!(
-				ctx.ext.instantiate(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					fail_code,
-					0,
-					vec![],
-					&[],
-				),
+				ctx.ext.instantiate(Weight::zero(), None, fail_code, 0, vec![], &[],),
 				ExecError {
 					error: <Error<Test>>::ContractTrapped.into(),
 					origin: ErrorOrigin::Callee
@@ -3806,16 +3776,7 @@ mod tests {
 			);
 			assert_eq!(ctx.ext.nonce(), 1);
 			// Successful instantiation increments
-			ctx.ext
-				.instantiate(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					success_code,
-					0,
-					vec![],
-					&[],
-				)
-				.unwrap();
+			ctx.ext.instantiate(Weight::zero(), None, success_code, 0, vec![], &[]).unwrap();
 			assert_eq!(ctx.ext.nonce(), 2);
 			exec_success()
 		});
