@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: backpressured JSON-RPC server (upgrade jsonrpsee)
+
+doc:
+  - audience: Node Operator
+    description: |
+      Modifies the jsonrpc server to be "backpressured" and it's possible to configure
+      how many messages can be "buffered" via the CLI `--rpc_message_buffer_capacity`.
+
+      Major changes in this PR:
+        - The subscriptions are now bounded and if subscription can't keep up with the server it is dropped
+        - CLI: add parameter to configure the jsonrpc server bounded message buffer (default is 64)
+        - Add our own subscription helper to deal with the unbounded streams in substrate
+
+crates: 
+- name: sc-rpc-server

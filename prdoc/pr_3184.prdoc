@@ -1,0 +1,10 @@
+title: "Contracts: Remove no longer enforced limits from the Schedule"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The limits are no longer in use and do nothing. Every builder overwritting them
+      can just adapt their code to remove them without any consequence.
+
+crates:
+  - name: pallet-contracts

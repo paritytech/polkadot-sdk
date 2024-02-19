@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-av-store"
 description = "The Availability Store subsystem. Wrapper over the DB that stores availability data and chunks."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -28,7 +28,7 @@ sp-consensus = { path = "../../../../substrate/primitives/consensus/common", def
 polkadot-node-jaeger = { path = "../../jaeger" }
 
 [dev-dependencies]
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 env_logger = "0.9.0"
 assert_matches = "1.4.0"
 kvdb-memorydb = "0.13.0"

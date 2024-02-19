@@ -242,10 +242,10 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Authorship: pallet_authorship::{Pallet, Storage},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Treasury: pallet_treasury::{Pallet, Call, Storage, Config<T>, Event<T>},
+			System: frame_system,
+			Authorship: pallet_authorship,
+			Balances: pallet_balances,
+			Treasury: pallet_treasury,
 		}
 	);
 
@@ -304,7 +304,6 @@ mod tests {
 		type RuntimeHoldReason = RuntimeHoldReason;
 		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 
