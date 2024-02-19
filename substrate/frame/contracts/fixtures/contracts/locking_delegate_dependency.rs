@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This contract tests the behavior of adding / removing delegate_dependencies when delegate
+//! This contract tests the behavior of locking / unlocking delegate_dependencies when delegate
 //! calling into a contract.
 #![no_std]
 #![no_main]
@@ -34,11 +34,11 @@ fn load_input(delegate_call: bool) {
 	);
 
 	match action {
-		// 1 = Add delegate dependency
+		// 1 = Lock delegate dependency
 		1 => {
 			api::lock_delegate_dependency(code_hash);
 		},
-		// 2 = Remove delegate dependency
+		// 2 = Unlock delegate dependency
 		2 => {
 			api::unlock_delegate_dependency(code_hash);
 		},

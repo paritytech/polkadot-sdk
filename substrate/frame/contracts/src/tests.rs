@@ -5378,7 +5378,7 @@ fn locking_delegate_dependency_works() {
 	MAX_DELEGATE_DEPENDENCIES.with(|c| *c.borrow_mut() = 1);
 
 	let (wasm_caller, self_code_hash) =
-		compile_module::<Test>("add_unlock_delegate_dependency").unwrap();
+		compile_module::<Test>("locking_delegate_dependency").unwrap();
 	let (wasm_callee, code_hash) = compile_module::<Test>("dummy").unwrap();
 	let (wasm_other, other_code_hash) = compile_module::<Test>("call").unwrap();
 
