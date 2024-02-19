@@ -360,7 +360,7 @@ async fn distribute_collation_with_receipt(
 			candidate_receipt: candidate.clone(),
 			parent_head_data_hash,
 			pov: pov.clone(),
-			maybe_parent_head_data: None,
+			parent_head_data: HeadData(vec![1, 2, 3]),
 			result_sender: None,
 		},
 	)

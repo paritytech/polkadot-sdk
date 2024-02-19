@@ -347,7 +347,7 @@ async fn distribute_collation<Context>(
 	receipt: CandidateReceipt,
 	parent_head_data_hash: Hash,
 	pov: PoV,
-	maybe_parent_head_data: Option<HeadData>,
+	parent_head_data: HeadData,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 ) -> Result<()> {
 	let candidate_relay_parent = receipt.descriptor.relay_parent;
@@ -470,7 +470,7 @@ async fn distribute_collation<Context>(
 			receipt,
 			parent_head_data_hash,
 			pov,
-			maybe_parent_head_data,
+			parent_head_data,
 			status: CollationStatus::Created,
 		},
 	);
@@ -774,7 +774,7 @@ async fn process_msg<Context>(
 			candidate_receipt,
 			parent_head_data_hash,
 			pov,
-			maybe_parent_head_data,
+			parent_head_data,
 			result_sender,
 		} => {
 			let _span1 = state
@@ -804,7 +804,7 @@ async fn process_msg<Context>(
 						candidate_receipt,
 						parent_head_data_hash,
 						pov,
-						maybe_parent_head_data,
+						parent_head_data,
 						result_sender,
 					)
 					.await?;
@@ -849,7 +849,7 @@ async fn send_collation(
 	request: VersionedCollationRequest,
 	receipt: CandidateReceipt,
 	pov: PoV,
-	maybe_parent_head_data: Option<HeadData>,
+	_parent_head_data: HeadData,
 ) {
 	let (tx, rx) = oneshot::channel();
 
@@ -859,15 +859,18 @@ async fn send_collation(
 
 	// The response payload is the same for v1 and v2 versions of protocol
 	// and doesn't have v2 alias for simplicity.
-	let result = if let Some(parent_head_data) = maybe_parent_head_data {
-		Ok(request_v1::CollationFetchingResponse::CollationWithParentHeadData {
-			receipt,
-			pov,
-			parent_head_data,
-		})
-	} else {
+	// For now, we don't send parent head data to the collation requester.
+	let result =
+	// 	if assigned_multiple_cores {
+	// 	Ok(request_v1::CollationFetchingResponse::CollationWithParentHeadData {
+	// 		receipt,
+	// 		pov,
+	// 		parent_head_data,
+	// 	})
+	// } else {
 		Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov))
-	};
+	// }
+	;
 	let response =
 		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
 
@@ -1048,12 +1051,12 @@ async fn handle_incoming_request<Context>(
 					return Ok(())
 				},
 			};
-			let (receipt, pov, maybe_parent_head_data) = if let Some(collation) = collation {
+			let (receipt, pov, parent_head_data) = if let Some(collation) = collation {
 				collation.status.advance_to_requested();
 				(
 					collation.receipt.clone(),
 					collation.pov.clone(),
-					collation.maybe_parent_head_data.clone(),
+					collation.parent_head_data.clone(),
 				)
 			} else {
 				gum::warn!(
@@ -1093,7 +1096,7 @@ async fn handle_incoming_request<Context>(
 				waiting.collation_fetch_active = true;
 				// Obtain a timer for sending collation
 				let _ = state.metrics.time_collation_distribution("send");
-				send_collation(state, req, receipt, pov, maybe_parent_head_data).await;
+				send_collation(state, req, receipt, pov, parent_head_data).await;
 			}
 		},
 		Some(our_para_id) => {
@@ -1478,9 +1481,9 @@ async fn run_inner<Context>(
 				if let Some(collation) = next_collation {
 					let receipt = collation.receipt.clone();
 					let pov = collation.pov.clone();
-					let maybe_parent_head_data = collation.maybe_parent_head_data.clone();
+					let parent_head_data = collation.parent_head_data.clone();
 
-					send_collation(&mut state, next, receipt, pov, maybe_parent_head_data).await;
+					send_collation(&mut state, next, receipt, pov, parent_head_data).await;
 				}
 			},
 			(candidate_hash, peer_id) = state.advertisement_timeouts.select_next_some() => {

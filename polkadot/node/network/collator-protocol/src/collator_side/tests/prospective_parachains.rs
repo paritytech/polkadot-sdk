@@ -275,7 +275,7 @@ fn distribute_collation_from_implicit_view() {
 					candidate_receipt: candidate.clone(),
 					parent_head_data_hash,
 					pov: pov.clone(),
-					maybe_parent_head_data: None,
+					parent_head_data: HeadData(vec![1, 2, 3]),
 					result_sender: None,
 				},
 			)
@@ -356,7 +356,7 @@ fn distribute_collation_up_to_limit() {
 					candidate_receipt: candidate.clone(),
 					parent_head_data_hash,
 					pov: pov.clone(),
-					maybe_parent_head_data: None,
+					parent_head_data: HeadData(vec![1, 2, 3]),
 					result_sender: None,
 				},
 			)

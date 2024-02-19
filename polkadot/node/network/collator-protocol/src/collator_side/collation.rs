@@ -63,8 +63,8 @@ pub struct Collation {
 	pub parent_head_data_hash: Hash,
 	/// Proof to verify the state transition of the parachain.
 	pub pov: PoV,
-	/// Optional parent head-data needed for elastic scaling.
-	pub maybe_parent_head_data: Option<HeadData>,
+	/// Parent head-data needed for elastic scaling.
+	pub parent_head_data: HeadData,
 	/// Collation status.
 	pub status: CollationStatus,
 }

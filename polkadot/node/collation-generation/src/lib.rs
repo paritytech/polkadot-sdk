@@ -466,6 +466,7 @@ async fn construct_and_distribute_receipt(
 	} = collation;
 
 	let persisted_validation_data_hash = validation_data.hash();
+	let parent_head_data = validation_data.parent_head.clone();
 	let parent_head_data_hash = validation_data.parent_head.hash();
 
 	// Apply compression to the block data.
@@ -540,8 +541,6 @@ async fn construct_and_distribute_receipt(
 		},
 	};
 
-	let maybe_parent_head_data = None;
-
 	gum::debug!(
 		target: LOG_TARGET,
 		candidate_hash = ?ccr.hash(),
@@ -557,7 +556,7 @@ async fn construct_and_distribute_receipt(
 			candidate_receipt: ccr,
 			parent_head_data_hash,
 			pov,
-			maybe_parent_head_data,
+			parent_head_data,
 			result_sender,
 		})
 		.await;

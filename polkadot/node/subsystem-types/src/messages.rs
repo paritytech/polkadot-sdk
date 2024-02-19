@@ -208,21 +208,17 @@ pub enum CollatorProtocolMessage {
 	/// This should be sent before any `DistributeCollation` message.
 	CollateOn(ParaId),
 	/// Provide a collation to distribute to validators with an optional result sender.
-	/// The second argument is the parent head-data hash.
-	///
-	/// The result sender should be informed when at least one parachain validator seconded the
-	/// collation. It is also completely okay to just drop the sender.
 	DistributeCollation {
-		/// TODO(ordian)
+		/// The receipt of the candidate.
 		candidate_receipt: CandidateReceipt,
-		/// TODO(ordian)
+		/// The hash of the parent head-data.
 		parent_head_data_hash: Hash,
-		/// TODO(ordian)
+		/// Proof of validity.
 		pov: PoV,
-		/// This field is only used for elastic scaling.
-		// TODO(ordian): maybe using an enum
-		maybe_parent_head_data: Option<HeadData>,
-		/// TODO(ordian)
+		/// This parent head-data is needed for elastic scaling.
+		parent_head_data: HeadData,
+		/// The result sender should be informed when at least one parachain validator seconded the
+		/// collation. It is also completely okay to just drop the sender.
 		result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	},
 	/// Report a collator as having provided an invalid collation. This should lead to disconnect
