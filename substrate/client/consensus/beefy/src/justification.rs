@@ -114,7 +114,7 @@ pub(crate) mod tests {
 		block_num: NumberFor<Block>,
 		validator_set: &ValidatorSet<ecdsa_crypto::AuthorityId>,
 		keys: &[Keyring<ecdsa_crypto::AuthorityId>],
-	) -> BeefyVersionedFinalityProof<Block> {
+	) -> BeefyVersionedFinalityProof<Block, ecdsa_crypto::AuthorityId> {
 		let commitment = Commitment {
 			payload: Payload::from_single_entry(known_payloads::MMR_ROOT_ID, vec![]),
 			block_number: block_num,
@@ -136,11 +136,20 @@ pub(crate) mod tests {
 
 		let good_proof = proof.clone().into();
 		// should verify successfully
-		verify_with_validator_set::<Block>(block_num, &validator_set, &good_proof).unwrap();
+		verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+			block_num,
+			&validator_set,
+			&good_proof,
+		)
+		.unwrap();
 
 		// wrong block number -> should fail verification
 		let good_proof = proof.clone().into();
-		match verify_with_validator_set::<Block>(block_num + 1, &validator_set, &good_proof) {
+		match verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+			block_num + 1,
+			&validator_set,
+			&good_proof,
+		) {
 			Err((ConsensusError::InvalidJustification, 0)) => (),
 			e => assert!(false, "Got unexpected {:?}", e),
 		};
@@ -148,7 +157,11 @@ pub(crate) mod tests {
 		// wrong validator set id -> should fail verification
 		let good_proof = proof.clone().into();
 		let other = ValidatorSet::new(make_beefy_ids(keys), 1).unwrap();
-		match verify_with_validator_set::<Block>(block_num, &other, &good_proof) {
+		match verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+			block_num,
+			&other,
+			&good_proof,
+		) {
 			Err((ConsensusError::InvalidJustification, 0)) => (),
 			e => assert!(false, "Got unexpected {:?}", e),
 		};
@@ -160,7 +173,11 @@ pub(crate) mod tests {
 			VersionedFinalityProof::V1(ref mut sc) => sc,
 		};
 		bad_signed_commitment.signatures.pop().flatten().unwrap();
-		match verify_with_validator_set::<Block>(block_num + 1, &validator_set, &bad_proof.into()) {
+		match verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+			block_num + 1,
+			&validator_set,
+			&bad_proof.into(),
+		) {
 			Err((ConsensusError::InvalidJustification, 0)) => (),
 			e => assert!(false, "Got unexpected {:?}", e),
 		};
@@ -172,7 +189,11 @@ pub(crate) mod tests {
 		};
 		// remove a signature (but same length)
 		*bad_signed_commitment.signatures.first_mut().unwrap() = None;
-		match verify_with_validator_set::<Block>(block_num, &validator_set, &bad_proof.into()) {
+		match verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+			block_num,
+			&validator_set,
+			&bad_proof.into(),
+		) {
 			Err((ConsensusError::InvalidJustification, 2)) => (),
 			e => assert!(false, "Got unexpected {:?}", e),
 		};
@@ -187,7 +208,11 @@ pub(crate) mod tests {
 			Keyring::<ecdsa_crypto::AuthorityId>::Dave
 				.sign(&bad_signed_commitment.commitment.encode()),
 		);
-		match verify_with_validator_set::<Block>(block_num, &validator_set, &bad_proof.into()) {
+		match verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+			block_num,
+			&validator_set,
+			&bad_proof.into(),
+		) {
 			Err((ConsensusError::InvalidJustification, 3)) => (),
 			e => assert!(false, "Got unexpected {:?}", e),
 		};
@@ -201,12 +226,17 @@ pub(crate) mod tests {
 
 		// build valid justification
 		let proof = new_finality_proof(block_num, &validator_set, keys);
-		let versioned_proof: BeefyVersionedFinalityProof<Block> = proof.into();
+		let versioned_proof: BeefyVersionedFinalityProof<Block, ecdsa_crypto::AuthorityId> =
+			proof.into();
 		let encoded = versioned_proof.encode();
 
 		// should successfully decode and verify
-		let verified =
-			decode_and_verify_finality_proof::<Block>(&encoded, block_num, &validator_set).unwrap();
+		let verified = decode_and_verify_finality_proof::<Block, ecdsa_crypto::AuthorityId>(
+			&encoded,
+			block_num,
+			&validator_set,
+		)
+		.unwrap();
 		assert_eq!(verified, versioned_proof);
 	}
 }

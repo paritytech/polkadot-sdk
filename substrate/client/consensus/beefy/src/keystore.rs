@@ -382,13 +382,6 @@ pub mod tests {
 
 	#[cfg(feature = "bls-experimental")]
 	#[test]
-
-	fn authority_id_works_for_ecdsa() {
-		authority_id_works::<ecdsa_crypto::AuthorityId>();
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	#[test]
 	fn authority_id_works_for_ecdsa() {
 		authority_id_works::<ecdsa_crypto::AuthorityId>();
 	}

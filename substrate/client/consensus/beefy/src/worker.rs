@@ -644,7 +644,7 @@ where
 	}
 
 	#[cfg(test)]
-	fn active_rounds(&mut self) -> Result<&Rounds<B>, Error> {
+	fn active_rounds(&mut self) -> Result<&Rounds<B, AuthorityId>, Error> {
 		self.persisted_state.voting_oracle.active_rounds()
 	}
 
@@ -1331,7 +1331,7 @@ pub(crate) mod tests {
 	use sc_network_test::TestNetFactory;
 	use sp_blockchain::Backend as BlockchainBackendT;
 	use sp_consensus_beefy::{
-		known_payloads,
+		ecdsa_crypto, known_payloads,
 		known_payloads::MMR_ROOT_ID,
 		mmr::MmrRootProvider,
 		test_utils::{generate_equivocation_proof, Keyring},
@@ -1344,7 +1344,7 @@ pub(crate) mod tests {
 	};
 
 	impl<B: super::Block> PersistedState<B, AuthorityId> {
-		pub fn voting_oracle(&self) -> &VoterOracle<B> {
+		pub fn voting_oracle(&self) -> &VoterOracle<B, AuthorityId> {
 			&self.voting_oracle
 		}
 
@@ -1357,7 +1357,7 @@ pub(crate) mod tests {
 		}
 	}
 
-	impl<B: super::Block> VoterOracle<B> {
+	impl<B: super::Block> VoterOracle<B, AuthorityId> {
 		pub fn sessions(&self) -> &VecDeque<Rounds<B, AuthorityId>> {
 			&self.sessions
 		}
@@ -1374,15 +1374,16 @@ pub(crate) mod tests {
 		MmrRootProvider<Block, TestApi>,
 		TestApi,
 		Arc<SyncingService<Block>>,
+		AuthorityId,
 	> {
 		let keystore = create_beefy_keystore(key);
 
 		let (to_rpc_justif_sender, from_voter_justif_stream) =
-			BeefyVersionedFinalityProofStream::<Block>::channel();
+			BeefyVersionedFinalityProofStream::<Block, ecdsa_crypto::AuthorityId>::channel();
 		let (to_rpc_best_block_sender, from_voter_best_beefy_stream) =
 			BeefyBestBlockStream::<Block>::channel();
 		let (_, from_block_import_justif_stream) =
-			BeefyVersionedFinalityProofStream::<Block>::channel();
+			BeefyVersionedFinalityProofStream::<Block, ecdsa_crypto::AuthorityId>::channel();
 
 		let beefy_rpc_links =
 			BeefyRPCLinks { from_voter_justif_stream, from_voter_best_beefy_stream };
@@ -1560,13 +1561,14 @@ pub(crate) mod tests {
 			Default::default(),
 			Digest::default(),
 		);
-		let mut oracle = VoterOracle::<Block> {
+		let mut oracle = VoterOracle::<Block, ecdsa_crypto::AuthorityId> {
 			best_beefy_block: 0,
 			best_grandpa_block_header: header,
 			min_block_delta: 1,
 			sessions: VecDeque::new(),
+			_phantom: PhantomData,
 		};
-		let voting_target_with = |oracle: &mut VoterOracle<Block>,
+		let voting_target_with = |oracle: &mut VoterOracle<Block, ecdsa_crypto::AuthorityId>,
 		                          best_beefy: NumberFor<Block>,
 		                          best_grandpa: NumberFor<Block>|
 		 -> Option<NumberFor<Block>> {
@@ -1622,18 +1624,20 @@ pub(crate) mod tests {
 			Default::default(),
 			Digest::default(),
 		);
-		let mut oracle = VoterOracle::<Block> {
+		let mut oracle = VoterOracle::<Block, ecdsa_crypto::AuthorityId> {
 			best_beefy_block: 0,
 			best_grandpa_block_header: header,
 			min_block_delta: 1,
 			sessions: VecDeque::new(),
+			_phantom: PhantomData,
 		};
-		let accepted_interval_with = |oracle: &mut VoterOracle<Block>,
-		                              best_grandpa: NumberFor<Block>|
-		 -> Result<(NumberFor<Block>, NumberFor<Block>), Error> {
-			oracle.best_grandpa_block_header.number = best_grandpa;
-			oracle.accepted_interval()
-		};
+		let accepted_interval_with =
+			|oracle: &mut VoterOracle<Block, ecdsa_crypto::AuthorityId>,
+			 best_grandpa: NumberFor<Block>|
+			 -> Result<(NumberFor<Block>, NumberFor<Block>), Error> {
+				oracle.best_grandpa_block_header.number = best_grandpa;
+				oracle.accepted_interval()
+			};
 
 		// rounds not initialized -> should accept votes: `None`
 		assert!(accepted_interval_with(&mut oracle, 1).is_err());
@@ -1704,7 +1708,7 @@ pub(crate) mod tests {
 		);
 
 		// verify empty digest shows nothing
-		assert!(find_authorities_change::<Block>(&header).is_none());
+		assert!(find_authorities_change::<Block, ecdsa_crypto::AuthorityId>(&header).is_none());
 
 		let peers = &[Keyring::One, Keyring::Two];
 		let id = 42;
@@ -1715,7 +1719,7 @@ pub(crate) mod tests {
 		));
 
 		// verify validator set is correctly extracted from digest
-		let extracted = find_authorities_change::<Block>(&header);
+		let extracted = find_authorities_change::<Block, ecdsa_crypto::AuthorityId>(&header);
 		assert_eq!(extracted, Some(validator_set));
 	}
 

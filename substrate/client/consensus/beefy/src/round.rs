@@ -238,7 +238,7 @@ mod tests {
 	use super::{threshold, Block as BlockT, RoundTracker, Rounds};
 	use crate::round::VoteImportResult;
 
-	impl<B> Rounds<B>
+	impl<B> Rounds<B, ecdsa_crypto::AuthorityId>
 	where
 		B: BlockT,
 	{
@@ -249,9 +249,9 @@ mod tests {
 
 	#[test]
 	fn round_tracker() {
-		let mut rt = RoundTracker::default();
+		let mut rt = RoundTracker::<ecdsa_crypto::AuthorityId>::default();
 		let bob_vote = (
-			Keyring::Bob.public(),
+			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
 			Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed"),
 		);
 		let threshold = 2;
@@ -265,7 +265,7 @@ mod tests {
 		assert!(!rt.is_done(threshold));
 
 		let alice_vote = (
-			Keyring::Alice.public(),
+			Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
 			Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
 		);
 		// adding new vote (self vote this time) allowed
@@ -296,7 +296,7 @@ mod tests {
 		.unwrap();
 
 		let session_start = 1u64.into();
-		let rounds = Rounds::<Block>::new(session_start, validators);
+		let rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
 
 		assert_eq!(42, rounds.validator_set_id());
 		assert_eq!(1, rounds.session_start());
@@ -327,7 +327,7 @@ mod tests {
 		let validator_set_id = validators.id();
 
 		let session_start = 1u64.into();
-		let mut rounds = Rounds::<Block>::new(session_start, validators);
+		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
 		let block_number = 1;
@@ -389,7 +389,7 @@ mod tests {
 
 		// active rounds starts at block 10
 		let session_start = 10u64.into();
-		let mut rounds = Rounds::<Block>::new(session_start, validators);
+		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
 
 		// vote on round 9
 		let block_number = 9;
@@ -434,7 +434,7 @@ mod tests {
 		let validator_set_id = validators.id();
 
 		let session_start = 1u64.into();
-		let mut rounds = Rounds::<Block>::new(session_start, validators);
+		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
 		let commitment = Commitment { block_number: 1, payload, validator_set_id };
@@ -508,7 +508,7 @@ mod tests {
 		.unwrap();
 		let validator_set_id = validators.id();
 		let session_start = 1u64.into();
-		let mut rounds = Rounds::<Block>::new(session_start, validators);
+		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
 
 		let payload1 = Payload::from_single_entry(MMR_ROOT_ID, vec![1, 1, 1, 1]);
 		let payload2 = Payload::from_single_entry(MMR_ROOT_ID, vec![2, 2, 2, 2]);
