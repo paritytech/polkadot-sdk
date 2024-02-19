@@ -14,6 +14,50 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+	approval::{
+		helpers::{generate_babe_epoch, generate_topology},
+		test_message::{MessagesBundle, TestMessageInfo},
+		ApprovalTestState, BlockTestData, GeneratedState, BUFFER_FOR_GENERATION_MILLIS, LOG_TARGET,
+		SLOT_DURATION_MILLIS,
+	},
+	core::{
+		configuration::{TestAuthorities, TestConfiguration},
+		mock::runtime_api::session_info_for_peers,
+		NODE_UNDER_TEST,
+	},
+	ApprovalsOptions, TestObjective,
+};
+use futures::SinkExt;
+use itertools::Itertools;
+use parity_scale_codec::Encode;
+use polkadot_node_core_approval_voting::{
+	criteria::{compute_assignments, Config},
+	time::tranche_to_tick,
+};
+use polkadot_node_network_protocol::{
+	grid_topology::{GridNeighbors, RandomRouting, RequiredRouting, SessionGridTopology},
+	v3 as protocol_v3,
+};
+use polkadot_node_primitives::approval::{
+	self,
+	v2::{CoreBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
+};
+use polkadot_primitives::{
+	vstaging::ApprovalVoteMultipleCandidates, CandidateEvent, CandidateHash, CandidateIndex,
+	CoreIndex, Hash, SessionInfo, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
+};
+use rand::{seq::SliceRandom, RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+use rand_distr::{Distribution, Normal};
+use sc_keystore::LocalKeystore;
+use sc_network::PeerId;
+use sc_service::SpawnTaskHandle;
+use sha1::Digest;
+use sp_application_crypto::AppCrypto;
+use sp_consensus_babe::SlotDuration;
+use sp_keystore::Keystore;
+use sp_timestamp::Timestamp;
 use std::{
 	cmp::max,
 	collections::{BTreeMap, HashSet},
@@ -23,53 +67,6 @@ use std::{
 	time::Duration,
 };
 
-use futures::SinkExt;
-use itertools::Itertools;
-use parity_scale_codec::Encode;
-use polkadot_node_core_approval_voting::{
-	criteria::{compute_assignments, Config},
-	time::tranche_to_tick,
-};
-use polkadot_node_network_protocol::grid_topology::{
-	GridNeighbors, RandomRouting, RequiredRouting, SessionGridTopology,
-};
-use polkadot_node_primitives::approval::{
-	self,
-	v2::{CoreBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
-};
-use polkadot_primitives::{
-	vstaging::ApprovalVoteMultipleCandidates, CandidateEvent, CandidateHash, CandidateIndex,
-	CoreIndex, SessionInfo, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
-};
-use rand::{seq::SliceRandom, RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
-use rand_distr::{Distribution, Normal};
-use sc_keystore::LocalKeystore;
-use sc_network::PeerId;
-use sha1::Digest;
-use sp_application_crypto::AppCrypto;
-use sp_consensus_babe::SlotDuration;
-use sp_keystore::Keystore;
-use sp_timestamp::Timestamp;
-
-use super::{
-	test_message::{MessagesBundle, TestMessageInfo},
-	ApprovalTestState, ApprovalsOptions, BlockTestData,
-};
-use crate::{
-	approval::{
-		helpers::{generate_babe_epoch, generate_topology},
-		GeneratedState, BUFFER_FOR_GENERATION_MILLIS, LOG_TARGET, SLOT_DURATION_MILLIS,
-	},
-	core::{
-		configuration::{TestAuthorities, TestConfiguration, TestObjective},
-		mock::session_info_for_peers,
-		NODE_UNDER_TEST,
-	},
-};
-use polkadot_node_network_protocol::v3 as protocol_v3;
-use polkadot_primitives::Hash;
-use sc_service::SpawnTaskHandle;
 /// A generator of messages coming from a given Peer/Validator
 pub struct PeerMessagesGenerator {
 	/// The grid neighbors of the node under test.

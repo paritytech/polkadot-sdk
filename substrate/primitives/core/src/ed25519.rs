@@ -502,6 +502,22 @@ mod test {
 	}
 
 	#[test]
+	fn generate_with_phrase_should_be_recoverable_with_from_string() {
+		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
+		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_seed.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+		let (repair_phrase, reseed) =
+			Pair::from_phrase(phrase.as_ref(), None).expect("seed slice is valid");
+		assert_eq!(seed, reseed);
+		assert_eq!(pair.public(), repair_phrase.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+		let repair_string = Pair::from_string(phrase.as_str(), None).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_string.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+	}
+
+	#[test]
 	fn test_vector_should_work() {
 		let pair = Pair::from_seed(&array_bytes::hex2array_unchecked(
 			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
@@ -590,6 +606,7 @@ mod test {
 		let (pair2, _) = Pair::from_phrase(&phrase, None).unwrap();
 
 		assert_ne!(pair1.public(), pair2.public());
+		assert_ne!(pair1.to_raw_vec(), pair2.to_raw_vec());
 	}
 
 	#[test]
