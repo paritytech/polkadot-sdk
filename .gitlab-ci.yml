@@ -124,8 +124,9 @@ default:
     - mkdir ~/.forklift
     - cp $FL_FORKLIFT_CONFIG_ALT ~/.forklift/config.toml
     - export PATH=$PATH:$(pwd)
+    - export FORKLIFT_BYPASS=$FORKLIFT_BYPASS_ALT
     - |
-      if [ "$FORKLIFT_BYPASS_ALT" != "true" ]; then
+      if [ "$FORKLIFT_BYPASS" != "true" ]; then
       echo "FORKLIFT_BYPASS not set, creating function cargo() { forklift cargo "$@"; }"
       function cargo() { forklift cargo "$@"; }
       fi
