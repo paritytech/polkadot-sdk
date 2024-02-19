@@ -571,7 +571,7 @@ pub(crate) fn state_machine_call_with_proof<Block: BlockT, HostFns: HostFunction
 	let mut changes = Default::default();
 	let backend = &ext.backend;
 	let runtime_code_backend = sp_state_machine::backend::BackendRuntimeCode::new(backend);
-	let proving_backend = backend.with_recorder(Default::default());
+	let proving_backend = backend.with_temp_recorder(Default::default());
 	let runtime_code = runtime_code_backend.runtime_code()?;
 
 	let pre_root = *backend.root();
