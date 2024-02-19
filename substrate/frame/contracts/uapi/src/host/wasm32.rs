@@ -160,7 +160,7 @@ mod sys {
 
 		pub fn weight_to_fee(gas: u64, output_ptr: *mut u8, output_len_ptr: *mut u32);
 
-		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32, output_ptr: *mut u8) -> ReturnCode;
+		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32) -> ReturnCode;
 
 		pub fn xcm_send(
 			dest_ptr: *const u8,
@@ -819,9 +819,8 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::reentrance_count() }
 	}
 
-	fn xcm_execute(msg: &[u8], output: &mut &mut [u8]) -> Result {
-		let ret_code =
-			unsafe { sys::xcm_execute(msg.as_ptr(), msg.len() as _, output.as_mut_ptr()) };
+	fn xcm_execute(msg: &[u8]) -> Result {
+		let ret_code = unsafe { sys::xcm_execute(msg.as_ptr(), msg.len() as _) };
 		ret_code.into()
 	}
 

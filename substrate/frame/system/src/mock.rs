@@ -16,15 +16,8 @@
 // limitations under the License.
 
 use crate::{self as frame_system, *};
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, Perbill,
-};
+use frame_support::{derive_impl, parameter_types};
+use sp_runtime::{BuildStorage, Perbill};
 
 type Block = mocking::MockBlock<Test>;
 
@@ -87,29 +80,12 @@ impl OnKilledAccount<u64> for RecordKilled {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<10>;
-	type DbWeight = DbWeight;
 	type Version = Version;
-	type PalletInfo = PalletInfo;
 	type AccountData = u32;
-	type OnNewAccount = ();
 	type OnKilledAccount = RecordKilled;
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 pub type SysEvent = frame_system::Event<Test>;
