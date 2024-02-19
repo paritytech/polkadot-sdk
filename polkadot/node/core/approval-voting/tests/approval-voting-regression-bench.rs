@@ -135,10 +135,6 @@ fn approvals_throughput_best_case() -> Vec<String> {
 		},
 	);
 
-	// CPU usage, seconds                     total   per block
-	// approval-distribution                  4.799       0.480
-	// approval-voting                        6.248       0.625
-	// Test environment                       3.057       0.306
 	messages.extend(usage.check_network_usage(&[
 		("Received from peers", 2800.000, 3100.000),
 		("Sent to peers", 3100.000, 3400.000),
