@@ -116,8 +116,10 @@ pub mod v1 {
 	}
 }
 
-/// Clears the pallet's offchain storage. Should be used in `OffchainWorkerApi`
-/// implementation in runtime after the pallet was removed.
+/// Clears the pallet's offchain storage. 
+///
+/// Must be put in `OffchainWorkerApi::offchain_worker` after 
+/// the pallet was removed.
 pub fn clear_offchain_storage(validator_set_size: u32) {
 	(0..validator_set_size).for_each(|idx| {
 		let key = {
