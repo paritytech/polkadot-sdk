@@ -174,11 +174,11 @@ impl DiscoveryConfig {
 		&mut self,
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
-		protocol_id: &ProtocolId,
+		_protocol_id: &ProtocolId,
 	) -> &mut Self {
 		self.kademlia_protocols = Vec::new();
 		self.kademlia_protocols.push(kademlia_protocol_name(genesis_hash, fork_id));
-		self.kademlia_protocols.push(legacy_kademlia_protocol_name(protocol_id));
+		// self.kademlia_protocols.push(legacy_kademlia_protocol_name(protocol_id));
 		self
 	}
 
@@ -932,7 +932,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 }
 
 /// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
-fn legacy_kademlia_protocol_name(id: &ProtocolId) -> Vec<u8> {
+fn _legacy_kademlia_protocol_name(id: &ProtocolId) -> Vec<u8> {
 	let mut v = vec![b'/'];
 	v.extend_from_slice(id.as_ref().as_bytes());
 	v.extend_from_slice(b"/kad");
@@ -952,7 +952,7 @@ fn kademlia_protocol_name<Hash: AsRef<[u8]>>(genesis_hash: Hash, fork_id: Option
 #[cfg(test)]
 mod tests {
 	use super::{
-		kademlia_protocol_name, legacy_kademlia_protocol_name, DiscoveryConfig, DiscoveryOut,
+		_legacy_kademlia_protocol_name, kademlia_protocol_name, DiscoveryConfig, DiscoveryOut,
 	};
 	use crate::config::ProtocolId;
 	use futures::prelude::*;
@@ -1069,7 +1069,7 @@ mod tests {
 											let protocol_name = if swarm_n % 2 == 0 {
 												kademlia_protocol_name(genesis_hash, fork_id)
 											} else {
-												legacy_kademlia_protocol_name(&protocol_id)
+												_legacy_kademlia_protocol_name(&protocol_id)
 											};
 											swarms[swarm_n]
 												.0
@@ -1144,7 +1144,7 @@ mod tests {
 		);
 		discovery.add_self_reported_address(
 			&another_peer_id,
-			&[legacy_kademlia_protocol_name(&unsupported_protocol_id)],
+			&[_legacy_kademlia_protocol_name(&unsupported_protocol_id)],
 			another_addr.clone(),
 		);
 
@@ -1174,7 +1174,7 @@ mod tests {
 		);
 		discovery.add_self_reported_address(
 			&another_peer_id,
-			&[legacy_kademlia_protocol_name(&supported_protocol_id)],
+			&[_legacy_kademlia_protocol_name(&supported_protocol_id)],
 			another_addr.clone(),
 		);
 
