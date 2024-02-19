@@ -52,7 +52,8 @@ array-bytes = "6.1"
 default = []
 test-helpers = []
 runtime-benchmarks = [
-	"sp-runtime/runtime-benchmarks"
+	"kitchensink-runtime/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 rocksdb = ["kvdb-rocksdb"]
 

@@ -82,10 +82,11 @@ fn construct_block<E: Externalities>(
 	let extrinsics = extrinsics.into_iter().map(sign).collect::<Vec<_>>();
 
 	// calculate the header fields that we can.
-	let extrinsics_root =
-		LayoutV0::<BlakeTwo256, DBLocation>::ordered_trie_root(extrinsics.iter().map(Encode::encode))
-			.to_fixed_bytes()
-			.into();
+	let extrinsics_root = LayoutV0::<BlakeTwo256, DBLocation>::ordered_trie_root(
+		extrinsics.iter().map(Encode::encode),
+	)
+	.to_fixed_bytes()
+	.into();
 
 	let header = Header {
 		parent_hash,
