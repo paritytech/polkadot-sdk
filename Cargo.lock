@@ -1384,10 +1384,10 @@ version = "13.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "env_logger 0.9.3",
+ "hash-db",
  "log",
  "sp-core",
  "sp-runtime",
- "trie-db",
 ]
 
 [[package]]
@@ -1850,6 +1850,7 @@ version = "0.7.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "hash-db",
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
@@ -2249,6 +2250,7 @@ dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-support",
  "frame-system",
+ "hash-db",
  "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
@@ -2268,7 +2270,6 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "static_assertions",
- "trie-db",
 ]
 
 [[package]]
@@ -6270,14 +6271,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hash256-std-hasher"
-version = "0.15.2"
-source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#e4b29e4b78d219aad99a2fa4f7a42939bd007d98"
-dependencies = [
- "crunchy",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7004,7 +6997,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19ea4653859ca2266a86419d3f592d3f22e7a854b482f99180d2498507902048"
 dependencies = [
  "hash-db",
- "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hash256-std-hasher",
  "tiny-keccak",
 ]
 
@@ -8054,6 +8047,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "memory-db"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "808b50db46293432a45e63bc15ea51e0ab4c0a1647b8eb114e31a3e698dd6fbe"
+dependencies = [
+ "hash-db",
+]
+
+[[package]]
 name = "merlin"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8577,6 +8579,7 @@ dependencies = [
  "derive_more",
  "fs_extra",
  "futures",
+ "hash-db",
  "kitchensink-runtime",
  "kvdb",
  "kvdb-rocksdb",
@@ -8588,10 +8591,6 @@ dependencies = [
  "rand",
  "sc-basic-authorship",
  "sc-client-api",
-<<<<<<< HEAD
- "sc-client-db",
-=======
->>>>>>> master
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "serde",
@@ -8605,10 +8604,6 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie",
  "tempfile",
-<<<<<<< HEAD
- "trie-db",
-=======
->>>>>>> master
 ]
 
 [[package]]
@@ -11459,14 +11454,9 @@ checksum = "16b56e3a2420138bdb970f84dfb9c774aea80fa0e7371549eedec0d80c209c67"
 
 [[package]]
 name = "parity-db"
-<<<<<<< HEAD
-version = "0.4.13"
-source = "git+https://github.com/paritytech/parity-db.git?branch=master#c9125f876a753ea18dd18cc589b5560cc3c7cd75"
-=======
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59e9ab494af9e6e813c72170f0d3c1de1500990d62c97cc05cc7576f91aa402f"
->>>>>>> master
 dependencies = [
  "blake2 0.10.6",
  "crc32fast",
@@ -11480,7 +11470,6 @@ dependencies = [
  "rand",
  "siphasher",
  "snap",
- "winapi",
 ]
 
 [[package]]
@@ -15686,6 +15675,8 @@ version = "0.35.0"
 dependencies = [
  "array-bytes 6.1.0",
  "criterion 0.4.0",
+ "hash-db",
+ "kitchensink-runtime",
  "kvdb",
  "kvdb-memorydb",
  "kvdb-rocksdb",
@@ -15707,8 +15698,8 @@ dependencies = [
  "sp-state-machine",
  "sp-tracing 16.0.0",
  "sp-trie",
+ "substrate-test-runtime-client",
  "tempfile",
- "trie-db",
 ]
 
 [[package]]
@@ -18190,6 +18181,7 @@ dependencies = [
 name = "sp-api"
 version = "26.0.0"
 dependencies = [
+ "hash-db",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -18205,7 +18197,6 @@ dependencies = [
  "sp-trie",
  "sp-version",
  "thiserror",
- "trie-db",
 ]
 
 [[package]]
@@ -18493,7 +18484,8 @@ dependencies = [
  "dyn-clonable",
  "ed25519-zebra 3.1.0",
  "futures",
- "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hash-db",
+ "hash256-std-hasher",
  "impl-serde",
  "itertools 0.10.5",
  "lazy_static",
@@ -18522,7 +18514,6 @@ dependencies = [
  "substrate-bip39",
  "thiserror",
  "tracing",
- "trie-db",
  "w3f-bls",
  "zeroize",
 ]
@@ -18620,9 +18611,7 @@ name = "sp-database"
 version = "10.0.0"
 dependencies = [
  "kvdb",
- "parity-db",
  "parking_lot 0.12.1",
- "trie-db",
 ]
 
 [[package]]
@@ -18841,7 +18830,7 @@ version = "31.0.1"
 dependencies = [
  "docify",
  "either",
- "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hash256-std-hasher",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
@@ -19001,6 +18990,7 @@ version = "0.35.0"
 dependencies = [
  "array-bytes 6.1.0",
  "assert_matches",
+ "hash-db",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -19152,13 +19142,10 @@ version = "29.0.0"
 dependencies = [
  "ahash 0.8.8",
  "array-bytes 6.1.0",
-<<<<<<< HEAD
- "criterion 0.5.1",
-=======
  "criterion 0.4.0",
  "hash-db",
->>>>>>> master
  "lazy_static",
+ "memory-db",
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -19171,7 +19158,9 @@ dependencies = [
  "sp-std 14.0.0",
  "thiserror",
  "tracing",
+ "trie-bench",
  "trie-db",
+ "trie-root",
  "trie-standardmap",
 ]
 
@@ -20796,8 +20785,6 @@ dependencies = [
 [[package]]
 name = "tracing-subscriber"
 version = "0.3.18"
-<<<<<<< HEAD
-=======
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
 dependencies = [
@@ -20816,34 +20803,39 @@ dependencies = [
 [[package]]
 name = "trie-bench"
 version = "0.38.0"
->>>>>>> master
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
+checksum = "a4680cb226e31d2a096592d0edecdda91cc371743002f80c0f8cf80219819b3b"
 dependencies = [
- "matchers 0.1.0",
- "nu-ansi-term",
- "once_cell",
- "regex",
- "sharded-slab",
- "smallvec",
- "thread_local",
- "tracing",
- "tracing-core",
- "tracing-log 0.2.0",
+ "criterion 0.4.0",
+ "hash-db",
+ "keccak-hasher",
+ "memory-db",
+ "parity-scale-codec",
+ "trie-db",
+ "trie-root",
+ "trie-standardmap",
 ]
 
 [[package]]
 name = "trie-db"
 version = "0.28.0"
-source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#e4b29e4b78d219aad99a2fa4f7a42939bd007d98"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff28e0f815c2fea41ebddf148e008b077d2faddb026c9555b29696114d602642"
 dependencies = [
- "criterion 0.5.1",
- "hash256-std-hasher 0.15.2 (git+https://github.com/cheme/trie.git?branch=cheme/new-trie)",
+ "hash-db",
+ "hashbrown 0.13.2",
  "log",
- "parity-scale-codec",
  "rustc-hex",
  "smallvec",
- "tiny-keccak",
+]
+
+[[package]]
+name = "trie-root"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4ed310ef5ab98f5fa467900ed906cb9232dd5376597e00fd4cba2a449d06c0b"
+dependencies = [
+ "hash-db",
 ]
 
 [[package]]

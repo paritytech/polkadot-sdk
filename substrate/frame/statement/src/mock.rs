@@ -22,17 +22,7 @@ use super::*;
 use crate as pallet_statement;
 use frame_support::{
 	derive_impl, ord_parameter_types,
-<<<<<<< HEAD
-	traits::{ConstU32, ConstU64, Everything},
-	weights::constants::RocksDbWeight,
-};
-use sp_core::{Pair, H256};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	AccountId32, BuildStorage,
-=======
 	traits::{ConstU32, ConstU64},
->>>>>>> master
 };
 use sp_core::Pair;
 use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
