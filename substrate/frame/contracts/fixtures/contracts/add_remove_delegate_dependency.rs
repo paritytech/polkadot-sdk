@@ -36,13 +36,11 @@ fn load_input(delegate_call: bool) {
 	match action {
 		// 1 = Add delegate dependency
 		1 => {
-			#[allow(deprecated)]
-			api::add_delegate_dependency(code_hash);
+			api::lock_delegate_dependency(code_hash);
 		},
 		// 2 = Remove delegate dependency
 		2 => {
-			#[allow(deprecated)]
-			api::remove_delegate_dependency(code_hash);
+			api::unlock_delegate_dependency(code_hash);
 		},
 		// 3 = Terminate
 		3 => {

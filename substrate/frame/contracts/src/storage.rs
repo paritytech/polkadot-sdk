@@ -233,7 +233,7 @@ impl<T: Config> ContractInfo<T> {
 	///
 	/// Returns an error if the maximum number of delegate_dependencies is reached or if
 	/// the delegate dependency already exists.
-	pub fn add_delegate_dependency(
+	pub fn lock_delegate_dependency(
 		&mut self,
 		code_hash: CodeHash<T>,
 		amount: BalanceOf<T>,
@@ -249,7 +249,7 @@ impl<T: Config> ContractInfo<T> {
 	/// dependency.
 	///
 	/// Returns an error if the entry doesn't exist.
-	pub fn remove_delegate_dependency(
+	pub fn unlock_delegate_dependency(
 		&mut self,
 		code_hash: &CodeHash<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {

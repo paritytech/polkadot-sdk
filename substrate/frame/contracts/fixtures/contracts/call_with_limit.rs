@@ -36,7 +36,6 @@ pub extern "C" fn call() {
 		proof_size: u64,
 	);
 
-	#[allow(deprecated)]
 	api::call_v2(
 		uapi::CallFlags::empty(),
 		callee_addr,

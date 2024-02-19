@@ -40,7 +40,6 @@ pub extern "C" fn call() {
 	api::set_storage(buffer, &[1u8; 4]);
 
 	// Call the callee
-	#[allow(deprecated)]
 	api::call_v2(
 		uapi::CallFlags::empty(),
 		callee,

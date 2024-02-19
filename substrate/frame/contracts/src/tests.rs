@@ -5372,21 +5372,21 @@ fn delegate_call_indeterministic_code() {
 }
 
 #[test]
-fn add_remove_delegate_dependency_works() {
+fn add_unlock_delegate_dependency_works() {
 	// set hash lock up deposit to 30%, to test deposit calculation.
 	CODE_HASH_LOCKUP_DEPOSIT_PERCENT.with(|c| *c.borrow_mut() = Perbill::from_percent(30));
 	MAX_DELEGATE_DEPENDENCIES.with(|c| *c.borrow_mut() = 1);
 
 	let (wasm_caller, self_code_hash) =
-		compile_module::<Test>("add_remove_delegate_dependency").unwrap();
+		compile_module::<Test>("add_unlock_delegate_dependency").unwrap();
 	let (wasm_callee, code_hash) = compile_module::<Test>("dummy").unwrap();
 	let (wasm_other, other_code_hash) = compile_module::<Test>("call").unwrap();
 
 	// Define inputs with various actions to test adding / removing delegate_dependencies.
 	// See the contract for more details.
 	let noop_input = (0u32, code_hash);
-	let add_delegate_dependency_input = (1u32, code_hash);
-	let remove_delegate_dependency_input = (2u32, code_hash);
+	let lock_delegate_dependency_input = (1u32, code_hash);
+	let unlock_delegate_dependency_input = (2u32, code_hash);
 	let terminate_input = (3u32, code_hash);
 
 	// Instantiate the caller contract with the given input.
@@ -5423,9 +5423,9 @@ fn add_remove_delegate_dependency_works() {
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
 
-		// Instantiate with add_delegate_dependency should fail since the code is not yet on chain.
+		// Instantiate with lock_delegate_dependency should fail since the code is not yet on chain.
 		assert_err!(
-			instantiate(&add_delegate_dependency_input).result,
+			instantiate(&lock_delegate_dependency_input).result,
 			Error::<Test>::CodeNotFound
 		);
 
@@ -5435,7 +5435,7 @@ fn add_remove_delegate_dependency_works() {
 				.unwrap();
 
 		// Instantiate should now work.
-		let addr_caller = instantiate(&add_delegate_dependency_input).result.unwrap().account_id;
+		let addr_caller = instantiate(&lock_delegate_dependency_input).result.unwrap().account_id;
 
 		// There should be a dependency and a deposit.
 		let contract = test_utils::get_contract(&addr_caller);
@@ -5458,7 +5458,7 @@ fn add_remove_delegate_dependency_works() {
 
 		// Adding an already existing dependency should fail.
 		assert_err!(
-			call(&addr_caller, &add_delegate_dependency_input).result,
+			call(&addr_caller, &lock_delegate_dependency_input).result,
 			Error::<Test>::DelegateDependencyAlreadyExists
 		);
 
@@ -5476,7 +5476,7 @@ fn add_remove_delegate_dependency_works() {
 		);
 
 		// Removing dependency should work.
-		assert_ok!(call(&addr_caller, &remove_delegate_dependency_input).result);
+		assert_ok!(call(&addr_caller, &unlock_delegate_dependency_input).result);
 
 		// Dependency should be removed, and deposit should be returned.
 		let contract = test_utils::get_contract(&addr_caller);
@@ -5491,14 +5491,14 @@ fn add_remove_delegate_dependency_works() {
 
 		// Removing an unexisting dependency should fail.
 		assert_err!(
-			call(&addr_caller, &remove_delegate_dependency_input).result,
+			call(&addr_caller, &unlock_delegate_dependency_input).result,
 			Error::<Test>::DelegateDependencyNotFound
 		);
 
 		// Adding a dependency with a storage limit too low should fail.
 		DEFAULT_DEPOSIT_LIMIT.with(|c| *c.borrow_mut() = dependency_deposit - 1);
 		assert_err!(
-			call(&addr_caller, &add_delegate_dependency_input).result,
+			call(&addr_caller, &lock_delegate_dependency_input).result,
 			Error::<Test>::StorageDepositLimitExhausted
 		);
 
@@ -5511,7 +5511,7 @@ fn add_remove_delegate_dependency_works() {
 		// Restore initial deposit limit and add the dependency back.
 		DEFAULT_DEPOSIT_LIMIT.with(|c| *c.borrow_mut() = 10_000_000);
 		Contracts::bare_upload_code(ALICE, wasm_callee, None, Determinism::Enforced).unwrap();
-		call(&addr_caller, &add_delegate_dependency_input).result.unwrap();
+		call(&addr_caller, &lock_delegate_dependency_input).result.unwrap();
 
 		// Call terminate should work, and return the deposit.
 		let balance_before = test_utils::get_balance(&ALICE);
