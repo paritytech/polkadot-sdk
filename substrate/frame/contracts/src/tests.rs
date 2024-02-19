@@ -5372,7 +5372,7 @@ fn delegate_call_indeterministic_code() {
 }
 
 #[test]
-fn add_unlock_delegate_dependency_works() {
+fn locking_delegate_dependency_works() {
 	// set hash lock up deposit to 30%, to test deposit calculation.
 	CODE_HASH_LOCKUP_DEPOSIT_PERCENT.with(|c| *c.borrow_mut() = Perbill::from_percent(30));
 	MAX_DELEGATE_DEPENDENCIES.with(|c| *c.borrow_mut() = 1);
