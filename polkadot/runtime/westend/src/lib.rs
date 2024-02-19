@@ -1794,6 +1794,12 @@ sp_api::impl_runtime_apis! {
 
 	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
+			use sp_runtime::{traits::Header, DigestItem};
+
+			if header.digest().logs().iter().any(|di| di == &DigestItem::RuntimeEnvironmentUpdated) {
+				pallet_im_online::migration::clear_offchain_storage(Session::validators().len() as u32);
+			}
+
 			Executive::offchain_worker(header)
 		}
 	}
