@@ -102,9 +102,10 @@ where
 	};
 
 	// generate storage proof to be delivered to This chain
-	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>, ()>>(&mdb, &root)
-		.map_err(|_| "record_all_trie_keys has failed")
-		.expect("record_all_trie_keys should not fail in benchmarks");
+	let storage_proof =
+		record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>, ()>>(&mdb, &root)
+			.map_err(|_| "record_all_trie_keys has failed")
+			.expect("record_all_trie_keys should not fail in benchmarks");
 	(root, storage_proof)
 }
 
@@ -131,9 +132,10 @@ where
 	let root = changeset.apply_to(&mut mdb);
 
 	// generate storage proof to be delivered to This chain
-	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>, ()>>(&mdb, &root)
-		.map_err(|_| "record_all_trie_keys has failed")
-		.expect("record_all_trie_keys should not fail in benchmarks");
+	let storage_proof =
+		record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>, ()>>(&mdb, &root)
+			.map_err(|_| "record_all_trie_keys has failed")
+			.expect("record_all_trie_keys should not fail in benchmarks");
 
 	(root, storage_proof)
 }

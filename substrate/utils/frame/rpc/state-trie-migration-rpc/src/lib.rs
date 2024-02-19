@@ -80,7 +80,8 @@ where
 {
 	let trie_backend = backend.as_trie_backend();
 	let essence = trie_backend.essence();
-	let (top_remaining_to_migrate, total_top, trie) = count_migrate(essence, essence.root(), Default::default())?;
+	let (top_remaining_to_migrate, total_top, trie) =
+		count_migrate(essence, essence.root(), Default::default())?;
 
 	let mut child_remaining_to_migrate = 0;
 	let mut total_child = 0;
@@ -97,7 +98,11 @@ where
 			let location = item.2.node_plan().additional_ref_location(item.2.locations());
 			let prefixed_key = PrefixedStorageKey::new(key);
 			let (_type, unprefixed) = ChildType::from_prefixed_key(&prefixed_key).unwrap();
-			child_roots.push((ChildInfo::new_default(unprefixed), value, location.unwrap_or_default()));
+			child_roots.push((
+				ChildInfo::new_default(unprefixed),
+				value,
+				location.unwrap_or_default(),
+			));
 		}
 	}
 	for (child_info, root, location) in child_roots {

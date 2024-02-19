@@ -130,8 +130,7 @@ impl RelayStateSproofBuilder {
 	pub fn into_state_root_and_proof(
 		self,
 	) -> (polkadot_primitives::Hash, sp_state_machine::StorageProof) {
-		let (db, root) =
-			MemoryDB::<HashingFor<polkadot_primitives::Block>>::default_with_root();
+		let (db, root) = MemoryDB::<HashingFor<polkadot_primitives::Block>>::default_with_root();
 		let state_version = Default::default(); // for test using default.
 		let mut backend = sp_state_machine::TrieBackendBuilder::new(Box::new(db), root).build();
 

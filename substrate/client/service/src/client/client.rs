@@ -879,7 +879,8 @@ where
 					.into_storage_changes(&state, *parent_hash)
 					.map_err(sp_blockchain::Error::Storage)?;
 
-				if import_block.header.state_root() != &gen_storage_changes.transaction.root_hash() {
+				if import_block.header.state_root() != &gen_storage_changes.transaction.root_hash()
+				{
 					return Err(Error::InvalidStateRoot)
 				}
 				Some(sc_consensus::StorageChanges::Changes(gen_storage_changes))

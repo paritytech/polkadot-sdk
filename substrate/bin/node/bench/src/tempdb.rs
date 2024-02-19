@@ -16,8 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use sc_client_db::DatabaseSource;
 use node_primitives::Block;
+use sc_client_db::DatabaseSource;
 use std::path::PathBuf;
 
 #[derive(Clone, Copy, Debug)]
@@ -45,19 +45,26 @@ impl TempDatabase {
 		match db_type {
 			DatabaseType::RocksDb => {
 				let db = sc_client_db::open_database::<Block>(
-					&DatabaseSource::RocksDb { path: self.0.path().into(), cache_size: 128*1024*1024 },
+					&DatabaseSource::RocksDb {
+						path: self.0.path().into(),
+						cache_size: 128 * 1024 * 1024,
+					},
 					true,
 					false,
-				).expect("Database backend error");
+				)
+				.expect("Database backend error");
 				sc_client_db::StorageDb::<Block> { db, state_db: None }
 			},
-			DatabaseType::ParityDbMulti
-			| DatabaseType::ParityDb => {
+			DatabaseType::ParityDbMulti | DatabaseType::ParityDb => {
 				let db = sc_client_db::open_database::<Block>(
-					&DatabaseSource::ParityDb { path: self.0.path().into(), multi_tree: matches!(db_type, DatabaseType::ParityDbMulti) },
+					&DatabaseSource::ParityDb {
+						path: self.0.path().into(),
+						multi_tree: matches!(db_type, DatabaseType::ParityDbMulti),
+					},
 					true,
 					false,
-				).expect("Database backend error");
+				)
+				.expect("Database backend error");
 				sc_client_db::StorageDb::<Block> { db, state_db: None }
 			},
 		}

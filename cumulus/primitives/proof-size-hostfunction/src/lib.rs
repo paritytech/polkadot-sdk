@@ -44,8 +44,8 @@ mod tests {
 	use sp_core::Blake2Hasher;
 	use sp_state_machine::TestExternalities;
 	use sp_trie::{
-		proof_size_extension::ProofSizeExt, recorder::Recorder, LayoutV1, PrefixedMemoryDB,
-		TrieDBMutBuilder, DBLocation,
+		proof_size_extension::ProofSizeExt, recorder::Recorder, DBLocation, LayoutV1,
+		PrefixedMemoryDB, TrieDBMutBuilder,
 	};
 
 	use crate::{storage_proof_size, PROOF_RECORDING_DISABLED};
@@ -54,8 +54,8 @@ mod tests {
 
 	type TestLayout = LayoutV1<sp_core::Blake2Hasher, DBLocation>;
 
-	fn get_prepared_test_externalities() -> (TestExternalities<Blake2Hasher>, Recorder<Blake2Hasher, DBLocation>)
-	{
+	fn get_prepared_test_externalities(
+	) -> (TestExternalities<Blake2Hasher>, Recorder<Blake2Hasher, DBLocation>) {
 		let mut db = PrefixedMemoryDB::default();
 
 		let mut trie = TrieDBMutBuilder::<TestLayout>::new(&mut db).build();

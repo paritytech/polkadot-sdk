@@ -184,9 +184,7 @@ where
 			)
 			.unwrap();
 
-		state_ext.backend.apply_transaction(
-			storage_changes.transaction,
-		);
+		state_ext.backend.apply_transaction(storage_changes.transaction);
 
 		log::info!(
 			target: LOG_TARGET,

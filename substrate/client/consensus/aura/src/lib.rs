@@ -668,11 +668,7 @@ mod tests {
 		fn make_block_import(
 			&self,
 			client: PeersClient,
-		) -> (
-			Self::BlockImport,
-			Option<BoxJustificationImport<Block>>,
-			Self::PeerData,
-		) {
+		) -> (Self::BlockImport, Option<BoxJustificationImport<Block>>, Self::PeerData) {
 			(client, None, ())
 		}
 

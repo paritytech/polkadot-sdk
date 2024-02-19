@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-
 use node_primitives::{Block, Hash};
 use sp_runtime::traits::BlakeTwo256;
 use sp_trie::trie_types::TrieDBMutBuilderV1;
@@ -39,8 +38,7 @@ pub fn generate_trie(
 		vec![0],
 	);
 	*/
-	let mut trie_db =
-		TrieDBMutBuilderV1::<BlakeTwo256>::new(&db).build();
+	let mut trie_db = TrieDBMutBuilderV1::<BlakeTwo256>::new(&db).build();
 	for (key, value) in key_values {
 		trie_db.insert(&key, &value).expect("trie insertion failed");
 	}
@@ -49,7 +47,7 @@ pub fn generate_trie(
 	let root = commit.root_hash();
 
 	let mut transaction = sc_client_db::Transaction::default();
-	sc_client_db::apply_tree_commit::<BlakeTwo256>(commit, db.state_db.is_none(),  &mut transaction);
+	sc_client_db::apply_tree_commit::<BlakeTwo256>(commit, db.state_db.is_none(), &mut transaction);
 
 	db.db.commit(transaction).expect("Failed to write transaction");
 

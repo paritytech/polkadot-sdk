@@ -127,9 +127,7 @@ async fn run<Block: BlockT, HostFns: HostFunctions>(
 	let storage_changes =
 		changes.drain_storage_changes(&externalities.backend, externalities.state_version)?;
 
-	externalities
-		.backend
-		.apply_transaction(storage_changes.transaction);
+	externalities.backend.apply_transaction(storage_changes.transaction);
 
 	Ok(())
 }

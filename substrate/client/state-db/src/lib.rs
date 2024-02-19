@@ -537,7 +537,8 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 		ref_counting: bool,
 		should_init: bool,
 	) -> Result<(CommitSet<Key>, StateDb<BlockHash, Key, D>), Error<D::Error>> {
-		let (db_init_commit_set, selected_mode) = Self::open_meta(&db, requested_mode, should_init)?;
+		let (db_init_commit_set, selected_mode) =
+			Self::open_meta(&db, requested_mode, should_init)?;
 		let state_db =
 			StateDb { db: RwLock::new(StateDbSync::new(selected_mode, ref_counting, db)?) };
 
@@ -583,7 +584,6 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 		};
 		Ok((db_init_commit_set, selected_mode))
 	}
-
 
 	pub fn pruning_mode(&self) -> PruningMode {
 		self.db.read().mode.clone()

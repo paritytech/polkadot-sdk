@@ -27,7 +27,7 @@ use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	rc::Rc,
 };
-use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof, DBLocation};
+use sp_trie::{DBLocation, NodeCodec, ProofSizeProvider, StorageProof};
 use trie_db::{node_db::Hasher, RecordedForKey, TrieAccess};
 
 /// A trie recorder that only keeps track of the proof size.
@@ -136,11 +136,13 @@ unsafe impl<H: Hasher> Sync for SizeOnlyRecorderProvider<H> {}
 mod tests {
 	use rand::Rng;
 	use sp_trie::{
-		cache::{CacheSize, SharedTrieCache}, DBLocation,
-		MemoryDB, ProofSizeProvider, TrieRecorderProvider,
+		cache::{CacheSize, SharedTrieCache},
+		DBLocation, MemoryDB, ProofSizeProvider, TrieRecorderProvider,
 	};
-	use trie_db::{Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieRecorder};
-	use trie_db::test_utils::{Alphabet, StandardMap, ValueMode};
+	use trie_db::{
+		test_utils::{Alphabet, StandardMap, ValueMode},
+		Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieRecorder,
+	};
 
 	use super::*;
 
@@ -171,7 +173,9 @@ mod tests {
 		.collect();
 
 		// Fill database with values
-		let mut trie = TrieDBMutBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(&mut db).build();
+		let mut trie =
+			TrieDBMutBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(&mut db)
+				.build();
 		for (k, v) in &test_data {
 			trie.insert(k, v).expect("Inserts data");
 		}
@@ -198,20 +202,23 @@ mod tests {
 				let local_cache = cache_for_test.local_cache();
 				let mut trie_cache_for_reference = local_cache.as_trie_db_cache(root);
 				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
-				let reference_trie =
-					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(&db, &root)
-						.with_recorder(&mut reference_trie_recorder)
-						.with_cache(&mut trie_cache_for_reference)
-						.build();
+				let reference_trie = TrieDBBuilder::<
+					sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>,
+				>::new(&db, &root)
+				.with_recorder(&mut reference_trie_recorder)
+				.with_cache(&mut trie_cache_for_reference)
+				.build();
 
 				let local_cache_for_test = reference_cache.local_cache();
 				let mut trie_cache_for_test = local_cache_for_test.as_trie_db_cache(root);
 				let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
 				let test_trie =
-					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(&db, &root)
-						.with_recorder(&mut trie_recorder_under_test)
-						.with_cache(&mut trie_cache_for_test)
-						.build();
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(
+						&db, &root,
+					)
+					.with_recorder(&mut trie_recorder_under_test)
+					.with_cache(&mut trie_cache_for_test)
+					.build();
 
 				// Access random values from the test data
 				for _ in 0..100 {
@@ -247,16 +254,19 @@ mod tests {
 				SizeOnlyRecorderProvider::new();
 			{
 				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
-				let reference_trie =
-					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(&db, &root)
-						.with_recorder(&mut reference_trie_recorder)
-						.build();
+				let reference_trie = TrieDBBuilder::<
+					sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>,
+				>::new(&db, &root)
+				.with_recorder(&mut reference_trie_recorder)
+				.build();
 
 				let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
 				let test_trie =
-					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(&db, &root)
-						.with_recorder(&mut trie_recorder_under_test)
-						.build();
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(
+						&db, &root,
+					)
+					.with_recorder(&mut trie_recorder_under_test)
+					.build();
 
 				for _ in 0..200 {
 					let index: usize = rng.gen_range(0..test_data.len());

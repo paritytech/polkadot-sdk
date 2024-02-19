@@ -45,8 +45,7 @@ use sc_consensus::{
 };
 use sc_network::{config::RequestResponseConfig, ProtocolName};
 use sc_network_test::{
-	Block, FullPeerConfig, PassThroughVerifier, Peer, PeersClient,
-	PeersFullClient, TestNetFactory,
+	Block, FullPeerConfig, PassThroughVerifier, Peer, PeersClient, PeersFullClient, TestNetFactory,
 };
 use sc_utils::notification::NotificationReceiver;
 use serde::{Deserialize, Serialize};
@@ -83,12 +82,8 @@ const GOOD_MMR_ROOT: MmrRootHash = MmrRootHash::repeat_byte(0xbf);
 const BAD_MMR_ROOT: MmrRootHash = MmrRootHash::repeat_byte(0x42);
 const ALTERNATE_BAD_MMR_ROOT: MmrRootHash = MmrRootHash::repeat_byte(0x13);
 
-type BeefyBlockImport = crate::BeefyBlockImport<
-	Block,
-	substrate_test_runtime_client::Backend,
-	TestApi,
-	PeersClient,
->;
+type BeefyBlockImport =
+	crate::BeefyBlockImport<Block, substrate_test_runtime_client::Backend, TestApi, PeersClient>;
 
 pub(crate) type BeefyValidatorSet = ValidatorSet<AuthorityId>;
 pub(crate) type BeefyPeer = Peer<PeerData, BeefyBlockImport>;
@@ -207,11 +202,7 @@ impl TestNetFactory for BeefyTestNet {
 	fn make_block_import(
 		&self,
 		client: PeersClient,
-	) -> (
-		Self::BlockImport,
-		Option<BoxJustificationImport<Block>>,
-		Self::PeerData,
-	) {
+	) -> (Self::BlockImport, Option<BoxJustificationImport<Block>>, Self::PeerData) {
 		let keys = &[BeefyKeyring::Alice, BeefyKeyring::Bob];
 		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
 		let api = Arc::new(TestApi::new(self.beefy_genesis, &validator_set, GOOD_MMR_ROOT));

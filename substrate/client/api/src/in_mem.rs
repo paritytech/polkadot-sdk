@@ -29,8 +29,8 @@ use sp_runtime::{
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
-	Backend as StateBackend, ChildStorageCollection, InMemoryBackend,
-	IndexOperation, StorageCollection, backend::TrieCommit,
+	backend::TrieCommit, Backend as StateBackend, ChildStorageCollection, InMemoryBackend,
+	IndexOperation, StorageCollection,
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -537,10 +537,7 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		Ok(())
 	}
 
-	fn update_db_storage(
-		&mut self,
-		update: TrieCommit<Block::Hash>,
-	) -> sp_blockchain::Result<()> {
+	fn update_db_storage(&mut self, update: TrieCommit<Block::Hash>) -> sp_blockchain::Result<()> {
 		self.trie_commit = Some(update);
 		Ok(())
 	}
@@ -697,7 +694,8 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 			let hash = header.hash();
 
-			let mut new_state = operation.old_state.clone_in_mem().expect("Backend is MemoryDB; qed");
+			let mut new_state =
+				operation.old_state.clone_in_mem().expect("Backend is MemoryDB; qed");
 			if let Some(commit) = operation.trie_commit {
 				new_state.apply_transaction(commit);
 			}

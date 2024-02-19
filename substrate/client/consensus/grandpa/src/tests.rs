@@ -30,8 +30,8 @@ use sc_consensus::{
 };
 use sc_network::config::Role;
 use sc_network_test::{
-	Block, FullPeerConfig, Hash, PassThroughVerifier, Peer, PeersClient,
-	PeersFullClient, TestClient, TestNetFactory,
+	Block, FullPeerConfig, Hash, PassThroughVerifier, Peer, PeersClient, PeersFullClient,
+	TestClient, TestNetFactory,
 };
 use sc_transaction_pool_api::RejectAllTxPool;
 use sp_api::{ApiRef, ProvideRuntimeApi};

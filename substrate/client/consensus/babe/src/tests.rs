@@ -220,11 +220,7 @@ impl TestNetFactory for BabeTestNet {
 	fn make_block_import(
 		&self,
 		client: PeersClient,
-	) -> (
-		Self::BlockImport,
-		Option<BoxJustificationImport<Block>>,
-		Option<PeerData>,
-	) {
+	) -> (Self::BlockImport, Option<BoxJustificationImport<Block>>, Option<PeerData>) {
 		let client = client.as_client();
 
 		let config = crate::configuration(&*client).expect("config available");
@@ -235,11 +231,7 @@ impl TestNetFactory for BabeTestNet {
 
 		let data_block_import =
 			Mutex::new(Some(Box::new(block_import.clone()) as BoxBlockImport<_>));
-		(
-			block_import,
-			None,
-			Some(PeerData { link, block_import: data_block_import }),
-		)
+		(block_import, None, Some(PeerData { link, block_import: data_block_import }))
 	}
 
 	fn make_verifier(&self, client: PeersClient, maybe_link: &Option<PeerData>) -> Self::Verifier {

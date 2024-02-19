@@ -17,7 +17,7 @@
 
 //! In-memory implementation of `Database`
 
-use crate::{error, Change, ColumnId, Database, Transaction, DBLocation};
+use crate::{error, Change, ColumnId, DBLocation, Database, Transaction};
 use parking_lot::RwLock;
 use std::collections::{hash_map::Entry, HashMap};
 
@@ -46,14 +46,13 @@ where
 						.and_modify(|(c, _)| *c += 1)
 						.or_insert_with(|| (1, value));
 				},
-				Change::Reference(col, hash) | Change::ReferenceTree(col, hash) => {
+				Change::Reference(col, hash) | Change::ReferenceTree(col, hash) =>
 					if let Entry::Occupied(mut entry) =
 						s.entry(col).or_default().entry(hash.as_ref().to_vec())
 					{
 						entry.get_mut().0 += 1;
-					}
-				},
-				Change::Release(col, hash) | Change::ReleaseTree(col, hash) => {
+					},
+				Change::Release(col, hash) | Change::ReleaseTree(col, hash) =>
 					if let Entry::Occupied(mut entry) =
 						s.entry(col).or_default().entry(hash.as_ref().to_vec())
 					{
@@ -61,11 +60,10 @@ where
 						if entry.get().0 == 0 {
 							entry.remove();
 						}
-					}
-				},
+					},
 				Change::StoreTree(_, _, _) => {
 					unimplemented!("MemDb does not support tree storage");
-				}
+				},
 			}
 		}
 
@@ -77,9 +75,15 @@ where
 		s.get(&col).and_then(|c| c.get(key).map(|(_, v)| v.clone()))
 	}
 
-	fn get_node(&self, col: ColumnId, key: &[u8], _location: DBLocation) -> Option<(Vec<u8>, Vec<DBLocation>)> {
+	fn get_node(
+		&self,
+		col: ColumnId,
+		key: &[u8],
+		_location: DBLocation,
+	) -> Option<(Vec<u8>, Vec<DBLocation>)> {
 		let s = self.0.read();
-		s.get(&col).and_then(|c| c.get(key).map(|(_, v)| (v.clone(), Default::default())))
+		s.get(&col)
+			.and_then(|c| c.get(key).map(|(_, v)| (v.clone(), Default::default())))
 	}
 }
 

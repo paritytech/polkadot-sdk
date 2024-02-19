@@ -196,8 +196,7 @@ pub mod registration {
 		// Generate tries for each transaction.
 		let mut chunk_index = 0;
 		for transaction in transactions {
-			let mut trie =
-				sp_trie::TrieDBMutBuilder::<TrieLayout>::new(&mut db).build();
+			let mut trie = sp_trie::TrieDBMutBuilder::<TrieLayout>::new(&mut db).build();
 			let chunks = transaction.chunks(CHUNK_SIZE).map(|c| c.to_vec());
 			for (index, chunk) in chunks.enumerate() {
 				let index = encode_index(index as u32);

@@ -18,7 +18,7 @@
 /// A wrapper around `kvdb::Database` that implements `sp_database::Database` trait
 use ::kvdb::{DBTransaction, KeyValueDB};
 
-use crate::{error, Change, ColumnId, Database, Transaction, DBLocation};
+use crate::{error, Change, ColumnId, DBLocation, Database, Transaction};
 
 struct DbAdapter<D: KeyValueDB + 'static>(D);
 
@@ -105,7 +105,7 @@ impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
 				},
 				Change::StoreTree(_col, _key, _tree) => {
 					unimplemented!("StoreTree is not supported by kvdb");
-				}
+				},
 			}
 		}
 		self.0.write(tx).map_err(|e| error::DatabaseError(Box::new(e)))
@@ -119,7 +119,12 @@ impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
 		handle_err(self.0.has_key(col, key))
 	}
 
-	fn get_node(&self, col: ColumnId, key: &[u8], _location: DBLocation) -> Option<(Vec<u8>, Vec<DBLocation>)> {
+	fn get_node(
+		&self,
+		col: ColumnId,
+		key: &[u8],
+		_location: DBLocation,
+	) -> Option<(Vec<u8>, Vec<DBLocation>)> {
 		handle_err(self.0.get(col, key)).map(|value| (value, Vec::new()))
 	}
 }

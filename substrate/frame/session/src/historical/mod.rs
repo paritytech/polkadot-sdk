@@ -245,8 +245,7 @@ impl<T: Config> ProvingTrie<T> {
 			// map each key to the owner index.
 			for key_id in T::Keys::key_ids() {
 				let key = keys.get_raw(*key_id);
-				let res =
-					(key_id, key).using_encoded(|k| i.using_encoded(|v| trie.insert(k, v)));
+				let res = (key_id, key).using_encoded(|k| i.using_encoded(|v| trie.insert(k, v)));
 
 				let _ = res.map_err(|_| "failed to insert into trie")?;
 			}
@@ -274,8 +273,9 @@ impl<T: Config> ProvingTrie<T> {
 	pub fn prove(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Vec<Vec<u8>>> {
 		let mut recorder = Recorder::<LayoutV0<T::Hashing, ()>>::new();
 		{
-			let trie =
-				TrieDBBuilderV0::<T::Hashing, ()>::new(&self.db, &self.root).with_recorder(&mut recorder).build();
+			let trie = TrieDBBuilderV0::<T::Hashing, ()>::new(&self.db, &self.root)
+				.with_recorder(&mut recorder)
+				.build();
 			let val_idx = (key_id, key_data).using_encoded(|s| {
 				trie.get(s).ok()?.and_then(|raw| u32::decode(&mut &*raw).ok())
 			})?;

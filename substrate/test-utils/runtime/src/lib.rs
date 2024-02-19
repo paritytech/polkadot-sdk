@@ -810,7 +810,8 @@ fn test_read_child_storage() {
 fn test_witness(proof: StorageProof, root: crate::Hash) {
 	use sp_externalities::Externalities;
 	let db: sp_trie::MemoryDB<crate::Hashing> = proof.into_memory_db();
-	let backend = sp_state_machine::TrieBackendBuilder::<crate::Hashing>::new(Box::new(db), root).build();
+	let backend =
+		sp_state_machine::TrieBackendBuilder::<crate::Hashing>::new(Box::new(db), root).build();
 	let mut overlay = sp_state_machine::OverlayedChanges::default();
 	let mut ext = sp_state_machine::Ext::new(
 		&mut overlay,
@@ -1078,8 +1079,7 @@ mod tests {
 
 	fn witness_backend() -> (sp_trie::MemoryDB<crate::Hashing>, crate::Hash) {
 		let mut mdb = sp_trie::MemoryDB::<crate::Hashing>::default();
-		let mut trie =
-			sp_trie::trie_types::TrieDBMutBuilderV1::new(&mut mdb).build();
+		let mut trie = sp_trie::trie_types::TrieDBMutBuilderV1::new(&mut mdb).build();
 		trie.insert(b"value3", &[142]).expect("insert failed");
 		trie.insert(b"value4", &[124]).expect("insert failed");
 		let root = trie.commit().apply_to(&mut mdb);

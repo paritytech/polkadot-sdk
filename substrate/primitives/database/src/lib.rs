@@ -144,7 +144,12 @@ pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {
 
 	/// Retrieve the tree node previously stored against `key` and `location` or `None` if
 	/// if no such node exists.
-	fn get_node(&self, col: ColumnId, key: &[u8], location: DBLocation) -> Option<(Vec<u8>, Vec<DBLocation>)>;
+	fn get_node(
+		&self,
+		col: ColumnId,
+		key: &[u8],
+		location: DBLocation,
+	) -> Option<(Vec<u8>, Vec<DBLocation>)>;
 }
 
 impl<H> std::fmt::Debug for dyn Database<H> {

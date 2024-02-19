@@ -18,11 +18,11 @@
 
 use std::sync::Arc;
 
-use sp_core::H256;
-use trie_db::node_db::{NodeDB, Prefix};
 use kvdb::KeyValueDB;
 use node_primitives::Hash;
-use sp_trie::{DBValue, DBLocation, MemoryDB};
+use sp_core::H256;
+use sp_trie::{DBLocation, DBValue, MemoryDB};
+use trie_db::node_db::{NodeDB, Prefix};
 
 pub type Hasher = sp_core::Blake2Hasher;
 
@@ -33,11 +33,19 @@ pub struct SimpleTrie<'a> {
 }
 
 impl<'a> NodeDB<Hasher, DBValue, DBLocation> for SimpleTrie<'a> {
-	fn get(&self, key: &H256, prefix: Prefix, _locaton: DBLocation) -> Option<(DBValue, Vec<DBLocation>)> {
+	fn get(
+		&self,
+		key: &H256,
+		prefix: Prefix,
+		_locaton: DBLocation,
+	) -> Option<(DBValue, Vec<DBLocation>)> {
 		if let Some(value) = self.overlay.get(&key, prefix) {
 			return Some((value.clone(), vec![]));
 		}
-		self.db.get(0, key.as_ref()).expect("Database backend error").map(|v| (v, vec![]))
+		self.db
+			.get(0, key.as_ref())
+			.expect("Database backend error")
+			.map(|v| (v, vec![]))
 	}
 
 	fn contains(&self, hash: &Hash, prefix: Prefix, location: DBLocation) -> bool {

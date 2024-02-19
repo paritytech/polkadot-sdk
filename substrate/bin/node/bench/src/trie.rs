@@ -167,7 +167,8 @@ impl core::Benchmark for TrieReadBenchmark {
 		let mut db = self.database.clone();
 
 		let db = db.open(self.database_type);
-		let trie_backend = sp_state_machine::TrieBackendBuilder::<_>::new(Box::new(db), self.root).build();
+		let trie_backend =
+			sp_state_machine::TrieBackendBuilder::<_>::new(Box::new(db), self.root).build();
 		for (warmup_key, warmup_value) in self.warmup_keys.iter() {
 			let value = trie_backend
 				.storage(&warmup_key[..])
@@ -295,7 +296,11 @@ impl core::Benchmark for TrieWriteBenchmark {
 		let new_root = commit.root_hash();
 
 		let mut transaction = sc_client_db::Transaction::default();
-		sc_client_db::apply_tree_commit::<BlakeTwo256>(commit, db.state_db.is_none(), &mut transaction);
+		sc_client_db::apply_tree_commit::<BlakeTwo256>(
+			commit,
+			db.state_db.is_none(),
+			&mut transaction,
+		);
 		db.db.commit(transaction).expect("Failed to write transaction");
 
 		let elapsed = started.elapsed();
