@@ -280,31 +280,6 @@
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -470,14 +445,11 @@
 	<span class="kw">use crate as </span>pallet_insecure_randomness_collective_flip;
 
 	<span class="kw">use </span>sp_core::H256;
-	<span class="kw">use </span>sp_runtime::{
-		traits::{BlakeTwo256, Header <span class="kw">as _</span>, IdentityLookup},
-		BuildStorage,
-	};
+	<span class="kw">use </span>sp_runtime::{traits::Header <span class="kw">as _</span>, BuildStorage};
 
 	<span class="kw">use </span>frame_support::{
 		derive_impl, parameter_types,
-		traits::{ConstU32, ConstU64, OnInitialize, Randomness},
+		traits::{OnInitialize, Randomness},
 	};
 	<span class="kw">use </span>frame_system::limits;
 
@@ -498,29 +470,7 @@
 
 	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
 	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
-		<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
-		<span class="kw">type </span>BlockWeights = ();
-		<span class="kw">type </span>BlockLength = BlockLength;
-		<span class="kw">type </span>DbWeight = ();
-		<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
-		<span class="kw">type </span>Nonce = u64;
-		<span class="kw">type </span>RuntimeCall = RuntimeCall;
-		<span class="kw">type </span>Hash = H256;
-		<span class="kw">type </span>Hashing = BlakeTwo256;
-		<span class="kw">type </span>AccountId = u64;
-		<span class="kw">type </span>Lookup = IdentityLookup&lt;<span class="self">Self</span>::AccountId&gt;;
 		<span class="kw">type </span>Block = Block;
-		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>BlockHashCount = ConstU64&lt;<span class="number">250</span>&gt;;
-		<span class="kw">type </span>Version = ();
-		<span class="kw">type </span>PalletInfo = PalletInfo;
-		<span class="kw">type </span>AccountData = ();
-		<span class="kw">type </span>OnNewAccount = ();
-		<span class="kw">type </span>OnKilledAccount = ();
-		<span class="kw">type </span>SystemWeightInfo = ();
-		<span class="kw">type </span>SS58Prefix = ();
-		<span class="kw">type </span>OnSetCode = ();
-		<span class="kw">type </span>MaxConsumers = ConstU32&lt;<span class="number">16</span>&gt;;
 	}
 
 	<span class="kw">impl </span>pallet_insecure_randomness_collective_flip::Config <span class="kw">for </span>Test {}

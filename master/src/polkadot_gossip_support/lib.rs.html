@@ -674,6 +674,10 @@
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
 <a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -739,7 +743,11 @@
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::gossip-support&quot;</span>;
 <span class="comment">// How much time should we wait to reissue a connection request
 // since the last authority discovery resolution failure.
+</span><span class="attr">#[cfg(not(test))]
 </span><span class="kw">const </span>BACKOFF_DURATION: Duration = Duration::from_secs(<span class="number">5</span>);
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">const </span>BACKOFF_DURATION: Duration = Duration::from_millis(<span class="number">500</span>);
 
 <span class="doccomment">/// Duration after which we consider low connectivity a problem.
 ///
@@ -947,8 +955,8 @@
 					)
 					.<span class="kw">await</span><span class="question-mark">?</span>;
 				}
-				<span class="comment">// authority_discovery is just a cache so let&#39;s try every leaf to detect if there
-				// are new authorities there.
+				<span class="comment">// authority_discovery is just a cache so let&#39;s try every time we try to re-connect
+				// if new authorities are present.
 				</span><span class="self">self</span>.update_authority_ids(sender, session_info.discovery_keys).<span class="kw">await</span>;
 			}
 		}

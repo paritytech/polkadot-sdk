@@ -800,33 +800,6 @@
 <a href="#800" id="800">800</a>
 <a href="#801" id="801">801</a>
 <a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
-<a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
-<a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
-<a href="#824" id="824">824</a>
-<a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a>
-<a href="#827" id="827">827</a>
-<a href="#828" id="828">828</a>
-<a href="#829" id="829">829</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1352,16 +1325,11 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate as </span>pallet_membership;
 
-	<span class="kw">use </span>sp_core::H256;
-	<span class="kw">use </span>sp_runtime::{
-		bounded_vec,
-		traits::{BadOrigin, BlakeTwo256, IdentityLookup},
-		BuildStorage,
-	};
+	<span class="kw">use </span>sp_runtime::{bounded_vec, traits::BadOrigin, BuildStorage};
 
 	<span class="kw">use </span>frame_support::{
 		assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-		traits::{ConstU32, ConstU64, StorageVersion},
+		traits::{ConstU32, StorageVersion},
 	};
 	<span class="kw">use </span>frame_system::EnsureSignedBy;
 
@@ -1382,29 +1350,7 @@
 
 	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
 	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
-		<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
-		<span class="kw">type </span>BlockWeights = ();
-		<span class="kw">type </span>BlockLength = ();
-		<span class="kw">type </span>DbWeight = ();
-		<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
-		<span class="kw">type </span>Nonce = u64;
-		<span class="kw">type </span>Hash = H256;
-		<span class="kw">type </span>RuntimeCall = RuntimeCall;
-		<span class="kw">type </span>Hashing = BlakeTwo256;
-		<span class="kw">type </span>AccountId = u64;
-		<span class="kw">type </span>Lookup = IdentityLookup&lt;<span class="self">Self</span>::AccountId&gt;;
 		<span class="kw">type </span>Block = Block;
-		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>BlockHashCount = ConstU64&lt;<span class="number">250</span>&gt;;
-		<span class="kw">type </span>Version = ();
-		<span class="kw">type </span>PalletInfo = PalletInfo;
-		<span class="kw">type </span>AccountData = ();
-		<span class="kw">type </span>OnNewAccount = ();
-		<span class="kw">type </span>OnKilledAccount = ();
-		<span class="kw">type </span>SystemWeightInfo = ();
-		<span class="kw">type </span>SS58Prefix = ();
-		<span class="kw">type </span>OnSetCode = ();
-		<span class="kw">type </span>MaxConsumers = ConstU32&lt;<span class="number">16</span>&gt;;
 	}
 	<span class="macro">ord_parameter_types! </span>{
 		<span class="kw">pub const </span>One: u64 = <span class="number">1</span>;

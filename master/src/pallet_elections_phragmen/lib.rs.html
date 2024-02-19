@@ -3304,32 +3304,6 @@
 <a href="#3304" id="3304">3304</a>
 <a href="#3305" id="3305">3305</a>
 <a href="#3306" id="3306">3306</a>
-<a href="#3307" id="3307">3307</a>
-<a href="#3308" id="3308">3308</a>
-<a href="#3309" id="3309">3309</a>
-<a href="#3310" id="3310">3310</a>
-<a href="#3311" id="3311">3311</a>
-<a href="#3312" id="3312">3312</a>
-<a href="#3313" id="3313">3313</a>
-<a href="#3314" id="3314">3314</a>
-<a href="#3315" id="3315">3315</a>
-<a href="#3316" id="3316">3316</a>
-<a href="#3317" id="3317">3317</a>
-<a href="#3318" id="3318">3318</a>
-<a href="#3319" id="3319">3319</a>
-<a href="#3320" id="3320">3320</a>
-<a href="#3321" id="3321">3321</a>
-<a href="#3322" id="3322">3322</a>
-<a href="#3323" id="3323">3323</a>
-<a href="#3324" id="3324">3324</a>
-<a href="#3325" id="3325">3325</a>
-<a href="#3326" id="3326">3326</a>
-<a href="#3327" id="3327">3327</a>
-<a href="#3328" id="3328">3328</a>
-<a href="#3329" id="3329">3329</a>
-<a href="#3330" id="3330">3330</a>
-<a href="#3331" id="3331">3331</a>
-<a href="#3332" id="3332">3332</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4645,39 +4619,13 @@
 		traits::{ConstU32, ConstU64, OnInitialize},
 	};
 	<span class="kw">use </span>frame_system::ensure_signed;
-	<span class="kw">use </span>sp_core::H256;
-	<span class="kw">use </span>sp_runtime::{
-		testing::Header,
-		traits::{BlakeTwo256, IdentityLookup},
-		BuildStorage,
-	};
+	<span class="kw">use </span>sp_runtime::{testing::Header, BuildStorage};
 	<span class="kw">use </span>substrate_test_utils::assert_eq_uvec;
 
 	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
 	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
-		<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
-		<span class="kw">type </span>BlockWeights = ();
-		<span class="kw">type </span>BlockLength = ();
-		<span class="kw">type </span>DbWeight = ();
-		<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
-		<span class="kw">type </span>Nonce = u64;
-		<span class="kw">type </span>RuntimeCall = RuntimeCall;
-		<span class="kw">type </span>Hash = H256;
-		<span class="kw">type </span>Hashing = BlakeTwo256;
-		<span class="kw">type </span>AccountId = u64;
-		<span class="kw">type </span>Lookup = IdentityLookup&lt;<span class="self">Self</span>::AccountId&gt;;
 		<span class="kw">type </span>Block = Block;
-		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>BlockHashCount = ConstU64&lt;<span class="number">250</span>&gt;;
-		<span class="kw">type </span>Version = ();
-		<span class="kw">type </span>PalletInfo = PalletInfo;
 		<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;u64&gt;;
-		<span class="kw">type </span>OnNewAccount = ();
-		<span class="kw">type </span>OnKilledAccount = ();
-		<span class="kw">type </span>SystemWeightInfo = ();
-		<span class="kw">type </span>SS58Prefix = ();
-		<span class="kw">type </span>OnSetCode = ();
-		<span class="kw">type </span>MaxConsumers = ConstU32&lt;<span class="number">16</span>&gt;;
 	}
 
 	<span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Test {
