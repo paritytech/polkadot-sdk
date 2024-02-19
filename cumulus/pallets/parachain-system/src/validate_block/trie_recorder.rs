@@ -140,7 +140,7 @@ mod tests {
 		MemoryDB, ProofSizeProvider, TrieRecorderProvider,
 	};
 	use trie_db::{Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieRecorder};
-	use trie_standardmap::{Alphabet, StandardMap, ValueMode};
+	use trie_db::test_utils::{Alphabet, StandardMap, ValueMode};
 
 	use super::*;
 

@@ -616,7 +616,7 @@ mod tests {
 		node_db::{Hasher, NodeDB, NodeDBMut},
 		DBValue, NodeCodec as NodeCodecT, Trie,
 	};
-	use trie_standardmap::{Alphabet, StandardMap, ValueMode};
+	use trie_db::test_utils::{Alphabet, StandardMap, ValueMode};
 
 	type LayoutV0 = super::LayoutV0<Blake2Hasher, ()>;
 	type LayoutV1 = super::LayoutV1<Blake2Hasher, ()>;
