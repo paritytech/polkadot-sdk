@@ -1097,7 +1097,7 @@ async fn construct_per_relay_parent_state<Context>(
 	let inject_core_index = request_node_features(parent, session_index, ctx.sender())
 		.await?
 		.unwrap_or(NodeFeatures::EMPTY)
-		.get(FeatureIndex::ElasticScalingCoreIndex as usize)
+		.get(FeatureIndex::ElasticScalingMVP as usize)
 		.map(|b| *b)
 		.unwrap_or(false);
 
