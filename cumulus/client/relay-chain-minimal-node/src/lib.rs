@@ -223,7 +223,6 @@ async fn new_minimal_relay_chain(
 		overseer_message_channel_capacity_override: None,
 		req_protocol_names: request_protocol_names,
 		peerset_protocol_names,
-		offchain_transaction_pool_factory: None,
 		notification_services,
 	};
 

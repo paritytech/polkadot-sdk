@@ -17,12 +17,10 @@
 use futures::{select, StreamExt};
 use std::sync::Arc;
 
-use polkadot_node_core_chain_api::ChainApiSubsystem;
-use polkadot_node_subsystem_util::metrics::Metrics;
 use polkadot_overseer::{
 	BlockInfo, Handle, Overseer, OverseerConnector, OverseerHandle, SpawnGlue, UnpinHandle,
 };
-use polkadot_service::overseer::{generic_collator_overseer_builder, OverseerGenArgs};
+use polkadot_service::overseer::{collator_overseer_builder, OverseerGenArgs};
 
 use sc_service::TaskManager;
 use sc_utils::mpsc::tracing_unbounded;
@@ -38,10 +36,8 @@ fn build_overseer(
 	(Overseer<SpawnGlue<sc_service::SpawnTaskHandle>, Arc<BlockChainRpcClient>>, OverseerHandle),
 	RelayChainError,
 > {
-	let chain_api =
-		ChainApiSubsystem::new(args.runtime_client.clone(), Metrics::register(args.registry)?);
-	let builder = generic_collator_overseer_builder(args, chain_api)
-		.map_err(|e| RelayChainError::Application(e.into()))?;
+	let builder =
+		collator_overseer_builder(args).map_err(|e| RelayChainError::Application(e.into()))?;
 
 	builder
 		.build_with_connector(connector)
