@@ -161,7 +161,7 @@ pub trait HostFn {
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
 	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a
-	///   `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for
+	///   `T::Balance`. Traps otherwise. Passing `None` means setting no specific limit for
 	///   the call, which implies storage usage up to the limit of the parent call.
 	/// - `value`: The value to transfer into the contract. Should be decodable as a `T::Balance`.
 	///   Traps otherwise.
@@ -501,7 +501,7 @@ pub trait HostFn {
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
 	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a
-	///   `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for
+	///   `T::Balance`. Traps otherwise. Passing `None` means setting no specific limit for
 	///   the call, which implies storage usage up to the limit of the parent call.
 	/// - `value`: The value to transfer into the contract. Should be decodable as a `T::Balance`.
 	///   Traps otherwise.

@@ -877,10 +877,10 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 			CallType::Call { callee_ptr, value_ptr, deposit_ptr, weight } => {
 				let callee: <<E as Ext>::T as frame_system::Config>::AccountId =
 					self.read_sandbox_memory_as(memory, callee_ptr)?;
-				let deposit_limit: BalanceOf<<E as Ext>::T> = if deposit_ptr == SENTINEL {
-					BalanceOf::<<E as Ext>::T>::zero()
+				let deposit_limit: Option<BalanceOf<<E as Ext>::T>> = if deposit_ptr == SENTINEL {
+					None
 				} else {
-					self.read_sandbox_memory_as(memory, deposit_ptr)?
+					Some(self.read_sandbox_memory_as(memory, deposit_ptr)?)
 				};
 				let value: BalanceOf<<E as Ext>::T> =
 					self.read_sandbox_memory_as(memory, value_ptr)?;
@@ -946,10 +946,10 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		salt_len: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::InstantiateBase { input_data_len, salt_len })?;
-		let deposit_limit: BalanceOf<<E as Ext>::T> = if deposit_ptr == SENTINEL {
-			BalanceOf::<<E as Ext>::T>::zero()
+		let deposit_limit: Option<BalanceOf<<E as Ext>::T>> = if deposit_ptr == SENTINEL {
+			None
 		} else {
-			self.read_sandbox_memory_as(memory, deposit_ptr)?
+			Some(self.read_sandbox_memory_as(memory, deposit_ptr)?)
 		};
 		let value: BalanceOf<<E as Ext>::T> = self.read_sandbox_memory_as(memory, value_ptr)?;
 		if value > 0u32.into() {

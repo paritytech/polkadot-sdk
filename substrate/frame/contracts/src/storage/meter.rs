@@ -283,21 +283,21 @@ where
 	E: Ext<T>,
 	S: State + Default + Debug,
 {
-	/// Create a new child that has its `limit`.
-	/// Passing `0` as the limit is interpreted as to take whatever is remaining from its parent.
+	/// Create a new child with an optional `limit` on how much deposit it can consume.
 	///
 	/// This is called whenever a new subcall is initiated in order to track the storage
 	/// usage for this sub call separately. This is necessary because we want to exchange balance
 	/// with the current contract we are interacting with.
-	pub fn nested(&self, limit: BalanceOf<T>) -> RawMeter<T, E, Nested> {
+	pub fn nested(&self, limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
-		// If a special limit is specified higher than it is available,
-		// we want to enforce the lesser limit to the nested meter, to fail in the sub-call.
-		let limit = self.available().min(limit);
-		if limit.is_zero() {
-			RawMeter { limit: self.available(), ..Default::default() }
+		if let Some(limit) = limit {
+			RawMeter {
+				limit: self.available().min(limit),
+				nested: Nested::OwnLimit,
+				..Default::default()
+			}
 		} else {
-			RawMeter { limit, nested: Nested::OwnLimit, ..Default::default() }
+			RawMeter { limit: self.available(), ..Default::default() }
 		}
 	}
 
@@ -750,7 +750,7 @@ mod tests {
 		assert_eq!(meter.available(), 1_000);
 
 		// an empty charge does not create a `Charge` entry
-		let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
+		let mut nested0 = meter.nested(None);
 		nested0.charge(&Default::default());
 		meter.absorb(nested0, &BOB, None);
 
@@ -812,7 +812,7 @@ mod tests {
 				bytes_deposit: 100,
 				items_deposit: 10,
 			});
-			let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
+			let mut nested0 = meter.nested(None);
 			nested0.charge(&Diff {
 				bytes_added: 108,
 				bytes_removed: 5,
@@ -827,7 +827,7 @@ mod tests {
 				bytes_deposit: 100,
 				items_deposit: 20,
 			});
-			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
+			let mut nested1 = nested0.nested(None);
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
 			nested0.absorb(nested1, &CHARLIE, Some(&mut nested1_info));
 
@@ -837,7 +837,7 @@ mod tests {
 				bytes_deposit: 100,
 				items_deposit: 20,
 			});
-			let mut nested2 = nested0.nested(BalanceOf::<Test>::zero());
+			let mut nested2 = nested0.nested(None);
 			nested2.charge(&Diff { items_removed: 7, ..Default::default() });
 			nested0.absorb(nested2, &CHARLIE, Some(&mut nested2_info));
 
@@ -891,7 +891,7 @@ mod tests {
 			let mut meter = TestMeter::new(&test_case.origin, Some(1_000), 0).unwrap();
 			assert_eq!(meter.available(), 1_000);
 
-			let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
+			let mut nested0 = meter.nested(None);
 			nested0.charge(&Diff {
 				bytes_added: 5,
 				bytes_removed: 1,
@@ -906,7 +906,7 @@ mod tests {
 				bytes_deposit: 100,
 				items_deposit: 20,
 			});
-			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
+			let mut nested1 = nested0.nested(None);
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
 			nested1.charge(&Diff { bytes_added: 20, ..Default::default() });
 			nested1.terminate(&nested1_info, CHARLIE);
