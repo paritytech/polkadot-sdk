@@ -38,7 +38,7 @@ use xcm_builder::{
 	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
 	ConvertedConcreteId, FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor,
 	FungibleAdapter, IsConcrete, NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation,
+	SignedToAccountId32, SovereignSignedViaLocation, WithCountSends,
 };
 use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
@@ -169,7 +169,7 @@ parameter_types! {
 }
 
 pub type XcmRouter = super::RelayChainXcmRouter;
-pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
+pub type Barrier = WithCountSends<AllowUnpaidExecutionFrom<Everything>>;
 
 pub struct XcmConfig;
 impl Config for XcmConfig {

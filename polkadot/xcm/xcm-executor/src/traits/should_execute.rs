@@ -28,6 +28,9 @@ pub struct Properties {
 	/// The identity of the message, if one is known. If left as `None`, then it will generally
 	/// default to the hash of the message which may be non-unique.
 	pub message_id: Option<XcmHash>,
+	/// Number of messages that would be sent as a result of this message's execution.
+	/// Used to set aside enough delivery fees for each of them.
+	pub number_of_sends: u8,
 }
 
 /// Trait to determine whether the execution engine should actually execute a given XCM.

@@ -77,6 +77,8 @@ pub struct XcmExecutor<Config: config::Config> {
 	appendix_weight: Weight,
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
+	loaded_holding: bool,
+	parked_delivery_fees: AssetsInHolding,
 	_config: PhantomData<Config>,
 }
 
@@ -202,7 +204,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			target: "xcm::execute",
 			"origin: {origin:?}, message: {message:?}, weight_credit: {weight_credit:?}",
 		);
-		let mut properties = Properties { weight_credit, message_id: None };
+		let mut properties = Properties { weight_credit, message_id: None, number_of_sends: 0 };
 		if let Err(e) = Config::Barrier::should_execute(
 			&origin,
 			message.inner_mut(),
@@ -214,7 +216,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 				"Barrier blocked execution! Error: {e:?}. \
 				 (origin: {origin:?}, message: {message:?}, properties: {properties:?})",
 			);
-			return Outcome::Error { error: XcmError::Barrier }
+			return Outcome::Error { error: XcmError::Barrier };
 		}
 
 		*id = properties.message_id.unwrap_or(*id);
@@ -293,6 +295,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			appendix_weight: Weight::zero(),
 			transact_status: Default::default(),
 			fees_mode: FeesMode { jit_withdraw: false },
+			loaded_holding: false,
+			parked_delivery_fees: AssetsInHolding::new(),
 			_config: PhantomData,
 		}
 	}
@@ -347,6 +351,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
+		// We get the fee from `self.parked_delivery_fees`
+		// TODO: Should throw an error if there's not enough parked
+		self.holding
+			.subsume_assets(self.parked_delivery_fees.saturating_take(fee.clone().into()));
 		self.take_fee(fee, reason)?;
 		Config::XcmSender::deliver(ticket).map_err(Into::into)
 	}
@@ -397,8 +405,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		if current_surplus.any_gt(Weight::zero()) {
 			if let Some(w) = self.trader.refund_weight(current_surplus, &self.context) {
-				if !self.holding.contains_asset(&(w.id.clone(), 1).into()) &&
-					self.ensure_can_subsume_assets(1).is_err()
+				if !self.holding.contains_asset(&(w.id.clone(), 1).into())
+					&& self.ensure_can_subsume_assets(1).is_err()
 				{
 					let _ = self
 						.trader
@@ -410,7 +418,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						target: "xcm::refund_surplus",
 						"error: HoldingWouldOverflow",
 					);
-					return Err(XcmError::HoldingWouldOverflow)
+					return Err(XcmError::HoldingWouldOverflow);
 				}
 				self.total_refunded.saturating_accrue(current_surplus);
 				self.holding.subsume_assets(w.into());
@@ -426,7 +434,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	fn take_fee(&mut self, fee: Assets, reason: FeeReason) -> XcmResult {
 		if Config::FeeManager::is_waived(self.origin_ref(), reason.clone()) {
-			return Ok(())
+			return Ok(());
 		}
 		log::trace!(
 			target: "xcm::fees",
@@ -527,7 +535,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let inst_res = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > RECURSION_LIMIT {
-								return Err(XcmError::ExceedsStackLimit)
+								return Err(XcmError::ExceedsStackLimit);
 							}
 							*count = count.saturating_add(1);
 							Ok(())
@@ -554,10 +562,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						});
 					}
 				},
-				Err(ref mut error) =>
+				Err(ref mut error) => {
 					if let Ok(x) = Config::Weigher::instr_weight(&instr) {
 						error.weight.saturating_accrue(x)
-					},
+					}
+				},
 			}
 		}
 		result
@@ -589,8 +598,26 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					Ok(())
 				})
 				.and_then(|_| {
+					// Park some funds for delivery fees if needed
+					let mut temp_assets: AssetsInHolding = assets.into();
+					if !self.loaded_holding {
+						// TODO: Need to know this message for all sends
+						// Could accunulate actual fees instead of the number of sends in
+						// the barrier.
+						// Then the problem would be it's too expensive for a barrier,
+						// so I'd need to find a way to call it only after they've paid.
+						// That'd need some benchmarking.
+						let (_, fee) = validate_send::<Config::XcmSender>(
+							(Parent, Parachain(1)).into(),
+							Xcm(Vec::new()),
+						)?;
+						// TODO: Need to access `properties.number_of_sends`
+						let delivery_fee_assets = temp_assets.saturating_take(fee.into());
+						self.parked_delivery_fees.subsume_assets(delivery_fee_assets);
+						self.loaded_holding = true;
+					}
 					// ...and place into holding.
-					self.holding.subsume_assets(assets.into());
+					self.holding.subsume_assets(temp_assets);
 					Ok(())
 				})
 			},
@@ -703,7 +730,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						"Call filtered by `SafeCallFilter`",
 					);
 
-					return Err(XcmError::NoPermission)
+					return Err(XcmError::NoPermission);
 				}
 
 				let dispatch_origin =
@@ -731,7 +758,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						"Max {weight} bigger than require at most {require_weight_at_most}",
 					);
 
-					return Err(XcmError::MaxWeightInvalid)
+					return Err(XcmError::MaxWeightInvalid);
 				}
 
 				let maybe_actual_weight =
@@ -989,8 +1016,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.holding.saturating_take(assets.into());
 				Ok(())
 			},
-			ExpectAsset(assets) =>
-				self.holding.ensure_contains(&assets).map_err(|_| XcmError::ExpectationFalse),
+			ExpectAsset(assets) => {
+				self.holding.ensure_contains(&assets).map_err(|_| XcmError::ExpectationFalse)
+			},
 			ExpectOrigin(origin) => {
 				ensure!(self.context.origin == origin, XcmError::ExpectationFalse);
 				Ok(())

@@ -649,4 +649,65 @@ mod tests {
 			);
 		});
 	}
+
+	#[test]
+	fn testing_delivery_fees() {
+		MockNet::reset();
+
+		// First pre-load the sovereign account of (Parent, Parachain(1), ALICE)
+		ParaB::execute_with(|| {
+			let alice_para_a_sov_account = parachain::LocationToAccountId::convert_location(
+				&(
+					Parent,
+					Parachain(1),
+					AccountId32 { id: ALICE.clone().into(), network: Some(NetworkId::Kusama) },
+				)
+					.into(),
+			)
+			.unwrap();
+			assert_ok!(parachain::Balances::force_set_balance(
+				parachain::RuntimeOrigin::root(),
+				alice_para_a_sov_account.clone(),
+				1_000_000_000_000
+			));
+
+			dbg!(&parachain::Balances::free_balance(&alice_para_a_sov_account));
+		});
+
+		ParaA::execute_with(|| {
+			let asset: Asset = (Parent, 100u128).into();
+			let remark_call =
+				parachain::RuntimeCall::System(frame_system::Call::<parachain::Runtime>::remark {
+					remark: b"Hello".to_vec(),
+				});
+			let message = Xcm::<()>::builder()
+				.withdraw_asset(asset.clone().into())
+				.buy_execution(asset, Unlimited)
+				.set_appendix(
+					Xcm::builder_unsafe()
+						.report_error(QueryResponseInfo {
+							destination: (Parent, Parachain(1)).into(),
+							query_id: 1,
+							max_weight: Weight::from_parts(1_000_000, 1024),
+						})
+						.build(),
+				)
+				.transact(
+					OriginKind::SovereignAccount,
+					Weight::from_parts(3_000_000, 1024 * 1024),
+					remark_call.encode().into(),
+				)
+				.refund_surplus()
+				.deposit_asset(
+					AllCounted(1).into(),
+					AccountId32 { id: ALICE.clone().into(), network: None }.into(),
+				)
+				.build();
+			assert_ok!(parachain::PolkadotXcm::send(
+				parachain::RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedLocation::V4((Parent, Parachain(2)).into())),
+				Box::new(VersionedXcm::V4(message)),
+			));
+		});
+	}
 }

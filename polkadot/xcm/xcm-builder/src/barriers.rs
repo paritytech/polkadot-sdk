@@ -81,15 +81,16 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		instructions[..end]
 			.matcher()
 			.match_next_inst(|inst| match inst {
-				ReceiveTeleportedAsset(ref assets) |
-				ReserveAssetDeposited(ref assets) |
-				WithdrawAsset(ref assets) |
-				ClaimAsset { ref assets, .. } =>
+				ReceiveTeleportedAsset(ref assets)
+				| ReserveAssetDeposited(ref assets)
+				| WithdrawAsset(ref assets)
+				| ClaimAsset { ref assets, .. } => {
 					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
 						Ok(())
 					} else {
 						Err(ProcessMessageError::BadFormat)
-					},
+					}
+				},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
 			.skip_inst_while(|inst| matches!(inst, ClearOrigin))?
@@ -192,7 +193,7 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 					},
 					DescendOrigin(j) => {
 						let Ok(_) = actual_origin.append_with(j.clone()) else {
-							return Err(ProcessMessageError::Unsupported)
+							return Err(ProcessMessageError::Unsupported);
 						};
 					},
 					_ => return Ok(ControlFlow::Break(())),
@@ -342,7 +343,9 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 			.match_next_inst(|inst| match inst {
 				QueryResponse { query_id, querier, .. }
 					if ResponseHandler::expecting_response(origin, *query_id, querier.as_ref()) =>
-					Ok(()),
+				{
+					Ok(())
+				},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
@@ -414,9 +417,9 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 				InitiateReserveWithdraw {
 					reserve: Location { parents: 1, interior: Here },
 					..
-				} |
-				DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. } |
-				TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
+				}
+				| DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. }
+				| TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
 					Err(ProcessMessageError::Unsupported) // Deny
 				},
 
@@ -438,5 +441,47 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 
 		// Permit everything else
 		Ok(())
+	}
+}
+
+pub struct WithDeliveryFees<InnerBarrier>(PhantomData<InnerBarrier>);
+impl<InnerBarrier: ShouldExecute> ShouldExecute for WithDeliveryFees<InnerBarrier> {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		message: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		fn recursive_check<RuntimeCall>(instructions: &mut [Instruction<RuntimeCall>]) -> u8 {
+			let mut counter = 0;
+			instructions
+				.matcher()
+				.match_next_inst_while(
+					|_| true,
+					|instruction| match instruction {
+						ReportError(_) | ReportHolding { .. } | ReportTransactStatus(..) => {
+							counter += 1; // There will never be more than 255 instructions, so no overflow
+							Ok(ControlFlow::Continue(()))
+						},
+						SetAppendix(inner) => {
+							counter += recursive_check(inner.inner_mut());
+							Ok(ControlFlow::Continue(()))
+						},
+						SetErrorHandler(_inner) => {
+							// TODO: What to do here?
+							// We should assume worst-case scenario and count them.
+							// Then we could always return this at the end.
+							Ok(ControlFlow::Continue(()))
+						},
+						_ => Ok(ControlFlow::Continue(())),
+					},
+				)
+				.expect("We are only counting, not denying");
+			counter
+		}
+
+		properties.number_of_sends = recursive_check(message);
+		log::trace!(target: "xcm::barriers::WithCountSends", "Number of send instructions: {:?}", properties.number_of_sends);
+		InnerBarrier::should_execute(origin, message, max_weight, properties)
 	}
 }

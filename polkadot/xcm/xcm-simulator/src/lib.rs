@@ -401,7 +401,9 @@ macro_rules! decl_test_network {
 					},
 				}
 				let m = message.take().ok_or($crate::SendError::MissingArgument)?;
-				Ok(((T::get(), d, m), $crate::Assets::new()))
+				let price: $crate::Assets = (Parent, 10u128).into();
+				let ticket = (T::get(), d, m);
+				Ok((ticket, price))
 			}
 			fn deliver(
 				triple: ($crate::ParaId, $crate::Location, $crate::Xcm<()>),

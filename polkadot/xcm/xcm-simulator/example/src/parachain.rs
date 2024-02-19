@@ -35,26 +35,20 @@ use sp_std::prelude::*;
 use pallet_xcm::XcmPassthrough;
 use polkadot_core_primitives::BlockNumber as RelayBlockNumber;
 use polkadot_parachain_primitives::primitives::{
-	DmpMessageHandler, Id as ParaId, Sibling, XcmpMessageFormat, XcmpMessageHandler,
+	DmpMessageHandler, Id as ParaId, XcmpMessageFormat, XcmpMessageHandler,
 };
 use xcm::{latest::prelude::*, VersionedXcm};
 use xcm_builder::{
-	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, ConvertedConcreteId,
-	EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, NativeAsset, NoChecking, NonFungiblesAdapter, ParentIsPreset,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation,
+	AccountId32Aliases, AllowUnpaidExecutionFrom, ConvertedConcreteId, DescribeAllTerminal,
+	DescribeFamily, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
+	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete, NativeAsset,
+	NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, WithCountSends,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, JustTry},
 	Config, XcmExecutor,
 };
-
-pub type SovereignAccountOf = (
-	SiblingParachainConvertsVia<Sibling, AccountId>,
-	AccountId32Aliases<RelayNetwork, AccountId>,
-	ParentIsPreset<AccountId>,
-);
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -157,9 +151,9 @@ impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
 	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
 		let origin_location = pallet_xcm::EnsureXcm::<Everything>::try_origin(o.clone())?;
 		if !a.starts_with(&origin_location) {
-			return Err(o)
+			return Err(o);
 		}
-		SovereignAccountOf::convert_location(&origin_location).ok_or(o)
+		LocationToAccountId::convert_location(&origin_location).ok_or(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -180,10 +174,8 @@ parameter_types! {
 }
 
 pub type LocationToAccountId = (
-	ParentIsPreset<AccountId>,
-	SiblingParachainConvertsVia<Sibling, AccountId>,
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 	AccountId32Aliases<RelayNetwork, AccountId>,
-	Account32Hash<(), AccountId>,
 );
 
 pub type XcmOriginToCallOrigin = (
@@ -205,7 +197,7 @@ pub type LocalAssetTransactor = (
 	NonFungiblesAdapter<
 		ForeignUniques,
 		ConvertedConcreteId<Location, AssetInstance, JustTry, JustTry>,
-		SovereignAccountOf,
+		LocationToAccountId,
 		AccountId,
 		NoChecking,
 		(),
@@ -213,7 +205,7 @@ pub type LocalAssetTransactor = (
 );
 
 pub type XcmRouter = super::ParachainXcmRouter<MsgQueue>;
-pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
+pub type Barrier = WithCountSends<AllowUnpaidExecutionFrom<Everything>>;
 
 parameter_types! {
 	pub NftCollectionOne: AssetFilter
@@ -337,8 +329,9 @@ pub mod mock_msg_queue {
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } =>
-							(Ok(used), Event::Fail(Some(hash), error)),
+						Outcome::Incomplete { used, error } => {
+							(Ok(used), Event::Fail(Some(hash), error))
+						},
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
