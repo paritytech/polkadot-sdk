@@ -247,7 +247,7 @@ mod select_candidates {
 	use ::test_helpers::{dummy_candidate_descriptor, dummy_hash};
 	use futures::channel::mpsc;
 	use polkadot_node_subsystem::messages::{
-		AllMessages, AncestorState, RuntimeApiMessage,
+		AllMessages, RuntimeApiMessage,
 		RuntimeApiRequest::{
 			AvailabilityCores, PersistedValidationData as PersistedValidationDataReq,
 		},
@@ -537,14 +537,14 @@ mod select_candidates {
 			build_occupied_core(13, |core| {
 				core.next_up_on_available = Some(scheduled_core(13));
 				core.next_up_on_time_out = Some(scheduled_core(13));
-				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(1399));
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(1398));
 			}),
 			// 29: Occupied(13, both next_up set to 13, not available, timeout)
 			build_occupied_core(13, |core| {
 				core.next_up_on_available = Some(scheduled_core(13));
 				core.next_up_on_time_out = Some(scheduled_core(13));
 				core.time_out_at = BLOCK_UNDER_PRODUCTION;
-				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(1398));
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(1397));
 			}),
 		]
 	}
@@ -862,39 +862,11 @@ mod select_candidates {
 		let mut required_ancestors: HashMap<Vec<CandidateHash>, Ancestors> = HashMap::new();
 		required_ancestors.insert(
 			vec![candidates[4]],
-			vec![(
-				CandidateHash(Hash::from_low_u64_be(41)),
-				AncestorState { count: 1, timed_out: false },
-			)]
-			.into_iter()
-			.collect(),
-		);
-		required_ancestors.insert(
-			vec![candidates[7]],
-			vec![(
-				CandidateHash(Hash::from_low_u64_be(71)),
-				AncestorState { count: 1, timed_out: true },
-			)]
-			.into_iter()
-			.collect(),
+			vec![CandidateHash(Hash::from_low_u64_be(41))].into_iter().collect(),
 		);
 		required_ancestors.insert(
 			vec![candidates[8]],
-			vec![(
-				CandidateHash(Hash::from_low_u64_be(81)),
-				AncestorState { count: 1, timed_out: false },
-			)]
-			.into_iter()
-			.collect(),
-		);
-		required_ancestors.insert(
-			vec![candidates[10]],
-			vec![(
-				CandidateHash(Hash::from_low_u64_be(101)),
-				AncestorState { count: 1, timed_out: true },
-			)]
-			.into_iter()
-			.collect(),
+			vec![CandidateHash(Hash::from_low_u64_be(81))].into_iter().collect(),
 		);
 
 		let mock_cores_clone = mock_cores.clone();
@@ -952,55 +924,18 @@ mod select_candidates {
 		let mut required_ancestors: HashMap<Vec<CandidateHash>, Ancestors> = HashMap::new();
 		required_ancestors.insert(
 			vec![candidates[4]],
-			vec![(
-				CandidateHash(Hash::from_low_u64_be(41)),
-				AncestorState { count: 1, timed_out: false },
-			)]
-			.into_iter()
-			.collect(),
-		);
-		required_ancestors.insert(
-			vec![candidates[7]],
-			vec![(
-				CandidateHash(Hash::from_low_u64_be(71)),
-				AncestorState { count: 1, timed_out: true },
-			)]
-			.into_iter()
-			.collect(),
+			vec![CandidateHash(Hash::from_low_u64_be(41))].into_iter().collect(),
 		);
 		required_ancestors.insert(
 			vec![candidates[8]],
-			vec![(
-				CandidateHash(Hash::from_low_u64_be(81)),
-				AncestorState { count: 1, timed_out: false },
-			)]
-			.into_iter()
-			.collect(),
-		);
-		required_ancestors.insert(
-			vec![candidates[10]],
-			vec![(
-				CandidateHash(Hash::from_low_u64_be(101)),
-				AncestorState { count: 1, timed_out: true },
-			)]
-			.into_iter()
-			.collect(),
+			vec![CandidateHash(Hash::from_low_u64_be(81))].into_iter().collect(),
 		);
 		required_ancestors.insert(
 			[12, 12, 12].iter().map(|&idx| candidates[idx]).collect::<Vec<_>>(),
 			vec![
-				(
-					CandidateHash(Hash::from_low_u64_be(121)),
-					AncestorState { count: 1, timed_out: false },
-				),
-				(
-					CandidateHash(Hash::from_low_u64_be(122)),
-					AncestorState { count: 1, timed_out: false },
-				),
-				(
-					CandidateHash(Hash::from_low_u64_be(123)),
-					AncestorState { count: 1, timed_out: false },
-				),
+				CandidateHash(Hash::from_low_u64_be(121)),
+				CandidateHash(Hash::from_low_u64_be(122)),
+				CandidateHash(Hash::from_low_u64_be(123)),
 			]
 			.into_iter()
 			.collect(),
@@ -1008,34 +943,16 @@ mod select_candidates {
 		required_ancestors.insert(
 			[13, 13, 13].iter().map(|&idx| candidates[idx]).collect::<Vec<_>>(),
 			(131..=139)
-				.map(|num| {
-					(
-						CandidateHash(Hash::from_low_u64_be(num)),
-						AncestorState { count: 1, timed_out: false },
-					)
-				})
-				.chain(std::iter::once((
-					CandidateHash(Hash::from_low_u64_be(1399)),
-					AncestorState { count: 2, timed_out: true },
-				)))
-				.chain(std::iter::once((
-					CandidateHash(Hash::from_low_u64_be(1398)),
-					AncestorState { count: 1, timed_out: true },
-				)))
+				.map(|num| CandidateHash(Hash::from_low_u64_be(num)))
+				.chain(std::iter::once(CandidateHash(Hash::from_low_u64_be(1398))))
 				.collect(),
 		);
 
 		required_ancestors.insert(
 			[15, 15].iter().map(|&idx| candidates[idx]).collect::<Vec<_>>(),
 			vec![
-				(
-					CandidateHash(Hash::from_low_u64_be(151)),
-					AncestorState { count: 1, timed_out: false },
-				),
-				(
-					CandidateHash(Hash::from_low_u64_be(152)),
-					AncestorState { count: 1, timed_out: false },
-				),
+				CandidateHash(Hash::from_low_u64_be(151)),
+				CandidateHash(Hash::from_low_u64_be(152)),
 			]
 			.into_iter()
 			.collect(),

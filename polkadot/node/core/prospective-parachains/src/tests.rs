@@ -24,7 +24,6 @@ use polkadot_node_subsystem::{
 	},
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
-use polkadot_node_subsystem_types::messages::AncestorState;
 use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, BackingState, Constraints, InboundHrmpLimitations},
 	CommittedCandidateReceipt, HeadData, Header, PersistedValidationData, ScheduledCore,
@@ -900,9 +899,7 @@ fn check_backable_query_single_candidate() {
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
-			vec![(candidate_hash_a, AncestorState { count: 1, timed_out: false })]
-				.into_iter()
-				.collect(),
+			vec![candidate_hash_a].into_iter().collect(),
 			1,
 			vec![],
 		)
@@ -911,9 +908,7 @@ fn check_backable_query_single_candidate() {
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
-			vec![(candidate_hash_a, AncestorState { count: 1, timed_out: false })]
-				.into_iter()
-				.collect(),
+			vec![candidate_hash_a].into_iter().collect(),
 			0,
 			vec![],
 		)
@@ -937,9 +932,7 @@ fn check_backable_query_single_candidate() {
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
-			vec![(candidate_hash_a, AncestorState { count: 1, timed_out: false })]
-				.into_iter()
-				.collect(),
+			vec![candidate_hash_a].into_iter().collect(),
 			1,
 			vec![],
 		)
@@ -963,9 +956,7 @@ fn check_backable_query_single_candidate() {
 			&mut virtual_overseer,
 			&leaf_a,
 			2.into(),
-			vec![(candidate_hash_a, AncestorState { count: 1, timed_out: false })]
-				.into_iter()
-				.collect(),
+			vec![candidate_hash_a].into_iter().collect(),
 			1,
 			vec![],
 		)
@@ -985,46 +976,20 @@ fn check_backable_query_single_candidate() {
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
-			vec![(candidate_hash_a, AncestorState { count: 1, timed_out: false })]
-				.into_iter()
-				.collect(),
+			vec![candidate_hash_a].into_iter().collect(),
 			1,
 			vec![(candidate_hash_b, leaf_a.hash)],
 		)
 		.await;
+
+		// Wrong path
 		get_backable_candidates(
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
-			vec![(candidate_hash_a, AncestorState { count: 1, timed_out: true })]
-				.into_iter()
-				.collect(),
+			vec![candidate_hash_b].into_iter().collect(),
 			1,
 			vec![(candidate_hash_a, leaf_a.hash)],
-		)
-		.await;
-
-		// Should not get anything at the wrong path.
-		get_backable_candidates(
-			&mut virtual_overseer,
-			&leaf_a,
-			1.into(),
-			vec![(candidate_hash_b, AncestorState { count: 1, timed_out: false })]
-				.into_iter()
-				.collect(),
-			1,
-			vec![],
-		)
-		.await;
-		get_backable_candidates(
-			&mut virtual_overseer,
-			&leaf_a,
-			1.into(),
-			vec![(candidate_hash_b, AncestorState { count: 1, timed_out: true })]
-				.into_iter()
-				.collect(),
-			1,
-			vec![],
 		)
 		.await;
 
@@ -1144,9 +1109,7 @@ fn check_backable_query_multiple_candidates() {
 				&mut virtual_overseer,
 				&leaf_a,
 				2.into(),
-				vec![(candidate_hash_a, AncestorState { count: 1, timed_out: false })]
-					.into_iter()
-					.collect(),
+				vec![candidate_hash_a].into_iter().collect(),
 				1,
 				vec![],
 			)
@@ -1187,9 +1150,7 @@ fn check_backable_query_multiple_candidates() {
 					&mut virtual_overseer,
 					&leaf_a,
 					1.into(),
-					vec![(candidate_hash_a, AncestorState { count: 1, timed_out: false })]
-						.into_iter()
-						.collect(),
+					vec![candidate_hash_a].into_iter().collect(),
 					1,
 					vec![(candidate_hash_b, leaf_a.hash)],
 				)
@@ -1198,34 +1159,7 @@ fn check_backable_query_multiple_candidates() {
 					&mut virtual_overseer,
 					&leaf_a,
 					1.into(),
-					vec![(candidate_hash_a, AncestorState { count: 1, timed_out: true })]
-						.into_iter()
-						.collect(),
-					1,
-					vec![(candidate_hash_a, leaf_a.hash)],
-				)
-				.await;
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![
-						(candidate_hash_a, AncestorState { count: 1, timed_out: true }),
-						(candidate_hash_b, AncestorState { count: 1, timed_out: true }),
-					]
-					.into_iter()
-					.collect(),
-					2,
-					vec![(candidate_hash_a, leaf_a.hash), (candidate_hash_b, leaf_a.hash)],
-				)
-				.await;
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![(candidate_hash_a, AncestorState { count: 1, timed_out: false })]
-						.into_iter()
-						.collect(),
+					vec![candidate_hash_a].into_iter().collect(),
 					3,
 					vec![
 						(candidate_hash_b, leaf_a.hash),
@@ -1242,9 +1176,7 @@ fn check_backable_query_multiple_candidates() {
 						&mut virtual_overseer,
 						&leaf_a,
 						1.into(),
-						vec![(candidate_hash_a, AncestorState { count: 1, timed_out: false })]
-							.into_iter()
-							.collect(),
+						vec![candidate_hash_a].into_iter().collect(),
 						count,
 						vec![
 							(candidate_hash_c, leaf_a.hash),
@@ -1263,14 +1195,9 @@ fn check_backable_query_multiple_candidates() {
 					&mut virtual_overseer,
 					&leaf_a,
 					1.into(),
-					vec![
-						(candidate_hash_a, AncestorState { count: 1, timed_out: false }),
-						(candidate_hash_i, AncestorState { count: 1, timed_out: false }),
-						(candidate_hash_h, AncestorState { count: 1, timed_out: false }),
-						(candidate_hash_c, AncestorState { count: 1, timed_out: false }),
-					]
-					.into_iter()
-					.collect(),
+					vec![candidate_hash_a, candidate_hash_i, candidate_hash_h, candidate_hash_c]
+						.into_iter()
+						.collect(),
 					1,
 					vec![(candidate_hash_j, leaf_a.hash)],
 				)
@@ -1280,34 +1207,9 @@ fn check_backable_query_multiple_candidates() {
 					&mut virtual_overseer,
 					&leaf_a,
 					1.into(),
-					vec![
-						(candidate_hash_a, AncestorState { count: 1, timed_out: false }),
-						(candidate_hash_b, AncestorState { count: 1, timed_out: false }),
-					]
-					.into_iter()
-					.collect(),
+					vec![candidate_hash_a, candidate_hash_b].into_iter().collect(),
 					1,
 					vec![(candidate_hash_d, leaf_a.hash)],
-				)
-				.await;
-
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![
-						(candidate_hash_a, AncestorState { count: 1, timed_out: false }),
-						(candidate_hash_c, AncestorState { count: 1, timed_out: true }),
-					]
-					.into_iter()
-					.collect(),
-					4,
-					vec![
-						(candidate_hash_c, leaf_a.hash),
-						(candidate_hash_h, leaf_a.hash),
-						(candidate_hash_i, leaf_a.hash),
-						(candidate_hash_j, leaf_a.hash),
-					],
 				)
 				.await;
 
@@ -1318,12 +1220,7 @@ fn check_backable_query_multiple_candidates() {
 						&mut virtual_overseer,
 						&leaf_a,
 						1.into(),
-						vec![
-							(candidate_hash_a, AncestorState { count: 1, timed_out: false }),
-							(candidate_hash_c, AncestorState { count: 1, timed_out: false }),
-						]
-						.into_iter()
-						.collect(),
+						vec![candidate_hash_a, candidate_hash_c].into_iter().collect(),
 						count,
 						vec![
 							(candidate_hash_h, leaf_a.hash),
@@ -1342,13 +1239,9 @@ fn check_backable_query_multiple_candidates() {
 						&mut virtual_overseer,
 						&leaf_a,
 						1.into(),
-						vec![
-							(candidate_hash_a, AncestorState { count: 1, timed_out: false }),
-							(candidate_hash_b, AncestorState { count: 1, timed_out: false }),
-							(candidate_hash_e, AncestorState { count: 1, timed_out: false }),
-						]
-						.into_iter()
-						.collect(),
+						vec![candidate_hash_a, candidate_hash_b, candidate_hash_e]
+							.into_iter()
+							.collect(),
 						count,
 						vec![],
 					)
@@ -1359,11 +1252,11 @@ fn check_backable_query_multiple_candidates() {
 						&leaf_a,
 						1.into(),
 						vec![
-							(candidate_hash_a, AncestorState { count: 1, timed_out: false }),
-							(candidate_hash_c, AncestorState { count: 1, timed_out: false }),
-							(candidate_hash_h, AncestorState { count: 1, timed_out: false }),
-							(candidate_hash_i, AncestorState { count: 1, timed_out: false }),
-							(candidate_hash_j, AncestorState { count: 1, timed_out: false }),
+							candidate_hash_a,
+							candidate_hash_c,
+							candidate_hash_h,
+							candidate_hash_i,
+							candidate_hash_j,
 						]
 						.into_iter()
 						.collect(),
@@ -1374,69 +1267,50 @@ fn check_backable_query_multiple_candidates() {
 				}
 			}
 
-			// Should not get anything at the wrong paths.
+			// Wrong paths.
 			get_backable_candidates(
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![(candidate_hash_b, AncestorState { count: 1, timed_out: false })]
-					.into_iter()
-					.collect(),
+				vec![candidate_hash_b].into_iter().collect(),
 				1,
-				vec![],
+				vec![(candidate_hash_a, leaf_a.hash)],
 			)
 			.await;
 			get_backable_candidates(
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![
-					(candidate_hash_b, AncestorState { count: 1, timed_out: false }),
-					(candidate_hash_f, AncestorState { count: 1, timed_out: false }),
-				]
-				.into_iter()
-				.collect(),
+				vec![candidate_hash_b, candidate_hash_f].into_iter().collect(),
 				3,
-				vec![],
-			)
-			.await;
-			get_backable_candidates(
-				&mut virtual_overseer,
-				&leaf_a,
-				1.into(),
 				vec![
-					(candidate_hash_a, AncestorState { count: 1, timed_out: false }),
-					(candidate_hash_h, AncestorState { count: 1, timed_out: false }),
-				]
-				.into_iter()
-				.collect(),
-				2,
-				vec![],
+					(candidate_hash_a, leaf_a.hash),
+					(candidate_hash_b, leaf_a.hash),
+					(candidate_hash_d, leaf_a.hash),
+				],
 			)
 			.await;
 			get_backable_candidates(
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
+				vec![candidate_hash_a, candidate_hash_h].into_iter().collect(),
+				4,
 				vec![
-					(candidate_hash_e, AncestorState { count: 1, timed_out: false }),
-					(candidate_hash_h, AncestorState { count: 1, timed_out: false }),
-				]
-				.into_iter()
-				.collect(),
-				2,
-				vec![],
+					(candidate_hash_c, leaf_a.hash),
+					(candidate_hash_h, leaf_a.hash),
+					(candidate_hash_i, leaf_a.hash),
+					(candidate_hash_j, leaf_a.hash),
+				],
 			)
 			.await;
 			get_backable_candidates(
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![(candidate_hash_a, AncestorState { count: 2, timed_out: false })]
-					.into_iter()
-					.collect(),
-				3,
-				vec![],
+				vec![candidate_hash_e, candidate_hash_h].into_iter().collect(),
+				2,
+				vec![(candidate_hash_a, leaf_a.hash), (candidate_hash_b, leaf_a.hash)],
 			)
 			.await;
 
@@ -1444,14 +1318,19 @@ fn check_backable_query_multiple_candidates() {
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![
-					(candidate_hash_a, AncestorState { count: 1, timed_out: false }),
-					(candidate_hash_c, AncestorState { count: 1, timed_out: false }),
-					(candidate_hash_d, AncestorState { count: 1, timed_out: false }),
-				]
-				.into_iter()
-				.collect(),
-				3,
+				vec![candidate_hash_a, candidate_hash_c, candidate_hash_d].into_iter().collect(),
+				2,
+				vec![(candidate_hash_h, leaf_a.hash), (candidate_hash_i, leaf_a.hash)],
+			)
+			.await;
+
+			// Parachain fork.
+			get_backable_candidates(
+				&mut virtual_overseer,
+				&leaf_a,
+				1.into(),
+				vec![candidate_hash_a, candidate_hash_b, candidate_hash_c].into_iter().collect(),
+				1,
 				vec![],
 			)
 			.await;
@@ -1461,34 +1340,11 @@ fn check_backable_query_multiple_candidates() {
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![
-					(candidate_hash_a, AncestorState { count: 1, timed_out: false }),
-					(
-						CandidateHash(Hash::from_low_u64_be(100)),
-						AncestorState { count: 1, timed_out: false },
-					),
-				]
-				.into_iter()
-				.collect(),
-				3,
-				vec![],
-			)
-			.await;
-
-			// After a timed out ancestor, we no longer care about the ancestor path.
-			get_backable_candidates(
-				&mut virtual_overseer,
-				&leaf_a,
-				1.into(),
-				vec![(candidate_hash_a, AncestorState { count: 2, timed_out: true })]
+				vec![candidate_hash_a, CandidateHash(Hash::from_low_u64_be(100))]
 					.into_iter()
 					.collect(),
-				3,
-				vec![
-					(candidate_hash_a, leaf_a.hash),
-					(candidate_hash_b, leaf_a.hash),
-					(candidate_hash_d, leaf_a.hash),
-				],
+				2,
+				vec![(candidate_hash_b, leaf_a.hash), (candidate_hash_d, leaf_a.hash)],
 			)
 			.await;
 
@@ -1497,9 +1353,7 @@ fn check_backable_query_multiple_candidates() {
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![(candidate_hash_a, AncestorState { count: 1, timed_out: true })]
-					.into_iter()
-					.collect(),
+				Ancestors::new(),
 				0,
 				vec![],
 			)
@@ -1508,9 +1362,7 @@ fn check_backable_query_multiple_candidates() {
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![(candidate_hash_a, AncestorState { count: 1, timed_out: false })]
-					.into_iter()
-					.collect(),
+				vec![candidate_hash_a].into_iter().collect(),
 				0,
 				vec![],
 			)
@@ -1519,9 +1371,7 @@ fn check_backable_query_multiple_candidates() {
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![(candidate_hash_a, AncestorState { count: 2, timed_out: false })]
-					.into_iter()
-					.collect(),
+				vec![candidate_hash_a, candidate_hash_b].into_iter().collect(),
 				0,
 				vec![],
 			)
@@ -2029,9 +1879,7 @@ fn persists_pending_availability_candidate() {
 			&mut virtual_overseer,
 			&leaf_b,
 			para_id,
-			vec![(candidate_hash_a, AncestorState { count: 1, timed_out: false })]
-				.into_iter()
-				.collect(),
+			vec![candidate_hash_a].into_iter().collect(),
 			1,
 			vec![(candidate_hash_b, leaf_b_hash)],
 		)

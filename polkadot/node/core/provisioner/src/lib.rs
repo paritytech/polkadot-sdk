@@ -678,14 +678,12 @@ async fn request_backable_candidates(
 					&occupied_core.availability,
 				);
 
-				let ancestor_state = ancestors
-					.entry(occupied_core.para_id())
-					.or_default()
-					.entry(occupied_core.candidate_hash)
-					.or_default();
-				ancestor_state.record();
-
 				if is_available {
+					ancestors
+						.entry(occupied_core.para_id())
+						.or_default()
+						.insert(occupied_core.candidate_hash);
+
 					if let Some(ref scheduled_core) = occupied_core.next_up_on_available {
 						// Request a new backable candidate for the newly scheduled para id.
 						scheduled_cores
@@ -695,7 +693,6 @@ async fn request_backable_candidates(
 					}
 				} else if occupied_core.time_out_at <= block_number {
 					// Timed out before being available.
-					ancestor_state.timeout();
 
 					if let Some(ref scheduled_core) = occupied_core.next_up_on_time_out {
 						// Candidate's availability timed out, practically same as scheduled.
@@ -704,6 +701,12 @@ async fn request_backable_candidates(
 							.or_insert(HashSet::new())
 							.insert(core_idx);
 					}
+				} else {
+					// Not timed out and not available.
+					ancestors
+						.entry(occupied_core.para_id())
+						.or_default()
+						.insert(occupied_core.candidate_hash);
 				}
 			},
 			CoreState::Free => continue,

@@ -761,13 +761,15 @@ impl FragmentTree {
 	/// the predicate and have not already been backed on chain.
 	///
 	/// Does an exhaustive search into the tree after traversing the ancestors path.
-	/// If the ancestors draw out an invalid path or one that can be traversed in multiple ways, no
+	/// If the ancestors draw out a path that can be traversed in multiple ways, no
 	/// candidates will be returned.
-	/// If there are multiple possibilities of the same size, this
-	/// will select the first one. If there is no chain of size `count` that matches the criteria,
-	/// this will return the largest chain it could find with the criteria.
-	/// If there are no candidates meeting those criteria, returns an empty `Vec`.
-	/// Cycles are accepted, see module docs for the `Cycles` section.
+	/// If the ancestors do not draw out a full path (the path contains holes), candidates will be
+	/// suggested that may fill these holes.
+	/// If the ancestors don't draw out a valid path, no candidates will be returned. If there are
+	/// multiple possibilities of the same size, this will select the first one. If there is no
+	/// chain of size `count` that matches the criteria, this will return the largest chain it could
+	/// find with the criteria. If there are no candidates meeting those criteria, returns an empty
+	/// `Vec`. Cycles are accepted, see module docs for the `Cycles` section.
 	///
 	/// The intention of the `ancestors` is to allow queries on the basis of
 	/// one or more candidates which were previously pending availability becoming
@@ -784,8 +786,6 @@ impl FragmentTree {
 		// First, we need to order the ancestors and trim the ones that timed out, including their
 		// descendants.
 		// The node returned is the one from which we can start finding new backable candidates.
-		// If some of the ancestors got timed out, we'll first suggest candidates to fill those
-		// slots.
 		let Some(base_node) = self.find_ancestor_path(ancestors) else { return vec![] };
 
 		self.find_backable_chain_inner(
@@ -889,18 +889,12 @@ impl FragmentTree {
 	// We assume that the ancestors form a chain (that the av-cores do not back parachain forks),
 	// None is returned otherwise.
 	fn find_ancestor_path(&self, mut ancestors: Ancestors) -> Option<NodePointer> {
-		// All ancestors if/after this switches to `true` will be trimmed.
-		let mut timed_out = false;
 		// The number of elements in the path we've processed so far.
 		let mut depth = 0;
 		let mut last_node = NodePointer::Root;
 		let mut next_node: Option<NodePointer> = Some(NodePointer::Root);
 
 		while let Some(node) = next_node {
-			if timed_out {
-				break;
-			}
-
 			if depth > self.scope.max_depth {
 				return None;
 			}
@@ -917,66 +911,37 @@ impl FragmentTree {
 						.map(|(index, node)| (NodePointer::Storage(index), node.candidate_hash))
 						.collect::<Vec<_>>();
 
-					self.find_valid_child(&mut timed_out, &mut ancestors, children.iter()).ok()?
+					self.find_valid_child(&mut ancestors, children.iter()).ok()?
 				},
-				NodePointer::Storage(ptr) => self.nodes.get(ptr).and_then(|n| {
-					self.find_valid_child(&mut timed_out, &mut ancestors, n.children.iter()).ok()?
-				}),
+				NodePointer::Storage(ptr) => {
+					let children = self.nodes.get(ptr).and_then(|n| Some(n.children.iter()));
+					if let Some(children) = children {
+						self.find_valid_child(&mut ancestors, children).ok()?
+					} else {
+						None
+					}
+				},
 			};
 
 			depth += 1;
 		}
 
-		if timed_out {
-			return Some(last_node);
-		}
-
-		let mut unvisited_remaining = 0;
-		for ancestor in ancestors.into_values() {
-			unvisited_remaining += ancestor.count();
-		}
-
-		if unvisited_remaining == 0 {
-			Some(last_node)
-		} else {
-			// If no candidates were timed out, we should have used all ancestors. If that wasn't
-			// the case, the supplied path was invalid.
-			gum::warn!(
-				target: LOG_TARGET,
-				para_id = ?self.scope.para,
-				relay_parent = ?self.scope.relay_parent,
-				"Could not find new backable candidates which are descendants of the currently occupied cores.",
-			);
-			None
-		}
+		Some(last_node)
 	}
 
-	// Find a node from the given iterator which is not timed out and is present in the ancestors
+	// Find a node from the given iterator which is present in the ancestors
 	// collection. If there are multiple such nodes, return an error and log a warning. We don't
 	// accept forks in a parachain to be backed. The supplied ancestors should all form a chain.
-	// If there is no such node or we come across a timed out node, return None.
+	// If there is no such node, return None.
 	fn find_valid_child<'a>(
 		&self,
-		timed_out: &'a mut bool,
 		ancestors: &'a mut Ancestors,
 		nodes: impl Iterator<Item = &'a (NodePointer, CandidateHash)> + 'a,
 	) -> Result<Option<NodePointer>, ()> {
 		let mut possible_children =
-			nodes.filter_map(|(node_ptr, hash)| match ancestors.get_mut(&hash) {
-				Some(ancestor_state) if ancestor_state.timed_out => {
-					*timed_out = true;
-					// We can return None, because if we found a timed out node, the search will
-					// stop anyway.
-					None
-				},
-				Some(ancestor_state) =>
-					if ancestor_state.count > 0 {
-						ancestor_state.count -= 1;
-						Some(node_ptr)
-					} else {
-						None
-					},
-				_ => None,
+			nodes.filter_map(|(node_ptr, hash)| match ancestors.remove(&hash) {
+				true => Some(node_ptr),
+				false => None,
 			});
 
 		// We don't accept forks in a parachain to be backed. The supplied ancestors
@@ -1183,7 +1148,6 @@ impl FragmentNode {
 mod tests {
 	use super::*;
 	use assert_matches::assert_matches;
-	use polkadot_node_subsystem_types::messages::AncestorState;
 	use polkadot_node_subsystem_util::inclusion_emulator::InboundHrmpLimitations;
 	use polkadot_primitives::{BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData};
 	use polkadot_primitives_test_helpers as test_helpers;
@@ -1712,11 +1676,8 @@ mod tests {
 		assert_eq!(tree.find_ancestor_path(Ancestors::new()).unwrap(), NodePointer::Root);
 		assert_eq!(tree.find_backable_chain(Ancestors::new(), 2, |_| true), vec![]);
 		// Invalid candidate.
-		let ancestors: Ancestors =
-			[(CandidateHash::default(), AncestorState { count: 1, timed_out: false })]
-				.into_iter()
-				.collect();
-		assert_eq!(tree.find_ancestor_path(ancestors.clone()), None);
+		let ancestors: Ancestors = [CandidateHash::default()].into_iter().collect();
+		assert_eq!(tree.find_ancestor_path(ancestors.clone()), Some(NodePointer::Root));
 		assert_eq!(tree.find_backable_chain(ancestors, 2, |_| true), vec![]);
 	}
 
@@ -1814,7 +1775,6 @@ mod tests {
 			0,
 			vec![3].into(),
 			vec![4].into(),
-			// vec![0].into(),
 			0,
 		));
 		// Candidate 5
@@ -1892,113 +1852,62 @@ mod tests {
 				tree.find_backable_chain(Ancestors::new(), 4, |_| true),
 				[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
 			);
-			// Ancestor which is not part of the tree.
+			// Ancestor which is not part of the tree. Will be ignored.
+			let ancestors: Ancestors = [CandidateHash::default()].into_iter().collect();
+			assert_eq!(tree.find_ancestor_path(ancestors.clone()).unwrap(), NodePointer::Root);
+			assert_eq!(
+				tree.find_backable_chain(ancestors, 4, |_| true),
+				[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+			// A chain fork.
 			let ancestors: Ancestors =
-				[(CandidateHash::default(), AncestorState { count: 1, timed_out: false })]
-					.into_iter()
-					.collect();
-			assert_eq!(tree.find_ancestor_path(ancestors.clone()), None);
-			assert_eq!(tree.find_backable_chain(ancestors, 1, |_| true), vec![]);
-			// Ancestors which are part of the tree but don't form a path.
-			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[7].hash(), AncestorState { count: 1, timed_out: false }),
-			]
-			.into_iter()
-			.collect();
+				[(candidates[0].hash()), (candidates[7].hash())].into_iter().collect();
 			assert_eq!(tree.find_ancestor_path(ancestors.clone()), None);
 			assert_eq!(tree.find_backable_chain(ancestors, 1, |_| true), vec![]);
 
-			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[2].hash(), AncestorState { count: 1, timed_out: true }),
-			]
-			.into_iter()
-			.collect();
-			assert_eq!(tree.find_ancestor_path(ancestors.clone()), None);
-			assert_eq!(tree.find_backable_chain(ancestors, 1, |_| true), vec![]);
-
+			// Ancestors which are part of the tree but don't form a path. Will be ignored.
 			let ancestors: Ancestors =
-				[(candidates[0].hash(), AncestorState { count: 2, timed_out: false })]
-					.into_iter()
-					.collect();
-			assert_eq!(tree.find_ancestor_path(ancestors.clone()), None);
-			assert_eq!(tree.find_backable_chain(ancestors, 1, |_| true), vec![]);
+				[candidates[1].hash(), candidates[2].hash()].into_iter().collect();
+			assert_eq!(tree.find_ancestor_path(ancestors.clone()).unwrap(), NodePointer::Root);
+			assert_eq!(
+				tree.find_backable_chain(ancestors, 4, |_| true),
+				[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
 
-			// Ancestor supplied with a zeroed count.
-			for timed_out in [true, false] {
-				let ancestors: Ancestors =
-					[(candidates[0].hash(), AncestorState { count: 0, timed_out })]
-						.into_iter()
-						.collect();
-				assert_eq!(tree.find_ancestor_path(ancestors.clone()).unwrap(), NodePointer::Root);
-				assert_eq!(
-					tree.find_backable_chain(ancestors, 4, |_| true),
-					[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-				);
-
-				let ancestors: Ancestors = [
-					(candidates[0].hash(), AncestorState { count: 0, timed_out: false }),
-					(candidates[1].hash(), AncestorState { count: 0, timed_out }),
-				]
-				.into_iter()
-				.collect();
-				assert_eq!(tree.find_ancestor_path(ancestors.clone()).unwrap(), NodePointer::Root);
-				assert_eq!(
-					tree.find_backable_chain(ancestors, 4, |_| true),
-					[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-				);
-			}
-			// Valid ancestors with no timeouts.
-			let ancestors: Ancestors =
-				[(candidates[7].hash(), AncestorState { count: 1, timed_out: false })]
-					.into_iter()
-					.collect();
+			// Valid ancestors.
+			let ancestors: Ancestors = [candidates[7].hash()].into_iter().collect();
 			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
 			let candidate = &tree.nodes[res.unwrap_idx()];
 			assert_eq!(candidate.candidate_hash, candidates[7].hash());
 			assert_eq!(tree.find_backable_chain(ancestors, 1, |_| true), vec![]);
 
-			let ancestors: Ancestors = [
-				(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-			]
-			.into_iter()
-			.collect();
+			let ancestors: Ancestors =
+				[candidates[2].hash(), candidates[0].hash(), candidates[1].hash()]
+					.into_iter()
+					.collect();
 			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
 			let candidate = &tree.nodes[res.unwrap_idx()];
 			assert_eq!(candidate.candidate_hash, candidates[2].hash());
 			assert_eq!(
-				tree.find_backable_chain(ancestors, 2, |_| true),
+				tree.find_backable_chain(ancestors.clone(), 2, |_| true),
 				[3, 4].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
 			);
 
-			// Valid ancestors with timeouts
-
-			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[2].hash(), AncestorState { count: 1, timed_out: true }),
-				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-			]
-			.into_iter()
-			.collect();
+			// Valid ancestors with candidates which have been omitted due to timeouts
+			let ancestors: Ancestors =
+				[candidates[0].hash(), candidates[2].hash()].into_iter().collect();
 			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
 			let candidate = &tree.nodes[res.unwrap_idx()];
-			assert_eq!(candidate.candidate_hash, candidates[1].hash());
+			assert_eq!(candidate.candidate_hash, candidates[0].hash());
 			assert_eq!(
-				tree.find_backable_chain(ancestors, 2, |_| true),
-				[2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+				tree.find_backable_chain(ancestors, 3, |_| true),
+				[1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
 			);
 
-			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[2].hash(), AncestorState { count: 1, timed_out: true }),
-				(candidates[3].hash(), AncestorState { count: 1, timed_out: false }),
-			]
-			.into_iter()
-			.collect();
+			let ancestors: Ancestors =
+				[candidates[0].hash(), candidates[1].hash(), candidates[3].hash()]
+					.into_iter()
+					.collect();
 			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
 			let candidate = &tree.nodes[res.unwrap_idx()];
 			assert_eq!(candidate.candidate_hash, candidates[1].hash());
@@ -2014,29 +1923,8 @@ mod tests {
 				);
 			}
 
-			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[1].hash(), AncestorState { count: 1, timed_out: true }),
-				(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[3].hash(), AncestorState { count: 1, timed_out: true }),
-			]
-			.into_iter()
-			.collect();
-			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
-			let candidate = &tree.nodes[res.unwrap_idx()];
-			assert_eq!(candidate.candidate_hash, candidates[0].hash());
-			assert_eq!(
-				tree.find_backable_chain(ancestors, 3, |_| true),
-				[1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-			);
-
-			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: true }),
-				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
-			]
-			.into_iter()
-			.collect();
+			let ancestors: Ancestors =
+				[candidates[1].hash(), candidates[2].hash()].into_iter().collect();
 			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
 			assert_eq!(res, NodePointer::Root);
 			assert_eq!(
@@ -2047,22 +1935,14 @@ mod tests {
 			// Requested count is 0.
 			assert_eq!(tree.find_backable_chain(Ancestors::new(), 0, |_| true), vec![]);
 
-			let ancestors: Ancestors = [
-				(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-			]
-			.into_iter()
-			.collect();
+			let ancestors: Ancestors =
+				[candidates[2].hash(), candidates[0].hash(), candidates[1].hash()]
+					.into_iter()
+					.collect();
 			assert_eq!(tree.find_backable_chain(ancestors, 0, |_| true), vec![]);
 
-			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[2].hash(), AncestorState { count: 1, timed_out: true }),
-				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-			]
-			.into_iter()
-			.collect();
+			let ancestors: Ancestors =
+				[candidates[2].hash(), candidates[0].hash()].into_iter().collect();
 			assert_eq!(tree.find_backable_chain(ancestors, 0, |_| true), vec![]);
 		}
 
@@ -2071,77 +1951,59 @@ mod tests {
 			// Exceeds the maximum tree depth. 0-1-2-3-4-1-2-3-4, when the tree stops at
 			// 0-1-2-3-4-1-2-3.
 			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
-				(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
-				(candidates[3].hash(), AncestorState { count: 2, timed_out: false }),
-				(candidates[4].hash(), AncestorState { count: 2, timed_out: false }),
-			]
-			.into_iter()
-			.collect();
-			let res = tree.find_ancestor_path(ancestors.clone());
-			assert_eq!(res, None);
-			assert_eq!(tree.find_backable_chain(ancestors, 1, |_| true), vec![]);
-
-			// Even for 0-1-2-3-4-1-2-3, there wouldn't be anything left to back.
-			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
-				(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
-				(candidates[3].hash(), AncestorState { count: 2, timed_out: false }),
-				(candidates[4].hash(), AncestorState { count: 1, timed_out: false }),
-			]
-			.into_iter()
-			.collect();
-			let res = tree.find_ancestor_path(ancestors.clone());
-			assert_eq!(res, None);
-			assert_eq!(tree.find_backable_chain(ancestors, 1, |_| true), vec![]);
-
-			// For 0-1-2-3-4-1-2, we can still use 3.
-			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
-				(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
-				(candidates[3].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[4].hash(), AncestorState { count: 1, timed_out: false }),
+				candidates[0].hash(),
+				candidates[1].hash(),
+				candidates[2].hash(),
+				candidates[3].hash(),
+				candidates[4].hash(),
 			]
 			.into_iter()
 			.collect();
 			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
 			let candidate = &tree.nodes[res.unwrap_idx()];
-			assert_eq!(candidate.candidate_hash, candidates[2].hash());
+			assert_eq!(candidate.candidate_hash, candidates[4].hash());
 			assert_eq!(
-				tree.find_backable_chain(ancestors, 3, |_| true),
-				[3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+				tree.find_backable_chain(ancestors, 4, |_| true),
+				[1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
 			);
 
-			// 0-1-2-3-4-1-2-3-4, but with 3 timed out.
-			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
-				(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
-				(candidates[3].hash(), AncestorState { count: 2, timed_out: true }),
-				(candidates[4].hash(), AncestorState { count: 2, timed_out: false }),
-			]
-			.into_iter()
-			.collect();
+			// 0-1-2.
+			let ancestors: Ancestors =
+				[candidates[0].hash(), candidates[1].hash(), candidates[2].hash()]
+					.into_iter()
+					.collect();
 			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
 			let candidate = &tree.nodes[res.unwrap_idx()];
 			assert_eq!(candidate.candidate_hash, candidates[2].hash());
 			assert_eq!(
-				tree.find_backable_chain(ancestors, 1, |_| true),
+				tree.find_backable_chain(ancestors.clone(), 1, |_| true),
 				[3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+			assert_eq!(
+				tree.find_backable_chain(ancestors, 5, |_| true),
+				[3, 4, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+
+			// 0-1
+			let ancestors: Ancestors =
+				[candidates[0].hash(), candidates[1].hash()].into_iter().collect();
+			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
+			assert_eq!(candidate.candidate_hash, candidates[1].hash());
+			assert_eq!(
+				tree.find_backable_chain(ancestors, 6, |_| true),
+				[2, 3, 4, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>(),
 			);
 
 			// For 0-1-2-3-4-5, there's more than 1 way of finding this path in
 			// the tree. `None` should be returned. The runtime should not have accepted this.
 			let ancestors: Ancestors = [
-				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[3].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[4].hash(), AncestorState { count: 1, timed_out: false }),
-				(candidates[5].hash(), AncestorState { count: 1, timed_out: false }),
+				candidates[0].hash(),
+				candidates[1].hash(),
+				candidates[2].hash(),
+				candidates[3].hash(),
+				candidates[4].hash(),
+				candidates[5].hash(),
 			]
 			.into_iter()
 			.collect();
@@ -2214,9 +2076,7 @@ mod tests {
 			);
 			assert_eq!(
 				tree.find_backable_chain(
-					[(candidate_a_hash, AncestorState { count: 1, timed_out: false })]
-						.into_iter()
-						.collect(),
+					[candidate_a_hash].into_iter().collect(),
 					count - 1,
 					|_| true
 				),
@@ -2225,62 +2085,6 @@ mod tests {
 					.collect::<Vec<_>>()
 			);
 		}
-		assert_eq!(
-			tree.find_backable_chain(
-				[(candidate_a_hash, AncestorState { count: 2, timed_out: false })]
-					.into_iter()
-					.collect(),
-				2,
-				|_| true
-			),
-			vec![candidate_a_hash, candidate_a_hash]
-		);
-		assert_eq!(
-			tree.find_backable_chain(
-				[(candidate_a_hash, AncestorState { count: 3, timed_out: false })]
-					.into_iter()
-					.collect(),
-				3,
-				|_| true
-			),
-			vec![candidate_a_hash, candidate_a_hash]
-		);
-		assert_eq!(
-			tree.find_backable_chain(
-				[(candidate_a_hash, AncestorState { count: max_depth as u32, timed_out: false })]
-					.into_iter()
-					.collect(),
-				5,
-				|_| true
-			),
-			vec![candidate_a_hash]
-		);
-		assert_eq!(
-			tree.find_backable_chain(
-				[(
-					candidate_a_hash,
-					AncestorState { count: max_depth as u32 + 1, timed_out: false }
-				)]
-				.into_iter()
-				.collect(),
-				5,
-				|_| true
-			),
-			vec![]
-		);
-		assert_eq!(
-			tree.find_backable_chain(
-				[(
-					candidate_a_hash,
-					AncestorState { count: max_depth as u32 + 5, timed_out: true }
-				)]
-				.into_iter()
-				.collect(),
-				7,
-				|_| true
-			),
-			iter::repeat(candidate_a_hash).take(5).collect::<Vec<_>>()
-		);
 	}
 
 	#[test]
@@ -2359,13 +2163,7 @@ mod tests {
 			vec![candidate_a_hash, candidate_b_hash, candidate_a_hash],
 		);
 		assert_eq!(
-			tree.find_backable_chain(
-				[(candidate_a_hash, AncestorState { count: 1, timed_out: false })]
-					.into_iter()
-					.collect(),
-				2,
-				|_| true
-			),
+			tree.find_backable_chain([candidate_a_hash].into_iter().collect(), 2, |_| true),
 			vec![candidate_b_hash, candidate_a_hash],
 		);
 
@@ -2379,64 +2177,17 @@ mod tests {
 				candidate_a_hash
 			],
 		);
-		assert_eq!(
-			tree.find_backable_chain(
-				[
-					(candidate_a_hash, AncestorState { count: 1, timed_out: false }),
-					(candidate_b_hash, AncestorState { count: 1, timed_out: false })
-				]
-				.into_iter()
-				.collect(),
-				6,
-				|_| true
-			),
-			vec![candidate_a_hash, candidate_b_hash, candidate_a_hash],
-		);
-		assert_eq!(
-			tree.find_backable_chain(
-				[
-					(candidate_b_hash, AncestorState { count: 1, timed_out: false }),
-					(candidate_a_hash, AncestorState { count: 1, timed_out: false })
-				]
-				.into_iter()
-				.collect(),
-				6,
-				|_| true
-			),
-			vec![candidate_a_hash, candidate_b_hash, candidate_a_hash],
-		);
 
-		// Unordered ancestors.
-		for count in 1..5 {
+		for count in 3..7 {
 			assert_eq!(
 				tree.find_backable_chain(
-					[
-						(candidate_b_hash, AncestorState { count: 2, timed_out: false }),
-						(candidate_a_hash, AncestorState { count: 2, timed_out: false })
-					]
-					.into_iter()
-					.collect(),
+					[candidate_a_hash, candidate_b_hash].into_iter().collect(),
 					count,
 					|_| true
 				),
-				vec![candidate_a_hash]
+				vec![candidate_a_hash, candidate_b_hash, candidate_a_hash],
 			);
 		}
-
-		// Invalid ancestors. a->b->a->b->b.
-		assert_eq!(
-			tree.find_backable_chain(
-				[
-					(candidate_b_hash, AncestorState { count: 3, timed_out: false }),
-					(candidate_a_hash, AncestorState { count: 2, timed_out: false })
-				]
-				.into_iter()
-				.collect(),
-				1,
-				|_| true
-			),
-			vec![]
-		);
 	}
 
 	#[test]
