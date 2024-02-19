@@ -249,10 +249,14 @@ impl Def {
 			input,
 			item,
 			runtime_struct: runtime_struct
-				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[runtime::runtime]`"))?,
+				.ok_or_else(|| syn::Error::new(item_span, 
+					"Missing Runtime. Please add a struct inside the module and annotate it with `#[runtime::runtime]`"
+				))?,
 			pallets,
 			runtime_types: runtime_types
-				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[runtime::derive]`"))?,
+				.ok_or_else(|| syn::Error::new(item_span, 
+					"Missing Runtime Types. Please annotate the runtime struct with `#[runtime::derive]`"
+				))?,
 		};
 
 		Ok(def)
