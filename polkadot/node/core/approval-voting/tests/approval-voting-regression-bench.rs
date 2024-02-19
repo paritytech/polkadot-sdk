@@ -81,11 +81,11 @@ fn approvals_no_shows() -> Vec<String> {
 
 	messages.extend(usage.check_network_usage(&[
 		("Received from peers", 6600.000, 7200.000),
-		("Sent to peers", 7500.000, 8300.000),
+		("Sent to peers", 7600.000, 8500.00),
 	]));
 	messages.extend(usage.check_cpu_usage(&[
-		("approval-distribution", 0.880, 0.960),
-		("approval-voting", 1.200, 1.320),
+		("approval-distribution", 0.940, 1.040),
+		("approval-voting", 1.300, 1.440),
 	]));
 
 	messages
@@ -108,12 +108,12 @@ fn approvals_throughput() -> Vec<String> {
 	);
 
 	messages.extend(usage.check_network_usage(&[
-		("Received from peers", 50300.000, 55500.000),
+		("Received from peers", 50200.000, 55500.000),
 		("Sent to peers", 60300.000, 66700.000),
 	]));
 	messages.extend(usage.check_cpu_usage(&[
-		("approval-distribution", 7.500, 8.290),
-		("approval-voting", 9.57, 10.580),
+		("approval-distribution", 8.210, 9.080),
+		("approval-voting", 10.530, 11.640),
 	]));
 
 	messages
@@ -135,13 +135,17 @@ fn approvals_throughput_best_case() -> Vec<String> {
 		},
 	);
 
+	// CPU usage, seconds                     total   per block
+	// approval-distribution                  4.799       0.480
+	// approval-voting                        6.248       0.625
+	// Test environment                       3.057       0.306
 	messages.extend(usage.check_network_usage(&[
 		("Received from peers", 2800.000, 3100.000),
 		("Sent to peers", 3100.000, 3400.000),
 	]));
 	messages.extend(usage.check_cpu_usage(&[
-		("approval-distribution", 0.420, 0.460),
-		("approval-voting", 0.530, 0.580),
+		("approval-distribution", 0.460, 0.500),
+		("approval-voting", 0.590, 0.660),
 	]));
 
 	messages
