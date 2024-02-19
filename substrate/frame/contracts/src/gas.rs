@@ -100,7 +100,7 @@ pub struct GasMeter<T: Config> {
 	/// The amount of resources that was consumed by the execution engine.
 	///
 	/// This should be equivalent to `self.gas_consumed().ref_time()` but expressed in whatever
-	/// unit the execution engine uses to track resource consumption. We have to track it seperatly
+	/// unit the execution engine uses to track resource consumption. We have to track it separately
 	/// in order to avoid the loss of precision that happens when converting from ref_time to the
 	/// execution engine unit.
 	executor_consumed: u64,
