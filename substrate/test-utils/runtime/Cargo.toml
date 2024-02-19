@@ -62,8 +62,8 @@ sc-executor-common = { path = "../../client/executor/common" }
 sp-consensus = { path = "../../primitives/consensus/common" }
 substrate-test-runtime-client = { path = "client" }
 sp-tracing = { path = "../../primitives/tracing" }
-serde = { version = "1.0.195", features = ["alloc", "derive"], default-features = false }
-serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
+serde = { version = "1.0.196", features = ["alloc", "derive"], default-features = false }
+serde_json = { version = "1.0.113", default-features = false, features = ["alloc"] }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true }

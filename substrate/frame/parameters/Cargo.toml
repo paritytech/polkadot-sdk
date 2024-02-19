@@ -11,7 +11,7 @@ edition.workspace = true
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["max-encoded-len"] }
 scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
 paste = { version = "1.0.14", default-features = false }
-serde = { version = "1.0.188", features = ["derive"], optional = true }
+serde = { version = "1.0.196", features = ["derive"], optional = true }
 docify = "0.2.5"
 
 frame-support = { path = "../support", default-features = false, features = ["experimental"] }
