@@ -15,11 +15,12 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
+	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, Broker, FeeAssetId, ParachainInfo,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
 use frame_support::{
+	pallet_prelude::PalletInfoAccess,
 	parameter_types,
 	traits::{ConstU32, Contains, Equals, Everything, Nothing},
 };
@@ -37,25 +38,26 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, EnsureXcmOrigin, FrameTransactionalProcessor, IsConcrete, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	DenyThenTry, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, IsConcrete,
+	NonFungibleAdapter, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 parameter_types! {
-	pub const WndRelayLocation: Location = Location::parent();
+	pub const TokenRelayLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Westend);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
+	pub BrokerPalletLocation: Location =
+		PalletInstance(<Broker as PalletInfoAccess>::index() as u8).into();
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub FellowshipLocation: Location = Location::new(1, Parachain(1001));
@@ -75,12 +77,11 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting the native currency on this chain.
-#[allow(deprecated)]
-pub type CurrencyTransactor = CurrencyAdapter<
+pub type FungibleTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	IsConcrete<WndRelayLocation>,
+	IsConcrete<TokenRelayLocation>,
 	// Do a simple punn to convert an `AccountId32` `Location` into a native chain
 	// `AccountId`:
 	LocationToAccountId,
@@ -89,6 +90,23 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	// We don't track any teleports of `Balances`.
 	(),
 >;
+
+/// Means for transacting coretime regions on this chain.
+pub type RegionTransactor = NonFungibleAdapter<
+	// Use this non-fungible implementation:
+	Broker,
+	// This adapter will handle coretime regions from the broker pallet.
+	IsConcrete<BrokerPalletLocation>,
+	// Convert an XCM Location into a local account id:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId,
+	// We don't track any teleports.
+	(),
+>;
+
+/// Means for transacting assets on this chain.
+pub type AssetTransactors = (FungibleTransactor, RegionTransactor);
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with XCM's `Transact`. There is an `OriginKind` that can
@@ -152,18 +170,20 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					pallet_xcm::Call::force_default_xcm_version { .. }
 			) | RuntimeCall::System(
 				frame_system::Call::set_heap_pages { .. } |
-					frame_system::Call::set_code { .. } |
-					frame_system::Call::set_code_without_checks { .. } |
-					frame_system::Call::authorize_upgrade { .. } |
-					frame_system::Call::authorize_upgrade_without_checks { .. } |
-					frame_system::Call::kill_prefix { .. },
+						frame_system::Call::set_code { .. } |
+						frame_system::Call::set_code_without_checks { .. } |
+						frame_system::Call::authorize_upgrade { .. } |
+						frame_system::Call::authorize_upgrade_without_checks { .. } |
+						frame_system::Call::kill_prefix { .. } |
+						// Should not be in Polkadot/Kusama. Here in order to speed up testing.
+						frame_system::Call::set_storage { .. },
 			) | RuntimeCall::ParachainSystem(..) |
 				RuntimeCall::Timestamp(..) |
 				RuntimeCall::Balances(..) |
 				RuntimeCall::CollatorSelection(..) |
-				RuntimeCall::Sudo(..) |
 				RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
-				RuntimeCall::XcmpQueue(..)
+				RuntimeCall::XcmpQueue(..) |
+				RuntimeCall::Broker(..)
 		)
 	}
 }
@@ -210,13 +230,13 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
-	type AssetTransactor = CurrencyTransactor;
+	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	// Coretime chain does not recognize a reserve location for any asset. Users must teleport WND
+	// Coretime chain does not recognize a reserve location for any asset. Users must teleport ROC
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
 	/// Only allow teleportation of WND.
-	type IsTeleporter = ConcreteAssetFromSystem<WndRelayLocation>;
+	type IsTeleporter = ConcreteAssetFromSystem<TokenRelayLocation>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
@@ -224,8 +244,13 @@ impl xcm_executor::Config for XcmConfig {
 		RuntimeCall,
 		MaxInstructions,
 	>;
-	type Trader =
-		UsingComponents<WeightToFee, WndRelayLocation, AccountId, Balances, ToStakingPot<Runtime>>;
+	type Trader = UsingComponents<
+		WeightToFee,
+		TokenRelayLocation,
+		AccountId,
+		Balances,
+		ToStakingPot<Runtime>,
+	>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetClaims = PolkadotXcm;
