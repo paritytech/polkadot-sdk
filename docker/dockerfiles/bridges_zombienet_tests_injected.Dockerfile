@@ -22,7 +22,7 @@ LABEL io.parity.image.authors="devops-team@parity.io" \
 	io.parity.image.source="https://github.com/paritytech/polkadot-sdk/blob/${VCS_REF}/docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile" \
 	io.parity.image.revision="${VCS_REF}" \
 	io.parity.image.created="${BUILD_DATE}" \
-	io.parity.image.documentation="https://github.com/paritytech/polkadot-sdk/bridges/zombienet"
+	io.parity.image.documentation="https://github.com/paritytech/polkadot-sdk/bridges/testing"
 
 # show backtraces
 ENV RUST_BACKTRACE 1
@@ -45,7 +45,7 @@ RUN	mkdir -p /home/nonroot/bridges-polkadot-sdk
 COPY ./artifacts/bridges-polkadot-sdk /home/nonroot/bridges-polkadot-sdk
 # also prepare `generate_hex_encoded_call` for running
 RUN set -eux; \
-	cd /home/nonroot/bridges-polkadot-sdk/cumulus/scripts/generate_hex_encoded_call; \
+	cd /home/nonroot/bridges-polkadot-sdk/bridges/testing/utils/generate_hex_encoded_call; \
 	npm install
 
 # check if executable works in this container

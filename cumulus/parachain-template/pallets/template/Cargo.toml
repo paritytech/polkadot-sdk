@@ -24,7 +24,7 @@ frame-support = { path = "../../../../substrate/frame/support", default-features
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
 
 [dev-dependencies]
-serde = { version = "1.0.195" }
+serde = { version = "1.0.196" }
 
 # Substrate
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
