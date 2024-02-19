@@ -16,6 +16,49 @@
 // limitations under the License.
 
 use crate::*;
+use frame_support::traits::tokens::Balance;
+
+/// Staking adapter trait that can support multiple modes of staking: i.e. Delegated or Direct.
+pub trait StakingAdapter {
+	type Balance: Balance;
+	type AccountId: Clone + Debug;
+
+	/// Similar to [Inspect::balance].
+	fn balance(who: &Self::AccountId) -> Self::Balance;
+
+	/// Similar to [Inspect::total_balance].
+	fn total_balance(who: &Self::AccountId) -> Self::Balance;
+
+	/// Start delegation to the pool account.
+	///
+	/// Similar to [Mutate::transfer] for Direct Stake.
+	fn delegate(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Add more delegation to the pool account.
+	///
+	/// Similar to [Mutate::transfer] for Direct Stake.
+	///
+	/// We need this along with [Self::delegate] as NominationPool has a slight different behaviour
+	/// for the first delegation and the subsequent ones.
+	fn delegate_extra(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Revoke delegation to pool account.
+	///
+	/// Similar to [Mutate::transfer] for Direct Stake but in reverse direction to [Self::delegate].
+	fn release_delegation(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+}
 
 /// Basic pool adapter that only supports Direct Staking.
 ///
@@ -23,7 +66,7 @@ use crate::*;
 /// tokens in delegator's accounts.
 pub struct NoDelegation<T: Config>(PhantomData<T>);
 
-impl<T: Config> PoolAdapter for NoDelegation<T> {
+impl<T: Config> StakingAdapter for NoDelegation<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
@@ -63,5 +106,42 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 		T::Currency::transfer(&pool_account, &who, amount, Preservation::Expendable)?;
 
 		Ok(())
+	}
+}
+
+impl<T: Config> StakingAdapter for Pallet<T> {
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
+
+	fn balance(who: &Self::AccountId) -> Self::Balance {
+		todo!()
+	}
+
+	fn total_balance(who: &Self::AccountId) -> Self::Balance {
+		todo!()
+	}
+
+	fn delegate(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		todo!()
+	}
+
+	fn delegate_extra(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		todo!()
+	}
+
+	fn release_delegation(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		todo!()
 	}
 }

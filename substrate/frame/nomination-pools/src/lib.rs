@@ -373,7 +373,7 @@ use sp_runtime::{
 	},
 	FixedPointNumber, Perbill,
 };
-use sp_staking::{delegation::PoolAdapter, EraIndex, StakingInterface};
+use sp_staking::{EraIndex, StakingInterface};
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
@@ -398,6 +398,8 @@ pub mod mock;
 mod tests;
 
 pub mod adapter;
+use adapter::StakingAdapter;
+
 pub mod migration;
 pub mod weights;
 
@@ -1057,7 +1059,7 @@ impl<T: Config> BondedPool<T> {
 		// `pallet-nomination-pool`. This means reducible balance always returns balance preserving
 		// ED in the account. What we want though is transferable balance given the account can be
 		// dusted.
-		T::PoolAdapter::balance(&account)
+		T::StakingAdapter::balance(&account)
 			.saturating_sub(T::Staking::active_stake(&account).unwrap_or_default())
 	}
 
@@ -1263,14 +1265,14 @@ impl<T: Config> BondedPool<T> {
 
 		match ty {
 			BondType::Create => {
-				T::PoolAdapter::delegate(who, &bonded_account, amount)?;
+				T::StakingAdapter::delegate(who, &bonded_account, amount)?;
 				T::Staking::bond(&bonded_account, amount, &self.reward_account())?
 			},
 			// The pool should always be created in such a way its in a state to bond extra, but if
 			// the active balance is slashed below the minimum bonded or the account cannot be
 			// found, we exit early.
 			BondType::Later => {
-				T::PoolAdapter::delegate_extra(who, &bonded_account, amount)?;
+				T::StakingAdapter::delegate_extra(who, &bonded_account, amount)?;
 				T::Staking::bond_extra(&bonded_account, amount)?
 			},
 		}
@@ -1654,7 +1656,7 @@ pub mod pallet {
 		type MaxMetadataLen: Get<u32>;
 
 		/// An adapter to support delegated to direct staking.
-		type PoolAdapter: PoolAdapter<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
+		type StakingAdapter: StakingAdapter<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
 	}
 
 	/// The sum of funds across all pools.
@@ -2292,7 +2294,7 @@ pub mod pallet {
 				// order to ensure members can leave the pool and it can be destroyed.
 				.min(bonded_pool.transferable_balance());
 
-			T::PoolAdapter::release_delegation(
+			T::StakingAdapter::release_delegation(
 				&member_account,
 				&bonded_pool.bonded_account(),
 				balance_to_unbond,
@@ -2877,7 +2879,7 @@ impl<T: Config> Pallet<T> {
 			"could not transfer all amount to depositor while dissolving pool"
 		);
 		defensive_assert!(
-			T::PoolAdapter::total_balance(&bonded_pool.bonded_account()) == Zero::zero(),
+			T::StakingAdapter::total_balance(&bonded_pool.bonded_account()) == Zero::zero(),
 			"dissolving pool should not have any balance"
 		);
 		// NOTE: Defensively force set balance to zero.
@@ -3459,7 +3461,7 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::Staking::active_stake(&pool_account).unwrap_or_default();
-			let total_balance = T::PoolAdapter::total_balance(&pool_account);
+			let total_balance = T::StakingAdapter::total_balance(&pool_account);
 
 			assert!(
 				total_balance >= bonded_balance + sum_unbonding_balance,
