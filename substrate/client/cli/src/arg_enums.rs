@@ -231,6 +231,8 @@ pub enum Database {
 	RocksDb,
 	/// ParityDb. <https://github.com/paritytech/parity-db/>
 	ParityDb,
+	/// ParityDb using experimental multi tree storage.
+	ParityDbMulti,
 	/// Detect whether there is an existing database. Use it, if there is, if not, create new
 	/// instance of ParityDb
 	Auto,
@@ -246,6 +248,7 @@ impl Database {
 			#[cfg(feature = "rocksdb")]
 			"rocksdb",
 			"paritydb",
+			"paritydbmulti",
 			"paritydb-experimental",
 			"auto",
 		]

@@ -247,7 +247,7 @@ mod tests {
 				transaction_pool: Default::default(),
 				network: NetworkConfiguration::new_memory(),
 				keystore: sc_service::config::KeystoreConfig::InMemory,
-				database: sc_client_db::DatabaseSource::ParityDb { path: root.clone() },
+				database: sc_client_db::DatabaseSource::ParityDb { path: root.clone(), multi_tree: false }, // TODO multitree here? likely no
 				trie_cache_maximum_size: None,
 				state_pruning: None,
 				blocks_pruning: sc_client_db::BlocksPruning::KeepAll,

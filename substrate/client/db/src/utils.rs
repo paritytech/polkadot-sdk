@@ -177,7 +177,7 @@ fn open_database_at<Block: BlockT>(
 	archive: bool,
 ) -> OpenDbResult {
 	let db: Arc<dyn Database<DbHash>> = match &db_source {
-		DatabaseSource::ParityDb { path, multi_tree } => open_parity_db::<Block>(path, create, archive, multi_tree)?,
+		DatabaseSource::ParityDb { path, multi_tree } => open_parity_db::<Block>(path, create, archive, *multi_tree)?,
 		#[cfg(feature = "rocksdb")]
 		DatabaseSource::RocksDb { path, cache_size } =>
 			open_kvdb_rocksdb::<Block>(path, create, *cache_size)?,
@@ -192,7 +192,7 @@ fn open_database_at<Block: BlockT>(
 			match open_kvdb_rocksdb::<Block>(rocksdb_path, false, *cache_size) {
 				Ok(db) => db,
 				Err(OpenDbError::NotEnabled(_)) | Err(OpenDbError::DoesNotExist) =>
-					open_parity_db::<Block>(paritydb_path, create, archive)?,
+					open_parity_db::<Block>(paritydb_path, create, archive, false)?,
 				Err(as_is) => return Err(as_is),
 			}
 		},
@@ -254,13 +254,13 @@ impl From<io::Error> for OpenDbError {
 	}
 }
 
-fn open_parity_db<Block: BlockT>(path: &Path, create: bool, archive: bool) -> OpenDbResult {
-	match crate::parity_db::open(path, create, false, archive) {
+fn open_parity_db<Block: BlockT>(path: &Path, create: bool, archive: bool, multi_tree: bool) -> OpenDbResult {
+	match crate::parity_db::open(path, create, false, archive, multi_tree) {
 		Ok(db) => Ok(db),
 		Err(parity_db::Error::InvalidConfiguration(_)) => {
 			log::warn!("Invalid parity db configuration, attempting database metadata update.");
 			// Try to update the database with the new config
-			Ok(crate::parity_db::open(path, create, true, archive)?)
+			Ok(crate::parity_db::open(path, create, true, archive, multi_tree)?)
 		},
 		Err(e) => Err(e.into()),
 	}
@@ -546,7 +546,7 @@ mod tests {
 		// it should reopen existing auto (pairtydb) database
 		{
 			let db_res = open_database::<Block>(
-				&DatabaseSource::ParityDb { path: paritydb_path },
+				&DatabaseSource::ParityDb { path: paritydb_path, multi_tree: false },
 				true,
 				false,
 			);
@@ -587,7 +587,7 @@ mod tests {
 		// it should fail to open existing auto (rocksdb) database
 		{
 			let db_res = open_database::<Block>(
-				&DatabaseSource::ParityDb { path: paritydb_path },
+				&DatabaseSource::ParityDb { path: paritydb_path, multi_tree: false },
 				true,
 				false,
 			);
@@ -613,7 +613,8 @@ mod tests {
 		let paritydb_path = db_path.join("paritydb");
 		let rocksdb_path = db_path.join("rocksdb_path");
 
-		let source = DatabaseSource::ParityDb { path: paritydb_path.clone() };
+		// Note multitree db do not support auto at this point.
+		let source = DatabaseSource::ParityDb { path: paritydb_path.clone(), multi_tree: false };
 
 		// it should create new paritydb database
 		{

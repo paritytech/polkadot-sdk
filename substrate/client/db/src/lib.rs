@@ -379,7 +379,7 @@ impl DatabaseSource {
 			DatabaseSource::Auto { paritydb_path, .. } => Some(paritydb_path),
 			#[cfg(feature = "rocksdb")]
 			DatabaseSource::RocksDb { path, .. } => Some(path),
-			DatabaseSource::ParityDb { path } => Some(path),
+			DatabaseSource::ParityDb { path, .. } => Some(path),
 			DatabaseSource::Custom { .. } => None,
 		}
 	}
@@ -387,16 +387,16 @@ impl DatabaseSource {
 	/// Set path for databases that are stored on disk.
 	pub fn set_path(&mut self, p: &Path) -> bool {
 		match self {
-			DatabaseSource::Auto { ref mut paritydb_path, .. } => {
+			DatabaseSource::Auto { paritydb_path, .. } => {
 				*paritydb_path = p.into();
 				true
 			},
 			#[cfg(feature = "rocksdb")]
-			DatabaseSource::RocksDb { ref mut path, .. } => {
+			DatabaseSource::RocksDb { path, .. } => {
 				*path = p.into();
 				true
 			},
-			DatabaseSource::ParityDb { ref mut path } => {
+			DatabaseSource::ParityDb { path, .. } => {
 				*path = p.into();
 				true
 			},

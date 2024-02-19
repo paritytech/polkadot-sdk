@@ -37,7 +37,11 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 	create: bool,
 	upgrade: bool,
 	archive: bool,
+	multi_tree: bool,
 ) -> parity_db::Result<std::sync::Arc<dyn Database<H>>> {
+	if multi_tree {
+		unimplemented!()
+	}
 	let mut config = parity_db::Options::with_columns(path, NUM_COLUMNS as u8);
 
 	let compressed = [

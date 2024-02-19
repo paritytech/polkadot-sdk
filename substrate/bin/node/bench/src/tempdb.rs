@@ -54,7 +54,7 @@ impl TempDatabase {
 			DatabaseType::ParityDbMulti
 			| DatabaseType::ParityDb => {
 				let db = sc_client_db::open_database::<Block>(
-					&DatabaseSource::ParityDb { path: self.0.path().into(), multi_tree: matches!(DatabaseType::ParityDbMulti, db_type) },
+					&DatabaseSource::ParityDb { path: self.0.path().into(), multi_tree: matches!(db_type, DatabaseType::ParityDbMulti) },
 					true,
 					false,
 				).expect("Database backend error");

@@ -344,17 +344,15 @@ pub fn open_database(db_source: &DatabaseSource) -> Result<Arc<dyn Database>, Er
 			path.clone(),
 			parachains_db::CacheSizes::default(),
 		)?,
-		DatabaseSource::ParityDb { path, multi_tree, .. } => parachains_db::open_creating_paritydb(
+		DatabaseSource::ParityDb { path, .. } => parachains_db::open_creating_paritydb(
 			path.parent().ok_or(Error::DatabasePathRequired)?.into(),
 			parachains_db::CacheSizes::default(),
-			multi_tree,
 		)?,
 		DatabaseSource::Auto { paritydb_path, rocksdb_path, .. } => {
 			if paritydb_path.is_dir() && paritydb_path.exists() {
 				parachains_db::open_creating_paritydb(
 					paritydb_path.parent().ok_or(Error::DatabasePathRequired)?.into(),
 					parachains_db::CacheSizes::default(),
-					false, // not multi tree yet by default
 				)?
 			} else {
 				parachains_db::open_creating_rocksdb(
