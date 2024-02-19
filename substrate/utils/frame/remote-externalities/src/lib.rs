@@ -1193,7 +1193,7 @@ where
 		info!(
 			target: LOG_TARGET,
 			"initialized state externalities with storage root {:?} and state_version {:?}",
-			ext.as_backend().map(|b| b.root().clone()),
+			ext.as_backend().map(|b| *b.root()),
 			ext.state_version
 		);
 

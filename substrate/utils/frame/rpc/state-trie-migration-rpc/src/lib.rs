@@ -34,7 +34,7 @@ use sp_core::{
 use sp_state_machine::backend::AsTrieBackend;
 use sp_trie::{
 	trie_types::{TrieDB, TrieDBBuilder},
-	KeySpacedDB, Trie,
+	KeySpacedDB,
 };
 use trie_db::{
 	node::{NodePlan, ValuePlan},

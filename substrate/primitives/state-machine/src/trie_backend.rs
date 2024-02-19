@@ -479,7 +479,7 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<'a, H, C, R> Drop for WithRecorder<'_, H, C, R>
+impl<H, C, R> Drop for WithRecorder<'_, H, C, R>
 where
 	H: Hasher,
 	H::Out: Codec,
@@ -1548,7 +1548,7 @@ pub mod tests {
 			});
 
 			// Check the estimation
-			check_estimation(&*backend, has_cache);
+			check_estimation(&backend, has_cache);
 		}
 	}
 
