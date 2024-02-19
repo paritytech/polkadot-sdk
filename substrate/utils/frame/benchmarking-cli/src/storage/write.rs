@@ -57,7 +57,9 @@ impl StorageCmd {
 		let best_hash = client.usage_info().chain.best_hash;
 		let header = client.header(best_hash)?.ok_or("Header not found")?;
 		let original_root = *header.state_root();
-		let trie = DbStateBuilder::<HashingFor<Block>>::new(Box::new(storage.clone()), original_root).build();
+		let trie =
+			DbStateBuilder::<HashingFor<Block>>::new(Box::new(storage.clone()), original_root)
+				.build();
 
 		info!("Preparing keys from block {}", best_hash);
 		// Load all KV pairs and randomly shuffle them.

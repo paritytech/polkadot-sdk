@@ -614,9 +614,9 @@ mod tests {
 	use sp_core::Blake2Hasher;
 	use trie_db::{
 		node_db::{Hasher, NodeDB, NodeDBMut},
+		test_utils::{Alphabet, StandardMap, ValueMode},
 		DBValue, NodeCodec as NodeCodecT, Trie,
 	};
-	use trie_db::test_utils::{Alphabet, StandardMap, ValueMode};
 
 	type LayoutV0 = super::LayoutV0<Blake2Hasher, ()>;
 	type LayoutV1 = super::LayoutV1<Blake2Hasher, ()>;

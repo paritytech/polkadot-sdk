@@ -223,7 +223,8 @@ impl DatabaseType {
 		match self {
 			Self::RocksDb => sc_client_db::DatabaseSource::RocksDb { path, cache_size: 512 },
 			Self::ParityDb => sc_client_db::DatabaseSource::ParityDb { path, multi_tree: false },
-			Self::ParityDbMulti => sc_client_db::DatabaseSource::ParityDb { path, multi_tree: true },
+			Self::ParityDbMulti =>
+				sc_client_db::DatabaseSource::ParityDb { path, multi_tree: true },
 		}
 	}
 }

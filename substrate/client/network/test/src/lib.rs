@@ -672,11 +672,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 	fn make_block_import(
 		&self,
 		client: PeersClient,
-	) -> (
-		Self::BlockImport,
-		Option<BoxJustificationImport<Block>>,
-		Self::PeerData,
-	);
+	) -> (Self::BlockImport, Option<BoxJustificationImport<Block>>, Self::PeerData);
 
 	/// Create new test network with this many peers.
 	fn new(n: usize) -> Self {
@@ -1092,11 +1088,7 @@ impl TestNetFactory for TestNet {
 	fn make_block_import(
 		&self,
 		client: PeersClient,
-	) -> (
-		Self::BlockImport,
-		Option<BoxJustificationImport<Block>>,
-		Self::PeerData,
-	) {
+	) -> (Self::BlockImport, Option<BoxJustificationImport<Block>>, Self::PeerData) {
 		(client, None, ())
 	}
 
@@ -1173,11 +1165,7 @@ impl TestNetFactory for JustificationTestNet {
 	fn make_block_import(
 		&self,
 		client: PeersClient,
-	) -> (
-		Self::BlockImport,
-		Option<BoxJustificationImport<Block>>,
-		Self::PeerData,
-	) {
+	) -> (Self::BlockImport, Option<BoxJustificationImport<Block>>, Self::PeerData) {
 		(client.clone(), Some(Box::new(ForceFinalized(client))), Default::default())
 	}
 }
