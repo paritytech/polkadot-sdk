@@ -694,7 +694,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn on_validator_remove(who: &T::AccountId) {
 		log!(debug, "on_validator_remove: {:?} with status {:?}", who, T::Staking::status(who));
 
-		// validator must be idle before removing completely.
+		// validator must be idle before removing completely. Perform some sanity checks too.
 		match T::Staking::status(who) {
 			Ok(StakerStatus::Idle) => (), // proceed
 			Ok(StakerStatus::Validator) => Self::on_validator_idle(who),
@@ -708,12 +708,17 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			},
 		};
 
-		// remove from target list IIF score is zero. If `score != 0`, the target still has active
-		// nominations, thus we keep it in the target list with corresponding approval stake.
-		if T::TargetList::get_score(who).unwrap_or_default().is_zero() {
-			let _ = T::TargetList::on_remove(who)
-				.defensive_proof("target exists as the target score exists; qed.");
-		}
+		if let Ok(score) = T::TargetList::get_score(who) {
+			// remove from target list IIF score is zero. If `score != 0`, the target still has
+			// active nominations, thus we keep it in the target list with corresponding approval
+			// stake.
+			if score.is_zero() {
+				let _ = T::TargetList::on_remove(who).expect("target exists as per above; qed");
+			}
+		} else {
+			// target is not part of the list. Given the contract with staking and the checks above,
+			// this may actually be called. So do nothing and skip defensive warns.
+		};
 	}
 
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* this method is

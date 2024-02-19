@@ -7114,6 +7114,7 @@ mod on_staking_update_events {
 			// 21 withdraws all unlocked funds to kill the stash/ unstake.
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(21), 0));
 			ensure_on_staking_updates_emitted(vec![
+				ValidatorRemove { who: 21 },
 				Unstake { who: 21 },
 				Withdraw { who: 21, amount: 100 },
 			]);

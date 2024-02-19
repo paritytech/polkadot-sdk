@@ -729,8 +729,24 @@ impl<T: Config> Pallet<T> {
 		slashing::clear_stash_metadata::<T>(&stash, num_slashing_spans)?;
 
 		// note: these must be called *before* cleaning up the staking ledger storage with fn kill.
-		Self::do_remove_validator(&stash);
-		Self::do_remove_nominator(&stash);
+		match Self::status(stash) {
+			Ok(StakerStatus::Validator) => {
+				// validator is both a nominator and validator.
+				Self::do_remove_validator(&stash);
+				Self::do_remove_nominator(&stash);
+			},
+			Ok(StakerStatus::Nominator(_)) => {
+				Self::do_remove_nominator(&stash);
+			},
+			Ok(StakerStatus::Idle) => {
+				// we keep track of chilled (`Idle`) validators in the TargetList as well, so we
+				// may need to remove them.
+				Self::do_remove_validator(&stash);
+			},
+			Err(_) => {
+				// do nothing; it will fail below when trying to kill the stash.
+			},
+		}
 
 		// and finally, it removes controller from `Bonded` and staking ledger from `Ledger`, as
 		// well as reward setting of the stash in `Payee`.
@@ -1011,22 +1027,21 @@ impl<T: Config> Pallet<T> {
 	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
 		let nomination_accounts = nominations.targets.to_vec();
 
-		match (Nominators::<T>::contains_key(who), T::VoterList::contains(who)) {
-			(false, false) => {
+		match Self::status(who) {
+			Ok(StakerStatus::Idle) => {
 				// new nomination
 				Nominators::<T>::insert(who, nominations);
 				T::EventListeners::on_nominator_add(who, nomination_accounts);
 			},
-			(true, false) => {
-				defensive!("unexpected state.");
-			},
-			(_, true) => {
+			Ok(StakerStatus::Nominator(prev_nominations)) => {
 				// update nominations or un-chill nominator.
-				let prev_nominations = Self::nominations(who).unwrap_or_default();
 				Nominators::<T>::insert(who, nominations);
 				T::EventListeners::on_nominator_update(who, prev_nominations, nomination_accounts);
 			},
-		};
+			_ => {
+				defensive!("calling add_nominator on a validator or unbonded stash.");
+			},
+		}
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
@@ -1057,12 +1072,7 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: you must ALWAYS use this function to remove a nominator from the system. Any access
 	/// to `Nominators` or `VoterList` outside of this function is almost certainly wrong.
 	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
-		let outcome = match Self::status(who) {
-			Ok(StakerStatus::Nominator(_)) | Ok(StakerStatus::Validator) =>
-				Self::do_chill_nominator(who),
-			// not an active nominator, do nothing.
-			Err(_) | Ok(StakerStatus::Idle) => false,
-		};
+		let outcome = Self::do_chill_nominator(who);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
@@ -1122,22 +1132,8 @@ impl<T: Config> Pallet<T> {
 	/// `Validators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
 	pub fn do_remove_validator(who: &T::AccountId) -> bool {
-		let outcome = match Self::status(who) {
-			Ok(StakerStatus::Validator) => {
-				// make sure the validator is chilled before removing it.
-				let outcome = Self::do_chill_validator(who);
-				T::EventListeners::on_validator_remove(who);
-				outcome
-			},
-			Ok(StakerStatus::Idle) | Err(_) if T::TargetList::contains(who) => {
-				// try to remove "dangling" target. A dangling target does not have a bonded stash
-				// but is still part of the target list because a previously removed stash still has
-				// nominations from active nominators.
-				T::EventListeners::on_validator_remove(who);
-				false
-			},
-			_ => false,
-		};
+		let outcome = Self::do_chill_validator(who);
+		T::EventListeners::on_validator_remove(who);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
