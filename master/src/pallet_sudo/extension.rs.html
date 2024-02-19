@@ -122,7 +122,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use crate</span>::{Config, Pallet};
+</span><span class="kw">use crate</span>::{Config, Key};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{dispatch::DispatchInfo, ensure};
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -193,7 +193,7 @@
 		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
 		_len: usize,
 	) -&gt; TransactionValidity {
-		<span class="kw">let </span>sudo_key: T::AccountId = &lt;Pallet&lt;T&gt;&gt;::key().ok_or(UnknownTransaction::CannotLookup)<span class="question-mark">?</span>;
+		<span class="kw">let </span>sudo_key: T::AccountId = Key::&lt;T&gt;::get().ok_or(UnknownTransaction::CannotLookup)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(<span class="kw-2">*</span>who == sudo_key, InvalidTransaction::BadSigner);
 
 		<span class="prelude-val">Ok</span>(ValidTransaction {
