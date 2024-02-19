@@ -8,9 +8,9 @@ Snowbridge is a trustless bridge between Polkadot and Ethereum. For documentatio
 
 The Snowbridge project lives in two repositories:
 
-- [Snowfork/polkadot-sdk](https://github.com/Snowfork/polkadot-sdk): The Snowbridge parachain and pallets live in 
-a fork of the polkadot-sdk. Changes are eventually contributed back to
-[paritytech/polkadot-sdk](https://github.com/paritytech/polkadot-sdk)
+- [Snowfork/Polkadot-sdk](https://github.com/Snowfork/polkadot-sdk): The Snowbridge parachain and pallets live in
+a fork of the Polkadot SDK. Changes are eventually contributed back to
+[paritytech/Polkadot-sdk](https://github.com/paritytech/polkadot-sdk)
 - [Snowfork/snowbridge](https://github.com/Snowfork/snowbridge): The rest of the Snowbridge components, like contracts,
 off-chain relayer, end-to-end tests and test-net setup code.
 
