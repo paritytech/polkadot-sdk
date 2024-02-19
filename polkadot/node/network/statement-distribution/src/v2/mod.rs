@@ -1306,7 +1306,7 @@ async fn circulate_statement<Context>(
 		};
 
 		let statement_group = per_session.groups.by_validator_index(originator);
-		let group_saved_locally = local_validator.active.as_ref().map(|active| active.group.clone()).unwrap_or(GroupIndex(999)).0;
+		let group_saved_locally = local_validator.active.as_ref().map(|active| active.group).unwrap_or(GroupIndex(999)).0;
 
 		// We're not meant to circulate statements in the cluster until we have the confirmed
 		// candidate.
