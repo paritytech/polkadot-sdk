@@ -272,6 +272,7 @@ mod tests {
 				rpc_message_buffer_capacity: Default::default(),
 				rpc_port: 9944,
 				rpc_batch_config: sc_service::config::RpcBatchRequestConfig::Unlimited,
+				rpc_rate_limit: None,
 				prometheus_config: None,
 				telemetry_endpoints: None,
 				default_heap_pages: None,

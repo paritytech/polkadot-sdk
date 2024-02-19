@@ -34,7 +34,7 @@ use sc_service::{
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 use sc_tracing::logging::LoggerBuilder;
-use std::{net::SocketAddr, path::PathBuf};
+use std::{net::SocketAddr, num::NonZeroU32, path::PathBuf};
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -344,6 +344,11 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(RpcBatchRequestConfig::Unlimited)
 	}
 
+	/// RPC rate limit configuration.
+	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
+		Ok(None)
+	}
+
 	/// Get the prometheus configuration (`None` if disabled)
 	///
 	/// By default this is `None`.
@@ -517,6 +522,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			rpc_port: DCV::rpc_listen_port(),
 			rpc_message_buffer_capacity: self.rpc_buffer_capacity_per_connection()?,
 			rpc_batch_config: self.rpc_batch_config()?,
+			rpc_rate_limit: self.rpc_rate_limit()?,
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
 			telemetry_endpoints,
