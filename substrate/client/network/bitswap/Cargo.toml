@@ -23,7 +23,7 @@ async-channel = "1.8.0"
 cid = "0.9.0"
 futures = "0.3.21"
 libp2p-identity = { version = "0.1.3", features = ["peerid"] }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 prost = "0.12"
 thiserror = "1.0"
 unsigned-varint = { version = "0.7.1", features = ["asynchronous_codec", "futures"] }

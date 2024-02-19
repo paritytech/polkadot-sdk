@@ -29,6 +29,8 @@ pub enum CoretimeRuntimeType {
 	// Benchmarks
 	RococoDevelopment,
 
+	// Live
+	Westend,
 	// Local
 	WestendLocal,
 	// Benchmarks
@@ -43,6 +45,7 @@ impl FromStr for CoretimeRuntimeType {
 			rococo::CORETIME_ROCOCO => Ok(CoretimeRuntimeType::Rococo),
 			rococo::CORETIME_ROCOCO_LOCAL => Ok(CoretimeRuntimeType::RococoLocal),
 			rococo::CORETIME_ROCOCO_DEVELOPMENT => Ok(CoretimeRuntimeType::RococoDevelopment),
+			westend::CORETIME_WESTEND => Ok(CoretimeRuntimeType::Westend),
 			westend::CORETIME_WESTEND_LOCAL => Ok(CoretimeRuntimeType::WestendLocal),
 			westend::CORETIME_WESTEND_DEVELOPMENT => Ok(CoretimeRuntimeType::WestendDevelopment),
 			_ => Err(format!("Value '{}' is not configured yet", value)),
@@ -56,6 +59,7 @@ impl From<CoretimeRuntimeType> for &str {
 			CoretimeRuntimeType::Rococo => rococo::CORETIME_ROCOCO,
 			CoretimeRuntimeType::RococoLocal => rococo::CORETIME_ROCOCO_LOCAL,
 			CoretimeRuntimeType::RococoDevelopment => rococo::CORETIME_ROCOCO_DEVELOPMENT,
+			CoretimeRuntimeType::Westend => westend::CORETIME_WESTEND,
 			CoretimeRuntimeType::WestendLocal => westend::CORETIME_WESTEND_LOCAL,
 			CoretimeRuntimeType::WestendDevelopment => westend::CORETIME_WESTEND_DEVELOPMENT,
 		}
@@ -65,7 +69,7 @@ impl From<CoretimeRuntimeType> for &str {
 impl From<CoretimeRuntimeType> for ChainType {
 	fn from(runtime_type: CoretimeRuntimeType) -> Self {
 		match runtime_type {
-			CoretimeRuntimeType::Rococo => ChainType::Live,
+			CoretimeRuntimeType::Rococo | CoretimeRuntimeType::Westend => ChainType::Live,
 			CoretimeRuntimeType::RococoLocal | CoretimeRuntimeType::WestendLocal =>
 				ChainType::Local,
 			CoretimeRuntimeType::RococoDevelopment | CoretimeRuntimeType::WestendDevelopment =>
@@ -82,12 +86,15 @@ impl CoretimeRuntimeType {
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
 			CoretimeRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
-				&include_bytes!("../../../parachains/chain-specs/coretime-rococo.json")[..],
+				&include_bytes!("../../chain-specs/coretime-rococo.json")[..],
 			)?)),
 			CoretimeRuntimeType::RococoLocal =>
 				Ok(Box::new(rococo::local_config(*self, "rococo-local"))),
 			CoretimeRuntimeType::RococoDevelopment =>
 				Ok(Box::new(rococo::local_config(*self, "rococo-dev"))),
+			CoretimeRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../../parachains/chain-specs/coretime-westend.json")[..],
+			)?)),
 			CoretimeRuntimeType::WestendLocal =>
 				Ok(Box::new(westend::local_config(*self, "westend-local"))),
 			CoretimeRuntimeType::WestendDevelopment =>
@@ -213,6 +220,7 @@ pub mod westend {
 	use parachains_common::{AccountId, AuraId, Balance};
 	use sp_core::sr25519;
 
+	pub(crate) const CORETIME_WESTEND: &str = "coretime-westend";
 	pub(crate) const CORETIME_WESTEND_LOCAL: &str = "coretime-westend-local";
 	pub(crate) const CORETIME_WESTEND_DEVELOPMENT: &str = "coretime-westend-dev";
 	const CORETIME_WESTEND_ED: Balance = coretime_westend_runtime::ExistentialDeposit::get();

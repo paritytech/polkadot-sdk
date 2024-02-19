@@ -58,10 +58,10 @@ use frame_system::limits::{BlockLength, BlockWeights};
 pub use parachains_common as common;
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, MINUTES, NORMAL_DISPATCH_RATIO,
+	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 pub use parachains_common::{AuraId, Balance};
-use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee};
+use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::CollatorSelectionUpdateOrigin;
 
 #[cfg(any(feature = "std", test))]
@@ -103,6 +103,8 @@ pub type Migrations = (
 	pallet_contracts::Migration<Runtime>,
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	// permanent
+	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
 
 type EventRecord = frame_system::EventRecord<
@@ -131,7 +133,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("contracts-rococo"),
 	impl_name: create_runtime_str!("contracts-rococo"),
 	authoring_version: 1,
-	spec_version: 1_006_000,
+	spec_version: 1_007_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,

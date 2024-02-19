@@ -52,7 +52,8 @@ pub struct CandidateEnvironment<'a> {
 	executor_params: &'a ExecutorParams,
 	/// Validator indices controlled by this node.
 	controlled_indices: HashSet<ValidatorIndex>,
-	/// Indices of disabled validators at the `relay_parent`.
+	/// Indices of on-chain disabled validators at the `relay_parent` combined
+	/// with the off-chain state.
 	disabled_indices: HashSet<ValidatorIndex>,
 }
 
@@ -67,16 +68,15 @@ impl<'a> CandidateEnvironment<'a> {
 		runtime_info: &'a mut RuntimeInfo,
 		session_index: SessionIndex,
 		relay_parent: Hash,
+		disabled_offchain: impl IntoIterator<Item = ValidatorIndex>,
 	) -> Option<CandidateEnvironment<'a>> {
-		let disabled_indices = runtime_info
+		let disabled_onchain = runtime_info
 			.get_disabled_validators(ctx.sender(), relay_parent)
 			.await
 			.unwrap_or_else(|err| {
 				gum::info!(target: LOG_TARGET, ?err, "Failed to get disabled validators");
 				Vec::new()
-			})
-			.into_iter()
-			.collect();
+			});
 
 		let (session, executor_params) = match runtime_info
 			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
@@ -85,6 +85,24 @@ impl<'a> CandidateEnvironment<'a> {
 			Ok(extended_session_info) =>
 				(&extended_session_info.session_info, &extended_session_info.executor_params),
 			Err(_) => return None,
+		};
+
+		let n_validators = session.validators.len();
+		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
+		// combine on-chain with off-chain disabled validators
+		// process disabled validators in the following order:
+		// - on-chain disabled validators
+		// - prioritized order of off-chain disabled validators
+		// deduplicate the list and take at most `byzantine_threshold` validators
+		let disabled_indices = {
+			let mut d: HashSet<ValidatorIndex> = HashSet::new();
+			for v in disabled_onchain.into_iter().chain(disabled_offchain.into_iter()) {
+				if d.len() == byzantine_threshold {
+					break
+				}
+				d.insert(v);
+			}
+			d
 		};
 
 		let controlled_indices = find_controlled_validator_indices(keystore, &session.validators);
@@ -116,7 +134,7 @@ impl<'a> CandidateEnvironment<'a> {
 		&self.controlled_indices
 	}
 
-	/// Indices of disabled validators at the `relay_parent`.
+	/// Indices of off-chain and on-chain disabled validators.
 	pub fn disabled_indices(&'a self) -> &'a HashSet<ValidatorIndex> {
 		&self.disabled_indices
 	}
@@ -237,13 +255,19 @@ impl CandidateVoteState<CandidateVotes> {
 
 		let supermajority_threshold = polkadot_primitives::supermajority_threshold(n_validators);
 
-		// We have a dispute, if we have votes on both sides:
-		let is_disputed = !votes.invalid.is_empty() && !votes.valid.raw().is_empty();
+		// We have a dispute, if we have votes on both sides, with at least one invalid vote
+		// from non-disabled validator or with votes on both sides and confirmed.
+		let has_non_disabled_invalid_votes =
+			votes.invalid.keys().any(|i| !env.disabled_indices().contains(i));
+		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
+		let votes_on_both_sides = !votes.valid.raw().is_empty() && !votes.invalid.is_empty();
+		let is_confirmed =
+			votes_on_both_sides && (votes.voted_indices().len() > byzantine_threshold);
+		let is_disputed =
+			is_confirmed || (has_non_disabled_invalid_votes && !votes.valid.raw().is_empty());
 
 		let (dispute_status, byzantine_threshold_against) = if is_disputed {
 			let mut status = DisputeStatus::active();
-			let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
-			let is_confirmed = votes.voted_indices().len() > byzantine_threshold;
 			if is_confirmed {
 				status = status.confirm();
 			};
