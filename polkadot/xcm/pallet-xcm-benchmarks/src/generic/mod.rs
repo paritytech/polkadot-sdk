@@ -114,9 +114,7 @@ pub mod pallet {
 		/// The worst case buy execution weight limit and
 		/// asset to trigger the Trader::buy_execution in the XCM executor
 		/// By default returns ((AssetId(Here.into()), 100_000_000u128), Unlimited)
-		fn worst_case_buy_execution() -> Result<(Asset, WeightLimit), BenchmarkError> {
-			Ok(((AssetId(Junctions::Here.into()), 100_000_000u128).into(), WeightLimit::Unlimited))
-		}
+		fn worst_case_buy_execution() -> Result<(Asset, WeightLimit), BenchmarkError>;
 	}
 
 	#[pallet::pallet]
