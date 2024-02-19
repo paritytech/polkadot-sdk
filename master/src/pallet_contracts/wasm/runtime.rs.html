@@ -2325,19 +2325,6 @@
 <a href="#2325" id="2325">2325</a>
 <a href="#2326" id="2326">2326</a>
 <a href="#2327" id="2327">2327</a>
-<a href="#2328" id="2328">2328</a>
-<a href="#2329" id="2329">2329</a>
-<a href="#2330" id="2330">2330</a>
-<a href="#2331" id="2331">2331</a>
-<a href="#2332" id="2332">2332</a>
-<a href="#2333" id="2333">2333</a>
-<a href="#2334" id="2334">2334</a>
-<a href="#2335" id="2335">2335</a>
-<a href="#2336" id="2336">2336</a>
-<a href="#2337" id="2337">2337</a>
-<a href="#2338" id="2338">2338</a>
-<a href="#2339" id="2339">2339</a>
-<a href="#2340" id="2340">2340</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2361,7 +2348,6 @@
 	exec::{ExecError, ExecResult, Ext, Key, TopicOf},
 	gas::{ChargedAmount, Token},
 	primitives::ExecReturnValue,
-	schedule::HostFnWeights,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
 <span class="kw">use </span>codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
@@ -2575,6 +2561,8 @@
 	</span>ChainExtension(Weight),
 	<span class="doccomment">/// Weight charged for calling into the runtime.
 	</span>CallRuntime(Weight),
+	<span class="doccomment">/// Weight charged for calling xcm_execute.
+	</span>CallXcmExecute(Weight),
 	<span class="doccomment">/// Weight of calling `seal_set_code_hash`
 	</span>SetCodeHash,
 	<span class="doccomment">/// Weight of calling `ecdsa_to_eth_address`
@@ -2591,10 +2579,18 @@
 	</span>RemoveDelegateDependency,
 }
 
-<span class="kw">impl </span>RuntimeCosts {
-	<span class="kw">fn </span>token&lt;T: Config&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>HostFnWeights&lt;T&gt;) -&gt; RuntimeToken {
+<span class="kw">impl</span>&lt;T: Config&gt; Token&lt;T&gt; <span class="kw">for </span>RuntimeCosts {
+	<span class="kw">fn </span>influence_lowest_gas_limit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="kw-2">&amp;</span><span class="self">Self</span>::CallXcmExecute(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
+			<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
+		}
+	}
+
+	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Weight {
+		<span class="kw">let </span>s = T::Schedule::get().host_fn_weights;
 		<span class="kw">use </span><span class="self">self</span>::RuntimeCosts::<span class="kw-2">*</span>;
-		<span class="kw">let </span>weight = <span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			CopyFromContract(len) =&gt; s.return_per_byte.saturating_mul(len.into()),
 			CopyToContract(len) =&gt; s.input_per_byte.saturating_mul(len.into()),
 			Caller =&gt; s.caller,
@@ -2663,8 +2659,7 @@
 			Sr25519Verify(len) =&gt; s
 				.sr25519_verify
 				.saturating_add(s.sr25519_verify_per_byte.saturating_mul(len.into())),
-			ChainExtension(weight) =&gt; weight,
-			CallRuntime(weight) =&gt; weight,
+			ChainExtension(weight) | CallRuntime(weight) | CallXcmExecute(weight) =&gt; weight,
 			SetCodeHash =&gt; s.set_code_hash,
 			EcdsaToEthAddress =&gt; s.ecdsa_to_eth_address,
 			ReentrantCount =&gt; s.reentrance_count,
@@ -2672,11 +2667,6 @@
 			InstantationNonce =&gt; s.instantiation_nonce,
 			AddDelegateDependency =&gt; s.add_delegate_dependency,
 			RemoveDelegateDependency =&gt; s.remove_delegate_dependency,
-		};
-		RuntimeToken {
-			<span class="attr">#[cfg(test)]
-			</span>_created_from: <span class="kw-2">*</span><span class="self">self</span>,
-			weight,
 		}
 	}
 }
@@ -2687,23 +2677,8 @@
 /// a function won&#39;t work out.
 </span><span class="macro">macro_rules! </span>charge_gas {
 	(<span class="macro-nonterminal">$runtime</span>:expr, <span class="macro-nonterminal">$costs</span>:expr) =&gt; {{
-		<span class="kw">let </span>token = <span class="macro-nonterminal">$costs</span>.token(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$runtime</span>.ext.schedule().host_fn_weights);
-		<span class="macro-nonterminal">$runtime</span>.ext.gas_meter_mut().charge(token)
+		<span class="macro-nonterminal">$runtime</span>.ext.gas_meter_mut().charge(<span class="macro-nonterminal">$costs</span>)
 	}};
-}
-
-<span class="attr">#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
-#[derive(Copy, Clone)]
-</span><span class="kw">struct </span>RuntimeToken {
-	<span class="attr">#[cfg(test)]
-	</span>_created_from: RuntimeCosts,
-	weight: Weight,
-}
-
-<span class="kw">impl</span>&lt;T: Config&gt; Token&lt;T&gt; <span class="kw">for </span>RuntimeToken {
-	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Weight {
-		<span class="self">self</span>.weight
-	}
 }
 
 <span class="doccomment">/// The kind of call that should be performed.
@@ -2846,28 +2821,25 @@
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
 	</span><span class="kw">pub fn </span>adjust_gas(<span class="kw-2">&amp;mut </span><span class="self">self</span>, charged: ChargedAmount, actual_costs: RuntimeCosts) {
-		<span class="kw">let </span>token = actual_costs.token(<span class="kw-2">&amp;</span><span class="self">self</span>.ext.schedule().host_fn_weights);
-		<span class="self">self</span>.ext.gas_meter_mut().adjust_gas(charged, token);
+		<span class="self">self</span>.ext.gas_meter_mut().adjust_gas(charged, actual_costs);
 	}
 
 	<span class="doccomment">/// Charge, Run and adjust gas, for executing the given dispatchable.
-	</span><span class="kw">fn </span>call_dispatchable&lt;
-		ErrorReturnCode: Get&lt;ReturnErrorCode&gt;,
-		F: FnOnce(<span class="kw-2">&amp;mut </span><span class="self">Self</span>) -&gt; DispatchResultWithPostInfo,
-	&gt;(
+	</span><span class="kw">fn </span>call_dispatchable&lt;ErrorReturnCode: Get&lt;ReturnErrorCode&gt;&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		dispatch_info: DispatchInfo,
-		run: F,
+		runtime_cost: <span class="kw">impl </span>Fn(Weight) -&gt; RuntimeCosts,
+		run: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span><span class="self">Self</span>) -&gt; DispatchResultWithPostInfo,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="kw">use </span>frame_support::dispatch::extract_actual_weight;
-		<span class="kw">let </span>charged = <span class="self">self</span>.charge_gas(RuntimeCosts::CallRuntime(dispatch_info.weight))<span class="question-mark">?</span>;
+		<span class="kw">let </span>charged = <span class="self">self</span>.charge_gas(runtime_cost(dispatch_info.weight))<span class="question-mark">?</span>;
 		<span class="kw">let </span>result = run(<span class="self">self</span>);
 		<span class="kw">let </span>actual_weight = extract_actual_weight(<span class="kw-2">&amp;</span>result, <span class="kw-2">&amp;</span>dispatch_info);
-		<span class="self">self</span>.adjust_gas(charged, RuntimeCosts::CallRuntime(actual_weight));
+		<span class="self">self</span>.adjust_gas(charged, runtime_cost(actual_weight));
 		<span class="kw">match </span>result {
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(ReturnErrorCode::Success),
 			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="kw">if </span><span class="self">self</span>.ext.append_debug_buffer(<span class="string">&quot;&quot;</span>) {
+				<span class="kw">if </span><span class="self">self</span>.ext.debug_buffer_enabled() {
 					<span class="self">self</span>.ext.append_debug_buffer(<span class="string">&quot;call failed with: &quot;</span>);
 					<span class="self">self</span>.ext.append_debug_buffer(e.into());
 				};
@@ -4453,9 +4425,11 @@
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))<span class="question-mark">?</span>;
 		<span class="kw">let </span>call: &lt;E::T <span class="kw">as </span>Config&gt;::RuntimeCall =
 			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)<span class="question-mark">?</span>;
-		ctx.call_dispatchable::&lt;CallRuntimeFailed, <span class="kw">_</span>&gt;(call.get_dispatch_info(), |ctx| {
-			ctx.ext.call_runtime(call)
-		})
+		ctx.call_dispatchable::&lt;CallRuntimeFailed&gt;(
+			call.get_dispatch_info(),
+			RuntimeCosts::CallRuntime,
+			|ctx| ctx.ext.call_runtime(call),
+		)
 	}
 
 	<span class="doccomment">/// Execute an XCM program locally, using the contract&#39;s address as the origin.
@@ -4466,7 +4440,6 @@
 		memory: <span class="kw">_</span>,
 		msg_ptr: u32,
 		msg_len: u32,
-		output_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="kw">use </span>frame_support::dispatch::DispatchInfo;
 		<span class="kw">use </span>xcm::VersionedXcm;
@@ -4475,26 +4448,27 @@
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))<span class="question-mark">?</span>;
 		<span class="kw">let </span>message: VersionedXcm&lt;CallOf&lt;E::T&gt;&gt; =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)<span class="question-mark">?</span>;
+		ensure_executable::&lt;E::T&gt;(<span class="kw-2">&amp;</span>message)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>execute_weight =
 			&lt;&lt;E::T <span class="kw">as </span>Config&gt;::Xcm <span class="kw">as </span>ExecuteController&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::WeightInfo::execute();
 		<span class="kw">let </span>weight = ctx.ext.gas_meter().gas_left().max(execute_weight);
 		<span class="kw">let </span>dispatch_info = DispatchInfo { weight, ..Default::default() };
 
-		ensure_executable::&lt;E::T&gt;(<span class="kw-2">&amp;</span>message)<span class="question-mark">?</span>;
-		ctx.call_dispatchable::&lt;XcmExecutionFailed, <span class="kw">_</span>&gt;(dispatch_info, |ctx| {
-			<span class="kw">let </span>origin = <span class="kw">crate</span>::RawOrigin::Signed(ctx.ext.address().clone()).into();
-			<span class="kw">let </span>outcome = &lt;&lt;E::T <span class="kw">as </span>Config&gt;::Xcm&gt;::execute(
-				origin,
-				Box::new(message),
-				weight.saturating_sub(execute_weight),
-			)<span class="question-mark">?</span>;
+		ctx.call_dispatchable::&lt;XcmExecutionFailed&gt;(
+			dispatch_info,
+			RuntimeCosts::CallXcmExecute,
+			|ctx| {
+				<span class="kw">let </span>origin = <span class="kw">crate</span>::RawOrigin::Signed(ctx.ext.address().clone()).into();
+				<span class="kw">let </span>weight_used = &lt;&lt;E::T <span class="kw">as </span>Config&gt;::Xcm&gt;::execute(
+					origin,
+					Box::new(message),
+					weight.saturating_sub(execute_weight),
+				)<span class="question-mark">?</span>;
 
-			ctx.write_sandbox_memory(memory, output_ptr, <span class="kw-2">&amp;</span>outcome.encode())<span class="question-mark">?</span>;
-			<span class="kw">let </span>pre_dispatch_weight =
-				&lt;&lt;E::T <span class="kw">as </span>Config&gt;::Xcm <span class="kw">as </span>ExecuteController&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::WeightInfo::execute();
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(outcome.weight_used().saturating_add(pre_dispatch_weight)).into())
-		})
+				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(weight_used.saturating_add(execute_weight)).into())
+			},
+		)
 	}
 
 	<span class="doccomment">/// Send an XCM program from the contract to the specified destination.

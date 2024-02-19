@@ -3445,6 +3445,10 @@
 <a href="#3445" id="3445">3445</a>
 <a href="#3446" id="3446">3446</a>
 <a href="#3447" id="3447">3447</a>
+<a href="#3448" id="3448">3448</a>
+<a href="#3449" id="3449">3449</a>
+<a href="#3450" id="3450">3450</a>
+<a href="#3451" id="3451">3451</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4134,6 +4138,10 @@
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>.gas_meter
 		}
 		<span class="kw">fn </span>charge_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _diff: <span class="kw-2">&amp;</span><span class="kw">crate</span>::storage::meter::Diff) {}
+
+		<span class="kw">fn </span>debug_buffer_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+			<span class="bool-val">true
+		</span>}
 		<span class="kw">fn </span>append_debug_buffer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: <span class="kw-2">&amp;</span>str) -&gt; bool {
 			<span class="self">self</span>.debug_buffer.extend(msg.as_bytes());
 			<span class="bool-val">true

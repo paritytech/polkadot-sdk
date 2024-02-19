@@ -3879,6 +3879,13 @@
 <a href="#3879" id="3879">3879</a>
 <a href="#3880" id="3880">3880</a>
 <a href="#3881" id="3881">3881</a>
+<a href="#3882" id="3882">3882</a>
+<a href="#3883" id="3883">3883</a>
+<a href="#3884" id="3884">3884</a>
+<a href="#3885" id="3885">3885</a>
+<a href="#3886" id="3886">3886</a>
+<a href="#3887" id="3887">3887</a>
+<a href="#3888" id="3888">3888</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4167,6 +4174,9 @@
 	///
 	/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
 	</span><span class="kw">fn </span>append_debug_buffer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: <span class="kw-2">&amp;</span>str) -&gt; bool;
+
+	<span class="doccomment">/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
+	</span><span class="kw">fn </span>debug_buffer_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
 
 	<span class="doccomment">/// Call some dispatchable and return the result.
 	</span><span class="kw">fn </span>call_runtime(<span class="kw-2">&amp;</span><span class="self">self</span>, call: &lt;<span class="self">Self</span>::T <span class="kw">as </span>Config&gt;::RuntimeCall) -&gt; DispatchResultWithPostInfo;
@@ -5308,6 +5318,10 @@
 
 	<span class="kw">fn </span>charge_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, diff: <span class="kw-2">&amp;</span>Diff) {
 		<span class="self">self</span>.top_frame_mut().nested_storage.charge(diff)
+	}
+
+	<span class="kw">fn </span>debug_buffer_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="self">self</span>.debug_message.is_some()
 	}
 
 	<span class="kw">fn </span>append_debug_buffer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: <span class="kw-2">&amp;</span>str) -&gt; bool {

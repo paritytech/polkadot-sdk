@@ -149,6 +149,7 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -177,7 +178,8 @@
 <span class="kw">use </span>sp_runtime::BuildStorage;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::traits::ConvertLocation;
-<span class="kw">use </span>xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
+<span class="kw">pub use </span>xcm_simulator::TestExt;
+<span class="kw">use </span>xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
 <span class="comment">// Accounts
 </span><span class="kw">pub const </span>ADMIN: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([<span class="number">0u8</span>; <span class="number">32</span>]);

@@ -333,6 +333,13 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -398,6 +405,11 @@
 	/// while calculating the amount. In this case it is ok to use saturating operations
 	/// since on overflow they will return `max_value` which should consume all gas.
 	</span><span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Weight;
+
+	<span class="doccomment">/// Returns true if this token is expected to influence the lowest gas limit.
+	</span><span class="kw">fn </span>influence_lowest_gas_limit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="bool-val">true
+	</span>}
 }
 
 <span class="doccomment">/// A wrapper around a type-erased trait object of what used to be a `Token`.
@@ -495,7 +507,9 @@
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
 	</span><span class="kw">pub fn </span>adjust_gas&lt;Tok: Token&lt;T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, charged_amount: ChargedAmount, token: Tok) {
-		<span class="self">self</span>.gas_left_lowest = <span class="self">self</span>.gas_left_lowest();
+		<span class="kw">if </span>token.influence_lowest_gas_limit() {
+			<span class="self">self</span>.gas_left_lowest = <span class="self">self</span>.gas_left_lowest();
+		}
 		<span class="kw">let </span>adjustment = charged_amount.<span class="number">0</span>.saturating_sub(token.weight());
 		<span class="self">self</span>.gas_left = <span class="self">self</span>.gas_left.saturating_add(adjustment).min(<span class="self">self</span>.gas_limit);
 	}

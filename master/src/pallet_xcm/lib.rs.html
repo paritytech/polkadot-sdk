@@ -3076,6 +3076,14 @@
 <a href="#3076" id="3076">3076</a>
 <a href="#3077" id="3077">3077</a>
 <a href="#3078" id="3078">3078</a>
+<a href="#3079" id="3079">3079</a>
+<a href="#3080" id="3080">3080</a>
+<a href="#3081" id="3081">3081</a>
+<a href="#3082" id="3082">3082</a>
+<a href="#3083" id="3083">3083</a>
+<a href="#3084" id="3084">3084</a>
+<a href="#3085" id="3085">3085</a>
+<a href="#3086" id="3086">3086</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3107,7 +3115,7 @@
 
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{
-	dispatch::GetDispatchInfo,
+	dispatch::{DispatchErrorWithPostInfo, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{
 		Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Get, LockableCurrency,
@@ -3369,22 +3377,38 @@
 			origin: OriginFor&lt;T&gt;,
 			message: Box&lt;VersionedXcm&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;&gt;,
 			max_weight: Weight,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;Outcome, DispatchError&gt; {
-			<span class="kw">let </span>origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span><span class="kw-2">mut </span>hash = message.using_encoded(sp_io::hashing::blake2_256);
-			<span class="kw">let </span>message = (<span class="kw-2">*</span>message).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
-			<span class="kw">let </span>value = (origin_location, message);
-			<span class="macro">ensure!</span>(T::XcmExecuteFilter::contains(<span class="kw-2">&amp;</span>value), Error::&lt;T&gt;::Filtered);
-			<span class="kw">let </span>(origin_location, message) = value;
-			<span class="kw">let </span>outcome = T::XcmExecutor::prepare_and_execute(
-				origin_location,
-				message,
-				<span class="kw-2">&amp;mut </span>hash,
-				max_weight,
-				max_weight,
-			);
+		) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, DispatchErrorWithPostInfo&gt; {
+			<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;message {:?}, max_weight {:?}&quot;</span>, message, max_weight);
+			<span class="kw">let </span>outcome = (|| {
+				<span class="kw">let </span>origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+				<span class="kw">let </span><span class="kw-2">mut </span>hash = message.using_encoded(sp_io::hashing::blake2_256);
+				<span class="kw">let </span>message = (<span class="kw-2">*</span>message).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
+				<span class="kw">let </span>value = (origin_location, message);
+				<span class="macro">ensure!</span>(T::XcmExecuteFilter::contains(<span class="kw-2">&amp;</span>value), Error::&lt;T&gt;::Filtered);
+				<span class="kw">let </span>(origin_location, message) = value;
+				<span class="prelude-val">Ok</span>(T::XcmExecutor::prepare_and_execute(
+					origin_location,
+					message,
+					<span class="kw-2">&amp;mut </span>hash,
+					max_weight,
+					max_weight,
+				))
+			})()
+			.map_err(|e: DispatchError| {
+				e.with_weight(&lt;<span class="self">Self</span>::WeightInfo <span class="kw">as </span>ExecuteControllerWeightInfo&gt;::execute())
+			})<span class="question-mark">?</span>;
+
 			<span class="self">Self</span>::deposit_event(Event::Attempted { outcome: outcome.clone() });
-			<span class="prelude-val">Ok</span>(outcome)
+			<span class="kw">let </span>weight_used = outcome.weight_used();
+			outcome.ensure_complete().map_err(|error| {
+				<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;XCM execution failed with error {:?}&quot;</span>, error);
+				Error::&lt;T&gt;::LocalExecutionIncomplete.with_weight(
+					weight_used.saturating_add(
+						&lt;<span class="self">Self</span>::WeightInfo <span class="kw">as </span>ExecuteControllerWeightInfo&gt;::execute(),
+					),
+				)
+			})<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(weight_used)
 		}
 	}
 
@@ -4087,9 +4111,6 @@
 		/// No more than `max_weight` will be used in its attempted execution. If this is less than
 		/// the maximum amount of weight that the message could take to be executed, then no
 		/// execution attempt will be made.
-		///
-		/// NOTE: A successful return to this does *not* imply that the `msg` was executed
-		/// successfully to completion; only that it was attempted.
 		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		</span><span class="kw">pub fn </span>execute(
@@ -4097,13 +4118,8 @@
 			message: Box&lt;VersionedXcm&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;&gt;,
 			max_weight: Weight,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;message {:?}, max_weight {:?}&quot;</span>, message, max_weight);
-			<span class="kw">let </span>outcome = &lt;<span class="self">Self </span><span class="kw">as </span>ExecuteController&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::execute(origin, message, max_weight)<span class="question-mark">?</span>;
-			<span class="kw">let </span>weight_used = outcome.weight_used();
-			outcome.ensure_complete().map_err(|error| {
-				<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;XCM execution failed with error {:?}&quot;</span>, error);
-				Error::&lt;T&gt;::LocalExecutionIncomplete
-			})<span class="question-mark">?</span>;
+			<span class="kw">let </span>weight_used =
+				&lt;<span class="self">Self </span><span class="kw">as </span>ExecuteController&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::execute(origin, message, max_weight)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
