@@ -41,19 +41,7 @@ const LOG_TARGET: &'static str = "runtime::storage_reclaim";
 /// reclaim  it computes the real consumed storage weight and refunds excess weight.
 ///
 /// # Example
-///
-/// ```ignore
-/// 	use parachains_common::storage_weight_reclaim::StorageWeightReclaimer;
-///
-/// 	let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(10, 10));
-/// 	let mut reclaim_helper = StorageWeightReclaimer::start(&remaining_weight_meter);
-/// 	remaining_weight_meter.try_consume(get_weight_for_work()).is_ok() {
-/// 		do_work();
-/// 		if let Some(relaimed_weight) = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter) {
-/// 			log::info!("Reclaimed {} weight", reclaimed_weight);
-/// 		}
-/// 	}
-/// ```
+#[doc = docify::embed!("src/lib.rs", simple_reclaimer_example)]
 pub struct StorageWeightReclaimer {
 	previous_remaining_proof_size: u64,
 	previous_reported_proof_size: Option<u64>,
@@ -479,26 +467,50 @@ mod tests {
 		});
 	}
 
-	#[test]
-	fn test_reclaim_helper_works_with_meter() {
-		let mut test_ext = setup_test_externalities(&[10, 12]);
+	/// Just here for doc purposes
+	fn get_benched_weight() -> Weight {
+		Weight::from_parts(0, 5)
+	}
 
-		test_ext.execute_with(|| {
-			let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(10, 10));
+	/// Just here for doc purposes
+	fn do_work() {}
 
-			set_current_storage_weight(10);
-			let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter);
+	#[docify::export_content(simple_reclaimer_example)]
+	fn reclaim_with_weight_meter() {
+		let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(10, 10));
 
-			// Substract benchmarked weight
-			remaining_weight_meter.consume(Weight::from_parts(0, 5));
+		let benched_weight = get_benched_weight();
+
+		// It is important to instantiate the `StorageWeightReclaimer` before we consume the weight
+		// for a piece of work from the weight meter.
+		let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter);
+
+		if remaining_weight_meter.try_consume(benched_weight).is_ok() {
+			// Perform some work that takes has `benched_weight` storage weight.
+			do_work();
+
+			// Reclaimer will detect that we only consumed 2 bytes, so 3 bytes are reclaimed.
 			let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 
+			// We reclaimed 3 bytes of storage size!
 			assert_eq!(reclaimed, Some(Weight::from_parts(0, 3)));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
 				Weight::from_parts(base_block_weight().ref_time(), 10)
 			);
 			assert_eq!(remaining_weight_meter.remaining(), Weight::from_parts(10, 8));
+		}
+	}
+
+	#[test]
+	fn test_reclaim_helper_works_with_meter() {
+		// The node will report 12 - 10 = 2 consumed storage size between the calls.
+		let mut test_ext = setup_test_externalities(&[10, 12]);
+
+		test_ext.execute_with(|| {
+			// Initial storage size is 10.
+			set_current_storage_weight(10);
+			reclaim_with_weight_meter();
 		});
 	}
 }
