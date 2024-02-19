@@ -110,4 +110,18 @@ mod tests {
 			));
 		})
 	}
+
+	#[test]
+	fn unsigned_origin_works() {
+		new_test_ext().execute_with(|| {
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			assert_ok!(CheckNonZeroSender::<Test>::new().validate_only(
+				None.into(),
+				CALL,
+				&info,
+				len
+			));
+		})
+	}
 }
