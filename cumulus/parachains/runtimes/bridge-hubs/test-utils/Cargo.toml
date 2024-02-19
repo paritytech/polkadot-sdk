@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-test-utils"
-version = "0.6.0"
+version = "0.6.1"
 authors.workspace = true
 edition.workspace = true
 description = "Utils for BridgeHub testing"
@@ -23,13 +23,13 @@ sp-tracing = { version = "15.0.0", path = "../../../../../substrate/primitives/t
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "27.0.0" }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false, version = "27.0.0" }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false, version = "27.0.0" }
-asset-test-utils = { version = "6.0.0", path = "../../assets/test-utils" }
+asset-test-utils = { version = "6.0.1", path = "../../assets/test-utils" }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.6.0" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.6.0" }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "8.0.0" }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.6.0" }
 parachains-common = { path = "../../../common", default-features = false, version = "6.0.0" }
-parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "6.0.0" }
+parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "6.0.1" }
 
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "6.0.0" }
