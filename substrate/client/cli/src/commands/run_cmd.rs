@@ -34,7 +34,10 @@ use sc_service::{
 	ChainSpec, Role,
 };
 use sc_telemetry::TelemetryEndpoints;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::{
+	net::{IpAddr, Ipv4Addr, SocketAddr},
+	num::NonZeroU32,
+};
 
 /// The `run` command used to run a node.
 #[derive(Debug, Clone, Parser)]
@@ -59,7 +62,7 @@ pub struct RunCmd {
 	/// Not all RPC methods are safe to be exposed publicly.
 	///
 	/// Use an RPC proxy server to filter out dangerous methods. More details:
-	/// <https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs>.
+	/// <https://docs.substrate.io/build/remote-procedure-calls/#public-rpc-interfaces>.
 	///
 	/// Use `--unsafe-rpc-external` to suppress the warning if you understand the risks.
 	#[arg(long)]
@@ -81,6 +84,15 @@ pub struct RunCmd {
 		verbatim_doc_comment
 	)]
 	pub rpc_methods: RpcMethods,
+
+	/// RPC rate limiting (calls/minute) for each connection.
+	///
+	/// This is disabled by default.
+	///
+	/// For example `--rpc-rate-limit 10` will maximum allow
+	/// 10 calls per minute per connection.
+	#[arg(long)]
+	pub rpc_rate_limit: Option<NonZeroU32>,
 
 	/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
@@ -397,6 +409,10 @@ impl CliConfiguration for RunCmd {
 
 	fn rpc_max_subscriptions_per_connection(&self) -> Result<u32> {
 		Ok(self.rpc_max_subscriptions_per_connection)
+	}
+
+	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
+		Ok(self.rpc_rate_limit)
 	}
 
 	fn transaction_pool(&self, is_dev: bool) -> Result<TransactionPoolOptions> {
