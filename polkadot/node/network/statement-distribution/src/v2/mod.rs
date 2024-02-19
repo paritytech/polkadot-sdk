@@ -1306,6 +1306,7 @@ async fn circulate_statement<Context>(
 		};
 
 		let statement_group = per_session.groups.by_validator_index(originator);
+		let group_saved_locally = local_validator.active.as_ref().map(|active| active.group.clone()).unwrap_or(GroupIndex(999)).0;
 
 		// We're not meant to circulate statements in the cluster until we have the confirmed
 		// candidate.
@@ -1346,7 +1347,9 @@ async fn circulate_statement<Context>(
 			.filter(|v| !cluster_relevant || !all_cluster_targets.contains(v))
 			.map(|v| (v, DirectTargetKind::Grid));
 
-		gum::info!(target: LOG_TARGET, ?candidate_hash, ?cluster_targets, ?cluster_relevant, ?all_cluster_targets, ?grid_targets, "Build targets");
+		gum::info!(target: LOG_TARGET, ?candidate_hash, ?cluster_targets, ?cluster_relevant, ?all_cluster_targets, ?grid_targets, 
+			?statement_group, 
+			?group_saved_locally , "Build targets");
 
 		let targets = cluster_targets
 			.into_iter()
