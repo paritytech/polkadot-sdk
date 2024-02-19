@@ -38,7 +38,7 @@ frame-try-runtime = { path = "../../../../frame/try-runtime", optional = true }
 substrate-rpc-client = { path = "../../rpc/client" }
 
 async-trait = "0.1.74"
-clap = { version = "4.5.0", features = ["derive"] }
+clap = { version = "4.5.1", features = ["derive"] }
 hex = { version = "0.4.3", default-features = false }
 log = { workspace = true, default-features = true }
 parity-scale-codec = "3.6.1"
