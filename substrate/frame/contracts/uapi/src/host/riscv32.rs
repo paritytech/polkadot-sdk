@@ -297,7 +297,7 @@ impl HostFn for HostFnImpl {
 		todo!()
 	}
 
-	fn xcm_execute(msg: &[u8], output: &mut &mut [u8]) -> Result {
+	fn xcm_execute(msg: &[u8]) -> Result {
 		todo!()
 	}
 

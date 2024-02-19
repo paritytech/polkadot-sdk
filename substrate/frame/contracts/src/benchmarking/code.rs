@@ -31,8 +31,8 @@ use sp_std::{borrow::ToOwned, prelude::*};
 use wasm_instrument::parity_wasm::{
 	builder,
 	elements::{
-		self, BlockType, CustomSection, External, FuncBody, Instruction, Instructions, Local,
-		Module, Section, ValueType,
+		self, BlockType, CustomSection, FuncBody, Instruction, Instructions, Local, Section,
+		ValueType,
 	},
 };
 
@@ -238,24 +238,6 @@ impl<T: Config> From<ModuleDefinition> for WasmModule<T> {
 }
 
 impl<T: Config> WasmModule<T> {
-	/// Uses the supplied wasm module.
-	pub fn from_code(code: &[u8]) -> Self {
-		let module = Module::from_bytes(code).unwrap();
-		let limits = *module
-			.import_section()
-			.unwrap()
-			.entries()
-			.iter()
-			.find_map(|e| if let External::Memory(mem) = e.external() { Some(mem) } else { None })
-			.unwrap()
-			.limits();
-		let code = module.into_bytes().unwrap();
-		let hash = T::Hashing::hash(&code);
-		let memory =
-			ImportedMemory { min_pages: limits.initial(), max_pages: limits.maximum().unwrap() };
-		Self { code: code.into(), hash, memory: Some(memory) }
-	}
-
 	/// Creates a wasm module with an empty `call` and `deploy` function and nothing else.
 	pub fn dummy() -> Self {
 		ModuleDefinition::default().into()

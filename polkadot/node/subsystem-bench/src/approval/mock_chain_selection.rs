@@ -14,9 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::approval::{LOG_TARGET, SLOT_DURATION_MILLIS};
-
-use super::{ApprovalTestState, PastSystemClock};
+use crate::approval::{ApprovalTestState, PastSystemClock, LOG_TARGET, SLOT_DURATION_MILLIS};
 use futures::FutureExt;
 use polkadot_node_core_approval_voting::time::{slot_number_to_tick, Clock, TICK_DURATION_MILLIS};
 use polkadot_node_subsystem::{overseer, SpawnedSubsystem, SubsystemError};

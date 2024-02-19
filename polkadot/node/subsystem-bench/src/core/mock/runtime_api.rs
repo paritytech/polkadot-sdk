@@ -13,27 +13,25 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-//!
+
 //! A generic runtime api subsystem mockup suitable to be used in benchmarks.
 
-use itertools::Itertools;
-use polkadot_primitives::{
-	vstaging::NodeFeatures, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec,
-	OccupiedCore, SessionIndex, SessionInfo, ValidatorIndex,
-};
-
+use crate::core::configuration::{TestAuthorities, TestConfiguration};
 use bitvec::prelude::BitVec;
+use futures::FutureExt;
+use itertools::Itertools;
 use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest},
 	overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
+use polkadot_primitives::{
+	vstaging::NodeFeatures, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec,
+	OccupiedCore, SessionIndex, SessionInfo, ValidatorIndex,
+};
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
 use std::collections::HashMap;
-
-use crate::core::configuration::{TestAuthorities, TestConfiguration};
-use futures::FutureExt;
 
 const LOG_TARGET: &str = "subsystem-bench::runtime-api-mock";
 
