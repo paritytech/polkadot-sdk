@@ -52,7 +52,7 @@ fn main() -> Result<(), String> {
 		("Received from peers", 102400.000, 102500.000),
 		("Sent to peers", 0.000, 100.000),
 	]));
-	messages.extend(usage.check_cpu_usage(&[("availability-recovery", 4.200, 4.300)]));
+	messages.extend(usage.check_cpu_usage(&[("availability-recovery", 3.700, 4.100)]));
 
 	if messages.is_empty() {
 		Ok(())
