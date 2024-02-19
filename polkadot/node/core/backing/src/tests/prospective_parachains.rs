@@ -1578,13 +1578,14 @@ fn occupied_core_assignment() {
 		const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
 		const LEAF_A_ANCESTRY_LEN: BlockNumber = 3;
 		let para_id = test_state.chain_ids[0];
+		let previous_para_id = test_state.chain_ids[1];
 
 		// Set the core state to occupied.
 		let mut candidate_descriptor = ::test_helpers::dummy_candidate_descriptor(Hash::zero());
-		candidate_descriptor.para_id = para_id;
+		candidate_descriptor.para_id = previous_para_id;
 		test_state.availability_cores[0] = CoreState::Occupied(OccupiedCore {
 			group_responsible: Default::default(),
-			next_up_on_available: None,
+			next_up_on_available: Some(ScheduledCore { para_id, collator: None }),
 			occupied_since: 100_u32,
 			time_out_at: 200_u32,
 			next_up_on_time_out: None,

@@ -1046,7 +1046,13 @@ fn core_index_from_statement(
 							gum::debug!(target: LOG_TARGET, ?candidate_hash, "Invalid CoreIndex, core is not assigned to any para_id");
 							return None
 						},
-						CoreState::Occupied(occupied) => occupied.candidate_descriptor.para_id,
+						CoreState::Occupied(occupied) => {
+							if let Some(next) = &occupied.next_up_on_available {
+								next.para_id
+							} else {
+								return None
+							}
+						},
 						CoreState::Scheduled(scheduled) => scheduled.para_id,
 					};
 
@@ -1145,7 +1151,11 @@ async fn construct_per_relay_parent_state<Context>(
 				if mode.is_enabled() {
 					// Async backing makes it legal to build on top of
 					// occupied core.
-					occupied.candidate_descriptor.para_id
+					if let Some(next) = &occupied.next_up_on_available {
+						next.para_id
+					} else {
+						continue
+					}
 				} else {
 					continue
 				},
