@@ -6018,70 +6018,28 @@ fn gas_consumed_is_linear_for_nested_calls() {
 		.unwrap()
 		.account_id;
 
-		let gas_0 = {
-			let result = Contracts::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				0u32.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			);
-			assert_ok!(result.result);
-			result.gas_consumed
-		};
-
-		let gas_1 = {
-			let result = Contracts::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				1u32.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			);
-			assert_ok!(result.result);
-			result.gas_consumed
-		};
-
-		let gas_2 = {
-			let result = Contracts::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				2u32.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			);
-			assert_ok!(result.result);
-			result.gas_consumed
-		};
-
-		let max_call_depth = <Test as Config>::CallStack::size();
-
-		let gas_max = {
-			let result = Contracts::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				(max_call_depth as u32).encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			);
-			assert_ok!(result.result);
-			result.gas_consumed
+		let max_call_depth = <Test as Config>::CallStack::size() as u32;
+		let [gas_0, gas_1, gas_2, gas_max] = {
+			[0u32, 1u32, 2u32, max_call_depth]
+				.iter()
+				.map(|i| {
+					let result = Contracts::bare_call(
+						ALICE,
+						addr.clone(),
+						0,
+						GAS_LIMIT,
+						None,
+						i.encode(),
+						DebugInfo::Skip,
+						CollectEvents::Skip,
+						Determinism::Enforced,
+					);
+					assert_ok!(result.result);
+					result.gas_consumed
+				})
+				.collect::<Vec<_>>()
+				.try_into()
+				.unwrap()
 		};
 
 		let gas_per_recursion = gas_2.checked_sub(&gas_1).unwrap();
