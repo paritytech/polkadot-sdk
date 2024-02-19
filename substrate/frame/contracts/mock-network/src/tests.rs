@@ -28,7 +28,7 @@ use frame_support::{
 	traits::{fungibles::Mutate, Currency},
 };
 use pallet_balances::{BalanceLock, Reasons};
-use pallet_contracts::{Code, CollectEvents, DebugInfo, Determinism, Error};
+use pallet_contracts::{Code, CollectEvents, DebugInfo, Determinism};
 use pallet_contracts_fixtures::compile_module;
 use pallet_contracts_uapi::ReturnErrorCode;
 use xcm::{v4::prelude::*, VersionedLocation, VersionedXcm};
@@ -226,11 +226,9 @@ fn test_xcm_execute_reentrant_call() {
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
-		)
-		.result;
+		);
 
-		// Since we don't refund the precharged gas, the call fails with an out of gas error.
-		assert_err!(result, Error::<parachain::Runtime>::OutOfGas);
+		assert_return_code!(&result.result.unwrap(), ReturnErrorCode::XcmExecutionFailed);
 
 		// Funds should not change hands as the XCM transact failed.
 		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
