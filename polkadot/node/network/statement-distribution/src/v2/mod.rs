@@ -1287,8 +1287,9 @@ async fn circulate_statement<Context>(
 	statement: SignedStatement,
 ) {
 	let session_info = &per_session.session_info;
-
 	let candidate_hash = *statement.payload().candidate_hash();
+
+	gum::info!(target: LOG_TARGET, ?candidate_hash, "Sharing statement");
 
 	let compact_statement = statement.payload().clone();
 	let is_confirmed = candidates.is_confirmed(&candidate_hash);
@@ -1297,7 +1298,11 @@ async fn circulate_statement<Context>(
 	let (local_validator, targets) = {
 		let local_validator = match relay_parent_state.local_validator.as_mut() {
 			Some(v) => v,
-			None => return, // sanity: nothing to propagate if not a validator.
+			None => {
+				gum::info!(target: LOG_TARGET, ?candidate_hash, "Not a validator");
+
+				return
+			}, // sanity: nothing to propagate if not a validator.
 		};
 
 		let statement_group = per_session.groups.by_validator_index(originator);
@@ -1340,6 +1345,8 @@ async fn circulate_statement<Context>(
 			.into_iter()
 			.filter(|v| !cluster_relevant || !all_cluster_targets.contains(v))
 			.map(|v| (v, DirectTargetKind::Grid));
+
+		gum::info!(target: LOG_TARGET, ?candidate_hash, ?cluster_targets, ?cluster_relevant, ?all_cluster_targets, ?grid_targets, "Build targets");
 
 		let targets = cluster_targets
 			.into_iter()
@@ -1396,6 +1403,7 @@ async fn circulate_statement<Context>(
 			},
 		}
 	}
+	gum::info!(target: LOG_TARGET, ?candidate_hash, len = ?statement_to_peers.len(), "Statement to peers");
 
 	let statement_to_v2_peers =
 		filter_by_peer_version(&statement_to_peers, ValidationVersion::V2.into());
