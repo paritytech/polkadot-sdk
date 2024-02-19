@@ -18,6 +18,10 @@
 ///! Provides the [`SharedNodeCache`], the [`SharedValueCache`] and the [`SharedTrieCache`]
 ///! that combines both caches and is exported to the outside.
 use super::{CacheSize, NodeCached};
+<<<<<<< HEAD
+=======
+use hash_db::Hasher;
+>>>>>>> master
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
 use schnellru::LruMap;

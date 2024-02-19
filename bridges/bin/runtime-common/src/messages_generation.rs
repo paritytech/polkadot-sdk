@@ -121,6 +121,7 @@ where
 {
 	// prepare Bridged chain storage with inbound lane state
 	let storage_key = storage_keys::inbound_lane_data_key(B::BRIDGED_MESSAGES_PALLET_NAME, &lane).0;
+<<<<<<< HEAD
 	let mut mdb = MemoryDB::default();
 	let mut trie = TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb).build();
 	let inbound_lane_data = grow_trie_leaf_value(inbound_lane_data.encode(), size);
@@ -132,6 +133,21 @@ where
 
 	// generate storage proof to be delivered to This chain
 	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>, ()>>(&mdb, &root)
+=======
+	let mut root = Default::default();
+	let mut mdb = MemoryDB::default();
+	{
+		let mut trie =
+			TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb, &mut root).build();
+		let inbound_lane_data = grow_trie_leaf_value(inbound_lane_data.encode(), size);
+		trie.insert(&storage_key, &inbound_lane_data)
+			.map_err(|_| "TrieMut::insert has failed")
+			.expect("TrieMut::insert should not fail in benchmarks");
+	}
+
+	// generate storage proof to be delivered to This chain
+	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
+>>>>>>> master
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");
 

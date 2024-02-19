@@ -8588,7 +8588,10 @@ dependencies = [
  "rand",
  "sc-basic-authorship",
  "sc-client-api",
+<<<<<<< HEAD
  "sc-client-db",
+=======
+>>>>>>> master
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "serde",
@@ -8602,7 +8605,10 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie",
  "tempfile",
+<<<<<<< HEAD
  "trie-db",
+=======
+>>>>>>> master
 ]
 
 [[package]]
@@ -11453,8 +11459,14 @@ checksum = "16b56e3a2420138bdb970f84dfb9c774aea80fa0e7371549eedec0d80c209c67"
 
 [[package]]
 name = "parity-db"
+<<<<<<< HEAD
 version = "0.4.13"
 source = "git+https://github.com/paritytech/parity-db.git?branch=master#c9125f876a753ea18dd18cc589b5560cc3c7cd75"
+=======
+version = "0.4.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59e9ab494af9e6e813c72170f0d3c1de1500990d62c97cc05cc7576f91aa402f"
+>>>>>>> master
 dependencies = [
  "blake2 0.10.6",
  "crc32fast",
@@ -12324,6 +12336,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "lazy_static",
+ "parking_lot 0.12.1",
  "polkadot-node-network-protocol",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
@@ -19139,7 +19152,12 @@ version = "29.0.0"
 dependencies = [
  "ahash 0.8.8",
  "array-bytes 6.1.0",
+<<<<<<< HEAD
  "criterion 0.5.1",
+=======
+ "criterion 0.4.0",
+ "hash-db",
+>>>>>>> master
  "lazy_static",
  "nohash-hasher",
  "parity-scale-codec",
@@ -20778,6 +20796,27 @@ dependencies = [
 [[package]]
 name = "tracing-subscriber"
 version = "0.3.18"
+<<<<<<< HEAD
+=======
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
+dependencies = [
+ "matchers 0.1.0",
+ "nu-ansi-term",
+ "once_cell",
+ "regex",
+ "sharded-slab",
+ "smallvec",
+ "thread_local",
+ "tracing",
+ "tracing-core",
+ "tracing-log 0.2.0",
+]
+
+[[package]]
+name = "trie-bench"
+version = "0.38.0"
+>>>>>>> master
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
 dependencies = [

@@ -14,7 +14,11 @@ workspace = true
 [dependencies]
 array-bytes = { version = "6.1", optional = true }
 log = { optional = true, workspace = true }
+<<<<<<< HEAD
 trie-db = { version = "0.28.0", default-features = false }
+=======
+hash-db = { version = "0.16.0", default-features = false }
+>>>>>>> master
 
 [dev-dependencies]
 array-bytes = "6.1"
@@ -23,6 +27,12 @@ sp-core = { path = "../../primitives/core" }
 sp-runtime = { path = "../../primitives/runtime" }
 
 [features]
+<<<<<<< HEAD
 debug = [ "array-bytes", "log" ]
 default = [ "debug", "std" ]
 std = [ "trie-db/std", "log/std", "sp-core/std", "sp-runtime/std" ]
+=======
+debug = ["array-bytes", "log"]
+default = ["debug", "std"]
+std = ["hash-db/std", "log/std", "sp-core/std", "sp-runtime/std"]
+>>>>>>> master

@@ -27,8 +27,13 @@ use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	rc::Rc,
 };
+<<<<<<< HEAD
 use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof, DBLocation};
 use trie_db::{node_db::Hasher, RecordedForKey, TrieAccess};
+=======
+use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof};
+use trie_db::{Hasher, RecordedForKey, TrieAccess};
+>>>>>>> master
 
 /// A trie recorder that only keeps track of the proof size.
 ///
@@ -40,8 +45,13 @@ pub(crate) struct SizeOnlyRecorder<'a, H: Hasher> {
 	recorded_keys: RefMut<'a, BTreeMap<Rc<[u8]>, RecordedForKey>>,
 }
 
+<<<<<<< HEAD
 impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out, DBLocation> for SizeOnlyRecorder<'a, H> {
 	fn record(&mut self, access: TrieAccess<'_, H::Out, DBLocation>) {
+=======
+impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<'a, H> {
+	fn record(&mut self, access: TrieAccess<'_, H::Out>) {
+>>>>>>> master
 		let mut encoded_size_update = 0;
 		match access {
 			TrieAccess::NodeOwned { hash, node_owned } =>
@@ -106,10 +116,17 @@ impl<H: Hasher> SizeOnlyRecorderProvider<H> {
 	}
 }
 
+<<<<<<< HEAD
 impl<H: Hasher> sp_trie::TrieRecorderProvider<H, DBLocation> for SizeOnlyRecorderProvider<H> {
 	type Recorder<'a> = SizeOnlyRecorder<'a, H> where H: 'a;
 
 	fn drain_storage_proof(&self) -> Option<StorageProof> {
+=======
+impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for SizeOnlyRecorderProvider<H> {
+	type Recorder<'a> = SizeOnlyRecorder<'a, H> where H: 'a;
+
+	fn drain_storage_proof(self) -> Option<StorageProof> {
+>>>>>>> master
 		None
 	}
 
@@ -122,7 +139,11 @@ impl<H: Hasher> sp_trie::TrieRecorderProvider<H, DBLocation> for SizeOnlyRecorde
 	}
 }
 
+<<<<<<< HEAD
 impl<H: Hasher> ProofSizeProvider for SizeOnlyRecorderProvider<H> {
+=======
+impl<H: trie_db::Hasher> ProofSizeProvider for SizeOnlyRecorderProvider<H> {
+>>>>>>> master
 	fn estimate_encoded_size(&self) -> usize {
 		*self.encoded_size.borrow()
 	}
@@ -136,14 +157,22 @@ unsafe impl<H: Hasher> Sync for SizeOnlyRecorderProvider<H> {}
 mod tests {
 	use rand::Rng;
 	use sp_trie::{
+<<<<<<< HEAD
 		cache::{CacheSize, SharedTrieCache}, DBLocation,
 		MemoryDB, ProofSizeProvider, TrieRecorderProvider,
 	};
 	use trie_db::{Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieRecorder};
+=======
+		cache::{CacheSize, SharedTrieCache},
+		MemoryDB, ProofSizeProvider, TrieRecorderProvider,
+	};
+	use trie_db::{Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut, TrieRecorder};
+>>>>>>> master
 	use trie_standardmap::{Alphabet, StandardMap, ValueMode};
 
 	use super::*;
 
+<<<<<<< HEAD
 	type Recorder = sp_trie::recorder::Recorder<sp_core::Blake2Hasher, DBLocation>;
 
 	fn create_trie() -> (
@@ -152,6 +181,17 @@ mod tests {
 		Vec<(Vec<u8>, Vec<u8>)>,
 	) {
 		let mut db = MemoryDB::default();
+=======
+	type Recorder = sp_trie::recorder::Recorder<sp_core::Blake2Hasher>;
+
+	fn create_trie() -> (
+		sp_trie::MemoryDB<sp_core::Blake2Hasher>,
+		TrieHash<sp_trie::LayoutV1<sp_core::Blake2Hasher>>,
+		Vec<(Vec<u8>, Vec<u8>)>,
+	) {
+		let mut db = MemoryDB::default();
+		let mut root = Default::default();
+>>>>>>> master
 
 		let mut seed = Default::default();
 		let test_data: Vec<(Vec<u8>, Vec<u8>)> = StandardMap {
@@ -171,12 +211,24 @@ mod tests {
 		.collect();
 
 		// Fill database with values
+<<<<<<< HEAD
 		let mut trie = TrieDBMutBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(&mut db).build();
 		for (k, v) in &test_data {
 			trie.insert(k, v).expect("Inserts data");
 		}
 		let change_set = trie.commit();
 		let root = change_set.apply_to(&mut db);
+=======
+		{
+			let mut trie = TrieDBMutBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(
+				&mut db, &mut root,
+			)
+			.build();
+			for (k, v) in &test_data {
+				trie.insert(k, v).expect("Inserts data");
+			}
+		}
+>>>>>>> master
 
 		(db, root, test_data)
 	}
@@ -190,16 +242,26 @@ mod tests {
 			let reference_recorder = Recorder::default();
 			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
 				SizeOnlyRecorderProvider::new();
+<<<<<<< HEAD
 			let reference_cache: SharedTrieCache<sp_core::Blake2Hasher, DBLocation> =
 				SharedTrieCache::new(CacheSize::new(1024 * 5));
 			let cache_for_test: SharedTrieCache<sp_core::Blake2Hasher, DBLocation> =
+=======
+			let reference_cache: SharedTrieCache<sp_core::Blake2Hasher> =
+				SharedTrieCache::new(CacheSize::new(1024 * 5));
+			let cache_for_test: SharedTrieCache<sp_core::Blake2Hasher> =
+>>>>>>> master
 				SharedTrieCache::new(CacheSize::new(1024 * 5));
 			{
 				let local_cache = cache_for_test.local_cache();
 				let mut trie_cache_for_reference = local_cache.as_trie_db_cache(root);
 				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
 				let reference_trie =
+<<<<<<< HEAD
 					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(&db, &root)
+=======
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(&db, &root)
+>>>>>>> master
 						.with_recorder(&mut reference_trie_recorder)
 						.with_cache(&mut trie_cache_for_reference)
 						.build();
@@ -208,7 +270,11 @@ mod tests {
 				let mut trie_cache_for_test = local_cache_for_test.as_trie_db_cache(root);
 				let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
 				let test_trie =
+<<<<<<< HEAD
 					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(&db, &root)
+=======
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(&db, &root)
+>>>>>>> master
 						.with_recorder(&mut trie_recorder_under_test)
 						.with_cache(&mut trie_cache_for_test)
 						.build();
@@ -248,13 +314,21 @@ mod tests {
 			{
 				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
 				let reference_trie =
+<<<<<<< HEAD
 					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(&db, &root)
+=======
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(&db, &root)
+>>>>>>> master
 						.with_recorder(&mut reference_trie_recorder)
 						.build();
 
 				let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
 				let test_trie =
+<<<<<<< HEAD
 					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher, DBLocation>>::new(&db, &root)
+=======
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(&db, &root)
+>>>>>>> master
 						.with_recorder(&mut trie_recorder_under_test)
 						.build();
 
