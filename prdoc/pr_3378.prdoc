@@ -9,4 +9,5 @@ doc:
       Removes deprecated type `GenesisConfig`, it was replaced by `RuntimeGenesisConfig` on May 24 of 2023.
       The type `GenesisConfig` was deprecated on May 24 of 2023 [#14210](https://github.com/paritytech/substrate/pull/14210)
 
-crates: ["frame-support-procedural"]
+crates:
+  - name: frame-support-procedural
