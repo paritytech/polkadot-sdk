@@ -3,8 +3,8 @@
 )<span class="where fmt-newline">where
     B: BlockT + 'static,
     BI: BlockImport&lt;B, Error = Error&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
-    C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + 'static,
-    CB: ClientBackend&lt;B&gt; + 'static,
+    C: HeaderBackend&lt;B&gt; + <a class="trait" href="../sc_client_api/backend/trait.Finalizer.html" title="trait sc_client_api::backend::Finalizer">Finalizer</a>&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + 'static,
+    CB: <a class="trait" href="../sc_client_api/backend/trait.Backend.html" title="trait sc_client_api::backend::Backend">ClientBackend</a>&lt;B&gt; + 'static,
     E: Environment&lt;B&gt; + 'static,
     E::Proposer: Proposer&lt;B, Proof = P&gt;,
     SC: SelectChain&lt;B&gt; + 'static,

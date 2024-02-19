@@ -6,7 +6,7 @@
     Block: Block,
     RA: ProvideRuntimeApi&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     RA::Api: <a class="trait" href="trait.OffchainWorkerApi.html" title="trait sc_offchain::OffchainWorkerApi">OffchainWorkerApi</a>&lt;Block&gt;,
-    Storage: OffchainStorage + 'static,</span></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.run" class="method"><a class="src rightside" href="../src/sc_offchain/lib.rs.html#191-216">source</a><h4 class="code-header">pub async fn <a href="#method.run" class="fn">run</a>&lt;BE: BlockchainEvents&lt;Block&gt;&gt;(
+    Storage: OffchainStorage + 'static,</span></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.run" class="method"><a class="src rightside" href="../src/sc_offchain/lib.rs.html#191-216">source</a><h4 class="code-header">pub async fn <a href="#method.run" class="fn">run</a>&lt;BE: <a class="trait" href="../sc_client_api/client/trait.BlockchainEvents.html" title="trait sc_client_api::client::BlockchainEvents">BlockchainEvents</a>&lt;Block&gt;&gt;(
     self,
     import_events: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;BE&gt;,
     spawner: impl SpawnNamed

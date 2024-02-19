@@ -2480,6 +2480,12 @@
 <a href="#2480" id="2480">2480</a>
 <a href="#2481" id="2481">2481</a>
 <a href="#2482" id="2482">2482</a>
+<a href="#2483" id="2483">2483</a>
+<a href="#2484" id="2484">2484</a>
+<a href="#2485" id="2485">2485</a>
+<a href="#2486" id="2486">2486</a>
+<a href="#2487" id="2487">2487</a>
+<a href="#2488" id="2488">2488</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4306,6 +4312,12 @@
 
 	<span class="kw">impl </span>offchain_primitives::OffchainWorkerApi&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>offchain_worker(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) {
+			<span class="kw">use </span>sp_runtime::{traits::Header, DigestItem};
+
+			<span class="kw">if </span>header.digest().logs().iter().any(|di| di == <span class="kw-2">&amp;</span>DigestItem::RuntimeEnvironmentUpdated) {
+				pallet_im_online::migration::clear_offchain_storage(Session::validators().len() <span class="kw">as </span>u32);
+			}
+
 			Executive::offchain_worker(header)
 		}
 	}

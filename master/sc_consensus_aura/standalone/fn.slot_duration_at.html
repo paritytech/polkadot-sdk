@@ -4,6 +4,6 @@
 ) -&gt; Result&lt;<a class="struct" href="../struct.SlotDuration.html" title="struct sc_consensus_aura::SlotDuration">SlotDuration</a>&gt;<span class="where fmt-newline">where
     A: Codec,
     B: BlockT,
-    C: AuxStore + ProvideRuntimeApi&lt;B&gt;,
+    C: <a class="trait" href="../../sc_client_api/backend/trait.AuxStore.html" title="trait sc_client_api::backend::AuxStore">AuxStore</a> + ProvideRuntimeApi&lt;B&gt;,
     C::Api: <a class="trait" href="../trait.AuraApi.html" title="trait sc_consensus_aura::AuraApi">AuraApi</a>&lt;B, A&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Get the slot duration for Aura by reading from a runtime API at a given block’s state.</p>
 </div></details></section></div></main></body></html>

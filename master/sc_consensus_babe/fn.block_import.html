@@ -3,7 +3,7 @@
     wrapped_block_import: I,
     client: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Client&gt;
 ) -&gt; Result&lt;(<a class="struct" href="struct.BabeBlockImport.html" title="struct sc_consensus_babe::BabeBlockImport">BabeBlockImport</a>&lt;Block, Client, I&gt;, <a class="struct" href="struct.BabeLink.html" title="struct sc_consensus_babe::BabeLink">BabeLink</a>&lt;Block&gt;)&gt;<span class="where fmt-newline">where
-    Client: AuxStore + HeaderBackend&lt;Block&gt; + HeaderMetadata&lt;Block, Error = Error&gt; + PreCommitActions&lt;Block&gt; + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Produce a BABE block-import object to be used later on in the construction of
+    Client: <a class="trait" href="../sc_client_api/backend/trait.AuxStore.html" title="trait sc_client_api::backend::AuxStore">AuxStore</a> + HeaderBackend&lt;Block&gt; + HeaderMetadata&lt;Block, Error = Error&gt; + <a class="trait" href="../sc_client_api/client/trait.PreCommitActions.html" title="trait sc_client_api::client::PreCommitActions">PreCommitActions</a>&lt;Block&gt; + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Produce a BABE block-import object to be used later on in the construction of
 an import-queue.</p>
 <p>Also returns a link object used to correctly instantiate the import queue
 and background worker.</p>

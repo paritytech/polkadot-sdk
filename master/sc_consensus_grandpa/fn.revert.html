@@ -3,7 +3,7 @@
     blocks: NumberFor&lt;Block&gt;
 ) -&gt; Result&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;<span class="where fmt-newline">where
     Block: BlockT,
-    Client: AuxStore + HeaderMetadata&lt;Block, Error = Error&gt; + HeaderBackend&lt;Block&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Reverts protocol aux data to at most the last finalized block.
+    Client: <a class="trait" href="../sc_client_api/backend/trait.AuxStore.html" title="trait sc_client_api::backend::AuxStore">AuxStore</a> + HeaderMetadata&lt;Block, Error = Error&gt; + HeaderBackend&lt;Block&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Reverts protocol aux data to at most the last finalized block.
 In particular, standard and forced authority set changes announced after the
 revert point are removed.</p>
 </div></details></section></div></main></body></html>
