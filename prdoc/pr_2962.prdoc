@@ -1,0 +1,11 @@
+title: Allow to set a worst case buy execution fee asset and weight
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Allows to set a worst case for the `BuyExecution` XCM instruction
+      benchmark. Currently the benchmark assumes best case scenario (i.e.)
+      the case where does not even need to go into the Trader. This PR allows
+      developers to set the worst-case scenario as they wish.
+crates:
+  - name: pallet-xcm-benchmarks
