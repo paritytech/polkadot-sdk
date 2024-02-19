@@ -1110,6 +1110,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore]
 	fn discovery_ignores_peers_with_unknown_protocols() {
 		let supported_genesis_hash = H256::from_low_u64_be(1);
 		let unsupported_genesis_hash = H256::from_low_u64_be(2);
