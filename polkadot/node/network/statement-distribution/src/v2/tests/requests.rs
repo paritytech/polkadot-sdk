@@ -22,8 +22,9 @@ use polkadot_node_network_protocol::{
 	request_response::v2 as request_v2, v2::BackedCandidateManifest,
 };
 use polkadot_primitives_test_helpers::make_candidate;
-use sc_network::config::{
-	IncomingRequest as RawIncomingRequest, OutgoingResponse as RawOutgoingResponse,
+use sc_network::{
+	config::{IncomingRequest as RawIncomingRequest, OutgoingResponse as RawOutgoingResponse},
+	ProtocolName,
 };
 
 #[test]
@@ -1342,7 +1343,7 @@ fn when_validator_disabled_after_sending_the_request() {
 								persisted_validation_data: pvd,
 								statements,
 							};
-							outgoing.pending_response.send(Ok(res.encode())).unwrap();
+							outgoing.pending_response.send(Ok((res.encode(), ProtocolName::from("")))).unwrap();
 						}
 					);
 				}

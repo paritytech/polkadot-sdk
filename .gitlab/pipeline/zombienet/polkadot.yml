@@ -6,6 +6,9 @@
   before_script:
     # Exit if the job is not merge queue
     # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
+    # Docker images have different tag in merge queues
+    - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
+    - export PIPELINE_IMAGE_TAG=${DOCKER_IMAGES_VERSION}
     - export BUILD_RELEASE_VERSION="$(cat ./artifacts/BUILD_RELEASE_VERSION)" # from build-linux-stable job
     - export DEBUG=zombie,zombie::network-node
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
@@ -46,7 +49,7 @@
     - .kubernetes-env
     - .zombienet-refs
   variables:
-    PIPELINE_IMAGE_TAG: ${DOCKER_IMAGES_VERSION}
+    # PIPELINE_IMAGE_TAG: ${DOCKER_IMAGES_VERSION}
     POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug"
     COLANDER_IMAGE: "docker.io/paritypr/colander"
     MALUS_IMAGE: "docker.io/paritypr/malus"
@@ -147,12 +150,23 @@ zombienet-polkadot-functional-0010-validator-disabling:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0010-validator-disabling.zndsl"
 
+zombienet-polkadot-functional-0011-async-backing-6-seconds-rate:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0011-async-backing-6-seconds-rate.zndsl"
+
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
     - .zombienet-polkadot-common
   before_script:
     # Exit if the job is not merge queue
     # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
+    # Docker images have different tag in merge queues
+    - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
+    - export PIPELINE_IMAGE_TAG=${DOCKER_IMAGES_VERSION}
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
     - export COL_IMAGE="${COLANDER_IMAGE}":${PIPELINE_IMAGE_TAG}
     - echo "Zombienet Tests Config"
@@ -172,6 +186,9 @@ zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
   before_script:
     # Exit if the job is not merge queue
     # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
+    # Docker images have different tag in merge queues
+    - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
+    - export PIPELINE_IMAGE_TAG=${DOCKER_IMAGES_VERSION}
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
     - export CUMULUS_IMAGE="docker.io/paritypr/polkadot-parachain-debug:${DOCKER_IMAGES_VERSION}"
     - echo "Zombienet Tests Config"
@@ -224,6 +241,9 @@ zombienet-polkadot-misc-0002-upgrade-node:
   before_script:
     # Exit if the job is not merge queue
     # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
+    # Docker images have different tag in merge queues
+    - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
+    - export PIPELINE_IMAGE_TAG=${DOCKER_IMAGES_VERSION}
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="docker.io/parity/polkadot:latest"
     - echo "Overrided polkadot image ${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     - export COL_IMAGE="${COLANDER_IMAGE}":${PIPELINE_IMAGE_TAG}

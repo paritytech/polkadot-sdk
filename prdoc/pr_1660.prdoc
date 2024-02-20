@@ -1,0 +1,12 @@
+title: Implements a percentage cap on staking rewards from era inflation
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `pallet-staking` exposes a new perbill configuration, `MaxStakersRewards`, which caps the
+      amount of era inflation that is distributed to the stakers. The remainder of the era
+      inflation is minted directly into `T::RewardRemainder` account. This allows the runtime to be
+      configured to assign a minimum inflation value per era to a specific account (e.g. treasury).
+
+crates: 
+ - name: pallet-staking 

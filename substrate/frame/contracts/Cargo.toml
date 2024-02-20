@@ -1,6 +1,6 @@
 [package]
 name = "pallet-contracts"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -24,7 +24,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"max-encoded-len",
 ] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-log = { version = "0.4", default-features = false }
+log = { workspace = true }
 serde = { version = "1", optional = true, features = ["derive"] }
 smallvec = { version = "1", default-features = false, features = [
 	"const_generics",
@@ -86,7 +86,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances?/std",
-	"pallet-contracts-proc-macro/full",
 	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-proxy/std",
 	"pallet-timestamp/std",

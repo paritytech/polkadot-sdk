@@ -38,6 +38,7 @@ use polkadot_primitives::{
 	SessionIndex, SessionInfo, ValidatorPair,
 };
 use sc_keystore::LocalKeystore;
+use sc_network::ProtocolName;
 use sp_application_crypto::Pair as PairT;
 use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
 use sp_keyring::Sr25519Keyring;
@@ -436,6 +437,7 @@ async fn setup_test_and_connect_peers(
 	validator_count: usize,
 	group_size: usize,
 	peers_to_connect: &[TestPeerToConnect],
+	send_topology_before_leaf: bool,
 ) -> TestSetupInfo {
 	let local_validator = state.local.clone().unwrap();
 	let local_group = local_validator.group_index.unwrap();
@@ -480,10 +482,14 @@ async fn setup_test_and_connect_peers(
 		}
 	}
 
-	activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
-
-	// Send gossip topology.
-	send_new_topology(overseer, state.make_dummy_topology()).await;
+	// Send gossip topology and activate leaf.
+	if send_topology_before_leaf {
+		send_new_topology(overseer, state.make_dummy_topology()).await;
+		activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
+	} else {
+		activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
+		send_new_topology(overseer, state.make_dummy_topology()).await;
+	}
 
 	TestSetupInfo {
 		local_validator,
@@ -684,7 +690,7 @@ async fn handle_sent_request(
 						persisted_validation_data,
 						statements,
 					};
-					outgoing.pending_response.send(Ok(res.encode())).unwrap();
+					outgoing.pending_response.send(Ok((res.encode(), ProtocolName::from("")))).unwrap();
 				}
 			);
 		}
