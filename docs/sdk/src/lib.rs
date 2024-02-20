@@ -25,6 +25,11 @@
 #![doc = simple_mermaid::mermaid!("../../mermaid/IA.mmd")]
 #![warn(rustdoc::broken_intra_doc_links)]
 #![warn(rustdoc::private_intra_doc_links)]
+#![doc(html_favicon_url = "https://polkadot.network/favicon-32x32.png")]
+#![doc(
+	html_logo_url = "https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg"
+)]
+#![doc(issue_tracker_base_url = "https://github.com/paritytech/polkadot-sdk/issues")]
 
 /// Meta information about this crate, how it is built, what principles dictates its evolution and
 /// how one can contribute to it.

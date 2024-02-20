@@ -138,7 +138,9 @@
 //! injected, run:
 //!
 //! ```sh
-//! SKIP_WASM_BUILD=1 RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs --no-deps --open
+//! SKIP_WASM_BUILD=1 \
+//! RUSTDOCFLAGS='--html-in-header $(pwd)/docs/sdk/headers/header.html --extend-css $(pwd)/docs/sdk/headers/theme.css --default-theme=ayu" \
+//! cargo doc -p polkadot-sdk-docs --no-deps --open
 //! ```
 //!
 //! If even faster build time for docs is needed, you can temporarily remove most of the
