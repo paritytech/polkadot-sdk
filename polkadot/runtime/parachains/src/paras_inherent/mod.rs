@@ -597,11 +597,18 @@ impl<T: Config> Pallet<T> {
 			.map(|b| *b)
 			.unwrap_or(false);
 
-		filter_elastic_scaling_candidates::<T>(
+		let dropped_elastic_scaling_candidates = filter_elastic_scaling_candidates::<T>(
 			&allowed_relay_parents,
 			core_index_enabled,
 			&mut backed_candidates,
 		);
+		// In `Enter` context (invoked during execution) we shouldn't have filtered any candidates
+		// due to a para having multiple cores assigned and no injected core index. They have been
+		// filtered during inherent data preparation (`ProvideInherent` context). Abort in such
+		// cases.
+		if context == ProcessInherentDataContext::Enter {
+			ensure!(!dropped_elastic_scaling_candidates, Error::<T>::BackedByDisabled);
+		}
 
 		let SanitizedBackedCandidates { backed_candidates, votes_from_disabled_were_dropped } =
 			sanitize_backed_candidates::<T, _>(
@@ -623,7 +630,7 @@ impl<T: Config> Pallet<T> {
 					//
 					// NOTE: this is the only place where we check the relay-parent.
 					check_ctx
-						.verify_backed_candidate(&allowed_relay_parents, candidate_idx, backed_candidate)
+						.verify_backed_candidate(&allowed_relay_parents, candidate_idx, backed_candidate.candidate())
 						.is_err()
 				},
 				&scheduled,
@@ -1113,7 +1120,8 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 	// 1. Core index assigned to the parachain which has produced the candidate
 	// 2. The relay chain block number of the candidate
 	backed_candidates.retain_mut(|bc| {
-		let (mut validator_indices, maybe_core_index) = bc.validator_indices_and_core_index(core_index_enabled);
+		let (validator_indices, maybe_core_index) = bc.validator_indices_and_core_index(core_index_enabled);
+		let mut validator_indices = BitVec::<_>::from(validator_indices);
 
 		let core_idx = if let Some(core_idx) = maybe_core_index {
 			core_idx
@@ -1197,13 +1205,14 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 
 /// Filter out all candidates that have multiple cores assigned and no
 /// `CoreIndex` injected.
+/// Returns whether or not we dropped any candidates.
 fn filter_elastic_scaling_candidates<
 	T: configuration::Config + scheduler::Config + inclusion::Config,
 >(
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	core_index_enabled: bool,
 	candidates: &mut Vec<BackedCandidate<T::Hash>>,
-) {
+) -> bool {
 	// Count how many scheduled cores each paraid has.
 	let mut cores_per_parachain: BTreeMap<ParaId, usize> = BTreeMap::new();
 
@@ -1211,12 +1220,15 @@ fn filter_elastic_scaling_candidates<
 		*cores_per_parachain.entry(para_id).or_default() += 1;
 	}
 
+	let prev_count = candidates.len();
 	// We keep a candidate if the parachain has only one core assigned or if
 	// a core index is provided by block author.
 	candidates.retain(|candidate| {
 		*cores_per_parachain.get(&candidate.descriptor().para_id).unwrap_or(&0) <= 1 ||
 			has_core_index::<T>(allowed_relay_parents, candidate, core_index_enabled)
 	});
+
+	prev_count != candidates.len()
 }
 
 // Returns `true` if the candidate contains a valid injected `CoreIndex`.

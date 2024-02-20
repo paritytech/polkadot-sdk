@@ -16,7 +16,7 @@
 
 //! `V6` Primitives.
 
-use bitvec::{field::BitField, vec::BitVec};
+use bitvec::{field::BitField, slice::BitSlice, vec::BitVec};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_std::{
@@ -724,22 +724,22 @@ impl<H> BackedCandidate<H> {
 		Self { candidate, validity_votes, validator_indices }
 	}
 
-	/// Get a reference to the descriptor of the para.
+	/// Get a reference to the descriptor of the candidate.
 	pub fn descriptor(&self) -> &CandidateDescriptor<H> {
 		&self.candidate.descriptor
 	}
 
-	/// Get a reference to the descriptor of the para.
+	/// Get a reference to the committed candidate receipt of the candidate.
 	pub fn candidate(&self) -> &CommittedCandidateReceipt<H> {
 		&self.candidate
 	}
 
-	/// Get a reference to the descriptor of the para.
+	/// Get a reference to the validity votes of the candidate.
 	pub fn validity_votes(&self) -> &[ValidityAttestation] {
 		&self.validity_votes
 	}
 
-	/// Get a reference to the descriptor of the para.
+	/// Get a mutable reference to validity votes of the para.
 	pub fn validity_votes_mut(&mut self) -> &mut Vec<ValidityAttestation> {
 		&mut self.validity_votes
 	}
@@ -764,19 +764,16 @@ impl<H> BackedCandidate<H> {
 	pub fn validator_indices_and_core_index(
 		&self,
 		core_index_enabled: bool,
-	) -> (BitVec<u8, bitvec::order::Lsb0>, Option<CoreIndex>) {
+	) -> (&BitSlice<u8, bitvec::order::Lsb0>, Option<CoreIndex>) {
 		// This flag tells us if the block producers must enable Elastic Scaling MVP hack.
 		// It extends `BackedCandidate::validity_indices` to store a 8 bit core index.
 		if core_index_enabled {
 			let core_idx_offset = self.validator_indices.len().saturating_sub(8);
 			let (validator_indices_slice, core_idx_slice) =
 				self.validator_indices.split_at(core_idx_offset);
-			(
-				BitVec::from(validator_indices_slice),
-				Some(CoreIndex(core_idx_slice.load::<u8>() as u32)),
-			)
+			(validator_indices_slice, Some(CoreIndex(core_idx_slice.load::<u8>() as u32)))
 		} else {
-			(self.validator_indices.clone(), None)
+			(&self.validator_indices, None)
 		}
 	}
 
@@ -793,12 +790,6 @@ impl<H> BackedCandidate<H> {
 		}
 		self.validator_indices = new_indices;
 	}
-
-	/// Get a copy of the validator indices. Note that it may contain an encoded core index also as
-	/// the last 8 bits. You must make sure to handle it properly or to have removed it beforehand.
-	pub fn validator_indices(&self) -> BitVec<u8, bitvec::order::Lsb0> {
-		self.validator_indices.clone()
-	}
 }
 
 /// Verify the backing of the given candidate.
@@ -812,44 +803,42 @@ impl<H> BackedCandidate<H> {
 /// Returns either an error, indicating that one of the signatures was invalid or that the index
 /// was out-of-bounds, or the number of signatures checked.
 pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debug>(
-	backed: &BackedCandidate<H>,
+	candidate_hash: CandidateHash,
+	validity_votes: &[ValidityAttestation],
+	validator_indices: &BitSlice<u8, bitvec::order::Lsb0>,
 	signing_context: &SigningContext<H>,
 	group_len: usize,
 	validator_lookup: impl Fn(usize) -> Option<ValidatorId>,
 ) -> Result<usize, ()> {
-	if backed.validator_indices.len() != group_len {
+	if validator_indices.len() != group_len {
 		log::debug!(
 			target: LOG_TARGET,
 			"indices mismatch: group_len = {} , indices_len = {}",
 			group_len,
-			backed.validator_indices.len(),
+			validator_indices.len(),
 		);
 		return Err(())
 	}
 
-	if backed.validity_votes.len() > group_len {
+	if validity_votes.len() > group_len {
 		log::debug!(
 			target: LOG_TARGET,
 			"Too many votes, expected: {}, found: {}",
 			group_len,
-			backed.validity_votes.len(),
+			validity_votes.len(),
 		);
 		return Err(())
 	}
 
-	// this is known, even in runtime, to be blake2-256.
-	let hash = backed.candidate.hash();
-
 	let mut signed = 0;
-	for ((val_in_group_idx, _), attestation) in backed
-		.validator_indices
+	for ((val_in_group_idx, _), attestation) in validator_indices
 		.iter()
 		.enumerate()
 		.filter(|(_, signed)| **signed)
-		.zip(backed.validity_votes.iter())
+		.zip(validity_votes.iter())
 	{
 		let validator_id = validator_lookup(val_in_group_idx).ok_or(())?;
-		let payload = attestation.signed_payload(hash, signing_context);
+		let payload = attestation.signed_payload(candidate_hash, signing_context);
 		let sig = attestation.signature();
 
 		if sig.verify(&payload[..], &validator_id) {
@@ -865,11 +854,11 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 		}
 	}
 
-	if signed != backed.validity_votes.len() {
+	if signed != validity_votes.len() {
 		log::error!(
 			target: LOG_TARGET,
 			"Too many signatures, expected = {}, found = {}",
-			backed.validity_votes.len() ,
+			validity_votes.len() ,
 			signed,
 		);
 		return Err(())

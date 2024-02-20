@@ -602,7 +602,7 @@ impl<T: Config> Pallet<T> {
 	/// scheduled cores. If these conditions are not met, the execution of the function fails.
 	pub(crate) fn process_candidates<GV>(
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-		mut candidates: Vec<BackedCandidate<T::Hash>>,
+		candidates: Vec<BackedCandidate<T::Hash>>,
 		scheduled: &BTreeMap<ParaId, CoreIndex>,
 		scheduled_by_core: &BTreeMap<CoreIndex, ParaId>,
 		group_validators: GV,
@@ -655,7 +655,7 @@ impl<T: Config> Pallet<T> {
 			//
 			// In the meantime, we do certain sanity checks on the candidates and on the scheduled
 			// list.
-			for (candidate_idx, backed_candidate) in candidates.iter_mut().enumerate() {
+			for (candidate_idx, backed_candidate) in candidates.iter().enumerate() {
 				let relay_parent_hash = backed_candidate.descriptor().relay_parent;
 				let para_id = backed_candidate.descriptor().para_id;
 
@@ -670,7 +670,7 @@ impl<T: Config> Pallet<T> {
 				let relay_parent_number = match check_ctx.verify_backed_candidate(
 					&allowed_relay_parents,
 					candidate_idx,
-					backed_candidate,
+					backed_candidate.candidate(),
 				)? {
 					Err(FailedToCreatePVD) => {
 						log::debug!(
@@ -686,7 +686,6 @@ impl<T: Config> Pallet<T> {
 					Ok(rpn) => rpn,
 				};
 
-				let para_id = backed_candidate.descriptor().para_id;
 				let (validator_indices, maybe_core_index) =
 					backed_candidate.validator_indices_and_core_index(core_index_enabled);
 				let core_idx = if let Some(core_idx) = maybe_core_index {
@@ -697,10 +696,6 @@ impl<T: Config> Pallet<T> {
 
 					// We assume the core index is valid because of the checks done in
 					// `filter_elastic_scaling_candidates`.
-
-					// Remove the core index from the validator indices if present. We'll no longer
-					// need it.
-					backed_candidate.set_validator_indices_and_core_index(validator_indices, None);
 
 					core_idx
 				} else {
@@ -740,7 +735,9 @@ impl<T: Config> Pallet<T> {
 				// check the signatures in the backing and that it is a majority.
 				{
 					let maybe_amount_validated = primitives::check_candidate_backing(
-						&backed_candidate,
+						backed_candidate.candidate().hash(),
+						backed_candidate.validity_votes(),
+						validator_indices,
 						&signing_context,
 						group_vals.len(),
 						|intra_group_vi| {
@@ -765,7 +762,6 @@ impl<T: Config> Pallet<T> {
 						},
 					}
 
-					let validator_indices = backed_candidate.validator_indices();
 					let mut backer_idx_and_attestation =
 						Vec::<(ValidatorIndex, ValidityAttestation)>::with_capacity(
 							validator_indices.count_ones(),
@@ -1226,10 +1222,10 @@ impl<T: Config> CandidateCheckContext<T> {
 		&self,
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		candidate_idx: usize,
-		backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>,
+		backed_candidate_receipt: &CommittedCandidateReceipt<<T as frame_system::Config>::Hash>,
 	) -> Result<Result<BlockNumberFor<T>, FailedToCreatePVD>, Error<T>> {
-		let para_id = backed_candidate.descriptor().para_id;
-		let relay_parent = backed_candidate.descriptor().relay_parent;
+		let para_id = backed_candidate_receipt.descriptor().para_id;
+		let relay_parent = backed_candidate_receipt.descriptor().relay_parent;
 
 		// Check that the relay-parent is one of the allowed relay-parents.
 		let (relay_parent_storage_root, relay_parent_number) = {
@@ -1254,13 +1250,13 @@ impl<T: Config> CandidateCheckContext<T> {
 			let expected = persisted_validation_data.hash();
 
 			ensure!(
-				expected == backed_candidate.descriptor().persisted_validation_data_hash,
+				expected == backed_candidate_receipt.descriptor().persisted_validation_data_hash,
 				Error::<T>::ValidationDataHashMismatch,
 			);
 		}
 
 		ensure!(
-			backed_candidate.descriptor().check_collator_signature().is_ok(),
+			backed_candidate_receipt.descriptor().check_collator_signature().is_ok(),
 			Error::<T>::NotCollatorSigned,
 		);
 
@@ -1268,25 +1264,25 @@ impl<T: Config> CandidateCheckContext<T> {
 			// A candidate for a parachain without current validation code is not scheduled.
 			.ok_or_else(|| Error::<T>::UnscheduledCandidate)?;
 		ensure!(
-			backed_candidate.descriptor().validation_code_hash == validation_code_hash,
+			backed_candidate_receipt.descriptor().validation_code_hash == validation_code_hash,
 			Error::<T>::InvalidValidationCodeHash,
 		);
 
 		ensure!(
-			backed_candidate.descriptor().para_head ==
-				backed_candidate.candidate().commitments.head_data.hash(),
+			backed_candidate_receipt.descriptor().para_head ==
+				backed_candidate_receipt.commitments.head_data.hash(),
 			Error::<T>::ParaHeadMismatch,
 		);
 
 		if let Err(err) = self.check_validation_outputs(
 			para_id,
 			relay_parent_number,
-			&backed_candidate.candidate().commitments.head_data,
-			&backed_candidate.candidate().commitments.new_validation_code,
-			backed_candidate.candidate().commitments.processed_downward_messages,
-			&backed_candidate.candidate().commitments.upward_messages,
-			BlockNumberFor::<T>::from(backed_candidate.candidate().commitments.hrmp_watermark),
-			&backed_candidate.candidate().commitments.horizontal_messages,
+			&backed_candidate_receipt.commitments.head_data,
+			&backed_candidate_receipt.commitments.new_validation_code,
+			backed_candidate_receipt.commitments.processed_downward_messages,
+			&backed_candidate_receipt.commitments.upward_messages,
+			BlockNumberFor::<T>::from(backed_candidate_receipt.commitments.hrmp_watermark),
+			&backed_candidate_receipt.commitments.horizontal_messages,
 		) {
 			log::debug!(
 				target: LOG_TARGET,
