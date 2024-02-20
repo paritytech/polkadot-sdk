@@ -63,6 +63,7 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 
 	if multi_tree {
 		state_col.multitree = true;
+		state_col.allow_direct_node_access = true;
 		state_col.compression = parity_db::CompressionType::NoCompression;
 	}
 
