@@ -287,6 +287,9 @@ pub trait Ext: sealing::Sealed {
 	/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
 	fn append_debug_buffer(&mut self, msg: &str) -> bool;
 
+	/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
+	fn debug_buffer_enabled(&self) -> bool;
+
 	/// Call some dispatchable and return the result.
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo;
 
@@ -1427,6 +1430,10 @@ where
 
 	fn charge_storage(&mut self, diff: &Diff) {
 		self.top_frame_mut().nested_storage.charge(diff)
+	}
+
+	fn debug_buffer_enabled(&self) -> bool {
+		self.debug_message.is_some()
 	}
 
 	fn append_debug_buffer(&mut self, msg: &str) -> bool {

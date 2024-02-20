@@ -17,13 +17,9 @@
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, WithdrawReasons},
+	traits::{ConstU32, WithdrawReasons},
 };
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, Identity, IdentityLookup},
-	BuildStorage,
-};
+use sp_runtime::{traits::Identity, BuildStorage};
 
 use super::*;
 use crate as pallet_vesting;
@@ -42,28 +38,7 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
-	type AccountId = u64;
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockHashCount = ConstU64<250>;
-	type BlockLength = ();
-	type BlockWeights = ();
-	type RuntimeCall = RuntimeCall;
-	type DbWeight = ();
-	type RuntimeEvent = RuntimeEvent;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type Block = Block;
-	type Nonce = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type OnKilledAccount = ();
-	type OnNewAccount = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type RuntimeOrigin = RuntimeOrigin;
-	type PalletInfo = PalletInfo;
-	type SS58Prefix = ();
-	type SystemWeightInfo = ();
-	type Version = ();
 }
 
 impl pallet_balances::Config for Test {
