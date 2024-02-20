@@ -11,7 +11,7 @@
 //!
 //! Instead, let's establish the following as the correct definition of an origin:
 //!
-//! > The origin type represent the privilege level of the caller of an extrinsic.
+//! > The origin type represents the privilege level of the caller of an extrinsic.
 //!
 //! That is, an extrinsic, through checking the origin, can *express what privilege level it wishes
 //! to impose on the caller of the extrinsic*. One of those checks can be as simple as "*any account
@@ -111,13 +111,13 @@
 //!
 //! ## Obtaining Abstract Origins
 //!
-//! So far we have learned that FRAME pallet's can assert on custom and abstract origin types,
+//! So far we have learned that FRAME pallets can assert on custom and abstract origin types,
 //! whether they are defined within the pallet or not. But how can we obtain these abstract origins?
 //!
-//! > All extrinsics that come from outer world can generally only obtained either `signed` or
+//! > All extrinsics that come from the outer world can generally only be obtained as either `signed` or
 //! > `none` origin
 //!
-//! Generally, these abstract origins asd only obtained within the runtime, when a call is
+//! Generally, these abstract origins are only obtained within the runtime, when a call is
 //! dispatched within the runtime.
 //!
 //! ## Further References

@@ -14,7 +14,7 @@
 //! Many types within a FRAME runtime follow the following structure:
 //!
 //! * Each individual pallet defines a type, for example `Foo`.
-//! * At thr runtime level, these types are amalgamated into a single type, for example
+//! * At the runtime level, these types are amalgamated into a single type, for example
 //!   `RuntimeFoo`.
 //!
 //! As the names suggest, all composite enums in a FRAME runtime start their name with `Runtime`.
@@ -24,7 +24,7 @@
 //! Composite enums are generally convertible to their individual parts as such:
 #![doc = simple_mermaid::mermaid!("../../../mermaid/outer_runtime_types.mmd")]
 //!
-//! In that one can always convert from the inner type into the outer type, but not visa versa. This
+//! In that one can always convert from the inner type into the outer type, but not vice versa. This
 //! is usually expressed by implementing `From`, `TryFrom`, `From<Result<_>>` and similar traits.
 //!
 //! ### Example
