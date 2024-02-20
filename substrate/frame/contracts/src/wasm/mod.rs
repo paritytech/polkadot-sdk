@@ -3399,8 +3399,8 @@ mod tests {
 	}
 
 	#[test]
-	fn add_unlock_delegate_dependency() {
-		const CODE_ADD_unlock_delegate_dependency: &str = r#"
+	fn lock_unlock_delegate_dependency() {
+		const CODE_LOCK_UNLOCK_DELEGATE_DEPENDENCY: &str = r#"
 (module
 	(import "seal0" "lock_delegate_dependency" (func $lock_delegate_dependency (param i32)))
 	(import "seal0" "unlock_delegate_dependency" (func $unlock_delegate_dependency (param i32)))
@@ -3426,7 +3426,7 @@ mod tests {
 )
 "#;
 		let mut mock_ext = MockExt::default();
-		assert_ok!(execute(&CODE_ADD_unlock_delegate_dependency, vec![], &mut mock_ext));
+		assert_ok!(execute(&CODE_LOCK_UNLOCK_DELEGATE_DEPENDENCY, vec![], &mut mock_ext));
 		let delegate_dependencies: Vec<_> =
 			mock_ext.delegate_dependencies.into_inner().into_iter().collect();
 		assert_eq!(delegate_dependencies.len(), 1);

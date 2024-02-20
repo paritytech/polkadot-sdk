@@ -106,7 +106,7 @@ pub extern "C" fn call() {
 	let res = api::call_v2(
 		uapi::CallFlags::empty(),
 		callee,
-		1u64, // too little ref_time weight
+		1u64, // Too little ref_time weight.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.
 		&value,

@@ -42,6 +42,7 @@ pub extern "C" fn call() {
 			addr,
 			0u64,                // How much ref_time to devote for the execution. 0 = all.
 			0u64,                // How much proof_size to devote for the execution. 0 = all.
+			None,                // No deposit limit.
 			&0u64.to_le_bytes(), // Value to transfer.
 			&[0u8; 0],
 			None,
