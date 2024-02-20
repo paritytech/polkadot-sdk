@@ -438,12 +438,10 @@ impl OpaqueKeys for OldSessionKeys {
 			<<Babe as BoundToRuntimeAppPublic>::Public>::ID => self.babe.as_ref(),
 			sp_core::crypto::key_types::IM_ONLINE => self.im_online.as_ref(),
 			<<Initializer as BoundToRuntimeAppPublic>::Public>::ID => self.para_validator.as_ref(),
-			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID => {
-				self.para_assignment.as_ref()
-			},
-			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID => {
-				self.authority_discovery.as_ref()
-			},
+			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID =>
+				self.para_assignment.as_ref(),
+			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID =>
+				self.authority_discovery.as_ref(),
 			<<Beefy as BoundToRuntimeAppPublic>::Public>::ID => self.beefy.as_ref(),
 			_ => &[],
 		}
@@ -1049,12 +1047,11 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Staking => {
 				matches!(
 					c,
-					RuntimeCall::Staking(..)
-						| RuntimeCall::Session(..)
-						| RuntimeCall::Utility(..)
-						| RuntimeCall::FastUnstake(..)
-						| RuntimeCall::VoterList(..)
-						| RuntimeCall::NominationPools(..)
+					RuntimeCall::Staking(..) |
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::FastUnstake(..) |
+						RuntimeCall::VoterList(..) |
+						RuntimeCall::NominationPools(..)
 				)
 			},
 			ProxyType::NominationPools => {
@@ -1070,24 +1067,24 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Governance => matches!(
 				c,
 				// OpenGov calls
-				RuntimeCall::ConvictionVoting(..)
-					| RuntimeCall::Referenda(..)
-					| RuntimeCall::Whitelist(..)
+				RuntimeCall::ConvictionVoting(..) |
+					RuntimeCall::Referenda(..) |
+					RuntimeCall::Whitelist(..)
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
-					| RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
+					RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions(..)
-					| RuntimeCall::Crowdloan(..)
-					| RuntimeCall::Registrar(..)
-					| RuntimeCall::Slots(..)
+				RuntimeCall::Auctions(..) |
+					RuntimeCall::Crowdloan(..) |
+					RuntimeCall::Registrar(..) |
+					RuntimeCall::Slots(..)
 			),
 		}
 	}
