@@ -289,6 +289,9 @@ mod tests {
 				reference_recorder.estimate_encoded_size(),
 				recorder_for_test.estimate_encoded_size()
 			);
+
+			recorder_for_test.reset();
+			assert_eq!(recorder_for_test.estimate_encoded_size(), 0)
 		}
 	}
 }
