@@ -1,0 +1,6 @@
+Network: ./bridge_hub_kusama_local_network.toml
+Creds: config
+
+# ensure that initialization has completed
+asset-hub-kusama-collator-1: js-script ../../js-helpers/wait-hrmp-channel-opened.js with "1002" within 300 seconds
+

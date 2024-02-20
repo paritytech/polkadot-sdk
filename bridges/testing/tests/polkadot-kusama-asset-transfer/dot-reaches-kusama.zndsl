@@ -1,0 +1,12 @@
+Description: User is able to transfer DOT from Polkadot Asset Hub to Kusama Asset Hub
+Network: ../../environments/polkadot-kusama/bridge_hub_kusama_local_network.toml
+Creds: config
+
+# send DOT to //Alice from Polkadot AH to Kusama AH
+asset-hub-kusama-collator-1: run ../../environments/polkadot-kusama/helper.sh with "reserve-transfer-assets-from-asset-hub-polkadot-local" within 120 seconds
+
+# check that //Alice received the DOT on Kusama AH
+asset-hub-kusama-collator-1: js-script ../../js-helpers/wrapped-assets-balance.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,0,Polkadot" within 300 seconds
+
+# check that the relayer //Charlie is rewarded by Kusama AH
+bridge-hub-kusama-collator-1: js-script ../../js-helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000001,0x62687064,ThisChain,0" within 30 seconds
