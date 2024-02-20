@@ -15,9 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{Block, Error, Hash, IsParachainNode, Registry};
-use polkadot_node_subsystem_types::{DefaultSubsystemClient, RuntimeApiSubsystemClient};
+use polkadot_node_subsystem_types::{ChainApiBackend,  DefaultSubsystemClient, RuntimeApiSubsystemClient};
 use polkadot_overseer::{
-	ChainApiBackend, DummySubsystem, InitializedOverseerBuilder, SubsystemError,
+	DummySubsystem, InitializedOverseerBuilder, SubsystemError,
 };
 use sp_core::traits::SpawnNamed;
 

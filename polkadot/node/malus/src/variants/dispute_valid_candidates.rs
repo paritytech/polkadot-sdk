@@ -24,14 +24,15 @@
 
 use polkadot_cli::{
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
-		HeaderBackend, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
-		ParachainHost, ProvideRuntimeApi,
+		AuxStore, Block, Error, ExtendedOverseerGenArgs, HeaderBackend, Overseer,
+		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
 	},
 	validator_overseer_builder, Cli,
 };
 use polkadot_node_subsystem::SpawnGlue;
-use polkadot_node_subsystem_types::DefaultSubsystemClient;
+use polkadot_node_subsystem_types::{
+	ChainApiBackend, DefaultSubsystemClient, RuntimeApiSubsystemClient,
+};
 use sp_core::traits::SpawnNamed;
 
 // Filter wrapping related types.
@@ -78,15 +79,16 @@ impl OverseerGen for DisputeValidCandidates {
 	fn generate<Spawner, RuntimeClient>(
 		&self,
 		connector: OverseerConnector,
-		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
+		args: OverseerGenArgs<'_, Spawner, DefaultSubsystemClient<RuntimeClient>>,
 		ext_args: Option<ExtendedOverseerGenArgs>,
 	) -> Result<
 		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
 		Error,
 	>
 	where
-		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: HeaderBackend<Block> + AuxStore,
+		DefaultSubsystemClient<RuntimeClient>:
+			RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		let spawner = args.spawner.clone();
