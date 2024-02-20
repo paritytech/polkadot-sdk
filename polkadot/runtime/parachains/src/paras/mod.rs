@@ -119,7 +119,7 @@ use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{
 	ConsensusLog, HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, UpgradeGoAhead,
-	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature,
+	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature, MIN_CODE_SIZE,
 };
 use scale_info::{Type, TypeInfo};
 use sp_core::RuntimeDebug;
@@ -679,6 +679,8 @@ pub mod pallet {
 		PvfCheckSubjectInvalid,
 		/// Parachain cannot currently schedule a code upgrade.
 		CannotUpgradeCode,
+		/// Invalid validation code size.
+		InvalidCode,
 	}
 
 	/// All currently active PVF pre-checking votes.
@@ -1230,6 +1232,10 @@ impl<T: Config> Pallet<T> {
 		// Check that we can schedule an upgrade at all.
 		ensure!(Self::can_upgrade_validation_code(id), Error::<T>::CannotUpgradeCode);
 		let config = configuration::Pallet::<T>::config();
+		// Validation code sanity checks:
+		ensure!(new_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
+		ensure!(new_code.0.len() <= config.max_code_size as usize, Error::<T>::InvalidCode);
+
 		let current_block = frame_system::Pallet::<T>::block_number();
 		// Schedule the upgrade with a delay just like if a parachain triggered the upgrade.
 		let upgrade_block = current_block.saturating_add(config.validation_upgrade_delay);
@@ -1890,7 +1896,14 @@ impl<T: Config> Pallet<T> {
 	) -> Weight {
 		let mut weight = T::DbWeight::get().reads(1);
 
-		// Enacting this should be prevented by the `can_schedule_upgrade`
+		// Should be prevented by checks in `schedule_code_upgrade_external`
+		let new_code_len = new_code.0.len();
+		if new_code_len < MIN_CODE_SIZE as usize || new_code_len > cfg.max_code_size as usize {
+			log::warn!(target: LOG_TARGET, "attempted to schedule an upgrade with invalid new validation code",);
+			return weight
+		}
+
+		// Enacting this should be prevented by the `can_upgrade_validation_code`
 		if FutureCodeHash::<T>::contains_key(&id) {
 			// This branch should never be reached. Signalling an upgrade is disallowed for a para
 			// that already has one upgrade scheduled.
