@@ -28,7 +28,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../
 # Bridges
 pallet-bridge-messages = { path = "../../../../../../../bridges/modules/messages", default-features = false, version = "0.7.0" }
 bp-messages = { path = "../../../../../../../bridges/primitives/messages", default-features = false, version = "0.7.0" }
-asset-test-utils = { version = "7.0.0", path = "../../../../../runtimes/assets/test-utils" }
+asset-test-utils = { version = "7.0.1", path = "../../../../../runtimes/assets/test-utils" }
 parachains-common = { version = "7.0.0", path = "../../../../../common" }
 cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false, version = "0.7.0" }
 cumulus-pallet-dmp-queue = { path = "../../../../../../pallets/dmp-queue", default-features = false, version = "0.7.0" }

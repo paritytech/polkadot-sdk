@@ -28,7 +28,7 @@ rococo-runtime = { version = "7.0.0", path = "../../../../../../../polkadot/runt
 rococo-runtime-constants = { version = "7.0.0", path = "../../../../../../../polkadot/runtime/rococo/constants" }
 polkadot-primitives = { version = "7.0.0", path = "../../../../../../../polkadot/primitives" }
 polkadot-runtime-common = { version = "7.0.0", path = "../../../../../../../polkadot/runtime/common" }
-asset-test-utils = { version = "7.0.0", path = "../../../../../runtimes/assets/test-utils" }
+asset-test-utils = { version = "7.0.1", path = "../../../../../runtimes/assets/test-utils" }
 parachains-common = { version = "7.0.0", path = "../../../../../common" }
 people-rococo-runtime = { version = "0.1.0", path = "../../../../../runtimes/people/people-rococo" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "3.0.0" }

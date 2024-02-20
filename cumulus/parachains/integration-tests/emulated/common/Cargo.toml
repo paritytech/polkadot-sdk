@@ -38,7 +38,7 @@ cumulus-primitives-core = { version = "0.7.0", path = "../../../../primitives/co
 xcm-emulator = { path = "../../../../xcm/xcm-emulator", default-features = false, version = "0.5.0" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.7.0" }
 cumulus-pallet-parachain-system = { version = "0.7.0", path = "../../../../pallets/parachain-system" }
-asset-test-utils = { version = "7.0.0", path = "../../../runtimes/assets/test-utils" }
+asset-test-utils = { version = "7.0.1", path = "../../../runtimes/assets/test-utils" }
 bp-messages = { version = "0.7.0", path = "../../../../../bridges/primitives/messages" }
 pallet-bridge-messages = { version = "0.7.0", path = "../../../../../bridges/modules/messages" }
 bridge-runtime-common = { version = "0.7.0", path = "../../../../../bridges/bin/runtime-common" }

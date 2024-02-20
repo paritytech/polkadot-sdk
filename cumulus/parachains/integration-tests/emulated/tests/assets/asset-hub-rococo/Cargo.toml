@@ -27,7 +27,7 @@ xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", def
 pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "7.0.0" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.3" }
 rococo-runtime = { version = "7.0.0", path = "../../../../../../../polkadot/runtime/rococo" }
-asset-test-utils = { version = "7.0.0", path = "../../../../../runtimes/assets/test-utils" }
+asset-test-utils = { version = "7.0.1", path = "../../../../../runtimes/assets/test-utils" }
 parachains-common = { version = "7.0.0", path = "../../../../../common" }
 asset-hub-rococo-runtime = { version = "0.1.0", path = "../../../../../runtimes/assets/asset-hub-rococo" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "3.0.0" }

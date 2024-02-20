@@ -71,7 +71,7 @@ cumulus-primitives-utility = { path = "../../../../../cumulus/primitives/utility
 pallet-collator-selection = { path = "../../../../../cumulus/pallets/collator-selection", default-features = false, version = "9.0.0" }
 parachain-info = { package = "staging-parachain-info", path = "../../../../../cumulus/parachains/pallets/parachain-info", default-features = false, version = "0.7.0" }
 parachains-common = { path = "../../../../../cumulus/parachains/common", default-features = false, version = "7.0.0" }
-parachains-runtimes-test-utils = { path = "../../../../../cumulus/parachains/runtimes/test-utils", default-features = false, version = "7.0.0" }
+parachains-runtimes-test-utils = { path = "../../../../../cumulus/parachains/runtimes/test-utils", default-features = false, version = "7.0.1" }
 bridge-hub-rococo-runtime = { path = "../../../../../cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false, version = "0.1.0" }
 asset-hub-rococo-runtime = { path = "../../../../../cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.1.0" }
 assets-common = { path = "../../../../../cumulus/parachains/runtimes/assets/common", default-features = false, version = "0.7.0" }
