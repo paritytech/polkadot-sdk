@@ -40,6 +40,7 @@ git checkout "$branch_name"
 
 # remove everything we think is not required for our needs
 rm -rf rust-toolchain.toml
+rm -rf codecov.yml
 rm -rf $SNOWBRIDGE_FOLDER/.cargo
 rm -rf $SNOWBRIDGE_FOLDER/.github
 rm -rf $SNOWBRIDGE_FOLDER/SECURITY.md
