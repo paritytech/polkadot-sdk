@@ -114,7 +114,7 @@ pub(crate) fn filter_elastic_scaling_candidates<T: configuration::Config + sched
 ) {
 	if !configuration::Pallet::<T>::config()
 		.node_features
-		.get(FeatureIndex::ElasticScalingCoreIndex as usize)
+		.get(FeatureIndex::ElasticScalingMVP as usize)
 		.map(|b| *b)
 		.unwrap_or(false)
 	{

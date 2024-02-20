@@ -620,7 +620,7 @@ impl<T: Config> Pallet<T> {
 
 		let core_index_enabled = configuration::Pallet::<T>::config()
 			.node_features
-			.get(FeatureIndex::ElasticScalingCoreIndex as usize)
+			.get(FeatureIndex::ElasticScalingMVP as usize)
 			.map(|b| *b)
 			.unwrap_or(false);
 		let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
