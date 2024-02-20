@@ -8,5 +8,5 @@ doc:
     description: |
       Add functionality to limit RPC batch requests by two new CLI options:
       --rpc-disable-batch-request - disable batch requests on the server
-      --rpc_max_batch_request_len - limit batches to LEN on the server
+      --rpc-max-batch-request-len - limit batches to LEN on the server
 crates: [ ]
