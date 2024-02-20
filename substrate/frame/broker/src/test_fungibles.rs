@@ -97,10 +97,10 @@ where
 		_provenance: Provenance,
 	) -> DepositConsequence {
 		if !Self::asset_exists(asset) {
-			return DepositConsequence::UnknownAsset
+			return DepositConsequence::UnknownAsset;
 		}
 		if amount + Self::balance(asset, who) < Self::minimum_balance(asset) {
-			return DepositConsequence::BelowMinimum
+			return DepositConsequence::BelowMinimum;
 		}
 		DepositConsequence::Success
 	}
@@ -112,10 +112,10 @@ where
 	) -> WithdrawConsequence<Self::Balance> {
 		if Self::reducible_balance(asset, who, Preservation::Expendable, Fortitude::Polite) < amount
 		{
-			return WithdrawConsequence::BalanceLow
+			return WithdrawConsequence::BalanceLow;
 		}
 		if Self::total_balance(asset, who) < Self::minimum_balance(asset) + amount {
-			return WithdrawConsequence::WouldDie
+			return WithdrawConsequence::WouldDie;
 		}
 		WithdrawConsequence::Success
 	}

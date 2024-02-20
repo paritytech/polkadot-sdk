@@ -21,7 +21,7 @@ use sp_arithmetic::{
 	traits::{One, SaturatedConversion, Saturating, Zero},
 	FixedPointNumber,
 };
-use sp_runtime::traits::{BlockNumberProvider, ConvertBack};
+use sp_runtime::traits::ConvertBack;
 use sp_std::{vec, vec::Vec};
 use CompletionStatus::Complete;
 
@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
 		if let Some(core_count) = CoreCountInbox::<T>::take() {
 			status.core_count = core_count;
 			Self::deposit_event(Event::<T>::CoreCountChanged { core_count });
-			return true
+			return true;
 		}
 		false
 	}
@@ -103,12 +103,12 @@ impl<T: Config> Pallet<T> {
 		if revenue.is_zero() {
 			Self::deposit_event(Event::<T>::HistoryDropped { when, revenue });
 			InstaPoolHistory::<T>::remove(when);
-			return true
+			return true;
 		}
 		let mut r = InstaPoolHistory::<T>::get(when).unwrap_or_default();
 		if r.maybe_payout.is_some() {
 			Self::deposit_event(Event::<T>::HistoryIgnored { when, revenue });
-			return true
+			return true;
 		}
 		// Payout system InstaPool Cores.
 		let total_contrib = r.system_contributions.saturating_add(r.private_contributions);
@@ -146,7 +146,7 @@ impl<T: Config> Pallet<T> {
 		config: &ConfigRecordOf<T>,
 		status: &StatusRecord,
 	) -> Option<()> {
-		let now = <<<T as crate::Config>::Coretime as CoretimeInterface>::RealyChainBlockNumberProvider as BlockNumberProvider>::current_block_number();
+		let now = Self::now();
 
 		let pool_item =
 			ScheduleItem { assignment: CoreAssignment::Pool, mask: CoreMask::complete() };
@@ -320,7 +320,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(ref mut last) = assignment.last_mut() {
 				if last.0 == i.0 {
 					last.1 += i.1;
-					continue
+					continue;
 				}
 			}
 			assignment.push(i);
