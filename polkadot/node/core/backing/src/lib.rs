@@ -70,7 +70,7 @@ use std::{
 	sync::Arc,
 };
 
-use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+use bitvec::vec::BitVec;
 use futures::{
 	channel::{mpsc, oneshot},
 	future::BoxFuture,
@@ -494,7 +494,7 @@ fn table_attested_to_backed(
 			.into_iter()
 			.map(|(pos_in_votes, _pos_in_group)| validity_votes[pos_in_votes].clone())
 			.collect(),
-		validator_indices,
+		validator_indices.clone(),
 	);
 
 	if inject_core_index {

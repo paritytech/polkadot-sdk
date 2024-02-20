@@ -33,9 +33,10 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData, PvfExecKind,
-	ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	vstaging::node_features, CandidateDescriptor, GroupRotationInfo, HeadData,
+	PersistedValidationData, PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
+use rstest::rstest;
 use sp_application_crypto::AppCrypto;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
@@ -78,6 +79,7 @@ pub(crate) struct TestState {
 	relay_parent: Hash,
 	minimum_backing_votes: u32,
 	disabled_validators: Vec<ValidatorIndex>,
+	node_features: NodeFeatures,
 }
 
 impl TestState {
@@ -150,6 +152,7 @@ impl Default for TestState {
 			relay_parent,
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			disabled_validators: Vec::new(),
+			node_features: Default::default(),
 		}
 	}
 }
@@ -291,7 +294,7 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 		AllMessages::RuntimeApi(
 			RuntimeApiMessage::Request(_parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
 		) => {
-			tx.send(Ok(Default::default())).unwrap();
+			tx.send(Ok(test_state.node_features.clone())).unwrap();
 		}
 	);
 
@@ -487,9 +490,20 @@ fn backing_second_works() {
 }
 
 // Test that the candidate reaches quorum successfully.
-#[test]
-fn backing_works() {
-	let test_state = TestState::default();
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn backing_works(#[case] elastic_scaling_mvp: bool) {
+	let mut test_state = TestState::default();
+	if elastic_scaling_mvp {
+		test_state
+			.node_features
+			.resize((node_features::FeatureIndex::ElasticScalingMVP as u8 + 1) as usize, false);
+		test_state
+			.node_features
+			.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
+	}
+
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		test_startup(&mut virtual_overseer, &test_state).await;
 
@@ -639,6 +653,31 @@ fn backing_works() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_b.clone());
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
+
+		let (tx, rx) = oneshot::channel();
+		let msg = CandidateBackingMessage::GetBackedCandidates(
+			vec![(candidate_a_hash, test_state.relay_parent)],
+			tx,
+		);
+
+		virtual_overseer.send(FromOrchestra::Communication { msg }).await;
+
+		let candidates = rx.await.unwrap();
+		assert_eq!(1, candidates.len());
+		assert_eq!(candidates[0].validity_votes().len(), 3);
+
+		let (validator_indices, maybe_core_index) =
+			candidates[0].validator_indices_and_core_index(elastic_scaling_mvp);
+		if elastic_scaling_mvp {
+			assert_eq!(maybe_core_index.unwrap(), CoreIndex(0));
+		} else {
+			assert!(maybe_core_index.is_none());
+		}
+
+		assert_eq!(
+			validator_indices,
+			bitvec::bitvec![u8, bitvec::order::Lsb0; 1, 1, 0, 1].as_bitslice()
+		);
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
@@ -924,8 +963,8 @@ fn backing_works_while_validation_ongoing() {
 			.validity_votes()
 			.contains(&ValidityAttestation::Explicit(signed_c.signature().clone())));
 		assert_eq!(
-			candidates[0].validator_indices(false),
-			bitvec::bitvec![u8, bitvec::order::Lsb0; 1, 0, 1, 1],
+			candidates[0].validator_indices_and_core_index(false),
+			(bitvec::bitvec![u8, bitvec::order::Lsb0; 1, 0, 1, 1].as_bitslice(), None)
 		);
 
 		virtual_overseer
@@ -1597,7 +1636,10 @@ fn candidate_backing_reorders_votes() {
 	let expected_attestations =
 		vec![fake_attestation(1).into(), fake_attestation(3).into(), fake_attestation(5).into()];
 
-	assert_eq!(backed.validator_indices(false), expected_bitvec);
+	assert_eq!(
+		backed.validator_indices_and_core_index(false),
+		(expected_bitvec.as_bitslice(), None)
+	);
 	assert_eq!(backed.validity_votes(), expected_attestations);
 }
 
