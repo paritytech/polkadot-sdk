@@ -792,7 +792,7 @@ pub trait HostFn {
 	#[deprecated(
 		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
 	)]
-	fn xcm_execute(msg: &[u8], output: &mut &mut [u8]) -> Result;
+	fn xcm_execute(msg: &[u8]) -> Result;
 
 	/// Send an XCM program from the contract to the specified destination.
 	/// This is equivalent to dispatching `pallet_xcm::send` through `call_runtime`, except that
@@ -804,7 +804,6 @@ pub trait HostFn {
 	///   traps otherwise.
 	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
 	///   traps otherwise.
-	/// - `output`: A reference to the output data buffer to write the [XcmHash](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/v3/type.XcmHash.html)
 	///
 	/// # Return
 	///
