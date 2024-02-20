@@ -29,7 +29,7 @@ runtime-benchmarks = [
 
 [dependencies]
 jsonrpsee = { version = "0.22", features = ["server"] }
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 futures = "0.3.21"
 rand = "0.8.5"
 parking_lot = "0.12.1"
@@ -37,8 +37,8 @@ log = { workspace = true, default-features = true }
 futures-timer = "3.0.1"
 exit-future = "0.2.0"
 pin-project = "1.0.12"
-serde = "1.0.196"
-serde_json = "1.0.113"
+serde = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 sc-keystore = { path = "../keystore" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-trie = { path = "../../primitives/trie" }

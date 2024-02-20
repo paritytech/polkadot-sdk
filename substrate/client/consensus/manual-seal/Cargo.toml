@@ -23,8 +23,8 @@ codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3.21"
 futures-timer = "3.0.1"
 log = { workspace = true, default-features = true }
-serde = { version = "1.0", features = ["derive"] }
-thiserror = "1.0"
+serde = { features = ["derive"], workspace = true, default-features = true }
+thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-client-api = { path = "../../api" }
 sc-consensus = { path = "../common" }
