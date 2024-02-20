@@ -228,7 +228,7 @@ struct PerRelayParentState {
 	/// The minimum backing votes threshold.
 	minimum_backing_votes: u32,
 	/// If true, we're appendindg extra bits in the BackedCandidate validator indices bitfield,
-	/// which represent the assigned core index.
+	/// which represent the assigned core index. True when ElasticScalingMVP feature is enabled.
 	inject_core_index: bool,
 	/// The core state for all cores
 	cores: Vec<CoreState>,
@@ -488,20 +488,20 @@ fn table_attested_to_backed(
 	}
 	vote_positions.sort_by_key(|(_orig, pos_in_group)| *pos_in_group);
 
-	if inject_core_index {
-		let core_index_to_inject: BitVec<u8, BitOrderLsb0> =
-			BitVec::from_vec(vec![core_index.0 as u8]);
-		validator_indices.extend(core_index_to_inject);
-	}
-
-	Some(BackedCandidate::new(
+	let mut backed_candidate = BackedCandidate::new(
 		candidate,
 		vote_positions
 			.into_iter()
 			.map(|(pos_in_votes, _pos_in_group)| validity_votes[pos_in_votes].clone())
 			.collect(),
 		validator_indices,
-	))
+	);
+
+	if inject_core_index {
+		backed_candidate.set_validator_indices_and_core_index(validator_indices, Some(core_index));
+	}
+
+	Some(backed_candidate)
 }
 
 async fn store_available_data(

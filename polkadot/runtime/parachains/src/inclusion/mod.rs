@@ -687,9 +687,21 @@ impl<T: Config> Pallet<T> {
 				};
 
 				let para_id = backed_candidate.descriptor().para_id;
-				let core_idx = if let Some(core_idx) =
-					backed_candidate.assumed_core_index(core_index_enabled)
-				{
+				let (validator_indices, maybe_core_index) =
+					backed_candidate.validator_indices_and_core_index(core_index_enabled);
+				let core_idx = if let Some(core_idx) = maybe_core_index {
+					ensure!(
+						scheduled_by_core.get(&core_idx) == Some(&para_id),
+						Error::<T>::UnscheduledCandidate
+					);
+
+					// We assume the core index is valid because of the checks done in
+					// `filter_elastic_scaling_candidates`.
+
+					// Remove the core index from the validator indices if present. We'll no longer
+					// need it.
+					backed_candidate.set_validator_indices_and_core_index(validator_indices, None);
+
 					core_idx
 				} else {
 					*scheduled.get(&para_id).ok_or(Error::<T>::UnscheduledCandidate)?
@@ -753,14 +765,14 @@ impl<T: Config> Pallet<T> {
 						},
 					}
 
+					let validator_indices = backed_candidate.validator_indices();
 					let mut backer_idx_and_attestation =
 						Vec::<(ValidatorIndex, ValidityAttestation)>::with_capacity(
-							backed_candidate.validator_indices(core_index_enabled).count_ones(),
+							validator_indices.count_ones(),
 						);
 					let candidate_receipt = backed_candidate.receipt();
 
-					for ((bit_idx, _), attestation) in backed_candidate
-						.validator_indices(core_index_enabled)
+					for ((bit_idx, _), attestation) in validator_indices
 						.iter()
 						.enumerate()
 						.filter(|(_, signed)| **signed)

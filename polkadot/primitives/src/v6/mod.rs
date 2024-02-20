@@ -760,36 +760,44 @@ impl<H> BackedCandidate<H> {
 		self.candidate.to_plain()
 	}
 
-	/// Get validator indices mutable reference
-	pub fn validator_indices(&self, core_index_enabled: bool) -> BitVec<u8, bitvec::order::Lsb0> {
+	/// Get a copy of the validator indices and the assumed core index, if any.
+	pub fn validator_indices_and_core_index(
+		&self,
+		core_index_enabled: bool,
+	) -> (BitVec<u8, bitvec::order::Lsb0>, Option<CoreIndex>) {
 		// This flag tells us if the block producers must enable Elastic Scaling MVP hack.
 		// It extends `BackedCandidate::validity_indices` to store a 8 bit core index.
 		if core_index_enabled {
 			let core_idx_offset = self.validator_indices.len().saturating_sub(8);
-			let (validator_indices_slice, _core_idx_slice) =
+			let (validator_indices_slice, core_idx_slice) =
 				self.validator_indices.split_at(core_idx_offset);
-			BitVec::from(validator_indices_slice)
+			(
+				BitVec::from(validator_indices_slice),
+				Some(CoreIndex(core_idx_slice.load::<u8>() as u32)),
+			)
 		} else {
-			self.validator_indices.clone()
+			(self.validator_indices.clone(), None)
 		}
 	}
 
-	/// Update the validator indices in the candidate
-	pub fn set_validator_indices(&mut self, new_indices: BitVec<u8, bitvec::order::Lsb0>) {
+	/// Update the validator indices and core index in the candidate.
+	pub fn set_validator_indices_and_core_index(
+		&mut self,
+		mut new_indices: BitVec<u8, bitvec::order::Lsb0>,
+		core_index: Option<CoreIndex>,
+	) {
+		if let Some(core_index) = core_index {
+			let core_index_to_inject: BitVec<u8, bitvec::order::Lsb0> =
+				BitVec::from_vec(vec![core_index.0 as u8]);
+			new_indices.extend(core_index_to_inject);
+		}
 		self.validator_indices = new_indices;
 	}
 
-	/// Return the assumed core index of the backed candidate if any.
-	pub fn assumed_core_index(&self, core_index_enabled: bool) -> Option<CoreIndex> {
-		if core_index_enabled {
-			let core_idx_offset = self.validator_indices.len().saturating_sub(8);
-			let (_validator_indices_slice, core_idx_slice) =
-				self.validator_indices.split_at(core_idx_offset);
-			let core_idx: u8 = core_idx_slice.load();
-			Some(CoreIndex(core_idx as u32))
-		} else {
-			None
-		}
+	/// Get a copy of the validator indices. Note that it may contain an encoded core index also as
+	/// the last 8 bits. You must make sure to handle it properly or to have removed it beforehand.
+	pub fn validator_indices(&self) -> BitVec<u8, bitvec::order::Lsb0> {
+		self.validator_indices.clone()
 	}
 }
 

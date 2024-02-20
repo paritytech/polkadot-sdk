@@ -17,18 +17,11 @@
 //! Utilities that don't belong to any particular module but may draw
 //! on all modules.
 
-use bitvec::field::BitField;
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{
-	vstaging::node_features::FeatureIndex, BackedCandidate, CoreIndex, Id as ParaId,
-	PersistedValidationData, ValidatorIndex,
-};
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec::Vec,
-};
+use primitives::{Id as ParaId, PersistedValidationData, ValidatorIndex};
+use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
-use crate::{configuration, hrmp, paras, scheduler};
+use crate::{configuration, hrmp, paras};
 /// Make the persisted validation data for a particular parachain, a specified relay-parent and it's
 /// storage root.
 ///
@@ -102,91 +95,6 @@ pub fn take_active_subset<T: Clone>(active: &[ValidatorIndex], set: &[T]) -> Vec
 	}
 
 	subset
-}
-
-/// On first pass it filters out all candidates that have multiple cores assigned and no
-/// `CoreIndex` injected.
-///
-/// On second pass we filter out candidates with the same core index. This can happen if for example
-/// collators distribute collations to multiple backing groups.
-pub(crate) fn filter_elastic_scaling_candidates<T: configuration::Config + scheduler::Config>(
-	candidates: &mut Vec<BackedCandidate<T::Hash>>,
-) {
-	if !configuration::Pallet::<T>::config()
-		.node_features
-		.get(FeatureIndex::ElasticScalingMVP as usize)
-		.map(|b| *b)
-		.unwrap_or(false)
-	{
-		// we don't touch the candidates, since we don't expect block producers
-		// to inject `CoreIndex`.
-		return
-	}
-
-	// A mapping from parachain to all assigned cores.
-	let mut cores_per_parachain: BTreeMap<ParaId, Vec<CoreIndex>> = BTreeMap::new();
-
-	for (core_index, para_id) in <scheduler::Pallet<T>>::scheduled_paras() {
-		cores_per_parachain.entry(para_id).or_default().push(core_index);
-	}
-
-	// We keep a candidate if the parachain has only one core assigned or if
-	// a core index is provided by block author.
-	candidates.retain(|candidate| {
-		!cores_per_parachain
-			.get(&candidate.candidate().descriptor.para_id)
-			.map(|cores| cores.len())
-			.unwrap_or(0) >
-			1 || has_core_index::<T>(candidate, true)
-	});
-
-	let mut used_cores = BTreeSet::new();
-
-	// We keep one candidate per core in case multiple candidates of same para end up backed on same
-	// core. This can be further refined to pick the candidate that has the parenthead equal
-	// to the one in storage.
-	candidates.retain(|candidate| {
-		if let Some(core_index) = candidate.assumed_core_index(true) {
-			// Drop candidate if the core was already used by a previous candidate.
-			used_cores.insert(core_index)
-		} else {
-			// This shouldn't happen, but at this point the candidate without core index is fine
-			// since we know the para:core mapping is unique.
-			true
-		}
-	})
-}
-
-// Returns `true` if the candidate contains an injected `CoreIndex`.
-fn has_core_index<T: configuration::Config + scheduler::Config>(
-	candidate: &BackedCandidate<T::Hash>,
-	core_index_enabled: bool,
-) -> bool {
-	// After stripping the 8 bit extensions, the `validator_indices` field length is expected
-	// to be equal to backing group size. If these don't match, the `CoreIndex` is badly encoded,
-	// or not supported.
-	let core_idx_offset = candidate.validator_indices(core_index_enabled).len().saturating_sub(8);
-	let validator_indices_raw = candidate.validator_indices(core_index_enabled);
-	let (validator_indices_slice, core_idx_slice) = validator_indices_raw.split_at(core_idx_offset);
-	let core_idx: u8 = core_idx_slice.load();
-
-	let current_block = frame_system::Pallet::<T>::block_number();
-
-	// Get the backing group of the candidate backed at `core_idx`.
-	let group_idx = match <scheduler::Pallet<T>>::group_assigned_to_core(
-		CoreIndex(core_idx as u32),
-		current_block,
-	) {
-		Some(group_idx) => group_idx,
-		None => return false,
-	};
-
-	let group_validators = match <scheduler::Pallet<T>>::group_validators(group_idx) {
-		Some(validators) => validators,
-		None => return false,
-	};
-
-	group_validators.len() == validator_indices_slice.len()
 }
 
 #[cfg(test)]

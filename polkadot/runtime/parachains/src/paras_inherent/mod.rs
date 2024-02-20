@@ -31,7 +31,6 @@ use crate::{
 	paras,
 	scheduler::{self, FreedReason},
 	shared::{self, AllowedRelayParentsTracker},
-	util::filter_elastic_scaling_candidates,
 	ParaId,
 };
 use bitvec::prelude::BitVec;
@@ -592,7 +591,17 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
-		filter_elastic_scaling_candidates::<T>(&mut backed_candidates);
+		let core_index_enabled = configuration::Pallet::<T>::config()
+			.node_features
+			.get(FeatureIndex::ElasticScalingMVP as usize)
+			.map(|b| *b)
+			.unwrap_or(false);
+
+		filter_elastic_scaling_candidates::<T>(
+			&allowed_relay_parents,
+			core_index_enabled,
+			&mut backed_candidates,
+		);
 
 		let SanitizedBackedCandidates { backed_candidates, votes_from_disabled_were_dropped } =
 			sanitize_backed_candidates::<T, _>(
@@ -618,6 +627,7 @@ impl<T: Config> Pallet<T> {
 						.is_err()
 				},
 				&scheduled,
+				core_index_enabled,
 			);
 
 		METRICS.on_candidates_sanitized(backed_candidates.len() as u64);
@@ -950,6 +960,7 @@ fn sanitize_backed_candidates<
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	mut candidate_has_concluded_invalid_dispute_or_is_invalid: F,
 	scheduled: &BTreeMap<ParaId, CoreIndex>,
+	core_index_enabled: bool,
 ) -> SanitizedBackedCandidates<T::Hash> {
 	// Remove any candidates that were concluded invalid.
 	// This does not assume sorting.
@@ -973,6 +984,7 @@ fn sanitize_backed_candidates<
 		&mut backed_candidates,
 		&allowed_relay_parents,
 		scheduled,
+		core_index_enabled,
 	);
 
 	// Sort the `Vec` last, once there is a guarantee that these
@@ -1079,6 +1091,7 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 	backed_candidates: &mut Vec<BackedCandidate<<T as frame_system::Config>::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	scheduled: &BTreeMap<ParaId, CoreIndex>,
+	core_index_enabled: bool,
 ) -> bool {
 	let disabled_validators =
 		BTreeSet::<_>::from_iter(shared::Pallet::<T>::disabled_validators().into_iter());
@@ -1094,18 +1107,15 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 	let mut filtered = false;
 
 	let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
-	let core_index_enabled = configuration::Pallet::<T>::config()
-		.node_features
-		.get(FeatureIndex::ElasticScalingMVP as usize)
-		.map(|b| *b)
-		.unwrap_or(false);
 
 	// Process all backed candidates. `validator_indices` in `BackedCandidates` are indices within
 	// the validator group assigned to the parachain. To obtain this group we need:
 	// 1. Core index assigned to the parachain which has produced the candidate
 	// 2. The relay chain block number of the candidate
 	backed_candidates.retain_mut(|bc| {
-		let core_idx = if let Some(core_idx) = bc.assumed_core_index(core_index_enabled) {
+		let (mut validator_indices, maybe_core_index) = bc.validator_indices_and_core_index(core_index_enabled);
+
+		let core_idx = if let Some(core_idx) = maybe_core_index {
 			core_idx
 		} else {
 			// Get `core_idx` assigned to the `para_id` of the candidate
@@ -1151,13 +1161,12 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 
 		// Bitmask with the disabled indices within the validator group
 		let disabled_indices = BitVec::<u8, bitvec::order::Lsb0>::from_iter(validator_group.iter().map(|idx| disabled_validators.contains(idx)));
-		let mut validator_indices = bc.validator_indices(core_index_enabled);
 		// The indices of statements from disabled validators in `BackedCandidate`. We have to drop these.
 		let indices_to_drop = disabled_indices.clone() & &validator_indices;
 		// Apply the bitmask to drop the disabled validator from `validator_indices`
 		validator_indices &= !disabled_indices;
 		// Update the backed candidate
-		bc.set_validator_indices(validator_indices);
+		bc.set_validator_indices_and_core_index(validator_indices, maybe_core_index);
 
 		// Remove the corresponding votes from `validity_votes`
 		for idx in indices_to_drop.iter_ones().rev() {
@@ -1184,4 +1193,79 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 
 	// Also return `true` if a whole candidate was dropped from the set
 	filtered || backed_len_before != backed_candidates.len()
+}
+
+/// Filter out all candidates that have multiple cores assigned and no
+/// `CoreIndex` injected.
+fn filter_elastic_scaling_candidates<
+	T: configuration::Config + scheduler::Config + inclusion::Config,
+>(
+	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
+	core_index_enabled: bool,
+	candidates: &mut Vec<BackedCandidate<T::Hash>>,
+) {
+	// Count how many scheduled cores each paraid has.
+	let mut cores_per_parachain: BTreeMap<ParaId, usize> = BTreeMap::new();
+
+	for (_, para_id) in <scheduler::Pallet<T>>::scheduled_paras() {
+		*cores_per_parachain.entry(para_id).or_default() += 1;
+	}
+
+	// We keep a candidate if the parachain has only one core assigned or if
+	// a core index is provided by block author.
+	candidates.retain(|candidate| {
+		*cores_per_parachain.get(&candidate.descriptor().para_id).unwrap_or(&0) <= 1 ||
+			has_core_index::<T>(allowed_relay_parents, candidate, core_index_enabled)
+	});
+}
+
+// Returns `true` if the candidate contains a valid injected `CoreIndex`.
+fn has_core_index<T: configuration::Config + scheduler::Config + inclusion::Config>(
+	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
+	candidate: &BackedCandidate<T::Hash>,
+	core_index_enabled: bool,
+) -> bool {
+	// After stripping the 8 bit extensions, the `validator_indices` field length is expected
+	// to be equal to backing group size. If these don't match, the `CoreIndex` is badly encoded,
+	// or not supported.
+	let (validator_indices, maybe_core_idx) =
+		candidate.validator_indices_and_core_index(core_index_enabled);
+
+	let Some(core_idx) = maybe_core_idx else { return false };
+
+	let relay_parent_block_number =
+		match allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent, None) {
+			Some((_, block_num)) => block_num,
+			None => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Relay parent {:?} for candidate {:?} is not in the allowed relay parents. Dropping the candidate.",
+					candidate.descriptor().relay_parent,
+					candidate.candidate().hash(),
+				);
+				return false
+			},
+		};
+
+	// Get the backing group of the candidate backed at `core_idx`.
+	let group_idx =
+		match <scheduler::Pallet<T>>::group_assigned_to_core(core_idx, relay_parent_block_number) {
+			Some(group_idx) => group_idx,
+			None => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Can't get the group index for core idx {:?}. Dropping the candidate {:?}.",
+					core_idx,
+					candidate.candidate().hash(),
+				);
+				return false
+			},
+		};
+
+	let group_validators = match <scheduler::Pallet<T>>::group_validators(group_idx) {
+		Some(validators) => validators,
+		None => return false,
+	};
+
+	group_validators.len() == validator_indices.len()
 }
