@@ -172,7 +172,7 @@ impl SendXcm for TestSendXcm {
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(Location, Xcm<()>)> {
 		if FAIL_SEND_XCM.with(|q| *q.borrow()) {
-			return Err(SendError::Transport("Intentional send failure used in tests"))
+			return Err(SendError::Transport("Intentional send failure used in tests"));
 		}
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
 		Ok((pair, Assets::new()))
@@ -221,10 +221,10 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 	) -> SendResult<(Location, Xcm<()>)> {
 		if let Some(dest) = dest.as_ref() {
 			if !dest.eq(&Para3000Location::get()) {
-				return Err(SendError::NotApplicable)
+				return Err(SendError::NotApplicable);
 			}
 		} else {
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
@@ -631,6 +631,10 @@ impl super::benchmarking::Config for Test {
 			);
 		});
 		Some((assets, fee_index as u32, dest, verify))
+	}
+
+	fn get_valid_asset() -> Asset {
+		Asset { id: AssetId(Location::here()), fun: Fungible(ExistentialDeposit::get()) }
 	}
 }
 
