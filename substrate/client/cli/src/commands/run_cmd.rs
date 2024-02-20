@@ -30,7 +30,7 @@ use crate::{
 use clap::Parser;
 use regex::Regex;
 use sc_service::{
-	config::{BasePath, PrometheusConfig, TransactionPoolOptions},
+	config::{BasePath, PrometheusConfig, RpcBatchRequestConfig, TransactionPoolOptions},
 	ChainSpec, Role,
 };
 use sc_telemetry::TelemetryEndpoints;
@@ -124,6 +124,14 @@ pub struct RunCmd {
 	/// JSON-RPC methods calls and subscriptions.
 	#[arg(long, default_value_t = RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)]
 	pub rpc_message_buffer_capacity_per_connection: u32,
+
+	/// Disable RPC batch requests
+	#[arg(long, alias = "rpc_no_batch_requests", conflicts_with_all = &["rpc_max_batch_request_len"])]
+	pub rpc_disable_batch_requests: bool,
+
+	/// Limit the max length per RPC batch request
+	#[arg(long, conflicts_with_all = &["rpc_disable_batch_requests"], value_name = "LEN")]
+	pub rpc_max_batch_request_len: Option<u32>,
 
 	/// Specify browser *origins* allowed to access the HTTP & WS RPC servers.
 	///
@@ -409,6 +417,22 @@ impl CliConfiguration for RunCmd {
 
 	fn rpc_max_subscriptions_per_connection(&self) -> Result<u32> {
 		Ok(self.rpc_max_subscriptions_per_connection)
+	}
+
+	fn rpc_buffer_capacity_per_connection(&self) -> Result<u32> {
+		Ok(self.rpc_message_buffer_capacity_per_connection)
+	}
+
+	fn rpc_batch_config(&self) -> Result<RpcBatchRequestConfig> {
+		let cfg = if self.rpc_disable_batch_requests {
+			RpcBatchRequestConfig::Disabled
+		} else if let Some(l) = self.rpc_max_batch_request_len {
+			RpcBatchRequestConfig::Limit(l)
+		} else {
+			RpcBatchRequestConfig::Unlimited
+		};
+
+		Ok(cfg)
 	}
 
 	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {

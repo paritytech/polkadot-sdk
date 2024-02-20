@@ -32,7 +32,7 @@ multihash = { version = "0.18.1", default-features = false, features = [
 log = { workspace = true, default-features = true }
 prost = "0.12"
 rand = "0.8.5"
-thiserror = "1.0"
+thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
 sc-client-api = { path = "../api" }
 sc-network = { path = "../network" }
