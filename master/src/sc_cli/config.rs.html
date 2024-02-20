@@ -658,6 +658,13 @@
 <a href="#658" id="658">658</a>
 <a href="#659" id="659">659</a>
 <a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -688,7 +695,8 @@
 	config::{
 		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
 		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
-		RpcMethods, TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod,
+		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
+		WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
@@ -998,7 +1006,12 @@
 		<span class="prelude-val">Ok</span>(RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)
 	}
 
-	<span class="doccomment">/// Rate limit calls per minute.
+	<span class="doccomment">/// RPC server batch request configuration.
+	</span><span class="kw">fn </span>rpc_batch_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RpcBatchRequestConfig&gt; {
+		<span class="prelude-val">Ok</span>(RpcBatchRequestConfig::Unlimited)
+	}
+
+	<span class="doccomment">/// RPC rate limit configuration.
 	</span><span class="kw">fn </span>rpc_rate_limit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;&gt; {
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 	}
@@ -1175,6 +1188,7 @@
 			rpc_max_subs_per_conn: <span class="self">self</span>.rpc_max_subscriptions_per_connection()<span class="question-mark">?</span>,
 			rpc_port: DCV::rpc_listen_port(),
 			rpc_message_buffer_capacity: <span class="self">self</span>.rpc_buffer_capacity_per_connection()<span class="question-mark">?</span>,
+			rpc_batch_config: <span class="self">self</span>.rpc_batch_config()<span class="question-mark">?</span>,
 			rpc_rate_limit: <span class="self">self</span>.rpc_rate_limit()<span class="question-mark">?</span>,
 			prometheus_config: <span class="self">self
 				</span>.prometheus_config(DCV::prometheus_listen_port(), <span class="kw-2">&amp;</span>chain_spec)<span class="question-mark">?</span>,

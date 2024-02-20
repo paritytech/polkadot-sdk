@@ -556,98 +556,6 @@
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) 2023 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -680,7 +588,6 @@
 	SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 <span class="kw">use </span>sp_runtime::{traits::StaticLookup, Saturating};
-<span class="kw">use </span>sp_std::ops::Mul;
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedAssets};
 <span class="kw">use </span>xcm_builder::{CreateMatcher, MatchXcm};
 <span class="kw">use </span>xcm_executor::{traits::ConvertLocation, XcmExecutor};
@@ -973,21 +880,23 @@
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
-	LocationToAccountId,
 	ForeignAssetsPalletInstance,
 &gt;(
 	collator_session_keys: CollatorSessionKeys&lt;Runtime&gt;,
 	existential_deposit: BalanceOf&lt;Runtime&gt;,
 	target_account: AccountIdOf&lt;Runtime&gt;,
 	block_author_account: AccountIdOf&lt;Runtime&gt;,
-	(
-		foreign_asset_id_location,
-		transfered_foreign_asset_id_amount,
-		foreign_asset_id_minimum_balance,
-	): (xcm::v3::Location, u128, u128),
-	prepare_configuration: <span class="kw">fn</span>() -&gt; TestBridgingConfig,
+	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
+		AccountIdOf&lt;Runtime&gt;,
+		xcm::v3::Location,
+		u128,
+	),
+	foreign_asset_id_amount_to_transfer: u128,
+	prepare_configuration: <span class="kw">impl </span>FnOnce() -&gt; TestBridgingConfig,
 	(bridge_instance, universal_origin, descend_origin): (Junctions, Junction, Junctions), <span class="comment">/* bridge adds origin manipulation on the way */
-</span>) <span class="kw">where
+	</span>additional_checks_before: <span class="kw">impl </span>FnOnce(),
+	additional_checks_after: <span class="kw">impl </span>FnOnce(),
+) <span class="kw">where
 	</span>Runtime: frame_system::Config
 		+ pallet_balances::Config
 		+ pallet_session::Config
@@ -996,15 +905,13 @@
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;
-		+ pallet_asset_conversion::Config,
+		+ pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;,
 	AllPalletsWithoutSystem:
 		OnInitialize&lt;BlockNumberFor&lt;Runtime&gt;&gt; + OnFinalize&lt;BlockNumberFor&lt;Runtime&gt;&gt;,
 	AccountIdOf&lt;Runtime&gt;: Into&lt;[u8; <span class="number">32</span>]&gt; + From&lt;[u8; <span class="number">32</span>]&gt;,
 	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 	BalanceOf&lt;Runtime&gt;: From&lt;Balance&gt; + Into&lt;Balance&gt;,
 	XcmConfig: xcm_executor::Config,
-	LocationToAccountId: ConvertLocation&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;&gt;::AssetId:
 		From&lt;xcm::v3::Location&gt; + Into&lt;xcm::v3::Location&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;&gt;::AssetIdParameter:
@@ -1015,9 +922,6 @@
 		+ Into&lt;AccountId&gt;,
 	&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source:
 		From&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
-	&lt;Runtime <span class="kw">as </span>pallet_asset_conversion::Config&gt;::AssetKind:
-		From&lt;xcm::v3::Location&gt; + Into&lt;xcm::v3::Location&gt;,
-	&lt;Runtime <span class="kw">as </span>pallet_asset_conversion::Config&gt;::Balance: From&lt;Balance&gt;,
 	ForeignAssetsPalletInstance: <span class="lifetime">&#39;static</span>,
 {
 	ExtBuilder::&lt;Runtime&gt;::default()
@@ -1032,24 +936,9 @@
 				block_author_account.clone().into(),
 			);
 
-			<span class="comment">// prepare bridge config
-			</span><span class="kw">let </span>TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();
-
 			<span class="comment">// drip &#39;ED&#39; user target account
 			</span><span class="kw">let _ </span>= &lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::deposit_creating(
 				<span class="kw-2">&amp;</span>target_account,
-				existential_deposit,
-			);
-
-			<span class="comment">// sovereign account as foreign asset owner (can be whoever for this scenario, doesnt
-			// matter)
-			</span><span class="kw">let </span>sovereign_account_as_owner_of_foreign_asset =
-				LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>Location::parent()).unwrap();
-
-			<span class="comment">// staking pot account for collecting local native fees from `BuyExecution`
-			</span><span class="kw">let </span>staking_pot = &lt;pallet_collator_selection::Pallet&lt;Runtime&gt;&gt;::account_id();
-			<span class="kw">let _ </span>= &lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::deposit_creating(
-				<span class="kw-2">&amp;</span>staking_pot,
 				existential_deposit,
 			);
 
@@ -1058,60 +947,18 @@
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::force_create(
 					RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::root_origin(),
 					foreign_asset_id_location.into(),
-					sovereign_account_as_owner_of_foreign_asset.clone().into(),
+					foreign_asset_owner.into(),
 					<span class="bool-val">true</span>, <span class="comment">// is_sufficient=true
 					</span>foreign_asset_id_minimum_balance.into()
 				)
 			);
 
-			<span class="comment">// setup a pool to pay fees with `foreign_asset_id_location` tokens
-			</span><span class="kw">let </span>pool_owner: AccountIdOf&lt;Runtime&gt; = [<span class="number">1u8</span>; <span class="number">32</span>].into();
-			<span class="kw">let </span>native_asset = xcm::v3::Location::parent();
-			<span class="kw">let </span>pool_liquidity: u128 =
-				existential_deposit.into().max(foreign_asset_id_minimum_balance).mul(<span class="number">100_000</span>);
-
-			<span class="kw">let _ </span>= &lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::deposit_creating(
-				<span class="kw-2">&amp;</span>pool_owner,
-				(existential_deposit.into() + pool_liquidity).mul(<span class="number">2</span>).into(),
-			);
-
-			<span class="macro">assert_ok!</span>(&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::mint(
-				RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::origin_of(
-					sovereign_account_as_owner_of_foreign_asset
-				),
-				foreign_asset_id_location.into(),
-				pool_owner.clone().into(),
-				(foreign_asset_id_minimum_balance + pool_liquidity).mul(<span class="number">2</span>).into(),
-			));
-
-			<span class="macro">assert_ok!</span>(&lt;pallet_asset_conversion::Pallet&lt;Runtime&gt;&gt;::create_pool(
-				RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::origin_of(pool_owner.clone()),
-				Box::new(native_asset.into()),
-				Box::new(foreign_asset_id_location.into())
-			));
-
-			<span class="macro">assert_ok!</span>(&lt;pallet_asset_conversion::Pallet&lt;Runtime&gt;&gt;::add_liquidity(
-				RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::origin_of(pool_owner.clone()),
-				Box::new(native_asset.into()),
-				Box::new(foreign_asset_id_location.into()),
-				pool_liquidity.into(),
-				pool_liquidity.into(),
-				<span class="number">1</span>.into(),
-				<span class="number">1</span>.into(),
-				pool_owner,
-			));
+			<span class="comment">// prepare bridge config
+			</span><span class="kw">let </span>TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();
 
 			<span class="comment">// Balances before
 			</span><span class="macro">assert_eq!</span>(
 				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>target_account),
-				existential_deposit.clone()
-			);
-			<span class="macro">assert_eq!</span>(
-				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>block_author_account),
-				<span class="number">0</span>.into()
-			);
-			<span class="macro">assert_eq!</span>(
-				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>staking_pot),
 				existential_deposit.clone()
 			);
 
@@ -1123,27 +970,16 @@
 				),
 				<span class="number">0</span>.into()
 			);
-			<span class="macro">assert_eq!</span>(
-				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_location.into(),
-					<span class="kw-2">&amp;</span>block_author_account
-				),
-				<span class="number">0</span>.into()
-			);
-			<span class="macro">assert_eq!</span>(
-				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_location.into(),
-					<span class="kw-2">&amp;</span>staking_pot
-				),
-				<span class="number">0</span>.into()
-			);
+
+			<span class="comment">// additional check before
+			</span>additional_checks_before();
 
 			<span class="kw">let </span>foreign_asset_id_location_latest: Location =
 				foreign_asset_id_location.try_into().unwrap();
 
 			<span class="kw">let </span>expected_assets = Assets::from(<span class="macro">vec!</span>[Asset {
 				id: AssetId(foreign_asset_id_location_latest.clone()),
-				fun: Fungible(transfered_foreign_asset_id_amount),
+				fun: Fungible(foreign_asset_id_amount_to_transfer),
 			}]);
 			<span class="kw">let </span>expected_beneficiary = Location::new(
 				<span class="number">0</span>,
@@ -1160,7 +996,7 @@
 				BuyExecution {
 					fees: Asset {
 						id: AssetId(foreign_asset_id_location_latest.clone()),
-						fun: Fungible(transfered_foreign_asset_id_amount),
+						fun: Fungible(foreign_asset_id_amount_to_transfer),
 					},
 					weight_limit: Unlimited,
 				},
@@ -1194,18 +1030,9 @@
 			<span class="macro">assert_ok!</span>(outcome.ensure_complete());
 
 			<span class="comment">// Balances after
-			// staking pot receives xcm fees in dot
-			</span><span class="macro">assert!</span>(
-				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>staking_pot) !=
-					existential_deposit
-			);
-			<span class="macro">assert_eq!</span>(
+			</span><span class="macro">assert_eq!</span>(
 				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>target_account),
 				existential_deposit.clone()
-			);
-			<span class="macro">assert_eq!</span>(
-				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>block_author_account),
-				<span class="number">0</span>.into()
 			);
 
 			<span class="comment">// ForeignAssets balances after
@@ -1215,20 +1042,9 @@
 					<span class="kw-2">&amp;</span>target_account
 				) &gt; <span class="number">0</span>.into()
 			);
-			<span class="macro">assert_eq!</span>(
-				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_location.into(),
-					<span class="kw-2">&amp;</span>staking_pot
-				),
-				<span class="number">0</span>.into()
-			);
-			<span class="macro">assert_eq!</span>(
-				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_location.into(),
-					<span class="kw-2">&amp;</span>block_author_account
-				),
-				<span class="number">0</span>.into()
-			);
+
+			<span class="comment">// additional check after
+			</span>additional_checks_after();
 		})
 }
 

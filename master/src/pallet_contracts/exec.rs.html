@@ -4236,20 +4236,20 @@
 	/// - [`Error::&lt;T&gt;::MaxDelegateDependenciesReached`]
 	/// - [`Error::&lt;T&gt;::CannotAddSelfAsDelegateDependency`]
 	/// - [`Error::&lt;T&gt;::DelegateDependencyAlreadyExists`]
-	</span><span class="kw">fn </span>add_delegate_dependency(
+	</span><span class="kw">fn </span>lock_delegate_dependency(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
 
 	<span class="doccomment">/// Removes a delegate dependency from [`ContractInfo`]&#39;s `delegate_dependencies` field.
 	///
-	/// This is the counterpart of [`Self::add_delegate_dependency`]. It decreases the reference
-	/// count and refunds the deposit that was charged by [`Self::add_delegate_dependency`].
+	/// This is the counterpart of [`Self::lock_delegate_dependency`]. It decreases the reference
+	/// count and refunds the deposit that was charged by [`Self::lock_delegate_dependency`].
 	///
 	/// # Errors
 	///
 	/// - [`Error::&lt;T&gt;::DelegateDependencyNotFound`]
-	</span><span class="kw">fn </span>remove_delegate_dependency(
+	</span><span class="kw">fn </span>unlock_delegate_dependency(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
@@ -5442,7 +5442,7 @@
 		});
 	}
 
-	<span class="kw">fn </span>add_delegate_dependency(
+	<span class="kw">fn </span>lock_delegate_dependency(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
@@ -5453,7 +5453,7 @@
 		<span class="kw">let </span>code_info = CodeInfoOf::&lt;T&gt;::get(code_hash).ok_or(Error::&lt;T&gt;::CodeNotFound)<span class="question-mark">?</span>;
 		<span class="kw">let </span>deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
-		info.add_delegate_dependency(code_hash, deposit)<span class="question-mark">?</span>;
+		info.lock_delegate_dependency(code_hash, deposit)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::increment_refcount(code_hash)<span class="question-mark">?</span>;
 		frame
 			.nested_storage
@@ -5461,14 +5461,14 @@
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>remove_delegate_dependency(
+	<span class="kw">fn </span>unlock_delegate_dependency(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		<span class="kw">let </span>frame = <span class="self">self</span>.top_frame_mut();
 		<span class="kw">let </span>info = frame.contract_info.get(<span class="kw-2">&amp;</span>frame.account_id);
 
-		<span class="kw">let </span>deposit = info.remove_delegate_dependency(code_hash)<span class="question-mark">?</span>;
+		<span class="kw">let </span>deposit = info.unlock_delegate_dependency(code_hash)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::decrement_refcount(<span class="kw-2">*</span>code_hash);
 		frame
 			.nested_storage

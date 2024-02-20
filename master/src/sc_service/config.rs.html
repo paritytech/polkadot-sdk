@@ -334,6 +334,9 @@
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -354,7 +357,8 @@
 
 </span><span class="doccomment">//! Service configuration.
 
-</span><span class="kw">use </span>prometheus_endpoint::Registry;
+</span><span class="kw">pub use </span>jsonrpsee::server::BatchRequestConfig <span class="kw">as </span>RpcBatchRequestConfig;
+<span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>sc_chain_spec::ChainSpec;
 <span class="kw">pub use </span>sc_client_db::{BlocksPruning, Database, DatabaseSource, PruningMode};
 <span class="kw">pub use </span>sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
@@ -439,6 +443,8 @@
 	</span><span class="kw">pub </span>rpc_port: u16,
 	<span class="doccomment">/// The number of messages the JSON-RPC server is allowed to keep in memory.
 	</span><span class="kw">pub </span>rpc_message_buffer_capacity: u32,
+	<span class="doccomment">/// JSON-RPC server batch config.
+	</span><span class="kw">pub </span>rpc_batch_config: RpcBatchRequestConfig,
 	<span class="doccomment">/// RPC rate limit per minute.
 	</span><span class="kw">pub </span>rpc_rate_limit: <span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;,
 	<span class="doccomment">/// Prometheus endpoint configuration. `None` if disabled.

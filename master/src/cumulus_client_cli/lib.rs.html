@@ -459,6 +459,14 @@
 <a href="#459" id="459">459</a>
 <a href="#460" id="460">460</a>
 <a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -491,7 +499,7 @@
 <span class="kw">use </span>sc_chain_spec::ChainSpec;
 <span class="kw">use </span>sc_client_api::HeaderBackend;
 <span class="kw">use </span>sc_service::{
-	config::{PrometheusConfig, TelemetryEndpoints},
+	config::{PrometheusConfig, RpcBatchRequestConfig, TelemetryEndpoints},
 	BasePath, TransactionPoolOptions,
 };
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
@@ -902,6 +910,14 @@
 
 	<span class="kw">fn </span>rpc_max_subscriptions_per_connection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sc_cli::Result&lt;u32&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.base.rpc_max_subscriptions_per_connection)
+	}
+
+	<span class="kw">fn </span>rpc_buffer_capacity_per_connection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sc_cli::Result&lt;u32&gt; {
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.base.rpc_message_buffer_capacity_per_connection)
+	}
+
+	<span class="kw">fn </span>rpc_batch_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sc_cli::Result&lt;RpcBatchRequestConfig&gt; {
+		<span class="self">self</span>.base.rpc_batch_config()
 	}
 
 	<span class="kw">fn </span>transaction_pool(<span class="kw-2">&amp;</span><span class="self">self</span>, is_dev: bool) -&gt; sc_cli::Result&lt;TransactionPoolOptions&gt; {

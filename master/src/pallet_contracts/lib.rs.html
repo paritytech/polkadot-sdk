@@ -2053,7 +2053,7 @@
 		</span><span class="kw">type </span>DepositPerItem: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The percentage of the storage deposit that should be held for using a code hash.
-		/// Instantiating a contract, or calling [`chain_extension::Ext::add_delegate_dependency`]
+		/// Instantiating a contract, or calling [`chain_extension::Ext::lock_delegate_dependency`]
 		/// protects the code from being removed. In order to prevent abuse these actions are
 		/// protected with a percentage of the code deposit.
 		</span><span class="attr">#[pallet::constant]
@@ -2075,7 +2075,7 @@
 		</span><span class="kw">type </span>MaxStorageKeyLen: Get&lt;u32&gt;;
 
 		<span class="doccomment">/// The maximum number of delegate_dependencies that a contract can lock with
-		/// [`chain_extension::Ext::add_delegate_dependency`].
+		/// [`chain_extension::Ext::lock_delegate_dependency`].
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxDelegateDependencies: Get&lt;u32&gt;;
 

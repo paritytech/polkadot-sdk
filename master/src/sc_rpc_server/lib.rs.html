@@ -268,6 +268,10 @@
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -317,7 +321,7 @@
 		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 		traits::IdProvider,
 	},
-	server::middleware::rpc::RpcServiceBuilder,
+	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
 <span class="kw">pub use </span>middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
 
@@ -351,6 +355,8 @@
 	</span><span class="kw">pub </span>id_provider: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>IdProvider&gt;&gt;,
 	<span class="doccomment">/// Tokio runtime handle.
 	</span><span class="kw">pub </span>tokio_handle: tokio::runtime::Handle,
+	<span class="doccomment">/// Batch request config.
+	</span><span class="kw">pub </span>batch_config: BatchRequestConfig,
 	<span class="doccomment">/// Rate limit calls per minute.
 	</span><span class="kw">pub </span>rate_limit: <span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;,
 }
@@ -373,6 +379,7 @@
 {
 	<span class="kw">let </span>Config {
 		addrs,
+		batch_config,
 		cors,
 		max_payload_in_mb,
 		max_payload_out_mb,
@@ -409,6 +416,7 @@
 		)
 		.set_http_middleware(http_middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
+		.set_batch_request_config(batch_config)
 		.custom_tokio_runtime(tokio_handle.clone());
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(provider) = id_provider {

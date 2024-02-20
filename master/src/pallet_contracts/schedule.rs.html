@@ -741,11 +741,11 @@
 	<span class="doccomment">/// Weight of calling `instantiation_nonce`.
 	</span><span class="kw">pub </span>instantiation_nonce: Weight,
 
-	<span class="doccomment">/// Weight of calling `add_delegate_dependency`.
-	</span><span class="kw">pub </span>add_delegate_dependency: Weight,
+	<span class="doccomment">/// Weight of calling `lock_delegate_dependency`.
+	</span><span class="kw">pub </span>lock_delegate_dependency: Weight,
 
-	<span class="doccomment">/// Weight of calling `remove_delegate_dependency`.
-	</span><span class="kw">pub </span>remove_delegate_dependency: Weight,
+	<span class="doccomment">/// Weight of calling `unlock_delegate_dependency`.
+	</span><span class="kw">pub </span>unlock_delegate_dependency: Weight,
 
 	<span class="doccomment">/// The type parameter is used in the default implementation.
 	</span><span class="attr">#[codec(skip)]
@@ -878,8 +878,8 @@
 			reentrance_count: <span class="macro">cost!</span>(seal_reentrance_count),
 			account_reentrance_count: <span class="macro">cost!</span>(seal_account_reentrance_count),
 			instantiation_nonce: <span class="macro">cost!</span>(seal_instantiation_nonce),
-			add_delegate_dependency: <span class="macro">cost!</span>(add_delegate_dependency),
-			remove_delegate_dependency: <span class="macro">cost!</span>(remove_delegate_dependency),
+			lock_delegate_dependency: <span class="macro">cost!</span>(lock_delegate_dependency),
+			unlock_delegate_dependency: <span class="macro">cost!</span>(unlock_delegate_dependency),
 			_phantom: PhantomData,
 		}
 	}

@@ -533,6 +533,30 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -565,7 +589,7 @@
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>regex::Regex;
 <span class="kw">use </span>sc_service::{
-	config::{BasePath, PrometheusConfig, TransactionPoolOptions},
+	config::{BasePath, PrometheusConfig, RpcBatchRequestConfig, TransactionPoolOptions},
 	ChainSpec, Role,
 };
 <span class="kw">use </span>sc_telemetry::TelemetryEndpoints;
@@ -659,6 +683,14 @@
 	/// JSON-RPC methods calls and subscriptions.
 	</span><span class="attr">#[arg(long, default_value_t = RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)]
 	</span><span class="kw">pub </span>rpc_message_buffer_capacity_per_connection: u32,
+
+	<span class="doccomment">/// Disable RPC batch requests
+	</span><span class="attr">#[arg(long, alias = <span class="string">&quot;rpc_no_batch_requests&quot;</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;rpc_max_batch_request_len&quot;</span>]</span>)]
+	<span class="kw">pub </span>rpc_disable_batch_requests: bool,
+
+	<span class="doccomment">/// Limit the max length per RPC batch request
+	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;rpc_disable_batch_requests&quot;</span>]</span>, value_name = <span class="string">&quot;LEN&quot;</span>)]
+	<span class="kw">pub </span>rpc_max_batch_request_len: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 
 	<span class="doccomment">/// Specify browser *origins* allowed to access the HTTP &amp; WS RPC servers.
 	///
@@ -944,6 +976,22 @@
 
 	<span class="kw">fn </span>rpc_max_subscriptions_per_connection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_max_subscriptions_per_connection)
+	}
+
+	<span class="kw">fn </span>rpc_buffer_capacity_per_connection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_message_buffer_capacity_per_connection)
+	}
+
+	<span class="kw">fn </span>rpc_batch_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RpcBatchRequestConfig&gt; {
+		<span class="kw">let </span>cfg = <span class="kw">if </span><span class="self">self</span>.rpc_disable_batch_requests {
+			RpcBatchRequestConfig::Disabled
+		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(l) = <span class="self">self</span>.rpc_max_batch_request_len {
+			RpcBatchRequestConfig::Limit(l)
+		} <span class="kw">else </span>{
+			RpcBatchRequestConfig::Unlimited
+		};
+
+		<span class="prelude-val">Ok</span>(cfg)
 	}
 
 	<span class="kw">fn </span>rpc_rate_limit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;&gt; {

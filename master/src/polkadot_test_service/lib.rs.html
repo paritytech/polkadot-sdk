@@ -429,6 +429,7 @@
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -475,8 +476,8 @@
 };
 <span class="kw">use </span>sc_service::{
 	config::{
-		DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, WasmExecutionMethod,
-		WasmtimeInstantiationStrategy,
+		DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, RpcBatchRequestConfig,
+		WasmExecutionMethod, WasmtimeInstantiationStrategy,
 	},
 	BasePath, BlocksPruning, Configuration, Role, RpcHandlers, TaskManager,
 };
@@ -617,6 +618,7 @@
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: <span class="number">9944</span>,
 		rpc_message_buffer_capacity: Default::default(),
+		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: <span class="prelude-val">None</span>,
 		prometheus_config: <span class="prelude-val">None</span>,
 		telemetry_endpoints: <span class="prelude-val">None</span>,

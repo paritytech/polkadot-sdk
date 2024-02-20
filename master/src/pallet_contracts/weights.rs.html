@@ -4050,8 +4050,8 @@
 	<span class="kw">fn </span>seal_ecdsa_recover(r: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>seal_ecdsa_to_eth_address(r: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>seal_set_code_hash(r: u32, ) -&gt; Weight;
-	<span class="kw">fn </span>add_delegate_dependency(r: u32, ) -&gt; Weight;
-	<span class="kw">fn </span>remove_delegate_dependency(r: u32, ) -&gt; Weight;
+	<span class="kw">fn </span>lock_delegate_dependency(r: u32, ) -&gt; Weight;
+	<span class="kw">fn </span>unlock_delegate_dependency(r: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>seal_reentrance_count(r: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>seal_account_reentrance_count(r: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>seal_instantiation_nonce(r: u32, ) -&gt; Weight;
@@ -5817,7 +5817,7 @@
 	/// Storage: `System::EventTopics` (r:2 w:2)
 	/// Proof: `System::EventTopics` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `r` is `[0, 32]`.
-	</span><span class="kw">fn </span>add_delegate_dependency(r: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>lock_delegate_dependency(r: u32, ) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `928 + r * (131 ±0)`
 		//  Estimated: `6878 + r * (2606 ±0)`
@@ -5846,7 +5846,7 @@
 	/// Storage: `System::EventTopics` (r:2 w:2)
 	/// Proof: `System::EventTopics` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `r` is `[0, 32]`.
-	</span><span class="kw">fn </span>remove_delegate_dependency(r: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>unlock_delegate_dependency(r: u32, ) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `969 + r * (183 ±0)`
 		//  Estimated: `129453 + r * (2568 ±0)`
@@ -7713,7 +7713,7 @@
 	/// Storage: `System::EventTopics` (r:2 w:2)
 	/// Proof: `System::EventTopics` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `r` is `[0, 32]`.
-	</span><span class="kw">fn </span>add_delegate_dependency(r: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>lock_delegate_dependency(r: u32, ) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `928 + r * (131 ±0)`
 		//  Estimated: `6878 + r * (2606 ±0)`
@@ -7742,7 +7742,7 @@
 	/// Storage: `System::EventTopics` (r:2 w:2)
 	/// Proof: `System::EventTopics` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `r` is `[0, 32]`.
-	</span><span class="kw">fn </span>remove_delegate_dependency(r: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>unlock_delegate_dependency(r: u32, ) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `969 + r * (183 ±0)`
 		//  Estimated: `129453 + r * (2568 ±0)`

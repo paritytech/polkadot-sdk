@@ -4184,14 +4184,14 @@
 			<span class="prelude-val">Ok</span>(())
 		}
 		<span class="kw">fn </span>decrement_refcount(_code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) {}
-		<span class="kw">fn </span>add_delegate_dependency(
+		<span class="kw">fn </span>lock_delegate_dependency(
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 			code: CodeHash&lt;<span class="self">Self</span>::T&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 			<span class="self">self</span>.delegate_dependencies.borrow_mut().insert(code);
 			<span class="prelude-val">Ok</span>(())
 		}
-		<span class="kw">fn </span>remove_delegate_dependency(
+		<span class="kw">fn </span>unlock_delegate_dependency(
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 			code: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
@@ -6850,16 +6850,16 @@
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>add_remove_delegate_dependency() {
-		<span class="kw">const </span>CODE_ADD_REMOVE_DELEGATE_DEPENDENCY: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	</span><span class="kw">fn </span>lock_unlock_delegate_dependency() {
+		<span class="kw">const </span>CODE_LOCK_UNLOCK_DELEGATE_DEPENDENCY: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
 (module
-	(import &quot;seal0&quot; &quot;add_delegate_dependency&quot; (func $add_delegate_dependency (param i32)))
-	(import &quot;seal0&quot; &quot;remove_delegate_dependency&quot; (func $remove_delegate_dependency (param i32)))
+	(import &quot;seal0&quot; &quot;lock_delegate_dependency&quot; (func $lock_delegate_dependency (param i32)))
+	(import &quot;seal0&quot; &quot;unlock_delegate_dependency&quot; (func $unlock_delegate_dependency (param i32)))
 	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
 	(func (export &quot;call&quot;)
-		(call $add_delegate_dependency (i32.const 0))
-		(call $add_delegate_dependency (i32.const 32))
-		(call $remove_delegate_dependency (i32.const 32))
+		(call $lock_delegate_dependency (i32.const 0))
+		(call $lock_delegate_dependency (i32.const 32))
+		(call $unlock_delegate_dependency (i32.const 32))
 	)
 	(func (export &quot;deploy&quot;))
 
@@ -6877,7 +6877,7 @@
 )
 &quot;#</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
-		<span class="macro">assert_ok!</span>(execute(<span class="kw-2">&amp;</span>CODE_ADD_REMOVE_DELEGATE_DEPENDENCY, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>mock_ext));
+		<span class="macro">assert_ok!</span>(execute(<span class="kw-2">&amp;</span>CODE_LOCK_UNLOCK_DELEGATE_DEPENDENCY, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>mock_ext));
 		<span class="kw">let </span>delegate_dependencies: Vec&lt;<span class="kw">_</span>&gt; =
 			mock_ext.delegate_dependencies.into_inner().into_iter().collect();
 		<span class="macro">assert_eq!</span>(delegate_dependencies.len(), <span class="number">1</span>);

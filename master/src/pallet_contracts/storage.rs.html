@@ -526,7 +526,7 @@
 	</span>storage_base_deposit: BalanceOf&lt;T&gt;,
 	<span class="doccomment">/// Map of code hashes and deposit balances.
 	///
-	/// Tracks the code hash and deposit held for adding delegate dependencies. Dependencies added
+	/// Tracks the code hash and deposit held for locking delegate dependencies. Dependencies added
 	/// to the map can not be removed from the chain state and can be safely used for delegate
 	/// calls.
 	</span>delegate_dependencies: BoundedBTreeMap&lt;CodeHash&lt;T&gt;, BalanceOf&lt;T&gt;, T::MaxDelegateDependencies&gt;,
@@ -693,7 +693,7 @@
 	///
 	/// Returns an error if the maximum number of delegate_dependencies is reached or if
 	/// the delegate dependency already exists.
-	</span><span class="kw">pub fn </span>add_delegate_dependency(
+	</span><span class="kw">pub fn </span>lock_delegate_dependency(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		code_hash: CodeHash&lt;T&gt;,
 		amount: BalanceOf&lt;T&gt;,
@@ -709,7 +709,7 @@
 	/// dependency.
 	///
 	/// Returns an error if the entry doesn&#39;t exist.
-	</span><span class="kw">pub fn </span>remove_delegate_dependency(
+	</span><span class="kw">pub fn </span>unlock_delegate_dependency(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
