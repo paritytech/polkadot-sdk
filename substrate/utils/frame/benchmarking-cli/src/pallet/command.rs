@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{writer, PalletCmd};
+use super::{writer, ListOutput, PalletCmd};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
@@ -39,7 +39,13 @@ use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
 use sp_state_machine::StateMachine;
-use std::{collections::HashMap, fmt::Debug, fs, str::FromStr, time};
+use std::{
+	collections::{BTreeMap, BTreeSet, HashMap},
+	fmt::Debug,
+	fs,
+	str::FromStr,
+	time,
+};
 
 /// Logging target
 const LOG_TARGET: &'static str = "frame::benchmark::pallet";
@@ -310,9 +316,8 @@ impl PalletCmd {
 			return Err("No benchmarks found which match your input.".into())
 		}
 
-		if self.list || self.list_pallets {
-			// List benchmarks instead of running them
-			list_benchmark(benchmarks_to_run, self.list_pallets);
+		if let Some(list_output) = self.list {
+			list_benchmark(benchmarks_to_run, list_output);
 			return Ok(())
 		}
 
@@ -756,41 +761,39 @@ impl CliConfiguration for PalletCmd {
 
 /// List the benchmarks available in the runtime, in a CSV friendly format.
 fn list_benchmark(
-	mut benchmarks_to_run: Vec<(
+	benchmarks_to_run: Vec<(
 		Vec<u8>,
 		Vec<u8>,
 		Vec<(BenchmarkParameter, u32, u32)>,
 		Vec<(String, String)>,
 	)>,
-	pallets_only: bool,
+	list_output: ListOutput,
 ) {
 	// Sort and de-dub by pallet and function name.
-	benchmarks_to_run.sort_by(
-		|(pa, sa, _, _), (pb, sb, _, _)| {
-			if pallets_only {
-				pa.cmp(pb)
-			} else {
-				(pa, sa).cmp(&(pb, sb))
+	// convert it to a `BTreeMap<String, BTreeSet<String>>` for pretty printing.
+	let mut benchmarks = BTreeMap::new();
+
+	benchmarks_to_run.iter().for_each(|(pallet, extrinsic, _, _)| {
+		benchmarks
+			.entry(String::from_utf8_lossy(pallet).to_string())
+			.or_insert_with(BTreeSet::new)
+			.insert(String::from_utf8_lossy(extrinsic).to_string());
+	});
+
+	match list_output {
+		ListOutput::All => {
+			println!("pallet,extrinsic");
+			for (pallet, extrinsics) in benchmarks {
+				for extrinsic in extrinsics {
+					println!("{},{}", pallet, extrinsic);
+				}
 			}
 		},
-	);
-	benchmarks_to_run.dedup_by(
-		|(pa, sa, _, _), (pb, sb, _, _)| if pallets_only { pa == pb } else { (pa, sa) == (pb, sb) },
-	);
-
-	if pallets_only {
-		println!("pallet");
-		for (pallet, _, _, _) in benchmarks_to_run {
-			println!("{}", String::from_utf8_lossy(&pallet));
-		}
-	} else {
-		println!("pallet, benchmark");
-		for (pallet, extrinsic, _, _) in benchmarks_to_run {
-			println!(
-				"{}, {}",
-				String::from_utf8_lossy(&pallet),
-				String::from_utf8_lossy(&extrinsic)
-			);
-		}
+		ListOutput::Pallets => {
+			println!("pallet");
+			for (pallet, _) in benchmarks {
+				println!("{}", pallet);
+			}
+		},
 	}
 }

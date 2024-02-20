@@ -19,6 +19,7 @@ mod command;
 mod writer;
 
 use crate::shared::HostInfoParams;
+use clap::{Arg, ValueEnum};
 use sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
 	DEFAULT_WASM_EXECUTION_METHOD,
@@ -31,15 +32,30 @@ fn parse_pallet_name(pallet: &str) -> std::result::Result<String, String> {
 	Ok(pallet.replace("-", "_"))
 }
 
+/// List options for available benchmarks.
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum ListOutput {
+	/// List all available pallets and extrinsics.
+	All,
+	/// List all available pallets only.
+	Pallets,
+}
+
+impl Default for ListOutput {
+	fn default() -> Self {
+		ListOutput::All
+	}
+}
+
 /// Benchmark the extrinsic weight of FRAME Pallets.
 #[derive(Debug, clap::Parser)]
 pub struct PalletCmd {
 	/// Select a FRAME Pallet to benchmark, or `*` for all (in which case `extrinsic` must be `*`).
-	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "list_pallets", "json_input","all"], default_value_if("is_pallets", "true", Some("*".into())))]
+	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
 	pub pallet: Option<String>,
 
 	/// Select an extrinsic inside the pallet to benchmark, or `*` for all.
-	#[arg(short, long, required_unless_present_any = ["list", "list_pallets", "json_input", "all"], default_value_if("is_pallets", "true", Some("*".into())))]
+	#[arg(short, long, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
 	pub extrinsic: Option<String>,
 
 	/// Run benchmarks for all pallets and extrinsics.
@@ -164,15 +180,10 @@ pub struct PalletCmd {
 	#[arg(long = "db-cache", value_name = "MiB", default_value_t = 1024)]
 	pub database_cache_size: u32,
 
-	/// List all available pallets and extrinsics.
-	///
-	/// The format is CSV with header `pallet, extrinsic`.
-	#[arg(long)]
-	pub list: bool,
-
-	/// List all available pallets only.
-	#[arg(long)]
-	pub list_pallets: bool,
+	/// List and print available benchmarks in a csv-friendly format.
+	/// NOTE: `num_args` and `require_equals` are required to allow `--list`
+	#[arg(long, value_enum, ignore_case = true, num_args = 0..=1, require_equals = true, default_missing_value("All"))]
+	pub list: Option<ListOutput>,
 
 	/// If enabled, the storage info is not displayed in the output next to the analysis.
 	///
