@@ -19,7 +19,7 @@ mod command;
 mod writer;
 
 use crate::shared::HostInfoParams;
-use clap::{Arg, ValueEnum};
+use clap::ValueEnum;
 use sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
 	DEFAULT_WASM_EXECUTION_METHOD,

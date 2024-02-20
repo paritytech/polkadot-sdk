@@ -769,10 +769,9 @@ fn list_benchmark(
 	)>,
 	list_output: ListOutput,
 ) {
-	// Sort and de-dub by pallet and function name.
-	// convert it to a `BTreeMap<String, BTreeSet<String>>` for pretty printing.
 	let mut benchmarks = BTreeMap::new();
 
+	// Sort and de-dub by pallet and function name.
 	benchmarks_to_run.iter().for_each(|(pallet, extrinsic, _, _)| {
 		benchmarks
 			.entry(String::from_utf8_lossy(pallet).to_string())
