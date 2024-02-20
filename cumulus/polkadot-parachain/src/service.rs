@@ -939,8 +939,6 @@ pub async fn start_rococo_parachain_node(
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -971,7 +969,6 @@ pub async fn start_rococo_parachain_node(
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
@@ -1435,8 +1432,6 @@ where
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -1467,7 +1462,6 @@ where
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
@@ -1737,14 +1731,6 @@ where
 				}
 
 				// Move to Aura consensus.
-				let slot_duration = match cumulus_client_consensus_aura::slot_duration(&*client) {
-					Ok(d) => d,
-					Err(e) => {
-						log::error!("Could not get Aura slot duration: {e}");
-						return
-					},
-				};
-
 				let proposer = Proposer::new(proposer_factory);
 
 				let params = AuraParams {
@@ -1761,7 +1747,6 @@ where
 					collator_key,
 					para_id,
 					overseer_handle,
-					slot_duration,
 					relay_chain_slot_duration,
 					proposer,
 					collator_service,
@@ -1832,8 +1817,6 @@ where
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -1864,7 +1847,6 @@ where
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
@@ -2141,8 +2123,6 @@ pub async fn start_contracts_rococo_node(
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -2173,7 +2153,6 @@ pub async fn start_contracts_rococo_node(
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
