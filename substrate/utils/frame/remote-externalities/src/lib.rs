@@ -902,7 +902,7 @@ where
 			.map(|prefixed_top_key| {
 				let client = Arc::clone(&client); // Increase the reference count of the Arc.
 				async move {
-	                // Asynchronously retrieve child keys using the RPC client.
+					// Asynchronously retrieve child keys using the RPC client.
 					let child_keys = Self::rpc_child_get_keys(
 						&client,
 						&prefixed_top_key,
@@ -911,7 +911,7 @@ where
 					)
 					.await?;
 
-		            // Asynchronously retrieve child storage data using the RPC client.
+					// Asynchronously retrieve child storage data using the RPC client.
 					let child_kv_inner = Self::rpc_child_get_storage_paged(
 						&client,
 						&prefixed_top_key,
@@ -920,7 +920,7 @@ where
 					)
 					.await?;
 
-		            // Extract the unprefixed storage key and create ChildInfo.
+					// Extract the unprefixed storage key and create ChildInfo.
 					let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
 					let un_prefixed = match ChildType::from_prefixed_key(&prefixed_top_key) {
 						Some((ChildType::ParentKeyId, storage_key)) => storage_key,
