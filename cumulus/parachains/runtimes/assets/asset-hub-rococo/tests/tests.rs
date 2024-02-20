@@ -28,7 +28,7 @@ use asset_hub_rococo_runtime::{
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection,
 	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
 	MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	SessionKeys, ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue, SLOT_DURATION,
+	SessionKeys, ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
