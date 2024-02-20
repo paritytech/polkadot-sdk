@@ -6,7 +6,8 @@ title: "Remove `key` getter from pallet-sudo"
 doc:
   - audience: Runtime Dev
     description: |
-      Removed the `key` getter function from the sudo pallet.
+      Removed the `key` getter function from the sudo pallet. There is no replacement, instead there
+      there can be an extension trait implemented for the sudo pallet to return the key.
 
 crates:
   - name: pallet-sudo
