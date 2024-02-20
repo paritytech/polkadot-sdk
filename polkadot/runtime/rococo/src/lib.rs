@@ -75,7 +75,7 @@ use frame_support::{
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
 		ProcessMessageError, StorageMapShim, WithdrawReasons,
 	},
-	weights::{ConstantMultiplier, WeightMeter},
+	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureSigned};
@@ -1799,6 +1799,23 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
+	impl xcm_payment_runtime_api::XcmPaymentRuntimeApi<Block, RuntimeCall> for Runtime {
+		fn query_acceptable_payment_assets() -> Vec<AssetId> {
+			vec![AssetId::Concrete(xcm_config::TokenLocation::get())]
+		}
+
+		fn query_weight_to_asset_fee(weight: Weight, asset: AssetId) -> Option<u128> {
+			let local_asset = AssetId::Concrete(xcm_config::TokenLocation::get());
+			if asset != local_asset { return None; }
+			Some(WeightToFee::weight_to_fee(&weight))
+		}
+
+		fn query_xcm_weight(message: Xcm<RuntimeCall>) -> Result<Weight, Xcm<RuntimeCall>> {
+			<xcm_executor::XcmExecutor<xcm_config::XcmConfig>>::prepare(message)
+				.map(|wm| wm.weight_of())
+		}
+	}
+
 	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
@@ -2495,6 +2512,7 @@ sp_api::impl_runtime_apis! {
 			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
+
 }
 
 #[cfg(all(test, feature = "try-runtime"))]

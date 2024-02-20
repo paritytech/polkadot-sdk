@@ -30,6 +30,8 @@ use polkadot_primitives::{
 	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
+use rococo_runtime::RuntimeCall;
+
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
 	traits::Block as BlockT,
@@ -39,7 +41,7 @@ use sp_runtime::{
 use sp_version::RuntimeVersion;
 use sp_weights::Weight;
 use std::collections::BTreeMap;
-
+use xcm::latest::{AssetId, Xcm};
 sp_api::decl_runtime_apis! {
 	/// This runtime API is only implemented for the test runtime!
 	pub trait GetLastTimestamp {
@@ -393,6 +395,21 @@ sp_api::impl_runtime_apis! {
 
 	impl crate::fake_runtime_api::GetLastTimestamp<Block> for Runtime {
 		fn get_last_timestamp() -> u64 {
+			unimplemented!()
+		}
+	}
+
+	impl xcm_payment_runtime_api::XcmPaymentRuntimeApi<Block, RuntimeCall> for Runtime {
+
+		fn query_acceptable_payment_assets() -> Vec<AssetId> {
+			unimplemented!()
+		}
+
+		fn query_weight_to_asset_fee(_: Weight, _: AssetId) -> Option<u128> {
+			unimplemented!()
+		}
+
+		fn query_xcm_weight(_: Xcm<RuntimeCall>) -> Result<Weight, Xcm<RuntimeCall>> {
 			unimplemented!()
 		}
 	}

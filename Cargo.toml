@@ -212,6 +212,7 @@ members = [
 	"polkadot/xcm/pallet-xcm-benchmarks",
 	"polkadot/xcm/procedural",
 	"polkadot/xcm/xcm-builder",
+	"polkadot/xcm/xcm-builder/xcm-payment-runtime-api",
 	"polkadot/xcm/xcm-executor",
 	"polkadot/xcm/xcm-executor/integration-tests",
 	"polkadot/xcm/xcm-simulator",

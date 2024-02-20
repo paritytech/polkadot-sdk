@@ -13570,12 +13570,15 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "sp-weights",
+ "staging-xcm",
+ "staging-xcm-builder",
  "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror",
  "tracing-gum",
  "westend-runtime",
  "westend-runtime-constants",
+ "xcm-payment-runtime-api",
 ]
 
 [[package]]
@@ -15156,6 +15159,7 @@ dependencies = [
  "substrate-wasm-builder",
  "tiny-keccak",
  "tokio",
+ "xcm-payment-runtime-api",
 ]
 
 [[package]]
@@ -22519,6 +22523,19 @@ dependencies = [
  "sp-tracing 16.0.0",
  "staging-xcm",
  "staging-xcm-executor",
+]
+
+[[package]]
+name = "xcm-payment-runtime-api"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "sp-weights",
+ "staging-xcm",
 ]
 
 [[package]]
