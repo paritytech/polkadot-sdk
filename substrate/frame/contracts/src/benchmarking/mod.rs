@@ -29,7 +29,7 @@ use self::{
 	sandbox::Sandbox,
 };
 use crate::{
-	exec::{AccountIdOf, Key},
+	exec::Key,
 	migration::{
 		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, MigrationStep,
 	},
@@ -182,24 +182,6 @@ fn caller_funding<T: Config>() -> BalanceOf<T> {
 	// Minting can overflow, so we can't abuse of the funding. This value happens to be big enough,
 	// but not too big to make the total supply overflow.
 	BalanceOf::<T>::max_value() / 10_000u32.into()
-}
-
-/// Load the specified contract file from disk by including it into the runtime.
-///
-/// We need to load a different version of ink! contracts when the benchmark is run as
-/// a test. This is because ink! contracts depend on the sizes of types that are defined
-/// differently in the test environment. Solang is more lax in that regard.
-macro_rules! load_benchmark {
-	($name:expr) => {{
-		#[cfg(not(test))]
-		{
-			include_bytes!(concat!("../../benchmarks/", $name, ".wasm"))
-		}
-		#[cfg(test)]
-		{
-			include_bytes!(concat!("../../benchmarks/", $name, "_test.wasm"))
-		}
-	}};
 }
 
 benchmarks! {
@@ -2642,86 +2624,6 @@ benchmarks! {
 		Lazy deletion keys per block: {key_budget}
 		");
 	}: {}
-
-	// Execute one erc20 transfer using the ink! erc20 example contract.
-	#[extra]
-	#[pov_mode = Measured]
-	ink_erc20_transfer {
-		let code = load_benchmark!("ink_erc20");
-		let data = {
-			let new: ([u8; 4], BalanceOf<T>) = ([0x9b, 0xae, 0x9d, 0x5e], 1000u32.into());
-			new.encode()
-		};
-		let instance = Contract::<T>::new(
-			WasmModule::from_code(code), data,
-		)?;
-		let data = {
-			let transfer: ([u8; 4], AccountIdOf<T>, BalanceOf<T>) = (
-				[0x84, 0xa1, 0x5d, 0xa1],
-				account::<T::AccountId>("receiver", 0, 0),
-				1u32.into(),
-			);
-			transfer.encode()
-		};
-	}: {
-		<Contracts<T>>::bare_call(
-			instance.caller,
-			instance.account_id,
-			0u32.into(),
-			Weight::MAX,
-			None,
-			data,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result?;
-	}
-
-	// Execute one erc20 transfer using the open zeppelin erc20 contract compiled with solang.
-	#[extra]
-	#[pov_mode = Measured]
-	solang_erc20_transfer {
-		let code = include_bytes!("../../benchmarks/solang_erc20.wasm");
-		let caller = account::<T::AccountId>("instantiator", 0, 0);
-		let mut balance = [0u8; 32];
-		balance[0] = 100;
-		let data = {
-			let new: ([u8; 4], &str, &str, [u8; 32], AccountIdOf<T>) = (
-				[0xa6, 0xf1, 0xf5, 0xe1],
-				"KSM",
-				"K",
-				balance,
-				caller.clone(),
-			);
-			new.encode()
-		};
-		let instance = Contract::<T>::with_caller(
-			caller, WasmModule::from_code(code), data,
-		)?;
-		balance[0] = 1;
-		let data = {
-			let transfer: ([u8; 4], AccountIdOf<T>, [u8; 32]) = (
-				[0x6a, 0x46, 0x73, 0x94],
-				account::<T::AccountId>("receiver", 0, 0),
-				balance,
-			);
-			transfer.encode()
-		};
-	}: {
-		<Contracts<T>>::bare_call(
-			instance.caller,
-			instance.account_id,
-			0u32.into(),
-			Weight::MAX,
-			None,
-			data,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result?;
-	}
 
 	impl_benchmark_test_suite!(
 		Contracts,
