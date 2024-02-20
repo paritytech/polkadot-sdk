@@ -324,10 +324,21 @@ benchmarks! {
 			u32::MAX,
 		).unwrap()).collect::<Vec<_>>();
 		crate::Pallet::<T>::expect_response(query_id, Response::PalletsInfo(infos.try_into().unwrap()));
-
 	}: {
 		<crate::Pallet::<T> as QueryHandler>::take_response(query_id);
 	}
+
+	claim_assets {
+		let claim_origin = T::ExecuteXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let assets: Assets = (Here, 1_000_000u128).into();
+		// Trap assets for claiming later
+		crate::Pallet::<T>::drop_assets(
+			claim_origin,
+			assets.clone().into(),
+			XcmContext { origin: None, message_id: [0u32; 32], topic: None }
+		);
+		let versioned_assets = VersionedAssets::V4(assets);
+	}: _<RuntimeOrigin<T>>(claim_origin, versioned_assets)
 
 	impl_benchmark_test_suite!(
 		Pallet,
