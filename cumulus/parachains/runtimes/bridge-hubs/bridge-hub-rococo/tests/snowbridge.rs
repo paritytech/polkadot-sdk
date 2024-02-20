@@ -140,8 +140,8 @@ fn ethereum_to_polkadot_message_extrinsics_work() {
 /// the EthereumOutboundQueue in the construct_runtime macro) the EthereumOutboundQueue, this test
 /// will fail.
 #[test]
-pub fn test_pallet_order_works() {
-	snowbridge_runtime_test_common::test_pallet_order_works::<
+pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works() {
+	snowbridge_runtime_test_common::ethereum_outbound_queue_processes_messages_before_message_queue_works::<
 		Runtime,
 		XcmConfig,
 		AllPalletsWithoutSystem,

@@ -200,7 +200,11 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 		});
 }
 
-pub fn test_pallet_order_works<Runtime, XcmConfig, AllPalletsWithoutSystem>(
+pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works<
+	Runtime,
+	XcmConfig,
+	AllPalletsWithoutSystem,
+>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
