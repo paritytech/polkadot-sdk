@@ -14,7 +14,7 @@ bitvec = { version = "1.0.0", default-features = false, features = ["alloc", "se
 hex-literal = "0.4.1"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["bit-vec", "derive", "serde"] }
-serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }
+serde = { version = "1.0.196", default-features = false, features = ["alloc", "derive"] }
 
 application-crypto = { package = "sp-application-crypto", path = "../../substrate/primitives/application-crypto", default-features = false, features = ["serde"] }
 inherents = { package = "sp-inherents", path = "../../substrate/primitives/inherents", default-features = false }
