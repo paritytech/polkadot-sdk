@@ -20,7 +20,7 @@ erasure-coding = { package = "polkadot-erasure-coding", path = "../../../erasure
 statement-table = { package = "polkadot-statement-table", path = "../../../statement-table" }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 gum = { package = "tracing-gum", path = "../../gum" }
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 fatality = "0.0.6"
 
 [dev-dependencies]
