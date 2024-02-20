@@ -71,8 +71,8 @@ pub enum JobResponse {
 		/// The result of parachain validation.
 		result_descriptor: ValidationResult,
 	},
-	/// A possibly transient runtime instantiation error happened during the execution; may be retried
-	/// with re-preparation
+	/// A possibly transient runtime instantiation error happened during the execution; may be
+	/// retried with re-preparation
 	RuntimeConstruction(String),
 	/// The candidate is invalid.
 	InvalidCandidate(String),
