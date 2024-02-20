@@ -114,7 +114,8 @@
 //! So far we have learned that FRAME pallets can assert on custom and abstract origin types,
 //! whether they are defined within the pallet or not. But how can we obtain these abstract origins?
 //!
-//! > All extrinsics that come from the outer world can generally only be obtained as either `signed` or
+//! > All extrinsics that come from the outer world can generally only be obtained as either
+//! > `signed` or
 //! > `none` origin
 //!
 //! Generally, these abstract origins are only obtained within the runtime, when a call is
