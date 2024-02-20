@@ -1248,19 +1248,21 @@ fn has_core_index<T: configuration::Config + scheduler::Config + inclusion::Conf
 		};
 
 	// Get the backing group of the candidate backed at `core_idx`.
-	let group_idx =
-		match <scheduler::Pallet<T>>::group_assigned_to_core(core_idx, relay_parent_block_number) {
-			Some(group_idx) => group_idx,
-			None => {
-				log::debug!(
-					target: LOG_TARGET,
-					"Can't get the group index for core idx {:?}. Dropping the candidate {:?}.",
-					core_idx,
-					candidate.candidate().hash(),
-				);
-				return false
-			},
-		};
+	let group_idx = match <scheduler::Pallet<T>>::group_assigned_to_core(
+		core_idx,
+		relay_parent_block_number + One::one(),
+	) {
+		Some(group_idx) => group_idx,
+		None => {
+			log::debug!(
+				target: LOG_TARGET,
+				"Can't get the group index for core idx {:?}. Dropping the candidate {:?}.",
+				core_idx,
+				candidate.candidate().hash(),
+			);
+			return false
+		},
+	};
 
 	let group_validators = match <scheduler::Pallet<T>>::group_validators(group_idx) {
 		Some(validators) => validators,
