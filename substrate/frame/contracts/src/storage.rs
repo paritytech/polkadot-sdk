@@ -66,7 +66,7 @@ pub struct ContractInfo<T: Config> {
 	storage_base_deposit: BalanceOf<T>,
 	/// Map of code hashes and deposit balances.
 	///
-	/// Tracks the code hash and deposit held for adding delegate dependencies. Dependencies added
+	/// Tracks the code hash and deposit held for locking delegate dependencies. Dependencies added
 	/// to the map can not be removed from the chain state and can be safely used for delegate
 	/// calls.
 	delegate_dependencies: BoundedBTreeMap<CodeHash<T>, BalanceOf<T>, T::MaxDelegateDependencies>,
@@ -233,7 +233,7 @@ impl<T: Config> ContractInfo<T> {
 	///
 	/// Returns an error if the maximum number of delegate_dependencies is reached or if
 	/// the delegate dependency already exists.
-	pub fn add_delegate_dependency(
+	pub fn lock_delegate_dependency(
 		&mut self,
 		code_hash: CodeHash<T>,
 		amount: BalanceOf<T>,
@@ -249,7 +249,7 @@ impl<T: Config> ContractInfo<T> {
 	/// dependency.
 	///
 	/// Returns an error if the entry doesn't exist.
-	pub fn remove_delegate_dependency(
+	pub fn unlock_delegate_dependency(
 		&mut self,
 		code_hash: &CodeHash<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
