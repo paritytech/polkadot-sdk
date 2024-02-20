@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Add `claim_assets` extrinsic to `pallet-xcm`"
+
+doc:
+  - audience: Runtime User
+    description: |
+      There's a new extrinsic in `pallet-xcm` for claiming assets.
+      This means that if your assets ever get trapped while teleporting or doing reserve asset transfers,
+      you can easily claim them by calling this new extrinsic.
+
+crates:
+  - name: pallet-xcm
+  - name: staging-xcm
