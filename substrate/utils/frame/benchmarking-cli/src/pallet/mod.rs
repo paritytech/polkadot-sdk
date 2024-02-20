@@ -35,12 +35,18 @@ fn parse_pallet_name(pallet: &str) -> std::result::Result<String, String> {
 #[derive(Debug, clap::Parser)]
 pub struct PalletCmd {
 	/// Select a FRAME Pallet to benchmark, or `*` for all (in which case `extrinsic` must be `*`).
-	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input"])]
+	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "list_pallets", "json_input","all"], default_value_if("is_pallets", "true", Some("*".into())))]
 	pub pallet: Option<String>,
 
 	/// Select an extrinsic inside the pallet to benchmark, or `*` for all.
-	#[arg(short, long, required_unless_present_any = ["list", "json_input"])]
+	#[arg(short, long, required_unless_present_any = ["list", "list_pallets", "json_input", "all"], default_value_if("is_pallets", "true", Some("*".into())))]
 	pub extrinsic: Option<String>,
+
+	/// Run benchmarks for all pallets and extrinsics.
+	///
+	/// This is equivalent to running `--pallet * --extrinsic *`.
+	#[arg(long)]
+	pub all: bool,
 
 	/// Select how many samples we should take across the variable components.
 	#[arg(short, long, default_value_t = 50)]
@@ -158,11 +164,15 @@ pub struct PalletCmd {
 	#[arg(long = "db-cache", value_name = "MiB", default_value_t = 1024)]
 	pub database_cache_size: u32,
 
-	/// List the benchmarks that match your query rather than running them.
+	/// List all available pallets and extrinsics.
 	///
-	/// When nothing is provided, we list all benchmarks.
+	/// The format is CSV with header `pallet, extrinsic`.
 	#[arg(long)]
 	pub list: bool,
+
+	/// List all available pallets only.
+	#[arg(long)]
+	pub list_pallets: bool,
 
 	/// If enabled, the storage info is not displayed in the output next to the analysis.
 	///

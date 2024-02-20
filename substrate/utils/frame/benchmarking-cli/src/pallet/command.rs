@@ -191,6 +191,7 @@ impl PalletCmd {
 		let spec = config.chain_spec;
 		let pallet = self.pallet.clone().unwrap_or_default();
 		let pallet = pallet.as_bytes();
+
 		let extrinsic = self.extrinsic.clone().unwrap_or_default();
 		let extrinsic_split: Vec<&str> = extrinsic.split(',').collect();
 		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
@@ -309,9 +310,9 @@ impl PalletCmd {
 			return Err("No benchmarks found which match your input.".into())
 		}
 
-		if self.list {
+		if self.list || self.list_pallets {
 			// List benchmarks instead of running them
-			list_benchmark(benchmarks_to_run);
+			list_benchmark(benchmarks_to_run, self.list_pallets);
 			return Ok(())
 		}
 
@@ -761,13 +762,35 @@ fn list_benchmark(
 		Vec<(BenchmarkParameter, u32, u32)>,
 		Vec<(String, String)>,
 	)>,
+	pallets_only: bool,
 ) {
 	// Sort and de-dub by pallet and function name.
-	benchmarks_to_run.sort_by(|(pa, sa, _, _), (pb, sb, _, _)| (pa, sa).cmp(&(pb, sb)));
-	benchmarks_to_run.dedup_by(|(pa, sa, _, _), (pb, sb, _, _)| (pa, sa) == (pb, sb));
+	benchmarks_to_run.sort_by(
+		|(pa, sa, _, _), (pb, sb, _, _)| {
+			if pallets_only {
+				pa.cmp(pb)
+			} else {
+				(pa, sa).cmp(&(pb, sb))
+			}
+		},
+	);
+	benchmarks_to_run.dedup_by(
+		|(pa, sa, _, _), (pb, sb, _, _)| if pallets_only { pa == pb } else { (pa, sa) == (pb, sb) },
+	);
 
-	println!("pallet, benchmark");
-	for (pallet, extrinsic, _, _) in benchmarks_to_run {
-		println!("{}, {}", String::from_utf8_lossy(&pallet), String::from_utf8_lossy(&extrinsic));
+	if pallets_only {
+		println!("pallet");
+		for (pallet, _, _, _) in benchmarks_to_run {
+			println!("{}", String::from_utf8_lossy(&pallet));
+		}
+	} else {
+		println!("pallet, benchmark");
+		for (pallet, extrinsic, _, _) in benchmarks_to_run {
+			println!(
+				"{}, {}",
+				String::from_utf8_lossy(&pallet),
+				String::from_utf8_lossy(&extrinsic)
+			);
+		}
 	}
 }
