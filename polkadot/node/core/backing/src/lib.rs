@@ -227,10 +227,10 @@ struct PerRelayParentState {
 	fallbacks: HashMap<CandidateHash, AttestingData>,
 	/// The minimum backing votes threshold.
 	minimum_backing_votes: u32,
-	/// If true, we're appendindg extra bits in the BackedCandidate validator indices bitfield,
-	/// which represent the assigned core index.
+	/// If true, we're appending extra bits in the BackedCandidate validator indices bitfield,
+	/// which represent the assigned core index. True if ElasticScalingMVP is enabled.
 	inject_core_index: bool,
-	/// The core state for all cores
+	/// The core states for all cores.
 	cores: Vec<CoreState>,
 	/// The validator groups at this relay parent.
 	validator_groups: Vec<Vec<ValidatorIndex>>,

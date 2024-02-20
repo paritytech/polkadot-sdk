@@ -756,7 +756,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 	if backed.validator_indices.len() != group_len {
 		log::debug!(
 			target: LOG_TARGET,
-			"indices mismatch: group_len = {} , indices_len = {}",
+			"Check candidate backing: indices mismatch: group_len = {} , indices_len = {}",
 			group_len,
 			backed.validator_indices.len(),
 		);
@@ -766,7 +766,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 	if backed.validity_votes.len() > group_len {
 		log::debug!(
 			target: LOG_TARGET,
-			"Too many votes, expected: {}, found: {}",
+			"Check candidate backing: Too many votes, expected: {}, found: {}",
 			group_len,
 			backed.validity_votes.len(),
 		);
@@ -793,7 +793,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 		} else {
 			log::debug!(
 				target: LOG_TARGET,
-				"Invalid signature. validator_id = {:?}, validator_index = {} ",
+				"Check candidate backing: Invalid signature. validator_id = {:?}, validator_index = {} ",
 				validator_id,
 				val_in_group_idx,
 			);
@@ -804,7 +804,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 	if signed != backed.validity_votes.len() {
 		log::error!(
 			target: LOG_TARGET,
-			"Too many signatures, expected = {}, found = {}",
+			"Check candidate backing: Too many signatures, expected = {}, found = {}",
 			backed.validity_votes.len() ,
 			signed,
 		);

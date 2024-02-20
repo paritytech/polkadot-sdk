@@ -682,7 +682,9 @@ async fn request_backable_candidates(
 		};
 
 		// We should be calling this once per para rather than per core.
-		// TODO: Will be fixed in https://github.com/paritytech/polkadot-sdk/pull/3233
+		// TODO: Will be fixed in https://github.com/paritytech/polkadot-sdk/pull/3233.
+		// For now, at least make sure we don't supply the same candidate multiple times in case a
+		// para has multiple cores scheduled.
 		let response = get_backable_candidate(relay_parent, para_id, required_path, sender).await?;
 		match response {
 			Some((hash, relay_parent)) => {
@@ -731,7 +733,7 @@ async fn select_candidates(
 			)
 			.await?,
 	};
-	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backeable candidates");
+	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backable candidates");
 
 	// now get the backed candidates corresponding to these candidate receipts
 	let (tx, rx) = oneshot::channel();
