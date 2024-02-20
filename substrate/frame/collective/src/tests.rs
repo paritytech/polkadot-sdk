@@ -26,11 +26,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
 use sp_core::H256;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use sp_runtime::{testing::Header, traits::BlakeTwo256, BuildStorage};
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
@@ -38,11 +34,11 @@ pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, 
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Event<T>},
-		Collective: pallet_collective::<Instance1>::{Pallet, Call, Event<T>, Origin<T>, Config<T>},
-		CollectiveMajority: pallet_collective::<Instance2>::{Pallet, Call, Event<T>, Origin<T>, Config<T>},
-		DefaultCollective: pallet_collective::{Pallet, Call, Event<T>, Origin<T>, Config<T>},
-		Democracy: mock_democracy::{Pallet, Call, Event<T>},
+		System: frame_system,
+		Collective: pallet_collective::<Instance1>,
+		CollectiveMajority: pallet_collective::<Instance2>,
+		DefaultCollective: pallet_collective,
+		Democracy: mock_democracy,
 	}
 );
 
@@ -93,29 +89,7 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 impl Config<Instance1> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
@@ -176,6 +150,7 @@ impl ExtBuilder {
 
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+			system: frame_system::GenesisConfig::default(),
 			collective: pallet_collective::GenesisConfig {
 				members: self.collective_members,
 				phantom: Default::default(),

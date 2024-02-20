@@ -22,7 +22,7 @@ use emulated_integration_tests_common::{build_genesis_storage, collators, SAFE_X
 use parachains_common::Balance;
 
 pub const PARA_ID: u32 = 1004;
-pub const ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
 
 pub fn genesis() -> Storage {
 	let genesis_config = people_westend_runtime::RuntimeGenesisConfig {

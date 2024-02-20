@@ -1,0 +1,45 @@
+[package]
+name = "testnet-parachains-constants"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+description = "Common constants for Testnet Parachains runtimes"
+license = "Apache-2.0"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+smallvec = "1.11.0"
+
+# Substrate
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+
+# Polkadot
+polkadot-core-primitives = { path = "../../../../polkadot/core-primitives", default-features = false }
+rococo-runtime-constants = { path = "../../../../polkadot/runtime/rococo/constants", default-features = false, optional = true }
+westend-runtime-constants = { path = "../../../../polkadot/runtime/westend/constants", default-features = false, optional = true }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+
+# Cumulus
+cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"polkadot-core-primitives/std",
+	"rococo-runtime-constants?/std",
+	"sp-runtime/std",
+	"westend-runtime-constants?/std",
+	"xcm/std",
+]
+
+# Test runtimes specific features.
+rococo = ["rococo-runtime-constants"]
+westend = ["westend-runtime-constants"]

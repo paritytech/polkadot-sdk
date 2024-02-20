@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{exec::ExecError, Config, Error};
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
 	weights::Weight,
@@ -23,7 +24,6 @@ use frame_support::{
 };
 use sp_core::Get;
 use sp_runtime::{traits::Zero, DispatchError};
-use sp_std::marker::PhantomData;
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -63,6 +63,11 @@ pub trait Token<T: Config>: Copy + Clone + TestAuxiliaries {
 	/// while calculating the amount. In this case it is ok to use saturating operations
 	/// since on overflow they will return `max_value` which should consume all gas.
 	fn weight(&self) -> Weight;
+
+	/// Returns true if this token is expected to influence the lowest gas limit.
+	fn influence_lowest_gas_limit(&self) -> bool {
+		true
+	}
 }
 
 /// A wrapper around a type-erased trait object of what used to be a `Token`.
@@ -104,9 +109,7 @@ impl<T: Config> GasMeter<T> {
 	/// # Note
 	///
 	/// Passing `0` as amount is interpreted as "all remaining gas".
-	pub fn nested(&mut self, amount: Weight) -> Result<Self, DispatchError> {
-		// NOTE that it is ok to allocate all available gas since it still ensured
-		// by `charge` that it doesn't reach zero.
+	pub fn nested(&mut self, amount: Weight) -> Self {
 		let amount = Weight::from_parts(
 			if amount.ref_time().is_zero() {
 				self.gas_left().ref_time()
@@ -118,33 +121,17 @@ impl<T: Config> GasMeter<T> {
 			} else {
 				amount.proof_size()
 			},
-		);
-		self.gas_left = self.gas_left.checked_sub(&amount).ok_or_else(|| <Error<T>>::OutOfGas)?;
-		Ok(GasMeter::new(amount))
+		)
+		.min(self.gas_left);
+		self.gas_left -= amount;
+		GasMeter::new(amount)
 	}
 
 	/// Absorb the remaining gas of a nested meter after we are done using it.
 	pub fn absorb_nested(&mut self, nested: Self) {
-		if self.gas_left.ref_time().is_zero() {
-			// All of the remaining gas was inherited by the nested gas meter. When absorbing
-			// we can therefore safely inherit the lowest gas that the nested gas meter experienced
-			// as long as it is lower than the lowest gas that was experienced by the parent.
-			// We cannot call `self.gas_left_lowest()` here because in the state that this
-			// code is run the parent gas meter has `0` gas left.
-			*self.gas_left_lowest.ref_time_mut() =
-				nested.gas_left_lowest().ref_time().min(self.gas_left_lowest.ref_time());
-		} else {
-			// The nested gas meter was created with a fixed amount that did not consume all of the
-			// parents (self) gas. The lowest gas that self will experience is when the nested
-			// gas was pre charged with the fixed amount.
-			*self.gas_left_lowest.ref_time_mut() = self.gas_left_lowest().ref_time();
-		}
-		if self.gas_left.proof_size().is_zero() {
-			*self.gas_left_lowest.proof_size_mut() =
-				nested.gas_left_lowest().proof_size().min(self.gas_left_lowest.proof_size());
-		} else {
-			*self.gas_left_lowest.proof_size_mut() = self.gas_left_lowest().proof_size();
-		}
+		self.gas_left_lowest = (self.gas_left + nested.gas_limit)
+			.saturating_sub(nested.gas_required())
+			.min(self.gas_left_lowest);
 		self.gas_left += nested.gas_left;
 	}
 
@@ -178,7 +165,9 @@ impl<T: Config> GasMeter<T> {
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
 	pub fn adjust_gas<Tok: Token<T>>(&mut self, charged_amount: ChargedAmount, token: Tok) {
-		self.gas_left_lowest = self.gas_left_lowest();
+		if token.influence_lowest_gas_limit() {
+			self.gas_left_lowest = self.gas_left_lowest();
+		}
 		let adjustment = charged_amount.0.saturating_sub(token.weight());
 		self.gas_left = self.gas_left.saturating_add(adjustment).min(self.gas_limit);
 	}

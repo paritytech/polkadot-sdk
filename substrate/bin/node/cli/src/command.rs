@@ -28,6 +28,7 @@ use node_primitives::Block;
 use sc_cli::{Result, SubstrateCli};
 use sc_service::PartialComponents;
 use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::HashingFor;
 
 use std::sync::Arc;
 
@@ -106,7 +107,7 @@ pub fn run() -> Result<()> {
 							)
 						}
 
-						cmd.run::<Block, sp_statement_store::runtime_api::HostFunctions>(config)
+						cmd.run::<HashingFor<Block>, sp_statement_store::runtime_api::HostFunctions>(config)
 					},
 					BenchmarkCmd::Block(cmd) => {
 						// ensure that we keep the task manager alive

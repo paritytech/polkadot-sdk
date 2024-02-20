@@ -687,6 +687,10 @@ mod tests {
 			&mut self.gas_meter
 		}
 		fn charge_storage(&mut self, _diff: &crate::storage::meter::Diff) {}
+
+		fn debug_buffer_enabled(&self) -> bool {
+			true
+		}
 		fn append_debug_buffer(&mut self, msg: &str) -> bool {
 			self.debug_buffer.extend(msg.as_bytes());
 			true
@@ -2460,7 +2464,7 @@ mod tests {
 		assert_eq!(
 			result,
 			Err(ExecError {
-				error: Error::<Test>::OutOfBounds.into(),
+				error: Error::<Test>::DecodingFailed.into(),
 				origin: ErrorOrigin::Caller,
 			})
 		);
@@ -3427,5 +3431,21 @@ mod tests {
 			mock_ext.delegate_dependencies.into_inner().into_iter().collect();
 		assert_eq!(delegate_dependencies.len(), 1);
 		assert_eq!(delegate_dependencies[0].as_bytes(), [1; 32]);
+	}
+
+	// This test checks that [`Runtime::read_sandbox_memory_as`] works, when the decoded type has a
+	// max_len greater than the memory size, but the decoded data fits into the memory.
+	#[test]
+	fn read_sandbox_memory_as_works_with_max_len_out_of_bounds_but_fitting_actual_data() {
+		use frame_support::BoundedVec;
+		use sp_core::ConstU32;
+
+		let mut ext = MockExt::default();
+		let runtime = Runtime::new(&mut ext, vec![]);
+		let data = vec![1u8, 2, 3];
+		let memory = data.encode();
+		let decoded: BoundedVec<u8, ConstU32<128>> =
+			runtime.read_sandbox_memory_as(&memory, 0u32).unwrap();
+		assert_eq!(decoded.into_inner(), data);
 	}
 }
