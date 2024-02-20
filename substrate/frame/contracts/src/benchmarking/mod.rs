@@ -895,7 +895,7 @@ benchmarks! {
 				},
 				ImportedFunction {
 					module: "seal0",
-					name: "add_delegate_dependency",
+					name: "lock_delegate_dependency",
 					params: vec![ValueType::I32],
 					return_type: None,
 				}
@@ -2402,7 +2402,7 @@ benchmarks! {
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
 	#[pov_mode = Measured]
-	add_delegate_dependency {
+	lock_delegate_dependency {
 		let r in 0 .. T::MaxDelegateDependencies::get();
 		let code_hashes = (0..r)
 			.map(|i| {
@@ -2420,7 +2420,7 @@ benchmarks! {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
 				module: "seal0",
-				name: "add_delegate_dependency",
+				name: "lock_delegate_dependency",
 				params: vec![ValueType::I32],
 				return_type: None,
 			}],
@@ -2440,7 +2440,7 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	remove_delegate_dependency {
+	unlock_delegate_dependency {
 		let r in 0 .. T::MaxDelegateDependencies::get();
 		let code_hashes = (0..r)
 			.map(|i| {
@@ -2459,12 +2459,12 @@ benchmarks! {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
 				module: "seal0",
-				name: "remove_delegate_dependency",
+				name: "unlock_delegate_dependency",
 				params: vec![ValueType::I32],
 				return_type: None,
 			}, ImportedFunction {
 				module: "seal0",
-				name: "add_delegate_dependency",
+				name: "lock_delegate_dependency",
 				params: vec![ValueType::I32],
 				return_type: None
 			}],
