@@ -48,7 +48,7 @@ frame-executive = { default-features = false, path = "executive", optional = tru
 frame-system-rpc-runtime-api = { default-features = false, path = "system/rpc/runtime-api", optional = true, version = "27.0.0" }
 
 docify = "0.2.7"
-simple-mermaid = { version = "0.1.1", git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b", optional = true }
+simple-mermaid = { version = "0.1.1", optional = true }
 log = { version = "0.4.20", default-features = false }
 
 [dev-dependencies]
