@@ -346,7 +346,7 @@ where
 				return Err(InvalidTransaction::BadMandatory.into())
 			}
 
-			<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info, is_inherent);
+			<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info);
 
 			Ok(r.map(|_| ()).map_err(|e| e.error))
 		};
@@ -601,8 +601,8 @@ where
 			DispatchClass::Mandatory,
 		);
 
-		<System as frame_system::Config>::PreInherents::pre_inherents();
 		frame_system::Pallet::<System>::note_finished_initialize();
+		<System as frame_system::Config>::PreInherents::pre_inherents();
 	}
 
 	/// Returns if the runtime has been upgraded, based on [`frame_system::LastRuntimeUpgrade`].
@@ -672,7 +672,6 @@ where
 	pub fn inherents_applied() {
 		<frame_system::Pallet<System>>::note_inherents_applied();
 		<System as frame_system::Config>::PostInherents::post_inherents();
-		<frame_system::Pallet<System>>::note_post_inherents_applied();
 
 		if <System as frame_system::Config>::MultiBlockMigrator::ongoing() {
 			let used_weight = <System as frame_system::Config>::MultiBlockMigrator::step();
@@ -807,7 +806,7 @@ where
 			return Err(InvalidTransaction::BadMandatory.into())
 		}
 
-		<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info, is_inherent);
+		<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info);
 
 		Ok(r.map(|_| ()).map_err(|e| e.error))
 	}
