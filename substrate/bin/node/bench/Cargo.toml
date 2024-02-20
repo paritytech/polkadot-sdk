@@ -16,7 +16,7 @@ workspace = true
 
 [dependencies]
 array-bytes = "6.1"
-clap = { version = "4.5.0", features = ["derive"] }
+clap = { version = "4.5.1", features = ["derive"] }
 log = { workspace = true, default-features = true }
 node-primitives = { path = "../primitives" }
 node-testing = { path = "../testing" }
