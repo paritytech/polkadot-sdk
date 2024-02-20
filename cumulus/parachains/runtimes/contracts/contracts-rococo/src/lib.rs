@@ -58,10 +58,10 @@ use frame_system::limits::{BlockLength, BlockWeights};
 pub use parachains_common as common;
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, MINUTES, NORMAL_DISPATCH_RATIO,
+	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 pub use parachains_common::{AuraId, Balance};
-use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee};
+use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::CollatorSelectionUpdateOrigin;
 
 #[cfg(any(feature = "std", test))]

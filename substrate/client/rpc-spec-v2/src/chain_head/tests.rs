@@ -27,8 +27,7 @@ use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use futures::Future;
 use jsonrpsee::{
-	core::{error::Error, server::Subscription as RpcSubscription},
-	rpc_params, RpcModule,
+	core::server::Subscription as RpcSubscription, rpc_params, MethodsError as Error, RpcModule,
 };
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
@@ -359,7 +358,7 @@ async fn get_header() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Obtain the valid header.
@@ -388,7 +387,7 @@ async fn get_body() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call.
@@ -473,7 +472,7 @@ async fn call_runtime() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Pass an invalid parameters that cannot be decode.
@@ -486,7 +485,7 @@ async fn call_runtime() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message().contains("Invalid parameter")
+		Error::JsonRpc(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message().contains("Invalid parameter")
 	);
 
 	// Valid call.
@@ -589,7 +588,7 @@ async fn call_runtime_without_flag() {
 		.unwrap_err();
 
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_RUNTIME_CALL && err.message().contains("subscription was started with `withRuntime` set to `false`")
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_RUNTIME_CALL && err.message().contains("subscription was started with `withRuntime` set to `false`")
 	);
 }
 
@@ -627,7 +626,7 @@ async fn get_storage_hash() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call without storage at the key.
@@ -895,7 +894,7 @@ async fn get_storage_value() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call without storage at the key.
@@ -1571,7 +1570,7 @@ async fn follow_with_unpin() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// To not exceed the number of pinned blocks, we need to unpin before the next import.
@@ -1615,6 +1614,108 @@ async fn follow_with_unpin() {
 
 	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
 	assert!(sub.next::<FollowEvent<String>>().await.is_none());
+}
+
+#[tokio::test]
+async fn unpin_duplicate_hashes() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let mut client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: 3,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+		},
+	)
+	.into_rpc();
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let sub_id = sub.subscription_id();
+	let sub_id = serde_json::to_string(&sub_id).unwrap();
+
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Ensure the imported block is propagated and pinned for this subscription.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	// Try to unpin duplicate hashes.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, vec![&block_hash, &block_hash]],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::JsonRpc(err) if err.code() == super::error::rpc_spec_v2::INVALID_DUPLICATE_HASHES && err.message() == "Received duplicate hashes for the `chainHead_unpin` method"
+	);
+
+	// Block tree:
+	//   finalized_block -> block -> block2
+	let block2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_hash_2 = format!("{:?}", block2.header.hash());
+	client.import(BlockOrigin::Own, block2.clone()).await.unwrap();
+
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	// Try to unpin duplicate hashes.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, vec![&block_hash, &block_hash_2, &block_hash]],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::JsonRpc(err) if err.code() == super::error::rpc_spec_v2::INVALID_DUPLICATE_HASHES && err.message() == "Received duplicate hashes for the `chainHead_unpin` method"
+	);
+
+	// Can unpin blocks.
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, vec![&block_hash, &block_hash_2]])
+		.await
+		.unwrap();
 }
 
 #[tokio::test]
@@ -1720,7 +1821,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	let _res: () = api
@@ -1737,7 +1838,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Unpin multiple blocks.
@@ -1755,7 +1856,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	let err = api
@@ -1766,7 +1867,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 }
 
