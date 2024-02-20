@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: rpc server remove prometheus metrics `substrate_rpc_requests_started/finished` and refactor WS ping/pongs.
+
+doc:
+  - audience: Node Operator
+    description: |
+      This PR updates the rpc server library to `jsonrpsee v0.22` to utilize new APIs.
+
+      Breaking changes:
+      - Remove prometheus RPC metrics `substrate_rpc_requests_started` and `substrate_rpc_requests_finished`.
+      - The RPC server now disconnects inactive peers that didn't acknowledge WebSocket
+      pings more than three times in time.
+
+      Added:
+      - Add prometheus RPC `substrate_rpc_sessions_time` to collect the duration for each WebSocket
+      session.
+crates: [ ]

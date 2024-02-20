@@ -659,7 +659,7 @@ fn extract_core_index_from_statement_works() {
 
 	let pov_hash = pov_a.hash();
 
-	let candidate = TestCandidateBuilder {
+	let mut candidate = TestCandidateBuilder {
 		para_id: test_state.chain_ids[0],
 		relay_parent: test_state.relay_parent,
 		pov_hash,
@@ -706,10 +706,23 @@ fn extract_core_index_from_statement_works() {
 	.flatten()
 	.expect("should be signed");
 
+	candidate.descriptor.para_id = test_state.chain_ids[1];
+
+	let signed_statement_3 = SignedFullStatementWithPVD::sign(
+		&test_state.keystore,
+		StatementWithPVD::Seconded(candidate, pvd_a.clone()),
+		&test_state.signing_context,
+		ValidatorIndex(1),
+		&public1.into(),
+	)
+	.ok()
+	.flatten()
+	.expect("should be signed");
+
 	let core_index_1 = core_index_from_statement(
 		&test_state.validator_groups.0,
 		&test_state.validator_groups.1,
-		test_state.availability_cores.len(),
+		&test_state.availability_cores,
 		&signed_statement_1,
 	)
 	.unwrap();
@@ -719,12 +732,22 @@ fn extract_core_index_from_statement_works() {
 	let core_index_2 = core_index_from_statement(
 		&test_state.validator_groups.0,
 		&test_state.validator_groups.1,
-		test_state.availability_cores.len(),
+		&test_state.availability_cores,
 		&signed_statement_2,
+	);
+
+	// Must be none, para_id in descriptor is different than para assigned to core
+	assert_eq!(core_index_2, None);
+
+	let core_index_3 = core_index_from_statement(
+		&test_state.validator_groups.0,
+		&test_state.validator_groups.1,
+		&test_state.availability_cores,
+		&signed_statement_3,
 	)
 	.unwrap();
 
-	assert_eq!(core_index_2, CoreIndex(1));
+	assert_eq!(core_index_3, CoreIndex(1));
 }
 
 #[test]

@@ -22,7 +22,7 @@ use sc_client_api::StorageProof;
 use futures::Stream;
 
 use async_trait::async_trait;
-use jsonrpsee_core::Error as JsonRpcError;
+use jsonrpsee_core::ClientError as JsonRpcError;
 use parity_scale_codec::Error as CodecError;
 use sp_api::ApiError;
 
