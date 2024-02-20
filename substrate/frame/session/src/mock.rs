@@ -24,20 +24,12 @@ use crate::historical as pallet_session_historical;
 
 use std::collections::BTreeMap;
 
-use sp_core::{crypto::key_types::DUMMY, H256};
-use sp_runtime::{
-	impl_opaque_keys,
-	testing::UintAuthorityId,
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use sp_core::crypto::key_types::DUMMY;
+use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, BuildStorage};
 use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
+use frame_support::{derive_impl, parameter_types, traits::ConstU64};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -234,29 +226,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_timestamp::Config for Test {
