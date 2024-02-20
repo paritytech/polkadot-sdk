@@ -146,6 +146,8 @@ the test is started.
 Let's run an availabilty read test which will recover availability for 200 cores with max PoV size on a 1000
 node validator network.
 
+<!-- markdownlint-disable line-length -->
+
 ```
 target/testnet/subsystem-bench polkadot/node/subsystem-bench/examples/availability_write.yaml
 [2024-02-19T14:10:32.981Z INFO  subsystem_bench] Sequence contains 1 step(s)
@@ -197,6 +199,8 @@ availability-store                     0.304       0.101
 Test environment                       3.213       1.071
 ```
 
+<!-- markdownlint-enable line-length -->
+
 `Block time` in the current context has a different meaning. It measures the amount of time it
 took the subsystem to finish processing all of the messages sent in the context of the current test block.
 
@@ -226,6 +230,7 @@ Since the execution will be very slow, it's recommended not to run it together w
 benchmark results into account. A report is saved in a file `cachegrind_report.txt`.
 
 Example run results:
+
 ```
 $ target/testnet/subsystem-bench --cache-misses cache-misses-data-availability-read.yaml
 $ cat cachegrind_report.txt
