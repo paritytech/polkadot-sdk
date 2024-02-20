@@ -530,7 +530,7 @@
 )]
 </span><span class="kw">pub enum </span>VersionedLocatableAsset {
 	<span class="attr">#[codec(index = <span class="number">3</span>)]
-	</span>V3 { location: xcm::v3::MultiLocation, asset_id: xcm::v3::AssetId },
+	</span>V3 { location: xcm::v3::Location, asset_id: xcm::v3::AssetId },
 	<span class="attr">#[codec(index = <span class="number">4</span>)]
 	</span>V4 { location: xcm::v4::Location, asset_id: xcm::v4::AssetId },
 }
@@ -563,7 +563,7 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;xcm::latest::Location, <span class="kw-2">&amp;</span>VersionedLocation&gt; {
 		<span class="kw">let </span>latest = <span class="kw">match </span>location.clone() {
 			VersionedLocation::V2(l) =&gt; {
-				<span class="kw">let </span>v3: xcm::v3::MultiLocation = l.try_into().map_err(|<span class="kw">_</span>| location)<span class="question-mark">?</span>;
+				<span class="kw">let </span>v3: xcm::v3::Location = l.try_into().map_err(|<span class="kw">_</span>| location)<span class="question-mark">?</span>;
 				v3.try_into().map_err(|<span class="kw">_</span>| location)<span class="question-mark">?
 			</span>},
 			VersionedLocation::V3(l) =&gt; l.try_into().map_err(|<span class="kw">_</span>| location)<span class="question-mark">?</span>,
@@ -614,11 +614,11 @@
 	{
 		<span class="kw">fn </span>create_asset_kind(seed: u32) -&gt; VersionedLocatableAsset {
 			VersionedLocatableAsset::V3 {
-				location: xcm::v3::MultiLocation::new(
+				location: xcm::v3::Location::new(
 					Parents::get(),
 					[xcm::v3::Junction::Parachain(ParaId::get())],
 				),
-				asset_id: xcm::v3::MultiLocation::new(
+				asset_id: xcm::v3::Location::new(
 					<span class="number">0</span>,
 					[
 						xcm::v3::Junction::PalletInstance(seed.try_into().unwrap()),

@@ -20,7 +20,7 @@ endpoint.</li>
 both take a path parameter of the route to take. If you want to swap from native asset to
 non-native asset 1, you would pass in a path of <code>[DOT, 1]</code> or <code>[1, DOT]</code>. If you want to swap
 from non-native asset 1 to non-native asset 2, you would pass in a path of <code>[1, DOT, 2]</code>.</p>
-<p>(For an example of configuring this pallet to use <code>MultiLocation</code> as an asset id, see the
+<p>(For an example of configuring this pallet to use <code>Location</code> as an asset id, see the
 cumulus repo).</p>
 <p>Here is an example <code>state_call</code> that asks for a quote of a pool of native versus asset 1:</p>
 <div class="example-wrap"><pre class="language-text"><code>curl -sS -H &quot;Content-Type: application/json&quot; -d \

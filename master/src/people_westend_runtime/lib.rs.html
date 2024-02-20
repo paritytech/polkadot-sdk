@@ -852,6 +852,8 @@
 <a href="#852" id="852">852</a>
 <a href="#853" id="853">853</a>
 <a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1302,6 +1304,7 @@
 		</span>[frame_system, SystemBench::&lt;Runtime&gt;]
 		[pallet_balances, Balances]
 		[pallet_identity, Identity]
+		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_session, SessionBench::&lt;Runtime&gt;]
 		[pallet_utility, Utility]
@@ -1309,7 +1312,8 @@
 		<span class="comment">// Polkadot
 		</span>[polkadot_runtime_common::identity_migrator, IdentityMigrator]
 		<span class="comment">// Cumulus
-		</span>[cumulus_pallet_xcmp_queue, XcmpQueue]
+		</span>[cumulus_pallet_parachain_system, ParachainSystem]
+		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_collator_selection, CollatorSelection]
 		<span class="comment">// XCM
 		</span>[pallet_xcm, PalletXcmExtrinsiscsBenchmark::&lt;Runtime&gt;]

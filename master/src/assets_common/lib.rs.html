@@ -759,7 +759,7 @@
 
 		<span class="kw">for </span>(asset, expected_result) <span class="kw">in </span>test_data {
 			<span class="macro">assert_eq!</span>(
-				&lt;Convert <span class="kw">as </span>MatchesFungibles&lt;xcm::v3::MultiLocation, u128&gt;&gt;::matches_fungibles(
+				&lt;Convert <span class="kw">as </span>MatchesFungibles&lt;xcm::v3::Location, u128&gt;&gt;::matches_fungibles(
 					<span class="kw-2">&amp;</span>asset.clone().try_into().unwrap()
 				),
 				expected_result,

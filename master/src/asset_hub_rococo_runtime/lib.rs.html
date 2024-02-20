@@ -1752,6 +1752,8 @@
 <a href="#1752" id="1752">1752</a>
 <a href="#1753" id="1753">1753</a>
 <a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2137,8 +2139,8 @@
 <span class="kw">impl </span>pallet_assets::Config&lt;ForeignAssetsInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
-	<span class="kw">type </span>AssetId = xcm::v3::MultiLocation;
-	<span class="kw">type </span>AssetIdParameter = xcm::v3::MultiLocation;
+	<span class="kw">type </span>AssetId = xcm::v3::Location;
+	<span class="kw">type </span>AssetIdParameter = xcm::v3::Location;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>CreateOrigin = ForeignCreators&lt;
 		(
@@ -2797,6 +2799,7 @@
 		[pallet_assets, Pool]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_balances, Balances]
+		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_nfts, Nfts]
@@ -2806,6 +2809,7 @@
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
+		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm_bridge_hub_router, ToWestend]
 		<span class="comment">// XCM
