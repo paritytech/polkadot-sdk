@@ -17,7 +17,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 hex-literal = "0.4.1"
 log = { workspace = true }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.195", optional = true, features = ["derive"] }
+serde = { version = "1.0.196", optional = true, features = ["derive"] }
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -31,9 +31,9 @@ pallet-aura = { path = "../../../../../substrate/frame/aura", default-features =
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
+pallet-broker = { path = "../../../../../substrate/frame/broker", default-features = false }
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
-pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
@@ -55,7 +55,6 @@ sp-version = { path = "../../../../../substrate/primitives/version", default-fea
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
-polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
 westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants", default-features = false }
@@ -100,11 +99,11 @@ std = [
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
+	"pallet-broker/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
 	"pallet-multisig/std",
 	"pallet-session/std",
-	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
@@ -113,7 +112,6 @@ std = [
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
-	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"scale-info/std",
@@ -150,10 +148,10 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-broker/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
-	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
@@ -178,11 +176,11 @@ try-runtime = [
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-broker/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
@@ -193,3 +191,5 @@ try-runtime = [
 ]
 
 experimental = ["pallet-aura/experimental"]
+
+fast-runtime = []
