@@ -150,7 +150,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_006_002,
+	spec_version: 1_007_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -1824,6 +1824,12 @@ sp_api::impl_runtime_apis! {
 
 	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
+			use sp_runtime::{traits::Header, DigestItem};
+
+			if header.digest().logs().iter().any(|di| di == &DigestItem::RuntimeEnvironmentUpdated) {
+				pallet_im_online::migration::clear_offchain_storage(Session::validators().len() as u32);
+			}
+
 			Executive::offchain_worker(header)
 		}
 	}
