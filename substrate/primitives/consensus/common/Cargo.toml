@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 async-trait = "0.1.74"
 futures = { version = "0.3.21", features = ["thread-pool"] }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 thiserror = "1.0.48"
 sp-core = { path = "../../core" }
 sp-inherents = { path = "../../inherents" }

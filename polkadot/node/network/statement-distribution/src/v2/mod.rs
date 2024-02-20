@@ -93,7 +93,19 @@ mod statement_store;
 #[cfg(test)]
 mod tests;
 
-const COST_UNEXPECTED_STATEMENT: Rep = Rep::CostMinor("Unexpected Statement");
+const COST_UNEXPECTED_STATEMENT_NOT_VALIDATOR: Rep =
+	Rep::CostMinor("Unexpected Statement, not a validator");
+const COST_UNEXPECTED_STATEMENT_VALIDATOR_NOT_FOUND: Rep =
+	Rep::CostMinor("Unexpected Statement, validator not found");
+const COST_UNEXPECTED_STATEMENT_INVALID_SENDER: Rep =
+	Rep::CostMinor("Unexpected Statement, invalid sender");
+const COST_UNEXPECTED_STATEMENT_BAD_ADVERTISE: Rep =
+	Rep::CostMinor("Unexpected Statement, bad advertise");
+const COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED: Rep =
+	Rep::CostMinor("Unexpected Statement, cluster rejected");
+const COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP: Rep =
+	Rep::CostMinor("Unexpected Statement, not in group");
+
 const COST_UNEXPECTED_STATEMENT_MISSING_KNOWLEDGE: Rep =
 	Rep::CostMinor("Unexpected Statement, missing knowledge for relay parent");
 const COST_EXCESSIVE_SECONDED: Rep = Rep::CostMinor("Sent Excessive `Seconded` Statements");
@@ -1086,6 +1098,7 @@ async fn send_pending_grid_messages<Context>(
 						originator,
 						peer_validator_id,
 						&compact,
+						false,
 					);
 				}
 
@@ -1378,6 +1391,7 @@ async fn circulate_statement<Context>(
 					originator,
 					target,
 					&compact_statement,
+					false,
 				);
 			},
 		}
@@ -1515,7 +1529,13 @@ async fn handle_incoming_statement<Context>(
 			// we shouldn't be receiving statements unless we're a validator
 			// this session.
 			if per_session.is_not_validator() {
-				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+				modify_reputation(
+					reputation,
+					ctx.sender(),
+					peer,
+					COST_UNEXPECTED_STATEMENT_NOT_VALIDATOR,
+				)
+				.await;
 			}
 			return
 		},
@@ -1526,7 +1546,13 @@ async fn handle_incoming_statement<Context>(
 		match per_session.groups.by_validator_index(statement.unchecked_validator_index()) {
 			Some(g) => g,
 			None => {
-				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+				modify_reputation(
+					reputation,
+					ctx.sender(),
+					peer,
+					COST_UNEXPECTED_STATEMENT_VALIDATOR_NOT_FOUND,
+				)
+				.await;
 				return
 			},
 		};
@@ -1565,38 +1591,45 @@ async fn handle_incoming_statement<Context>(
 		(active, idx)
 	};
 
-	let checked_statement =
-		if let Some((active, cluster_sender_index)) = active.zip(cluster_sender_index) {
-			match handle_cluster_statement(
-				relay_parent,
-				&mut active.cluster_tracker,
-				per_relay_parent.session,
-				&per_session.session_info,
-				statement,
-				cluster_sender_index,
-			) {
-				Ok(Some(s)) => s,
-				Ok(None) => return,
-				Err(rep) => {
-					modify_reputation(reputation, ctx.sender(), peer, rep).await;
-					return
-				},
-			}
-		} else {
-			let grid_sender_index = local_validator
-				.grid_tracker
-				.direct_statement_providers(
-					&per_session.groups,
-					statement.unchecked_validator_index(),
-					statement.unchecked_payload(),
-				)
-				.into_iter()
-				.filter_map(|i| session_info.discovery_keys.get(i.0 as usize).map(|ad| (i, ad)))
-				.filter(|(_, ad)| peer_state.is_authority(ad))
-				.map(|(i, _)| i)
-				.next();
+	let checked_statement = if let Some((active, cluster_sender_index)) =
+		active.zip(cluster_sender_index)
+	{
+		match handle_cluster_statement(
+			relay_parent,
+			&mut active.cluster_tracker,
+			per_relay_parent.session,
+			&per_session.session_info,
+			statement,
+			cluster_sender_index,
+		) {
+			Ok(Some(s)) => s,
+			Ok(None) => return,
+			Err(rep) => {
+				modify_reputation(reputation, ctx.sender(), peer, rep).await;
+				return
+			},
+		}
+	} else {
+		let grid_sender_index = local_validator
+			.grid_tracker
+			.direct_statement_providers(
+				&per_session.groups,
+				statement.unchecked_validator_index(),
+				statement.unchecked_payload(),
+			)
+			.into_iter()
+			.filter_map(|(i, validator_knows_statement)| {
+				session_info
+					.discovery_keys
+					.get(i.0 as usize)
+					.map(|ad| (i, ad, validator_knows_statement))
+			})
+			.filter(|(_, ad, _)| peer_state.is_authority(ad))
+			.map(|(i, _, validator_knows_statement)| (i, validator_knows_statement))
+			.next();
 
-			if let Some(grid_sender_index) = grid_sender_index {
+		if let Some((grid_sender_index, validator_knows_statement)) = grid_sender_index {
+			if !validator_knows_statement {
 				match handle_grid_statement(
 					relay_parent,
 					&mut local_validator.grid_tracker,
@@ -1612,11 +1645,22 @@ async fn handle_incoming_statement<Context>(
 					},
 				}
 			} else {
-				// Not a cluster or grid peer.
-				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
-				return
+				// Reward the peer for sending us the statement
+				modify_reputation(reputation, ctx.sender(), peer, BENEFIT_VALID_STATEMENT).await;
+				return;
 			}
-		};
+		} else {
+			// Not a cluster or grid peer.
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_STATEMENT_INVALID_SENDER,
+			)
+			.await;
+			return
+		}
+	};
 
 	let statement = checked_statement.payload().clone();
 	let originator_index = checked_statement.validator_index();
@@ -1635,7 +1679,13 @@ async fn handle_incoming_statement<Context>(
 		);
 
 		if let Err(BadAdvertisement) = res {
-			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_STATEMENT_BAD_ADVERTISE,
+			)
+			.await;
 			return
 		}
 	}
@@ -1743,11 +1793,11 @@ fn handle_cluster_statement(
 			Ok(ClusterAccept::WithPrejudice) => false,
 			Err(ClusterRejectIncoming::ExcessiveSeconded) => return Err(COST_EXCESSIVE_SECONDED),
 			Err(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) =>
-				return Err(COST_UNEXPECTED_STATEMENT),
+				return Err(COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED),
 			Err(ClusterRejectIncoming::NotInGroup) => {
 				// sanity: shouldn't be possible; we already filtered this
 				// out above.
-				return Err(COST_UNEXPECTED_STATEMENT)
+				return Err(COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP)
 			},
 		}
 	};
@@ -1798,6 +1848,7 @@ fn handle_grid_statement(
 		checked_statement.validator_index(),
 		grid_sender_index,
 		&checked_statement.payload(),
+		true,
 	);
 
 	Ok(checked_statement)
@@ -2376,6 +2427,7 @@ fn post_acknowledgement_statement_messages(
 			statement.validator_index(),
 			recipient,
 			statement.payload(),
+			false,
 		);
 		match peer.1.into() {
 			ValidationVersion::V2 => messages.push(Versioned::V2(
@@ -3255,6 +3307,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 				statement.unchecked_validator_index(),
 				validator_id,
 				statement.unchecked_payload(),
+				false,
 			);
 		}
 	}

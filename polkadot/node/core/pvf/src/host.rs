@@ -24,7 +24,7 @@ use crate::{
 	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
-	prepare, security, Priority, SecurityStatus, ValidationError, LOG_TARGET,
+	prepare, Priority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 use always_assert::never;
 use futures::{
@@ -225,9 +225,31 @@ pub async fn start(
 
 	// Run checks for supported security features once per host startup. If some checks fail, warn
 	// if Secure Validator Mode is disabled and return an error otherwise.
-	let security_status = match security::check_security_status(&config).await {
+	#[cfg(target_os = "linux")]
+	let security_status = match crate::security::check_security_status(&config).await {
 		Ok(ok) => ok,
 		Err(err) => return Err(SubsystemError::Context(err)),
+	};
+	#[cfg(not(target_os = "linux"))]
+	let security_status = if config.secure_validator_mode {
+		gum::error!(
+			target: LOG_TARGET,
+			"{}{}{}",
+			crate::SECURE_MODE_ERROR,
+			crate::SECURE_LINUX_NOTE,
+			crate::IGNORE_SECURE_MODE_TIP
+		);
+		return Err(SubsystemError::Context(
+			"could not enable Secure Validator Mode for non-Linux; check logs".into(),
+		));
+	} else {
+		gum::warn!(
+			target: LOG_TARGET,
+			"{}{}",
+			crate::SECURE_MODE_WARNING,
+			crate::SECURE_LINUX_NOTE,
+		);
+		SecurityStatus::default()
 	};
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(HOST_MESSAGE_QUEUE_SIZE);
