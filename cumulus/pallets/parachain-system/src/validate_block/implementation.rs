@@ -34,7 +34,7 @@ use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
 use sp_std::prelude::*;
-use sp_trie::{MemoryDB, ProofSizeProvider, TrieRecorderProvider};
+use sp_trie::{MemoryDB, ProofSizeProvider};
 use trie_recorder::SizeOnlyRecorderProvider;
 
 type TrieBackend<B> = sp_state_machine::TrieBackend<
@@ -50,7 +50,7 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
 }
 
-/// Recorder instance to be used during this validate_block call.
+// Recorder instance to be used during this validate_block call.
 environmental::environmental!(recorder: trait ProofSizeProvider);
 
 /// Validate the given parachain block.
@@ -178,7 +178,7 @@ where
 			.replace_implementation(host_storage_proof_size),
 	);
 
-	run_with_externalities::<B, _, _>(&backend, || {
+	run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
 		let relay_chain_proof = crate::RelayChainStateProof::new(
 			PSC::SelfParaId::get(),
 			inherent_data.validation_data.relay_parent_storage_root,
@@ -274,7 +274,7 @@ fn validate_validation_data(
 	);
 }
 
-/// Run the given closure with the externalities and recorder set.
+/// Run the given closure with the externalities set.
 fn run_with_externalities_and_recorder<B: BlockT, R, F: FnOnce() -> R>(
 	backend: &TrieBackend<B>,
 	recorder: &mut SizeOnlyRecorderProvider<HashingFor<B>>,
@@ -285,17 +285,6 @@ fn run_with_externalities_and_recorder<B: BlockT, R, F: FnOnce() -> R>(
 	recorder.reset();
 
 	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
-}
-
-/// Run the given closure with the externalities set.
-fn run_with_externalities<B: BlockT, R, F: FnOnce() -> R>(
-	backend: &TrieBackend<B>,
-	execute: F,
-) -> R {
-	let mut overlay = sp_state_machine::OverlayedChanges::default();
-	let mut ext = Ext::<B>::new(&mut overlay, backend);
-
-	set_and_run_with_externalities(&mut ext, || execute())
 }
 
 fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
