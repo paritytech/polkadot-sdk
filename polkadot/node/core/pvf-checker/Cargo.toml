@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 futures = "0.3.21"
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 
 polkadot-node-primitives = { path = "../../primitives" }

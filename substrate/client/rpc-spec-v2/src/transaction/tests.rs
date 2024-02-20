@@ -24,7 +24,7 @@ use crate::{
 use assert_matches::assert_matches;
 use codec::Encode;
 use futures::Future;
-use jsonrpsee::{core::error::Error, rpc_params, RpcModule};
+use jsonrpsee::{rpc_params, MethodsError as Error, RpcModule};
 use sc_transaction_pool::*;
 use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionPool};
 use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
@@ -194,7 +194,7 @@ async fn tx_broadcast_invalid_tx() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid params"
+		Error::JsonRpc(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid params"
 	);
 
 	assert_eq!(0, pool.status().ready);
@@ -219,7 +219,7 @@ async fn tx_broadcast_invalid_tx() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid operation id"
+		Error::JsonRpc(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid operation id"
 	);
 }
 
@@ -233,6 +233,6 @@ async fn tx_invalid_stop() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid operation id"
+		Error::JsonRpc(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid operation id"
 	);
 }
