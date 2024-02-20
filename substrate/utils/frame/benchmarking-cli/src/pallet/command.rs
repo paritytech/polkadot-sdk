@@ -779,20 +779,15 @@ fn list_benchmark(
 			.insert(String::from_utf8_lossy(extrinsic).to_string());
 	});
 
-	match list_output {
-		ListOutput::All => {
-			println!("pallet,extrinsic");
-			for (pallet, extrinsics) in benchmarks {
+	for (pallet, extrinsics) in benchmarks {
+		match list_output {
+			ListOutput::All =>
 				for extrinsic in extrinsics {
 					println!("{},{}", pallet, extrinsic);
-				}
-			}
-		},
-		ListOutput::Pallets => {
-			println!("pallet");
-			for (pallet, _) in benchmarks {
+				},
+			ListOutput::Pallets => {
 				println!("{}", pallet);
-			}
-		},
+			},
+		}
 	}
 }
