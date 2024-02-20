@@ -50,6 +50,9 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_xcm`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
+	fn claim_assets() -> Weight {
+		todo!()
+	}
 	fn transfer_assets() -> Weight {
 		// TODO: run benchmarks
 		Weight::zero()
