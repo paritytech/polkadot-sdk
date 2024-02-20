@@ -20,7 +20,7 @@ use parity_db::Operation;
 /// A `Database` adapter for parity-db.
 use sp_database::{error::DatabaseError, Change, ColumnId, DBLocation, Database, Transaction};
 
-struct DbAdapter(parity_db::Db);
+struct DbAdapter(parity_db::Db, bool);
 
 fn handle_err<T>(result: parity_db::Result<T>) -> T {
 	match result {
@@ -85,7 +85,7 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 		parity_db::Db::open(&config)?
 	};
 
-	Ok(std::sync::Arc::new(DbAdapter(db)))
+	Ok(std::sync::Arc::new(DbAdapter(db, multi_tree)))
 }
 
 fn ref_counted_column(col: u32) -> bool {
@@ -163,14 +163,18 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 		key: &[u8],
 		location: DBLocation,
 	) -> Option<(Vec<u8>, Vec<DBLocation>)> {
-		if location == 0 {
-			handle_err(self.0.get_root(col as u8, key))
+		if self.1 && col == columns::STATE {
+			if location == 0 {
+				handle_err(self.0.get_root(col as u8, key))
+			} else {
+				handle_err(self.0.get_node(col as u8, location))
+			}
 		} else {
-			handle_err(self.0.get_node(col as u8, location))
+			handle_err(self.0.get(col as u8, key)).map(|v| (v, Default::default()))
 		}
 	}
 
 	fn supports_tree_column(&self) -> bool {
-		true
+		self.1
 	}
 }

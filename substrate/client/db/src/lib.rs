@@ -1027,7 +1027,7 @@ pub struct StorageDb<Block: BlockT> {
 
 impl<Block: BlockT> StorageDb<Block> {
 	fn contains_root(&self, root: &Block::Hash) -> bool {
-		self.db.contains(columns::STATE, root.as_ref())
+		self.db.get_node(columns::STATE, root.as_ref(), Default::default()).is_some()
 	}
 }
 
