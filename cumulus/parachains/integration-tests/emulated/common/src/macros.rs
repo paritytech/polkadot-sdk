@@ -19,14 +19,25 @@ pub use paste;
 pub use pallet_balances;
 pub use pallet_message_queue;
 pub use pallet_xcm;
+pub use pallet_assets;
+pub use frame_support::{pallet_prelude::Weight, weights::WeightToFee};
 
 // Polkadot
-pub use xcm::prelude::{AccountId32, WeightLimit};
+pub use xcm::{
+		v3::Location as V3Location,
+		prelude::{
+		OriginKind, AccountId32, WeightLimit, Asset, AssetId, Fungible,
+		Location, Here, VersionedXcm, Xcm, Unlimited, WithdrawAsset, BuyExecution,
+		Transact, ExpectTransactStatus, MaybeErrorCode, RefundSurplus, DepositAsset,
+		All
+	},
+};
 
 // Cumulus
 pub use asset_test_utils;
 pub use cumulus_pallet_xcmp_queue;
 pub use xcm_emulator::Chain;
+pub use parachains_common::AccountId;
 
 #[macro_export]
 macro_rules! test_parachain_is_trusted_teleporter {
@@ -127,13 +138,19 @@ macro_rules! include_penpal_create_foreign_asset_on_asset_hub {
 		$crate::impls::paste::paste! {
 			pub fn penpal_create_foreign_asset_on_asset_hub(
 				asset_id_on_penpal: u32,
-				foreign_asset_at_asset_hub: v3::Location,
-				ah_as_seen_by_penpal: Location,
+				foreign_asset_at_asset_hub: $crate::macros::V3Location,
+				ah_as_seen_by_penpal: $crate::macros::Location,
 				is_sufficient: bool,
-				asset_owner: AccountId,
+				asset_owner: $crate::macros::AccountId,
 				prefund_amount: u128,
 			) {
-				use frame_support::weights::WeightToFee;
+				use $crate::macros::{
+					pallet_assets, pallet_xcm, Chain, Weight, OriginKind, Asset, AssetId, Fungible,
+					Location, Here, VersionedXcm, Xcm, Unlimited, WeightToFee, WithdrawAsset, BuyExecution,
+					Transact, ExpectTransactStatus, MaybeErrorCode, RefundSurplus, DepositAsset,
+					All
+				};
+
 				let ah_check_account = $asset_hub::execute_with(|| {
 					<$asset_hub as [<$asset_hub Pallet>]>::PolkadotXcm::check_account()
 				});

@@ -14,17 +14,14 @@
 // limitations under the License.
 
 mod genesis;
-pub use genesis::{genesis, ED, PARA_ID_A, PARA_ID_B};
-pub use penpal_runtime::xcm_config::{
-	LocalTeleportableToAssetHub, LocalTeleportableToAssetHubV3, XcmConfig,
-};
+pub use genesis::{genesis, asset_owner, ED, PARA_ID_A, PARA_ID_B};
 
 // Substrate
 use frame_support::traits::OnInitialize;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
+	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain, impl_foreign_assets_helpers_for_parachain,
 	impl_assets_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 use rococo_emulated_chain::Rococo;
@@ -79,3 +76,5 @@ impl_assets_helpers_for_parachain!(PenpalA, Rococo);
 impl_assets_helpers_for_parachain!(PenpalB, Westend);
 impl_assert_events_helpers_for_parachain!(PenpalA);
 impl_assert_events_helpers_for_parachain!(PenpalB);
+impl_foreign_assets_helpers_for_parachain!(PenpalA);
+impl_foreign_assets_helpers_for_parachain!(PenpalB);

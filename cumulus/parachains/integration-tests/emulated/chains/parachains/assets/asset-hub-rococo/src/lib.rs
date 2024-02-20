@@ -55,5 +55,5 @@ decl_test_parachains! {
 impl_accounts_helpers_for_parachain!(AssetHubRococo);
 impl_assert_events_helpers_for_parachain!(AssetHubRococo);
 impl_assets_helpers_for_parachain!(AssetHubRococo, Rococo);
-impl_foreign_assets_helpers_for_parachain!(AssetHubRococo, Rococo);
+impl_foreign_assets_helpers_for_parachain!(AssetHubRococo);
 impl_xcm_helpers_for_parachain!(AssetHubRococo);

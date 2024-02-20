@@ -728,7 +728,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 
 #[macro_export]
 macro_rules! impl_foreign_assets_helpers_for_parachain {
-	( $chain:ident, $relay_chain:ident ) => {
+	( $chain:ident) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
 				/// Create foreign assets using sudo `ForeignAssets::force_create()`

@@ -25,14 +25,14 @@
 use super::{
 	AccountId, AllPalletsWithSystem, AssetId as AssetIdPalletAssets, Assets, Balance, Balances,
 	ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, WeightToFee, XcmpQueue,
+	RuntimeOrigin, WeightToFee, XcmpQueue, ForeignAssetsInstance, Authorship,
 };
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
 	traits::{
 		fungibles::{self, Balanced, Credit},
-		ConstU32, Contains, ContainsPair, Everything, Get, Nothing,
+		ConstU32, Contains, ContainsPair, Everything, Get, Nothing, EverythingBut
 	},
 	weights::Weight,
 };
@@ -59,6 +59,7 @@ use xcm_executor::{traits::JustTry, XcmExecutor};
 
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
+	pub const NativeCurrency: Location = Location::here();
 	pub const RelayNetwork: Option<NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
@@ -81,7 +82,7 @@ pub type CurrencyTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	IsConcrete<RelayLocation>,
+	IsConcrete<NativeCurrency>,
 	// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -124,9 +125,17 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
-/// `AssetId/Balance` converter for `TrustBackedAssets`
 pub type ForeignAssetsConvertedConcreteId =
-	assets_common::ForeignAssetsConvertedConcreteId<StartsWith<RelayLocation>, Balance>;
+	assets_common::LocationConvertedConcreteId<
+		EverythingBut<(
+			// Here we rely on fact that something like this works:
+			// assert!(Location::new(1,
+			// [Parachain(100)]).starts_with(&Location::parent()));
+			// assert!([Parachain(100)].into().starts_with(&Here));
+			StartsWith<assets_common::matching::LocalLocationPattern>,
+		)>,
+		Balance,
+	>;
 
 /// Means for transacting foreign assets from different global consensus.
 pub type ForeignFungiblesTransactor = FungiblesAdapter<
@@ -176,6 +185,7 @@ parameter_types! {
 	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
+	pub XcmAssetFeesReceiver: Option<AccountId> = Authorship::author();
 }
 
 pub struct ParentOrParentsExecutivePlurality;
@@ -280,6 +290,8 @@ pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
 	pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(1000)]);
+	pub SystemAssetHubLocationV3: xcm::v3::Location = xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(1000)]);
+	pub RelayLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
 	// ALWAYS ensure that the index in PalletInstance stays up-to-date with
 	// the Relay Chain's Asset Hub's Assets pallet index
 	pub SystemAssetHubAssetsPalletLocation: Location =
@@ -332,8 +344,22 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
-	type Trader =
-		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToAuthor<Runtime>>;
+	type Trader = (
+		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToAuthor<Runtime>>,
+		// This trader allows to pay with `is_sufficient=true` "Foreign" assets from dedicated
+		// `pallet_assets` instance - `ForeignAssets`.
+		cumulus_primitives_utility::TakeFirstAssetTrader<
+			AccountId,
+			assets_common::ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger<Runtime, WeightToFee, Balances, ForeignAssetsInstance>,
+			ForeignAssetsConvertedConcreteId,
+			ForeignAssets,
+			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
+				ForeignFungiblesTransactor,
+				AccountId,
+				XcmAssetFeesReceiver,
+			>,
+		>,
+	);
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetClaims = PolkadotXcm;

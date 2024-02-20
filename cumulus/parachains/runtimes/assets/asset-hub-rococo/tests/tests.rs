@@ -21,7 +21,7 @@ use asset_hub_rococo_runtime::{
 	xcm_config,
 	xcm_config::{
 		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
-		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, ForeignCreatorsSovereignAccountOf,
+		ForeignCreatorsSovereignAccountOf,
 		LocationToAccountId, TokenLocation, TokenLocationV3, TrustBackedAssetsPalletLocation,
 		TrustBackedAssetsPalletLocationV3, XcmConfig,
 	},
@@ -30,6 +30,7 @@ use asset_hub_rococo_runtime::{
 	MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
 	ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
+use assets_common::ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger;
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
 	ExtBuilder, SlotDurations,
@@ -481,7 +482,7 @@ fn test_foreign_asset_xcm_take_first_trader() {
 
 			// Lets calculate amount needed
 			let asset_amount_needed =
-			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(
+			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::<Runtime, WeightToFee, Balances, ForeignAssetsInstance>::charge_weight_in_fungibles(
 					foreign_location,
 					bought,
 				)
