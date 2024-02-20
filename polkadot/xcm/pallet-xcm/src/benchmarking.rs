@@ -74,6 +74,13 @@ pub trait Config: crate::Config {
 	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 		None
 	}
+
+	/// Gets an asset that can be handled by the AssetTransactor.
+	///
+	/// Used only in benchmarks.
+	///
+	/// Used, for example, in the benchmark for `claim_assets`.
+	fn get_valid_asset() -> Asset;
 }
 
 benchmarks! {
@@ -329,17 +336,17 @@ benchmarks! {
 	}
 
 	claim_assets {
-		let claim_origin = T::ExecuteXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone()).map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		let assets: Assets = (Here, 1_000_000u128).into();
+		let claim_origin = RawOrigin::Signed(whitelisted_caller());
+		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into()).map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let asset: Asset = T::get_valid_asset();
 		// Trap assets for claiming later
 		crate::Pallet::<T>::drop_assets(
 			&claim_location,
-			assets.clone().into(),
+			asset.clone().into(),
 			&XcmContext { origin: None, message_id: [0u8; 32], topic: None }
 		);
-		let versioned_assets = VersionedAssets::V4(assets);
-	}: _<RuntimeOrigin<T>>(claim_origin, Box::new(versioned_assets), Box::new(VersionedLocation::V4(Location::here())))
+		let versioned_assets = VersionedAssets::V4(asset.into());
+	}: _<RuntimeOrigin<T>>(claim_origin.into(), Box::new(versioned_assets), Box::new(VersionedLocation::V4(claim_location)))
 
 	impl_benchmark_test_suite!(
 		Pallet,
