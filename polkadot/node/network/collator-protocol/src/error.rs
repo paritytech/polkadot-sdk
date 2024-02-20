@@ -89,6 +89,9 @@ pub enum SecondingError {
 
 	#[error("Received duplicate collation from the peer")]
 	Duplicate,
+
+	#[error("The provided parent head data does not match the hash")]
+	ParentHeadDataMismatch,
 }
 
 impl SecondingError {

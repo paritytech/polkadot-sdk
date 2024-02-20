@@ -1827,39 +1827,46 @@ async fn kick_off_seconding<Context>(
 		collation_event.pending_collation.commitments_hash =
 			Some(candidate_receipt.commitments_hash);
 
-		let pvd = match (
+		let (maybe_pvd, maybe_parent_head_and_hash) = match (
 			collation_event.collator_protocol_version,
 			collation_event.pending_collation.prospective_candidate,
 		) {
 			(CollationVersion::V2, Some(ProspectiveCandidate { parent_head_data_hash, .. }))
 				if per_relay_parent.prospective_parachains_mode.is_enabled() =>
-				request_prospective_validation_data(
+			{
+				let pvd = request_prospective_validation_data(
 					ctx.sender(),
 					relay_parent,
 					parent_head_data_hash,
 					pending_collation.para_id,
-					maybe_parent_head_data,
+					maybe_parent_head_data.clone(),
 				)
-				.await?,
+				.await?;
+
+				(pvd, maybe_parent_head_data.map(|head_data| (head_data, parent_head_data_hash)))
+			},
 			// Support V2 collators without async backing enabled.
-			(CollationVersion::V2, Some(_)) | (CollationVersion::V1, _) =>
-				request_persisted_validation_data(
+			(CollationVersion::V2, Some(_)) | (CollationVersion::V1, _) => {
+				let pvd = request_persisted_validation_data(
 					ctx.sender(),
 					candidate_receipt.descriptor().relay_parent,
 					candidate_receipt.descriptor().para_id,
 				)
-				.await?,
+				.await?;
+				(pvd, None)
+			},
 			_ => {
 				// `handle_advertisement` checks for protocol mismatch.
 				return Ok(())
 			},
-		}
-		.ok_or(SecondingError::PersistedValidationDataNotFound)?;
+		};
+		let pvd = maybe_pvd.ok_or(SecondingError::PersistedValidationDataNotFound)?;
 
 		fetched_collation_sanity_check(
 			&collation_event.pending_collation,
 			&candidate_receipt,
 			&pvd,
+			maybe_parent_head_and_hash,
 		)?;
 
 		ctx.send_message(CandidateBackingMessage::Second(

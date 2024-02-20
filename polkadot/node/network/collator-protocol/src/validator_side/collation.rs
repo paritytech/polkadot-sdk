@@ -144,6 +144,7 @@ pub fn fetched_collation_sanity_check(
 	advertised: &PendingCollation,
 	fetched: &CandidateReceipt,
 	persisted_validation_data: &PersistedValidationData,
+	maybe_parent_head_and_hash: Option<(HeadData, Hash)>,
 ) -> Result<(), SecondingError> {
 	if persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash {
 		Err(SecondingError::PersistedValidationDataMismatch)
@@ -152,6 +153,8 @@ pub fn fetched_collation_sanity_check(
 		.map_or(false, |pc| pc.candidate_hash() != fetched.hash())
 	{
 		Err(SecondingError::CandidateHashMismatch)
+	} else if maybe_parent_head_and_hash.map_or(false, |(head, hash)| head.hash() != hash) {
+		Err(SecondingError::ParentHeadDataMismatch)
 	} else {
 		Ok(())
 	}
