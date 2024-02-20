@@ -115,11 +115,13 @@ parameter_types! {
 	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
 	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
 	pub People: Location = Parachain(PEOPLE_ID).into_location();
+	pub Broker: Location = Parachain(BROKER_ID).into_location();
 	pub Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
 	pub WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
 	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
 	pub WndForBridgeHub: (AssetFilter, Location) = (Wnd::get(), BridgeHub::get());
 	pub WndForPeople: (AssetFilter, Location) = (Wnd::get(), People::get());
+	pub WndForBroker: (AssetFilter, Location) = (Wnd::get(), Broker::get());
 	pub MaxInstructions: u32 = 100;
 	pub MaxAssetsIntoHolding: u32 = 64;
 }
@@ -129,6 +131,7 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<WndForCollectives>,
 	xcm_builder::Case<WndForBridgeHub>,
 	xcm_builder::Case<WndForPeople>,
+	xcm_builder::Case<WndForBroker>,
 );
 
 pub struct OnlyParachains;

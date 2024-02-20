@@ -23,7 +23,7 @@ name = "chain-spec-builder"
 crate-type = ["rlib"]
 
 [dependencies]
-clap = { version = "4.5.0", features = ["derive"] }
+clap = { version = "4.5.1", features = ["derive"] }
 log = { workspace = true, default-features = true }
 sc-chain-spec = { path = "../../../client/chain-spec" }
 serde_json = "1.0.113"
