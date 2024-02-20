@@ -19,6 +19,7 @@
 //! Definitions of [`ValueEnum`] types.
 
 use clap::ValueEnum;
+use std::str::FromStr;
 
 /// The instantiation strategy to use in compiled mode.
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -177,6 +178,50 @@ impl Into<sc_service::config::RpcMethods> for RpcMethods {
 	}
 }
 
+/// CORS setting
+///
+/// The type is introduced to overcome `Option<Option<T>>` handling of `clap`.
+#[derive(Clone, Debug)]
+pub enum Cors {
+	/// All hosts allowed.
+	All,
+	/// Only hosts on the list are allowed.
+	List(Vec<String>),
+}
+
+impl From<Cors> for Option<Vec<String>> {
+	fn from(cors: Cors) -> Self {
+		match cors {
+			Cors::All => None,
+			Cors::List(list) => Some(list),
+		}
+	}
+}
+
+impl FromStr for Cors {
+	type Err = crate::Error;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let mut is_all = false;
+		let mut origins = Vec::new();
+		for part in s.split(',') {
+			match part {
+				"all" | "*" => {
+					is_all = true;
+					break
+				},
+				other => origins.push(other.to_owned()),
+			}
+		}
+
+		if is_all {
+			Ok(Cors::All)
+		} else {
+			Ok(Cors::List(origins))
+		}
+	}
+}
+
 /// Database backend
 #[derive(Debug, Clone, PartialEq, Copy, clap::ValueEnum)]
 #[value(rename_all = "lower")]
@@ -225,7 +270,7 @@ pub enum OffchainWorkerEnabled {
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
 #[value(rename_all = "kebab-case")]
 pub enum SyncMode {
-	/// Full sync. Download end verify all blocks.
+	/// Full sync. Download and verify all blocks.
 	Full,
 	/// Download blocks without executing them. Download latest state with proofs.
 	Fast,

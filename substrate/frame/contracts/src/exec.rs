@@ -18,6 +18,7 @@
 use crate::{
 	debug::{CallInterceptor, CallSpan, Tracing},
 	gas::GasMeter,
+	primitives::{ExecReturnValue, StorageDeposit},
 	storage::{self, meter::Diff, WriteOutcome},
 	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	DebugBufferVec, Determinism, Error, Event, Nonce, Origin, Pallet as Contracts, Schedule,
@@ -37,7 +38,6 @@ use frame_support::{
 	Blake2_128Concat, BoundedVec, StorageHasher,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use pallet_contracts_primitives::{ExecReturnValue, StorageDeposit};
 use smallvec::{Array, SmallVec};
 use sp_core::{
 	ecdsa::Public as ECDSAPublic,
@@ -100,7 +100,7 @@ impl<T: Config> Key<T> {
 /// Call or instantiate both called into other contracts and pass through errors happening
 /// in those to the caller. This enum is for the caller to distinguish whether the error
 /// happened during the execution of the callee or in the current execution context.
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, codec::Decode, codec::Encode)]
 pub enum ErrorOrigin {
 	/// Caller error origin.
 	///
@@ -112,7 +112,7 @@ pub enum ErrorOrigin {
 }
 
 /// Error returned by contract execution.
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, codec::Decode, codec::Encode)]
 pub struct ExecError {
 	/// The reason why the execution failed.
 	pub error: DispatchError,
@@ -286,6 +286,9 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
 	fn append_debug_buffer(&mut self, msg: &str) -> bool;
+
+	/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
+	fn debug_buffer_enabled(&self) -> bool;
 
 	/// Call some dispatchable and return the result.
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo;
@@ -834,7 +837,7 @@ where
 			contract_info: CachedContract::Cached(contract_info),
 			account_id,
 			entry_point,
-			nested_gas: gas_meter.nested(gas_limit)?,
+			nested_gas: gas_meter.nested(gas_limit),
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 		};
@@ -1429,6 +1432,10 @@ where
 		self.top_frame_mut().nested_storage.charge(diff)
 	}
 
+	fn debug_buffer_enabled(&self) -> bool {
+		self.debug_message.is_some()
+	}
+
 	fn append_debug_buffer(&mut self, msg: &str) -> bool {
 		if let Some(buffer) = &mut self.debug_message {
 			buffer
@@ -1618,7 +1625,7 @@ mod tests {
 	use codec::{Decode, Encode};
 	use frame_support::{assert_err, assert_ok, parameter_types};
 	use frame_system::{EventRecord, Phase};
-	use pallet_contracts_primitives::ReturnFlags;
+	use pallet_contracts_uapi::ReturnFlags;
 	use pretty_assertions::assert_eq;
 	use sp_runtime::{traits::Hash, DispatchError};
 	use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};

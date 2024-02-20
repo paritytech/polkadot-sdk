@@ -106,7 +106,7 @@ use sp_core::{
 };
 
 #[cfg(feature = "bls-experimental")]
-use sp_core::bls377;
+use sp_core::{bls377, ecdsa_bls377};
 
 #[cfg(feature = "std")]
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
@@ -1139,7 +1139,7 @@ pub trait Crypto {
 			.map_err(|_| EcdsaVerifyError::BadV)?;
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;
-		let msg = Message::from_slice(msg).expect("Message is 32 bytes; qed");
+		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
 		let pubkey = SECP256K1
 			.recover_ecdsa(&msg, &sig)
 			.map_err(|_| EcdsaVerifyError::BadSignature)?;
@@ -1185,7 +1185,7 @@ pub trait Crypto {
 			.map_err(|_| EcdsaVerifyError::BadV)?;
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;
-		let msg = Message::from_slice(msg).expect("Message is 32 bytes; qed");
+		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
 		let pubkey = SECP256K1
 			.recover_ecdsa(&msg, &sig)
 			.map_err(|_| EcdsaVerifyError::BadSignature)?;
@@ -1205,6 +1205,25 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.bls377_generate_new(id, seed)
 			.expect("`bls377_generate` failed")
+	}
+
+	/// Generate an `(ecdsa,bls12-377)` key for the given key type using an optional `seed` and
+	/// store it in the keystore.
+	///
+	/// The `seed` needs to be a valid utf8.
+	///
+	/// Returns the public key.
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls377_generate(
+		&mut self,
+		id: KeyTypeId,
+		seed: Option<Vec<u8>>,
+	) -> ecdsa_bls377::Public {
+		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ecdsa_bls377_generate_new(id, seed)
+			.expect("`ecdsa_bls377_generate` failed")
 	}
 
 	/// Generate a `bandersnatch` key pair for the given key type using an optional
@@ -1232,42 +1251,42 @@ pub trait Crypto {
 pub trait Hashing {
 	/// Conduct a 256-bit Keccak hash.
 	fn keccak_256(data: &[u8]) -> [u8; 32] {
-		sp_core::hashing::keccak_256(data)
+		sp_crypto_hashing::keccak_256(data)
 	}
 
 	/// Conduct a 512-bit Keccak hash.
 	fn keccak_512(data: &[u8]) -> [u8; 64] {
-		sp_core::hashing::keccak_512(data)
+		sp_crypto_hashing::keccak_512(data)
 	}
 
 	/// Conduct a 256-bit Sha2 hash.
 	fn sha2_256(data: &[u8]) -> [u8; 32] {
-		sp_core::hashing::sha2_256(data)
+		sp_crypto_hashing::sha2_256(data)
 	}
 
 	/// Conduct a 128-bit Blake2 hash.
 	fn blake2_128(data: &[u8]) -> [u8; 16] {
-		sp_core::hashing::blake2_128(data)
+		sp_crypto_hashing::blake2_128(data)
 	}
 
 	/// Conduct a 256-bit Blake2 hash.
 	fn blake2_256(data: &[u8]) -> [u8; 32] {
-		sp_core::hashing::blake2_256(data)
+		sp_crypto_hashing::blake2_256(data)
 	}
 
 	/// Conduct four XX hashes to give a 256-bit result.
 	fn twox_256(data: &[u8]) -> [u8; 32] {
-		sp_core::hashing::twox_256(data)
+		sp_crypto_hashing::twox_256(data)
 	}
 
 	/// Conduct two XX hashes to give a 128-bit result.
 	fn twox_128(data: &[u8]) -> [u8; 16] {
-		sp_core::hashing::twox_128(data)
+		sp_crypto_hashing::twox_128(data)
 	}
 
 	/// Conduct two XX hashes to give a 64-bit result.
 	fn twox_64(data: &[u8]) -> [u8; 8] {
-		sp_core::hashing::twox_64(data)
+		sp_crypto_hashing::twox_64(data)
 	}
 }
 
@@ -1718,20 +1737,20 @@ mod tracing_setup {
 
 pub use tracing_setup::init_tracing;
 
-/// Allocator used by Substrate when executing the Wasm runtime.
-#[cfg(all(target_arch = "wasm32", not(feature = "std")))]
-struct WasmAllocator;
+/// Allocator used by Substrate from within the runtime.
+#[cfg(substrate_runtime)]
+struct RuntimeAllocator;
 
-#[cfg(all(target_arch = "wasm32", not(feature = "disable_allocator"), not(feature = "std")))]
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime))]
 #[global_allocator]
-static ALLOCATOR: WasmAllocator = WasmAllocator;
+static ALLOCATOR: RuntimeAllocator = RuntimeAllocator;
 
-#[cfg(all(target_arch = "wasm32", not(feature = "std")))]
+#[cfg(substrate_runtime)]
 mod allocator_impl {
 	use super::*;
 	use core::alloc::{GlobalAlloc, Layout};
 
-	unsafe impl GlobalAlloc for WasmAllocator {
+	unsafe impl GlobalAlloc for RuntimeAllocator {
 		unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
 			allocator::malloc(layout.size() as u32)
 		}
@@ -1742,8 +1761,27 @@ mod allocator_impl {
 	}
 }
 
-/// A default panic handler for WASM environment.
-#[cfg(all(not(feature = "disable_panic_handler"), not(feature = "std")))]
+/// Crashes the execution of the program.
+///
+/// Equivalent to the WASM `unreachable` instruction, RISC-V `unimp` instruction,
+/// or just the `unreachable!()` macro everywhere else.
+pub fn unreachable() -> ! {
+	#[cfg(target_family = "wasm")]
+	{
+		core::arch::wasm32::unreachable();
+	}
+
+	#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+	unsafe {
+		core::arch::asm!("unimp", options(noreturn));
+	}
+
+	#[cfg(not(any(target_arch = "riscv32", target_arch = "riscv64", target_family = "wasm")))]
+	unreachable!();
+}
+
+/// A default panic handler for the runtime environment.
+#[cfg(all(not(feature = "disable_panic_handler"), substrate_runtime))]
 #[panic_handler]
 #[no_mangle]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -1755,11 +1793,11 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
 		logging::log(LogLevel::Error, "runtime", message.as_bytes());
-		core::arch::wasm32::unreachable();
+		unreachable();
 	}
 }
 
-/// A default OOM handler for WASM environment.
+/// A default OOM handler for the runtime environment.
 #[cfg(all(not(feature = "disable_oom"), enable_alloc_error_handler))]
 #[alloc_error_handler]
 pub fn oom(_: core::alloc::Layout) -> ! {
@@ -1770,7 +1808,7 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
 		logging::log(LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
-		core::arch::wasm32::unreachable();
+		unreachable();
 	}
 }
 

@@ -1,16 +1,20 @@
 [package]
 name = "polkadot-node-core-parachains-inherent"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Parachains inherent data provider for Polkadot node"
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
 thiserror = "1.0.48"
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-overseer = { path = "../../overseer" }
 polkadot-primitives = { path = "../../../primitives" }

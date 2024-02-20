@@ -21,7 +21,7 @@
 //! by the first element of the vector). Decoding to a usable semantics structure is
 //! done in `polkadot-node-core-pvf`.
 
-use crate::{BlakeTwo256, HashT as _, PvfExecTimeoutKind, PvfPrepTimeoutKind};
+use crate::{BlakeTwo256, HashT as _, PvfExecKind, PvfPrepKind};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
@@ -45,7 +45,7 @@ pub const PRECHECK_MEM_MAX_LO: u64 = 256 * 1024 * 1024;
 pub const PRECHECK_MEM_MAX_HI: u64 = 16 * 1024 * 1024 * 1024;
 
 // Default PVF timeouts. Must never be changed! Use executor environment parameters to adjust them.
-// See also `PvfPrepTimeoutKind` and `PvfExecTimeoutKind` docs.
+// See also `PvfPrepKind` and `PvfExecKind` docs.
 
 /// Default PVF preparation timeout for prechecking requests.
 pub const DEFAULT_PRECHECK_PREPARATION_TIMEOUT: Duration = Duration::from_secs(60);
@@ -99,12 +99,12 @@ pub enum ExecutorParam {
 	/// Always ensure that `precheck_timeout` < `lenient_timeout`.
 	/// When absent, the default values will be used.
 	#[codec(index = 5)]
-	PvfPrepTimeout(PvfPrepTimeoutKind, u64),
+	PvfPrepTimeout(PvfPrepKind, u64),
 	/// PVF execution timeouts, in millisecond.
 	/// Always ensure that `backing_timeout` < `approval_timeout`.
 	/// When absent, the default values will be used.
 	#[codec(index = 6)]
-	PvfExecTimeout(PvfExecTimeoutKind, u64),
+	PvfExecTimeout(PvfExecKind, u64),
 	/// Enables WASM bulk memory proposal
 	#[codec(index = 7)]
 	WasmExtBulkMemory,
@@ -174,7 +174,7 @@ impl ExecutorParams {
 	}
 
 	/// Returns a PVF preparation timeout, if any
-	pub fn pvf_prep_timeout(&self, kind: PvfPrepTimeoutKind) -> Option<Duration> {
+	pub fn pvf_prep_timeout(&self, kind: PvfPrepKind) -> Option<Duration> {
 		for param in &self.0 {
 			if let ExecutorParam::PvfPrepTimeout(k, timeout) = param {
 				if kind == *k {
@@ -186,12 +186,22 @@ impl ExecutorParams {
 	}
 
 	/// Returns a PVF execution timeout, if any
-	pub fn pvf_exec_timeout(&self, kind: PvfExecTimeoutKind) -> Option<Duration> {
+	pub fn pvf_exec_timeout(&self, kind: PvfExecKind) -> Option<Duration> {
 		for param in &self.0 {
 			if let ExecutorParam::PvfExecTimeout(k, timeout) = param {
 				if kind == *k {
 					return Some(Duration::from_millis(*timeout))
 				}
+			}
+		}
+		None
+	}
+
+	/// Returns pre-checking memory limit, if any
+	pub fn prechecking_max_memory(&self) -> Option<u64> {
+		for param in &self.0 {
+			if let ExecutorParam::PrecheckingMaxMemory(limit) = param {
+				return Some(*limit)
 			}
 		}
 		None
@@ -232,12 +242,12 @@ impl ExecutorParams {
 				StackNativeMax(_) => "StackNativeMax",
 				PrecheckingMaxMemory(_) => "PrecheckingMaxMemory",
 				PvfPrepTimeout(kind, _) => match kind {
-					PvfPrepTimeoutKind::Precheck => "PvfPrepTimeoutKind::Precheck",
-					PvfPrepTimeoutKind::Lenient => "PvfPrepTimeoutKind::Lenient",
+					PvfPrepKind::Precheck => "PvfPrepKind::Precheck",
+					PvfPrepKind::Prepare => "PvfPrepKind::Prepare",
 				},
 				PvfExecTimeout(kind, _) => match kind {
-					PvfExecTimeoutKind::Backing => "PvfExecTimeoutKind::Backing",
-					PvfExecTimeoutKind::Approval => "PvfExecTimeoutKind::Approval",
+					PvfExecKind::Backing => "PvfExecKind::Backing",
+					PvfExecKind::Approval => "PvfExecKind::Approval",
 				},
 				WasmExtBulkMemory => "WasmExtBulkMemory",
 			};
@@ -287,30 +297,23 @@ impl ExecutorParams {
 		}
 
 		if let (Some(precheck), Some(lenient)) = (
-			seen.get("PvfPrepTimeoutKind::Precheck")
+			seen.get("PvfPrepKind::Precheck")
 				.or(Some(&DEFAULT_PRECHECK_PREPARATION_TIMEOUT_MS)),
-			seen.get("PvfPrepTimeoutKind::Lenient")
+			seen.get("PvfPrepKind::Prepare")
 				.or(Some(&DEFAULT_LENIENT_PREPARATION_TIMEOUT_MS)),
 		) {
 			if *precheck >= *lenient {
-				return Err(IncompatibleValues(
-					"PvfPrepTimeoutKind::Precheck",
-					"PvfPrepTimeoutKind::Lenient",
-				))
+				return Err(IncompatibleValues("PvfPrepKind::Precheck", "PvfPrepKind::Prepare"))
 			}
 		}
 
 		if let (Some(backing), Some(approval)) = (
-			seen.get("PvfExecTimeoutKind::Backing")
-				.or(Some(&DEFAULT_BACKING_EXECUTION_TIMEOUT_MS)),
-			seen.get("PvfExecTimeoutKind::Approval")
+			seen.get("PvfExecKind::Backing").or(Some(&DEFAULT_BACKING_EXECUTION_TIMEOUT_MS)),
+			seen.get("PvfExecKind::Approval")
 				.or(Some(&DEFAULT_APPROVAL_EXECUTION_TIMEOUT_MS)),
 		) {
 			if *backing >= *approval {
-				return Err(IncompatibleValues(
-					"PvfExecTimeoutKind::Backing",
-					"PvfExecTimeoutKind::Approval",
-				))
+				return Err(IncompatibleValues("PvfExecKind::Backing", "PvfExecKind::Approval"))
 			}
 		}
 

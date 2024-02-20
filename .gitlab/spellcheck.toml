@@ -8,20 +8,20 @@ use_builtin = true
 [hunspell.quirks]
 # He tagged it as 'TheGreatestOfAllTimes'
 transform_regex = [
-# `Type`'s
+	# `Type`'s
 	"^'([^\\s])'$",
-# 5x
-# 10.7%
+	# 5x
+	# 10.7%
 	"^[0-9_]+(?:\\.[0-9]*)?(x|%)$",
-# Transforms'
+	# Transforms'
 	"^(.*)'$",
-# backslashes
-	"^\\+$",
+	# backslashes
 	"^[0-9]*+k|MB|Mb|ms|Mbit|nd|th|rd$",
-# single char `=` `>` `%` ..
+	"^\\+$",
+	# single char `=` `>` `%` ..
 	"^=|>|<|%$",
-# 22_100
-	"^(?:[0-9]+_)+[0-9]+$"
+	# 22_100
+	"^(?:[0-9]+_)+[0-9]+$",
 ]
 allow_concatenation = true
 allow_dashes = true

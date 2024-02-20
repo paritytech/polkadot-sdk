@@ -141,6 +141,8 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
+		let mut last_processed_slot = 0;
+
 		while let Some(request) = collation_requests.next().await {
 			macro_rules! reject_with_error {
 				($err:expr) => {{
@@ -192,6 +194,18 @@ where
 				Err(e) => reject_with_error!(e),
 			};
 
+			// With async backing this function will be called every relay chain block.
+			//
+			// Most parachains currently run with 12 seconds slots and thus, they would try to
+			// produce multiple blocks per slot which very likely would fail on chain. Thus, we have
+			// this "hack" to only produce on block per slot.
+			//
+			// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
+			// obsolete and also the underlying issue will be fixed.
+			if last_processed_slot >= *claim.slot() {
+				continue
+			}
+
 			let (parachain_inherent_data, other_inherent_data) = try_request!(
 				collator
 					.create_inherent_data(
@@ -203,7 +217,7 @@ where
 					.await
 			);
 
-			let (collation, _, post_hash) = try_request!(
+			let maybe_collation = try_request!(
 				collator
 					.collate(
 						&parent_header,
@@ -220,8 +234,16 @@ where
 					.await
 			);
 
-			let result_sender = Some(collator.collator_service().announce_with_barrier(post_hash));
-			request.complete(Some(CollationResult { collation, result_sender }));
+			if let Some((collation, _, post_hash)) = maybe_collation {
+				let result_sender =
+					Some(collator.collator_service().announce_with_barrier(post_hash));
+				request.complete(Some(CollationResult { collation, result_sender }));
+			} else {
+				request.complete(None);
+				tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
+			}
+
+			last_processed_slot = *claim.slot();
 		}
 	}
 }

@@ -1,19 +1,22 @@
 [package]
 name = "polkadot-runtime-common"
-version = "1.0.0"
+version = "7.0.0"
 description = "Pallets and constants used in Relay Chain networks."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 impl-trait-for-tuples = "0.2.2"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 rustc-hex = { version = "2.1.0", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", default-features = false, features = ["alloc"] }
+serde = { version = "1.0.196", default-features = false, features = ["alloc"] }
 serde_derive = { version = "1.0.117" }
 static_assertions = "1.1.0"
 
@@ -21,15 +24,17 @@ sp-api = { path = "../../../substrate/primitives/api", default-features = false 
 inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false }
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false , features=["serde"]}
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
 sp-session = { path = "../../../substrate/primitives/session", default-features = false }
-sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, features=["serde"] }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false , features=["serde"]}
-sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", default-features = false, features=["serde"] }
+sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, features = ["serde"] }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, features = ["serde"] }
+sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", default-features = false, features = ["serde"] }
 
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
+pallet-broker = { path = "../../../substrate/frame/broker", default-features = false }
 pallet-fast-unstake = { path = "../../../substrate/frame/fast-unstake", default-features = false }
+pallet-identity = { path = "../../../substrate/frame/identity", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
@@ -39,7 +44,7 @@ pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-featur
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
-pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false }
+pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false, optional = true }
 pallet-election-provider-multi-phase = { path = "../../../substrate/frame/election-provider-multi-phase", default-features = false }
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
 
@@ -64,12 +69,12 @@ pallet-babe = { path = "../../../substrate/frame/babe" }
 pallet-treasury = { path = "../../../substrate/frame/treasury" }
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
-serde_json = "1.0.107"
+serde_json = "1.0.113"
 libsecp256k1 = "0.7.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 no_std = []
 std = [
 	"bitvec/std",
@@ -80,11 +85,13 @@ std = [
 	"inherents/std",
 	"libsecp256k1/std",
 	"log/std",
-	"pallet-asset-rate/std",
+	"pallet-asset-rate?/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
+	"pallet-broker/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-fast-unstake/std",
+	"pallet-identity/std",
 	"pallet-session/std",
 	"pallet-staking-reward-fn/std",
 	"pallet-staking/std",
@@ -122,8 +129,10 @@ runtime-benchmarks = [
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-broker/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
@@ -145,8 +154,10 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-babe?/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-broker/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
+	"pallet-identity/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",

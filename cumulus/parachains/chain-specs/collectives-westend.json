@@ -5,12 +5,8 @@
   "bootNodes": [
     "/dns/westend-collectives-collator-node-0.parity-testnet.parity.io/tcp/30334/p2p/12D3KooWBMAuyzQu3yAf8YXyoyxsSzSsgoaqAepgnNyQcPaPjPXe",
     "/dns/westend-collectives-collator-node-1.parity-testnet.parity.io/tcp/30334/p2p/12D3KooWAujYtHbCs4MiDD57JNTntTJnYnikfnaPa7JdnMyAUrHB",
-    "/dns/westend-collectives-collator-node-2.parity-testnet.parity.io/tcp/30334/p2p/12D3KooWP4pJg6pZUpxETd8Rs6GmS9FeRCeNtrBerqZhUyEPCiPp",
-    "/dns/westend-collectives-collator-node-3.parity-testnet.parity.io/tcp/30334/p2p/12D3KooWBbrBYhXxFXhdio3AiuaqMG26pn91SUnd12gJiVn2Wh8Q",
     "/dns/westend-collectives-collator-0.polkadot.io/tcp/443/wss/p2p/12D3KooWBMAuyzQu3yAf8YXyoyxsSzSsgoaqAepgnNyQcPaPjPXe",
     "/dns/westend-collectives-collator-1.polkadot.io/tcp/443/wss/p2p/12D3KooWAujYtHbCs4MiDD57JNTntTJnYnikfnaPa7JdnMyAUrHB",
-    "/dns/westend-collectives-collator-2.polkadot.io/tcp/443/wss/p2p/12D3KooWP4pJg6pZUpxETd8Rs6GmS9FeRCeNtrBerqZhUyEPCiPp",
-    "/dns/westend-collectives-collator-3.polkadot.io/tcp/443/wss/p2p/12D3KooWBbrBYhXxFXhdio3AiuaqMG26pn91SUnd12gJiVn2Wh8Q",
     "/dns/boot.stake.plus/tcp/38333/p2p/12D3KooWQoVsFCfgu21iu6kdtQsU9T6dPn1wsyLn1U34yPerR6zQ",
     "/dns/boot.stake.plus/tcp/38334/wss/p2p/12D3KooWQoVsFCfgu21iu6kdtQsU9T6dPn1wsyLn1U34yPerR6zQ",
     "/dns/boot.metaspan.io/tcp/36072/p2p/12D3KooWEf2QXWq5pAbFJLfbnexA7KYtRRDSPkqTP64n1KtdsdV2",
@@ -23,8 +19,13 @@
     "/dns/boot-node.helikon.io/tcp/10262/wss/p2p/12D3KooWMzfnt29VAmrJHQcJU6Vfn4RsMbqPqgyWHqt9VTTAbSrL",
     "/dns/collectives-westend.bootnode.amforc.com/tcp/30340/p2p/12D3KooWERPzUhHau6o2XZRUi3tn7544rYiaHL418Nw5t8fYWP1F",
     "/dns/collectives-westend.bootnode.amforc.com/tcp/30333/wss/p2p/12D3KooWERPzUhHau6o2XZRUi3tn7544rYiaHL418Nw5t8fYWP1F",
+    "/dns/collectives-westend-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWMAgVm1PnsLVfxoDLCbYv1DgnN6tjcRQbrq8xhbwo4whE",
+    "/dns/collectives-westend-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWMAgVm1PnsLVfxoDLCbYv1DgnN6tjcRQbrq8xhbwo4whE",
     "/dns/westend-collectives-boot-ng.dwellir.com/tcp/30340/p2p/12D3KooWPFM93jgm4pgxx8PM8WJKAJF49qia8jRB95uciUQwYh7m",
-    "/dns/westend-collectives-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWPFM93jgm4pgxx8PM8WJKAJF49qia8jRB95uciUQwYh7m"
+    "/dns/westend-collectives-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWPFM93jgm4pgxx8PM8WJKAJF49qia8jRB95uciUQwYh7m",
+    "/dns/wch13.rotko.net/tcp/33593/p2p/12D3KooWPG85zhuSRoyptjLkFD4iJFistjiBmc15JgQ96B4fdXYr",
+    "/dns/wch13.rotko.net/tcp/34593/ws/p2p/12D3KooWPG85zhuSRoyptjLkFD4iJFistjiBmc15JgQ96B4fdXYr",
+    "/dns/wch13.rotko.net/tcp/35593/wss/p2p/12D3KooWPG85zhuSRoyptjLkFD4iJFistjiBmc15JgQ96B4fdXYr"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

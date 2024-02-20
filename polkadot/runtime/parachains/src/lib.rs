@@ -23,10 +23,11 @@
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "256")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod assigner;
+pub mod assigner_coretime;
 pub mod assigner_on_demand;
 pub mod assigner_parachains;
 pub mod configuration;
+pub mod coretime;
 pub mod disputes;
 pub mod dmp;
 pub mod hrmp;

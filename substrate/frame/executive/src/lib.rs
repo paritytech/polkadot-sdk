@@ -121,8 +121,8 @@ use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker, OnFinalize, OnIdle, OnInitialize,
-		OnRuntimeUpgrade,
+		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker,
+		OnFinalize, OnIdle, OnInitialize, OnRuntimeUpgrade,
 	},
 	weights::Weight,
 };
@@ -139,9 +139,15 @@ use sp_runtime::{
 use sp_std::{marker::PhantomData, prelude::*};
 
 #[cfg(feature = "try-runtime")]
-use log;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use ::{
+	frame_support::{
+		traits::{TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState},
+		StorageNoopGuard,
+	},
+	frame_try_runtime::{TryStateSelect, UpgradeCheckSelect},
+	log,
+	sp_runtime::TryRuntimeError,
+};
 
 #[allow(dead_code)]
 const LOG_TARGET: &str = "runtime::executive";
@@ -188,6 +194,7 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -225,11 +232,13 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
-			+ frame_support::traits::TryState<BlockNumberFor<System>>,
+			+ TryState<BlockNumberFor<System>>
+			+ TryDecodeEntireStorage,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
 	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
 where
@@ -308,11 +317,15 @@ where
 		let _guard = frame_support::StorageNoopGuard::default();
 		<AllPalletsWithSystem as frame_support::traits::TryState<
 			BlockNumberFor<System>,
-		>>::try_state(*header.number(), select)
+		>>::try_state(*header.number(), select.clone())
 		.map_err(|e| {
 			log::error!(target: LOG_TARGET, "failure: {:?}", e);
 			e
 		})?;
+		if select.any() {
+			let res = AllPalletsWithSystem::try_decode_entire_state();
+			Self::log_decode_result(res)?;
+		}
 		drop(_guard);
 
 		// do some of the checks that would normally happen in `final_checks`, but perhaps skip
@@ -349,39 +362,77 @@ where
 		Ok(frame_system::Pallet::<System>::block_weight().total())
 	}
 
-	/// Execute all `OnRuntimeUpgrade` of this runtime, including the pre and post migration checks.
+	/// Execute all Migrations of this runtime.
 	///
-	/// Runs the try-state code both before and after the migration function if `checks` is set to
-	/// `true`. Also, if set to `true`, it runs the `pre_upgrade` and `post_upgrade` hooks.
-	pub fn try_runtime_upgrade(
-		checks: frame_try_runtime::UpgradeCheckSelect,
-	) -> Result<Weight, TryRuntimeError> {
-		if checks.try_state() {
-			let _guard = frame_support::StorageNoopGuard::default();
-			<AllPalletsWithSystem as frame_support::traits::TryState<
-				BlockNumberFor<System>,
-			>>::try_state(
-				frame_system::Pallet::<System>::block_number(),
-				frame_try_runtime::TryStateSelect::All,
-			)?;
-		}
-
-		let weight =
+	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
+	///
+	/// [`frame_system::LastRuntimeUpgrade`] is set to the current runtime version after
+	/// migrations execute. This is important for idempotency checks, because some migrations use
+	/// this value to determine whether or not they should execute.
+	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
+		let before_all_weight =
+			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
+		let try_on_runtime_upgrade_weight =
 			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
 				checks.pre_and_post(),
 			)?;
 
+		frame_system::LastRuntimeUpgrade::<System>::put(
+			frame_system::LastRuntimeUpgradeInfo::from(
+				<System::Version as frame_support::traits::Get<_>>::get(),
+			),
+		);
+
+		// Nothing should modify the state after the migrations ran:
+		let _guard = StorageNoopGuard::default();
+
+		// The state must be decodable:
+		if checks.any() {
+			let res = AllPalletsWithSystem::try_decode_entire_state();
+			Self::log_decode_result(res)?;
+		}
+
+		// Check all storage invariants:
 		if checks.try_state() {
-			let _guard = frame_support::StorageNoopGuard::default();
-			<AllPalletsWithSystem as frame_support::traits::TryState<
-				BlockNumberFor<System>,
-			>>::try_state(
+			AllPalletsWithSystem::try_state(
 				frame_system::Pallet::<System>::block_number(),
-				frame_try_runtime::TryStateSelect::All,
+				TryStateSelect::All,
 			)?;
 		}
 
-		Ok(weight)
+		Ok(before_all_weight.saturating_add(try_on_runtime_upgrade_weight))
+	}
+
+	/// Logs the result of trying to decode the entire state.
+	fn log_decode_result(
+		res: Result<usize, Vec<TryDecodeEntireStorageError>>,
+	) -> Result<(), TryRuntimeError> {
+		match res {
+			Ok(bytes) => {
+				log::info!(
+					target: LOG_TARGET,
+					"✅ Entire runtime state decodes without error. {} bytes total.",
+					bytes
+				);
+
+				Ok(())
+			},
+			Err(errors) => {
+				log::error!(
+					target: LOG_TARGET,
+					"`try_decode_entire_state` failed with {} errors",
+					errors.len(),
+				);
+
+				for (i, err) in errors.iter().enumerate() {
+					// We log the short version to `error` and then the full debug info to `debug`:
+					log::error!(target: LOG_TARGET, "- {i}. error: {err}");
+					log::debug!(target: LOG_TARGET, "- {i}. error: {err:?}");
+				}
+
+				Err("`try_decode_entire_state` failed".into())
+			},
+		}
 	}
 }
 
@@ -394,6 +445,7 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -410,7 +462,10 @@ where
 {
 	/// Execute all `OnRuntimeUpgrade` of this runtime, and return the aggregate weight.
 	pub fn execute_on_runtime_upgrade() -> Weight {
+		let before_all_weight =
+			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
 		<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::on_runtime_upgrade()
+			.saturating_add(before_all_weight)
 	}
 
 	/// Start the execution of a particular block.
@@ -444,6 +499,12 @@ where
 		let mut weight = Weight::zero();
 		if Self::runtime_upgraded() {
 			weight = weight.saturating_add(Self::execute_on_runtime_upgrade());
+
+			frame_system::LastRuntimeUpgrade::<System>::put(
+				frame_system::LastRuntimeUpgradeInfo::from(
+					<System::Version as frame_support::traits::Get<_>>::get(),
+				),
+			);
 		}
 		<frame_system::Pallet<System>>::initialize(block_number, parent_hash, digest);
 		weight = weight.saturating_add(<AllPalletsWithSystem as OnInitialize<
@@ -460,19 +521,12 @@ where
 		frame_system::Pallet::<System>::note_finished_initialize();
 	}
 
-	/// Returns if the runtime was upgraded since the last time this function was called.
+	/// Returns if the runtime has been upgraded, based on [`frame_system::LastRuntimeUpgrade`].
 	fn runtime_upgraded() -> bool {
 		let last = frame_system::LastRuntimeUpgrade::<System>::get();
 		let current = <System::Version as frame_support::traits::Get<_>>::get();
 
-		if last.map(|v| v.was_upgraded(&current)).unwrap_or(true) {
-			frame_system::LastRuntimeUpgrade::<System>::put(
-				frame_system::LastRuntimeUpgradeInfo::from(current),
-			);
-			true
-		} else {
-			false
-		}
+		last.map(|v| v.was_upgraded(&current)).unwrap_or(true)
 	}
 
 	fn initial_checks(block: &Block) {
@@ -708,11 +762,11 @@ mod tests {
 	};
 
 	use frame_support::{
-		assert_err, parameter_types,
+		assert_err, derive_impl, parameter_types,
 		traits::{fungible, ConstU32, ConstU64, ConstU8, Currency},
 		weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightToFee},
 	};
-	use frame_system::{ChainContext, LastRuntimeUpgradeInfo};
+	use frame_system::{ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
 	use pallet_balances::Call as BalancesCall;
 	use pallet_transaction_payment::CurrencyAdapter;
 
@@ -843,12 +897,11 @@ mod tests {
 	}
 
 	frame_support::construct_runtime!(
-		pub struct Runtime
-		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
-			Custom: custom::{Pallet, Call, ValidateUnsigned, Inherent},
+		pub enum Runtime {
+			System: frame_system,
+			Balances: pallet_balances,
+			TransactionPayment: pallet_transaction_payment,
+			Custom: custom,
 		}
 	);
 
@@ -864,6 +917,7 @@ mod tests {
 			write: 100,
 		};
 	}
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = BlockWeights;
@@ -904,7 +958,7 @@ mod tests {
 		type FreezeIdentifier = ();
 		type MaxFreezes = ConstU32<1>;
 		type RuntimeHoldReason = ();
-		type MaxHolds = ConstU32<1>;
+		type RuntimeFreezeReason = ();
 	}
 
 	parameter_types! {
@@ -950,6 +1004,9 @@ mod tests {
 			sp_io::storage::set(TEST_KEY, "custom_upgrade".as_bytes());
 			sp_io::storage::set(CUSTOM_ON_RUNTIME_KEY, &true.encode());
 			System::deposit_event(frame_system::Event::CodeUpdated);
+
+			assert_eq!(0, System::last_runtime_upgrade_spec_version());
+
 			Weight::from_parts(100, 0)
 		}
 	}
@@ -1312,17 +1369,13 @@ mod tests {
 		new_test_ext(1).execute_with(|| {
 			RuntimeVersionTestValues::mutate(|v| *v = Default::default());
 			// It should be added at genesis
-			assert!(frame_system::LastRuntimeUpgrade::<Runtime>::exists());
+			assert!(LastRuntimeUpgrade::<Runtime>::exists());
 			assert!(!Executive::runtime_upgraded());
 
 			RuntimeVersionTestValues::mutate(|v| {
 				*v = sp_version::RuntimeVersion { spec_version: 1, ..Default::default() }
 			});
 			assert!(Executive::runtime_upgraded());
-			assert_eq!(
-				Some(LastRuntimeUpgradeInfo { spec_version: 1.into(), spec_name: "".into() }),
-				frame_system::LastRuntimeUpgrade::<Runtime>::get(),
-			);
 
 			RuntimeVersionTestValues::mutate(|v| {
 				*v = sp_version::RuntimeVersion {
@@ -1332,27 +1385,18 @@ mod tests {
 				}
 			});
 			assert!(Executive::runtime_upgraded());
-			assert_eq!(
-				Some(LastRuntimeUpgradeInfo { spec_version: 1.into(), spec_name: "test".into() }),
-				frame_system::LastRuntimeUpgrade::<Runtime>::get(),
-			);
 
 			RuntimeVersionTestValues::mutate(|v| {
 				*v = sp_version::RuntimeVersion {
-					spec_version: 1,
-					spec_name: "test".into(),
+					spec_version: 0,
 					impl_version: 2,
 					..Default::default()
 				}
 			});
 			assert!(!Executive::runtime_upgraded());
 
-			frame_system::LastRuntimeUpgrade::<Runtime>::take();
+			LastRuntimeUpgrade::<Runtime>::take();
 			assert!(Executive::runtime_upgraded());
-			assert_eq!(
-				Some(LastRuntimeUpgradeInfo { spec_version: 1.into(), spec_name: "test".into() }),
-				frame_system::LastRuntimeUpgrade::<Runtime>::get(),
-			);
 		})
 	}
 
@@ -1400,6 +1444,10 @@ mod tests {
 
 			assert_eq!(&sp_io::storage::get(TEST_KEY).unwrap()[..], *b"module");
 			assert_eq!(sp_io::storage::get(CUSTOM_ON_RUNTIME_KEY).unwrap(), true.encode());
+			assert_eq!(
+				Some(RuntimeVersionTestValues::get().into()),
+				LastRuntimeUpgrade::<Runtime>::get(),
+			)
 		});
 	}
 
@@ -1475,6 +1523,9 @@ mod tests {
 
 	#[test]
 	fn all_weights_are_recorded_correctly() {
+		// Reset to get the correct new genesis below.
+		RuntimeVersionTestValues::take();
+
 		new_test_ext(1).execute_with(|| {
 			// Make sure `on_runtime_upgrade` is called for maximum complexity
 			RuntimeVersionTestValues::mutate(|v| {
@@ -1490,6 +1541,10 @@ mod tests {
 				[69u8; 32].into(),
 				Digest::default(),
 			));
+
+			// Reset the last runtime upgrade info, to make the second call to `on_runtime_upgrade`
+			// succeed.
+			LastRuntimeUpgrade::<Runtime>::take();
 
 			// All weights that show up in the `initialize_block_impl`
 			let custom_runtime_upgrade_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();

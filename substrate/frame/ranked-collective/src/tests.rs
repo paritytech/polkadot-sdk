@@ -20,14 +20,14 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_noop, assert_ok, derive_impl,
 	error::BadOrigin,
 	parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64, EitherOf, Everything, MapSuccess, Polling},
+	traits::{ConstU16, EitherOf, MapSuccess, Polling},
 };
-use sp_core::{Get, H256};
+use sp_core::Get;
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup, ReduceBy},
+	traits::{ReduceBy, ReplaceWithDefault},
 	BuildStorage,
 };
 
@@ -40,35 +40,14 @@ type Class = Rank;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Club: pallet_ranked_collective::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Club: pallet_ranked_collective,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -176,6 +155,8 @@ parameter_types! {
 impl Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = MapSuccess<Self::PromoteOrigin, ReplaceWithDefault<()>>;
+	type RemoveOrigin = Self::DemoteOrigin;
 	type PromoteOrigin = EitherOf<
 		// Root can promote arbitrarily.
 		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
@@ -188,16 +169,42 @@ impl Config for Test {
 		// Members can demote up to the rank of 3 below them.
 		MapSuccess<EnsureRanked<Test, (), 3>, ReduceBy<ConstU16<3>>>,
 	>;
+	type ExchangeOrigin = EitherOf<
+		// Root can exchange arbitrarily.
+		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
+		// Members can exchange up to the rank of 2 below them.
+		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
+	>;
 	type Polls = TestPolls;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
+	type MemberSwappedHandler = ();
 	type VoteWeight = Geometric;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = ();
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
-	ext
+pub struct ExtBuilder {}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self {}
+	}
+}
+
+impl ExtBuilder {
+	pub fn build(self) -> sp_io::TestExternalities {
+		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+			Club::do_try_state().expect("All invariants must hold after a test");
+		})
+	}
 }
 
 fn next_block() {
@@ -235,14 +242,14 @@ fn completed_poll_should_panic() {
 
 #[test]
 fn basic_stuff() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 	});
 }
 
 #[test]
 fn member_lifecycle_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::demote_member(RuntimeOrigin::root(), 1));
@@ -254,7 +261,7 @@ fn member_lifecycle_works() {
 
 #[test]
 fn add_remove_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_noop!(Club::add_member(RuntimeOrigin::signed(1), 1), DispatchError::BadOrigin);
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_eq!(member_count(0), 1);
@@ -284,7 +291,7 @@ fn add_remove_works() {
 
 #[test]
 fn promote_demote_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_noop!(Club::add_member(RuntimeOrigin::signed(1), 1), DispatchError::BadOrigin);
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_eq!(member_count(0), 1);
@@ -315,7 +322,7 @@ fn promote_demote_works() {
 
 #[test]
 fn promote_demote_by_rank_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		for _ in 0..7 {
 			assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
@@ -382,7 +389,7 @@ fn promote_demote_by_rank_works() {
 
 #[test]
 fn voting_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 0));
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
@@ -416,7 +423,7 @@ fn voting_works() {
 
 #[test]
 fn cleanup_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 2));
@@ -442,8 +449,34 @@ fn cleanup_works() {
 }
 
 #[test]
+fn remove_member_cleanup_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 2));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 2));
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 3));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
+
+		assert_eq!(IdToIndex::<Test>::get(1, 2), Some(1));
+		assert_eq!(IndexToId::<Test>::get(1, 1), Some(2));
+
+		assert_eq!(IdToIndex::<Test>::get(1, 3), Some(2));
+		assert_eq!(IndexToId::<Test>::get(1, 2), Some(3));
+
+		assert_ok!(Club::remove_member(RuntimeOrigin::root(), 2, 1));
+
+		assert_eq!(IdToIndex::<Test>::get(1, 2), None);
+		assert_eq!(IndexToId::<Test>::get(1, 1), Some(3));
+
+		assert_eq!(IdToIndex::<Test>::get(1, 3), Some(1));
+		assert_eq!(IndexToId::<Test>::get(1, 2), None);
+	});
+}
+
+#[test]
 fn ensure_ranked_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 2));
@@ -512,10 +545,10 @@ fn ensure_ranked_works() {
 
 #[test]
 fn do_add_member_to_rank_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let max_rank = 9u16;
-		assert_ok!(Club::do_add_member_to_rank(69, max_rank / 2));
-		assert_ok!(Club::do_add_member_to_rank(1337, max_rank));
+		assert_ok!(Club::do_add_member_to_rank(69, max_rank / 2, true));
+		assert_ok!(Club::do_add_member_to_rank(1337, max_rank, true));
 		for i in 0..=max_rank {
 			if i <= max_rank / 2 {
 				assert_eq!(member_count(i), 2);
@@ -529,7 +562,7 @@ fn do_add_member_to_rank_works() {
 
 #[test]
 fn tally_support_correct() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// add members,
 		// rank 1: accounts 1, 2, 3
 		// rank 2: accounts 2, 3
@@ -564,5 +597,51 @@ fn tally_support_correct() {
 
 		// reset back.
 		MinRankOfClassDelta::set(0);
+	});
+}
+
+#[test]
+fn exchange_member_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
+		assert_eq!(member_count(0), 1);
+
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
+
+		let member_record = MemberRecord { rank: 1 };
+		assert_eq!(Members::<Test>::get(1), Some(member_record.clone()));
+		assert_eq!(Members::<Test>::get(2), None);
+
+		assert_ok!(Club::exchange_member(RuntimeOrigin::root(), 1, 2));
+		assert_eq!(member_count(0), 1);
+
+		assert_eq!(Members::<Test>::get(1), None);
+		assert_eq!(Members::<Test>::get(2), Some(member_record));
+
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 3));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
+
+		assert_noop!(
+			Club::exchange_member(RuntimeOrigin::signed(3), 2, 1),
+			DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn exchange_member_same_noops() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 2));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 2));
+
+		// Swapping the same accounts is a noop:
+		assert_noop!(Club::exchange_member(RuntimeOrigin::root(), 1, 1), Error::<Test>::SameMember);
+		// Swapping with a different member is a noop:
+		assert_noop!(
+			Club::exchange_member(RuntimeOrigin::root(), 1, 2),
+			Error::<Test>::AlreadyMember
+		);
 	});
 }

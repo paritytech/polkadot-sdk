@@ -377,7 +377,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		result
 	}
 
-	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<PrepareStats, PrepareError> {
+	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<(), PrepareError> {
 		unreachable!()
 	}
 }
@@ -436,7 +436,7 @@ fn candidate_validation_ok_is_ok() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
+		PvfExecKind::Backing,
 		&Default::default(),
 	))
 	.unwrap();
@@ -480,20 +480,47 @@ fn candidate_validation_bad_return_is_invalid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
-		)),
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
+			WasmInvalidCandidate::HardTimeout,
+		))),
 		validation_data,
 		validation_code,
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
+		PvfExecKind::Backing,
 		&Default::default(),
 	))
 	.unwrap();
 
 	assert_matches!(v, ValidationResult::Invalid(InvalidCandidate::Timeout));
+}
+
+fn perform_basic_checks_on_valid_candidate(
+	pov: &PoV,
+	validation_code: &ValidationCode,
+	validation_data: &PersistedValidationData,
+	head_data_hash: Hash,
+) -> CandidateDescriptor {
+	let descriptor = make_valid_candidate_descriptor(
+		ParaId::from(1_u32),
+		dummy_hash(),
+		validation_data.hash(),
+		pov.hash(),
+		validation_code.hash(),
+		head_data_hash,
+		head_data_hash,
+		Sr25519Keyring::Alice,
+	);
+
+	let check = perform_basic_checks(
+		&descriptor,
+		validation_data.max_pov_size,
+		&pov,
+		&validation_code.hash(),
+	);
+	assert!(check.is_ok());
+	descriptor
 }
 
 // Test that we vote valid if we get `AmbiguousWorkerDeath`, retry, and then succeed.
@@ -505,24 +532,12 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 	let head_data = HeadData(vec![1, 1, 1]);
 	let validation_code = ValidationCode(vec![2; 16]);
 
-	let descriptor = make_valid_candidate_descriptor(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		validation_data.hash(),
-		pov.hash(),
-		validation_code.hash(),
-		head_data.hash(),
-		dummy_hash(),
-		Sr25519Keyring::Alice,
-	);
-
-	let check = perform_basic_checks(
-		&descriptor,
-		validation_data.max_pov_size,
+	let descriptor = perform_basic_checks_on_valid_candidate(
 		&pov,
-		&validation_code.hash(),
+		&validation_code,
+		&validation_data,
+		head_data.hash(),
 	);
-	assert!(check.is_ok());
 
 	let validation_result = WasmValidationResult {
 		head_data,
@@ -546,7 +561,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			Ok(validation_result),
 		]),
 		validation_data.clone(),
@@ -554,7 +569,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
+		PvfExecKind::Approval,
 		&Default::default(),
 	))
 	.unwrap();
@@ -576,38 +591,26 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
 	let validation_code = ValidationCode(vec![2; 16]);
 
-	let descriptor = make_valid_candidate_descriptor(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		validation_data.hash(),
-		pov.hash(),
-		validation_code.hash(),
-		dummy_hash(),
-		dummy_hash(),
-		Sr25519Keyring::Alice,
-	);
-
-	let check = perform_basic_checks(
-		&descriptor,
-		validation_data.max_pov_size,
+	let descriptor = perform_basic_checks_on_valid_candidate(
 		&pov,
-		&validation_code.hash(),
+		&validation_code,
+		&validation_data,
+		dummy_hash(),
 	);
-	assert!(check.is_ok());
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 		]),
 		validation_data,
 		validation_code,
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
+		PvfExecKind::Approval,
 		&Default::default(),
 	))
 	.unwrap();
@@ -615,58 +618,79 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 	assert_matches!(v, ValidationResult::Invalid(InvalidCandidate::ExecutionError(_)));
 }
 
-// Test that we retry on internal errors.
+// Test that we retry for approval on internal errors.
 #[test]
 fn candidate_validation_retry_internal_errors() {
-	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
-
-	let pov = PoV { block_data: BlockData(vec![1; 32]) };
-	let validation_code = ValidationCode(vec![2; 16]);
-
-	let descriptor = make_valid_candidate_descriptor(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		validation_data.hash(),
-		pov.hash(),
-		validation_code.hash(),
-		dummy_hash(),
-		dummy_hash(),
-		Sr25519Keyring::Alice,
-	);
-
-	let check = perform_basic_checks(
-		&descriptor,
-		validation_data.max_pov_size,
-		&pov,
-		&validation_code.hash(),
-	);
-	assert!(check.is_ok());
-
-	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
-
-	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
+	let v = candidate_validation_retry_on_error_helper(
+		PvfExecKind::Approval,
+		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
-			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			// Throw an AJD error, we should still retry again.
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(
+				"baz".into(),
+			))),
 			// Throw another internal error.
 			Err(InternalValidationError::HostCommunication("bar".into()).into()),
-		]),
-		validation_data,
-		validation_code,
-		candidate_receipt,
-		Arc::new(pov),
-		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
-		&Default::default(),
-	));
-
+		],
+	);
 	assert_matches!(v, Err(ValidationFailed(s)) if s.contains("bar"));
 }
 
-// Test that we retry on panic errors.
+// Test that we don't retry for backing on internal errors.
+#[test]
+fn candidate_validation_dont_retry_internal_errors() {
+	let v = candidate_validation_retry_on_error_helper(
+		PvfExecKind::Backing,
+		vec![
+			Err(InternalValidationError::HostCommunication("foo".into()).into()),
+			// Throw an AWD error, we should still retry again.
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
+			// Throw another internal error.
+			Err(InternalValidationError::HostCommunication("bar".into()).into()),
+		],
+	);
+
+	assert_matches!(v, Err(ValidationFailed(s)) if s.contains("foo"));
+}
+
+// Test that we retry for approval on panic errors.
 #[test]
 fn candidate_validation_retry_panic_errors() {
+	let v = candidate_validation_retry_on_error_helper(
+		PvfExecKind::Approval,
+		vec![
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
+			// Throw an AWD error, we should still retry again.
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
+			// Throw another panic error.
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("bar".into()))),
+		],
+	);
+
+	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(s))) if s == "bar".to_string());
+}
+
+// Test that we don't retry for backing on panic errors.
+#[test]
+fn candidate_validation_dont_retry_panic_errors() {
+	let v = candidate_validation_retry_on_error_helper(
+		PvfExecKind::Backing,
+		vec![
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
+			// Throw an AWD error, we should still retry again.
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
+			// Throw another panic error.
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("bar".into()))),
+		],
+	);
+
+	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(s))) if s == "foo".to_string());
+}
+
+fn candidate_validation_retry_on_error_helper(
+	exec_kind: PvfExecKind,
+	mock_errors: Vec<Result<WasmValidationResult, ValidationError>>,
+) -> Result<ValidationResult, ValidationFailed> {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
@@ -693,24 +717,16 @@ fn candidate_validation_retry_panic_errors() {
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
-	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("foo".into()))),
-			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
-			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
-		]),
+	return executor::block_on(validate_candidate_exhaustive(
+		MockValidateCandidateBackend::with_hardcoded_result_list(mock_errors),
 		validation_data,
 		validation_code,
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
+		exec_kind,
 		&Default::default(),
-	));
-
-	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(s))) if s == "bar".to_string());
+	))
 }
 
 #[test]
@@ -742,15 +758,15 @@ fn candidate_validation_timeout_is_internal_error() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
-		)),
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
+			WasmInvalidCandidate::HardTimeout,
+		))),
 		validation_data,
 		validation_code,
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
+		PvfExecKind::Backing,
 		&Default::default(),
 	));
 
@@ -795,7 +811,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
+		PvfExecKind::Backing,
 		&Default::default(),
 	))
 	.unwrap();
@@ -836,15 +852,15 @@ fn candidate_validation_code_mismatch_is_invalid() {
 	let (_ctx, _ctx_handle) = test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
-		)),
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
+			WasmInvalidCandidate::HardTimeout,
+		))),
 		validation_data,
 		validation_code,
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
+		PvfExecKind::Backing,
 		&Default::default(),
 	))
 	.unwrap();
@@ -901,7 +917,7 @@ fn compressed_code_works() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
+		PvfExecKind::Backing,
 		&Default::default(),
 	));
 
@@ -952,7 +968,7 @@ fn code_decompression_failure_is_error() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
+		PvfExecKind::Backing,
 		&Default::default(),
 	));
 
@@ -1004,7 +1020,7 @@ fn pov_decompression_failure_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecTimeoutKind::Backing,
+		PvfExecKind::Backing,
 		&Default::default(),
 	));
 
@@ -1012,11 +1028,11 @@ fn pov_decompression_failure_is_invalid() {
 }
 
 struct MockPreCheckBackend {
-	result: Result<PrepareStats, PrepareError>,
+	result: Result<(), PrepareError>,
 }
 
 impl MockPreCheckBackend {
-	fn with_hardcoded_result(result: Result<PrepareStats, PrepareError>) -> Self {
+	fn with_hardcoded_result(result: Result<(), PrepareError>) -> Self {
 		Self { result }
 	}
 }
@@ -1032,7 +1048,7 @@ impl ValidationBackend for MockPreCheckBackend {
 		unreachable!()
 	}
 
-	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<PrepareStats, PrepareError> {
+	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<(), PrepareError> {
 		self.result.clone()
 	}
 }
@@ -1049,7 +1065,7 @@ fn precheck_works() {
 
 	let (check_fut, check_result) = precheck_pvf(
 		ctx.sender(),
-		MockPreCheckBackend::with_hardcoded_result(Ok(PrepareStats::default())),
+		MockPreCheckBackend::with_hardcoded_result(Ok(())),
 		relay_parent,
 		validation_code_hash,
 	)
@@ -1111,7 +1127,7 @@ fn precheck_invalid_pvf_blob_compression() {
 
 	let (check_fut, check_result) = precheck_pvf(
 		ctx.sender(),
-		MockPreCheckBackend::with_hardcoded_result(Ok(PrepareStats::default())),
+		MockPreCheckBackend::with_hardcoded_result(Ok(())),
 		relay_parent,
 		validation_code_hash,
 	)
@@ -1216,7 +1232,7 @@ fn precheck_properly_classifies_outcomes() {
 
 	inner(Err(PrepareError::Prevalidation("foo".to_owned())), PreCheckOutcome::Invalid);
 	inner(Err(PrepareError::Preparation("bar".to_owned())), PreCheckOutcome::Invalid);
-	inner(Err(PrepareError::Panic("baz".to_owned())), PreCheckOutcome::Invalid);
+	inner(Err(PrepareError::JobError("baz".to_owned())), PreCheckOutcome::Invalid);
 
 	inner(Err(PrepareError::TimedOut), PreCheckOutcome::Failed);
 	inner(Err(PrepareError::IoErr("fizz".to_owned())), PreCheckOutcome::Failed);

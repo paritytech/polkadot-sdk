@@ -1,6 +1,6 @@
 [package]
 name = "sp-externalities"
-version = "0.19.0"
+version = "0.25.0"
 license = "Apache-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -10,15 +10,18 @@ description = "Substrate externalities abstraction"
 documentation = "https://docs.rs/sp-externalities"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 environmental = { version = "1.1.3", default-features = false }
-sp-std = { path = "../std", default-features = false}
-sp-storage = { path = "../storage", default-features = false}
+sp-std = { path = "../std", default-features = false }
+sp-storage = { path = "../storage", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "codec/std", "environmental/std", "sp-std/std", "sp-storage/std" ]
+default = ["std"]
+std = ["codec/std", "environmental/std", "sp-std/std", "sp-storage/std"]

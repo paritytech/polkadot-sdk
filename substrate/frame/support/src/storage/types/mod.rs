@@ -30,7 +30,7 @@ mod map;
 mod nmap;
 mod value;
 
-pub use counted_map::{CountedStorageMap, CountedStorageMapInstance};
+pub use counted_map::{CountedStorageMap, CountedStorageMapInstance, Counter};
 pub use counted_nmap::{CountedStorageNMap, CountedStorageNMapInstance};
 pub use double_map::StorageDoubleMap;
 pub use key::{
@@ -43,13 +43,17 @@ pub use value::StorageValue;
 
 /// Trait implementing how the storage optional value is converted into the queried type.
 ///
-/// It is implemented by:
-/// * `OptionQuery` which converts an optional value to an optional value, used when querying
+/// It is implemented most notable by:
+///
+/// * [`OptionQuery`] which converts an optional value to an optional value, used when querying
 ///   storage returns an optional value.
-/// * `ResultQuery` which converts an optional value to a result value, used when querying storage
+/// * [`ResultQuery`] which converts an optional value to a result value, used when querying storage
 ///   returns a result value.
-/// * `ValueQuery` which converts an optional value to a value, used when querying storage returns a
-///   value.
+/// * [`ValueQuery`] which converts an optional value to a value, used when querying storage returns
+///   a value.
+///
+/// ## Example
+#[doc = docify::embed!("src/storage/types/mod.rs", value_query_examples)]
 pub trait QueryKindTrait<Value, OnEmpty> {
 	/// Metadata for the storage kind.
 	const METADATA: StorageEntryModifierIR;
@@ -65,11 +69,10 @@ pub trait QueryKindTrait<Value, OnEmpty> {
 	fn from_query_to_optional_value(v: Self::Query) -> Option<Value>;
 }
 
-/// Implement QueryKindTrait with query being `Option<Value>`
+/// Implements [`QueryKindTrait`] with `Query` type being `Option<_>`.
 ///
-/// NOTE: it doesn't support a generic `OnEmpty`. This means only `None` can be
-/// returned when no value is found. To use another `OnEmpty` implementation, `ValueQuery` can be
-/// used instead.
+/// NOTE: it doesn't support a generic `OnEmpty`. This means only `None` can be returned when no
+/// value is found. To use another `OnEmpty` implementation, `ValueQuery` can be used instead.
 pub struct OptionQuery;
 impl<Value> QueryKindTrait<Value, crate::traits::GetDefault> for OptionQuery
 where
@@ -89,7 +92,7 @@ where
 	}
 }
 
-/// Implement QueryKindTrait with query being `Result<Value, PalletError>`
+/// Implements [`QueryKindTrait`] with `Query` type being `Result<Value, PalletError>`.
 pub struct ResultQuery<Error>(sp_std::marker::PhantomData<Error>);
 impl<Value, Error, OnEmpty> QueryKindTrait<Value, OnEmpty> for ResultQuery<Error>
 where
@@ -113,7 +116,7 @@ where
 	}
 }
 
-/// Implement QueryKindTrait with query being `Value`
+/// Implements [`QueryKindTrait`] with `Query` type being `Value`.
 pub struct ValueQuery;
 impl<Value, OnEmpty> QueryKindTrait<Value, OnEmpty> for ValueQuery
 where
@@ -139,4 +142,61 @@ where
 pub trait StorageEntryMetadataBuilder {
 	/// Build into `entries` the storage metadata entries of a storage given some `docs`.
 	fn build_metadata(doc: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>);
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use crate::{
+		storage::types::ValueQuery,
+		traits::{Get, StorageInstance},
+	};
+	use sp_io::TestExternalities;
+
+	struct Prefix;
+	impl StorageInstance for Prefix {
+		fn pallet_prefix() -> &'static str {
+			"test"
+		}
+		const STORAGE_PREFIX: &'static str = "foo";
+	}
+
+	#[docify::export]
+	#[test]
+	pub fn value_query_examples() {
+		/// Custom default impl to be used with `ValueQuery`.
+		struct UniverseSecret;
+		impl Get<u32> for UniverseSecret {
+			fn get() -> u32 {
+				42
+			}
+		}
+
+		/// Custom default impl to be used with `ResultQuery`.
+		struct GetDefaultForResult;
+		impl Get<Result<u32, ()>> for GetDefaultForResult {
+			fn get() -> Result<u32, ()> {
+				Err(())
+			}
+		}
+
+		type A = StorageValue<Prefix, u32, ValueQuery>;
+		type B = StorageValue<Prefix, u32, OptionQuery>;
+		type C = StorageValue<Prefix, u32, ResultQuery<()>, GetDefaultForResult>;
+		type D = StorageValue<Prefix, u32, ValueQuery, UniverseSecret>;
+
+		TestExternalities::default().execute_with(|| {
+			// normal value query returns default
+			assert_eq!(A::get(), 0);
+
+			// option query returns none
+			assert_eq!(B::get(), None);
+
+			// result query returns error
+			assert_eq!(C::get(), Err(()));
+
+			// value query with custom onempty returns 42
+			assert_eq!(D::get(), 42);
+		});
+	}
 }

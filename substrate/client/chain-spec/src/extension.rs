@@ -284,7 +284,7 @@ where
 	}
 }
 
-/// A subset if the `Extension` trait that only allows for quering extensions.
+/// A subset of the `Extension` trait that only allows for quering extensions.
 pub trait GetExtension {
 	/// Get an extension of specific type.
 	fn get_any(&self, t: TypeId) -> &dyn Any;

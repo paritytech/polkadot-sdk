@@ -23,9 +23,11 @@ use sp_core::{sr25519, Pair};
 use sp_io::crypto::sr25519_verify;
 use sp_std::{fmt, fmt::Formatter, prelude::*};
 
+use derive_more::From;
 use rand::{seq::SliceRandom, Rng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
+	fmt::Display,
 	fs::File,
 	io::{Seek, SeekFrom, Write},
 	ops::{Deref, DerefMut},
@@ -46,6 +48,37 @@ pub enum Metric {
 	DiskSeqWrite,
 	/// Disk random write.
 	DiskRndWrite,
+}
+
+/// Describes a checking failure for the hardware requirements.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CheckFailure {
+	/// The metric that failed the check.
+	pub metric: Metric,
+	/// The expected minimum value.
+	pub expected: Throughput,
+	/// The measured value.
+	pub found: Throughput,
+}
+
+/// A list of metrics that failed to meet the minimum hardware requirements.
+#[derive(Debug, Clone, PartialEq, From)]
+pub struct CheckFailures(pub Vec<CheckFailure>);
+
+impl Display for CheckFailures {
+	fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+		write!(formatter, "Failed checks: ")?;
+		for failure in &self.0 {
+			write!(
+				formatter,
+				"{}(expected: {}, found: {}), ",
+				failure.metric.name(),
+				failure.expected,
+				failure.found
+			)?
+		}
+		Ok(())
+	}
 }
 
 impl Metric {
@@ -332,7 +365,7 @@ pub fn benchmark_cpu(limit: ExecutionLimit) -> Throughput {
 
 	let run = || -> Result<(), ()> {
 		clobber_slice(&mut buffer);
-		hash = sp_core::hashing::blake2_256(&buffer);
+		hash = sp_crypto_hashing::blake2_256(&buffer);
 		clobber_slice(&mut hash);
 
 		Ok(())
@@ -626,33 +659,54 @@ pub fn gather_hwbench(scratch_directory: Option<&Path>) -> HwBench {
 
 impl Requirements {
 	/// Whether the hardware requirements are met by the provided benchmark results.
-	pub fn check_hardware(&self, hwbench: &HwBench) -> bool {
+	pub fn check_hardware(&self, hwbench: &HwBench) -> Result<(), CheckFailures> {
+		let mut failures = Vec::new();
 		for requirement in self.0.iter() {
 			match requirement.metric {
 				Metric::Blake2256 =>
 					if requirement.minimum > hwbench.cpu_hashrate_score {
-						return false
+						failures.push(CheckFailure {
+							metric: requirement.metric,
+							expected: requirement.minimum,
+							found: hwbench.cpu_hashrate_score,
+						});
 					},
 				Metric::MemCopy =>
 					if requirement.minimum > hwbench.memory_memcpy_score {
-						return false
+						failures.push(CheckFailure {
+							metric: requirement.metric,
+							expected: requirement.minimum,
+							found: hwbench.memory_memcpy_score,
+						});
 					},
 				Metric::DiskSeqWrite =>
 					if let Some(score) = hwbench.disk_sequential_write_score {
 						if requirement.minimum > score {
-							return false
+							failures.push(CheckFailure {
+								metric: requirement.metric,
+								expected: requirement.minimum,
+								found: score,
+							});
 						}
 					},
 				Metric::DiskRndWrite =>
 					if let Some(score) = hwbench.disk_random_write_score {
 						if requirement.minimum > score {
-							return false
+							failures.push(CheckFailure {
+								metric: requirement.metric,
+								expected: requirement.minimum,
+								found: score,
+							});
 						}
 					},
 				Metric::Sr25519Verify => {},
 			}
 		}
-		true
+		if failures.is_empty() {
+			Ok(())
+		} else {
+			Err(failures.into())
+		}
 	}
 }
 

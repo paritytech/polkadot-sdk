@@ -162,12 +162,12 @@ pub fn run() -> Result<()> {
 				cmd.run(config, polkadot_config)
 			})
 		},
-		Some(Subcommand::ExportGenesisState(cmd)) => {
+		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
 				let partials = new_partial(&config)?;
 
-				cmd.run(&*config.chain_spec, &*partials.client)
+				cmd.run(partials.client)
 			})
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
@@ -183,7 +183,7 @@ pub fn run() -> Result<()> {
 			match cmd {
 				BenchmarkCmd::Pallet(cmd) =>
 					if cfg!(feature = "runtime-benchmarks") {
-						runner.sync_run(|config| cmd.run::<Block, ()>(config))
+						runner.sync_run(|config| cmd.run::<sp_runtime::traits::HashingFor<Block>, ()>(config))
 					} else {
 						Err("Benchmarking wasn't enabled when building the node. \
 					You can enable it with `--features runtime-benchmarks`."

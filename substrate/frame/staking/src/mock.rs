@@ -23,22 +23,16 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen, VoteWeight,
 };
 use frame_support::{
-	assert_ok, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU32, ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance,
-		OnUnbalanced, OneSessionHandler,
+		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, OnUnbalanced,
+		OneSessionHandler,
 	},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_core::H256;
 use sp_io;
-use sp_runtime::{
-	curve::PiecewiseLinear,
-	testing::UintAuthorityId,
-	traits::{IdentityLookup, Zero},
-	BuildStorage,
-};
+use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate,
@@ -49,7 +43,6 @@ pub const BLOCK_TIME: u64 = 1000;
 
 /// The AccountId alias in this test module.
 pub(crate) type AccountId = u64;
-pub(crate) type Nonce = u64;
 pub(crate) type BlockNumber = u64;
 pub(crate) type Balance = u128;
 
@@ -122,32 +115,14 @@ parameter_types! {
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
+	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
 	type DbWeight = RocksDbWeight;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = Nonce;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = frame_support::traits::ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 impl pallet_balances::Config for Test {
 	type MaxLocks = frame_support::traits::ConstU32<1024>;
@@ -162,7 +137,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -235,6 +210,7 @@ const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 parameter_types! {
 	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
 	pub static HistoryDepth: u32 = 80;
+	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
 	pub static RewardOnUnbalanceWasCalled: bool = false;
 	pub static MaxWinners: u32 = 100;
@@ -303,7 +279,7 @@ impl crate::pallet::pallet::Config for Test {
 	type SessionInterface = Self;
 	type EraPayout = ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = MaxExposurePageSize;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
@@ -313,6 +289,7 @@ impl crate::pallet::pallet::Config for Test {
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
@@ -339,6 +316,11 @@ where
 
 pub(crate) type StakingCall = crate::Call<Test>;
 pub(crate) type TestCall = <Test as frame_system::Config>::RuntimeCall;
+
+parameter_types! {
+	// if true, skips the try-state for the test running.
+	pub static SkipTryStateCheck: bool = false;
+}
 
 pub struct ExtBuilder {
 	nominate: bool,
@@ -447,6 +429,10 @@ impl ExtBuilder {
 	}
 	pub fn balance_factor(mut self, factor: Balance) -> Self {
 		self.balance_factor = factor;
+		self
+	}
+	pub fn try_state(self, enable: bool) -> Self {
+		SkipTryStateCheck::set(!enable);
 		self
 	}
 	fn build(self) -> sp_io::TestExternalities {
@@ -577,7 +563,9 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			Staking::do_try_state(System::block_number()).unwrap();
+			if !SkipTryStateCheck::get() {
+				Staking::do_try_state(System::block_number()).unwrap();
+			}
 		});
 	}
 }
@@ -592,7 +580,7 @@ pub(crate) fn current_era() -> EraIndex {
 
 pub(crate) fn bond(who: AccountId, val: Balance) {
 	let _ = Balances::make_free_balance_be(&who, val);
-	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Controller));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Stash));
 }
 
 pub(crate) fn bond_validator(who: AccountId, val: Balance) {
@@ -759,7 +747,7 @@ pub(crate) fn on_offence_now(
 pub(crate) fn add_slash(who: &AccountId) {
 	on_offence_now(
 		&[OffenceDetails {
-			offender: (*who, Staking::eras_stakers(active_era(), *who)),
+			offender: (*who, Staking::eras_stakers(active_era(), who)),
 			reporters: vec![],
 		}],
 		&[Perbill::from_percent(10)],
@@ -777,7 +765,14 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
 	// reward validators
 	for validator_controller in validators_with_reward.iter().filter_map(Staking::bonded) {
 		let ledger = <Ledger<Test>>::get(&validator_controller).unwrap();
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), ledger.stash, era));
+		for page in 0..EraInfo::<Test>::get_page_count(era, &ledger.stash) {
+			assert_ok!(Staking::payout_stakers_by_page(
+				RuntimeOrigin::signed(1337),
+				ledger.stash,
+				era,
+				page
+			));
+		}
 	}
 }
 

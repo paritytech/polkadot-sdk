@@ -305,7 +305,7 @@ pub mod pallet {
 			/// The amount placed by the account.
 			amount: BalanceOf<T, I>,
 		},
-		/// A deposit has been slashaed.
+		/// A deposit has been slashed.
 		DepositSlashed {
 			/// The account who placed the deposit.
 			who: T::AccountId,
@@ -432,6 +432,11 @@ pub mod pallet {
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()?;
 			Ok(())
+		}
+
+		#[cfg(any(feature = "std", test))]
+		fn integrity_test() {
+			T::Tracks::check_integrity().expect("Static tracks configuration is valid.");
 		}
 	}
 

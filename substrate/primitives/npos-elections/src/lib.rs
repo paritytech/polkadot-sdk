@@ -22,9 +22,8 @@
 //! - [`ghragmms`](phragmms::phragmms()): Implements a hybrid approach inspired by Phragmén which is
 //!   executed faster but it can achieve a constant factor approximation of the maximin problem,
 //!   similar to that of the MMS algorithm.
-//! - [`balance`](balancing::balance): Implements the star balancing algorithm. This iterative
-//!   process can push a solution toward being more "balanced", which in turn can increase its
-//!   score.
+//! - [`balance`]: Implements the star balancing algorithm. This iterative process can push a
+//!   solution toward being more "balanced", which in turn can increase its score.
 //!
 //! ### Terminology
 //!

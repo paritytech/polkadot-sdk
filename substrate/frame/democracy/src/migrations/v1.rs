@@ -54,7 +54,7 @@ pub mod v1 {
 	use super::*;
 
 	/// Migration for translating bare `Hash`es into `Bounded<Call>`s.
-	pub struct Migration<T>(sp_std::marker::PhantomData<T>);
+	pub struct Migration<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config + frame_system::Config<Hash = H256>> OnRuntimeUpgrade for Migration<T> {
 		#[cfg(feature = "try-runtime")]
@@ -172,7 +172,7 @@ mod test {
 			let hash = H256::repeat_byte(1);
 			let status = ReferendumStatus {
 				end: 1u32.into(),
-				proposal: hash.clone(),
+				proposal: hash,
 				threshold: VoteThreshold::SuperMajorityApprove,
 				delay: 1u32.into(),
 				tally: Tally { ayes: 1u32.into(), nays: 1u32.into(), turnout: 1u32.into() },
@@ -187,13 +187,10 @@ mod test {
 
 			// Case 3: Public proposals
 			let hash2 = H256::repeat_byte(2);
-			v0::PublicProps::<T>::put(vec![
-				(3u32, hash.clone(), 123u64),
-				(4u32, hash2.clone(), 123u64),
-			]);
+			v0::PublicProps::<T>::put(vec![(3u32, hash, 123u64), (4u32, hash2, 123u64)]);
 
 			// Case 4: Next external
-			v0::NextExternal::<T>::put((hash.clone(), VoteThreshold::SuperMajorityApprove));
+			v0::NextExternal::<T>::put((hash, VoteThreshold::SuperMajorityApprove));
 
 			// Migrate.
 			let state = v1::Migration::<T>::pre_upgrade().unwrap();
