@@ -25,7 +25,9 @@ use std::str::FromStr;
 #[derive(Debug, PartialEq)]
 pub enum BridgeHubRuntimeType {
 	Kusama,
+	KusamaLocal,
 	Polkadot,
+	PolkadotLocal,
 
 	Rococo,
 	RococoLocal,
@@ -44,7 +46,9 @@ impl FromStr for BridgeHubRuntimeType {
 	fn from_str(value: &str) -> Result<Self, Self::Err> {
 		match value {
 			polkadot::BRIDGE_HUB_POLKADOT => Ok(BridgeHubRuntimeType::Polkadot),
+			polkadot::BRIDGE_HUB_POLKADOT_LOCAL => Ok(BridgeHubRuntimeType::PolkadotLocal),
 			kusama::BRIDGE_HUB_KUSAMA => Ok(BridgeHubRuntimeType::Kusama),
+			kusama::BRIDGE_HUB_KUSAMA_LOCAL => Ok(BridgeHubRuntimeType::KusamaLocal),
 			westend::BRIDGE_HUB_WESTEND => Ok(BridgeHubRuntimeType::Westend),
 			westend::BRIDGE_HUB_WESTEND_LOCAL => Ok(BridgeHubRuntimeType::WestendLocal),
 			westend::BRIDGE_HUB_WESTEND_DEVELOPMENT => Ok(BridgeHubRuntimeType::WestendDevelopment),
@@ -64,8 +68,14 @@ impl BridgeHubRuntimeType {
 			BridgeHubRuntimeType::Polkadot => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/bridge-hub-polkadot.json")[..],
 			)?)),
+			BridgeHubRuntimeType::PolkadotLocal => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/bridge-hub-polkadot-local.json")[..],
+			)?)),
 			BridgeHubRuntimeType::Kusama => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/bridge-hub-kusama.json")[..],
+			)?)),
+			BridgeHubRuntimeType::KusamaLocal => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/bridge-hub-kusama-local.json")[..],
 			)?)),
 			BridgeHubRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/bridge-hub-westend.json")[..],
@@ -242,6 +252,7 @@ pub mod rococo {
 /// Sub-module for Kusama setup
 pub mod kusama {
 	pub(crate) const BRIDGE_HUB_KUSAMA: &str = "bridge-hub-kusama";
+	pub(crate) const BRIDGE_HUB_KUSAMA_LOCAL: &str = "bridge-hub-kusama-local";
 }
 
 /// Sub-module for Westend setup.
@@ -358,4 +369,5 @@ pub mod westend {
 /// Sub-module for Polkadot setup
 pub mod polkadot {
 	pub(crate) const BRIDGE_HUB_POLKADOT: &str = "bridge-hub-polkadot";
+	pub(crate) const BRIDGE_HUB_POLKADOT_LOCAL: &str = "bridge-hub-polkadot-local";
 }
