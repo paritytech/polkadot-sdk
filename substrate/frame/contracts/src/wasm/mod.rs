@@ -733,14 +733,14 @@ mod tests {
 			Ok(())
 		}
 		fn decrement_refcount(_code_hash: CodeHash<Self::T>) {}
-		fn add_delegate_dependency(
+		fn lock_delegate_dependency(
 			&mut self,
 			code: CodeHash<Self::T>,
 		) -> Result<(), DispatchError> {
 			self.delegate_dependencies.borrow_mut().insert(code);
 			Ok(())
 		}
-		fn remove_delegate_dependency(
+		fn unlock_delegate_dependency(
 			&mut self,
 			code: &CodeHash<Self::T>,
 		) -> Result<(), DispatchError> {
@@ -3399,16 +3399,16 @@ mod tests {
 	}
 
 	#[test]
-	fn add_remove_delegate_dependency() {
-		const CODE_ADD_REMOVE_DELEGATE_DEPENDENCY: &str = r#"
+	fn lock_unlock_delegate_dependency() {
+		const CODE_LOCK_UNLOCK_DELEGATE_DEPENDENCY: &str = r#"
 (module
-	(import "seal0" "add_delegate_dependency" (func $add_delegate_dependency (param i32)))
-	(import "seal0" "remove_delegate_dependency" (func $remove_delegate_dependency (param i32)))
+	(import "seal0" "lock_delegate_dependency" (func $lock_delegate_dependency (param i32)))
+	(import "seal0" "unlock_delegate_dependency" (func $unlock_delegate_dependency (param i32)))
 	(import "env" "memory" (memory 1 1))
 	(func (export "call")
-		(call $add_delegate_dependency (i32.const 0))
-		(call $add_delegate_dependency (i32.const 32))
-		(call $remove_delegate_dependency (i32.const 32))
+		(call $lock_delegate_dependency (i32.const 0))
+		(call $lock_delegate_dependency (i32.const 32))
+		(call $unlock_delegate_dependency (i32.const 32))
 	)
 	(func (export "deploy"))
 
@@ -3426,7 +3426,7 @@ mod tests {
 )
 "#;
 		let mut mock_ext = MockExt::default();
-		assert_ok!(execute(&CODE_ADD_REMOVE_DELEGATE_DEPENDENCY, vec![], &mut mock_ext));
+		assert_ok!(execute(&CODE_LOCK_UNLOCK_DELEGATE_DEPENDENCY, vec![], &mut mock_ext));
 		let delegate_dependencies: Vec<_> =
 			mock_ext.delegate_dependencies.into_inner().into_iter().collect();
 		assert_eq!(delegate_dependencies.len(), 1);
