@@ -1372,8 +1372,21 @@ mod remote_tests {
 
 		// there should be more keys in the child ext.
 		assert!(
-			child_ext.as_backend().backend_storage().keys().len() >
-				ext.as_backend().backend_storage().keys().len()
+			child_ext
+				.as_backend()
+				.unwrap()
+				.backend_storage()
+				.as_prefixed_mem_db()
+				.unwrap()
+				.keys()
+				.len() > ext
+				.as_backend()
+				.unwrap()
+				.backend_storage()
+				.as_prefixed_mem_db()
+				.unwrap()
+				.keys()
+				.len()
 		);
 	}
 
