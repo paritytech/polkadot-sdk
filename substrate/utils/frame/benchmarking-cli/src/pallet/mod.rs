@@ -185,6 +185,10 @@ pub struct PalletCmd {
 	#[arg(long, value_enum, ignore_case = true, num_args = 0..=1, require_equals = true, default_missing_value("All"))]
 	pub list: Option<ListOutput>,
 
+	/// Don't include csv header when listing benchmarks.
+	#[arg(long, requires("list"))]
+	pub no_csv_header: bool,
+
 	/// If enabled, the storage info is not displayed in the output next to the analysis.
 	///
 	/// This is independent of the storage info appearing in the *output file*. Use a Handlebar

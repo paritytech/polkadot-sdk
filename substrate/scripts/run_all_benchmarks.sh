@@ -81,7 +81,7 @@ EXCLUDED_PALLETS=(
 
 # Load all pallet names in an array.
 ALL_PALLETS=($(
-  $SUBSTRATE benchmark pallet --list=pallets --chain=dev
+  $SUBSTRATE benchmark pallet --list=pallets --no-csv-header --chain=dev
 ))
 
 # Filter out the excluded pallets by concatenating the arrays and discarding duplicates.

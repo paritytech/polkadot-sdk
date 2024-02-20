@@ -317,7 +317,7 @@ impl PalletCmd {
 		}
 
 		if let Some(list_output) = self.list {
-			list_benchmark(benchmarks_to_run, list_output);
+			list_benchmark(benchmarks_to_run, list_output, self.no_csv_header);
 			return Ok(())
 		}
 
@@ -768,6 +768,7 @@ fn list_benchmark(
 		Vec<(String, String)>,
 	)>,
 	list_output: ListOutput,
+	no_csv_header: bool,
 ) {
 	let mut benchmarks = BTreeMap::new();
 
@@ -779,15 +780,24 @@ fn list_benchmark(
 			.insert(String::from_utf8_lossy(extrinsic).to_string());
 	});
 
-	for (pallet, extrinsics) in benchmarks {
-		match list_output {
-			ListOutput::All =>
+	match list_output {
+		ListOutput::All => {
+			if !no_csv_header {
+				println!("pallet,extrinsic");
+			}
+			for (pallet, extrinsics) in benchmarks {
 				for extrinsic in extrinsics {
 					println!("{},{}", pallet, extrinsic);
-				},
-			ListOutput::Pallets => {
+				}
+			}
+		},
+		ListOutput::Pallets => {
+			if !no_csv_header {
+				println!("pallet");
+			};
+			for pallet in benchmarks.keys() {
 				println!("{}", pallet);
-			},
-		}
+			}
+		},
 	}
 }
