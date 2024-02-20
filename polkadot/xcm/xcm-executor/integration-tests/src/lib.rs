@@ -19,18 +19,18 @@
 
 use codec::Encode;
 use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
+use polkadot_service::chain_spec::get_account_id_from_seed;
 use polkadot_test_client::{
 	BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
 	TestClientBuilder, TestClientBuilderExt,
 };
 use polkadot_test_runtime::{pallet_test_notifier, xcm_config::XcmConfig};
 use polkadot_test_service::construct_extrinsic;
-use polkadot_service::chain_spec::get_account_id_from_seed;
+use sp_core::sr25519;
 use sp_runtime::traits::Block;
 use sp_state_machine::InspectState;
 use xcm::{latest::prelude::*, VersionedResponse, VersionedXcm};
 use xcm_executor::traits::WeightBounds;
-use sp_core::sr25519;
 
 #[test]
 fn basic_buy_fees_message_executes() {
@@ -345,7 +345,7 @@ fn deposit_reserve_asset_works_for_any_xcm_sender() {
 	let reserve = Location::parent();
 	let dest = Location::new(1, [Parachain(2000)]);
 	let beneficiary_id = get_account_id_from_seed::<sr25519::Public>("Alice");
-	let beneficiary = Location::new(0, [AccountId32{ network: None, id: beneficiary_id.into() }]);
+	let beneficiary = Location::new(0, [AccountId32 { network: None, id: beneficiary_id.into() }]);
 
 	// spends up to half of fees for execution on reserve and other half for execution on
 	// destination
@@ -356,11 +356,9 @@ fn deposit_reserve_asset_works_for_any_xcm_sender() {
 
 	let reserve_context = <XcmConfig as xcm_executor::Config>::UniversalLocation::get();
 	// identifies fee item as seen by `reserve` - to be used at reserve chain
-	let reserve_fees = fees_half_1
-		.reanchored(&reserve, &reserve_context).unwrap();
+	let reserve_fees = fees_half_1.reanchored(&reserve, &reserve_context).unwrap();
 	// identifies fee item as seen by `dest` - to be used at destination chain
-	let dest_fees = fees_half_2
-		.reanchored(&dest, &reserve_context).unwrap();
+	let dest_fees = fees_half_2.reanchored(&dest, &reserve_context).unwrap();
 	// identifies assets as seen by `reserve` - to be used at reserve chain
 	let assets_reanchored = assets.reanchored(&reserve, &reserve_context).unwrap();
 	// identifies `dest` as seen by `reserve`

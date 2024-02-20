@@ -20,6 +20,9 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
+use parity_scale_codec::Encode;
+use polkadot_runtime_parachains::FeeTracker;
+use runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
@@ -29,9 +32,6 @@ use xcm_executor::{
 	traits::{TransactAsset, WeightTrader},
 	AssetsInHolding,
 };
-use runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
-use polkadot_runtime_parachains::FeeTracker;
-use parity_scale_codec::Encode;
 
 parameter_types! {
 	pub const BaseXcmWeight: xcm::latest::Weight = Weight::from_parts(1_000, 1_000);
@@ -56,9 +56,7 @@ pub type LocalOriginToLocation = (
 /// prices than messages with non-reanchored assets.
 /// Useful for `deposit_reserve_asset_works_for_any_xcm_sender` integration test.
 pub struct TestDeliveryPrice<A, F>(sp_std::marker::PhantomData<(A, F)>);
-impl<A: Get<AssetId>, F: FeeTracker> PriceForMessageDelivery
-	for TestDeliveryPrice<A, F>
-{
+impl<A: Get<AssetId>, F: FeeTracker> PriceForMessageDelivery for TestDeliveryPrice<A, F> {
 	type Id = F::Id;
 
 	fn price_for_delivery(_: Self::Id, msg: &Xcm<()>) -> Assets {
@@ -74,8 +72,7 @@ impl<A: Get<AssetId>, F: FeeTracker> PriceForMessageDelivery
 	}
 }
 
-pub type PriceForChildParachainDelivery =
-	TestDeliveryPrice<FeeAssetId, super::Dmp>;
+pub type PriceForChildParachainDelivery = TestDeliveryPrice<FeeAssetId, super::Dmp>;
 
 /// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
 /// individual routers.
