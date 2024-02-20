@@ -523,16 +523,11 @@ mod tests {
 	use super::*;
 	use crate as pallet_membership;
 
-	use sp_core::H256;
-	use sp_runtime::{
-		bounded_vec,
-		traits::{BadOrigin, BlakeTwo256, IdentityLookup},
-		BuildStorage,
-	};
+	use sp_runtime::{bounded_vec, traits::BadOrigin, BuildStorage};
 
 	use frame_support::{
 		assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-		traits::{ConstU32, ConstU64, StorageVersion},
+		traits::{ConstU32, StorageVersion},
 	};
 	use frame_system::EnsureSignedBy;
 
@@ -553,29 +548,7 @@ mod tests {
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
-		type BaseCallFilter = frame_support::traits::Everything;
-		type BlockWeights = ();
-		type BlockLength = ();
-		type DbWeight = ();
-		type RuntimeOrigin = RuntimeOrigin;
-		type Nonce = u64;
-		type Hash = H256;
-		type RuntimeCall = RuntimeCall;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
-		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = ConstU64<250>;
-		type Version = ();
-		type PalletInfo = PalletInfo;
-		type AccountData = ();
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type SS58Prefix = ();
-		type OnSetCode = ();
-		type MaxConsumers = ConstU32<16>;
 	}
 	ord_parameter_types! {
 		pub const One: u64 = 1;
