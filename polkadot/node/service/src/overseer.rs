@@ -15,10 +15,10 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{Block, Error, Hash, IsParachainNode, Registry};
-use polkadot_node_subsystem_types::{ChainApiBackend,  DefaultSubsystemClient, RuntimeApiSubsystemClient};
-use polkadot_overseer::{
-	DummySubsystem, InitializedOverseerBuilder, SubsystemError,
+use polkadot_node_subsystem_types::{
+	ChainApiBackend, DefaultSubsystemClient, RuntimeApiSubsystemClient,
 };
+use polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemError};
 use sp_core::traits::SpawnNamed;
 
 use polkadot_availability_distribution::IncomingRequestReceivers;
