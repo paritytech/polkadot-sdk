@@ -63,6 +63,11 @@ pub trait Token<T: Config>: Copy + Clone + TestAuxiliaries {
 	/// while calculating the amount. In this case it is ok to use saturating operations
 	/// since on overflow they will return `max_value` which should consume all gas.
 	fn weight(&self) -> Weight;
+
+	/// Returns true if this token is expected to influence the lowest gas limit.
+	fn influence_lowest_gas_limit(&self) -> bool {
+		true
+	}
 }
 
 /// A wrapper around a type-erased trait object of what used to be a `Token`.
@@ -160,7 +165,9 @@ impl<T: Config> GasMeter<T> {
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
 	pub fn adjust_gas<Tok: Token<T>>(&mut self, charged_amount: ChargedAmount, token: Tok) {
-		self.gas_left_lowest = self.gas_left_lowest();
+		if token.influence_lowest_gas_limit() {
+			self.gas_left_lowest = self.gas_left_lowest();
+		}
 		let adjustment = charged_amount.0.saturating_sub(token.weight());
 		self.gas_left = self.gas_left.saturating_add(adjustment).min(self.gas_limit);
 	}

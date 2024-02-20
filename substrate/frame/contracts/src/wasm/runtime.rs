@@ -21,7 +21,6 @@ use crate::{
 	exec::{ExecError, ExecResult, Ext, Key, TopicOf},
 	gas::{ChargedAmount, Token},
 	primitives::ExecReturnValue,
-	schedule::HostFnWeights,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
@@ -235,6 +234,8 @@ pub enum RuntimeCosts {
 	ChainExtension(Weight),
 	/// Weight charged for calling into the runtime.
 	CallRuntime(Weight),
+	/// Weight charged for calling xcm_execute.
+	CallXcmExecute(Weight),
 	/// Weight of calling `seal_set_code_hash`
 	SetCodeHash,
 	/// Weight of calling `ecdsa_to_eth_address`
@@ -251,10 +252,18 @@ pub enum RuntimeCosts {
 	RemoveDelegateDependency,
 }
 
-impl RuntimeCosts {
-	fn token<T: Config>(&self, s: &HostFnWeights<T>) -> RuntimeToken {
+impl<T: Config> Token<T> for RuntimeCosts {
+	fn influence_lowest_gas_limit(&self) -> bool {
+		match self {
+			&Self::CallXcmExecute(_) => false,
+			_ => true,
+		}
+	}
+
+	fn weight(&self) -> Weight {
+		let s = T::Schedule::get().host_fn_weights;
 		use self::RuntimeCosts::*;
-		let weight = match *self {
+		match *self {
 			CopyFromContract(len) => s.return_per_byte.saturating_mul(len.into()),
 			CopyToContract(len) => s.input_per_byte.saturating_mul(len.into()),
 			Caller => s.caller,
@@ -323,8 +332,7 @@ impl RuntimeCosts {
 			Sr25519Verify(len) => s
 				.sr25519_verify
 				.saturating_add(s.sr25519_verify_per_byte.saturating_mul(len.into())),
-			ChainExtension(weight) => weight,
-			CallRuntime(weight) => weight,
+			ChainExtension(weight) | CallRuntime(weight) | CallXcmExecute(weight) => weight,
 			SetCodeHash => s.set_code_hash,
 			EcdsaToEthAddress => s.ecdsa_to_eth_address,
 			ReentrantCount => s.reentrance_count,
@@ -332,11 +340,6 @@ impl RuntimeCosts {
 			InstantationNonce => s.instantiation_nonce,
 			AddDelegateDependency => s.add_delegate_dependency,
 			RemoveDelegateDependency => s.remove_delegate_dependency,
-		};
-		RuntimeToken {
-			#[cfg(test)]
-			_created_from: *self,
-			weight,
 		}
 	}
 }
@@ -347,23 +350,8 @@ impl RuntimeCosts {
 /// a function won't work out.
 macro_rules! charge_gas {
 	($runtime:expr, $costs:expr) => {{
-		let token = $costs.token(&$runtime.ext.schedule().host_fn_weights);
-		$runtime.ext.gas_meter_mut().charge(token)
+		$runtime.ext.gas_meter_mut().charge($costs)
 	}};
-}
-
-#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
-#[derive(Copy, Clone)]
-struct RuntimeToken {
-	#[cfg(test)]
-	_created_from: RuntimeCosts,
-	weight: Weight,
-}
-
-impl<T: Config> Token<T> for RuntimeToken {
-	fn weight(&self) -> Weight {
-		self.weight
-	}
 }
 
 /// The kind of call that should be performed.
@@ -506,28 +494,25 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
 	pub fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
-		let token = actual_costs.token(&self.ext.schedule().host_fn_weights);
-		self.ext.gas_meter_mut().adjust_gas(charged, token);
+		self.ext.gas_meter_mut().adjust_gas(charged, actual_costs);
 	}
 
 	/// Charge, Run and adjust gas, for executing the given dispatchable.
-	fn call_dispatchable<
-		ErrorReturnCode: Get<ReturnErrorCode>,
-		F: FnOnce(&mut Self) -> DispatchResultWithPostInfo,
-	>(
+	fn call_dispatchable<ErrorReturnCode: Get<ReturnErrorCode>>(
 		&mut self,
 		dispatch_info: DispatchInfo,
-		run: F,
+		runtime_cost: impl Fn(Weight) -> RuntimeCosts,
+		run: impl FnOnce(&mut Self) -> DispatchResultWithPostInfo,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		use frame_support::dispatch::extract_actual_weight;
-		let charged = self.charge_gas(RuntimeCosts::CallRuntime(dispatch_info.weight))?;
+		let charged = self.charge_gas(runtime_cost(dispatch_info.weight))?;
 		let result = run(self);
 		let actual_weight = extract_actual_weight(&result, &dispatch_info);
-		self.adjust_gas(charged, RuntimeCosts::CallRuntime(actual_weight));
+		self.adjust_gas(charged, runtime_cost(actual_weight));
 		match result {
 			Ok(_) => Ok(ReturnErrorCode::Success),
 			Err(e) => {
-				if self.ext.append_debug_buffer("") {
+				if self.ext.debug_buffer_enabled() {
 					self.ext.append_debug_buffer("call failed with: ");
 					self.ext.append_debug_buffer(e.into());
 				};
@@ -2113,9 +2098,11 @@ pub mod env {
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
 		let call: <E::T as Config>::RuntimeCall =
 			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
-		ctx.call_dispatchable::<CallRuntimeFailed, _>(call.get_dispatch_info(), |ctx| {
-			ctx.ext.call_runtime(call)
-		})
+		ctx.call_dispatchable::<CallRuntimeFailed>(
+			call.get_dispatch_info(),
+			RuntimeCosts::CallRuntime,
+			|ctx| ctx.ext.call_runtime(call),
+		)
 	}
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
@@ -2126,7 +2113,6 @@ pub mod env {
 		memory: _,
 		msg_ptr: u32,
 		msg_len: u32,
-		output_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		use frame_support::dispatch::DispatchInfo;
 		use xcm::VersionedXcm;
@@ -2135,26 +2121,27 @@ pub mod env {
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let message: VersionedXcm<CallOf<E::T>> =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
+		ensure_executable::<E::T>(&message)?;
 
 		let execute_weight =
 			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
 		let weight = ctx.ext.gas_meter().gas_left().max(execute_weight);
 		let dispatch_info = DispatchInfo { weight, ..Default::default() };
 
-		ensure_executable::<E::T>(&message)?;
-		ctx.call_dispatchable::<XcmExecutionFailed, _>(dispatch_info, |ctx| {
-			let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
-			let outcome = <<E::T as Config>::Xcm>::execute(
-				origin,
-				Box::new(message),
-				weight.saturating_sub(execute_weight),
-			)?;
+		ctx.call_dispatchable::<XcmExecutionFailed>(
+			dispatch_info,
+			RuntimeCosts::CallXcmExecute,
+			|ctx| {
+				let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
+				let weight_used = <<E::T as Config>::Xcm>::execute(
+					origin,
+					Box::new(message),
+					weight.saturating_sub(execute_weight),
+				)?;
 
-			ctx.write_sandbox_memory(memory, output_ptr, &outcome.encode())?;
-			let pre_dispatch_weight =
-				<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
-			Ok(Some(outcome.weight_used().saturating_add(pre_dispatch_weight)).into())
-		})
+				Ok(Some(weight_used.saturating_add(execute_weight)).into())
+			},
+		)
 	}
 
 	/// Send an XCM program from the contract to the specified destination.
