@@ -50,7 +50,6 @@ use std::{
 	time::{Duration, Instant},
 };
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
-use tokio::task;
 use tokio_retry::{strategy::FixedInterval, Retry};
 
 type KeyValue = (StorageKey, StorageData);
@@ -897,13 +896,13 @@ where
 		let client = Arc::new(self.as_online().rpc_client().clone());
 		let mut child_kv = vec![];
 
-		// Spawn tasks for each child root and collect their handles.
-		let handles: Vec<_> = child_roots
+		// Create a collection of futures for each child root.
+		let futures: Vec<_> = child_roots
 			.into_iter()
 			.map(|prefixed_top_key| {
 				let client = Arc::clone(&client); // Increase the reference count of the Arc.
-				task::spawn(async move {
-					// Asynchronously retrieve child keys using the RPC client.
+				async move {
+	                // Asynchronously retrieve child keys using the RPC client.
 					let child_keys = Self::rpc_child_get_keys(
 						&client,
 						&prefixed_top_key,
@@ -912,7 +911,7 @@ where
 					)
 					.await?;
 
-					// Asynchronously retrieve child storage data using the RPC client.
+		            // Asynchronously retrieve child storage data using the RPC client.
 					let child_kv_inner = Self::rpc_child_get_storage_paged(
 						&client,
 						&prefixed_top_key,
@@ -921,6 +920,7 @@ where
 					)
 					.await?;
 
+		            // Extract the unprefixed storage key and create ChildInfo.
 					let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
 					let un_prefixed = match ChildType::from_prefixed_key(&prefixed_top_key) {
 						Some((ChildType::ParentKeyId, storage_key)) => storage_key,
@@ -934,25 +934,21 @@ where
 					let key_values =
 						child_kv_inner.iter().cloned().map(|(k, v)| (k.0, v.0)).collect::<Vec<_>>();
 					Ok((info, child_kv_inner, key_values))
-				})
+				}
 			})
 			.collect();
 
-		// Process the results of each task.
-		for handle in handles {
-			match handle.await {
-				Ok(result) => match result {
-					Ok((info, child_kv_inner, key_values)) => {
-						child_kv.push((info.clone(), child_kv_inner));
-						for (k, v) in key_values {
-							pending_ext.insert_child(info.clone(), k, v);
-						}
-					},
-					Err(_) => return Err("Error inserting child key".into()),
+		// Await all futures and collect the results.
+		for result in futures::future::join_all(futures).await {
+			match result {
+				Ok((info, child_kv_inner, key_values)) => {
+					child_kv.push((info.clone(), child_kv_inner));
+					// Insert child key-value pairs into the pending externalities.
+					for (k, v) in key_values {
+						pending_ext.insert_child(info.clone(), k, v);
+					}
 				},
-				// If there is an error while awaiting the task, return an error indicating a
-				// problem processing child data.
-				Err(_) => return Err("Error in processing child key".into()),
+				Err(_) => return Err("Error in processing child key"),
 			}
 		}
 
