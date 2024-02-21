@@ -1134,6 +1134,22 @@
 <a href="#1134" id="1134">1134</a>
 <a href="#1135" id="1135">1135</a>
 <a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1221,6 +1237,22 @@
 	</span>include_proof_in_block_size_estimation: bool,
 	<span class="doccomment">/// phantom member to pin the `ProofRecording` type.
 	</span>_phantom: PhantomData&lt;PR&gt;,
+}
+
+<span class="kw">impl</span>&lt;A, C, PR&gt; Clone <span class="kw">for </span>ProposerFactory&lt;A, C, PR&gt; {
+	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{
+			spawn_handle: <span class="self">self</span>.spawn_handle.clone(),
+			client: <span class="self">self</span>.client.clone(),
+			transaction_pool: <span class="self">self</span>.transaction_pool.clone(),
+			metrics: <span class="self">self</span>.metrics.clone(),
+			default_block_size_limit: <span class="self">self</span>.default_block_size_limit,
+			soft_deadline_percent: <span class="self">self</span>.soft_deadline_percent,
+			telemetry: <span class="self">self</span>.telemetry.clone(),
+			include_proof_in_block_size_estimation: <span class="self">self</span>.include_proof_in_block_size_estimation,
+			_phantom: <span class="self">self</span>._phantom,
+		}
+	}
 }
 
 <span class="kw">impl</span>&lt;A, C&gt; ProposerFactory&lt;A, C, DisableProofRecording&gt; {

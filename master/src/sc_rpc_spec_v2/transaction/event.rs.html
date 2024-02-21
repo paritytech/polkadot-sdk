@@ -288,51 +288,6 @@
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -354,23 +309,6 @@
 </span><span class="doccomment">//! The transaction&#39;s event returned as json compatible object.
 
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
-
-<span class="doccomment">/// The transaction was broadcasted to a number of peers.
-///
-/// # Note
-///
-/// The RPC does not guarantee that the peers have received the
-/// transaction.
-///
-/// When the number of peers is zero, the event guarantees that
-/// shutting down the local node will lead to the transaction
-/// not being included in the chain.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
-</span><span class="kw">pub struct </span>TransactionBroadcasted {
-	<span class="doccomment">/// The number of peers the transaction was broadcasted to.
-	</span><span class="kw">pub </span>num_peers: usize,
-}
 
 <span class="doccomment">/// The transaction was included in a block of the chain.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -394,9 +332,6 @@
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 </span><span class="kw">pub struct </span>TransactionDropped {
-	<span class="doccomment">/// True if the transaction was broadcasted to other peers and
-	/// may still be included in the block.
-	</span><span class="kw">pub </span>broadcasted: bool,
 	<span class="doccomment">/// Reason of the event.
 	</span><span class="kw">pub </span>error: String,
 }
@@ -405,20 +340,17 @@
 ///
 /// The status events can be grouped based on their kinds as:
 ///
-/// 1. Runtime validated the transaction:
+/// 1. Runtime validated the transaction and it entered the pool:
 /// 		- `Validated`
 ///
-/// 2. Inside the `Ready` queue:
-/// 		- `Broadcast`
-///
-/// 3. Leaving the pool:
+/// 2. Leaving the pool:
 /// 		- `BestChainBlockIncluded`
 /// 		- `Invalid`
 ///
-/// 4. Block finalized:
+/// 3. Block finalized:
 /// 		- `Finalized`
 ///
-/// 5. At any time:
+/// 4. At any time:
 /// 		- `Dropped`
 /// 		- `Error`
 ///
@@ -436,8 +368,6 @@
 </span><span class="kw">pub enum </span>TransactionEvent&lt;Hash&gt; {
 	<span class="doccomment">/// The transaction was validated by the runtime.
 	</span>Validated,
-	<span class="doccomment">/// The transaction was broadcasted to a number of peers.
-	</span>Broadcasted(TransactionBroadcasted),
 	<span class="doccomment">/// The transaction was included in a best block of the chain.
 	///
 	/// # Note
@@ -494,7 +424,6 @@
 #[serde(tag = <span class="string">&quot;event&quot;</span>)]
 </span><span class="kw">enum </span>TransactionEventNonBlockIR {
 	Validated,
-	Broadcasted(TransactionBroadcasted),
 	Error(TransactionError),
 	Invalid(TransactionError),
 	Dropped(TransactionDropped),
@@ -521,8 +450,6 @@
 		<span class="kw">match </span>value {
 			TransactionEvent::Validated =&gt;
 				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Validated),
-			TransactionEvent::Broadcasted(event) =&gt;
-				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Broadcasted(event)),
 			TransactionEvent::BestChainBlockIncluded(event) =&gt;
 				TransactionEventIR::Block(TransactionEventBlockIR::BestChainBlockIncluded(event)),
 			TransactionEvent::Finalized(event) =&gt;
@@ -542,8 +469,6 @@
 		<span class="kw">match </span>value {
 			TransactionEventIR::NonBlock(status) =&gt; <span class="kw">match </span>status {
 				TransactionEventNonBlockIR::Validated =&gt; TransactionEvent::Validated,
-				TransactionEventNonBlockIR::Broadcasted(event) =&gt;
-					TransactionEvent::Broadcasted(event),
 				TransactionEventNonBlockIR::Error(event) =&gt; TransactionEvent::Error(event),
 				TransactionEventNonBlockIR::Invalid(event) =&gt; TransactionEvent::Invalid(event),
 				TransactionEventNonBlockIR::Dropped(event) =&gt; TransactionEvent::Dropped(event),
@@ -568,19 +493,6 @@
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 
 		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;validated&quot;}&quot;#</span>;
-		<span class="macro">assert_eq!</span>(ser, exp);
-
-		<span class="kw">let </span>event_dec: TransactionEvent&lt;()&gt; = serde_json::from_str(exp).unwrap();
-		<span class="macro">assert_eq!</span>(event_dec, event);
-	}
-
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>broadcasted_event() {
-		<span class="kw">let </span>event: TransactionEvent&lt;()&gt; =
-			TransactionEvent::Broadcasted(TransactionBroadcasted { num_peers: <span class="number">2 </span>});
-		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;broadcasted&quot;,&quot;numPeers&quot;:2}&quot;#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: TransactionEvent&lt;()&gt; = serde_json::from_str(exp).unwrap();
@@ -655,13 +567,11 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>dropped_event() {
-		<span class="kw">let </span>event: TransactionEvent&lt;()&gt; = TransactionEvent::Dropped(TransactionDropped {
-			broadcasted: <span class="bool-val">true</span>,
-			error: <span class="string">&quot;abc&quot;</span>.to_string(),
-		});
+		<span class="kw">let </span>event: TransactionEvent&lt;()&gt; =
+			TransactionEvent::Dropped(TransactionDropped { error: <span class="string">&quot;abc&quot;</span>.to_string() });
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;dropped&quot;,&quot;broadcasted&quot;:true,&quot;error&quot;:&quot;abc&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;dropped&quot;,&quot;error&quot;:&quot;abc&quot;}&quot;#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: TransactionEvent&lt;()&gt; = serde_json::from_str(exp).unwrap();

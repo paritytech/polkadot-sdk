@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TransactionEvent"],"struct":["TransactionBlock","TransactionBroadcasted","TransactionDropped","TransactionError"]};
+window.SIDEBAR_ITEMS = {"enum":["TransactionEvent"],"struct":["TransactionBlock","TransactionDropped","TransactionError"]};
