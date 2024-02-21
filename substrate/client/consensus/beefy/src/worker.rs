@@ -387,7 +387,7 @@ where
 				.flatten()
 				.map(|justifs| justifs.get(BEEFY_ENGINE_ID).is_some())
 			{
-				info!(
+				debug!(
 					target: LOG_TARGET,
 					"🥩 Initialize BEEFY voter at last BEEFY finalized block: {:?}.",
 					*header.number()
@@ -439,7 +439,7 @@ where
 			}
 
 			if let Some(active) = find_authorities_change::<B>(&header) {
-				info!(
+				debug!(
 					target: LOG_TARGET,
 					"🥩 Marking block {:?} as BEEFY Mandatory.",
 					*header.number()
@@ -471,7 +471,7 @@ where
 			state.set_best_grandpa(best_grandpa.clone());
 			// Overwrite persisted data with newly provided `min_block_delta`.
 			state.set_min_block_delta(min_block_delta);
-			info!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
+			debug!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
 
 			// Make sure that all the headers that we need have been synced.
 			let mut new_sessions = vec![];
@@ -489,7 +489,7 @@ where
 
 			// Make sure we didn't miss any sessions during node restart.
 			for (validator_set, new_session_start) in new_sessions.drain(..).rev() {
-				info!(
+				debug!(
 					target: LOG_TARGET,
 					"🥩 Handling missed BEEFY session after node restart: {:?}.",
 					new_session_start
@@ -630,13 +630,14 @@ where
 		&mut self,
 		notification: &FinalityNotification<B>,
 	) -> Result<(), Error> {
+		let header = &notification.header;
 		debug!(
 			target: LOG_TARGET,
-			"🥩 Finality notification: header {:?} tree_route {:?}",
-			notification.header,
+			"🥩 Finality notification: header(number {:?}, hash {:?}) tree_route {:?}",
+			header.number(),
+			header.hash(),
 			notification.tree_route,
 		);
-		let header = &notification.header;
 
 		self.base
 			.runtime
@@ -757,7 +758,7 @@ where
 		match rounds.add_vote(vote) {
 			VoteImportResult::RoundConcluded(signed_commitment) => {
 				let finality_proof = VersionedFinalityProof::V1(signed_commitment);
-				info!(
+				debug!(
 					target: LOG_TARGET,
 					"🥩 Round #{} concluded, finality_proof: {:?}.", block_number, finality_proof
 				);
@@ -1165,7 +1166,7 @@ where
 			return Ok(())
 		} else if let Some(local_id) = self.base.key_store.authority_id(validators) {
 			if offender_id == local_id {
-				debug!(target: LOG_TARGET, "🥩 Skip equivocation report for own equivocation");
+				warn!(target: LOG_TARGET, "🥩 Skip equivocation report for own equivocation");
 				return Ok(())
 			}
 		}
@@ -1234,7 +1235,7 @@ where
 	// if the mandatory block (session_start) does not have a beefy justification yet,
 	// we vote on it
 	let target = if best_beefy < session_start {
-		debug!(target: LOG_TARGET, "🥩 vote target - mandatory block: #{:?}", session_start,);
+		debug!(target: LOG_TARGET, "🥩 vote target - mandatory block: #{:?}", session_start);
 		session_start
 	} else {
 		let diff = best_grandpa.saturating_sub(best_beefy) + 1u32.into();
