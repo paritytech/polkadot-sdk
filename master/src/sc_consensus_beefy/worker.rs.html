@@ -1889,6 +1889,7 @@
 <a href="#1889" id="1889">1889</a>
 <a href="#1890" id="1890">1890</a>
 <a href="#1891" id="1891">1891</a>
+<a href="#1892" id="1892">1892</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2278,7 +2279,7 @@
 				.flatten()
 				.map(|justifs| justifs.get(BEEFY_ENGINE_ID).is_some())
 			{
-				<span class="macro">info!</span>(
+				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
 					<span class="string">&quot;🥩 Initialize BEEFY voter at last BEEFY finalized block: {:?}.&quot;</span>,
 					<span class="kw-2">*</span>header.number()
@@ -2330,7 +2331,7 @@
 			</span>}
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(active) = find_authorities_change::&lt;B&gt;(<span class="kw-2">&amp;</span>header) {
-				<span class="macro">info!</span>(
+				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
 					<span class="string">&quot;🥩 Marking block {:?} as BEEFY Mandatory.&quot;</span>,
 					<span class="kw-2">*</span>header.number()
@@ -2362,7 +2363,7 @@
 			</span>state.set_best_grandpa(best_grandpa.clone());
 			<span class="comment">// Overwrite persisted data with newly provided `min_block_delta`.
 			</span>state.set_min_block_delta(min_block_delta);
-			<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Loading BEEFY voter state from db: {:?}.&quot;</span>, state);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Loading BEEFY voter state from db: {:?}.&quot;</span>, state);
 
 			<span class="comment">// Make sure that all the headers that we need have been synced.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>new_sessions = <span class="macro">vec!</span>[];
@@ -2380,7 +2381,7 @@
 
 			<span class="comment">// Make sure we didn&#39;t miss any sessions during node restart.
 			</span><span class="kw">for </span>(validator_set, new_session_start) <span class="kw">in </span>new_sessions.drain(..).rev() {
-				<span class="macro">info!</span>(
+				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
 					<span class="string">&quot;🥩 Handling missed BEEFY session after node restart: {:?}.&quot;</span>,
 					new_session_start
@@ -2521,13 +2522,14 @@
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		notification: <span class="kw-2">&amp;</span>FinalityNotification&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		<span class="kw">let </span>header = <span class="kw-2">&amp;</span>notification.header;
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;🥩 Finality notification: header {:?} tree_route {:?}&quot;</span>,
-			notification.header,
+			<span class="string">&quot;🥩 Finality notification: header(number {:?}, hash {:?}) tree_route {:?}&quot;</span>,
+			header.number(),
+			header.hash(),
 			notification.tree_route,
 		);
-		<span class="kw">let </span>header = <span class="kw-2">&amp;</span>notification.header;
 
 		<span class="self">self</span>.base
 			.runtime
@@ -2648,7 +2650,7 @@
 		<span class="kw">match </span>rounds.add_vote(vote) {
 			VoteImportResult::RoundConcluded(signed_commitment) =&gt; {
 				<span class="kw">let </span>finality_proof = VersionedFinalityProof::V1(signed_commitment);
-				<span class="macro">info!</span>(
+				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
 					<span class="string">&quot;🥩 Round #{} concluded, finality_proof: {:?}.&quot;</span>, block_number, finality_proof
 				);
@@ -3056,7 +3058,7 @@
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(local_id) = <span class="self">self</span>.base.key_store.authority_id(validators) {
 			<span class="kw">if </span>offender_id == local_id {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Skip equivocation report for own equivocation&quot;</span>);
+				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Skip equivocation report for own equivocation&quot;</span>);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			}
 		}
@@ -3125,7 +3127,7 @@
 	<span class="comment">// if the mandatory block (session_start) does not have a beefy justification yet,
 	// we vote on it
 	</span><span class="kw">let </span>target = <span class="kw">if </span>best_beefy &lt; session_start {
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 vote target - mandatory block: #{:?}&quot;</span>, session_start,);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 vote target - mandatory block: #{:?}&quot;</span>, session_start);
 		session_start
 	} <span class="kw">else </span>{
 		<span class="kw">let </span>diff = best_grandpa.saturating_sub(best_beefy) + <span class="number">1u32</span>.into();

@@ -126,7 +126,7 @@
 
 </span><span class="kw">use crate</span>::{error::Error, worker::PersistedState, LOG_TARGET};
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>log::{info, trace};
+<span class="kw">use </span>log::{debug, trace};
 <span class="kw">use </span>sc_client_api::{backend::AuxStore, Backend};
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
@@ -136,7 +136,7 @@
 <span class="kw">const </span>CURRENT_VERSION: u32 = <span class="number">4</span>;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_current_version&lt;BE: AuxStore&gt;(backend: <span class="kw-2">&amp;</span>BE) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-	<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 write aux schema version {:?}&quot;</span>, CURRENT_VERSION);
+	<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 write aux schema version {:?}&quot;</span>, CURRENT_VERSION);
 	AuxStore::insert_aux(backend, <span class="kw-2">&amp;</span>[(VERSION_KEY, CURRENT_VERSION.encode().as_slice())], <span class="kw-2">&amp;</span>[])
 		.map_err(|e| Error::Backend(e.to_string()))
 }

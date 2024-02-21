@@ -482,6 +482,10 @@
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
 <a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -944,10 +948,14 @@
 	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
 {
 	<span class="kw">let </span>blockchain = backend.blockchain();
-
 	<span class="comment">// Walk up the chain looking for the validator set active at &#39;at_header&#39;. Process both state and
 	// header digests.
-	</span><span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Trying to find validator set active at header: {:?}&quot;</span>, at_header);
+	</span><span class="macro">debug!</span>(
+		target: LOG_TARGET,
+		<span class="string">&quot;🥩 Trying to find validator set active at header(number {:?}, hash {:?})&quot;</span>,
+		at_header.number(),
+		at_header.hash()
+	);
 	<span class="kw">let </span><span class="kw-2">mut </span>header = at_header.clone();
 	<span class="kw">loop </span>{
 		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Looking for auth set change at block number: {:?}&quot;</span>, <span class="kw-2">*</span>header.number());
