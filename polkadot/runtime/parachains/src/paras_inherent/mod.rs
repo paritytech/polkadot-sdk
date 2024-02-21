@@ -145,6 +145,9 @@ pub mod pallet {
 		DisputeInvalid,
 		/// A candidate was backed by a disabled validator
 		BackedByDisabled,
+		/// A candidate was backed even though the paraid had multiple cores assigned and no
+		/// injected core index.
+		BackedByElasticScalingWithNoCoreIndex,
 	}
 
 	/// Whether the paras inherent was included within this block.
@@ -607,7 +610,10 @@ impl<T: Config> Pallet<T> {
 		// filtered during inherent data preparation (`ProvideInherent` context). Abort in such
 		// cases.
 		if context == ProcessInherentDataContext::Enter {
-			ensure!(!dropped_elastic_scaling_candidates, Error::<T>::BackedByDisabled);
+			ensure!(
+				!dropped_elastic_scaling_candidates,
+				Error::<T>::BackedByElasticScalingWithNoCoreIndex
+			);
 		}
 
 		let SanitizedBackedCandidates { backed_candidates, votes_from_disabled_were_dropped } =

@@ -488,20 +488,15 @@ fn table_attested_to_backed(
 	}
 	vote_positions.sort_by_key(|(_orig, pos_in_group)| *pos_in_group);
 
-	let mut backed_candidate = BackedCandidate::new(
+	Some(BackedCandidate::new(
 		candidate,
 		vote_positions
 			.into_iter()
 			.map(|(pos_in_votes, _pos_in_group)| validity_votes[pos_in_votes].clone())
 			.collect(),
-		validator_indices.clone(),
-	);
-
-	if inject_core_index {
-		backed_candidate.set_validator_indices_and_core_index(validator_indices, Some(core_index));
-	}
-
-	Some(backed_candidate)
+		validator_indices,
+		inject_core_index.then_some(core_index),
+	))
 }
 
 async fn store_available_data(

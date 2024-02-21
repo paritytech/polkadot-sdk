@@ -100,16 +100,10 @@ pub fn take_active_subset<T: Clone>(active: &[ValidatorIndex], set: &[T]) -> Vec
 #[cfg(test)]
 mod tests {
 
-	use bitvec::vec::BitVec;
+	use crate::util::{split_active_subset, take_active_subset};
+	use bitvec::{bitvec, vec::BitVec};
+	use primitives::ValidatorIndex;
 	use sp_std::vec::Vec;
-	use test_helpers::{dummy_candidate_descriptor, dummy_hash};
-
-	use crate::util::{has_core_index, split_active_subset, take_active_subset};
-	use bitvec::bitvec;
-	use primitives::{
-		BackedCandidate, CandidateCommitments, CommittedCandidateReceipt, PersistedValidationData,
-		ValidatorIndex,
-	};
 
 	#[test]
 	fn take_active_subset_is_compatible_with_split_active_subset() {
@@ -125,25 +119,4 @@ mod tests {
 	pub fn dummy_bitvec(size: usize) -> BitVec<u8, bitvec::order::Lsb0> {
 		bitvec![u8, bitvec::order::Lsb0; 0; size]
 	}
-
-	// #[test]
-	// fn has_core_index_works() {
-	// 	let mut descriptor = dummy_candidate_descriptor(dummy_hash());
-	// 	let empty_hash = sp_core::H256::zero();
-
-	// 	descriptor.para_id = 1000.into();
-	// 	descriptor.persisted_validation_data_hash = empty_hash;
-	// 	let committed_receipt = CommittedCandidateReceipt {
-	// 		descriptor,
-	// 		commitments: CandidateCommitments::default(),
-	// 	};
-
-	// 	let candidate = BackedCandidate::new(
-	// 		committed_receipt.clone(),
-	// 		Vec::new(),
-	// 		dummy_bitvec(5),
-	// 	);
-
-	// 	assert_eq!(has_core_index::<T: configuration::Config + scheduler::Config>(&candidate, false),
-	// false); }
 }

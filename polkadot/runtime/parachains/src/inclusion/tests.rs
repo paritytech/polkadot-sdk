@@ -155,7 +155,7 @@ pub(crate) fn back_candidate(
 		validity_votes.push(ValidityAttestation::Explicit(signature).into());
 	}
 
-	let backed = BackedCandidate::new(candidate, validity_votes, validator_indices);
+	let backed = BackedCandidate::new(candidate, validity_votes, validator_indices, None);
 
 	let successfully_backed =
 		primitives::check_candidate_backing(&backed, signing_context, group.len(), |i| {

@@ -468,6 +468,7 @@ mod select_candidates {
 					},
 					Vec::new(),
 					default_bitvec(MOCK_GROUP_SIZE),
+					None,
 				)
 			})
 			.collect();
@@ -539,6 +540,7 @@ mod select_candidates {
 					committed_receipt.clone(),
 					Vec::new(),
 					default_bitvec(MOCK_GROUP_SIZE),
+					None,
 				)
 			})
 			.collect();
@@ -617,6 +619,7 @@ mod select_candidates {
 					},
 					Vec::new(),
 					default_bitvec(MOCK_GROUP_SIZE),
+					None,
 				)
 			})
 			.collect();
@@ -685,6 +688,7 @@ mod select_candidates {
 					},
 					Vec::new(),
 					default_bitvec(MOCK_GROUP_SIZE),
+					None,
 				)
 			})
 			.collect();

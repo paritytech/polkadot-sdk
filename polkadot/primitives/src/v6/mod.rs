@@ -710,7 +710,9 @@ pub struct BackedCandidate<H = Hash> {
 	candidate: CommittedCandidateReceipt<H>,
 	/// The validity votes themselves, expressed as signatures.
 	validity_votes: Vec<ValidityAttestation>,
-	/// The indices of the validators within the group, expressed as a bitfield.
+	/// The indices of the validators within the group, expressed as a bitfield. May be extended
+	/// beyond the backing group size to contain the assigned core index, if ElasticScalingMVP is
+	/// enabled.
 	validator_indices: BitVec<u8, bitvec::order::Lsb0>,
 }
 
@@ -720,8 +722,13 @@ impl<H> BackedCandidate<H> {
 		candidate: CommittedCandidateReceipt<H>,
 		validity_votes: Vec<ValidityAttestation>,
 		validator_indices: BitVec<u8, bitvec::order::Lsb0>,
+		core_index: Option<CoreIndex>,
 	) -> Self {
-		Self { candidate, validity_votes, validator_indices }
+		let mut instance = Self { candidate, validity_votes, validator_indices };
+		if let Some(core_index) = core_index {
+			instance.inject_core_index(core_index);
+		}
+		instance
 	}
 
 	/// Get a reference to the descriptor of the candidate.
@@ -777,18 +784,24 @@ impl<H> BackedCandidate<H> {
 		}
 	}
 
+	/// Inject a core index in the validator_indices bitvec.
+	fn inject_core_index(&mut self, core_index: CoreIndex) {
+		let core_index_to_inject: BitVec<u8, bitvec::order::Lsb0> =
+			BitVec::from_vec(vec![core_index.0 as u8]);
+		self.validator_indices.extend(core_index_to_inject);
+	}
+
 	/// Update the validator indices and core index in the candidate.
 	pub fn set_validator_indices_and_core_index(
 		&mut self,
-		mut new_indices: BitVec<u8, bitvec::order::Lsb0>,
-		core_index: Option<CoreIndex>,
+		new_indices: BitVec<u8, bitvec::order::Lsb0>,
+		maybe_core_index: Option<CoreIndex>,
 	) {
-		if let Some(core_index) = core_index {
-			let core_index_to_inject: BitVec<u8, bitvec::order::Lsb0> =
-				BitVec::from_vec(vec![core_index.0 as u8]);
-			new_indices.extend(core_index_to_inject);
-		}
 		self.validator_indices = new_indices;
+
+		if let Some(core_index) = maybe_core_index {
+			self.inject_core_index(core_index);
+		}
 	}
 }
 
@@ -2011,4 +2024,6 @@ mod tests {
 
 		assert!(zero_b.leading_zeros() >= zero_u.leading_zeros());
 	}
+
+	// TODO: test validator_indices_and_core_index and set_validator_indices_and_core_index
 }
