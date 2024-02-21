@@ -12487,6 +12487,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "polkadot-statement-table",
  "sc-keystore",
+ "schnellru",
  "sp-application-crypto",
  "sp-core",
  "sp-keyring",
