@@ -202,7 +202,7 @@ fn apply_pending_slash() {
 }
 
 /// Integration tests with pallet-staking.
-mod integration {
+mod staking_integration {
 	use super::*;
 	use pallet_staking::RewardDestination;
 	use sp_staking::Stake;
@@ -584,5 +584,68 @@ mod integration {
 				Error::<T>::NotEnoughFunds
 			);
 		});
+	}
+}
+
+mod pool_integration {
+
+	#[test]
+	fn create_pool() {
+
+	}
+
+	#[test]
+	fn join_pool() {
+
+	}
+
+	#[test]
+	fn bond_extra_to_pool() {
+
+	}
+
+	#[test]
+	fn claim_pool_rewards() {
+
+	}
+
+	#[test]
+	fn unbond_delegation_from_pool() {
+
+	}
+
+	#[test]
+	fn pool_withdraw_unbonded() {
+
+	}
+
+	#[test]
+	fn delegator_withdraw_unbonded() {
+
+	}
+
+	#[test]
+	fn update_nominations() {
+
+	}
+
+	#[test]
+	fn destroy_pool() {
+
+	}
+
+	#[test]
+	fn chill_pool() {
+
+	}
+
+	#[test]
+	fn claim_commission_pool_operator() {
+
+	}
+
+	#[test]
+	fn pool_slashed() {
+
 	}
 }
