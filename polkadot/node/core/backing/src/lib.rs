@@ -1722,18 +1722,20 @@ async fn background_validate_and_make_available<Context>(
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
-			if let Err(e) = validate_and_make_available(params).await {
-				if let Error::BackgroundValidationMpsc(error) = e {
+			if let Err(error) = validate_and_make_available(params).await {
+				if let Error::BackgroundValidationMpsc(error) = error {
 					gum::debug!(
 						target: LOG_TARGET,
+						?candidate_hash,
 						?error,
 						"Mpsc background validation mpsc died during validation- leaf no longer active?"
 					);
 				} else {
 					gum::error!(
 						target: LOG_TARGET,
-						"Failed to validate and make available: {:?}",
-						e
+						?candidate_hash,
+						?error,
+						"Failed to validate and make available",
 					);
 				}
 			}
