@@ -30,4 +30,16 @@ sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 
 [features]
 default = ["std"]
-std = ["codec/std", "cumulus-primitives-core/std", "cumulus-primitives-proof-size-hostfunction/std", "frame-support/std", "frame-system/std", "log/std", "scale-info/std", "sp-io/std", "sp-runtime/std", "sp-std/std", "sp-trie/std"]
+std = [
+	"codec/std",
+	"cumulus-primitives-core/std",
+	"cumulus-primitives-proof-size-hostfunction/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-trie/std",
+]

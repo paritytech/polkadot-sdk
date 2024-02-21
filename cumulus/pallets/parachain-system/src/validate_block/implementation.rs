@@ -274,7 +274,7 @@ fn validate_validation_data(
 	);
 }
 
-/// Run the given closure with the externalities set.
+/// Run the given closure with the externalities and recorder set.
 fn run_with_externalities_and_recorder<B: BlockT, R, F: FnOnce() -> R>(
 	backend: &TrieBackend<B>,
 	recorder: &mut SizeOnlyRecorderProvider<HashingFor<B>>,
