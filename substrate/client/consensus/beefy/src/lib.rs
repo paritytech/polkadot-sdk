@@ -31,7 +31,7 @@ use crate::{
 	import::BeefyBlockImport,
 	metrics::register_metrics,
 };
-use futures::{stream::Fuse, StreamExt};
+use futures::{stream::Fuse, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use prometheus::Registry;
@@ -542,22 +542,30 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	// We re-create and re-run the worker in this loop in order to quickly reinit and resume after
 	// select recoverable errors.
 	loop {
-		let worker_builder = match BeefyWorkerBuilder::async_initialize(
-			backend.clone(),
-			runtime.clone(),
-			key_store.clone().into(),
-			metrics.clone(),
-			min_block_delta,
-			beefy_comms.gossip_validator.clone(),
-			&mut finality_notifications,
-		)
-		.await
-		{
-			Ok(res) => res,
-			Err(e) => {
-				error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
-				return
+		// Make sure to pump gossip engine while waiting for initialization conditions.
+		let worker_builder = futures::select! {
+			builder_init_result = BeefyWorkerBuilder::async_initialize(
+				backend.clone(),
+				runtime.clone(),
+				key_store.clone().into(),
+				metrics.clone(),
+				min_block_delta,
+				beefy_comms.gossip_validator.clone(),
+				&mut finality_notifications,
+			).fuse() => {
+				match builder_init_result {
+					Ok(res) => res,
+					Err(e) => {
+						error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", e);
+						return
+					},
+				}
 			},
+			// Pump gossip engine.
+			_ = &mut beefy_comms.gossip_engine => {
+				error!(target: LOG_TARGET, "🥩 Gossip engine has unexpectedly terminated.");
+				return
+			}
 		};
 
 		let worker = worker_builder.build(
