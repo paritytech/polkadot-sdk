@@ -23,13 +23,11 @@ use sc_network_common::{role::Roles, types::ReputationChange};
 
 use libp2p::PeerId;
 
-use crate::warp::WarpSyncProgress;
+use crate::strategy::{state_sync::StateSyncProgress, warp::WarpSyncProgress};
 use sc_network_common::sync::message::BlockRequest;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
-
-pub use sc_network_common::sync::SyncMode;
 
 /// The sync status of a peer we are trying to sync with
 #[derive(Debug)]
@@ -69,15 +67,6 @@ impl<BlockNumber> SyncState<BlockNumber> {
 	}
 }
 
-/// Reported state download progress.
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct StateDownloadProgress {
-	/// Estimated download percentage.
-	pub percentage: u32,
-	/// Total state size in bytes downloaded so far.
-	pub size: u64,
-}
-
 /// Syncing status and statistics.
 #[derive(Debug, Clone)]
 pub struct SyncStatus<Block: BlockT> {
@@ -92,7 +81,7 @@ pub struct SyncStatus<Block: BlockT> {
 	/// Number of blocks queued for import
 	pub queued_blocks: u32,
 	/// State sync status in progress, if any.
-	pub state_sync: Option<StateDownloadProgress>,
+	pub state_sync: Option<StateSyncProgress>,
 	/// Warp sync in progress, if any.
 	pub warp_sync: Option<WarpSyncProgress<Block>>,
 }
@@ -108,13 +97,6 @@ impl fmt::Display for BadPeer {
 }
 
 impl std::error::Error for BadPeer {}
-
-#[derive(Debug)]
-pub struct Metrics {
-	pub queued_blocks: u32,
-	pub fork_targets: u32,
-	pub justifications: crate::request_metrics::Metrics,
-}
 
 #[derive(Debug)]
 pub enum PeerRequest<B: BlockT> {

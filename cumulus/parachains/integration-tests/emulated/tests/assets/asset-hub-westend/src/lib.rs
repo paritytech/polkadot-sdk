@@ -28,7 +28,7 @@ pub use frame_support::{
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Westend as WestendId},
+	v3::{self, Error, NetworkId::Westend as WestendId},
 };
 
 // Cumulus
@@ -56,7 +56,8 @@ pub use westend_system_emulated_network::{
 	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
 	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-	CollectivesWestendPara as CollectivesWestend, PenpalBPara as PenpalB,
+	CollectivesWestendPara as CollectivesWestend, PenpalAPara as PenpalA,
+	PenpalAParaReceiver as PenpalAReceiver, PenpalBPara as PenpalB,
 	PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
 	WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
 	WestendRelaySender as WestendSender,
@@ -72,43 +73,7 @@ pub type RelayToParaTest = Test<Westend, PenpalB>;
 pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
 pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalB>;
 pub type ParaToSystemParaTest = Test<PenpalB, AssetHubWestend>;
-
-/// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
-pub fn relay_test_args(
-	dest: MultiLocation,
-	beneficiary_id: AccountId32,
-	amount: Balance,
-) -> TestArgs {
-	TestArgs {
-		dest,
-		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
-		amount,
-		assets: (Here, amount).into(),
-		asset_id: None,
-		fee_asset_item: 0,
-		weight_limit: WeightLimit::Unlimited,
-	}
-}
-
-/// Returns a `TestArgs` instance to be used by parachains across integration tests
-pub fn para_test_args(
-	dest: MultiLocation,
-	beneficiary_id: AccountId32,
-	amount: Balance,
-	assets: MultiAssets,
-	asset_id: Option<u32>,
-	fee_asset_item: u32,
-) -> TestArgs {
-	TestArgs {
-		dest,
-		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
-		amount,
-		assets,
-		asset_id,
-		fee_asset_item,
-		weight_limit: WeightLimit::Unlimited,
-	}
-}
+pub type ParaToParaTest = Test<PenpalB, PenpalA, Westend>;
 
 #[cfg(test)]
 mod tests;

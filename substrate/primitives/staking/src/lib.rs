@@ -150,6 +150,9 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 		_slashed_total: Balance,
 	) {
 	}
+
+	/// Fired when a portion of a staker's balance has been withdrawn.
+	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
 }
 
 /// A generic representation of a staking implementation.

@@ -614,8 +614,13 @@ fn transfer_owner_should_work() {
 			Nfts::transfer_ownership(RuntimeOrigin::signed(account(1)), 0, account(2)),
 			Error::<Test>::Unaccepted
 		);
+		assert_eq!(System::consumers(&account(2)), 0);
+
 		assert_ok!(Nfts::set_accept_ownership(RuntimeOrigin::signed(account(2)), Some(0)));
+		assert_eq!(System::consumers(&account(2)), 1);
+
 		assert_ok!(Nfts::transfer_ownership(RuntimeOrigin::signed(account(1)), 0, account(2)));
+		assert_eq!(System::consumers(&account(2)), 1); // one consumer is added due to deposit repatriation
 
 		assert_eq!(collections(), vec![(account(2), 0)]);
 		assert_eq!(Balances::total_balance(&account(1)), 98);

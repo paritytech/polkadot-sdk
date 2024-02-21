@@ -37,6 +37,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_notify_core_count(core_count: CoreIndex) -> DispatchResult {
+		CoreCountInbox::<T>::put(core_count);
+		Ok(())
+	}
+
 	pub(crate) fn do_reserve(workload: Schedule) -> DispatchResult {
 		let mut r = Reservations::<T>::get();
 		let index = r.len() as u32;
@@ -228,6 +233,9 @@ impl<T: Config> Pallet<T> {
 		ensure!((pivot & !region_id.mask).is_void(), Error::<T>::ExteriorPivot);
 		ensure!(!pivot.is_void(), Error::<T>::VoidPivot);
 		ensure!(pivot != region_id.mask, Error::<T>::CompletePivot);
+
+		// The old region should be removed.
+		Regions::<T>::remove(&region_id);
 
 		let one = RegionId { mask: pivot, ..region_id };
 		Regions::<T>::insert(&one, &region);

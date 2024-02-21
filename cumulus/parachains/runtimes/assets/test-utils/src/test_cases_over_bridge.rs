@@ -27,18 +27,18 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::{AccountId, Balance};
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeHelper,
-	ValidatorIdOf, XcmReceivedFrom,
+	SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{traits::StaticLookup, Saturating};
-use xcm::{latest::prelude::*, VersionedMultiAssets};
+use xcm::{latest::prelude::*, VersionedAssets};
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 pub struct TestBridgingConfig {
 	pub bridged_network: NetworkId,
 	pub local_bridge_hub_para_id: u32,
-	pub local_bridge_hub_location: MultiLocation,
-	pub bridged_target_location: MultiLocation,
+	pub local_bridge_hub_location: Location,
+	pub bridged_target_location: Location,
 }
 
 /// Test-case makes sure that `Runtime` can initiate **reserve transfer assets** over bridge.
@@ -51,6 +51,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 	LocationToAccountId,
 >(
 	collator_session_keys: CollatorSessionKeys<Runtime>,
+	slot_durations: SlotDurations,
 	existential_deposit: BalanceOf<Runtime>,
 	alice_account: AccountIdOf<Runtime>,
 	unwrap_pallet_xcm_event: Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
@@ -116,7 +117,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				LocationToAccountId::convert_location(&target_location_from_different_consensus)
 					.expect("Sovereign account for reserves");
 			let balance_to_transfer = 1_000_000_000_000_u128;
-			let native_asset = MultiLocation::parent();
+			let native_asset = Location::parent();
 
 			// open HRMP to bridge hub
 			mock_open_hrmp_channel::<Runtime, HrmpChannelOpener>(
@@ -124,6 +125,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				local_bridge_hub_para_id.into(),
 				included_head,
 				&alice,
+				&slot_durations,
 			);
 
 			// we calculate exact delivery fees _after_ sending the message by weighing the sent
@@ -162,35 +164,33 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				.unwrap_or(0.into());
 
 			// local native asset (pallet_balances)
-			let asset_to_transfer = MultiAsset {
-				fun: Fungible(balance_to_transfer.into()),
-				id: Concrete(native_asset),
-			};
+			let asset_to_transfer =
+				Asset { fun: Fungible(balance_to_transfer.into()), id: native_asset.into() };
 
 			// destination is (some) account relative to the destination different consensus
-			let target_destination_account = MultiLocation {
-				parents: 0,
-				interior: X1(AccountId32 {
+			let target_destination_account = Location::new(
+				0,
+				[AccountId32 {
 					network: Some(bridged_network),
 					id: sp_runtime::AccountId32::new([3; 32]).into(),
-				}),
-			};
+				}],
+			);
 
-			let assets_to_transfer = MultiAssets::from(asset_to_transfer);
+			let assets_to_transfer = Assets::from(asset_to_transfer);
 			let mut expected_assets = assets_to_transfer.clone();
 			let context = XcmConfig::UniversalLocation::get();
 			expected_assets
-				.reanchor(&target_location_from_different_consensus, context)
+				.reanchor(&target_location_from_different_consensus, &context)
 				.unwrap();
 
-			let expected_beneficiary = target_destination_account;
+			let expected_beneficiary = target_destination_account.clone();
 
 			// do pallet_xcm call reserve transfer
 			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
-				Box::new(target_location_from_different_consensus.into_versioned()),
+				Box::new(target_location_from_different_consensus.clone().into_versioned()),
 				Box::new(target_destination_account.into_versioned()),
-				Box::new(VersionedMultiAssets::from(assets_to_transfer)),
+				Box::new(VersionedAssets::from(assets_to_transfer)),
 				0,
 				weight_limit,
 			));
@@ -243,6 +243,11 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 						_ => Err(ProcessMessageError::BadFormat),
 					})
 					.expect("contains BuyExecution")
+					.match_next_inst(|instr| match instr {
+						SetAppendix(_) => Ok(()),
+						_ => Err(ProcessMessageError::BadFormat),
+					})
+					.expect("contains SetAppendix")
 			} else {
 				xcm_sent
 					.0
@@ -265,13 +270,17 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 					let (_, target_location_junctions_without_global_consensus) =
 						target_location_from_different_consensus
 							.interior
+							.clone()
 							.split_global()
 							.expect("split works");
 					assert_eq!(destination, &target_location_junctions_without_global_consensus);
 					// Call `SendXcm::validate` to get delivery fees.
 					delivery_fees = get_fungible_delivery_fees::<
 						<XcmConfig as xcm_executor::Config>::XcmSender,
-					>(target_location_from_different_consensus, inner_xcm.clone());
+					>(
+						target_location_from_different_consensus.clone(),
+						inner_xcm.clone(),
+					);
 					assert_matches_reserve_asset_deposited_instructions(
 						inner_xcm,
 						&expected_assets,
@@ -313,20 +322,22 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
-	LocationToAccountId,
 	ForeignAssetsPalletInstance,
 >(
 	collator_session_keys: CollatorSessionKeys<Runtime>,
 	existential_deposit: BalanceOf<Runtime>,
 	target_account: AccountIdOf<Runtime>,
 	block_author_account: AccountIdOf<Runtime>,
-	(
-		foreign_asset_id_multilocation,
-		transfered_foreign_asset_id_amount,
-		foreign_asset_id_minimum_balance,
-	): (MultiLocation, u128, u128),
-	prepare_configuration: fn() -> TestBridgingConfig,
+	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
+		AccountIdOf<Runtime>,
+		xcm::v3::Location,
+		u128,
+	),
+	foreign_asset_id_amount_to_transfer: u128,
+	prepare_configuration: impl FnOnce() -> TestBridgingConfig,
 	(bridge_instance, universal_origin, descend_origin): (Junctions, Junction, Junctions), /* bridge adds origin manipulation on the way */
+	additional_checks_before: impl FnOnce(),
+	additional_checks_after: impl FnOnce(),
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -339,15 +350,14 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		+ pallet_assets::Config<ForeignAssetsPalletInstance>,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
-	AccountIdOf<Runtime>: Into<[u8; 32]>,
+	AccountIdOf<Runtime>: Into<[u8; 32]> + From<[u8; 32]>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-	BalanceOf<Runtime>: From<Balance>,
+	BalanceOf<Runtime>: From<Balance> + Into<Balance>,
 	XcmConfig: xcm_executor::Config,
-	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
-		From<MultiLocation> + Into<MultiLocation>,
+		From<xcm::v3::Location> + Into<xcm::v3::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
-		From<MultiLocation> + Into<MultiLocation>,
+		From<xcm::v3::Location> + Into<xcm::v3::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128> + From<u128>,
 	<Runtime as frame_system::Config>::AccountId: Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>
@@ -368,24 +378,9 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				block_author_account.clone().into(),
 			);
 
-			// prepare bridge config
-			let TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();
-
 			// drip 'ED' user target account
 			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
 				&target_account,
-				existential_deposit,
-			);
-
-			// sovereign account as foreign asset owner (can be whoever for this scenario, doesnt
-			// matter)
-			let sovereign_account_as_owner_of_foreign_asset =
-				LocationToAccountId::convert_location(&MultiLocation::parent()).unwrap();
-
-			// staking pot account for collecting local native fees from `BuyExecution`
-			let staking_pot = <pallet_collator_selection::Pallet<Runtime>>::account_id();
-			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
-				&staking_pot,
 				existential_deposit,
 			);
 
@@ -393,58 +388,45 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			assert_ok!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::root_origin(),
-					foreign_asset_id_multilocation.into(),
-					sovereign_account_as_owner_of_foreign_asset.clone().into(),
+					foreign_asset_id_location.into(),
+					foreign_asset_owner.into(),
 					true, // is_sufficient=true
 					foreign_asset_id_minimum_balance.into()
 				)
 			);
+
+			// prepare bridge config
+			let TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();
 
 			// Balances before
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
 				existential_deposit.clone()
 			);
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&block_author_account),
-				0.into()
-			);
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&staking_pot),
-				existential_deposit.clone()
-			);
 
 			// ForeignAssets balances before
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.into(),
+					foreign_asset_id_location.into(),
 					&target_account
 				),
 				0.into()
 			);
-			assert_eq!(
-				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.into(),
-					&block_author_account
-				),
-				0.into()
-			);
-			assert_eq!(
-				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.into(),
-					&staking_pot
-				),
-				0.into()
-			);
 
-			let expected_assets = MultiAssets::from(vec![MultiAsset {
-				id: Concrete(foreign_asset_id_multilocation),
-				fun: Fungible(transfered_foreign_asset_id_amount),
+			// additional check before
+			additional_checks_before();
+
+			let foreign_asset_id_location_latest: Location =
+				foreign_asset_id_location.try_into().unwrap();
+
+			let expected_assets = Assets::from(vec![Asset {
+				id: AssetId(foreign_asset_id_location_latest.clone()),
+				fun: Fungible(foreign_asset_id_amount_to_transfer),
 			}]);
-			let expected_beneficiary = MultiLocation {
-				parents: 0,
-				interior: X1(AccountId32 { network: None, id: target_account.clone().into() }),
-			};
+			let expected_beneficiary = Location::new(
+				0,
+				[AccountId32 { network: None, id: target_account.clone().into() }],
+			);
 
 			// Call received XCM execution
 			let xcm = Xcm(vec![
@@ -454,13 +436,16 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				ReserveAssetDeposited(expected_assets.clone()),
 				ClearOrigin,
 				BuyExecution {
-					fees: MultiAsset {
-						id: Concrete(foreign_asset_id_multilocation),
-						fun: Fungible(transfered_foreign_asset_id_amount),
+					fees: Asset {
+						id: AssetId(foreign_asset_id_location_latest.clone()),
+						fun: Fungible(foreign_asset_id_amount_to_transfer),
 					},
 					weight_limit: Unlimited,
 				},
-				DepositAsset { assets: Wild(AllCounted(1)), beneficiary: expected_beneficiary },
+				DepositAsset {
+					assets: Wild(AllCounted(1)),
+					beneficiary: expected_beneficiary.clone(),
+				},
 				SetTopic([
 					220, 188, 144, 32, 213, 83, 111, 175, 44, 210, 111, 19, 90, 165, 191, 112, 140,
 					247, 192, 124, 42, 17, 153, 141, 114, 34, 189, 20, 83, 69, 237, 173,
@@ -472,62 +457,36 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				&expected_beneficiary,
 			);
 
-			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
 			// execute xcm as XcmpQueue would do
-			let outcome = XcmExecutor::<XcmConfig>::execute_xcm(
+			let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
 				local_bridge_hub_location,
 				xcm,
-				hash,
+				&mut hash,
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(
 					XcmReceivedFrom::Sibling,
 				),
+				Weight::zero(),
 			);
 			assert_ok!(outcome.ensure_complete());
 
-			// author actual balance after (received fees from Trader for ForeignAssets)
-			let author_received_fees =
-				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.into(),
-					&block_author_account,
-				);
-
-			// Balances after (untouched)
+			// Balances after
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
 				existential_deposit.clone()
 			);
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&block_author_account),
-				0.into()
-			);
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&staking_pot),
-				existential_deposit.clone()
-			);
 
 			// ForeignAssets balances after
-			assert_eq!(
+			assert!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.into(),
+					foreign_asset_id_location.into(),
 					&target_account
-				),
-				(transfered_foreign_asset_id_amount - author_received_fees.into()).into()
+				) > 0.into()
 			);
-			assert_eq!(
-				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.into(),
-					&block_author_account
-				),
-				author_received_fees
-			);
-			assert_eq!(
-				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.into(),
-					&staking_pot
-				),
-				0.into()
-			);
+
+			// additional check after
+			additional_checks_after();
 		})
 }
 
@@ -579,14 +538,15 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 
 				// Call received XCM execution
 				let xcm = if is_congested { congested_message() } else { uncongested_message() };
-				let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+				let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
 				// execute xcm as XcmpQueue would do
-				let outcome = XcmExecutor::<XcmConfig>::execute_xcm(
+				let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
 					local_bridge_hub_location,
 					xcm,
-					hash,
+					&mut hash,
 					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(XcmReceivedFrom::Sibling),
+					Weight::zero(),
 				);
 				assert_ok!(outcome.ensure_complete());
 				assert_eq!(is_congested, pallet_xcm_bridge_hub_router::Pallet::<Runtime, XcmBridgeHubRouterInstance>::bridge().is_congested);

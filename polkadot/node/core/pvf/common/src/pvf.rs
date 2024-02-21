@@ -18,7 +18,6 @@ use crate::prepare::PrepareJobKind;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParams;
-use sp_core::blake2_256;
 use std::{
 	cmp::{Eq, PartialEq},
 	fmt,
@@ -53,7 +52,7 @@ impl PvfPrepData {
 		prep_kind: PrepareJobKind,
 	) -> Self {
 		let code = Arc::new(code);
-		let code_hash = blake2_256(&code).into();
+		let code_hash = sp_crypto_hashing::blake2_256(&code).into();
 		let executor_params = Arc::new(executor_params);
 		Self { code, code_hash, executor_params, prep_timeout, prep_kind }
 	}

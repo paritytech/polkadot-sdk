@@ -133,7 +133,7 @@ pub mod rococo {
 	pub(crate) const BRIDGE_HUB_ROCOCO_LOCAL: &str = "bridge-hub-rococo-local";
 	pub(crate) const BRIDGE_HUB_ROCOCO_DEVELOPMENT: &str = "bridge-hub-rococo-dev";
 	const BRIDGE_HUB_ROCOCO_ED: BridgeHubBalance =
-		parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
+		bridge_hub_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config<ModifyProperties: Fn(&mut sc_chain_spec::Properties)>(
 		id: &str,
@@ -231,6 +231,10 @@ pub mod rococo {
 			"bridgeWestendMessages": {
 				"owner": bridges_pallet_owner.clone(),
 			},
+			"ethereumSystem": {
+				"paraId": id,
+				"assetHubParaId": 1000
+			}
 		})
 	}
 }
@@ -253,7 +257,7 @@ pub mod westend {
 	pub(crate) const BRIDGE_HUB_WESTEND_LOCAL: &str = "bridge-hub-westend-local";
 	pub(crate) const BRIDGE_HUB_WESTEND_DEVELOPMENT: &str = "bridge-hub-westend-dev";
 	const BRIDGE_HUB_WESTEND_ED: BridgeHubBalance =
-		parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+		bridge_hub_westend_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
 		id: &str,

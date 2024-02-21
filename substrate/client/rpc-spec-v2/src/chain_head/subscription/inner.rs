@@ -22,7 +22,7 @@ use sc_client_api::Backend;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::Block as BlockT;
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	sync::{atomic::AtomicBool, Arc},
 	time::{Duration, Instant},
 };
@@ -750,11 +750,27 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		}
 	}
 
+	/// Ensure the provided hashes are unique.
+	fn ensure_hash_uniqueness(
+		hashes: impl IntoIterator<Item = Block::Hash> + Clone,
+	) -> Result<(), SubscriptionManagementError> {
+		let mut set = HashSet::new();
+		hashes.into_iter().try_for_each(|hash| {
+			if !set.insert(hash) {
+				Err(SubscriptionManagementError::DuplicateHashes)
+			} else {
+				Ok(())
+			}
+		})
+	}
+
 	pub fn unpin_blocks(
 		&mut self,
 		sub_id: &str,
 		hashes: impl IntoIterator<Item = Block::Hash> + Clone,
 	) -> Result<(), SubscriptionManagementError> {
+		Self::ensure_hash_uniqueness(hashes.clone())?;
+
 		let Some(sub) = self.subs.get_mut(sub_id) else {
 			return Err(SubscriptionManagementError::SubscriptionAbsent)
 		};
@@ -983,6 +999,76 @@ mod tests {
 		assert_eq!(sub_state.unregister_block(hash), false);
 		let block_state = sub_state.blocks.get(&hash);
 		assert!(block_state.is_none());
+	}
+
+	#[test]
+	fn unpin_duplicate_hashes() {
+		let (backend, mut client) = init_backend();
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash_1 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_1)
+			.with_parent_block_number(1)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash_2 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_2)
+			.with_parent_block_number(2)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash_3 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+
+		let mut subs =
+			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
+		let id_1 = "abc".to_string();
+		let id_2 = "abcd".to_string();
+
+		// Pin all blocks for the first subscription.
+		let _stop = subs.insert_subscription(id_1.clone(), true).unwrap();
+		assert_eq!(subs.pin_block(&id_1, hash_1).unwrap(), true);
+		assert_eq!(subs.pin_block(&id_1, hash_2).unwrap(), true);
+		assert_eq!(subs.pin_block(&id_1, hash_3).unwrap(), true);
+
+		// Pin only block 2 for the second subscription.
+		let _stop = subs.insert_subscription(id_2.clone(), true).unwrap();
+		assert_eq!(subs.pin_block(&id_2, hash_2).unwrap(), true);
+
+		// Check reference count.
+		assert_eq!(*subs.global_blocks.get(&hash_1).unwrap(), 1);
+		assert_eq!(*subs.global_blocks.get(&hash_2).unwrap(), 2);
+		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
+
+		// Unpin the same block twice.
+		let err = subs.unpin_blocks(&id_1, vec![hash_1, hash_1, hash_2, hash_2]).unwrap_err();
+		assert_eq!(err, SubscriptionManagementError::DuplicateHashes);
+
+		// Check reference count must be unaltered.
+		assert_eq!(*subs.global_blocks.get(&hash_1).unwrap(), 1);
+		assert_eq!(*subs.global_blocks.get(&hash_2).unwrap(), 2);
+		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
+
+		// Unpin the blocks correctly.
+		subs.unpin_blocks(&id_1, vec![hash_1, hash_2]).unwrap();
+		assert_eq!(subs.global_blocks.get(&hash_1), None);
+		assert_eq!(*subs.global_blocks.get(&hash_2).unwrap(), 1);
+		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
 	}
 
 	#[test]

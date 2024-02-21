@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 fs_extra = "1"
 futures = "0.3.21"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 tempfile = "3.1.0"
 frame-system = { path = "../../../frame/system" }
 node-cli = { package = "staging-node-cli", path = "../cli" }
@@ -35,15 +35,13 @@ sc-client-api = { path = "../../../client/api" }
 sc-client-db = { path = "../../../client/db", features = ["rocksdb"] }
 sc-consensus = { path = "../../../client/consensus/common" }
 sc-executor = { path = "../../../client/executor" }
-sc-service = { path = "../../../client/service", features = [
-	"rocksdb",
-	"test-helpers",
-] }
+sc-service = { path = "../../../client/service", features = ["rocksdb", "test-helpers"] }
 sp-api = { path = "../../../primitives/api" }
 sp-block-builder = { path = "../../../primitives/block-builder" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-core = { path = "../../../primitives/core" }
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-io = { path = "../../../primitives/io" }
 sp-keyring = { path = "../../../primitives/keyring" }

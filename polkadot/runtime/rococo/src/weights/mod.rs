@@ -17,13 +17,12 @@
 
 pub mod frame_system;
 pub mod pallet_asset_rate;
-pub mod pallet_balances;
+pub mod pallet_balances_balances;
 pub mod pallet_balances_nis_counterpart_balances;
 pub mod pallet_bounties;
 pub mod pallet_child_bounties;
 pub mod pallet_conviction_voting;
 pub mod pallet_identity;
-pub mod pallet_im_online;
 pub mod pallet_indices;
 pub mod pallet_message_queue;
 pub mod pallet_multisig;
@@ -51,6 +50,7 @@ pub mod runtime_common_paras_registrar;
 pub mod runtime_common_slots;
 pub mod runtime_parachains_assigner_on_demand;
 pub mod runtime_parachains_configuration;
+pub mod runtime_parachains_coretime;
 pub mod runtime_parachains_disputes;
 pub mod runtime_parachains_hrmp;
 pub mod runtime_parachains_inclusion;

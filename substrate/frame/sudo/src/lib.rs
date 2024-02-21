@@ -329,7 +329,6 @@ pub mod pallet {
 
 	/// The `AccountId` of the sudo key.
 	#[pallet::storage]
-	#[pallet::getter(fn key)]
 	pub(super) type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::genesis_config]
@@ -349,12 +348,16 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Ensure that the caller is the sudo key.
 		pub(crate) fn ensure_sudo(origin: OriginFor<T>) -> DispatchResult {
-			let sender = ensure_signed(origin)?;
+			let sender = ensure_signed_or_root(origin)?;
 
-			if Self::key().map_or(false, |k| k == sender) {
-				Ok(())
+			if let Some(sender) = sender {
+				if Key::<T>::get().map_or(false, |k| k == sender) {
+					Ok(())
+				} else {
+					Err(Error::<T>::RequireSudo.into())
+				}
 			} else {
-				Err(Error::<T>::RequireSudo.into())
+				Ok(())
 			}
 		}
 	}

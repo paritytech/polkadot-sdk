@@ -22,8 +22,8 @@ pallet-examples = { path = "../../substrate/frame/examples" }
 pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }
 
 # How we build docs in rust-docs
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
-docify = "0.2.6"
+simple-mermaid = "0.1.1"
+docify = "0.2.7"
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
 node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli" }
@@ -60,6 +60,9 @@ sp-api = { path = "../../substrate/primitives/api" }
 sp-core = { path = "../../substrate/primitives/core" }
 sp-keyring = { path = "../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../substrate/primitives/runtime" }
+
+# XCM
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
 
 [dev-dependencies]
 parity-scale-codec = "3.6.5"

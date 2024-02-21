@@ -20,8 +20,9 @@
 
 use super::*;
 use crate::traits::{
+	fungible,
 	misc::{SameOrOther, TryDrop},
-	tokens::{AssetId, Balance},
+	tokens::{imbalance::Imbalance as ImbalanceT, AssetId, Balance},
 };
 use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use sp_runtime::traits::Zero;
@@ -91,6 +92,11 @@ impl<
 
 	pub(crate) fn new(asset: A, amount: B) -> Self {
 		Self { asset, amount, _phantom: PhantomData }
+	}
+
+	/// Forget the imbalance without invoking the on-drop handler.
+	pub(crate) fn forget(imbalance: Self) {
+		sp_std::mem::forget(imbalance);
 	}
 
 	pub fn drop_zero(self) -> Result<(), Self> {
@@ -166,6 +172,52 @@ impl<
 	pub fn asset(&self) -> A {
 		self.asset.clone()
 	}
+}
+
+/// Converts a `fungible` `imbalance` instance to an instance of a `fungibles` imbalance type using
+/// a specified `asset`.
+///
+/// This function facilitates imbalance conversions within the implementations of
+/// [`frame_support::traits::fungibles::UnionOf`], [`frame_support::traits::fungible::UnionOf`], and
+/// [`frame_support::traits::fungible::ItemOf`] adapters. It is intended only for internal use
+/// within the current crate.
+pub(crate) fn from_fungible<
+	A: AssetId,
+	B: Balance,
+	OnDropIn: fungible::HandleImbalanceDrop<B>,
+	OppositeIn: fungible::HandleImbalanceDrop<B>,
+	OnDropOut: HandleImbalanceDrop<A, B>,
+	OppositeOut: HandleImbalanceDrop<A, B>,
+>(
+	imbalance: fungible::Imbalance<B, OnDropIn, OppositeIn>,
+	asset: A,
+) -> Imbalance<A, B, OnDropOut, OppositeOut> {
+	let new = Imbalance::new(asset, imbalance.peek());
+	fungible::Imbalance::forget(imbalance);
+	new
+}
+
+/// Converts a `fungibles` `imbalance` instance of one type to another using a specified `asset`.
+///
+/// This function facilitates imbalance conversions within the implementations of
+/// [`frame_support::traits::fungibles::UnionOf`], [`frame_support::traits::fungible::UnionOf`], and
+/// [`frame_support::traits::fungible::ItemOf`] adapters. It is intended only for internal use
+/// within the current crate.
+pub(crate) fn from_fungibles<
+	A: AssetId,
+	B: Balance,
+	OnDropIn: HandleImbalanceDrop<A, B>,
+	OppositeIn: HandleImbalanceDrop<A, B>,
+	AssetOut: AssetId,
+	OnDropOut: HandleImbalanceDrop<AssetOut, B>,
+	OppositeOut: HandleImbalanceDrop<AssetOut, B>,
+>(
+	imbalance: Imbalance<A, B, OnDropIn, OppositeIn>,
+	asset: AssetOut,
+) -> Imbalance<AssetOut, B, OnDropOut, OppositeOut> {
+	let new = Imbalance::new(asset, imbalance.peek());
+	Imbalance::forget(imbalance);
+	new
 }
 
 /// Imbalance implying that the total_issuance value is less than the sum of all account balances.

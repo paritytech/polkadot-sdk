@@ -555,7 +555,7 @@ pub mod vrf {
 	use crate::crypto::{VrfCrypto, VrfPublic};
 	use schnorrkel::{
 		errors::MultiSignatureStage,
-		vrf::{VRF_OUTPUT_LENGTH, VRF_PROOF_LENGTH},
+		vrf::{VRF_PREOUT_LENGTH, VRF_PROOF_LENGTH},
 		SignatureError,
 	};
 
@@ -636,7 +636,7 @@ pub mod vrf {
 
 	/// VRF pre-output type suitable for schnorrkel operations.
 	#[derive(Clone, Debug, PartialEq, Eq)]
-	pub struct VrfPreOutput(pub schnorrkel::vrf::VRFOutput);
+	pub struct VrfPreOutput(pub schnorrkel::vrf::VRFPreOut);
 
 	impl Encode for VrfPreOutput {
 		fn encode(&self) -> Vec<u8> {
@@ -646,19 +646,19 @@ pub mod vrf {
 
 	impl Decode for VrfPreOutput {
 		fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
-			let decoded = <[u8; VRF_OUTPUT_LENGTH]>::decode(i)?;
-			Ok(Self(schnorrkel::vrf::VRFOutput::from_bytes(&decoded).map_err(convert_error)?))
+			let decoded = <[u8; VRF_PREOUT_LENGTH]>::decode(i)?;
+			Ok(Self(schnorrkel::vrf::VRFPreOut::from_bytes(&decoded).map_err(convert_error)?))
 		}
 	}
 
 	impl MaxEncodedLen for VrfPreOutput {
 		fn max_encoded_len() -> usize {
-			<[u8; VRF_OUTPUT_LENGTH]>::max_encoded_len()
+			<[u8; VRF_PREOUT_LENGTH]>::max_encoded_len()
 		}
 	}
 
 	impl TypeInfo for VrfPreOutput {
-		type Identity = [u8; VRF_OUTPUT_LENGTH];
+		type Identity = [u8; VRF_PREOUT_LENGTH];
 
 		fn type_info() -> scale_info::Type {
 			Self::Identity::type_info()
@@ -717,11 +717,11 @@ pub mod vrf {
 
 			let proof = self.0.dleq_proove(extra, &inout, true).0;
 
-			VrfSignature { pre_output: VrfPreOutput(inout.to_output()), proof: VrfProof(proof) }
+			VrfSignature { pre_output: VrfPreOutput(inout.to_preout()), proof: VrfProof(proof) }
 		}
 
 		fn vrf_pre_output(&self, input: &Self::VrfInput) -> Self::VrfPreOutput {
-			let pre_output = self.0.vrf_create_hash(input.0.clone()).to_output();
+			let pre_output = self.0.vrf_create_hash(input.0.clone()).to_preout();
 			VrfPreOutput(pre_output)
 		}
 	}
@@ -762,6 +762,7 @@ pub mod vrf {
 			ScalarFormatError => "Signature error: `ScalarFormatError`".into(),
 			NotMarkedSchnorrkel => "Signature error: `NotMarkedSchnorrkel`".into(),
 			BytesLengthError { .. } => "Signature error: `BytesLengthError`".into(),
+			InvalidKey => "Signature error: `InvalidKey`".into(),
 			MuSigAbsent { musig_stage: Commitment } =>
 				"Signature error: `MuSigAbsent` at stage `Commitment`".into(),
 			MuSigAbsent { musig_stage: Reveal } =>
@@ -970,6 +971,22 @@ mod tests {
 	}
 
 	#[test]
+	fn generate_with_phrase_should_be_recoverable_with_from_string() {
+		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
+		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_seed.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+		let (repair_phrase, reseed) =
+			Pair::from_phrase(phrase.as_ref(), None).expect("seed slice is valid");
+		assert_eq!(seed, reseed);
+		assert_eq!(pair.public(), repair_phrase.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+		let repair_string = Pair::from_string(phrase.as_str(), None).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_string.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+	}
+
+	#[test]
 	fn generated_pair_should_work() {
 		let (pair, _) = Pair::generate();
 		let public = pair.public();
@@ -1141,7 +1158,7 @@ mod tests {
 			})
 			.unwrap();
 		let signature2 =
-			VrfSignature { pre_output: VrfPreOutput(inout.to_output()), proof: VrfProof(proof) };
+			VrfSignature { pre_output: VrfPreOutput(inout.to_preout()), proof: VrfProof(proof) };
 
 		assert!(public.vrf_verify(&data, &signature2));
 		assert_eq!(signature.pre_output, signature2.pre_output);
