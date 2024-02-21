@@ -41,12 +41,6 @@ pub enum ListOutput {
 	Pallets,
 }
 
-impl Default for ListOutput {
-	fn default() -> Self {
-		ListOutput::All
-	}
-}
-
 /// Benchmark the extrinsic weight of FRAME Pallets.
 #[derive(Debug, clap::Parser)]
 pub struct PalletCmd {
