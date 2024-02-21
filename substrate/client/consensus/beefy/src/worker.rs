@@ -377,25 +377,48 @@ pub(crate) struct BeefyComms<B: Block> {
 	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
 }
 
-pub(crate) struct BeefyWorkerBase<B: Block, BE, RuntimeApi> {
+pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi> {
 	// utilities
 	pub backend: Arc<BE>,
 	pub runtime: Arc<RuntimeApi>,
 	pub key_store: BeefyKeystore<AuthorityId>,
 
-	/// BEEFY client metrics.
+	// voter metrics
 	pub metrics: Option<VoterMetrics>,
 
 	pub _phantom: PhantomData<B>,
 }
 
-impl<B, BE, R> BeefyWorkerBase<B, BE, R>
+impl<B, BE, R> BeefyWorkerBuilder<B, BE, R>
 where
 	B: Block + Codec,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
+	pub fn build<P, S>(
+		self,
+		payload_provider: P,
+		sync: Arc<S>,
+		comms: BeefyComms<B>,
+		links: BeefyVoterLinks<B>,
+		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
+		persisted_state: PersistedState<B>,
+	) -> BeefyWorker<B, BE, P, R, S> {
+		BeefyWorker {
+			backend: self.backend,
+			runtime: self.runtime,
+			key_store: self.key_store,
+			metrics: self.metrics,
+			payload_provider,
+			sync,
+			comms,
+			links,
+			pending_justifications,
+			persisted_state,
+		}
+	}
+
 	// If no persisted state present, walk back the chain from first GRANDPA notification to either:
 	//  - latest BEEFY finalized block, or if none found on the way,
 	//  - BEEFY pallet genesis;
@@ -579,9 +602,10 @@ fn verify_validator_set<B: Block>(
 
 /// A BEEFY worker/voter that follows the BEEFY protocol
 pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
-	pub base: BeefyWorkerBase<B, BE, RuntimeApi>,
-
-	// utils
+	// utilities
+	pub backend: Arc<BE>,
+	pub runtime: Arc<RuntimeApi>,
+	pub key_store: BeefyKeystore<AuthorityId>,
 	pub payload_provider: P,
 	pub sync: Arc<S>,
 
@@ -597,6 +621,8 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	pub pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
 	/// Persisted voter state.
 	pub persisted_state: PersistedState<B>,
+	/// BEEFY voter metrics
+	pub metrics: Option<VoterMetrics>,
 }
 
 impl<B, BE, P, R, S> BeefyWorker<B, BE, P, R, S>
@@ -630,8 +656,8 @@ where
 		self.persisted_state.init_session_at(
 			new_session_start,
 			validator_set,
-			&self.base.key_store,
-			&self.base.metrics,
+			&self.key_store,
+			&self.metrics,
 		);
 	}
 
@@ -648,8 +674,7 @@ where
 			notification.tree_route,
 		);
 
-		self.base
-			.runtime
+		self.runtime
 			.runtime_api()
 			.beefy_genesis(header.hash())
 			.ok()
@@ -663,7 +688,7 @@ where
 			self.persisted_state.set_best_grandpa(header.clone());
 
 			// Check all (newly) finalized blocks for new session(s).
-			let backend = self.base.backend.clone();
+			let backend = self.backend.clone();
 			for header in notification
 				.tree_route
 				.iter()
@@ -682,7 +707,7 @@ where
 			}
 
 			if new_session_added {
-				crate::aux_schema::write_voter_state(&*self.base.backend, &self.persisted_state)
+				crate::aux_schema::write_voter_state(&*self.backend, &self.persisted_state)
 					.map_err(|e| Error::Backend(e.to_string()))?;
 			}
 
@@ -716,7 +741,7 @@ where
 						true,
 					);
 				},
-			RoundAction::Drop => metric_inc!(self.base.metrics, beefy_stale_votes),
+			RoundAction::Drop => metric_inc!(self.metrics, beefy_stale_votes),
 			RoundAction::Enqueue => error!(target: LOG_TARGET, "🥩 unexpected vote: {:?}.", vote),
 		};
 		Ok(())
@@ -736,23 +761,23 @@ where
 		match self.voting_oracle().triage_round(block_num)? {
 			RoundAction::Process => {
 				debug!(target: LOG_TARGET, "🥩 Process justification for round: {:?}.", block_num);
-				metric_inc!(self.base.metrics, beefy_imported_justifications);
+				metric_inc!(self.metrics, beefy_imported_justifications);
 				self.finalize(justification)?
 			},
 			RoundAction::Enqueue => {
 				debug!(target: LOG_TARGET, "🥩 Buffer justification for round: {:?}.", block_num);
 				if self.pending_justifications.len() < MAX_BUFFERED_JUSTIFICATIONS {
 					self.pending_justifications.entry(block_num).or_insert(justification);
-					metric_inc!(self.base.metrics, beefy_buffered_justifications);
+					metric_inc!(self.metrics, beefy_buffered_justifications);
 				} else {
-					metric_inc!(self.base.metrics, beefy_buffered_justifications_dropped);
+					metric_inc!(self.metrics, beefy_buffered_justifications_dropped);
 					warn!(
 						target: LOG_TARGET,
 						"🥩 Buffer justification dropped for round: {:?}.", block_num
 					);
 				}
 			},
-			RoundAction::Drop => metric_inc!(self.base.metrics, beefy_stale_justifications),
+			RoundAction::Drop => metric_inc!(self.metrics, beefy_stale_justifications),
 		};
 		Ok(())
 	}
@@ -774,7 +799,7 @@ where
 				// We created the `finality_proof` and know to be valid.
 				// New state is persisted after finalization.
 				self.finalize(finality_proof.clone())?;
-				metric_inc!(self.base.metrics, beefy_good_votes_processed);
+				metric_inc!(self.metrics, beefy_good_votes_processed);
 				return Ok(Some(finality_proof))
 			},
 			VoteImportResult::Ok => {
@@ -785,20 +810,17 @@ where
 					.map(|(mandatory_num, _)| mandatory_num == block_number)
 					.unwrap_or(false)
 				{
-					crate::aux_schema::write_voter_state(
-						&*self.base.backend,
-						&self.persisted_state,
-					)
-					.map_err(|e| Error::Backend(e.to_string()))?;
+					crate::aux_schema::write_voter_state(&*self.backend, &self.persisted_state)
+						.map_err(|e| Error::Backend(e.to_string()))?;
 				}
-				metric_inc!(self.base.metrics, beefy_good_votes_processed);
+				metric_inc!(self.metrics, beefy_good_votes_processed);
 			},
 			VoteImportResult::Equivocation(proof) => {
-				metric_inc!(self.base.metrics, beefy_equivocation_votes);
+				metric_inc!(self.metrics, beefy_equivocation_votes);
 				self.report_equivocation(proof)?;
 			},
-			VoteImportResult::Invalid => metric_inc!(self.base.metrics, beefy_invalid_votes),
-			VoteImportResult::Stale => metric_inc!(self.base.metrics, beefy_stale_votes),
+			VoteImportResult::Invalid => metric_inc!(self.metrics, beefy_invalid_votes),
+			VoteImportResult::Stale => metric_inc!(self.metrics, beefy_stale_votes),
 		};
 		Ok(None)
 	}
@@ -825,15 +847,14 @@ where
 
 		// Set new best BEEFY block number.
 		self.persisted_state.set_best_beefy(block_num);
-		crate::aux_schema::write_voter_state(&*self.base.backend, &self.persisted_state)
+		crate::aux_schema::write_voter_state(&*self.backend, &self.persisted_state)
 			.map_err(|e| Error::Backend(e.to_string()))?;
 
-		metric_set!(self.base.metrics, beefy_best_block, block_num);
+		metric_set!(self.metrics, beefy_best_block, block_num);
 
 		self.comms.on_demand_justifications.cancel_requests_older_than(block_num);
 
 		if let Err(e) = self
-			.base
 			.backend
 			.blockchain()
 			.expect_block_hash_from_id(&BlockId::Number(block_num))
@@ -843,8 +864,7 @@ where
 					.notify(|| Ok::<_, ()>(hash))
 					.expect("forwards closure result; the closure always returns Ok; qed.");
 
-				self.base
-					.backend
+				self.backend
 					.append_justification(hash, (BEEFY_ENGINE_ID, finality_proof.encode()))
 			}) {
 			debug!(
@@ -881,13 +901,13 @@ where
 
 			for (num, justification) in justifs_to_process.into_iter() {
 				debug!(target: LOG_TARGET, "🥩 Handle buffered justification for: {:?}.", num);
-				metric_inc!(self.base.metrics, beefy_imported_justifications);
+				metric_inc!(self.metrics, beefy_imported_justifications);
 				if let Err(err) = self.finalize(justification) {
 					error!(target: LOG_TARGET, "🥩 Error finalizing block: {}", err);
 				}
 			}
 			metric_set!(
-				self.base.metrics,
+				self.metrics,
 				beefy_buffered_justifications,
 				self.pending_justifications.len()
 			);
@@ -899,7 +919,7 @@ where
 	fn try_to_vote(&mut self) -> Result<(), Error> {
 		// Vote if there's now a new vote target.
 		if let Some(target) = self.voting_oracle().voting_target() {
-			metric_set!(self.base.metrics, beefy_should_vote_on, target);
+			metric_set!(self.metrics, beefy_should_vote_on, target);
 			if target > self.persisted_state.best_voted {
 				self.do_vote(target)?;
 			}
@@ -919,7 +939,6 @@ where
 			self.persisted_state.voting_oracle.best_grandpa_block_header.clone()
 		} else {
 			let hash = self
-				.base
 				.backend
 				.blockchain()
 				.expect_block_hash_from_id(&BlockId::Number(target_number))
@@ -931,7 +950,7 @@ where
 					Error::Backend(err_msg)
 				})?;
 
-			self.base.backend.blockchain().expect_header(hash).map_err(|err| {
+			self.backend.blockchain().expect_header(hash).map_err(|err| {
 				let err_msg = format!(
 					"Couldn't get header for block #{:?} ({:?}) (error: {:?}), skipping vote..",
 					target_number, hash, err
@@ -951,7 +970,7 @@ where
 		let rounds = self.persisted_state.voting_oracle.active_rounds_mut()?;
 		let (validators, validator_set_id) = (rounds.validators(), rounds.validator_set_id());
 
-		let authority_id = if let Some(id) = self.base.key_store.authority_id(validators) {
+		let authority_id = if let Some(id) = self.key_store.authority_id(validators) {
 			debug!(target: LOG_TARGET, "🥩 Local authority id: {:?}", id);
 			id
 		} else {
@@ -965,7 +984,7 @@ where
 		let commitment = Commitment { payload, block_number: target_number, validator_set_id };
 		let encoded_commitment = commitment.encode();
 
-		let signature = match self.base.key_store.sign(&authority_id, &encoded_commitment) {
+		let signature = match self.key_store.sign(&authority_id, &encoded_commitment) {
 			Ok(sig) => sig,
 			Err(err) => {
 				warn!(target: LOG_TARGET, "🥩 Error signing commitment: {:?}", err);
@@ -990,7 +1009,7 @@ where
 				.gossip_engine
 				.gossip_message(proofs_topic::<B>(), encoded_proof, true);
 		} else {
-			metric_inc!(self.base.metrics, beefy_votes_sent);
+			metric_inc!(self.metrics, beefy_votes_sent);
 			debug!(target: LOG_TARGET, "🥩 Sent vote message: {:?}", vote);
 			let encoded_vote = GossipMessage::<B>::Vote(vote).encode();
 			self.comms.gossip_engine.gossip_message(votes_topic::<B>(), encoded_vote, false);
@@ -998,8 +1017,8 @@ where
 
 		// Persist state after vote to avoid double voting in case of voter restarts.
 		self.persisted_state.best_voted = target_number;
-		metric_set!(self.base.metrics, beefy_best_voted, target_number);
-		crate::aux_schema::write_voter_state(&*self.base.backend, &self.persisted_state)
+		metric_set!(self.metrics, beefy_best_voted, target_number);
+		crate::aux_schema::write_voter_state(&*self.backend, &self.persisted_state)
 			.map_err(|e| Error::Backend(e.to_string()))
 	}
 
@@ -1173,7 +1192,7 @@ where
 		if !check_equivocation_proof::<_, _, BeefySignatureHasher>(&proof) {
 			debug!(target: LOG_TARGET, "🥩 Skip report for bad equivocation {:?}", proof);
 			return Ok(())
-		} else if let Some(local_id) = self.base.key_store.authority_id(validators) {
+		} else if let Some(local_id) = self.key_store.authority_id(validators) {
 			if offender_id == local_id {
 				warn!(target: LOG_TARGET, "🥩 Skip equivocation report for own equivocation");
 				return Ok(())
@@ -1182,7 +1201,6 @@ where
 
 		let number = *proof.round_number();
 		let hash = self
-			.base
 			.backend
 			.blockchain()
 			.expect_block_hash_from_id(&BlockId::Number(number))
@@ -1193,7 +1211,7 @@ where
 				);
 				Error::Backend(err_msg)
 			})?;
-		let runtime_api = self.base.runtime.runtime_api();
+		let runtime_api = self.runtime.runtime_api();
 		// generate key ownership proof at that block
 		let key_owner_proof = match runtime_api
 			.generate_key_ownership_proof(hash, validator_set_id, offender_id)
@@ -1210,7 +1228,7 @@ where
 		};
 
 		// submit equivocation report at **best** block
-		let best_block_hash = self.base.backend.blockchain().info().best_hash;
+		let best_block_hash = self.backend.blockchain().info().best_hash;
 		runtime_api
 			.submit_report_equivocation_unsigned_extrinsic(best_block_hash, proof, key_owner_proof)
 			.map_err(Error::RuntimeApi)?;
@@ -1400,13 +1418,10 @@ pub(crate) mod tests {
 			on_demand_justifications,
 		};
 		BeefyWorker {
-			base: BeefyWorkerBase {
-				backend,
-				runtime: api,
-				key_store: Some(keystore).into(),
-				metrics,
-				_phantom: Default::default(),
-			},
+			backend,
+			runtime: api,
+			key_store: Some(keystore).into(),
+			metrics,
 			payload_provider,
 			sync: Arc::new(sync),
 			links,
@@ -1684,26 +1699,20 @@ pub(crate) mod tests {
 		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
 
 		// keystore doesn't contain other keys than validators'
-		assert_eq!(
-			verify_validator_set::<Block>(&1, &validator_set, &worker.base.key_store),
-			Ok(())
-		);
+		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), Ok(()));
 
 		// unknown `Bob` key
 		let keys = &[Keyring::Bob];
 		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
 		let err_msg = "no authority public key found in store".to_string();
 		let expected = Err(Error::Keystore(err_msg));
-		assert_eq!(
-			verify_validator_set::<Block>(&1, &validator_set, &worker.base.key_store),
-			expected
-		);
+		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), expected);
 
 		// worker has no keystore
-		worker.base.key_store = None.into();
+		worker.key_store = None.into();
 		let expected_err = Err(Error::Keystore("no Keystore".into()));
 		assert_eq!(
-			verify_validator_set::<Block>(&1, &validator_set, &worker.base.key_store),
+			verify_validator_set::<Block>(&1, &validator_set, &worker.key_store),
 			expected_err
 		);
 	}
@@ -1857,7 +1866,7 @@ pub(crate) mod tests {
 
 		let mut net = BeefyTestNet::new(1);
 		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
-		worker.base.runtime = api_alice.clone();
+		worker.runtime = api_alice.clone();
 
 		// let there be a block with num = 1:
 		let _ = net.peer(0).push_blocks(1, false);

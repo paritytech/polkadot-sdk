@@ -32,7 +32,7 @@ use crate::{
 	gossip_protocol_name,
 	justification::*,
 	wait_for_runtime_pallet,
-	worker::{BeefyWorkerBase, PersistedState},
+	worker::{BeefyWorkerBuilder, PersistedState},
 	BeefyRPCLinks, BeefyVoterLinks, KnownPeers,
 };
 use futures::{future, stream::FuturesUnordered, Future, FutureExt, StreamExt};
@@ -369,7 +369,7 @@ async fn voter_init_setup(
 ) -> Result<PersistedState<Block>, Error> {
 	let backend = net.peer(0).client().as_backend();
 	let (beefy_genesis, best_grandpa) = wait_for_runtime_pallet(api, finality).await.unwrap();
-	let mut worker_base = BeefyWorkerBase {
+	let mut worker_base = BeefyWorkerBuilder {
 		backend,
 		runtime: Arc::new(api.clone()),
 		key_store: None.into(),

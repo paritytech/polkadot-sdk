@@ -297,7 +297,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 				},
 			};
 
-		let mut worker_base = worker::BeefyWorkerBase {
+		let mut worker_builder = worker::BeefyWorkerBuilder {
 			backend: backend.clone(),
 			runtime: runtime.clone(),
 			key_store: key_store.clone().into(),
@@ -305,7 +305,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 			_phantom: Default::default(),
 		};
 
-		let persisted_state = match worker_base
+		let persisted_state = match worker_builder
 			.load_or_init_state(beefy_genesis, best_grandpa, min_block_delta)
 			.await
 		{
@@ -324,15 +324,14 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 			return
 		}
 
-		let worker = worker::BeefyWorker {
-			base: worker_base,
-			payload_provider: payload_provider.clone(),
-			sync: sync.clone(),
-			comms: beefy_comms,
-			links: links.clone(),
-			pending_justifications: BTreeMap::new(),
+		let worker = worker_builder.build(
+			payload_provider.clone(),
+			sync.clone(),
+			beefy_comms,
+			links.clone(),
+			BTreeMap::new(),
 			persisted_state,
-		};
+		);
 
 		match futures::future::select(
 			Box::pin(worker.run(&mut block_import_justif, &mut finality_notifications)),
