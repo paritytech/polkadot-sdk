@@ -590,12 +590,16 @@ mod staking_integration {
 mod pool_integration {
 	use super::*;
 	#[test]
-	fn create_pool() {
+	fn create_pool_test() {
 		ExtBuilder::default().build_and_execute(|| {
 			let creator: AccountId = 100;
 			fund(&creator, 500);
 			let delegate_amount = 200;
 
+			// nothing held initially
+			assert_eq!(held_balance(&creator), 0);
+
+			// create pool
 			assert_ok!(Pools::create(
 				RawOrigin::Signed(creator).into(),
 				delegate_amount,
@@ -603,11 +607,14 @@ mod pool_integration {
 				creator,
 				creator
 			));
+
+			// correct amount is locked in depositor's account.
 			assert_eq!(held_balance(&creator), delegate_amount);
 
 			let pool_account = Pools::create_bonded_account(1);
 			let delegate = get_delegate(&pool_account);
 
+			// verify state
 			assert_eq!(delegate.ledger.effective_balance(), delegate_amount);
 			assert_eq!(delegate.available_to_bond(), 0);
 			assert_eq!(delegate.unbonded(), 0);
@@ -616,7 +623,48 @@ mod pool_integration {
 
 	#[test]
 	fn join_pool() {
-		ExtBuilder::default().build_and_execute(|| {});
+		ExtBuilder::default().build_and_execute(|| {
+			// create a pool
+			create_pool(100, 200);
+			// keep track of staked amount.
+			let mut staked_amount: Balance = 200;
+
+			// fund delegator
+			let delegator: AccountId = 300;
+			fund(&delegator, 500);
+			// nothing held initially
+			assert_eq!(held_balance(&delegator), 0);
+
+			// delegator joins pool
+			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), 100, 1));
+			staked_amount += 100;
+
+			// correct amount is locked in depositor's account.
+			assert_eq!(held_balance(&delegator), 100);
+
+			// delegator is not actively exposed to core staking.
+			assert_eq!(Staking::status(&delegator), Err(StakingError::<T>::NotStash.into()));
+
+			let pool_delegate = get_delegate(&Pools::create_bonded_account(1));
+			// verify state
+			assert_eq!(pool_delegate.ledger.effective_balance(), staked_amount);
+			assert_eq!(pool_delegate.bonded_stake(), staked_amount);
+			assert_eq!(pool_delegate.available_to_bond(), 0);
+			assert_eq!(pool_delegate.unbonded(), 0);
+
+			// let a bunch of delegators join this pool
+			for i in 301..350 {
+				fund(&i, 500);
+				assert_ok!(Pools::join(RawOrigin::Signed(i).into(), (100 + i).into(), 1));
+				staked_amount += 100 + i;
+				assert_eq!(held_balance(&i), 100 + i);
+			}
+
+			assert_eq!(pool_delegate.refresh().unwrap().ledger.effective_balance(), staked_amount);
+			assert_eq!(pool_delegate.bonded_stake(), staked_amount);
+			assert_eq!(pool_delegate.available_to_bond(), 0);
+			assert_eq!(pool_delegate.unbonded(), 0);
+		});
 	}
 
 	#[test]
@@ -667,5 +715,16 @@ mod pool_integration {
 	#[test]
 	fn pool_slashed() {
 		ExtBuilder::default().build_and_execute(|| {});
+	}
+
+	fn create_pool(creator: AccountId, amount: Balance) {
+		fund(&creator, amount * 2);
+		assert_ok!(Pools::create(
+			RawOrigin::Signed(creator).into(),
+			amount,
+			creator,
+			creator,
+			creator
+		));
 	}
 }

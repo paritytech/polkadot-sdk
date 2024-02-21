@@ -65,7 +65,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 		if Self::is_delegator(who) {
 			let delegation = Delegation::<T>::get(who).defensive_ok_or(Error::<T>::BadState)?;
-			return Ok(delegation.amount)
+			return Ok(delegation.amount);
 		}
 
 		Err(Error::<T>::NotSupported.into())

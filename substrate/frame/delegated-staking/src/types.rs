@@ -158,6 +158,11 @@ impl<T: Config> Delegate<T> {
 		Ok(Delegate { key: delegate.clone(), ledger })
 	}
 
+	// re-reads the delegate from database and returns a new instance.
+	pub(crate) fn refresh(&self) -> Result<Delegate<T>, DispatchError> {
+		Self::from(&self.key)
+	}
+
 	pub(crate) fn available_to_bond(&self) -> BalanceOf<T> {
 		let bonded_stake = self.bonded_stake();
 
