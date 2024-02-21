@@ -202,6 +202,26 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -223,6 +243,7 @@
 <span class="kw">mod </span>writer;
 
 <span class="kw">use </span><span class="kw">crate</span>::shared::HostInfoParams;
+<span class="kw">use </span>clap::ValueEnum;
 <span class="kw">use </span>sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
 	DEFAULT_WASM_EXECUTION_METHOD,
@@ -235,16 +256,31 @@
 	<span class="prelude-val">Ok</span>(pallet.replace(<span class="string">&quot;-&quot;</span>, <span class="string">&quot;_&quot;</span>))
 }
 
+<span class="doccomment">/// List options for available benchmarks.
+</span><span class="attr">#[derive(Debug, Clone, Copy, ValueEnum)]
+</span><span class="kw">pub enum </span>ListOutput {
+	<span class="doccomment">/// List all available pallets and extrinsics.
+	</span>All,
+	<span class="doccomment">/// List all available pallets only.
+	</span>Pallets,
+}
+
 <span class="doccomment">/// Benchmark the extrinsic weight of FRAME Pallets.
 </span><span class="attr">#[derive(Debug, clap::Parser)]
 </span><span class="kw">pub struct </span>PalletCmd {
 	<span class="doccomment">/// Select a FRAME Pallet to benchmark, or `*` for all (in which case `extrinsic` must be `*`).
-	</span><span class="attr">#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = [<span class="string">&quot;list&quot;</span>, <span class="string">&quot;json_input&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = [<span class="string">&quot;list&quot;</span>, <span class="string">&quot;json_input&quot;</span>, <span class="string">&quot;all&quot;</span>]</span>, default_value_if(<span class="string">&quot;all&quot;</span>, <span class="string">&quot;true&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;*&quot;</span>.into())))]
 	<span class="kw">pub </span>pallet: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
 	<span class="doccomment">/// Select an extrinsic inside the pallet to benchmark, or `*` for all.
-	</span><span class="attr">#[arg(short, long, required_unless_present_any = [<span class="string">&quot;list&quot;</span>, <span class="string">&quot;json_input&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(short, long, required_unless_present_any = [<span class="string">&quot;list&quot;</span>, <span class="string">&quot;json_input&quot;</span>, <span class="string">&quot;all&quot;</span>]</span>, default_value_if(<span class="string">&quot;all&quot;</span>, <span class="string">&quot;true&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;*&quot;</span>.into())))]
 	<span class="kw">pub </span>extrinsic: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+	<span class="doccomment">/// Run benchmarks for all pallets and extrinsics.
+	///
+	/// This is equivalent to running `--pallet * --extrinsic *`.
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>all: bool,
 
 	<span class="doccomment">/// Select how many samples we should take across the variable components.
 	</span><span class="attr">#[arg(short, long, default_value_t = <span class="number">50</span>)]
@@ -362,11 +398,15 @@
 	</span><span class="attr">#[arg(long = <span class="string">&quot;db-cache&quot;</span>, value_name = <span class="string">&quot;MiB&quot;</span>, default_value_t = <span class="number">1024</span>)]
 	</span><span class="kw">pub </span>database_cache_size: u32,
 
-	<span class="doccomment">/// List the benchmarks that match your query rather than running them.
+	<span class="doccomment">/// List and print available benchmarks in a csv-friendly format.
 	///
-	/// When nothing is provided, we list all benchmarks.
-	</span><span class="attr">#[arg(long)]
-	</span><span class="kw">pub </span>list: bool,
+	/// NOTE: `num_args` and `require_equals` are required to allow `--list`
+	</span><span class="attr">#[arg(long, value_enum, ignore_case = <span class="bool-val">true</span>, num_args = <span class="number">0</span>..=<span class="number">1</span>, require_equals = <span class="bool-val">true</span>, default_missing_value(<span class="string">&quot;All&quot;</span>))]
+	</span><span class="kw">pub </span>list: <span class="prelude-ty">Option</span>&lt;ListOutput&gt;,
+
+	<span class="doccomment">/// Don&#39;t include csv header when listing benchmarks.
+	</span><span class="attr">#[arg(long, requires(<span class="string">&quot;list&quot;</span>))]
+	</span><span class="kw">pub </span>no_csv_header: bool,
 
 	<span class="doccomment">/// If enabled, the storage info is not displayed in the output next to the analysis.
 	///

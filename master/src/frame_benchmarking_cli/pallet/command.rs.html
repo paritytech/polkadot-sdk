@@ -771,6 +771,36 @@
 <a href="#771" id="771">771</a>
 <a href="#772" id="772">772</a>
 <a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -788,7 +818,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use super</span>::{writer, PalletCmd};
+</span><span class="kw">use super</span>::{writer, ListOutput, PalletCmd};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
@@ -812,7 +842,13 @@
 <span class="kw">use </span>sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 <span class="kw">use </span>sp_runtime::traits::Hash;
 <span class="kw">use </span>sp_state_machine::StateMachine;
-<span class="kw">use </span>std::{collections::HashMap, fmt::Debug, fs, str::FromStr, time};
+<span class="kw">use </span>std::{
+	collections::{BTreeMap, BTreeSet, HashMap},
+	fmt::Debug,
+	fs,
+	str::FromStr,
+	time,
+};
 
 <span class="doccomment">/// Logging target
 </span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;frame::benchmark::pallet&quot;</span>;
@@ -964,6 +1000,7 @@ not created by a node that was compiled with the flag&quot;</span>;
 		<span class="kw">let </span>spec = config.chain_spec;
 		<span class="kw">let </span>pallet = <span class="self">self</span>.pallet.clone().unwrap_or_default();
 		<span class="kw">let </span>pallet = pallet.as_bytes();
+
 		<span class="kw">let </span>extrinsic = <span class="self">self</span>.extrinsic.clone().unwrap_or_default();
 		<span class="kw">let </span>extrinsic_split: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = extrinsic.split(<span class="string">&#39;,&#39;</span>).collect();
 		<span class="kw">let </span>extrinsics: Vec&lt;<span class="kw">_</span>&gt; = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
@@ -1082,9 +1119,8 @@ not created by a node that was compiled with the flag&quot;</span>;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;No benchmarks found which match your input.&quot;</span>.into())
 		}
 
-		<span class="kw">if </span><span class="self">self</span>.list {
-			<span class="comment">// List benchmarks instead of running them
-			</span>list_benchmark(benchmarks_to_run);
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(list_output) = <span class="self">self</span>.list {
+			list_benchmark(benchmarks_to_run, list_output, <span class="self">self</span>.no_csv_header);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
 
@@ -1528,20 +1564,44 @@ not created by a node that was compiled with the flag&quot;</span>;
 
 <span class="doccomment">/// List the benchmarks available in the runtime, in a CSV friendly format.
 </span><span class="kw">fn </span>list_benchmark(
-	<span class="kw-2">mut </span>benchmarks_to_run: Vec&lt;(
+	benchmarks_to_run: Vec&lt;(
 		Vec&lt;u8&gt;,
 		Vec&lt;u8&gt;,
 		Vec&lt;(BenchmarkParameter, u32, u32)&gt;,
 		Vec&lt;(String, String)&gt;,
 	)&gt;,
+	list_output: ListOutput,
+	no_csv_header: bool,
 ) {
-	<span class="comment">// Sort and de-dub by pallet and function name.
-	</span>benchmarks_to_run.sort_by(|(pa, sa, <span class="kw">_</span>, <span class="kw">_</span>), (pb, sb, <span class="kw">_</span>, <span class="kw">_</span>)| (pa, sa).cmp(<span class="kw-2">&amp;</span>(pb, sb)));
-	benchmarks_to_run.dedup_by(|(pa, sa, <span class="kw">_</span>, <span class="kw">_</span>), (pb, sb, <span class="kw">_</span>, <span class="kw">_</span>)| (pa, sa) == (pb, sb));
+	<span class="kw">let </span><span class="kw-2">mut </span>benchmarks = BTreeMap::new();
 
-	<span class="macro">println!</span>(<span class="string">&quot;pallet, benchmark&quot;</span>);
-	<span class="kw">for </span>(pallet, extrinsic, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span>benchmarks_to_run {
-		<span class="macro">println!</span>(<span class="string">&quot;{}, {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>pallet), String::from_utf8_lossy(<span class="kw-2">&amp;</span>extrinsic));
+	<span class="comment">// Sort and de-dub by pallet and function name.
+	</span>benchmarks_to_run.iter().for_each(|(pallet, extrinsic, <span class="kw">_</span>, <span class="kw">_</span>)| {
+		benchmarks
+			.entry(String::from_utf8_lossy(pallet).to_string())
+			.or_insert_with(BTreeSet::new)
+			.insert(String::from_utf8_lossy(extrinsic).to_string());
+	});
+
+	<span class="kw">match </span>list_output {
+		ListOutput::All =&gt; {
+			<span class="kw">if </span>!no_csv_header {
+				<span class="macro">println!</span>(<span class="string">&quot;pallet,extrinsic&quot;</span>);
+			}
+			<span class="kw">for </span>(pallet, extrinsics) <span class="kw">in </span>benchmarks {
+				<span class="kw">for </span>extrinsic <span class="kw">in </span>extrinsics {
+					<span class="macro">println!</span>(<span class="string">&quot;{pallet},{extrinsic}&quot;</span>);
+				}
+			}
+		},
+		ListOutput::Pallets =&gt; {
+			<span class="kw">if </span>!no_csv_header {
+				<span class="macro">println!</span>(<span class="string">&quot;pallet&quot;</span>);
+			};
+			<span class="kw">for </span>pallet <span class="kw">in </span>benchmarks.keys() {
+				<span class="macro">println!</span>(<span class="string">&quot;{pallet}&quot;</span>);
+			}
+		},
 	}
 }
 </code></pre></div></section></main></body></html>
