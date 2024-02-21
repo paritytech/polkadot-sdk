@@ -324,6 +324,47 @@ impl<B: Block> PersistedState<B> {
 		let validator_set = self.voting_oracle.current_validator_set()?;
 		Ok(GossipFilterCfg { start, end, validator_set })
 	}
+
+	/// Handle session changes by starting new voting round for mandatory blocks.
+	pub fn init_session_at(
+		&mut self,
+		new_session_start: NumberFor<B>,
+		validator_set: ValidatorSet<AuthorityId>,
+		key_store: &BeefyKeystore<AuthorityId>,
+		metrics: &Option<VoterMetrics>,
+	) {
+		debug!(target: LOG_TARGET, "🥩 New active validator set: {:?}", validator_set);
+
+		// BEEFY should finalize a mandatory block during each session.
+		if let Ok(active_session) = self.voting_oracle.active_rounds() {
+			if !active_session.mandatory_done() {
+				debug!(
+					target: LOG_TARGET,
+					"🥩 New session {} while active session {} is still lagging.",
+					validator_set.id(),
+					active_session.validator_set_id(),
+				);
+				metric_inc!(metrics, beefy_lagging_sessions);
+			}
+		}
+
+		if log_enabled!(target: LOG_TARGET, log::Level::Debug) {
+			// verify the new validator set - only do it if we're also logging the warning
+			if verify_validator_set::<B>(&new_session_start, &validator_set, key_store).is_err() {
+				metric_inc!(metrics, beefy_no_authority_found_in_store);
+			}
+		}
+
+		let id = validator_set.id();
+		self.voting_oracle.add_session(Rounds::new(new_session_start, validator_set));
+		metric_set!(metrics, beefy_validator_set_id, id);
+		info!(
+			target: LOG_TARGET,
+			"🥩 New Rounds for validator set id: {:?} with session_start {:?}",
+			id,
+			new_session_start
+		);
+	}
 }
 
 /// Helper object holding BEEFY worker communication/gossip components.
@@ -494,7 +535,12 @@ where
 					"🥩 Handling missed BEEFY session after node restart: {:?}.",
 					new_session_start
 				);
-				self.init_session_at(&mut state, validator_set, new_session_start);
+				state.init_session_at(
+					new_session_start,
+					validator_set,
+					&self.key_store,
+					&self.metrics,
+				);
 			}
 			return Ok(state)
 		}
@@ -502,73 +548,32 @@ where
 		// No valid voter-state persisted, re-initialize from pallet genesis.
 		self.init_state(beefy_genesis, best_grandpa, min_block_delta).await
 	}
+}
 
-	/// Verify `active` validator set for `block` against the key store
-	///
-	/// We want to make sure that we have _at least one_ key in our keystore that
-	/// is part of the validator set, that's because if there are no local keys
-	/// then we can't perform our job as a validator.
-	///
-	/// Note that for a non-authority node there will be no keystore, and we will
-	/// return an error and don't check. The error can usually be ignored.
-	fn verify_validator_set(
-		&self,
-		block: &NumberFor<B>,
-		active: &ValidatorSet<AuthorityId>,
-	) -> Result<(), Error> {
-		let active: BTreeSet<&AuthorityId> = active.validators().iter().collect();
+/// Verify `active` validator set for `block` against the key store
+///
+/// We want to make sure that we have _at least one_ key in our keystore that
+/// is part of the validator set, that's because if there are no local keys
+/// then we can't perform our job as a validator.
+///
+/// Note that for a non-authority node there will be no keystore, and we will
+/// return an error and don't check. The error can usually be ignored.
+fn verify_validator_set<B: Block>(
+	block: &NumberFor<B>,
+	active: &ValidatorSet<AuthorityId>,
+	key_store: &BeefyKeystore<AuthorityId>,
+) -> Result<(), Error> {
+	let active: BTreeSet<&AuthorityId> = active.validators().iter().collect();
 
-		let public_keys = self.key_store.public_keys()?;
-		let store: BTreeSet<&AuthorityId> = public_keys.iter().collect();
+	let public_keys = key_store.public_keys()?;
+	let store: BTreeSet<&AuthorityId> = public_keys.iter().collect();
 
-		if store.intersection(&active).count() == 0 {
-			let msg = "no authority public key found in store".to_string();
-			debug!(target: LOG_TARGET, "🥩 for block {:?} {}", block, msg);
-			metric_inc!(self.metrics, beefy_no_authority_found_in_store);
-			Err(Error::Keystore(msg))
-		} else {
-			Ok(())
-		}
-	}
-
-	/// Handle session changes by starting new voting round for mandatory blocks.
-	fn init_session_at(
-		&mut self,
-		persisted_state: &mut PersistedState<B>,
-		validator_set: ValidatorSet<AuthorityId>,
-		new_session_start: NumberFor<B>,
-	) {
-		debug!(target: LOG_TARGET, "🥩 New active validator set: {:?}", validator_set);
-
-		// BEEFY should finalize a mandatory block during each session.
-		if let Ok(active_session) = persisted_state.voting_oracle.active_rounds() {
-			if !active_session.mandatory_done() {
-				debug!(
-					target: LOG_TARGET,
-					"🥩 New session {} while active session {} is still lagging.",
-					validator_set.id(),
-					active_session.validator_set_id(),
-				);
-				metric_inc!(self.metrics, beefy_lagging_sessions);
-			}
-		}
-
-		if log_enabled!(target: LOG_TARGET, log::Level::Debug) {
-			// verify the new validator set - only do it if we're also logging the warning
-			let _ = self.verify_validator_set(&new_session_start, &validator_set);
-		}
-
-		let id = validator_set.id();
-		persisted_state
-			.voting_oracle
-			.add_session(Rounds::new(new_session_start, validator_set));
-		metric_set!(self.metrics, beefy_validator_set_id, id);
-		info!(
-			target: LOG_TARGET,
-			"🥩 New Rounds for validator set id: {:?} with session_start {:?}",
-			id,
-			new_session_start
-		);
+	if store.intersection(&active).count() == 0 {
+		let msg = "no authority public key found in store".to_string();
+		debug!(target: LOG_TARGET, "🥩 for block {:?} {}", block, msg);
+		Err(Error::Keystore(msg))
+	} else {
+		Ok(())
 	}
 }
 
@@ -622,8 +627,12 @@ where
 		validator_set: ValidatorSet<AuthorityId>,
 		new_session_start: NumberFor<B>,
 	) {
-		self.base
-			.init_session_at(&mut self.persisted_state, validator_set, new_session_start);
+		self.persisted_state.init_session_at(
+			new_session_start,
+			validator_set,
+			&self.base.key_store,
+			&self.base.metrics,
+		);
 	}
 
 	fn handle_finality_notification(
@@ -1675,19 +1684,28 @@ pub(crate) mod tests {
 		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
 
 		// keystore doesn't contain other keys than validators'
-		assert_eq!(worker.base.verify_validator_set(&1, &validator_set), Ok(()));
+		assert_eq!(
+			verify_validator_set::<Block>(&1, &validator_set, &worker.base.key_store),
+			Ok(())
+		);
 
 		// unknown `Bob` key
 		let keys = &[Keyring::Bob];
 		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
 		let err_msg = "no authority public key found in store".to_string();
 		let expected = Err(Error::Keystore(err_msg));
-		assert_eq!(worker.base.verify_validator_set(&1, &validator_set), expected);
+		assert_eq!(
+			verify_validator_set::<Block>(&1, &validator_set, &worker.base.key_store),
+			expected
+		);
 
 		// worker has no keystore
 		worker.base.key_store = None.into();
 		let expected_err = Err(Error::Keystore("no Keystore".into()));
-		assert_eq!(worker.base.verify_validator_set(&1, &validator_set), expected_err);
+		assert_eq!(
+			verify_validator_set::<Block>(&1, &validator_set, &worker.base.key_store),
+			expected_err
+		);
 	}
 
 	#[tokio::test]

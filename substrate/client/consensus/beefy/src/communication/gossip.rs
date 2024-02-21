@@ -168,13 +168,9 @@ impl<B: Block> Filter<B> {
 			.as_ref()
 			.map(|f|
 				// only from current set and only [filter.start, filter.end]
-				if set_id < f.validator_set.id() {
+				if set_id < f.validator_set.id() || round < f.start {
 					Consider::RejectPast
-				} else if set_id > f.validator_set.id() {
-					Consider::RejectFuture
-				} else if round < f.start {
-					Consider::RejectPast
-				} else if round > f.end {
+				} else if set_id > f.validator_set.id() || round > f.end {
 					Consider::RejectFuture
 				} else {
 					Consider::Accept
