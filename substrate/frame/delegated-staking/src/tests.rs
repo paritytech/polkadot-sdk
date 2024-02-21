@@ -596,74 +596,76 @@ mod pool_integration {
 			fund(&creator, 500);
 			let delegate_amount = 200;
 
-			assert_ok!(Pools::create(RawOrigin::Signed(creator).into(), delegate_amount, creator, creator, creator));
+			assert_ok!(Pools::create(
+				RawOrigin::Signed(creator).into(),
+				delegate_amount,
+				creator,
+				creator,
+				creator
+			));
 			assert_eq!(held_balance(&creator), delegate_amount);
 
 			let pool_account = Pools::create_bonded_account(1);
 			let delegate = get_delegate(&pool_account);
+
+			assert_eq!(delegate.ledger.effective_balance(), delegate_amount);
+			assert_eq!(delegate.available_to_bond(), 0);
+			assert_eq!(delegate.unbonded(), 0);
 		});
 	}
 
 	#[test]
 	fn join_pool() {
-		for i in 1..10000000 {
-			let bonded = Pools::create_bonded_account(i);
-			let reward = Pools::create_reward_account(i);
-
-			if bonded != reward {
-				println!("Index: {:?}, Bonded: {:?}, Reward: {:?}",i, bonded, reward);
-				break
-			}
-		}
+		ExtBuilder::default().build_and_execute(|| {});
 	}
 
 	#[test]
 	fn bond_extra_to_pool() {
-
+		ExtBuilder::default().build_and_execute(|| {});
 	}
 
 	#[test]
 	fn claim_pool_rewards() {
-
+		ExtBuilder::default().build_and_execute(|| {});
 	}
 
 	#[test]
 	fn unbond_delegation_from_pool() {
-
+		ExtBuilder::default().build_and_execute(|| {});
 	}
 
 	#[test]
 	fn pool_withdraw_unbonded() {
-
+		ExtBuilder::default().build_and_execute(|| {});
 	}
 
 	#[test]
 	fn delegator_withdraw_unbonded() {
-
+		ExtBuilder::default().build_and_execute(|| {});
 	}
 
 	#[test]
 	fn update_nominations() {
-
+		ExtBuilder::default().build_and_execute(|| {});
 	}
 
 	#[test]
 	fn destroy_pool() {
-
+		ExtBuilder::default().build_and_execute(|| {});
 	}
 
 	#[test]
 	fn chill_pool() {
-
+		ExtBuilder::default().build_and_execute(|| {});
 	}
 
 	#[test]
 	fn claim_commission_pool_operator() {
-
+		ExtBuilder::default().build_and_execute(|| {});
 	}
 
 	#[test]
 	fn pool_slashed() {
-
+		ExtBuilder::default().build_and_execute(|| {});
 	}
 }

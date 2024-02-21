@@ -313,13 +313,21 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		Pallet::<T>::register_as_delegate(RawOrigin::Signed(pool_account.clone()).into(), reward_account.clone())?;
+		// First delegation so we needs to register the pool account as delegate.
+		Pallet::<T>::register_as_delegate(
+			RawOrigin::Signed(pool_account.clone()).into(),
+			reward_account.clone(),
+		)?;
 
+		// Delegate the funds from who to the pool account.
 		Pallet::<T>::delegate_funds(
 			RawOrigin::Signed(who.clone()).into(),
 			pool_account.clone(),
 			amount,
-		)
+		)?;
+
+		// Bond the funds to staking.
+		Pallet::<T>::bond(pool_account, amount, reward_account)
 	}
 
 	fn delegate_extra(
@@ -331,7 +339,10 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 			RawOrigin::Signed(who.clone()).into(),
 			pool_account.clone(),
 			amount,
-		)
+		)?;
+
+		// Bond the funds to staking.
+		Pallet::<T>::bond_extra(pool_account, amount)
 	}
 
 	fn release_delegation(
