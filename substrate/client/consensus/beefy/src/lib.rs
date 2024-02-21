@@ -45,12 +45,18 @@ use sp_blockchain::{
 };
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
-	ecdsa_crypto::AuthorityId, BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet,
+	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
+	BEEFY_ENGINE_ID,
 };
 use sp_keystore::KeystorePtr;
 use sp_mmr_primitives::MmrApi;
 use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
-use std::{collections::BTreeMap, marker::PhantomData, sync::Arc, time::Duration};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	marker::PhantomData,
+	sync::Arc,
+	time::Duration,
+};
 
 mod aux_schema;
 mod error;
@@ -63,9 +69,19 @@ pub mod communication;
 pub mod import;
 pub mod justification;
 
+use crate::{
+	communication::{gossip::GossipValidator, peers::PeerReport},
+	justification::BeefyVersionedFinalityProof,
+	keystore::BeefyKeystore,
+	metrics::VoterMetrics,
+	round::Rounds,
+	worker::{BeefyWorker, PersistedState},
+};
 pub use communication::beefy_protocol_name::{
 	gossip_protocol_name, justifications_protocol_name as justifs_protocol_name,
 };
+use sc_utils::mpsc::TracingUnboundedReceiver;
+use sp_runtime::generic::OpaqueDigestItemId;
 
 #[cfg(test)]
 mod tests;
@@ -209,6 +225,211 @@ pub struct BeefyParams<B: Block, BE, C, N, P, R, S> {
 	/// Handler for incoming BEEFY justifications requests from a remote peer.
 	pub on_demand_justifications_handler: BeefyJustifsRequestHandler<B, C>,
 }
+/// Helper object holding BEEFY worker communication/gossip components.
+///
+/// These are created once, but will be reused if worker is restarted/reinitialized.
+pub(crate) struct BeefyComms<B: Block> {
+	pub gossip_engine: GossipEngine<B>,
+	pub gossip_validator: Arc<GossipValidator<B>>,
+	pub gossip_report_stream: TracingUnboundedReceiver<PeerReport>,
+	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
+}
+
+pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi> {
+	// utilities
+	pub backend: Arc<BE>,
+	pub runtime: Arc<RuntimeApi>,
+	pub key_store: BeefyKeystore<AuthorityId>,
+
+	// voter metrics
+	pub metrics: Option<VoterMetrics>,
+
+	pub _phantom: PhantomData<B>,
+}
+
+impl<B, BE, R> BeefyWorkerBuilder<B, BE, R>
+where
+	B: Block + codec::Codec,
+	BE: Backend<B>,
+	R: ProvideRuntimeApi<B>,
+	R::Api: BeefyApi<B, AuthorityId>,
+{
+	pub fn build<P, S>(
+		self,
+		payload_provider: P,
+		sync: Arc<S>,
+		comms: BeefyComms<B>,
+		links: BeefyVoterLinks<B>,
+		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
+		persisted_state: PersistedState<B>,
+	) -> BeefyWorker<B, BE, P, R, S> {
+		BeefyWorker {
+			backend: self.backend,
+			runtime: self.runtime,
+			key_store: self.key_store,
+			metrics: self.metrics,
+			payload_provider,
+			sync,
+			comms,
+			links,
+			pending_justifications,
+			persisted_state,
+		}
+	}
+
+	// If no persisted state present, walk back the chain from first GRANDPA notification to either:
+	//  - latest BEEFY finalized block, or if none found on the way,
+	//  - BEEFY pallet genesis;
+	// Enqueue any BEEFY mandatory blocks (session boundaries) found on the way, for voter to
+	// finalize.
+	async fn init_state(
+		&self,
+		beefy_genesis: NumberFor<B>,
+		best_grandpa: <B as Block>::Header,
+		min_block_delta: u32,
+	) -> Result<PersistedState<B>, Error> {
+		let blockchain = self.backend.blockchain();
+
+		let beefy_genesis = self
+			.runtime
+			.runtime_api()
+			.beefy_genesis(best_grandpa.hash())
+			.ok()
+			.flatten()
+			.filter(|genesis| *genesis == beefy_genesis)
+			.ok_or_else(|| Error::Backend("BEEFY pallet expected to be active.".into()))?;
+		// Walk back the imported blocks and initialize voter either, at the last block with
+		// a BEEFY justification, or at pallet genesis block; voter will resume from there.
+		let mut sessions = VecDeque::new();
+		let mut header = best_grandpa.clone();
+		let state = loop {
+			if let Some(true) = blockchain
+				.justifications(header.hash())
+				.ok()
+				.flatten()
+				.map(|justifs| justifs.get(BEEFY_ENGINE_ID).is_some())
+			{
+				debug!(
+					target: LOG_TARGET,
+					"🥩 Initialize BEEFY voter at last BEEFY finalized block: {:?}.",
+					*header.number()
+				);
+				let best_beefy = *header.number();
+				// If no session boundaries detected so far, just initialize new rounds here.
+				if sessions.is_empty() {
+					let active_set =
+						expect_validator_set(self.runtime.as_ref(), self.backend.as_ref(), &header)
+							.await?;
+					let mut rounds = Rounds::new(best_beefy, active_set);
+					// Mark the round as already finalized.
+					rounds.conclude(best_beefy);
+					sessions.push_front(rounds);
+				}
+				let state = PersistedState::checked_new(
+					best_grandpa,
+					best_beefy,
+					sessions,
+					min_block_delta,
+					beefy_genesis,
+				)
+				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?;
+				break state
+			}
+
+			if *header.number() == beefy_genesis {
+				// We've reached BEEFY genesis, initialize voter here.
+				let genesis_set =
+					expect_validator_set(self.runtime.as_ref(), self.backend.as_ref(), &header)
+						.await?;
+				info!(
+					target: LOG_TARGET,
+					"🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
+					Starting voting rounds at block {:?}, genesis validator set {:?}.",
+					beefy_genesis,
+					genesis_set,
+				);
+
+				sessions.push_front(Rounds::new(beefy_genesis, genesis_set));
+				break PersistedState::checked_new(
+					best_grandpa,
+					Zero::zero(),
+					sessions,
+					min_block_delta,
+					beefy_genesis,
+				)
+				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?
+			}
+
+			if let Some(active) = find_authorities_change::<B>(&header) {
+				debug!(
+					target: LOG_TARGET,
+					"🥩 Marking block {:?} as BEEFY Mandatory.",
+					*header.number()
+				);
+				sessions.push_front(Rounds::new(*header.number(), active));
+			}
+
+			// Move up the chain.
+			header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY).await?;
+		};
+
+		aux_schema::write_current_version(self.backend.as_ref())?;
+		aux_schema::write_voter_state(self.backend.as_ref(), &state)?;
+		Ok(state)
+	}
+
+	pub async fn load_or_init_state(
+		&mut self,
+		beefy_genesis: NumberFor<B>,
+		best_grandpa: <B as Block>::Header,
+		min_block_delta: u32,
+	) -> Result<PersistedState<B>, Error> {
+		// Initialize voter state from AUX DB if compatible.
+		if let Some(mut state) = crate::aux_schema::load_persistent(self.backend.as_ref())?
+			// Verify state pallet genesis matches runtime.
+			.filter(|state| state.pallet_genesis() == beefy_genesis)
+		{
+			// Overwrite persisted state with current best GRANDPA block.
+			state.set_best_grandpa(best_grandpa.clone());
+			// Overwrite persisted data with newly provided `min_block_delta`.
+			state.set_min_block_delta(min_block_delta);
+			debug!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
+
+			// Make sure that all the headers that we need have been synced.
+			let mut new_sessions = vec![];
+			let mut header = best_grandpa.clone();
+			while *header.number() > state.best_beefy() {
+				if state.voting_oracle().can_add_session(*header.number()) {
+					if let Some(active) = find_authorities_change::<B>(&header) {
+						new_sessions.push((active, *header.number()));
+					}
+				}
+				header =
+					wait_for_parent_header(self.backend.blockchain(), header, HEADER_SYNC_DELAY)
+						.await?;
+			}
+
+			// Make sure we didn't miss any sessions during node restart.
+			for (validator_set, new_session_start) in new_sessions.drain(..).rev() {
+				debug!(
+					target: LOG_TARGET,
+					"🥩 Handling missed BEEFY session after node restart: {:?}.",
+					new_session_start
+				);
+				state.init_session_at(
+					new_session_start,
+					validator_set,
+					&self.key_store,
+					&self.metrics,
+				);
+			}
+			return Ok(state)
+		}
+
+		// No valid voter-state persisted, re-initialize from pallet genesis.
+		self.init_state(beefy_genesis, best_grandpa, min_block_delta).await
+	}
+}
 
 /// Start the BEEFY gadget.
 ///
@@ -277,7 +498,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		known_peers,
 		prometheus_registry.clone(),
 	);
-	let mut beefy_comms = worker::BeefyComms {
+	let mut beefy_comms = BeefyComms {
 		gossip_engine,
 		gossip_validator,
 		gossip_report_stream,
@@ -287,6 +508,14 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	// We re-create and re-run the worker in this loop in order to quickly reinit and resume after
 	// select recoverable errors.
 	loop {
+		let mut worker_builder = BeefyWorkerBuilder {
+			backend: backend.clone(),
+			runtime: runtime.clone(),
+			key_store: key_store.clone().into(),
+			metrics: metrics.clone(),
+			_phantom: Default::default(),
+		};
+
 		// Wait for BEEFY pallet to be active before starting voter.
 		let (beefy_genesis, best_grandpa) =
 			match wait_for_runtime_pallet(&*runtime, &mut finality_notifications).await {
@@ -296,14 +525,6 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 					return
 				},
 			};
-
-		let mut worker_builder = worker::BeefyWorkerBuilder {
-			backend: backend.clone(),
-			runtime: runtime.clone(),
-			key_store: key_store.clone().into(),
-			metrics: metrics.clone(),
-			_phantom: Default::default(),
-		};
 
 		let persisted_state = match worker_builder
 			.load_or_init_state(beefy_genesis, best_grandpa, min_block_delta)
@@ -458,7 +679,7 @@ where
 		if let Ok(Some(active)) = runtime.runtime_api().validator_set(header.hash()) {
 			return Ok(active)
 		} else {
-			match worker::find_authorities_change::<B>(&header) {
+			match find_authorities_change::<B>(&header) {
 				Some(active) => return Ok(active),
 				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
 				// there.
@@ -469,4 +690,19 @@ where
 			}
 		}
 	}
+}
+
+/// Scan the `header` digest log for a BEEFY validator set change. Return either the new
+/// validator set or `None` in case no validator set change has been signaled.
+pub(crate) fn find_authorities_change<B>(header: &B::Header) -> Option<ValidatorSet<AuthorityId>>
+where
+	B: Block,
+{
+	let id = OpaqueDigestItemId::Consensus(&BEEFY_ENGINE_ID);
+
+	let filter = |log: ConsensusLog<AuthorityId>| match log {
+		ConsensusLog::AuthoritiesChange(validator_set) => Some(validator_set),
+		_ => None,
+	};
+	header.digest().convert_first(|l| l.try_to(id).and_then(filter))
 }
