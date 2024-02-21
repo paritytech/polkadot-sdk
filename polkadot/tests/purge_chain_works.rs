@@ -153,7 +153,7 @@ async fn purge_chain_paritydbmulti_works() {
 			.args(["purge-chain", "--dev", "-d"])
 			.arg(tmpdir.path())
 			.arg("--database")
-			.arg("paritydbmult")
+			.arg("paritydbmulti")
 			.arg("-y")
 			.status()
 			.unwrap();
