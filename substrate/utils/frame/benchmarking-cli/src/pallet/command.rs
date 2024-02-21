@@ -787,7 +787,7 @@ fn list_benchmark(
 			}
 			for (pallet, extrinsics) in benchmarks {
 				for extrinsic in extrinsics {
-					println!("{},{}", pallet, extrinsic);
+					println!("{pallet},{extrinsic}");
 				}
 			}
 		},
@@ -796,7 +796,7 @@ fn list_benchmark(
 				println!("pallet");
 			};
 			for pallet in benchmarks.keys() {
-				println!("{}", pallet);
+				println!("{pallet}");
 			}
 		},
 	}

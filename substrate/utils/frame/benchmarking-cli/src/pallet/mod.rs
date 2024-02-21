@@ -181,6 +181,7 @@ pub struct PalletCmd {
 	pub database_cache_size: u32,
 
 	/// List and print available benchmarks in a csv-friendly format.
+	///
 	/// NOTE: `num_args` and `require_equals` are required to allow `--list`
 	#[arg(long, value_enum, ignore_case = true, num_args = 0..=1, require_equals = true, default_missing_value("All"))]
 	pub list: Option<ListOutput>,
