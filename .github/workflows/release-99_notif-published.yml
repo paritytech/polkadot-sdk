@@ -8,6 +8,7 @@ on:
 jobs:
   ping_matrix:
     runs-on: ubuntu-latest
+    environment: release
     strategy:
       matrix:
         channel:
@@ -37,8 +38,8 @@ jobs:
           # - name: '#kusama-announcements:matrix.parity.io'
           #   room: '!FMwxpQnYhRCNDRsYGI:matrix.parity.io'
           #   pre-release: false
-          # - name: '#polkadotvalidatorlounge:web3.foundation'
-          #   room: '!NZrbtteFeqYKCUGQtr:matrix.parity.io'
+          - name: '#polkadotvalidatorlounge:web3.foundation'
+            room: '!NZrbtteFeqYKCUGQtr:matrix.parity.io'
           #   pre-release: false
           # - name: '#polkadot-announcements:matrix.parity.io'
           #   room: '!UqHPWiCBGZWxrmYBkF:matrix.parity.io'
