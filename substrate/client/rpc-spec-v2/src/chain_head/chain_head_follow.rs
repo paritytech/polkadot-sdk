@@ -231,7 +231,7 @@ where
 		let finalized_block_runtime = self.generate_runtime_event(finalized_block_hash, None);
 
 		let initialized_event = FollowEvent::Initialized(Initialized {
-			finalized_block_hash,
+			finalized_block_hashes: vec![finalized_block_hash],
 			finalized_block_runtime,
 			with_runtime: self.with_runtime,
 		});
