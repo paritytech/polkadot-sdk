@@ -13,7 +13,7 @@ workspace = true
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum" }
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem = { path = "../../subsystem" }
