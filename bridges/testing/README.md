@@ -9,23 +9,37 @@ To start those tests, you need to:
 
 - download latest [zombienet release](https://github.com/paritytech/zombienet/releases);
 
-- build Polkadot binary by running `cargo build -p polkadot --release  --features fast-runtime` command in the
-[`polkadot-sdk`](https://github.com/paritytech/polkadot-sdk) repository clone;
+- build Polkadot binary by running `cargo build -p polkadot --release --features fast-runtime` command in the
+  [`polkadot-sdk`](https://github.com/paritytech/polkadot-sdk) repository clone;
 
 - build Polkadot Parachain binary by running `cargo build -p polkadot-parachain-bin --release` command in the
-[`polkadot-sdk`](https://github.com/paritytech/polkadot-sdk) repository clone;
+  [`polkadot-sdk`](https://github.com/paritytech/polkadot-sdk) repository clone;
 
 - ensure that you have [`node`](https://nodejs.org/en) installed. Additionally, we'll need globally installed
-`polkadot/api-cli` package (use `npm install -g @polkadot/api-cli@beta` to install it);
+  `polkadot/api-cli` package (use `yarn global add @polkadot/api-cli` to install it);
 
 - build Substrate relay by running `cargo build -p substrate-relay --release` command in the
-[`parity-bridges-common`](https://github.com/paritytech/parity-bridges-common) repository clone.
+  [`parity-bridges-common`](https://github.com/paritytech/parity-bridges-common) repository clone.
 
 - copy fresh `substrate-relay` binary, built in previous point, to the `~/local_bridge_testing/bin/substrate-relay`;
 
-- change the `POLKADOT_SDK_PATH` and `ZOMBIENET_BINARY_PATH` (and ensure that the nearby variables
-have correct values) in the `./run-tests.sh`.
+- change the `ZOMBIENET_BINARY_PATH` (and ensure that the nearby variables have correct values) in
+  the `./run-new-test.sh`.
 
-After that, you could run tests with the `./run-tests.sh` command. Hopefully, it'll show the
-"All tests have completed successfully" message in the end. Otherwise, it'll print paths to zombienet
-process logs, which, in turn, may be used to track locations of all spinned relay and parachain nodes.
+Extra steps for the Polkadot<>Kusama test:
+
+- clone the [`polkadot-fellows/runtimes`](https://github.com/polkadot-fellows/runtimes) locally and do the following
+  adaptations (as an example see:
+  https://github.com/serban300/runtimes/commit/4e5da529e8b3543e0400a6e524d5e883db1610ed):
+    - Add the `sudo` pallet to the Polkadot and Kusama runtimes and give sudo rights to Alice.
+    - Modify the Polkadot and Kusama runtimes such that the epoch time = 1 minute. The `chain-spec-generator` can't be
+      compiled with the `fast-runtime` feature.
+    - Modify the Polkadot BridgeHub and the Kusama BridgeHub genesis config in order to make Alice bridge owner.
+
+- build the chain spec generator by running `cargo build --release -p chain-spec-generator` command in the
+  [`polkadot-fellows/runtimes`](https://github.com/polkadot-fellows/runtimes) repository clone.
+
+- copy fresh `chain-spec-generator` binary, built in previous point to `~/local_bridge_testing/bin/chain-spec-generator`
+
+After that, you could run tests with the `./run-new-test.sh <test>` command. Hopefully, it'll complete successfully.
+Otherwise, it'll print paths to zombienet logs and command logs, which can be used for debugging failures.
