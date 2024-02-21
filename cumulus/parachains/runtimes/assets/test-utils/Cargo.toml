@@ -1,6 +1,6 @@
 [package]
 name = "asset-test-utils"
-version = "8.0.0"
+version = "8.0.1"
 authors.workspace = true
 edition.workspace = true
 description = "Test utils for Asset Hub runtimes."
@@ -34,7 +34,7 @@ parachains-runtimes-test-utils = { path = "../../test-utils", default-features =
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.0" }
 
 # Bridges

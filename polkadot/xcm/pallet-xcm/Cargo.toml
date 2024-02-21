@@ -24,7 +24,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
 xcm = { package = "staging-xcm", path = "..", default-features = false, version = "8.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false, version = "8.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false, version = "8.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false, version = "8.0.0" }
 
 # marked optional, used in benchmarking

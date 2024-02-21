@@ -25,7 +25,7 @@ sp-std = { path = "../../../../../substrate/primitives/std", default-features = 
 sp-tracing = { version = "16.0.0", path = "../../../../../substrate/primitives/tracing" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.0" }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false, version = "29.0.0" }
-asset-test-utils = { version = "8.0.0", path = "../../assets/test-utils" }
+asset-test-utils = { version = "8.0.1", path = "../../assets/test-utils" }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.8.0" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.8.0" }
 parachains-common = { path = "../../../common", default-features = false, version = "8.0.0" }
@@ -34,7 +34,7 @@ parachains-runtimes-test-utils = { path = "../../test-utils", default-features =
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
 
 # Bridges
 bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false, version = "0.8.0" }

@@ -26,7 +26,7 @@ sp-std = { path = "../../../../../substrate/primitives/std", default-features = 
 
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
 
 snowbridge-core = { path = "../core", default-features = false, version = "0.1.0" }
 
