@@ -3117,7 +3117,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		if signer != member_account {
 			ensure!(
-				ClaimPermissions::<T>::get(&member_account).can_bond_extra(),
+					ClaimPermissions::<T>::get(&member_account).can_bond_extra(),
 				Error::<T>::DoesNotHavePermission
 			);
 			ensure!(extra == BondExtra::Rewards, Error::<T>::BondExtraRestricted);

@@ -9767,6 +9767,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
+ "pallet-nomination-pools",
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-timestamp",

@@ -32,6 +32,8 @@ use frame_election_provider_support::{
 };
 use frame_support::dispatch::RawOrigin;
 use pallet_staking::CurrentEra;
+use sp_core::U256;
+use sp_runtime::traits::Convert;
 use sp_staking::{delegation::StakingDelegationSupport, Stake, StakingInterface};
 
 pub type T = Runtime;
@@ -72,10 +74,10 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = ();
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 pallet_staking_reward_curve::build! {
@@ -148,6 +150,40 @@ impl delegated_staking::Config for Runtime {
 	type CoreStaking = Staking;
 }
 
+pub struct BalanceToU256;
+impl Convert<Balance, U256> for BalanceToU256 {
+	fn convert(n: Balance) -> U256 {
+		n.into()
+	}
+}
+pub struct U256ToBalance;
+impl Convert<U256, Balance> for U256ToBalance {
+	fn convert(n: U256) -> Balance {
+		n.try_into().unwrap()
+	}
+}
+
+parameter_types! {
+	pub static MaxUnbonding: u32 = 8;
+	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
+}
+impl pallet_nomination_pools::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RewardCounter = sp_runtime::FixedU128;
+	type BalanceToU256 = BalanceToU256;
+	type U256ToBalance = U256ToBalance;
+	type Staking = DelegatedStaking;
+	type PostUnbondingPoolsWindow = ConstU32<2>;
+	type PalletId = PoolsPalletId;
+	type MaxMetadataLen = ConstU32<256>;
+	type MaxUnbonding = MaxUnbonding;
+	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
+	type PoolAdapter = DelegatedStaking;
+}
+
 frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
@@ -155,6 +191,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking,
 		DelegatedStaking: delegated_staking,
+		NominationPools: pallet_nomination_pools,
 	}
 );
 
