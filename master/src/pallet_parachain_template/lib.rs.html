@@ -103,7 +103,6 @@
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="doccomment">/// Edit this file to define custom logic or remove it if it is not needed.
@@ -138,7 +137,6 @@
 	<span class="comment">// The pallet&#39;s runtime storage items.
 	// https://docs.substrate.io/v3/runtime/storage
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>something)]
 	</span><span class="comment">// Learn more about declaring storage items:
 	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
 	</span><span class="kw">pub type </span>Something&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32&gt;;

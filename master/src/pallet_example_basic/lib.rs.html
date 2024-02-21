@@ -533,14 +533,6 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -829,9 +821,7 @@
 			</span><span class="kw">let </span>_sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// Read the value of dummy from storage.
-			// let dummy = Self::dummy();
-			// Will also work using the `::get` on the storage item type itself:
-			// let dummy = &lt;Dummy&lt;T&gt;&gt;::get();
+			// let dummy = Dummy::&lt;T&gt;::get();
 
 			// Calculate the new value.
 			// let new_dummy = dummy.map_or(increase_by, |dummy| dummy + increase_by);
@@ -924,20 +914,14 @@
 	//   - `Foo::put(1); Foo::get()` returns `1`;
 	//   - `Foo::kill(); Foo::get()` returns `0` (u32::default()).
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="comment">// The getter attribute generate a function on `Pallet` placeholder:
-	// `fn getter_name() -&gt; Type` for basic value items or
-	// `fn getter_name(key: KeyType) -&gt; ValueType` for map items.
-	</span><span class="attr">#[pallet::getter(<span class="kw">fn </span>dummy)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Dummy&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, T::Balance&gt;;
 
 	<span class="comment">// A map that has enumerable entries.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>bar)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Bar&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::AccountId, T::Balance&gt;;
 
 	<span class="comment">// this one uses the query kind: `ValueQuery`, we&#39;ll demonstrate the usage of &#39;mutate&#39; API.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>foo)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Foo&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, T::Balance, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::storage]
@@ -976,10 +960,10 @@
 	</span><span class="kw">fn </span>accumulate_foo(origin: T::RuntimeOrigin, increase_by: T::Balance) -&gt; DispatchResult {
 		<span class="kw">let </span>_sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>prev = &lt;Foo&lt;T&gt;&gt;::get();
+		<span class="kw">let </span>prev = Foo::&lt;T&gt;::get();
 		<span class="comment">// Because Foo has &#39;default&#39;, the type of &#39;foo&#39; in closure is the raw type instead of an
 		// Option&lt;&gt; type.
-		</span><span class="kw">let </span>result = &lt;Foo&lt;T&gt;&gt;::mutate(|foo| {
+		</span><span class="kw">let </span>result = Foo::&lt;T&gt;::mutate(|foo| {
 			<span class="kw-2">*</span>foo = foo.saturating_add(increase_by);
 			<span class="kw-2">*</span>foo
 		});
