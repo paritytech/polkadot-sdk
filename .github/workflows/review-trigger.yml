@@ -23,7 +23,8 @@ jobs:
         run: exit 0
       - name: Fail when author pushes new code
         # Require new reviews when the author is pushing and he is not a member
-        if: | 
+        if: |
+          github.event_name == 'pull_request_target' &&
           github.event.action == 'synchronize' && 
           github.event.sender.login == github.event.pull_request.user.login && 
           github.event.pull_request.author_association != 'MEMBER'
