@@ -907,8 +907,9 @@ pub trait EnsureInherentsAreFirst<Block: sp_runtime::traits::Block>:
 	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
 }
 
+/// A trait to check if an extrinsic is an inherent.
 pub trait IsInherent<Extrinsic> {
-	// FAIL-CI doc
+	/// Whether this extrinsic is an inherent.
 	fn is_inherent(ext: &Extrinsic) -> bool;
 }
 
