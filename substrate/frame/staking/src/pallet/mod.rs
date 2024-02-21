@@ -62,6 +62,7 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_election_provider_support::ElectionDataProvider;
+	use sp_staking::StakerStatusProvider;
 
 	use crate::{BenchmarkingConfig, PagedExposureMetadata};
 
@@ -273,7 +274,10 @@ pub mod pallet {
 
 		/// Something that listens to staking updates and performs actions based on the data it
 		/// receives.
-		type EventListeners: OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
+		type EventListeners: OnStakingUpdate<Self::AccountId, BalanceOf<Self>, VoteWeight>;
+
+		/// TODO: docs
+		type StakerStatus: StakerStatusProvider<Self::AccountId>;
 
 		/// Some parameters of the benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
