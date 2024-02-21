@@ -21,6 +21,24 @@ jobs:
       - name: Skip merge queue
         if: ${{ contains(github.ref, 'gh-readonly-queue') }}
         run: exit 0
+      - name: Fail when author pushes new code
+        # Require new reviews when the author is pushing and he is not a member
+        if: | 
+          github.event.action == 'synchronize' && 
+          github.event.sender.login == github.event.pull_request.user.login && 
+          github.event.pull_request.author_association != 'MEMBER'
+        run: |
+          echo "::error::Project needs to be reviewed again"
+
+          # We get the list of reviewers who approved the PR
+          REVIEWERS=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.number }}/reviews \
+          --jq '{reviewers: [.[] | select(.state == "APPROVED") | .user.login]}')
+          
+          # We request them to review again
+          echo $REVIEWERS | gh api --method POST repos/${{ github.repository }}/pulls/${{ github.event.number }}/requested_reviewers --input -
+          exit 1
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Get PR number
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
