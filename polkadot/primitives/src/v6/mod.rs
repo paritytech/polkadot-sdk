@@ -776,12 +776,17 @@ impl<H> BackedCandidate<H> {
 		// It extends `BackedCandidate::validity_indices` to store a 8 bit core index.
 		if core_index_enabled {
 			let core_idx_offset = self.validator_indices.len().saturating_sub(8);
-			let (validator_indices_slice, core_idx_slice) =
-				self.validator_indices.split_at(core_idx_offset);
-			(validator_indices_slice, Some(CoreIndex(core_idx_slice.load::<u8>() as u32)))
-		} else {
-			(&self.validator_indices, None)
+			if core_idx_offset > 0 {
+				let (validator_indices_slice, core_idx_slice) =
+					self.validator_indices.split_at(core_idx_offset);
+				return (
+					validator_indices_slice,
+					Some(CoreIndex(core_idx_slice.load::<u8>() as u32)),
+				);
+			}
 		}
+
+		(&self.validator_indices, None)
 	}
 
 	/// Inject a core index in the validator_indices bitvec.
@@ -1950,6 +1955,34 @@ pub enum PvfExecKind {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bitvec::bitvec;
+	use primitives::sr25519;
+
+	pub fn dummy_committed_candidate_receipt() -> CommittedCandidateReceipt {
+		let zeros = Hash::zero();
+
+		CommittedCandidateReceipt {
+			descriptor: CandidateDescriptor {
+				para_id: 0.into(),
+				relay_parent: zeros,
+				collator: CollatorId::from(sr25519::Public::from_raw([0; 32])),
+				persisted_validation_data_hash: zeros,
+				pov_hash: zeros,
+				erasure_root: zeros,
+				signature: CollatorSignature::from(sr25519::Signature([0u8; 64])),
+				para_head: zeros,
+				validation_code_hash: ValidationCode(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).hash(),
+			},
+			commitments: CandidateCommitments {
+				head_data: HeadData(vec![]),
+				upward_messages: vec![].try_into().expect("empty vec fits within bounds"),
+				new_validation_code: None,
+				horizontal_messages: vec![].try_into().expect("empty vec fits within bounds"),
+				processed_downward_messages: 0,
+				hrmp_watermark: 0_u32,
+			},
+		}
+	}
 
 	#[test]
 	fn group_rotation_info_calculations() {
@@ -2025,5 +2058,72 @@ mod tests {
 		assert!(zero_b.leading_zeros() >= zero_u.leading_zeros());
 	}
 
-	// TODO: test validator_indices_and_core_index and set_validator_indices_and_core_index
+	#[test]
+	fn test_backed_candidate_injected_core_index() {
+		let initial_validator_indices = bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1];
+		let mut candidate = BackedCandidate::new(
+			dummy_committed_candidate_receipt(),
+			vec![],
+			initial_validator_indices.clone(),
+			None,
+		);
+
+		// No core index supplied, ElasticScalingMVP is off.
+		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(false);
+		assert_eq!(validator_indices, initial_validator_indices.as_bitslice());
+		assert!(core_index.is_none());
+
+		// No core index supplied, ElasticScalingMVP is on. Still, decoding will be ok if backing
+		// group size is <= 8, to give a chance to parachains that don't have multiple cores
+		// assigned.
+		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(true);
+		assert_eq!(validator_indices, initial_validator_indices.as_bitslice());
+		assert!(core_index.is_none());
+
+		let encoded_validator_indices = candidate.validator_indices.clone();
+		candidate.set_validator_indices_and_core_index(validator_indices.into(), core_index);
+		assert_eq!(candidate.validator_indices, encoded_validator_indices);
+
+		// No core index supplied, ElasticScalingMVP is on. Decoding is corrupted if backing group
+		// size larger than 8.
+		let candidate = BackedCandidate::new(
+			dummy_committed_candidate_receipt(),
+			vec![],
+			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0],
+			None,
+		);
+		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(true);
+		assert_eq!(validator_indices, bitvec![u8, bitvec::order::Lsb0; 0].as_bitslice());
+		assert!(core_index.is_some());
+
+		// Core index supplied, ElasticScalingMVP is off. Core index will be treated as normal
+		// validator indices. Runtime will check against this.
+		let candidate = BackedCandidate::new(
+			dummy_committed_candidate_receipt(),
+			vec![],
+			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1],
+			Some(CoreIndex(10)),
+		);
+		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(false);
+		assert_eq!(
+			validator_indices,
+			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0]
+		);
+		assert!(core_index.is_none());
+
+		// Core index supplied, ElasticScalingMVP is on.
+		let mut candidate = BackedCandidate::new(
+			dummy_committed_candidate_receipt(),
+			vec![],
+			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1],
+			Some(CoreIndex(10)),
+		);
+		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(true);
+		assert_eq!(validator_indices, bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1]);
+		assert_eq!(core_index, Some(CoreIndex(10)));
+
+		let encoded_validator_indices = candidate.validator_indices.clone();
+		candidate.set_validator_indices_and_core_index(validator_indices.into(), core_index);
+		assert_eq!(candidate.validator_indices, encoded_validator_indices);
+	}
 }

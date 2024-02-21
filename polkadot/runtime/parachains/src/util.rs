@@ -22,6 +22,7 @@ use primitives::{Id as ParaId, PersistedValidationData, ValidatorIndex};
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 use crate::{configuration, hrmp, paras};
+
 /// Make the persisted validation data for a particular parachain, a specified relay-parent and it's
 /// storage root.
 ///
@@ -100,9 +101,10 @@ pub fn take_active_subset<T: Clone>(active: &[ValidatorIndex], set: &[T]) -> Vec
 #[cfg(test)]
 mod tests {
 
+	use sp_std::vec::Vec;
+
 	use crate::util::{split_active_subset, take_active_subset};
 	use primitives::ValidatorIndex;
-	use sp_std::vec::Vec;
 
 	#[test]
 	fn take_active_subset_is_compatible_with_split_active_subset() {
