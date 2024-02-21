@@ -588,6 +588,7 @@ mod staking_integration {
 }
 
 mod pool_integration {
+	use pallet_nomination_pools::BondExtra;
 	use super::*;
 	#[test]
 	fn create_pool_test() {
@@ -671,7 +672,16 @@ mod pool_integration {
 	fn bond_extra_to_pool() {
 		ExtBuilder::default().build_and_execute(|| {
 			let pool_id = create_pool(100, 200);
-			add_delegators(pool_id, 100, (300..350).collect(), 100);
+			add_delegators(pool_id, 100, (300..310).collect(), 100);
+			let mut staked_amount = 200 + 100 * 10;
+			assert_eq!(get_pool_delegate(pool_id).bonded_stake(), staked_amount);
+
+			// bond extra to pool
+			for i in 300..310 {
+				assert_ok!(Pools::bond_extra(RawOrigin::Signed(i).into(), BondExtra::FreeBalance(50)));
+				staked_amount += 50;
+				assert_eq!(get_pool_delegate(pool_id).bonded_stake(), staked_amount);
+			}
 		});
 	}
 
@@ -738,5 +748,9 @@ mod pool_integration {
 			fund(&delegator, amount * 2);
 			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), creator, pool_id));
 		}
+	}
+
+	fn get_pool_delegate(pool_id: u32) -> Delegate<T> {
+		get_delegate(&Pools::create_bonded_account(pool_id))
 	}
 }
