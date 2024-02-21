@@ -246,10 +246,10 @@ pub enum RuntimeCosts {
 	AccountEntranceCount,
 	/// Weight of calling `instantiation_nonce`
 	InstantationNonce,
-	/// Weight of calling `add_delegate_dependency`
-	AddDelegateDependency,
-	/// Weight of calling `remove_delegate_dependency`
-	RemoveDelegateDependency,
+	/// Weight of calling `lock_delegate_dependency`
+	LockDelegateDependency,
+	/// Weight of calling `unlock_delegate_dependency`
+	UnlockDelegateDependency,
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
@@ -338,8 +338,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			ReentrantCount => s.reentrance_count,
 			AccountEntranceCount => s.account_reentrance_count,
 			InstantationNonce => s.instantiation_nonce,
-			AddDelegateDependency => s.add_delegate_dependency,
-			RemoveDelegateDependency => s.remove_delegate_dependency,
+			LockDelegateDependency => s.lock_delegate_dependency,
+			UnlockDelegateDependency => s.unlock_delegate_dependency,
 		}
 	}
 }
@@ -1216,7 +1216,6 @@ pub mod env {
 	/// Make a call to another contract.
 	/// See [`pallet_contracts_uapi::HostFn::call_v2`].
 	#[version(2)]
-	#[unstable]
 	fn call(
 		ctx: _,
 		memory: _,
@@ -1353,7 +1352,6 @@ pub mod env {
 	/// Instantiate a contract with the specified code hash.
 	/// See [`pallet_contracts_uapi::HostFn::instantiate_v2`].
 	#[version(2)]
-	#[unstable]
 	fn instantiate(
 		ctx: _,
 		memory: _,
@@ -2306,22 +2304,22 @@ pub mod env {
 	}
 
 	/// Adds a new delegate dependency to the contract.
-	/// See [`pallet_contracts_uapi::HostFn::add_delegate_dependency`].
+	/// See [`pallet_contracts_uapi::HostFn::lock_delegate_dependency`].
 	#[unstable]
-	fn add_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
-		ctx.charge_gas(RuntimeCosts::AddDelegateDependency)?;
+	fn lock_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
+		ctx.charge_gas(RuntimeCosts::LockDelegateDependency)?;
 		let code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)?;
-		ctx.ext.add_delegate_dependency(code_hash)?;
+		ctx.ext.lock_delegate_dependency(code_hash)?;
 		Ok(())
 	}
 
 	/// Removes the delegate dependency from the contract.
-	/// see [`pallet_contracts_uapi::HostFn::remove_delegate_dependency`].
+	/// see [`pallet_contracts_uapi::HostFn::unlock_delegate_dependency`].
 	#[unstable]
-	fn remove_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
-		ctx.charge_gas(RuntimeCosts::RemoveDelegateDependency)?;
+	fn unlock_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
+		ctx.charge_gas(RuntimeCosts::UnlockDelegateDependency)?;
 		let code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)?;
-		ctx.ext.remove_delegate_dependency(&code_hash)?;
+		ctx.ext.unlock_delegate_dependency(&code_hash)?;
 		Ok(())
 	}
 }
