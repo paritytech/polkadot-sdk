@@ -317,7 +317,7 @@ impl RequestManager {
 		peer_advertised: impl Fn(&CandidateIdentifier, &PeerId) -> Option<StatementFilter>,
 	) -> Option<OutgoingRequest<AttestedCandidateRequest>> {
 		if response_manager.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
-			gum::info(target: LOG_TARGET, "Too many requests in parallel");
+			gum::info!(target: LOG_TARGET, "Too many requests in parallel");
 			return None
 		}
 
