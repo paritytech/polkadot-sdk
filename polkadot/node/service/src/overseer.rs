@@ -15,9 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{Block, Error, Hash, IsParachainNode, Registry};
-use polkadot_node_subsystem_types::{
-	ChainApiBackend, RuntimeApiSubsystemClient,
-};
+use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemError};
 use sp_core::traits::SpawnNamed;
 
@@ -488,13 +486,9 @@ pub trait OverseerGen {
 		connector: OverseerConnector,
 		args: OverseerGenArgs<Spawner, RuntimeClient>,
 		ext_args: Option<ExtendedOverseerGenArgs>,
-	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle),
-		Error,
-	>
+	) -> Result<(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
-		RuntimeClient:
-			RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
+		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin;
 
 	// It would be nice to make `create_subsystems` part of this trait,
@@ -511,13 +505,9 @@ impl OverseerGen for ValidatorOverseerGen {
 		connector: OverseerConnector,
 		args: OverseerGenArgs<Spawner, RuntimeClient>,
 		ext_args: Option<ExtendedOverseerGenArgs>,
-	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle),
-		Error,
-	>
+	) -> Result<(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
-	RuntimeClient:
-	RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
+		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		let ext_args = ext_args.ok_or(Error::Overseer(SubsystemError::Context(
@@ -539,13 +529,9 @@ impl OverseerGen for CollatorOverseerGen {
 		connector: OverseerConnector,
 		args: OverseerGenArgs<Spawner, RuntimeClient>,
 		_ext_args: Option<ExtendedOverseerGenArgs>,
-	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle),
-		Error,
-	>
+	) -> Result<(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
-	RuntimeClient:
-	RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
+		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		collator_overseer_builder(args)?
