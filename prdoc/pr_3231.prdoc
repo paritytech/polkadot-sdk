@@ -7,3 +7,5 @@ doc:
       Only one of the cores will be able to be occupied at a time.
       Only works if the ElasticScalingMVP node feature is enabled in the runtime and the block author validator is
       updated to include this change.
+
+crates: [ ]
