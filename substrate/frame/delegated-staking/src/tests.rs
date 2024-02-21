@@ -625,7 +625,7 @@ mod pool_integration {
 	fn join_pool() {
 		ExtBuilder::default().build_and_execute(|| {
 			// create a pool
-			create_pool(100, 200);
+			let pool_id = create_pool(100, 200);
 			// keep track of staked amount.
 			let mut staked_amount: Balance = 200;
 
@@ -636,7 +636,7 @@ mod pool_integration {
 			assert_eq!(held_balance(&delegator), 0);
 
 			// delegator joins pool
-			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), 100, 1));
+			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), 100, pool_id));
 			staked_amount += 100;
 
 			// correct amount is locked in depositor's account.
@@ -655,7 +655,7 @@ mod pool_integration {
 			// let a bunch of delegators join this pool
 			for i in 301..350 {
 				fund(&i, 500);
-				assert_ok!(Pools::join(RawOrigin::Signed(i).into(), (100 + i).into(), 1));
+				assert_ok!(Pools::join(RawOrigin::Signed(i).into(), (100 + i).into(), pool_id));
 				staked_amount += 100 + i;
 				assert_eq!(held_balance(&i), 100 + i);
 			}
@@ -669,7 +669,10 @@ mod pool_integration {
 
 	#[test]
 	fn bond_extra_to_pool() {
-		ExtBuilder::default().build_and_execute(|| {});
+		ExtBuilder::default().build_and_execute(|| {
+			let pool_id = create_pool(100, 200);
+			add_delegators(pool_id, 100, (300..350).collect(), 100);
+		});
 	}
 
 	#[test]
@@ -717,7 +720,7 @@ mod pool_integration {
 		ExtBuilder::default().build_and_execute(|| {});
 	}
 
-	fn create_pool(creator: AccountId, amount: Balance) {
+	fn create_pool(creator: AccountId, amount: Balance) -> u32 {
 		fund(&creator, amount * 2);
 		assert_ok!(Pools::create(
 			RawOrigin::Signed(creator).into(),
@@ -726,5 +729,14 @@ mod pool_integration {
 			creator,
 			creator
 		));
+
+		pallet_nomination_pools::LastPoolId::<T>::get()
+	}
+
+	fn add_delegators(pool_id: u32, creator: AccountId, delegators: Vec<AccountId>, amount: Balance) {
+		for delegator in delegators {
+			fund(&delegator, amount * 2);
+			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), creator, pool_id));
+		}
 	}
 }
