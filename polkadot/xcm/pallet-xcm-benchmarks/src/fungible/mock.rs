@@ -103,8 +103,7 @@ impl xcm_executor::traits::MatchesFungible<u64> for MatchAnyFungible {
 }
 
 // Use balances as the asset transactor.
-#[allow(deprecated)]
-pub type AssetTransactor = xcm_builder::CurrencyAdapter<
+pub type AssetTransactor = xcm_builder::FungibleAdapter<
 	Balances,
 	MatchAnyFungible,
 	AccountIdConverter,
@@ -193,8 +192,7 @@ impl xcm_balances_benchmark::Config for Test {
 	type TrustedReserve = TrustedReserve;
 
 	fn get_multi_asset() -> MultiAsset {
-		let amount =
-			<Balances as frame_support::traits::fungible::Inspect<u64>>::minimum_balance() as u128;
+		let amount = 1_000_000_000_000;
 		MultiAsset { id: Concrete(Here.into()), fun: Fungible(amount) }
 	}
 }
