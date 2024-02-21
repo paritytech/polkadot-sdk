@@ -25,15 +25,13 @@
 use futures::channel::oneshot;
 use polkadot_cli::{
 	service::{
-		AuxStore, Block, Error, ExtendedOverseerGenArgs, HeaderBackend, Overseer,
-		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
+		AuxStore, Error, ExtendedOverseerGenArgs, Overseer, OverseerConnector, OverseerGen,
+		OverseerGenArgs, OverseerHandle,
 	},
 	validator_overseer_builder, Cli,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
-use polkadot_node_subsystem_types::{
-	ChainApiBackend, DefaultSubsystemClient, RuntimeApiSubsystemClient,
-};
+use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_primitives::{CandidateDescriptor, CandidateReceipt};
 
 use polkadot_node_subsystem_util::request_validators;
@@ -295,16 +293,11 @@ impl OverseerGen for SuggestGarbageCandidates {
 	fn generate<Spawner, RuntimeClient>(
 		&self,
 		connector: OverseerConnector,
-		args: OverseerGenArgs<'_, Spawner, DefaultSubsystemClient<RuntimeClient>>,
+		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
 		ext_args: Option<ExtendedOverseerGenArgs>,
-	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
-		Error,
-	>
+	) -> Result<(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
-		RuntimeClient: HeaderBackend<Block> + AuxStore,
-		DefaultSubsystemClient<RuntimeClient>:
-			RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
+		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		gum::info!(

@@ -1089,7 +1089,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	let overseer_handle = if let Some(authority_discovery_service) = authority_discovery_service {
 		let (overseer, overseer_handle) = overseer_gen
-			.generate::<service::SpawnTaskHandle, FullClient>(
+			.generate::<service::SpawnTaskHandle, DefaultSubsystemClient<FullClient>>(
 				overseer_connector,
 				OverseerGenArgs {
 					runtime_client,

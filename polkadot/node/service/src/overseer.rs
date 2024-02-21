@@ -16,7 +16,7 @@
 
 use super::{Block, Error, Hash, IsParachainNode, Registry};
 use polkadot_node_subsystem_types::{
-	ChainApiBackend, DefaultSubsystemClient, RuntimeApiSubsystemClient,
+	ChainApiBackend, RuntimeApiSubsystemClient,
 };
 use polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemError};
 use sp_core::traits::SpawnNamed;
@@ -45,7 +45,6 @@ use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_client_api::AuxStore;
 use sc_keystore::LocalKeystore;
 use sc_network::{NetworkStateInfo, NotificationService};
-use sp_blockchain::HeaderBackend;
 use std::{collections::HashMap, sync::Arc};
 
 pub use polkadot_approval_distribution::ApprovalDistribution as ApprovalDistributionSubsystem;
@@ -487,15 +486,14 @@ pub trait OverseerGen {
 	fn generate<Spawner, RuntimeClient>(
 		&self,
 		connector: OverseerConnector,
-		args: OverseerGenArgs<Spawner, DefaultSubsystemClient<RuntimeClient>>,
+		args: OverseerGenArgs<Spawner, RuntimeClient>,
 		ext_args: Option<ExtendedOverseerGenArgs>,
 	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
+		(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle),
 		Error,
 	>
 	where
-		RuntimeClient: HeaderBackend<Block> + AuxStore,
-		DefaultSubsystemClient<RuntimeClient>:
+		RuntimeClient:
 			RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin;
 
@@ -511,16 +509,15 @@ impl OverseerGen for ValidatorOverseerGen {
 	fn generate<Spawner, RuntimeClient>(
 		&self,
 		connector: OverseerConnector,
-		args: OverseerGenArgs<Spawner, DefaultSubsystemClient<RuntimeClient>>,
+		args: OverseerGenArgs<Spawner, RuntimeClient>,
 		ext_args: Option<ExtendedOverseerGenArgs>,
 	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
+		(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle),
 		Error,
 	>
 	where
-		RuntimeClient: HeaderBackend<Block> + AuxStore,
-		DefaultSubsystemClient<RuntimeClient>:
-			RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
+	RuntimeClient:
+	RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		let ext_args = ext_args.ok_or(Error::Overseer(SubsystemError::Context(
@@ -540,16 +537,15 @@ impl OverseerGen for CollatorOverseerGen {
 	fn generate<Spawner, RuntimeClient>(
 		&self,
 		connector: OverseerConnector,
-		args: OverseerGenArgs<Spawner, DefaultSubsystemClient<RuntimeClient>>,
+		args: OverseerGenArgs<Spawner, RuntimeClient>,
 		_ext_args: Option<ExtendedOverseerGenArgs>,
 	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
+		(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle),
 		Error,
 	>
 	where
-		RuntimeClient: HeaderBackend<Block> + AuxStore,
-		DefaultSubsystemClient<RuntimeClient>:
-			RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
+	RuntimeClient:
+	RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		collator_overseer_builder(args)?

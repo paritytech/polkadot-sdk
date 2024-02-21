@@ -596,7 +596,6 @@ where
 	}
 }
 
-#[async_trait]
 impl<Client, Block> HeaderBackend<Block> for DefaultSubsystemClient<Client>
 where
 	Client: HeaderBackend<Block>,
@@ -632,7 +631,6 @@ where
 	}
 }
 
-#[async_trait]
 impl<Client> AuxStore for DefaultSubsystemClient<Client>
 where
 	Client: AuxStore,
