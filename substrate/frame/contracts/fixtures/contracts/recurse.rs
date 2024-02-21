@@ -39,11 +39,13 @@ pub extern "C" fn call() {
 		return
 	}
 
-	api::call_v1(
+	api::call_v2(
 		uapi::CallFlags::ALLOW_REENTRY,
 		addr,
-		0u64,                // How much gas to devote for the execution. 0 = all.
-		&0u64.to_le_bytes(), // value transferred to the contract.
+		0u64,                // How much ref_time to devote for the execution. 0 = all.
+		0u64,                // How much deposit_limit to devote for the execution. 0 = all.
+		None,                // No deposit limit.
+		&0u64.to_le_bytes(), // Value transferred to the contract.
 		&(calls_left - 1).to_le_bytes(),
 		None,
 	)
