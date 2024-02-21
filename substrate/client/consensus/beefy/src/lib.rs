@@ -40,9 +40,7 @@ use sc_consensus::BlockImport;
 use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::{
-	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
-};
+use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
 	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
@@ -235,16 +233,20 @@ pub(crate) struct BeefyComms<B: Block> {
 	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
 }
 
+/// Helper builder object for building [worker::BeefyWorker].
+///
+/// It has to do it in two steps: initialization and build, because the first step can sleep waiting
+/// for certain chain and backend conditions, and while sleeping we still need to pump the
+/// GossipEngine. Once initialization is done, the GossipEngine (and other pieces) are added to get
+/// the complete [worker::BeefyWorker] object.
 pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi> {
 	// utilities
-	pub backend: Arc<BE>,
-	pub runtime: Arc<RuntimeApi>,
-	pub key_store: BeefyKeystore<AuthorityId>,
-
+	backend: Arc<BE>,
+	runtime: Arc<RuntimeApi>,
+	key_store: BeefyKeystore<AuthorityId>,
 	// voter metrics
-	pub metrics: Option<VoterMetrics>,
-
-	pub _phantom: PhantomData<B>,
+	metrics: Option<VoterMetrics>,
+	persisted_state: PersistedState<B>,
 }
 
 impl<B, BE, R> BeefyWorkerBuilder<B, BE, R>
@@ -254,6 +256,44 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
+	/// This will wait for the chain to enable BEEFY (if not yet enabled) and also wait for the
+	/// backend to sync all headers required by the voter to build a contiguous chain of mandatory
+	/// justifications. Then it builds the initial voter state using a combination of previously
+	/// persisted state in AUX DB and latest chain information/progress.
+	///
+	/// Returns a sane `BeefyWorkerBuilder` that can build the `BeefyWorker`.
+	pub async fn async_initialize(
+		backend: Arc<BE>,
+		runtime: Arc<R>,
+		key_store: BeefyKeystore<AuthorityId>,
+		metrics: Option<VoterMetrics>,
+		min_block_delta: u32,
+		gossip_validator: Arc<GossipValidator<B>>,
+		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
+	) -> Result<Self, Error> {
+		// Wait for BEEFY pallet to be active before starting voter.
+		let (beefy_genesis, best_grandpa) =
+			wait_for_runtime_pallet(&*runtime, finality_notifications).await?;
+
+		let persisted_state = Self::load_or_init_state(
+			beefy_genesis,
+			best_grandpa,
+			min_block_delta,
+			backend.clone(),
+			runtime.clone(),
+			&key_store,
+			&metrics,
+		)
+		.await?;
+		// Update the gossip validator with the right starting round and set id.
+		persisted_state
+			.gossip_filter_config()
+			.map(|f| gossip_validator.update_filter(f))?;
+
+		Ok(BeefyWorkerBuilder { backend, runtime, key_store, metrics, persisted_state })
+	}
+
+	/// Takes rest of missing pieces as params and builds the `BeefyWorker`.
 	pub fn build<P, S>(
 		self,
 		payload_provider: P,
@@ -261,19 +301,18 @@ where
 		comms: BeefyComms<B>,
 		links: BeefyVoterLinks<B>,
 		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
-		persisted_state: PersistedState<B>,
 	) -> BeefyWorker<B, BE, P, R, S> {
 		BeefyWorker {
 			backend: self.backend,
 			runtime: self.runtime,
 			key_store: self.key_store,
 			metrics: self.metrics,
+			persisted_state: self.persisted_state,
 			payload_provider,
 			sync,
 			comms,
 			links,
 			pending_justifications,
-			persisted_state,
 		}
 	}
 
@@ -283,15 +322,15 @@ where
 	// Enqueue any BEEFY mandatory blocks (session boundaries) found on the way, for voter to
 	// finalize.
 	async fn init_state(
-		&self,
 		beefy_genesis: NumberFor<B>,
 		best_grandpa: <B as Block>::Header,
 		min_block_delta: u32,
+		backend: Arc<BE>,
+		runtime: Arc<R>,
 	) -> Result<PersistedState<B>, Error> {
-		let blockchain = self.backend.blockchain();
+		let blockchain = backend.blockchain();
 
-		let beefy_genesis = self
-			.runtime
+		let beefy_genesis = runtime
 			.runtime_api()
 			.beefy_genesis(best_grandpa.hash())
 			.ok()
@@ -318,8 +357,7 @@ where
 				// If no session boundaries detected so far, just initialize new rounds here.
 				if sessions.is_empty() {
 					let active_set =
-						expect_validator_set(self.runtime.as_ref(), self.backend.as_ref(), &header)
-							.await?;
+						expect_validator_set(runtime.as_ref(), backend.as_ref(), &header).await?;
 					let mut rounds = Rounds::new(best_beefy, active_set);
 					// Mark the round as already finalized.
 					rounds.conclude(best_beefy);
@@ -339,8 +377,7 @@ where
 			if *header.number() == beefy_genesis {
 				// We've reached BEEFY genesis, initialize voter here.
 				let genesis_set =
-					expect_validator_set(self.runtime.as_ref(), self.backend.as_ref(), &header)
-						.await?;
+					expect_validator_set(runtime.as_ref(), backend.as_ref(), &header).await?;
 				info!(
 					target: LOG_TARGET,
 					"🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
@@ -373,19 +410,22 @@ where
 			header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY).await?;
 		};
 
-		aux_schema::write_current_version(self.backend.as_ref())?;
-		aux_schema::write_voter_state(self.backend.as_ref(), &state)?;
+		aux_schema::write_current_version(backend.as_ref())?;
+		aux_schema::write_voter_state(backend.as_ref(), &state)?;
 		Ok(state)
 	}
 
-	pub async fn load_or_init_state(
-		&mut self,
+	async fn load_or_init_state(
 		beefy_genesis: NumberFor<B>,
 		best_grandpa: <B as Block>::Header,
 		min_block_delta: u32,
+		backend: Arc<BE>,
+		runtime: Arc<R>,
+		key_store: &BeefyKeystore<AuthorityId>,
+		metrics: &Option<VoterMetrics>,
 	) -> Result<PersistedState<B>, Error> {
 		// Initialize voter state from AUX DB if compatible.
-		if let Some(mut state) = crate::aux_schema::load_persistent(self.backend.as_ref())?
+		if let Some(mut state) = crate::aux_schema::load_persistent(backend.as_ref())?
 			// Verify state pallet genesis matches runtime.
 			.filter(|state| state.pallet_genesis() == beefy_genesis)
 		{
@@ -405,8 +445,7 @@ where
 					}
 				}
 				header =
-					wait_for_parent_header(self.backend.blockchain(), header, HEADER_SYNC_DELAY)
-						.await?;
+					wait_for_parent_header(backend.blockchain(), header, HEADER_SYNC_DELAY).await?;
 			}
 
 			// Make sure we didn't miss any sessions during node restart.
@@ -416,18 +455,13 @@ where
 					"🥩 Handling missed BEEFY session after node restart: {:?}.",
 					new_session_start
 				);
-				state.init_session_at(
-					new_session_start,
-					validator_set,
-					&self.key_store,
-					&self.metrics,
-				);
+				state.init_session_at(new_session_start, validator_set, key_store, metrics);
 			}
 			return Ok(state)
 		}
 
 		// No valid voter-state persisted, re-initialize from pallet genesis.
-		self.init_state(beefy_genesis, best_grandpa, min_block_delta).await
+		Self::init_state(beefy_genesis, best_grandpa, min_block_delta, backend, runtime).await
 	}
 }
 
@@ -508,42 +542,23 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	// We re-create and re-run the worker in this loop in order to quickly reinit and resume after
 	// select recoverable errors.
 	loop {
-		let mut worker_builder = BeefyWorkerBuilder {
-			backend: backend.clone(),
-			runtime: runtime.clone(),
-			key_store: key_store.clone().into(),
-			metrics: metrics.clone(),
-			_phantom: Default::default(),
-		};
-
-		// Wait for BEEFY pallet to be active before starting voter.
-		let (beefy_genesis, best_grandpa) =
-			match wait_for_runtime_pallet(&*runtime, &mut finality_notifications).await {
-				Ok(res) => res,
-				Err(e) => {
-					error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
-					return
-				},
-			};
-
-		let persisted_state = match worker_builder
-			.load_or_init_state(beefy_genesis, best_grandpa, min_block_delta)
-			.await
+		let worker_builder = match BeefyWorkerBuilder::async_initialize(
+			backend.clone(),
+			runtime.clone(),
+			key_store.clone().into(),
+			metrics.clone(),
+			min_block_delta,
+			beefy_comms.gossip_validator.clone(),
+			&mut finality_notifications,
+		)
+		.await
 		{
-			Ok(state) => state,
+			Ok(res) => res,
 			Err(e) => {
 				error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
 				return
 			},
 		};
-		// Update the gossip validator with the right starting round and set id.
-		if let Err(e) = persisted_state
-			.gossip_filter_config()
-			.map(|f| beefy_comms.gossip_validator.update_filter(f))
-		{
-			error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
-			return
-		}
 
 		let worker = worker_builder.build(
 			payload_provider.clone(),
@@ -551,7 +566,6 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 			beefy_comms,
 			links.clone(),
 			BTreeMap::new(),
-			persisted_state,
 		);
 
 		match futures::future::select(
@@ -620,7 +634,7 @@ where
 async fn wait_for_runtime_pallet<B, R>(
 	runtime: &R,
 	finality: &mut Fuse<FinalityNotifications<B>>,
-) -> ClientResult<(NumberFor<B>, <B as Block>::Header)>
+) -> Result<(NumberFor<B>, <B as Block>::Header), Error>
 where
 	B: Block,
 	R: ProvideRuntimeApi<B>,
@@ -631,7 +645,7 @@ where
 		let notif = finality.next().await.ok_or_else(|| {
 			let err_msg = "🥩 Finality stream has unexpectedly terminated.".into();
 			error!(target: LOG_TARGET, "{}", err_msg);
-			ClientError::Backend(err_msg)
+			Error::Backend(err_msg)
 		})?;
 		let at = notif.header.hash();
 		if let Some(start) = runtime.runtime_api().beefy_genesis(at).ok().flatten() {
