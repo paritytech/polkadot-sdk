@@ -119,3 +119,49 @@ async fn purge_chain_paritydb_works() {
 	})
 	.await;
 }
+
+#[tokio::test]
+async fn purge_chain_paritydbmulti_works() {
+	run_with_timeout(Duration::from_secs(10 * 60), async move {
+		let tmpdir = tempdir().expect("could not create temp dir");
+
+		let mut cmd = Command::new(cargo_bin("polkadot"))
+			.stdout(process::Stdio::piped())
+			.stderr(process::Stdio::piped())
+			.args(["--dev", "-d"])
+			.arg(tmpdir.path())
+			.arg("--database")
+			.arg("paritydbmulti")
+			.arg("--no-hardware-benchmarks")
+			.spawn()
+			.unwrap();
+
+		let (ws_url, _) = common::find_ws_url_from_output(cmd.stderr.take().unwrap());
+
+		// Let it produce 1 block.
+		common::wait_n_finalized_blocks(1, &ws_url).await;
+
+		// Send SIGINT to node.
+		kill(Pid::from_raw(cmd.id().try_into().unwrap()), SIGINT).unwrap();
+		// Wait for the node to handle it and exit.
+		assert!(cmd.wait().unwrap().success());
+		assert!(tmpdir.path().join("chains/rococo_dev").exists());
+		assert!(tmpdir.path().join("chains/rococo_dev/paritydb/full").exists());
+
+		// Purge chain
+		let status = Command::new(cargo_bin("polkadot"))
+			.args(["purge-chain", "--dev", "-d"])
+			.arg(tmpdir.path())
+			.arg("--database")
+			.arg("paritydbmult")
+			.arg("-y")
+			.status()
+			.unwrap();
+		assert!(status.success());
+
+		// Make sure that the chain folder exists, but `db/full` is deleted.
+		assert!(tmpdir.path().join("chains/rococo_dev").exists());
+		assert!(!tmpdir.path().join("chains/rococo_dev/paritydb/full").exists());
+	})
+	.await;
+}

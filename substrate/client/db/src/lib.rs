@@ -1677,9 +1677,6 @@ impl<Block: BlockT> Backend<Block> {
 					let mut removal: u64 = 0;
 					let mut bytes_removal: u64 = 0;
 
-					// TODO could certainly avoid filling a mem_db here.
-					// (would need apply_to with optional prefixing and
-					// callback on insert and remove.
 					if self.storage.prefix_keys {
 						let mut memdb = sp_trie::PrefixedMemoryDB::<HashingFor<Block>>::default();
 						trie_commit.apply_to(&mut memdb);
