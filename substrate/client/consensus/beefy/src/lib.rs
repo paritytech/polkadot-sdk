@@ -543,28 +543,34 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	// select recoverable errors.
 	loop {
 		// Make sure to pump gossip engine while waiting for initialization conditions.
-		let worker_builder = futures::select! {
-			builder_init_result = BeefyWorkerBuilder::async_initialize(
-				backend.clone(),
-				runtime.clone(),
-				key_store.clone().into(),
-				metrics.clone(),
-				min_block_delta,
-				beefy_comms.gossip_validator.clone(),
-				&mut finality_notifications,
-			).fuse() => {
-				match builder_init_result {
-					Ok(res) => res,
-					Err(e) => {
-						error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", e);
-						return
-					},
+		let worker_builder = loop {
+			futures::select! {
+				builder_init_result = BeefyWorkerBuilder::async_initialize(
+					backend.clone(),
+					runtime.clone(),
+					key_store.clone().into(),
+					metrics.clone(),
+					min_block_delta,
+					beefy_comms.gossip_validator.clone(),
+					&mut finality_notifications,
+				).fuse() => {
+					match builder_init_result {
+						Ok(builder) => break builder,
+						Err(e) => {
+							error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", e);
+							return
+						},
+					}
+				},
+				// Pump peer reports
+				_ = &mut beefy_comms.gossip_report_stream.next() => {
+					continue
+				},
+				// Pump gossip engine.
+				_ = &mut beefy_comms.gossip_engine => {
+					error!(target: LOG_TARGET, "🥩 Gossip engine has unexpectedly terminated.");
+					return
 				}
-			},
-			// Pump gossip engine.
-			_ = &mut beefy_comms.gossip_engine => {
-				error!(target: LOG_TARGET, "🥩 Gossip engine has unexpectedly terminated.");
-				return
 			}
 		};
 

@@ -56,6 +56,8 @@ pub(super) enum Action<H> {
 	Keep(H, ReputationChange),
 	// discard, applying cost/benefit to originator.
 	Discard(ReputationChange),
+	// ignore, no cost/benefit applied to originator.
+	Ignore,
 }
 
 /// An outcome of examining a message.
@@ -285,7 +287,7 @@ where
 			match filter.consider_vote(round, set_id) {
 				Consider::RejectPast => return Action::Discard(cost::OUTDATED_MESSAGE),
 				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
-				Consider::RejectOutOfScope => return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
+				Consider::RejectOutOfScope => return Action::Ignore,
 				Consider::Accept => {},
 			}
 
@@ -326,7 +328,7 @@ where
 			match guard.consider_finality_proof(round, set_id) {
 				Consider::RejectPast => return Action::Discard(cost::OUTDATED_MESSAGE),
 				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
-				Consider::RejectOutOfScope => return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
+				Consider::RejectOutOfScope => return Action::Ignore,
 				Consider::Accept => {},
 			}
 
@@ -353,7 +355,7 @@ where
 						Action::Keep(self.justifs_topic, benefit::VALIDATED_PROOF)
 					}
 				})
-				.unwrap_or(Action::Discard(cost::OUT_OF_SCOPE_MESSAGE))
+				.unwrap_or(Action::Ignore)
 		};
 		if matches!(action, Action::Keep(_, _)) {
 			self.gossip_filter.write().mark_round_as_proven(round);
@@ -400,6 +402,7 @@ where
 				self.report(*sender, cb);
 				ValidationResult::Discard
 			},
+			Action::Ignore => ValidationResult::Discard,
 		}
 	}
 
@@ -575,8 +578,8 @@ pub(crate) mod tests {
 		// filter not initialized
 		let res = gv.validate(&mut context, &sender, &encoded);
 		assert!(matches!(res, ValidationResult::Discard));
-		expected_report.cost_benefit = cost::OUT_OF_SCOPE_MESSAGE;
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		// nothing reported
+		assert!(report_stream.try_recv().is_err());
 
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
 		// nothing in cache first time
