@@ -25,7 +25,7 @@ jobs:
         if: ${{ github.event.sender.login == github.event.pull_request.user.login && github.event.pull_request.author_association != 'MEMBER' }}
         run: |
           echo "SENDER: $SENDER ; AUTHOR:$AUTHOR"
-          echo "::error Project needs to be reviewed again"
+          echo "::error::Project needs to be reviewed again"
           exit 1
         env:
           SENDER: ${{ github.event.sender.login }}
