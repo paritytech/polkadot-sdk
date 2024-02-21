@@ -345,6 +345,8 @@
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -544,7 +546,9 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initialize_bridge_grandpa_pallet&lt;Runtime, GPI&gt;(
 	init_data: bp_header_chain::InitializationData&lt;BridgedHeader&lt;Runtime, GPI&gt;&gt;,
 ) <span class="kw">where
-	</span>Runtime: BridgeGrandpaConfig&lt;GPI&gt;,
+	</span>Runtime: BridgeGrandpaConfig&lt;GPI&gt;
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 {
 	pallet_bridge_grandpa::Pallet::&lt;Runtime, GPI&gt;::initialize(
 		RuntimeHelper::&lt;Runtime&gt;::root_origin(),

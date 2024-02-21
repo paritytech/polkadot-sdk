@@ -143,6 +143,8 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -182,7 +184,8 @@
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_parachain_system::Config,
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 	StorageConstant: Get&lt;StorageConstantType&gt;,
 	StorageConstantType: Encode + PartialEq + std::fmt::Debug,
@@ -252,7 +255,8 @@
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_parachain_system::Config,
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>runtime = ExtBuilder::&lt;Runtime&gt;::default()

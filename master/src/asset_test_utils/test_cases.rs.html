@@ -1593,6 +1593,12 @@
 <a href="#1593" id="1593">1593</a>
 <a href="#1594" id="1594">1594</a>
 <a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1665,7 +1671,8 @@
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ cumulus_pallet_xcmp_queue::Config,
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize&lt;BlockNumberFor&lt;Runtime&gt;&gt; + OnFinalize&lt;BlockNumberFor&lt;Runtime&gt;&gt;,
 	AccountIdOf&lt;Runtime&gt;: Into&lt;[u8; <span class="number">32</span>]&gt;,
@@ -1945,7 +1952,8 @@
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;,
+		+ pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize&lt;BlockNumberFor&lt;Runtime&gt;&gt; + OnFinalize&lt;BlockNumberFor&lt;Runtime&gt;&gt;,
 	AccountIdOf&lt;Runtime&gt;: Into&lt;[u8; <span class="number">32</span>]&gt;,
@@ -2296,7 +2304,8 @@
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_parachain_system::Config,
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 	AccountIdOf&lt;Runtime&gt;: Into&lt;[u8; <span class="number">32</span>]&gt;,
 	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 	BalanceOf&lt;Runtime&gt;: From&lt;Balance&gt;,
@@ -2421,7 +2430,8 @@
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ pallet_assets::Config&lt;AssetsPalletInstance&gt;,
+		+ pallet_assets::Config&lt;AssetsPalletInstance&gt;
+		+ pallet_timestamp::Config,
 	AccountIdOf&lt;Runtime&gt;: Into&lt;[u8; <span class="number">32</span>]&gt;,
 	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 	BalanceOf&lt;Runtime&gt;: From&lt;Balance&gt;,
@@ -2688,7 +2698,8 @@
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;,
+		+ pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;
+		+ pallet_timestamp::Config,
 	AccountIdOf&lt;Runtime&gt;: Into&lt;[u8; <span class="number">32</span>]&gt;,
 	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 	BalanceOf&lt;Runtime&gt;: From&lt;Balance&gt;,
@@ -3017,7 +3028,8 @@
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ cumulus_pallet_xcmp_queue::Config,
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize&lt;BlockNumberFor&lt;Runtime&gt;&gt; + OnFinalize&lt;BlockNumberFor&lt;Runtime&gt;&gt;,
 	AccountIdOf&lt;Runtime&gt;: Into&lt;[u8; <span class="number">32</span>]&gt;,

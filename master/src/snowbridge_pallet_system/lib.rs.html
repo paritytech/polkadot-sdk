@@ -722,9 +722,7 @@
 //! `force_update_channel` and extrinsics to manage agents and channels for system parachains.
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
-
-<span class="attr">#[cfg(test)]
+#[cfg(test)]
 </span><span class="kw">mod </span>mock;
 
 <span class="attr">#[cfg(test)]
@@ -763,6 +761,8 @@
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">use </span>frame_support::traits::OriginTrait;
+
+<span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
 <span class="kw">pub type </span>BalanceOf&lt;T&gt; =
 	&lt;&lt;T <span class="kw">as </span>pallet::Config&gt;::Token <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
