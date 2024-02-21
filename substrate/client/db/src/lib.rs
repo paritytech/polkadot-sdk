@@ -1023,6 +1023,7 @@ pub struct StorageDb<Block: BlockT> {
 	pub db: Arc<dyn Database<DbHash>>,
 	/// Pruning manager.
 	pub state_db: Option<Arc<StateDb<Block::Hash, Vec<u8>, StateMetaDb>>>,
+	prefix_keys: bool,
 }
 
 impl<Block: BlockT> StorageDb<Block> {
@@ -1047,14 +1048,17 @@ impl<Block: BlockT> sp_state_machine::NodeDB<HashingFor<Block>, DBValue, DBLocat
 		location: DBLocation,
 	) -> Option<(DBValue, Vec<DBLocation>)> {
 		if let Some(state_db) = &self.state_db {
-			let key = prefixed_key::<HashingFor<Block>>(key, prefix);
-			state_db
-				.get(&key, &StateNodeDb(&*self.db))
-				.unwrap_or_else(|e| {
-					warn!("Database backend error: {:?}", e);
-					None
-				})
-				.map(|value| (value, Default::default()))
+			if self.prefix_keys {
+				let key = prefixed_key::<HashingFor<Block>>(key, prefix);
+				state_db.get(&key, &StateNodeDb(&*self.db))
+			} else {
+				state_db.get(key.as_ref(), &StateNodeDb(&*self.db))
+			}
+			.unwrap_or_else(|e| {
+				warn!("Database backend error: {:?}", e);
+				None
+			})
+			.map(|value| (value, Default::default()))
 		} else {
 			if let Some((v, locs)) = self.db.get_node(columns::STATE, key.as_ref(), location) {
 				let hash = sp_core::blake2_256(&v);
@@ -1348,7 +1352,8 @@ impl<Block: BlockT> Backend<Block> {
 
 		let blockchain = BlockchainDb::new(db.clone())?;
 
-		let storage_db = StorageDb { db: db.clone(), state_db };
+		let storage_db =
+			StorageDb { db: db.clone(), state_db, prefix_keys: !db.supports_ref_counting() };
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
@@ -1672,33 +1677,66 @@ impl<Block: BlockT> Backend<Block> {
 					let mut removal: u64 = 0;
 					let mut bytes_removal: u64 = 0;
 
-					let mut memdb = sp_trie::PrefixedMemoryDB::<HashingFor<Block>>::default();
-					trie_commit.apply_to(&mut memdb);
-
-					for (key, (val, rc)) in memdb.drain() {
-						if rc > 0 {
-							ops += 1;
-							bytes += key.len() as u64 + val.len() as u64;
-							if rc == 1 {
-								changeset.inserted.push((key.to_vec(), val.to_vec()));
-							} else {
-								changeset.inserted.push((key.to_vec(), val.to_vec()));
-								for _ in 0..rc - 1 {
-									changeset.inserted.push((key.to_vec(), Default::default()));
+					// TODO could certainly avoid filling a mem_db here.
+					// (would need apply_to with optional prefixing and
+					// callback on insert and remove.
+					if self.storage.prefix_keys {
+						let mut memdb = sp_trie::PrefixedMemoryDB::<HashingFor<Block>>::default();
+						trie_commit.apply_to(&mut memdb);
+						for (key, (val, rc)) in memdb.drain() {
+							if rc > 0 {
+								ops += 1;
+								bytes += key.len() as u64 + val.len() as u64;
+								if rc == 1 {
+									changeset.inserted.push((key.clone(), val.to_vec()));
+								} else {
+									changeset.inserted.push((key.clone(), val.to_vec()));
+									for _ in 0..rc - 1 {
+										changeset.inserted.push((key.clone(), Default::default()));
+									}
+								}
+							} else if rc < 0 {
+								removal += 1;
+								bytes_removal += key.len() as u64;
+								if rc == -1 {
+									changeset.deleted.push(key.to_vec());
+								} else {
+									for _ in 0..-rc {
+										changeset.deleted.push(key.to_vec());
+									}
 								}
 							}
-						} else if rc < 0 {
-							removal += 1;
-							bytes_removal += key.len() as u64;
-							if rc == -1 {
-								changeset.deleted.push(key.to_vec());
-							} else {
-								for _ in 0..-rc {
+						}
+					} else {
+						let mut memdb = sp_trie::MemoryDB::<HashingFor<Block>>::default();
+						trie_commit.apply_to(&mut memdb);
+						for (key, (val, rc)) in memdb.drain() {
+							let key = key.as_ref();
+							if rc > 0 {
+								ops += 1;
+								bytes += key.len() as u64 + val.len() as u64;
+								if rc == 1 {
+									changeset.inserted.push((key.to_vec(), val.to_vec()));
+								} else {
+									changeset.inserted.push((key.to_vec(), val.to_vec()));
+									for _ in 0..rc - 1 {
+										changeset.inserted.push((key.to_vec(), Default::default()));
+									}
+								}
+							} else if rc < 0 {
+								removal += 1;
+								bytes_removal += key.len() as u64;
+								if rc == -1 {
 									changeset.deleted.push(key.to_vec());
+								} else {
+									for _ in 0..-rc {
+										changeset.deleted.push(key.to_vec());
+									}
 								}
 							}
 						}
 					}
+
 					self.state_usage.tally_writes_nodes(ops, bytes);
 					self.state_usage.tally_removed_nodes(removal, bytes_removal);
 					let commit = state_db

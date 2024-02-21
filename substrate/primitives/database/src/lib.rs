@@ -130,17 +130,19 @@ pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {
 		}
 	}
 
+	/// Check if database supports internal ref counting for state data.
+	///
+	/// For backwards compatibility returns `false` by default.
+	fn supports_ref_counting(&self) -> bool {
+		false
+	}
+
 	/// Check if database supports tree columns.
 	///
 	/// For backwards compatibility returns `false` by default.
 	fn supports_tree_column(&self) -> bool {
 		false
 	}
-
-	/// Remove a possible path-prefix from the key.
-	///
-	/// Not all database implementations use a prefix for keys, so this function may be a noop.
-	fn sanitize_key(&self, _key: &mut Vec<u8>) {}
 
 	/// Retrieve the tree node previously stored against `key` and `location` or `None` if
 	/// if no such node exists.

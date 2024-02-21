@@ -174,6 +174,10 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 		}
 	}
 
+	fn supports_ref_counting(&self) -> bool {
+		true
+	}
+
 	fn supports_tree_column(&self) -> bool {
 		self.1
 	}
