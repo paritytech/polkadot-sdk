@@ -37,6 +37,7 @@ use super::{
 use crate::LOG_TARGET;
 
 use bitvec::prelude::{BitVec, Lsb0};
+use futures_timer::Delay;
 use polkadot_node_network_protocol::{
 	request_response::{
 		outgoing::{Recipient as RequestRecipient, RequestError},
@@ -59,7 +60,7 @@ use std::{
 		hash_map::{Entry as HEntry, HashMap},
 		HashSet, VecDeque,
 	},
-	time::Instant,
+	time::{Duration, Instant},
 };
 
 /// An identifier for a candidate.
@@ -316,6 +317,7 @@ impl RequestManager {
 		peer_advertised: impl Fn(&CandidateIdentifier, &PeerId) -> Option<StatementFilter>,
 	) -> Option<OutgoingRequest<AttestedCandidateRequest>> {
 		if response_manager.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
+			gum::info(target: LOG_TARGET, "Too many requests in parallel");
 			return None
 		}
 
@@ -383,7 +385,10 @@ impl RequestManager {
 					identifier: stored_id,
 					requested_peer: target,
 					props,
-					response: response_fut.await,
+					response: {
+						Delay::new(Duration::from_millis(100)).await;
+						response_fut.await
+					},
 				}
 			}));
 
