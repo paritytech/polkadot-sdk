@@ -460,10 +460,14 @@ where
 	R::Api: BeefyApi<B, AuthorityId>,
 {
 	let blockchain = backend.blockchain();
-
 	// Walk up the chain looking for the validator set active at 'at_header'. Process both state and
 	// header digests.
-	debug!(target: LOG_TARGET, "🥩 Trying to find validator set active at header: {:?}", at_header);
+	debug!(
+		target: LOG_TARGET,
+		"🥩 Trying to find validator set active at header(number {:?}, hash {:?})",
+		at_header.number(),
+		at_header.hash()
+	);
 	let mut header = at_header.clone();
 	loop {
 		debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());
