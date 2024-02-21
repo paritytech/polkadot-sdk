@@ -11,7 +11,7 @@
     - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/
       variables:
         DOCKER_IMAGES_VERSION: ${CI_COMMIT_SHORT_SHA}
-    - !reference [.build-refs, rules]
+    - !reference [ .build-refs, rules ]
   before_script:
     - echo "Zombienet Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
@@ -48,16 +48,16 @@
     # copy logs of westend nodes
     - cp -r /tmp/bridges-tests-run-*/bridge_hub_westend_local_network/*.log ./zombienet-logs/
 
-zombienet-bridges-0001-asset-transfer-works:
+zombienet-bridges-0001-rococo-westend-asset-transfer:
   extends:
     - .zombienet-bridges-common
   script:
-    - /home/nonroot/bridges-polkadot-sdk/bridges/testing/run-new-test.sh 0001-asset-transfer --docker
+    - /home/nonroot/bridges-polkadot-sdk/bridges/testing/run-new-test.sh 0001-rococo-westend-asset-transfer --docker
     - echo "Done"
 
-zombienet-bridges-0002-mandatory-headers-synced-while-idle:
+zombienet-bridges-0002-rococo-westend-mandatory-headers-synced-while-idle:
   extends:
     - .zombienet-bridges-common
   script:
-    - /home/nonroot/bridges-polkadot-sdk/bridges/testing/run-new-test.sh 0002-mandatory-headers-synced-while-idle --docker
+    - /home/nonroot/bridges-polkadot-sdk/bridges/testing/run-new-test.sh 0002-rococo-westend-mandatory-headers-synced-while-idle --docker
     - echo "Done"

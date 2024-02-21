@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Test that checks if asset transfer works on P<>K bridge.
+# This test is intentionally not added to the CI. It is meant to be ran manually.
+
 set -e
 
 source "${BASH_SOURCE%/*}/../../utils/common.sh"
