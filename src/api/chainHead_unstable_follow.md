@@ -14,7 +14,7 @@ This function works as follows:
 
 - When called, returns an opaque `followSubscription` that can used to match events and in various other `chainHead`-prefixed functions.
 
-- Later, generates an `initialized` notification (see below) containing the hash of the current finalized block, and, if `withRuntime` is `true`, the runtime specification of the runtime of the current finalized block.
+- Later, generates an `initialized` notification (see below) containing the hashes of the latest finalized blocks, and, if `withRuntime` is `true`, the runtime specification of the runtime of the current finalized block.
 
 - Afterwards, generates one `newBlock` notification (see below) for each non-finalized block currently in the node's memory (including all forks), then a `bestBlockChanged` notification. The notifications must be sent in an ordered way such that the parent of each block either can be found in an earlier notification or is the current finalized block.
 
@@ -30,7 +30,7 @@ Additionally, the `chainHead_unstable_body`, `chainHead_unstable_call`, and `cha
 
 ## The `withRuntime` parameter
 
-If the `withRuntime` parameter is `true`, then blocks shouldn't (and can't) be reported to JSON-RPC clients before the JSON-RPC server has finished obtaining the runtime specification of the blocks that it reports. This includes the finalized block reported in the `initialized` event.
+If the `withRuntime` parameter is `true`, then blocks shouldn't (and can't) be reported to JSON-RPC clients before the JSON-RPC server has finished obtaining the runtime specification of the blocks that it reports. This includes the finalized blocks reported in the `initialized` event.
 
 If `withRuntime` is `false`, then the `initialized` event must be sent back quickly after the function returns. If `withRuntime` is `true`, then the JSON-RPC server can take as much time as it wants to send back the `initialized` event.
 
@@ -62,14 +62,21 @@ Where `subscription` is the value returned by this function, and `result` can be
 ```json
 {
     "event": "initialized",
-    "finalizedBlockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "finalizedBlockHashes": [
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ],
     "finalizedBlockRuntime": ...
 }
 ```
 
 The `initialized` event is always the first event to be sent back, and is only ever sent back once per subscription.
 
-`finalizedBlockRuntime` is present if and only if `withRuntime`, the parameter to this function, is `true`.
+`finalizedBlockHashes` contains a list of finalized blocks, of at least one element, ordered by increasing block number. The last element in this list is the current finalized block.
+
+**Note**: The RPC server is encouraged to include around 1 minute of finalized blocks in this list. These blocks are also pinned, and the user is responsible for unpinning them. This information is useful for the JSON-RPC clients that resubscribe to the `chainHead_unstable_follow` function after a disconnection.
+
+`finalizedBlockRuntime` is present if and only if `withRuntime`, the parameter to this function, is `true`. It corresponds to the last finalized block from the `finalizedBlockHashes` list.
 
 The format of `finalizedBlockRuntime` is described later down this page.
 
@@ -291,7 +298,7 @@ Calling `chainHead_unstable_unfollow` on a subscription that has produced a `sto
 
 ## Pinning
 
-The current finalized block reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, is automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_unstable_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_unstable_unpin`.
+The finalized blocks reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, are automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_unstable_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_unstable_unpin`.
 
 When a block is unpinned, on-going calls to `chainHead_unstable_body`, `chainHead_unstable_call` and `chainHead_unstable_storage` against this block will still finish normally.
 
