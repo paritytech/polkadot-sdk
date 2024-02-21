@@ -529,11 +529,7 @@ where
 					.map_err(Error::ParsingMultiaddress)?;
 
 				let get_peer_id = |a: &Multiaddr| match a.iter().last() {
-					Some(multiaddr::Protocol::P2p(key)) => {
-						let result = PeerId::from_multihash(key);
-						debug!(target: LOG_TARGET, "Let's see dht {:?} === {:?}", key, result);
-						result.ok()
-					},
+					Some(multiaddr::Protocol::P2p(key)) => PeerId::from_multihash(key).ok(),
 					_ => None,
 				};
 
@@ -543,12 +539,11 @@ where
 					.filter(|a| get_peer_id(a).filter(|p| *p != local_peer_id).is_some())
 					.collect();
 
-				let res = single(addresses.iter().map(get_peer_id))
+				let remote_peer_id = single(addresses.iter().map(get_peer_id))
 					.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentPeerIds)? // different peer_id in records
 					.flatten()
-					.ok_or(Error::ReceivingDhtValueFoundEventWithNoPeerIds); // no records with peer_id in them
+					.ok_or(Error::ReceivingDhtValueFoundEventWithNoPeerIds)?; // no records with peer_id in them
 
-				let remote_peer_id = res?;
 				// At this point we know all the valid multiaddresses from the record, know that
 				// each of them belong to the same PeerId, we just need to check if the record is
 				// properly signed by the owner of the PeerId
