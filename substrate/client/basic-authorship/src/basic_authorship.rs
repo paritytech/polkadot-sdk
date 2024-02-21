@@ -189,11 +189,6 @@ impl<A, C, PR> ProposerFactory<A, C, PR> {
 	pub fn set_soft_deadline(&mut self, percent: Percent) {
 		self.soft_deadline_percent = percent;
 	}
-
-	/// Set metrics.
-	pub fn set_metrics(&mut self, metrics: PrometheusMetrics) {
-		self.metrics = metrics;
-	}
 }
 
 impl<Block, C, A, PR> ProposerFactory<A, C, PR>
