@@ -313,7 +313,7 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		// First delegation so we needs to register the pool account as delegate.
+		// This is the first delegation so we needs to register the pool account as a `delegate`.
 		Pallet::<T>::register_as_delegate(
 			RawOrigin::Signed(pool_account.clone()).into(),
 			reward_account.clone(),

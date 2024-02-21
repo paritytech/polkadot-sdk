@@ -218,8 +218,7 @@ pub mod pallet {
 			// Reward account cannot be same as `delegate` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
 
-			DelegationLedger::<T>::new(&reward_account).save(&who);
-
+			Self::do_register_delegator(&who, &reward_account);
 			Ok(())
 		}
 
@@ -374,6 +373,15 @@ impl<T: Config> Pallet<T> {
 			.unwrap_or(false)
 	}
 
+	fn do_register_delegator(who: &T::AccountId, reward_account: &T::AccountId) {
+		DelegationLedger::<T>::new(reward_account).save(who);
+
+		// Pool account is a virtual account. Make this account exist.
+		// TODO: Someday if we expose these calls in a runtime, we should take a deposit for
+		// being a delegator.
+		frame_system::Pallet::<T>::inc_providers(who);
+	}
+
 	fn do_migrate_to_delegate(who: &T::AccountId, reward_account: &T::AccountId) -> DispatchResult {
 		// We create a proxy delegator that will keep all the delegation funds until funds are
 		// transferred to actual delegator.
@@ -399,7 +407,7 @@ impl<T: Config> Pallet<T> {
 		T::Currency::transfer(who, &proxy_delegator, stake.total, Preservation::Protect)
 			.map_err(|_| Error::<T>::BadState)?;
 
-		DelegationLedger::<T>::new(&reward_account).save(&who);
+		Self::do_register_delegator(who, reward_account);
 		// FIXME(ank4n) expose set payee in staking interface.
 		// T::CoreStaking::set_payee(who, reward_account)
 
