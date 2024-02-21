@@ -57,7 +57,7 @@ sp-version = { path = "../../../../../substrate/primitives/version", default-fea
 # Polkadot
 westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants", default-features = false, version = "7.0.0" }
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "7.0.0" }
-pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "7.0.3" }
+pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "7.0.4" }
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false, version = "7.0.0" }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false, version = "6.0.0" }
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false, version = "7.0.0" }

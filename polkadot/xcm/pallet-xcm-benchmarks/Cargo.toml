@@ -3,7 +3,7 @@ name = "pallet-xcm-benchmarks"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "7.0.3"
+version = "7.0.4"
 description = "Benchmarks for the XCM pallet"
 
 [lints]
