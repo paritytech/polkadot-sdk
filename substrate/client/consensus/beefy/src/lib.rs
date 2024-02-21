@@ -288,19 +288,14 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	// select recoverable errors.
 	loop {
 		// Wait for BEEFY pallet to be active before starting voter.
-		let (beefy_genesis, best_grandpa) = match wait_for_runtime_pallet(
-			&*runtime,
-			&mut beefy_comms.gossip_engine,
-			&mut finality_notifications,
-		)
-		.await
-		{
-			Ok(res) => res,
-			Err(e) => {
-				error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
-				return
-			},
-		};
+		let (beefy_genesis, best_grandpa) =
+			match wait_for_runtime_pallet(&*runtime, &mut finality_notifications).await {
+				Ok(res) => res,
+				Err(e) => {
+					error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
+					return
+				},
+			};
 
 		let mut worker_base = worker::BeefyWorkerBase {
 			backend: backend.clone(),
@@ -404,7 +399,6 @@ where
 /// Should be called only once during worker initialization.
 async fn wait_for_runtime_pallet<B, R>(
 	runtime: &R,
-	mut gossip_engine: &mut GossipEngine<B>,
 	finality: &mut Fuse<FinalityNotifications<B>>,
 ) -> ClientResult<(NumberFor<B>, <B as Block>::Header)>
 where
@@ -414,33 +408,24 @@ where
 {
 	info!(target: LOG_TARGET, "🥩 BEEFY gadget waiting for BEEFY pallet to become available...");
 	loop {
-		futures::select! {
-			notif = finality.next() => {
-				let notif = match notif {
-					Some(notif) => notif,
-					None => break
-				};
-				let at = notif.header.hash();
-				if let Some(start) = runtime.runtime_api().beefy_genesis(at).ok().flatten() {
-					if *notif.header.number() >= start {
-						// Beefy pallet available, return header for best grandpa at the time.
-						info!(
-							target: LOG_TARGET,
-							"🥩 BEEFY pallet available: block {:?} beefy genesis {:?}",
-							notif.header.number(), start
-						);
-						return Ok((start, notif.header))
-					}
-				}
-			},
-			_ = gossip_engine => {
-				break
+		let notif = finality.next().await.ok_or_else(|| {
+			let err_msg = "🥩 Finality stream has unexpectedly terminated.".into();
+			error!(target: LOG_TARGET, "{}", err_msg);
+			ClientError::Backend(err_msg)
+		})?;
+		let at = notif.header.hash();
+		if let Some(start) = runtime.runtime_api().beefy_genesis(at).ok().flatten() {
+			if *notif.header.number() >= start {
+				// Beefy pallet available, return header for best grandpa at the time.
+				info!(
+					target: LOG_TARGET,
+					"🥩 BEEFY pallet available: block {:?} beefy genesis {:?}",
+					notif.header.number(), start
+				);
+				return Ok((start, notif.header))
 			}
 		}
 	}
-	let err_msg = "🥩 Gossip engine has unexpectedly terminated.".into();
-	error!(target: LOG_TARGET, "{}", err_msg);
-	Err(ClientError::Backend(err_msg))
 }
 
 /// Provides validator set active `at_header`. It tries to get it from state, otherwise falls
