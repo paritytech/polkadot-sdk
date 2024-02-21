@@ -314,8 +314,24 @@ impl RequestManager {
 		response_manager: &mut ResponseManager,
 		request_props: impl Fn(&CandidateIdentifier) -> Option<RequestProperties>,
 		peer_advertised: impl Fn(&CandidateIdentifier, &PeerId) -> Option<StatementFilter>,
+		request_throttle_freq: &mut gum::Freq,
 	) -> Option<OutgoingRequest<AttestedCandidateRequest>> {
-		if response_manager.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
+		// The number of parallel requests a node can answer is limited by
+		// `MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS`, however there is no
+		// need for the current node to limit itself to the same amount the
+		// requests, because the requests are going to different nodes anyways.
+		// While looking at https://github.com/paritytech/polkadot-sdk/issues/3314,
+		// found out that this requests take around 100ms to fullfill, so it
+		// would make sense to try to request things as early as we can, given
+		// we would need to request it for each candidate, around 25 right now
+		// on kusama.
+		if response_manager.len() >= 2 * MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
+			gum::warn_if_frequent!(
+				freq: request_throttle_freq,
+				max_rate: gum::Times::PerSecond(5),
+				target: LOG_TARGET,
+				"Too many requests in parallel, statement-distribution might be slow"
+			);
 			return None
 		}
 

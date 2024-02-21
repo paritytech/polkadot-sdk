@@ -1294,7 +1294,7 @@ async fn circulate_statement<Context>(
 	let is_confirmed = candidates.is_confirmed(&candidate_hash);
 
 	let originator = statement.validator_index();
-	let (local_validator, targets) = {
+	let (local_validator, targets, cluster_relevant) = {
 		let local_validator = match relay_parent_state.local_validator.as_mut() {
 			Some(v) => v,
 			None => return, // sanity: nothing to propagate if not a validator.
@@ -1350,10 +1350,11 @@ async fn circulate_statement<Context>(
 			})
 			.collect::<Vec<_>>();
 
-		(local_validator, targets)
+		(local_validator, targets, cluster_relevant)
 	};
 
 	let mut statement_to_peers: Vec<(PeerId, ProtocolVersion)> = Vec::new();
+	let targets_len = targets.len();
 	for (target, authority_id, kind) in targets {
 		// Find peer ID based on authority ID, and also filter to connected.
 		let peer_id: (PeerId, ProtocolVersion) = match authorities.get(&authority_id) {
@@ -1395,6 +1396,17 @@ async fn circulate_statement<Context>(
 				);
 			},
 		}
+	}
+
+	if cluster_relevant && targets_len > 0 && statement_to_peers.is_empty() {
+		gum::warn!(
+			target: LOG_TARGET,
+			?cluster_relevant,
+			?targets_len,
+			groups = ?local_validator.active.as_ref().map(|active| active.group.0),
+			"Node does not participate in backing, because it can not resolve its group peer ids.\n
+			 Restart might be needed if error persists for more than 3-4 consecutive sessions"
+		);
 	}
 
 	let statement_to_v2_peers =
@@ -2866,7 +2878,11 @@ async fn apply_post_confirmation<Context>(
 
 /// Dispatch pending requests for candidate data & statements.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut State) {
+pub(crate) async fn dispatch_requests<Context>(
+	ctx: &mut Context,
+	state: &mut State,
+	request_throttle_freq: &mut gum::Freq,
+) {
 	if !state.request_manager.has_pending_requests() {
 		return
 	}
@@ -2946,6 +2962,7 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 		&mut state.response_manager,
 		request_props,
 		peer_advertised,
+		request_throttle_freq,
 	) {
 		// Peer is supposedly connected.
 		ctx.send_message(NetworkBridgeTxMessage::SendRequests(

@@ -211,6 +211,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 			.boxed(),
 		)
 		.map_err(FatalError::SpawnTask)?;
+		let mut request_throttle_freq = gum::Freq::new();
 
 		loop {
 			// Wait for the next message.
@@ -293,7 +294,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 				},
 			};
 
-			v2::dispatch_requests(&mut ctx, &mut state).await;
+			v2::dispatch_requests(&mut ctx, &mut state, &mut request_throttle_freq).await;
 		}
 		Ok(())
 	}
