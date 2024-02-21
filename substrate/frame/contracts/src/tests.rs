@@ -35,8 +35,8 @@ use crate::{
 	tests::test_utils::{get_contract, get_contract_checked},
 	wasm::{Determinism, ReturnErrorCode as RuntimeReturnCode},
 	weights::WeightInfo,
-	BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf,
-	DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
+	Array, BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo,
+	ContractInfoOf, DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
 	MigrationInProgress, Origin, Pallet, PristineCode, Schedule,
 };
 use assert_matches::assert_matches;
@@ -5975,5 +5975,55 @@ fn balance_api_returns_free_balance() {
 			),
 			<Error<Test>>::ContractTrapped
 		);
+	});
+}
+
+#[test]
+fn gas_consumed_is_linear_for_nested_calls() {
+	let (code, _code_hash) = compile_module::<Test>("recurse").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let addr = Contracts::bare_instantiate(
+			ALICE,
+			0,
+			GAS_LIMIT,
+			None,
+			Code::Upload(code),
+			vec![],
+			vec![],
+			DebugInfo::Skip,
+			CollectEvents::Skip,
+		)
+		.result
+		.unwrap()
+		.account_id;
+
+		let max_call_depth = <Test as Config>::CallStack::size() as u32;
+		let [gas_0, gas_1, gas_2, gas_max] = {
+			[0u32, 1u32, 2u32, max_call_depth]
+				.iter()
+				.map(|i| {
+					let result = Contracts::bare_call(
+						ALICE,
+						addr.clone(),
+						0,
+						GAS_LIMIT,
+						None,
+						i.encode(),
+						DebugInfo::Skip,
+						CollectEvents::Skip,
+						Determinism::Enforced,
+					);
+					assert_ok!(result.result);
+					result.gas_consumed
+				})
+				.collect::<Vec<_>>()
+				.try_into()
+				.unwrap()
+		};
+
+		let gas_per_recursion = gas_2.checked_sub(&gas_1).unwrap();
+		assert_eq!(gas_max, gas_0 + gas_per_recursion * max_call_depth as u64);
 	});
 }
