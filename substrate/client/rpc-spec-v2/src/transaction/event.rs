@@ -50,7 +50,7 @@ pub struct TransactionDropped {
 ///
 /// The status events can be grouped based on their kinds as:
 ///
-/// 1. Runtime validated the transaction and entered the pool:
+/// 1. Runtime validated the transaction and it entered the pool:
 /// 		- `Validated`
 ///
 /// 2. Leaving the pool:
