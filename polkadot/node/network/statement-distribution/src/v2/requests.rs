@@ -386,7 +386,7 @@ impl RequestManager {
 					requested_peer: target,
 					props,
 					response: {
-						Delay::new(Duration::from_millis(200)).await;
+						Delay::new(Duration::from_millis(400)).await;
 						response_fut.await
 					},
 				}
