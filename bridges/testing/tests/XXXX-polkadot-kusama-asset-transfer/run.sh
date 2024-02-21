@@ -11,11 +11,11 @@ source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
 ${BASH_SOURCE%/*}/../../environments/polkadot-kusama/spawn.sh &
 env_pid=$!
 
-ensure_process_file $env_pid $TEST_DIR/polkadot.env 400
+ensure_process_file $env_pid $TEST_DIR/polkadot.env 600
 polkadot_dir=`cat $TEST_DIR/polkadot.env`
 echo
 
-ensure_process_file $env_pid $TEST_DIR/kusama.env 180
+ensure_process_file $env_pid $TEST_DIR/kusama.env 300
 kusama_dir=`cat $TEST_DIR/kusama.env`
 echo
 
