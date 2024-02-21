@@ -101,7 +101,6 @@ pub fn take_active_subset<T: Clone>(active: &[ValidatorIndex], set: &[T]) -> Vec
 mod tests {
 
 	use crate::util::{split_active_subset, take_active_subset};
-	use bitvec::{bitvec, vec::BitVec};
 	use primitives::ValidatorIndex;
 	use sp_std::vec::Vec;
 
@@ -114,9 +113,5 @@ mod tests {
 		assert_eq!(selected, selected2);
 		assert_eq!(unselected, vec![9, 6, 4, 5, 2, 0, 8]);
 		assert_eq!(selected, vec![1, 3, 7]);
-	}
-
-	pub fn dummy_bitvec(size: usize) -> BitVec<u8, bitvec::order::Lsb0> {
-		bitvec![u8, bitvec::order::Lsb0; 0; size]
 	}
 }

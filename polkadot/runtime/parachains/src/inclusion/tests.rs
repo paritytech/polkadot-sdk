@@ -155,15 +155,19 @@ pub(crate) fn back_candidate(
 		validity_votes.push(ValidityAttestation::Explicit(signature).into());
 	}
 
-	let backed = BackedCandidate::new(candidate, validity_votes, validator_indices, None);
+	let backed = BackedCandidate::new(candidate, validity_votes, validator_indices.clone(), None);
 
-	let successfully_backed =
-		primitives::check_candidate_backing(&backed, signing_context, group.len(), |i| {
-			Some(validators[group[i].0 as usize].public().into())
-		})
-		.ok()
-		.unwrap_or(0) >=
-			threshold;
+	let successfully_backed = primitives::check_candidate_backing(
+		backed.candidate().hash(),
+		backed.validity_votes(),
+		validator_indices.as_bitslice(),
+		signing_context,
+		group.len(),
+		|i| Some(validators[group[i].0 as usize].public().into()),
+	)
+	.ok()
+	.unwrap_or(0) >=
+		threshold;
 
 	match kind {
 		BackingKind::Unanimous | BackingKind::Threshold => assert!(successfully_backed),
@@ -1586,14 +1590,14 @@ fn backing_works() {
 				let candidate_receipt_with_backers = intermediate
 					.entry(backed_candidate.hash())
 					.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
-
-				assert_eq!(
-					backed_candidate.validity_votes().len(),
-					backed_candidate.validator_indices(false).count_ones()
-				);
+				let (validator_indices, None) =
+					backed_candidate.validator_indices_and_core_index(false)
+				else {
+					panic!("Expected no injected core index")
+				};
+				assert_eq!(backed_candidate.validity_votes().len(), validator_indices.count_ones());
 				candidate_receipt_with_backers.1.extend(
-					backed_candidate
-						.validator_indices(false)
+					validator_indices
 						.iter()
 						.enumerate()
 						.filter(|(_, signed)| **signed)

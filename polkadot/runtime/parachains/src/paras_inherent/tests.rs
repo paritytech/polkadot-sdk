@@ -1385,7 +1385,8 @@ mod sanitizers {
 						backed_candidates.clone(),
 						&<shared::Pallet<Test>>::allowed_relay_parents(),
 						has_concluded_invalid,
-						&scheduled
+						&scheduled,
+						false
 					),
 					SanitizedBackedCandidates {
 						backed_candidates,
@@ -1414,6 +1415,7 @@ mod sanitizers {
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					has_concluded_invalid,
 					&scheduled,
+					false,
 				);
 
 				assert!(sanitized_backed_candidates.is_empty());
@@ -1447,6 +1449,7 @@ mod sanitizers {
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					has_concluded_invalid,
 					&scheduled,
+					false,
 				);
 
 				assert_eq!(sanitized_backed_candidates.len(), backed_candidates.len() / 2);
@@ -1469,7 +1472,8 @@ mod sanitizers {
 				assert!(!filter_backed_statements_from_disabled_validators::<Test>(
 					&mut backed_candidates,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled_paras
+					&scheduled_paras,
+					false
 				));
 				assert_eq!(backed_candidates, before);
 			});
@@ -1492,35 +1496,34 @@ mod sanitizers {
 
 				// Verify the initial state is as expected
 				assert_eq!(backed_candidates.get(0).unwrap().validity_votes().len(), 2);
-				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices(false).get(0).unwrap(),
-					true
-				);
-				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices(false).get(1).unwrap(),
-					true
-				);
+				let (validator_indices, None) =
+					backed_candidates.get(0).unwrap().validator_indices_and_core_index(false)
+				else {
+					panic!("Expected no injected core index")
+				};
+				assert_eq!(validator_indices.get(0).unwrap(), true);
+				assert_eq!(validator_indices.get(1).unwrap(), true);
 				let untouched = backed_candidates.get(1).unwrap().clone();
 
 				assert!(filter_backed_statements_from_disabled_validators::<Test>(
 					&mut backed_candidates,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled_paras
+					&scheduled_paras,
+					false
 				));
 
+				let (validator_indices, None) =
+					backed_candidates.get(0).unwrap().validator_indices_and_core_index(false)
+				else {
+					panic!("Expected no injected core index")
+				};
 				// there should still be two backed candidates
 				assert_eq!(backed_candidates.len(), 2);
 				// but the first one should have only one validity vote
 				assert_eq!(backed_candidates.get(0).unwrap().validity_votes().len(), 1);
 				// Validator 0 vote should be dropped, validator 1 - retained
-				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices(false).get(0).unwrap(),
-					false
-				);
-				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices(false).get(1).unwrap(),
-					true
-				);
+				assert_eq!(validator_indices.get(0).unwrap(), false);
+				assert_eq!(validator_indices.get(1).unwrap(), true);
 				// the second candidate shouldn't be modified
 				assert_eq!(*backed_candidates.get(1).unwrap(), untouched);
 			});
@@ -1541,7 +1544,8 @@ mod sanitizers {
 				assert!(filter_backed_statements_from_disabled_validators::<Test>(
 					&mut backed_candidates,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled_paras
+					&scheduled_paras,
+					false
 				));
 
 				assert_eq!(backed_candidates.len(), 1);

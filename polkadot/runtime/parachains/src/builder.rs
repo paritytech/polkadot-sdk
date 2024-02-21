@@ -591,6 +591,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					candidate,
 					validity_votes,
 					bitvec::bitvec![u8, bitvec::order::Lsb0; 1; group_validators.len()],
+					None,
 				)
 			})
 			.collect()
