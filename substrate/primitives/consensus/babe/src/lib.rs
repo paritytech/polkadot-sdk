@@ -258,7 +258,7 @@ pub struct BabeEpochConfiguration {
 
 impl Default for BabeEpochConfiguration {
 	fn default() -> Self {
-		Self { c: (1, 4), allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots }
+		Self { c: (1, 4), allowed_slots: AllowedSlots::PrimaryAndSecondaryVRFSlots }
 	}
 }
 
