@@ -102,6 +102,8 @@ use polkadot_runtime_common::prod_or_fast;
 
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
+#[cfg(not(feature = "runtime-benchmarks"))]
+use bridge_hub_common::BridgeHubMessageRouter;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -365,11 +367,11 @@ parameter_types! {
 impl pallet_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
-	#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	type MessageProcessor =
 		pallet_message_queue::mock_helpers::NoopMessageProcessor<AggregateMessageOrigin>;
-	#[cfg(not(all(not(feature = "std"), feature = "runtime-benchmarks")))]
-	type MessageProcessor = bridge_hub_common::BridgeHubMessageRouter<
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type MessageProcessor = BridgeHubMessageRouter<
 		xcm_builder::ProcessXcmMessage<
 			AggregateMessageOrigin,
 			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
