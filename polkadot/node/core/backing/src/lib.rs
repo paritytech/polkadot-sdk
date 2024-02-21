@@ -77,6 +77,7 @@ use futures::{
 	stream::FuturesOrdered,
 	FutureExt, SinkExt, StreamExt, TryFutureExt,
 };
+use schnellru::{ByLength, LruMap};
 
 use error::{Error, FatalResult};
 use polkadot_node_primitives::{
@@ -107,8 +108,9 @@ use polkadot_primitives::{
 	vstaging::{node_features::FeatureIndex, NodeFeatures},
 	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
 	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex, GroupRotationInfo,
-	Hash, Id as ParaId, PersistedValidationData, PvfExecKind, SigningContext, ValidationCode,
-	ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
+	Hash, Id as ParaId, IndexedVec, PersistedValidationData, PvfExecKind, SessionIndex,
+	SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
+	ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
 use statement_table::{
@@ -232,8 +234,8 @@ struct PerRelayParentState {
 	inject_core_index: bool,
 	/// The core states for all cores.
 	cores: Vec<CoreState>,
-	/// The validator groups at this relay parent.
-	validator_groups: Vec<Vec<ValidatorIndex>>,
+	/// The validator index -> group mapping at this relay parent.
+	validator_to_group: IndexedVec<ValidatorIndex, Option<GroupIndex>>,
 	/// The associated group rotation information.
 	group_rotation_info: GroupRotationInfo,
 }
@@ -287,6 +289,8 @@ struct State {
 	/// This is guaranteed to have an entry for each candidate with a relay parent in the implicit
 	/// or explicit view for which a `Seconded` statement has been successfully imported.
 	per_candidate: HashMap<CandidateHash, PerCandidateState>,
+	/// Cache the per-session Validator->Group mapping.
+	validator_to_group_cache: LruMap<SessionIndex, IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
 	/// A cloneable sender which is dispatched to background candidate validation tasks to inform
 	/// the main task of the result.
 	background_validation_tx: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
@@ -304,6 +308,7 @@ impl State {
 			per_leaf: HashMap::default(),
 			per_relay_parent: HashMap::default(),
 			per_candidate: HashMap::new(),
+			validator_to_group_cache: LruMap::new(ByLength::new(2)),
 			background_validation_tx,
 			keystore,
 		}
@@ -981,7 +986,14 @@ async fn handle_active_leaves_update<Context>(
 
 		// construct a `PerRelayParent` from the runtime API
 		// and insert it.
-		let per = construct_per_relay_parent_state(ctx, maybe_new, &state.keystore, mode).await?;
+		let per = construct_per_relay_parent_state(
+			ctx,
+			maybe_new,
+			&state.keystore,
+			&mut state.validator_to_group_cache,
+			mode,
+		)
+		.await?;
 
 		if let Some(per) = per {
 			state.per_relay_parent.insert(maybe_new, per);
@@ -1009,7 +1021,7 @@ macro_rules! try_runtime_api {
 }
 
 fn core_index_from_statement(
-	validator_groups: &[Vec<ValidatorIndex>],
+	validator_to_group: &IndexedVec<ValidatorIndex, Option<GroupIndex>>,
 	group_rotation_info: &GroupRotationInfo,
 	cores: &[CoreState],
 	statement: &SignedFullStatementWithPVD,
@@ -1019,51 +1031,70 @@ fn core_index_from_statement(
 
 	let n_cores = cores.len();
 
-	gum::trace!(target: LOG_TARGET, ?group_rotation_info, ?statement, ?validator_groups, n_cores = ?cores.len() , ?candidate_hash, "Extracting core index from statement");
+	gum::trace!(
+		target:LOG_TARGET,
+		?group_rotation_info,
+		?statement,
+		?validator_to_group,
+		n_cores = ?cores.len(),
+		?candidate_hash,
+		"Extracting core index from statement"
+	);
 
 	let statement_validator_index = statement.validator_index();
-	for (group_index, group) in validator_groups.iter().enumerate() {
-		for validator_index in group {
-			if *validator_index == statement_validator_index {
-				// First check if the statement para id matches the core assignment.
-				let core_index =
-					group_rotation_info.core_for_group(GroupIndex(group_index as u32), n_cores);
+	let Some(Some(group_index)) = validator_to_group.get(statement_validator_index) else {
+		gum::debug!(
+			target: LOG_TARGET,
+			?group_rotation_info,
+			?statement,
+			?validator_to_group,
+			n_cores = ?cores.len() ,
+			?candidate_hash,
+			"Invalid validator index: {:?}",
+			statement_validator_index
+		);
+		return None
+	};
 
-				if core_index.0 as usize > n_cores {
-					gum::warn!(target: LOG_TARGET, ?candidate_hash, ?core_index, n_cores, "Invalid CoreIndex");
-					return None
-				}
+	// First check if the statement para id matches the core assignment.
+	let core_index = group_rotation_info.core_for_group(*group_index, n_cores);
 
-				if let StatementWithPVD::Seconded(candidate, _pvd) = statement.payload() {
-					let candidate_para_id = candidate.descriptor.para_id;
-					let assigned_para_id = match &cores[core_index.0 as usize] {
-						CoreState::Free => {
-							gum::debug!(target: LOG_TARGET, ?candidate_hash, "Invalid CoreIndex, core is not assigned to any para_id");
-							return None
-						},
-						CoreState::Occupied(occupied) => {
-							if let Some(next) = &occupied.next_up_on_available {
-								next.para_id
-							} else {
-								return None
-							}
-						},
-						CoreState::Scheduled(scheduled) => scheduled.para_id,
-					};
-
-					if assigned_para_id != candidate_para_id {
-						gum::debug!(target: LOG_TARGET, ?candidate_hash, ?core_index, ?assigned_para_id, ?candidate_para_id, "Invalid CoreIndex, core is assigned to a different para_id");
-						return None
-					}
-					return Some(core_index)
-				} else {
-					return Some(core_index)
-				}
-			}
-		}
+	if core_index.0 as usize > n_cores {
+		gum::warn!(target: LOG_TARGET, ?candidate_hash, ?core_index, n_cores, "Invalid CoreIndex");
+		return None
 	}
 
-	None
+	if let StatementWithPVD::Seconded(candidate, _pvd) = statement.payload() {
+		let candidate_para_id = candidate.descriptor.para_id;
+		let assigned_para_id = match &cores[core_index.0 as usize] {
+			CoreState::Free => {
+				gum::debug!(target: LOG_TARGET, ?candidate_hash, "Invalid CoreIndex, core is not assigned to any para_id");
+				return None
+			},
+			CoreState::Occupied(occupied) =>
+				if let Some(next) = &occupied.next_up_on_available {
+					next.para_id
+				} else {
+					return None
+				},
+			CoreState::Scheduled(scheduled) => scheduled.para_id,
+		};
+
+		if assigned_para_id != candidate_para_id {
+			gum::debug!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				?core_index,
+				?assigned_para_id,
+				?candidate_para_id,
+				"Invalid CoreIndex, core is assigned to a different para_id"
+			);
+			return None
+		}
+		return Some(core_index)
+	} else {
+		return Some(core_index)
+	}
 }
 
 /// Load the data necessary to do backing work on top of a relay-parent.
@@ -1072,6 +1103,10 @@ async fn construct_per_relay_parent_state<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
 	keystore: &KeystorePtr,
+	validator_to_group_cache: &mut LruMap<
+		SessionIndex,
+		IndexedVec<ValidatorIndex, Option<GroupIndex>>,
+	>,
 	mode: ProspectiveParachainsMode,
 ) -> Result<Option<PerRelayParentState>, Error> {
 	let parent = relay_parent;
@@ -1167,7 +1202,21 @@ async fn construct_per_relay_parent_state<Context>(
 			groups.insert(core_index, g.clone());
 		}
 	}
-	gum::debug!(target: LOG_TARGET, ?groups, "TableContext" );
+	gum::debug!(target: LOG_TARGET, ?groups, "TableContext");
+
+	let validator_to_group = validator_to_group_cache
+		.get_or_insert(session_index, || {
+			let mut vector = vec![None; validators.len()];
+
+			for (group_idx, validator_group) in validator_groups.iter().enumerate() {
+				for validator in validator_group {
+					vector[validator.0 as usize] = Some(GroupIndex(group_idx as u32));
+				}
+			}
+
+			IndexedVec::<_, _>::from(vector)
+		})
+		.expect("Just inserted");
 
 	let table_context = TableContext { validator, groups, validators, disabled_validators };
 	let table_config = TableConfig {
@@ -1191,7 +1240,7 @@ async fn construct_per_relay_parent_state<Context>(
 		minimum_backing_votes,
 		inject_core_index,
 		cores,
-		validator_groups,
+		validator_to_group: validator_to_group.clone(),
 		group_rotation_info,
 	}))
 }
@@ -1686,7 +1735,7 @@ async fn import_statement<Context>(
 	let stmt = primitive_statement_to_table(statement);
 
 	let core = core_index_from_statement(
-		&rp_state.validator_groups,
+		&rp_state.validator_to_group,
 		&rp_state.group_rotation_info,
 		&rp_state.cores,
 		statement,

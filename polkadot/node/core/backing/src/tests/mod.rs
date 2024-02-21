@@ -73,6 +73,7 @@ pub(crate) struct TestState {
 	validator_public: Vec<ValidatorId>,
 	validation_data: PersistedValidationData,
 	validator_groups: (Vec<Vec<ValidatorIndex>>, GroupRotationInfo),
+	validator_to_group: IndexedVec<ValidatorIndex, Option<GroupIndex>>,
 	availability_cores: Vec<CoreState>,
 	head_data: HashMap<ParaId, HeadData>,
 	signing_context: SigningContext,
@@ -116,6 +117,11 @@ impl Default for TestState {
 			.into_iter()
 			.map(|g| g.into_iter().map(ValidatorIndex).collect())
 			.collect();
+		let validator_to_group: IndexedVec<_, _> =
+			vec![Some(0), Some(1), Some(0), Some(0), None, Some(0)]
+				.into_iter()
+				.map(|x| x.map(|x| GroupIndex(x)))
+				.collect();
 		let group_rotation_info =
 			GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 100, now: 1 };
 
@@ -145,6 +151,7 @@ impl Default for TestState {
 			validators,
 			validator_public,
 			validator_groups: (validator_groups, group_rotation_info),
+			validator_to_group,
 			availability_cores,
 			head_data,
 			validation_data,
@@ -759,7 +766,7 @@ fn extract_core_index_from_statement_works() {
 	.expect("should be signed");
 
 	let core_index_1 = core_index_from_statement(
-		&test_state.validator_groups.0,
+		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
 		&test_state.availability_cores,
 		&signed_statement_1,
@@ -769,7 +776,7 @@ fn extract_core_index_from_statement_works() {
 	assert_eq!(core_index_1, CoreIndex(0));
 
 	let core_index_2 = core_index_from_statement(
-		&test_state.validator_groups.0,
+		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
 		&test_state.availability_cores,
 		&signed_statement_2,
@@ -779,7 +786,7 @@ fn extract_core_index_from_statement_works() {
 	assert_eq!(core_index_2, None);
 
 	let core_index_3 = core_index_from_statement(
-		&test_state.validator_groups.0,
+		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
 		&test_state.availability_cores,
 		&signed_statement_3,
