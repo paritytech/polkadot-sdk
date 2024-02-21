@@ -1,4 +1,4 @@
-title: contracts: Fix double charge of host function weight
+title: Fix double charge of host function weight
 
 doc:
   - audience: Runtime Dev
