@@ -6,16 +6,3 @@ error[E0046]: not all trait items implemented, missing: `test3`
 ...
 37 |     impl self::Api<Block> for Runtime {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `test3` in implementation
-
-error[E0053]: method `initialize_block` has an incompatible type for trait
-  --> tests/ui/missing_versioned_method_multiple_vers.rs:50:54
-   |
-50 |         fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
-   |                                                            ^ expected `ExtrinsicInclusionMode`, found `()`
-   |
-   = note: expected signature `fn(&sp_runtime::generic::Header<u64, BlakeTwo256>) -> ExtrinsicInclusionMode`
-              found signature `fn(&sp_runtime::generic::Header<u64, BlakeTwo256>)`
-help: change the output type to match the trait
-   |
-50 |         fn initialize_block(_: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
-   |                                                            +++++++++++++++++++++++++

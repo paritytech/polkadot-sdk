@@ -33,19 +33,6 @@ note: type in trait
    = note: expected signature `fn(u64)`
               found signature `fn(std::string::String)`
 
-error[E0053]: method `initialize_block` has an incompatible type for trait
-  --> tests/ui/impl_incorrect_method_signature.rs:43:54
-   |
-43 |         fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
-   |                                                            ^ expected `ExtrinsicInclusionMode`, found `()`
-   |
-   = note: expected signature `fn(&sp_runtime::generic::Header<u64, BlakeTwo256>) -> ExtrinsicInclusionMode`
-              found signature `fn(&sp_runtime::generic::Header<u64, BlakeTwo256>)`
-help: change the output type to match the trait
-   |
-43 |         fn initialize_block(_: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
-   |                                                            +++++++++++++++++++++++++
-
 error[E0308]: mismatched types
   --> tests/ui/impl_incorrect_method_signature.rs:33:11
    |
