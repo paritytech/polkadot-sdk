@@ -1,104 +1,67 @@
-# Testing
+# Testing Polkadot
 
-Testing is an essential tool to assure correctness. This document describes how we test the Polkadot code, whether
-locally, at scale, and/or automatically in CI.
+Testing is a crucial part of ensuring the correctness and robustness of the Polkadot codebase. This document outlines our comprehensive testing strategy, covering different scopes and techniques.
 
-## Scopes
-
-The testing strategy for Polkadot is 4-fold:
-
-### Unit testing (1)
-
-Boring, small scale correctness tests of individual functions. It is usually
-enough to run `cargo test` in the crate you are testing.
-
-For full coverage you may have to pass some additional features. For example:
-
-```sh
+## Testing Scopes
+### 1. Unit testing
+- Small-scale tests ensuring the correctness of individual functions.
+- Usually involves running `cargo test` in the crate you are testing.
+- For full coverage you may have to pass some additional features. For example: 
+```sh 
 cargo test --features ci-only-tests
 ```
 
-### Integration tests
+### 2. Integration tests
+- Tests interactions between components within the Polkadot system.  We have two primary integration testing methods:
+  - **Subsystem Testing**:
+    - Focuses on a single subsystem while mocking the interactions with other parts of the system. This helps validate incoming and outgoing messages for the subsystem under test.
+  - **Behavior Testing**:
+    - Involves launching small-scale networks with multiple nodes, some of which may be adversarial.
+    - Useful for testing system behavior under various conditions, including error handling and resilience to unexpected situations.
 
-There are the following variants of integration tests:
 
-#### Subsystem tests (2)
-
-One particular subsystem (subsystem under test) interacts with a mocked overseer that is made to assert incoming and
-outgoing messages of the subsystem under test. See e.g. the `statement-distribution` tests.
-
-#### Behavior tests (3)
-
-Launching small scale networks, with multiple adversarial nodes. This should include tests around the thresholds in
-order to evaluate the error handling once certain assumed invariants fail.
-
-Currently, we commonly use **zombienet** to run mini test-networks, whether locally or in CI. To run on your machine:
-
-- First, make sure you have [zombienet][zombienet] installed.
-
-- Now, all the required binaries must be installed in your $PATH. You must run the following from the `polkadot/`
-directory in order to test your changes. (Not `zombienet setup`, or you will get the released binaries without your
-local changes!)
-
+## Running Behavior Tests
+Currently, we often use **zombienet** to run behavior tests both locally and in CI. Here's how:
+1. Make sure you have [Zombienet][zombienet] installed
+2. Build Required Binaries: Build all necessary binaries from the `polkadot/` project directory:
 ```sh
 cargo install --path . --locked
 ```
-
-- You will also need to install whatever binaries are required for your specific tests. For example, to install
-`undying-collator`, from `polkadot/`, run:
-
+3. Install Additional Dependencies (if needed): Install specific binaries required for your tests. For example, to install `undying-collator` run the following from `polkadot/`:
 ```sh
 cargo install --path ./parachain/test-parachains/undying/collator --locked
 ```
-
-- Finally, run the zombienet test from the `polkadot` directory:
-
+4. Execute the test: Run the zombienet test from the `polkadot` directory:
 ```sh
 RUST_LOG=parachain::pvf=trace zombienet --provider=native spawn zombienet_tests/functional/0001-parachains-pvf.toml
 ```
-
-- You can pick a validator node like `alice` from the output and view its logs
-(`tail -f <log_file>`) or metrics. Make sure there is nothing funny in the logs
-(try `grep WARN <log_file>`).
-
-#### Testing at scale (4)
-
-Launching many nodes with configurable network speed and node features in a cluster of nodes. At this scale the
-[Simnet][simnet] comes into play which launches a full cluster of nodes. The scale is handled by spawning a kubernetes
-cluster and the meta description is covered by [Gurke][Gurke]. Asserts are made using Grafana rules, based on the
-existing prometheus metrics. This can be extended by adding an additional service translating `jaeger` spans into
-addition prometheus avoiding additional Polkadot source changes.
-
-_Behavior tests_ and _testing at scale_ have naturally soft boundary. The most significant difference is the presence of
-a real network and the number of nodes, since a single host often not capable to run multiple nodes at once.
+5. **Monitoring**: Track validator logs or metrics to ensure expected behavior 
+```sh
+tail -f <log_file>
+```
 
 ## Observing Logs
 
-To verify expected behavior it's often useful to observe logs. To avoid too many
-logs at once, you can run one test at a time:
+For detailed test analysis, review the logs:
 
-1. Add `sp_tracing::try_init_simple();` to the beginning of a test
-2. Specify `RUST_LOG=<target>::<subtarget>=trace` before the cargo command.
-
-For example:
-
-```sh
-RUST_LOG=parachain::pvf=trace cargo test execute_can_run_serially
+1. **Add Logging**: Initialize logging at the start of the test:
+```rust
+sp_tracing::try_init_simple();
 ```
-
+2. **Run Test with Logging**: Specify the target and level of logging:
+```sh
+RUST_LOG=parachain::pvf=trace cargo test execute_can_run_serially 
+```
 For more info on how our logs work, check [the docs][logs].
 
-## Coverage
+## Code Coverage
 
-Coverage gives a _hint_ of the actually covered source lines by tests and test applications.
+Code coverage helps identify areas that are well-covered by tests. While there are limitations, we use the following tools:
+- **Tarpaulin**: State-of-the-art tool, but may provide false negatives.
+- **Rust's [MIR based coverage tooling](
+  https://blog.rust-lang.org/inside-rust/2020/11/12/source-based-code-coverage.html)**: A newer approach that offers improved accuracy.
 
-The state of the art is currently tarpaulin which unfortunately yields a lot of false negatives. Lines that
-are in fact covered, marked as uncovered due to a mere linebreak in a statement can cause these artifacts. This leads to
-lower coverage percentages than there actually is.
-
-Since late 2020 rust has gained [MIR based coverage tooling](
-https://blog.rust-lang.org/inside-rust/2020/11/12/source-based-code-coverage.html).
-
+### Generating a code coverage report:
 ```sh
 # setup
 rustup component add llvm-tools-preview
@@ -143,80 +106,44 @@ repo](https://github.com/mozilla/grcov#coverallscodecov-output).
 
 ## Fuzzing
 
-Fuzzing is an approach to verify correctness against arbitrary or partially structured inputs.
+Fuzzing is a testing technique that uses random or semi-random inputs to identify potential vulnerabilities in code.
 
-Currently implemented fuzzing targets:
-
+### Current targets:
 - `erasure-coding`
-
-The tooling of choice here is `honggfuzz-rs` as it allows _fastest_ coverage according to "some paper" which is a
-positive feature when run as part of PRs.
-
-Fuzzing is generally not applicable for data secured by cryptographic hashes or signatures. Either the input has to be
-specifically crafted, such that the discarded input percentage stays in an acceptable range. System level fuzzing is
-hence simply not feasible due to the amount of state that is required.
-
-Other candidates to implement fuzzing are:
-
-- `rpc`
-- ...
+### Tooling
+We use `honggfuzz-rs` for its speed,  which is important when fuzzing is included in our development process.
+### Limitations
+Fuzzing is generally less effective for code sections that rely heavily on cryptographic hashes or signatures. This is because the vast majority of random inputs will be invalid, requiring careful crafting of input data for meaningful testing. System-level fuzzing can also be challenging due to the complexity of managing state.
 
 ## Performance metrics
 
-There are various ways of performance metrics.
+We take performance seriously and use several tools to track and optimize it:
+- `criterion` For precise timing measurements of code execution.
+- **`iai` harness or `criterion-perf`** To analyze cache behavior (hits/misses) which can significantly impact performance.
+- `coz` A specialized compiler focused on performance analysis.
 
-- timing with `criterion`
-- cache hits/misses w/ `iai` harness or `criterion-perf`
-- `coz` a performance based compiler
+While `coz` shows promise for runtime analysis, the sheer complexity of our system makes it challenging to get meaningful insights in a reasonable timeframe. However, we're exploring an innovative approach:
+- Replay-Based Testing: This involves recording network traffic and replaying it at high speed to gather extensive performance data. This technique could help us pinpoint areas for optimization without the need for complex mocking setups.
 
-Most of them are standard tools to aid in the creation of statistical tests regarding change in time of certain unit
-tests.
+**The Future of Performance Testing**: We're committed to continuously improving our performance testing methods. While our current approach has limitations, we're always investigating new ways to make our code faster and more efficient.
 
-`coz` is meant for runtime. In our case, the system is far too large to yield a sufficient number of measurements in
-finite time. An alternative approach could be to record incoming package streams per subsystem and store dumps of them,
-which in return could be replayed repeatedly at an accelerated speed, with which enough metrics could be obtained to
-yield information on which areas would improve the metrics. This unfortunately will not yield much information, since
-most if not all of the subsystem code is linear based on the input to generate one or multiple output messages, it is
-unlikely to get any useful metrics without mocking a sufficiently large part of the other subsystem which overlaps with
-[#Integration tests] which is unfortunately not repeatable as of now. As such the effort gain seems low and this is not
-pursued at the current time.
+## Writing Small-Scope Integration Tests
 
-## Writing small scope integration tests with preconfigured workers
+### Key Requirements:
+- **Customizable Node Behavior**: We need the ability to easily create test nodes that exhibit specific behaviors.
+- **Flexible Configuration**: Support for different configuration options to tailor test scenarios.
+- **Extensibility**: The system should be designed for easy expansion through external crates.
 
-Requirements:
-
-- spawn nodes with preconfigured behaviors
-- allow multiple types of configuration to be specified
-- allow extendability via external crates
-- ...
-
----
-
-## Implementation of different behavior strain nodes
-
-### Goals
-
-The main goals are is to allow creating a test node which exhibits a certain behavior by utilizing a subset of _wrapped_
-or _replaced_ subsystems easily. The runtime must not matter at all for these tests and should be simplistic. The
-execution must be fast, this mostly means to assure a close to zero network latency as well as shorting the block time
-and epoch times down to a few `100ms` and a few dozend blocks per epoch.
-
-### Approach
-
-#### MVP
-
-A simple small scale builder pattern would suffice for stage one implementation of allowing to replace individual
-subsystems. An alternative would be to harness the existing `AllSubsystems` type and replace the subsystems as needed.
-
-#### Full `proc-macro` implementation
-
-`Overseer` is a common pattern. It could be extracted as `proc` macro and generative `proc-macro`. This would replace
-the `AllSubsystems` type as well as implicitly create the `AllMessages` enum as  `AllSubsystemsGen` does today.
-
-The implementation is yet to be completed, see the [implementation PR](https://github.com/paritytech/polkadot/pull/2962)
+### Implementation approaches
+1. **MVP (Minimum Viable Product):**
+- A straightforward builder pattern can be used to customize test nodes and replace subsystems as needed.
+2. **Full `proc-macro` implementation:**
+- **Goal**: A powerful system that streamlines test node creation and configuration.
+- **Approach**: Following the common `Overseer` pattern, use a `proc-macro` to generate the `AllSubsystems` type and implicitly create the `AllMessages` enum.
+- **Status:** Currently in development, see the [implementation PR](https://github.com/paritytech/polkadot/pull/2962)
 for details.
 
-##### Declare an overseer implementation
+#### Overseer implementation example:
 
 ```rust
 struct BehaveMaleficient;
@@ -269,34 +196,8 @@ fn main() -> eyre::Result<()> {
 }
 ```
 
-[`variant-a`](../node/malus/src/variant-a.rs) is a fully working example.
+A fully working example can be found in [`variant-a`](../node/malus/src/variant-a.rs).
 
-#### Simnet
-
-Spawn a kubernetes cluster based on a meta description using [Gurke] with the [Simnet] scripts.
-
-Coordinated attacks of multiple nodes or subsystems must be made possible via a side-channel, that is out of scope for
-this document.
-
-The individual node configurations are done as targets with a particular builder configuration.
-
-#### Behavior tests w/o Simnet
-
-Commonly this will require multiple nodes, and most machines are limited to running two or three nodes concurrently.
-Hence, this is not the common case and is just an implementation _idea_.
-
-```rust
-behavior_testcase!{
-"TestRuntime" =>
-"Alice": <AvailabilityDistribution=DropAll, .. >,
-"Bob": <AvailabilityDistribution=DuplicateSend, .. >,
-"Charles": Default,
-"David": "Charles",
-"Eve": "Bob",
-}
-```
 
 [zombienet]: https://github.com/paritytech/zombienet
-[Gurke]: https://github.com/paritytech/gurke
-[simnet]: https://github.com/paritytech/simnet_scripts
 [logs]: https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/node/gum/src/lib.rs
