@@ -310,8 +310,11 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 	fn delegate(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
+		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
+		Pallet::<T>::register_as_delegate(RawOrigin::Signed(pool_account.clone()).into(), reward_account.clone())?;
+
 		Pallet::<T>::delegate_funds(
 			RawOrigin::Signed(who.clone()).into(),
 			pool_account.clone(),
@@ -324,7 +327,11 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		Self::delegate(who, pool_account, amount)
+		Pallet::<T>::delegate_funds(
+			RawOrigin::Signed(who.clone()).into(),
+			pool_account.clone(),
+			amount,
+		)
 	}
 
 	fn release_delegation(

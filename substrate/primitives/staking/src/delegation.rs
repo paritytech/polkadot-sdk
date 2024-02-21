@@ -178,21 +178,15 @@ pub trait PoolAdapter {
 	/// Similar to [Inspect::total_balance].
 	fn total_balance(who: &Self::AccountId) -> Self::Balance;
 
-	/// Start delegation to the pool account.
-	///
-	/// Similar to [Mutate::transfer] for Direct Stake.
+	/// Initiate delegation to the pool account.
 	fn delegate(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
+		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
 
 	/// Add more delegation to the pool account.
-	///
-	/// Similar to [Mutate::transfer] for Direct Stake.
-	///
-	/// We need this along with [Self::delegate] as NominationPool has a slight different behaviour
-	/// for the first delegation and the subsequent ones.
 	fn delegate_extra(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,

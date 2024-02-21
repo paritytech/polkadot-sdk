@@ -1260,19 +1260,15 @@ impl<T: Config> BondedPool<T> {
 		// We must calculate the points issued *before* we bond who's funds, else points:balance
 		// ratio will be wrong.
 		let points_issued = self.issue(amount);
+		let reward_account = self.reward_account();
 
 		match ty {
-			BondType::Create => {
-				T::PoolAdapter::delegate(who, &bonded_account, amount)?;
-				T::Staking::bond(&bonded_account, amount, &self.reward_account())?
-			},
+			BondType::Create =>
+				T::PoolAdapter::delegate(who, &bonded_account, &reward_account, amount)?,
 			// The pool should always be created in such a way its in a state to bond extra, but if
 			// the active balance is slashed below the minimum bonded or the account cannot be
 			// found, we exit early.
-			BondType::Later => {
-				T::PoolAdapter::delegate_extra(who, &bonded_account, amount)?;
-				T::Staking::bond_extra(&bonded_account, amount)?
-			},
+			BondType::Later => T::PoolAdapter::delegate_extra(who, &bonded_account, amount)?,
 		}
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_accrue(amount);

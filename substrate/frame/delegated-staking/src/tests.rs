@@ -588,15 +588,33 @@ mod staking_integration {
 }
 
 mod pool_integration {
-
+	use super::*;
 	#[test]
 	fn create_pool() {
+		ExtBuilder::default().build_and_execute(|| {
+			let creator: AccountId = 100;
+			fund(&creator, 500);
+			let delegate_amount = 200;
 
+			assert_ok!(Pools::create(RawOrigin::Signed(creator).into(), delegate_amount, creator, creator, creator));
+			assert_eq!(held_balance(&creator), delegate_amount);
+
+			let pool_account = Pools::create_bonded_account(1);
+			let delegate = get_delegate(&pool_account);
+		});
 	}
 
 	#[test]
 	fn join_pool() {
+		for i in 1..10000000 {
+			let bonded = Pools::create_bonded_account(i);
+			let reward = Pools::create_reward_account(i);
 
+			if bonded != reward {
+				println!("Index: {:?}, Bonded: {:?}, Reward: {:?}",i, bonded, reward);
+				break
+			}
+		}
 	}
 
 	#[test]

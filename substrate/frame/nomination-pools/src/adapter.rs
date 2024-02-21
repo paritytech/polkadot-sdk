@@ -38,11 +38,11 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 	fn delegate(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
+		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
 		T::Currency::transfer(who, &pool_account, amount, Preservation::Expendable)?;
-
-		Ok(())
+		T::Staking::bond(pool_account, amount, reward_account)
 	}
 
 	fn delegate_extra(
@@ -50,9 +50,8 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		T::Currency::transfer(who, &pool_account, amount, Preservation::Preserve)?;
-
-		Ok(())
+		T::Currency::transfer(who, pool_account, amount, Preservation::Preserve)?;
+		T::Staking::bond_extra(pool_account, amount)
 	}
 
 	fn release_delegation(

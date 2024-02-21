@@ -15,12 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as delegated_staking, types::Delegate};
+use crate::{self as delegated_staking, types::Delegate, HoldReason};
 use frame_support::{
-	assert_ok, derive_impl,
+	assert_noop, assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, Currency},
+	traits::{fungible::InspectHold, ConstU64, Currency},
 	PalletId,
 };
 
@@ -38,7 +38,7 @@ use sp_staking::{delegation::StakingDelegationSupport, Stake, StakingInterface};
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
-pub type AccountId = u64;
+pub type AccountId = u128;
 
 pub const GENESIS_VALIDATOR: AccountId = 1;
 pub const GENESIS_NOMINATOR_ONE: AccountId = 101;
@@ -99,7 +99,7 @@ parameter_types! {
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
-	type Solver = SequentialPhragmen<u64, sp_runtime::Perbill>;
+	type Solver = SequentialPhragmen<Balance, sp_runtime::Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type MaxWinners = ConstU32<100>;
@@ -191,7 +191,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking,
 		DelegatedStaking: delegated_staking,
-		NominationPools: pallet_nomination_pools,
+		Pools: pallet_nomination_pools,
 	}
 );
 
@@ -332,4 +332,8 @@ pub(crate) fn delegate_bonded(delegate: &AccountId) -> bool {
 
 pub(crate) fn get_delegate(delegate: &AccountId) -> Delegate<T> {
 	Delegate::<T>::from(delegate).expect("delegate should exist")
+}
+
+pub(crate) fn held_balance(who: &AccountId) -> Balance {
+	Balances::balance_on_hold(&HoldReason::Delegating.into(), &who)
 }
