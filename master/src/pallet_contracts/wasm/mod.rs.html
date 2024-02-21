@@ -3837,7 +3837,7 @@
 			<span class="kw">let </span>engine_consumed_total =
 				store.fuel_consumed().expect(<span class="string">&quot;Fuel metering is enabled; qed&quot;</span>);
 			<span class="kw">let </span>gas_meter = store.data_mut().ext().gas_meter_mut();
-			gas_meter.charge_fuel(engine_consumed_total)<span class="question-mark">?</span>;
+			<span class="kw">let _ </span>= gas_meter.sync_from_executor(engine_consumed_total)<span class="question-mark">?</span>;
 			store.into_data().to_execution_result(result)
 		};
 

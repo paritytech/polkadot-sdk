@@ -820,9 +820,6 @@
 <a href="#820" id="820">820</a>
 <a href="#821" id="821">821</a>
 <a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
-<a href="#824" id="824">824</a>
-<a href="#825" id="825">825</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1463,37 +1460,34 @@
 		};
 		<span class="kw">let </span>sync_gas_before = <span class="kw">if </span>expand_blocks {
 			<span class="macro">quote! </span>{
-				<span class="comment">// Gas left in the gas meter right before switching to engine execution.
-				</span><span class="kw">let </span>__gas_before__ = {
-					<span class="kw">let </span>engine_consumed_total =
+				<span class="comment">// Write gas from wasmi into pallet-contracts before entering the host function.
+				</span><span class="kw">let </span>__gas_left_before__ = {
+					<span class="kw">let </span>executor_total =
 						__caller__.fuel_consumed().expect(<span class="string">&quot;Fuel metering is enabled; qed&quot;</span>);
-					<span class="kw">let </span>gas_meter = __caller__.data_mut().ext().gas_meter_mut();
-					gas_meter
-						.charge_fuel(engine_consumed_total)
+					__caller__
+						.data_mut()
+						.ext()
+						.gas_meter_mut()
+						.sync_from_executor(executor_total)
 						.map_err(TrapReason::from)
 						.map_err(#into_host)<span class="question-mark">?
-						</span>.ref_time()
-				};
+				</span>};
 			}
 		} <span class="kw">else </span>{
 			<span class="macro">quote! </span>{ }
 		};
-		<span class="comment">// Gas left in the gas meter right after returning from engine execution.
+		<span class="comment">// Write gas from pallet-contracts into wasmi after leaving the host function.
 		</span><span class="kw">let </span>sync_gas_after = <span class="kw">if </span>expand_blocks {
 			<span class="macro">quote! </span>{
-				<span class="kw">let </span><span class="kw-2">mut </span>gas_after = __caller__.data_mut().ext().gas_meter().gas_left().ref_time();
-				<span class="kw">let </span><span class="kw-2">mut </span>host_consumed = __gas_before__.saturating_sub(gas_after);
-				<span class="comment">// Possible undercharge of at max 1 fuel here, if host consumed less than `instruction_weights.base`
-				// Not a problem though, as soon as host accounts its spent gas properly.
-				</span><span class="kw">let </span>fuel_consumed = host_consumed
-					.checked_div(__caller__.data_mut().ext().schedule().instruction_weights.base <span class="kw">as </span>u64)
-					.ok_or(Error::&lt;E::T&gt;::InvalidSchedule)
-					.map_err(TrapReason::from)
-					.map_err(#into_host)<span class="question-mark">?</span>;
+				<span class="kw">let </span>fuel_consumed = __caller__
+					.data_mut()
+					.ext()
+					.gas_meter_mut()
+					.sync_to_executor(__gas_left_before__)
+					.map_err(TrapReason::from)<span class="question-mark">?</span>;
 				 __caller__
-					 .consume_fuel(fuel_consumed)
-					 .map_err(|<span class="kw">_</span>| TrapReason::from(Error::&lt;E::T&gt;::OutOfGas))
-					 .map_err(#into_host)<span class="question-mark">?</span>;
+					 .consume_fuel(fuel_consumed.into())
+					 .map_err(|<span class="kw">_</span>| TrapReason::from(Error::&lt;E::T&gt;::OutOfGas))<span class="question-mark">?</span>;
 			}
 		} <span class="kw">else </span>{
 			<span class="macro">quote! </span>{ }

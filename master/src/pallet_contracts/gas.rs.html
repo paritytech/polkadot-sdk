@@ -340,6 +340,38 @@
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -365,7 +397,7 @@
 	DefaultNoBound,
 };
 <span class="kw">use </span>sp_core::Get;
-<span class="kw">use </span>sp_runtime::{traits::Zero, DispatchError};
+<span class="kw">use </span>sp_runtime::{traits::Zero, DispatchError, Saturating};
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">use </span>std::{any::Any, fmt::Debug};
@@ -376,6 +408,24 @@
 <span class="kw">impl </span>ChargedAmount {
 	<span class="kw">pub fn </span>amount(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Weight {
 		<span class="self">self</span>.<span class="number">0
+	</span>}
+}
+
+<span class="doccomment">/// Used to capture the gas left before entering a host function.
+///
+/// Has to be consumed in order to sync back the gas after leaving the host function.
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub struct </span>RefTimeLeft(u64);
+
+<span class="doccomment">/// Resource that needs to be synced to the executor.
+///
+/// Wrapped to make sure that the resource will be synced back the the executor.
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub struct </span>Syncable(u64);
+
+<span class="kw">impl </span>From&lt;Syncable&gt; <span class="kw">for </span>u64 {
+	<span class="kw">fn </span>from(from: Syncable) -&gt; u64 {
+		from.<span class="number">0
 	</span>}
 }
 
@@ -426,8 +476,13 @@
 	</span>gas_left: Weight,
 	<span class="doccomment">/// Due to `adjust_gas` and `nested` the `gas_left` can temporarily dip below its final value.
 	</span>gas_left_lowest: Weight,
-	<span class="doccomment">/// Amount of fuel consumed by the engine from the last host function call.
-	</span>engine_consumed: u64,
+	<span class="doccomment">/// The amount of resources that was consumed by the execution engine.
+	///
+	/// This should be equivalent to `self.gas_consumed().ref_time()` but expressed in whatever
+	/// unit the execution engine uses to track resource consumption. We have to track it
+	/// separately in order to avoid the loss of precision that happens when converting from
+	/// ref_time to the execution engine unit.
+	</span>executor_consumed: u64,
 	_phantom: PhantomData&lt;T&gt;,
 	<span class="attr">#[cfg(test)]
 	</span>tokens: Vec&lt;ErasedToken&gt;,
@@ -439,7 +494,7 @@
 			gas_limit,
 			gas_left: gas_limit,
 			gas_left_lowest: gas_limit,
-			engine_consumed: Default::default(),
+			executor_consumed: <span class="number">0</span>,
 			_phantom: PhantomData,
 			<span class="attr">#[cfg(test)]
 			</span>tokens: Vec::new(),
@@ -514,32 +569,41 @@
 		<span class="self">self</span>.gas_left = <span class="self">self</span>.gas_left.saturating_add(adjustment).min(<span class="self">self</span>.gas_limit);
 	}
 
-	<span class="doccomment">/// This method is used for gas syncs with the engine.
+	<span class="doccomment">/// Hand over the gas metering responsibility from the executor to this meter.
 	///
-	/// Updates internal `engine_comsumed` tracker of engine fuel consumption.
-	///
-	/// Charges self with the `ref_time` Weight corresponding to wasmi fuel consumed on the engine
-	/// side since last sync. Passed value is scaled by multiplying it by the weight of a basic
-	/// operation, as such an operation in wasmi engine costs 1.
-	///
-	/// Returns the updated `gas_left` `Weight` value from the meter.
-	/// Normally this would never fail, as engine should fail first when out of gas.
-	</span><span class="kw">pub fn </span>charge_fuel(<span class="kw-2">&amp;mut </span><span class="self">self</span>, wasmi_fuel_total: u64) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, DispatchError&gt; {
-		<span class="comment">// Take the part consumed since the last update.
-		</span><span class="kw">let </span>wasmi_fuel = wasmi_fuel_total.saturating_sub(<span class="self">self</span>.engine_consumed);
-		<span class="kw">if </span>!wasmi_fuel.is_zero() {
-			<span class="self">self</span>.engine_consumed = wasmi_fuel_total;
-			<span class="kw">let </span>reftime_consumed =
-				wasmi_fuel.saturating_mul(T::Schedule::get().instruction_weights.base <span class="kw">as </span>u64);
-			<span class="kw">let </span>ref_time_left = <span class="self">self
-				</span>.gas_left
-				.ref_time()
-				.checked_sub(reftime_consumed)
-				.ok_or_else(|| Error::&lt;T&gt;::OutOfGas)<span class="question-mark">?</span>;
+	/// Needs to be called when entering a host function to update this meter with the
+	/// gas that was tracked by the executor. It tracks the latest seen total value
+	/// in order to compute the delta that needs to be charged.
+	</span><span class="kw">pub fn </span>sync_from_executor(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		executor_total: u64,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RefTimeLeft, DispatchError&gt; {
+		<span class="kw">let </span>chargable_reftime = executor_total
+			.saturating_sub(<span class="self">self</span>.executor_consumed)
+			.saturating_mul(u64::from(T::Schedule::get().instruction_weights.base));
+		<span class="self">self</span>.executor_consumed = executor_total;
+		<span class="self">self</span>.gas_left
+			.checked_reduce(Weight::from_parts(chargable_reftime, <span class="number">0</span>))
+			.ok_or_else(|| Error::&lt;T&gt;::OutOfGas)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(RefTimeLeft(<span class="self">self</span>.gas_left.ref_time()))
+	}
 
-			<span class="kw-2">*</span>(<span class="self">self</span>.gas_left.ref_time_mut()) = ref_time_left;
-		}
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.gas_left)
+	<span class="doccomment">/// Hand over the gas metering responsibility from this meter to the executor.
+	///
+	/// Needs to be called when leaving a host function in order to calculate how much
+	/// gas needs to be charged from the **executor**. It updates the last seen executor
+	/// total value so that it is correct when `sync_from_executor` is called the next time.
+	///
+	/// It is important that this does **not** actually sync with the executor. That has
+	/// to be done by the caller.
+	</span><span class="kw">pub fn </span>sync_to_executor(<span class="kw-2">&amp;mut </span><span class="self">self</span>, before: RefTimeLeft) -&gt; <span class="prelude-ty">Result</span>&lt;Syncable, DispatchError&gt; {
+		<span class="kw">let </span>chargable_executor_resource = before
+			.<span class="number">0
+			</span>.saturating_sub(<span class="self">self</span>.gas_left().ref_time())
+			.checked_div(u64::from(T::Schedule::get().instruction_weights.base))
+			.ok_or(Error::&lt;T&gt;::InvalidSchedule)<span class="question-mark">?</span>;
+		<span class="self">self</span>.executor_consumed.saturating_accrue(chargable_executor_resource);
+		<span class="prelude-val">Ok</span>(Syncable(chargable_executor_resource))
 	}
 
 	<span class="doccomment">/// Returns the amount of gas that is required to run the same call.
