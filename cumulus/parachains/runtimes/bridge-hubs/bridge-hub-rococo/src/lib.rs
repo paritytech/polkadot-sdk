@@ -102,7 +102,6 @@ use polkadot_runtime_common::prod_or_fast;
 
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
-//#[cfg(not(feature = "runtime-benchmarks"))]
 use bridge_hub_common::BridgeHubMessageRouter;
 
 /// The address format for describing accounts.
