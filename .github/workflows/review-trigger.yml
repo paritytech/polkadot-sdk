@@ -21,6 +21,15 @@ jobs:
       - name: Skip merge queue
         if: ${{ contains(github.ref, 'gh-readonly-queue') }}
         run: exit 0
+      - name: Fail on non author pushing
+        if: ${{ github.event.sender.login == github.event.pull_request.user.login && github.event.pull_request.author_association != 'MEMBER' }}
+        run: |
+          echo "SENDER: $SENDER ; AUTHOR:$AUTHOR"
+          echo "::error Project needs to be reviewed again"
+          exit 1
+        env:
+          SENDER: ${{ github.event.sender.login }}
+          AUTHOR: ${{ github.event.pull_request.author_association }}
       - name: Get PR number
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
