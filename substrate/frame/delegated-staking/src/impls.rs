@@ -312,7 +312,11 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		Pallet::<T>::delegate_funds(RawOrigin::Signed(who.clone()).into(), pool_account.clone(), amount)
+		Pallet::<T>::delegate_funds(
+			RawOrigin::Signed(who.clone()).into(),
+			pool_account.clone(),
+			amount,
+		)
 	}
 
 	fn delegate_extra(
