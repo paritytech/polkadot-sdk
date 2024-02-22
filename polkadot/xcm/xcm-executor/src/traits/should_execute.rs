@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::traits::ProcessMessageError;
-use sp_std::result::Result;
+use sp_std::{result::Result, vec::Vec};
 use xcm::latest::{Instruction, Location, Weight, XcmHash};
 
 /// Properyies of an XCM message and its imminent execution.
@@ -28,9 +28,8 @@ pub struct Properties {
 	/// The identity of the message, if one is known. If left as `None`, then it will generally
 	/// default to the hash of the message which may be non-unique.
 	pub message_id: Option<XcmHash>,
-	/// Number of messages that would be sent as a result of this message's execution.
-	/// Used to set aside enough delivery fees for each of them.
-	pub number_of_sends: u8,
+	/// All destinations where messages will be sent as a result of this message's execution.
+	pub send_destinations: Vec<Location>,
 }
 
 /// Trait to determine whether the execution engine should actually execute a given XCM.

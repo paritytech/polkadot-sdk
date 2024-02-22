@@ -80,7 +80,7 @@ impl<Call> Decode for Xcm<Call> {
 			instructions_count::with(|count| {
 				*count = count.saturating_add(number_of_instructions as u8);
 				if *count > MAX_INSTRUCTIONS_TO_DECODE {
-					return Err(CodecError::from("Max instructions exceeded"))
+					return Err(CodecError::from("Max instructions exceeded"));
 				}
 				Ok(())
 			})

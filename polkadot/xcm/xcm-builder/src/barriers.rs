@@ -22,7 +22,7 @@ use frame_support::{
 	traits::{Contains, Get, ProcessMessageError},
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
-use sp_std::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
+use sp_std::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result, vec::Vec};
 use xcm::prelude::*;
 use xcm_executor::traits::{CheckSuspension, OnResponse, Properties, ShouldExecute};
 
@@ -81,16 +81,15 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		instructions[..end]
 			.matcher()
 			.match_next_inst(|inst| match inst {
-				ReceiveTeleportedAsset(ref assets)
-				| ReserveAssetDeposited(ref assets)
-				| WithdrawAsset(ref assets)
-				| ClaimAsset { ref assets, .. } => {
+				ReceiveTeleportedAsset(ref assets) |
+				ReserveAssetDeposited(ref assets) |
+				WithdrawAsset(ref assets) |
+				ClaimAsset { ref assets, .. } =>
 					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
 						Ok(())
 					} else {
 						Err(ProcessMessageError::BadFormat)
-					}
-				},
+					},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
 			.skip_inst_while(|inst| matches!(inst, ClearOrigin))?
@@ -343,9 +342,7 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 			.match_next_inst(|inst| match inst {
 				QueryResponse { query_id, querier, .. }
 					if ResponseHandler::expecting_response(origin, *query_id, querier.as_ref()) =>
-				{
-					Ok(())
-				},
+					Ok(()),
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
@@ -417,9 +414,9 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 				InitiateReserveWithdraw {
 					reserve: Location { parents: 1, interior: Here },
 					..
-				}
-				| DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. }
-				| TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
+				} |
+				DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. } |
+				TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
 					Err(ProcessMessageError::Unsupported) // Deny
 				},
 
@@ -452,19 +449,28 @@ impl<InnerBarrier: ShouldExecute> ShouldExecute for WithDeliveryFees<InnerBarrie
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		fn recursive_check<RuntimeCall>(instructions: &mut [Instruction<RuntimeCall>]) -> u8 {
-			let mut counter = 0;
+		fn recursive_check<RuntimeCall>(
+			instructions: &mut [Instruction<RuntimeCall>],
+		) -> Vec<Location> {
+			let mut destinations = Vec::new();
 			instructions
 				.matcher()
 				.match_next_inst_while(
 					|_| true,
 					|instruction| match instruction {
-						ReportError(_) | ReportHolding { .. } | ReportTransactStatus(..) => {
-							counter += 1; // There will never be more than 255 instructions, so no overflow
+						ReportError(QueryResponseInfo { destination, .. }) => {
+							destinations.push(destination.clone());
+							Ok(ControlFlow::Continue(()))
+						},
+						ReportHolding { .. } => {
+							todo!()
+						},
+						ReportTransactStatus(QueryResponseInfo { destination, .. }) => {
+							destinations.push(destination.clone());
 							Ok(ControlFlow::Continue(()))
 						},
 						SetAppendix(inner) => {
-							counter += recursive_check(inner.inner_mut());
+							destinations.extend(recursive_check(inner.inner_mut()));
 							Ok(ControlFlow::Continue(()))
 						},
 						SetErrorHandler(_inner) => {
@@ -476,12 +482,12 @@ impl<InnerBarrier: ShouldExecute> ShouldExecute for WithDeliveryFees<InnerBarrie
 						_ => Ok(ControlFlow::Continue(())),
 					},
 				)
-				.expect("We are only counting, not denying");
-			counter
+				.expect("We are only accumulating, not denying the message");
+			destinations
 		}
 
-		properties.number_of_sends = recursive_check(message);
-		log::trace!(target: "xcm::barriers::WithCountSends", "Number of send instructions: {:?}", properties.number_of_sends);
+		properties.send_destinations = recursive_check(message);
+		log::trace!(target: "xcm::barriers::WithDeliveryFees", "Send destinations: {:?}", properties.send_destinations);
 		InnerBarrier::should_execute(origin, message, max_weight, properties)
 	}
 }
