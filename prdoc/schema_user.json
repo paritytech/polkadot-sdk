@@ -125,10 +125,16 @@
           "name": {
             "type": "string"
           },
+          "bump": {
+            "$ref": "#/$defs/semver_bump"
+          },
           "note": {
             "type": "string"
           }
-        }
+        },
+        "required": [
+          "name"
+        ]
       },
       "migration_db": {
         "type": "object",
@@ -163,6 +169,26 @@
         "additionalProperties": false,
         "required": [
           "description"
+        ]
+      },
+      "semver_bump": {
+        "description": "The type of bump to apply to the crate version according to Cargo SemVer: https://doc.rust-lang.org/cargo/reference/semver.html",
+        "oneOf": [
+          {
+            "const": "major",
+            "title": "Major",
+            "description": "A bump to the leftmost non-zero digit of the version number."
+          },
+          {
+            "const": "minor",
+            "title": "Minor",
+            "description": "A bump to the second leftmost non-zero digit of the version number."
+          },
+          {
+            "const": "patch",
+            "title": "Patch",
+            "description": "A bump to the third leftmost non-zero digit of the version number."
+          }
         ]
       },
       "doc": {
