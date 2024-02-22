@@ -2159,7 +2159,12 @@ async fn follow_forks_pruned_block() {
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Initialized(Initialized {
-		finalized_block_hashes: vec![format!("{:?}", finalized_hash), format!("{:?}", block_1_hash), format!("{:?}", block_2_hash), format!("{:?}", block_3_hash)],
+		finalized_block_hashes: vec![
+			format!("{:?}", finalized_hash),
+			format!("{:?}", block_1_hash),
+			format!("{:?}", block_2_hash),
+			format!("{:?}", block_3_hash),
+		],
 		finalized_block_runtime: None,
 		with_runtime: false,
 	});
