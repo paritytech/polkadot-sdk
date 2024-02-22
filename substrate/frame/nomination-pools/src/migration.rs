@@ -27,15 +27,6 @@ use sp_runtime::TryRuntimeError;
 pub mod versioned {
 	use super::*;
 
-	/// v9: Migrates claim permissions with a `PermissionlessAll` value to `PermissionlessWithdraw`.
-	pub type V8ToV9<T> = frame_support::migrations::VersionedMigration<
-		8,
-		9,
-		v9::VersionUncheckedMigrateV8ToV9<T>,
-		crate::pallet::Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
-
 	/// v8: Adds commission claim permissions to `BondedPools`.
 	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
 		7,
@@ -113,47 +104,6 @@ pub mod unversioned {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
-			Ok(())
-		}
-	}
-}
-
-mod v9 {
-	use super::*;
-
-	pub struct VersionUncheckedMigrateV8ToV9<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV8ToV9<T> {
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			Ok(Vec::new())
-		}
-
-		fn on_runtime_upgrade() -> Weight {
-			let mut reads = 0u64;
-			let mut translated = 0u64;
-
-			ClaimPermissions::<T>::translate::<ClaimPermission, _>(|_key, val| {
-				reads.saturating_inc();
-				if self == ClaimPermission.PermissionlessAll {
-					translated.saturating_inc();
-					ClaimPermission::PermissionlessWithdraw
-				} else {
-					val
-				}});
-
-				// reads: translated + onchain version.
-				// writes: translated.
-				T::DbWeight::get().reads_writes(reads + 1, translated)
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
-			// There should no longer be `PermissionlessAll` claim permissions in storage.
-			ensure!(
-				ClaimPermissions::<T>::iter()
-					.all(|val| val !== ClaimPermission.PermissionlessAll),
-				"A `ClaimPermission` value has not been migrated."
-			);
 			Ok(())
 		}
 	}
