@@ -354,7 +354,7 @@ mod tests {
 		});
 
 		let ser = serde_json::to_string(&event).unwrap();
-		let exp = r#"{"event":"initialized","finalizedBlockHash":"0x1"}"#;
+		let exp = r#"{"event":"initialized","finalizedBlockHashes":["0x1"]}"#;
 		assert_eq!(ser, exp);
 
 		let event_dec: FollowEvent<String> = serde_json::from_str(exp).unwrap();
@@ -381,7 +381,7 @@ mod tests {
 
 		let ser = serde_json::to_string(&event).unwrap();
 		let exp = concat!(
-			r#"{"event":"initialized","finalizedBlockHash":"0x1","#,
+			r#"{"event":"initialized","finalizedBlockHashes":["0x1"],"#,
 			r#""finalizedBlockRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","#,
 			r#""specVersion":1,"implVersion":0,"apis":{},"transactionVersion":0}}}"#,
 		);
