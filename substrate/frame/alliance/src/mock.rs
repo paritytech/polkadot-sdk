@@ -52,7 +52,6 @@ parameter_types! {
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type BlockHashCount = ConstU32<10>;
 }
 
 parameter_types! {
