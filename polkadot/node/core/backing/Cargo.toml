@@ -22,6 +22,7 @@ bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 gum = { package = "tracing-gum", path = "../../gum" }
 thiserror = "1.0.48"
 fatality = "0.0.6"
+schnellru = "0.2.1"
 
 [dev-dependencies]
 sp-core = { path = "../../../../substrate/primitives/core" }
