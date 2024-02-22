@@ -877,7 +877,7 @@ fn build_bloaty_blob(
 			if polkavm_path
 				.metadata()
 				.map(|polkavm_metadata| {
-					polkavm_metadata.modified().unwrap() >= elf_metadata.modified().unwrap()
+					polkavm_metadata.modified().unwrap() < elf_metadata.modified().unwrap()
 				})
 				.unwrap_or(true)
 			{
