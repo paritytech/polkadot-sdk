@@ -29,15 +29,11 @@ To start those tests, you need to:
 Extra steps for the Polkadot<>Kusama test:
 
 - clone the [`polkadot-fellows/runtimes`](https://github.com/polkadot-fellows/runtimes) locally and do the following
-  adaptations (as an example see:
-  https://github.com/serban300/runtimes/commit/4e5da529e8b3543e0400a6e524d5e883db1610ed):
+  adaptation:
     - Add the `sudo` pallet to the Polkadot and Kusama runtimes and give sudo rights to Alice.
-    - Modify the Polkadot and Kusama runtimes such that the epoch time = 1 minute. The `chain-spec-generator` can't be
-      compiled with the `fast-runtime` feature.
-    - Modify the Polkadot BridgeHub and the Kusama BridgeHub genesis config in order to make Alice bridge owner.
 
-- build the chain spec generator by running `cargo build --release -p chain-spec-generator` command in the
-  [`polkadot-fellows/runtimes`](https://github.com/polkadot-fellows/runtimes) repository clone.
+- build the chain spec generator by running `cargo build --release -p chain-spec-generator --features fast-runtime` 
+  command in the [`polkadot-fellows/runtimes`](https://github.com/polkadot-fellows/runtimes) repository clone.
 
 - copy fresh `chain-spec-generator` binary, built in previous point to `~/local_bridge_testing/bin/chain-spec-generator`
 

@@ -53,7 +53,7 @@ args = [
 [[parachains]]
 id = 1002
 chain = "bridge-hub-kusama-local"
-chain_spec_command = "{{CHAIN_SPEC_GEN_BINARY}} {% raw %} {{chainName}} {% endraw %}"
+chain_spec_command = "{{ENV_PATH}}/generate_bh_spec.sh Polkadot {% raw %} {{chainName}} {% endraw %}"
 cumulus_based = true
 
 # run alice as parachain collator

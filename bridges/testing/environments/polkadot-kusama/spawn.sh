@@ -6,6 +6,8 @@ trap "trap - SIGTERM && kill -9 -$$" SIGINT SIGTERM EXIT
 
 source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
 
+export ENV_PATH=${BASH_SOURCE%/*}
+
 logs_dir=$TEST_DIR/logs
 helper_script="${BASH_SOURCE%/*}/helper.sh"
 
