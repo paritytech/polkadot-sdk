@@ -57,7 +57,7 @@ pub(super) enum Action<H> {
 	// discard, applying cost/benefit to originator.
 	Discard(ReputationChange),
 	// ignore, no cost/benefit applied to originator.
-	Ignore,
+	DiscardNoReport,
 }
 
 /// An outcome of examining a message.
@@ -70,7 +70,7 @@ enum Consider {
 	/// Message is from the future. Reject.
 	RejectFuture,
 	/// Message cannot be evaluated. Reject.
-	RejectOutOfScope,
+	CannotEvaluate,
 }
 
 /// BEEFY gossip message type that gets encoded and sent on the network.
@@ -177,7 +177,7 @@ impl<B: Block> Filter<B> {
 				} else {
 					Consider::Accept
 				})
-			.unwrap_or(Consider::RejectOutOfScope)
+			.unwrap_or(Consider::CannotEvaluate)
 	}
 
 	/// Return true if `round` is >= than `max(session_start, best_beefy)`,
@@ -197,7 +197,7 @@ impl<B: Block> Filter<B> {
 					Consider::Accept
 				}
 			)
-			.unwrap_or(Consider::RejectOutOfScope)
+			.unwrap_or(Consider::CannotEvaluate)
 	}
 
 	/// Add new _known_ `round` to the set of seen valid justifications.
@@ -287,7 +287,9 @@ where
 			match filter.consider_vote(round, set_id) {
 				Consider::RejectPast => return Action::Discard(cost::OUTDATED_MESSAGE),
 				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
-				Consider::RejectOutOfScope => return Action::Ignore,
+				// When we can't evaluate, it's our fault (e.g. filter not initialized yet), we
+				// discard the vote without punishing or rewarding the sending peer.
+				Consider::CannotEvaluate => return Action::DiscardNoReport,
 				Consider::Accept => {},
 			}
 
@@ -328,7 +330,9 @@ where
 			match guard.consider_finality_proof(round, set_id) {
 				Consider::RejectPast => return Action::Discard(cost::OUTDATED_MESSAGE),
 				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
-				Consider::RejectOutOfScope => return Action::Ignore,
+				// When we can't evaluate, it's our fault (e.g. filter not initialized yet), we
+				// discard the proof without punishing or rewarding the sending peer.
+				Consider::CannotEvaluate => return Action::DiscardNoReport,
 				Consider::Accept => {},
 			}
 
@@ -355,7 +359,9 @@ where
 						Action::Keep(self.justifs_topic, benefit::VALIDATED_PROOF)
 					}
 				})
-				.unwrap_or(Action::Ignore)
+				// When we can't evaluate, it's our fault (e.g. filter not initialized yet), we
+				// discard the proof without punishing or rewarding the sending peer.
+				.unwrap_or(Action::DiscardNoReport)
 		};
 		if matches!(action, Action::Keep(_, _)) {
 			self.gossip_filter.write().mark_round_as_proven(round);
@@ -402,7 +408,7 @@ where
 				self.report(*sender, cb);
 				ValidationResult::Discard
 			},
-			Action::Ignore => ValidationResult::Discard,
+			Action::DiscardNoReport => ValidationResult::Discard,
 		}
 	}
 
