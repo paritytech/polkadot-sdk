@@ -21,7 +21,7 @@ use polkadot_subsystem_bench::{
 };
 
 const BENCH_COUNT: usize = 3;
-const WARM_UP_COUNT: usize = 10;
+const WARM_UP_COUNT: usize = 20;
 const WARM_UP_PRECISION: f64 = 0.01;
 
 fn main() -> Result<(), String> {
