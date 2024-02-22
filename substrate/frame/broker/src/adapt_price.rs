@@ -19,6 +19,7 @@
 
 use crate::CoreIndex;
 use sp_arithmetic::{traits::One, FixedU64};
+use sp_runtime::Saturating;
 
 /// Type for determining how to set price.
 pub trait AdaptPrice {
@@ -49,14 +50,16 @@ impl AdaptPrice for () {
 pub struct Linear;
 impl AdaptPrice for Linear {
 	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
-		FixedU64::from(2) - when
+		FixedU64::from(2).saturating_sub(when)
 	}
 	fn adapt_price(sold: CoreIndex, target: CoreIndex, limit: CoreIndex) -> FixedU64 {
 		if sold <= target {
 			FixedU64::from_rational(sold.into(), target.into())
 		} else {
-			FixedU64::one() +
-				FixedU64::from_rational((sold - target).into(), (limit - target).into())
+			FixedU64::one().saturating_add(FixedU64::from_rational(
+				(sold - target).into(),
+				(limit - target).into(),
+			))
 		}
 	}
 }
