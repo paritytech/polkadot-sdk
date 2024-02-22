@@ -1,0 +1,13 @@
+title: "Pools: Make PermissionlessWithdraw the default claim permission"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Makes permissionless withdrawing the default claim permission, giving any network participant
+      access to claim pool rewards on member's behalf, by default.
+
+      Removes the PermissionlessAll variant, and adds a migration to remove PermissionlessAll from
+      ClaimPermission. Also removes default values from storage.
+
+crates:
+  - name: pallet-nomination-pools
