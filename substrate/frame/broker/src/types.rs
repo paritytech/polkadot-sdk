@@ -205,7 +205,7 @@ pub struct PoolIoRecord {
 
 /// The status of a Bulk Coretime Sale.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct SaleInfoRecord<Balance, BlockNumber> {
+pub struct SaleInfoRecord<Balance, RelayBlockNumber> {
 	/// The relay block number at which the sale will/did start.
 	pub sale_start: BlockNumber,
 	/// The length in blocks of the Leadin Period (where the price is decreasing).
