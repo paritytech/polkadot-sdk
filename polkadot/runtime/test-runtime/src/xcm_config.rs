@@ -62,18 +62,17 @@ impl<A: Get<AssetId>, F: FeeTracker> PriceForMessageDelivery for TestDeliveryPri
 	fn price_for_delivery(_: Self::Id, msg: &Xcm<()>) -> Assets {
 		let base_fee: super::Balance = 1_000_000;
 
-		let parents = msg.iter().find_map(|xcm| {
-			match xcm {
-				ReserveAssetDeposited(assets) => {
-					let AssetId(location) = &assets.inner().first().unwrap().id;
-					Some(location.parents)
-				},
-				_ => None,
-			}
+		let parents = msg.iter().find_map(|xcm| match xcm {
+			ReserveAssetDeposited(assets) => {
+				let AssetId(location) = &assets.inner().first().unwrap().id;
+				Some(location.parents)
+			},
+			_ => None,
 		});
 
 		// If no asset is found, price defaults to `base_fee`.
-		let amount = base_fee.saturating_add(base_fee.saturating_mul(parents.unwrap_or(0) as super::Balance));
+		let amount = base_fee
+			.saturating_add(base_fee.saturating_mul(parents.unwrap_or(0) as super::Balance));
 
 		(A::get(), amount).into()
 	}
