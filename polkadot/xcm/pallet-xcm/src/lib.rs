@@ -1419,8 +1419,8 @@ pub mod pallet {
 			assets: Box<VersionedAssets>,
 			beneficiary: Box<VersionedLocation>,
 		) -> DispatchResult {
-			log::debug!(target: "xcm::pallet_xcm::claim_assets", "origin: {:?}, assets: {:?}, beneficiary: {:?}", origin, assets, beneficiary);
 			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			log::debug!(target: "xcm::pallet_xcm::claim_assets", "origin: {:?}, assets: {:?}, beneficiary: {:?}", origin_location, assets, beneficiary);
 			let assets_version = assets.identify_version(); // Extract version from `assets`.
 			let assets: Assets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			let number_of_assets = assets.len() as u32;
