@@ -162,9 +162,13 @@ mod v9 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
-			// There should no longer be `PermissionlessAll` claim permissions in storage.
+			// There should no longer be `PermissionlessAll` or `PermissionlessWithdraw` claim
+			// permissions in storage.
 			ensure!(
-				ClaimPermissions::<T>::iter().all(|val| val != ClaimPermission.PermissionlessAll),
+				ClaimPermissions::<T>::iter().all(|val| match val {
+					ClaimPermission::Permissioned | ClaimPermission::PermissionlessCompound => true,
+					_ => false,
+				}),
 				"A `ClaimPermission` value has not been migrated."
 			);
 			Ok(())
