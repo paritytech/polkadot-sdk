@@ -7,7 +7,7 @@ on:
       - "!bridges/snowbridge/README.md"
       - "!bridges/snowbridge/LICENSE"
     branches:
-      - main
+      - snowbridge
   pull_request:
   workflow_dispatch:
 

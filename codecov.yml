@@ -1,0 +1,20 @@
+coverage:
+  status:
+    project: off
+    patch: off
+github_checks:
+  annotations: false
+ignore:
+  - "polkadot-sdk/bridges/snowbridge/pallets/ethereum-client/fixtures"
+  - "polkadot-sdk/bridges/snowbridge/pallets/ethereum-client/fuzz"
+  - "polkadot-sdk/bridges/snowbridge/pallets/ethereum-client/src/benchmarking"
+  - "polkadot-sdk/bridges/snowbridge/pallets/ethereum-client/src/weights.rs"
+  - "polkadot-sdk/bridges/snowbridge/pallets/inbound-queue/fixtures"
+  - "polkadot-sdk/bridges/snowbridge/pallets/inbound-queue/src/weights.rs"
+  - "polkadot-sdk/bridges/snowbridge/pallets/outbound-queue/src/weights.rs"
+  - "polkadot-sdk/bridges/snowbridge/pallets/system/src/weights.rs"
+flags:
+  rust:
+    paths:
+      - polkadot-sdk/bridges/snowbridge
+    carryforward: true
