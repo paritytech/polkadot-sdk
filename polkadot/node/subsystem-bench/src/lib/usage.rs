@@ -65,6 +65,23 @@ impl BenchmarkUsage {
 	pub fn check_cpu_usage(&self, checks: &[ResourceUsageCheck]) -> Vec<String> {
 		check_usage(&self.benchmark_name, &self.cpu_usage, checks)
 	}
+
+
+	pub fn cpu_usage_diff(&self, other: &Self, resource_name: &str) -> Option<f64> {
+		let self_res = self
+			.cpu_usage
+			.iter()
+			.find(|v| v.resource_name == resource_name);
+		let other_res = other
+			.cpu_usage
+			.iter()
+			.find(|v| v.resource_name == resource_name);
+
+		match (self_res, other_res) {
+			(Some(self_res), Some(other_res)) => Some(self_res.diff(other_res)),
+			_ => None
+		}
+	}
 }
 
 fn check_usage(
@@ -83,15 +100,16 @@ fn check_usage(
 
 fn check_resource_usage(
 	usage: &[ResourceUsage],
-	(resource_name, min, max): &ResourceUsageCheck,
+	(resource_name, base, precision): &ResourceUsageCheck,
 ) -> Option<String> {
 	if let Some(usage) = usage.iter().find(|v| v.resource_name == *resource_name) {
-		if usage.per_block >= *min && usage.per_block < *max {
+		let diff = (base - usage.per_block).abs() / base;
+		if diff < *precision {
 			None
 		} else {
 			Some(format!(
-				"The resource `{}` is expected to be in the range of {}..{}, but the value is {}",
-				resource_name, min, max, usage.per_block
+				"The resource `{}` is expected to be equal to {} with a precision {}, but the current value is {}",
+				resource_name, base, precision, usage.per_block
 			))
 		}
 	} else {
@@ -125,6 +143,10 @@ impl ResourceUsage {
 			average.push(Self { resource_name, total, per_block });
 		}
 		average
+	}
+
+	fn diff(&self, other: &Self) -> f64 {
+		(self.per_block - other.per_block).abs() / self.per_block
 	}
 }
 

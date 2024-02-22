@@ -23,7 +23,9 @@ use polkadot_subsystem_bench::{
 	usage::BenchmarkUsage,
 };
 
-const BENCH_COUNT: usize = 10;
+const BENCH_COUNT: usize = 3;
+const WARM_UP_COUNT: usize = 10;
+const WARM_UP_PRECISION: f64 = 0.01;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
@@ -40,30 +42,14 @@ fn main() -> Result<(), String> {
 	config.connectivity = 90;
 	config.generate_pov_sizes();
 
-	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT)
-		.map(|_| {
-			let mut state = TestState::new(&config);
-			let (mut env, _protocol_config) = prepare_test(
-				config.clone(),
-				&mut state,
-				TestDataAvailability::Read(options.clone()),
-				false,
-			);
-			env.runtime().block_on(benchmark_availability_read(
-				"data_availability_read",
-				&mut env,
-				state,
-			))
-		})
-		.collect();
-	let usage = BenchmarkUsage::average(&usages);
-	println!("{}", usage);
+	warm_up(config.clone(), options.clone())?;
+	let usage = benchmark(config.clone(), options.clone());
 
 	messages.extend(usage.check_network_usage(&[
-		("Received from peers", 97300.000, 107500.000),
-		("Sent to peers", 0.320, 0.350),
+		("Received from peers", 102400.000, 0.05),
+		("Sent to peers", 0.335, 0.05),
 	]));
-	messages.extend(usage.check_cpu_usage(&[("availability-recovery", 3.660, 4.040)]));
+	messages.extend(usage.check_cpu_usage(&[("availability-recovery", 3.850, 0.05)]));
 
 	if messages.is_empty() {
 		Ok(())
@@ -71,4 +57,38 @@ fn main() -> Result<(), String> {
 		eprintln!("{}", messages.join("\n"));
 		Err("Regressions found".to_string())
 	}
+}
+
+fn warm_up(config: TestConfiguration, options: DataAvailabilityReadOptions) -> Result<(), String> {
+	println!("Warming up...");
+	let mut prev_run: Option<BenchmarkUsage> = None;
+	for _ in 0..WARM_UP_COUNT {
+		let curr = run(config.clone(), options.clone());
+		if let Some(ref prev) = prev_run {
+			let diff = curr.cpu_usage_diff(prev, "availability-recovery").expect("Must exist");
+			if diff < WARM_UP_PRECISION {
+				return Ok(())
+			}
+		}
+		prev_run = Some(curr);
+	}
+
+	Err("Can't warm up".to_string())
+}
+
+fn benchmark(config: TestConfiguration, options: DataAvailabilityReadOptions) -> BenchmarkUsage {
+	println!("Benchmarking...");
+	let usages: Vec<BenchmarkUsage> =
+		(0..BENCH_COUNT).map(|_| run(config, options)).collect();
+	let usage = BenchmarkUsage::average(&usages);
+	println!("{}", usage);
+	usage
+}
+
+fn run(config: TestConfiguration, options: DataAvailabilityReadOptions) -> BenchmarkUsage {
+	let mut state = TestState::new(&config);
+	let (mut env, _protocol_config) =
+		prepare_test(config.clone(), &mut state, TestDataAvailability::Read(options), false);
+	env.runtime()
+		.block_on(benchmark_availability_read("data_availability_read", &mut env, state))
 }
