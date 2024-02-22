@@ -39,7 +39,7 @@ pub use crate as pallet_alliance;
 
 use super::*;
 
-type BlockNumber = u64;
+type BlockNumber = u32;
 type AccountId = u64;
 
 parameter_types! {
@@ -52,6 +52,7 @@ parameter_types! {
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = ConstU32<10>;
 }
 
 parameter_types! {
@@ -103,7 +104,7 @@ parameter_types! {
 	pub const MaxSubAccounts: u32 = 2;
 	pub const MaxAdditionalFields: u32 = 2;
 	pub const MaxRegistrars: u32 = 20;
-	pub const PendingUsernameExpiration: u64 = 100;
+	pub const PendingUsernameExpiration: u32 = 100;
 }
 ord_parameter_types! {
 	pub const One: u64 = 1;
@@ -245,7 +246,7 @@ impl Config for Test {
 	type RetirementPeriod = RetirementPeriod;
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -375,7 +376,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		);
 
 		assert_ok!(Alliance::init_members(RuntimeOrigin::root(), vec![1, 2, 3], vec![]));
-
 		System::set_block_number(1);
 	});
 	ext
