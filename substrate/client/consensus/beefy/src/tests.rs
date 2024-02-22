@@ -166,7 +166,7 @@ impl BeefyTestNet {
 		// of hashes, otherwise indexing would be broken
 		assert!(self.peer(0).client().as_backend().blockchain().hash(1).unwrap().is_none());
 
-		// push genesis to make indexing human readable (index equals to block number)
+		// push genesis to make indexing human-readable (index equals to block number)
 		all_hashes.push(self.peer(0).client().info().genesis_hash);
 
 		let mut block_num: NumberFor<Block> = self.peer(0).client().info().best_number;
@@ -1451,7 +1451,7 @@ async fn beefy_reports_vote_equivocations() {
 	assert_eq!(equivocation_proof.first.id, BeefyKeyring::Bob.public());
 	assert_eq!(equivocation_proof.first.commitment.block_number, 1);
 
-	// Verify neither Bob or Bob_Prime report themselves as equivocating.
+	// Verify neither Bob nor Bob_Prime report themselves as equivocating.
 	assert!(api_bob.reported_vote_equivocations.as_ref().unwrap().lock().is_empty());
 	assert!(api_bob_prime.reported_vote_equivocations.as_ref().unwrap().lock().is_empty());
 

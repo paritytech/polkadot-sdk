@@ -105,7 +105,7 @@ pub mod pallet {
 	pub trait Config: pallet_mmr::Config + pallet_beefy::Config {
 		/// Current leaf version.
 		///
-		/// Specifies the version number added to every leaf that get's appended to the MMR.
+		/// Specifies the version number added to every leaf that gets appended to the MMR.
 		/// Read more in [`MmrLeafVersion`] docs about versioning leaves.
 		type LeafVersion: Get<MmrLeafVersion>;
 

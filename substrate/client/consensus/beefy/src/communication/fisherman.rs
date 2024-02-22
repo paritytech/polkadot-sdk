@@ -358,7 +358,21 @@ where
 					.iter()
 					.cloned()
 					.zip(signatures.into_iter())
-					.filter_map(|(id, signature)| signature.map(|sig| (id, sig)))
+					.filter_map(|(id, signature)| match signature {
+						Some(sig) => {
+							if sp_consensus_beefy::check_commitment_signature::<
+								_,
+								_,
+								BeefySignatureHasher,
+							>(&commitment, &id, &sig)
+							{
+								Some((id, sig))
+							} else {
+								None
+							}
+						},
+						None => None,
+					})
 					.collect();
 
 				if signatories.len() > 0 {
