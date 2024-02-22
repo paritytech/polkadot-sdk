@@ -285,8 +285,8 @@ frame_benchmarking::benchmarks! {
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
 		let extra = (scenario.dest_weight - origin_weight).max(CurrencyOf::<T>::minimum_balance());
 
-		// set claim preferences to `PermissionlessAll` to any account to bond extra on member's behalf.
-		let _ = Pools::<T>::set_claim_permission(RuntimeOrigin::Signed(scenario.creator1.clone()).into(), ClaimPermission::PermissionlessAll);
+		// set claim preferences to `PermissionlessCompound` to any account to bond extra on member's behalf.
+		let _ = Pools::<T>::set_claim_permission(RuntimeOrigin::Signed(scenario.creator1.clone()).into(), ClaimPermission::PermissionlessCompound);
 
 		// transfer exactly `extra` to the depositor of the src pool (1),
 		let reward_account1 = Pools::<T>::create_reward_account(1);
@@ -313,9 +313,9 @@ frame_benchmarking::benchmarks! {
 		// Send funds to the reward account of the pool
 		CurrencyOf::<T>::set_balance(&reward_account, ed + origin_weight);
 
-		// set claim preferences to `PermissionlessAll` so any account can claim rewards on member's
+		// set claim preferences to `PermissionlessWithdraw` so any account can claim rewards on member's
 		// behalf.
-		let _ = Pools::<T>::set_claim_permission(RuntimeOrigin::Signed(depositor.clone()).into(), ClaimPermission::PermissionlessAll);
+		let _ = Pools::<T>::set_claim_permission(RuntimeOrigin::Signed(depositor.clone()).into(), ClaimPermission::PermissionlessWithdraw);
 
 		// Sanity check
 		assert_eq!(
@@ -795,9 +795,9 @@ frame_benchmarking::benchmarks! {
 			T::Staking::active_stake(&pool_account).unwrap(),
 			min_create_bond + min_join_bond
 		);
-	}:_(RuntimeOrigin::Signed(joiner.clone()), ClaimPermission::PermissionlessAll)
+	}:_(RuntimeOrigin::Signed(joiner.clone()), ClaimPermission::Permissioned)
 	verify {
-		assert_eq!(ClaimPermissions::<T>::get(joiner), ClaimPermission::PermissionlessAll);
+		assert_eq!(ClaimPermissions::<T>::get(joiner), ClaimPermission::Permissioned);
 	}
 
 	claim_commission {

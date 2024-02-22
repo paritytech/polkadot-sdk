@@ -457,23 +457,21 @@ pub enum ClaimPermission {
 	PermissionlessCompound,
 	/// Anyone can withdraw rewards on a pool member's behalf.
 	PermissionlessWithdraw,
-	/// Anyone can withdraw and compound rewards on a pool member's behalf.
-	PermissionlessAll,
 }
 
 impl ClaimPermission {
 	fn can_bond_extra(&self) -> bool {
-		matches!(self, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessCompound)
+		matches!(self, ClaimPermission::PermissionlessCompound)
 	}
 
 	fn can_claim_payout(&self) -> bool {
-		matches!(self, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessWithdraw)
+		matches!(self, ClaimPermission::PermissionlessWithdraw)
 	}
 }
 
 impl Default for ClaimPermission {
 	fn default() -> Self {
-		Self::Permissioned
+		Self::PermissionlessWithdraw
 	}
 }
 
@@ -2595,7 +2593,7 @@ pub mod pallet {
 		///
 		/// In the case of `origin != other`, `origin` can only bond extra pending rewards of
 		/// `other` members assuming set_claim_permission for the given member is
-		/// `PermissionlessAll` or `PermissionlessCompound`.
+		/// `PermissionlessCompound`.
 		#[pallet::call_index(14)]
 		#[pallet::weight(
 			T::WeightInfo::bond_extra_transfer()
@@ -2613,15 +2611,10 @@ pub mod pallet {
 		/// Allows a pool member to set a claim permission to allow or disallow permissionless
 		/// bonding and withdrawing.
 		///
-		/// By default, this is `Permissioned`, which implies only the pool member themselves can
-		/// claim their pending rewards. If a pool member wishes so, they can set this to
-		/// `PermissionlessAll` to allow any account to claim their rewards and bond extra to the
-		/// pool.
-		///
 		/// # Arguments
 		///
 		/// * `origin` - Member of a pool.
-		/// * `actor` - Account to claim reward. // improve this
+		/// * `permission` - The permission to be applied.
 		#[pallet::call_index(15)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn set_claim_permission(
@@ -2639,8 +2632,8 @@ pub mod pallet {
 
 		/// `origin` can claim payouts on some pool member `other`'s behalf.
 		///
-		/// Pool member `other` must have a `PermissionlessAll` or `PermissionlessWithdraw` in order
-		/// for this call to be successful.
+		/// Pool member `other` must have a `PermissionlessWithdraw` claim permission for this call
+		/// to be successful.
 		#[pallet::call_index(16)]
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		pub fn claim_payout_other(origin: OriginFor<T>, other: T::AccountId) -> DispatchResult {

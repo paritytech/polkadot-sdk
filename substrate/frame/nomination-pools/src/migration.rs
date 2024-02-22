@@ -129,9 +129,18 @@ mod v9 {
 		PermissionlessAll,
 	}
 
-	#[frame_support::storage_alias]
-	pub type ClaimPermissions<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, OldClaimPermission, ValueQuery>;
+	impl OldClaimPermission {
+		fn migrate_to_v9(self) -> ClaimPermission {
+			match self {
+				OldClaimPermission::Permissioned => ClaimPermission::Permissioned,
+				OldClaimPermission::PermissionlessCompound =>
+					ClaimPermission::PermissionlessCompound,
+				OldClaimPermission::PermissionlessWithdraw =>
+					ClaimPermission::PermissionlessWithdraw,
+				OldClaimPermission::PermissionlessAll => ClaimPermission::PermissionlessWithdraw,
+			}
+		}
+	}
 
 	pub struct VersionUncheckedMigrateV8ToV9<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV8ToV9<T> {
@@ -142,15 +151,9 @@ mod v9 {
 
 		fn on_runtime_upgrade() -> Weight {
 			let mut translates = 0u64;
-			ClaimPermissions::<T>::translate::<OldClaimPermission, _>(|_key, val| {
+			ClaimPermissions::<T>::translate::<OldClaimPermission, _>(|_key, current_val| {
 				translates.saturating_inc();
-				translates.saturating_inc();
-
-				if self == ClaimPermission.PermissionlessAll {
-					Some(ClaimPermission::PermissionlessWithdraw)
-				} else {
-					Some(val)
-				}
+				Some(current_val.migrate_to_v9())
 			});
 
 			T::DbWeight::get().reads_writes(translates, translates)
