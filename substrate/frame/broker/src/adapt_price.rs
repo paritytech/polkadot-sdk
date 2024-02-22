@@ -54,8 +54,11 @@ impl AdaptPrice for Linear {
 	}
 	fn adapt_price(sold: CoreIndex, target: CoreIndex, limit: CoreIndex) -> FixedU64 {
 		if sold <= target {
-			FixedU64::from_rational(sold.into(), target.into())
+			// Range of (0.5..=1)
+			FixedU64::from_rational(1, 2)
+				.saturating_add(FixedU64::from_rational(sold.into(), (2 * target).into()))
 		} else {
+			// Range of (1..=2)
 			FixedU64::one().saturating_add(FixedU64::from_rational(
 				(sold - target).into(),
 				(limit - target).into(),
