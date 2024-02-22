@@ -57,6 +57,7 @@
 
 use polkadot_primitives::{CandidateHash, CompactStatement, ValidatorIndex};
 
+use crate::LOG_TARGET;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Hash, PartialEq, Eq)]
@@ -423,6 +424,23 @@ impl ClusterTracker {
 
 	fn is_in_group(&self, validator: ValidatorIndex) -> bool {
 		self.validators.contains(&validator)
+	}
+
+	/// Dumps pending statement for this cluster.
+	///
+	/// Normally we should not have any pending statements for our cluster,
+	/// but if we do for long periods of time something bad happened which
+	/// needs to be investigated.
+	pub fn dump_pending_statements(&self) {
+		if !self.pending.is_empty() {
+			gum::warn!(
+				target: LOG_TARGET,
+				num_pending = ?self.pending.len(),
+				validators  = ?self.pending.keys().collect::<Vec<_>>(),
+				"Cluster has pending statements, something wrong with our connection to our group peers \n
+				 If error persists accross multiple consecutive sessions, validator might need restart"
+			);
+		}
 	}
 }
 
