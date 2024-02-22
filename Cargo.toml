@@ -218,6 +218,7 @@ members = [
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
+	"polkadot/zombienet-sdk-tests",
 	"substrate/bin/minimal/node",
 	"substrate/bin/minimal/runtime",
 	"substrate/bin/node-template/node",
