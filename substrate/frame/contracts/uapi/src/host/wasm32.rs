@@ -23,7 +23,7 @@ mod sys {
 	extern "C" {
 		pub fn account_reentrance_count(account_ptr: *const u8) -> u32;
 
-		pub fn add_delegate_dependency(code_hash_ptr: *const u8);
+		pub fn lock_delegate_dependency(code_hash_ptr: *const u8);
 
 		pub fn address(output_ptr: *mut u8, output_len_ptr: *mut u32);
 
@@ -125,7 +125,7 @@ mod sys {
 
 		pub fn reentrance_count() -> u32;
 
-		pub fn remove_delegate_dependency(code_hash_ptr: *const u8);
+		pub fn unlock_delegate_dependency(code_hash_ptr: *const u8);
 
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32) -> !;
 
@@ -803,12 +803,12 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::account_reentrance_count(account.as_ptr()) }
 	}
 
-	fn add_delegate_dependency(code_hash: &[u8]) {
-		unsafe { sys::add_delegate_dependency(code_hash.as_ptr()) }
+	fn lock_delegate_dependency(code_hash: &[u8]) {
+		unsafe { sys::lock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
-	fn remove_delegate_dependency(code_hash: &[u8]) {
-		unsafe { sys::remove_delegate_dependency(code_hash.as_ptr()) }
+	fn unlock_delegate_dependency(code_hash: &[u8]) {
+		unsafe { sys::unlock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
 	fn instantiation_nonce() -> u64 {
