@@ -172,7 +172,7 @@
         ]
       },
       "semver_bump": {
-        "description": "The type of bump to apply to the crate version according to Cargo SemVer: https://doc.rust-lang.org/cargo/reference/semver.html",
+        "description": "The type of bump to apply to the crate version according to Cargo SemVer: https://doc.rust-lang.org/cargo/reference/semver.html. Please check docs/RELEASE.md for more information.",
         "oneOf": [
           {
             "const": "major",
