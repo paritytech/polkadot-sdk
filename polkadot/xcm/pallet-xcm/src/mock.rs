@@ -633,7 +633,7 @@ impl super::benchmarking::Config for Test {
 		Some((assets, fee_index as u32, dest, verify))
 	}
 
-	fn get_valid_asset() -> Asset {
+	fn get_asset() -> Asset {
 		Asset { id: AssetId(Location::here()), fun: Fungible(ExistentialDeposit::get()) }
 	}
 }

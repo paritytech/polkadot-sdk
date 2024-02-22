@@ -747,7 +747,7 @@ impl_runtime_apis! {
 					)
 				}
 
-				fn get_valid_asset() -> Asset {
+				fn get_asset() -> Asset {
 					Asset {
 						id: AssetId(Location::parent()),
 						fun: Fungible(EXISTENTIAL_DEPOSIT),

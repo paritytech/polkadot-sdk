@@ -80,7 +80,7 @@ pub trait Config: crate::Config {
 	/// Used only in benchmarks.
 	///
 	/// Used, for example, in the benchmark for `claim_assets`.
-	fn get_valid_asset() -> Asset;
+	fn get_asset() -> Asset;
 }
 
 benchmarks! {
@@ -338,7 +338,7 @@ benchmarks! {
 	claim_assets {
 		let claim_origin = RawOrigin::Signed(whitelisted_caller());
 		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into()).map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		let asset: Asset = T::get_valid_asset();
+		let asset: Asset = T::get_asset();
 		// Trap assets for claiming later
 		crate::Pallet::<T>::drop_assets(
 			&claim_location,
