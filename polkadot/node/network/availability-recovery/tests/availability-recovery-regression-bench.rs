@@ -78,7 +78,8 @@ fn warm_up(config: TestConfiguration, options: DataAvailabilityReadOptions) -> R
 
 fn benchmark(config: TestConfiguration, options: DataAvailabilityReadOptions) -> BenchmarkUsage {
 	println!("Benchmarking...");
-	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT).map(|_| run(config, options)).collect();
+	let usages: Vec<BenchmarkUsage> =
+		(0..BENCH_COUNT).map(|_| run(config.clone(), options.clone())).collect();
 	let usage = BenchmarkUsage::average(&usages);
 	println!("{}", usage);
 	usage
