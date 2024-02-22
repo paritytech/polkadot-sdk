@@ -18,7 +18,7 @@
 
 //! Tool for creating the genesis block.
 
-use std::{collections::hash_map::DefaultHasher, marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
 use sc_client_api::{backend::Backend, BlockImportOperation};
 use sc_executor::RuntimeVersionOf;
@@ -43,12 +43,7 @@ where
 		let runtime_code = sp_core::traits::RuntimeCode {
 			code_fetcher: &code_fetcher,
 			heap_pages: None,
-			hash: {
-				use std::hash::{Hash, Hasher};
-				let mut state = DefaultHasher::new();
-				wasm.hash(&mut state);
-				state.finish().to_le_bytes().to_vec()
-			},
+			hash: sp_core::blake2_256(wasm).to_vec(),
 		};
 		let runtime_version = RuntimeVersionOf::runtime_version(executor, &mut ext, &runtime_code)
 			.map_err(|e| sp_blockchain::Error::VersionInvalid(e.to_string()))?;
