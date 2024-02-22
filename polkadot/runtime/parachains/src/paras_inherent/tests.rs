@@ -1348,6 +1348,7 @@ mod sanitizers {
 						&keystore,
 						&signing_context,
 						BackingKind::Threshold,
+						None,
 					);
 					backed
 				})

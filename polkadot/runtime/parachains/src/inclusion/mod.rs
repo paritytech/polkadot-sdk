@@ -37,12 +37,11 @@ use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{
-	effective_minimum_backing_votes, supermajority_threshold,
-	vstaging::node_features::FeatureIndex, well_known_keys, AvailabilityBitfield, BackedCandidate,
-	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
-	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	effective_minimum_backing_votes, supermajority_threshold, well_known_keys,
+	AvailabilityBitfield, BackedCandidate, CandidateCommitments, CandidateDescriptor,
+	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash,
+	HeadData, Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage,
+	ValidatorId, ValidatorIndex, ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
@@ -606,6 +605,7 @@ impl<T: Config> Pallet<T> {
 		scheduled: &BTreeMap<ParaId, CoreIndex>,
 		scheduled_by_core: &BTreeMap<CoreIndex, ParaId>,
 		group_validators: GV,
+		core_index_enabled: bool,
 	) -> Result<ProcessedCandidates<T::Hash>, DispatchError>
 	where
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
@@ -618,11 +618,6 @@ impl<T: Config> Pallet<T> {
 			return Ok(ProcessedCandidates::default())
 		}
 
-		let core_index_enabled = configuration::Pallet::<T>::config()
-			.node_features
-			.get(FeatureIndex::ElasticScalingMVP as usize)
-			.map(|b| *b)
-			.unwrap_or(false);
 		let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
 		let validators = shared::Pallet::<T>::active_validator_keys();
 

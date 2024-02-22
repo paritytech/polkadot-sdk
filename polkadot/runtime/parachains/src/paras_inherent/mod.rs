@@ -663,6 +663,7 @@ impl<T: Config> Pallet<T> {
 			&scheduled,
 			&scheduled_by_core,
 			<scheduler::Pallet<T>>::group_validators,
+			core_index_enabled,
 		)?;
 		// Note which of the scheduled cores were actually occupied by a backed candidate.
 		<scheduler::Pallet<T>>::occupied(occupied.into_iter().map(|e| (e.0, e.1)).collect());
