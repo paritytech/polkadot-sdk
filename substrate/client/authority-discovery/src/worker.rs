@@ -549,7 +549,7 @@ where
 					.filter(|a| get_peer_id(a).filter(|p| *p != local_peer_id).is_some())
 					.collect();
 
-				debug!(target: LOG_TARGET, "Record  === {:?}", addresses);
+				debug!(target: LOG_TARGET, "Address  === {:?}", addresses);
 
 				let res = single(addresses.iter().map(get_peer_id))
 					.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentPeerIds)? // different peer_id in records
