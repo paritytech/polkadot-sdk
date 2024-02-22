@@ -3,7 +3,7 @@
     path: &amp;<a class="struct" href="https://doc.rust-lang.org/1.75.0/std/path/struct.Path.html" title="struct std::path::Path">Path</a>,
     options: <a class="struct" href="struct.Options.html" title="struct sc_statement_store::Options">Options</a>,
     client: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Client&gt;,
-    keystore: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;LocalKeystore&gt;,
+    keystore: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="../sc_keystore/local/struct.LocalKeystore.html" title="struct sc_keystore::local::LocalKeystore">LocalKeystore</a>&gt;,
     prometheus: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;PrometheusRegistry&gt;,
     task_spawner: &amp;dyn <a class="trait" href="../sp_core/traits/trait.SpawnNamed.html" title="trait sp_core::traits::SpawnNamed">SpawnNamed</a>
 ) -&gt; Result&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="struct.Store.html" title="struct sc_statement_store::Store">Store</a>&gt;&gt;<span class="where fmt-newline">where
