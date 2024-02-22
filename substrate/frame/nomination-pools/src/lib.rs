@@ -476,13 +476,13 @@ impl ClaimPermission {
 		}
 	}
 
-	/// Permissionless compounding of pool rewards is alllowed if the current permission is
+	/// Permissionless compounding of pool rewards is allowed if the current permission is
 	/// `PermissionlessCompound`.
 	fn can_bond_extra(&self) -> bool {
 		matches!(self, ClaimPermission::PermissionlessCompound)
 	}
 
-	/// Permissionless payout claiming is alllowed if the current permission is
+	/// Permissionless payout claiming is allowed if the current permission is
 	/// `PermissionlessWithdraw`.
 	fn can_claim_payout(&self) -> bool {
 		matches!(self, ClaimPermission::PermissionlessWithdraw)
