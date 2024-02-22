@@ -130,14 +130,15 @@ mod v9 {
 	}
 
 	impl OldClaimPermission {
-		fn migrate_to_v9(self) -> ClaimPermission {
+		// NOTE: As `PermissionlessWithraw` is now default, we do not need these entries in storage.
+		// `PermissionlessAll` entries are also removed.
+		fn migrate_to_v9(self) -> Option<ClaimPermission> {
 			match self {
-				OldClaimPermission::Permissioned => ClaimPermission::Permissioned,
+				OldClaimPermission::Permissioned => Some(ClaimPermission::Permissioned),
 				OldClaimPermission::PermissionlessCompound =>
-					ClaimPermission::PermissionlessCompound,
-				OldClaimPermission::PermissionlessWithdraw =>
-					ClaimPermission::PermissionlessWithdraw,
-				OldClaimPermission::PermissionlessAll => ClaimPermission::PermissionlessWithdraw,
+					Some(ClaimPermission::PermissionlessCompound),
+				OldClaimPermission::PermissionlessWithdraw => None,
+				OldClaimPermission::PermissionlessAll => None,
 			}
 		}
 	}
@@ -153,7 +154,7 @@ mod v9 {
 			let mut translates = 0u64;
 			ClaimPermissions::<T>::translate::<OldClaimPermission, _>(|_key, current_val| {
 				translates.saturating_inc();
-				Some(current_val.migrate_to_v9())
+				current_val.migrate_to_v9()
 			});
 
 			T::DbWeight::get().reads_writes(translates, translates)

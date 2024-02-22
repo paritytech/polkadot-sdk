@@ -459,19 +459,33 @@ pub enum ClaimPermission {
 	PermissionlessWithdraw,
 }
 
+impl Default for ClaimPermission {
+	fn default() -> Self {
+		Self::PermissionlessWithdraw
+	}
+}
+
 impl ClaimPermission {
+	/// If the current permission is `PermissionlessWithdraw`, return `None`, otherwise return
+	/// `Some(self)`.
+	fn default_as_none(self) -> Option<ClaimPermission> {
+		if self == ClaimPermission::default() {
+			None
+		} else {
+			Some(self)
+		}
+	}
+
+	/// Permissionless compounding of pool rewards is alllowed if the current permission is
+	/// `PermissionlessCompound`.
 	fn can_bond_extra(&self) -> bool {
 		matches!(self, ClaimPermission::PermissionlessCompound)
 	}
 
+	/// Permissionless payout claiming is alllowed if the current permission is
+	/// `PermissionlessWithdraw`.
 	fn can_claim_payout(&self) -> bool {
 		matches!(self, ClaimPermission::PermissionlessWithdraw)
-	}
-}
-
-impl Default for ClaimPermission {
-	fn default() -> Self {
-		Self::PermissionlessWithdraw
 	}
 }
 
@@ -2624,9 +2638,17 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(PoolMembers::<T>::contains_key(&who), Error::<T>::PoolMemberNotFound);
-			ClaimPermissions::<T>::mutate(who, |source| {
-				*source = permission;
-			});
+
+			// If the permission is `None`, then remove the claim permission.
+			match permission.default_as_none() {
+				Some(claim_permission) => {
+					ClaimPermissions::<T>::insert(&who, claim_permission);
+				},
+				None => {
+					ClaimPermissions::<T>::remove(&who);
+				},
+			}
+
 			Ok(())
 		}
 
