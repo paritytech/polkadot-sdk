@@ -173,7 +173,7 @@ async fn follow_subscription_produces_blocks() {
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Initialized(Initialized {
-		finalized_block_hash: format!("{:?}", finalized_hash),
+		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
 		finalized_block_runtime: None,
 		with_runtime: false,
 	});
@@ -255,7 +255,7 @@ async fn follow_with_runtime() {
 		Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone().into() }));
 	// Runtime must always be reported with the first event.
 	let expected = FollowEvent::Initialized(Initialized {
-		finalized_block_hash: format!("{:?}", finalized_hash),
+		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
 		finalized_block_runtime,
 		with_runtime: false,
 	});
@@ -1344,7 +1344,7 @@ async fn follow_generates_initial_blocks() {
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Initialized(Initialized {
-		finalized_block_hash: format!("{:?}", finalized_hash),
+		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
 		finalized_block_runtime: None,
 		with_runtime: false,
 	});
@@ -1896,7 +1896,7 @@ async fn follow_prune_best_block() {
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Initialized(Initialized {
-		finalized_block_hash: format!("{:?}", finalized_hash),
+		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
 		finalized_block_runtime: None,
 		with_runtime: false,
 	});
@@ -2081,6 +2081,7 @@ async fn follow_forks_pruned_block() {
 	//                                        ^^^ finalized
 	//           -> block 1 -> block 2_f -> block 3_f
 	//
+	let finalized_hash = client.info().finalized_hash;
 
 	let block_1 = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -2090,6 +2091,7 @@ async fn follow_forks_pruned_block() {
 		.build()
 		.unwrap()
 		.block;
+	let block_1_hash = block_1.header.hash();
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
 
 	let block_2 = BlockBuilderBuilder::new(&*client)
@@ -2100,6 +2102,7 @@ async fn follow_forks_pruned_block() {
 		.build()
 		.unwrap()
 		.block;
+	let block_2_hash = block_2.header.hash();
 	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
 
 	let block_3 = BlockBuilderBuilder::new(&*client)
@@ -2156,7 +2159,7 @@ async fn follow_forks_pruned_block() {
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Initialized(Initialized {
-		finalized_block_hash: format!("{:?}", block_3_hash),
+		finalized_block_hashes: vec![format!("{:?}", finalized_hash), format!("{:?}", block_1_hash), format!("{:?}", block_2_hash), format!("{:?}", block_3_hash)],
 		finalized_block_runtime: None,
 		with_runtime: false,
 	});
@@ -2310,7 +2313,7 @@ async fn follow_report_multiple_pruned_block() {
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Initialized(Initialized {
-		finalized_block_hash: format!("{:?}", finalized_hash),
+		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
 		finalized_block_runtime: None,
 		with_runtime: false,
 	});
@@ -2632,7 +2635,7 @@ async fn follow_finalized_before_new_block() {
 	let finalized_hash = client.info().finalized_hash;
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Initialized(Initialized {
-		finalized_block_hash: format!("{:?}", finalized_hash),
+		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
 		finalized_block_runtime: None,
 		with_runtime: false,
 	});
