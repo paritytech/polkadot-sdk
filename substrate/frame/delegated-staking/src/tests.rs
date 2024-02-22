@@ -693,8 +693,8 @@ mod pool_integration {
 	#[test]
 	fn claim_pool_rewards() {
 		ExtBuilder::default().build_and_execute(|| {
-            let creator = 100;
-            let creator_stake = 1000;
+			let creator = 100;
+			let creator_stake = 1000;
 			let pool_id = create_pool(creator, creator_stake);
 			add_delegators(pool_id, (300..310).collect(), 100);
 			add_delegators(pool_id, (310..320).collect(), 200);
@@ -702,7 +702,7 @@ mod pool_integration {
 
 			// give some rewards
 			let reward_acc = Pools::create_reward_account(pool_id);
-            let reward_amount = 1000;
+			let reward_amount = 1000;
 			fund(&reward_acc, reward_amount);
 
 			// claim rewards
@@ -713,17 +713,17 @@ mod pool_integration {
 				assert_ok!(Pools::claim_payout(RawOrigin::Signed(i).into()));
 
 				let reward = Balances::free_balance(i) - pre_balance;
-				assert_eq!(reward, delegator_staked_balance * reward_amount/total_staked);
+				assert_eq!(reward, delegator_staked_balance * reward_amount / total_staked);
 			}
 
-            // payout creator
-            let pre_balance = Balances::free_balance(creator);
-            assert_ok!(Pools::claim_payout(RawOrigin::Signed(creator).into()));
-            // verify they are paid out correctly
-            let reward = Balances::free_balance(creator) - pre_balance;
-            assert_eq!(reward, creator_stake * reward_amount/total_staked);
+			// payout creator
+			let pre_balance = Balances::free_balance(creator);
+			assert_ok!(Pools::claim_payout(RawOrigin::Signed(creator).into()));
+			// verify they are paid out correctly
+			let reward = Balances::free_balance(creator) - pre_balance;
+			assert_eq!(reward, creator_stake * reward_amount / total_staked);
 
-            // reward account should only have left minimum balance after paying out everyone.
+			// reward account should only have left minimum balance after paying out everyone.
 			assert_eq!(Balances::free_balance(reward_acc), ExistentialDeposit::get());
 		});
 	}
@@ -781,11 +781,7 @@ mod pool_integration {
 		pallet_nomination_pools::LastPoolId::<T>::get()
 	}
 
-	fn add_delegators(
-		pool_id: u32,
-		delegators: Vec<AccountId>,
-		amount: Balance,
-	) {
+	fn add_delegators(pool_id: u32, delegators: Vec<AccountId>, amount: Balance) {
 		for delegator in delegators {
 			fund(&delegator, amount * 2);
 			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), amount, pool_id));

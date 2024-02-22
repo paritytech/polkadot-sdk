@@ -458,10 +458,8 @@ impl<T: Config> Pallet<T> {
 
 		Delegation::<T>::from(delegate, new_delegation_amount).save(delegator);
 
-		ledger.total_delegated = ledger
-			.total_delegated
-			.checked_add(&amount)
-			.ok_or(ArithmeticError::Overflow)?;
+		ledger.total_delegated =
+			ledger.total_delegated.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
 		ledger.save(delegate);
 
 		T::Currency::hold(&HoldReason::Delegating.into(), delegator, amount)?;
@@ -625,7 +623,6 @@ use sp_std::collections::btree_map::BTreeMap;
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state() -> Result<(), TryRuntimeError> {
-
 		// build map to avoid reading storage multiple times.
 		let delegation_map = Delegators::<T>::iter().collect::<BTreeMap<_, _>>();
 		let ledger_map = Delegates::<T>::iter().collect::<BTreeMap<_, _>>();
@@ -665,7 +662,10 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), TryRuntimeError> {
 		let mut delegation_aggregation = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
 		for (delegator, delegation) in delegations.iter() {
-			ensure!(T::CoreStaking::status(delegator).is_err(), "delegator should not be directly staked");
+			ensure!(
+				T::CoreStaking::status(delegator).is_err(),
+				"delegator should not be directly staked"
+			);
 			ensure!(!Self::is_delegate(delegator), "delegator cannot be delegate");
 
 			delegation_aggregation
@@ -674,15 +674,15 @@ impl<T: Config> Pallet<T> {
 				.or_insert(delegation.amount);
 		}
 
-        for (delegate, total_delegated) in delegation_aggregation {
+		for (delegate, total_delegated) in delegation_aggregation {
 			ensure!(!Self::is_delegator(&delegate), "delegate cannot be delegator");
 
-            let ledger = ledger.get(&delegate).expect("ledger should exist");
-            ensure!(
-                ledger.total_delegated == total_delegated,
-                "ledger total delegated should match delegations"
-            );
-        }
+			let ledger = ledger.get(&delegate).expect("ledger should exist");
+			ensure!(
+				ledger.total_delegated == total_delegated,
+				"ledger total delegated should match delegations"
+			);
+		}
 
 		Ok(())
 	}
