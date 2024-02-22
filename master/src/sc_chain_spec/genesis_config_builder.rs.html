@@ -344,7 +344,7 @@
 			&lt;GenesisConfigBuilderRuntimeCaller&gt;::new(substrate_test_runtime::wasm_binary_unwrap())
 				.get_default_config()
 				.unwrap();
-		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;system&quot;:{},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:null},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
+		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;babe&quot;: {&quot;authorities&quot;: [], &quot;epochConfig&quot;: {&quot;allowed_slots&quot;: &quot;PrimaryAndSecondaryVRFSlots&quot;, &quot;c&quot;: [1, 4]}}, &quot;balances&quot;: {&quot;balances&quot;: []}, &quot;substrateTest&quot;: {&quot;authorities&quot;: []}, &quot;system&quot;: {}}&quot;#</span>;
 		<span class="macro">assert_eq!</span>(from_str::&lt;Value&gt;(expected).unwrap(), config);
 	}
 

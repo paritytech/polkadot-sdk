@@ -2756,7 +2756,7 @@
 			<span class="kw">let </span>r = Vec::&lt;u8&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
 			<span class="kw">let </span>json = String::from_utf8(r.into()).expect(<span class="string">&quot;returned value is json. qed.&quot;</span>);
 
-			<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;system&quot;:{},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:null},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
+			<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;system&quot;:{},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:{&quot;c&quot;:[1,4],&quot;allowed_slots&quot;:&quot;PrimaryAndSecondaryVRFSlots&quot;}},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
 			<span class="macro">assert_eq!</span>(expected.to_string(), json);
 		}
 

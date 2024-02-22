@@ -535,7 +535,7 @@
 
 		<span class="kw">let </span>request = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;babe_epochAuthorship&quot;,&quot;params&quot;: [],&quot;id&quot;:1}&quot;#</span>;
 		<span class="kw">let </span>(response, <span class="kw">_</span>) = api.raw_json_request(request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;result&quot;:{&quot;5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY&quot;:{&quot;primary&quot;:[0],&quot;secondary&quot;:[1,2,4],&quot;secondary_vrf&quot;:[]}},&quot;id&quot;:1}&quot;#</span>;
+		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;result&quot;:{&quot;5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY&quot;:{&quot;primary&quot;:[0],&quot;secondary&quot;:[],&quot;secondary_vrf&quot;:[1,2,4]}},&quot;id&quot;:1}&quot;#</span>;
 
 		<span class="macro">assert_eq!</span>(response, expected);
 	}

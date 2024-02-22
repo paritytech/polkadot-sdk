@@ -1061,8 +1061,6 @@
 <a href="#1061" id="1061">1061</a>
 <a href="#1062" id="1062">1062</a>
 <a href="#1063" id="1063">1063</a>
-<a href="#1064" id="1064">1064</a>
-<a href="#1065" id="1065">1065</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1388,7 +1386,7 @@
 	#[pallet::genesis_config]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
 		<span class="kw">pub </span>authorities: Vec&lt;(AuthorityId, BabeAuthorityWeight)&gt;,
-		<span class="kw">pub </span>epoch_config: <span class="prelude-ty">Option</span>&lt;BabeEpochConfiguration&gt;,
+		<span class="kw">pub </span>epoch_config: BabeEpochConfiguration,
 		<span class="attr">#[serde(skip)]
 		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
 	}
@@ -1398,9 +1396,7 @@
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			SegmentIndex::&lt;T&gt;::put(<span class="number">0</span>);
 			Pallet::&lt;T&gt;::initialize_genesis_authorities(<span class="kw-2">&amp;</span><span class="self">self</span>.authorities);
-			EpochConfig::&lt;T&gt;::put(
-				<span class="self">self</span>.epoch_config.clone().expect(<span class="string">&quot;epoch_config must not be None&quot;</span>),
-			);
+			EpochConfig::&lt;T&gt;::put(<span class="kw-2">&amp;</span><span class="self">self</span>.epoch_config);
 		}
 	}
 

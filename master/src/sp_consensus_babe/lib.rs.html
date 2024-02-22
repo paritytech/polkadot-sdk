@@ -425,6 +425,12 @@
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
 <a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -681,6 +687,12 @@
 	<span class="doccomment">/// Whether this chain should run with secondary slots, which are assigned
 	/// in round-robin manner.
 	</span><span class="kw">pub </span>allowed_slots: AllowedSlots,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>BabeEpochConfiguration {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ c: (<span class="number">1</span>, <span class="number">4</span>), allowed_slots: AllowedSlots::PrimaryAndSecondaryVRFSlots }
+	}
 }
 
 <span class="doccomment">/// Verifies the equivocation proof by making sure that: both headers have

@@ -3666,7 +3666,7 @@
 			<span class="macro-nonterminal">$</span><span class="macro">crate::assert_err!</span>(<span class="macro-nonterminal">$call</span>.map(|<span class="kw">_</span>| ()).map_err(|e| e.error), <span class="macro-nonterminal">$err</span>);
 			<span class="macro">assert_eq!</span>(dispatch_err_with_post.post_info.actual_weight, <span class="macro-nonterminal">$weight</span>);
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;expected Err(_), got Ok(_).&quot;</span>)
+			<span class="macro">::core::panic!</span>(<span class="string">&quot;expected Err(_), got Ok(_).&quot;</span>)
 		}
 	};
 }

@@ -72,39 +72,6 @@
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -127,9 +94,8 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::keyring::<span class="kw-2">*</span>;
 <span class="kw">use </span>kitchensink_runtime::{
-	constants::currency::<span class="kw-2">*</span>, AccountId, AssetsConfig, BabeConfig, BalancesConfig, GluttonConfig,
-	GrandpaConfig, IndicesConfig, RuntimeGenesisConfig, SessionConfig, SocietyConfig, StakerStatus,
-	StakingConfig, BABE_GENESIS_EPOCH_CONFIG,
+	constants::currency::<span class="kw-2">*</span>, AccountId, AssetsConfig, BalancesConfig, IndicesConfig,
+	RuntimeGenesisConfig, SessionConfig, SocietyConfig, StakerStatus, StakingConfig,
 };
 <span class="kw">use </span>sp_keyring::Ed25519Keyring;
 <span class="kw">use </span>sp_runtime::Perbill;
@@ -154,7 +120,6 @@
 	endowed.extend(extra_endowed.into_iter().map(|endowed| (endowed, <span class="number">100 </span>* DOLLARS)));
 
 	RuntimeGenesisConfig {
-		system: Default::default(),
 		indices: IndicesConfig { indices: <span class="macro">vec!</span>[] },
 		balances: BalancesConfig { balances: endowed },
 		session: SessionConfig {
@@ -176,40 +141,9 @@
 			invulnerables: <span class="macro">vec!</span>[alice(), bob(), charlie()],
 			..Default::default()
 		},
-		babe: BabeConfig {
-			authorities: <span class="macro">vec!</span>[],
-			epoch_config: <span class="prelude-val">Some</span>(BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
-		},
-		grandpa: GrandpaConfig { authorities: <span class="macro">vec!</span>[], _config: Default::default() },
-		beefy: Default::default(),
-		im_online: Default::default(),
-		authority_discovery: Default::default(),
-		democracy: Default::default(),
-		council: Default::default(),
-		technical_committee: Default::default(),
-		technical_membership: Default::default(),
-		elections: Default::default(),
-		sudo: Default::default(),
-		treasury: Default::default(),
 		society: SocietyConfig { pot: <span class="number">0 </span>},
-		vesting: Default::default(),
 		assets: AssetsConfig { assets: <span class="macro">vec!</span>[(<span class="number">9</span>, alice(), <span class="bool-val">true</span>, <span class="number">1</span>)], ..Default::default() },
-		pool_assets: Default::default(),
-		transaction_storage: Default::default(),
-		transaction_payment: Default::default(),
-		alliance: Default::default(),
-		alliance_motion: Default::default(),
-		nomination_pools: Default::default(),
-		safe_mode: Default::default(),
-		tx_pause: Default::default(),
-		glutton: GluttonConfig {
-			compute: Default::default(),
-			storage: Default::default(),
-			trash_data_count: Default::default(),
-			..Default::default()
-		},
-		mixnet: Default::default(),
+		..Default::default()
 	}
 }
 </code></pre></div></section></main></body></html>
