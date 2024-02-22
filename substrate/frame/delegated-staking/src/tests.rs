@@ -687,7 +687,21 @@ mod pool_integration {
 
 	#[test]
 	fn claim_pool_rewards() {
-		ExtBuilder::default().build_and_execute(|| {});
+		ExtBuilder::default().build_and_execute(|| {
+			let pool_id = create_pool(100, 200);
+			add_delegators(pool_id, 100, (300..310).collect(), 100);
+			add_delegators(pool_id, 100, (310..320).collect(), 200);
+
+			// distribute rewards
+
+			// claim rewards
+			for i in 300..320 {
+				let pre_balance = Balances::free_balance(i);
+				assert_ok!(Pools::claim_payout(RawOrigin::Signed(i).into()));
+				assert!(Balances::free_balance(i) >= pre_balance);
+				println!("reward for {}: {}", i, Balances::free_balance(i) - pre_balance);
+			}
+		});
 	}
 
 	#[test]
