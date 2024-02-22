@@ -1,4 +1,4 @@
-title: Return iterator in pallet_referenda::TracksInfo::tracks
+title: "Return iterator in pallet_referenda::TracksInfo::tracks"
 
 doc:
   - audience: Runtime Dev
