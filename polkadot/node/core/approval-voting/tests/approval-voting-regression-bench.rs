@@ -115,6 +115,7 @@ fn approvals_no_shows() -> Result<Vec<String>, String> {
 	Ok(messages)
 }
 
+#[allow(dead_code)]
 fn approvals_throughput() -> Result<Vec<String>, String> {
 	let mut messages = vec![];
 	let test_case = "approvals_throughput";
@@ -144,6 +145,7 @@ fn approvals_throughput() -> Result<Vec<String>, String> {
 	Ok(messages)
 }
 
+#[allow(dead_code)]
 fn approvals_throughput_best_case() -> Result<Vec<String>, String> {
 	let mut messages = vec![];
 	let test_case = "approvals_throughput_best_case";
