@@ -16,6 +16,7 @@ alice: js-script ./0012-register-para.js return is 0 within 600 seconds
 validator: reports substrate_block_height{status="finalized"} is at least 35 within 100 seconds
 
 # Parachain will now be stalled
+validator: parachain 2000 block height is lower than 20 within 300 seconds
 
 # Enable the ElasticScalingMVP node feature.
 alice: js-script ./0012-enable-node-feature.js with "1" return is 0 within 600 seconds
