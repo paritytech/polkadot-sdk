@@ -121,6 +121,18 @@ pub mod unversioned {
 mod v9 {
 	use super::*;
 
+	#[derive(Encode, Decode, MaxEncodedLen, Clone, Copy, Debug, PartialEq, Eq, TypeInfo)]
+	pub enum OldClaimPermission {
+		Permissioned,
+		PermissionlessCompound,
+		PermissionlessWithdraw,
+		PermissionlessAll,
+	}
+
+	#[frame_support::storage_alias]
+	pub type ClaimPermissions<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, OldClaimPermission, ValueQuery>;
+
 	pub struct VersionUncheckedMigrateV8ToV9<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV8ToV9<T> {
 		#[cfg(feature = "try-runtime")]
@@ -130,14 +142,14 @@ mod v9 {
 
 		fn on_runtime_upgrade() -> Weight {
 			let mut translates = 0u64;
-			ClaimPermissions::<T>::translate::<ClaimPermission, _>(|_key, val| {
+			ClaimPermissions::<T>::translate::<OldClaimPermission, _>(|_key, val| {
 				translates.saturating_inc();
 				translates.saturating_inc();
 
 				if self == ClaimPermission.PermissionlessAll {
-					ClaimPermission::PermissionlessWithdraw
+					Some(ClaimPermission::PermissionlessWithdraw)
 				} else {
-					val
+					Some(val)
 				}
 			});
 
@@ -148,8 +160,7 @@ mod v9 {
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			// There should no longer be `PermissionlessAll` claim permissions in storage.
 			ensure!(
-				ClaimPermissions::<T>::iter()
-					.all(|val| val != ClaimPermission.PermissionlessAll),
+				ClaimPermissions::<T>::iter().all(|val| val != ClaimPermission.PermissionlessAll),
 				"A `ClaimPermission` value has not been migrated."
 			);
 			Ok(())
