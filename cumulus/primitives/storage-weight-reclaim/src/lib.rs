@@ -103,6 +103,13 @@ pub fn get_proof_size() -> Option<u64> {
 #[scale_info(skip_type_params(T))]
 pub struct StorageWeightReclaim<T: Config + Send + Sync>(PhantomData<T>);
 
+impl<T: Config + Send + Sync> StorageWeightReclaim<T> {
+	/// Create a new `StorageWeightReclaim` instance.
+	pub fn new() -> Self {
+		Self(Default::default())
+	}
+}
+
 impl<T: Config + Send + Sync> core::fmt::Debug for StorageWeightReclaim<T> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
 		let _ = write!(f, "StorageWeightReclaim");
