@@ -336,6 +336,7 @@ where
 	/// If `only_if_changed` is true, the function has no effect if the list of keys to publish
 	/// is equal to `self.latest_published_keys`.
 	async fn publish_ext_addresses(&mut self, only_if_changed: bool) -> Result<()> {
+		debug!(target: LOG_TARGET, "Publish ext if_changed {:?}", only_if_changed);
 		let key_store = match &self.role {
 			Role::PublishAndDiscover(key_store) => key_store,
 			Role::Discover => return Ok(()),
@@ -351,6 +352,7 @@ where
 		}
 
 		let addresses = serialize_addresses(self.addresses_to_publish());
+		debug!(target: LOG_TARGET, "Publish ext addresses {:?}", addresses);
 
 		if let Some(metrics) = &self.metrics {
 			metrics.publish.inc();
@@ -372,6 +374,8 @@ where
 		)?;
 
 		for (key, value) in kv_pairs.into_iter() {
+			debug!(target: LOG_TARGET, "Publish ext kv key {:?} value {:?}", key, value);
+
 			self.network.put_value(key, value);
 		}
 
