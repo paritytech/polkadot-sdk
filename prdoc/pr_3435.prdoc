@@ -12,4 +12,5 @@ doc:
       This fixes an issue where node operators saw error logs, and fixes
       potential RAM bloat when BEEFY initialization takes a long time
       (i.e. during clean sync).
-crates: [ sc-consensus-beefy ]
+crates:
+  - name: sc-consensus-beefy
