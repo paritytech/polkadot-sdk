@@ -70,7 +70,7 @@ use std::{
 	sync::Arc,
 };
 
-use bitvec::vec::BitVec;
+use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use futures::{
 	channel::{mpsc, oneshot},
 	future::BoxFuture,
