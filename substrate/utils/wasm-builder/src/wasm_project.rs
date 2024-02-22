@@ -855,7 +855,7 @@ fn build_bloaty_blob(
 	println!("{} {}", colorize_info_message("Using rustc version:"), cargo_cmd.rustc_version());
 
 	// Use `process::exit(1)` to have a clean error output.
-	if build_cmd.status().map(|s| s.success()).is_err() {
+	if !matches!(build_cmd.status().map(|s| s.success()), Ok(true)) {
 		process::exit(1);
 	}
 
@@ -877,7 +877,7 @@ fn build_bloaty_blob(
 			if polkavm_path
 				.metadata()
 				.map(|polkavm_metadata| {
-					polkavm_metadata.modified().unwrap() >= elf_metadata.modified().unwrap()
+					polkavm_metadata.modified().unwrap() < elf_metadata.modified().unwrap()
 				})
 				.unwrap_or(true)
 			{
