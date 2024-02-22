@@ -1711,6 +1711,7 @@ pub mod migrations {
 			crate::xcm_config::XcmRouter,
 			GetLegacyLeaseImpl,
 		>,
+		pallet_nomination_pools::migration::versioned::V8ToV9<Runtime>,
 	);
 }
 
