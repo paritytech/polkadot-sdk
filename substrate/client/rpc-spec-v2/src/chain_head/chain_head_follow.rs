@@ -187,13 +187,14 @@ where
 	}
 
 	/// Get the in-memory blocks of the client, starting from the provided finalized hash.
+	///
+	/// The reported blocks are pinned by this function.
 	fn get_init_blocks_with_forks(
 		&self,
-		startup_point: &StartupPoint<Block>,
+		finalized: Block::Hash,
 	) -> Result<InitialBlocks<Block>, SubscriptionManagementError> {
 		let blockchain = self.backend.blockchain();
 		let leaves = blockchain.leaves()?;
-		let finalized = startup_point.finalized_hash;
 		let mut pruned_forks = HashSet::new();
 		let mut finalized_block_descendants = Vec::new();
 		let mut unique_descendants = HashSet::new();
@@ -211,6 +212,8 @@ where
 
 				for pair in blocks.zip(parents) {
 					if unique_descendants.insert(pair) {
+						// The finalized block is pinned below.
+						self.sub_handle.pin_block(&self.sub_id, pair.0)?;
 						finalized_block_descendants.push(pair);
 					}
 				}
@@ -222,12 +225,22 @@ where
 		let Some(header) = blockchain.header(current_block)? else {
 			return Err(SubscriptionManagementError::BlockHeaderAbsent);
 		};
-		let mut finalized_block_hashes = VecDeque::with_capacity(10);
+
+		// Report at most `MAX_FINALIZDED_BLOCKS`. Note: The node might not have that many blocks.
+		let mut finalized_block_hashes = VecDeque::with_capacity(MAX_FINALIZDED_BLOCKS);
+
+		// Pin the finalized block.
+		self.sub_handle.pin_block(&self.sub_id, current_block)?;
 		finalized_block_hashes.push_front(current_block);
 		current_block = *header.parent_hash();
 
 		for _ in 0..MAX_FINALIZDED_BLOCKS - 1 {
 			let Ok(Some(header)) = blockchain.header(current_block) else { break };
+			// Block cannot be reported if pinning fails.
+			if self.sub_handle.pin_block(&self.sub_id, current_block).is_err() {
+				break
+			};
+
 			finalized_block_hashes.push_front(current_block);
 			current_block = *header.parent_hash();
 		}
@@ -244,36 +257,17 @@ where
 		startup_point: &StartupPoint<Block>,
 	) -> Result<(Vec<FollowEvent<Block::Hash>>, HashSet<Block::Hash>), SubscriptionManagementError>
 	{
-		let init = self.get_init_blocks_with_forks(startup_point)?;
-
-		let initial_blocks = init.finalized_block_descendants;
+		let init = self.get_init_blocks_with_forks(startup_point.finalized_hash)?;
 
 		// The initialized event is the first one sent.
+		let initial_blocks = init.finalized_block_descendants;
 		let finalized_block_hashes = init.finalized_block_hashes;
-		let mut iter = finalized_block_hashes.iter().rev();
-		let Some(finalized) = iter.next() else {
-			return Err(SubscriptionManagementError::BlockHeaderAbsent);
-		};
-		self.sub_handle.pin_block(&self.sub_id, *finalized)?;
-		let mut num_pinned = 1;
-		while let Some(remaining_hash) = iter.next() {
-			if self.sub_handle.pin_block(&self.sub_id, *remaining_hash).is_err() {
-				break
-			}
-
-			num_pinned += 1;
-		}
-
-		let to_skip = finalized_block_hashes.len() - num_pinned;
-		let finalized_block_hashes = finalized_block_hashes.into_iter().skip(to_skip).collect();
 
 		let finalized_block_hash = startup_point.finalized_hash;
-		self.sub_handle.pin_block(&self.sub_id, finalized_block_hash)?;
-
 		let finalized_block_runtime = self.generate_runtime_event(finalized_block_hash, None);
 
 		let initialized_event = FollowEvent::Initialized(Initialized {
-			finalized_block_hashes,
+			finalized_block_hashes: finalized_block_hashes.into(),
 			finalized_block_runtime,
 			with_runtime: self.with_runtime,
 		});
@@ -282,8 +276,6 @@ where
 
 		finalized_block_descendants.push(initialized_event);
 		for (child, parent) in initial_blocks.into_iter() {
-			self.sub_handle.pin_block(&self.sub_id, child)?;
-
 			let new_runtime = self.generate_runtime_event(child, Some(parent));
 
 			let event = FollowEvent::NewBlock(NewBlock {
