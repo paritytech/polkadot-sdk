@@ -328,7 +328,7 @@ impl RequestManager {
 		if response_manager.len() >= 2 * MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
 			gum::warn_if_frequent!(
 				freq: request_throttle_freq,
-				max_rate: gum::Times::PerSecond(5),
+				max_rate: gum::Times::PerSecond(20),
 				target: LOG_TARGET,
 				"Too many requests in parallel, statement-distribution might be slow"
 			);
@@ -1043,12 +1043,24 @@ mod tests {
 			let peer_advertised = |_identifier: &CandidateIdentifier, _peer: &_| {
 				Some(StatementFilter::full(group_size))
 			};
+			let mut request_throttle_freq = gum::Freq::new();
+
 			let outgoing = request_manager
-				.next_request(&mut response_manager, request_props, peer_advertised)
+				.next_request(
+					&mut response_manager,
+					request_props,
+					peer_advertised,
+					&mut request_throttle_freq,
+				)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 			let outgoing = request_manager
-				.next_request(&mut response_manager, request_props, peer_advertised)
+				.next_request(
+					&mut response_manager,
+					request_props,
+					peer_advertised,
+					&mut request_throttle_freq,
+				)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 		}
@@ -1164,8 +1176,15 @@ mod tests {
 		{
 			let request_props =
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+			let mut request_throttle_freq = gum::Freq::new();
+
 			let outgoing = request_manager
-				.next_request(&mut response_manager, request_props, peer_advertised)
+				.next_request(
+					&mut response_manager,
+					request_props,
+					peer_advertised,
+					&mut request_throttle_freq,
+				)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 		}
@@ -1246,8 +1265,15 @@ mod tests {
 		{
 			let request_props =
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+			let mut request_throttle_freq = gum::Freq::new();
+
 			let outgoing = request_manager
-				.next_request(&mut response_manager, request_props, peer_advertised)
+				.next_request(
+					&mut response_manager,
+					request_props,
+					peer_advertised,
+					&mut request_throttle_freq,
+				)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 		}
