@@ -124,8 +124,8 @@ pub trait WeightInfo {
 	fn seal_ecdsa_recover(r: u32, ) -> Weight;
 	fn seal_ecdsa_to_eth_address(r: u32, ) -> Weight;
 	fn seal_set_code_hash(r: u32, ) -> Weight;
-	fn add_delegate_dependency(r: u32, ) -> Weight;
-	fn remove_delegate_dependency(r: u32, ) -> Weight;
+	fn lock_delegate_dependency(r: u32, ) -> Weight;
+	fn unlock_delegate_dependency(r: u32, ) -> Weight;
 	fn seal_reentrance_count(r: u32, ) -> Weight;
 	fn seal_account_reentrance_count(r: u32, ) -> Weight;
 	fn seal_instantiation_nonce(r: u32, ) -> Weight;
@@ -1891,7 +1891,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `System::EventTopics` (r:2 w:2)
 	/// Proof: `System::EventTopics` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `r` is `[0, 32]`.
-	fn add_delegate_dependency(r: u32, ) -> Weight {
+	fn lock_delegate_dependency(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `928 + r * (131 ±0)`
 		//  Estimated: `6878 + r * (2606 ±0)`
@@ -1920,7 +1920,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `System::EventTopics` (r:2 w:2)
 	/// Proof: `System::EventTopics` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `r` is `[0, 32]`.
-	fn remove_delegate_dependency(r: u32, ) -> Weight {
+	fn unlock_delegate_dependency(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `969 + r * (183 ±0)`
 		//  Estimated: `129453 + r * (2568 ±0)`
@@ -3787,7 +3787,7 @@ impl WeightInfo for () {
 	/// Storage: `System::EventTopics` (r:2 w:2)
 	/// Proof: `System::EventTopics` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `r` is `[0, 32]`.
-	fn add_delegate_dependency(r: u32, ) -> Weight {
+	fn lock_delegate_dependency(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `928 + r * (131 ±0)`
 		//  Estimated: `6878 + r * (2606 ±0)`
@@ -3816,7 +3816,7 @@ impl WeightInfo for () {
 	/// Storage: `System::EventTopics` (r:2 w:2)
 	/// Proof: `System::EventTopics` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `r` is `[0, 32]`.
-	fn remove_delegate_dependency(r: u32, ) -> Weight {
+	fn unlock_delegate_dependency(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `969 + r * (183 ±0)`
 		//  Estimated: `129453 + r * (2568 ±0)`
