@@ -122,6 +122,9 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -171,6 +174,9 @@
 
 	<span class="attr">#[error(<span class="string">&quot;Candidate is not found&quot;</span>)]
 	</span>CandidateNotFound,
+
+	<span class="attr">#[error(<span class="string">&quot;CoreIndex cannot be determined for a candidate&quot;</span>)]
+	</span>CoreIndexUnavailable,
 
 	<span class="attr">#[error(<span class="string">&quot;Signature is invalid&quot;</span>)]
 	</span>InvalidSignature,

@@ -1934,6 +1934,31 @@
 <a href="#1934" id="1934">1934</a>
 <a href="#1935" id="1935">1935</a>
 <a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
+<a href="#1957" id="1957">1957</a>
+<a href="#1958" id="1958">1958</a>
+<a href="#1959" id="1959">1959</a>
+<a href="#1960" id="1960">1960</a>
+<a href="#1961" id="1961">1961</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2008,6 +2033,7 @@
 
 <span class="doccomment">/// The key type ID for a collator key.
 </span><span class="kw">pub const </span>COLLATOR_KEY_TYPE_ID: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;coll&quot;</span>);
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::primitives&quot;</span>;
 
 <span class="kw">mod </span>collator_app {
 	<span class="kw">use </span>application_crypto::{app_crypto, sr25519};
@@ -2682,17 +2708,29 @@
 ///
 /// Returns either an error, indicating that one of the signatures was invalid or that the index
 /// was out-of-bounds, or the number of signatures checked.
-</span><span class="kw">pub fn </span>check_candidate_backing&lt;H: AsRef&lt;[u8]&gt; + Clone + Encode&gt;(
+</span><span class="kw">pub fn </span>check_candidate_backing&lt;H: AsRef&lt;[u8]&gt; + Clone + Encode + core::fmt::Debug&gt;(
 	backed: <span class="kw-2">&amp;</span>BackedCandidate&lt;H&gt;,
 	signing_context: <span class="kw-2">&amp;</span>SigningContext&lt;H&gt;,
 	group_len: usize,
 	validator_lookup: <span class="kw">impl </span>Fn(usize) -&gt; <span class="prelude-ty">Option</span>&lt;ValidatorId&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;usize, ()&gt; {
 	<span class="kw">if </span>backed.validator_indices.len() != group_len {
+		<span class="macro">log::debug!</span>(
+			target: LOG_TARGET,
+			<span class="string">&quot;Check candidate backing: indices mismatch: group_len = {} , indices_len = {}&quot;</span>,
+			group_len,
+			backed.validator_indices.len(),
+		);
 		<span class="kw">return </span><span class="prelude-val">Err</span>(())
 	}
 
 	<span class="kw">if </span>backed.validity_votes.len() &gt; group_len {
+		<span class="macro">log::debug!</span>(
+			target: LOG_TARGET,
+			<span class="string">&quot;Check candidate backing: Too many votes, expected: {}, found: {}&quot;</span>,
+			group_len,
+			backed.validity_votes.len(),
+		);
 		<span class="kw">return </span><span class="prelude-val">Err</span>(())
 	}
 
@@ -2714,11 +2752,23 @@
 		<span class="kw">if </span>sig.verify(<span class="kw-2">&amp;</span>payload[..], <span class="kw-2">&amp;</span>validator_id) {
 			signed += <span class="number">1</span>;
 		} <span class="kw">else </span>{
+			<span class="macro">log::debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Check candidate backing: Invalid signature. validator_id = {:?}, validator_index = {} &quot;</span>,
+				validator_id,
+				val_in_group_idx,
+			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(())
 		}
 	}
 
 	<span class="kw">if </span>signed != backed.validity_votes.len() {
+		<span class="macro">log::error!</span>(
+			target: LOG_TARGET,
+			<span class="string">&quot;Check candidate backing: Too many signatures, expected = {}, found = {}&quot;</span>,
+			backed.validity_votes.len() ,
+			signed,
+		);
 		<span class="kw">return </span><span class="prelude-val">Err</span>(())
 	}
 

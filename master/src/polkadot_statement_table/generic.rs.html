@@ -986,10 +986,6 @@
 <a href="#986" id="986">986</a>
 <a href="#987" id="987">987</a>
 <a href="#988" id="988">988</a>
-<a href="#989" id="989">989</a>
-<a href="#990" id="990">990</a>
-<a href="#991" id="991">991</a>
-<a href="#992" id="992">992</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1028,6 +1024,7 @@
 };
 
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::statement-table&quot;</span>;
 
 <span class="doccomment">/// Context for the statement table.
 </span><span class="kw">pub trait </span>Context {
@@ -1044,9 +1041,6 @@
 
 	<span class="doccomment">/// get the digest of a candidate.
 	</span><span class="kw">fn </span>candidate_digest(candidate: <span class="kw-2">&amp;</span><span class="self">Self</span>::Candidate) -&gt; <span class="self">Self</span>::Digest;
-
-	<span class="doccomment">/// get the group of a candidate.
-	</span><span class="kw">fn </span>candidate_group(candidate: <span class="kw-2">&amp;</span><span class="self">Self</span>::Candidate) -&gt; <span class="self">Self</span>::GroupId;
 
 	<span class="doccomment">/// Whether a authority is a member of a group.
 	/// Members are meant to submit candidates and vote on validity.
@@ -1334,13 +1328,13 @@
 	</span><span class="kw">pub fn </span>import_statement(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		context: <span class="kw-2">&amp;</span>Ctx,
+		group_id: Ctx::GroupId,
 		statement: SignedStatement&lt;Ctx::Candidate, Ctx::Digest, Ctx::AuthorityId, Ctx::Signature&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;Summary&lt;Ctx::Digest, Ctx::GroupId&gt;&gt; {
 		<span class="kw">let </span>SignedStatement { statement, signature, sender: signer } = statement;
-
 		<span class="kw">let </span>res = <span class="kw">match </span>statement {
 			Statement::Seconded(candidate) =&gt;
-				<span class="self">self</span>.import_candidate(context, signer.clone(), candidate, signature),
+				<span class="self">self</span>.import_candidate(context, signer.clone(), candidate, signature, group_id),
 			Statement::Valid(digest) =&gt;
 				<span class="self">self</span>.validity_vote(context, signer.clone(), digest, ValidityVote::Valid(signature)),
 		};
@@ -1379,9 +1373,10 @@
 		authority: Ctx::AuthorityId,
 		candidate: Ctx::Candidate,
 		signature: Ctx::Signature,
+		group: Ctx::GroupId,
 	) -&gt; ImportResult&lt;Ctx&gt; {
-		<span class="kw">let </span>group = Ctx::candidate_group(<span class="kw-2">&amp;</span>candidate);
 		<span class="kw">if </span>!context.is_member_of(<span class="kw-2">&amp;</span>authority, <span class="kw-2">&amp;</span>group) {
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET,  authority = <span class="question-mark">?</span>authority, group = <span class="question-mark">?</span>group, <span class="string">&quot;New `Misbehavior::UnauthorizedStatement`, candidate backed by validator that doesn&#39;t belong to expected group&quot; </span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Misbehavior::UnauthorizedStatement(UnauthorizedStatement {
 				statement: SignedStatement {
 					signature,
@@ -1626,10 +1621,6 @@
 			Digest(candidate.<span class="number">1</span>)
 		}
 
-		<span class="kw">fn </span>candidate_group(candidate: <span class="kw-2">&amp;</span>Candidate) -&gt; GroupId {
-			GroupId(candidate.<span class="number">0</span>)
-		}
-
 		<span class="kw">fn </span>is_member_of(<span class="kw-2">&amp;</span><span class="self">self</span>, authority: <span class="kw-2">&amp;</span>AuthorityId, group: <span class="kw-2">&amp;</span>GroupId) -&gt; bool {
 			<span class="self">self</span>.authorities.get(authority).map(|v| v == group).unwrap_or(<span class="bool-val">false</span>)
 		}
@@ -1667,10 +1658,10 @@
 			sender: AuthorityId(<span class="number">1</span>),
 		};
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, statement_a);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), statement_a);
 		<span class="macro">assert!</span>(!table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)));
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, statement_b);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), statement_b);
 		<span class="macro">assert_eq!</span>(
 			table.detected_misbehavior[<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)][<span class="number">0</span>],
 			Misbehavior::MultipleCandidates(MultipleCandidates {
@@ -1703,10 +1694,10 @@
 			sender: AuthorityId(<span class="number">1</span>),
 		};
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, statement_a);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), statement_a);
 		<span class="macro">assert!</span>(!table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)));
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, statement_b);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), statement_b);
 		<span class="macro">assert!</span>(!table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)));
 	}
 
@@ -1727,7 +1718,7 @@
 			sender: AuthorityId(<span class="number">1</span>),
 		};
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, statement);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), statement);
 
 		<span class="macro">assert_eq!</span>(
 			table.detected_misbehavior[<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)][<span class="number">0</span>],
@@ -1761,7 +1752,7 @@
 		};
 		<span class="kw">let </span>candidate_a_digest = Digest(<span class="number">100</span>);
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, candidate_a);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), candidate_a);
 		<span class="macro">assert!</span>(!table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)));
 		<span class="macro">assert!</span>(!table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">2</span>)));
 
@@ -1771,7 +1762,7 @@
 			signature: Signature(<span class="number">2</span>),
 			sender: AuthorityId(<span class="number">2</span>),
 		};
-		table.import_statement(<span class="kw-2">&amp;</span>context, bad_validity_vote);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">3</span>), bad_validity_vote);
 
 		<span class="macro">assert_eq!</span>(
 			table.detected_misbehavior[<span class="kw-2">&amp;</span>AuthorityId(<span class="number">2</span>)][<span class="number">0</span>],
@@ -1803,7 +1794,7 @@
 			sender: AuthorityId(<span class="number">1</span>),
 		};
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, statement);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), statement);
 		<span class="macro">assert!</span>(!table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)));
 
 		<span class="kw">let </span>invalid_statement = SignedStatement {
@@ -1812,7 +1803,7 @@
 			sender: AuthorityId(<span class="number">1</span>),
 		};
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, invalid_statement);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), invalid_statement);
 		<span class="macro">assert!</span>(table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)));
 	}
 
@@ -1834,7 +1825,7 @@
 		};
 		<span class="kw">let </span>candidate_digest = Digest(<span class="number">100</span>);
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, statement);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), statement);
 		<span class="macro">assert!</span>(!table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)));
 
 		<span class="kw">let </span>extra_vote = SignedStatement {
@@ -1843,7 +1834,7 @@
 			sender: AuthorityId(<span class="number">1</span>),
 		};
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, extra_vote);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), extra_vote);
 		<span class="macro">assert_eq!</span>(
 			table.detected_misbehavior[<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)][<span class="number">0</span>],
 			Misbehavior::ValidityDoubleVote(ValidityDoubleVote::IssuedAndValidity(
@@ -1902,7 +1893,7 @@
 		};
 		<span class="kw">let </span>candidate_digest = Digest(<span class="number">100</span>);
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, statement);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), statement);
 
 		<span class="macro">assert!</span>(!table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)));
 		<span class="macro">assert!</span>(table.attested_candidate(<span class="kw-2">&amp;</span>candidate_digest, <span class="kw-2">&amp;</span>context, <span class="number">2</span>).is_none());
@@ -1913,7 +1904,7 @@
 			sender: AuthorityId(<span class="number">2</span>),
 		};
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, vote);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), vote);
 		<span class="macro">assert!</span>(!table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">2</span>)));
 		<span class="macro">assert!</span>(table.attested_candidate(<span class="kw-2">&amp;</span>candidate_digest, <span class="kw-2">&amp;</span>context, <span class="number">2</span>).is_some());
 	}
@@ -1936,7 +1927,7 @@
 		};
 
 		<span class="kw">let </span>summary = table
-			.import_statement(<span class="kw-2">&amp;</span>context, statement)
+			.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), statement)
 			.expect(<span class="string">&quot;candidate import to give summary&quot;</span>);
 
 		<span class="macro">assert_eq!</span>(summary.candidate, Digest(<span class="number">100</span>));
@@ -1963,7 +1954,7 @@
 		};
 		<span class="kw">let </span>candidate_digest = Digest(<span class="number">100</span>);
 
-		table.import_statement(<span class="kw-2">&amp;</span>context, statement);
+		table.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), statement);
 		<span class="macro">assert!</span>(!table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">1</span>)));
 
 		<span class="kw">let </span>vote = SignedStatement {
@@ -1972,8 +1963,9 @@
 			sender: AuthorityId(<span class="number">2</span>),
 		};
 
-		<span class="kw">let </span>summary =
-			table.import_statement(<span class="kw-2">&amp;</span>context, vote).expect(<span class="string">&quot;candidate vote to give summary&quot;</span>);
+		<span class="kw">let </span>summary = table
+			.import_statement(<span class="kw-2">&amp;</span>context, GroupId(<span class="number">2</span>), vote)
+			.expect(<span class="string">&quot;candidate vote to give summary&quot;</span>);
 
 		<span class="macro">assert!</span>(!table.detected_misbehavior.contains_key(<span class="kw-2">&amp;</span>AuthorityId(<span class="number">2</span>)));
 

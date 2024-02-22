@@ -70,6 +70,10 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -136,10 +140,14 @@
 		<span class="doccomment">/// Tells if tranch0 assignments could be sent in a single certificate.
 		/// Reserved for: `&lt;https://github.com/paritytech/polkadot-sdk/issues/628&gt;`
 		</span>EnableAssignmentsV2 = <span class="number">0</span>,
+		<span class="doccomment">/// This feature enables the extension of `BackedCandidate::validator_indices` by 8 bits.
+		/// The value stored there represents the assumed core index where the candidates
+		/// are backed. This is needed for the elastic scaling MVP.
+		</span>ElasticScalingMVP = <span class="number">1</span>,
 		<span class="doccomment">/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		</span>FirstUnassigned = <span class="number">1</span>,
+		</span>FirstUnassigned = <span class="number">2</span>,
 	}
 }
 </code></pre></div></section></main></body></html>
