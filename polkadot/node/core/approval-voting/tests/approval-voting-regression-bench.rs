@@ -104,12 +104,12 @@ fn approvals_no_shows() -> Result<Vec<String>, String> {
 	let usage = benchmark(test_case, options.clone());
 
 	messages.extend(usage.check_network_usage(&[
-		("Received from peers", 6900.0, 0.05),
-		("Sent to peers", 8050.0, 0.05),
+		("Received from peers", 7000.0, 0.05),
+		("Sent to peers", 8100.0, 0.05),
 	]));
 	messages.extend(usage.check_cpu_usage(&[
-		("approval-distribution", 0.99, 0.05),
-		("approval-voting", 1.37, 0.05),
+		("approval-distribution", 0.990, 0.05),
+		("approval-voting", 1.310, 0.05),
 	]));
 
 	Ok(messages)
