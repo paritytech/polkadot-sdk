@@ -251,6 +251,13 @@ impl PerSessionState {
 		if local_index.is_some() {
 			self.local_validator.get_or_insert(LocalValidatorIndex::Inactive);
 		}
+
+		gum::info!(
+			target: LOG_TARGET,
+			index_in_gossip_topology = ?local_index,
+			index_in_parachain_authorities = ?self.local_validator,
+			"Node uses the following topology indicies "
+		);
 	}
 
 	/// Returns `true` if local is neither active or inactive validator node.
