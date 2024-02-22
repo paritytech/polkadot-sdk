@@ -2275,6 +2275,8 @@
 <a href="#2275" id="2275">2275</a>
 <a href="#2276" id="2276">2276</a>
 <a href="#2277" id="2277">2277</a>
+<a href="#2278" id="2278">2278</a>
+<a href="#2279" id="2279">2279</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4164,18 +4166,20 @@
 	<span class="kw">if </span>rp_state.awaiting_validation.insert(candidate_hash) {
 		<span class="comment">// spawn background task.
 		</span><span class="kw">let </span>bg = <span class="kw">async move </span>{
-			<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = validate_and_make_available(params).<span class="kw">await </span>{
-				<span class="kw">if let </span>Error::BackgroundValidationMpsc(error) = e {
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(error) = validate_and_make_available(params).<span class="kw">await </span>{
+				<span class="kw">if let </span>Error::BackgroundValidationMpsc(error) = error {
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
+						<span class="question-mark">?</span>candidate_hash,
 						<span class="question-mark">?</span>error,
 						<span class="string">&quot;Mpsc background validation mpsc died during validation- leaf no longer active?&quot;
 					</span>);
 				} <span class="kw">else </span>{
 					<span class="macro">gum::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Failed to validate and make available: {:?}&quot;</span>,
-						e
+						<span class="question-mark">?</span>candidate_hash,
+						<span class="question-mark">?</span>error,
+						<span class="string">&quot;Failed to validate and make available&quot;</span>,
 					);
 				}
 			}

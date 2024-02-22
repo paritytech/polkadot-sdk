@@ -227,6 +227,17 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -248,7 +259,7 @@
 <span class="kw">use </span>cumulus_primitives_core::{
 	relay_chain::{
 		CommittedCandidateReceipt, Hash <span class="kw">as </span>RelayHash, Header <span class="kw">as </span>RelayHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidatorId,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -336,6 +347,17 @@
 	) -&gt; RelayChainResult&lt;<span class="prelude-ty">Option</span>&lt;PersistedValidationData&gt;&gt; {
 		<span class="self">self</span>.rpc_client
 			.parachain_host_persisted_validation_data(hash, para_id, occupied_core_assumption)
+			.<span class="kw">await
+	</span>}
+
+	<span class="kw">async fn </span>validation_code_hash(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		hash: RelayHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -&gt; RelayChainResult&lt;<span class="prelude-ty">Option</span>&lt;ValidationCodeHash&gt;&gt; {
+		<span class="self">self</span>.rpc_client
+			.validation_code_hash(hash, para_id, occupied_core_assumption)
 			.<span class="kw">await
 	</span>}
 

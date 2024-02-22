@@ -302,6 +302,26 @@
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -334,7 +354,7 @@
 <span class="kw">pub use </span>cumulus_primitives_core::{
 	relay_chain::{
 		CommittedCandidateReceipt, Hash <span class="kw">as </span>PHash, Header <span class="kw">as </span>PHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidatorId,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -498,6 +518,15 @@
 		relay_parent: PHash,
 		relevant_keys: <span class="kw-2">&amp;</span>Vec&lt;Vec&lt;u8&gt;&gt;,
 	) -&gt; RelayChainResult&lt;StorageProof&gt;;
+
+	<span class="doccomment">/// Returns the validation code hash for the given `para_id` using the given
+	/// `occupied_core_assumption`.
+	</span><span class="kw">async fn </span>validation_code_hash(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		relay_parent: PHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -&gt; RelayChainResult&lt;<span class="prelude-ty">Option</span>&lt;ValidationCodeHash&gt;&gt;;
 }
 
 <span class="attr">#[async_trait]
@@ -604,6 +633,17 @@
 
 	<span class="kw">async fn </span>header(<span class="kw-2">&amp;</span><span class="self">self</span>, block_id: BlockId) -&gt; RelayChainResult&lt;<span class="prelude-ty">Option</span>&lt;PHeader&gt;&gt; {
 		(<span class="kw-2">**</span><span class="self">self</span>).header(block_id).<span class="kw">await
+	</span>}
+
+	<span class="kw">async fn </span>validation_code_hash(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		relay_parent: PHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -&gt; RelayChainResult&lt;<span class="prelude-ty">Option</span>&lt;ValidationCodeHash&gt;&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>)
+			.validation_code_hash(relay_parent, para_id, occupied_core_assumption)
+			.<span class="kw">await
 	</span>}
 }
 </code></pre></div></section></main></body></html>
