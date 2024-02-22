@@ -293,7 +293,7 @@ pub mod pallet {
 			Self::do_migrate_delegation(&proxy_delegator, &delegator, amount)
 		}
 
-		/// Delegate funds to a `Delegate` account.
+		/// Delegate funds to a `Delegate` account and bonds it to [T::CoreStaking].
 		///
 		/// If delegation already exists, it increases the delegation by `amount`.
 		#[pallet::call_index(4)]
@@ -322,7 +322,8 @@ pub mod pallet {
 				T::Currency::reducible_balance(&who, Preservation::Preserve, Fortitude::Polite);
 			ensure!(delegator_balance >= amount, Error::<T>::NotEnoughFunds);
 
-			Self::do_delegate(&who, &delegate, amount)
+			Self::do_delegate(&who, &delegate, amount)?;
+			Self::do_bond(&delegate, amount)
 		}
 
 		/// Stop accepting new delegation.

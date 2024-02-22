@@ -303,11 +303,6 @@ pub(crate) fn setup_delegation_stake(
 			delegate,
 			amount_to_delegate
 		));
-		if index == 0 {
-			assert_ok!(DelegatedStaking::bond(&delegate, amount_to_delegate, &reward_acc));
-		} else {
-			assert_ok!(DelegatedStaking::bond_extra(&delegate, amount_to_delegate));
-		}
 	}
 
 	// sanity checks

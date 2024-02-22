@@ -324,10 +324,7 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 			RawOrigin::Signed(who.clone()).into(),
 			pool_account.clone(),
 			amount,
-		)?;
-
-		// Bond the funds to staking.
-		Pallet::<T>::bond(pool_account, amount, reward_account)
+		)
 	}
 
 	fn delegate_extra(
@@ -339,10 +336,7 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 			RawOrigin::Signed(who.clone()).into(),
 			pool_account.clone(),
 			amount,
-		)?;
-
-		// Bond the funds to staking.
-		Pallet::<T>::bond_extra(pool_account, amount)
+		)
 	}
 
 	fn release_delegation(

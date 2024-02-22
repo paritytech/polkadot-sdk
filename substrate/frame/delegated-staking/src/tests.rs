@@ -238,18 +238,11 @@ mod staking_integration {
 					100
 				);
 
-				assert_eq!(DelegatedStaking::stakeable_balance(&delegate), delegated_balance);
-
-				// unbonded balance is the newly delegated 100
-				assert_eq!(get_delegate(&delegate).available_to_bond(), 100);
-				if get_delegate(&delegate).is_bonded() {
-					assert_ok!(DelegatedStaking::bond_extra(&delegate, 100));
-				} else {
-					assert_ok!(DelegatedStaking::bond(&delegate, 100, &reward_acc));
-				}
-
-				// after bond, unbonded balance is 0
-				assert_eq!(get_delegate(&delegate).available_to_bond(), 0);
+				let delegate_obj = get_delegate(&delegate);
+				assert_eq!(delegate_obj.ledger.stakeable_balance(), delegated_balance);
+				assert_eq!(delegate_obj.available_to_bond(), 0);
+				assert_eq!(delegate_obj.available_to_bond(), 0);
+				assert_eq!(delegate_obj.bonded_stake(), delegated_balance);
 			}
 
 			assert_eq!(
@@ -404,20 +397,22 @@ mod staking_integration {
 			// if delegate calls Staking pallet directly with a different reward destination, it
 			// fails.
 			assert_noop!(
-				Staking::bond(RuntimeOrigin::signed(200), 100, RewardDestination::Stash),
+				Staking::set_payee(RuntimeOrigin::signed(200), RewardDestination::Stash),
 				StakingError::<T>::RewardDestinationRestricted
 			);
+
 			// non stash account different than one passed to DelegatedStaking also does not work..
 			assert_noop!(
-				Staking::bond(RuntimeOrigin::signed(200), 100, RewardDestination::Account(202)),
+				Staking::set_payee(RuntimeOrigin::signed(200), RewardDestination::Account(202)),
 				StakingError::<T>::RewardDestinationRestricted
 			);
+
 			// passing correct reward destination works
-			assert_ok!(Staking::bond(
+			assert_ok!(Staking::set_payee(
 				RuntimeOrigin::signed(200),
-				100,
 				RewardDestination::Account(201)
 			));
+
 			// amount is staked correctly
 			assert!(eq_stake(200, 100, 100));
 			assert_eq!(get_delegate(&200).available_to_bond(), 0);
@@ -425,16 +420,6 @@ mod staking_integration {
 
 			// free balance of delegate is untouched
 			assert_eq!(Balances::free_balance(200), balance_200);
-
-			// trying to change reward destination later directly via staking does not work.
-			assert_noop!(
-				Staking::set_payee(RuntimeOrigin::signed(200), RewardDestination::Staked),
-				StakingError::<T>::RewardDestinationRestricted
-			);
-			assert_noop!(
-				Staking::set_payee(RuntimeOrigin::signed(200), RewardDestination::Account(300)),
-				StakingError::<T>::RewardDestinationRestricted
-			);
 		});
 	}
 
