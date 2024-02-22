@@ -136,7 +136,7 @@ macro_rules! impl_tracksinfo_get {
 				>,
 			> {
 				<$tracksinfo as $crate::TracksInfo<$balance, $blocknumber>>::tracks()
-					.map(|t: sp_std::borrow::Cow<'static, $crate::Track<_, _, _>>| t.into_owned())
+					.map(|t| t.into_owned())
 					.collect()
 			}
 		}
@@ -756,7 +756,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 	type Class = TrackIdOf<T, I>;
 
 	fn classes() -> Vec<Self::Class> {
-		T::Tracks::tracks_ids()
+		T::Tracks::track_ids().collect()
 	}
 
 	fn access_poll<R>(

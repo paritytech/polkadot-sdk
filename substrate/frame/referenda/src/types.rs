@@ -111,8 +111,9 @@ pub struct Deposit<AccountId, Balance> {
 	pub amount: Balance,
 }
 
-const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
+pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
 
+/// Detailed information about the configuration of a referenda track
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
 	/// Name of this track.
@@ -138,6 +139,7 @@ pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LE
 	pub min_support: Curve,
 }
 
+/// Track groups the information of a voting track with its corresponding identifier
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Track<Id, Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
 	pub id: Id,
@@ -166,8 +168,8 @@ where
 	fn track_for(origin: &Self::RuntimeOrigin) -> Result<Self::Id, ()>;
 
 	/// Return the list of identifiers of the known tracks.
-	fn tracks_ids() -> Vec<Self::Id> {
-		Self::tracks().map(|x| x.id).collect()
+	fn track_ids() -> impl Iterator<Item = Self::Id> {
+		Self::tracks().map(|x| x.id)
 	}
 
 	/// Return the track info for track `id`, by default this just looks it up in `Self::tracks()`.
@@ -179,11 +181,7 @@ where
 	}
 
 	/// Check assumptions about the static data that this trait provides.
-	fn check_integrity() -> Result<(), &'static str>
-	where
-		Balance: 'static,
-		Moment: 'static,
-	{
+	fn check_integrity() -> Result<(), &'static str> {
 		use core::cmp::Ordering;
 		// Adapted from Iterator::is_sorted implementation available in nightly
 		// https://github.com/rust-lang/rust/issues/53485
