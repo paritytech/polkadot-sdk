@@ -2443,7 +2443,7 @@ mod claim_payout {
 
 			// when
 
-			// Claim permission of `PermissionlessWithdraw` allows payout claiming be default.
+			// Claim permission of `PermissionlessWithdraw` allows payout claiming as default.
 			assert_ok!(Pools::claim_payout_other(RuntimeOrigin::signed(80), 10));
 
 			// then
