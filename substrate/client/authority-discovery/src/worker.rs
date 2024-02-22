@@ -305,6 +305,8 @@ where
 
 	fn addresses_to_publish(&self) -> impl Iterator<Item = Multiaddr> {
 		let peer_id: Multihash = self.network.local_peer_id().into();
+		debug!(target: LOG_TARGET, "Publish ext addresses peer_id {:?} non_global_ip {:?}", peer_id, self.publish_non_global_ips);
+
 		let publish_non_global_ips = self.publish_non_global_ips;
 		self.network
 			.external_addresses()
@@ -317,9 +319,20 @@ where
 				a.iter().all(|p| match p {
 					// The `ip_network` library is used because its `is_global()` method is stable,
 					// while `is_global()` in the standard library currently isn't.
-					multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() => false,
-					multiaddr::Protocol::Ip6(ip) if !IpNetwork::from(ip).is_global() => false,
-					_ => true,
+					multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() => {
+						debug!(target: LOG_TARGET, "Publish ext addresses not global ipv4");
+
+						false
+					},
+					multiaddr::Protocol::Ip6(ip) if !IpNetwork::from(ip).is_global() => {
+						debug!(target: LOG_TARGET, "Publish ext addresses not global ipv6");
+
+						false
+					},
+					_ => {
+						debug!(target: LOG_TARGET, "Publish ext addresses something smart");
+						true
+					},
 				})
 			})
 			.map(move |a| {
