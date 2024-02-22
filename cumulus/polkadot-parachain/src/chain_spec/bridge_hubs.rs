@@ -108,7 +108,7 @@ impl BridgeHubRuntimeType {
 				Some("Bob".to_string()),
 				|_| (),
 			))),
-			other => Err(std::format!("No default config present for {:?}", other) )
+			other => Err(std::format!("No default config present for {:?}", other)),
 		}
 	}
 }
