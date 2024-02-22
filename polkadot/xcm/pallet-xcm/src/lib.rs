@@ -857,9 +857,8 @@ pub mod pallet {
 						timeout,
 						maybe_match_querier: Some(Location::here().into()),
 					},
-					VersionNotifier { origin, is_active } => {
-						QueryStatus::VersionNotifier { origin, is_active }
-					},
+					VersionNotifier { origin, is_active } =>
+						QueryStatus::VersionNotifier { origin, is_active },
 					Ready { response, at } => QueryStatus::Ready { response, at },
 				}
 			}
@@ -1363,23 +1362,21 @@ pub mod pallet {
 						fees,
 						weight_limit,
 					)?,
-					TransferType::DestinationReserve => {
+					TransferType::DestinationReserve =>
 						Self::destination_reserve_fees_instructions(
 							origin.clone(),
 							dest.clone(),
 							fees,
 							weight_limit,
-						)?
-					},
+						)?,
 					TransferType::Teleport => Self::teleport_fees_instructions(
 						origin.clone(),
 						dest.clone(),
 						fees,
 						weight_limit,
 					)?,
-					TransferType::RemoteReserve(_) => {
-						return Err(Error::<T>::InvalidAssetUnsupportedReserve.into())
-					},
+					TransferType::RemoteReserve(_) =>
+						return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
 				};
 				FeesHandling::Separate { local_xcm, remote_xcm }
 			};
@@ -2808,12 +2805,11 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 	) -> bool {
 		let mut versioned = VersionedAssets::from(assets.clone());
 		match ticket.unpack() {
-			(0, [GeneralIndex(i)]) => {
+			(0, [GeneralIndex(i)]) =>
 				versioned = match versioned.into_version(*i as u32) {
 					Ok(v) => v,
 					Err(()) => return false,
-				}
-			},
+				},
 			(0, []) => (),
 			_ => return false,
 		};
@@ -2839,17 +2835,15 @@ impl<T: Config> OnResponse for Pallet<T> {
 		querier: Option<&Location>,
 	) -> bool {
 		match Queries::<T>::get(query_id) {
-			Some(QueryStatus::Pending { responder, maybe_match_querier, .. }) => {
-				Location::try_from(responder).map_or(false, |r| origin == &r)
-					&& maybe_match_querier.map_or(true, |match_querier| {
+			Some(QueryStatus::Pending { responder, maybe_match_querier, .. }) =>
+				Location::try_from(responder).map_or(false, |r| origin == &r) &&
+					maybe_match_querier.map_or(true, |match_querier| {
 						Location::try_from(match_querier).map_or(false, |match_querier| {
 							querier.map_or(false, |q| q == &match_querier)
 						})
-					})
-			},
-			Some(QueryStatus::VersionNotifier { origin: r, .. }) => {
-				Location::try_from(r).map_or(false, |r| origin == &r)
-			},
+					}),
+			Some(QueryStatus::VersionNotifier { origin: r, .. }) =>
+				Location::try_from(r).map_or(false, |r| origin == &r),
 			_ => false,
 		}
 	}
@@ -3097,9 +3091,7 @@ where
 			caller.try_into().and_then(|o| match o {
 				Origin::Xcm(ref location)
 					if F::contains(&location.clone().try_into().map_err(|_| o.clone().into())?) =>
-				{
-					Ok(location.clone().try_into().map_err(|_| o.clone().into())?)
-				},
+					Ok(location.clone().try_into().map_err(|_| o.clone().into())?),
 				Origin::Xcm(location) => Err(Origin::Xcm(location).into()),
 				o => Err(o.into()),
 			})
