@@ -588,8 +588,10 @@ mod staking_integration {
 }
 
 mod pool_integration {
-	use pallet_nomination_pools::BondExtra;
 	use super::*;
+	use pallet_nomination_pools::BondExtra;
+	use sp_runtime::print;
+
 	#[test]
 	fn create_pool_test() {
 		ExtBuilder::default().build_and_execute(|| {
@@ -672,13 +674,16 @@ mod pool_integration {
 	fn bond_extra_to_pool() {
 		ExtBuilder::default().build_and_execute(|| {
 			let pool_id = create_pool(100, 200);
-			add_delegators(pool_id, 100, (300..310).collect(), 100);
+			add_delegators(pool_id, (300..310).collect(), 100);
 			let mut staked_amount = 200 + 100 * 10;
 			assert_eq!(get_pool_delegate(pool_id).bonded_stake(), staked_amount);
 
 			// bond extra to pool
 			for i in 300..310 {
-				assert_ok!(Pools::bond_extra(RawOrigin::Signed(i).into(), BondExtra::FreeBalance(50)));
+				assert_ok!(Pools::bond_extra(
+					RawOrigin::Signed(i).into(),
+					BondExtra::FreeBalance(50)
+				));
 				staked_amount += 50;
 				assert_eq!(get_pool_delegate(pool_id).bonded_stake(), staked_amount);
 			}
@@ -688,19 +693,38 @@ mod pool_integration {
 	#[test]
 	fn claim_pool_rewards() {
 		ExtBuilder::default().build_and_execute(|| {
-			let pool_id = create_pool(100, 200);
-			add_delegators(pool_id, 100, (300..310).collect(), 100);
-			add_delegators(pool_id, 100, (310..320).collect(), 200);
+            let creator = 100;
+            let creator_stake = 1000;
+			let pool_id = create_pool(creator, creator_stake);
+			add_delegators(pool_id, (300..310).collect(), 100);
+			add_delegators(pool_id, (310..320).collect(), 200);
+			let total_staked = creator_stake + 100 * 10 + 200 * 10;
 
-			// distribute rewards
+			// give some rewards
+			let reward_acc = Pools::create_reward_account(pool_id);
+            let reward_amount = 1000;
+			fund(&reward_acc, reward_amount);
 
 			// claim rewards
 			for i in 300..320 {
 				let pre_balance = Balances::free_balance(i);
+				let delegator_staked_balance = held_balance(&i);
+				// payout reward
 				assert_ok!(Pools::claim_payout(RawOrigin::Signed(i).into()));
-				assert!(Balances::free_balance(i) >= pre_balance);
-				println!("reward for {}: {}", i, Balances::free_balance(i) - pre_balance);
+
+				let reward = Balances::free_balance(i) - pre_balance;
+				assert_eq!(reward, delegator_staked_balance * reward_amount/total_staked);
 			}
+
+            // payout creator
+            let pre_balance = Balances::free_balance(creator);
+            assert_ok!(Pools::claim_payout(RawOrigin::Signed(creator).into()));
+            // verify they are paid out correctly
+            let reward = Balances::free_balance(creator) - pre_balance;
+            assert_eq!(reward, creator_stake * reward_amount/total_staked);
+
+            // reward account should only have left minimum balance after paying out everyone.
+			assert_eq!(Balances::free_balance(reward_acc), ExistentialDeposit::get());
 		});
 	}
 
@@ -757,10 +781,14 @@ mod pool_integration {
 		pallet_nomination_pools::LastPoolId::<T>::get()
 	}
 
-	fn add_delegators(pool_id: u32, creator: AccountId, delegators: Vec<AccountId>, amount: Balance) {
+	fn add_delegators(
+		pool_id: u32,
+		delegators: Vec<AccountId>,
+		amount: Balance,
+	) {
 		for delegator in delegators {
 			fund(&delegator, amount * 2);
-			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), creator, pool_id));
+			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), amount, pool_id));
 		}
 	}
 

@@ -664,14 +664,19 @@ impl<T: Config> Pallet<T> {
 		ledger: BTreeMap<T::AccountId, DelegationLedger<T>>,
 	) -> Result<(), TryRuntimeError> {
 		let mut delegation_aggregation = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
-		delegations.iter().for_each(|(delegator, delegation)| {
+		for (delegator, delegation) in delegations.iter() {
+			ensure!(T::CoreStaking::status(delegator).is_err(), "delegator should not be directly staked");
+			ensure!(!Self::is_delegate(delegator), "delegator cannot be delegate");
+
 			delegation_aggregation
 				.entry(delegation.delegate.clone())
 				.and_modify(|e| *e += delegation.amount)
 				.or_insert(delegation.amount);
-		});
+		}
 
         for (delegate, total_delegated) in delegation_aggregation {
+			ensure!(!Self::is_delegator(&delegate), "delegate cannot be delegator");
+
             let ledger = ledger.get(&delegate).expect("ledger should exist");
             ensure!(
                 ledger.total_delegated == total_delegated,
