@@ -51,7 +51,7 @@ sp-externalities = { path = "../../primitives/externalities", default-features =
 
 # 3rd party
 array-bytes = { version = "6.1", optional = true }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 [dev-dependencies]
 futures = "0.3.21"
@@ -62,8 +62,8 @@ sc-executor-common = { path = "../../client/executor/common" }
 sp-consensus = { path = "../../primitives/consensus/common" }
 substrate-test-runtime-client = { path = "client" }
 sp-tracing = { path = "../../primitives/tracing" }
-serde = { version = "1.0.195", features = ["alloc", "derive"], default-features = false }
-serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
+serde = { features = ["alloc", "derive"], workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true }
