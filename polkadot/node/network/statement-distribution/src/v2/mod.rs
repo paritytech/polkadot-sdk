@@ -3335,11 +3335,13 @@ pub(crate) async fn respond_task(
 	mut sender: mpsc::Sender<ResponderMessage>,
 ) {
 	let mut pending_out = FuturesUnordered::new();
+	let mut active_peers = HashSet::new();
 	loop {
 		// Ensure we are not handling too many requests in parallel.
 		if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
 			// Wait for one to finish:
 			pending_out.next().await;
+			todo!("Clear peerID on future completion. Attach peerID to the futures to get it as result when they complete or sth similar."); 
 		}
 
 		let req = match receiver.recv(|| vec![COST_INVALID_REQUEST]).await.into_nested() {
@@ -3354,7 +3356,14 @@ pub(crate) async fn respond_task(
 			},
 		};
 
+		// If peer currently being served drop request
+		if active_peers.contains(&req.peer) {
+			todo!("Debug log or error / reputation change here");
+			continue
+		}
+
 		let (pending_sent_tx, pending_sent_rx) = oneshot::channel();
+		let peer = req.peer.clone();
 		if let Err(err) = sender
 			.feed(ResponderMessage { request: req, sent_feedback: pending_sent_tx })
 			.await
@@ -3363,5 +3372,6 @@ pub(crate) async fn respond_task(
 			return
 		}
 		pending_out.push(pending_sent_rx);
+		active_peers.insert(peer);
 	}
 }
