@@ -438,7 +438,7 @@ impl ClusterTracker {
 				num_pending = ?self.pending.len(),
 				validators  = ?self.pending.keys().collect::<Vec<_>>(),
 				"Cluster has pending statements, something wrong with our connection to our group peers \n
-				 If error persists accross multiple consecutive sessions, validator might need restart"
+				Restart might be needed if validator gets 0 backing rewards for more than 3-4 consecutive sessions"
 			);
 		}
 	}
