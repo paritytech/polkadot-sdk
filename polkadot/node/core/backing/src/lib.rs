@@ -235,7 +235,7 @@ struct PerRelayParentState {
 	/// The core states for all cores.
 	cores: Vec<CoreState>,
 	/// The validator index -> group mapping at this relay parent.
-	validator_to_group: IndexedVec<ValidatorIndex, Option<GroupIndex>>,
+	validator_to_group: Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
 	/// The associated group rotation information.
 	group_rotation_info: GroupRotationInfo,
 }
@@ -290,7 +290,8 @@ struct State {
 	/// or explicit view for which a `Seconded` statement has been successfully imported.
 	per_candidate: HashMap<CandidateHash, PerCandidateState>,
 	/// Cache the per-session Validator->Group mapping.
-	validator_to_group_cache: LruMap<SessionIndex, IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
+	validator_to_group_cache:
+		LruMap<SessionIndex, Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>>,
 	/// A cloneable sender which is dispatched to background candidate validation tasks to inform
 	/// the main task of the result.
 	background_validation_tx: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
@@ -1105,7 +1106,7 @@ async fn construct_per_relay_parent_state<Context>(
 	keystore: &KeystorePtr,
 	validator_to_group_cache: &mut LruMap<
 		SessionIndex,
-		IndexedVec<ValidatorIndex, Option<GroupIndex>>,
+		Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
 	>,
 	mode: ProspectiveParachainsMode,
 ) -> Result<Option<PerRelayParentState>, Error> {
@@ -1214,7 +1215,7 @@ async fn construct_per_relay_parent_state<Context>(
 				}
 			}
 
-			IndexedVec::<_, _>::from(vector)
+			Arc::new(IndexedVec::<_, _>::from(vector))
 		})
 		.expect("Just inserted");
 
