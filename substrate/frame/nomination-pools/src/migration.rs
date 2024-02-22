@@ -165,7 +165,7 @@ mod v9 {
 			// There should no longer be `PermissionlessAll` or `PermissionlessWithdraw` claim
 			// permissions in storage.
 			ensure!(
-				ClaimPermissions::<T>::iter().all(|val| match val {
+				ClaimPermissions::<T>::iter().all(|(_, val)| match val {
 					ClaimPermission::Permissioned | ClaimPermission::PermissionlessCompound => true,
 					_ => false,
 				}),
