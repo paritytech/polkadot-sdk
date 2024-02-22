@@ -66,20 +66,13 @@ impl BenchmarkUsage {
 		check_usage(&self.benchmark_name, &self.cpu_usage, checks)
 	}
 
-
 	pub fn cpu_usage_diff(&self, other: &Self, resource_name: &str) -> Option<f64> {
-		let self_res = self
-			.cpu_usage
-			.iter()
-			.find(|v| v.resource_name == resource_name);
-		let other_res = other
-			.cpu_usage
-			.iter()
-			.find(|v| v.resource_name == resource_name);
+		let self_res = self.cpu_usage.iter().find(|v| v.resource_name == resource_name);
+		let other_res = other.cpu_usage.iter().find(|v| v.resource_name == resource_name);
 
 		match (self_res, other_res) {
 			(Some(self_res), Some(other_res)) => Some(self_res.diff(other_res)),
-			_ => None
+			_ => None,
 		}
 	}
 }
