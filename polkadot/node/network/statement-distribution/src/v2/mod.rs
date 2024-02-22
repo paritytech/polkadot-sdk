@@ -419,7 +419,7 @@ pub(crate) async fn handle_network_update<Context>(
 ) {
 	match update {
 		NetworkBridgeEvent::PeerConnected(peer_id, role, protocol_version, mut authority_ids) => {
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?protocol_version, ?authority_ids, "Peer connected");
+			gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?protocol_version, "Peer connected");
 
 			let versioned_protocol = if protocol_version != ValidationVersion::V2.into() &&
 				protocol_version != ValidationVersion::V3.into()
@@ -1287,9 +1287,8 @@ async fn circulate_statement<Context>(
 	statement: SignedStatement,
 ) {
 	let session_info = &per_session.session_info;
-	let candidate_hash = *statement.payload().candidate_hash();
 
-	gum::info!(target: LOG_TARGET, ?candidate_hash, "Sharing statement");
+	let candidate_hash = *statement.payload().candidate_hash();
 
 	let compact_statement = statement.payload().clone();
 	let is_confirmed = candidates.is_confirmed(&candidate_hash);
@@ -1298,15 +1297,10 @@ async fn circulate_statement<Context>(
 	let (local_validator, targets) = {
 		let local_validator = match relay_parent_state.local_validator.as_mut() {
 			Some(v) => v,
-			None => {
-				gum::info!(target: LOG_TARGET, ?candidate_hash, "Not a validator");
-
-				return
-			}, // sanity: nothing to propagate if not a validator.
+			None => return, // sanity: nothing to propagate if not a validator.
 		};
 
 		let statement_group = per_session.groups.by_validator_index(originator);
-		let group_saved_locally = local_validator.active.as_ref().map(|active| active.group).unwrap_or(GroupIndex(999)).0;
 
 		// We're not meant to circulate statements in the cluster until we have the confirmed
 		// candidate.
@@ -1347,10 +1341,6 @@ async fn circulate_statement<Context>(
 			.filter(|v| !cluster_relevant || !all_cluster_targets.contains(v))
 			.map(|v| (v, DirectTargetKind::Grid));
 
-		gum::info!(target: LOG_TARGET, ?candidate_hash, ?cluster_targets, ?cluster_relevant, ?all_cluster_targets, ?grid_targets, 
-			?statement_group, 
-			?group_saved_locally, "Build targets");
-
 		let targets = cluster_targets
 			.into_iter()
 			.flatten()
@@ -1364,9 +1354,6 @@ async fn circulate_statement<Context>(
 	};
 
 	let mut statement_to_peers: Vec<(PeerId, ProtocolVersion)> = Vec::new();
-
-	gum::info!(target: LOG_TARGET, ?candidate_hash, targets_len = ?targets.len(), ?originator, "Circulating statement");
-
 	for (target, authority_id, kind) in targets {
 		// Find peer ID based on authority ID, and also filter to connected.
 		let peer_id: (PeerId, ProtocolVersion) = match authorities.get(&authority_id) {
@@ -1378,15 +1365,7 @@ async fn circulate_statement<Context>(
 					.protocol_version
 					.into(),
 			),
-			None => {
-				gum::info!(target: LOG_TARGET, ?candidate_hash, ?target, ?originator, ?authority_id, "Could not find peer id");
-
-				continue
-			}
-			Some(p) => {
-				gum::info!(target: LOG_TARGET, ?candidate_hash, ?target, ?originator, has_knowledges = ?peers.get(p).is_some(), "Found p");
-				continue
-			},
+			None | Some(_) => continue,
 		};
 
 		match kind {
@@ -1395,16 +1374,14 @@ async fn circulate_statement<Context>(
 					.active
 					.as_mut()
 					.expect("cluster target means local is active validator; qed");
-				let res = active.cluster_tracker.can_send(target, originator, compact_statement.clone());
 
 				// At this point, all peers in the cluster should 'know'
 				// the candidate, so we don't expect for this to fail.
-				if let Ok(()) = res
+				if let Ok(()) =
+					active.cluster_tracker.can_send(target, originator, compact_statement.clone())
 				{
 					active.cluster_tracker.note_sent(target, originator, compact_statement.clone());
 					statement_to_peers.push(peer_id);
-				} else {
-					gum::info!(target: LOG_TARGET, ?candidate_hash, ?target, ?originator, ?kind, ?res, "Can not send");
 				}
 			},
 			DirectTargetKind::Grid => {
@@ -1419,7 +1396,6 @@ async fn circulate_statement<Context>(
 			},
 		}
 	}
-	gum::info!(target: LOG_TARGET, ?candidate_hash, len = ?statement_to_peers.len(), "Statement to peers");
 
 	let statement_to_v2_peers =
 		filter_by_peer_version(&statement_to_peers, ValidationVersion::V2.into());
