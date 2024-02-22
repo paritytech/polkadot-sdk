@@ -147,8 +147,6 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -241,8 +239,6 @@
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>BAD_SIGNATURE: Rep = Rep::new(-<span class="number">100</span>, <span class="string">&quot;BEEFY: Bad signature&quot;</span>);
 	<span class="comment">// Message received with vote from voter not in validator set.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>UNKNOWN_VOTER: Rep = Rep::new(-<span class="number">150</span>, <span class="string">&quot;BEEFY: Unknown voter&quot;</span>);
-	<span class="comment">// A message received that cannot be evaluated relative to our current state.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>OUT_OF_SCOPE_MESSAGE: Rep = Rep::new(-<span class="number">500</span>, <span class="string">&quot;BEEFY: Out-of-scope message&quot;</span>);
 	<span class="comment">// Message containing invalid proof.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>INVALID_PROOF: Rep = Rep::new(-<span class="number">5000</span>, <span class="string">&quot;BEEFY: Invalid commit&quot;</span>);
 	<span class="comment">// Reputation cost per signature checked for invalid proof.

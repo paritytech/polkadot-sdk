@@ -773,6 +773,11 @@
 <a href="#773" id="773">773</a>
 <a href="#774" id="774">774</a>
 <a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -831,6 +836,8 @@
 	</span>Keep(H, ReputationChange),
 	<span class="comment">// discard, applying cost/benefit to originator.
 	</span>Discard(ReputationChange),
+	<span class="comment">// ignore, no cost/benefit applied to originator.
+	</span>DiscardNoReport,
 }
 
 <span class="doccomment">/// An outcome of examining a message.
@@ -843,7 +850,7 @@
 	<span class="doccomment">/// Message is from the future. Reject.
 	</span>RejectFuture,
 	<span class="doccomment">/// Message cannot be evaluated. Reject.
-	</span>RejectOutOfScope,
+	</span>CannotEvaluate,
 }
 
 <span class="doccomment">/// BEEFY gossip message type that gets encoded and sent on the network.
@@ -943,18 +950,14 @@
 			.as_ref()
 			.map(|f|
 				<span class="comment">// only from current set and only [filter.start, filter.end]
-				</span><span class="kw">if </span>set_id &lt; f.validator_set.id() {
+				</span><span class="kw">if </span>set_id &lt; f.validator_set.id() || round &lt; f.start {
 					Consider::RejectPast
-				} <span class="kw">else if </span>set_id &gt; f.validator_set.id() {
-					Consider::RejectFuture
-				} <span class="kw">else if </span>round &lt; f.start {
-					Consider::RejectPast
-				} <span class="kw">else if </span>round &gt; f.end {
+				} <span class="kw">else if </span>set_id &gt; f.validator_set.id() || round &gt; f.end {
 					Consider::RejectFuture
 				} <span class="kw">else </span>{
 					Consider::Accept
 				})
-			.unwrap_or(Consider::RejectOutOfScope)
+			.unwrap_or(Consider::CannotEvaluate)
 	}
 
 	<span class="doccomment">/// Return true if `round` is &gt;= than `max(session_start, best_beefy)`,
@@ -974,7 +977,7 @@
 					Consider::Accept
 				}
 			)
-			.unwrap_or(Consider::RejectOutOfScope)
+			.unwrap_or(Consider::CannotEvaluate)
 	}
 
 	<span class="doccomment">/// Add new _known_ `round` to the set of seen valid justifications.
@@ -1019,7 +1022,7 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
 		known_peers: Arc&lt;Mutex&lt;KnownPeers&lt;B&gt;&gt;&gt;,
 	) -&gt; (GossipValidator&lt;B&gt;, TracingUnboundedReceiver&lt;PeerReport&gt;) {
-		<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">&quot;mpsc_beefy_gossip_validator&quot;</span>, <span class="number">10_000</span>);
+		<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">&quot;mpsc_beefy_gossip_validator&quot;</span>, <span class="number">100_000</span>);
 		<span class="kw">let </span>val = GossipValidator {
 			votes_topic: votes_topic::&lt;B&gt;(),
 			justifs_topic: proofs_topic::&lt;B&gt;(),
@@ -1064,7 +1067,9 @@
 			<span class="kw">match </span>filter.consider_vote(round, set_id) {
 				Consider::RejectPast =&gt; <span class="kw">return </span>Action::Discard(cost::OUTDATED_MESSAGE),
 				Consider::RejectFuture =&gt; <span class="kw">return </span>Action::Discard(cost::FUTURE_MESSAGE),
-				Consider::RejectOutOfScope =&gt; <span class="kw">return </span>Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
+				<span class="comment">// When we can&#39;t evaluate, it&#39;s our fault (e.g. filter not initialized yet), we
+				// discard the vote without punishing or rewarding the sending peer.
+				</span>Consider::CannotEvaluate =&gt; <span class="kw">return </span>Action::DiscardNoReport,
 				Consider::Accept =&gt; {},
 			}
 
@@ -1105,7 +1110,9 @@
 			</span><span class="kw">match </span>guard.consider_finality_proof(round, set_id) {
 				Consider::RejectPast =&gt; <span class="kw">return </span>Action::Discard(cost::OUTDATED_MESSAGE),
 				Consider::RejectFuture =&gt; <span class="kw">return </span>Action::Discard(cost::FUTURE_MESSAGE),
-				Consider::RejectOutOfScope =&gt; <span class="kw">return </span>Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
+				<span class="comment">// When we can&#39;t evaluate, it&#39;s our fault (e.g. filter not initialized yet), we
+				// discard the proof without punishing or rewarding the sending peer.
+				</span>Consider::CannotEvaluate =&gt; <span class="kw">return </span>Action::DiscardNoReport,
 				Consider::Accept =&gt; {},
 			}
 
@@ -1132,7 +1139,9 @@
 						Action::Keep(<span class="self">self</span>.justifs_topic, benefit::VALIDATED_PROOF)
 					}
 				})
-				.unwrap_or(Action::Discard(cost::OUT_OF_SCOPE_MESSAGE))
+				<span class="comment">// When we can&#39;t evaluate, it&#39;s our fault (e.g. filter not initialized yet), we
+				// discard the proof without punishing or rewarding the sending peer.
+				</span>.unwrap_or(Action::DiscardNoReport)
 		};
 		<span class="kw">if </span><span class="macro">matches!</span>(action, Action::Keep(<span class="kw">_</span>, <span class="kw">_</span>)) {
 			<span class="self">self</span>.gossip_filter.write().mark_round_as_proven(round);
@@ -1179,6 +1188,7 @@
 				<span class="self">self</span>.report(<span class="kw-2">*</span>sender, cb);
 				ValidationResult::Discard
 			},
+			Action::DiscardNoReport =&gt; ValidationResult::Discard,
 		}
 	}
 
@@ -1354,8 +1364,8 @@
 		<span class="comment">// filter not initialized
 		</span><span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
-		expected_report.cost_benefit = cost::OUT_OF_SCOPE_MESSAGE;
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
+		<span class="comment">// nothing reported
+		</span><span class="macro">assert!</span>(report_stream.try_recv().is_err());
 
 		gv.update_filter(GossipFilterCfg { start: <span class="number">0</span>, end: <span class="number">10</span>, validator_set: <span class="kw-2">&amp;</span>validator_set });
 		<span class="comment">// nothing in cache first time
