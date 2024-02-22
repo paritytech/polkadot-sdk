@@ -524,6 +524,8 @@ where
 					return Err(Error::VerifyingDhtPayload)
 				}
 
+				debug!(target: LOG_TARGET, "Record  === {:?}", record);
+
 				let addresses: Vec<Multiaddr> = schema::AuthorityRecord::decode(record.as_slice())
 					.map(|a| a.addresses)
 					.map_err(Error::DecodingProto)?
@@ -546,6 +548,8 @@ where
 					.into_iter()
 					.filter(|a| get_peer_id(a).filter(|p| *p != local_peer_id).is_some())
 					.collect();
+
+				debug!(target: LOG_TARGET, "Record  === {:?}", addresses);
 
 				let res = single(addresses.iter().map(get_peer_id))
 					.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentPeerIds)? // different peer_id in records
