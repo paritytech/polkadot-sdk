@@ -781,11 +781,11 @@ fn list_benchmark(
 	let mut benchmarks = BTreeMap::new();
 
 	// Sort and de-dub by pallet and function name.
-	benchmarks_to_run.iter().for_each(|(pallet, extrinsic, _, _, _, _)| {
+	benchmarks_to_run.iter().for_each(|(_, _, _, _, pallet_str, extrinsic_str)| {
 		benchmarks
-			.entry(String::from_utf8_lossy(pallet).to_string())
+			.entry(pallet_str)
 			.or_insert_with(BTreeSet::new)
-			.insert(String::from_utf8_lossy(extrinsic).to_string());
+			.insert(extrinsic_str);
 	});
 
 	match list_output {
