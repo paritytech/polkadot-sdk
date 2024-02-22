@@ -47,10 +47,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
 #[cfg(feature = "std")]
 use sp_std::fmt;
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	prelude::*,
-};
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 pub use pallet::*;
 
@@ -601,9 +598,7 @@ impl<T: Config> Pallet<T> {
 	/// scheduled cores. If these conditions are not met, the execution of the function fails.
 	pub(crate) fn process_candidates<GV>(
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-		candidates: Vec<BackedCandidate<T::Hash>>,
-		scheduled: &BTreeMap<ParaId, CoreIndex>,
-		scheduled_by_core: &BTreeMap<CoreIndex, ParaId>,
+		candidates: Vec<(BackedCandidate<T::Hash>, CoreIndex)>,
 		group_validators: GV,
 		core_index_enabled: bool,
 	) -> Result<ProcessedCandidates<T::Hash>, DispatchError>
@@ -612,9 +607,7 @@ impl<T: Config> Pallet<T> {
 	{
 		let now = <frame_system::Pallet<T>>::block_number();
 
-		ensure!(candidates.len() <= scheduled_by_core.len(), Error::<T>::UnscheduledCandidate);
-
-		if scheduled.is_empty() {
+		if candidates.is_empty() {
 			return Ok(ProcessedCandidates::default())
 		}
 
@@ -650,7 +643,7 @@ impl<T: Config> Pallet<T> {
 			//
 			// In the meantime, we do certain sanity checks on the candidates and on the scheduled
 			// list.
-			for (candidate_idx, backed_candidate) in candidates.iter().enumerate() {
+			for (candidate_idx, (backed_candidate, core_index)) in candidates.iter().enumerate() {
 				let relay_parent_hash = backed_candidate.descriptor().relay_parent;
 				let para_id = backed_candidate.descriptor().para_id;
 
@@ -681,25 +674,19 @@ impl<T: Config> Pallet<T> {
 					Ok(rpn) => rpn,
 				};
 
-				let (validator_indices, maybe_core_index) =
+				let (validator_indices, _) =
 					backed_candidate.validator_indices_and_core_index(core_index_enabled);
-				let core_idx = if let Some(core_idx) = maybe_core_index {
-					ensure!(
-						scheduled_by_core.get(&core_idx) == Some(&para_id),
-						Error::<T>::UnscheduledCandidate
-					);
 
-					// We assume the core index is valid because of the checks done in
-					// `filter_elastic_scaling_candidates`.
+				log::debug!(
+					target: LOG_TARGET,
+					"Candidate {:?} on {:?},
+					core_index_enabled = {}",
+					backed_candidate.hash(),
+					core_index,
+					core_index_enabled
+				);
 
-					core_idx
-				} else {
-					*scheduled.get(&para_id).ok_or(Error::<T>::UnscheduledCandidate)?
-				};
-
-				log::debug!(target: LOG_TARGET, "Candidate {:?} on {:?}, core_index_enabled = {}", backed_candidate.hash(), core_idx, core_index_enabled);
-
-				check_assignment_in_order(core_idx)?;
+				check_assignment_in_order(core_index)?;
 
 				let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 
@@ -713,7 +700,7 @@ impl<T: Config> Pallet<T> {
 				// assigned to core at block `N + 1`. Thus, `relay_parent_number + 1`
 				// will always land in the current session.
 				let group_idx = <scheduler::Pallet<T>>::group_assigned_to_core(
-					core_idx,
+					*core_index,
 					relay_parent_number + One::one(),
 				)
 				.ok_or_else(|| {
@@ -780,7 +767,7 @@ impl<T: Config> Pallet<T> {
 				}
 
 				core_indices_and_backers.push((
-					(core_idx, para_id),
+					(*core_index, para_id),
 					backers,
 					group_idx,
 					relay_parent_number,
@@ -792,7 +779,7 @@ impl<T: Config> Pallet<T> {
 
 		// one more sweep for actually writing to storage.
 		let core_indices = core_indices_and_backers.iter().map(|(c, ..)| *c).collect();
-		for (candidate, (core, backers, group, relay_parent_number)) in
+		for ((candidate, _), (core, backers, group, relay_parent_number)) in
 			candidates.into_iter().zip(core_indices_and_backers)
 		{
 			let para_id = candidate.descriptor().para_id;

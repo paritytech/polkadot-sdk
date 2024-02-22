@@ -925,121 +925,16 @@ fn candidate_checks() {
 		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
-		// unscheduled candidate.
-		{
-			let mut candidate = TestCandidateBuilder {
-				para_id: chain_a,
-				relay_parent: System::parent_hash(),
-				pov_hash: Hash::repeat_byte(1),
-				persisted_validation_data_hash: make_vdata_hash(chain_a).unwrap(),
-				hrmp_watermark: RELAY_PARENT_NUM,
-				..Default::default()
-			}
-			.build();
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
-			let backed = back_candidate(
-				candidate,
-				&validators,
-				group_validators(GroupIndex::from(0)).unwrap().as_ref(),
-				&keystore,
-				&signing_context,
-				BackingKind::Threshold,
-				None,
-			);
-
-			// No scheduled cores.
-			assert_noop!(
-				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
-					vec![backed.clone()],
-					&BTreeMap::new(),
-					&BTreeMap::new(),
-					&group_validators,
-					false
-				),
-				Error::<Test>::UnscheduledCandidate
-			);
-
-			// Core scheduled for another para.
-			assert_noop!(
-				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
-					vec![backed.clone()],
-					&[chain_b_assignment].into_iter().collect(),
-					&[(chain_b_assignment.1, chain_b_assignment.0)].into_iter().collect(),
-					&group_validators,
-					false
-				),
-				Error::<Test>::UnscheduledCandidate
-			);
-
-			// another candidate for the same para, but only one core scheduled for the para.
-			let mut another_candidate = TestCandidateBuilder {
-				para_id: chain_a,
-				relay_parent: System::parent_hash(),
-				pov_hash: Hash::repeat_byte(2),
-				persisted_validation_data_hash: make_vdata_hash(chain_a).unwrap(),
-				hrmp_watermark: RELAY_PARENT_NUM,
-				..Default::default()
-			}
-			.build();
-			collator_sign_candidate(Sr25519Keyring::One, &mut another_candidate);
-			let another_backed = back_candidate(
-				another_candidate,
-				&validators,
-				group_validators(GroupIndex::from(0)).unwrap().as_ref(),
-				&keystore,
-				&signing_context,
-				BackingKind::Threshold,
-				None,
-			);
-
-			assert_noop!(
-				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
-					vec![backed, another_backed],
-					&[chain_a_assignment].into_iter().collect(),
-					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
-					&group_validators,
-					false
-				),
-				Error::<Test>::UnscheduledCandidate
-			);
-
-			// core scheduled for another para. ElasticScalingMVP enabled and cores supplied.
-			let mut candidate = TestCandidateBuilder {
-				para_id: chain_a,
-				relay_parent: System::parent_hash(),
-				pov_hash: Hash::repeat_byte(1),
-				persisted_validation_data_hash: make_vdata_hash(chain_a).unwrap(),
-				hrmp_watermark: RELAY_PARENT_NUM,
-				..Default::default()
-			}
-			.build();
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
-			let backed = back_candidate(
-				candidate,
-				&validators,
-				group_validators(GroupIndex::from(0)).unwrap().as_ref(),
-				&keystore,
-				&signing_context,
-				BackingKind::Threshold,
-				Some(chain_a_assignment.1),
-			);
-			assert_noop!(
-				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
-					vec![backed],
-					&[chain_b_assignment].into_iter().collect(),
-					&[(chain_b_assignment.1, chain_b_assignment.0)].into_iter().collect(),
-					&group_validators,
-					true
-				),
-				Error::<Test>::UnscheduledCandidate
-			);
-		}
+		// no candidates.
+		assert_eq!(
+			ParaInclusion::process_candidates(
+				&allowed_relay_parents,
+				vec![],
+				&group_validators,
+				false
+			),
+			Ok(ProcessedCandidates::default())
+		);
 
 		// candidates out of order.
 		{
@@ -1090,14 +985,7 @@ fn candidate_checks() {
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					vec![backed_b, backed_a],
-					&[chain_a_assignment, chain_b_assignment].into_iter().collect(),
-					&[
-						(chain_a_assignment.1, chain_a_assignment.0),
-						(chain_b_assignment.1, chain_b_assignment.0)
-					]
-					.into_iter()
-					.collect(),
+					vec![(backed_b, chain_b_assignment.1), (backed_a, chain_a_assignment.1)],
 					&group_validators,
 					false
 				),
@@ -1131,9 +1019,7 @@ fn candidate_checks() {
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					vec![backed],
-					&[chain_a_assignment].into_iter().collect(),
-					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
+					vec![(backed, chain_a_assignment.1)],
 					&group_validators,
 					false
 				),
@@ -1192,14 +1078,7 @@ fn candidate_checks() {
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					vec![backed_b, backed_a],
-					&[chain_a_assignment, chain_b_assignment].into_iter().collect(),
-					&[
-						(chain_a_assignment.1, chain_a_assignment.0),
-						(chain_b_assignment.1, chain_b_assignment.0)
-					]
-					.into_iter()
-					.collect(),
+					vec![(backed_b, chain_b_assignment.1), (backed_a, chain_a_assignment.1)],
 					&group_validators,
 					false
 				),
@@ -1238,9 +1117,7 @@ fn candidate_checks() {
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					vec![backed],
-					&[thread_a_assignment].into_iter().collect(),
-					&[(thread_a_assignment.1, thread_a_assignment.0)].into_iter().collect(),
+					vec![(backed, thread_a_assignment.1)],
 					&group_validators,
 					false
 				),
@@ -1291,9 +1168,7 @@ fn candidate_checks() {
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					vec![backed],
-					&[chain_a_assignment].into_iter().collect(),
-					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
+					vec![(backed, chain_a_assignment.1)],
 					&group_validators,
 					false
 				),
@@ -1334,9 +1209,7 @@ fn candidate_checks() {
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					vec![backed],
-					&[chain_a_assignment].into_iter().collect(),
-					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
+					vec![(backed, chain_a_assignment.1)],
 					&group_validators,
 					false
 				),
@@ -1387,9 +1260,7 @@ fn candidate_checks() {
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					vec![backed],
-					&[chain_a_assignment].into_iter().collect(),
-					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
+					vec![(backed, chain_a_assignment.1)],
 					&group_validators,
 					false
 				),
@@ -1424,9 +1295,7 @@ fn candidate_checks() {
 			assert_eq!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					vec![backed],
-					&[chain_a_assignment].into_iter().collect(),
-					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
+					vec![(backed, chain_a_assignment.1)],
 					&group_validators,
 					false
 				),
@@ -1462,9 +1331,7 @@ fn candidate_checks() {
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					vec![backed],
-					&[chain_a_assignment].into_iter().collect(),
-					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
+					vec![(backed, chain_a_assignment.1)],
 					&group_validators,
 					false
 				),
@@ -1500,9 +1367,7 @@ fn candidate_checks() {
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					vec![backed],
-					&[chain_a_assignment].into_iter().collect(),
-					&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
+					vec![(backed, chain_a_assignment.1)],
 					&group_validators,
 					false
 				),
@@ -1640,13 +1505,17 @@ fn backing_works() {
 			None,
 		);
 
-		let backed_candidates = vec![backed_a.clone(), backed_b.clone(), backed_c];
+		let backed_candidates = vec![
+			(backed_a.clone(), chain_a_assignment.1),
+			(backed_b.clone(), chain_b_assignment.1),
+			(backed_c, thread_a_assignment.1),
+		];
 		let get_backing_group_idx = {
 			// the order defines the group implicitly for this test case
 			let backed_candidates_with_groups = backed_candidates
 				.iter()
 				.enumerate()
-				.map(|(idx, backed_candidate)| (backed_candidate.hash(), GroupIndex(idx as _)))
+				.map(|(idx, (backed_candidate, _))| (backed_candidate.hash(), GroupIndex(idx as _)))
 				.collect::<Vec<_>>();
 
 			move |candidate_hash_x: CandidateHash| -> Option<GroupIndex> {
@@ -1666,16 +1535,6 @@ fn backing_works() {
 		} = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			backed_candidates.clone(),
-			&[chain_a_assignment, chain_b_assignment, thread_a_assignment]
-				.into_iter()
-				.collect(),
-			&[
-				(chain_a_assignment.1, chain_a_assignment.0),
-				(chain_b_assignment.1, chain_b_assignment.0),
-				(thread_a_assignment.1, thread_a_assignment.0),
-			]
-			.into_iter()
-			.collect(),
 			&group_validators,
 			false,
 		)
@@ -1696,7 +1555,7 @@ fn backing_works() {
 				CandidateHash,
 				(CandidateReceipt, Vec<(ValidatorIndex, ValidityAttestation)>),
 			>::new();
-			backed_candidates.into_iter().for_each(|backed_candidate| {
+			backed_candidates.into_iter().for_each(|(backed_candidate, _)| {
 				let candidate_receipt_with_backers = intermediate
 					.entry(backed_candidate.hash())
 					.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
@@ -1869,8 +1728,6 @@ fn backing_works_with_elastic_scaling_mvp() {
 
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
-		let chain_a_assignment = (chain_a, CoreIndex::from(0));
-
 		let mut candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
@@ -1934,13 +1791,17 @@ fn backing_works_with_elastic_scaling_mvp() {
 			Some(CoreIndex(2)),
 		);
 
-		let backed_candidates = vec![backed_a.clone(), backed_b_1.clone(), backed_b_2.clone()];
+		let backed_candidates = vec![
+			(backed_a.clone(), CoreIndex(0)),
+			(backed_b_1.clone(), CoreIndex(1)),
+			(backed_b_2.clone(), CoreIndex(2)),
+		];
 		let get_backing_group_idx = {
 			// the order defines the group implicitly for this test case
 			let backed_candidates_with_groups = backed_candidates
 				.iter()
 				.enumerate()
-				.map(|(idx, backed_candidate)| (backed_candidate.hash(), GroupIndex(idx as _)))
+				.map(|(idx, (backed_candidate, _))| (backed_candidate.hash(), GroupIndex(idx as _)))
 				.collect::<Vec<_>>();
 
 			move |candidate_hash_x: CandidateHash| -> Option<GroupIndex> {
@@ -1960,14 +1821,6 @@ fn backing_works_with_elastic_scaling_mvp() {
 		} = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			backed_candidates.clone(),
-			&[chain_a_assignment, (chain_b, CoreIndex::from(2))].into_iter().collect(),
-			&[
-				(chain_a_assignment.1, chain_a_assignment.0),
-				(CoreIndex::from(2), chain_b),
-				(CoreIndex::from(1), chain_b),
-			]
-			.into_iter()
-			.collect(),
 			&group_validators,
 			true,
 		)
@@ -1989,7 +1842,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 			CandidateHash,
 			(CandidateReceipt, Vec<(ValidatorIndex, ValidityAttestation)>),
 		>::new();
-		backed_candidates.into_iter().for_each(|backed_candidate| {
+		backed_candidates.into_iter().for_each(|(backed_candidate, _)| {
 			let candidate_receipt_with_backers = expected
 				.entry(backed_candidate.hash())
 				.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
@@ -2145,9 +1998,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 		let ProcessedCandidates { core_indices: occupied_cores, .. } =
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
-				vec![backed_a],
-				&[chain_a_assignment].into_iter().collect(),
-				&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
+				vec![(backed_a, chain_a_assignment.1)],
 				&group_validators,
 				false,
 			)
@@ -2357,21 +2208,15 @@ fn check_allowed_relay_parents() {
 			None,
 		);
 
-		let backed_candidates = vec![backed_a, backed_b, backed_c];
+		let backed_candidates = vec![
+			(backed_a, chain_a_assignment.1),
+			(backed_b, chain_b_assignment.1),
+			(backed_c, thread_a_assignment.1),
+		];
 
 		ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			backed_candidates.clone(),
-			&[chain_a_assignment, chain_b_assignment, thread_a_assignment]
-				.into_iter()
-				.collect(),
-			&[
-				(chain_a_assignment.1, chain_a_assignment.0),
-				(chain_b_assignment.1, chain_b_assignment.0),
-				(thread_a_assignment.1, thread_a_assignment.0),
-			]
-			.into_iter()
-			.collect(),
 			&group_validators,
 			false,
 		)
@@ -2608,9 +2453,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let ProcessedCandidates { core_indices: occupied_cores, .. } =
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
-				vec![backed_a],
-				&[chain_a_assignment].into_iter().collect(),
-				&[(chain_a_assignment.1, chain_a_assignment.0)].into_iter().collect(),
+				vec![(backed_a, chain_a_assignment.1)],
 				&group_validators,
 				false,
 			)

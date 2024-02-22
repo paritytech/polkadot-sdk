@@ -1238,7 +1238,8 @@ mod sanitizers {
 		// Backed candidates and scheduled parachains used for `sanitize_backed_candidates` testing
 		struct TestData {
 			backed_candidates: Vec<BackedCandidate>,
-			scheduled_paras: BTreeMap<primitives::Id, CoreIndex>,
+			all_backed_candidates_with_core: Vec<(BackedCandidate, CoreIndex)>,
+			scheduled_paras: BTreeMap<primitives::Id, BTreeSet<CoreIndex>>,
 		}
 
 		// Generate test data for the candidates and assert that the evnironment is set as expected
@@ -1285,9 +1286,14 @@ mod sanitizers {
 			shared::Pallet::<Test>::set_active_validators_ascending(validator_ids);
 
 			// Two scheduled parachains - ParaId(1) on CoreIndex(0) and ParaId(2) on CoreIndex(1)
-			let scheduled = (0_usize..2)
+			let scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = (0_usize..2)
 				.into_iter()
-				.map(|idx| (ParaId::from(1_u32 + idx as u32), CoreIndex::from(idx as u32)))
+				.map(|idx| {
+					(
+						ParaId::from(1_u32 + idx as u32),
+						[CoreIndex::from(idx as u32)].into_iter().collect(),
+					)
+				})
 				.collect::<BTreeMap<_, _>>();
 
 			// Set the validator groups in `scheduler`
@@ -1370,13 +1376,37 @@ mod sanitizers {
 				]
 			);
 
-			TestData { backed_candidates, scheduled_paras: scheduled }
+			let all_backed_candidates_with_core = backed_candidates
+				.iter()
+				.map(|candidate| {
+					// Only one entry for this test data.
+					(
+						candidate.clone(),
+						scheduled
+							.get(&candidate.descriptor().para_id)
+							.unwrap()
+							.first()
+							.copied()
+							.unwrap(),
+					)
+				})
+				.collect();
+
+			TestData {
+				backed_candidates,
+				scheduled_paras: scheduled,
+				all_backed_candidates_with_core,
+			}
 		}
 
 		#[test]
 		fn happy_path() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { backed_candidates, scheduled_paras: scheduled } = get_test_data();
+				let TestData {
+					backed_candidates,
+					all_backed_candidates_with_core,
+					scheduled_paras: scheduled,
+				} = get_test_data();
 
 				let has_concluded_invalid =
 					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
@@ -1390,12 +1420,11 @@ mod sanitizers {
 						false
 					),
 					SanitizedBackedCandidates {
-						backed_candidates,
-						votes_from_disabled_were_dropped: false
+						backed_candidates_with_core: all_backed_candidates_with_core,
+						votes_from_disabled_were_dropped: false,
+						dropped_elastic_scaling_candidates: false
 					}
 				);
-
-				{}
 			});
 		}
 
@@ -1403,14 +1432,15 @@ mod sanitizers {
 		#[test]
 		fn nothing_scheduled() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { backed_candidates, scheduled_paras: _ } = get_test_data();
+				let TestData { backed_candidates, .. } = get_test_data();
 				let scheduled = &BTreeMap::new();
 				let has_concluded_invalid =
 					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
 
 				let SanitizedBackedCandidates {
-					backed_candidates: sanitized_backed_candidates,
+					backed_candidates_with_core: sanitized_backed_candidates,
 					votes_from_disabled_were_dropped,
+					dropped_elastic_scaling_candidates,
 				} = sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
@@ -1421,6 +1451,7 @@ mod sanitizers {
 
 				assert!(sanitized_backed_candidates.is_empty());
 				assert!(!votes_from_disabled_were_dropped);
+				assert!(!dropped_elastic_scaling_candidates);
 			});
 		}
 
@@ -1428,7 +1459,8 @@ mod sanitizers {
 		#[test]
 		fn invalid_are_filtered_out() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { backed_candidates, scheduled_paras: scheduled } = get_test_data();
+				let TestData { backed_candidates, scheduled_paras: scheduled, .. } =
+					get_test_data();
 
 				// mark every second one as concluded invalid
 				let set = {
@@ -1443,8 +1475,9 @@ mod sanitizers {
 				let has_concluded_invalid =
 					|_idx: usize, candidate: &BackedCandidate| set.contains(&candidate.hash());
 				let SanitizedBackedCandidates {
-					backed_candidates: sanitized_backed_candidates,
+					backed_candidates_with_core: sanitized_backed_candidates,
 					votes_from_disabled_were_dropped,
+					dropped_elastic_scaling_candidates,
 				} = sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
@@ -1455,35 +1488,35 @@ mod sanitizers {
 
 				assert_eq!(sanitized_backed_candidates.len(), backed_candidates.len() / 2);
 				assert!(!votes_from_disabled_were_dropped);
+				assert!(!dropped_elastic_scaling_candidates);
 			});
 		}
 
 		#[test]
 		fn disabled_non_signing_validator_doesnt_get_filtered() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
+				let TestData { mut all_backed_candidates_with_core, .. } = get_test_data();
 
 				// Disable Eve
 				set_disabled_validators(vec![4]);
 
-				let before = backed_candidates.clone();
+				let before = all_backed_candidates_with_core.clone();
 
 				// Eve is disabled but no backing statement is signed by it so nothing should be
 				// filtered
 				assert!(!filter_backed_statements_from_disabled_validators::<Test>(
-					&mut backed_candidates,
+					&mut all_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled_paras,
 					false
 				));
-				assert_eq!(backed_candidates, before);
+				assert_eq!(all_backed_candidates_with_core, before);
 			});
 		}
 
 		#[test]
 		fn drop_statements_from_disabled_without_dropping_candidate() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
+				let TestData { mut all_backed_candidates_with_core, .. } = get_test_data();
 
 				// Disable Alice
 				set_disabled_validators(vec![0]);
@@ -1496,61 +1529,74 @@ mod sanitizers {
 				configuration::Pallet::<Test>::force_set_active_config(hc);
 
 				// Verify the initial state is as expected
-				assert_eq!(backed_candidates.get(0).unwrap().validity_votes().len(), 2);
-				let (validator_indices, None) =
-					backed_candidates.get(0).unwrap().validator_indices_and_core_index(false)
+				assert_eq!(
+					all_backed_candidates_with_core.get(0).unwrap().0.validity_votes().len(),
+					2
+				);
+				let (validator_indices, None) = all_backed_candidates_with_core
+					.get(0)
+					.unwrap()
+					.0
+					.validator_indices_and_core_index(false)
 				else {
 					panic!("Expected no injected core index")
 				};
 				assert_eq!(validator_indices.get(0).unwrap(), true);
 				assert_eq!(validator_indices.get(1).unwrap(), true);
-				let untouched = backed_candidates.get(1).unwrap().clone();
+				let untouched = all_backed_candidates_with_core.get(1).unwrap().0.clone();
 
 				assert!(filter_backed_statements_from_disabled_validators::<Test>(
-					&mut backed_candidates,
+					&mut all_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled_paras,
 					false
 				));
 
-				let (validator_indices, None) =
-					backed_candidates.get(0).unwrap().validator_indices_and_core_index(false)
+				let (validator_indices, None) = all_backed_candidates_with_core
+					.get(0)
+					.unwrap()
+					.0
+					.validator_indices_and_core_index(false)
 				else {
 					panic!("Expected no injected core index")
 				};
 				// there should still be two backed candidates
-				assert_eq!(backed_candidates.len(), 2);
+				assert_eq!(all_backed_candidates_with_core.len(), 2);
 				// but the first one should have only one validity vote
-				assert_eq!(backed_candidates.get(0).unwrap().validity_votes().len(), 1);
+				assert_eq!(
+					all_backed_candidates_with_core.get(0).unwrap().0.validity_votes().len(),
+					1
+				);
 				// Validator 0 vote should be dropped, validator 1 - retained
 				assert_eq!(validator_indices.get(0).unwrap(), false);
 				assert_eq!(validator_indices.get(1).unwrap(), true);
 				// the second candidate shouldn't be modified
-				assert_eq!(*backed_candidates.get(1).unwrap(), untouched);
+				assert_eq!(all_backed_candidates_with_core.get(1).unwrap().0, untouched);
 			});
 		}
 
 		#[test]
 		fn drop_candidate_if_all_statements_are_from_disabled() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
+				let TestData { mut all_backed_candidates_with_core, .. } = get_test_data();
 
 				// Disable Alice and Bob
 				set_disabled_validators(vec![0, 1]);
 
 				// Verify the initial state is as expected
-				assert_eq!(backed_candidates.get(0).unwrap().validity_votes().len(), 2);
-				let untouched = backed_candidates.get(1).unwrap().clone();
+				assert_eq!(
+					all_backed_candidates_with_core.get(0).unwrap().0.validity_votes().len(),
+					2
+				);
+				let untouched = all_backed_candidates_with_core.get(1).unwrap().0.clone();
 
 				assert!(filter_backed_statements_from_disabled_validators::<Test>(
-					&mut backed_candidates,
+					&mut all_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled_paras,
 					false
 				));
 
-				assert_eq!(backed_candidates.len(), 1);
-				assert_eq!(*backed_candidates.get(0).unwrap(), untouched);
+				assert_eq!(all_backed_candidates_with_core.len(), 1);
+				assert_eq!(all_backed_candidates_with_core.get(0).unwrap().0, untouched);
 			});
 		}
 	}
