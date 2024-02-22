@@ -51,22 +51,29 @@ pub type LocalOriginToLocation = (
 );
 
 /// Implementation of [`PriceForMessageDelivery`], returning a different price
-/// for each xcm message based on its encoded value.
-/// This implementation ensures that messages with reanchored assets have different
-/// prices than messages with non-reanchored assets.
+/// based on whether a message contains a reanchored asset or not.
+/// This implementation ensures that messages with non-reanchored assets return higher
+/// prices than messages with reanchored assets.
 /// Useful for `deposit_reserve_asset_works_for_any_xcm_sender` integration test.
 pub struct TestDeliveryPrice<A, F>(sp_std::marker::PhantomData<(A, F)>);
 impl<A: Get<AssetId>, F: FeeTracker> PriceForMessageDelivery for TestDeliveryPrice<A, F> {
 	type Id = F::Id;
 
 	fn price_for_delivery(_: Self::Id, msg: &Xcm<()>) -> Assets {
-		let encoded = msg.encode();
-		let hash = sp_io::hashing::blake2_128(&encoded)[..4].to_vec();
+		let base_fee: super::Balance = 1_000_000;
 
-		let mut amount: u128 = 0;
-		for &byte in hash.iter() {
-			amount = (amount << 8) | (byte as u128);
-		}
+		let parents = msg.iter().find_map(|xcm| {
+			match xcm {
+				ReserveAssetDeposited(assets) => {
+					let AssetId(location) = &assets.inner().first().unwrap().id;
+					Some(location.parents)
+				},
+				_ => None,
+			}
+		});
+
+		// If no asset is found, price defaults to `base_fee`.
+		let amount = base_fee.saturating_add(base_fee.saturating_mul(parents.unwrap_or(0) as super::Balance));
 
 		(A::get(), amount).into()
 	}
