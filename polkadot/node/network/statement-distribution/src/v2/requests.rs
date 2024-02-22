@@ -285,6 +285,11 @@ impl RequestManager {
 		false
 	}
 
+	/// Returns the number of pending requests.
+	pub fn count_pending_requests(&self) -> u32 {
+		self.requests.iter().filter(|(_, entry)| entry.is_pending()).count() as u32
+	}
+
 	/// Returns an instant at which the next request to be retried will be ready.
 	pub fn next_retry_time(&mut self) -> Option<Instant> {
 		let mut next = None;
@@ -326,12 +331,14 @@ impl RequestManager {
 		// we would need to request it for each candidate, around 25 right now
 		// on kusama.
 		if response_manager.len() >= 2 * MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
-			gum::warn_if_frequent!(
-				freq: request_throttle_freq,
-				max_rate: gum::Times::PerSecond(20),
-				target: LOG_TARGET,
-				"Too many requests in parallel, statement-distribution might be slow"
-			);
+			if self.count_pending_requests() > 2 * MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS {
+				gum::warn_if_frequent!(
+					freq: request_throttle_freq,
+					max_rate: gum::Times::PerSecond(20),
+					target: LOG_TARGET,
+					"Too many requests in parallel, statement-distribution might be slow"
+				);
+			}
 			return None
 		}
 
