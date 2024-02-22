@@ -80,7 +80,7 @@ use frame_support::{
 
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
-	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
+	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating, TryRuntimeError,
 };
 use sp_staking::{
 	delegation::{DelegationInterface, StakingDelegationSupport},
@@ -173,7 +173,7 @@ pub mod pallet {
 	// }
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		Delegated { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 		Withdrawn { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
@@ -339,6 +339,16 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+
+		fn integrity_test() {}
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -450,7 +460,7 @@ impl<T: Config> Pallet<T> {
 
 		ledger.total_delegated = ledger
 			.total_delegated
-			.checked_add(&new_delegation_amount)
+			.checked_add(&amount)
 			.ok_or(ArithmeticError::Overflow)?;
 		ledger.save(delegate);
 
@@ -611,8 +621,64 @@ impl<T: Config> Pallet<T> {
 }
 
 #[cfg(any(test, feature = "try-runtime"))]
+use sp_std::collections::btree_map::BTreeMap;
+#[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
-	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+	pub(crate) fn do_try_state() -> Result<(), TryRuntimeError> {
+
+		// build map to avoid reading storage multiple times.
+		let delegation_map = Delegators::<T>::iter().collect::<BTreeMap<_, _>>();
+		let ledger_map = Delegates::<T>::iter().collect::<BTreeMap<_, _>>();
+
+		Self::check_delegates(ledger_map.clone())?;
+		Self::check_delegators(delegation_map, ledger_map)?;
+
+		Ok(())
+	}
+
+	fn check_delegates(
+		ledgers: BTreeMap<T::AccountId, DelegationLedger<T>>,
+	) -> Result<(), TryRuntimeError> {
+		for (delegate, ledger) in ledgers {
+			ensure!(
+				matches!(
+					T::CoreStaking::status(&delegate).expect("delegate should be bonded"),
+					StakerStatus::Nominator(_) | StakerStatus::Idle
+				),
+				"delegate should be bonded and not validator"
+			);
+
+			ensure!(
+				ledger.stakeable_balance() >=
+					T::CoreStaking::total_stake(&delegate)
+						.expect("delegate should exist as a nominator"),
+				"all delegated balance is staked"
+			);
+		}
+
+		Ok(())
+	}
+
+	fn check_delegators(
+		delegations: BTreeMap<T::AccountId, Delegation<T>>,
+		ledger: BTreeMap<T::AccountId, DelegationLedger<T>>,
+	) -> Result<(), TryRuntimeError> {
+		let mut delegation_aggregation = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
+		delegations.iter().for_each(|(delegator, delegation)| {
+			delegation_aggregation
+				.entry(delegation.delegate.clone())
+				.and_modify(|e| *e += delegation.amount)
+				.or_insert(delegation.amount);
+		});
+
+        for (delegate, total_delegated) in delegation_aggregation {
+            let ledger = ledger.get(&delegate).expect("ledger should exist");
+            ensure!(
+                ledger.total_delegated == total_delegated,
+                "ledger total delegated should match delegations"
+            );
+        }
+
 		Ok(())
 	}
 }

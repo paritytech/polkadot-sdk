@@ -31,7 +31,7 @@ pub(crate) enum AccountType {
 	ProxyDelegator,
 }
 
-#[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Default, Encode, Clone, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct Delegation<T: Config> {
 	/// The target of delegation.
