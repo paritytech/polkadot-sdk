@@ -4312,6 +4312,7 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",

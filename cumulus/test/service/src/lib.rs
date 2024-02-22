@@ -894,6 +894,7 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<runtime::Runtime>,
 	);
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
