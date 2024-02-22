@@ -768,7 +768,13 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 		let pruned = state.implicit_view.deactivate_leaf(*leaf);
 		for pruned_rp in pruned {
 			// clean up per-relay-parent data based on everything removed.
-			state.per_relay_parent.remove(&pruned_rp);
+			state
+				.per_relay_parent
+				.remove(&pruned_rp)
+				.as_ref()
+				.and_then(|pruned| pruned.active_validator_state())
+				.map(|active_state| active_state.cluster_tracker.dump_pending_statements());
+
 			// clean up requests related to this relay parent.
 			state.request_manager.remove_by_relay_parent(*leaf);
 		}
@@ -1354,7 +1360,6 @@ async fn circulate_statement<Context>(
 	};
 
 	let mut statement_to_peers: Vec<(PeerId, ProtocolVersion)> = Vec::new();
-	let targets_len = targets.len();
 	for (target, authority_id, kind) in targets {
 		// Find peer ID based on authority ID, and also filter to connected.
 		let peer_id: (PeerId, ProtocolVersion) = match authorities.get(&authority_id) {
@@ -1366,6 +1371,17 @@ async fn circulate_statement<Context>(
 					.protocol_version
 					.into(),
 			),
+			None if cluster_relevant => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?cluster_relevant,
+					?target,
+					groups = ?local_validator.active.as_ref().map(|active| active.group.0),
+					"Node can not resolve some of its backing group peer ids.\n
+					 Restart might be needed if validator get 0 backing rewards for more than 3-4 consecutive sessions"
+				);
+				continue
+			},
 			None | Some(_) => continue,
 		};
 
@@ -1396,17 +1412,6 @@ async fn circulate_statement<Context>(
 				);
 			},
 		}
-	}
-
-	if cluster_relevant && targets_len > 0 && statement_to_peers.is_empty() {
-		gum::warn!(
-			target: LOG_TARGET,
-			?cluster_relevant,
-			?targets_len,
-			groups = ?local_validator.active.as_ref().map(|active| active.group.0),
-			"Node does not participate in backing, because it can not resolve its group peer ids.\n
-			 Restart might be needed if error persists for more than 3-4 consecutive sessions"
-		);
 	}
 
 	let statement_to_v2_peers =
