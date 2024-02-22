@@ -18,9 +18,12 @@ doc:
       `StorageWeightReclaim` `SignedExtension` to your runtime and enable proof recording during block import.
 
 
-crates: [ ]
+crates:
+  - name: "cumulus-primitives-storage-weight-reclaim"
 host_functions:
-  - title: `storage_proof_size`
+  - name: "storage_proof_size"
     description: |
       This host function is used to pass the current size of the storage proof to the runtime.
       It was introduced before but becomes relevant now.
+      Note: This host function is intended to be used through `cumulus_primitives_storage_weight_reclaim::get_proof_size`.
+      Direct usage is not recommended.

@@ -15,6 +15,8 @@
 
 //! Mechanism to reclaim PoV proof size weight after an extrinsic has been applied.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use codec::{Decode, Encode};
 use cumulus_primitives_core::Weight;
 use cumulus_primitives_proof_size_hostfunction::{

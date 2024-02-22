@@ -18,6 +18,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
 use sp_runtime_interface::runtime_interface;
