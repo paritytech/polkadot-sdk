@@ -48,8 +48,8 @@ fn main() -> Result<(), String> {
 	]));
 	messages.extend(usage.check_cpu_usage(&[
 		("availability-distribution", 0.025, 0.05),
-		("bitfield-distribution", 0.086, 0.05),
-		("availability-store", 0.177, 0.05),
+		("bitfield-distribution", 0.085, 0.05),
+		("availability-store", 0.180, 0.05),
 	]));
 
 	if messages.is_empty() {

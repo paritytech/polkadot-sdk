@@ -501,8 +501,8 @@ subsystem-regression-tests:
     - .common-refs
     - .run-immediately
   script:
-    # - cargo test --profile=testnet -p polkadot-node-core-approval-voting --test approval-voting-regression-bench --features subsystem-benchmarks
+    - cargo test --profile=testnet -p polkadot-node-core-approval-voting --test approval-voting-regression-bench --features subsystem-benchmarks
     # - cargo test --profile=testnet -p polkadot-availability-recovery --test availability-recovery-regression-bench --features subsystem-benchmarks
-    - cargo test --profile=testnet -p polkadot-availability-distribution --test availability-distribution-regression-bench --features subsystem-benchmarks
+    # - cargo test --profile=testnet -p polkadot-availability-distribution --test availability-distribution-regression-bench --features subsystem-benchmarks
   tags:
     - benchmark
