@@ -276,7 +276,7 @@ pub mod pallet {
 		SaleInitialized {
 			/// The relay block number at which the sale will/did start.
 			sale_start: RelayBlockNumberOf<T>,
-			/// The length in blocks of the Leadin Period (where the price is decreasing).
+			/// The length in relay chain blocks of the Leadin Period (where the price is decreasing).
 			leadin_length: RelayBlockNumberOf<T>,
 			/// The price of Bulk Coretime at the beginning of the Leadin Period.
 			start_price: BalanceOf<T>,
