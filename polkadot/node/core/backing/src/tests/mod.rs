@@ -65,13 +65,14 @@ fn dummy_pvd() -> PersistedValidationData {
 	}
 }
 
-struct TestState {
+pub(crate) struct TestState {
 	chain_ids: Vec<ParaId>,
 	keystore: KeystorePtr,
 	validators: Vec<Sr25519Keyring>,
 	validator_public: Vec<ValidatorId>,
 	validation_data: PersistedValidationData,
 	validator_groups: (Vec<Vec<ValidatorIndex>>, GroupRotationInfo),
+	validator_to_group: IndexedVec<ValidatorIndex, Option<GroupIndex>>,
 	availability_cores: Vec<CoreState>,
 	head_data: HashMap<ParaId, HeadData>,
 	signing_context: SigningContext,
@@ -114,6 +115,11 @@ impl Default for TestState {
 			.into_iter()
 			.map(|g| g.into_iter().map(ValidatorIndex).collect())
 			.collect();
+		let validator_to_group: IndexedVec<_, _> =
+			vec![Some(0), Some(1), Some(0), Some(0), None, Some(0)]
+				.into_iter()
+				.map(|x| x.map(|x| GroupIndex(x)))
+				.collect();
 		let group_rotation_info =
 			GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 100, now: 1 };
 
@@ -143,6 +149,7 @@ impl Default for TestState {
 			validators,
 			validator_public,
 			validator_groups: (validator_groups, group_rotation_info),
+			validator_to_group,
 			availability_cores,
 			head_data,
 			validation_data,
@@ -282,6 +289,16 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
 		) if parent == test_state.relay_parent => {
 			tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+		}
+	);
+
+	// Node features request from runtime: all features are disabled.
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(_parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
+		) => {
+			tx.send(Ok(Default::default())).unwrap();
 		}
 	);
 
@@ -637,6 +654,107 @@ fn backing_works() {
 			.await;
 		virtual_overseer
 	});
+}
+
+#[test]
+fn extract_core_index_from_statement_works() {
+	let test_state = TestState::default();
+
+	let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
+	let pvd_a = dummy_pvd();
+	let validation_code_a = ValidationCode(vec![1, 2, 3]);
+
+	let pov_hash = pov_a.hash();
+
+	let mut candidate = TestCandidateBuilder {
+		para_id: test_state.chain_ids[0],
+		relay_parent: test_state.relay_parent,
+		pov_hash,
+		erasure_root: make_erasure_root(&test_state, pov_a.clone(), pvd_a.clone()),
+		persisted_validation_data_hash: pvd_a.hash(),
+		validation_code: validation_code_a.0.clone(),
+		..Default::default()
+	}
+	.build();
+
+	let public2 = Keystore::sr25519_generate_new(
+		&*test_state.keystore,
+		ValidatorId::ID,
+		Some(&test_state.validators[2].to_seed()),
+	)
+	.expect("Insert key into keystore");
+
+	let signed_statement_1 = SignedFullStatementWithPVD::sign(
+		&test_state.keystore,
+		StatementWithPVD::Seconded(candidate.clone(), pvd_a.clone()),
+		&test_state.signing_context,
+		ValidatorIndex(2),
+		&public2.into(),
+	)
+	.ok()
+	.flatten()
+	.expect("should be signed");
+
+	let public1 = Keystore::sr25519_generate_new(
+		&*test_state.keystore,
+		ValidatorId::ID,
+		Some(&test_state.validators[1].to_seed()),
+	)
+	.expect("Insert key into keystore");
+
+	let signed_statement_2 = SignedFullStatementWithPVD::sign(
+		&test_state.keystore,
+		StatementWithPVD::Seconded(candidate.clone(), pvd_a.clone()),
+		&test_state.signing_context,
+		ValidatorIndex(1),
+		&public1.into(),
+	)
+	.ok()
+	.flatten()
+	.expect("should be signed");
+
+	candidate.descriptor.para_id = test_state.chain_ids[1];
+
+	let signed_statement_3 = SignedFullStatementWithPVD::sign(
+		&test_state.keystore,
+		StatementWithPVD::Seconded(candidate, pvd_a.clone()),
+		&test_state.signing_context,
+		ValidatorIndex(1),
+		&public1.into(),
+	)
+	.ok()
+	.flatten()
+	.expect("should be signed");
+
+	let core_index_1 = core_index_from_statement(
+		&test_state.validator_to_group,
+		&test_state.validator_groups.1,
+		&test_state.availability_cores,
+		&signed_statement_1,
+	)
+	.unwrap();
+
+	assert_eq!(core_index_1, CoreIndex(0));
+
+	let core_index_2 = core_index_from_statement(
+		&test_state.validator_to_group,
+		&test_state.validator_groups.1,
+		&test_state.availability_cores,
+		&signed_statement_2,
+	);
+
+	// Must be none, para_id in descriptor is different than para assigned to core
+	assert_eq!(core_index_2, None);
+
+	let core_index_3 = core_index_from_statement(
+		&test_state.validator_to_group,
+		&test_state.validator_groups.1,
+		&test_state.availability_cores,
+		&signed_statement_3,
+	)
+	.unwrap();
+
+	assert_eq!(core_index_3, CoreIndex(1));
 }
 
 #[test]
@@ -1422,7 +1540,7 @@ fn backing_works_after_failed_validation() {
 fn candidate_backing_reorders_votes() {
 	use sp_core::Encode;
 
-	let para_id = ParaId::from(10);
+	let core_idx = CoreIndex(10);
 	let validators = vec![
 		Sr25519Keyring::Alice,
 		Sr25519Keyring::Bob,
@@ -1436,7 +1554,7 @@ fn candidate_backing_reorders_votes() {
 	let validator_groups = {
 		let mut validator_groups = HashMap::new();
 		validator_groups
-			.insert(para_id, vec![0, 1, 2, 3, 4, 5].into_iter().map(ValidatorIndex).collect());
+			.insert(core_idx, vec![0, 1, 2, 3, 4, 5].into_iter().map(ValidatorIndex).collect());
 		validator_groups
 	};
 
@@ -1466,10 +1584,10 @@ fn candidate_backing_reorders_votes() {
 			(ValidatorIndex(3), fake_attestation(3)),
 			(ValidatorIndex(1), fake_attestation(1)),
 		],
-		group_id: para_id,
+		group_id: core_idx,
 	};
 
-	let backed = table_attested_to_backed(attested, &table_context).unwrap();
+	let backed = table_attested_to_backed(attested, &table_context, false).unwrap();
 
 	let expected_bitvec = {
 		let mut validator_indices = BitVec::<u8, bitvec::order::Lsb0>::with_capacity(6);
