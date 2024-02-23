@@ -25,7 +25,9 @@ use pallet_nomination_pools::{
 	BondedPools, Error as PoolsError, Event as PoolsEvent, LastPoolId, PoolMember, PoolMembers,
 	PoolState,
 };
-use pallet_staking::{CurrentEra, Event as StakingEvent, Payee, RewardDestination};
+use pallet_staking::{
+	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
+};
 use sp_runtime::{bounded_btree_map, traits::Zero};
 
 #[test]
@@ -72,6 +74,95 @@ fn pool_lifecycle_e2e() {
 			]
 		);
 
+		// in case depositor does not have more than `MinNominatorBond` staked, no members can
+		// unbond. this happens if the `MinNominatorBond` is increased after the pool is created.
+		assert_ok!(Staking::set_staking_configs(
+			RuntimeOrigin::root(),
+			pallet_staking::ConfigOp::Set(55), // minimum nominator bond
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+		));
+
+		// only one member can unbond
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 10),);
+		assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().unbonding_eras.len(), 1);
+		assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 0);
+
+		// this member cannot unbond since `depositor_stake < MinNominatorBond`
+		assert_noop!(
+			Pools::unbond(RuntimeOrigin::signed(21), 21, 10),
+			StakingError::<Runtime>::InsufficientBond,
+		);
+
+		// members can call `chill` permissionlessly now
+		assert_ok!(Pools::chill(RuntimeOrigin::signed(20), 1));
+
+		// now another member can unbond.
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(21), 21, 10));
+		assert_eq!(PoolMembers::<Runtime>::get(21).unwrap().unbonding_eras.len(), 1);
+		assert_eq!(PoolMembers::<Runtime>::get(21).unwrap().points, 0);
+
+		// skip to make the unbonding period end.
+		CurrentEra::<Runtime>::set(Some(BondingDuration::get()));
+
+		// members can now withdraw.
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0));
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(21), 21, 0));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Chilled { stash: POOL1_BONDED },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 20 },
+			]
+		);
+
+		// restore the state of pool
+		assert_ok!(Staking::set_staking_configs(
+			RuntimeOrigin::root(),
+			pallet_staking::ConfigOp::Set(10), // minimum nominator bond
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+		));
+
+		// un-chill the pool
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
+		assert_ok!(Pools::join(RuntimeOrigin::signed(21), 10, 1));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
+			]
+		);
+
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Unbonded { member: 20, pool_id: 1, balance: 10, points: 10, era: 3 },
+				PoolsEvent::Unbonded { member: 21, pool_id: 1, balance: 10, points: 10, era: 3 },
+				PoolsEvent::Withdrawn { member: 20, pool_id: 1, balance: 10, points: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20 },
+				PoolsEvent::Withdrawn { member: 21, pool_id: 1, balance: 10, points: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21 },
+				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
+				PoolsEvent::Bonded { member: 21, pool_id: 1, bonded: 10, joined: true },
+			]
+		);
+
 		// pool goes into destroying
 		assert_ok!(Pools::set_state(RuntimeOrigin::signed(10), 1, PoolState::Destroying));
 
@@ -101,8 +192,8 @@ fn pool_lifecycle_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::StateChanged { pool_id: 1, new_state: PoolState::Destroying },
-				PoolsEvent::Unbonded { member: 20, pool_id: 1, points: 10, balance: 10, era: 3 },
-				PoolsEvent::Unbonded { member: 21, pool_id: 1, points: 10, balance: 10, era: 3 },
+				PoolsEvent::Unbonded { member: 20, pool_id: 1, points: 10, balance: 10, era: 6 },
+				PoolsEvent::Unbonded { member: 21, pool_id: 1, points: 10, balance: 10, era: 6 },
 			]
 		);
 
@@ -112,7 +203,7 @@ fn pool_lifecycle_e2e() {
 			PoolsError::<Runtime>::MinimumBondNotMet,
 		);
 
-		for e in 1..BondingDuration::get() {
+		for e in BondingDuration::get()..BondingDuration::get() * 2 {
 			CurrentEra::<Runtime>::set(Some(e));
 			assert_noop!(
 				Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0),
@@ -121,7 +212,7 @@ fn pool_lifecycle_e2e() {
 		}
 
 		// members are now unlocked.
-		CurrentEra::<Runtime>::set(Some(BondingDuration::get()));
+		CurrentEra::<Runtime>::set(Some(BondingDuration::get() * 2));
 
 		// depositor cannot still unbond
 		assert_noop!(
@@ -168,11 +259,11 @@ fn pool_lifecycle_e2e() {
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
-			vec![PoolsEvent::Unbonded { member: 10, pool_id: 1, points: 50, balance: 50, era: 6 }]
+			vec![PoolsEvent::Unbonded { member: 10, pool_id: 1, points: 50, balance: 50, era: 9 }]
 		);
 
 		// waiting another bonding duration:
-		CurrentEra::<Runtime>::set(Some(BondingDuration::get() * 2));
+		CurrentEra::<Runtime>::set(Some(BondingDuration::get() * 3));
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 1));
 
 		// pools is fully destroyed now.

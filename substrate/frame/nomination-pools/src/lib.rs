@@ -2573,8 +2573,20 @@ pub mod pallet {
 
 		/// Chill on behalf of the pool.
 		///
-		/// The dispatch origin of this call must be signed by the pool nominator or the pool
+		/// The dispatch origin of this call can be signed by the pool nominator or the pool
 		/// root role, same as [`Pallet::nominate`].
+		///
+		/// Under certain conditions, this call can be dispatched permissionlessly (i.e. by any
+		/// account).
+		///
+		/// # Conditions for a permissionless dispatch
+		///
+		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise  pool members
+		///   are unable to unbond.
+		///
+		/// # Conditions for permissioned dispatch
+		///
+		/// * The caller has a nominator or root role of the pool.
 		///
 		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
 		/// account.
@@ -2582,9 +2594,21 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::chill())]
 		pub fn chill(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
-			ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
-			T::Staking::chill(&bonded_pool.bonded_account())
+
+			let depositor_points = PoolMembers::<T>::get(&bonded_pool.roles.depositor)
+				.ok_or(Error::<T>::PoolMemberNotFound)?
+				.active_points();
+
+			if bonded_pool.points_to_balance(depositor_points) <
+				T::Staking::minimum_nominator_bond()
+			{
+				T::Staking::chill(&bonded_pool.bonded_account())
+			} else {
+				ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
+				T::Staking::chill(&bonded_pool.bonded_account())
+			}
 		}
 
 		/// `origin` bonds funds from `extra` for some pool member `member` into their respective
