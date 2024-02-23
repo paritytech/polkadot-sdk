@@ -81,6 +81,7 @@ pub struct XcmExecutor<Config: config::Config> {
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
 	send_destinations: Vec<Location>,
+	delivery_fees: AssetsInHolding,
 	_config: PhantomData<Config>,
 }
 
@@ -300,6 +301,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			transact_status: Default::default(),
 			fees_mode: FeesMode { jit_withdraw: false },
 			send_destinations: Vec::new(),
+			delivery_fees: AssetsInHolding::new(),
 			_config: PhantomData,
 		}
 	}
@@ -351,9 +353,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		&mut self,
 		dest: Location,
 		msg: Xcm<()>,
-		_reason: FeeReason,
+		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
-		let (ticket, _fee) = validate_send::<Config::XcmSender>(dest, msg)?;
+		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
 		// 2.
 		//
 		// No need to get the fee because enough for all delivery fees was already taken
@@ -361,7 +363,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// TODO: We could actually charge it here, also to be able to use the `reason`
 		// parameter. Then we'd take the fees from the new register and refund some assets.
 		//
-		// self.take_fee(fee, reason)?;
+		self.take_fee(fee, reason)?;
 		Config::XcmSender::deliver(ticket).map_err(Into::into)
 	}
 
@@ -411,8 +413,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		if current_surplus.any_gt(Weight::zero()) {
 			if let Some(w) = self.trader.refund_weight(current_surplus, &self.context) {
-				if !self.holding.contains_asset(&(w.id.clone(), 1).into()) &&
-					self.ensure_can_subsume_assets(1).is_err()
+				if !self.holding.contains_asset(&(w.id.clone(), 1).into())
+					&& self.ensure_can_subsume_assets(1).is_err()
 				{
 					let _ = self
 						.trader
@@ -457,7 +459,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			}
 			fee
 		} else {
-			self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
+			self.delivery_fees
+				.try_take(fee.into())
+				.map_err(|_| XcmError::NotHoldingFees)?
+				.into()
 		};
 		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())
@@ -568,10 +573,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						});
 					}
 				},
-				Err(ref mut error) =>
+				Err(ref mut error) => {
 					if let Ok(x) = Config::Weigher::instr_weight(&instr) {
 						error.weight.saturating_accrue(x)
-					},
+					}
+				},
 			}
 		}
 		result
@@ -943,7 +949,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let max_fee =
 					self.holding.try_take(fees.into()).map_err(|_| XcmError::NotHoldingFees)?;
 				let result = || -> Result<(), XcmError> {
-					let unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
+					// This is mutable since we'll be subtracting estimated delivery fees from it.
+					let mut unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
 					// 1.
 					//
 					// Here we could do too things with these `unspent` assets.
@@ -974,13 +981,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					//
 					// We then need the destination, which can be obtained fairly easy (would have
 					// to benchmark) in a barrier.
-					// In this PR, I created a `WithDeliveryDestinations` barrier that sets these
+					// In this PR, I created a `WithDeliveryFees` barrier that sets these
 					// destinations for usage here.
 					// We need the destinations, since they are the way the executor differentiates
 					// between XcmSenders, which might charge different fees.
 					//
 					// Here's an implementation of charging for delivery fees here.
-					let mut delivery_fees = AssetsInHolding::new();
 					// TODO: This `worst_case_message` can be defined outside, in the runtime for
 					// example.
 					let mut worst_case_assets: Assets = Vec::new().into();
@@ -996,14 +1002,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 							destination.clone(),
 							worst_case_message.clone(),
 						)?;
-						log::trace!("Fee for message to {:?}: {:?}", destination, fee);
-						// TODO: Here we could either charge the fees by calling `take_fee` or
-						// store them for later on some new register.
-						delivery_fees.subsume_assets(fee.into());
+						log::trace!(target: "xcm::process_instruction::BuyExecution", "Fee for message to {:?}: {:?}", destination, fee);
+						let taken_fees = unspent.saturating_take(fee.into());
+						self.delivery_fees.subsume_assets(taken_fees.into());
 					}
-					log::trace!("Total delivery fees: {:?}", delivery_fees);
-					// TODO: Here we'd need to return `unspent` to the holding register, after
-					// taking what we need for delivery fees.
+					log::trace!(target: "xcm::process_instruction::BuyExecution", "Total delivery fees: {:?}", self.delivery_fees);
 					self.holding.subsume_assets(unspent);
 					Ok(())
 				}();
@@ -1063,8 +1066,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.holding.saturating_take(assets.into());
 				Ok(())
 			},
-			ExpectAsset(assets) =>
-				self.holding.ensure_contains(&assets).map_err(|_| XcmError::ExpectationFalse),
+			ExpectAsset(assets) => {
+				self.holding.ensure_contains(&assets).map_err(|_| XcmError::ExpectationFalse)
+			},
 			ExpectOrigin(origin) => {
 				ensure!(self.context.origin == origin, XcmError::ExpectationFalse);
 				Ok(())
