@@ -1042,12 +1042,7 @@ mod tests {
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 			let outgoing = request_manager
-				.next_request(
-					&mut response_manager,
-					request_props,
-					peer_advertised,
-					&mut request_throttle_freq,
-				)
+				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 		}
