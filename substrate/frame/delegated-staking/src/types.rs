@@ -146,6 +146,7 @@ impl<T: Config> DelegationLedger<T> {
 	}
 }
 
+#[derive(Clone)]
 pub struct Delegate<T: Config> {
 	pub key: T::AccountId,
 	pub ledger: DelegationLedger<T>,
@@ -157,6 +158,44 @@ impl<T: Config> Delegate<T> {
 		Ok(Delegate { key: delegate.clone(), ledger })
 	}
 
+	pub(crate) fn claim_withdraw(self, amount: BalanceOf<T>) -> Result<Self, DispatchError> {
+		let new_total_delegated = self
+			.ledger
+			.total_delegated
+			.checked_sub(&amount)
+			.defensive_ok_or(ArithmeticError::Overflow)?;
+		let new_unclaimed_withdrawals = self
+			.ledger
+			.unclaimed_withdrawals
+			.checked_sub(&amount)
+			.defensive_ok_or(ArithmeticError::Overflow)?;
+
+		Ok(Delegate {
+			ledger: DelegationLedger {
+				total_delegated: new_total_delegated,
+				unclaimed_withdrawals: new_unclaimed_withdrawals,
+				..self.ledger
+			},
+			..self
+		})
+	}
+
+	pub(crate) fn add_to_unclaimed_withdraw(&mut self, amount: BalanceOf<T>) -> Result<Self, DispatchError> {
+		let new_unclaimed_withdrawals = self
+			.ledger
+			.unclaimed_withdrawals
+			.checked_add(&amount)
+			.defensive_ok_or(ArithmeticError::Overflow)?;
+
+		Ok(Delegate {
+			ledger: DelegationLedger {
+				unclaimed_withdrawals: new_unclaimed_withdrawals,
+				payee: self.ledger.payee.clone(),
+				..self.ledger
+			},
+			..self.clone()
+		})
+	}
 	// re-reads the delegate from database and returns a new instance.
 	pub(crate) fn refresh(&self) -> Result<Delegate<T>, DispatchError> {
 		Self::from(&self.key)

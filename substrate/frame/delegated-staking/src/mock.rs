@@ -349,7 +349,9 @@ pub(crate) fn events_since_last_call() -> Vec<crate::Event<Runtime>> {
 	let events = System::events()
 		.into_iter()
 		.map(|r| r.event)
-		.filter_map(|e| if let RuntimeEvent::DelegatedStaking(inner) = e { Some(inner) } else { None })
+		.filter_map(
+			|e| if let RuntimeEvent::DelegatedStaking(inner) = e { Some(inner) } else { None },
+		)
 		.collect::<Vec<_>>();
 	let already_seen = ObservedEventsDelegatedStaking::get();
 	ObservedEventsDelegatedStaking::set(events.len());

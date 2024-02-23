@@ -575,7 +575,7 @@ mod staking_integration {
 
 mod pool_integration {
 	use super::*;
-	use pallet_nomination_pools::BondExtra;
+	use pallet_nomination_pools::{BondExtra, PoolState};
 	use sp_runtime::print;
 
 	#[test]
@@ -828,21 +828,68 @@ mod pool_integration {
 			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
 			assert_eq!(get_pool_delegate(pool_id).unbonded(), 1000);
 
-            start_era(6);
-            // should withdraw 500 more
+			start_era(6);
+			// should withdraw 500 more
+			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
+			assert_eq!(get_pool_delegate(pool_id).unbonded(), 1000 + 500);
+
+            start_era(7);
+            // Nothing to withdraw, still at 1500.
             assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
-            assert_eq!(get_pool_delegate(pool_id).unbonded(), 1000 + 500);
+            assert_eq!(get_pool_delegate(pool_id).unbonded(), 1500);
 		});
 	}
 
 	#[test]
 	fn update_nominations() {
-		ExtBuilder::default().build_and_execute(|| {});
+		ExtBuilder::default().build_and_execute(|| {
+            start_era(1);
+			// can't nominate for non-existent pool
+			assert_noop!(Pools::nominate(RawOrigin::Signed(100).into(), 1, vec![99]), PoolsError::<T>::PoolNotFound);
+
+			let pool_id = create_pool(100, 1000);
+			let pool_acc = Pools::create_bonded_account(pool_id);
+			assert_ok!(Pools::nominate(RawOrigin::Signed(100).into(), 1, vec![20, 21, 22]));
+			assert!(Staking::status(&pool_acc) == Ok(StakerStatus::Nominator(vec![20, 21, 22])));
+
+			start_era(3);
+			assert_ok!(Pools::nominate(RawOrigin::Signed(100).into(), 1, vec![18, 19, 22]));
+			assert!(Staking::status(&pool_acc) == Ok(StakerStatus::Nominator(vec![18, 19, 22])));
+        });
 	}
 
 	#[test]
 	fn destroy_pool() {
-		ExtBuilder::default().build_and_execute(|| {});
+		ExtBuilder::default().build_and_execute(|| {
+			start_era(1);
+			let creator = 100;
+			let pool_id = create_pool(creator, 1000);
+			add_delegators_to_pool(pool_id, (300..310).collect(), 200);
+
+			start_era(3);
+			// lets destroy the pool
+			assert_ok!(Pools::set_state(RawOrigin::Signed(creator).into(), pool_id, PoolState::Destroying));
+			assert_ok!(Pools::chill(RawOrigin::Signed(creator).into(), pool_id));
+
+			// unbond all members by the creator/admin
+			for i in 300..310 {
+				assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into(), i, 200));
+			}
+
+
+			start_era(6);
+			// withdraw all members by the creator/admin
+			for i in 300..310 {
+				assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(creator).into(), i, 0));
+			}
+
+			// unbond creator
+			assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into(), creator, 1000));
+
+			start_era(9);
+			// Withdraw self
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(creator).into(), creator, 0));
+		});
 	}
 
 	#[test]
