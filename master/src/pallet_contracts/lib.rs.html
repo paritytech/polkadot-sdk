@@ -1726,6 +1726,24 @@
 <a href="#1726" id="1726">1726</a>
 <a href="#1727" id="1727">1727</a>
 <a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a>
+<a href="#1734" id="1734">1734</a>
+<a href="#1735" id="1735">1735</a>
+<a href="#1736" id="1736">1736</a>
+<a href="#1737" id="1737">1737</a>
+<a href="#1738" id="1738">1738</a>
+<a href="#1739" id="1739">1739</a>
+<a href="#1740" id="1740">1740</a>
+<a href="#1741" id="1741">1741</a>
+<a href="#1742" id="1742">1742</a>
+<a href="#1743" id="1743">1743</a>
+<a href="#1744" id="1744">1744</a>
+<a href="#1745" id="1745">1745</a>
+<a href="#1746" id="1746">1746</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1942,6 +1960,18 @@
 	block_number: EnvironmentType&lt;BlockNumberFor&lt;T&gt;&gt;,
 }
 
+<span class="doccomment">/// Defines the current version of the HostFn APIs.
+/// This is used to communicate the available APIs in pallet-contracts.
+///
+/// The version is bumped any time a new HostFn is added or stabilized.
+</span><span class="attr">#[derive(Encode, Decode, TypeInfo)]
+</span><span class="kw">pub struct </span>ApiVersion(u16);
+<span class="kw">impl </span>Default <span class="kw">for </span>ApiVersion {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>(<span class="number">1</span>)
+	}
+}
+
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -2129,6 +2159,12 @@
 		/// its type appears in the metadata. Only valid value is `()`.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>Environment: Get&lt;Environment&lt;<span class="self">Self</span>&gt;&gt;;
+
+		<span class="doccomment">/// The version of the HostFn APIs that are available in the runtime.
+		///
+		/// Only valid value is `()`.
+		</span><span class="attr">#[pallet::constant]
+		</span><span class="kw">type </span>ApiVersion: Get&lt;ApiVersion&gt;;
 
 		<span class="doccomment">/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
