@@ -783,6 +783,7 @@ async fn select_candidates(
 			)
 			.await?,
 	};
+	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backable candidates");
 
 	// now get the backed candidates corresponding to these candidate receipts
 	let (tx, rx) = oneshot::channel();

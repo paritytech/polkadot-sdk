@@ -23,7 +23,7 @@ log = { workspace = true }
 parking_lot = { version = "0.12.1", optional = true }
 rand = { version = "0.8.5", optional = true }
 smallvec = "1.11.0"
-thiserror = { version = "1.0.48", optional = true }
+thiserror = { optional = true, workspace = true }
 tracing = { version = "0.1.29", optional = true }
 sp-core = { path = "../core", default-features = false }
 sp-externalities = { path = "../externalities", default-features = false }
