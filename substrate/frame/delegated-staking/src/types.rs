@@ -173,7 +173,10 @@ impl<T: Config> Delegate<T> {
 		Ok(())
 	}
 
-	pub(crate) fn try_add_unclaimed_withdraw(&mut self, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+	pub(crate) fn try_add_unclaimed_withdraw(
+		&mut self,
+		amount: BalanceOf<T>,
+	) -> Result<(), DispatchError> {
 		self.ledger.unclaimed_withdrawals = self
 			.ledger
 			.unclaimed_withdrawals
@@ -234,5 +237,22 @@ impl<T: Config> Delegate<T> {
 	pub(crate) fn save(self) {
 		let key = self.key;
 		self.ledger.save(&key)
+	}
+
+	pub(crate) fn save_or_kill(self) -> Result<(), DispatchError> {
+		let key = self.key;
+		// see if delegate can be killed
+		if self.ledger.total_delegated == Zero::zero() {
+			ensure!(
+				self.ledger.unclaimed_withdrawals == Zero::zero() &&
+					self.ledger.pending_slash == Zero::zero(),
+				Error::<T>::BadState
+			);
+			<Delegates<T>>::remove(key);
+		} else {
+			self.ledger.save(&key)
+		}
+
+		Ok(())
 	}
 }

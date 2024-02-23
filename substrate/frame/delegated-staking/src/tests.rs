@@ -832,19 +832,22 @@ mod pool_integration {
 			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
 			assert_eq!(get_pool_delegate(pool_id).unbonded(), 1000 + 500);
 
-            start_era(7);
-            // Nothing to withdraw, still at 1500.
-            assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
-            assert_eq!(get_pool_delegate(pool_id).unbonded(), 1500);
+			start_era(7);
+			// Nothing to withdraw, still at 1500.
+			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
+			assert_eq!(get_pool_delegate(pool_id).unbonded(), 1500);
 		});
 	}
 
 	#[test]
 	fn update_nominations() {
 		ExtBuilder::default().build_and_execute(|| {
-            start_era(1);
+			start_era(1);
 			// can't nominate for non-existent pool
-			assert_noop!(Pools::nominate(RawOrigin::Signed(100).into(), 1, vec![99]), PoolsError::<T>::PoolNotFound);
+			assert_noop!(
+				Pools::nominate(RawOrigin::Signed(100).into(), 1, vec![99]),
+				PoolsError::<T>::PoolNotFound
+			);
 
 			let pool_id = create_pool(100, 1000);
 			let pool_acc = Pools::create_bonded_account(pool_id);
@@ -854,7 +857,7 @@ mod pool_integration {
 			start_era(3);
 			assert_ok!(Pools::nominate(RawOrigin::Signed(100).into(), 1, vec![18, 19, 22]));
 			assert!(Staking::status(&pool_acc) == Ok(StakerStatus::Nominator(vec![18, 19, 22])));
-        });
+		});
 	}
 
 	#[test]
@@ -867,14 +870,17 @@ mod pool_integration {
 
 			start_era(3);
 			// lets destroy the pool
-			assert_ok!(Pools::set_state(RawOrigin::Signed(creator).into(), pool_id, PoolState::Destroying));
+			assert_ok!(Pools::set_state(
+				RawOrigin::Signed(creator).into(),
+				pool_id,
+				PoolState::Destroying
+			));
 			assert_ok!(Pools::chill(RawOrigin::Signed(creator).into(), pool_id));
 
 			// unbond all members by the creator/admin
 			for i in 300..310 {
 				assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into(), i, 200));
 			}
-
 
 			start_era(6);
 			// withdraw all members by the creator/admin

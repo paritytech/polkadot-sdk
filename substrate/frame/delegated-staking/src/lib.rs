@@ -498,7 +498,10 @@ impl<T: Config> Pallet<T> {
 
 		// book keep into ledger
 		delegate.try_withdraw(amount)?;
-		delegate.save();
+
+		// kill delegate if not delegated and nothing to claim anymore.
+		delegate.save_or_kill()?;
+
 		// book keep delegation
 		delegation.amount = delegation
 			.amount
@@ -543,7 +546,10 @@ impl<T: Config> Pallet<T> {
 
 		let maybe_post_total = T::CoreStaking::stake(delegate_acc);
 		// One of them should be true
-		defensive_assert!(!(stash_killed && maybe_post_total.is_ok()), "something horrible happened while withdrawing");
+		defensive_assert!(
+			!(stash_killed && maybe_post_total.is_ok()),
+			"something horrible happened while withdrawing"
+		);
 
 		let post_total = maybe_post_total.map_or(Zero::zero(), |s| s.total);
 
