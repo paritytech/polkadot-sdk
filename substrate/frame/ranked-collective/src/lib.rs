@@ -728,9 +728,9 @@ pub mod pallet {
 			Members::<T, I>::get(who).ok_or(Error::<T, I>::NotMember.into())
 		}
 
-		fn rank_to_votes(rank: Rank, min: Rank) -> Result<Votes, DispatchError> {
-			let excess = rank.checked_sub(min).ok_or(Error::<T, I>::RankTooLow)?;
-			Ok(T::VoteWeight::convert(excess))
+		fn rank_to_votes(rank: Rank, min: Rank) -> Option<Votes> {
+			let excess = rank.checked_sub(min)?;
+			Some(T::VoteWeight::convert(excess))
 		}
 
 		fn remove_from_rank(who: &T::AccountId, rank: Rank) -> DispatchResult {
