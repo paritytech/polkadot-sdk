@@ -29,10 +29,10 @@ xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", defaul
 
 # marked optional, used in benchmarking
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-pallet-balances = { path = "../../../substrate/frame/balances", default-features = false, optional = true }
 
 [dev-dependencies]
 pallet-assets = { path = "../../../substrate/frame/assets" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }
 polkadot-parachain-primitives = { path = "../../parachain" }
 

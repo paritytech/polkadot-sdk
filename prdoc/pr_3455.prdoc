@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: pallet-xcm benchmarking fixes
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      With this PR, the benchmarks for pallet-xcm no longer assume the use of 
+      `pallet-balances` for fungible implementations. Furthermore, with this PR 
+      non-fungible teleport and reserve transfers are properly benchmarked.
+
+crates: 
+  - name: pallet-xcm
+  - name: contracts-rococo-runtime
+  - name: coretime-rococo-runtime
+  - name: coretime-westend-runtime
+  - name: coretime-westend-runtime
