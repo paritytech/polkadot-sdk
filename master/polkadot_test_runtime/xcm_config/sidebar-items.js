@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AnyNetwork","BaseXcmWeight","DoNothingRouter","DummyAssetTransactor","DummyWeightTrader","MaxAssetsIntoHolding","MaxInstructions","UniversalLocation","XcmConfig"],"type":["Barrier","LocalOriginToLocation"]};
+window.SIDEBAR_ITEMS = {"struct":["AnyNetwork","BaseXcmWeight","DummyAssetTransactor","DummyWeightTrader","FeeAssetId","MaxAssetsIntoHolding","MaxInstructions","TestDeliveryPrice","TokenLocation","UniversalLocation","XcmConfig"],"type":["Barrier","LocalOriginToLocation","PriceForChildParachainDelivery","XcmRouter"]};

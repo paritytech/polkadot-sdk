@@ -323,6 +323,89 @@
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -344,12 +427,14 @@
 
 </span><span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::{dispatch::GetDispatchInfo, weights::Weight};
+<span class="kw">use </span>polkadot_service::chain_spec::get_account_id_from_seed;
 <span class="kw">use </span>polkadot_test_client::{
 	BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
 	TestClientBuilder, TestClientBuilderExt,
 };
 <span class="kw">use </span>polkadot_test_runtime::{pallet_test_notifier, xcm_config::XcmConfig};
 <span class="kw">use </span>polkadot_test_service::construct_extrinsic;
+<span class="kw">use </span>sp_core::sr25519;
 <span class="kw">use </span>sp_runtime::traits::Block;
 <span class="kw">use </span>sp_state_machine::InspectState;
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedResponse, VersionedXcm};
@@ -645,6 +730,87 @@
 				q,
 				Response::ExecutionResult(<span class="prelude-val">None</span>),
 			)) <span class="kw">if </span><span class="kw-2">*</span>q == query_id &amp;&amp; <span class="macro">matches!</span>(location.unpack(), (<span class="number">0</span>, [Junction::AccountId32 { .. }])),
+		)));
+	});
+}
+
+<span class="doccomment">/// Simulates a cross-chain message from Parachain to Parachain through Relay Chain
+/// that deposits assets into the reserve of the destination.
+/// Regression test for `DepostiReserveAsset` changes in
+/// &lt;https://github.com/paritytech/polkadot-sdk/pull/3340&gt;
+</span><span class="attr">#[test]
+</span><span class="kw">fn </span>deposit_reserve_asset_works_for_any_xcm_sender() {
+	sp_tracing::try_init_simple();
+	<span class="kw">let </span><span class="kw-2">mut </span>client = TestClientBuilder::new().build();
+
+	<span class="comment">// Init values for the simulated origin Parachain
+	</span><span class="kw">let </span>amount_to_send: u128 = <span class="number">1_000_000_000_000</span>;
+	<span class="kw">let </span>assets: Assets = (Parent, amount_to_send).into();
+	<span class="kw">let </span>fee_asset_item = <span class="number">0</span>;
+	<span class="kw">let </span>max_assets = assets.len() <span class="kw">as </span>u32;
+	<span class="kw">let </span>fees = assets.get(fee_asset_item <span class="kw">as </span>usize).unwrap().clone();
+	<span class="kw">let </span>weight_limit = Unlimited;
+	<span class="kw">let </span>reserve = Location::parent();
+	<span class="kw">let </span>dest = Location::new(<span class="number">1</span>, [Parachain(<span class="number">2000</span>)]);
+	<span class="kw">let </span>beneficiary_id = get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>);
+	<span class="kw">let </span>beneficiary = Location::new(<span class="number">0</span>, [AccountId32 { network: <span class="prelude-val">None</span>, id: beneficiary_id.into() }]);
+
+	<span class="comment">// spends up to half of fees for execution on reserve and other half for execution on
+	// destination
+	</span><span class="kw">let </span>fee1 = amount_to_send.saturating_div(<span class="number">2</span>);
+	<span class="kw">let </span>fee2 = amount_to_send.saturating_sub(fee1);
+	<span class="kw">let </span>fees_half_1 = Asset::from((fees.id.clone(), Fungible(fee1)));
+	<span class="kw">let </span>fees_half_2 = Asset::from((fees.id.clone(), Fungible(fee2)));
+
+	<span class="kw">let </span>reserve_context = &lt;XcmConfig <span class="kw">as </span>xcm_executor::Config&gt;::UniversalLocation::get();
+	<span class="comment">// identifies fee item as seen by `reserve` - to be used at reserve chain
+	</span><span class="kw">let </span>reserve_fees = fees_half_1.reanchored(<span class="kw-2">&amp;</span>reserve, <span class="kw-2">&amp;</span>reserve_context).unwrap();
+	<span class="comment">// identifies fee item as seen by `dest` - to be used at destination chain
+	</span><span class="kw">let </span>dest_fees = fees_half_2.reanchored(<span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>reserve_context).unwrap();
+	<span class="comment">// identifies assets as seen by `reserve` - to be used at reserve chain
+	</span><span class="kw">let </span>assets_reanchored = assets.reanchored(<span class="kw-2">&amp;</span>reserve, <span class="kw-2">&amp;</span>reserve_context).unwrap();
+	<span class="comment">// identifies `dest` as seen by `reserve`
+	</span><span class="kw">let </span>dest = dest.reanchored(<span class="kw-2">&amp;</span>reserve, <span class="kw-2">&amp;</span>reserve_context).unwrap();
+	<span class="comment">// xcm to be executed at dest
+	</span><span class="kw">let </span>xcm_on_dest = Xcm(<span class="macro">vec!</span>[
+		BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() },
+		DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+	]);
+	<span class="comment">// xcm to be executed at reserve
+	</span><span class="kw">let </span>msg = Xcm(<span class="macro">vec!</span>[
+		WithdrawAsset(assets_reanchored),
+		ClearOrigin,
+		BuyExecution { fees: reserve_fees, weight_limit },
+		DepositReserveAsset { assets: Wild(AllCounted(max_assets)), dest, xcm: xcm_on_dest },
+	]);
+
+	<span class="kw">let </span><span class="kw-2">mut </span>block_builder = client.init_polkadot_block_builder();
+
+	<span class="comment">// Simulate execution of an incoming XCM message at the reserve chain
+	</span><span class="kw">let </span>execute = construct_extrinsic(
+		<span class="kw-2">&amp;</span>client,
+		polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
+			message: Box::new(VersionedXcm::from(msg)),
+			max_weight: Weight::from_parts(<span class="number">1_000_000_000</span>, <span class="number">1024 </span>* <span class="number">1024</span>),
+		}),
+		sp_keyring::Sr25519Keyring::Alice,
+		<span class="number">0</span>,
+	);
+
+	block_builder.push_polkadot_extrinsic(execute).expect(<span class="string">&quot;pushes extrinsic&quot;</span>);
+
+	<span class="kw">let </span>block = block_builder.build().expect(<span class="string">&quot;Finalizes the block&quot;</span>).block;
+	<span class="kw">let </span>block_hash = block.hash();
+
+	futures::executor::block_on(client.import(sp_consensus::BlockOrigin::Own, block))
+		.expect(<span class="string">&quot;imports the block&quot;</span>);
+
+	client.state_at(block_hash).expect(<span class="string">&quot;state should exist&quot;</span>).inspect_state(|| {
+		<span class="macro">assert!</span>(polkadot_test_runtime::System::events().iter().any(|r| <span class="macro">matches!</span>(
+			r.event,
+			polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
+				outcome: Outcome::Complete { .. }
+			}),
 		)));
 	});
 }

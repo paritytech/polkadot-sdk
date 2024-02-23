@@ -4,7 +4,7 @@
     C: ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + AuxStore + HeaderMetadata&lt;Block, Error = Error&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     C::Api: AccountNonceApi&lt;Block, AccountId, Nonce&gt; + MmrRuntimeApi&lt;Block, &lt;Block as Block&gt;::Hash, BlockNumber&gt; + TransactionPaymentRuntimeApi&lt;Block, Balance&gt; + BabeApi&lt;Block&gt; + BlockBuilder&lt;Block&gt;,
     P: TransactionPool + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
-    SC: SelectChain&lt;Block&gt; + 'static,
+    SC: <a class="trait" href="../sp_consensus/select_chain/trait.SelectChain.html" title="trait sp_consensus::select_chain::SelectChain">SelectChain</a>&lt;Block&gt; + 'static,
     B: Backend&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     B::State: StateBackend&lt;HashingFor&lt;Block&gt;&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Instantiate all RPC extensions.</p>
 </div></details></section></div></main></body></html>

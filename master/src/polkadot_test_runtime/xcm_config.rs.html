@@ -152,6 +152,36 @@
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -170,14 +200,16 @@
 
 </span><span class="kw">use </span>frame_support::{
 	parameter_types,
-	traits::{Everything, Nothing},
+	traits::{Everything, Get, Nothing},
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
+<span class="kw">use </span>polkadot_runtime_parachains::FeeTracker;
+<span class="kw">use </span>runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
-	SignedAccountId32AsNative, SignedToAccountId32,
+	SignedAccountId32AsNative, SignedToAccountId32, WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::{
 	traits::{TransactAsset, WeightTrader},
@@ -190,6 +222,8 @@
 	<span class="kw">pub const </span>MaxInstructions: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">16</span>;
 	<span class="kw">pub const </span>UniversalLocation: xcm::latest::InteriorLocation = xcm::latest::Junctions::Here;
+	<span class="kw">pub </span>TokenLocation: Location = Here.into_location();
+	<span class="kw">pub </span>FeeAssetId: AssetId = AssetId(TokenLocation::get());
 }
 
 <span class="doccomment">/// Type to convert an `Origin` type value into a `Location` value which represents an interior
@@ -199,16 +233,42 @@
 	</span>SignedToAccountId32&lt;<span class="kw">crate</span>::RuntimeOrigin, <span class="kw">crate</span>::AccountId, AnyNetwork&gt;,
 );
 
-<span class="kw">pub struct </span>DoNothingRouter;
-<span class="kw">impl </span>SendXcm <span class="kw">for </span>DoNothingRouter {
-	<span class="kw">type </span>Ticket = ();
-	<span class="kw">fn </span>validate(_dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;, _msg: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;) -&gt; SendResult&lt;()&gt; {
-		<span class="prelude-val">Ok</span>(((), Assets::new()))
-	}
-	<span class="kw">fn </span>deliver(<span class="kw">_</span>: ()) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
-		<span class="prelude-val">Ok</span>([<span class="number">0</span>; <span class="number">32</span>])
+<span class="doccomment">/// Implementation of [`PriceForMessageDelivery`], returning a different price
+/// based on whether a message contains a reanchored asset or not.
+/// This implementation ensures that messages with non-reanchored assets return higher
+/// prices than messages with reanchored assets.
+/// Useful for `deposit_reserve_asset_works_for_any_xcm_sender` integration test.
+</span><span class="kw">pub struct </span>TestDeliveryPrice&lt;A, F&gt;(sp_std::marker::PhantomData&lt;(A, F)&gt;);
+<span class="kw">impl</span>&lt;A: Get&lt;AssetId&gt;, F: FeeTracker&gt; PriceForMessageDelivery <span class="kw">for </span>TestDeliveryPrice&lt;A, F&gt; {
+	<span class="kw">type </span>Id = F::Id;
+
+	<span class="kw">fn </span>price_for_delivery(<span class="kw">_</span>: <span class="self">Self</span>::Id, msg: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Assets {
+		<span class="kw">let </span>base_fee: <span class="kw">super</span>::Balance = <span class="number">1_000_000</span>;
+
+		<span class="kw">let </span>parents = msg.iter().find_map(|xcm| <span class="kw">match </span>xcm {
+			ReserveAssetDeposited(assets) =&gt; {
+				<span class="kw">let </span>AssetId(location) = <span class="kw-2">&amp;</span>assets.inner().first().unwrap().id;
+				<span class="prelude-val">Some</span>(location.parents)
+			},
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+		});
+
+		<span class="comment">// If no asset is found, price defaults to `base_fee`.
+		</span><span class="kw">let </span>amount = base_fee
+			.saturating_add(base_fee.saturating_mul(parents.unwrap_or(<span class="number">0</span>) <span class="kw">as </span><span class="kw">super</span>::Balance));
+
+		(A::get(), amount).into()
 	}
 }
+
+<span class="kw">pub type </span>PriceForChildParachainDelivery = TestDeliveryPrice&lt;FeeAssetId, <span class="kw">super</span>::Dmp&gt;;
+
+<span class="doccomment">/// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
+/// individual routers.
+</span><span class="kw">pub type </span>XcmRouter = WithUniqueTopic&lt;
+	<span class="comment">// Only one router so far - use DMP to communicate with child parachains.
+	</span>ChildParachainRouter&lt;<span class="kw">super</span>::Runtime, <span class="kw">super</span>::Xcm, PriceForChildParachainDelivery&gt;,
+&gt;;
 
 <span class="kw">pub type </span>Barrier = AllowUnpaidExecutionFrom&lt;Everything&gt;;
 
@@ -253,7 +313,7 @@
 <span class="kw">pub struct </span>XcmConfig;
 <span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
 	<span class="kw">type </span>RuntimeCall = <span class="kw">super</span>::RuntimeCall;
-	<span class="kw">type </span>XcmSender = DoNothingRouter;
+	<span class="kw">type </span>XcmSender = XcmRouter;
 	<span class="kw">type </span>AssetTransactor = DummyAssetTransactor;
 	<span class="kw">type </span>OriginConverter = OriginConverter;
 	<span class="kw">type </span>IsReserve = ();
@@ -287,7 +347,7 @@
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 	<span class="kw">type </span>SendXcmOrigin = EnsureXcmOrigin&lt;<span class="kw">crate</span>::RuntimeOrigin, LocalOriginToLocation&gt;;
 	<span class="kw">type </span>Weigher = FixedWeightBounds&lt;BaseXcmWeight, <span class="kw">crate</span>::RuntimeCall, MaxInstructions&gt;;
-	<span class="kw">type </span>XcmRouter = DoNothingRouter;
+	<span class="kw">type </span>XcmRouter = XcmRouter;
 	<span class="kw">type </span>XcmExecuteFilter = Everything;
 	<span class="kw">type </span>XcmExecutor = xcm_executor::XcmExecutor&lt;XcmConfig&gt;;
 	<span class="kw">type </span>XcmTeleportFilter = Everything;

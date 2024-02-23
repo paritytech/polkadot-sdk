@@ -2046,9 +2046,9 @@
 					// be weighed
 					</span><span class="kw">let </span>to_weigh = <span class="self">self</span>.holding.saturating_take(assets.clone());
 					<span class="self">self</span>.holding.subsume_assets(to_weigh.clone());
-
+					<span class="kw">let </span>to_weigh_reanchored = <span class="self">Self</span>::reanchored(to_weigh, <span class="kw-2">&amp;</span>dest, <span class="prelude-val">None</span>);
 					<span class="kw">let </span><span class="kw-2">mut </span>message_to_weigh =
-						<span class="macro">vec!</span>[ReserveAssetDeposited(to_weigh.into()), ClearOrigin];
+						<span class="macro">vec!</span>[ReserveAssetDeposited(to_weigh_reanchored), ClearOrigin];
 					message_to_weigh.extend(xcm.<span class="number">0</span>.clone().into_iter());
 					<span class="kw">let </span>(<span class="kw">_</span>, fee) =
 						validate_send::&lt;Config::XcmSender&gt;(dest.clone(), Xcm(message_to_weigh))<span class="question-mark">?</span>;
