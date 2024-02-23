@@ -87,6 +87,22 @@ pub struct ProposerFactory<A, C, PR> {
 	_phantom: PhantomData<PR>,
 }
 
+impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
+	fn clone(&self) -> Self {
+		Self {
+			spawn_handle: self.spawn_handle.clone(),
+			client: self.client.clone(),
+			transaction_pool: self.transaction_pool.clone(),
+			metrics: self.metrics.clone(),
+			default_block_size_limit: self.default_block_size_limit,
+			soft_deadline_percent: self.soft_deadline_percent,
+			telemetry: self.telemetry.clone(),
+			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
+			_phantom: self._phantom,
+		}
+	}
+}
+
 impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
 	/// Create a new proposer factory.
 	///
