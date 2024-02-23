@@ -149,11 +149,11 @@ pub fn backed_candidate_weight<T: frame_system::Config + Config>(
 	candidate: &BackedCandidate<T::Hash>,
 ) -> Weight {
 	set_proof_size_to_tx_size(
-		if candidate.candidate.commitments.new_validation_code.is_some() {
+		if candidate.candidate().commitments.new_validation_code.is_some() {
 			<<T as Config>::WeightInfo as WeightInfo>::enter_backed_candidate_code_upgrade()
 		} else {
 			<<T as Config>::WeightInfo as WeightInfo>::enter_backed_candidates_variable(
-				candidate.validity_votes.len() as u32,
+				candidate.validity_votes().len() as u32,
 			)
 		},
 		candidate,
