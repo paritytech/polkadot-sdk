@@ -81,15 +81,16 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		instructions[..end]
 			.matcher()
 			.match_next_inst(|inst| match inst {
-				ReceiveTeleportedAsset(ref assets) |
-				ReserveAssetDeposited(ref assets) |
-				WithdrawAsset(ref assets) |
-				ClaimAsset { ref assets, .. } =>
+				ReceiveTeleportedAsset(ref assets)
+				| ReserveAssetDeposited(ref assets)
+				| WithdrawAsset(ref assets)
+				| ClaimAsset { ref assets, .. } => {
 					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
 						Ok(())
 					} else {
 						Err(ProcessMessageError::BadFormat)
-					},
+					}
+				},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
 			.skip_inst_while(|inst| matches!(inst, ClearOrigin))?
@@ -342,7 +343,9 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 			.match_next_inst(|inst| match inst {
 				QueryResponse { query_id, querier, .. }
 					if ResponseHandler::expecting_response(origin, *query_id, querier.as_ref()) =>
-					Ok(()),
+				{
+					Ok(())
+				},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
@@ -414,9 +417,9 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 				InitiateReserveWithdraw {
 					reserve: Location { parents: 1, interior: Here },
 					..
-				} |
-				DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. } |
-				TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
+				}
+				| DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. }
+				| TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
 					Err(ProcessMessageError::Unsupported) // Deny
 				},
 
@@ -452,6 +455,8 @@ impl<InnerBarrier: ShouldExecute> ShouldExecute for WithDeliveryFees<InnerBarrie
 		fn recursive_check<RuntimeCall>(
 			instructions: &mut [Instruction<RuntimeCall>],
 		) -> Vec<Location> {
+			// TODO: Should probably be a `BoundedVec`.
+			// In that case, what should the bound be?
 			let mut destinations = Vec::new();
 			instructions
 				.matcher()
