@@ -503,8 +503,6 @@ pub mod pallet {
 		NoneRemaining,
 		/// Unexpected error in state.
 		Corruption,
-		/// The member's rank is too low to vote.
-		RankTooLow,
 		/// The information provided is incorrect.
 		InvalidWitness,
 		/// The origin is not sufficiently privileged to do the operation.
