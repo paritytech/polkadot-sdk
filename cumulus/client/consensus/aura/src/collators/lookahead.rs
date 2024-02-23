@@ -290,16 +290,17 @@ where
 			// If the longest chain has space, build upon that. Otherwise, don't
 			// build at all.
 			potential_parents.sort_by_key(|a| a.depth);
-			let initial_parent = match potential_parents.pop() {
-				None => continue,
-				Some(p) => p,
-			};
+			let Some(initial_parent) = potential_parents.pop() else { continue };
 
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
 			let mut parent_hash = initial_parent.hash;
 			let mut parent_header = initial_parent.header;
 			let overseer_handle = &mut params.overseer_handle;
+
+			// We mainly call this to inform users at genesis if there is a mismatch with the
+			// on-chain data.
+			collator.collator_service().check_block_status(parent_hash, &parent_header);
 
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
@@ -352,6 +353,14 @@ where
 					},
 					Some(v) => v,
 				};
+
+				super::check_validation_code_or_log(
+					&validation_code_hash,
+					params.para_id,
+					&params.relay_client,
+					relay_parent,
+				)
+				.await;
 
 				match collator
 					.collate(
