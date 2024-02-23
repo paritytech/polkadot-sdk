@@ -353,13 +353,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
-		// 2.
-		//
-		// No need to get the fee because enough for all delivery fees was already taken
-		// in `BuyExecution`.
-		// TODO: We could actually charge it here, also to be able to use the `reason`
-		// parameter. Then we'd take the fees from the new register and refund some assets.
-		//
 		self.take_fee(fee, reason)?;
 		Config::XcmSender::deliver(ticket).map_err(Into::into)
 	}
