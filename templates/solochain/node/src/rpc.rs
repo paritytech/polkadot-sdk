@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use jsonrpsee::RpcModule;
 use sc_transaction_pool_api::TransactionPool;
-use solo_chain_runtime::{opaque::Block, AccountId, Balance, Nonce};
+use solochain_runtime::{opaque::Block, AccountId, Balance, Nonce};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};

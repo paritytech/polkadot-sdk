@@ -1,7 +1,7 @@
 [package]
 name = "minimal-node"
-version = "0.0.0"
 description = "A miniaml Substrate-based Substrate node, ready for hacking."
+version = "0.0.0"
 authors.workspace = true
 homepage.workspace = true
 repository.workspace = true

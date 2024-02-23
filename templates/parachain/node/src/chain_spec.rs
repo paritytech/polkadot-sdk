@@ -1,5 +1,6 @@
 use cumulus_primitives_core::ParaId;
-use parachain_template_runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOSIT};
+use parachain_runtime as runtime;
+use runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOSIT};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
@@ -56,8 +57,8 @@ where
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn template_session_keys(keys: AuraId) -> parachain_template_runtime::SessionKeys {
-	parachain_template_runtime::SessionKeys { aura: keys }
+pub fn template_session_keys(keys: AuraId) -> runtime::SessionKeys {
+	runtime::SessionKeys { aura: keys }
 }
 
 pub fn development_config() -> ChainSpec {
@@ -68,8 +69,7 @@ pub fn development_config() -> ChainSpec {
 	properties.insert("ss58Format".into(), 42.into());
 
 	ChainSpec::builder(
-		parachain_template_runtime::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
+		runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions {
 			relay_chain: "rococo-local".into(),
 			// You MUST set this to the correct network!
@@ -120,8 +120,7 @@ pub fn local_testnet_config() -> ChainSpec {
 
 	#[allow(deprecated)]
 	ChainSpec::builder(
-		parachain_template_runtime::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
+		runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions {
 			relay_chain: "rococo-local".into(),
 			// You MUST set this to the correct network!

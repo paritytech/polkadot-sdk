@@ -1,7 +1,7 @@
 [package]
-name = "solo-chain-node"
+name = "solochain-node"
 version = "4.0.0-dev"
-description = "A solo-chain node template built with Substrate, part of Polkadot Sdk."
+description = "A solochain node template built with Substrate, part of Polkadot Sdk."
 authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [[bin]]
-name = "solo-chain-node"
+name = "solochain-node"
 
 [dependencies]
 clap = { version = "4.5.1", features = ["derive"] }
@@ -63,7 +63,7 @@ substrate-frame-rpc-system = { path = "../../../substrate/utils/frame/rpc/system
 frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-cli" }
 
 # Local Dependencies
-solo-chain-runtime = { path = "../runtime" }
+solochain-runtime = { path = "../runtime" }
 
 # CLI-specific dependencies
 try-runtime-cli = { path = "../../../substrate/utils/frame/try-runtime/cli", optional = true }
@@ -77,7 +77,7 @@ default = []
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"solo-chain-runtime/runtime-benchmarks",
+	"solochain-runtime/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -85,7 +85,7 @@ runtime-benchmarks = [
 # in the near future.
 try-runtime = [
 	"frame-system/try-runtime",
-	"solo-chain-runtime/try-runtime",
+	"solochain-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 	"try-runtime-cli/try-runtime",

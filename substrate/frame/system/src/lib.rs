@@ -300,7 +300,7 @@ pub mod pallet {
 			type OnSetCode = ();
 		}
 
-		/// Default configurations of this pallet in a solo-chain environment.
+		/// Default configurations of this pallet in a solochain environment.
 		///
 		/// ## Considerations:
 		///

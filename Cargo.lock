@@ -10105,6 +10105,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-minimal-template"
+version = "0.0.0"
+dependencies = [
+ "frame",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-mixnet"
 version = "0.4.0"
 dependencies = [
@@ -10401,6 +10410,20 @@ dependencies = [
  "honggfuzz",
  "pallet-paged-list",
  "sp-io",
+]
+
+[[package]]
+name = "pallet-parachain-template"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -11170,6 +11193,121 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-builder",
+]
+
+[[package]]
+name = "parachain-node"
+version = "0.0.0"
+dependencies = [
+ "clap 4.5.1",
+ "color-print",
+ "cumulus-client-cli",
+ "cumulus-client-collator",
+ "cumulus-client-consensus-aura",
+ "cumulus-client-consensus-common",
+ "cumulus-client-consensus-proposer",
+ "cumulus-client-service",
+ "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
+ "cumulus-relay-chain-interface",
+ "frame-benchmarking",
+ "frame-benchmarking-cli",
+ "futures",
+ "jsonrpsee",
+ "log",
+ "pallet-transaction-payment-rpc",
+ "parachain-runtime",
+ "parity-scale-codec",
+ "polkadot-cli",
+ "polkadot-primitives",
+ "sc-basic-authorship",
+ "sc-chain-spec",
+ "sc-cli",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-executor",
+ "sc-network",
+ "sc-network-sync",
+ "sc-offchain",
+ "sc-rpc",
+ "sc-service",
+ "sc-sysinfo",
+ "sc-telemetry",
+ "sc-tracing",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-timestamp",
+ "staging-xcm",
+ "substrate-build-script-utils",
+ "substrate-frame-rpc-system",
+ "substrate-prometheus-endpoint",
+]
+
+[[package]]
+name = "parachain-runtime"
+version = "0.0.0"
+dependencies = [
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
+ "cumulus-primitives-utility",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "hex-literal",
+ "log",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "pallet-message-queue",
+ "pallet-parachain-template",
+ "pallet-session",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "scale-info",
+ "smallvec",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std 14.0.0",
+ "sp-transaction-pool",
+ "sp-version",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -17968,7 +18106,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "solo-chain-node"
+name = "solochain-node"
 version = "4.0.0-dev"
 dependencies = [
  "clap 4.5.1",
@@ -17993,7 +18131,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "serde_json",
- "solo-chain-runtime",
+ "solochain-runtime",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -18011,7 +18149,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "solo-chain-runtime"
+name = "solochain-runtime"
 version = "0.0.0"
 dependencies = [
  "frame-benchmarking",

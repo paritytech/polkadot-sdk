@@ -495,16 +495,17 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/wasm-builder",
 
-	"templates/minimal/node",
+	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
+	"templates/minimal/node",
 
-	"templates/solo-chain/node",
-	"templates/solo-chain/pallets/template",
-	"templates/solo-chain/runtime",
+	"templates/solochain/pallets/template",
+	"templates/solochain/runtime",
+	"templates/solochain/node",
 
-	# "templates/parachain/node",
-	# "templates/parachain/pallets/template",
-	# "templates/parachain/runtime",
+	"templates/parachain/pallets/template",
+	"templates/parachain/runtime",
+	"templates/parachain/node",
 ]
 default-members = ["polkadot", "substrate/bin/node/cli"]
 
