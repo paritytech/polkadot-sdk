@@ -2,8 +2,8 @@
 
 set -e
 
-source "${BASH_SOURCE%/*}/../../framework/utils/common.sh"
-source "${BASH_SOURCE%/*}/../../framework/utils/zombienet.sh"
+source "$FRAMEWORK_PATH/utils/common.sh"
+source "$FRAMEWORK_PATH/utils/zombienet.sh"
 
 rococo_dir=$1
 westend_dir=$2
