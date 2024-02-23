@@ -865,7 +865,8 @@ mod pool_integration {
 		ExtBuilder::default().build_and_execute(|| {
 			start_era(1);
 			let creator = 100;
-			let pool_id = create_pool(creator, 1000);
+			let creator_stake = 1000;
+			let pool_id = create_pool(creator, creator_stake);
 			add_delegators_to_pool(pool_id, (300..310).collect(), 200);
 
 			start_era(3);
@@ -889,11 +890,20 @@ mod pool_integration {
 			}
 
 			// unbond creator
-			assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into(), creator, 1000));
+			assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into(), creator, creator_stake));
 
 			start_era(9);
+			System::reset_events();
 			// Withdraw self
 			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(creator).into(), creator, 0));
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					PoolsEvent::Withdrawn { member: creator, pool_id, balance: creator_stake, points: creator_stake },
+					PoolsEvent::MemberRemoved { pool_id, member: creator },
+					PoolsEvent::Destroyed { pool_id },
+				]
+			);
 		});
 	}
 
