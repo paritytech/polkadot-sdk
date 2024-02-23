@@ -23,7 +23,7 @@ name = "minimal-node"
 clap = { version = "4.5.1", features = ["derive"] }
 futures = { version = "0.3.21", features = ["thread-pool"] }
 futures-timer = "3.0.1"
-jsonrpsee = { version = "0.22", features = ["server"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["server"] }
 serde_json = { workspace = true, default-features = true }
 
 sc-cli = { path = "../../../client/cli" }

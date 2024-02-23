@@ -15,7 +15,7 @@ workspace = true
 [dependencies]
 finality-grandpa = { version = "0.16.2", features = ["derive-codec"] }
 futures = "0.3.16"
-jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["client-core", "macros", "server"] }
 log = { workspace = true, default-features = true }
 parity-scale-codec = { version = "3.6.1", features = ["derive"] }
 serde = { features = ["derive"], workspace = true, default-features = true }

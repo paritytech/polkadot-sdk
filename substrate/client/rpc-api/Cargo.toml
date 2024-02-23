@@ -28,4 +28,4 @@ sp-core = { path = "../../primitives/core" }
 sp-rpc = { path = "../../primitives/rpc" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-version = { path = "../../primitives/version" }
-jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["client-core", "macros", "server"] }

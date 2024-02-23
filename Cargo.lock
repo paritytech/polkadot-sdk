@@ -4114,7 +4114,7 @@ dependencies = [
  "async-trait",
  "cumulus-primitives-core",
  "futures",
- "jsonrpsee-core",
+ "jsonrpsee-core 0.22.0",
  "parity-scale-codec",
  "polkadot-overseer",
  "sc-client-api",
@@ -6825,15 +6825,14 @@ checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
 
 [[package]]
 name = "jsonrpsee"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a95f7cc23d5fab0cdeeaf6bad8c8f5e7a3aa7f0d211957ea78232b327ab27b0"
+version = "0.22.1"
+source = "git+https://github.com/paritytech/jsonrpsee.git?branch=lexnv/low-level-context-api-v2#15659276f1381748694fdb9c0cbaeee67ffec138"
 dependencies = [
- "jsonrpsee-core",
+ "jsonrpsee-core 0.22.1",
  "jsonrpsee-http-client",
  "jsonrpsee-proc-macros",
  "jsonrpsee-server",
- "jsonrpsee-types",
+ "jsonrpsee-types 0.22.1",
  "jsonrpsee-ws-client",
  "tokio",
  "tracing",
@@ -6841,13 +6840,12 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-client-transport"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b1736cfa3845fd9f8f43751f2b8e0e83f7b6081e754502f7d63b6587692cc83"
+version = "0.22.1"
+source = "git+https://github.com/paritytech/jsonrpsee.git?branch=lexnv/low-level-context-api-v2#15659276f1381748694fdb9c0cbaeee67ffec138"
 dependencies = [
  "futures-util",
  "http",
- "jsonrpsee-core",
+ "jsonrpsee-core 0.22.1",
  "pin-project",
  "rustls-native-certs 0.7.0",
  "rustls-pki-types",
@@ -6867,13 +6865,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82030d038658974732103e623ba2e0abec03bbbe175b39c0a2fafbada60c5868"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "beef",
+ "jsonrpsee-types 0.22.0",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "jsonrpsee-core"
+version = "0.22.1"
+source = "git+https://github.com/paritytech/jsonrpsee.git?branch=lexnv/low-level-context-api-v2#15659276f1381748694fdb9c0cbaeee67ffec138"
+dependencies = [
+ "anyhow",
  "async-lock 3.3.0",
  "async-trait",
  "beef",
  "futures-timer",
  "futures-util",
  "hyper",
- "jsonrpsee-types",
+ "jsonrpsee-types 0.22.1",
  "parking_lot 0.12.1",
  "pin-project",
  "rand",
@@ -6888,15 +6901,14 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-http-client"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36a06ef0de060005fddf772d54597bb6a8b0413da47dcffd304b0306147b9678"
+version = "0.22.1"
+source = "git+https://github.com/paritytech/jsonrpsee.git?branch=lexnv/low-level-context-api-v2#15659276f1381748694fdb9c0cbaeee67ffec138"
 dependencies = [
  "async-trait",
  "hyper",
  "hyper-rustls",
- "jsonrpsee-core",
- "jsonrpsee-types",
+ "jsonrpsee-core 0.22.1",
+ "jsonrpsee-types 0.22.1",
  "serde",
  "serde_json",
  "thiserror",
@@ -6908,9 +6920,8 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-proc-macros"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69fc56131589f82e57805f7338b87023db4aafef813555708b159787e34ad6bc"
+version = "0.22.1"
+source = "git+https://github.com/paritytech/jsonrpsee.git?branch=lexnv/low-level-context-api-v2#15659276f1381748694fdb9c0cbaeee67ffec138"
 dependencies = [
  "heck",
  "proc-macro-crate 3.0.0",
@@ -6921,15 +6932,14 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-server"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d85be77fe5b2a94589e3164fb780017f7aff7d646b49278c0d0346af16975c8e"
+version = "0.22.1"
+source = "git+https://github.com/paritytech/jsonrpsee.git?branch=lexnv/low-level-context-api-v2#15659276f1381748694fdb9c0cbaeee67ffec138"
 dependencies = [
  "futures-util",
  "http",
  "hyper",
- "jsonrpsee-core",
- "jsonrpsee-types",
+ "jsonrpsee-core 0.22.1",
+ "jsonrpsee-types 0.22.1",
  "pin-project",
  "route-recognizer",
  "serde",
@@ -6957,15 +6967,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsonrpsee-types"
+version = "0.22.1"
+source = "git+https://github.com/paritytech/jsonrpsee.git?branch=lexnv/low-level-context-api-v2#15659276f1381748694fdb9c0cbaeee67ffec138"
+dependencies = [
+ "anyhow",
+ "beef",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "jsonrpsee-ws-client"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5ce25d70a8e4d3cc574bbc3cad0137c326ad64b194793d5e7bbdd3fa4504181"
+version = "0.22.1"
+source = "git+https://github.com/paritytech/jsonrpsee.git?branch=lexnv/low-level-context-api-v2#15659276f1381748694fdb9c0cbaeee67ffec138"
 dependencies = [
  "http",
  "jsonrpsee-client-transport",
- "jsonrpsee-core",
- "jsonrpsee-types",
+ "jsonrpsee-core 0.22.1",
+ "jsonrpsee-types 0.22.1",
  "url",
 ]
 

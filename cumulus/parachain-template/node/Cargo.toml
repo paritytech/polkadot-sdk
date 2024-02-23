@@ -18,7 +18,7 @@ clap = { version = "4.5.1", features = ["derive"] }
 log = { workspace = true, default-features = true }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { features = ["derive"], workspace = true, default-features = true }
-jsonrpsee = { version = "0.22", features = ["server"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["server"] }
 futures = "0.3.28"
 serde_json = { workspace = true, default-features = true }
 

@@ -14,7 +14,7 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 futures = "0.3.21"
-jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["client-core", "macros", "server"] }
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 serde = { features = ["derive"], workspace = true, default-features = true }

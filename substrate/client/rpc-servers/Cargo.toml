@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.22", features = ["server"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["server"] }
 log = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 tokio = { version = "1.22.0", features = ["parking_lot"] }

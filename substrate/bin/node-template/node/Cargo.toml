@@ -48,7 +48,7 @@ frame-system = { path = "../../../frame/system" }
 pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false }
 
 # These dependencies are used for the node template's RPCs
-jsonrpsee = { version = "0.22", features = ["server"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["server"] }
 sp-api = { path = "../../../primitives/api" }
 sc-rpc-api = { path = "../../../client/rpc-api" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
