@@ -5007,7 +5007,7 @@ fn do_not_die_when_active_is_ed() {
 fn on_finalize_weight_is_nonzero() {
 	ExtBuilder::default().build_and_execute(|| {
 		let on_finalize_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
-		assert!(<Staking as Hooks<u64>>::on_initialize(1).all_gte(on_finalize_weight));
+		assert!(<Staking as Hooks<u32>>::on_initialize(1).all_gte(on_finalize_weight));
 	})
 }
 
@@ -5436,7 +5436,7 @@ mod election_data_provider {
 			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
 
 			Staking::force_no_eras(RuntimeOrigin::root()).unwrap();
-			assert_eq!(Staking::next_election_prediction(System::block_number()), u64::MAX);
+			assert_eq!(Staking::next_election_prediction(System::block_number()), u32::MAX);
 
 			Staking::force_new_era_always(RuntimeOrigin::root()).unwrap();
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 45 + 5);
