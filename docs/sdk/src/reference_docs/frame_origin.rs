@@ -179,10 +179,9 @@ pub mod pallet_with_custom_origin {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		pub fn only_validators(
-			// we use the full syntax of `OriginFor` here, but it's not necessary.
 			origin: OriginFor<T>,
 		) -> DispatchResult {
-			// first, we convert from `<T as frame_system>::RuntimeOrigin` to `<T as
+			// first, we convert from `<T as frame_system::Config>::RuntimeOrigin` to `<T as
 			// Config>::RuntimeOrigin`
 			let local_runtime_origin = <<T as Config>::RuntimeOrigin as From<
 				<T as frame_system::Config>::RuntimeOrigin,

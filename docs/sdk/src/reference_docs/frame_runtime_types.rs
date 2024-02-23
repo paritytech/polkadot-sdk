@@ -95,7 +95,7 @@
 //! Another way to look at this is:
 //!
 //! `pallet_with_specific_runtime_call::Config::RuntimeCall` are two different representations of
-//! the same concrete type that is only know at when the runtime is being constructed.
+//! the same concrete type that is only known when the runtime is being constructed.
 //!
 //! Now, within this pallet, this new `RuntimeCall` can be used, and it can use its new trait
 //! bounds, such as being [`frame::traits::IsSubType`]:
