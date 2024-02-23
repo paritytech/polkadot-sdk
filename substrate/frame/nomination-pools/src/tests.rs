@@ -4848,6 +4848,18 @@ mod nominate {
 				Error::<Runtime>::NotNominator
 			);
 
+			// if `depositor` stake is less than the `MinimumNominatorBond`, they can't nominate
+			StakingMinBond::set(20);
+
+			// Can't nominate if depositor's stake is less than the `MinimumNominatorBond`
+			assert_noop!(
+				Pools::nominate(RuntimeOrigin::signed(900), 1, vec![21]),
+				Error::<Runtime>::MinimumBondNotMet
+			);
+
+			// restore `MinimumNominatorBond`
+			StakingMinBond::set(10);
+
 			// Root can nominate
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(900), 1, vec![21]));
 			assert_eq!(Nominations::get().unwrap(), vec![21]);

@@ -2411,6 +2411,16 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
 			ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
+
+			let depositor_points = PoolMembers::<T>::get(&bonded_pool.roles.depositor)
+				.ok_or(Error::<T>::PoolMemberNotFound)?
+				.active_points();
+
+			ensure!(
+				bonded_pool.points_to_balance(depositor_points) >= Self::depositor_min_bond(),
+				Error::<T>::MinimumBondNotMet
+			);
+
 			T::Staking::nominate(&bonded_pool.bonded_account(), validators)
 		}
 
