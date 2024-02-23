@@ -22,6 +22,7 @@
 //!    during the execution of this API call, it is discarded.
 //! 2. It has access to an extended set of host functions that allow the wasm blob to do more. For
 //!    example, call into HTTP requests.
+//! 
 //!
 //! Given the "Off Chain" nature of this API, it is important to remember that calling this API is
 //! entirely optional. Some nodes might call into it, some might not, and it would have no impact on
@@ -107,3 +108,4 @@
 //!
 //! - <https://forum.polkadot.network/t/offchain-workers-design-assumptions-vulnerabilities/2548>
 //! - <https://substrate.stackexchange.com/questions/11058/how-can-i-create-ocw-that-wont-activates-every-block-but-will-activates-only-w/11060#11060>
+//! - [Offchain worker example](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/examples/offchain-worker)
