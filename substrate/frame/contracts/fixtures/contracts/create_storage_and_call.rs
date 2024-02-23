@@ -40,14 +40,13 @@ pub extern "C" fn call() {
 	api::set_storage(buffer, &[1u8; 4]);
 
 	// Call the callee
-	#[allow(deprecated)]
 	api::call_v2(
 		uapi::CallFlags::empty(),
 		callee,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		Some(deposit_limit),
-		&0u64.to_le_bytes(), // value transferred to the contract.
+		&0u64.to_le_bytes(), // Value transferred to the contract.
 		input,
 		None,
 	)
