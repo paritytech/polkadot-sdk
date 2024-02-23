@@ -6094,7 +6094,7 @@ mod commission {
 			assert_ok!(Pools::set_commission_change_rate(
 				RuntimeOrigin::signed(900),
 				1,
-				CommissionChangeRate { max_increase: Perbill::from_percent(1), min_delay: 2_u64 }
+				CommissionChangeRate { max_increase: Perbill::from_percent(1), min_delay: 2_u32 }
 			));
 			assert_eq!(
 				BondedPool::<Runtime>::get(1).unwrap().commission,
@@ -6103,9 +6103,9 @@ mod commission {
 					max: None,
 					change_rate: Some(CommissionChangeRate {
 						max_increase: Perbill::from_percent(1),
-						min_delay: 2_u64
+						min_delay: 2_u32
 					}),
-					throttle_from: Some(1_u64),
+					throttle_from: Some(1_u32),
 					claim_permission: None,
 				}
 			);
@@ -6155,9 +6155,9 @@ mod commission {
 					max: None,
 					change_rate: Some(CommissionChangeRate {
 						max_increase: Perbill::from_percent(1),
-						min_delay: 2_u64
+						min_delay: 2_u32
 					}),
-					throttle_from: Some(3_u64),
+					throttle_from: Some(3_u32),
 					claim_permission: None,
 				}
 			);
@@ -6376,7 +6376,7 @@ mod commission {
 					9999,
 					CommissionChangeRate {
 						max_increase: Perbill::from_percent(5),
-						min_delay: 1000_u64
+						min_delay: 1000_u32
 					}
 				),
 				Error::<Runtime>::PoolNotFound
@@ -6388,7 +6388,7 @@ mod commission {
 					1,
 					CommissionChangeRate {
 						max_increase: Perbill::from_percent(5),
-						min_delay: 1000_u64
+						min_delay: 1000_u32
 					}
 				),
 				Error::<Runtime>::DoesNotHavePermission
@@ -6398,13 +6398,13 @@ mod commission {
 			assert_ok!(Pools::set_commission_change_rate(
 				RuntimeOrigin::signed(900),
 				1,
-				CommissionChangeRate { max_increase: Perbill::from_percent(5), min_delay: 10_u64 }
+				CommissionChangeRate { max_increase: Perbill::from_percent(5), min_delay: 10_u32 }
 			));
 			assert_eq!(
 				BondedPools::<Runtime>::get(1).unwrap().commission.change_rate,
 				Some(CommissionChangeRate {
 					max_increase: Perbill::from_percent(5),
-					min_delay: 10_u64
+					min_delay: 10_u32
 				})
 			);
 			assert_eq!(
@@ -6430,7 +6430,7 @@ mod commission {
 					1,
 					CommissionChangeRate {
 						max_increase: Perbill::from_percent(5),
-						min_delay: 5_u64
+						min_delay: 5_u32
 					}
 				),
 				Error::<Runtime>::CommissionChangeRateNotAllowed
@@ -6444,7 +6444,7 @@ mod commission {
 					1,
 					CommissionChangeRate {
 						max_increase: Perbill::from_percent(10),
-						min_delay: 10_u64
+						min_delay: 10_u32
 					}
 				),
 				Error::<Runtime>::CommissionChangeRateNotAllowed
@@ -6454,21 +6454,21 @@ mod commission {
 			assert_ok!(Pools::set_commission_change_rate(
 				RuntimeOrigin::signed(900),
 				1,
-				CommissionChangeRate { max_increase: Perbill::from_percent(5), min_delay: 20_u64 }
+				CommissionChangeRate { max_increase: Perbill::from_percent(5), min_delay: 20_u32 }
 			));
 
 			// Successful more restrictive change of max_increase with the current min_delay
 			assert_ok!(Pools::set_commission_change_rate(
 				RuntimeOrigin::signed(900),
 				1,
-				CommissionChangeRate { max_increase: Perbill::from_percent(4), min_delay: 20_u64 }
+				CommissionChangeRate { max_increase: Perbill::from_percent(4), min_delay: 20_u32 }
 			));
 
 			// Successful more restrictive change of both max_increase and min_delay
 			assert_ok!(Pools::set_commission_change_rate(
 				RuntimeOrigin::signed(900),
 				1,
-				CommissionChangeRate { max_increase: Perbill::from_percent(3), min_delay: 30_u64 }
+				CommissionChangeRate { max_increase: Perbill::from_percent(3), min_delay: 30_u32 }
 			));
 
 			assert_eq!(
@@ -6514,18 +6514,18 @@ mod commission {
 			assert_ok!(Pools::set_commission_change_rate(
 				RuntimeOrigin::signed(900),
 				1,
-				CommissionChangeRate { max_increase: Perbill::from_percent(1), min_delay: 10_u64 }
+				CommissionChangeRate { max_increase: Perbill::from_percent(1), min_delay: 10_u32 }
 			));
 			assert_eq!(
 				BondedPools::<Runtime>::get(1).unwrap().commission.change_rate,
 				Some(CommissionChangeRate {
 					max_increase: Perbill::from_percent(1),
-					min_delay: 10_u64
+					min_delay: 10_u32
 				})
 			);
 
 			// run `min_delay` blocks to allow a commission update.
-			run_blocks(10_u64);
+			run_blocks(10_u32);
 
 			// Test `max_increase`: attempt to decrease the commission by 5%. Should succeed.
 			assert_ok!(Pools::set_commission(
@@ -6560,7 +6560,7 @@ mod commission {
 					max: None,
 					change_rate: Some(CommissionChangeRate {
 						max_increase: Perbill::from_percent(1),
-						min_delay: 10_u64
+						min_delay: 10_u32
 					}),
 					throttle_from: Some(11),
 					claim_permission: None,
@@ -6623,7 +6623,7 @@ mod commission {
 			assert_ok!(Pools::set_commission_change_rate(
 				RuntimeOrigin::signed(900),
 				1,
-				CommissionChangeRate { max_increase: Perbill::from_percent(0), min_delay: 10_u64 }
+				CommissionChangeRate { max_increase: Perbill::from_percent(0), min_delay: 10_u32 }
 			));
 
 			// even though there is a min delay of 10 blocks, a max increase of 0% essentially
@@ -6646,7 +6646,7 @@ mod commission {
 			assert_ok!(Pools::set_commission_change_rate(
 				RuntimeOrigin::signed(900),
 				1,
-				CommissionChangeRate { max_increase: Perbill::from_percent(1), min_delay: 0_u64 }
+				CommissionChangeRate { max_increase: Perbill::from_percent(1), min_delay: 0_u32 }
 			));
 			assert_eq!(
 				BondedPools::<Runtime>::get(1).unwrap().commission,
@@ -6689,7 +6689,7 @@ mod commission {
 			assert_ok!(Pools::set_commission_change_rate(
 				RuntimeOrigin::signed(900),
 				1,
-				CommissionChangeRate { max_increase: Perbill::from_percent(0), min_delay: 0_u64 }
+				CommissionChangeRate { max_increase: Perbill::from_percent(0), min_delay: 0_u32 }
 			));
 
 			// even though there is no min delay, a max increase of 0% essentially freezes the
@@ -6712,7 +6712,7 @@ mod commission {
 						pool_id: 1,
 						change_rate: CommissionChangeRate {
 							max_increase: Perbill::from_percent(0),
-							min_delay: 0_u64
+							min_delay: 0_u32
 						}
 					}
 				]
