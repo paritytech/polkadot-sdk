@@ -174,7 +174,7 @@ where
 
 	/// Return the track info for track `id`, by default this just looks it up in `Self::tracks()`.
 	fn info(id: Self::Id) -> Option<Cow<'static, TrackInfo<Balance, Moment, N>>> {
-		Self::tracks().into_iter().find(|x| x.id == id).map(|t| match t {
+		Self::tracks().find(|x| x.id == id).map(|t| match t {
 			Cow::Borrowed(x) => Cow::Borrowed(&x.info),
 			Cow::Owned(x) => Cow::Owned(x.info),
 		})
