@@ -800,6 +800,42 @@
 <a href="#800" id="800">800</a>
 <a href="#801" id="801">801</a>
 <a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -829,7 +865,7 @@
 	traits::{ChangeMembers, Contains, Get, InitializeMembers, SortedMembers},
 	BoundedVec,
 };
-<span class="kw">use </span>sp_runtime::traits::StaticLookup;
+<span class="kw">use </span>sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub mod </span>migrations;
@@ -965,12 +1001,16 @@
 		///
 		/// May only be called from `T::AddOrigin`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
-		#[pallet::weight({<span class="number">50_000_000</span>})]
-		</span><span class="kw">pub fn </span>add_member(origin: OriginFor&lt;T&gt;, who: AccountIdLookupOf&lt;T&gt;) -&gt; DispatchResult {
+		#[pallet::weight(T::WeightInfo::add_member(T::MaxMembers::get()))]
+		</span><span class="kw">pub fn </span>add_member(
+			origin: OriginFor&lt;T&gt;,
+			who: AccountIdLookupOf&lt;T&gt;,
+		) -&gt; DispatchResultWithPostInfo {
 			T::AddOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>members = &lt;Members&lt;T, I&gt;&gt;::get();
+			<span class="kw">let </span>init_length = members.len();
 			<span class="kw">let </span>location = members.binary_search(<span class="kw-2">&amp;</span>who).err().ok_or(Error::&lt;T, I&gt;::AlreadyMember)<span class="question-mark">?</span>;
 			members
 				.try_insert(location, who.clone())
@@ -981,19 +1021,24 @@
 			T::MembershipChanged::change_members_sorted(<span class="kw-2">&amp;</span>[who], <span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>members[..]);
 
 			<span class="self">Self</span>::deposit_event(Event::MemberAdded);
-			<span class="prelude-val">Ok</span>(())
+
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::add_member(init_length <span class="kw">as </span>u32)).into())
 		}
 
 		<span class="doccomment">/// Remove a member `who` from the set.
 		///
 		/// May only be called from `T::RemoveOrigin`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
-		#[pallet::weight({<span class="number">50_000_000</span>})]
-		</span><span class="kw">pub fn </span>remove_member(origin: OriginFor&lt;T&gt;, who: AccountIdLookupOf&lt;T&gt;) -&gt; DispatchResult {
+		#[pallet::weight(T::WeightInfo::remove_member(T::MaxMembers::get()))]
+		</span><span class="kw">pub fn </span>remove_member(
+			origin: OriginFor&lt;T&gt;,
+			who: AccountIdLookupOf&lt;T&gt;,
+		) -&gt; DispatchResultWithPostInfo {
 			T::RemoveOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>members = &lt;Members&lt;T, I&gt;&gt;::get();
+			<span class="kw">let </span>init_length = members.len();
 			<span class="kw">let </span>location = members.binary_search(<span class="kw-2">&amp;</span>who).ok().ok_or(Error::&lt;T, I&gt;::NotMember)<span class="question-mark">?</span>;
 			members.remove(location);
 
@@ -1003,7 +1048,7 @@
 			<span class="self">Self</span>::rejig_prime(<span class="kw-2">&amp;</span>members);
 
 			<span class="self">Self</span>::deposit_event(Event::MemberRemoved);
-			<span class="prelude-val">Ok</span>(())
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::remove_member(init_length <span class="kw">as </span>u32)).into())
 		}
 
 		<span class="doccomment">/// Swap out one member `remove` for another `add`.
@@ -1012,18 +1057,18 @@
 		///
 		/// Prime membership is *not* passed from `remove` to `add`, if extant.
 		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
-		#[pallet::weight({<span class="number">50_000_000</span>})]
+		#[pallet::weight(T::WeightInfo::swap_member(T::MaxMembers::get()))]
 		</span><span class="kw">pub fn </span>swap_member(
 			origin: OriginFor&lt;T&gt;,
 			remove: AccountIdLookupOf&lt;T&gt;,
 			add: AccountIdLookupOf&lt;T&gt;,
-		) -&gt; DispatchResult {
+		) -&gt; DispatchResultWithPostInfo {
 			T::SwapOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>remove = T::Lookup::lookup(remove)<span class="question-mark">?</span>;
 			<span class="kw">let </span>add = T::Lookup::lookup(add)<span class="question-mark">?</span>;
 
 			<span class="kw">if </span>remove == add {
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(().into());
 			}
 
 			<span class="kw">let </span><span class="kw-2">mut </span>members = &lt;Members&lt;T, I&gt;&gt;::get();
@@ -1038,7 +1083,7 @@
 			<span class="self">Self</span>::rejig_prime(<span class="kw-2">&amp;</span>members);
 
 			<span class="self">Self</span>::deposit_event(Event::MembersSwapped);
-			<span class="prelude-val">Ok</span>(())
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::swap_member(members.len() <span class="kw">as </span>u32)).into())
 		}
 
 		<span class="doccomment">/// Change the membership to a new set, disregarding the existing membership. Be nice and
@@ -1046,7 +1091,7 @@
 		///
 		/// May only be called from `T::ResetOrigin`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
-		#[pallet::weight({<span class="number">50_000_000</span>})]
+		#[pallet::weight(T::WeightInfo::reset_members(members.len().unique_saturated_into()))]
 		</span><span class="kw">pub fn </span>reset_members(origin: OriginFor&lt;T&gt;, members: Vec&lt;T::AccountId&gt;) -&gt; DispatchResult {
 			T::ResetOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
@@ -1069,56 +1114,65 @@
 		///
 		/// Prime membership is passed from the origin account to `new`, if extant.
 		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
-		#[pallet::weight({<span class="number">50_000_000</span>})]
-		</span><span class="kw">pub fn </span>change_key(origin: OriginFor&lt;T&gt;, new: AccountIdLookupOf&lt;T&gt;) -&gt; DispatchResult {
+		#[pallet::weight(T::WeightInfo::change_key(T::MaxMembers::get()))]
+		</span><span class="kw">pub fn </span>change_key(
+			origin: OriginFor&lt;T&gt;,
+			new: AccountIdLookupOf&lt;T&gt;,
+		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>remove = ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>new = T::Lookup::lookup(new)<span class="question-mark">?</span>;
 
-			<span class="kw">if </span>remove != new {
-				<span class="kw">let </span><span class="kw-2">mut </span>members = &lt;Members&lt;T, I&gt;&gt;::get();
-				<span class="kw">let </span>location =
-					members.binary_search(<span class="kw-2">&amp;</span>remove).ok().ok_or(Error::&lt;T, I&gt;::NotMember)<span class="question-mark">?</span>;
-				<span class="kw">let _ </span>= members.binary_search(<span class="kw-2">&amp;</span>new).err().ok_or(Error::&lt;T, I&gt;::AlreadyMember)<span class="question-mark">?</span>;
-				members[location] = new.clone();
-				members.sort();
+			<span class="kw">if </span>remove == new {
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(().into());
+			}
 
-				&lt;Members&lt;T, I&gt;&gt;::put(<span class="kw-2">&amp;</span>members);
+			<span class="kw">let </span><span class="kw-2">mut </span>members = &lt;Members&lt;T, I&gt;&gt;::get();
+			<span class="kw">let </span>members_length = members.len() <span class="kw">as </span>u32;
+			<span class="kw">let </span>location = members.binary_search(<span class="kw-2">&amp;</span>remove).ok().ok_or(Error::&lt;T, I&gt;::NotMember)<span class="question-mark">?</span>;
+			<span class="kw">let _ </span>= members.binary_search(<span class="kw-2">&amp;</span>new).err().ok_or(Error::&lt;T, I&gt;::AlreadyMember)<span class="question-mark">?</span>;
+			members[location] = new.clone();
+			members.sort();
 
-				T::MembershipChanged::change_members_sorted(
-					<span class="kw-2">&amp;</span>[new.clone()],
-					<span class="kw-2">&amp;</span>[remove.clone()],
-					<span class="kw-2">&amp;</span>members[..],
-				);
+			&lt;Members&lt;T, I&gt;&gt;::put(<span class="kw-2">&amp;</span>members);
 
-				<span class="kw">if </span>Prime::&lt;T, I&gt;::get() == <span class="prelude-val">Some</span>(remove) {
-					Prime::&lt;T, I&gt;::put(<span class="kw-2">&amp;</span>new);
-					T::MembershipChanged::set_prime(<span class="prelude-val">Some</span>(new));
-				}
+			T::MembershipChanged::change_members_sorted(
+				<span class="kw-2">&amp;</span>[new.clone()],
+				<span class="kw-2">&amp;</span>[remove.clone()],
+				<span class="kw-2">&amp;</span>members[..],
+			);
+
+			<span class="kw">if </span>Prime::&lt;T, I&gt;::get() == <span class="prelude-val">Some</span>(remove) {
+				Prime::&lt;T, I&gt;::put(<span class="kw-2">&amp;</span>new);
+				T::MembershipChanged::set_prime(<span class="prelude-val">Some</span>(new));
 			}
 
 			<span class="self">Self</span>::deposit_event(Event::KeyChanged);
-			<span class="prelude-val">Ok</span>(())
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::change_key(members_length)).into())
 		}
 
 		<span class="doccomment">/// Set the prime member. Must be a current member.
 		///
 		/// May only be called from `T::PrimeOrigin`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
-		#[pallet::weight({<span class="number">50_000_000</span>})]
-		</span><span class="kw">pub fn </span>set_prime(origin: OriginFor&lt;T&gt;, who: AccountIdLookupOf&lt;T&gt;) -&gt; DispatchResult {
+		#[pallet::weight(T::WeightInfo::set_prime(T::MaxMembers::get()))]
+		</span><span class="kw">pub fn </span>set_prime(
+			origin: OriginFor&lt;T&gt;,
+			who: AccountIdLookupOf&lt;T&gt;,
+		) -&gt; DispatchResultWithPostInfo {
 			T::PrimeOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
-			<span class="self">Self</span>::members().binary_search(<span class="kw-2">&amp;</span>who).ok().ok_or(Error::&lt;T, I&gt;::NotMember)<span class="question-mark">?</span>;
+			<span class="kw">let </span>members = <span class="self">Self</span>::members();
+			members.binary_search(<span class="kw-2">&amp;</span>who).ok().ok_or(Error::&lt;T, I&gt;::NotMember)<span class="question-mark">?</span>;
 			Prime::&lt;T, I&gt;::put(<span class="kw-2">&amp;</span>who);
 			T::MembershipChanged::set_prime(<span class="prelude-val">Some</span>(who));
-			<span class="prelude-val">Ok</span>(())
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::set_prime(members.len() <span class="kw">as </span>u32)).into())
 		}
 
 		<span class="doccomment">/// Remove the prime member if it exists.
 		///
 		/// May only be called from `T::PrimeOrigin`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
-		#[pallet::weight({<span class="number">50_000_000</span>})]
+		#[pallet::weight(T::WeightInfo::clear_prime())]
 		</span><span class="kw">pub fn </span>clear_prime(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
 			T::PrimeOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			Prime::&lt;T, I&gt;::kill();
@@ -1244,7 +1298,7 @@
 		}
 
 		<span class="comment">// er keep the prime common between incoming and outgoing to make sure it is rejigged.
-		</span>reset_member {
+		</span>reset_members {
 			<span class="kw">let </span>m <span class="kw">in </span><span class="number">1 </span>.. T::MaxMembers::get();
 
 			<span class="kw">let </span>members = (<span class="number">1</span>..m+<span class="number">1</span>).map(|i| account(<span class="string">&quot;member&quot;</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
@@ -1302,8 +1356,7 @@
 		}
 
 		clear_prime {
-			<span class="kw">let </span>m <span class="kw">in </span><span class="number">1 </span>.. T::MaxMembers::get();
-			<span class="kw">let </span>members = (<span class="number">0</span>..m).map(|i| account(<span class="string">&quot;member&quot;</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
+			<span class="kw">let </span>members = (<span class="number">0</span>..T::MaxMembers::get()).map(|i| account(<span class="string">&quot;member&quot;</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
 			<span class="kw">let </span>prime = members.last().cloned().unwrap();
 			set_members::&lt;T, I&gt;(members, <span class="prelude-val">None</span>);
 		}: {
@@ -1328,7 +1381,8 @@
 	<span class="kw">use </span>sp_runtime::{bounded_vec, traits::BadOrigin, BuildStorage};
 
 	<span class="kw">use </span>frame_support::{
-		assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
+		assert_noop, assert_ok, assert_storage_noop, derive_impl, ord_parameter_types,
+		parameter_types,
 		traits::{ConstU32, StorageVersion},
 	};
 	<span class="kw">use </span>frame_system::EnsureSignedBy;
@@ -1519,6 +1573,17 @@
 	}
 
 	<span class="attr">#[test]
+	</span><span class="kw">fn </span>swap_member_with_identical_arguments_changes_nothing() {
+		new_test_ext().execute_with(|| {
+			<span class="macro">assert_storage_noop!</span>(<span class="macro">assert_ok!</span>(Membership::swap_member(
+				RuntimeOrigin::signed(<span class="number">3</span>),
+				<span class="number">10</span>,
+				<span class="number">10
+			</span>)));
+		});
+	}
+
+	<span class="attr">#[test]
 	</span><span class="kw">fn </span>change_key_works() {
 		new_test_ext().execute_with(|| {
 			<span class="macro">assert_ok!</span>(Membership::set_prime(RuntimeOrigin::signed(<span class="number">5</span>), <span class="number">10</span>));
@@ -1544,6 +1609,13 @@
 			<span class="macro">assert_ok!</span>(Membership::change_key(RuntimeOrigin::signed(<span class="number">10</span>), <span class="number">5</span>));
 			<span class="macro">assert_eq!</span>(Membership::members(), <span class="macro">vec!</span>[<span class="number">5</span>, <span class="number">20</span>, <span class="number">30</span>]);
 			<span class="macro">assert_eq!</span>(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
+		});
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>change_key_with_same_caller_as_argument_changes_nothing() {
+		new_test_ext().execute_with(|| {
+			<span class="macro">assert_storage_noop!</span>(<span class="macro">assert_ok!</span>(Membership::change_key(RuntimeOrigin::signed(<span class="number">10</span>), <span class="number">10</span>)));
 		});
 	}
 

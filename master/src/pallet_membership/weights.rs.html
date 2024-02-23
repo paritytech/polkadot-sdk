@@ -357,12 +357,6 @@
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
 <a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -420,10 +414,10 @@
 	<span class="kw">fn </span>add_member(m: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>remove_member(m: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>swap_member(m: u32, ) -&gt; Weight;
-	<span class="kw">fn </span>reset_member(m: u32, ) -&gt; Weight;
+	<span class="kw">fn </span>reset_members(m: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>change_key(m: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>set_prime(m: u32, ) -&gt; Weight;
-	<span class="kw">fn </span>clear_prime(m: u32, ) -&gt; Weight;
+	<span class="kw">fn </span>clear_prime() -&gt; Weight;
 }
 
 <span class="doccomment">/// Weights for pallet_membership using the Substrate node and recommended hardware.
@@ -507,7 +501,7 @@
 	/// Storage: TechnicalCommittee Prime (r:0 w:1)
 	/// Proof Skipped: TechnicalCommittee Prime (max_values: Some(1), max_size: None, mode: Measured)
 	/// The range of component `m` is `[1, 100]`.
-	</span><span class="kw">fn </span>reset_member(m: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>reset_members(m: u32, ) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `312 + m * (64 ±0)`
 		//  Estimated: `4687 + m * (64 ±0)`
@@ -565,15 +559,12 @@
 	/// Proof: TechnicalMembership Prime (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
 	/// Storage: TechnicalCommittee Prime (r:0 w:1)
 	/// Proof Skipped: TechnicalCommittee Prime (max_values: Some(1), max_size: None, mode: Measured)
-	/// The range of component `m` is `[1, 100]`.
-	</span><span class="kw">fn </span>clear_prime(m: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>clear_prime() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 3_373_000 picoseconds.
 		</span>Weight::from_parts(<span class="number">3_750_452</span>, <span class="number">0</span>)
-			<span class="comment">// Standard Error: 142
-			</span>.saturating_add(Weight::from_parts(<span class="number">505</span>, <span class="number">0</span>).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2_u64</span>))
 	}
 }
@@ -658,7 +649,7 @@
 	/// Storage: TechnicalCommittee Prime (r:0 w:1)
 	/// Proof Skipped: TechnicalCommittee Prime (max_values: Some(1), max_size: None, mode: Measured)
 	/// The range of component `m` is `[1, 100]`.
-	</span><span class="kw">fn </span>reset_member(m: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>reset_members(m: u32, ) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `312 + m * (64 ±0)`
 		//  Estimated: `4687 + m * (64 ±0)`
@@ -716,15 +707,12 @@
 	/// Proof: TechnicalMembership Prime (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
 	/// Storage: TechnicalCommittee Prime (r:0 w:1)
 	/// Proof Skipped: TechnicalCommittee Prime (max_values: Some(1), max_size: None, mode: Measured)
-	/// The range of component `m` is `[1, 100]`.
-	</span><span class="kw">fn </span>clear_prime(m: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>clear_prime() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 3_373_000 picoseconds.
 		</span>Weight::from_parts(<span class="number">3_750_452</span>, <span class="number">0</span>)
-			<span class="comment">// Standard Error: 142
-			</span>.saturating_add(Weight::from_parts(<span class="number">505</span>, <span class="number">0</span>).saturating_mul(m.into()))
 			.saturating_add(RocksDbWeight::get().writes(<span class="number">2_u64</span>))
 	}
 }
