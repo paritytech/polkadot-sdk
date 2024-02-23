@@ -25,7 +25,6 @@ polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", d
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "7.0.0" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.3" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "7.0.3" }
-pallet-xcm-benchmarks = { path = "../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, version = "7.0.4" }
 
 # Cumulus
 cumulus-primitives-core = { path = "../core", default-features = false, version = "0.7.0" }
@@ -37,7 +36,6 @@ std = [
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"log/std",
-	"pallet-xcm-benchmarks/std",
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
 	"sp-io/std",
@@ -51,7 +49,6 @@ std = [
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
-	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",

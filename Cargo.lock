@@ -3825,6 +3825,7 @@ dependencies = [
  "pallet-message-queue",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
  "polkadot-runtime-parachains",
  "rand 0.8.5",
  "sc-client-api",
@@ -4016,7 +4017,6 @@ dependencies = [
  "cumulus-primitives-core",
  "frame-support",
  "log",
- "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
@@ -11056,7 +11056,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-benchmarks"
-version = "7.0.3"
+version = "7.0.4"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13126,7 +13126,6 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-vesting",
- "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",

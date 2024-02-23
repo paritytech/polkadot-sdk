@@ -528,7 +528,7 @@ mod tests {
 	}
 }
 
-/// Implementation of `pallet_xcm_benchmarks::EnsureDelivery` which helps to ensure delivery to the
+/// Implementation of `xcm_builder::EnsureDelivery` which helps to ensure delivery to the
 /// parent relay chain. Deposits existential deposit for origin (if needed).
 /// Deposits estimated fee to the origin account (if needed).
 /// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if neeeded).
@@ -542,16 +542,21 @@ impl<
 		XcmConfig: xcm_executor::Config,
 		ExistentialDeposit: Get<Option<MultiAsset>>,
 		PriceForDelivery: PriceForMessageDelivery<Id = ()>,
-	> pallet_xcm_benchmarks::EnsureDelivery
+	> xcm_builder::EnsureDelivery
 	for ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>
 {
 	fn ensure_successful_delivery(
 		origin_ref: &MultiLocation,
-		_dest: &MultiLocation,
+		dest: &MultiLocation,
 		fee_reason: xcm_executor::traits::FeeReason,
 	) -> (Option<xcm_executor::FeesMode>, Option<MultiAssets>) {
 		use xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_MULTIASSETS};
 		use xcm_executor::{traits::FeeManager, FeesMode};
+
+		// check if the destination is relay/parent
+		if dest.ne(&MultiLocation::parent()) {
+			return (None, None);
+		}
 
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
