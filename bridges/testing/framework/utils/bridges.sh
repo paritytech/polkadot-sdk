@@ -41,8 +41,8 @@ function ensure_polkadot_js_api() {
         echo ""
         echo ""
         echo "-------------------"
-        echo "Installing (nodejs) sub module: $(dirname "$0")/generate_hex_encoded_call"
-        pushd $(dirname "$0")/generate_hex_encoded_call
+        echo "Installing (nodejs) sub module: ${BASH_SOURCE%/*}/generate_hex_encoded_call"
+        pushd ${BASH_SOURCE%/*}/generate_hex_encoded_call
         npm install
         popd
     fi
