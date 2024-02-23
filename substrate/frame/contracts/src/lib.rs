@@ -214,6 +214,19 @@ pub struct Environment<T: Config> {
 	block_number: EnvironmentType<BlockNumberFor<T>>,
 }
 
+/// Defines the current version of the HostFn APIs.
+/// This is used to communicate the available APIs in pallet-contracts.
+///
+/// The version is bumped any time a new HostFn is added or stabilized.
+#[derive(Encode, Decode, TypeInfo)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+pub struct ApiVersion(u16);
+impl Default for ApiVersion {
+	fn default() -> Self {
+		Self(1)
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -401,6 +414,12 @@ pub mod pallet {
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
 		type Environment: Get<Environment<Self>>;
+
+		/// The version of the HostFn APIs that are available in the runtime.
+		///
+		/// Only valid value is `()`.
+		#[pallet::constant]
+		type ApiVersion: Get<ApiVersion>;
 
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
