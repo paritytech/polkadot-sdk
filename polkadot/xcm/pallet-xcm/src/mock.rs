@@ -35,15 +35,14 @@ use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
-	ChildSystemParachainAsSuperuser, DescribeAllTerminal, EnsureDelivery, FixedRateOfFungible,
-	FixedWeightBounds, FrameTransactionalProcessor, FungiblesAdapter, HashedDescription,
-	IsConcrete, MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	ChildSystemParachainAsSuperuser, DescribeAllTerminal, FixedRateOfFungible, FixedWeightBounds,
+	FrameTransactionalProcessor, FungiblesAdapter, HashedDescription, IsConcrete,
+	MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{
-	traits::{ConvertLocation, FeeReason, Identity, JustTry},
-	FeesMode, XcmExecutor,
+	traits::{Identity, JustTry},
+	XcmExecutor,
 };
 
 use crate::{self as pallet_xcm, TestWeightInfo};
@@ -569,15 +568,15 @@ impl pallet_test_notifier::Config for Test {
 #[cfg(feature = "runtime-benchmarks")]
 pub struct TestDeliveryHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl EnsureDelivery for TestDeliveryHelper {
+impl xcm_builder::EnsureDelivery for TestDeliveryHelper {
 	fn ensure_successful_delivery(
 		origin_ref: &MultiLocation,
-		dest: &MultiLocation,
-		fee_reason: FeeReason,
-	) -> (Option<FeesMode>, Option<MultiAssets>) {
+		_dest: &MultiLocation,
+		_fee_reason: xcm_executor::traits::FeeReason,
+	) -> (Option<xcm_executor::FeesMode>, Option<MultiAssets>) {
+		use xcm_executor::traits::ConvertLocation;
 		let account = SovereignAccountOf::convert_location(origin_ref).expect("Valid location");
-		println!("ensure_successful_delivery: {:?}, {:?}, {:?}", origin_ref, dest, fee_reason);
-		// Give some multiple of the existential deposit
+		// Give the existential deposit at least
 		let balance = ExistentialDeposit::get();
 		let _ = <Balances as frame_support::traits::Currency<_>>::make_free_balance_be(
 			&account, balance,
