@@ -769,7 +769,10 @@ impl FragmentTree {
 	/// multiple possibilities of the same size, this will select the first one. If there is no
 	/// chain of size `count` that matches the criteria, this will return the largest chain it could
 	/// find with the criteria. If there are no candidates meeting those criteria, returns an empty
-	/// `Vec`. Cycles are accepted, see module docs for the `Cycles` section.
+	/// `Vec`.
+	/// Cycles are accepted, but this code expects that the runtime will deduplicate
+	/// identical candidates when occupying the cores (when proposing to back A->B->A, only A will
+	/// be backed on chain).
 	///
 	/// The intention of the `ancestors` is to allow queries on the basis of
 	/// one or more candidates which were previously pending availability becoming
@@ -783,8 +786,7 @@ impl FragmentTree {
 		if count == 0 {
 			return vec![]
 		}
-		// First, we need to order the ancestors and trim the ones that timed out, including their
-		// descendants.
+		// First, we need to order the ancestors.
 		// The node returned is the one from which we can start finding new backable candidates.
 		let Some(base_node) = self.find_ancestor_path(ancestors) else { return vec![] };
 
@@ -870,7 +872,7 @@ impl FragmentTree {
 			// Short-circuit the search if we've found the right length. Otherwise, we'll
 			// search for a max.
 			// Taking the first best selection doesn't introduce bias or become gameable,
-			// because `find_ancestor_path` uses a HashMap to track the ancestors, which
+			// because `find_ancestor_path` uses a `HashSet` to track the ancestors, which
 			// makes the order in which ancestors are visited non-deterministic.
 			if result.len() == expected_count as usize {
 				return result
@@ -884,10 +886,10 @@ impl FragmentTree {
 
 	// Orders the ancestors into a viable path from root to the last one.
 	// Returns a pointer to the last node in the path.
-	// If there are any timed out ancestors, trims the path so that we get the largest possible
-	// ancestor path that does not include any timed out ancestors or any descendant of them.
-	// We assume that the ancestors form a chain (that the av-cores do not back parachain forks),
-	// None is returned otherwise.
+	// We assume that the ancestors form a chain (that the
+	// av-cores do not back parachain forks), None is returned otherwise.
+	// If we cannot use all ancestors, stop at the first found hole in the chain. This usually
+	// translates to a timed out candidate.
 	fn find_ancestor_path(&self, mut ancestors: Ancestors) -> Option<NodePointer> {
 		// The number of elements in the path we've processed so far.
 		let mut depth = 0;
