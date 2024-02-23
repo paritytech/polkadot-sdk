@@ -99,6 +99,17 @@ pub fn expand_outer_config(
 				<AllPalletsWithSystem as #scrate::traits::OnGenesis>::on_genesis();
 			}
 		}
+
+		/// Test the `Default` derive impl of the `RuntimeGenesisConfig`.
+		#[cfg(test)]
+		#[test]
+		fn test_genesis_config_builds() {
+			#scrate::__private::sp_io::TestExternalities::default().execute_with(|| {
+				<RuntimeGenesisConfig as #scrate::traits::BuildGenesisConfig>::build(
+					&RuntimeGenesisConfig::default()
+				);
+			});
+		}
 	}
 }
 

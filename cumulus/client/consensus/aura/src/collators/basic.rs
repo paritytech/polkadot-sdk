@@ -33,12 +33,12 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::CollationResult;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Id as ParaId};
+use polkadot_primitives::{CollatorPair, Id as ParaId, ValidationCode};
 
 use futures::{channel::mpsc::Receiver, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
@@ -47,6 +47,7 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use sp_state_machine::Backend as _;
 use std::{convert::TryFrom, sync::Arc, time::Duration};
 
 use crate::collator as collator_util;
@@ -100,6 +101,7 @@ where
 		+ AuxStore
 		+ HeaderBackend<Block>
 		+ BlockBackend<Block>
+		+ CallApiAt<Block>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -171,6 +173,22 @@ where
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
 				continue
 			}
+
+			let Ok(Some(code)) =
+				params.para_client.state_at(parent_hash).map_err(drop).and_then(|s| {
+					s.storage(&sp_core::storage::well_known_keys::CODE).map_err(drop)
+				})
+			else {
+				continue;
+			};
+
+			super::check_validation_code_or_log(
+				&ValidationCode::from(code).hash(),
+				params.para_id,
+				&params.relay_client,
+				*request.relay_parent(),
+			)
+			.await;
 
 			let relay_parent_header =
 				match params.relay_client.header(RBlockId::hash(*request.relay_parent())).await {
