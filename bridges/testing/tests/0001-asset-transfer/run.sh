@@ -2,8 +2,8 @@
 
 set -e
 
-source "${BASH_SOURCE%/*}/../../utils/common.sh"
-source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
+source "${BASH_SOURCE%/*}/../../framework/utils/common.sh"
+source "${BASH_SOURCE%/*}/../../framework/utils/zombienet.sh"
 
 ${BASH_SOURCE%/*}/../../environments/rococo-westend/spawn.sh --init --start-relayer &
 env_pid=$!

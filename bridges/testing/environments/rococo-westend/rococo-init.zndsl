@@ -3,6 +3,6 @@ Network: ./bridge_hub_rococo_local_network.toml
 Creds: config
 
 # ensure that initialization has completed
-asset-hub-rococo-collator1: js-script ../../js-helpers/wait-hrmp-channel-opened.js with "1013" within 300 seconds
+asset-hub-rococo-collator1: js-script ../../framework/js-helpers/wait-hrmp-channel-opened.js with "1013" within 300 seconds
 
 

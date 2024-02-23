@@ -3,5 +3,5 @@ Network: ./bridge_hub_westend_local_network.toml
 Creds: config
 
 # ensure that initialization has completed
-asset-hub-westend-collator1: js-script ../../js-helpers/wait-hrmp-channel-opened.js with "1002" within 600 seconds
+asset-hub-westend-collator1: js-script ../../framework/js-helpers/wait-hrmp-channel-opened.js with "1002" within 600 seconds
 

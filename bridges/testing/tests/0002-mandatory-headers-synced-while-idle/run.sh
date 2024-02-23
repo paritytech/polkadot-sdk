@@ -2,8 +2,8 @@
 
 set -e
 
-source "${BASH_SOURCE%/*}/../../utils/common.sh"
-source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
+source "${BASH_SOURCE%/*}/../../framework/utils/common.sh"
+source "${BASH_SOURCE%/*}/../../framework/utils/zombienet.sh"
 
 # We use `--relayer-delay` in order to sleep some time before starting relayer.
 # We want to sleep for at least 1 session, which is expected to be 60 seconds for test environment.
