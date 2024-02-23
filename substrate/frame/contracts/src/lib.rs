@@ -219,7 +219,6 @@ pub struct Environment<T: Config> {
 ///
 /// The version is bumped any time a new HostFn is added or stabilized.
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub struct ApiVersion(u16);
 impl Default for ApiVersion {
 	fn default() -> Self {
