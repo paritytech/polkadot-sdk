@@ -128,7 +128,7 @@ benchmarks! {
 			FeeReason::ChargeFees,
 		);
 
-		// Actual balance (e.g. `ensure_successful_delivery` could drip delivery fess, ...)
+		// Actual balance (e.g. `ensure_successful_delivery` could drip delivery fees, ...)
 		let balance = <pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller);
 		// Add transferred_amount to origin
 		<pallet_balances::Pallet<T> as Mutate<_>>::mint_into(&caller, transferred_amount)?;
