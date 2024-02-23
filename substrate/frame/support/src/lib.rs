@@ -982,6 +982,7 @@ pub mod pallet_prelude {
 /// * [`pallet::storage_prefix = "SomeName"`](#palletstorage_prefix--somename-optional)
 /// * [`pallet::unbounded`](#palletunbounded-optional)
 /// * [`pallet::whitelist_storage`](#palletwhitelist_storage-optional)
+/// * [`pallet::disable_try_decode_storage`](#palletdisable_try_decode_storage-optional)
 /// * [`cfg(..)`](#cfg-for-storage) (on storage items)
 /// * [`pallet::type_value`](#type-value-pallettype_value-optional)
 /// * [`pallet::genesis_config`](#genesis-config-palletgenesis_config-optional)
@@ -1496,6 +1497,15 @@ pub mod pallet_prelude {
 ///
 /// See
 /// [`pallet::whitelist_storage`](frame_support::pallet_macros::whitelist_storage)
+/// for more info.
+///
+/// ## `#[pallet::disable_try_decode_storage]` (optional)
+///
+/// The optional attribute `#[pallet::disable_try_decode_storage]` will declare the storage as
+/// whitelisted state decoding during try-runtime logic.
+///
+/// See
+/// [`pallet::disable_try_decode_storage`](frame_support::pallet_macros::disable_try_decode_storage)
 /// for more info.
 ///
 ///	## `#[cfg(..)]` (for storage)

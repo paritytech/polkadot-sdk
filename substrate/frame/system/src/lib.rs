@@ -892,6 +892,7 @@ pub mod pallet {
 	/// just in case someone still reads them from within the runtime.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
+	#[pallet::disable_try_decode_storage]
 	#[pallet::unbounded]
 	pub(super) type Events<T: Config> =
 		StorageValue<_, Vec<Box<EventRecord<T::RuntimeEvent, T::Hash>>>, ValueQuery>;

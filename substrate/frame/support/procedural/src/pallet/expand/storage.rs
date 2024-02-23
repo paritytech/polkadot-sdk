@@ -834,7 +834,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			.storages
 			.iter()
 			.filter_map(|storage| {
-				if storage.cfg_attrs.is_empty() {
+				if storage.try_decode {
 					let ident = &storage.ident;
 					let gen = &def.type_use_generics(storage.attr_span);
 					Some(quote::quote_spanned!(storage.attr_span => #ident<#gen> ))
