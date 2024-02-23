@@ -243,7 +243,7 @@ impl<
 	) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
-			"can_check_in origin: {:?}, what: {:?}",
+			"can_check_out origin: {:?}, what: {:?}",
 			_origin, what
 		);
 		// Check we handle this asset.
