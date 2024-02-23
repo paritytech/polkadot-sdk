@@ -77,7 +77,6 @@ pub struct XcmExecutor<Config: config::Config> {
 	appendix_weight: Weight,
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
-	send_destinations: Vec<Location>,
 	delivery_fees: AssetsInHolding,
 	_config: PhantomData<Config>,
 }
@@ -204,8 +203,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			target: "xcm::execute",
 			"origin: {origin:?}, message: {message:?}, weight_credit: {weight_credit:?}",
 		);
-		let mut properties =
-			Properties { weight_credit, message_id: None, send_destinations: Vec::new() };
+		let mut properties = Properties { weight_credit, message_id: None };
 		if let Err(e) = Config::Barrier::should_execute(
 			&origin,
 			message.inner_mut(),
@@ -223,7 +221,6 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		*id = properties.message_id.unwrap_or(*id);
 
 		let mut vm = Self::new(origin, *id);
-		vm.send_destinations = properties.send_destinations;
 
 		while !message.0.is_empty() {
 			let result = vm.process(message);
@@ -297,7 +294,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			appendix_weight: Weight::zero(),
 			transact_status: Default::default(),
 			fees_mode: FeesMode { jit_withdraw: false },
-			send_destinations: Vec::new(),
 			delivery_fees: AssetsInHolding::new(),
 			_config: PhantomData,
 		}
@@ -463,7 +459,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		} else {
 			self.delivery_fees
 				.try_take(fee.into())
-				.map_err(|_| XcmError::NotHoldingFees)?
+				.map_err(|error| {
+					log::error!(target: "xcm::fees", "Error when paying fee from delivery_fees register: {:?}", error);
+					XcmError::NotHoldingFees
+				})?
 				.into()
 		};
 		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
@@ -950,43 +949,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let max_fee =
 					self.holding.try_take(fees.into()).map_err(|_| XcmError::NotHoldingFees)?;
 				let result = || -> Result<(), XcmError> {
-					// This is mutable since we'll be subtracting estimated delivery fees from it.
-					let mut unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
-					// 1.
-					//
-					// We want to put some amount of these `unspent` assets into the `delivery_fees`
-					// register. We could either put all of them or try to estimate how much to put.
-					//
-					// If we just put all the assets into this register, some programs would
-					// probably need to change. Before this change, there's no issue with users
-					// writing:
-					// - WithdrawAsset(vec![asset])
-					// - BuyExecution { fees: asset, .. }
-					// - DepositAsset { assets: asset.into(), .. }
-					// Now, this wouldn't deposit anything, since we take everything for fees.
-					//
-					// However, estimating how much we actually need is hard.
-					// We'd need both the message that'll be sent, and the destination.
-					//
-					// The message is pretty hard to get, since we'd need to replicate the
-					// instruction that actually sends it.
-					// We can instead define a `worst_case_message` that we'll use to estimate
-					// delivery fees.
-					// This might make delivery fees more expensive, but it's much simpler than
-					// recreating the actual message.
-					// We might actually adjust and refund any excess when the sending instruction
-					// is reached, since we know the real message that was sent.
-					// However, this refunded amount would only be useful for `RefundSurplus`.
-					//
-					// We then need the destination, which can be obtained fairly easy (would have
-					// to benchmark) in a barrier.
-					// In this PR, I created a `WithDeliveryFees` barrier that sets these
-					// destinations for usage here.
-					// We need the destinations, since they are the way the executor differentiates
-					// between XcmSenders, which might charge different fees.
-					//
-					// Here's an implementation of just putting all unspent assets in the new
-					// `delivery_fees` register instead of in the holding register.
+					let unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
 					self.delivery_fees.subsume_assets(unspent);
 					Ok(())
 				}();

@@ -22,7 +22,7 @@ use frame_support::{
 	traits::{Contains, Get, ProcessMessageError},
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
-use sp_std::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result, vec::Vec};
+use sp_std::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
 use xcm::prelude::*;
 use xcm_executor::traits::{CheckSuspension, OnResponse, Properties, ShouldExecute};
 
@@ -438,58 +438,5 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 
 		// Permit everything else
 		Ok(())
-	}
-}
-
-pub struct WithDeliveryFees<InnerBarrier>(PhantomData<InnerBarrier>);
-impl<InnerBarrier: ShouldExecute> ShouldExecute for WithDeliveryFees<InnerBarrier> {
-	fn should_execute<RuntimeCall>(
-		origin: &Location,
-		message: &mut [Instruction<RuntimeCall>],
-		max_weight: Weight,
-		properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		fn recursive_check<RuntimeCall>(
-			instructions: &mut [Instruction<RuntimeCall>],
-		) -> Vec<Location> {
-			// TODO: Should probably be a `BoundedVec`.
-			// In that case, what should the bound be?
-			let mut destinations = Vec::new();
-			instructions
-				.matcher()
-				.match_next_inst_while(
-					|_| true,
-					|instruction| match instruction {
-						ReportError(QueryResponseInfo { destination, .. }) => {
-							destinations.push(destination.clone());
-							Ok(ControlFlow::Continue(()))
-						},
-						ReportHolding { .. } => {
-							todo!()
-						},
-						ReportTransactStatus(QueryResponseInfo { destination, .. }) => {
-							destinations.push(destination.clone());
-							Ok(ControlFlow::Continue(()))
-						},
-						SetAppendix(inner) => {
-							destinations.extend(recursive_check(inner.inner_mut()));
-							Ok(ControlFlow::Continue(()))
-						},
-						SetErrorHandler(_inner) => {
-							// TODO: What to do here?
-							// We should assume worst-case scenario and count them.
-							// Then we could always return this at the end.
-							Ok(ControlFlow::Continue(()))
-						},
-						_ => Ok(ControlFlow::Continue(())),
-					},
-				)
-				.expect("We are only accumulating, not denying the message");
-			destinations
-		}
-
-		properties.send_destinations = recursive_check(message);
-		log::trace!(target: "xcm::barriers::WithDeliveryFees", "Send destinations: {:?}", properties.send_destinations);
-		InnerBarrier::should_execute(origin, message, max_weight, properties)
 	}
 }

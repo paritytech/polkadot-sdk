@@ -43,7 +43,7 @@ use xcm_builder::{
 	ConvertedConcreteId, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FixedRateOfFungible,
 	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
 	NativeAsset, NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, WithComputedOrigin, WithDeliveryFees,
+	SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, JustTry},
@@ -210,13 +210,7 @@ pub type LocalAssetTransactor = (
 pub type XcmRouter = super::ParachainXcmRouter<MsgQueue>;
 pub type Barrier = (
 	AllowKnownQueryResponses<PolkadotXcm>,
-	WithDeliveryFees<
-		WithComputedOrigin<
-			AllowTopLevelPaidExecutionFrom<Everything>,
-			UniversalLocation,
-			ConstU32<1>,
-		>,
-	>,
+	WithComputedOrigin<AllowTopLevelPaidExecutionFrom<Everything>, UniversalLocation, ConstU32<1>>,
 );
 
 parameter_types! {
@@ -341,9 +335,8 @@ pub mod mock_msg_queue {
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } => {
-							(Ok(used), Event::Fail(Some(hash), error))
-						},
+						Outcome::Incomplete { used, error } =>
+							(Ok(used), Event::Fail(Some(hash), error)),
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
