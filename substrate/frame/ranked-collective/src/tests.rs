@@ -401,23 +401,23 @@ fn voting_works() {
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
 
-		assert_noop!(Club::vote(RuntimeOrigin::signed(0), 3, true), Error::<Test>::RankTooLow);
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
+		assert_ok!(Club::vote(RuntimeOrigin::signed(0), 3, true));
+		assert_eq!(tally(3), Tally::from_parts(1, 0, 0));
 
 		assert_ok!(Club::vote(RuntimeOrigin::signed(1), 3, true));
-		assert_eq!(tally(3), Tally::from_parts(1, 1, 0));
+		assert_eq!(tally(3), Tally::from_parts(2, 1, 0));
 		assert_ok!(Club::vote(RuntimeOrigin::signed(1), 3, false));
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 1));
+		assert_eq!(tally(3), Tally::from_parts(1, 0, 1));
 
 		assert_ok!(Club::vote(RuntimeOrigin::signed(2), 3, true));
-		assert_eq!(tally(3), Tally::from_parts(1, 3, 1));
+		assert_eq!(tally(3), Tally::from_parts(2, 3, 1));
 		assert_ok!(Club::vote(RuntimeOrigin::signed(2), 3, false));
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 4));
+		assert_eq!(tally(3), Tally::from_parts(1, 0, 4));
 
 		assert_ok!(Club::vote(RuntimeOrigin::signed(3), 3, true));
-		assert_eq!(tally(3), Tally::from_parts(1, 6, 4));
+		assert_eq!(tally(3), Tally::from_parts(2, 6, 4));
 		assert_ok!(Club::vote(RuntimeOrigin::signed(3), 3, false));
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 10));
+		assert_eq!(tally(3), Tally::from_parts(1, 0, 10));
 	});
 }
 
