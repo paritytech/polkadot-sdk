@@ -78,6 +78,7 @@ pub struct XcmExecutor<Config: config::Config> {
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
 	delivery_fees: AssetsInHolding,
+	xcm_weight: Weight,
 	_config: PhantomData<Config>,
 }
 
@@ -221,6 +222,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		*id = properties.message_id.unwrap_or(*id);
 
 		let mut vm = Self::new(origin, *id);
+		vm.xcm_weight = xcm_weight;
 
 		while !message.0.is_empty() {
 			let result = vm.process(message);
@@ -295,6 +297,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			transact_status: Default::default(),
 			fees_mode: FeesMode { jit_withdraw: false },
 			delivery_fees: AssetsInHolding::new(),
+			xcm_weight: Weight::zero(),
 			_config: PhantomData,
 		}
 	}
@@ -950,7 +953,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					self.holding.try_take(fees.into()).map_err(|_| XcmError::NotHoldingFees)?;
 				let result = || -> Result<(), XcmError> {
 					let unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
-					self.delivery_fees.subsume_assets(unspent);
+					self.holding.subsume_assets(unspent);
 					Ok(())
 				}();
 				if result.is_err() {
@@ -1235,6 +1238,23 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			HrmpNewChannelOpenRequest { .. } => Err(XcmError::Unimplemented),
 			HrmpChannelAccepted { .. } => Err(XcmError::Unimplemented),
 			HrmpChannelClosing { .. } => Err(XcmError::Unimplemented),
+			DepositFee { fees } => {
+				let old_holding = self.holding.clone();
+				let taken_fees = self.holding.try_take(fees.into()).map_err(|error| {
+					log::error!(target: "xcm::process_instruction::DepositFee", "Failed to take fees from holding, error: {:?}", error);
+					XcmError::NotHoldingFees
+				})?;
+				let result = || -> Result<(), XcmError> {
+					let unspent =
+						self.trader.buy_weight(self.xcm_weight, taken_fees, &self.context)?;
+					self.delivery_fees.subsume_assets(unspent);
+					Ok(())
+				}();
+				if result.is_err() {
+					self.holding = old_holding;
+				}
+				result
+			},
 		}
 	}
 }

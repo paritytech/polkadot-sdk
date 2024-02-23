@@ -91,7 +91,7 @@ impl<Call> Decode for Xcm<Call> {
 			instructions_count::with(|count| {
 				*count = count.saturating_add(number_of_instructions as u8);
 				if *count > MAX_INSTRUCTIONS_TO_DECODE {
-					return Err(CodecError::from("Max instructions exceeded"))
+					return Err(CodecError::from("Max instructions exceeded"));
 				}
 				Ok(())
 			})
@@ -789,6 +789,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
+	#[builder(pays_fees)]
 	BuyExecution { fees: MultiAsset, weight_limit: WeightLimit },
 
 	/// Refund any surplus weight previously bought with `BuyExecution`.
@@ -1465,6 +1466,10 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution {
 				weight_limit,
 				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
+			},
+			DepositFee { fees } => Self::BuyExecution {
+				fees: fees.into_inner().first().ok_or(())?.clone().try_into()?,
+				weight_limit: WeightLimit::Unlimited,
 			},
 		})
 	}

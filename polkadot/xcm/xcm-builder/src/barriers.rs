@@ -104,6 +104,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 					*weight_limit = Limited(max_weight);
 					Ok(())
 				},
+				DepositFee { .. } => Ok(()),
 				_ => Err(ProcessMessageError::Overweight(max_weight)),
 			})?;
 		Ok(())
