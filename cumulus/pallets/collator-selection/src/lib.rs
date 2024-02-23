@@ -196,7 +196,6 @@ pub mod pallet {
 
 	/// The invulnerable, permissioned collators. This list must be sorted.
 	#[pallet::storage]
-	#[pallet::getter(fn invulnerables)]
 	pub type Invulnerables<T: Config> =
 		StorageValue<_, BoundedVec<T::AccountId, T::MaxInvulnerables>, ValueQuery>;
 
@@ -206,7 +205,6 @@ pub mod pallet {
 	/// This list is sorted in ascending order by deposit and when the deposits are equal, the least
 	/// recently updated is considered greater.
 	#[pallet::storage]
-	#[pallet::getter(fn candidate_list)]
 	pub type CandidateList<T: Config> = StorageValue<
 		_,
 		BoundedVec<CandidateInfo<T::AccountId, BalanceOf<T>>, T::MaxCandidates>,
@@ -215,7 +213,6 @@ pub mod pallet {
 
 	/// Last block authored by collator.
 	#[pallet::storage]
-	#[pallet::getter(fn last_authored_block)]
 	pub type LastAuthoredBlock<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, BlockNumberFor<T>, ValueQuery>;
 
@@ -223,14 +220,12 @@ pub mod pallet {
 	///
 	/// This should ideally always be less than [`Config::MaxCandidates`] for weights to be correct.
 	#[pallet::storage]
-	#[pallet::getter(fn desired_candidates)]
 	pub type DesiredCandidates<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// Fixed amount to deposit to become a collator.
 	///
 	/// When a collator calls `leave_intent` they immediately receive the deposit back.
 	#[pallet::storage]
-	#[pallet::getter(fn candidacy_bond)]
 	pub type CandidacyBond<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::genesis_config]
@@ -513,7 +508,7 @@ pub mod pallet {
 				.try_into()
 				.unwrap_or_default();
 			ensure!(length < T::MaxCandidates::get(), Error::<T>::TooManyCandidates);
-			ensure!(!Self::invulnerables().contains(&who), Error::<T>::AlreadyInvulnerable);
+			ensure!(!Invulnerables::<T>::get().contains(&who), Error::<T>::AlreadyInvulnerable);
 
 			let validator_key = T::ValidatorIdOf::convert(who.clone())
 				.ok_or(Error::<T>::NoAssociatedValidatorId)?;
@@ -522,7 +517,7 @@ pub mod pallet {
 				Error::<T>::ValidatorNotRegistered
 			);
 
-			let deposit = Self::candidacy_bond();
+			let deposit = CandidacyBond::<T>::get();
 			// First authored block is current block plus kick threshold to handle session delay
 			<CandidateList<T>>::try_mutate(|candidates| -> Result<(), DispatchError> {
 				ensure!(
@@ -723,8 +718,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			ensure!(!Self::invulnerables().contains(&who), Error::<T>::AlreadyInvulnerable);
-			ensure!(deposit >= Self::candidacy_bond(), Error::<T>::InsufficientBond);
+			ensure!(!Invulnerables::<T>::get().contains(&who), Error::<T>::AlreadyInvulnerable);
+			ensure!(deposit >= CandidacyBond::<T>::get(), Error::<T>::InsufficientBond);
 
 			let validator_key = T::ValidatorIdOf::convert(who.clone())
 				.ok_or(Error::<T>::NoAssociatedValidatorId)?;
@@ -838,7 +833,7 @@ pub mod pallet {
 		pub fn assemble_collators() -> Vec<T::AccountId> {
 			// Casting `u32` to `usize` should be safe on all machines running this.
 			let desired_candidates = <DesiredCandidates<T>>::get() as usize;
-			let mut collators = Self::invulnerables().to_vec();
+			let mut collators = Invulnerables::<T>::get().to_vec();
 			collators.extend(
 				<CandidateList<T>>::get()
 					.iter()
@@ -864,7 +859,7 @@ pub mod pallet {
 					let last_block = <LastAuthoredBlock<T>>::get(c.clone());
 					let since_last = now.saturating_sub(last_block);
 
-					let is_invulnerable = Self::invulnerables().contains(&c);
+					let is_invulnerable = Invulnerables::<T>::get().contains(&c);
 					let is_lazy = since_last >= kick_threshold;
 
 					if is_invulnerable {
