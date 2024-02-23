@@ -715,7 +715,7 @@ mod pool_integration {
 	}
 
 	#[test]
-	fn unbond_delegation_from_pool() {
+	fn withdraw_from_pool() {
 		ExtBuilder::default().build_and_execute(|| {
 			// initial era
 			start_era(1);
@@ -768,11 +768,11 @@ mod pool_integration {
 			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 0));
 			assert_eq!(
 				events_since_last_call(),
-				vec![Event::Withdrawn { delegate: pool_acc, delegator: 301, amount: 50 },]
+				vec![Event::Withdrawn { delegate: pool_acc, delegator: 301, amount: 50 }]
 			);
 			assert_eq!(
 				pool_events_since_last_call(),
-				vec![PoolsEvent::Withdrawn { member: 301, pool_id, balance: 50, points: 50 },]
+				vec![PoolsEvent::Withdrawn { member: 301, pool_id, balance: 50, points: 50 }]
 			);
 			assert_eq!(held_balance(&301), held_301 - 50);
 			assert_eq!(Balances::free_balance(301), free_301 + 50);
@@ -805,12 +805,34 @@ mod pool_integration {
 
 	#[test]
 	fn pool_withdraw_unbonded() {
-		ExtBuilder::default().build_and_execute(|| {});
-	}
+		ExtBuilder::default().build_and_execute(|| {
+			// initial era
+			start_era(1);
+			let pool_id = create_pool(100, 1000);
+			add_delegators_to_pool(pool_id, (300..310).collect(), 200);
 
-	#[test]
-	fn delegator_withdraw_unbonded() {
-		ExtBuilder::default().build_and_execute(|| {});
+			start_era(2);
+			// 1000 tokens to be unbonded in era 5.
+			for i in 300..310 {
+				assert_ok!(Pools::unbond(RawOrigin::Signed(i).into(), i, 100));
+			}
+
+			start_era(3);
+			// 500 tokens to be unbonded in era 6.
+			for i in 300..310 {
+				assert_ok!(Pools::unbond(RawOrigin::Signed(i).into(), i, 50));
+			}
+
+			start_era(5);
+			// withdraw pool should withdraw 1000 tokens
+			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
+			assert_eq!(get_pool_delegate(pool_id).unbonded(), 1000);
+
+            start_era(6);
+            // should withdraw 500 more
+            assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
+            assert_eq!(get_pool_delegate(pool_id).unbonded(), 1000 + 500);
+		});
 	}
 
 	#[test]

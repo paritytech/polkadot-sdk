@@ -23,8 +23,6 @@ use super::*;
 /// The type of pot account being created.
 #[derive(Encode, Decode)]
 pub(crate) enum AccountType {
-	/// Funds that are withdrawn from the staking ledger but not claimed by the `delegator` yet.
-	UnclaimedWithdrawal,
 	/// A proxy delegator account created for a nominator who migrated to a `delegate` account.
 	///
 	/// Funds for unmigrated `delegator` accounts of the `delegate` are kept here.
@@ -96,6 +94,7 @@ pub struct DelegationLedger<T: Config> {
 	#[codec(compact)]
 	pub total_delegated: BalanceOf<T>,
 	/// Funds that are withdrawn from core staking but not released to delegator/s.
+	// FIXME(ank4n): Check/test about rebond: where delegator rebond what is unlocking.
 	#[codec(compact)]
 	pub unclaimed_withdrawals: BalanceOf<T>,
 	/// Slashes that are not yet applied.
