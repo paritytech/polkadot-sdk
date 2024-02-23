@@ -80,7 +80,6 @@ pub struct XcmExecutor<Config: config::Config> {
 	appendix_weight: Weight,
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
-	loaded_holding: bool,
 	send_destinations: Vec<Location>,
 	_config: PhantomData<Config>,
 }
@@ -300,7 +299,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			appendix_weight: Weight::zero(),
 			transact_status: Default::default(),
 			fees_mode: FeesMode { jit_withdraw: false },
-			loaded_holding: false,
 			send_destinations: Vec::new(),
 			_config: PhantomData,
 		}
@@ -356,6 +354,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		_reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
 		let (ticket, _fee) = validate_send::<Config::XcmSender>(dest, msg)?;
+		// 2.
+		//
 		// No need to get the fee because enough for all delivery fees was already taken
 		// in `BuyExecution`.
 		// TODO: We could actually charge it here, also to be able to use the `reason`
@@ -944,6 +944,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					self.holding.try_take(fees.into()).map_err(|_| XcmError::NotHoldingFees)?;
 				let result = || -> Result<(), XcmError> {
 					let unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
+					// 1.
+					//
 					// Here we could do too things with these `unspent` assets.
 					// We could put them into a special `fee` register to pay for delivery fees
 					// whenever `self.send()` is encountered, or we could try to pay for all
