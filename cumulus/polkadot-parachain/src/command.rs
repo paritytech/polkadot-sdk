@@ -755,14 +755,16 @@ pub fn run() -> Result<()> {
 					.map_err(Into::into),
 
 					BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot =>
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal =>
 							crate::service::start_generic_aura_node::<
 								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 								.await
 								.map(|r| r.0),
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama =>
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal =>
 							crate::service::start_generic_aura_node::<
 								RuntimeApi,
 								AuraId,

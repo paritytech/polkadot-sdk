@@ -25,7 +25,7 @@ log = { workspace = true }
 paste = "1.0"
 rand = { version = "0.8.5", optional = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.196", default-features = false, features = ["alloc", "derive"], optional = true }
+serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 sp-application-crypto = { path = "../application-crypto", default-features = false }
 sp-arithmetic = { path = "../arithmetic", default-features = false }
 sp-core = { path = "../core", default-features = false }
@@ -38,7 +38,7 @@ simple-mermaid = { version = "0.1.1", optional = true }
 
 [dev-dependencies]
 rand = "0.8.5"
-serde_json = "1.0.113"
+serde_json = { workspace = true, default-features = true }
 zstd = { version = "0.12.4", default-features = false }
 sp-api = { path = "../api" }
 sp-state-machine = { path = "../state-machine" }
