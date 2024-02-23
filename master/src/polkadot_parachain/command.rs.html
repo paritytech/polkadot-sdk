@@ -1076,6 +1076,8 @@
 <a href="#1076" id="1076">1076</a>
 <a href="#1077" id="1077">1077</a>
 <a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1833,14 +1835,16 @@
 					.map_err(Into::into),
 
 					BridgeHub(bridge_hub_runtime_type) =&gt; <span class="kw">match </span>bridge_hub_runtime_type {
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot =&gt;
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal =&gt;
 							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
 								RuntimeApi,
 								AuraId,
 							&gt;(config, polkadot_config, collator_options, id, hwbench)
 								.<span class="kw">await
 								</span>.map(|r| r.<span class="number">0</span>),
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama =&gt;
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal =&gt;
 							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
 								RuntimeApi,
 								AuraId,

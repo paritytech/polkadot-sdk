@@ -359,6 +359,14 @@
 <a href="#359" id="359">359</a>
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -386,7 +394,10 @@
 </span><span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">pub enum </span>BridgeHubRuntimeType {
 	Kusama,
+	KusamaLocal,
+
 	Polkadot,
+	PolkadotLocal,
 
 	Rococo,
 	RococoLocal,
@@ -405,7 +416,9 @@
 	<span class="kw">fn </span>from_str(value: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
 		<span class="kw">match </span>value {
 			polkadot::BRIDGE_HUB_POLKADOT =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::Polkadot),
+			polkadot::BRIDGE_HUB_POLKADOT_LOCAL =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::PolkadotLocal),
 			kusama::BRIDGE_HUB_KUSAMA =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::Kusama),
+			kusama::BRIDGE_HUB_KUSAMA_LOCAL =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::KusamaLocal),
 			westend::BRIDGE_HUB_WESTEND =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::Westend),
 			westend::BRIDGE_HUB_WESTEND_LOCAL =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::WestendLocal),
 			westend::BRIDGE_HUB_WESTEND_DEVELOPMENT =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::WestendDevelopment),
@@ -464,6 +477,7 @@
 				<span class="prelude-val">Some</span>(<span class="string">&quot;Bob&quot;</span>.to_string()),
 				|<span class="kw">_</span>| (),
 			))),
+			other =&gt; <span class="prelude-val">Err</span>(<span class="macro">std::format!</span>(<span class="string">&quot;No default config present for {:?}&quot;</span>, other)),
 		}
 	}
 }
@@ -603,6 +617,7 @@
 <span class="doccomment">/// Sub-module for Kusama setup
 </span><span class="kw">pub mod </span>kusama {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_KUSAMA: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-kusama&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_KUSAMA_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-kusama-local&quot;</span>;
 }
 
 <span class="doccomment">/// Sub-module for Westend setup.
@@ -719,5 +734,6 @@
 <span class="doccomment">/// Sub-module for Polkadot setup
 </span><span class="kw">pub mod </span>polkadot {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_POLKADOT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-polkadot&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_POLKADOT_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-polkadot-local&quot;</span>;
 }
 </code></pre></div></section></main></body></html>
