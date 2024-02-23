@@ -125,7 +125,7 @@ impl SlashingSpans {
 	pub(crate) fn end_span(&mut self, now: EraIndex) -> bool {
 		let next_start = now.defensive_saturating_add(1);
 		if next_start <= self.last_start {
-			return false
+			return false;
 		}
 
 		let last_length = next_start.defensive_saturating_sub(self.last_start);
@@ -242,7 +242,7 @@ pub(crate) fn compute_slash<T: Config>(
 		// kick out the validator even if they won't be slashed,
 		// as long as the misbehavior is from their most recent slashing span.
 		kick_out_if_recent::<T>(params);
-		return None
+		return None;
 	}
 
 	let prior_slash_p = ValidatorSlashInEra::<T>::get(&params.slash_era, params.stash)
@@ -264,7 +264,7 @@ pub(crate) fn compute_slash<T: Config>(
 		// pays out some reward even if the latest report is not max-in-era.
 		// we opt to avoid the nominator lookups and edits and leave more rewards
 		// for more drastic misbehavior.
-		return None
+		return None;
 	}
 
 	// apply slash to validator.
@@ -542,7 +542,7 @@ impl<'a, T: 'a + Config> Drop for InspectingSpans<'a, T> {
 	fn drop(&mut self) {
 		// only update on disk if we slashed this account.
 		if !self.dirty {
-			return
+			return;
 		}
 
 		if let Some((start, end)) = self.spans.prune(self.window_start) {
@@ -626,17 +626,14 @@ pub fn do_slash<T: Config>(
 			// deduct overslash from the reward payout
 			*reward_payout = reward_payout.saturating_sub(missing);
 		}
-
-		let _ = ledger
-			.update()
-			.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
-
-		// trigger the event
-		<Pallet<T>>::deposit_event(super::Event::<T>::Slashed {
-			staker: stash.clone(),
-			amount: value,
-		});
 	}
+
+	let _ = ledger
+		.update()
+		.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
+
+	// trigger the event
+	<Pallet<T>>::deposit_event(super::Event::<T>::Slashed { staker: stash.clone(), amount: value });
 }
 
 /// Apply a previously-unapplied slash.
@@ -678,7 +675,7 @@ fn pay_reporters<T: Config>(
 		// nobody to pay out to or nothing to pay;
 		// just treat the whole value as slashed.
 		T::Slash::on_unbalanced(slashed_imbalance);
-		return
+		return;
 	}
 
 	// take rewards out of the slashed imbalance.

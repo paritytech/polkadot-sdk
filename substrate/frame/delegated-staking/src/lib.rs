@@ -644,11 +644,13 @@ impl<T: Config> Pallet<T> {
 				"delegate should be bonded and not validator"
 			);
 
+			println!("stakeable_balance: {:?}", ledger.stakeable_balance());
+			println!("stake: {:?}", T::CoreStaking::stake(&delegate).unwrap());
 			ensure!(
 				ledger.stakeable_balance() >=
 					T::CoreStaking::total_stake(&delegate)
 						.expect("delegate should exist as a nominator"),
-				"all delegated balance is staked"
+				"Cannot stake more than balance"
 			);
 		}
 

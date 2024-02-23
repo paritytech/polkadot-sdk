@@ -574,7 +574,7 @@ mod staking_integration {
 
 mod pool_integration {
 	use super::*;
-	use pallet_nomination_pools::{BondExtra, PoolState};
+	use pallet_nomination_pools::{BondExtra, BondedPools, PoolState};
 	use sp_runtime::print;
 
 	#[test]
@@ -899,7 +899,12 @@ mod pool_integration {
 			assert_eq!(
 				pool_events_since_last_call(),
 				vec![
-					PoolsEvent::Withdrawn { member: creator, pool_id, balance: creator_stake, points: creator_stake },
+					PoolsEvent::Withdrawn {
+						member: creator,
+						pool_id,
+						balance: creator_stake,
+						points: creator_stake,
+					},
 					PoolsEvent::MemberRemoved { pool_id, member: creator },
 					PoolsEvent::Destroyed { pool_id },
 				]
@@ -908,18 +913,53 @@ mod pool_integration {
 	}
 
 	#[test]
-	fn chill_pool() {
-		ExtBuilder::default().build_and_execute(|| {});
-	}
-
-	#[test]
-	fn claim_commission_pool_operator() {
-		ExtBuilder::default().build_and_execute(|| {});
-	}
-
-	#[test]
 	fn pool_slashed() {
-		ExtBuilder::default().build_and_execute(|| {});
+		ExtBuilder::default().build_and_execute(|| {
+            start_era(1);
+            let creator = 100;
+            let creator_stake = 500;
+            let pool_id = create_pool(creator, creator_stake);
+            let delegator_stake = 100;
+            add_delegators_to_pool(pool_id, (300..306).collect(), delegator_stake);
+            let pool_acc = Pools::create_bonded_account(pool_id);
+
+            let total_staked = creator_stake + delegator_stake * 6;
+            assert_eq!(Staking::stake(&pool_acc).unwrap().total, total_staked);
+
+            // lets unbond a delegator each in next eras (2, 3, 4).
+            start_era(2);
+            assert_ok!(Pools::unbond(RawOrigin::Signed(300).into(), 300, delegator_stake));
+
+            start_era(3);
+            assert_ok!(Pools::unbond(RawOrigin::Signed(301).into(), 301, delegator_stake));
+
+            start_era(4);
+            assert_ok!(Pools::unbond(RawOrigin::Signed(302).into(), 302, delegator_stake));
+            System::reset_events();
+
+            // slash the pool at era 3
+            assert_eq!(BondedPools::<T>::get(1).unwrap().points, creator_stake + delegator_stake * 6 - delegator_stake * 3);
+            pallet_staking::slashing::do_slash::<T>(
+                &pool_acc,
+                500,
+                &mut Default::default(),
+                &mut Default::default(),
+                3,
+            );
+
+            assert_eq!(
+                pool_events_since_last_call(),
+                vec![
+					// 301 did not get slashed as all as it unbonded in an era before slash.
+					// 302 got slashed 50% of 100 = 50.
+					PoolsEvent::UnbondingPoolSlashed { pool_id: 1, era: 6, balance: 50 },
+					// 303 got slashed 50% of 100 = 50.
+					PoolsEvent::UnbondingPoolSlashed { pool_id: 1, era: 7, balance: 50 },
+					// Rest of the pool slashed 50% of 800 = 400.
+					PoolsEvent::PoolSlashed { pool_id: 1, balance: 400 }
+				]
+            );
+        });
 	}
 
 	fn create_pool(creator: AccountId, amount: Balance) -> u32 {
