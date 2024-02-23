@@ -140,21 +140,26 @@ benchmarks! {
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 
-		let transferred_amount = match &asset.fun {
-			Fungible(amount) => *amount,
-			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
-		}.into();
-		let assets: Assets = asset.into();
-
 		let existential_deposit = T::ExistentialDeposit::get();
 		let caller = whitelisted_caller();
 
 		// Give some multiple of the existential deposit
 		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		assert!(balance >= transferred_amount);
 		let _ = <pallet_balances::Pallet<T> as Currency<_>>::make_free_balance_be(&caller, balance);
 		// verify initial balance
 		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
+
+		match &asset.fun {
+			Fungible(transferred_amount) => {
+				assert!(balance >= (*transferred_amount).into());
+			},
+			NonFungible(instance) => {
+				// TODO: Mint instance
+				todo!()
+			}
+		}
+
+		let assets: Assets = asset.clone().into();
 
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
@@ -170,8 +175,13 @@ benchmarks! {
 		let versioned_assets: VersionedAssets = assets.into();
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
 	verify {
-		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
-		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
+		if let Fungible(transferred_amount) = asset.fun {
+			// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
+			assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount.into());
+		}else {
+			// TODO: Ensure the caller is no longer owner of the instance.
+			todo!()
+		}
 	}
 
 	transfer_assets {
