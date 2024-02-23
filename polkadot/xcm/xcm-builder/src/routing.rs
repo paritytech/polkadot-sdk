@@ -20,6 +20,7 @@ use frame_system::unique;
 use parity_scale_codec::Encode;
 use sp_std::{marker::PhantomData, result::Result};
 use xcm::prelude::*;
+use xcm_executor::{traits::FeeReason, FeesMode};
 
 /// Wrapper router which, if the message does not already end with a `SetTopic` instruction,
 /// appends one to the message filled with a universally unique ID. This ID is returned from a
@@ -102,5 +103,39 @@ impl<Inner: SendXcm, TopicSource: SourceTopic> SendXcm for WithTopicSource<Inner
 		let (ticket, unique_id) = ticket;
 		Inner::deliver(ticket)?;
 		Ok(unique_id)
+	}
+}
+
+/// Trait for a type which ensures all requirements for successful delivery with XCM transport
+/// layers.
+pub trait EnsureDelivery {
+	/// Prepare all requirements for successful `XcmSender: SendXcm` passing (accounts, balances,
+	/// channels ...). Returns:
+	/// - possible `FeesMode` which is expected to be set to executor
+	/// - possible `Assets` which are expected to be subsume to the Holding Register
+	fn ensure_successful_delivery(
+		origin_ref: &Location,
+		dest: &Location,
+		fee_reason: FeeReason,
+	) -> (Option<FeesMode>, Option<Assets>);
+}
+
+/// Tuple implementation for `EnsureDelivery`.
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl EnsureDelivery for Tuple {
+	fn ensure_successful_delivery(
+		origin_ref: &Location,
+		dest: &Location,
+		fee_reason: FeeReason,
+	) -> (Option<FeesMode>, Option<Assets>) {
+		for_tuples!( #(
+			// If the implementation returns something, we're done; if not, let others try.
+			match Tuple::ensure_successful_delivery(origin_ref, dest, fee_reason.clone()) {
+				r @ (Some(_), Some(_)) | r @ (Some(_), None) | r @ (None, Some(_)) => return r,
+				(None, None) => (),
+			}
+		)* );
+		// doing nothing
+		(None, None)
 	}
 }

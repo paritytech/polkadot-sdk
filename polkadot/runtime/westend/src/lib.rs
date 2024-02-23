@@ -2348,7 +2348,36 @@ sp_api::impl_runtime_apis! {
 			impl pallet_session_benchmarking::Config for Runtime {}
 			impl pallet_offences_benchmarking::Config for Runtime {}
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
+
+			use xcm_config::{AssetHub, TokenLocation};
+
+			parameter_types! {
+				pub ExistentialDepositAsset: Option<Asset> = Some((
+					TokenLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+				pub AssetHubParaId: ParaId = westend_runtime_constants::system_parachain::ASSET_HUB_ID.into();
+				pub const RandomParaId: ParaId = ParaId::new(43211234);
+			}
+
 			impl pallet_xcm::benchmarking::Config for Runtime {
+				type DeliveryHelper = (
+					runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForChildParachainDelivery,
+						AssetHubParaId,
+						(),
+					>,
+					runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForChildParachainDelivery,
+						RandomParaId,
+						(),
+					>
+				);
+
 				fn reachable_dest() -> Option<Location> {
 					Some(crate::xcm_config::AssetHub::get())
 				}
@@ -2356,7 +2385,7 @@ sp_api::impl_runtime_apis! {
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
 					// Relay/native token can be teleported to/from AH.
 					Some((
-						Asset { fun: Fungible(EXISTENTIAL_DEPOSIT), id: AssetId(Here.into()) },
+						Asset { fun: Fungible(ExistentialDeposit::get()), id: AssetId(Here.into()) },
 						crate::xcm_config::AssetHub::get(),
 					))
 				}
@@ -2365,10 +2394,10 @@ sp_api::impl_runtime_apis! {
 					// Relay can reserve transfer native token to some random parachain.
 					Some((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Here.into())
 						},
-						crate::Junction::Parachain(43211234).into(),
+						crate::Junction::Parachain(RandomParaId::get().into()).into(),
 					))
 				}
 
@@ -2395,15 +2424,6 @@ sp_api::impl_runtime_apis! {
 				AssetId, Fungibility::*, InteriorLocation, Junction, Junctions::*,
 				Asset, Assets, Location, NetworkId, Response,
 			};
-			use xcm_config::{AssetHub, TokenLocation};
-
-			parameter_types! {
-				pub ExistentialDepositAsset: Option<Asset> = Some((
-					TokenLocation::get(),
-					ExistentialDeposit::get()
-				).into());
-				pub ToParachain: ParaId = westend_runtime_constants::system_parachain::ASSET_HUB_ID.into();
-			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
@@ -2412,7 +2432,7 @@ sp_api::impl_runtime_apis! {
 					xcm_config::XcmConfig,
 					ExistentialDepositAsset,
 					xcm_config::PriceForChildParachainDelivery,
-					ToParachain,
+					AssetHubParaId,
 					(),
 				>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
