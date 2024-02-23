@@ -1812,7 +1812,7 @@ mod sanitizers {
 					SanitizedBackedCandidates {
 						backed_candidates_with_core: expected_all_backed_candidates_with_core,
 						votes_from_disabled_were_dropped: false,
-						dropped_unscheduled_candidates: !core_index_enabled
+						dropped_unscheduled_candidates: true
 					}
 				);
 			});
@@ -1852,7 +1852,7 @@ mod sanitizers {
 
 				assert!(sanitized_backed_candidates.is_empty());
 				assert!(!votes_from_disabled_were_dropped);
-				assert!(!dropped_unscheduled_candidates);
+				assert!(dropped_unscheduled_candidates);
 			});
 		}
 
