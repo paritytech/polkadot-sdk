@@ -149,21 +149,22 @@ benchmarks! {
 		// verify initial balance
 		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
 
+		let send_origin = RawOrigin::Signed(caller.clone());
+		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+
 		match &asset.fun {
 			Fungible(transferred_amount) => {
 				assert!(balance >= (*transferred_amount).into());
 			},
 			NonFungible(instance) => {
-				// TODO: Mint instance
-				todo!()
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
+					.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 			}
 		}
 
 		let assets: Assets = asset.clone().into();
 
-		let send_origin = RawOrigin::Signed(caller.clone());
-		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
-			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		if !T::XcmReserveTransferFilter::contains(&(origin_location, assets.clone().into_inner())) {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
@@ -178,9 +179,6 @@ benchmarks! {
 		if let Fungible(transferred_amount) = asset.fun {
 			// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
 			assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount.into());
-		}else {
-			// TODO: Ensure the caller is no longer owner of the instance.
-			todo!()
 		}
 	}
 
