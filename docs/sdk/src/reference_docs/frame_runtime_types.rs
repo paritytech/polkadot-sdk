@@ -90,12 +90,13 @@
 //!
 //! > In other words, the degree of specificity that [`frame_system::Config::RuntimeCall`] has is
 //! > not enough for the pallet to work with. Therefore, the pallet has to define its own associated
-//! > type.
+//! > type representing `RuntimeCall`.
 //!
 //! Another way to look at this is:
 //!
-//! `pallet_with_specific_runtime_call::Config::RuntimeCall` are two different representations of
-//! the same concrete type that is only known when the runtime is being constructed.
+//! `pallet_with_specific_runtime_call::Config::RuntimeCall` and `frame_system::Config::RuntimeCall`
+//! are two different representations of the same concrete type that is only known when the runtime
+//! is being constructed.
 //!
 //! Now, within this pallet, this new `RuntimeCall` can be used, and it can use its new trait
 //! bounds, such as being [`frame::traits::IsSubType`]:
