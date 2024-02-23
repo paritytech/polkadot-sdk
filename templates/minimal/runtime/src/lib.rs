@@ -22,7 +22,10 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use frame::{
-	deps::frame_support::weights::{FixedFee, NoFee},
+	deps::frame_support::{
+		genesis_builder_helper::{build_config, create_default_config},
+		weights::{FixedFee, NoFee},
+	},
 	prelude::*,
 	runtime::{
 		apis::{
@@ -31,7 +34,6 @@ use frame::{
 		prelude::*,
 	},
 };
-use frame_support::genesis_builder_helper::{build_config, create_default_config};
 
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
