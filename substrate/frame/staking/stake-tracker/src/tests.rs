@@ -19,13 +19,16 @@
 
 use crate::{mock::*, StakeImbalance};
 
-use frame_election_provider_support::{ScoreProvider, SortedListProvider};
+use frame_election_provider_support::{ScoreProvider, SortedListProvider, VoteWeight};
 use frame_support::assert_ok;
-use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingInterface};
+use sp_staking::{
+	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
+};
 
 // keeping tests clean.
 type A = AccountId;
 type B = Balance;
+type V = VoteWeight;
 
 #[test]
 fn setup_works() {
@@ -107,7 +110,13 @@ fn on_stake_update_works() {
 			n.insert(1, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, stake_before, new_stake);
+		let status = StakingMock::status(&1).unwrap();
+		<StakeTracker as OnStakingUpdate<A, B, V>>::on_stake_update(
+			&1,
+			status,
+			stake_before,
+			new_stake.active,
+		);
 
 		assert_eq!(VoterBagsList::get_score(&1).unwrap(), new_stake.active);
 
@@ -139,7 +148,13 @@ fn on_stake_update_works() {
 
 		let stake_imbalance = stake_before.unwrap().active - new_stake.total;
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&10, stake_before, new_stake);
+		let status = StakingMock::status(&10).unwrap();
+		<StakeTracker as OnStakingUpdate<A, B, V>>::on_stake_update(
+			&10,
+			status,
+			stake_before,
+			new_stake.active,
+		);
 
 		assert_eq!(VoterBagsList::get_score(&10).unwrap(), new_stake.active);
 		assert_eq!(StakingMock::stake(&10), Ok(new_stake));
@@ -174,7 +189,7 @@ fn on_stake_update_sorting_works() {
 		);
 
 		// now we remove the staker 5 to get back to the initial state.
-		remove_staker(5);
+		remove_staker(5, StakingMock::stake(&5).unwrap().active);
 		assert_eq!(score_of_target(10), 300);
 		assert_eq!(score_of_target(11), 200);
 		assert!(score_of_target(10) > score_of_target(11));
@@ -199,10 +214,12 @@ fn on_stake_update_sorting_works() {
 
 		// noop, nothing changes.
 		let initial_stake = stake_of(11);
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+		let status = StakingMock::status(&11).unwrap();
+		<StakeTracker as OnStakingUpdate<A, B, V>>::on_stake_update(
 			&11,
+			status,
 			initial_stake,
-			initial_stake.unwrap(),
+			initial_stake.unwrap().active,
 		);
 		assert_eq!(voter_scores_before, get_scores::<VoterBagsList>());
 
@@ -213,7 +230,13 @@ fn on_stake_update_sorting_works() {
 			n.insert(11, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, initial_stake, new_stake);
+		let status = StakingMock::status(&11).unwrap();
+		<StakeTracker as OnStakingUpdate<A, B, V>>::on_stake_update(
+			&11,
+			status,
+			initial_stake,
+			new_stake.active,
+		);
 
 		// although the voter score of 11 is 1, the voter list sorting has not been updated
 		// automatically.
@@ -243,17 +266,12 @@ fn on_stake_update_defensive_not_in_list_works() {
 		// removes 1 from nominator's list manually, while keeping it as staker.
 		assert_ok!(VoterBagsList::on_remove(&1));
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None, Stake::default());
-	})
-}
-
-#[test]
-#[should_panic = "Defensive failure has been triggered!: \"staker should exist when calling `on_stake_update` and have a valid status\""]
-fn on_stake_update_defensive_not_staker_works() {
-	ExtBuilder::default().build_and_execute(|| {
-		assert!(!VoterBagsList::contains(&1));
-
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None, Stake::default());
+		<StakeTracker as OnStakingUpdate<A, B, V>>::on_nominator_stake_update(
+			&1,
+			vec![],
+			None,
+			Default::default(),
+		);
 	})
 }
 
@@ -301,7 +319,7 @@ fn on_nominator_add_already_exists_defensive_works() {
 
 		// noop.
 		let nominations = <StakingMock as StakingInterface>::nominations(&1).unwrap();
-		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_add(&1, nominations);
+		<StakeTracker as OnStakingUpdate<A, B, V>>::on_nominator_add(&1, nominations, 100);
 		assert!(VoterBagsList::contains(&1));
 		assert_eq!(VoterBagsList::count(), 4);
 		assert_eq!(<VoterBagsList as ScoreProvider<A>>::score(&1), 100);
@@ -323,9 +341,10 @@ fn on_validator_add_already_exists_works() {
 		let target_list_before = TargetBagsList::iter().collect::<Vec<_>>();
 
 		// noop
-		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_add(
+		<StakeTracker as OnStakingUpdate<A, B, V>>::on_validator_add(
 			&10,
 			Some(Stake { total: 300, active: 300 }),
+			100,
 		);
 		assert!(TargetBagsList::contains(&10));
 		assert_eq!(TargetBagsList::count(), 2);
@@ -346,7 +365,11 @@ fn on_nominator_remove_works() {
 		assert!(nominations.len() == 1);
 		let nomination_score_before = TargetBagsList::get_score(&nominations[0]).unwrap();
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_remove(&1, nominations.clone());
+		<StakeTracker as OnStakingUpdate<A, B, V>>::on_nominator_remove(
+			&1,
+			nominations.clone(),
+			100,
+		);
 
 		// the nominator was removed from the voter list.
 		assert!(!VoterBagsList::contains(&1));
@@ -369,7 +392,7 @@ fn on_nominator_remove_defensive_works() {
 		// implementation.
 		assert_ok!(VoterBagsList::on_remove(&1));
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_remove(&1, vec![]);
+		<StakeTracker as OnStakingUpdate<A, B, V>>::on_nominator_remove(&1, vec![], 100);
 	})
 }
 
@@ -378,7 +401,7 @@ fn on_nominator_remove_defensive_works() {
 fn on_validator_remove_defensive_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!TargetBagsList::contains(&1));
-		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_remove(&1);
+		<StakeTracker as OnStakingUpdate<A, B, V>>::on_validator_remove(&1, 100);
 	})
 }
 
@@ -476,22 +499,22 @@ mod staking_integration {
 			assert_eq!(v.get(&2).copied().unwrap(), Stake { active: 200u64, total: 200u64 });
 			assert_eq!(StakingMock::status(&2), Ok(StakerStatus::Validator));
 
-			chill_staker(1);
+			chill_staker(1, StakingMock::stake(&1).unwrap().active);
 			assert_eq!(StakingMock::status(&1), Ok(StakerStatus::Idle));
 			// a chilled nominator is removed from the voter list right away.
 			assert!(!VoterBagsList::contains(&1));
 
-			remove_staker(1);
+			remove_staker(1, StakingMock::stake(&1).unwrap().active);
 			assert!(StakingMock::status(&1).is_err());
 			assert!(!VoterBagsList::contains(&1));
 
-			chill_staker(2);
+			chill_staker(2, StakingMock::stake(&2).unwrap().active);
 			assert_eq!(StakingMock::status(&2), Ok(StakerStatus::Idle));
 			// a chilled validator is kepts in the target list.
 			assert!(TargetBagsList::contains(&2));
 			assert!(!VoterBagsList::contains(&2));
 
-			remove_staker(2);
+			remove_staker(2, StakingMock::stake(&2).unwrap().active);
 			assert!(StakingMock::status(&2).is_err());
 			// a chilled validator is kepts in the target list if its score is 0.
 			assert!(!TargetBagsList::contains(&2));
@@ -535,12 +558,12 @@ mod staking_integration {
 			add_nominator(1, 100);
 			assert!(VoterBagsList::contains(&1));
 
-			remove_staker(1);
+			remove_staker(1, StakingMock::stake(&1).unwrap().active);
 			assert!(!VoterBagsList::contains(&1));
 
 			add_validator(10, 100);
 			assert!(TargetBagsList::contains(&10));
-			remove_staker(10);
+			remove_staker(10, StakingMock::stake(&10).unwrap().active);
 			assert!(!TargetBagsList::contains(&10));
 		})
 	}
@@ -556,7 +579,7 @@ mod staking_integration {
 
 			// remove nominator deletes node from voter list and updates the stake of its
 			// nominations.
-			remove_staker(1);
+			remove_staker(1, StakingMock::stake(&1).unwrap().active);
 			assert!(!VoterBagsList::contains(&1));
 			assert_eq!(TargetBagsList::get_score(&10), Ok(200));
 		})
@@ -595,7 +618,7 @@ mod staking_integration {
 			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 300);
 
 			// chill validator 10.
-			chill_staker(10);
+			chill_staker(10, StakingMock::stake(&10).unwrap().active);
 			assert_eq!(StakingMock::status(&10), Ok(StakerStatus::Idle));
 
 			// chilling removed the self stake (100) from score, but the nominations approvals
@@ -605,7 +628,7 @@ mod staking_integration {
 
 			// even if the validator is removed, the target node remains in the list since approvals
 			// score != 0.
-			remove_staker(10);
+			remove_staker(10, StakingMock::stake(&10).unwrap().active);
 			assert!(TargetBagsList::contains(&10));
 			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 200);
 			assert!(StakingMock::status(&10).is_err());
@@ -633,7 +656,7 @@ mod staking_integration {
 			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 300);
 
 			// remove validator 10.
-			remove_staker(10);
+			remove_staker(10, StakingMock::stake(&10).unwrap().active);
 
 			// but the target list keeps track of the remaining approvals of 10, without the self
 			// stake.

@@ -290,11 +290,11 @@ parameter_types! {
 	pub static LedgerSlashPerEra:
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
-	pub static EventsEmitted: Vec<OnStakingUpdateEvent<AccountId, Balance>> = vec![];
+	pub static EventsEmitted: Vec<OnStakingUpdateEvent<AccountId, Balance, VoteWeight>> = vec![];
 }
 
 pub struct SlashListenerMock;
-impl OnStakingUpdate<AccountId, Balance> for SlashListenerMock {
+impl OnStakingUpdate<AccountId, Balance, VoteWeight> for SlashListenerMock {
 	fn on_slash(
 		_pool_account: &AccountId,
 		slashed_bonded: Balance,
@@ -306,10 +306,15 @@ impl OnStakingUpdate<AccountId, Balance> for SlashListenerMock {
 }
 
 pub struct EventTracker;
-impl OnStakingUpdate<AccountId, Balance> for EventTracker {
-	fn on_stake_update(who: &AccountId, prev_stake: Option<Stake<Balance>>, stake: Stake<Balance>) {
+impl OnStakingUpdate<AccountId, Balance, VoteWeight> for EventTracker {
+	fn on_stake_update(
+		who: &AccountId,
+		prev_stake: Option<Stake<Balance>>,
+		staker_status: StakerStatus<AccountId>,
+		voter_weight: VoteWeight,
+	) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::StakeUpdate { who: *who, prev_stake, stake });
+			v.push(OnStakingUpdateEvent::StakeUpdate { who: *who, prev_stake, voter_weight });
 		})
 	}
 	fn on_nominator_add(who: &AccountId, nominations: Vec<AccountId>) {
@@ -319,8 +324,10 @@ impl OnStakingUpdate<AccountId, Balance> for EventTracker {
 	}
 	fn on_nominator_update(
 		who: &AccountId,
+		_staker_status: StakerStatus<AccountId>,
 		prev_nominations: Vec<AccountId>,
 		nominations: Vec<AccountId>,
+		nominator_vote: VoteWeight,
 	) {
 		EventsEmitted::mutate(|v| {
 			v.push(OnStakingUpdateEvent::NominatorUpdate {
@@ -340,7 +347,11 @@ impl OnStakingUpdate<AccountId, Balance> for EventTracker {
 			v.push(OnStakingUpdateEvent::NominatorRemove { who: *who, nominations });
 		})
 	}
-	fn on_validator_add(who: &AccountId, self_stake: Option<Stake<Balance>>) {
+	fn on_validator_add(
+		who: &AccountId,
+		_staker_status: StakerStatus<AccountId>,
+		self_stake: Option<Stake<Balance>>,
+	) {
 		EventsEmitted::mutate(|v| {
 			v.push(OnStakingUpdateEvent::ValidatorAdd { who: *who, self_stake });
 		})
@@ -992,7 +1003,7 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 
 // this helper method also cleans the current state of `EventsEmtted`.
 pub(crate) fn ensure_on_staking_updates_emitted(
-	expected: Vec<OnStakingUpdateEvent<AccountId, Balance>>,
+	expected: Vec<OnStakingUpdateEvent<AccountId, Balance, VoteWeight>>,
 ) {
 	assert_eq!(
 		EventsEmitted::get(),

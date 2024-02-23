@@ -33,9 +33,12 @@
 
 use frame_support::{
 	defensive,
-	traits::{LockableCurrency, WithdrawReasons},
+	traits::{Currency, LockableCurrency, WithdrawReasons},
 };
-use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingAccount, StakingInterface};
+use sp_staking::{
+	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakerStatusProvider,
+	StakingAccount, StakingInterface,
+};
 use sp_std::prelude::*;
 
 use crate::{
@@ -185,7 +188,23 @@ impl<T: Config> StakingLedger<T> {
 		// fire `on_stake_update` if there was a stake update.
 		let new_stake: Stake<_> = self.stake();
 		if new_stake != prev_stake.unwrap_or_default() {
-			T::EventListeners::on_stake_update(&self.stash, prev_stake, new_stake);
+			let vote_weight =
+				T::CurrencyToVote::to_vote(new_stake.active, T::Currency::total_issuance());
+			match T::StakerStatus::staker_status(&self.stash) {
+				Some(StakerStatus::Nominator(nominations)) =>
+					T::EventListeners::on_nominator_stake_update(
+						&self.stash,
+						nominations,
+						prev_stake,
+						vote_weight,
+					),
+				Some(StakerStatus::Validator) => T::EventListeners::on_validator_stake_update(
+					&self.stash,
+					prev_stake,
+					vote_weight,
+				),
+				Some(StakerStatus::Idle) | None => (),
+			}
 		}
 
 		Ok(())

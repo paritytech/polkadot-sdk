@@ -70,6 +70,12 @@ pub enum StakerStatus<AccountId> {
 	Nominator(Vec<AccountId>),
 }
 
+/// Retrieve the status of a staker, if it exists.
+pub trait StakerStatusProvider<AccountId> {
+	/// Retrieve the staker status of `who`.
+	fn staker_status(who: &AccountId) -> Option<StakerStatus<AccountId>>;
+}
+
 /// A struct that reflects stake that an account has in the staking system. Provides a set of
 /// methods to operate on it's properties. Aimed at making `StakingInterface` more concise.
 #[derive(RuntimeDebug, Clone, Copy, Eq, PartialEq, Default)]
@@ -95,22 +101,52 @@ pub struct Stake<Balance> {
 /// pre-action data that is needed needs to be passed to interface methods. The rest of the data can
 /// be retrieved by using `StakingInterface`.
 #[impl_trait_for_tuples::impl_for_tuples(10)]
-pub trait OnStakingUpdate<AccountId, Balance> {
+pub trait OnStakingUpdate<AccountId, Balance, VoteWeight> {
 	/// Fired when the stake amount of someone updates.
 	///
 	/// This is effectively any changes to the bond amount, such as bonding more funds, and
 	/// unbonding.
 	fn on_stake_update(
+		who: &AccountId,
+		staker_status: StakerStatus<AccountId>,
+		prev_stake: Option<Stake<Balance>>,
+		voter_weight: VoteWeight,
+	) {
+		match staker_status {
+			StakerStatus::Nominator(nominations) =>
+				Self::on_nominator_stake_update(who, nominations, prev_stake, voter_weight),
+			StakerStatus::Validator =>
+				Self::on_validator_stake_update(who, prev_stake, voter_weight),
+			StakerStatus::Idle => (),
+		}
+	}
+
+	/// Fired when the stake amount of a validator updates.
+	fn on_validator_stake_update(
 		_who: &AccountId,
 		_prev_stake: Option<Stake<Balance>>,
-		_stake: Stake<Balance>,
+		_voter_weight: VoteWeight,
+	) {
+	}
+
+	/// Fired when the stake amount of a nominator updates.
+	fn on_nominator_stake_update(
+		_who: &AccountId,
+		_nominations: Vec<AccountId>,
+		_prev_stake: Option<Stake<Balance>>,
+		_voter_weight: VoteWeight,
 	) {
 	}
 
 	/// Fired when someone sets their intention to nominate.
 	///
 	/// This should never be fired for existing nominators.
-	fn on_nominator_add(_who: &AccountId, _nominations: Vec<AccountId>) {}
+	fn on_nominator_add(
+		_who: &AccountId,
+		_nominations: Vec<AccountId>,
+		_nomintator_vote: VoteWeight,
+	) {
+	}
 
 	/// Fired when an existing nominator updates their nominations.
 	///
@@ -121,24 +157,40 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 		_who: &AccountId,
 		_prev_nominations: Vec<AccountId>,
 		_nominations: Vec<AccountId>,
+		_nomintator_vote: VoteWeight,
 	) {
 	}
 
 	/// Fired when an existng nominator becomes idle.
 	///
 	///	An idle nominator stops nominating but its stake state should not be removed.
-	fn on_nominator_idle(_who: &AccountId, _prev_nominations: Vec<AccountId>) {}
+	fn on_nominator_idle(
+		_who: &AccountId,
+		_prev_nominations: Vec<AccountId>,
+		_nomintator_vote: VoteWeight,
+	) {
+	}
 
 	/// Fired when someone removes their intention to nominate, either due to chill or validating.
 	///
 	/// The set of nominations at the time of removal is provided as it can no longer be fetched in
 	/// any way.
-	fn on_nominator_remove(_who: &AccountId, _nominations: Vec<AccountId>) {}
+	fn on_nominator_remove(
+		_who: &AccountId,
+		_nominations: Vec<AccountId>,
+		_nomintator_vote: VoteWeight,
+	) {
+	}
 
 	/// Fired when someone sets their intention to validate.
 	///
 	/// Note validator preference changes are not communicated, but could be added if needed.
-	fn on_validator_add(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
+	fn on_validator_add(
+		_who: &AccountId,
+		_self_stake: Option<Stake<Balance>>,
+		_vote_weight: VoteWeight,
+	) {
+	}
 
 	/// Fired when an existing validator updates their preferences.
 	///
@@ -148,10 +200,10 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when an existing validator becomes idle.
 	///
 	///	An idle validator stops validating but its stake state should not be removed.
-	fn on_validator_idle(_who: &AccountId) {}
+	fn on_validator_idle(_who: &AccountId, _self_stake: VoteWeight) {}
 
 	/// Fired when someone removes their intention to validate, either due to chill or nominating.
-	fn on_validator_remove(_who: &AccountId) {}
+	fn on_validator_remove(_who: &AccountId, _self_stake: VoteWeight) {}
 
 	/// Fired when a portion of a staker's balance has been withdrawn.
 	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
@@ -183,11 +235,11 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 /// Only used for testing in external crates.
 #[cfg(feature = "test-utils")]
 #[derive(PartialEq, Clone, Debug)]
-pub enum OnStakingUpdateEvent<AccountId, Balance> {
+pub enum OnStakingUpdateEvent<AccountId, Balance, VoteWeight> {
 	StakeUpdate {
 		who: AccountId,
 		prev_stake: Option<Stake<Balance>>,
-		stake: Stake<Balance>,
+		voter_weight: VoteWeight,
 	},
 	NominatorAdd {
 		who: AccountId,

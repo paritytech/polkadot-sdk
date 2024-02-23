@@ -290,7 +290,11 @@ pub(crate) fn add_nominator(who: AccountId, stake: Balance) {
 	});
 
 	// add new nominator (called at `fn bond` in staking)
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_add(&who, vec![]);
+	<StakeTracker as OnStakingUpdate<AccountId, Balance, VoteWeight>>::on_nominator_add(
+		&who,
+		vec![],
+		stake,
+	);
 }
 
 pub(crate) fn add_dangling_target_with_nominators(target: AccountId, nominators: Vec<AccountId>) {
@@ -311,10 +315,11 @@ pub(crate) fn add_dangling_target_with_nominators(target: AccountId, nominators:
 	stake_after_unbond.total -= 10;
 
 	// now remove all the self-stake score from the validator.
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_stake_update(
+	<StakeTracker as OnStakingUpdate<AccountId, Balance, VoteWeight>>::on_stake_update(
 		&target,
+		StakingMock::status(&target).unwrap(),
 		Some(stake),
-		stake_after_unbond,
+		stake_after_unbond.active,
 	);
 
 	Bonded::mutate(|b| {
@@ -352,10 +357,11 @@ pub(crate) fn add_nominator_with_nominations(
 		n.insert(who, (Stake::<Balance> { active: stake, total: stake }, nominations.clone()));
 	});
 
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_update(
+	<StakeTracker as OnStakingUpdate<AccountId, Balance, VoteWeight>>::on_nominator_update(
 		&who,
 		vec![],
 		nominations,
+		stake,
 	);
 }
 
@@ -368,10 +374,11 @@ pub(crate) fn update_nominations_of(who: AccountId, new_nominations: Nominations
 		n.insert(who, (*current_stake, new_nominations.clone()));
 	});
 
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_update(
+	<StakeTracker as OnStakingUpdate<AccountId, Balance, VoteWeight>>::on_nominator_update(
 		&who,
 		prev_nominations.clone(),
 		new_nominations,
+		current_stake.active,
 	);
 }
 
@@ -390,14 +397,19 @@ pub(crate) fn add_validator(who: AccountId, self_stake: Balance) {
 		v.insert(who, (stake, vec![]));
 	});
 
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_add(&who, Some(stake));
+	<StakeTracker as OnStakingUpdate<AccountId, Balance, VoteWeight>>::on_validator_add(
+		&who,
+		Some(stake),
+		stake.active,
+	);
 }
 
 pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stake<Balance>>) {
-	match StakingMock::status(&who) {
+	let status = StakingMock::status(&who);
+	match &status {
 		Ok(StakerStatus::Nominator(nominations)) => {
 			TestNominators::mutate(|n| {
-				n.insert(who, (Stake { active: new, total: new }, nominations));
+				n.insert(who, (Stake { active: new, total: new }, nominations.clone()));
 			});
 		},
 		Ok(StakerStatus::Validator) => {
@@ -406,51 +418,63 @@ pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stak
 			});
 			TestNominators::mutate(|n| {
 				let nominations = n.get(&who).expect("exists").1.clone();
-				n.insert(who, (Stake { active: new, total: new }, nominations));
+				n.insert(who, (Stake { active: new, total: new }, nominations.clone()));
 			})
 		},
 		Ok(StakerStatus::Idle) | Err(_) => panic!("not a staker"),
 	}
 
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_stake_update(
+	<StakeTracker as OnStakingUpdate<AccountId, Balance, VoteWeight>>::on_stake_update(
 		&who,
+		status.unwrap(),
 		prev_stake,
-		Stake { total: new, active: new },
+		new,
 	);
 }
 
-pub(crate) fn chill_staker(who: AccountId) {
+pub(crate) fn chill_staker(who: AccountId, vote_weight: VoteWeight) {
 	if TestNominators::get().contains_key(&who) && !TestValidators::get().contains_key(&who) {
 		let nominations = <StakingMock as StakingInterface>::nominations(&who).unwrap();
 
-		<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_idle(&who, nominations);
+		<StakeTracker as OnStakingUpdate<AccountId, Balance, VoteWeight>>::on_nominator_idle(
+			&who,
+			nominations,
+			vote_weight,
+		);
 		TestNominators::mutate(|n| n.remove(&who));
 	} else if TestValidators::get().contains_key(&who) {
-		<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_idle(&who);
+		<StakeTracker as OnStakingUpdate<AccountId, Balance, VoteWeight>>::on_validator_idle(
+			&who,
+			vote_weight,
+		);
 		TestValidators::mutate(|v| v.remove(&who));
 		TestNominators::mutate(|v| v.remove(&who));
 	};
 }
 
-pub(crate) fn remove_staker(who: AccountId) {
+pub(crate) fn remove_staker(who: AccountId, vote_weight: VoteWeight) {
 	match StakingMock::status(&who) {
 		Ok(StakerStatus::Nominator(_)) => {
 			let nominations = <StakingMock as StakingInterface>::nominations(&who).unwrap();
-			<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_remove(
+			<StakeTracker as OnStakingUpdate<AccountId, Balance, VoteWeight>>::on_nominator_remove(
 				&who,
 				nominations,
+				vote_weight,
 			);
 			TestNominators::mutate(|n| {
 				n.remove(&who);
 			});
 		},
 		Ok(StakerStatus::Validator) => {
-			<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_remove(&who);
+			<StakeTracker as OnStakingUpdate<AccountId, Balance, VoteWeight>>::on_validator_remove(
+				&who,
+				vote_weight,
+			);
 			TestValidators::mutate(|v| v.remove(&who));
 		},
 		Ok(StakerStatus::Idle) =>
 			if TargetBagsList::contains(&who) {
-				<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_remove(&who);
+				<StakeTracker as OnStakingUpdate<AccountId, Balance, VoteWeight>>::on_validator_remove(&who, vote_weight);
 			},
 		_ => {},
 	}
