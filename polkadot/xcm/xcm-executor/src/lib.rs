@@ -326,6 +326,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			weight_used.saturating_accrue(trap_weight);
 		};
 
+		if !self.delivery_fees.is_empty() {
+			log::trace!(
+				target: "xcm::post_process",
+				"Trapping assets in delivery_fees register: {:?}, context: {:?} (original_origin: {:?})",
+				self.delivery_fees, self.context, self.original_origin,
+			);
+			let effective_origin = self.context.origin.as_ref().unwrap_or(&self.original_origin);
+			let trap_weight =
+				Config::AssetTrap::drop_assets(effective_origin, self.delivery_fees, &self.context);
+			weight_used.saturating_accrue(trap_weight);
+		};
+
 		match self.error {
 			None => Outcome::Complete { used: weight_used },
 			// TODO: #2841 #REALWEIGHT We should deduct the cost of any instructions following
