@@ -21,7 +21,7 @@ name = "solo-chain-node"
 [dependencies]
 clap = { version = "4.5.1", features = ["derive"] }
 futures = { version = "0.3.21", features = ["thread-pool"] }
-serde_json = "1.0.113"
+serde_json = { workspace = true, default-features = true }
 jsonrpsee = { version = "0.22", features = ["server"] }
 
 # substrate client

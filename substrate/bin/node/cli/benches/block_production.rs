@@ -28,7 +28,7 @@ use sc_consensus::{
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, NetworkConfiguration, OffchainWorkerConfig,
-		PruningMode, WasmExecutionMethod, WasmtimeInstantiationStrategy,
+		PruningMode, RpcBatchRequestConfig, WasmExecutionMethod, WasmtimeInstantiationStrategy,
 	},
 	BasePath, Configuration, Role,
 };
@@ -84,6 +84,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9944,
 		rpc_message_buffer_capacity: Default::default(),
+		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: None,
 		prometheus_config: None,
 		telemetry_endpoints: None,
