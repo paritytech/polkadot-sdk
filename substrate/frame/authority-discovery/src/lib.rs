@@ -179,7 +179,7 @@ mod tests {
 		BuildStorage, KeyTypeId, Perbill,
 	};
 
-	type Block = frame_system::mocking::MockBlock<Test>;
+	type Block = frame_system::mocking::MockBlockU32<Test>;
 
 	frame_support::construct_runtime!(
 		pub enum Test
@@ -215,7 +215,7 @@ mod tests {
 		type FullIdentificationOf = ();
 	}
 
-	pub type BlockNumber = u64;
+	pub type BlockNumber = u32;
 
 	parameter_types! {
 		pub const Period: BlockNumber = 1;
@@ -227,6 +227,7 @@ mod tests {
 		type AccountId = AuthorityId;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
+		type BlockHashCount = frame_support::traits::ConstU32<10>;
 	}
 
 	pub struct TestSessionHandler;
