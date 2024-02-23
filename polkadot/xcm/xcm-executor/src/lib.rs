@@ -982,19 +982,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					// We need the destinations, since they are the way the executor differentiates
 					// between XcmSenders, which might charge different fees.
 					//
-					// Here's an implementation of charging for delivery fees here.
-					let worst_case_message = xcm::latest::get_worst_case_message();
-					for destination in self.send_destinations.iter() {
-						let (_, fee) = validate_send::<Config::XcmSender>(
-							destination.clone(),
-							worst_case_message.clone(),
-						)?;
-						log::trace!(target: "xcm::process_instruction::BuyExecution", "Fee for message to {:?}: {:?}", destination, fee);
-						let taken_fees = unspent.saturating_take(fee.into());
-						self.delivery_fees.subsume_assets(taken_fees.into());
-					}
-					log::trace!(target: "xcm::process_instruction::BuyExecution", "Total delivery fees: {:?}", self.delivery_fees);
-					self.holding.subsume_assets(unspent);
+					// Here's an implementation of putting all unspent assets in the new
+					// `delivery_fees` register instead of in the holding register.
+					self.delivery_fees.subsume_assets(unspent);
 					Ok(())
 				}();
 				if result.is_err() {

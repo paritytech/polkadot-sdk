@@ -694,7 +694,8 @@ mod tests {
 			);
 			let message = Xcm::<()>::builder()
 				.withdraw_asset(asset.clone().into())
-				.buy_execution(asset, Unlimited)
+				// We can't use all the assets if we want to have something left over to deposit.
+				.buy_execution((Parent, 1u128).into(), Unlimited)
 				.set_appendix(
 					Xcm::builder_unsafe()
 						.report_error(QueryResponseInfo {
