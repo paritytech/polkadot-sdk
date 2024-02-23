@@ -145,6 +145,7 @@ mod tests {
 	use codec::Encode;
 	use frame_support::{assert_ok, weights::Weight};
 	use xcm::latest::QueryResponseInfo;
+	use xcm_builder::QueryHandler;
 	use xcm_simulator::TestExt;
 
 	// Helper function for forming buy execution message
@@ -680,6 +681,17 @@ mod tests {
 				parachain::RuntimeCall::System(frame_system::Call::<parachain::Runtime>::remark {
 					remark: b"Hello".to_vec(),
 				});
+			// Prepare to receive responses
+			let first_query_id = <parachain::PolkadotXcm as QueryHandler>::new_query(
+				(Parent, Parachain(2)),
+				600,
+				AccountId32 { id: ALICE.clone().into(), network: Some(NetworkId::Kusama) },
+			);
+			let second_query_id = <parachain::PolkadotXcm as QueryHandler>::new_query(
+				(Parent, Parachain(2)),
+				600,
+				AccountId32 { id: ALICE.clone().into(), network: Some(NetworkId::Kusama) },
+			);
 			let message = Xcm::<()>::builder()
 				.withdraw_asset(asset.clone().into())
 				.buy_execution(asset, Unlimited)
@@ -687,7 +699,7 @@ mod tests {
 					Xcm::builder_unsafe()
 						.report_error(QueryResponseInfo {
 							destination: (Parent, Parachain(1)).into(),
-							query_id: 1,
+							query_id: second_query_id,
 							max_weight: Weight::from_parts(1_000_000, 1024),
 						})
 						.build(),
@@ -697,6 +709,11 @@ mod tests {
 					Weight::from_parts(3_000_000, 1024 * 1024),
 					remark_call.encode().into(),
 				)
+				.report_transact_status(QueryResponseInfo {
+					destination: (Parent, Parachain(1)).into(),
+					query_id: first_query_id,
+					max_weight: Weight::from_parts(1_000_000, 1024),
+				})
 				.refund_surplus()
 				.deposit_asset(
 					AllCounted(1).into(),

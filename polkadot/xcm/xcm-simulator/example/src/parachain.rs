@@ -39,11 +39,11 @@ use polkadot_parachain_primitives::primitives::{
 };
 use xcm::{latest::prelude::*, VersionedXcm};
 use xcm_builder::{
-	AccountId32Aliases, AllowUnpaidExecutionFrom, ConvertedConcreteId, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
-	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete, NativeAsset,
-	NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, WithCountSends,
+	AccountId32Aliases, AllowKnownQueryResponses, AllowTopLevelPaidExecutionFrom,
+	ConvertedConcreteId, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FixedRateOfFungible,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
+	NativeAsset, NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, WithComputedOrigin, WithDeliveryFees,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, JustTry},
@@ -170,7 +170,10 @@ parameter_types! {
 parameter_types! {
 	pub const KsmLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = [
+		GlobalConsensus(NetworkId::Kusama),
+		Parachain(MsgQueue::parachain_id().into())
+	].into();
 }
 
 pub type LocationToAccountId = (
@@ -205,7 +208,16 @@ pub type LocalAssetTransactor = (
 );
 
 pub type XcmRouter = super::ParachainXcmRouter<MsgQueue>;
-pub type Barrier = WithCountSends<AllowUnpaidExecutionFrom<Everything>>;
+pub type Barrier = (
+	AllowKnownQueryResponses<PolkadotXcm>,
+	WithDeliveryFees<
+		WithComputedOrigin<
+			AllowTopLevelPaidExecutionFrom<Everything>,
+			UniversalLocation,
+			ConstU32<1>,
+		>,
+	>,
+);
 
 parameter_types! {
 	pub NftCollectionOne: AssetFilter
