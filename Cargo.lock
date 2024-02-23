@@ -999,7 +999,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -3775,6 +3775,7 @@ dependencies = [
  "pallet-message-queue",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
  "polkadot-runtime-parachains",
  "rand",
  "sc-client-api",
@@ -3968,7 +3969,6 @@ dependencies = [
  "frame-support",
  "log",
  "pallet-asset-conversion",
- "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
@@ -10975,7 +10975,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-benchmarks"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12807,7 +12807,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "6.0.0"
+version = "6.0.1"
 dependencies = [
  "assert_cmd",
  "asset-hub-rococo-runtime",
@@ -13016,7 +13016,6 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-vesting",
- "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
@@ -18968,7 +18967,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "environmental",
  "frame-benchmarking",
