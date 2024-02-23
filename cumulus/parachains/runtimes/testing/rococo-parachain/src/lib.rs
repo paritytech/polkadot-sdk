@@ -331,7 +331,7 @@ parameter_types! {
 	pub const RocLocation: Location = Location::parent();
 	pub const RococoNetwork: Option<NetworkId> = Some(NetworkId::Rococo);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
+	pub UniversalLocation: InteriorLocation = [Parachain(<ParachainInfo as sp_runtime::traits::Get<crate::ParaId>>::get().into().into())].into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 

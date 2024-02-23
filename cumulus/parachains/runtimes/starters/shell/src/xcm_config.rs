@@ -31,7 +31,7 @@ use xcm_builder::{
 parameter_types! {
 	pub const RococoLocation: Location = Location::parent();
 	pub const RococoNetwork: Option<NetworkId> = Some(NetworkId::Rococo);
-	pub UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
+	pub UniversalLocation: InteriorLocation = [Parachain(<ParachainInfo as sp_runtime::traits::Get<crate::ParaId>>::get().into().into())].into();
 }
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,

@@ -14,7 +14,10 @@
 // limitations under the License.
 
 use crate as collator_selection;
-use crate::{mock::*, CandidacyBond, CandidateInfo, CandidateList, DesiredCandidates, Error, Invulnerables, LastAuthoredBlock};
+use crate::{
+	mock::*, CandidacyBond, CandidateInfo, CandidateList, DesiredCandidates, Error, Invulnerables,
+	LastAuthoredBlock,
+};
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{Currency, OnInitialize},
@@ -430,10 +433,7 @@ fn set_candidacy_bond_with_many_candidates_different_deposits() {
 			20
 		));
 		assert_eq!(CandidacyBond::<Test>::get(), 20);
-		assert_eq!(
-			CandidateList::<Test>::get(),
-			vec![candidate_4.clone(), candidate_5.clone()]
-		);
+		assert_eq!(CandidateList::<Test>::get(), vec![candidate_4.clone(), candidate_5.clone()]);
 
 		// can increase past 4's deposit, should kick 4
 		assert_ok!(CollatorSelection::set_candidacy_bond(
@@ -649,8 +649,7 @@ fn cannot_take_candidate_slot_if_duplicate() {
 		// tuple of (id, deposit).
 		let candidate_3 = CandidateInfo { who: 3, deposit: 10 };
 		let candidate_4 = CandidateInfo { who: 4, deposit: 10 };
-		let actual_candidates =
-			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>();
+		let actual_candidates = CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>();
 		assert_eq!(actual_candidates, vec![candidate_4, candidate_3]);
 		assert_eq!(LastAuthoredBlock::<Test>::get(3), 10);
 		assert_eq!(LastAuthoredBlock::<Test>::get(4), 10);
@@ -1558,8 +1557,7 @@ fn should_kick_invulnerables_from_candidates_on_session_change() {
 		let collator_3 = CandidateInfo { who: 3, deposit: 10 };
 		let collator_4 = CandidateInfo { who: 4, deposit: 10 };
 
-		let actual_candidates =
-			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>();
+		let actual_candidates = CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>();
 		assert_eq!(actual_candidates, vec![collator_4.clone(), collator_3]);
 		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2, 3]);
 

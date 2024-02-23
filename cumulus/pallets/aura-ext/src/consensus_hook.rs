@@ -54,8 +54,8 @@ where
 		let velocity = V.max(1);
 		let relay_chain_slot = state_proof.read_slot().expect("failed to read relay chain slot");
 
-		let (slot, authored) = pallet::SlotInfo::<T>::get()
-			.expect("slot info is inserted on block initialization");
+		let (slot, authored) =
+			pallet::SlotInfo::<T>::get().expect("slot info is inserted on block initialization");
 
 		// Convert relay chain timestamp.
 		let relay_chain_timestamp =

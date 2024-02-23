@@ -266,7 +266,7 @@ pub mod pallet {
 
 			LastRelayChainBlockNumber::<T>::put(vfp.relay_parent_number);
 
-			let host_config = match HostConfiguration::<T>::get(){
+			let host_config = match HostConfiguration::<T>::get() {
 				Some(ok) => ok,
 				None => {
 					debug_assert!(
@@ -280,7 +280,7 @@ pub mod pallet {
 			// Before updating the relevant messaging state, we need to extract
 			// the total bandwidth limits for the purpose of updating the unincluded
 			// segment.
-			let total_bandwidth_out = match RelevantMessagingState::<T>::get(){
+			let total_bandwidth_out = match RelevantMessagingState::<T>::get() {
 				Some(s) => OutboundBandwidthLimits::from_relay_chain_state(&s),
 				None => {
 					debug_assert!(
@@ -297,7 +297,8 @@ pub mod pallet {
 			Self::adjust_egress_bandwidth_limits();
 
 			let (ump_msg_count, ump_total_bytes) = <PendingUpwardMessages<T>>::mutate(|up| {
-				let (available_capacity, available_size) = match RelevantMessagingState::<T>::get(){
+				let (available_capacity, available_size) = match RelevantMessagingState::<T>::get()
+				{
 					Some(limits) => (
 						limits.relay_dispatch_queue_remaining_capacity.remaining_count,
 						limits.relay_dispatch_queue_remaining_capacity.remaining_size,
@@ -1034,7 +1035,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		//
 		// Here it a similar case, with the difference that the realization that the channel is
 		// closed came the same block.
-		let channels = match RelevantMessagingState::<T>::get(){
+		let channels = match RelevantMessagingState::<T>::get() {
 			None => {
 				log::warn!("calling `get_channel_status` with no RelevantMessagingState?!");
 				return ChannelStatus::Closed
@@ -1555,7 +1556,7 @@ impl<T: Config> Pallet<T> {
 		// may change so that the message is no longer valid.
 		//
 		// However, changing this setting is expected to be rare.
-		if let Some(cfg) = HostConfiguration::<T>::get(){
+		if let Some(cfg) = HostConfiguration::<T>::get() {
 			if message_len > cfg.max_upward_message_size as usize {
 				return Err(MessageSendError::TooBig)
 			}
