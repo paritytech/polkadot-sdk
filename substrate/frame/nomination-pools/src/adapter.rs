@@ -69,7 +69,12 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 		Ok(())
 	}
 
-	fn apply_slash(_delegate: &Self::AccountId, _delegator: &Self::AccountId, _value: Self::Balance, _maybe_reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult {
+	fn apply_slash(
+		_delegate: &Self::AccountId,
+		_delegator: &Self::AccountId,
+		_value: Self::Balance,
+		_maybe_reporter: Option<Self::AccountId>,
+	) -> sp_runtime::DispatchResult {
 		// for direct staking, slashing is eager, and we don't need to do anything here.
 		Ok(())
 	}

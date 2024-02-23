@@ -354,7 +354,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut delegate = Delegate::<T>::from(&who)?;
-			let mut delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
+			let mut delegation =
+				<Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
 
 			ensure!(delegation.delegate == who, Error::<T>::NotDelegate);
 			ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);

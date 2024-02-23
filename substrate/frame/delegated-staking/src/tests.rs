@@ -979,38 +979,36 @@ mod pool_integration {
 				Staking::total_stake(&pool_acc).unwrap()
 			);
 
-            // pending slash is book kept.
+			// pending slash is book kept.
 			assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 500);
 
-            // go in some distant future era.
-            start_era(10);
-            System::reset_events();
+			// go in some distant future era.
+			start_era(10);
+			System::reset_events();
 
-            // 300 is not slashed and can withdraw all balance.
-            assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(300).into(), 300, 1));
-            assert_eq!(
-                events_since_last_call(),
-                vec![
-                    Event::Withdrawn { delegate: pool_acc, delegator: 300, amount: 100 },
-                ]
-            );
-            assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 500);
+			// 300 is not slashed and can withdraw all balance.
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(300).into(), 300, 1));
+			assert_eq!(
+				events_since_last_call(),
+				vec![Event::Withdrawn { delegate: pool_acc, delegator: 300, amount: 100 },]
+			);
+			assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 500);
 
 			let pre_301 = Balances::free_balance(301);
-            // 301 is slashed and should only be able to withdraw 50.
-            assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 1));
-            assert_eq!(
-                events_since_last_call(),
-                vec![
+			// 301 is slashed and should only be able to withdraw 50.
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 1));
+			assert_eq!(
+				events_since_last_call(),
+				vec![
 					// half amount is slashed first.
-                    Event::Slashed { delegate: pool_acc, delegator: 301, amount: 50 },
+					Event::Slashed { delegate: pool_acc, delegator: 301, amount: 50 },
 					// rest of it is withdrawn.
-                    Event::Withdrawn { delegate: pool_acc, delegator: 301, amount: 50 },
-                ]
-            );
-            assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 450);
-            assert_eq!(held_balance(&301), 0);
-            assert_eq!(Balances::free_balance(301) - pre_301, 50);
+					Event::Withdrawn { delegate: pool_acc, delegator: 301, amount: 50 },
+				]
+			);
+			assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 450);
+			assert_eq!(held_balance(&301), 0);
+			assert_eq!(Balances::free_balance(301) - pre_301, 50);
 
 			// delegators cannot unbond without applying pending slash on their accounts.
 
