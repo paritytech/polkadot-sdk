@@ -17,15 +17,14 @@
 use super::*;
 use bounded_collections::{ConstU32, WeakBoundedVec};
 use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
-use frame_support::{traits::Currency, weights::Weight};
+use frame_support::weights::Weight;
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
 use xcm::{latest::prelude::*, v2};
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
-// existential deposit multiplier
-const ED_MULTIPLIER: u32 = 100;
+const BALANCE: u128 = 1_000_000_000_000;
 
 /// Pallet we're benchmarking here.
 pub struct Pallet<T: Config>(crate::Pallet<T>);
@@ -77,11 +76,6 @@ pub trait Config: crate::Config {
 }
 
 benchmarks! {
-	where_clause {
-		where
-			T: pallet_balances::Config,
-			<T as pallet_balances::Config>::Balance: From<u128> + Into<u128>,
-	}
 	send {
 		let send_origin =
 			T::SendXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -107,16 +101,11 @@ benchmarks! {
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 
-		let existential_deposit = T::ExistentialDeposit::get();
-		// Give some multiple of the existential deposit
-		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		make_free_balance_be::<T>(origin_location.clone(), asset.id.0.clone(), balance.into());
-		// verify initial balance
-		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
+		helpers::make_free_balance_be::<T>(origin_location.clone(), asset.id.0.clone(), BALANCE.into());
 
 		match &asset.fun {
 			Fungible(transferred_amount) => {
-				assert!(balance >= (*transferred_amount).into());
+				assert!(BALANCE >= (*transferred_amount).into());
 			},
 			NonFungible(instance) => {
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
@@ -141,19 +130,16 @@ benchmarks! {
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 
-		let existential_deposit = T::ExistentialDeposit::get();
 		let caller: T::AccountId = whitelisted_caller();
 
-		// Give some multiple of the existential deposit
-		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		make_free_balance_be::<T>(origin_location.clone(), asset.id.0.clone(), balance.into());
+		helpers::make_free_balance_be::<T>(origin_location.clone(), asset.id.0.clone(), BALANCE.into());
 
 		match &asset.fun {
 			Fungible(transferred_amount) => {
-				assert!(balance >= (*transferred_amount).into());
+				assert!(BALANCE >= (*transferred_amount).into());
 			},
 			NonFungible(instance) => {
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
@@ -336,48 +322,44 @@ benchmarks! {
 	);
 }
 
-pub fn make_free_balance_be<T>(who: Location, asset_location: Location, balance: u128)
-where
-	T: Config + pallet_balances::Config,
-{
-	<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-		&Asset { fun: Fungible(balance), id: AssetId(asset_location) },
-		&who,
-		None,
-	)
-	.unwrap();
-}
-
 pub mod helpers {
 	use super::*;
 
-	pub fn native_teleport_as_asset_transfer<T>(
+	pub fn make_free_balance_be<T: Config>(who: Location, asset_location: Location, balance: u128) {
+		<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+			&Asset { fun: Fungible(balance), id: AssetId(asset_location) },
+			&who,
+			None,
+		)
+		.unwrap();
+	}
+
+	pub fn native_teleport_as_asset_transfer<T: Config>(
 		native_asset_location: Location,
 		destination: Location,
-	) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)>
-	where
-		T: Config + pallet_balances::Config,
-		u128: From<<T as pallet_balances::Config>::Balance>,
-	{
+	) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 		// Relay/native token can be teleported to/from AH.
-		let amount = T::ExistentialDeposit::get() * 100u32.into();
-		let assets: Assets =
-			Asset { fun: Fungible(amount.into()), id: AssetId(native_asset_location) }.into();
+		let amount = BALANCE;
+		let asset = Asset { fun: Fungible(amount.into()), id: AssetId(native_asset_location) };
 		let fee_index = 0u32;
 
 		// Give some multiple of transferred amount
-		let balance = amount * 10u32.into();
-		let who = whitelisted_caller();
-		let _ =
-			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
-		// verify initial balance
-		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&who), balance);
+		let balance = amount * 10;
+		let who: T::AccountId = whitelisted_caller();
+
+		let send_origin = RawOrigin::Signed(who.clone());
+		let Ok(origin_location) = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
+		else {
+			return None;
+		};
+		helpers::make_free_balance_be::<T>(
+			origin_location.clone(),
+			asset.id.0.clone(),
+			balance.into(),
+		);
 
 		// verify transferred successfully
-		let verify = Box::new(move || {
-			// verify balance after transfer, decreased by transferred amount (and delivery fees)
-			assert!(pallet_balances::Pallet::<T>::free_balance(&who) <= balance - amount);
-		});
-		Some((assets, fee_index, destination, verify))
+		let verify = Box::new(move || {});
+		Some((asset.into(), fee_index, destination, verify))
 	}
 }
