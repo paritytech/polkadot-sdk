@@ -204,12 +204,26 @@ mod tests {
 		dispatch::DispatchClass,
 		weights::{Weight, WeightMeter},
 	};
-	use frame_system::{
-		mock::{new_test_ext, Test, CALL},
-		BlockWeight, CheckWeight,
-	};
+	use frame_system::{BlockWeight, CheckWeight};
+	use sp_runtime::{AccountId32, BuildStorage};
 	use sp_std::marker::PhantomData;
 	use sp_trie::proof_size_extension::ProofSizeExt;
+
+	type Test = cumulus_test_runtime::Runtime;
+	const CALL: &<Test as Config>::RuntimeCall =
+		&cumulus_test_runtime::RuntimeCall::System(frame_system::Call::set_heap_pages {
+			pages: 0u64,
+		});
+	const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
+	const LEN: usize = 0;
+
+	pub fn new_test_ext() -> sp_io::TestExternalities {
+		let ext: sp_io::TestExternalities = cumulus_test_runtime::RuntimeGenesisConfig::default()
+			.build_storage()
+			.unwrap()
+			.into();
+		ext
+	}
 
 	struct TestRecorder {
 		return_values: Box<[usize]>,
@@ -227,10 +241,6 @@ mod tests {
 			let counter = self.counter.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
 			self.return_values[counter]
 		}
-	}
-
-	fn base_block_weight() -> Weight {
-		<Test as frame_system::Config>::BlockWeights::get().base_block
 	}
 
 	fn setup_test_externalities(proof_values: &[usize]) -> sp_io::TestExternalities {
@@ -258,9 +268,8 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
-			let len = 0_usize;
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&1, CALL, &info, len)
+				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(0));
 
@@ -270,14 +279,11 @@ mod tests {
 				Some(pre),
 				&info,
 				&post_info,
-				len,
+				LEN,
 				&Ok(())
 			));
 
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 600)
-			);
+			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 600);
 		})
 	}
 
@@ -293,9 +299,8 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
-			let len = 0_usize;
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&1, CALL, &info, len)
+				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, None);
 
@@ -304,14 +309,11 @@ mod tests {
 				Some(pre),
 				&info,
 				&post_info,
-				len,
+				LEN,
 				&Ok(())
 			));
 
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 1000)
-			);
+			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1000);
 		})
 	}
 
@@ -325,9 +327,8 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 100), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
-			let len = 0_usize;
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&1, CALL, &info, len)
+				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
@@ -337,14 +338,11 @@ mod tests {
 				Some(pre),
 				&info,
 				&post_info,
-				len,
+				LEN,
 				&Ok(())
 			));
 
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 1100)
-			);
+			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1100);
 		})
 	}
 
@@ -356,9 +354,8 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
-			let len = 0_usize;
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&1, CALL, &info, len)
+				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(0));
 
@@ -367,11 +364,11 @@ mod tests {
 				Some(pre),
 				&info,
 				&post_info,
-				len,
+				LEN,
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total(), base_block_weight());
+			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 0);
 		});
 	}
 
@@ -385,9 +382,8 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
-			let len = 0_usize;
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&1, CALL, &info, len)
+				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(300));
 
@@ -396,14 +392,11 @@ mod tests {
 				Some(pre),
 				&info,
 				&post_info,
-				len,
+				LEN,
 				&Ok(())
 			));
 
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 800)
-			);
+			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 800);
 		});
 	}
 
@@ -423,9 +416,8 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
-			let len = 0_usize;
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&1, CALL, &info, len)
+				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
@@ -436,14 +428,11 @@ mod tests {
 				Some(pre),
 				&info,
 				&post_info,
-				len,
+				LEN,
 				&Ok(())
 			));
 
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 900)
-			);
+			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 900);
 		})
 	}
 
@@ -462,9 +451,8 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
-			let len = 0_usize;
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&1, CALL, &info, len)
+				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
@@ -475,14 +463,11 @@ mod tests {
 				Some(pre),
 				&info,
 				&post_info,
-				len,
+				LEN,
 				&Ok(())
 			));
 
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 1150)
-			);
+			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1150);
 		})
 	}
 
@@ -502,9 +487,8 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
-			let len = 0_usize;
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&1, CALL, &info, len)
+				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
@@ -512,7 +496,7 @@ mod tests {
 				Some(pre),
 				&info,
 				&post_info,
-				len,
+				LEN,
 				&Ok(())
 			));
 			// `CheckWeight` gets called after `StorageWeightReclaim` this time.
@@ -520,10 +504,7 @@ mod tests {
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 900)
-			);
+			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 900);
 		})
 	}
 
@@ -542,9 +523,8 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
-			let len = 0_usize;
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&1, CALL, &info, len)
+				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
@@ -552,7 +532,7 @@ mod tests {
 				Some(pre),
 				&info,
 				&post_info,
-				len,
+				LEN,
 				&Ok(())
 			));
 			// `CheckWeight` gets called after `StorageWeightReclaim` this time.
@@ -560,10 +540,7 @@ mod tests {
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 1150)
-			);
+			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1150);
 		})
 	}
 
@@ -667,10 +644,7 @@ mod tests {
 
 			// We reclaimed 3 bytes of storage size!
 			assert_eq!(reclaimed, Some(Weight::from_parts(0, 3)));
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 10)
-			);
+			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 10);
 			assert_eq!(remaining_weight_meter.remaining(), Weight::from_parts(10, 8));
 		}
 	}

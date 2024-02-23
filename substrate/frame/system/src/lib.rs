@@ -146,9 +146,8 @@ use sp_weights::{RuntimeDbWeight, Weight};
 use sp_io::TestExternalities;
 
 pub mod limits;
-
-#[cfg(any(feature = "std", test))]
-pub mod mock;
+#[cfg(test)]
+pub(crate) mod mock;
 
 pub mod offchain;
 
