@@ -55,7 +55,7 @@
 //! and to keep track of what we have sent to other validators in the group and what we may
 //! continue to send them.
 
-use polkadot_primitives::{CandidateHash, CompactStatement, ValidatorIndex};
+use polkadot_primitives::{CandidateHash, CompactStatement, Hash, ValidatorIndex};
 
 use crate::LOG_TARGET;
 use std::collections::{HashMap, HashSet};
@@ -431,13 +431,15 @@ impl ClusterTracker {
 	/// Normally we should not have any pending statements for our cluster,
 	/// but if we do for long periods of time something bad happened which
 	/// needs to be investigated.
-	pub fn dump_pending_statements(&self) {
-		if !self.pending.is_empty() {
+	pub fn dump_pending_statements(&self, parent_hash: Hash) {
+		if self.pending.iter().filter(|pending| !pending.1.is_empty()).count() >=
+			self.validators.len()
+		{
 			gum::warn!(
 				target: LOG_TARGET,
-				num_pending = ?self.pending.len(),
-				validators  = ?self.pending.keys().collect::<Vec<_>>(),
-				"Cluster has pending statements, something wrong with our connection to our group peers \n
+				pending_statements  = ?self.pending,
+				?parent_hash,
+				"Cluster has too many pending statements, something wrong with our connection to our group peers \n
 				Restart might be needed if validator gets 0 backing rewards for more than 3-4 consecutive sessions"
 			);
 		}

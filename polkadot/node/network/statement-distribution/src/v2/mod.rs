@@ -780,7 +780,9 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 				.remove(&pruned_rp)
 				.as_ref()
 				.and_then(|pruned| pruned.active_validator_state())
-				.map(|active_state| active_state.cluster_tracker.dump_pending_statements());
+				.map(|active_state| {
+					active_state.cluster_tracker.dump_pending_statements(pruned_rp)
+				});
 
 			// clean up requests related to this relay parent.
 			state.request_manager.remove_by_relay_parent(*leaf);
