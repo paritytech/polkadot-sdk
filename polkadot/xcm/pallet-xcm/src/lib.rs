@@ -316,6 +316,7 @@ pub mod pallet {
 			let weight_used = outcome.weight_used();
 			outcome.ensure_complete().map_err(|error| {
 				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
+				println!("HEYY2");
 				Error::<T>::LocalExecutionIncomplete.with_weight(
 					weight_used.saturating_add(
 						<Self::WeightInfo as ExecuteControllerWeightInfo>::execute(),
@@ -1680,6 +1681,7 @@ impl<T: Config> Pallet<T> {
 			weight,
 		);
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
+		println!("HEYY");
 		outcome.ensure_complete().map_err(|error| {
 			log::error!(
 				target: "xcm::pallet_xcm::build_and_execute_xcm_transfer_type",
