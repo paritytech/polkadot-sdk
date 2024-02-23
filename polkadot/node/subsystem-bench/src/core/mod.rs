@@ -14,13 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-const LOG_TARGET: &str = "subsystem-bench::core";
 // The validator index that represent the node that is under test.
-pub const NODE_UNDER_TEST: u32 = 0;
+pub(crate) const NODE_UNDER_TEST: u32 = 0;
 
-pub mod configuration;
-pub mod display;
-pub mod environment;
-pub mod keyring;
-pub mod mock;
-pub mod network;
+pub(crate) mod configuration;
+pub(crate) mod display;
+pub(crate) mod environment;
+pub(crate) mod keyring;
+pub(crate) mod mock;
+pub(crate) mod network;

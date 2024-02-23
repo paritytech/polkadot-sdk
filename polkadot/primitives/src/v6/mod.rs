@@ -72,6 +72,7 @@ pub use metrics::{
 
 /// The key type ID for a collator key.
 pub const COLLATOR_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"coll");
+const LOG_TARGET: &str = "runtime::primitives";
 
 mod collator_app {
 	use application_crypto::{app_crypto, sr25519};
@@ -361,6 +362,9 @@ pub const PARACHAINS_INHERENT_IDENTIFIER: InherentIdentifier = *b"parachn0";
 
 /// The key type ID for parachain assignment key.
 pub const ASSIGNMENT_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"asgn");
+
+/// Compressed or not the wasm blob can never be less than 9 bytes.
+pub const MIN_CODE_SIZE: u32 = 9;
 
 /// Maximum compressed code size we support right now.
 /// At the moment we have runtime upgrade on chain, which restricts scalability severely. If we want
@@ -743,17 +747,29 @@ impl<H> BackedCandidate<H> {
 ///
 /// Returns either an error, indicating that one of the signatures was invalid or that the index
 /// was out-of-bounds, or the number of signatures checked.
-pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode>(
+pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debug>(
 	backed: &BackedCandidate<H>,
 	signing_context: &SigningContext<H>,
 	group_len: usize,
 	validator_lookup: impl Fn(usize) -> Option<ValidatorId>,
 ) -> Result<usize, ()> {
 	if backed.validator_indices.len() != group_len {
+		log::debug!(
+			target: LOG_TARGET,
+			"Check candidate backing: indices mismatch: group_len = {} , indices_len = {}",
+			group_len,
+			backed.validator_indices.len(),
+		);
 		return Err(())
 	}
 
 	if backed.validity_votes.len() > group_len {
+		log::debug!(
+			target: LOG_TARGET,
+			"Check candidate backing: Too many votes, expected: {}, found: {}",
+			group_len,
+			backed.validity_votes.len(),
+		);
 		return Err(())
 	}
 
@@ -775,11 +791,23 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode>(
 		if sig.verify(&payload[..], &validator_id) {
 			signed += 1;
 		} else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Check candidate backing: Invalid signature. validator_id = {:?}, validator_index = {} ",
+				validator_id,
+				val_in_group_idx,
+			);
 			return Err(())
 		}
 	}
 
 	if signed != backed.validity_votes.len() {
+		log::error!(
+			target: LOG_TARGET,
+			"Check candidate backing: Too many signatures, expected = {}, found = {}",
+			backed.validity_votes.len() ,
+			signed,
+		);
 		return Err(())
 	}
 

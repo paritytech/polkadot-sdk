@@ -332,7 +332,6 @@ pub mod pallet {
 	///
 	/// This is used to calculate average price, should have bounded size.
 	#[pallet::storage]
-	#[pallet::getter(fn prices)]
 	pub(super) type Prices<T: Config> = StorageValue<_, BoundedVec<u32, T::MaxPrices>, ValueQuery>;
 
 	/// Defines the block when next unsigned transaction will be accepted.
@@ -341,7 +340,6 @@ pub mod pallet {
 	/// we only allow one transaction every `T::UnsignedInterval` blocks.
 	/// This storage entry defines when new transaction is going to be accepted.
 	#[pallet::storage]
-	#[pallet::getter(fn next_unsigned_at)]
 	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 }
 
@@ -479,7 +477,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), &'static str> {
 		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if next_unsigned_at > block_number {
 			return Err("Too early to send unsigned transaction")
 		}
@@ -513,7 +511,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), &'static str> {
 		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if next_unsigned_at > block_number {
 			return Err("Too early to send unsigned transaction")
 		}
@@ -543,7 +541,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), &'static str> {
 		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if next_unsigned_at > block_number {
 			return Err("Too early to send unsigned transaction")
 		}
@@ -664,7 +662,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate current average price.
 	fn average_price() -> Option<u32> {
-		let prices = <Prices<T>>::get();
+		let prices = Prices::<T>::get();
 		if prices.is_empty() {
 			None
 		} else {
@@ -677,7 +675,7 @@ impl<T: Config> Pallet<T> {
 		new_price: &u32,
 	) -> TransactionValidity {
 		// Now let's check if the transaction has any chance to succeed.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if &next_unsigned_at > block_number {
 			return InvalidTransaction::Stale.into()
 		}
