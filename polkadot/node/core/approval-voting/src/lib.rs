@@ -1427,33 +1427,39 @@ async fn distribution_messages_for_activation<Context>(
 											),
 										);
 
-										let ExtendedSessionInfo { ref executor_params, .. } =
-											match get_extended_session_info(
-												session_info_provider,
-												ctx.sender(),
-												block_entry.block_hash(),
-												block_entry.session(),
-											)
-											.await
-											{
-												Some(i) => i,
-												None => continue,
-											};
+										if !block_entry
+											.candidate_is_pending_signature(*candidate_hash)
+										{
+											let ExtendedSessionInfo { ref executor_params, .. } =
+												match get_extended_session_info(
+													session_info_provider,
+													ctx.sender(),
+													block_entry.block_hash(),
+													block_entry.session(),
+												)
+												.await
+												{
+													Some(i) => i,
+													None => continue,
+												};
 
-										actions.push(Action::LaunchApproval {
-											claimed_candidate_indices: bitfield,
-											candidate_hash: candidate_entry
-												.candidate_receipt()
-												.hash(),
-											indirect_cert,
-											assignment_tranche: assignment.tranche(),
-											relay_block_hash: block_hash,
-											session: block_entry.session(),
-											executor_params: executor_params.clone(),
-											candidate: candidate_entry.candidate_receipt().clone(),
-											backing_group: approval_entry.backing_group(),
-											distribute_assignment: false,
-										});
+											actions.push(Action::LaunchApproval {
+												claimed_candidate_indices: bitfield,
+												candidate_hash: candidate_entry
+													.candidate_receipt()
+													.hash(),
+												indirect_cert,
+												assignment_tranche: assignment.tranche(),
+												relay_block_hash: block_hash,
+												session: block_entry.session(),
+												executor_params: executor_params.clone(),
+												candidate: candidate_entry
+													.candidate_receipt()
+													.clone(),
+												backing_group: approval_entry.backing_group(),
+												distribute_assignment: false,
+											});
+										}
 									},
 									Err(err) => {
 										// Should never happen. If we fail here it means the
