@@ -23,6 +23,7 @@ frame = { path = "../../substrate/frame", features = [
 ] }
 pallet-examples = { path = "../../substrate/frame/examples" }
 pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }
+pallet-example-offchain-worker = { path = "../../substrate/frame/examples/offchain-worker" }
 
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"

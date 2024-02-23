@@ -13386,6 +13386,7 @@ dependencies = [
  "kitchensink-runtime",
  "pallet-aura",
  "pallet-default-config-example",
+ "pallet-example-offchain-worker",
  "pallet-examples",
  "pallet-timestamp",
  "parity-scale-codec",

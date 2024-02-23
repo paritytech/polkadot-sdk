@@ -22,7 +22,11 @@
 //!    during the execution of this API call, it is discarded.
 //! 2. It has access to an extended set of host functions that allow the wasm blob to do more. For
 //!    example, call into HTTP requests.
-//! 
+//!
+//! > The main way through which an offchain worker can interact with the state is by submitting an
+//! > extrinsic to the chain. This is the ONLY way to alter the state from an offchain worker.
+//! > [`pallet_example_offchain_worker`] provides an example of this.
+//!
 //!
 //! Given the "Off Chain" nature of this API, it is important to remember that calling this API is
 //! entirely optional. Some nodes might call into it, some might not, and it would have no impact on
