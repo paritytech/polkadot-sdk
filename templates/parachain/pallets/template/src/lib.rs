@@ -27,7 +27,7 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// A type representing the weights required by the dispatchables of this pallet.
-		type WeightInfo: WeightInfo;
+		type WeightInfo: crate::weights::WeightInfo;
 	}
 
 	#[pallet::pallet]
