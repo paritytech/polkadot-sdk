@@ -2645,13 +2645,22 @@ fn participation_with_onchain_disabling_unconfirmed() {
 				.await;
 
 			handle_disabled_validators_queries(&mut virtual_overseer, vec![disabled_index]).await;
-			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
-				.await;
-
 			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
 
 			// we should not participate due to disabled indices on chain
 			assert!(virtual_overseer.recv().timeout(TEST_TIMEOUT).await.is_none());
+
+			{
+				// make sure the dispute is not active
+				let (tx, rx) = oneshot::channel();
+				virtual_overseer
+					.send(FromOrchestra::Communication {
+						msg: DisputeCoordinatorMessage::ActiveDisputes(tx),
+					})
+					.await;
+
+				assert_eq!(rx.await.unwrap().len(), 0);
+			}
 
 			// Scenario 2: unconfirmed dispute with non-disabled validator against.
 			// Expectation: even if the dispute is unconfirmed, we should participate
@@ -2677,6 +2686,9 @@ fn participation_with_onchain_disabling_unconfirmed() {
 						pending_confirmation,
 					},
 				})
+				.await;
+
+			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
 				.await;
 
 			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
@@ -2710,7 +2722,7 @@ fn participation_with_onchain_disabling_unconfirmed() {
 					.await;
 
 				let (_, _, votes) = rx.await.unwrap().get(0).unwrap().clone();
-				assert_eq!(votes.valid.raw().len(), 2); // 3+1 => we have participated
+				assert_eq!(votes.valid.raw().len(), 2); // 1+1 => we have participated
 				assert_eq!(votes.invalid.len(), 2);
 			}
 
@@ -2832,6 +2844,7 @@ fn participation_with_onchain_disabling_confirmed() {
 
 #[test]
 fn participation_with_offchain_disabling() {
+	sp_tracing::init_for_tests();
 	test_harness(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {
 			let session = 1;
@@ -2968,16 +2981,22 @@ fn participation_with_offchain_disabling() {
 			// let's disable validators 3, 4 on chain, but this should not affect this import
 			let disabled_validators = vec![ValidatorIndex(3), ValidatorIndex(4)];
 			handle_disabled_validators_queries(&mut virtual_overseer, disabled_validators).await;
-			handle_approval_vote_request(
-				&mut virtual_overseer,
-				&another_candidate_hash,
-				HashMap::new(),
-			)
-			.await;
 			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
 
 			// we should not participate since due to offchain disabling
 			assert!(virtual_overseer.recv().timeout(TEST_TIMEOUT).await.is_none());
+
+			{
+				// make sure the new dispute is not active
+				let (tx, rx) = oneshot::channel();
+				virtual_overseer
+					.send(FromOrchestra::Communication {
+						msg: DisputeCoordinatorMessage::ActiveDisputes(tx),
+					})
+					.await;
+
+				assert_eq!(rx.await.unwrap().len(), 1);
+			}
 
 			// now import enough votes for dispute confirmation
 			// even though all of these votes are from (on chain) disabled validators
@@ -3007,6 +3026,12 @@ fn participation_with_offchain_disabling() {
 				})
 				.await;
 
+			handle_approval_vote_request(
+				&mut virtual_overseer,
+				&another_candidate_hash,
+				HashMap::new(),
+			)
+			.await;
 			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
 
 			participation_with_distribution(

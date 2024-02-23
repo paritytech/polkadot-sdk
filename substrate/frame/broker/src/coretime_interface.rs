@@ -51,7 +51,7 @@ pub enum CoreAssignment {
 pub type RCBlockNumberOf<T> = <RCBlockNumberProviderOf<T> as BlockNumberProvider>::BlockNumber;
 
 /// Relay chain block number provider of `T` that implements [`CoretimeInterface`].
-pub type RCBlockNumberProviderOf<T> = <T as CoretimeInterface>::RealyChainBlockNumberProvider;
+pub type RCBlockNumberProviderOf<T> = <T as CoretimeInterface>::RelayChainBlockNumberProvider;
 
 /// Type able to accept Coretime scheduling instructions and provide certain usage information.
 /// Generally implemented by the Relay-chain or some means of communicating with it.
@@ -65,7 +65,7 @@ pub trait CoretimeInterface {
 	type Balance: AtLeast32BitUnsigned;
 
 	/// A provider for the relay chain block number.
-	type RealyChainBlockNumberProvider: BlockNumberProvider;
+	type RelayChainBlockNumberProvider: BlockNumberProvider;
 
 	/// Requests the Relay-chain to alter the number of schedulable cores to `count`. Under normal
 	/// operation, the Relay-chain SHOULD send a `notify_core_count(count)` message back.
@@ -128,7 +128,7 @@ pub trait CoretimeInterface {
 impl CoretimeInterface for () {
 	type AccountId = ();
 	type Balance = u64;
-	type RealyChainBlockNumberProvider = ();
+	type RelayChainBlockNumberProvider = ();
 
 	fn request_core_count(_count: CoreIndex) {}
 	fn request_revenue_info_at(_when: RCBlockNumberOf<Self>) {}
