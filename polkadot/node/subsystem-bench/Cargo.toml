@@ -69,8 +69,8 @@ itertools = "0.11.0"
 polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 prometheus = { version = "0.13.0", default-features = false }
-serde = "1.0.196"
-serde_yaml = "0.9"
+serde = { workspace = true, default-features = true }
+serde_yaml = { workspace = true }
 
 polkadot-node-core-approval-voting = { path = "../core/approval-voting" }
 polkadot-approval-distribution = { path = "../network/approval-distribution" }
