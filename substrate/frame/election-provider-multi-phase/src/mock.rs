@@ -35,7 +35,6 @@ use sp_core::{
 		testing::{PoolState, TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
-	H256,
 };
 use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, seq_phragmen, to_supports, BalancingConfig,
@@ -44,7 +43,7 @@ use sp_npos_elections::{
 use sp_runtime::{
 	bounded_vec,
 	testing::Header,
-	traits::{BlakeTwo256, Convert, IdentityLookup},
+	traits::Convert,
 	BuildStorage, PerU16, Percent,
 };
 use std::sync::Arc;
@@ -210,29 +209,9 @@ pub fn witness() -> SolutionOrSnapshotSize {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SS58Prefix = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type DbWeight = ();
-	type BlockLength = ();
 	type BlockWeights = BlockWeights;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
