@@ -20,6 +20,7 @@
 use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
+use pallet_nomination_pools::{Error as PoolsError, Event as PoolsEvent};
 use pallet_staking::Error as StakingError;
 use sp_staking::delegation::StakingDelegationSupport;
 
@@ -659,7 +660,7 @@ mod pool_integration {
 	fn bond_extra_to_pool() {
 		ExtBuilder::default().build_and_execute(|| {
 			let pool_id = create_pool(100, 200);
-			add_delegators(pool_id, (300..310).collect(), 100);
+			add_delegators_to_pool(pool_id, (300..310).collect(), 100);
 			let mut staked_amount = 200 + 100 * 10;
 			assert_eq!(get_pool_delegate(pool_id).bonded_stake(), staked_amount);
 
@@ -681,8 +682,8 @@ mod pool_integration {
 			let creator = 100;
 			let creator_stake = 1000;
 			let pool_id = create_pool(creator, creator_stake);
-			add_delegators(pool_id, (300..310).collect(), 100);
-			add_delegators(pool_id, (310..320).collect(), 200);
+			add_delegators_to_pool(pool_id, (300..310).collect(), 100);
+			add_delegators_to_pool(pool_id, (310..320).collect(), 200);
 			let total_staked = creator_stake + 100 * 10 + 200 * 10;
 
 			// give some rewards
@@ -715,7 +716,91 @@ mod pool_integration {
 
 	#[test]
 	fn unbond_delegation_from_pool() {
-		ExtBuilder::default().build_and_execute(|| {});
+		ExtBuilder::default().build_and_execute(|| {
+			// initial era
+			start_era(1);
+
+			let pool_id = create_pool(100, 1000);
+			let bond_amount = 200;
+			add_delegators_to_pool(pool_id, (300..310).collect(), bond_amount);
+			let total_staked = 1000 + bond_amount * 10;
+			let pool_acc = Pools::create_bonded_account(pool_id);
+
+			start_era(2);
+			// nothing to release yet.
+			assert_noop!(
+				Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 0),
+				PoolsError::<T>::SubPoolsNotFound
+			);
+
+			// 301 wants to unbond 50 in era 2, withdrawable in era 5.
+			assert_ok!(Pools::unbond(RawOrigin::Signed(301).into(), 301, 50));
+
+			// 302 wants to unbond 100 in era 3, withdrawable in era 6.
+			start_era(3);
+			assert_ok!(Pools::unbond(RawOrigin::Signed(302).into(), 302, 100));
+
+			// 303 wants to unbond 200 in era 4, withdrawable in era 7.
+			start_era(4);
+			assert_ok!(Pools::unbond(RawOrigin::Signed(303).into(), 303, 200));
+
+			// active stake is now reduced..
+			let expected_active = total_staked - (50 + 100 + 200);
+			assert!(eq_stake(pool_acc, total_staked, expected_active));
+
+			// nothing to withdraw at era 4
+			for i in 301..310 {
+				assert_noop!(
+					Pools::withdraw_unbonded(RawOrigin::Signed(i).into(), i, 0),
+					PoolsError::<T>::CannotWithdrawAny
+				);
+			}
+
+			assert!(eq_stake(pool_acc, total_staked, expected_active));
+
+			start_era(5);
+			// at era 5, 301 can withdraw.
+
+			System::reset_events();
+			let held_301 = held_balance(&301);
+			let free_301 = Balances::free_balance(301);
+
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 0));
+			assert_eq!(
+				events_since_last_call(),
+				vec![Event::Withdrawn { delegate: pool_acc, delegator: 301, amount: 50 },]
+			);
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![PoolsEvent::Withdrawn { member: 301, pool_id, balance: 50, points: 50 },]
+			);
+			assert_eq!(held_balance(&301), held_301 - 50);
+			assert_eq!(Balances::free_balance(301), free_301 + 50);
+
+			start_era(7);
+			// era 7 both delegators can withdraw
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(302).into(), 302, 0));
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(303).into(), 303, 0));
+
+			assert_eq!(
+				events_since_last_call(),
+				vec![
+					Event::Withdrawn { delegate: pool_acc, delegator: 302, amount: 100 },
+					Event::Withdrawn { delegate: pool_acc, delegator: 303, amount: 200 },
+				]
+			);
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					PoolsEvent::Withdrawn { member: 302, pool_id, balance: 100, points: 100 },
+					PoolsEvent::Withdrawn { member: 303, pool_id, balance: 200, points: 200 },
+					PoolsEvent::MemberRemoved { pool_id: 1, member: 303 },
+				]
+			);
+
+			// 303 is killed
+			assert!(!Delegators::<T>::contains_key(303));
+		});
 	}
 
 	#[test]
@@ -766,7 +851,7 @@ mod pool_integration {
 		pallet_nomination_pools::LastPoolId::<T>::get()
 	}
 
-	fn add_delegators(pool_id: u32, delegators: Vec<AccountId>, amount: Balance) {
+	fn add_delegators_to_pool(pool_id: u32, delegators: Vec<AccountId>, amount: Balance) {
 		for delegator in delegators {
 			fund(&delegator, amount * 2);
 			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), amount, pool_id));

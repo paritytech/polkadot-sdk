@@ -1051,14 +1051,7 @@ impl<T: Config> BondedPool<T> {
 
 	/// The pools balance that is transferable provided it is expendable by staking pallet.
 	fn transferable_balance(&self) -> BalanceOf<T> {
-		let account = self.bonded_account();
-		// Note on why we can't use `Currency::reducible_balance`: Since pooled account has a
-		// provider (staking pallet), the account can not be set expendable by
-		// `pallet-nomination-pool`. This means reducible balance always returns balance preserving
-		// ED in the account. What we want though is transferable balance given the account can be
-		// dusted.
-		T::PoolAdapter::balance(&account)
-			.saturating_sub(T::Staking::active_stake(&account).unwrap_or_default())
+		T::PoolAdapter::releasable_balance(&self.bonded_account())
 	}
 
 	fn is_root(&self, who: &T::AccountId) -> bool {

@@ -317,7 +317,8 @@ pub(crate) fn start_era(era: sp_staking::EraIndex) {
 }
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
-	Staking::stake(&who).unwrap() == Stake { total, active }
+	Staking::stake(&who).unwrap() == Stake { total, active } &&
+		get_delegate(&who).ledger.stakeable_balance() == total
 }
 
 pub(crate) fn get_delegate(delegate: &AccountId) -> Delegate<T> {
@@ -326,4 +327,31 @@ pub(crate) fn get_delegate(delegate: &AccountId) -> Delegate<T> {
 
 pub(crate) fn held_balance(who: &AccountId) -> Balance {
 	Balances::balance_on_hold(&HoldReason::Delegating.into(), &who)
+}
+
+parameter_types! {
+	static ObservedEventsPools: usize = 0;
+	static ObservedEventsDelegatedStaking: usize = 0;
+}
+
+pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Event<Runtime>> {
+	let events = System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::Pools(inner) = e { Some(inner) } else { None })
+		.collect::<Vec<_>>();
+	let already_seen = ObservedEventsPools::get();
+	ObservedEventsPools::set(events.len());
+	events.into_iter().skip(already_seen).collect()
+}
+
+pub(crate) fn events_since_last_call() -> Vec<crate::Event<Runtime>> {
+	let events = System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::DelegatedStaking(inner) = e { Some(inner) } else { None })
+		.collect::<Vec<_>>();
+	let already_seen = ObservedEventsDelegatedStaking::get();
+	ObservedEventsDelegatedStaking::set(events.len());
+	events.into_iter().skip(already_seen).collect()
 }

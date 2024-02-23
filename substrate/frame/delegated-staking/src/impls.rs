@@ -123,15 +123,15 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::CoreStaking::unbond(stash, value)
 	}
 
-	/// Not supported, call [`DelegationInterface::delegate_withdraw`]
-	/// FIXME(ank4n): Support it!!
+	/// Withdraw unbonding funds until current era.
+	///
+	/// Funds are moved to unclaimed_withdrawals register of the [`DelegationLedger`].
 	fn withdraw_unbonded(
-		_stash: Self::AccountId,
-		_num_slashing_spans: u32,
+		pool_acc: Self::AccountId,
+		num_slashing_spans: u32,
 	) -> Result<bool, DispatchError> {
-		// FIXME(ank4n): Support withdrawing to self account.
-		defensive_assert!(false, "not supported for delegated impl of staking interface");
-		Err(Error::<T>::NotSupported.into())
+		Pallet::<T>::withdraw_unbonded(&pool_acc, num_slashing_spans)
+			.map(|ledger| ledger.total_delegated.is_zero())
 	}
 
 	fn desired_validator_count() -> u32 {
@@ -289,7 +289,7 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 	/// Return balance of the `Delegate` (pool account) that is not bonded.
 	///
 	/// Equivalent to [FunInspect::balance] for non delegate accounts.
-	fn balance(who: &Self::AccountId) -> Self::Balance {
+	fn releasable_balance(who: &Self::AccountId) -> Self::Balance {
 		Delegate::<T>::from(who)
 			.map(|delegate| delegate.unbonded())
 			.unwrap_or(Zero::zero())

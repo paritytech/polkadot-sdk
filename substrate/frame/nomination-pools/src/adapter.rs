@@ -27,8 +27,13 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	fn balance(who: &Self::AccountId) -> Self::Balance {
-		T::Currency::balance(who)
+	fn releasable_balance(who: &Self::AccountId) -> Self::Balance {
+		// Note on why we can't use `Currency::reducible_balance`: Since pooled account has a
+		// provider (staking pallet), the account can not be set expendable by
+		// `pallet-nomination-pool`. This means reducible balance always returns balance preserving
+		// ED in the account. What we want though is transferable balance given the account can be
+		// dusted.
+		T::Currency::balance(who).saturating_sub(T::Staking::active_stake(who).unwrap_or_default())
 	}
 
 	fn total_balance(who: &Self::AccountId) -> Self::Balance {

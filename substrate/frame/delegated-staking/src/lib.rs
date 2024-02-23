@@ -489,7 +489,7 @@ impl<T: Config> Pallet<T> {
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
 		if ledger.unclaimed_withdrawals < amount {
-			ledger = Self::withdraw_unbounded(who, num_slashing_spans)?;
+			ledger = Self::withdraw_unbonded(who, num_slashing_spans)?;
 		}
 
 		// if we still do not have enough funds to release, abort.
@@ -537,7 +537,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn withdraw_unbounded(
+	fn withdraw_unbonded(
 		delegate: &T::AccountId,
 		num_slashing_spans: u32,
 	) -> Result<DelegationLedger<T>, DispatchError> {

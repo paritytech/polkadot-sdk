@@ -172,8 +172,8 @@ pub trait PoolAdapter {
 		+ Saturating;
 	type AccountId: Clone + sp_std::fmt::Debug;
 
-	/// Similar to [Inspect::balance].
-	fn balance(who: &Self::AccountId) -> Self::Balance;
+	/// Balance that is free and can be released to delegator.
+	fn releasable_balance(who: &Self::AccountId) -> Self::Balance;
 
 	/// Similar to [Inspect::total_balance].
 	fn total_balance(who: &Self::AccountId) -> Self::Balance;
