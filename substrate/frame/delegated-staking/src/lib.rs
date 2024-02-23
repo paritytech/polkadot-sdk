@@ -480,7 +480,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
-		let mut ledger = DelegationLedger::<T>::get(who).ok_or(Error::<T>::NotDelegate)?;
+		let mut delegate = Delegate::<T>::from(who)?;
 		let mut delegation = Delegation::<T>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
 
 		// make sure delegation to be released is sound.
@@ -488,24 +488,17 @@ impl<T: Config> Pallet<T> {
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
-		if ledger.unclaimed_withdrawals < amount {
-			ledger = Self::withdraw_unbonded(who, num_slashing_spans)?.ledger;
+		if delegate.ledger.unclaimed_withdrawals < amount {
+			// get the updated delegate
+			delegate = Self::withdraw_unbonded(who, num_slashing_spans)?;
 		}
 
 		// if we still do not have enough funds to release, abort.
-		ensure!(ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
+		ensure!(delegate.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
 
 		// book keep into ledger
-		ledger.total_delegated = ledger
-			.total_delegated
-			.checked_sub(&amount)
-			.defensive_ok_or(ArithmeticError::Overflow)?;
-		ledger.unclaimed_withdrawals = ledger
-			.unclaimed_withdrawals
-			.checked_sub(&amount)
-			.defensive_ok_or(ArithmeticError::Overflow)?;
-		ledger.save(who);
-
+		delegate.try_withdraw(amount)?;
+		delegate.save();
 		// book keep delegation
 		delegation.amount = delegation
 			.amount
@@ -544,7 +537,6 @@ impl<T: Config> Pallet<T> {
 		let mut delegate = Delegate::<T>::from(delegate_acc)?;
 		let pre_total = T::CoreStaking::stake(delegate_acc).defensive()?.total;
 
-		// fixme(ank4n) handle killing of stash
 		let _stash_killed: bool =
 			T::CoreStaking::withdraw_unbonded(delegate_acc.clone(), num_slashing_spans)
 				.map_err(|_| Error::<T>::WithdrawFailed)?;
