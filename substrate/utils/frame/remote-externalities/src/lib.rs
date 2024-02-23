@@ -906,8 +906,9 @@ where
 				let client = &client;
 				let semaphore = &semaphore;
 				async move {
-	                // Acquire the semaphore permit before making the request.
-    	            let _permit = semaphore.acquire().await.expect("Failed to acquire semaphore permit");
+					// Acquire the semaphore permit before making the request.
+					let _permit =
+						semaphore.acquire().await.expect("Failed to acquire semaphore permit");
 
 					// Asynchronously retrieve child keys using the RPC client.
 					let child_keys = Self::rpc_child_get_keys(
