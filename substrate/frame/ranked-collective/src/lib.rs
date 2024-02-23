@@ -625,7 +625,7 @@ pub mod pallet {
 								None => pays = Pays::No,
 							}
 							let min_rank = T::MinRankOfClass::convert(class);
-							let votes = Self::rank_to_votes(record.rank, min_rank)?;
+							let votes = Self::rank_to_votes(record.rank, min_rank).unwrap_or(0);
 							let vote = VoteRecord::from((aye, votes));
 							match aye {
 								true => {
