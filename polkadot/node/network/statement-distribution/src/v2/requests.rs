@@ -285,11 +285,6 @@ impl RequestManager {
 		false
 	}
 
-	/// Returns the number of pending requests.
-	pub fn count_pending_requests(&self) -> u32 {
-		self.requests.iter().filter(|(_, entry)| entry.is_pending()).count() as u32
-	}
-
 	/// Returns an instant at which the next request to be retried will be ready.
 	pub fn next_retry_time(&mut self) -> Option<Instant> {
 		let mut next = None;
@@ -319,7 +314,6 @@ impl RequestManager {
 		response_manager: &mut ResponseManager,
 		request_props: impl Fn(&CandidateIdentifier) -> Option<RequestProperties>,
 		peer_advertised: impl Fn(&CandidateIdentifier, &PeerId) -> Option<StatementFilter>,
-		request_throttle_freq: &mut gum::Freq,
 	) -> Option<OutgoingRequest<AttestedCandidateRequest>> {
 		// The number of parallel requests a node can answer is limited by
 		// `MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS`, however there is no
@@ -331,14 +325,6 @@ impl RequestManager {
 		// we would need to request it for each candidate, around 25 right now
 		// on kusama.
 		if response_manager.len() >= 2 * MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
-			if self.count_pending_requests() > 2 * MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS {
-				gum::warn_if_frequent!(
-					freq: request_throttle_freq,
-					max_rate: gum::Times::PerSecond(20),
-					target: LOG_TARGET,
-					"Too many requests in parallel, statement-distribution might be slow"
-				);
-			}
 			return None
 		}
 
@@ -1050,15 +1036,9 @@ mod tests {
 			let peer_advertised = |_identifier: &CandidateIdentifier, _peer: &_| {
 				Some(StatementFilter::full(group_size))
 			};
-			let mut request_throttle_freq = gum::Freq::new();
 
 			let outgoing = request_manager
-				.next_request(
-					&mut response_manager,
-					request_props,
-					peer_advertised,
-					&mut request_throttle_freq,
-				)
+				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 			let outgoing = request_manager
@@ -1183,15 +1163,9 @@ mod tests {
 		{
 			let request_props =
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
-			let mut request_throttle_freq = gum::Freq::new();
 
 			let outgoing = request_manager
-				.next_request(
-					&mut response_manager,
-					request_props,
-					peer_advertised,
-					&mut request_throttle_freq,
-				)
+				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 		}
@@ -1272,15 +1246,9 @@ mod tests {
 		{
 			let request_props =
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
-			let mut request_throttle_freq = gum::Freq::new();
 
 			let outgoing = request_manager
-				.next_request(
-					&mut response_manager,
-					request_props,
-					peer_advertised,
-					&mut request_throttle_freq,
-				)
+				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 		}

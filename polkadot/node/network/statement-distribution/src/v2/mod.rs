@@ -1309,7 +1309,7 @@ async fn circulate_statement<Context>(
 	let is_confirmed = candidates.is_confirmed(&candidate_hash);
 
 	let originator = statement.validator_index();
-	let (local_validator, targets, cluster_relevant) = {
+	let (local_validator, targets) = {
 		let local_validator = match relay_parent_state.local_validator.as_mut() {
 			Some(v) => v,
 			None => return, // sanity: nothing to propagate if not a validator.
@@ -1365,7 +1365,7 @@ async fn circulate_statement<Context>(
 			})
 			.collect::<Vec<_>>();
 
-		(local_validator, targets, cluster_relevant)
+		(local_validator, targets)
 	};
 
 	let mut statement_to_peers: Vec<(PeerId, ProtocolVersion)> = Vec::new();
@@ -1380,17 +1380,6 @@ async fn circulate_statement<Context>(
 					.protocol_version
 					.into(),
 			),
-			None if cluster_relevant => {
-				gum::warn!(
-					target: LOG_TARGET,
-					?cluster_relevant,
-					?target,
-					groups = ?local_validator.active.as_ref().map(|active| active.group.0),
-					"Node can not resolve some of its backing group peer ids.\n
-					 Restart might be needed if validator get 0 backing rewards for more than 3-4 consecutive sessions"
-				);
-				continue
-			},
 			None | Some(_) => continue,
 		};
 
@@ -2892,11 +2881,7 @@ async fn apply_post_confirmation<Context>(
 
 /// Dispatch pending requests for candidate data & statements.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-pub(crate) async fn dispatch_requests<Context>(
-	ctx: &mut Context,
-	state: &mut State,
-	request_throttle_freq: &mut gum::Freq,
-) {
+pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut State) {
 	if !state.request_manager.has_pending_requests() {
 		return
 	}
@@ -2976,7 +2961,6 @@ pub(crate) async fn dispatch_requests<Context>(
 		&mut state.response_manager,
 		request_props,
 		peer_advertised,
-		request_throttle_freq,
 	) {
 		// Peer is supposedly connected.
 		ctx.send_message(NetworkBridgeTxMessage::SendRequests(
