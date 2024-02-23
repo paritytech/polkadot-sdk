@@ -38,7 +38,7 @@ fn register_offchain_ext(ext: &mut sp_io::TestExternalities) {
 fn new_block() -> Weight {
 	let number = frame_system::Pallet::<Test>::block_number() + 1;
 	let hash = H256::repeat_byte(number as u8);
-	LeafDataTestValue::mutate(|r| r.a = number);
+	LeafDataTestValue::mutate(|r| r.a = number as u64);
 
 	frame_system::Pallet::<Test>::reset_events();
 	frame_system::Pallet::<Test>::initialize(&number, &hash, &Default::default());
@@ -246,7 +246,7 @@ fn should_generate_proofs_correctly() {
 	let _ = env_logger::try_init();
 	let mut ext = new_test_ext();
 	// given
-	let num_blocks: u64 = 7;
+	let num_blocks: u32 = 7;
 	ext.execute_with(|| add_blocks(num_blocks as usize));
 	ext.persist_offchain_overlay();
 
@@ -256,12 +256,12 @@ fn should_generate_proofs_correctly() {
 	ext.execute_with(|| {
 		let best_block_number = frame_system::Pallet::<Test>::block_number();
 		// when generate proofs for all leaves.
-		let proofs = (1_u64..=best_block_number)
+		let proofs = (1_u32..=best_block_number)
 			.into_iter()
 			.map(|block_num| crate::Pallet::<Test>::generate_proof(vec![block_num], None).unwrap())
 			.collect::<Vec<_>>();
 		// when generate historical proofs for all leaves
-		let historical_proofs = (1_u64..best_block_number)
+		let historical_proofs = (1_u32..best_block_number)
 			.into_iter()
 			.map(|block_num| {
 				let mut proofs = vec![];
@@ -520,7 +520,7 @@ fn should_verify() {
 fn should_verify_batch_proofs() {
 	fn generate_and_verify_batch_proof(
 		ext: &mut sp_io::TestExternalities,
-		block_numbers: &Vec<u64>,
+		block_numbers: &Vec<u32>,
 		blocks_to_add: usize,
 	) {
 		let (leaves, proof) = ext.execute_with(|| {
@@ -570,7 +570,7 @@ fn should_verify_batch_proofs() {
 
 		// generate powerset (skipping empty set) of all possible block number combinations for mmr
 		// size n.
-		let blocks_set: Vec<Vec<u64>> = (1..=n).into_iter().powerset().skip(1).collect();
+		let blocks_set: Vec<Vec<u32>> = (1..=n).into_iter().powerset().skip(1).collect();
 
 		blocks_set.iter().for_each(|blocks_subset| {
 			generate_and_verify_batch_proof(&mut ext, &blocks_subset, 0);
@@ -585,7 +585,7 @@ fn should_verify_batch_proofs() {
 		ext.persist_offchain_overlay();
 
 		// generate all possible 2-block number combinations for mmr size n.
-		let blocks_set: Vec<Vec<u64>> = (1..=n).into_iter().combinations(2).collect();
+		let blocks_set: Vec<Vec<u32>> = (1..=n).into_iter().combinations(2).collect();
 
 		blocks_set.iter().for_each(|blocks_subset| {
 			generate_and_verify_batch_proof(&mut ext, &blocks_subset, 0);
@@ -726,7 +726,7 @@ fn should_verify_canonicalized() {
 	let _ = env_logger::try_init();
 
 	// How deep is our fork-aware storage (in terms of blocks/leaves, nodes will be more).
-	let block_hash_size: u64 = <Test as frame_system::Config>::BlockHashCount::get();
+	let block_hash_size: u32 = <Test as frame_system::Config>::BlockHashCount::get();
 
 	// Start off with chain initialisation and storing indexing data off-chain.
 	// Create twice as many leaf entries than our fork-aware capacity,
