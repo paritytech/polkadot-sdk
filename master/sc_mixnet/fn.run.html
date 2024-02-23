@@ -12,7 +12,7 @@
     B: Block,
     C: BlockchainEvents&lt;B&gt; + ProvideRuntimeApi&lt;B&gt; + HeaderBackend&lt;B&gt;,
     C::Api: MixnetApi&lt;B&gt;,
-    S: <a class="trait" href="../sp_consensus/trait.SyncOracle.html" title="trait sp_consensus::SyncOracle">SyncOracle</a>,
+    S: SyncOracle,
     N: NetworkStateInfo + NetworkNotification + NetworkPeers,
     P: TransactionPool&lt;Block = B&gt; + LocalTransactionPool&lt;Block = B&gt; + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Run the mixnet service. If <code>keystore</code> is <code>None</code>, the service will not attempt to register the
 local node as a mixnode, even if <code>config.register</code> is <code>true</code>.</p>

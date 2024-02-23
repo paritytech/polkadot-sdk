@@ -2,13 +2,13 @@
     __arg0: <a class="struct" href="struct.ManualSealParams.html" title="struct sc_consensus_manual_seal::ManualSealParams">ManualSealParams</a>&lt;B, BI, E, C, TP, SC, CS, CIDP, P&gt;
 )<span class="where fmt-newline">where
     B: BlockT + 'static,
-    BI: BlockImport&lt;B, Error = <a class="enum" href="../sp_consensus/error/enum.Error.html" title="enum sp_consensus::error::Error">Error</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
+    BI: BlockImport&lt;B, Error = Error&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + 'static,
     CB: ClientBackend&lt;B&gt; + 'static,
-    E: <a class="trait" href="../sp_consensus/trait.Environment.html" title="trait sp_consensus::Environment">Environment</a>&lt;B&gt; + 'static,
-    E::<a class="associatedtype" href="../sp_consensus/trait.Environment.html#associatedtype.Proposer" title="type sp_consensus::Environment::Proposer">Proposer</a>: <a class="trait" href="../sp_consensus/trait.Proposer.html" title="trait sp_consensus::Proposer">Proposer</a>&lt;B, Proof = P&gt;,
+    E: Environment&lt;B&gt; + 'static,
+    E::Proposer: Proposer&lt;B, Proof = P&gt;,
     CS: Stream&lt;Item = <a class="enum" href="rpc/enum.EngineCommand.html" title="enum sc_consensus_manual_seal::rpc::EngineCommand">EngineCommand</a>&lt;&lt;B as BlockT&gt;::Hash&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a> + 'static,
-    SC: <a class="trait" href="../sp_consensus/select_chain/trait.SelectChain.html" title="trait sp_consensus::select_chain::SelectChain">SelectChain</a>&lt;B&gt; + 'static,
+    SC: SelectChain&lt;B&gt; + 'static,
     TP: TransactionPool&lt;Block = B&gt;,
     CIDP: CreateInherentDataProviders&lt;B, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;,
     P: Encode + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Creates the background authorship task for the manually seal engine.</p>

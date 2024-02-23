@@ -3,7 +3,7 @@
     NoPreRuntimeDigest,
     MultipleEpochChangeDigests,
     MultipleConfigChangeDigests,
-    Extraction(<a class="enum" href="../sp_consensus/error/enum.Error.html" title="enum sp_consensus::error::Error">Error</a>),
+    Extraction(Error),
     FetchEpoch(B::Hash),
     TooFarInFuture(B::Hash),
     ParentUnavailable(B::Hash, B::Hash),
@@ -34,7 +34,7 @@
 </div><section id="variant.NoPreRuntimeDigest" class="variant"><a href="#variant.NoPreRuntimeDigest" class="anchor">§</a><h3 class="code-header">NoPreRuntimeDigest</h3></section><div class="docblock"><p>No BABE pre-runtime digest found</p>
 </div><section id="variant.MultipleEpochChangeDigests" class="variant"><a href="#variant.MultipleEpochChangeDigests" class="anchor">§</a><h3 class="code-header">MultipleEpochChangeDigests</h3></section><div class="docblock"><p>Multiple BABE epoch change digests</p>
 </div><section id="variant.MultipleConfigChangeDigests" class="variant"><a href="#variant.MultipleConfigChangeDigests" class="anchor">§</a><h3 class="code-header">MultipleConfigChangeDigests</h3></section><div class="docblock"><p>Multiple BABE config change digests</p>
-</div><section id="variant.Extraction" class="variant"><a href="#variant.Extraction" class="anchor">§</a><h3 class="code-header">Extraction(<a class="enum" href="../sp_consensus/error/enum.Error.html" title="enum sp_consensus::error::Error">Error</a>)</h3></section><div class="docblock"><p>Could not extract timestamp and slot</p>
+</div><section id="variant.Extraction" class="variant"><a href="#variant.Extraction" class="anchor">§</a><h3 class="code-header">Extraction(Error)</h3></section><div class="docblock"><p>Could not extract timestamp and slot</p>
 </div><section id="variant.FetchEpoch" class="variant"><a href="#variant.FetchEpoch" class="anchor">§</a><h3 class="code-header">FetchEpoch(B::Hash)</h3></section><div class="docblock"><p>Could not fetch epoch</p>
 </div><section id="variant.TooFarInFuture" class="variant"><a href="#variant.TooFarInFuture" class="anchor">§</a><h3 class="code-header">TooFarInFuture(B::Hash)</h3></section><div class="docblock"><p>Header rejected: too far in the future</p>
 </div><section id="variant.ParentUnavailable" class="variant"><a href="#variant.ParentUnavailable" class="anchor">§</a><h3 class="code-header">ParentUnavailable(B::Hash, B::Hash)</h3></section><div class="docblock"><p>Parent unavailable. Cannot import</p>
