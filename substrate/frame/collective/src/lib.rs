@@ -972,15 +972,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// * The prime account must be a member of the collective.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), TryRuntimeError> {
-		Proposals::<T, I>::get()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
+		Proposals::<T, I>::get().into_iter().try_for_each(
+			|proposal| -> Result<(), TryRuntimeError> {
 				ensure!(
 					ProposalOf::<T, I>::get(proposal).is_some(),
 					"Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping."
 				);
 				Ok(())
-			})?;
+			},
+		)?;
 
 		ensure!(
 			Proposals::<T, I>::get().into_iter().count() <= ProposalCount::<T, I>::get() as usize,
@@ -991,9 +991,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			"Proposal count inside `Proposals` is not equal to the proposal count in `ProposalOf`"
 		);
 
-		Proposals::<T, I>::get()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
+		Proposals::<T, I>::get().into_iter().try_for_each(
+			|proposal| -> Result<(), TryRuntimeError> {
 				if let Some(votes) = Voting::<T, I>::get(proposal) {
 					let ayes = votes.ayes.len();
 					let nays = votes.nays.len();
@@ -1004,12 +1003,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					);
 				}
 				Ok(())
-			})?;
+			},
+		)?;
 
 		let mut proposal_indices = vec![];
-		Proposals::<T, I>::get()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
+		Proposals::<T, I>::get().into_iter().try_for_each(
+			|proposal| -> Result<(), TryRuntimeError> {
 				if let Some(votes) = Voting::<T, I>::get(proposal) {
 					let proposal_index = votes.index;
 					ensure!(
@@ -1019,7 +1018,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					proposal_indices.push(proposal_index);
 				}
 				Ok(())
-			})?;
+			},
+		)?;
 
 		<Voting<T, I>>::iter_keys().try_for_each(
 			|proposal_hash| -> Result<(), TryRuntimeError> {
