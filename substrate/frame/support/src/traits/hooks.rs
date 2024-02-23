@@ -434,7 +434,7 @@ pub trait Hooks<BlockNumber> {
 	}
 
 	/// Implementing this function on a pallet allows you to perform long-running tasks that are
-	/// dispatched as separate threads, and entirely independent of the main wasm runtime.
+	/// dispatched as separate threads, and entirely independent of the main blockchain execution.
 	///
 	/// This function can freely read from the state, but any change it makes to the state is
 	/// meaningless. Writes can be pushed back to the chain by submitting extrinsics from the

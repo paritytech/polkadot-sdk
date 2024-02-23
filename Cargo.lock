@@ -13383,6 +13383,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-keyring",
+ "sp-offchain",
  "sp-runtime",
  "staging-chain-spec-builder",
  "staging-node-cli",
