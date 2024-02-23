@@ -44,6 +44,9 @@ pub enum Error {
 	#[error("failed to get block number")]
 	CanceledBlockNumber(#[source] oneshot::Canceled),
 
+	#[error("failed to get session index")]
+	CanceledSessionIndex(#[source] oneshot::Canceled),
+
 	#[error("failed to get backed candidates")]
 	CanceledBackedCandidates(#[source] oneshot::Canceled),
 
@@ -70,11 +73,6 @@ pub enum Error {
 
 	#[error("failed to send return message with Inherents")]
 	InherentDataReturnChannel,
-
-	#[error(
-		"backed candidate does not correspond to selected candidate; check logic in provisioner"
-	)]
-	BackedCandidateOrderingProblem,
 
 	#[fatal]
 	#[error("Failed to spawn background task")]

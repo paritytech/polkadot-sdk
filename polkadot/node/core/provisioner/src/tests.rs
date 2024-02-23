@@ -656,6 +656,7 @@ mod select_candidates {
 					&[],
 					&[],
 					prospective_parachains_mode,
+					false,
 					Default::default(),
 					&mut tx,
 				)
@@ -671,11 +672,14 @@ mod select_candidates {
 	// possible core; the candidate selection algorithm must filter them to the appropriate set
 	#[rstest]
 	// why those particular indices? see the comments on mock_availability_cores_*() functions.
-	#[case(mock_availability_cores_one_per_para(), vec![1, 4, 7, 8, 10])]
-	#[case(mock_availability_cores_multiple_per_para(), vec![1, 4, 7, 8, 10, 12, 13, 14, 15])]
+	#[case(mock_availability_cores_one_per_para(), vec![1, 4, 7, 8, 10], true)]
+	#[case(mock_availability_cores_one_per_para(), vec![1, 4, 7, 8, 10], false)]
+	#[case(mock_availability_cores_multiple_per_para(), vec![1, 4, 7, 8, 10, 12, 13, 14, 15], true)]
+	#[case(mock_availability_cores_multiple_per_para(), vec![1, 4, 7, 8, 10, 12, 13, 14, 15], false)]
 	fn test_in_subsystem_selection(
 		#[case] mock_cores: Vec<CoreState>,
 		#[case] expected_candidates: Vec<usize>,
+		#[case] elastic_scaling_mvp: bool,
 	) {
 		let candidate_template = dummy_candidate_template();
 		let candidates: Vec<_> = std::iter::repeat(candidate_template)
@@ -737,6 +741,7 @@ mod select_candidates {
 					&[],
 					&candidates,
 					prospective_parachains_mode,
+					elastic_scaling_mvp,
 					Default::default(),
 					&mut tx,
 				)
@@ -827,6 +832,7 @@ mod select_candidates {
 					&[],
 					&candidates,
 					prospective_parachains_mode,
+					false,
 					Default::default(),
 					&mut tx,
 				)
@@ -846,8 +852,10 @@ mod select_candidates {
 		)
 	}
 
-	#[test]
-	fn request_from_prospective_parachains_one_core_per_para() {
+	#[rstest]
+	#[case(true)]
+	#[case(false)]
+	fn request_from_prospective_parachains_one_core_per_para(#[case] elastic_scaling_mvp: bool) {
 		let mock_cores = mock_availability_cores_one_per_para();
 
 		// why those particular indices? see the comments on mock_availability_cores()
@@ -887,6 +895,7 @@ mod select_candidates {
 					&[],
 					&[],
 					prospective_parachains_mode,
+					elastic_scaling_mvp,
 					Default::default(),
 					&mut tx,
 				)
@@ -908,12 +917,12 @@ mod select_candidates {
 	}
 
 	#[test]
-	fn request_from_prospective_parachains_multiple_cores_per_para() {
+	fn request_from_prospective_parachains_multiple_cores_per_para_elastic_scaling_mvp() {
 		let mock_cores = mock_availability_cores_multiple_per_para();
 
 		// why those particular indices? see the comments on mock_availability_cores()
 		let expected_candidates: Vec<_> =
-			vec![1, 4, 7, 8, 10, 12, 12, 12, 12, 12, 13, 14, 14, 14, 15, 13, 15, 13];
+			vec![1, 4, 7, 8, 10, 12, 12, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15, 15];
 		// Expect prospective parachains subsystem requests.
 		let prospective_parachains_mode =
 			ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, allowed_ancestry_len: 0 };
@@ -976,6 +985,69 @@ mod select_candidates {
 					&[],
 					&[],
 					prospective_parachains_mode,
+					true,
+					Default::default(),
+					&mut tx,
+				)
+				.await
+				.unwrap();
+
+				assert_eq!(result.len(), expected_candidates_clone.len());
+				result.into_iter().for_each(|c| {
+					assert!(
+						expected_candidates_clone
+							.iter()
+							.any(|c2| c.candidate.corresponds_to(&c2.receipt())),
+						"Failed to find candidate: {:?}",
+						c,
+					)
+				});
+			},
+		)
+	}
+
+	#[test]
+	fn request_from_prospective_parachains_multiple_cores_per_para_elastic_scaling_mvp_disabled() {
+		let mock_cores = mock_availability_cores_multiple_per_para();
+
+		// why those particular indices? see the comments on mock_availability_cores()
+		let expected_candidates: Vec<_> = vec![1, 4, 7, 8, 10];
+		// Expect prospective parachains subsystem requests.
+		let prospective_parachains_mode =
+			ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, allowed_ancestry_len: 0 };
+
+		let (candidates, expected_candidates) =
+			make_candidates(mock_cores.len(), expected_candidates);
+
+		let mut required_ancestors: HashMap<Vec<CandidateHash>, Ancestors> = HashMap::new();
+		required_ancestors.insert(
+			vec![candidates[4]],
+			vec![CandidateHash(Hash::from_low_u64_be(41))].into_iter().collect(),
+		);
+		required_ancestors.insert(
+			vec![candidates[8]],
+			vec![CandidateHash(Hash::from_low_u64_be(81))].into_iter().collect(),
+		);
+
+		let mock_cores_clone = mock_cores.clone();
+		let expected_candidates_clone = expected_candidates.clone();
+		test_harness(
+			|r| {
+				mock_overseer(
+					r,
+					mock_cores_clone,
+					expected_candidates,
+					required_ancestors,
+					prospective_parachains_mode,
+				)
+			},
+			|mut tx: TestSubsystemSender| async move {
+				let result = select_candidates(
+					&mock_cores,
+					&[],
+					&[],
+					prospective_parachains_mode,
+					false,
 					Default::default(),
 					&mut tx,
 				)
@@ -1047,6 +1119,7 @@ mod select_candidates {
 					&[],
 					&[],
 					prospective_parachains_mode,
+					false,
 					Default::default(),
 					&mut tx,
 				)
