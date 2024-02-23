@@ -26,7 +26,10 @@ mod enter {
 	use crate::{
 		builder::{Bench, BenchBuilder},
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
-		scheduler::common::Assignment,
+		scheduler::{
+			common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+			ParasEntry,
+		},
 	};
 	use assert_matches::assert_matches;
 	use frame_support::assert_ok;
@@ -696,6 +699,25 @@ mod enter {
 				Pallet::<Test>::on_chain_votes().unwrap().session,
 				2
 			);
+
+			// One core was scheduled. We should put the assignment back, before calling enter().
+			let now = <frame_system::Pallet<Test>>::block_number() + 1;
+			let used_cores = 5;
+			let cores = (0..used_cores)
+				.into_iter()
+				.map(|i| {
+					let AssignmentProviderConfig { ttl, .. } =
+						scheduler::Pallet::<Test>::assignment_provider_config(CoreIndex(i));
+					// Load an assignment into provider so that one is present to pop
+					let assignment =
+						<Test as scheduler::Config>::AssignmentProvider::get_mock_assignment(
+							CoreIndex(i),
+							ParaId::from(i),
+						);
+					(CoreIndex(i), [ParasEntry::new(assignment, now + ttl)].into())
+				})
+				.collect();
+			scheduler::ClaimQueue::<Test>::set(cores);
 
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
@@ -1759,7 +1781,7 @@ mod sanitizers {
 					SanitizedBackedCandidates {
 						backed_candidates_with_core: all_backed_candidates_with_core,
 						votes_from_disabled_were_dropped: false,
-						dropped_elastic_scaling_candidates: false
+						dropped_unscheduled_candidates: false
 					}
 				);
 			});
@@ -1790,7 +1812,7 @@ mod sanitizers {
 					SanitizedBackedCandidates {
 						backed_candidates_with_core: expected_all_backed_candidates_with_core,
 						votes_from_disabled_were_dropped: false,
-						dropped_elastic_scaling_candidates: !core_index_enabled
+						dropped_unscheduled_candidates: !core_index_enabled
 					}
 				);
 			});
@@ -1819,7 +1841,7 @@ mod sanitizers {
 				let SanitizedBackedCandidates {
 					backed_candidates_with_core: sanitized_backed_candidates,
 					votes_from_disabled_were_dropped,
-					dropped_elastic_scaling_candidates,
+					dropped_unscheduled_candidates,
 				} = sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
@@ -1830,7 +1852,7 @@ mod sanitizers {
 
 				assert!(sanitized_backed_candidates.is_empty());
 				assert!(!votes_from_disabled_were_dropped);
-				assert!(!dropped_elastic_scaling_candidates);
+				assert!(!dropped_unscheduled_candidates);
 			});
 		}
 
@@ -1858,7 +1880,7 @@ mod sanitizers {
 				let SanitizedBackedCandidates {
 					backed_candidates_with_core: sanitized_backed_candidates,
 					votes_from_disabled_were_dropped,
-					dropped_elastic_scaling_candidates,
+					dropped_unscheduled_candidates,
 				} = sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
@@ -1869,7 +1891,7 @@ mod sanitizers {
 
 				assert_eq!(sanitized_backed_candidates.len(), backed_candidates.len() / 2);
 				assert!(!votes_from_disabled_were_dropped);
-				assert!(!dropped_elastic_scaling_candidates);
+				assert!(!dropped_unscheduled_candidates);
 			});
 		}
 
