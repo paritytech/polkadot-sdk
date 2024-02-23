@@ -915,51 +915,101 @@ mod pool_integration {
 	#[test]
 	fn pool_slashed() {
 		ExtBuilder::default().build_and_execute(|| {
-            start_era(1);
-            let creator = 100;
-            let creator_stake = 500;
-            let pool_id = create_pool(creator, creator_stake);
-            let delegator_stake = 100;
-            add_delegators_to_pool(pool_id, (300..306).collect(), delegator_stake);
-            let pool_acc = Pools::create_bonded_account(pool_id);
+			start_era(1);
+			let creator = 100;
+			let creator_stake = 500;
+			let pool_id = create_pool(creator, creator_stake);
+			let delegator_stake = 100;
+			add_delegators_to_pool(pool_id, (300..306).collect(), delegator_stake);
+			let pool_acc = Pools::create_bonded_account(pool_id);
 
-            let total_staked = creator_stake + delegator_stake * 6;
-            assert_eq!(Staking::stake(&pool_acc).unwrap().total, total_staked);
+			let total_staked = creator_stake + delegator_stake * 6;
+			assert_eq!(Staking::stake(&pool_acc).unwrap().total, total_staked);
 
-            // lets unbond a delegator each in next eras (2, 3, 4).
-            start_era(2);
-            assert_ok!(Pools::unbond(RawOrigin::Signed(300).into(), 300, delegator_stake));
+			// lets unbond a delegator each in next eras (2, 3, 4).
+			start_era(2);
+			assert_ok!(Pools::unbond(RawOrigin::Signed(300).into(), 300, delegator_stake));
 
-            start_era(3);
-            assert_ok!(Pools::unbond(RawOrigin::Signed(301).into(), 301, delegator_stake));
+			start_era(3);
+			assert_ok!(Pools::unbond(RawOrigin::Signed(301).into(), 301, delegator_stake));
 
-            start_era(4);
-            assert_ok!(Pools::unbond(RawOrigin::Signed(302).into(), 302, delegator_stake));
-            System::reset_events();
+			start_era(4);
+			assert_ok!(Pools::unbond(RawOrigin::Signed(302).into(), 302, delegator_stake));
+			System::reset_events();
 
-            // slash the pool at era 3
-            assert_eq!(BondedPools::<T>::get(1).unwrap().points, creator_stake + delegator_stake * 6 - delegator_stake * 3);
-            pallet_staking::slashing::do_slash::<T>(
-                &pool_acc,
-                500,
-                &mut Default::default(),
-                &mut Default::default(),
-                3,
-            );
+			// slash the pool at era 3
+			assert_eq!(
+				BondedPools::<T>::get(1).unwrap().points,
+				creator_stake + delegator_stake * 6 - delegator_stake * 3
+			);
+			pallet_staking::slashing::do_slash::<T>(
+				&pool_acc,
+				500,
+				&mut Default::default(),
+				&mut Default::default(),
+				3,
+			);
 
-            assert_eq!(
-                pool_events_since_last_call(),
-                vec![
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
 					// 301 did not get slashed as all as it unbonded in an era before slash.
 					// 302 got slashed 50% of 100 = 50.
 					PoolsEvent::UnbondingPoolSlashed { pool_id: 1, era: 6, balance: 50 },
 					// 303 got slashed 50% of 100 = 50.
 					PoolsEvent::UnbondingPoolSlashed { pool_id: 1, era: 7, balance: 50 },
 					// Rest of the pool slashed 50% of 800 = 400.
-					PoolsEvent::PoolSlashed { pool_id: 1, balance: 400 }
+					PoolsEvent::PoolSlashed { pool_id: 1, balance: 400 },
 				]
+			);
+
+			// slash is lazy and balance is still locked in user's accounts.
+			assert_eq!(held_balance(&creator), creator_stake);
+			for i in 300..306 {
+				assert_eq!(held_balance(&i), delegator_stake);
+			}
+			assert_eq!(
+				get_pool_delegate(pool_id).ledger.effective_balance(),
+				Staking::total_stake(&pool_acc).unwrap()
+			);
+
+            // pending slash is book kept.
+			assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 500);
+
+            // go in some distant future era.
+            start_era(10);
+            System::reset_events();
+
+            // 300 is not slashed and can withdraw all balance.
+            assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(300).into(), 300, 1));
+            assert_eq!(
+                events_since_last_call(),
+                vec![
+                    Event::Withdrawn { delegate: pool_acc, delegator: 300, amount: 100 },
+                ]
             );
-        });
+            assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 500);
+
+			let pre_301 = Balances::free_balance(301);
+            // 301 is slashed and should only be able to withdraw 50.
+            assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 1));
+            assert_eq!(
+                events_since_last_call(),
+                vec![
+					// half amount is slashed first.
+                    Event::Slashed { delegate: pool_acc, delegator: 301, amount: 50 },
+					// rest of it is withdrawn.
+                    Event::Withdrawn { delegate: pool_acc, delegator: 301, amount: 50 },
+                ]
+            );
+            assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 450);
+            assert_eq!(held_balance(&301), 0);
+            assert_eq!(Balances::free_balance(301) - pre_301, 50);
+
+			// delegators cannot unbond without applying pending slash on their accounts.
+
+			// when unbonding, should apply slash. Make sure numbers are good.
+		});
 	}
 
 	fn create_pool(creator: AccountId, amount: Balance) -> u32 {

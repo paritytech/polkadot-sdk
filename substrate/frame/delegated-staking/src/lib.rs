@@ -177,6 +177,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		Delegated { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 		Withdrawn { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
+		Slashed { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	/// Map of Delegators to their delegation, i.e. (delegate, delegation_amount).
@@ -619,6 +620,7 @@ impl<T: Config> Pallet<T> {
 
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_std::collections::btree_map::BTreeMap;
+
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state() -> Result<(), TryRuntimeError> {
