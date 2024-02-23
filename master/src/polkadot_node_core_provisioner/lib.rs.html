@@ -1635,7 +1635,7 @@
 	<span class="comment">// keep only one candidate with validation code.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>with_validation_code = <span class="bool-val">false</span>;
 	candidates.retain(|c| {
-		<span class="kw">if </span>c.candidate.commitments.new_validation_code.is_some() {
+		<span class="kw">if </span>c.candidate().commitments.new_validation_code.is_some() {
 			<span class="kw">if </span>with_validation_code {
 				<span class="kw">return </span><span class="bool-val">false
 			</span>}

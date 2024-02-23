@@ -2272,11 +2272,6 @@
 <a href="#2272" id="2272">2272</a>
 <a href="#2273" id="2273">2273</a>
 <a href="#2274" id="2274">2274</a>
-<a href="#2275" id="2275">2275</a>
-<a href="#2276" id="2276">2276</a>
-<a href="#2277" id="2277">2277</a>
-<a href="#2278" id="2278">2278</a>
-<a href="#2279" id="2279">2279</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2349,7 +2344,7 @@
 	sync::Arc,
 };
 
-<span class="kw">use </span>bitvec::{order::Lsb0 <span class="kw">as </span>BitOrderLsb0, vec::BitVec};
+<span class="kw">use </span>bitvec::vec::BitVec;
 <span class="kw">use </span>futures::{
 	channel::{mpsc, oneshot},
 	future::BoxFuture,
@@ -2773,20 +2768,15 @@
 	}
 	vote_positions.sort_by_key(|(_orig, pos_in_group)| <span class="kw-2">*</span>pos_in_group);
 
-	<span class="kw">if </span>inject_core_index {
-		<span class="kw">let </span>core_index_to_inject: BitVec&lt;u8, BitOrderLsb0&gt; =
-			BitVec::from_vec(<span class="macro">vec!</span>[core_index.<span class="number">0 </span><span class="kw">as </span>u8]);
-		validator_indices.extend(core_index_to_inject);
-	}
-
-	<span class="prelude-val">Some</span>(BackedCandidate {
+	<span class="prelude-val">Some</span>(BackedCandidate::new(
 		candidate,
-		validity_votes: vote_positions
+		vote_positions
 			.into_iter()
 			.map(|(pos_in_votes, _pos_in_group)| validity_votes[pos_in_votes].clone())
 			.collect(),
 		validator_indices,
-	})
+		inject_core_index.then_some(core_index),
+	))
 }
 
 <span class="kw">async fn </span>store_available_data(
@@ -4054,7 +4044,7 @@
 				<span class="kw-2">&amp;</span>rp_state.table_context,
 				rp_state.inject_core_index,
 			) {
-				<span class="kw">let </span>para_id = backed.candidate.descriptor.para_id;
+				<span class="kw">let </span>para_id = backed.candidate().descriptor.para_id;
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					candidate_hash = <span class="question-mark">?</span>candidate_hash,
@@ -4075,7 +4065,7 @@
 					// notify collator protocol.
 					</span>ctx.send_message(CollatorProtocolMessage::Backed {
 						para_id,
-						para_head: backed.candidate.descriptor.para_head,
+						para_head: backed.candidate().descriptor.para_head,
 					})
 					.<span class="kw">await</span>;
 					<span class="comment">// Notify statement distribution of backed candidate.

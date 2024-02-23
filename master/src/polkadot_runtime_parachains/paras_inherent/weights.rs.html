@@ -324,11 +324,11 @@
 	candidate: <span class="kw-2">&amp;</span>BackedCandidate&lt;T::Hash&gt;,
 ) -&gt; Weight {
 	set_proof_size_to_tx_size(
-		<span class="kw">if </span>candidate.candidate.commitments.new_validation_code.is_some() {
+		<span class="kw">if </span>candidate.candidate().commitments.new_validation_code.is_some() {
 			&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_backed_candidate_code_upgrade()
 		} <span class="kw">else </span>{
 			&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_backed_candidates_variable(
-				candidate.validity_votes.len() <span class="kw">as </span>u32,
+				candidate.validity_votes().len() <span class="kw">as </span>u32,
 			)
 		},
 		candidate,

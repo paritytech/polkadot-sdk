@@ -1333,6 +1333,15 @@
 <a href="#1333" id="1333">1333</a>
 <a href="#1334" id="1334">1334</a>
 <a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1382,10 +1391,7 @@
 <span class="kw">use </span>sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_std::fmt;
-<span class="kw">use </span>sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	prelude::<span class="kw-2">*</span>,
-};
+<span class="kw">use </span>sp_std::{collections::btree_set::BTreeSet, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
@@ -1936,18 +1942,16 @@
 	/// scheduled cores. If these conditions are not met, the execution of the function fails.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_candidates&lt;GV&gt;(
 		allowed_relay_parents: <span class="kw-2">&amp;</span>AllowedRelayParentsTracker&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;,
-		candidates: Vec&lt;BackedCandidate&lt;T::Hash&gt;&gt;,
-		scheduled: <span class="kw-2">&amp;</span>BTreeMap&lt;ParaId, CoreIndex&gt;,
+		candidates: Vec&lt;(BackedCandidate&lt;T::Hash&gt;, CoreIndex)&gt;,
 		group_validators: GV,
+		core_index_enabled: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ProcessedCandidates&lt;T::Hash&gt;, DispatchError&gt;
 	<span class="kw">where
 		</span>GV: Fn(GroupIndex) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;ValidatorIndex&gt;&gt;,
 	{
 		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
 
-		<span class="macro">ensure!</span>(candidates.len() &lt;= scheduled.len(), Error::&lt;T&gt;::UnscheduledCandidate);
-
-		<span class="kw">if </span>scheduled.is_empty() {
+		<span class="kw">if </span>candidates.is_empty() {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(ProcessedCandidates::default())
 		}
 
@@ -1983,7 +1987,7 @@
 			//
 			// In the meantime, we do certain sanity checks on the candidates and on the scheduled
 			// list.
-			</span><span class="kw">for </span>(candidate_idx, backed_candidate) <span class="kw">in </span>candidates.iter().enumerate() {
+			</span><span class="kw">for </span>(candidate_idx, (backed_candidate, core_index)) <span class="kw">in </span>candidates.iter().enumerate() {
 				<span class="kw">let </span>relay_parent_hash = backed_candidate.descriptor().relay_parent;
 				<span class="kw">let </span>para_id = backed_candidate.descriptor().para_id;
 
@@ -1998,7 +2002,7 @@
 				<span class="kw">let </span>relay_parent_number = <span class="kw">match </span>check_ctx.verify_backed_candidate(
 					<span class="kw-2">&amp;</span>allowed_relay_parents,
 					candidate_idx,
-					backed_candidate,
+					backed_candidate.candidate(),
 				)<span class="question-mark">? </span>{
 					<span class="prelude-val">Err</span>(FailedToCreatePVD) =&gt; {
 						<span class="macro">log::debug!</span>(
@@ -2014,11 +2018,22 @@
 					<span class="prelude-val">Ok</span>(rpn) =&gt; rpn,
 				};
 
-				<span class="kw">let </span>para_id = backed_candidate.descriptor().para_id;
+				<span class="kw">let </span>(validator_indices, <span class="kw">_</span>) =
+					backed_candidate.validator_indices_and_core_index(core_index_enabled);
+
+				<span class="macro">log::debug!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Candidate {:?} on {:?},
+					core_index_enabled = {}&quot;</span>,
+					backed_candidate.hash(),
+					core_index,
+					core_index_enabled
+				);
+
+				check_assignment_in_order(core_index)<span class="question-mark">?</span>;
+
 				<span class="kw">let </span><span class="kw-2">mut </span>backers = <span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; validators.len()];
 
-				<span class="kw">let </span>core_idx = <span class="kw-2">*</span>scheduled.get(<span class="kw-2">&amp;</span>para_id).ok_or(Error::&lt;T&gt;::UnscheduledCandidate)<span class="question-mark">?</span>;
-				check_assignment_in_order(core_idx)<span class="question-mark">?</span>;
 				<span class="macro">ensure!</span>(
 					&lt;PendingAvailability&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para_id).is_none() &amp;&amp;
 						&lt;PendingAvailabilityCommitments&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para_id).is_none(),
@@ -2029,7 +2044,7 @@
 				// assigned to core at block `N + 1`. Thus, `relay_parent_number + 1`
 				// will always land in the current session.
 				</span><span class="kw">let </span>group_idx = &lt;scheduler::Pallet&lt;T&gt;&gt;::group_assigned_to_core(
-					core_idx,
+					<span class="kw-2">*</span>core_index,
 					relay_parent_number + One::one(),
 				)
 				.ok_or_else(|| {
@@ -2046,7 +2061,9 @@
 				<span class="comment">// check the signatures in the backing and that it is a majority.
 				</span>{
 					<span class="kw">let </span>maybe_amount_validated = primitives::check_candidate_backing(
-						<span class="kw-2">&amp;</span>backed_candidate,
+						backed_candidate.candidate().hash(),
+						backed_candidate.validity_votes(),
+						validator_indices,
 						<span class="kw-2">&amp;</span>signing_context,
 						group_vals.len(),
 						|intra_group_vi| {
@@ -2073,16 +2090,15 @@
 
 					<span class="kw">let </span><span class="kw-2">mut </span>backer_idx_and_attestation =
 						Vec::&lt;(ValidatorIndex, ValidityAttestation)&gt;::with_capacity(
-							backed_candidate.validator_indices.count_ones(),
+							validator_indices.count_ones(),
 						);
 					<span class="kw">let </span>candidate_receipt = backed_candidate.receipt();
 
-					<span class="kw">for </span>((bit_idx, <span class="kw">_</span>), attestation) <span class="kw">in </span>backed_candidate
-						.validator_indices
+					<span class="kw">for </span>((bit_idx, <span class="kw">_</span>), attestation) <span class="kw">in </span>validator_indices
 						.iter()
 						.enumerate()
 						.filter(|(<span class="kw">_</span>, signed)| <span class="kw-2">**</span>signed)
-						.zip(backed_candidate.validity_votes.iter().cloned())
+						.zip(backed_candidate.validity_votes().iter().cloned())
 					{
 						<span class="kw">let </span>val_idx =
 							group_vals.get(bit_idx).expect(<span class="string">&quot;this query succeeded above; qed&quot;</span>);
@@ -2095,7 +2111,7 @@
 				}
 
 				core_indices_and_backers.push((
-					(core_idx, para_id),
+					(<span class="kw-2">*</span>core_index, para_id),
 					backers,
 					group_idx,
 					relay_parent_number,
@@ -2107,7 +2123,7 @@
 
 		<span class="comment">// one more sweep for actually writing to storage.
 		</span><span class="kw">let </span>core_indices = core_indices_and_backers.iter().map(|(c, ..)| <span class="kw-2">*</span>c).collect();
-		<span class="kw">for </span>(candidate, (core, backers, group, relay_parent_number)) <span class="kw">in
+		<span class="kw">for </span>((candidate, <span class="kw">_</span>), (core, backers, group, relay_parent_number)) <span class="kw">in
 			</span>candidates.into_iter().zip(core_indices_and_backers)
 		{
 			<span class="kw">let </span>para_id = candidate.descriptor().para_id;
@@ -2117,16 +2133,18 @@
 				<span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; validators.len()];
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::CandidateBacked(
-				candidate.candidate.to_plain(),
-				candidate.candidate.commitments.head_data.clone(),
+				candidate.candidate().to_plain(),
+				candidate.candidate().commitments.head_data.clone(),
 				core.<span class="number">0</span>,
 				group,
 			));
 
-			<span class="kw">let </span>candidate_hash = candidate.candidate.hash();
+			<span class="kw">let </span>candidate_hash = candidate.candidate().hash();
 
-			<span class="kw">let </span>(descriptor, commitments) =
-				(candidate.candidate.descriptor, candidate.candidate.commitments);
+			<span class="kw">let </span>(descriptor, commitments) = (
+				candidate.candidate().descriptor.clone(),
+				candidate.candidate().commitments.clone(),
+			);
 
 			&lt;PendingAvailability&lt;T&gt;&gt;::insert(
 				<span class="kw-2">&amp;</span>para_id,
@@ -2530,10 +2548,10 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		allowed_relay_parents: <span class="kw-2">&amp;</span>AllowedRelayParentsTracker&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;,
 		candidate_idx: usize,
-		backed_candidate: <span class="kw-2">&amp;</span>BackedCandidate&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash&gt;,
+		backed_candidate_receipt: <span class="kw-2">&amp;</span>CommittedCandidateReceipt&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;BlockNumberFor&lt;T&gt;, FailedToCreatePVD&gt;, Error&lt;T&gt;&gt; {
-		<span class="kw">let </span>para_id = backed_candidate.descriptor().para_id;
-		<span class="kw">let </span>relay_parent = backed_candidate.descriptor().relay_parent;
+		<span class="kw">let </span>para_id = backed_candidate_receipt.descriptor().para_id;
+		<span class="kw">let </span>relay_parent = backed_candidate_receipt.descriptor().relay_parent;
 
 		<span class="comment">// Check that the relay-parent is one of the allowed relay-parents.
 		</span><span class="kw">let </span>(relay_parent_storage_root, relay_parent_number) = {
@@ -2558,13 +2576,13 @@
 			<span class="kw">let </span>expected = persisted_validation_data.hash();
 
 			<span class="macro">ensure!</span>(
-				expected == backed_candidate.descriptor().persisted_validation_data_hash,
+				expected == backed_candidate_receipt.descriptor().persisted_validation_data_hash,
 				Error::&lt;T&gt;::ValidationDataHashMismatch,
 			);
 		}
 
 		<span class="macro">ensure!</span>(
-			backed_candidate.descriptor().check_collator_signature().is_ok(),
+			backed_candidate_receipt.descriptor().check_collator_signature().is_ok(),
 			Error::&lt;T&gt;::NotCollatorSigned,
 		);
 
@@ -2572,25 +2590,25 @@
 			<span class="comment">// A candidate for a parachain without current validation code is not scheduled.
 			</span>.ok_or_else(|| Error::&lt;T&gt;::UnscheduledCandidate)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(
-			backed_candidate.descriptor().validation_code_hash == validation_code_hash,
+			backed_candidate_receipt.descriptor().validation_code_hash == validation_code_hash,
 			Error::&lt;T&gt;::InvalidValidationCodeHash,
 		);
 
 		<span class="macro">ensure!</span>(
-			backed_candidate.descriptor().para_head ==
-				backed_candidate.candidate.commitments.head_data.hash(),
+			backed_candidate_receipt.descriptor().para_head ==
+				backed_candidate_receipt.commitments.head_data.hash(),
 			Error::&lt;T&gt;::ParaHeadMismatch,
 		);
 
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.check_validation_outputs(
 			para_id,
 			relay_parent_number,
-			<span class="kw-2">&amp;</span>backed_candidate.candidate.commitments.head_data,
-			<span class="kw-2">&amp;</span>backed_candidate.candidate.commitments.new_validation_code,
-			backed_candidate.candidate.commitments.processed_downward_messages,
-			<span class="kw-2">&amp;</span>backed_candidate.candidate.commitments.upward_messages,
-			BlockNumberFor::&lt;T&gt;::from(backed_candidate.candidate.commitments.hrmp_watermark),
-			<span class="kw-2">&amp;</span>backed_candidate.candidate.commitments.horizontal_messages,
+			<span class="kw-2">&amp;</span>backed_candidate_receipt.commitments.head_data,
+			<span class="kw-2">&amp;</span>backed_candidate_receipt.commitments.new_validation_code,
+			backed_candidate_receipt.commitments.processed_downward_messages,
+			<span class="kw-2">&amp;</span>backed_candidate_receipt.commitments.upward_messages,
+			BlockNumberFor::&lt;T&gt;::from(backed_candidate_receipt.commitments.hrmp_watermark),
+			<span class="kw-2">&amp;</span>backed_candidate_receipt.commitments.horizontal_messages,
 		) {
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
