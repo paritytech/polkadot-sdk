@@ -537,11 +537,15 @@ impl<T: Config> Pallet<T> {
 		let mut delegate = Delegate::<T>::from(delegate_acc)?;
 		let pre_total = T::CoreStaking::stake(delegate_acc).defensive()?.total;
 
-		let _stash_killed: bool =
+		let stash_killed: bool =
 			T::CoreStaking::withdraw_unbonded(delegate_acc.clone(), num_slashing_spans)
 				.map_err(|_| Error::<T>::WithdrawFailed)?;
 
-		let post_total = T::CoreStaking::stake(delegate_acc).defensive()?.total;
+		let maybe_post_total = T::CoreStaking::stake(delegate_acc);
+		// One of them should be true
+		defensive_assert!(!(stash_killed && maybe_post_total.is_ok()), "something horrible happened while withdrawing");
+
+		let post_total = maybe_post_total.map_or(Zero::zero(), |s| s.total);
 
 		let new_withdrawn =
 			pre_total.checked_sub(&post_total).defensive_ok_or(Error::<T>::BadState)?;
