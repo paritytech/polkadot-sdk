@@ -72,6 +72,7 @@ var srcIndex = JSON.parse('{\
 "cumulus_primitives_core":["",[],["lib.rs"]],\
 "cumulus_primitives_parachain_inherent":["",[],["lib.rs"]],\
 "cumulus_primitives_proof_size_hostfunction":["",[],["lib.rs"]],\
+"cumulus_primitives_storage_weight_reclaim":["",[],["lib.rs"]],\
 "cumulus_primitives_timestamp":["",[],["lib.rs"]],\
 "cumulus_primitives_utility":["",[],["lib.rs"]],\
 "cumulus_relay_chain_inprocess_interface":["",[],["lib.rs"]],\

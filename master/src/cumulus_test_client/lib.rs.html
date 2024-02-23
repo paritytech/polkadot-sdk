@@ -221,6 +221,10 @@
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -374,6 +378,7 @@
 		frame_system::CheckNonce::&lt;Runtime&gt;::from(nonce),
 		frame_system::CheckWeight::&lt;Runtime&gt;::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::&lt;Runtime&gt;::from(tip),
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::&lt;Runtime&gt;::new(),
 	);
 
 	<span class="kw">let </span>function = function.into();
@@ -381,7 +386,7 @@
 	<span class="kw">let </span>raw_payload = SignedPayload::from_raw(
 		function.clone(),
 		extra.clone(),
-		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	<span class="kw">let </span>signature = raw_payload.using_encoded(|e| origin.sign(e));
 
@@ -426,13 +431,16 @@
 	<span class="kw">let </span><span class="kw-2">mut </span>ext_ext = ext.ext();
 
 	<span class="kw">let </span>heap_pages = HeapAllocStrategy::Static { extra_pages: <span class="number">1024 </span>};
-	<span class="kw">let </span>executor = WasmExecutor::&lt;sp_io::SubstrateHostFunctions&gt;::builder()
-		.with_execution_method(WasmExecutionMethod::default())
-		.with_max_runtime_instances(<span class="number">1</span>)
-		.with_runtime_cache_size(<span class="number">2</span>)
-		.with_onchain_heap_alloc_strategy(heap_pages)
-		.with_offchain_heap_alloc_strategy(heap_pages)
-		.build();
+	<span class="kw">let </span>executor = WasmExecutor::&lt;(
+		sp_io::SubstrateHostFunctions,
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	)&gt;::builder()
+	.with_execution_method(WasmExecutionMethod::default())
+	.with_max_runtime_instances(<span class="number">1</span>)
+	.with_runtime_cache_size(<span class="number">2</span>)
+	.with_onchain_heap_alloc_strategy(heap_pages)
+	.with_offchain_heap_alloc_strategy(heap_pages)
+	.build();
 
 	executor
 		.uncached_call(

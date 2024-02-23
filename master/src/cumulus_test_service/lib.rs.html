@@ -940,6 +940,7 @@
 <a href="#940" id="940">940</a>
 <a href="#941" id="941">941</a>
 <a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1054,7 +1055,7 @@
 </span><span class="kw">pub struct </span>RuntimeExecutor;
 
 <span class="kw">impl </span>sc_executor::NativeExecutionDispatch <span class="kw">for </span>RuntimeExecutor {
-	<span class="kw">type </span>ExtendHostFunctions = ();
+	<span class="kw">type </span>ExtendHostFunctions = cumulus_client_service::storage_proof_size::HostFunctions;
 
 	<span class="kw">fn </span>dispatch(method: <span class="kw-2">&amp;</span>str, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		cumulus_test_runtime::api::dispatch(method, data)
@@ -1836,11 +1837,12 @@
 		frame_system::CheckNonce::&lt;runtime::Runtime&gt;::from(nonce),
 		frame_system::CheckWeight::&lt;runtime::Runtime&gt;::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::&lt;runtime::Runtime&gt;::from(tip),
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::&lt;runtime::Runtime&gt;::new(),
 	);
 	<span class="kw">let </span>raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
 		extra.clone(),
-		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	<span class="kw">let </span>signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(

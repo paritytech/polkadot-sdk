@@ -767,6 +767,7 @@
 <a href="#767" id="767">767</a>
 <a href="#768" id="768">768</a>
 <a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
@@ -876,6 +877,7 @@
 	frame_system::CheckNonce&lt;Runtime&gt;,
 	frame_system::CheckWeight&lt;Runtime&gt;,
 	pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
+	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim&lt;Runtime&gt;,
 );
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.

@@ -476,6 +476,7 @@
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
 <a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -809,6 +810,7 @@
 	frame_system::CheckNonce&lt;Runtime&gt;,
 	frame_system::CheckWeight&lt;Runtime&gt;,
 	pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
+	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim&lt;Runtime&gt;,
 );
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>UncheckedExtrinsic =

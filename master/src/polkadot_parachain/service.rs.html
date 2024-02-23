@@ -2195,6 +2195,11 @@
 <a href="#2195" id="2195">2195</a>
 <a href="#2196" id="2196">2196</a>
 <a href="#2197" id="2197">2197</a>
+<a href="#2198" id="2198">2198</a>
+<a href="#2199" id="2199">2199</a>
+<a href="#2200" id="2200">2200</a>
+<a href="#2201" id="2201">2201</a>
+<a href="#2202" id="2202">2202</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2265,11 +2270,15 @@
 <span class="kw">use </span>polkadot_primitives::CollatorPair;
 
 <span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
-</span><span class="kw">type </span>HostFunctions = sp_io::SubstrateHostFunctions;
+</span><span class="kw">type </span>HostFunctions =
+	(sp_io::SubstrateHostFunctions, cumulus_client_service::storage_proof_size::HostFunctions);
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">type </span>HostFunctions =
-	(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions);
+</span><span class="kw">type </span>HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	cumulus_client_service::storage_proof_size::HostFunctions,
+	frame_benchmarking::benchmarking::HostFunctions,
+);
 
 <span class="kw">type </span>ParachainClient&lt;RuntimeApi&gt; = TFullClient&lt;Block, RuntimeApi, WasmExecutor&lt;HostFunctions&gt;&gt;;
 
@@ -2471,10 +2480,11 @@
 		.build();
 
 	<span class="kw">let </span>(client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(
+		sc_service::new_full_parts_record_import::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(
 			config,
 			telemetry.as_ref().map(|(<span class="kw">_</span>, telemetry)| telemetry.handle()),
 			executor,
+			<span class="bool-val">true</span>,
 		)<span class="question-mark">?</span>;
 	<span class="kw">let </span>client = Arc::new(client);
 

@@ -1078,6 +1078,7 @@
 <a href="#1078" id="1078">1078</a>
 <a href="#1079" id="1079">1079</a>
 <a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1103,6 +1104,7 @@
 	},
 	service::{new_partial, Block},
 };
+<span class="kw">use </span>cumulus_client_service::storage_proof_size::HostFunctions <span class="kw">as </span>ReclaimHostFunctions;
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 <span class="kw">use </span>log::info;
@@ -1664,7 +1666,7 @@
 			</span><span class="kw">match </span>cmd {
 				BenchmarkCmd::Pallet(cmd) =&gt;
 					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>) {
-						runner.sync_run(|config| cmd.run::&lt;sp_runtime::traits::HashingFor&lt;Block&gt;, ()&gt;(config))
+						runner.sync_run(|config| cmd.run::&lt;sp_runtime::traits::HashingFor&lt;Block&gt;, ReclaimHostFunctions&gt;(config))
 					} <span class="kw">else </span>{
 						<span class="prelude-val">Err</span>(<span class="string">&quot;Benchmarking wasn&#39;t enabled when building the node. \
 				You can enable it with `--features runtime-benchmarks`.&quot;

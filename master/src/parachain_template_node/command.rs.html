@@ -392,8 +392,10 @@
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::net::SocketAddr;
 
+<span class="kw">use </span>cumulus_client_service::storage_proof_size::HostFunctions <span class="kw">as </span>ReclaimHostFunctions;
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 <span class="kw">use </span>log::info;
@@ -577,7 +579,7 @@
 			</span><span class="kw">match </span>cmd {
 				BenchmarkCmd::Pallet(cmd) =&gt;
 					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>) {
-						runner.sync_run(|config| cmd.run::&lt;sp_runtime::traits::HashingFor&lt;Block&gt;, ()&gt;(config))
+						runner.sync_run(|config| cmd.run::&lt;sp_runtime::traits::HashingFor&lt;Block&gt;, ReclaimHostFunctions&gt;(config))
 					} <span class="kw">else </span>{
 						<span class="prelude-val">Err</span>(<span class="string">&quot;Benchmarking wasn&#39;t enabled when building the node. \
 					You can enable it with `--features runtime-benchmarks`.&quot;
