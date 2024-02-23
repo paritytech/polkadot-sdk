@@ -896,12 +896,19 @@ where
 		let client = Arc::new(self.as_online().rpc_client().clone());
 		let mut child_kv = vec![];
 
+		// Create a semaphore to limit concurrent requests.
+		let semaphore = Arc::new(tokio::sync::Semaphore::new(Self::PARALLEL_REQUESTS));
+
 		// Create a collection of futures for each child root.
 		let futures: Vec<_> = child_roots
 			.into_iter()
 			.map(|prefixed_top_key| {
 				let client = Arc::clone(&client); // Increase the reference count of the Arc.
+				let semaphore = Arc::clone(&semaphore);
 				async move {
+	                // Acquire the semaphore permit before making the request.
+    	            let _permit = semaphore.acquire().await.expect("Failed to acquire semaphore permit");
+
 					// Asynchronously retrieve child keys using the RPC client.
 					let child_keys = Self::rpc_child_get_keys(
 						&client,
