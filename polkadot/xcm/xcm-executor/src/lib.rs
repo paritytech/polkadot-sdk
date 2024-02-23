@@ -26,10 +26,7 @@ use sp_core::defer;
 use sp_io::hashing::blake2_128;
 use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 use sp_weights::Weight;
-use xcm::{
-	latest::prelude::*,
-	v4::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS},
-};
+use xcm::latest::prelude::*;
 
 pub mod traits;
 use traits::{
@@ -413,8 +410,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		if current_surplus.any_gt(Weight::zero()) {
 			if let Some(w) = self.trader.refund_weight(current_surplus, &self.context) {
-				if !self.holding.contains_asset(&(w.id.clone(), 1).into())
-					&& self.ensure_can_subsume_assets(1).is_err()
+				if !self.holding.contains_asset(&(w.id.clone(), 1).into()) &&
+					self.ensure_can_subsume_assets(1).is_err()
 				{
 					let _ = self
 						.trader
@@ -573,11 +570,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						});
 					}
 				},
-				Err(ref mut error) => {
+				Err(ref mut error) =>
 					if let Ok(x) = Config::Weigher::instr_weight(&instr) {
 						error.weight.saturating_accrue(x)
-					}
-				},
+					},
 			}
 		}
 		result
@@ -987,16 +983,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					// between XcmSenders, which might charge different fees.
 					//
 					// Here's an implementation of charging for delivery fees here.
-					// TODO: This `worst_case_message` can be defined outside, in the runtime for
-					// example.
-					let mut worst_case_assets: Assets = Vec::new().into();
-					for i in 0..MAX_ITEMS_IN_ASSETS {
-						worst_case_assets.push((GeneralIndex(i as u128), 1u128).into());
-					}
-					let worst_case_message = Xcm(vec![
-						WithdrawAsset(worst_case_assets.clone());
-						MAX_INSTRUCTIONS_TO_DECODE as usize
-					]);
+					let worst_case_message = xcm::latest::get_worst_case_message();
 					for destination in self.send_destinations.iter() {
 						let (_, fee) = validate_send::<Config::XcmSender>(
 							destination.clone(),
@@ -1066,9 +1053,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.holding.saturating_take(assets.into());
 				Ok(())
 			},
-			ExpectAsset(assets) => {
-				self.holding.ensure_contains(&assets).map_err(|_| XcmError::ExpectationFalse)
-			},
+			ExpectAsset(assets) =>
+				self.holding.ensure_contains(&assets).map_err(|_| XcmError::ExpectationFalse),
 			ExpectOrigin(origin) => {
 				ensure!(self.context.origin == origin, XcmError::ExpectationFalse);
 				Ok(())

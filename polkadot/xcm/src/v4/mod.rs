@@ -1366,6 +1366,29 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 	}
 }
 
+/// Returns the worst case message to be sent.
+pub fn get_worst_case_message<Call>() -> Xcm<Call> {
+	let mut worst_case_assets: Assets = Vec::new().into();
+	for i in 0..MAX_ITEMS_IN_ASSETS {
+		worst_case_assets.push((Junction::GeneralIndex(i as u128), u128::MAX).into());
+	}
+	let worst_case_message = Xcm(vec![
+		Instruction::<Call>::WithdrawAsset(worst_case_assets.clone());
+		MAX_INSTRUCTIONS_TO_DECODE as usize
+	]);
+	dbg!(&worst_case_message.encode().len());
+	let another_possible_worst_case_message = Xcm(vec![
+		Instruction::<Call>::Transact {
+			origin_kind: OriginKind::Native,
+			require_weight_at_most: Weight::from_parts(u64::MAX, u64::MAX),
+			call: vec![0u8; 64_000].into(),
+		};
+		MAX_INSTRUCTIONS_TO_DECODE as usize
+	]);
+	dbg!(&another_possible_worst_case_message.encode().len());
+	worst_case_message
+}
+
 #[cfg(test)]
 mod tests {
 	use super::{prelude::*, *};
