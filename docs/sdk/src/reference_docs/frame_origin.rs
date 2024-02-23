@@ -178,9 +178,7 @@ pub mod pallet_with_custom_origin {
 	#[docify::export(custom_origin_usage)]
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		pub fn only_validators(
-			origin: OriginFor<T>,
-		) -> DispatchResult {
+		pub fn only_validators(origin: OriginFor<T>) -> DispatchResult {
 			// first, we convert from `<T as frame_system::Config>::RuntimeOrigin` to `<T as
 			// Config>::RuntimeOrigin`
 			let local_runtime_origin = <<T as Config>::RuntimeOrigin as From<
