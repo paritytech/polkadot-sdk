@@ -63,7 +63,11 @@ use metrics::Metrics;
 const LOG_TARGET: &str = "parachain::gossip-support";
 // How much time should we wait to reissue a connection request
 // since the last authority discovery resolution failure.
+#[cfg(not(test))]
 const BACKOFF_DURATION: Duration = Duration::from_secs(5);
+
+#[cfg(test)]
+const BACKOFF_DURATION: Duration = Duration::from_millis(500);
 
 /// Duration after which we consider low connectivity a problem.
 ///
@@ -271,8 +275,8 @@ where
 					)
 					.await?;
 				}
-				// authority_discovery is just a cache so let's try every leaf to detect if there
-				// are new authorities there.
+				// authority_discovery is just a cache so let's try every time we try to re-connect
+				// if new authorities are present.
 				self.update_authority_ids(sender, session_info.discovery_keys).await;
 			}
 		}
