@@ -31,10 +31,10 @@ use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero,
 use sp_staking::{EraIndex, SessionIndex};
 use sp_std::collections::btree_map::BTreeMap;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 type AccountId = u64;
 type Balance = u64;
-type BlockNumber = u64;
+type BlockNumber = u32;
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
@@ -82,6 +82,7 @@ impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl pallet_balances::Config for Test {
@@ -285,10 +286,10 @@ impl ExtBuilder {
 
 /// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
 pub(crate) fn start_session(session_index: SessionIndex) {
-	let end: u64 = if Offset::get().is_zero() {
-		(session_index as u64) * Period::get()
+	let end: u32 = if Offset::get().is_zero() {
+		(session_index as u32) * Period::get()
 	} else {
-		Offset::get() + (session_index.saturating_sub(1) as u64) * Period::get()
+		Offset::get() + (session_index.saturating_sub(1) as u32) * Period::get()
 	};
 	run_to_block(end);
 	// session must have progressed properly.
@@ -311,8 +312,8 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 	for b in (System::block_number() + 1)..=n {
 		System::set_block_number(b);
 		Session::on_initialize(b);
-		<Staking as Hooks<u64>>::on_initialize(b);
-		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
+		<Staking as Hooks<u32>>::on_initialize(b);
+		Timestamp::set_timestamp(System::block_number() as u64 * BLOCK_TIME + INIT_TIMESTAMP);
 		if b != n {
 			Staking::on_finalize(System::block_number());
 		}
