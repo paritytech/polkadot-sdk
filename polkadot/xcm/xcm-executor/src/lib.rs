@@ -1238,7 +1238,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			HrmpNewChannelOpenRequest { .. } => Err(XcmError::Unimplemented),
 			HrmpChannelAccepted { .. } => Err(XcmError::Unimplemented),
 			HrmpChannelClosing { .. } => Err(XcmError::Unimplemented),
-			DepositFee { fees } => {
+			PayFees { fees } => {
 				let old_holding = self.holding.clone();
 				let taken_fees = self.holding.try_take(fees.into()).map_err(|error| {
 					log::error!(target: "xcm::process_instruction::DepositFee", "Failed to take fees from holding, error: {:?}", error);

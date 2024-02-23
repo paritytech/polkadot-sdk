@@ -676,7 +676,6 @@ mod tests {
 		});
 
 		ParaA::execute_with(|| {
-			let asset: Asset = (Parent, 100u128).into();
 			let remark_call =
 				parachain::RuntimeCall::System(frame_system::Call::<parachain::Runtime>::remark {
 					remark: b"Hello".to_vec(),
@@ -693,9 +692,9 @@ mod tests {
 				AccountId32 { id: ALICE.clone().into(), network: Some(NetworkId::Kusama) },
 			);
 			let message = Xcm::<()>::builder()
-				.withdraw_asset(asset.clone().into())
+				.withdraw_asset((Parent, 100u128).into())
 				// We can't use all the assets if we want to have something left over to deposit.
-				.deposit_fee((Parent, 50u128).into()) // We only need 21 for fees, the rest (29) will be trapped
+				.pay_fees((Parent, 50u128).into()) // We only need 21 for fees, the rest (29) will be trapped
 				.set_appendix(
 					Xcm::builder_unsafe()
 						.report_error(QueryResponseInfo {
