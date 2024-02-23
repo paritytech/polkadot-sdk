@@ -2282,8 +2282,8 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		composite_enum, config, disable_frame_system_supertrait_check, error, event,
-		extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
+		composite_enum, config, disable_frame_system_supertrait_check, disable_try_decode_storage,
+		error, event, extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
 		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
 		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
 		whitelist_storage,
