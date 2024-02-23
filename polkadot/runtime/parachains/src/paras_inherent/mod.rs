@@ -959,7 +959,8 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 // Result from `sanitize_backed_candidates`
 #[derive(Debug, PartialEq)]
 struct SanitizedBackedCandidates<Hash> {
-	// Sanitized backed candidates. The `Vec` is sorted according to the occupied core index.
+	// Sanitized backed candidates along with the assigned core. The `Vec` is sorted according to
+	// the occupied core index.
 	backed_candidates_with_core: Vec<(BackedCandidate<Hash>, CoreIndex)>,
 	// Set to true if any votes from disabled validators were dropped from the input.
 	votes_from_disabled_were_dropped: bool,
@@ -970,8 +971,10 @@ struct SanitizedBackedCandidates<Hash> {
 
 /// Filter out:
 /// 1. any candidates that have a concluded invalid dispute
-/// 2. all backing votes from disabled validators
-/// 3. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
+/// 2. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
+///    but have no injected core index.
+/// 3. all backing votes from disabled validators
+/// 4. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
 ///
 /// `scheduled` follows the same naming scheme as provided in the
 /// guide: Currently `free` but might become `occupied`.
