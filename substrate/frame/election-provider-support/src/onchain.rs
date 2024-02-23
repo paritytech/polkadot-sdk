@@ -186,7 +186,6 @@ mod tests {
 	use sp_npos_elections::Support;
 	use sp_runtime::Perbill;
 	type AccountId = u64;
-	type Nonce = u64;
 	type BlockNumber = u32;
 
 	pub type Header = sp_runtime::generic::Header<BlockNumber, sp_runtime::traits::BlakeTwo256>;
@@ -201,29 +200,8 @@ mod tests {
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Runtime {
-		type SS58Prefix = ();
-		type BaseCallFilter = frame_support::traits::Everything;
-		type RuntimeOrigin = RuntimeOrigin;
-		type Nonce = Nonce;
-		type RuntimeCall = RuntimeCall;
-		type Hash = sp_core::H256;
-		type Hashing = sp_runtime::traits::BlakeTwo256;
-		type AccountId = AccountId;
-		type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 		type Block = Block;
-		type RuntimeEvent = ();
 		type BlockHashCount = ();
-		type DbWeight = ();
-		type BlockLength = ();
-		type BlockWeights = ();
-		type Version = ();
-		type PalletInfo = PalletInfo;
-		type AccountData = ();
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type OnSetCode = ();
-		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
 	struct PhragmenParams;
