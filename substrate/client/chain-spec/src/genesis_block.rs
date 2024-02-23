@@ -20,6 +20,7 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
+use codec::Encode;
 use sc_client_api::{backend::Backend, BlockImportOperation};
 use sc_executor::RuntimeVersionOf;
 use sp_core::storage::{well_known_keys, StateVersion, Storage};
@@ -44,7 +45,7 @@ where
 		let runtime_code = sp_core::traits::RuntimeCode {
 			code_fetcher: &code_fetcher,
 			heap_pages: None,
-			hash: <H as HashT>::hash(wasm).as_ref().to_vec(),
+			hash: <H as HashT>::hash(wasm).encode(),
 		};
 		let runtime_version = RuntimeVersionOf::runtime_version(executor, &mut ext, &runtime_code)
 			.map_err(|e| sp_blockchain::Error::VersionInvalid(e.to_string()))?;
