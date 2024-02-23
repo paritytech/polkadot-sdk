@@ -949,21 +949,19 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let mut unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
 					// 1.
 					//
-					// Here we could do too things with these `unspent` assets.
-					// We could put them into a special `fee` register to pay for delivery fees
-					// whenever `self.send()` is encountered, or we could try to pay for all
-					// delivery fees here.
+					// We want to put some amount of these `unspent` assets into the `delivery_fees`
+					// register. We could either put all of them or try to estimate how much to put.
 					//
-					// Paying for delivery fees as they appear in the program is worse UX.
-					// In this case, we'd probably do something like: `self.fees = unspent`.
-					// Users usually just pass in `All` as their fee filter to this instruction,
-					// which means we'd be taking all of that only for delivery fee payment.
+					// If we just put all the assets into this register, some programs would
+					// probably need to change. Before this change, there's no issue with users
+					// writing:
+					// - WithdrawAsset(vec![asset])
+					// - BuyExecution { fees: asset, .. }
+					// - DepositAsset { assets: asset.into(), .. }
+					// Now, this wouldn't deposit anything, since we take everything for fees.
 					//
-					// Paying for delivery fees here means we can pay for all of them and return
-					// what's left over to the holding register.
-					// For that, we need to estimate the fees at this moment in time.
-					// To estimate the delivery fees, we need both the message that'll be sent, and
-					// the destination.
+					// However, estimating how much we actually need is hard.
+					// We'd need both the message that'll be sent, and the destination.
 					//
 					// The message is pretty hard to get, since we'd need to replicate the
 					// instruction that actually sends it.
@@ -982,7 +980,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					// We need the destinations, since they are the way the executor differentiates
 					// between XcmSenders, which might charge different fees.
 					//
-					// Here's an implementation of putting all unspent assets in the new
+					// Here's an implementation of just putting all unspent assets in the new
 					// `delivery_fees` register instead of in the holding register.
 					self.delivery_fees.subsume_assets(unspent);
 					Ok(())
