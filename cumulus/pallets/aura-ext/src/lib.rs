@@ -103,7 +103,6 @@ pub mod pallet {
 	///
 	/// Updated on each block initialization.
 	#[pallet::storage]
-	#[pallet::getter(fn slot_info)]
 	pub(crate) type SlotInfo<T: Config> = StorageValue<_, (Slot, u32), OptionQuery>;
 
 	#[pallet::genesis_config]
