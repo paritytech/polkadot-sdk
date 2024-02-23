@@ -151,7 +151,7 @@ pub fn generate_extrinsic_with_pair(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<runtime::Runtime>::new(),
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<Runtime>::new(),
 	);
 
 	let function = function.into();
