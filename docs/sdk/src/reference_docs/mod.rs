@@ -100,5 +100,3 @@ pub mod frame_runtime_migration;
 /// light-node-first out of the box.
 // TODO: @jsdw @josepot https://github.com/paritytech/polkadot-sdk-docs/issues/68
 pub mod light_nodes;
-
-// pub mod opinionated_pallets;
