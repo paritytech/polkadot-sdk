@@ -131,7 +131,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		num_slashing_spans: u32,
 	) -> Result<bool, DispatchError> {
 		Pallet::<T>::withdraw_unbonded(&pool_acc, num_slashing_spans)
-			.map(|ledger| ledger.total_delegated.is_zero())
+			.map(|delegate| delegate.ledger.total_delegated.is_zero())
 	}
 
 	fn desired_validator_count() -> u32 {

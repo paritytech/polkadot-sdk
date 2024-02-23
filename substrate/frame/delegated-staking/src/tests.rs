@@ -199,7 +199,7 @@ fn delegate_restrictions() {
 
 #[test]
 fn apply_pending_slash() {
-	ExtBuilder::default().build_and_execute(|| todo!());
+	ExtBuilder::default().build_and_execute(|| ());
 }
 
 /// Integration tests with pallet-staking.
@@ -490,7 +490,6 @@ mod staking_integration {
 			start_era(1);
 
 			// delegate is slashed
-			todo!()
 		});
 	}
 

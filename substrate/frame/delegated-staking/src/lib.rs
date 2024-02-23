@@ -489,7 +489,7 @@ impl<T: Config> Pallet<T> {
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
 		if ledger.unclaimed_withdrawals < amount {
-			ledger = Self::withdraw_unbonded(who, num_slashing_spans)?;
+			ledger = Self::withdraw_unbonded(who, num_slashing_spans)?.ledger;
 		}
 
 		// if we still do not have enough funds to release, abort.
@@ -538,31 +538,27 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn withdraw_unbonded(
-		delegate: &T::AccountId,
+		delegate_acc: &T::AccountId,
 		num_slashing_spans: u32,
-	) -> Result<DelegationLedger<T>, DispatchError> {
-		let mut ledger = DelegationLedger::<T>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-
-		let pre_total = T::CoreStaking::stake(delegate).defensive()?.total;
+	) -> Result<Delegate<T>, DispatchError> {
+		let mut delegate = Delegate::<T>::from(delegate_acc)?;
+		let pre_total = T::CoreStaking::stake(delegate_acc).defensive()?.total;
 
 		// fixme(ank4n) handle killing of stash
 		let _stash_killed: bool =
-			T::CoreStaking::withdraw_unbonded(delegate.clone(), num_slashing_spans)
+			T::CoreStaking::withdraw_unbonded(delegate_acc.clone(), num_slashing_spans)
 				.map_err(|_| Error::<T>::WithdrawFailed)?;
 
-		let post_total = T::CoreStaking::stake(delegate).defensive()?.total;
+		let post_total = T::CoreStaking::stake(delegate_acc).defensive()?.total;
 
 		let new_withdrawn =
 			pre_total.checked_sub(&post_total).defensive_ok_or(Error::<T>::BadState)?;
 
-		ledger.unclaimed_withdrawals = ledger
-			.unclaimed_withdrawals
-			.checked_add(&new_withdrawn)
-			.ok_or(ArithmeticError::Overflow)?;
+		delegate.try_add_unclaimed_withdraw(new_withdrawn)?;
 
-		ledger.clone().save(delegate);
+		delegate.clone().save();
 
-		Ok(ledger)
+		Ok(delegate)
 	}
 
 	/// Migrates delegation of `amount` from `source` account to `destination` account.
