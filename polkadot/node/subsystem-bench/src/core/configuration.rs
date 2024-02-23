@@ -13,21 +13,18 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-//
-//! Test configuration definition and helpers.
-use super::*;
-use itertools::Itertools;
-use keyring::Keyring;
-use sc_network::PeerId;
-use sp_consensus_babe::AuthorityId;
-use std::{collections::HashMap, path::Path};
 
-pub use crate::cli::TestObjective;
+//! Test configuration definition and helpers.
+
+use crate::{core::keyring::Keyring, TestObjective};
+use itertools::Itertools;
 use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId};
 use rand::thread_rng;
 use rand_distr::{Distribution, Normal, Uniform};
-
+use sc_network::PeerId;
 use serde::{Deserialize, Serialize};
+use sp_consensus_babe::AuthorityId;
+use std::{collections::HashMap, path::Path};
 
 pub fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
 	random_uniform_sample(min_pov_size, max_pov_size)
@@ -238,95 +235,6 @@ impl TestConfiguration {
 			validator_assignment_id,
 			key_seeds,
 			peer_id_to_authority,
-		}
-	}
-
-	/// An unconstrained standard configuration matching Polkadot/Kusama
-	pub fn ideal_network(
-		objective: TestObjective,
-		num_blocks: usize,
-		n_validators: usize,
-		n_cores: usize,
-		min_pov_size: usize,
-		max_pov_size: usize,
-	) -> TestConfiguration {
-		Self {
-			objective,
-			n_cores,
-			n_validators,
-			max_validators_per_core: 5,
-			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
-			bandwidth: 50 * 1024 * 1024,
-			peer_bandwidth: 50 * 1024 * 1024,
-			// No latency
-			latency: None,
-			num_blocks,
-			min_pov_size,
-			max_pov_size,
-			connectivity: 100,
-			needed_approvals: default_needed_approvals(),
-			n_delay_tranches: default_n_delay_tranches(),
-			no_show_slots: default_no_show_slots(),
-			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
-			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
-		}
-	}
-
-	pub fn healthy_network(
-		objective: TestObjective,
-		num_blocks: usize,
-		n_validators: usize,
-		n_cores: usize,
-		min_pov_size: usize,
-		max_pov_size: usize,
-	) -> TestConfiguration {
-		Self {
-			objective,
-			n_cores,
-			n_validators,
-			max_validators_per_core: 5,
-			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
-			bandwidth: 50 * 1024 * 1024,
-			peer_bandwidth: 50 * 1024 * 1024,
-			latency: Some(PeerLatency { mean_latency_ms: 50, std_dev: 12.5 }),
-			num_blocks,
-			min_pov_size,
-			max_pov_size,
-			connectivity: 95,
-			needed_approvals: default_needed_approvals(),
-			n_delay_tranches: default_n_delay_tranches(),
-			no_show_slots: default_no_show_slots(),
-			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
-			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
-		}
-	}
-
-	pub fn degraded_network(
-		objective: TestObjective,
-		num_blocks: usize,
-		n_validators: usize,
-		n_cores: usize,
-		min_pov_size: usize,
-		max_pov_size: usize,
-	) -> TestConfiguration {
-		Self {
-			objective,
-			n_cores,
-			n_validators,
-			max_validators_per_core: 5,
-			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
-			bandwidth: 50 * 1024 * 1024,
-			peer_bandwidth: 50 * 1024 * 1024,
-			latency: Some(PeerLatency { mean_latency_ms: 150, std_dev: 40.0 }),
-			num_blocks,
-			min_pov_size,
-			max_pov_size,
-			connectivity: 67,
-			needed_approvals: default_needed_approvals(),
-			n_delay_tranches: default_n_delay_tranches(),
-			no_show_slots: default_no_show_slots(),
-			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
-			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
 		}
 	}
 }

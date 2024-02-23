@@ -12,7 +12,7 @@ categories = ["cryptography::cryptocurrencies"]
 workspace = true
 
 [dependencies]
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }

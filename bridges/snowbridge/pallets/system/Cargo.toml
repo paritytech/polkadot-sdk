@@ -22,7 +22,7 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }

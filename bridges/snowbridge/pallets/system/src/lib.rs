@@ -37,8 +37,6 @@
 //! `force_update_channel` and extrinsics to manage agents and channels for system parachains.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use pallet::*;
-
 #[cfg(test)]
 mod mock;
 

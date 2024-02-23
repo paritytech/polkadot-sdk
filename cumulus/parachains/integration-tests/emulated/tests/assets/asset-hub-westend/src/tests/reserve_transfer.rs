@@ -70,7 +70,7 @@ fn para_receiver_assertions<Test>(_: Test) {
 	assert_expected_events!(
 		PenpalB,
 		vec![
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { .. }) => {},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
 			) => {},
@@ -88,7 +88,7 @@ fn para_to_system_para_sender_assertions(t: ParaToSystemParaTest) {
 		vec![
 			// Amount to reserve transfer is transferred to Parachain's Sovereign account
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Withdraw { who, amount }
+				pallet_balances::Event::Burned { who, amount }
 			) => {
 				who: *who == t.sender.account_id,
 				amount: *amount == t.args.amount,
@@ -109,12 +109,12 @@ fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
 		vec![
 			// Amount to reserve transfer is transferred to Parachain's Sovereign account
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Withdraw { who, amount }
+				pallet_balances::Event::Burned { who, amount }
 			) => {
 				who: *who == sov_penpal_on_ahw.clone().into(),
 				amount: *amount == t.args.amount,
 			},
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { .. }) => {},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
 			) => {},
@@ -153,7 +153,7 @@ fn system_para_to_para_assets_receiver_assertions<Test>(_: Test) {
 	assert_expected_events!(
 		PenpalB,
 		vec![
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { .. }) => {},
 			RuntimeEvent::Assets(pallet_assets::Event::Issued { .. }) => {},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
@@ -170,7 +170,7 @@ fn para_to_para_sender_assertions(t: ParaToParaTest) {
 		vec![
 			// Amount to reserve transfer is transferred to Parachain's Sovereign account
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Withdraw { who, amount }
+				pallet_balances::Event::Burned { who, amount }
 			) => {
 				who: *who == t.sender.account_id,
 				amount: *amount == t.args.amount,
@@ -194,14 +194,14 @@ fn para_to_para_relay_hop_assertions(t: ParaToParaTest) {
 		vec![
 			// Withdrawn from sender parachain SA
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Withdraw { who, amount }
+				pallet_balances::Event::Burned { who, amount }
 			) => {
 				who: *who == sov_penpal_b_on_westend,
 				amount: *amount == t.args.amount,
 			},
 			// Deposited to receiver parachain SA
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Deposit { who, .. }
+				pallet_balances::Event::Minted { who, .. }
 			) => {
 				who: *who == sov_penpal_a_on_westend,
 			},
@@ -217,7 +217,7 @@ fn para_to_para_receiver_assertions(_: ParaToParaTest) {
 	assert_expected_events!(
 		PenpalA,
 		vec![
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { .. }) => {},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
 			) => {},

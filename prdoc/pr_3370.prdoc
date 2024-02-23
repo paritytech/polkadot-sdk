@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Remove `key` getter from pallet-sudo"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removed the `key` getter function from the sudo pallet. There is no replacement for getting
+      the key currently.
+
+crates:
+  - name: pallet-sudo
