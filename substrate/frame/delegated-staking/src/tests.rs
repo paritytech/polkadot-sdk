@@ -575,7 +575,6 @@ mod staking_integration {
 mod pool_integration {
 	use super::*;
 	use pallet_nomination_pools::{BondExtra, BondedPools, PoolState};
-	use sp_runtime::print;
 
 	#[test]
 	fn create_pool_test() {
@@ -909,6 +908,13 @@ mod pool_integration {
 					PoolsEvent::Destroyed { pool_id },
 				]
 			);
+
+			// Make sure all data is cleaned up.
+			assert_eq!(Delegates::<T>::contains_key(Pools::create_bonded_account(pool_id)), false);
+			assert_eq!(Delegators::<T>::contains_key(creator), false);
+			for i in 300..310 {
+				assert_eq!(Delegators::<T>::contains_key(i), false);
+			}
 		});
 	}
 

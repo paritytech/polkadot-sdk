@@ -196,43 +196,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
-// impl<T: Config> DelegationInterface for Pallet<T> {
-// FIXME(ank4n): Should be part of NP Adapter.
-// 	fn apply_slash(
-// 		delegate: &Self::AccountId,
-// 		delegator: &Self::AccountId,
-// 		value: Self::Balance,
-// 		maybe_reporter: Option<Self::AccountId>,
-// 	) -> DispatchResult {
-// 		let mut delegation_register =
-// 			<Delegates<T>>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-// 		let delegation = <Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
-//
-// 		ensure!(&delegation.delegate == delegate, Error::<T>::NotDelegate);
-// 		ensure!(delegation.amount >= value, Error::<T>::NotEnoughFunds);
-//
-// 		let (mut credit, _missing) =
-// 			T::Currency::slash(&HoldReason::Delegating.into(), &delegator, value);
-// 		let actual_slash = credit.peek();
-// 		// remove the slashed amount
-// 		delegation_register.pending_slash.saturating_reduce(actual_slash);
-// 		<Delegates<T>>::insert(delegate, delegation_register);
-//
-// 		if let Some(reporter) = maybe_reporter {
-// 			let reward_payout: BalanceOf<T> =
-// 				T::CoreStaking::slash_reward_fraction() * actual_slash;
-// 			let (reporter_reward, rest) = credit.split(reward_payout);
-// 			credit = rest;
-// 			// fixme(ank4n): handle error
-// 			let _ = T::Currency::resolve(&reporter, reporter_reward);
-// 		}
-//
-// 		T::OnSlash::on_unbalanced(credit);
-// 		Ok(())
-// 	}
-//
-// }
-
 impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
@@ -346,5 +309,19 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 	) -> DispatchResult {
 		// fixme(ank4n): This should not require slashing spans.
 		Pallet::<T>::release(RawOrigin::Signed(pool_account.clone()).into(), who.clone(), amount, 0)
+	}
+
+	fn apply_slash(
+		delegate: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		maybe_reporter: Option<Self::AccountId>,
+	) -> DispatchResult {
+		Pallet::<T>::slash(
+			RawOrigin::Signed(delegate.clone()).into(),
+			delegator.clone(),
+			value,
+			maybe_reporter,
+		)
 	}
 }

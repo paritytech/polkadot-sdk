@@ -201,4 +201,10 @@ pub trait PoolAdapter {
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
+	fn apply_slash(
+		delegate: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		maybe_reporter: Option<Self::AccountId>,
+	) -> DispatchResult;
 }

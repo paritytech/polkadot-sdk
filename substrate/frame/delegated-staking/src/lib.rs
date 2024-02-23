@@ -340,6 +340,54 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Apply a pending slash.
+		///
+		/// Delegate calls this to apply a pending slash to a delegator.
+		#[pallet::call_index(6)]
+		#[pallet::weight(Weight::default())]
+		pub fn slash(
+			origin: OriginFor<T>,
+			delegator: T::AccountId,
+			amount: BalanceOf<T>,
+			maybe_reporter: Option<T::AccountId>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut delegate = Delegate::<T>::from(&who)?;
+			let mut delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
+
+			ensure!(delegation.delegate == who, Error::<T>::NotDelegate);
+			ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
+
+			let (mut credit, missing) =
+				T::Currency::slash(&HoldReason::Delegating.into(), &delegator, amount);
+
+			defensive_assert!(missing.is_zero(), "slash should have been fully applied");
+
+			let actual_slash = credit.peek();
+
+			// remove the slashed amount
+			delegate.ledger.pending_slash.saturating_reduce(actual_slash);
+			delegate.save();
+
+			delegation
+				.decrease_delegation(actual_slash)
+				.ok_or(ArithmeticError::Overflow)?
+				.save(&delegator);
+
+			if let Some(reporter) = maybe_reporter {
+				let reward_payout: BalanceOf<T> =
+					T::CoreStaking::slash_reward_fraction() * actual_slash;
+				let (reporter_reward, rest) = credit.split(reward_payout);
+				credit = rest;
+
+				// fixme(ank4n): handle error
+				let _ = T::Currency::resolve(&reporter, reporter_reward);
+			}
+
+			T::OnSlash::on_unbalanced(credit);
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
