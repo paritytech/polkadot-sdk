@@ -15,35 +15,129 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Delegated Staking Pallet
+//!
+//! An abstraction over staking pallet to support delegation of funds to a `delegate` account which
+//! can use all the delegated funds to it in the staking pallet as if its own fund.
+//!
+//! NOTE: The pallet exposes extrinsics which are not yet meant to be exposed in the runtime but
+//! only to be used by other pallets in the same runtime.
+//!
+//! ## Goals
+//!
+//! The direct nominators on Staking pallet does not scale well. NominationPool was created to
+//! address this by pooling delegator funds into one account and then staking it. This though had
+//! a very important limitation that the funds were moved from delegator account to pool account
+//! and hence the delegator lost control over their funds for using it for other purposes such as
+//! governance. This pallet aims to solve this by extending the staking pallet to support a new
+//! primitive function: delegation of funds to an account for the intent of staking.
+//!
+//! #### Reward and Slashing
+//! This pallet does not enforce any specific strategy for how rewards or slashes are applied. It
+//! is upto the `delegate` account to decide how to apply the rewards and slashes.
+//!
+//! This importantly allows clients of this pallet to build their own strategies for reward/slashes.
+//! For example, a `delegate` account can choose to first slash the reward pot before slashing the
+//! delegators. Or part of the reward can go to a insurance fund that can be used to cover any
+//! potential future slashes. The goal is to eventually allow foreign MultiLocations
+//! (smart contracts or pallets on another chain) to build their own pooled staking solutions
+//! similar to `NominationPool`.
+//!
+//! ## Key Terminologies
+//! - *Delegate*: An account who accepts delegations from other accounts (called `Delegators`).
+//! - *Delegator*: An account who delegates their funds to a `delegate`.
+//! - *DelegationLedger*: A data structure that stores important information about the `delegate`
+//! 	such as their total delegated stake.
+//! - *Delegation*: A data structure that stores the amount of funds delegated to a `delegate` by a
+//! 	`delegator`.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Calls
+//! The pallet exposes the following [`Call`]s:
+//! - `register_as_delegate`: Register an account to be a `Delegate`. Once an account is registered
+//! 	as a `Delegate`, for staking operations, only its delegated funds are used. This means it
+//! 	cannot use its own free balance to stake.
+//! - `migrate_to_delegate`: This allows a `Nominator` account to become a `Delegate` account.
+//! 	Explained in more detail in the `Migration` section.
+//! - `release`: Release funds to `delegator` from `unclaimed_withdrawals` register of the
+//!   `delegate`.
+//! - `migrate_delegation`: Migrate delegated funds from one account to another. This is useful for
+//!   example, delegators to a pool account which has migrated to be `delegate` to migrate their
+//!   funds from pool account back to their own account and delegated to pool as a `delegator`. Once
+//!   the funds are migrated, the `delegator` can use the funds for other purposes which allows
+//!   usage of held funds in an account, such as governance.
+//! - `delegate_funds`: Delegate funds to a `Delegate` account and update the bond to staking.
+//!
+//! ### (Staking Interface)[StakingInterface]
+//! This pallet reimplements the staking interface as a wrapper implementation over
+//! [Config::CoreStaking] to provide delegation based staking. NominationPool can use this pallet as
+//! its Staking provider to support delegation based staking from pool accounts.
+//!
+//! ### (Staking Delegation Support)[StakingDelegationSupport]
+//! The pallet implements the staking delegation support trait which staking pallet can use to
+//! provide compatibility with this pallet.
+//!
+//! ### (Pool Adapter)[delegation::PoolAdapter]
+//! The pallet also implements the pool adapter trait which allows NominationPool to use this pallet
+//! to support delegation based staking from pool accounts. This strategy also allows the pool to
+//! switch implementations while having minimal changes to its own logic.
+//!
+//! ## Lazy Slashing
+//! One of the reasons why direct nominators on staking pallet cannot scale well is because all
+//! nominators are slashed at the same time. This is expensive and needs to be bounded operation.
+//!
+//! This pallet implements a lazy slashing mechanism. Any slashes to a `delegate` are posted in its
+//! [`DelegationLedger`] as a pending slash. Since the actual amount is held in the multiple
+//! `delegator` accounts, this pallet has no way to know how to apply slash. It is `delegate`'s
+//! responsibility to apply slashes for each delegator, one at a time. Staking pallet ensures the
+//! pending slash never exceeds staked amount and would freeze further withdraws until pending
+//! slashes are applied.
+//!
+//! `NominationPool` can apply slash for all its members by calling [PoolAdapter::apply_slash].
+//!
+//! ## Migration from Nominator to Delegate
+//! More details here. https://hackmd.io/1jhFRj2MTzeEmAkJgbsBtA?both
+//!
+//! ## Reward Destination Restrictions
+//! This pallets set an important restriction of rewards account to be separate from `delegate`
+//! account. This is because, `delegate` balance is not what is directly exposed but the funds that
+//! are delegated to it. For `delegate` accounts, we have also no way to auto-compound rewards. The
+//! rewards need to be paid out to delegators and then delegated again to the `delegate` account.
+//!
+//! ## Nomination Pool vs Delegation Staking
+//! This pallet is not a replacement for Nomination Pool but adds a new primitive over staking
+//! pallet that can be used by Nomination Pool to support delegation based staking. It can be
+//! thought of as something in middle of Nomination Pool and Staking Pallet. Technically, these
+//! changes could be made in one of those pallets as well but that would have meant significant
+//! refactoring and high chances of introducing a regression. With this approach, we can keep the
+//! existing pallets with minimal changes and introduce a new pallet that can be optionally used by
+//! Nomination Pool. This is completely configurable and a runtime can choose whether to use
+//! this pallet or not.
+//!
+//! With that said, following is the main difference between
+//! #### Nomination Pool without delegation support
+//!  1) transfer fund from delegator to pool account, and
+//!  2) stake from pool account as a direct nominator.
+//!
+//! #### Nomination Pool with delegation support
+//!  1) delegate fund from delegator to pool account, and
+//!  2) stake from pool account as a `Delegate` account on the staking pallet.
+//!
+//! The difference being, in the second approach, the delegated funds will be locked in-place in
+//! user's account enabling them to participate in use cases that allows use of `held` funds such
+//! as participation in governance voting.
+//!
+//! Nomination pool still does all the heavy lifting around pool administration, reward
+//! distribution, lazy slashing and as such, is not meant to be replaced with this pallet.
+//!
+//! ## Limitations
+//! TODO(ank4n): Add limitations.
+//!
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
-// FIXME(ank4n): fix docs
-//! An implementation of a delegation system for staking that can be utilised using
-//! [`DelegationInterface`]. In future, if exposed via extrinsic, these primitives could also be
-//! used by off-chain entities, or by foreign multi-locations (via xcm).
-//!
-//! Delegate: Someone who accepts delegations. An account can set their intention to accept
-//! delegations by calling [`DelegationInterface::accept_delegations`]. This account cannot have
-//! another role in the staking system and once set as `delegate`, can only stake with their
-//! delegated balance, i.e. cannot use their own free balance to stake. They can also block new
-//! delegations by calling [`DelegationInterface::block_delegations`] or remove themselves from
-//! being a `delegate` by calling [`DelegationInterface::kill_delegate`] once all delegations to it
-//! are removed.
-//!
-//! Delegate is also responsible for managing reward distribution and slashes of delegators.
-//!
-//! Delegator: Someone who delegates their funds to a `delegate`. A delegator can delegate their
-//! funds to one and only one `delegate`. They also can not be a nominator or validator.
-//!
-//! Reward payouts destination: Rewards cannot be paid out to `delegate` account since these funds
-//! are not directly exposed. This implies, rewards cannot be auto-compounded and needs to be staked
-//! again after distributing it to delegators.
-//!
-//! Any slashes to a `delegate` are posted in its [`DelegationLedger`] as a pending slash. Since the
-//! actual amount is held in the multiple `delegator` accounts, this pallet has no way to know how
-//! to apply slash. It is `delegate`'s responsibility to apply slashes for each delegator, one at a
-//! time. Staking pallet ensures the pending slash never exceeds staked amount and would freeze
-//! further withdraws until pending slashes are applied.
+
 #[cfg(test)]
 mod mock;
 
@@ -83,7 +177,8 @@ use sp_runtime::{
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating, TryRuntimeError,
 };
 use sp_staking::{
-	delegation::StakingDelegationSupport, EraIndex, Stake, StakerStatus, StakingInterface,
+	delegation, delegation::StakingDelegationSupport, EraIndex, Stake, StakerStatus,
+	StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
