@@ -2248,7 +2248,7 @@ pub mod pallet {
 			let mut sub_pools =
 				SubPoolsStorage::<T>::get(member.pool_id).ok_or(Error::<T>::SubPoolsNotFound)?;
 
-			if bonded_pool.has_pending_slash(){
+			if bonded_pool.has_pending_slash() {
 				// apply slash if any before withdraw.
 				let _ = Self::do_apply_slash(&member_account, None);
 			}
