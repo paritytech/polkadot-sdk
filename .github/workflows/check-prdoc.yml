@@ -62,5 +62,5 @@ jobs:
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
           echo "Validating PR#${GITHUB_PR}"
-          python3 -m pip install cargo-workspace==1.1.0
+          python3 -m pip install cargo-workspace==1.1.1
           python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${GITHUB_PR}.prdoc
