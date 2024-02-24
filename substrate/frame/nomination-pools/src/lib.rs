@@ -1939,8 +1939,8 @@ pub mod pallet {
 		BondExtraRestricted,
 		/// No imbalance in the ED deposit for the pool.
 		NothingToAdjust,
-        /// No slash pending that can be applied to the member.
-        NothingToSlash,
+		/// No slash pending that can be applied to the member.
+		NothingToSlash,
 	}
 
 	#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
@@ -3274,7 +3274,10 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn do_apply_slash(member_account: T::AccountId, reporter: Option<T::AccountId>) -> DispatchResult {
+	fn do_apply_slash(
+		member_account: T::AccountId,
+		reporter: Option<T::AccountId>,
+	) -> DispatchResult {
 		// calculate points to be slashed.
 		let member =
 			PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
@@ -3287,10 +3290,15 @@ impl<T: Config> Pallet<T> {
 			"delegated balance should always be greater or equal to current balance"
 		);
 
-        // if nothing to slash, return error.
+		// if nothing to slash, return error.
 		ensure!(delegated_balance > current_balance, Error::<T>::NothingToSlash);
 
-		T::PoolAdapter::delegator_slash(&bonded_pool, &member_account, delegated_balance.defensive_saturating_sub(current_balance), reporter)
+		T::PoolAdapter::delegator_slash(
+			&bonded_pool,
+			&member_account,
+			delegated_balance.defensive_saturating_sub(current_balance),
+			reporter,
+		)
 	}
 
 	/// Apply freeze on reward account to restrict it from going below ED.

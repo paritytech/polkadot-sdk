@@ -322,11 +322,6 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 		value: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult {
-		Pallet::<T>::do_slash(
-			delegate.clone(),
-			delegator.clone(),
-			value,
-			maybe_reporter,
-		)
+		Pallet::<T>::do_slash(delegate.clone(), delegator.clone(), value, maybe_reporter)
 	}
 }

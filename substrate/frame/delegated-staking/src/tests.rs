@@ -1011,7 +1011,8 @@ mod pool_integration {
 			assert_eq!(Balances::free_balance(301) - pre_301, 50);
 
 			// delegators cannot unbond without applying pending slash on their accounts.
-			// slash_amount = total balance held - (balance from active pool + balance from unbonding pool)
+			// slash_amount = total balance held - (balance from active pool + balance from
+			// unbonding pool)
 
 			// when unbonding, should apply slash. Make sure numbers are good.
 		});

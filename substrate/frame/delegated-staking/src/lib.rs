@@ -624,8 +624,7 @@ impl<T: Config> Pallet<T> {
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
 		let mut delegate = Delegate::<T>::from(&delegate_acc)?;
-		let mut delegation =
-			<Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
+		let mut delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
 
 		ensure!(delegation.delegate == delegate_acc, Error::<T>::NotDelegate);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
@@ -658,11 +657,7 @@ impl<T: Config> Pallet<T> {
 
 		T::OnSlash::on_unbalanced(credit);
 
-		Self::deposit_event(Event::<T>::Slashed {
-			delegate: delegate_acc,
-			delegator,
-			amount,
-		});
+		Self::deposit_event(Event::<T>::Slashed { delegate: delegate_acc, delegator, amount });
 
 		Ok(())
 	}
