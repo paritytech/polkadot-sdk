@@ -1286,6 +1286,10 @@ impl<T: Config> BondedPool<T> {
 			});
 		};
 	}
+
+	fn has_pending_slash(&self) -> bool {
+		T::PoolAdapter::has_pending_slash(&self.bonded_account())
+	}
 }
 
 /// A reward pool.
@@ -2244,6 +2248,11 @@ pub mod pallet {
 			let mut sub_pools =
 				SubPoolsStorage::<T>::get(member.pool_id).ok_or(Error::<T>::SubPoolsNotFound)?;
 
+			if bonded_pool.has_pending_slash(){
+				// apply slash if any before withdraw.
+				let _ = Self::do_apply_slash(&member_account, None);
+			}
+
 			bonded_pool.ok_to_withdraw_unbonded_with(&caller, &member_account)?;
 
 			// NOTE: must do this after we have done the `ok_to_withdraw_unbonded_other_with` check.
@@ -2792,7 +2801,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let member_account = T::Lookup::lookup(member_account)?;
-			Self::do_apply_slash(member_account, Some(who))
+			Self::do_apply_slash(&member_account, Some(who))
 		}
 	}
 
@@ -3275,13 +3284,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn do_apply_slash(
-		member_account: T::AccountId,
+		member_account: &T::AccountId,
 		reporter: Option<T::AccountId>,
 	) -> DispatchResult {
 		// calculate points to be slashed.
 		let member =
 			PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
-		let bonded_pool = Self::create_bonded_account(member.pool_id);
+		let bonded_account = Self::create_bonded_account(member.pool_id);
+		ensure!(T::PoolAdapter::has_pending_slash(&bonded_account), Error::<T>::NothingToSlash);
 
 		let delegated_balance = T::PoolAdapter::total_balance(&member_account);
 		let current_balance = member.total_balance();
@@ -3294,7 +3304,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(delegated_balance > current_balance, Error::<T>::NothingToSlash);
 
 		T::PoolAdapter::delegator_slash(
-			&bonded_pool,
+			&bonded_account,
 			&member_account,
 			delegated_balance.defensive_saturating_sub(current_balance),
 			reporter,

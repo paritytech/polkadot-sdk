@@ -69,6 +69,11 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 		Ok(())
 	}
 
+	fn has_pending_slash(delegate: &Self::AccountId) -> bool {
+		// for direct staking, slashing is eager, and we don't need to do anything here.
+		false
+	}
+
 	fn delegator_slash(
 		_delegate: &Self::AccountId,
 		_delegator: &Self::AccountId,
@@ -76,6 +81,7 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 		_maybe_reporter: Option<Self::AccountId>,
 	) -> sp_runtime::DispatchResult {
 		// for direct staking, slashing is eager, and we don't need to do anything here.
-		Ok(())
+		defensive!("Delegator slash is not supported for direct staking");
+		Err(Error::<T>::NothingToSlash.into())
 	}
 }

@@ -83,8 +83,7 @@ use sp_runtime::{
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating, TryRuntimeError,
 };
 use sp_staking::{
-	delegation::{DelegationInterface, StakingDelegationSupport},
-	EraIndex, Stake, StakerStatus, StakingInterface,
+	delegation::StakingDelegationSupport, EraIndex, Stake, StakerStatus, StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -638,6 +637,7 @@ impl<T: Config> Pallet<T> {
 
 		// remove the slashed amount
 		delegate.ledger.pending_slash.saturating_reduce(actual_slash);
+		delegate.ledger.total_delegated.saturating_reduce(actual_slash);
 		delegate.save();
 
 		delegation

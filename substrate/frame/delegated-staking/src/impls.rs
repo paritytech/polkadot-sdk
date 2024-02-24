@@ -316,6 +316,12 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 		Pallet::<T>::release(RawOrigin::Signed(pool_account.clone()).into(), who.clone(), amount, 0)
 	}
 
+	fn has_pending_slash(delegate: &Self::AccountId) -> bool {
+		Delegate::<T>::from(delegate)
+			.map(|d| !d.ledger.pending_slash.is_zero())
+			.unwrap_or(false)
+	}
+
 	fn delegator_slash(
 		delegate: &Self::AccountId,
 		delegator: &Self::AccountId,
