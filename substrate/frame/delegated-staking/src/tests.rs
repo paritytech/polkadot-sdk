@@ -199,7 +199,11 @@ fn delegate_restrictions() {
 
 #[test]
 fn apply_pending_slash() {
-	ExtBuilder::default().build_and_execute(|| ());
+	ExtBuilder::default().build_and_execute(|| {
+		(
+        // fixme(ank4n): add tests for apply_pending_slash
+        )
+	});
 }
 
 /// Integration tests with pallet-staking.
@@ -488,8 +492,7 @@ mod staking_integration {
 		ExtBuilder::default().build_and_execute(|| {
 			setup_delegation_stake(200, 201, (210..250).collect(), 100, 0);
 			start_era(1);
-
-			// delegate is slashed
+            // fixme(ank4n): add tests for slashing
 		});
 	}
 
