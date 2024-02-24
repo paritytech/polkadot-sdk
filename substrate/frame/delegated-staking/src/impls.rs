@@ -258,10 +258,15 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 			.unwrap_or(Zero::zero())
 	}
 
-	/// Returns balance of `Delegate` account including the held balances.
+	/// Returns balance of account that is held.
 	///
-	/// Equivalent to [FunInspect::total_balance] for non delegate accounts.
+	/// - For [Delegate] accounts, this is their total delegation amount.
+	/// - For [Delegators], this is their delegation amount.
 	fn total_balance(who: &Self::AccountId) -> Self::Balance {
+		if Self::is_delegator(who) {
+			return Delegation::<T>::get(who).map(|d| d.amount).unwrap_or(Zero::zero());
+		}
+
 		Delegate::<T>::from(who)
 			.map(|delegate| delegate.ledger.effective_balance())
 			.unwrap_or(Zero::zero())
@@ -311,14 +316,14 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 		Pallet::<T>::release(RawOrigin::Signed(pool_account.clone()).into(), who.clone(), amount, 0)
 	}
 
-	fn apply_slash(
+	fn delegator_slash(
 		delegate: &Self::AccountId,
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult {
-		Pallet::<T>::slash(
-			RawOrigin::Signed(delegate.clone()).into(),
+		Pallet::<T>::do_slash(
+			delegate.clone(),
 			delegator.clone(),
 			value,
 			maybe_reporter,

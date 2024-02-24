@@ -69,7 +69,7 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 		Ok(())
 	}
 
-	fn apply_slash(
+	fn delegator_slash(
 		_delegate: &Self::AccountId,
 		_delegator: &Self::AccountId,
 		_value: Self::Balance,

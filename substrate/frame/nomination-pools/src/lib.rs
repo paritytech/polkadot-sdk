@@ -546,9 +546,14 @@ impl<T: Config> PoolMember<T> {
 
 	/// Total balance of the member, both active and unbonding.
 	/// Doesn't mutate state.
-	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 	fn total_balance(&self) -> BalanceOf<T> {
-		let pool = BondedPool::<T>::get(self.pool_id).unwrap();
+		let maybe_pool = BondedPool::<T>::get(self.pool_id);
+		if maybe_pool.is_none() {
+			defensive!("pool should exist; qed");
+			return Zero::zero();
+		}
+		let pool = maybe_pool.expect("checked pool is not none; qed");
+
 		let active_balance = pool.points_to_balance(self.active_points());
 
 		let sub_pools = match SubPoolsStorage::<T>::get(self.pool_id) {
@@ -737,13 +742,13 @@ impl<T: Config> Commission<T> {
 
 			// do not throttle if `to` is the same or a decrease in commission.
 			if *to <= commission_as_percent {
-				return false
+				return false;
 			}
 			// Test for `max_increase` throttling.
 			//
 			// Throttled if the attempted increase in commission is greater than `max_increase`.
 			if (*to).saturating_sub(commission_as_percent) > t.max_increase {
-				return true
+				return true;
 			}
 
 			// Test for `min_delay` throttling.
@@ -766,7 +771,7 @@ impl<T: Config> Commission<T> {
 						blocks_surpassed < t.min_delay
 					}
 				},
-			)
+			);
 		}
 		false
 	}
@@ -824,7 +829,7 @@ impl<T: Config> Commission<T> {
 		);
 		if let Some(old) = self.max.as_mut() {
 			if new_max > *old {
-				return Err(Error::<T>::MaxCommissionRestricted.into())
+				return Err(Error::<T>::MaxCommissionRestricted.into());
 			}
 			*old = new_max;
 		} else {
@@ -1210,7 +1215,7 @@ impl<T: Config> BondedPool<T> {
 			},
 			(false, true) => {
 				// the depositor can simply not be unbonded permissionlessly, period.
-				return Err(Error::<T>::DoesNotHavePermission.into())
+				return Err(Error::<T>::DoesNotHavePermission.into());
 			},
 		};
 
@@ -1780,7 +1785,7 @@ pub mod pallet {
 
 	/// Events of this pallet.
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
+	#[pallet::generate_deposit(pub (crate) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A pool has been created.
 		Created { depositor: T::AccountId, pool_id: PoolId },
@@ -1934,6 +1939,8 @@ pub mod pallet {
 		BondExtraRestricted,
 		/// No imbalance in the ED deposit for the pool.
 		NothingToAdjust,
+        /// No slash pending that can be applied to the member.
+        NothingToSlash,
 	}
 
 	#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
@@ -2042,9 +2049,9 @@ pub mod pallet {
 		// of just once, in the spirit reusing code.
 		#[pallet::call_index(1)]
 		#[pallet::weight(
-			T::WeightInfo::bond_extra_transfer()
-			.max(T::WeightInfo::bond_extra_other())
-		)]
+        T::WeightInfo::bond_extra_transfer()
+        .max(T::WeightInfo::bond_extra_other())
+        )]
 		pub fn bond_extra(origin: OriginFor<T>, extra: BondExtra<BalanceOf<T>>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_bond_extra(who.clone(), who, extra)
@@ -2181,7 +2188,7 @@ pub mod pallet {
 		/// would probably see an error like `NoMoreChunks` emitted from the staking system when
 		/// they attempt to unbond.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::pool_withdraw_unbonded(*num_slashing_spans))]
+		#[pallet::weight(T::WeightInfo::pool_withdraw_unbonded(* num_slashing_spans))]
 		pub fn pool_withdraw_unbonded(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
@@ -2219,8 +2226,8 @@ pub mod pallet {
 		/// If the target is the depositor, the pool will be destroyed.
 		#[pallet::call_index(5)]
 		#[pallet::weight(
-			T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans)
-		)]
+        T::WeightInfo::withdraw_unbonded_kill(* num_slashing_spans)
+        )]
 		pub fn withdraw_unbonded(
 			origin: OriginFor<T>,
 			member_account: AccountIdLookupOf<T>,
@@ -2588,9 +2595,9 @@ pub mod pallet {
 		/// `PermissionlessAll` or `PermissionlessCompound`.
 		#[pallet::call_index(14)]
 		#[pallet::weight(
-			T::WeightInfo::bond_extra_transfer()
-			.max(T::WeightInfo::bond_extra_other())
-		)]
+        T::WeightInfo::bond_extra_transfer()
+        .max(T::WeightInfo::bond_extra_other())
+        )]
 		pub fn bond_extra_other(
 			origin: OriginFor<T>,
 			member: AccountIdLookupOf<T>,
@@ -2773,6 +2780,19 @@ pub mod pallet {
 			});
 
 			Ok(())
+		}
+
+		/// Apply a pending slash on a member.
+		#[pallet::call_index(23)]
+		// FIXME(ank4n): fix weight info.
+		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
+		pub fn apply_slash(
+			origin: OriginFor<T>,
+			member_account: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let member_account = T::Lookup::lookup(member_account)?;
+			Self::do_apply_slash(member_account, Some(who))
 		}
 	}
 
@@ -2962,7 +2982,7 @@ impl<T: Config> Pallet<T> {
 		let balance = T::U256ToBalance::convert;
 		if current_balance.is_zero() || current_points.is_zero() || points.is_zero() {
 			// There is nothing to unbond
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		// Equivalent of (current_balance / current_points) * points
@@ -2999,7 +3019,7 @@ impl<T: Config> Pallet<T> {
 		// will be zero.
 		let pending_rewards = member.pending_rewards(current_reward_counter)?;
 		if pending_rewards.is_zero() {
-			return Ok(pending_rewards)
+			return Ok(pending_rewards);
 		}
 
 		// IFF the reward is non-zero alter the member and reward pool info.
@@ -3227,7 +3247,7 @@ impl<T: Config> Pallet<T> {
 		let min_balance = T::Currency::minimum_balance();
 
 		if pre_frozen_balance == min_balance {
-			return Err(Error::<T>::NothingToAdjust.into())
+			return Err(Error::<T>::NothingToAdjust.into());
 		}
 
 		// Update frozen amount with current ED.
@@ -3252,6 +3272,25 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+
+	fn do_apply_slash(member_account: T::AccountId, reporter: Option<T::AccountId>) -> DispatchResult {
+		// calculate points to be slashed.
+		let member =
+			PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
+		let bonded_pool = Self::create_bonded_account(member.pool_id);
+
+		let delegated_balance = T::PoolAdapter::total_balance(&member_account);
+		let current_balance = member.total_balance();
+		defensive_assert!(
+			delegated_balance >= current_balance,
+			"delegated balance should always be greater or equal to current balance"
+		);
+
+        // if nothing to slash, return error.
+		ensure!(delegated_balance > current_balance, Error::<T>::NothingToSlash);
+
+		T::PoolAdapter::delegator_slash(&bonded_pool, &member_account, delegated_balance.defensive_saturating_sub(current_balance), reporter)
 	}
 
 	/// Apply freeze on reward account to restrict it from going below ED.
@@ -3306,7 +3345,7 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 	pub fn do_try_state(level: u8) -> Result<(), TryRuntimeError> {
 		if level.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 		// note: while a bit wacky, since they have the same key, even collecting to vec should
 		// result in the same set of keys, in the same order.
@@ -3439,7 +3478,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		if level <= 1 {
-			return Ok(())
+			return Ok(());
 		}
 
 		for (pool_id, _pool) in BondedPools::<T>::iter() {
@@ -3451,14 +3490,14 @@ impl<T: Config> Pallet<T> {
 			let total_balance = T::PoolAdapter::total_balance(&pool_account);
 
 			assert!(
-				total_balance >= bonded_balance + sum_unbonding_balance,
-				"faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
-				pool_id,
-				_pool,
-				total_balance,
-				bonded_balance,
-				sum_unbonding_balance
-			);
+                total_balance >= bonded_balance + sum_unbonding_balance,
+                "faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
+                pool_id,
+                _pool,
+                total_balance,
+                bonded_balance,
+                sum_unbonding_balance
+            );
 		}
 
 		// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a
@@ -3481,21 +3520,21 @@ impl<T: Config> Pallet<T> {
 	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
 		let mut failed: u32 = 0;
 		BondedPools::<T>::iter_keys().for_each(|id| {
-			let reward_acc = Self::create_reward_account(id);
-			let frozen_balance =
-				T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), &reward_acc);
+            let reward_acc = Self::create_reward_account(id);
+            let frozen_balance =
+                T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), &reward_acc);
 
-			let expected_frozen_balance = T::Currency::minimum_balance();
-			if frozen_balance != expected_frozen_balance {
-				failed += 1;
-				log::warn!(
+            let expected_frozen_balance = T::Currency::minimum_balance();
+            if frozen_balance != expected_frozen_balance {
+                failed += 1;
+                log::warn!(
 					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}",
 					id,
 					expected_frozen_balance,
 					frozen_balance,
 				);
-			}
-		});
+            }
+        });
 
 		ensure!(failed == 0, "Some pools do not have correct ED frozen");
 		Ok(())
@@ -3528,7 +3567,7 @@ impl<T: Config> Pallet<T> {
 				let (current_reward_counter, _) = reward_pool
 					.current_reward_counter(pool_member.pool_id, bonded_pool.points, commission)
 					.ok()?;
-				return pool_member.pending_rewards(current_reward_counter).ok()
+				return pool_member.pending_rewards(current_reward_counter).ok();
 			}
 		}
 
@@ -3574,7 +3613,9 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 		slashed_unlocking: &BTreeMap<EraIndex, BalanceOf<T>>,
 		total_slashed: BalanceOf<T>,
 	) {
-		let Some(pool_id) = ReversePoolIdLookup::<T>::get(pool_account) else { return };
+		let Some(pool_id) = ReversePoolIdLookup::<T>::get(pool_account) else {
+			return;
+		};
 		// As the slashed account belongs to a `BondedPool` the `TotalValueLocked` decreases and
 		// an event is emitted.
 		TotalValueLocked::<T>::mutate(|tvl| {

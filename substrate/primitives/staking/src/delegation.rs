@@ -175,7 +175,7 @@ pub trait PoolAdapter {
 	/// Balance that is free and can be released to delegator.
 	fn releasable_balance(who: &Self::AccountId) -> Self::Balance;
 
-	/// Similar to [Inspect::total_balance].
+	/// Total balance of the account held for staking.
 	fn total_balance(who: &Self::AccountId) -> Self::Balance;
 
 	/// Initiate delegation to the pool account.
@@ -201,7 +201,11 @@ pub trait PoolAdapter {
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
-	fn apply_slash(
+
+	/// Apply a slash to the `delegator`.
+	///
+	/// This is called when the corresponding `delegate` has pending slash to be applied.
+	fn delegator_slash(
 		delegate: &Self::AccountId,
 		delegator: &Self::AccountId,
 		value: Self::Balance,
