@@ -136,8 +136,6 @@
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -158,23 +156,25 @@
 
 </span><span class="doccomment">//! Tool for creating the genesis block.
 
-</span><span class="kw">use </span>std::{collections::hash_map::DefaultHasher, marker::PhantomData, sync::Arc};
+</span><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>sc_client_api::{backend::Backend, BlockImportOperation};
 <span class="kw">use </span>sc_executor::RuntimeVersionOf;
 <span class="kw">use </span>sp_core::storage::{well_known_keys, StateVersion, Storage};
 <span class="kw">use </span>sp_runtime::{
-	traits::{Block <span class="kw">as </span>BlockT, Hash <span class="kw">as </span>HashT, Header <span class="kw">as </span>HeaderT, Zero},
+	traits::{Block <span class="kw">as </span>BlockT, Hash <span class="kw">as </span>HashT, HashingFor, Header <span class="kw">as </span>HeaderT, Zero},
 	BuildStorage,
 };
 
 <span class="doccomment">/// Return the state version given the genesis storage and executor.
-</span><span class="kw">pub fn </span>resolve_state_version_from_wasm&lt;E&gt;(
+</span><span class="kw">pub fn </span>resolve_state_version_from_wasm&lt;E, H&gt;(
 	storage: <span class="kw-2">&amp;</span>Storage,
 	executor: <span class="kw-2">&amp;</span>E,
 ) -&gt; sp_blockchain::Result&lt;StateVersion&gt;
 <span class="kw">where
 	</span>E: RuntimeVersionOf,
+	H: HashT,
 {
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(wasm) = storage.top.get(well_known_keys::CODE) {
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = sp_state_machine::BasicExternalities::new_empty(); <span class="comment">// just to read runtime version.
@@ -183,12 +183,7 @@
 		<span class="kw">let </span>runtime_code = sp_core::traits::RuntimeCode {
 			code_fetcher: <span class="kw-2">&amp;</span>code_fetcher,
 			heap_pages: <span class="prelude-val">None</span>,
-			hash: {
-				<span class="kw">use </span>std::hash::{Hash, Hasher};
-				<span class="kw">let </span><span class="kw-2">mut </span>state = DefaultHasher::new();
-				wasm.hash(<span class="kw-2">&amp;mut </span>state);
-				state.finish().to_le_bytes().to_vec()
-			},
+			hash: &lt;H <span class="kw">as </span>HashT&gt;::hash(wasm).encode(),
 		};
 		<span class="kw">let </span>runtime_version = RuntimeVersionOf::runtime_version(executor, <span class="kw-2">&amp;mut </span>ext, <span class="kw-2">&amp;</span>runtime_code)
 			.map_err(|e| sp_blockchain::Error::VersionInvalid(e.to_string()))<span class="question-mark">?</span>;
@@ -269,7 +264,8 @@
 	<span class="kw">fn </span>build_genesis_block(<span class="self">self</span>) -&gt; sp_blockchain::Result&lt;(Block, <span class="self">Self</span>::BlockImportOperation)&gt; {
 		<span class="kw">let </span><span class="self">Self </span>{ genesis_storage, commit_genesis_state, backend, executor, _phantom } = <span class="self">self</span>;
 
-		<span class="kw">let </span>genesis_state_version = resolve_state_version_from_wasm(<span class="kw-2">&amp;</span>genesis_storage, <span class="kw-2">&amp;</span>executor)<span class="question-mark">?</span>;
+		<span class="kw">let </span>genesis_state_version =
+			resolve_state_version_from_wasm::&lt;<span class="kw">_</span>, HashingFor&lt;Block&gt;&gt;(<span class="kw-2">&amp;</span>genesis_storage, <span class="kw-2">&amp;</span>executor)<span class="question-mark">?</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>op = backend.begin_operation()<span class="question-mark">?</span>;
 		<span class="kw">let </span>state_root =
 			op.set_genesis_state(genesis_storage, commit_genesis_state, genesis_state_version)<span class="question-mark">?</span>;

@@ -3,8 +3,8 @@
 )<span class="where fmt-newline">where
     B: BlockT + 'static,
     CB: ClientBackend&lt;B&gt; + 'static,
-    C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + BlockchainEvents&lt;B&gt; + 'static,
-    S: SpawnNamed,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Creates a future for delayed finalization of manual sealed blocks.</p>
+    C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + <a class="trait" href="../sp_api/trait.ProvideRuntimeApi.html" title="trait sp_api::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;B&gt; + BlockchainEvents&lt;B&gt; + 'static,
+    S: <a class="trait" href="../sp_core/traits/trait.SpawnNamed.html" title="trait sp_core::traits::SpawnNamed">SpawnNamed</a>,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Creates a future for delayed finalization of manual sealed blocks.</p>
 <p>The future needs to be spawned in the background alongside the
 <a href="fn.run_manual_seal.html" title="fn sc_consensus_manual_seal::run_manual_seal"><code>run_manual_seal</code></a>/<a href="fn.run_instant_seal.html" title="fn sc_consensus_manual_seal::run_instant_seal"><code>run_instant_seal</code></a> future. It is required that
 <a href="rpc/enum.EngineCommand.html#variant.SealNewBlock" title="variant sc_consensus_manual_seal::rpc::EngineCommand::SealNewBlock"><code>EngineCommand::SealNewBlock</code></a> is send with <code>finalize = false</code> to not finalize blocks directly

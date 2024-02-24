@@ -2120,6 +2120,8 @@
 <a href="#2120" id="2120">2120</a>
 <a href="#2121" id="2121">2121</a>
 <a href="#2122" id="2122">2122</a>
+<a href="#2123" id="2123">2123</a>
+<a href="#2124" id="2124">2124</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2797,8 +2799,10 @@
 
 						<span class="comment">// This is use by fast sync for runtime version to be resolvable from
 						// changes.
-						</span><span class="kw">let </span>state_version =
-							resolve_state_version_from_wasm(<span class="kw-2">&amp;</span>storage, <span class="kw-2">&amp;</span><span class="self">self</span>.executor)<span class="question-mark">?</span>;
+						</span><span class="kw">let </span>state_version = resolve_state_version_from_wasm::&lt;<span class="kw">_</span>, HashingFor&lt;Block&gt;&gt;(
+							<span class="kw-2">&amp;</span>storage,
+							<span class="kw-2">&amp;</span><span class="self">self</span>.executor,
+						)<span class="question-mark">?</span>;
 						<span class="kw">let </span>state_root = operation.op.reset_storage(storage, state_version)<span class="question-mark">?</span>;
 						<span class="kw">if </span>state_root != <span class="kw-2">*</span>import_headers.post().state_root() {
 							<span class="comment">// State root mismatch when importing state. This should not happen in
