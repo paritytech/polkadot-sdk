@@ -465,6 +465,7 @@ impl Config for Test {
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type Debug = TestDebug;
 	type Environment = ();
+	type ApiVersion = ();
 	type Xcm = ();
 }
 
