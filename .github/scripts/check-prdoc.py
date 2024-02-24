@@ -30,7 +30,7 @@ def check_prdoc_crate_names(root, paths):
 	
 	print(f'🔎 Reading workspace {root}.')
 	workspace = cargo_workspace.Workspace.from_path(root)
-	crate_names = [crate.name() for crate in workspace.crates()]
+	crate_names = [crate.name for crate in workspace.crates]
 
 	print(f'📦 Checking {len(paths)} prdocs against {len(crate_names)} crates.')
 	faulty = {}
@@ -65,7 +65,6 @@ def parse_args():
 		exit(1)
 
 	return { 'root': os.path.abspath(args.root[0]), 'prdocs': args.prdoc }
-
 
 if __name__ == '__main__':
 	args = parse_args()
