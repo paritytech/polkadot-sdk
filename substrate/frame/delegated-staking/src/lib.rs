@@ -636,6 +636,7 @@ impl<T: Config> Pallet<T> {
 		let actual_slash = credit.peek();
 
 		// remove the slashed amount
+		// FIXME(ank4n) add a ledger method to reduce pending slash.
 		delegate.ledger.pending_slash.saturating_reduce(actual_slash);
 		delegate.ledger.total_delegated.saturating_reduce(actual_slash);
 		delegate.save();
@@ -691,8 +692,6 @@ impl<T: Config> Pallet<T> {
 				"delegate should be bonded and not validator"
 			);
 
-			println!("stakeable_balance: {:?}", ledger.stakeable_balance());
-			println!("stake: {:?}", T::CoreStaking::stake(&delegate).unwrap());
 			ensure!(
 				ledger.stakeable_balance() >=
 					T::CoreStaking::total_stake(&delegate)

@@ -959,10 +959,10 @@ mod pool_integration {
 			assert_eq!(
 				pool_events_since_last_call(),
 				vec![
-					// 301 did not get slashed as all as it unbonded in an era before slash.
-					// 302 got slashed 50% of 100 = 50.
+					// 300 did not get slashed as all as it unbonded in an era before slash.
+					// 301 got slashed 50% of 100 = 50.
 					PoolsEvent::UnbondingPoolSlashed { pool_id: 1, era: 6, balance: 50 },
-					// 303 got slashed 50% of 100 = 50.
+					// 302 got slashed 50% of 100 = 50.
 					PoolsEvent::UnbondingPoolSlashed { pool_id: 1, era: 7, balance: 50 },
 					// Rest of the pool slashed 50% of 800 = 400.
 					PoolsEvent::PoolSlashed { pool_id: 1, balance: 400 },
@@ -990,31 +990,50 @@ mod pool_integration {
 			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(300).into(), 300, 1));
 			assert_eq!(
 				events_since_last_call(),
-				vec![Event::Withdrawn { delegate: pool_acc, delegator: 300, amount: 100 },]
+				vec![Event::Withdrawn { delegate: pool_acc, delegator: 300, amount: 100 }]
 			);
 			assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 500);
 
-			let pre_301 = Balances::free_balance(301);
-			// 301 is slashed and should only be able to withdraw 50.
-			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 1));
-			assert_eq!(
-				events_since_last_call(),
-				vec![
-					// half amount is slashed first.
-					Event::Slashed { delegate: pool_acc, delegator: 301, amount: 50 },
-					// rest of it is withdrawn.
-					Event::Withdrawn { delegate: pool_acc, delegator: 301, amount: 50 },
-				]
-			);
-			assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 450);
-			assert_eq!(held_balance(&301), 0);
-			assert_eq!(Balances::free_balance(301) - pre_301, 50);
+			// withdraw the other two delegators (301 and 302) who were unbonding.
+			for i in 301..=302 {
+				let pre_balance = Balances::free_balance(i);
+				let pre_pending_slash = get_pool_delegate(pool_id).ledger.pending_slash;
+				assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(i).into(), i, 0));
+				assert_eq!(
+					events_since_last_call(),
+					vec![
+						Event::Slashed { delegate: pool_acc, delegator: i, amount: 50 },
+						Event::Withdrawn { delegate: pool_acc, delegator: i, amount: 50 },
+					]
+				);
+				assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, pre_pending_slash - 50);
+				assert_eq!(held_balance(&i), 0);
+				assert_eq!(Balances::free_balance(i) - pre_balance, 50);
+			}
 
-			// delegators cannot unbond without applying pending slash on their accounts.
-			// slash_amount = total balance held - (balance from active pool + balance from
-			// unbonding pool)
+			// let's update all the slash
+			let slash_reporter = 99;
+			// give our reporter some balance.
+			fund(&slash_reporter, 100);
 
-			// when unbonding, should apply slash. Make sure numbers are good.
+			for i in 303..306 {
+				let pre_pending_slash = get_pool_delegate(pool_id).ledger.pending_slash;
+				assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into(), i));
+
+				// each member is slashed 50% of 100 = 50.
+				assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, pre_pending_slash - 50);
+				// left with 50.
+				assert_eq!(held_balance(&i), 50);
+			}
+			// reporter is paid SlashRewardFraction of the slash, i.e. 10% of 50 = 5
+			assert_eq!(Balances::free_balance(slash_reporter), 100 + 5 * 3);
+			// slash creator
+			assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into(), creator));
+			// all slash should be applied now.
+			assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 0);
+			// for creator, 50% of stake should be slashed (250), 10% of which should go to reporter
+			// (25).
+			assert_eq!(Balances::free_balance(slash_reporter), 115 + 25);
 		});
 	}
 

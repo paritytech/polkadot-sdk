@@ -266,6 +266,8 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
+			// make sure pool state is correct.
+			Pools::do_try_state(255).unwrap();
 			DelegatedStaking::do_try_state().unwrap();
 		});
 	}
