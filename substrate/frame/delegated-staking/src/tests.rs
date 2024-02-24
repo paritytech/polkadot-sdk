@@ -492,7 +492,7 @@ mod staking_integration {
 		ExtBuilder::default().build_and_execute(|| {
 			setup_delegation_stake(200, 201, (210..250).collect(), 100, 0);
 			start_era(1);
-            // fixme(ank4n): add tests for slashing
+			// fixme(ank4n): add tests for slashing
 		});
 	}
 

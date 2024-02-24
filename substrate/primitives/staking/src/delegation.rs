@@ -90,8 +90,6 @@ pub trait PoolAdapter {
 	) -> DispatchResult;
 
 	/// Revoke delegation to pool account.
-	///
-	/// Similar to [Mutate::transfer] for Direct Stake but in reverse direction to [Self::delegate].
 	fn release_delegation(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,

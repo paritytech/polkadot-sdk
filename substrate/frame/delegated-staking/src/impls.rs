@@ -125,7 +125,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	/// Withdraw unbonding funds until current era.
 	///
-	/// Funds are moved to unclaimed_withdrawals register of the [`DelegationLedger`].
+	/// Funds are moved to unclaimed_withdrawals register of the `DelegationLedger`.
 	fn withdraw_unbonded(
 		pool_acc: Self::AccountId,
 		num_slashing_spans: u32,
@@ -260,8 +260,8 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 
 	/// Returns balance of account that is held.
 	///
-	/// - For [Delegate] accounts, this is their total delegation amount.
-	/// - For [Delegators], this is their delegation amount.
+	/// - For `delegate` accounts, this is their total delegation amount.
+	/// - For `delegator` accounts, this is their delegation amount.
 	fn total_balance(who: &Self::AccountId) -> Self::Balance {
 		if Self::is_delegator(who) {
 			return Delegation::<T>::get(who).map(|d| d.amount).unwrap_or(Zero::zero());

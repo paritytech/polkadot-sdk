@@ -53,7 +53,7 @@
 //!
 //! ## Interface
 //!
-//! ### Dispatchable Calls
+//! #### Dispatchable Calls
 //! The pallet exposes the following [`Call`]s:
 //! - `register_as_delegate`: Register an account to be a `Delegate`. Once an account is registered
 //! 	as a `Delegate`, for staking operations, only its delegated funds are used. This means it
@@ -69,16 +69,16 @@
 //!   usage of held funds in an account, such as governance.
 //! - `delegate_funds`: Delegate funds to a `Delegate` account and update the bond to staking.
 //!
-//! ### (Staking Interface)[StakingInterface]
+//! #### [Staking Interface](StakingInterface)
 //! This pallet reimplements the staking interface as a wrapper implementation over
 //! [Config::CoreStaking] to provide delegation based staking. NominationPool can use this pallet as
 //! its Staking provider to support delegation based staking from pool accounts.
 //!
-//! ### (Staking Delegation Support)[StakingDelegationSupport]
+//! #### [Staking Delegation Support](StakingDelegationSupport)
 //! The pallet implements the staking delegation support trait which staking pallet can use to
 //! provide compatibility with this pallet.
 //!
-//! ### (Pool Adapter)[delegation::PoolAdapter]
+//! #### [Pool Adapter](delegation::PoolAdapter)
 //! The pallet also implements the pool adapter trait which allows NominationPool to use this pallet
 //! to support delegation based staking from pool accounts. This strategy also allows the pool to
 //! switch implementations while having minimal changes to its own logic.
@@ -88,16 +88,17 @@
 //! nominators are slashed at the same time. This is expensive and needs to be bounded operation.
 //!
 //! This pallet implements a lazy slashing mechanism. Any slashes to a `delegate` are posted in its
-//! [`DelegationLedger`] as a pending slash. Since the actual amount is held in the multiple
+//! `DelegationLedger` as a pending slash. Since the actual amount is held in the multiple
 //! `delegator` accounts, this pallet has no way to know how to apply slash. It is `delegate`'s
 //! responsibility to apply slashes for each delegator, one at a time. Staking pallet ensures the
 //! pending slash never exceeds staked amount and would freeze further withdraws until pending
 //! slashes are applied.
 //!
-//! `NominationPool` can apply slash for all its members by calling [PoolAdapter::apply_slash].
+//! `NominationPool` can apply slash for all its members by calling
+//! [delegation::PoolAdapter::delegator_slash].
 //!
 //! ## Migration from Nominator to Delegate
-//! More details here. https://hackmd.io/1jhFRj2MTzeEmAkJgbsBtA?both
+//! More details [here](https://hackmd.io/@ak0n/np-delegated-staking-migration).
 //!
 //! ## Reward Destination Restrictions
 //! This pallets set an important restriction of rewards account to be separate from `delegate`
@@ -133,7 +134,6 @@
 //!
 //! ## Limitations
 //! TODO(ank4n): Add limitations.
-//!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
@@ -388,7 +388,7 @@ pub mod pallet {
 			Self::do_migrate_delegation(&proxy_delegator, &delegator, amount)
 		}
 
-		/// Delegate funds to a `Delegate` account and bonds it to [T::CoreStaking].
+		/// Delegate funds to a `Delegate` account and bonds it to [Config::CoreStaking].
 		///
 		/// If delegation already exists, it increases the delegation by `amount`.
 		#[pallet::call_index(4)]
