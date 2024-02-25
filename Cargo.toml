@@ -127,6 +127,7 @@ members = [
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
 	"cumulus/primitives/proof-size-hostfunction",
+	"cumulus/primitives/storage-weight-reclaim",
 	"cumulus/primitives/timestamp",
 	"cumulus/primitives/utility",
 	"cumulus/test/client",

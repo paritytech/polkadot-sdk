@@ -2,10 +2,12 @@
 
 set -e
 
-source "${BASH_SOURCE%/*}/../../utils/common.sh"
-source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
+source "${BASH_SOURCE%/*}/../../framework/utils/common.sh"
+source "${BASH_SOURCE%/*}/../../framework/utils/zombienet.sh"
 
-${BASH_SOURCE%/*}/../../environments/rococo-westend/spawn.sh --init --start-relayer &
+export ENV_PATH=`realpath ${BASH_SOURCE%/*}/../../environments/rococo-westend`
+
+$ENV_PATH/spawn.sh --init --start-relayer &
 env_pid=$!
 
 ensure_process_file $env_pid $TEST_DIR/rococo.env 600
