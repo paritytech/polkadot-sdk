@@ -658,7 +658,7 @@ impl<T: Config> Pallet<T> {
 		delegate_acc: &T::AccountId,
 		num_slashing_spans: u32,
 	) -> Result<Delegate<T>, DispatchError> {
-		let mut delegate = Delegate::<T>::from(delegate_acc)?;
+		let delegate = Delegate::<T>::from(delegate_acc)?;
 		let pre_total = T::CoreStaking::stake(delegate_acc).defensive()?.total;
 
 		let stash_killed: bool =
@@ -677,7 +677,7 @@ impl<T: Config> Pallet<T> {
 		let new_withdrawn =
 			pre_total.checked_sub(&post_total).defensive_ok_or(Error::<T>::BadState)?;
 
-		delegate.add_unclaimed_withdraw(new_withdrawn)?;
+		let delegate = delegate.add_unclaimed_withdraw(new_withdrawn)?;
 
 		delegate.clone().save();
 
@@ -743,7 +743,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
-		let mut delegate = Delegate::<T>::from(&delegate_acc)?;
+		let delegate = Delegate::<T>::from(&delegate_acc)?;
 		let delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
 
 		ensure!(delegation.delegate == delegate_acc, Error::<T>::NotDelegate);
@@ -756,10 +756,8 @@ impl<T: Config> Pallet<T> {
 
 		let actual_slash = credit.peek();
 
-		// remove the slashed amount
-		// FIXME(ank4n) add a ledger method to reduce pending slash.
-		delegate.remove_slash(actual_slash);
-		delegate.save();
+		// remove the applied slashed amount from delegate.
+		delegate.remove_slash(actual_slash).save();
 
 		delegation
 			.decrease_delegation(actual_slash)

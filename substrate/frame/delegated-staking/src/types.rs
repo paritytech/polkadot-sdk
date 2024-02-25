@@ -166,7 +166,7 @@ impl<T: Config> Delegate<T> {
 	/// Remove funds that are withdrawn from [Config::CoreStaking] but not claimed by a delegator.
 	///
 	/// Checked decrease of delegation amount from `total_delegated` and `unclaimed_withdrawals`
-	/// registers. Mutates self.
+	/// registers. Consumes self and returns a new instance of self if success.
 	pub(crate) fn remove_unclaimed_withdraw(
 		self,
 		amount: BalanceOf<T>,
@@ -194,16 +194,22 @@ impl<T: Config> Delegate<T> {
 
 	/// Add funds that are withdrawn from [Config::CoreStaking] to be claimed by delegators later.
 	pub(crate) fn add_unclaimed_withdraw(
-		&mut self,
+		self,
 		amount: BalanceOf<T>,
-	) -> Result<(), DispatchError> {
-		self.ledger.unclaimed_withdrawals = self
+	) -> Result<Self, DispatchError> {
+		let new_unclaimed_withdrawals = self
 			.ledger
 			.unclaimed_withdrawals
 			.checked_add(&amount)
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
-		Ok(())
+		Ok(Delegate {
+			ledger: DelegationLedger {
+				unclaimed_withdrawals: new_unclaimed_withdrawals,
+				..self.ledger
+			},
+			..self
+		})
 	}
 
 	/// Reloads self from storage.
@@ -239,9 +245,14 @@ impl<T: Config> Delegate<T> {
 	}
 
 	/// Remove slashes that are applied.
-	pub(crate) fn remove_slash(&mut self, amount: BalanceOf<T>) {
-		self.ledger.pending_slash.defensive_saturating_reduce(amount);
-		self.ledger.total_delegated.defensive_saturating_reduce(amount);
+	pub(crate) fn remove_slash(self, amount: BalanceOf<T>) -> Self {
+		let pending_slash = self.ledger.pending_slash.defensive_saturating_sub(amount);
+		let total_delegated = self.ledger.total_delegated.defensive_saturating_sub(amount);
+
+		Delegate {
+			ledger: DelegationLedger { pending_slash, total_delegated, ..self.ledger },
+			..self
+		}
 	}
 
 	pub(crate) fn bonded_stake(&self) -> BalanceOf<T> {
