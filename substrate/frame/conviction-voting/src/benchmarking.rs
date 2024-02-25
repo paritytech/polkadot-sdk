@@ -55,7 +55,7 @@ fn fill_voting<T: Config<I>, I: 'static>(
 
 fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T::AccountId {
 	let caller: T::AccountId = account(name, index, SEED);
-	T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
+	let new_balance = T::Currency::set_balance(&caller, 100_000_000u32.into());
 	caller
 }
 
