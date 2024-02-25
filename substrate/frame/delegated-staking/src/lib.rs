@@ -78,7 +78,7 @@
 //! The pallet implements the staking delegation support trait which staking pallet can use to
 //! provide compatibility with this pallet.
 //!
-//! #### [Pool Adapter](delegation::PoolAdapter)
+//! #### [Pool Adapter](sp_staking::delegation::PoolAdapter)
 //! The pallet also implements the pool adapter trait which allows NominationPool to use this pallet
 //! to support delegation based staking from pool accounts. This strategy also allows the pool to
 //! switch implementations while having minimal changes to its own logic.
@@ -95,7 +95,7 @@
 //! slashes are applied.
 //!
 //! `NominationPool` can apply slash for all its members by calling
-//! [delegation::PoolAdapter::delegator_slash].
+//! [PoolAdapter::delegator_slash](sp_staking::delegation::PoolAdapter::delegator_slash).
 //!
 //! ## Migration from Nominator to Delegate
 //! More details [here](https://hackmd.io/@ak0n/np-delegated-staking-migration).
