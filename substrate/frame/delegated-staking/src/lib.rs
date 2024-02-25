@@ -445,6 +445,18 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Apply slash to a delegator account.
+		///
+		/// `Delegate` accounts with pending slash in their ledger can call this to apply slash to
+		/// one of its `delegator` account. Each slash to a delegator account needs to be posted
+		/// separately until all pending slash is cleared.
+		#[pallet::call_index(6)]
+		#[pallet::weight(Weight::default())]
+		pub fn apply_slash(origin: OriginFor<T>, delegator: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_slash(who, delegator, amount, None)
+		}
 	}
 
 	#[pallet::hooks]
