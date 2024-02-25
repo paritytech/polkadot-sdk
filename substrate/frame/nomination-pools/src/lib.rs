@@ -748,7 +748,7 @@ impl<T: Config> Commission<T> {
 			//
 			// Throttled if the attempted increase in commission is greater than `max_increase`.
 			if (*to).saturating_sub(commission_as_percent) > t.max_increase {
-				return true;
+				return true
 			}
 
 			// Test for `min_delay` throttling.
@@ -771,7 +771,7 @@ impl<T: Config> Commission<T> {
 						blocks_surpassed < t.min_delay
 					}
 				},
-			);
+			)
 		}
 		false
 	}
@@ -829,7 +829,7 @@ impl<T: Config> Commission<T> {
 		);
 		if let Some(old) = self.max.as_mut() {
 			if new_max > *old {
-				return Err(Error::<T>::MaxCommissionRestricted.into());
+				return Err(Error::<T>::MaxCommissionRestricted.into())
 			}
 			*old = new_max;
 		} else {
@@ -1215,7 +1215,7 @@ impl<T: Config> BondedPool<T> {
 			},
 			(false, true) => {
 				// the depositor can simply not be unbonded permissionlessly, period.
-				return Err(Error::<T>::DoesNotHavePermission.into());
+				return Err(Error::<T>::DoesNotHavePermission.into())
 			},
 		};
 
@@ -2991,7 +2991,7 @@ impl<T: Config> Pallet<T> {
 		let balance = T::U256ToBalance::convert;
 		if current_balance.is_zero() || current_points.is_zero() || points.is_zero() {
 			// There is nothing to unbond
-			return Zero::zero();
+			return Zero::zero()
 		}
 
 		// Equivalent of (current_balance / current_points) * points
@@ -3028,7 +3028,7 @@ impl<T: Config> Pallet<T> {
 		// will be zero.
 		let pending_rewards = member.pending_rewards(current_reward_counter)?;
 		if pending_rewards.is_zero() {
-			return Ok(pending_rewards);
+			return Ok(pending_rewards)
 		}
 
 		// IFF the reward is non-zero alter the member and reward pool info.
@@ -3256,7 +3256,7 @@ impl<T: Config> Pallet<T> {
 		let min_balance = T::Currency::minimum_balance();
 
 		if pre_frozen_balance == min_balance {
-			return Err(Error::<T>::NothingToAdjust.into());
+			return Err(Error::<T>::NothingToAdjust.into())
 		}
 
 		// Update frozen amount with current ED.
@@ -3363,7 +3363,7 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 	pub fn do_try_state(level: u8) -> Result<(), TryRuntimeError> {
 		if level.is_zero() {
-			return Ok(());
+			return Ok(())
 		}
 		// note: while a bit wacky, since they have the same key, even collecting to vec should
 		// result in the same set of keys, in the same order.
@@ -3496,7 +3496,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		if level <= 1 {
-			return Ok(());
+			return Ok(())
 		}
 
 		for (pool_id, _pool) in BondedPools::<T>::iter() {
@@ -3631,9 +3631,7 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 		slashed_unlocking: &BTreeMap<EraIndex, BalanceOf<T>>,
 		total_slashed: BalanceOf<T>,
 	) {
-		let Some(pool_id) = ReversePoolIdLookup::<T>::get(pool_account) else {
-			return;
-		};
+		let Some(pool_id) = ReversePoolIdLookup::<T>::get(pool_account) else { return };
 		// As the slashed account belongs to a `BondedPool` the `TotalValueLocked` decreases and
 		// an event is emitted.
 		TotalValueLocked::<T>::mutate(|tvl| {
