@@ -55,6 +55,8 @@ fn fill_voting<T: Config<I>, I: 'static>(
 fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T::AccountId {
 	let caller: T::AccountId = account(name, index, SEED);
 	T::Currency::set_balance(&caller, 100_000_000u32.into());
+	// remove all freezes from previous benchmarks so we never run out of available funds
+	T::Currency::thaw(&FreezeReason::ConvictionVoting.into(), &caller);
 	caller
 }
 
