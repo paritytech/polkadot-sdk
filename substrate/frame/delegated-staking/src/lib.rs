@@ -133,7 +133,10 @@
 //! distribution, lazy slashing and as such, is not meant to be replaced with this pallet.
 //!
 //! ## Limitations
-//! TODO(ank4n): Add limitations.
+//! - Rewards are not auto-compounded.
+//! - Slashes are lazy and hence there could be a period of time when an account can use funds for
+//! 	operations such as voting in governance even though they should be slashed.
+//!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
