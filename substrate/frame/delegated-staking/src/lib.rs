@@ -430,16 +430,18 @@ pub mod pallet {
 			Self::do_bond(&delegate, amount)
 		}
 
-		/// Stop accepting new delegation.
+		/// Toggle delegate status to start or stop accepting new delegations.
 		///
-		/// To unblock, pass false.
+		/// This can only be used by existing delegates. If not a delegate yet, use
+		/// [Call::register_as_delegate] first.
 		#[pallet::call_index(5)]
 		#[pallet::weight(Weight::default())]
-		pub fn block_delegations(origin: OriginFor<T>, block: bool) -> DispatchResult {
+		pub fn toggle_delegate_status(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			let delegate = Delegate::<T>::from(&who)?;
-			delegate.update_status(block).save();
+            let should_block = !delegate.ledger.blocked;
+			delegate.update_status(should_block).save();
 
 			Ok(())
 		}
