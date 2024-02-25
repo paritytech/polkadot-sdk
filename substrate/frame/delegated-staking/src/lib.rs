@@ -133,7 +133,7 @@
 //! distribution, lazy slashing and as such, is not meant to be replaced with this pallet.
 //!
 //! ## Limitations
-//! - Rewards are not auto-compounded.
+//! - Rewards can not be auto-compounded.
 //! - Slashes are lazy and hence there could be a period of time when an account can use funds for
 //! 	operations such as voting in governance even though they should be slashed.
 //!
