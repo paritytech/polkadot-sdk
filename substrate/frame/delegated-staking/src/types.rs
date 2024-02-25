@@ -19,6 +19,7 @@
 //! Basic types used in delegated staking.
 
 use super::*;
+use frame_support::traits::DefensiveSaturating;
 
 /// The type of pot account being created.
 #[derive(Encode, Decode)]
@@ -93,7 +94,8 @@ pub struct DelegationLedger<T: Config> {
 	/// Sum of all delegated funds to this `delegate`.
 	#[codec(compact)]
 	pub total_delegated: BalanceOf<T>,
-	/// Funds that are withdrawn from core staking but not released to delegator/s.
+	/// Funds that are withdrawn from core staking but not released to delegator/s. It is a subset
+	/// of `total_delegated` and can never be greater than it.
 	// FIXME(ank4n): Check/test about rebond: where delegator rebond what is unlocking.
 	#[codec(compact)]
 	pub unclaimed_withdrawals: BalanceOf<T>,
@@ -158,7 +160,10 @@ impl<T: Config> Delegate<T> {
 		Ok(Delegate { key: delegate.clone(), ledger })
 	}
 
-	pub(crate) fn try_withdraw(&mut self, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+	pub(crate) fn remove_unclaimed_withdraw(
+		&mut self,
+		amount: BalanceOf<T>,
+	) -> Result<(), DispatchError> {
 		self.ledger.total_delegated = self
 			.ledger
 			.total_delegated
@@ -173,7 +178,7 @@ impl<T: Config> Delegate<T> {
 		Ok(())
 	}
 
-	pub(crate) fn try_add_unclaimed_withdraw(
+	pub(crate) fn add_unclaimed_withdraw(
 		&mut self,
 		amount: BalanceOf<T>,
 	) -> Result<(), DispatchError> {
@@ -214,6 +219,10 @@ impl<T: Config> Delegate<T> {
 		net_balance.saturating_sub(bonded_stake)
 	}
 
+	pub(crate) fn remove_slash(&mut self, amount: BalanceOf<T>) {
+		self.ledger.pending_slash.defensive_saturating_reduce(amount);
+		self.ledger.total_delegated.defensive_saturating_reduce(amount);
+	}
 	pub(crate) fn ledger(&self) -> Option<DelegationLedger<T>> {
 		DelegationLedger::<T>::get(&self.key)
 	}
@@ -239,6 +248,9 @@ impl<T: Config> Delegate<T> {
 		self.ledger.save(&key)
 	}
 
+	/// Save self and remove if no delegation left.
+	///
+	/// Can return error if the delegate is in an unexpected state.
 	pub(crate) fn save_or_kill(self) -> Result<(), DispatchError> {
 		let key = self.key;
 		// see if delegate can be killed

@@ -475,6 +475,7 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Derive a (keyless) pot account from the given delegate account and account type.
 	pub(crate) fn sub_account(
 		account_type: AccountType,
 		delegate_account: T::AccountId,
@@ -486,20 +487,23 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn held_balance_of(who: &T::AccountId) -> BalanceOf<T> {
 		T::Currency::balance_on_hold(&HoldReason::Delegating.into(), who)
 	}
+
+	/// Returns true if who is registered as a `Delegate`.
 	fn is_delegate(who: &T::AccountId) -> bool {
 		<Delegates<T>>::contains_key(who)
 	}
 
+	/// Returns true if who is delegating to a `Delegate` account.
 	fn is_delegator(who: &T::AccountId) -> bool {
 		<Delegators<T>>::contains_key(who)
 	}
 
-	/// Returns true if who is not already staking.
+	/// Returns true if who is not already staking on [`Config::CoreStaking`].
 	fn not_direct_staker(who: &T::AccountId) -> bool {
 		T::CoreStaking::status(&who).is_err()
 	}
 
-	/// Returns true if who is not already staking.
+	/// Returns true if who is a [`StakerStatus::Nominator`] on [`Config::CoreStaking`].
 	fn is_direct_nominator(who: &T::AccountId) -> bool {
 		T::CoreStaking::status(who)
 			.map(|status| matches!(status, StakerStatus::Nominator(_)))
@@ -619,7 +623,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(delegate.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
 
 		// book keep into ledger
-		delegate.try_withdraw(amount)?;
+		delegate.remove_unclaimed_withdraw(amount)?;
 
 		// kill delegate if not delegated and nothing to claim anymore.
 		delegate.save_or_kill()?;
@@ -678,7 +682,7 @@ impl<T: Config> Pallet<T> {
 		let new_withdrawn =
 			pre_total.checked_sub(&post_total).defensive_ok_or(Error::<T>::BadState)?;
 
-		delegate.try_add_unclaimed_withdraw(new_withdrawn)?;
+		delegate.add_unclaimed_withdraw(new_withdrawn)?;
 
 		delegate.clone().save();
 
@@ -759,8 +763,7 @@ impl<T: Config> Pallet<T> {
 
 		// remove the slashed amount
 		// FIXME(ank4n) add a ledger method to reduce pending slash.
-		delegate.ledger.pending_slash.saturating_reduce(actual_slash);
-		delegate.ledger.total_delegated.saturating_reduce(actual_slash);
+		delegate.remove_slash(actual_slash);
 		delegate.save();
 
 		delegation
