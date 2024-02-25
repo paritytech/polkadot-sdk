@@ -769,7 +769,7 @@ mod pool_integration {
 			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 0));
 			assert_eq!(
 				events_since_last_call(),
-				vec![Event::Withdrawn { delegate: pool_acc, delegator: 301, amount: 50 }]
+				vec![Event::Released { delegate: pool_acc, delegator: 301, amount: 50 }]
 			);
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -786,8 +786,8 @@ mod pool_integration {
 			assert_eq!(
 				events_since_last_call(),
 				vec![
-					Event::Withdrawn { delegate: pool_acc, delegator: 302, amount: 100 },
-					Event::Withdrawn { delegate: pool_acc, delegator: 303, amount: 200 },
+					Event::Released { delegate: pool_acc, delegator: 302, amount: 100 },
+					Event::Released { delegate: pool_acc, delegator: 303, amount: 200 },
 				]
 			);
 			assert_eq!(
@@ -993,7 +993,7 @@ mod pool_integration {
 			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(300).into(), 300, 1));
 			assert_eq!(
 				events_since_last_call(),
-				vec![Event::Withdrawn { delegate: pool_acc, delegator: 300, amount: 100 }]
+				vec![Event::Released { delegate: pool_acc, delegator: 300, amount: 100 }]
 			);
 			assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, 500);
 
@@ -1006,7 +1006,7 @@ mod pool_integration {
 					events_since_last_call(),
 					vec![
 						Event::Slashed { delegate: pool_acc, delegator: i, amount: 50 },
-						Event::Withdrawn { delegate: pool_acc, delegator: i, amount: 50 },
+						Event::Released { delegate: pool_acc, delegator: i, amount: 50 },
 					]
 				);
 				assert_eq!(get_pool_delegate(pool_id).ledger.pending_slash, pre_pending_slash - 50);

@@ -136,14 +136,12 @@
 //! - Rewards can not be auto-compounded.
 //! - Slashes are lazy and hence there could be a period of time when an account can use funds for
 //! 	operations such as voting in governance even though they should be slashed.
-//!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
 #[cfg(test)]
 mod mock;
-
 #[cfg(test)]
 mod tests;
 
@@ -153,7 +151,6 @@ mod types;
 
 use types::*;
 
-// implementation of public traits.
 mod impls;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -206,12 +203,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type PalletId: Get<frame_support::PalletId>;
 
+		/// Currency type.
 		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ FunMutate<Self::AccountId>
 			+ FunHoldBalanced<Self::AccountId>;
 
 		/// Handler for the unbalanced reduction when slashing a delegator.
 		type OnSlash: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
+
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 
@@ -230,9 +229,8 @@ pub mod pallet {
 		/// Delegation conditions are not met.
 		///
 		/// Possible issues are
-		/// 1) Account does not accept or has blocked delegation.
-		/// 2) Cannot delegate to self,
-		/// 3) Cannot delegate to multiple delegates,
+		/// 1) Cannot delegate to self,
+		/// 2) Cannot delegate to multiple delegates,
 		InvalidDelegation,
 		/// The account does not have enough funds to perform the operation.
 		NotEnoughFunds,
@@ -244,9 +242,9 @@ pub mod pallet {
 		BadState,
 		/// Unapplied pending slash restricts operation on `delegate`.
 		UnappliedSlash,
-		/// Failed to withdraw amount from Core Staking Ledger.
+		/// Failed to withdraw amount from Core Staking.
 		WithdrawFailed,
-		/// This operation is not supported with Delegation Staking.
+		/// Operation not supported by this pallet.
 		NotSupported,
 		/// Account does not accept delegations.
 		NotAcceptingDelegations,
@@ -260,32 +258,26 @@ pub mod pallet {
 		Delegating,
 	}
 
-	// #[pallet::genesis_config]
-	// #[derive(frame_support::DefaultNoBound)]
-	// pub struct GenesisConfig<T: Config> {}
-	//
-	// #[pallet::genesis_build]
-	// impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-	// 	fn build(&self) {}
-	// }
-
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// Funds delegated by a delegator.
 		Delegated { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
-		Withdrawn { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
+		/// Funds released to a delegator.
+		Released { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
+		/// Funds slashed from a delegator.
 		Slashed { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 	}
 
-	/// Map of Delegators to their delegation, i.e. (delegate, delegation_amount).
+	/// Map of Delegators to their `Delegation`.
 	///
-	/// Note: We are not using a double map with delegator and `delegate` account as keys since we
-	/// want to restrict delegators to delegate only to one account.
+	/// Implementation note: We are not using a double map with `delegator` and `delegate` account
+	/// as keys since we want to restrict delegators to delegate only to one account at a time.
 	#[pallet::storage]
 	pub(crate) type Delegators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Delegation<T>, OptionQuery>;
 
-	/// Map of `Delegate` to their Ledger.
+	/// Map of `Delegate` to their `DelegationLedger`.
 	#[pallet::storage]
 	pub(crate) type Delegates<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegationLedger<T>, OptionQuery>;
@@ -322,7 +314,17 @@ pub mod pallet {
 
 		/// Migrate from a `Nominator` account to `Delegate` account.
 		///
-		/// Internally transfers minimum balance to a proxy delegator account created for it.
+		/// The origin needs to
+		/// - be a `Nominator` with `CoreStaking`,
+		/// - not already a `Delegate`,
+		/// - have enough funds to transfer existential deposit to a delegator account created for
+		///   the migration.
+		///
+		/// This operation will create a new delegator account for the origin called
+		/// `proxy_delegator` and transfer the staked amount to it. The `proxy_delegator` delegates
+		/// the funds to the origin making origin a `Delegate` account. The actual `delegator`
+		/// accounts of the origin can later migrate their funds using [Call::migrate_delegation] to
+		/// claim back their share of delegated funds from `proxy_delegator` to self.
 		#[pallet::call_index(1)]
 		#[pallet::weight(Weight::default())]
 		pub fn migrate_to_delegate(
@@ -330,9 +332,10 @@ pub mod pallet {
 			reward_account: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// Ensure is not already a delegate.
+			// ensure who is not already a delegate.
 			ensure!(!Self::is_delegate(&who), Error::<T>::NotAllowed);
 
+			// and they should already be a nominator in `CoreStaking`.
 			ensure!(Self::is_direct_nominator(&who), Error::<T>::NotAllowed);
 
 			// Reward account cannot be same as `delegate` account.
@@ -343,9 +346,10 @@ pub mod pallet {
 
 		/// Release delegated amount to delegator.
 		///
-		/// Tries to withdraw unbonded fund if needed from staking and release amount to delegator.
+		/// This can be called by existing `delegate` accounts.
 		///
-		/// Only `delegate` account can call this.
+		/// Tries to withdraw unbonded fund from `CoreStaking` if needed and release amount to
+		/// `delegator`.
 		#[pallet::call_index(2)]
 		#[pallet::weight(Weight::default())]
 		pub fn release(
@@ -360,9 +364,9 @@ pub mod pallet {
 
 		/// Migrate delegated fund.
 		///
-		/// This moves delegator funds from `pxoxy_delegator` account to `delegator` account.
+		/// This can be called by migrating `delegate` accounts.
 		///
-		/// Only `delegate` account can call this.
+		/// This moves delegator funds from `pxoxy_delegator` account to `delegator` account.
 		#[pallet::call_index(3)]
 		#[pallet::weight(Weight::default())]
 		pub fn migrate_delegation(
@@ -383,7 +387,7 @@ pub mod pallet {
 			// ensure delegate is sane.
 			ensure!(Self::is_delegate(&delegate), Error::<T>::NotDelegate);
 
-			// and has some delegated balance to migrate.
+			// and has enough delegated balance to migrate.
 			let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, delegate);
 			let balance_remaining = Self::held_balance_of(&proxy_delegator);
 			ensure!(balance_remaining >= amount, Error::<T>::NotEnoughFunds);
@@ -420,7 +424,9 @@ pub mod pallet {
 				T::Currency::reducible_balance(&who, Preservation::Preserve, Fortitude::Polite);
 			ensure!(delegator_balance >= amount, Error::<T>::NotEnoughFunds);
 
+			// add to delegation
 			Self::do_delegate(&who, &delegate, amount)?;
+			// bond the amount to `CoreStaking`.
 			Self::do_bond(&delegate, amount)
 		}
 
@@ -622,7 +628,7 @@ impl<T: Config> Pallet<T> {
 
 		defensive_assert!(released == amount, "hold should have been released fully");
 
-		Self::deposit_event(Event::<T>::Withdrawn {
+		Self::deposit_event(Event::<T>::Released {
 			delegate: who.clone(),
 			delegator: delegator.clone(),
 			amount,
