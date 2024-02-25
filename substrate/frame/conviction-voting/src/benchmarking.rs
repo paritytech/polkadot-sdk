@@ -29,7 +29,6 @@ use frame_support::{
 		Get,
 	},
 };
-use sp_runtime::traits::Bounded;
 use sp_std::collections::btree_map::BTreeMap;
 
 use crate::Pallet as ConvictionVoting;
@@ -55,7 +54,7 @@ fn fill_voting<T: Config<I>, I: 'static>(
 
 fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T::AccountId {
 	let caller: T::AccountId = account(name, index, SEED);
-	let new_balance = T::Currency::set_balance(&caller, 100_000_000u32.into());
+	T::Currency::set_balance(&caller, 100_000_000u32.into());
 	caller
 }
 
