@@ -1,0 +1,44 @@
+[package]
+name = "snowbridge-pallet-inbound-queue-fixtures"
+description = "Snowbridge Inbound Queue Test Fixtures"
+version = "0.9.0"
+authors = ["Snowfork <contact@snowfork.com>"]
+edition.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+hex-literal = { version = "0.4.1" }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
+snowbridge-core = { path = "../../../primitives/core", default-features = false }
+snowbridge-beacon-primitives = { path = "../../../primitives/beacon", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"snowbridge-beacon-primitives/std",
+	"snowbridge-core/std",
+	"sp-core/std",
+	"sp-std/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+]

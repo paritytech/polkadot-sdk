@@ -214,6 +214,18 @@ pub struct Environment<T: Config> {
 	block_number: EnvironmentType<BlockNumberFor<T>>,
 }
 
+/// Defines the current version of the HostFn APIs.
+/// This is used to communicate the available APIs in pallet-contracts.
+///
+/// The version is bumped any time a new HostFn is added or stabilized.
+#[derive(Encode, Decode, TypeInfo)]
+pub struct ApiVersion(u16);
+impl Default for ApiVersion {
+	fn default() -> Self {
+		Self(1)
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -325,7 +337,7 @@ pub mod pallet {
 		type DepositPerItem: Get<BalanceOf<Self>>;
 
 		/// The percentage of the storage deposit that should be held for using a code hash.
-		/// Instantiating a contract, or calling [`chain_extension::Ext::add_delegate_dependency`]
+		/// Instantiating a contract, or calling [`chain_extension::Ext::lock_delegate_dependency`]
 		/// protects the code from being removed. In order to prevent abuse these actions are
 		/// protected with a percentage of the code deposit.
 		#[pallet::constant]
@@ -347,7 +359,7 @@ pub mod pallet {
 		type MaxStorageKeyLen: Get<u32>;
 
 		/// The maximum number of delegate_dependencies that a contract can lock with
-		/// [`chain_extension::Ext::add_delegate_dependency`].
+		/// [`chain_extension::Ext::lock_delegate_dependency`].
 		#[pallet::constant]
 		type MaxDelegateDependencies: Get<u32>;
 
@@ -401,6 +413,12 @@ pub mod pallet {
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
 		type Environment: Get<Environment<Self>>;
+
+		/// The version of the HostFn APIs that are available in the runtime.
+		///
+		/// Only valid value is `()`.
+		#[pallet::constant]
+		type ApiVersion: Get<ApiVersion>;
 
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
@@ -1228,6 +1246,9 @@ struct InternalOutput<T: Config, O> {
 	result: Result<O, ExecError>,
 }
 
+// Set up a global reference to the boolean flag used for the re-entrancy guard.
+environmental!(executing_contract: bool);
+
 /// Helper trait to wrap contract execution entry points into a single function
 /// [`Invokable::run_guarded`].
 trait Invokable<T: Config>: Sized {
@@ -1243,9 +1264,6 @@ trait Invokable<T: Config>: Sized {
 	/// We enforce a re-entrancy guard here by initializing and checking a boolean flag through a
 	/// global reference.
 	fn run_guarded(self, common: CommonInput<T>) -> InternalOutput<T, Self::Output> {
-		// Set up a global reference to the boolean flag used for the re-entrancy guard.
-		environmental!(executing_contract: bool);
-
 		let gas_limit = common.gas_limit;
 
 		// Check whether the origin is allowed here. The logic of the access rules

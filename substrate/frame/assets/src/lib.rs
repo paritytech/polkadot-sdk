@@ -259,11 +259,7 @@ pub mod pallet {
 		/// This type includes the `From<Self::AssetId>` bound, since tightly coupled pallets may
 		/// want to convert an `AssetId` into a parameter for calling dispatchable functions
 		/// directly.
-		type AssetIdParameter: Parameter
-			+ Copy
-			+ From<Self::AssetId>
-			+ Into<Self::AssetId>
-			+ MaxEncodedLen;
+		type AssetIdParameter: Parameter + From<Self::AssetId> + Into<Self::AssetId> + MaxEncodedLen;
 
 		/// The currency mechanism.
 		type Currency: ReservableCurrency<Self::AccountId>;
