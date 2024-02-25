@@ -176,8 +176,7 @@ use sp_runtime::{
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_staking::{
-	delegation::StakingDelegationSupport, EraIndex, Stake, StakerStatus,
-	StakingInterface,
+	delegation::StakingDelegationSupport, EraIndex, Stake, StakerStatus, StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
 

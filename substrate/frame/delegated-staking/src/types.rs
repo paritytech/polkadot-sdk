@@ -231,7 +231,7 @@ impl<T: Config> Delegate<T> {
 		net_balance.saturating_sub(bonded_stake)
 	}
 
-    /// Remove slashes that are applied.
+	/// Remove slashes that are applied.
 	pub(crate) fn remove_slash(&mut self, amount: BalanceOf<T>) {
 		self.ledger.pending_slash.defensive_saturating_reduce(amount);
 		self.ledger.total_delegated.defensive_saturating_reduce(amount);
