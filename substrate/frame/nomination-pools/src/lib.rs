@@ -742,7 +742,7 @@ impl<T: Config> Commission<T> {
 
 			// do not throttle if `to` is the same or a decrease in commission.
 			if *to <= commission_as_percent {
-				return false;
+				return false
 			}
 			// Test for `max_increase` throttling.
 			//
