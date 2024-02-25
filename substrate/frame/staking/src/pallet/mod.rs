@@ -863,7 +863,6 @@ pub mod pallet {
 		ControllerDeprecated,
 		/// Provided reward destination is not allowed.
 		RewardDestinationRestricted,
-		// FIXME(ank4n): look at the error again
 		/// Not enough funds available to withdraw
 		NotEnoughFunds,
 	}

@@ -98,6 +98,9 @@ pub struct Stake<Balance> {
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when the stake amount of someone updates.
+	///
+	/// This is effectively any changes to the bond amount, such as bonding more funds, and
+	/// unbonding.
 	fn on_stake_update(_who: &AccountId, _prev_stake: Option<Stake<Balance>>) {}
 
 	/// Fired when someone sets their intention to nominate.
@@ -113,6 +116,9 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	fn on_nominator_update(_who: &AccountId, _prev_nominations: Vec<AccountId>) {}
 
 	/// Fired when someone removes their intention to nominate, either due to chill or validating.
+	///
+	/// The set of nominations at the time of removal is provided as it can no longer be fetched in
+	/// any way.
 	fn on_nominator_remove(_who: &AccountId, _nominations: Vec<AccountId>) {}
 
 	/// Fired when someone sets their intention to validate.
@@ -151,6 +157,9 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 }
 
 /// A generic representation of a staking implementation.
+///
+/// This interface uses the terminology of NPoS, but it is aims to be generic enough to cover other
+/// implementations as well.
 pub trait StakingInterface {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>

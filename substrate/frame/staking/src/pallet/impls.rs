@@ -1879,6 +1879,7 @@ impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 	fn stakeable_balance(_who: &Self::AccountId) -> Self::Balance {
+		defensive!("stakeable balance should not have been called for NoDelegation");
 		BalanceOf::<T>::zero()
 	}
 	fn is_delegate(_who: &Self::AccountId) -> bool {
