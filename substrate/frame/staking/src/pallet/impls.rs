@@ -36,12 +36,12 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
 	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
-	Perbill,
+	Perbill, Percent,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, Page, SessionIndex, Stake,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -75,7 +75,7 @@ impl<T: Config> Pallet<T> {
 		StakingLedger::<T>::get(account)
 	}
 
-	pub fn payee(account: StakingAccount<T::AccountId>) -> RewardDestination<T::AccountId> {
+	pub fn payee(account: StakingAccount<T::AccountId>) -> Option<RewardDestination<T::AccountId>> {
 		StakingLedger::<T>::reward_destination(account)
 	}
 
@@ -150,6 +150,9 @@ impl<T: Config> Pallet<T> {
 			// Already checked that this won't overflow by entry condition.
 			let value = old_total.defensive_saturating_sub(new_total);
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: value });
+
+			// notify listeners.
+			T::EventListeners::on_withdraw(controller, value);
 		}
 
 		Ok(used_weight)
@@ -336,11 +339,10 @@ impl<T: Config> Pallet<T> {
 		if amount.is_zero() {
 			return None
 		}
+		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
-		let dest = Self::payee(StakingAccount::Stash(stash.clone()));
 		let maybe_imbalance = match dest {
-			RewardDestination::Stash  =>
-				T::Currency::deposit_into_existing(stash, amount).ok(),
+			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
 					ledger.active += amount;
@@ -354,7 +356,7 @@ impl<T: Config> Pallet<T> {
 					Ok(r)
 				})
 				.unwrap_or_default(),
-			RewardDestination::Account(dest_account) =>
+			RewardDestination::Account(ref dest_account) =>
 				Some(T::Currency::deposit_creating(&dest_account, amount)),
 			RewardDestination::None => None,
 			#[allow(deprecated)]
@@ -366,8 +368,7 @@ impl<T: Config> Pallet<T> {
 						T::Currency::deposit_creating(&controller, amount)
 		}),
 		};
-		maybe_imbalance
-			.map(|imbalance| (imbalance, Self::payee(StakingAccount::Stash(stash.clone()))))
+		maybe_imbalance.map(|imbalance| (imbalance, dest))
 	}
 
 	/// Plan a new session potentially trigger a new era.
@@ -506,8 +507,17 @@ impl<T: Config> Pallet<T> {
 				.saturated_into::<u64>();
 			let staked = Self::eras_total_stake(&active_era.index);
 			let issuance = T::Currency::total_issuance();
+
 			let (validator_payout, remainder) =
 				T::EraPayout::era_payout(staked, issuance, era_duration);
+
+			let total_payout = validator_payout.saturating_add(remainder);
+			let max_staked_rewards =
+				MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
+
+			// apply cap to validators payout and add difference to remainder.
+			let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
+			let remainder = total_payout.saturating_sub(validator_payout);
 
 			Self::deposit_event(Event::<T>::EraPaid {
 				era_index: active_era.index,
@@ -1826,11 +1836,29 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
+		Self::check_payees()?;
 		Self::check_nominators()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
 		Self::check_ledgers()?;
 		Self::check_count()
+	}
+
+	/// Invariants:
+	/// * A bonded ledger should always have an assigned `Payee`.
+	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
+	fn check_payees() -> Result<(), TryRuntimeError> {
+		for (stash, _) in Bonded::<T>::iter() {
+			ensure!(Payee::<T>::get(&stash).is_some(), "bonded ledger does not have payee set");
+		}
+
+		ensure!(
+			(Ledger::<T>::iter().count() == Payee::<T>::iter().count()) &&
+				(Ledger::<T>::iter().count() == Bonded::<T>::iter().count()),
+			"number of entries in payee storage items does not match the number of bonded ledgers",
+		);
+
+		Ok(())
 	}
 
 	fn check_count() -> Result<(), TryRuntimeError> {

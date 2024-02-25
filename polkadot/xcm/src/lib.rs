@@ -494,7 +494,7 @@ pub trait WrapVersion {
 }
 
 /// Check and return the `Version` that should be used for the `Xcm` datum for the destination
-/// `MultiLocation`, which will interpret it.
+/// `Location`, which will interpret it.
 pub trait GetVersion {
 	fn get_version_for(dest: &latest::Location) -> Option<Version>;
 }
@@ -658,7 +658,7 @@ fn size_limits() {
 		(crate::latest::Junctions, 16),
 		(crate::latest::Junction, 88),
 		(crate::latest::Response, 40),
-		(crate::latest::AssetInstance, 40),
+		(crate::latest::AssetInstance, 48),
 		(crate::latest::NetworkId, 48),
 		(crate::latest::BodyId, 32),
 		(crate::latest::Assets, 24),

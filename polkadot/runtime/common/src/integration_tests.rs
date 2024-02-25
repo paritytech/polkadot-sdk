@@ -36,6 +36,7 @@ use pallet_identity::{self, legacy::IdentityInfo};
 use parity_scale_codec::Encode;
 use primitives::{
 	BlockNumber, HeadData, Id as ParaId, SessionIndex, ValidationCode, LOWEST_PUBLIC_ID,
+	MAX_CODE_SIZE,
 };
 use runtime_parachains::{
 	configuration, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
@@ -189,7 +190,6 @@ impl pallet_balances::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -316,7 +316,7 @@ pub fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	configuration::GenesisConfig::<Test> {
 		config: configuration::HostConfiguration {
-			max_code_size: 2 * 1024 * 1024,      // 2 MB
+			max_code_size: MAX_CODE_SIZE,
 			max_head_data_size: 1 * 1024 * 1024, // 1 MB
 			..Default::default()
 		},

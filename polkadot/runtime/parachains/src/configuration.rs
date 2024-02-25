@@ -281,7 +281,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			validation_upgrade_cooldown: Default::default(),
 			validation_upgrade_delay: 2u32.into(),
 			code_retention_period: Default::default(),
-			max_code_size: Default::default(),
+			max_code_size: MAX_CODE_SIZE,
 			max_pov_size: Default::default(),
 			max_head_data_size: Default::default(),
 			coretime_cores: Default::default(),
