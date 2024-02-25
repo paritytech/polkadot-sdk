@@ -620,11 +620,8 @@ impl<T: Config> Pallet<T> {
 		// if we still do not have enough funds to release, abort.
 		ensure!(delegate.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
 
-		// book keep into ledger
-		delegate.remove_unclaimed_withdraw(amount)?;
-
-		// kill delegate if not delegated and nothing to claim anymore.
-		delegate.save_or_kill()?;
+		// claim withdraw from delegate.
+		delegate.remove_unclaimed_withdraw(amount)?.save_or_kill()?;
 
 		// book keep delegation
 		delegation.amount = delegation

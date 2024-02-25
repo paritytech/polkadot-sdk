@@ -168,21 +168,28 @@ impl<T: Config> Delegate<T> {
 	/// Checked decrease of delegation amount from `total_delegated` and `unclaimed_withdrawals`
 	/// registers. Mutates self.
 	pub(crate) fn remove_unclaimed_withdraw(
-		&mut self,
+		self,
 		amount: BalanceOf<T>,
-	) -> Result<(), DispatchError> {
-		self.ledger.total_delegated = self
+	) -> Result<Self, DispatchError> {
+		let new_total_delegated = self
 			.ledger
 			.total_delegated
 			.checked_sub(&amount)
 			.defensive_ok_or(ArithmeticError::Overflow)?;
-		self.ledger.unclaimed_withdrawals = self
+		let new_unclaimed_withdrawals = self
 			.ledger
 			.unclaimed_withdrawals
 			.checked_sub(&amount)
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
-		Ok(())
+		Ok(Delegate {
+			ledger: DelegationLedger {
+				total_delegated: new_total_delegated,
+				unclaimed_withdrawals: new_unclaimed_withdrawals,
+				..self.ledger
+			},
+			..self
+		})
 	}
 
 	/// Add funds that are withdrawn from [Config::CoreStaking] to be claimed by delegators later.
