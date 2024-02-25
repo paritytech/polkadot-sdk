@@ -440,7 +440,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			let delegate = Delegate::<T>::from(&who)?;
-            let should_block = !delegate.ledger.blocked;
+			let should_block = !delegate.ledger.blocked;
 			delegate.update_status(should_block).save();
 
 			Ok(())
@@ -453,7 +453,11 @@ pub mod pallet {
 		/// separately until all pending slash is cleared.
 		#[pallet::call_index(6)]
 		#[pallet::weight(Weight::default())]
-		pub fn apply_slash(origin: OriginFor<T>, delegator: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		pub fn apply_slash(
+			origin: OriginFor<T>,
+			delegator: T::AccountId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_slash(who, delegator, amount, None)
 		}
