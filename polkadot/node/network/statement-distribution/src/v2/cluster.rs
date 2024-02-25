@@ -428,10 +428,13 @@ impl ClusterTracker {
 
 	/// Dumps pending statement for this cluster.
 	///
-	/// Normally we should not have any pending statements for our cluster,
-	/// but if we do for long periods of time something bad happened which
-	/// needs to be investigated.
-	pub fn dump_pending_statements(&self, parent_hash: Hash) {
+	/// Normally we should not have pending statements to validators in our cluster,
+	/// but if we do for all validators in our cluster, then we don't participate
+	/// in backing. Ocasional pending statements are expected if two authorities
+	/// can't detect each otehr or after restart, where it takes a while to discover
+	/// the whole network.
+
+	pub fn warn_if_too_many_pending_statements(&self, parent_hash: Hash) {
 		if self.pending.iter().filter(|pending| !pending.1.is_empty()).count() >=
 			self.validators.len()
 		{
