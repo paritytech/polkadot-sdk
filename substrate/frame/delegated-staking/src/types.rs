@@ -30,6 +30,7 @@ pub(crate) enum AccountType {
 	ProxyDelegator,
 }
 
+/// Information about delegation of a `delegator`.
 #[derive(Default, Encode, Clone, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct Delegation<T: Config> {
@@ -64,6 +65,7 @@ impl<T: Config> Delegation<T> {
 	}
 
 	/// Checked increase of delegation amount. Consumes self and returns a new copy.
+	#[allow(unused)]
 	pub(crate) fn increase_delegation(self, amount: BalanceOf<T>) -> Option<Self> {
 		let updated_delegation = self.amount.checked_add(&amount)?;
 		Some(Delegation::from(&self.delegate, updated_delegation))
@@ -148,6 +150,7 @@ impl<T: Config> DelegationLedger<T> {
 	}
 }
 
+/// Wrapper around `DelegationLedger` to provide additional functionality.
 #[derive(Clone)]
 pub struct Delegate<T: Config> {
 	pub key: T::AccountId,
@@ -160,6 +163,10 @@ impl<T: Config> Delegate<T> {
 		Ok(Delegate { key: delegate.clone(), ledger })
 	}
 
+	/// Remove funds that are withdrawn from [Config::CoreStaking] but not claimed by a delegator.
+	///
+	/// Checked decrease of delegation amount from `total_delegated` and `unclaimed_withdrawals`
+	/// registers. Mutates self.
 	pub(crate) fn remove_unclaimed_withdraw(
 		&mut self,
 		amount: BalanceOf<T>,
@@ -178,6 +185,7 @@ impl<T: Config> Delegate<T> {
 		Ok(())
 	}
 
+	/// Add funds that are withdrawn from [Config::CoreStaking] to be claimed by delegators later.
 	pub(crate) fn add_unclaimed_withdraw(
 		&mut self,
 		amount: BalanceOf<T>,
@@ -190,41 +198,43 @@ impl<T: Config> Delegate<T> {
 
 		Ok(())
 	}
-	// re-reads the delegate from database and returns a new instance.
+
+	/// Reloads self from storage.
+	#[allow(unused)]
 	pub(crate) fn refresh(&self) -> Result<Delegate<T>, DispatchError> {
 		Self::from(&self.key)
 	}
 
+	/// Amount that is delegated but not bonded yet.
+	///
+	/// This importantly does not include `unclaimed_withdrawals` as those should not be bonded
+	/// again unless explicitly requested.
 	pub(crate) fn available_to_bond(&self) -> BalanceOf<T> {
 		let bonded_stake = self.bonded_stake();
-
-		let stakeable =
-			self.ledger().map(|ledger| ledger.stakeable_balance()).unwrap_or(Zero::zero());
+		let stakeable = self.ledger.stakeable_balance();
 
 		defensive_assert!(stakeable >= bonded_stake, "cannot expose more than delegate balance");
 
 		stakeable.saturating_sub(bonded_stake)
 	}
 
-	/// Similar to [`Self::available_to_bond`] but includes `DelegationLedger.unclaimed_withdrawals`
-	/// as well.
-	pub(crate) fn unbonded(&self) -> BalanceOf<T> {
+	/// Balance of `Delegate` that is not bonded.
+	///
+	/// Includes `unclaimed_withdrawals` of `Delegate`.
+	pub(crate) fn total_unbonded(&self) -> BalanceOf<T> {
 		let bonded_stake = self.bonded_stake();
 
-		let net_balance =
-			self.ledger().map(|ledger| ledger.effective_balance()).unwrap_or(Zero::zero());
+		let net_balance = self.ledger.effective_balance();
 
 		defensive_assert!(net_balance >= bonded_stake, "cannot expose more than delegate balance");
 
 		net_balance.saturating_sub(bonded_stake)
 	}
 
+    /// Remove slashes that are applied.
 	pub(crate) fn remove_slash(&mut self, amount: BalanceOf<T>) {
 		self.ledger.pending_slash.defensive_saturating_reduce(amount);
 		self.ledger.total_delegated.defensive_saturating_reduce(amount);
-	}
-	pub(crate) fn ledger(&self) -> Option<DelegationLedger<T>> {
-		DelegationLedger::<T>::get(&self.key)
 	}
 
 	pub(crate) fn bonded_stake(&self) -> BalanceOf<T> {
@@ -250,7 +260,7 @@ impl<T: Config> Delegate<T> {
 
 	/// Save self and remove if no delegation left.
 	///
-	/// Can return error if the delegate is in an unexpected state.
+	/// Returns error if the delegate is in an unexpected state.
 	pub(crate) fn save_or_kill(self) -> Result<(), DispatchError> {
 		let key = self.key;
 		// see if delegate can be killed

@@ -246,7 +246,6 @@ mod staking_integration {
 				let delegate_obj = get_delegate(&delegate);
 				assert_eq!(delegate_obj.ledger.stakeable_balance(), delegated_balance);
 				assert_eq!(delegate_obj.available_to_bond(), 0);
-				assert_eq!(delegate_obj.available_to_bond(), 0);
 				assert_eq!(delegate_obj.bonded_stake(), delegated_balance);
 			}
 
@@ -607,7 +606,7 @@ mod pool_integration {
 			// verify state
 			assert_eq!(delegate.ledger.effective_balance(), delegate_amount);
 			assert_eq!(delegate.available_to_bond(), 0);
-			assert_eq!(delegate.unbonded(), 0);
+			assert_eq!(delegate.total_unbonded(), 0);
 		});
 	}
 
@@ -640,7 +639,7 @@ mod pool_integration {
 			assert_eq!(pool_delegate.ledger.effective_balance(), staked_amount);
 			assert_eq!(pool_delegate.bonded_stake(), staked_amount);
 			assert_eq!(pool_delegate.available_to_bond(), 0);
-			assert_eq!(pool_delegate.unbonded(), 0);
+			assert_eq!(pool_delegate.total_unbonded(), 0);
 
 			// let a bunch of delegators join this pool
 			for i in 301..350 {
@@ -650,10 +649,11 @@ mod pool_integration {
 				assert_eq!(held_balance(&i), 100 + i);
 			}
 
-			assert_eq!(pool_delegate.refresh().unwrap().ledger.effective_balance(), staked_amount);
+			let pool_delegate = pool_delegate.refresh().unwrap();
+			assert_eq!(pool_delegate.ledger.effective_balance(), staked_amount);
 			assert_eq!(pool_delegate.bonded_stake(), staked_amount);
 			assert_eq!(pool_delegate.available_to_bond(), 0);
-			assert_eq!(pool_delegate.unbonded(), 0);
+			assert_eq!(pool_delegate.total_unbonded(), 0);
 		});
 	}
 
@@ -827,17 +827,17 @@ mod pool_integration {
 			start_era(5);
 			// withdraw pool should withdraw 1000 tokens
 			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
-			assert_eq!(get_pool_delegate(pool_id).unbonded(), 1000);
+			assert_eq!(get_pool_delegate(pool_id).total_unbonded(), 1000);
 
 			start_era(6);
 			// should withdraw 500 more
 			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
-			assert_eq!(get_pool_delegate(pool_id).unbonded(), 1000 + 500);
+			assert_eq!(get_pool_delegate(pool_id).total_unbonded(), 1000 + 500);
 
 			start_era(7);
 			// Nothing to withdraw, still at 1500.
 			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
-			assert_eq!(get_pool_delegate(pool_id).unbonded(), 1500);
+			assert_eq!(get_pool_delegate(pool_id).total_unbonded(), 1500);
 		});
 	}
 

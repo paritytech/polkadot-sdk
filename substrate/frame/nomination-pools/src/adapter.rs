@@ -69,7 +69,7 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 		Ok(())
 	}
 
-	fn has_pending_slash(delegate: &Self::AccountId) -> bool {
+	fn has_pending_slash(_delegate: &Self::AccountId) -> bool {
 		// for direct staking, slashing is eager, and we don't need to do anything here.
 		false
 	}

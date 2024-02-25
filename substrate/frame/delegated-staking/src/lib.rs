@@ -168,16 +168,15 @@ use frame_support::{
 		tokens::{fungible::Credit, Fortitude, Precision, Preservation},
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
-	transactional,
 	weights::Weight,
 };
 
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
-	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating, TryRuntimeError,
+	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_staking::{
-	delegation, delegation::StakingDelegationSupport, EraIndex, Stake, StakerStatus,
+	delegation::StakingDelegationSupport, EraIndex, Stake, StakerStatus,
 	StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
@@ -695,7 +694,7 @@ impl<T: Config> Pallet<T> {
 		destination_delegator: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		let mut source_delegation =
+		let source_delegation =
 			Delegators::<T>::get(&source_delegator).defensive_ok_or(Error::<T>::BadState)?;
 
 		// some checks that must have already been checked before.
@@ -749,7 +748,7 @@ impl<T: Config> Pallet<T> {
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
 		let mut delegate = Delegate::<T>::from(&delegate_acc)?;
-		let mut delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
+		let delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
 
 		ensure!(delegation.delegate == delegate_acc, Error::<T>::NotDelegate);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
@@ -794,7 +793,7 @@ use sp_std::collections::btree_map::BTreeMap;
 
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
-	pub(crate) fn do_try_state() -> Result<(), TryRuntimeError> {
+	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		// build map to avoid reading storage multiple times.
 		let delegation_map = Delegators::<T>::iter().collect::<BTreeMap<_, _>>();
 		let ledger_map = Delegates::<T>::iter().collect::<BTreeMap<_, _>>();
@@ -807,7 +806,7 @@ impl<T: Config> Pallet<T> {
 
 	fn check_delegates(
 		ledgers: BTreeMap<T::AccountId, DelegationLedger<T>>,
-	) -> Result<(), TryRuntimeError> {
+	) -> Result<(), sp_runtime::TryRuntimeError> {
 		for (delegate, ledger) in ledgers {
 			ensure!(
 				matches!(
@@ -831,7 +830,7 @@ impl<T: Config> Pallet<T> {
 	fn check_delegators(
 		delegations: BTreeMap<T::AccountId, Delegation<T>>,
 		ledger: BTreeMap<T::AccountId, DelegationLedger<T>>,
-	) -> Result<(), TryRuntimeError> {
+	) -> Result<(), sp_runtime::TryRuntimeError> {
 		let mut delegation_aggregation = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
 		for (delegator, delegation) in delegations.iter() {
 			ensure!(

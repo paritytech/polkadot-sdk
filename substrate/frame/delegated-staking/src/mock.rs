@@ -17,7 +17,7 @@
 
 use crate::{self as delegated_staking, types::Delegate, HoldReason};
 use frame_support::{
-	assert_noop, assert_ok, derive_impl,
+	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
 	traits::{fungible::InspectHold, ConstU64, Currency},

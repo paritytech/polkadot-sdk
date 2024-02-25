@@ -254,7 +254,7 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 	/// Equivalent to [FunInspect::balance] for non delegate accounts.
 	fn releasable_balance(who: &Self::AccountId) -> Self::Balance {
 		Delegate::<T>::from(who)
-			.map(|delegate| delegate.unbonded())
+			.map(|delegate| delegate.total_unbonded())
 			.unwrap_or(Zero::zero())
 	}
 
