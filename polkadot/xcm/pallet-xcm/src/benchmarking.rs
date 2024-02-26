@@ -17,21 +17,26 @@
 use super::*;
 use bounded_collections::{ConstU32, WeakBoundedVec};
 use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
-use frame_support::{traits::Currency, weights::Weight};
+use frame_support::{
+	traits::fungible::{Inspect, Mutate},
+	weights::Weight,
+};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
 use xcm::{latest::prelude::*, v2};
+use xcm_builder::EnsureDelivery;
+use xcm_executor::traits::FeeReason;
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
-
-// existential deposit multiplier
-const ED_MULTIPLIER: u32 = 100;
 
 /// Pallet we're benchmarking here.
 pub struct Pallet<T: Config>(crate::Pallet<T>);
 
 /// Trait that must be implemented by runtime to be able to benchmark pallet properly.
 pub trait Config: crate::Config {
+	/// Helper that ensures successful delivery for extrinsics/benchmarks which need `SendXcm`.
+	type DeliveryHelper: EnsureDelivery;
+
 	/// A `Location` that can be reached via `XcmRouter`. Used only in benchmarks.
 	///
 	/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
@@ -107,22 +112,28 @@ benchmarks! {
 		}.into();
 		let assets: Assets = asset.into();
 
-		let existential_deposit = T::ExistentialDeposit::get();
-		let caller = whitelisted_caller();
-
-		// Give some multiple of the existential deposit
-		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		assert!(balance >= transferred_amount);
-		let _ = <pallet_balances::Pallet<T> as Currency<_>>::make_free_balance_be(&caller, balance);
-		// verify initial balance
-		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
-
+		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		if !T::XcmTeleportFilter::contains(&(origin_location, assets.clone().into_inner())) {
+		if !T::XcmTeleportFilter::contains(&(origin_location.clone(), assets.clone().into_inner())) {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&origin_location,
+			&destination,
+			FeeReason::ChargeFees,
+		);
+
+		// Actual balance (e.g. `ensure_successful_delivery` could drip delivery fees, ...)
+		let balance = <pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller);
+		// Add transferred_amount to origin
+		<pallet_balances::Pallet<T> as Mutate<_>>::mint_into(&caller, transferred_amount)?;
+		// verify initial balance
+		let balance = balance + transferred_amount;
+		assert_eq!(<pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller), balance);
 
 		let recipient = [0u8; 32];
 		let versioned_dest: VersionedLocation = destination.into();
@@ -132,7 +143,7 @@ benchmarks! {
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
 	verify {
 		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
-		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
+		assert!(<pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller) <= balance - transferred_amount);
 	}
 
 	reserve_transfer_assets {
@@ -146,22 +157,28 @@ benchmarks! {
 		}.into();
 		let assets: Assets = asset.into();
 
-		let existential_deposit = T::ExistentialDeposit::get();
-		let caller = whitelisted_caller();
-
-		// Give some multiple of the existential deposit
-		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		assert!(balance >= transferred_amount);
-		let _ = <pallet_balances::Pallet<T> as Currency<_>>::make_free_balance_be(&caller, balance);
-		// verify initial balance
-		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
-
+		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		if !T::XcmReserveTransferFilter::contains(&(origin_location, assets.clone().into_inner())) {
+		if !T::XcmReserveTransferFilter::contains(&(origin_location.clone(), assets.clone().into_inner())) {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&origin_location,
+			&destination,
+			FeeReason::ChargeFees,
+		);
+
+		// Actual balance (e.g. `ensure_successful_delivery` could drip delivery fees, ...)
+		let balance = <pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller);
+		// Add transferred_amount to origin
+		<pallet_balances::Pallet<T> as Mutate<_>>::mint_into(&caller, transferred_amount)?;
+		// verify initial balance
+		let balance = balance + transferred_amount;
+		assert_eq!(<pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller), balance);
 
 		let recipient = [0u8; 32];
 		let versioned_dest: VersionedLocation = destination.into();
@@ -171,7 +188,7 @@ benchmarks! {
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
 	verify {
 		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
-		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
+		assert!(<pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller) <= balance - transferred_amount);
 	}
 
 	transfer_assets {
