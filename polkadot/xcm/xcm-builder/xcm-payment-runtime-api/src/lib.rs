@@ -23,18 +23,37 @@ use sp_std::vec::Vec;
 use sp_weights::Weight;
 use xcm::latest::{AssetId, Xcm};
 sp_api::decl_runtime_apis! {
-
+	/// A trait of XCM payment API.
+	///
+	/// API provides functionality for obtaining
+	/// the weight required to execute an XCM message,
+	/// a list of accepted `AssetId` for payment for its
+	/// execution and the cost in the specified supported `AssetId`.
+	///
+	/// To determine the execution weight of the calls required
+	/// for some instructions (for example, [`xcm::latest::Instruction::Transact`])
+	/// `TransactionPaymentCallApi`can be used.
 	pub trait XcmPaymentRuntimeApi<Call>
 	where
 		Call: Codec,
 	{
-		/// TODO.
+		/// Returns a list of acceptable payment assets.
 		fn query_acceptable_payment_assets() -> Vec<AssetId>;
 
-		/// TODO
+		/// Converts a weight into a fee for the specified `AssetId`.
+		/// Returns `None` if the `AssetId` isn't supported as a acceptable for the fee payment.
+		///
+		/// # Arguments
+		///
+		/// * `weight`: convertible `Weight`.
+		/// * `asset`: `AssetId`.
 		fn query_weight_to_asset_fee(weight: Weight, asset: AssetId) -> Option<u128>;
 
-		/// TODO
+		/// Returns a weight needed to execute a XCM.
+		///
+		/// # Arguments
+		///
+		/// * `message`: `Xcm`.
 		fn query_xcm_weight(message: Xcm<Call>) -> Result<Weight, Xcm<Call>>;
 	}
 }
