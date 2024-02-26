@@ -48,6 +48,7 @@ test-linux-stable:
       - target/nextest/default/junit.xml
     reports:
       junit: target/nextest/default/junit.xml
+  timeout: 90m
 
 test-linux-oldkernel-stable:
   extends: test-linux-stable
