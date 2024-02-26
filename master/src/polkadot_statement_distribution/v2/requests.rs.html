@@ -1282,6 +1282,18 @@
 <a href="#1282" id="1282">1282</a>
 <a href="#1283" id="1283">1283</a>
 <a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1599,7 +1611,16 @@
 		request_props: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>CandidateIdentifier) -&gt; <span class="prelude-ty">Option</span>&lt;RequestProperties&gt;,
 		peer_advertised: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>CandidateIdentifier, <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;StatementFilter&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;OutgoingRequest&lt;AttestedCandidateRequest&gt;&gt; {
-		<span class="kw">if </span>response_manager.len() &gt;= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS <span class="kw">as </span>usize {
+		<span class="comment">// The number of parallel requests a node can answer is limited by
+		// `MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS`, however there is no
+		// need for the current node to limit itself to the same amount the
+		// requests, because the requests are going to different nodes anyways.
+		// While looking at https://github.com/paritytech/polkadot-sdk/issues/3314,
+		// found out that this requests take around 100ms to fullfill, so it
+		// would make sense to try to request things as early as we can, given
+		// we would need to request it for each candidate, around 25 right now
+		// on kusama.
+		</span><span class="kw">if </span>response_manager.len() &gt;= <span class="number">2 </span>* MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS <span class="kw">as </span>usize {
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
 
@@ -2311,6 +2332,7 @@
 			<span class="kw">let </span>peer_advertised = |_identifier: <span class="kw-2">&amp;</span>CandidateIdentifier, _peer: <span class="kw-2">&amp;</span><span class="kw">_</span>| {
 				<span class="prelude-val">Some</span>(StatementFilter::full(group_size))
 			};
+
 			<span class="kw">let </span>outgoing = request_manager
 				.next_request(<span class="kw-2">&amp;mut </span>response_manager, request_props, peer_advertised)
 				.unwrap();
@@ -2432,6 +2454,7 @@
 		</span>{
 			<span class="kw">let </span>request_props =
 				|_identifier: <span class="kw-2">&amp;</span>CandidateIdentifier| <span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>request_properties).clone());
+
 			<span class="kw">let </span>outgoing = request_manager
 				.next_request(<span class="kw-2">&amp;mut </span>response_manager, request_props, peer_advertised)
 				.unwrap();
@@ -2514,6 +2537,7 @@
 		</span>{
 			<span class="kw">let </span>request_props =
 				|_identifier: <span class="kw-2">&amp;</span>CandidateIdentifier| <span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>request_properties).clone());
+
 			<span class="kw">let </span>outgoing = request_manager
 				.next_request(<span class="kw-2">&amp;mut </span>response_manager, request_props, peer_advertised)
 				.unwrap();

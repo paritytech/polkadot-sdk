@@ -1754,6 +1754,18 @@
 <a href="#1754" id="1754">1754</a>
 <a href="#1755" id="1755">1755</a>
 <a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
+<a href="#1759" id="1759">1759</a>
+<a href="#1760" id="1760">1760</a>
+<a href="#1761" id="1761">1761</a>
+<a href="#1762" id="1762">1762</a>
+<a href="#1763" id="1763">1763</a>
+<a href="#1764" id="1764">1764</a>
+<a href="#1765" id="1765">1765</a>
+<a href="#1766" id="1766">1766</a>
+<a href="#1767" id="1767">1767</a>
+<a href="#1768" id="1768">1768</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -3111,8 +3123,31 @@
 				Config <span class="kw">as </span>XcmBridgeHubRouterConfig,
 			};
 
+			<span class="macro">parameter_types! </span>{
+				<span class="kw">pub </span>ExistentialDepositAsset: <span class="prelude-ty">Option</span>&lt;Asset&gt; = <span class="prelude-val">Some</span>((
+					TokenLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+				<span class="kw">pub const </span>RandomParaId: ParaId = ParaId::new(<span class="number">43211234</span>);
+			}
+
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
+				<span class="kw">type </span>DeliveryHelper = (
+					cumulus_primitives_utility::ToParentDeliveryHelper&lt;
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForParentDelivery,
+					&gt;,
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						RandomParaId,
+						ParachainSystem,
+					&gt;
+				);
+
 				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;Location&gt; {
 					<span class="prelude-val">Some</span>(Parent.into())
 				}
@@ -3121,7 +3156,7 @@
 					<span class="comment">// Relay/native token can be teleported between AH and Relay.
 					</span><span class="prelude-val">Some</span>((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
 						Parent.into(),
@@ -3129,17 +3164,13 @@
 				}
 
 				<span class="kw">fn </span>reserve_transferable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(Asset, Location)&gt; {
-					<span class="comment">// AH can reserve transfer native token to some random parachain.
-					</span><span class="kw">let </span>random_para_id = <span class="number">43211234</span>;
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
-						random_para_id.into()
-					);
 					<span class="prelude-val">Some</span>((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
-						ParentThen(Parachain(random_para_id).into()).into(),
+						<span class="comment">// AH can reserve transfer native token to some random parachain.
+						</span>ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
 					))
 				}
 
@@ -3224,13 +3255,6 @@
 
 			<span class="kw">use </span>xcm_config::{TokenLocation, MaxAssetsIntoHolding};
 			<span class="kw">use </span>pallet_xcm_benchmarks::asset_instance_from;
-
-			<span class="macro">parameter_types! </span>{
-				<span class="kw">pub </span>ExistentialDepositAsset: <span class="prelude-ty">Option</span>&lt;Asset&gt; = <span class="prelude-val">Some</span>((
-					TokenLocation::get(),
-					ExistentialDeposit::get()
-				).into());
-			}
 
 			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
 				<span class="kw">type </span>XcmConfig = xcm_config::XcmConfig;

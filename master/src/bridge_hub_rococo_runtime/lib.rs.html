@@ -1508,6 +1508,12 @@
 <a href="#1508" id="1508">1508</a>
 <a href="#1509" id="1509">1509</a>
 <a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2619,6 +2625,12 @@
 
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
+				<span class="kw">type </span>DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper&lt;
+					xcm_config::XcmConfig,
+					ExistentialDepositAsset,
+					xcm_config::PriceForParentDelivery,
+				&gt;;
+
 				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;Location&gt; {
 					<span class="prelude-val">Some</span>(Parent.into())
 				}
@@ -2627,7 +2639,7 @@
 					<span class="comment">// Relay/native token can be teleported between BH and Relay.
 					</span><span class="prelude-val">Some</span>((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
 						Parent.into(),

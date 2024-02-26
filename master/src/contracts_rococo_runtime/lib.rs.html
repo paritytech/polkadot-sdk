@@ -786,6 +786,23 @@
 <a href="#786" id="786">786</a>
 <a href="#787" id="787">787</a>
 <a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 //
@@ -838,7 +855,7 @@
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, ConstU8},
+	traits::{ConstBool, ConstU16, ConstU32, ConstU64, ConstU8},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -993,6 +1010,10 @@
 	<span class="kw">type </span>EventHandler = (CollatorSelection,);
 }
 
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
+}
+
 <span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>MaxLocks = ConstU32&lt;<span class="number">50</span>&gt;;
 	<span class="doccomment">/// The type for recording an account&#39;s balance.
@@ -1000,7 +1021,7 @@
 	<span class="doccomment">/// The ubiquitous event type.
 	</span><span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>DustRemoval = ();
-	<span class="kw">type </span>ExistentialDeposit = ConstU128&lt;EXISTENTIAL_DEPOSIT&gt;;
+	<span class="kw">type </span>ExistentialDeposit = ExistentialDeposit;
 	<span class="kw">type </span>AccountStore = System;
 	<span class="kw">type </span>WeightInfo = pallet_balances::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>MaxReserves = ConstU32&lt;<span class="number">50</span>&gt;;
@@ -1501,9 +1522,22 @@
 			<span class="kw">use </span>cumulus_pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
 			<span class="kw">impl </span>cumulus_pallet_session_benchmarking::Config <span class="kw">for </span>Runtime {}
 
+			<span class="macro">parameter_types! </span>{
+				<span class="kw">pub </span>ExistentialDepositAsset: <span class="prelude-ty">Option</span>&lt;Asset&gt; = <span class="prelude-val">Some</span>((
+					xcm_config::RelayLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
+				<span class="kw">type </span>DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper&lt;
+					xcm_config::XcmConfig,
+					ExistentialDepositAsset,
+					xcm_config::PriceForParentDelivery,
+				&gt;;
+
 				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;Location&gt; {
 					<span class="prelude-val">Some</span>(Parent.into())
 				}
@@ -1512,7 +1546,7 @@
 					<span class="comment">// Relay/native token can be teleported between Contracts-System-Para and Relay.
 					</span><span class="prelude-val">Some</span>((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
 						Parent.into(),

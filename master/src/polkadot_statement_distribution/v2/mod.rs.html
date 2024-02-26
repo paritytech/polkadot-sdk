@@ -3365,6 +3365,21 @@
 <a href="#3365" id="3365">3365</a>
 <a href="#3366" id="3366">3366</a>
 <a href="#3367" id="3367">3367</a>
+<a href="#3368" id="3368">3368</a>
+<a href="#3369" id="3369">3369</a>
+<a href="#3370" id="3370">3370</a>
+<a href="#3371" id="3371">3371</a>
+<a href="#3372" id="3372">3372</a>
+<a href="#3373" id="3373">3373</a>
+<a href="#3374" id="3374">3374</a>
+<a href="#3375" id="3375">3375</a>
+<a href="#3376" id="3376">3376</a>
+<a href="#3377" id="3377">3377</a>
+<a href="#3378" id="3378">3378</a>
+<a href="#3379" id="3379">3379</a>
+<a href="#3380" id="3380">3380</a>
+<a href="#3381" id="3381">3381</a>
+<a href="#3382" id="3382">3382</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3618,6 +3633,13 @@
 		<span class="kw">if </span>local_index.is_some() {
 			<span class="self">self</span>.local_validator.get_or_insert(LocalValidatorIndex::Inactive);
 		}
+
+		<span class="macro">gum::info!</span>(
+			target: LOG_TARGET,
+			index_in_gossip_topology = <span class="question-mark">?</span>local_index,
+			index_in_parachain_authorities = <span class="question-mark">?</span><span class="self">self</span>.local_validator,
+			<span class="string">&quot;Node uses the following topology indices&quot;
+		</span>);
 	}
 
 	<span class="doccomment">/// Returns `true` if local is neither active or inactive validator node.
@@ -4135,7 +4157,15 @@
 		<span class="kw">let </span>pruned = state.implicit_view.deactivate_leaf(<span class="kw-2">*</span>leaf);
 		<span class="kw">for </span>pruned_rp <span class="kw">in </span>pruned {
 			<span class="comment">// clean up per-relay-parent data based on everything removed.
-			</span>state.per_relay_parent.remove(<span class="kw-2">&amp;</span>pruned_rp);
+			</span>state
+				.per_relay_parent
+				.remove(<span class="kw-2">&amp;</span>pruned_rp)
+				.as_ref()
+				.and_then(|pruned| pruned.active_validator_state())
+				.map(|active_state| {
+					active_state.cluster_tracker.warn_if_too_many_pending_statements(pruned_rp)
+				});
+
 			<span class="comment">// clean up requests related to this relay parent.
 			</span>state.request_manager.remove_by_relay_parent(<span class="kw-2">*</span>leaf);
 		}

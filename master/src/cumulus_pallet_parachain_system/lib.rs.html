@@ -1752,6 +1752,15 @@
 <a href="#1752" id="1752">1752</a>
 <a href="#1753" id="1753">1753</a>
 <a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
+<a href="#1759" id="1759">1759</a>
+<a href="#1760" id="1760">1760</a>
+<a href="#1761" id="1761">1761</a>
+<a href="#1762" id="1762">1762</a>
+<a href="#1763" id="1763">1763</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -3361,6 +3370,15 @@
 <span class="kw">impl</span>&lt;T: Config&gt; UpwardMessageSender <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>send_upward_message(message: UpwardMessage) -&gt; <span class="prelude-ty">Result</span>&lt;(u32, XcmHash), MessageSendError&gt; {
 		<span class="self">Self</span>::send_upward_message(message)
+	}
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">impl</span>&lt;T: Config&gt; polkadot_runtime_common::xcm_sender::EnsureForParachain <span class="kw">for </span>Pallet&lt;T&gt; {
+	<span class="kw">fn </span>ensure(para_id: ParaId) {
+		<span class="kw">if let </span>ChannelStatus::Closed = <span class="self">Self</span>::get_channel_status(para_id) {
+			<span class="self">Self</span>::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
+		}
 	}
 }
 

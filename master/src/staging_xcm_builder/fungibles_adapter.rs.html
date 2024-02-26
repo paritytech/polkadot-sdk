@@ -637,7 +637,7 @@
 	<span class="kw">fn </span>can_check_out(_origin: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::fungibles_adapter&quot;</span>,
-			<span class="string">&quot;can_check_in origin: {:?}, what: {:?}&quot;</span>,
+			<span class="string">&quot;can_check_out origin: {:?}, what: {:?}&quot;</span>,
 			_origin, what
 		);
 		<span class="comment">// Check we handle this asset.

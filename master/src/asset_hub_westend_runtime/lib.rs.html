@@ -1723,6 +1723,18 @@
 <a href="#1723" id="1723">1723</a>
 <a href="#1724" id="1724">1724</a>
 <a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a>
+<a href="#1734" id="1734">1734</a>
+<a href="#1735" id="1735">1735</a>
+<a href="#1736" id="1736">1736</a>
+<a href="#1737" id="1737">1737</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -3152,8 +3164,31 @@
 			<span class="kw">use </span>cumulus_pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
 			<span class="kw">impl </span>cumulus_pallet_session_benchmarking::Config <span class="kw">for </span>Runtime {}
 
+			<span class="macro">parameter_types! </span>{
+				<span class="kw">pub </span>ExistentialDepositAsset: <span class="prelude-ty">Option</span>&lt;Asset&gt; = <span class="prelude-val">Some</span>((
+					WestendLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+				<span class="kw">pub const </span>RandomParaId: ParaId = ParaId::new(<span class="number">43211234</span>);
+			}
+
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
+				<span class="kw">type </span>DeliveryHelper = (
+					cumulus_primitives_utility::ToParentDeliveryHelper&lt;
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForParentDelivery,
+					&gt;,
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						RandomParaId,
+						ParachainSystem,
+					&gt;
+				);
+
 				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;Location&gt; {
 					<span class="prelude-val">Some</span>(Parent.into())
 				}
@@ -3162,7 +3197,7 @@
 					<span class="comment">// Relay/native token can be teleported between AH and Relay.
 					</span><span class="prelude-val">Some</span>((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
 						Parent.into(),
@@ -3170,17 +3205,13 @@
 				}
 
 				<span class="kw">fn </span>reserve_transferable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(Asset, Location)&gt; {
-					<span class="comment">// AH can reserve transfer native token to some random parachain.
-					</span><span class="kw">let </span>random_para_id = <span class="number">43211234</span>;
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
-						random_para_id.into()
-					);
 					<span class="prelude-val">Some</span>((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
-						ParentThen(Parachain(random_para_id).into()).into(),
+						<span class="comment">// AH can reserve transfer native token to some random parachain.
+						</span>ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
 					))
 				}
 
@@ -3270,13 +3301,6 @@
 
 			<span class="kw">use </span>xcm_config::{MaxAssetsIntoHolding, WestendLocation};
 			<span class="kw">use </span>pallet_xcm_benchmarks::asset_instance_from;
-
-			<span class="macro">parameter_types! </span>{
-				<span class="kw">pub </span>ExistentialDepositAsset: <span class="prelude-ty">Option</span>&lt;Asset&gt; = <span class="prelude-val">Some</span>((
-					WestendLocation::get(),
-					ExistentialDeposit::get()
-				).into());
-			}
 
 			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
 				<span class="kw">type </span>XcmConfig = xcm_config::XcmConfig;

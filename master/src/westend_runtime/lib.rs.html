@@ -2612,6 +2612,26 @@
 <a href="#2612" id="2612">2612</a>
 <a href="#2613" id="2613">2613</a>
 <a href="#2614" id="2614">2614</a>
+<a href="#2615" id="2615">2615</a>
+<a href="#2616" id="2616">2616</a>
+<a href="#2617" id="2617">2617</a>
+<a href="#2618" id="2618">2618</a>
+<a href="#2619" id="2619">2619</a>
+<a href="#2620" id="2620">2620</a>
+<a href="#2621" id="2621">2621</a>
+<a href="#2622" id="2622">2622</a>
+<a href="#2623" id="2623">2623</a>
+<a href="#2624" id="2624">2624</a>
+<a href="#2625" id="2625">2625</a>
+<a href="#2626" id="2626">2626</a>
+<a href="#2627" id="2627">2627</a>
+<a href="#2628" id="2628">2628</a>
+<a href="#2629" id="2629">2629</a>
+<a href="#2630" id="2630">2630</a>
+<a href="#2631" id="2631">2631</a>
+<a href="#2632" id="2632">2632</a>
+<a href="#2633" id="2633">2633</a>
+<a href="#2634" id="2634">2634</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4958,7 +4978,36 @@
 			<span class="kw">impl </span>pallet_session_benchmarking::Config <span class="kw">for </span>Runtime {}
 			<span class="kw">impl </span>pallet_offences_benchmarking::Config <span class="kw">for </span>Runtime {}
 			<span class="kw">impl </span>pallet_election_provider_support_benchmarking::Config <span class="kw">for </span>Runtime {}
+
+			<span class="kw">use </span>xcm_config::{AssetHub, TokenLocation};
+
+			<span class="macro">parameter_types! </span>{
+				<span class="kw">pub </span>ExistentialDepositAsset: <span class="prelude-ty">Option</span>&lt;Asset&gt; = <span class="prelude-val">Some</span>((
+					TokenLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+				<span class="kw">pub </span>AssetHubParaId: ParaId = westend_runtime_constants::system_parachain::ASSET_HUB_ID.into();
+				<span class="kw">pub const </span>RandomParaId: ParaId = ParaId::new(<span class="number">43211234</span>);
+			}
+
 			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
+				<span class="kw">type </span>DeliveryHelper = (
+					runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForChildParachainDelivery,
+						AssetHubParaId,
+						(),
+					&gt;,
+					runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForChildParachainDelivery,
+						RandomParaId,
+						(),
+					&gt;
+				);
+
 				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;Location&gt; {
 					<span class="prelude-val">Some</span>(<span class="kw">crate</span>::xcm_config::AssetHub::get())
 				}
@@ -4966,7 +5015,7 @@
 				<span class="kw">fn </span>teleportable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(Asset, Location)&gt; {
 					<span class="comment">// Relay/native token can be teleported to/from AH.
 					</span><span class="prelude-val">Some</span>((
-						Asset { fun: Fungible(EXISTENTIAL_DEPOSIT), id: AssetId(Here.into()) },
+						Asset { fun: Fungible(ExistentialDeposit::get()), id: AssetId(Here.into()) },
 						<span class="kw">crate</span>::xcm_config::AssetHub::get(),
 					))
 				}
@@ -4975,10 +5024,10 @@
 					<span class="comment">// Relay can reserve transfer native token to some random parachain.
 					</span><span class="prelude-val">Some</span>((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Here.into())
 						},
-						<span class="kw">crate</span>::Junction::Parachain(<span class="number">43211234</span>).into(),
+						<span class="kw">crate</span>::Junction::Parachain(RandomParaId::get().into()).into(),
 					))
 				}
 
@@ -5005,15 +5054,6 @@
 				AssetId, Fungibility::<span class="kw-2">*</span>, InteriorLocation, Junction, Junctions::<span class="kw-2">*</span>,
 				Asset, Assets, Location, NetworkId, Response,
 			};
-			<span class="kw">use </span>xcm_config::{AssetHub, TokenLocation};
-
-			<span class="macro">parameter_types! </span>{
-				<span class="kw">pub </span>ExistentialDepositAsset: <span class="prelude-ty">Option</span>&lt;Asset&gt; = <span class="prelude-val">Some</span>((
-					TokenLocation::get(),
-					ExistentialDeposit::get()
-				).into());
-				<span class="kw">pub </span>ToParachain: ParaId = westend_runtime_constants::system_parachain::ASSET_HUB_ID.into();
-			}
 
 			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
 				<span class="kw">type </span>XcmConfig = xcm_config::XcmConfig;
@@ -5022,7 +5062,7 @@
 					xcm_config::XcmConfig,
 					ExistentialDepositAsset,
 					xcm_config::PriceForChildParachainDelivery,
-					ToParachain,
+					AssetHubParaId,
 					(),
 				&gt;;
 				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {

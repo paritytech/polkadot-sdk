@@ -104,6 +104,41 @@
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -126,6 +161,7 @@
 <span class="kw">use </span>parity_scale_codec::Encode;
 <span class="kw">use </span>sp_std::{marker::PhantomData, result::Result};
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>xcm_executor::{traits::FeeReason, FeesMode};
 
 <span class="doccomment">/// Wrapper router which, if the message does not already end with a `SetTopic` instruction,
 /// appends one to the message filled with a universally unique ID. This ID is returned from a
@@ -208,6 +244,40 @@
 		<span class="kw">let </span>(ticket, unique_id) = ticket;
 		Inner::deliver(ticket)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(unique_id)
+	}
+}
+
+<span class="doccomment">/// Trait for a type which ensures all requirements for successful delivery with XCM transport
+/// layers.
+</span><span class="kw">pub trait </span>EnsureDelivery {
+	<span class="doccomment">/// Prepare all requirements for successful `XcmSender: SendXcm` passing (accounts, balances,
+	/// channels ...). Returns:
+	/// - possible `FeesMode` which is expected to be set to executor
+	/// - possible `Assets` which are expected to be subsume to the Holding Register
+	</span><span class="kw">fn </span>ensure_successful_delivery(
+		origin_ref: <span class="kw-2">&amp;</span>Location,
+		dest: <span class="kw-2">&amp;</span>Location,
+		fee_reason: FeeReason,
+	) -&gt; (<span class="prelude-ty">Option</span>&lt;FeesMode&gt;, <span class="prelude-ty">Option</span>&lt;Assets&gt;);
+}
+
+<span class="doccomment">/// Tuple implementation for `EnsureDelivery`.
+</span><span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
+</span><span class="kw">impl </span>EnsureDelivery <span class="kw">for </span>Tuple {
+	<span class="kw">fn </span>ensure_successful_delivery(
+		origin_ref: <span class="kw-2">&amp;</span>Location,
+		dest: <span class="kw-2">&amp;</span>Location,
+		fee_reason: FeeReason,
+	) -&gt; (<span class="prelude-ty">Option</span>&lt;FeesMode&gt;, <span class="prelude-ty">Option</span>&lt;Assets&gt;) {
+		<span class="macro">for_tuples!</span>( #(
+			<span class="comment">// If the implementation returns something, we&#39;re done; if not, let others try.
+			</span><span class="kw">match </span>Tuple::ensure_successful_delivery(origin_ref, dest, fee_reason.clone()) {
+				r @ (<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">Some</span>(<span class="kw">_</span>)) | r @ (<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">None</span>) | r @ (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw">_</span>)) =&gt; <span class="kw">return </span>r,
+				(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; (),
+			}
+		)* );
+		<span class="comment">// doing nothing
+		</span>(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
 	}
 }
 </code></pre></div></section></main></body></html>
