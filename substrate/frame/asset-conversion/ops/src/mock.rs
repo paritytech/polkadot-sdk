@@ -34,9 +34,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{EnsureSigned, EnsureSignedBy};
-use pallet_asset_conversion::{
-	self, AccountIdConverter, AccountIdConverterNoSeed, Ascending, Chain, WithFirstAsset,
-};
+use pallet_asset_conversion::{self, AccountIdConverter, AccountIdConverterNoSeed, Ascending};
 use sp_arithmetic::Permill;
 use sp_core::H256;
 use sp_runtime::{
@@ -164,8 +162,6 @@ pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWit
 pub type PoolIdToAccountId =
 	AccountIdConverter<AssetConversionPalletId, (NativeOrWithId<u32>, NativeOrWithId<u32>)>;
 pub type AscendingLocator = Ascending<u128, NativeOrWithId<u32>, PoolIdToAccountId>;
-pub type WithFirstAssetLocator =
-	WithFirstAsset<Native, u128, NativeOrWithId<u32>, PoolIdToAccountId>;
 
 impl pallet_asset_conversion::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -174,7 +170,7 @@ impl pallet_asset_conversion::Config for Test {
 	type AssetKind = NativeOrWithId<u32>;
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
-	type PoolLocator = Chain<WithFirstAssetLocator, AscendingLocator>;
+	type PoolLocator = AscendingLocator;
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU128<100>;

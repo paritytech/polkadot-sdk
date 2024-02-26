@@ -170,11 +170,11 @@ pub mod pallet {
 			// Assets that must be transferred to the new account id.
 			let balance1 = T::Assets::balance(asset1.clone(), &prior_account);
 			let balance2 = T::Assets::balance(asset2.clone(), &prior_account);
-			let balance3 = T::PoolAssets::balance(info.lp_token.clone(), &prior_account);
+			let lp_balance = T::PoolAssets::balance(info.lp_token.clone(), &prior_account);
 
 			ensure!(!balance1.is_zero(), Error::<T>::ZeroBalance);
 			ensure!(!balance2.is_zero(), Error::<T>::ZeroBalance);
-			ensure!(!balance3.is_zero(), Error::<T>::ZeroBalance);
+			ensure!(!lp_balance.is_zero(), Error::<T>::ZeroBalance);
 
 			// Check if a deposit needs to be placed for the new account. If so, mint the
 			// required deposit amount to the depositor's account to ensure the deposit can be
@@ -183,28 +183,27 @@ pub mod pallet {
 			// transfer assets to the new account if it's required. Additionally, the deposit cannot
 			// be refunded from the prior account until its balance is zero.
 
-			if let Some((d, b)) =
+			let deposit_asset_ed = T::DepositAsset::minimum_balance();
+
+			if let Some((depositor, deposit)) =
 				T::AssetsRefund::deposit_held(asset1.clone(), prior_account.clone())
 			{
-				let ed = T::DepositAsset::minimum_balance();
-				T::DepositAsset::mint_into(&d, b + ed)?;
-				T::Assets::touch(asset1.clone(), &new_account, &d)?;
+				T::DepositAsset::mint_into(&depositor, deposit + deposit_asset_ed)?;
+				T::Assets::touch(asset1.clone(), &new_account, &depositor)?;
 			}
 
-			if let Some((d, b)) =
+			if let Some((depositor, deposit)) =
 				T::AssetsRefund::deposit_held(asset2.clone(), prior_account.clone())
 			{
-				let ed = T::DepositAsset::minimum_balance();
-				T::DepositAsset::mint_into(&d, b + ed)?;
-				T::Assets::touch(asset2.clone(), &new_account, &d)?;
+				T::DepositAsset::mint_into(&depositor, deposit + deposit_asset_ed)?;
+				T::Assets::touch(asset2.clone(), &new_account, &depositor)?;
 			}
 
-			if let Some((d, b)) =
+			if let Some((depositor, deposit)) =
 				T::PoolAssetsRefund::deposit_held(info.lp_token.clone(), prior_account.clone())
 			{
-				let ed = T::DepositAsset::minimum_balance();
-				T::DepositAsset::mint_into(&d, b + ed)?;
-				T::PoolAssets::touch(info.lp_token.clone(), &new_account, &d)?;
+				T::DepositAsset::mint_into(&depositor, deposit + deposit_asset_ed)?;
+				T::PoolAssets::touch(info.lp_token.clone(), &new_account, &depositor)?;
 			}
 
 			// Transfer all pool related assets to the new account.
@@ -234,12 +233,12 @@ pub mod pallet {
 			);
 
 			ensure!(
-				balance3 ==
+				lp_balance ==
 					T::PoolAssets::transfer(
 						info.lp_token.clone(),
 						&prior_account,
 						&new_account,
-						balance3,
+						lp_balance,
 						Preservation::Expendable,
 					)?,
 				Error::<T>::PartialTransfer
@@ -247,28 +246,40 @@ pub mod pallet {
 
 			// Refund deposits from prior accounts and burn previously minted assets.
 
-			if let Some((d, b)) =
+			if let Some((depositor, deposit)) =
 				T::AssetsRefund::deposit_held(asset1.clone(), prior_account.clone())
 			{
 				T::AssetsRefund::refund(asset1.clone(), prior_account.clone())?;
-				let ed = T::DepositAsset::minimum_balance();
-				T::DepositAsset::burn_from(&d, b + ed, Precision::Exact, Fortitude::Force)?;
+				T::DepositAsset::burn_from(
+					&depositor,
+					deposit + deposit_asset_ed,
+					Precision::Exact,
+					Fortitude::Force,
+				)?;
 			}
 
-			if let Some((d, b)) =
+			if let Some((depositor, deposit)) =
 				T::AssetsRefund::deposit_held(asset2.clone(), prior_account.clone())
 			{
 				T::AssetsRefund::refund(asset2.clone(), prior_account.clone())?;
-				let ed = T::DepositAsset::minimum_balance();
-				T::DepositAsset::burn_from(&d, b + ed, Precision::Exact, Fortitude::Force)?;
+				T::DepositAsset::burn_from(
+					&depositor,
+					deposit + deposit_asset_ed,
+					Precision::Exact,
+					Fortitude::Force,
+				)?;
 			}
 
-			if let Some((d, b)) =
+			if let Some((depositor, deposit)) =
 				T::PoolAssetsRefund::deposit_held(info.lp_token.clone(), prior_account.clone())
 			{
 				T::PoolAssetsRefund::refund(info.lp_token.clone(), prior_account.clone())?;
-				let ed = T::DepositAsset::minimum_balance();
-				T::DepositAsset::burn_from(&d, b + ed, Precision::Exact, Fortitude::Force)?;
+				T::DepositAsset::burn_from(
+					&depositor,
+					deposit + deposit_asset_ed,
+					Precision::Exact,
+					Fortitude::Force,
+				)?;
 			}
 
 			T::PoolAssetsTeam::reset_team(
