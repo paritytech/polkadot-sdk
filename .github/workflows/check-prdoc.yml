@@ -56,4 +56,4 @@ jobs:
         run: |
           echo "Checking for PR#${GITHUB_PR}"
           echo "You can find more information about PRDoc at $PRDOC_DOC"
-          $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR}
+          $ENGINE run --rm -v $PWD:/repo -e RUST_LOG=info $IMAGE check -n ${GITHUB_PR}
