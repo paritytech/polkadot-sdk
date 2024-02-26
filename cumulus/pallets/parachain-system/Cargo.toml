@@ -36,6 +36,7 @@ sp-version = { path = "../../../substrate/primitives/version", default-features 
 # Polkadot
 polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false, features = ["wasm-api"] }
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
+polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false, optional = true }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
 
 # Cumulus
@@ -79,6 +80,7 @@ std = [
 	"log/std",
 	"pallet-message-queue/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
 	"sp-core/std",
@@ -102,6 +104,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -110,6 +113,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"polkadot-runtime-common?/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
