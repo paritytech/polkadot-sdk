@@ -68,9 +68,9 @@ pub struct SchedulerParams<BlockNumber> {
 	///
 	/// Must be non-zero.
 	pub group_rotation_frequency: BlockNumber,
-	/// The minimum availability period, in blocks.
+	/// Availability timeout for a block on a core, measured in blocks.
 	///
-	/// This is the minimum amount of blocks after a core became occupied that validators have time
+	/// This is the maximum amount of blocks after a core became occupied that validators have time
 	/// to make the block available.
 	///
 	/// This value only has effect on group rotations. If backers backed something at the end of
@@ -91,7 +91,7 @@ pub struct SchedulerParams<BlockNumber> {
 	pub lookahead: u32,
 	/// How many cores are managed by the coretime chain.
 	pub num_cores: u32,
-	/// The max number of times a claim can time out in availability
+	/// The max number of times a claim can time out in availability.
 	pub max_availability_timeouts: u32,
 	/// The maximum queue size of the pay as you go module.
 	pub on_demand_queue_max_size: u32,
