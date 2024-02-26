@@ -595,6 +595,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl pallet_broker_runtime_api::BrokerApi<Block, Balance> for Runtime {
+		fn sale_price() -> Option<Balance> {
+			Broker::api_sale_price()
+		}
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
 		fn query_info(
 			uxt: <Block as BlockT>::Extrinsic,

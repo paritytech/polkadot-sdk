@@ -437,4 +437,21 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::AllowedRenewalDropped { core, when });
 		Ok(())
 	}
+
+	/// If there is a sale ongoing returns the current price of a core.
+	pub fn api_sale_price() -> Option<BalanceOf<T>> {
+		let Some(status) = Status::<T>::get() else {
+			return None;
+		};
+		let Some(sale) = SaleInfo::<T>::get() else {
+			return None;
+		};
+
+		if sale.first_core < status.core_count || sale.cores_sold < sale.cores_offered {
+			return None;
+		}
+		let now = frame_system::Pallet::<T>::block_number();
+		let price = Self::sale_price(&sale, now);
+		Some(price)
+	}
 }

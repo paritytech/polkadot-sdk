@@ -3098,6 +3098,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-broker",
+ "pallet-broker-runtime-api",
  "pallet-collator-selection",
  "pallet-message-queue",
  "pallet-multisig",
@@ -9513,6 +9514,16 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-broker-runtime-api"
+version = "14.0.0"
+dependencies = [
+ "pallet-broker",
+ "parity-scale-codec",
+ "sp-api",
  "sp-std 14.0.0",
 ]
 
