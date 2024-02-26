@@ -18,6 +18,7 @@
 use futures::FutureExt;
 use runtime::{self, interface::OpaqueBlock as Block, RuntimeApi};
 use sc_client_api::backend::Backend;
+use sc_consensus::SharedBlockImport;
 use sc_executor::WasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
@@ -86,7 +87,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 	);
 
 	let import_queue = sc_consensus_manual_seal::import_queue(
-		Box::new(client.clone()),
+		SharedBlockImport::new(client.clone()),
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
 	);

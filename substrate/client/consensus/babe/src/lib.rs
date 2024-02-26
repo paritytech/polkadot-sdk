@@ -98,6 +98,7 @@ use sc_consensus::{
 		StateAction,
 	},
 	import_queue::{BasicQueue, BoxJustificationImport, DefaultImportQueue, Verifier},
+	SharedBlockImport,
 };
 use sc_consensus_epochs::{
 	descendent_query, Epoch as EpochT, EpochChangesFor, SharedEpochChanges, ViableEpochDescriptor,
@@ -1127,7 +1128,7 @@ where
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		trace!(
@@ -1680,7 +1681,7 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await.map_err(Into::into)
@@ -1853,7 +1854,13 @@ where
 	spawner.spawn_essential("babe-worker", Some("babe"), answer_requests.boxed());
 
 	Ok((
-		BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry),
+		BasicQueue::new(
+			verifier,
+			SharedBlockImport::new(block_import),
+			justification_import,
+			spawner,
+			registry,
+		),
 		BabeWorkerHandle(worker_tx),
 	))
 }

@@ -28,8 +28,8 @@ pub use block_import::{
 	StorageChanges,
 };
 pub use import_queue::{
-	import_single_block, BasicQueue, BlockImportError, BlockImportStatus, BoxBlockImport,
-	BoxJustificationImport, DefaultImportQueue, ImportQueue, IncomingBlock, Link, Verifier,
+	import_single_block, BasicQueue, BlockImportError, BlockImportStatus, BoxJustificationImport,
+	DefaultImportQueue, ImportQueue, IncomingBlock, Link, SharedBlockImport, Verifier,
 };
 
 mod longest_chain;
