@@ -1023,7 +1023,8 @@ pub struct StorageDb<Block: BlockT> {
 	pub db: Arc<dyn Database<DbHash>>,
 	/// Pruning manager.
 	pub state_db: Option<Arc<StateDb<Block::Hash, Vec<u8>, StateMetaDb>>>,
-	prefix_keys: bool,
+	/// Do backend database requires keys prefixing.
+	pub prefix_keys: bool,
 }
 
 impl<Block: BlockT> StorageDb<Block> {
