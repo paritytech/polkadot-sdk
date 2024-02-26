@@ -3360,6 +3360,13 @@ async fn chain_head_single_connection_context() {
 		_ => panic!("Unexpected subscription ID"),
 	};
 
+	// Cannot make a call from a different connection context.
+	let _response: () = second_client
+		.request("chainHead_unstable_unpin", [&first_sub_id, &finalized_hash])
+		.await
+		.unwrap();
+
+	// Body can still be fetched from the first subscription.
 	let response: MethodResponse = client
 		.request("chainHead_unstable_body", rpc_params![&first_sub_id, &finalized_hash])
 		.await
