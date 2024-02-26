@@ -18,6 +18,8 @@
 //! # Primitives for transaction weighting.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+// TODO remove once weight_meter::WeightMeter::check_accrue is removed
+#![allow(deprecated)]
 extern crate self as sp_weights;
 
 mod weight_meter;
