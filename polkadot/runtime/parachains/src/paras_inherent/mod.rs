@@ -539,20 +539,26 @@ impl<T: Config> Pallet<T> {
 			.map(|(_session, candidate)| candidate)
 			.collect::<BTreeSet<CandidateHash>>();
 
-		let freed_disputed: BTreeMap<CoreIndex, FreedReason> =
-			<inclusion::Pallet<T>>::collect_disputed(&current_concluded_invalid_disputes)
-				.into_iter()
-				.map(|core| (core, FreedReason::Concluded))
-				.collect();
+		let (freed_disputed_cores, freed_disputed_candidates): (
+			BTreeMap<CoreIndex, FreedReason>,
+			BTreeSet<CandidateHash>,
+		) = <inclusion::Pallet<T>>::collect_disputed(&current_concluded_invalid_disputes)
+			.into_iter()
+			.map(|(core, candidate)| ((core, FreedReason::Concluded), candidate))
+			.unzip();
 
 		// Create a bit index from the set of core indices where each index corresponds to
 		// a core index that was freed due to a dispute.
 		//
 		// I.e. 010100 would indicate, the candidates on Core 1 and 3 would be disputed.
-		let disputed_bitfield = create_disputed_bitfield(expected_bits, freed_disputed.keys());
+		let disputed_bitfield =
+			create_disputed_bitfield(expected_bits, freed_disputed_cores.keys());
 
-		if !freed_disputed.is_empty() {
-			<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(freed_disputed.clone(), now);
+		if !freed_disputed_cores.is_empty() {
+			<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(
+				freed_disputed_cores.clone(),
+				now,
+			);
 		}
 
 		let bitfields = sanitize_bitfields::<T>(
@@ -610,11 +616,10 @@ impl<T: Config> Pallet<T> {
 			&allowed_relay_parents,
 			|backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>| -> bool {
 				// TODO: see this old comment // NOTE: this is the only place where we check the
-				// relay-parent. never include a concluded-invalid candidate. we don't need to
-				// check for descendants of concluded-invalid candidates as those descendants
-				// have already been evicted from the cores and the included head data won't
-				// match.
-				current_concluded_invalid_disputes.contains(&backed_candidate.hash())
+				// relay-parent.
+				// Never include a concluded-invalid candidate. We need to also check for
+				// descendants of the concluded-invalid candidates.
+				freed_disputed_candidates.contains(&backed_candidate.hash())
 			},
 			scheduled,
 			core_index_enabled,
@@ -961,24 +966,25 @@ struct SanitizedBackedCandidates<Hash> {
 /// state.
 ///
 /// `candidate_has_concluded_invalid_dispute` must return `true` if the candidate
-/// is disputed, false otherwise. The passed `usize` is the candidate index.
+/// is disputed or is a descendant of a disputed candidate, false otherwise.
 ///
 /// Returns struct `SanitizedBackedCandidates` where `backed_candidates` are sorted according to the
 /// occupied core index.
+/// This function must preserve the dependency order between candidates of the same para.
 fn sanitize_backed_candidates<
 	T: crate::inclusion::Config,
 	F: FnMut(&BackedCandidate<T::Hash>) -> bool,
 >(
 	mut backed_candidates: Vec<BackedCandidate<T::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-	mut candidate_has_concluded_invalid_dispute_or_is_invalid: F,
+	mut candidate_has_concluded_invalid_or_is_descendant_of_invalid: F,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	core_index_enabled: bool,
 ) -> SanitizedBackedCandidates<T::Hash> {
-	// Remove any candidates that were concluded invalid.
-	// This does not assume sorting.
-	backed_candidates.retain(move |backed_candidate| {
-		!candidate_has_concluded_invalid_dispute_or_is_invalid(backed_candidate)
+	// Remove any candidates that were concluded invalid or who are descendants of concluded invalid
+	// candidates.
+	backed_candidates.retain(|backed_candidate| {
+		!candidate_has_concluded_invalid_or_is_descendant_of_invalid(backed_candidate)
 	});
 
 	let initial_candidate_count = backed_candidates.len();
@@ -999,13 +1005,6 @@ fn sanitize_backed_candidates<
 		&allowed_relay_parents,
 		core_index_enabled,
 	);
-
-	// Sort the `Vec` last, once there is a guarantee that these
-	// `BackedCandidates` references the expected relay chain parent,
-	// but more importantly are scheduled for a free core.
-	// This both avoids extra work for obviously invalid candidates,
-	// but also allows this to be done in place.
-	backed_candidates_with_core.sort_by(|(_x, core_x), (_y, core_y)| core_x.cmp(&core_y));
 
 	SanitizedBackedCandidates {
 		dropped_unscheduled_candidates,

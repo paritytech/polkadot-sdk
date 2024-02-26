@@ -1108,10 +1108,13 @@ impl<T: Config> Pallet<T> {
 		cleaned_up_cores
 	}
 
-	/// Cleans up all paras pending availability that are in the given list of disputed candidates.
+	/// Cleans up all cores pending availability occupied by one of the disputed candidates or which
+	/// are descendants of a disputed candidate.
 	///
-	/// Returns a vector of cleaned-up core IDs.
-	pub(crate) fn collect_disputed(disputed: &BTreeSet<CandidateHash>) -> Vec<CoreIndex> {
+	/// Returns a vector of cleaned-up core IDs, along with the evicted candidate hashes.
+	pub(crate) fn collect_disputed(
+		disputed: &BTreeSet<CandidateHash>,
+	) -> Vec<(CoreIndex, CandidateHash)> {
 		let mut cleaned_up_cores = Vec::with_capacity(disputed.len());
 
 		for (para_id, pending_candidates) in <PendingAvailability<T>>::iter() {
@@ -1133,7 +1136,7 @@ impl<T: Config> Pallet<T> {
 					if let Some(record) = record {
 						let cleaned_up = record.drain(earliest_disputed_idx..);
 						for candidate in cleaned_up {
-							cleaned_up_cores.push(candidate.core);
+							cleaned_up_cores.push((candidate.core, candidate.hash));
 						}
 					}
 				});
