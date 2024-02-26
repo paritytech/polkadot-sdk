@@ -17,7 +17,7 @@
 //! Dispute coordinator subsystem in initialized state (after first active leaf is received).
 
 use std::{
-	collections::{BTreeMap, HashSet, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	sync::Arc,
 };
 
@@ -970,6 +970,7 @@ impl Initialized {
 			&mut self.runtime_info,
 			session,
 			relay_parent,
+			self.offchain_disabled_validators.iter(session),
 		)
 		.await
 		{
@@ -1099,36 +1100,14 @@ impl Initialized {
 
 		let new_state = import_result.new_state();
 
-		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
-		// combine on-chain with off-chain disabled validators
-		// process disabled validators in the following order:
-		// - on-chain disabled validators
-		// - prioritized order of off-chain disabled validators
-		// deduplicate the list and take at most `byzantine_threshold` validators
-		let disabled_validators = {
-			let mut d: HashSet<ValidatorIndex> = HashSet::new();
-			for v in env
-				.disabled_indices()
-				.iter()
-				.cloned()
-				.chain(self.offchain_disabled_validators.iter(session))
-			{
-				if d.len() == byzantine_threshold {
-					break
-				}
-				d.insert(v);
-			}
-			d
-		};
-
 		let is_included = self.scraper.is_candidate_included(&candidate_hash);
 		let is_backed = self.scraper.is_candidate_backed(&candidate_hash);
 		let own_vote_missing = new_state.own_vote_missing();
 		let is_disputed = new_state.is_disputed();
 		let is_confirmed = new_state.is_confirmed();
-		let potential_spam = is_potential_spam(&self.scraper, &new_state, &candidate_hash, |v| {
-			disabled_validators.contains(v)
-		});
+		let is_disabled = |v: &ValidatorIndex| env.disabled_indices().contains(v);
+		let potential_spam =
+			is_potential_spam(&self.scraper, &new_state, &candidate_hash, is_disabled);
 		let allow_participation = !potential_spam;
 
 		gum::trace!(
@@ -1139,7 +1118,7 @@ impl Initialized {
 			?candidate_hash,
 			confirmed = ?new_state.is_confirmed(),
 			has_invalid_voters = ?!import_result.new_invalid_voters().is_empty(),
-			n_disabled_validators = ?disabled_validators.len(),
+			n_disabled_validators = ?env.disabled_indices().len(),
 			"Is spam?"
 		);
 
@@ -1439,6 +1418,7 @@ impl Initialized {
 			&mut self.runtime_info,
 			session,
 			candidate_receipt.descriptor.relay_parent,
+			self.offchain_disabled_validators.iter(session),
 		)
 		.await
 		{

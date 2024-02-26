@@ -1610,6 +1610,15 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pallet<T> {
+	fn ensure(para_id: ParaId) {
+		if let ChannelStatus::Closed = Self::get_channel_status(para_id) {
+			Self::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
+		}
+	}
+}
+
 /// Something that can check the inherents of a block.
 #[cfg_attr(
 	feature = "parameterized-consensus-hook",

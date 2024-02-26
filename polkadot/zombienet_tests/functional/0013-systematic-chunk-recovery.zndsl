@@ -28,7 +28,7 @@ validator: count of log lines containing "Data recovery from chunks is not possi
 validator: reports polkadot_parachain_availability_recovery_recoveries_finished{result="failure"} is 0 within 10 seconds
 
 # Enable the chunk mapping feature
-alice: js-script ./0013-enable-chunk-mapping-feature.js return is 0 within 600 seconds
+alice: js-script ./0012-enable-node-feature.js with "2" return is 0 within 600 seconds
 
 validator: reports substrate_block_height{status="finalized"} is at least 60 within 400 seconds
 
