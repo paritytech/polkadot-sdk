@@ -32,6 +32,7 @@ pallet-authorship = { path = "../../../../../substrate/frame/authorship", defaul
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
 pallet-broker = { path = "../../../../../substrate/frame/broker", default-features = false }
+pallet-broker-runtime-api = { path = "../../../../../substrate/frame/broker/runtime-api", default-features = false }
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
@@ -100,6 +101,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-broker/std",
+	"pallet-broker-runtime-api/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
 	"pallet-multisig/std",
