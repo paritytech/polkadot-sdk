@@ -843,7 +843,7 @@ async fn select_candidates(
 	// keep only one candidate with validation code.
 	let mut with_validation_code = false;
 	candidates.retain(|c| {
-		if c.candidate.commitments.new_validation_code.is_some() {
+		if c.candidate().commitments.new_validation_code.is_some() {
 			if with_validation_code {
 				return false
 			}

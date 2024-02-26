@@ -289,13 +289,16 @@ mod select_candidates {
 		let expected_backed = expected_backed_indices
 			.iter()
 			.map(|&idx| candidates[idx].clone())
-			.map(|c| BackedCandidate {
-				candidate: CommittedCandidateReceipt {
-					descriptor: c.descriptor.clone(),
-					commitments: Default::default(),
-				},
-				validity_votes: Vec::new(),
-				validator_indices: default_bitvec(MOCK_GROUP_SIZE),
+			.map(|c| {
+				BackedCandidate::new(
+					CommittedCandidateReceipt {
+						descriptor: c.descriptor.clone(),
+						commitments: Default::default(),
+					},
+					Vec::new(),
+					default_bitvec(MOCK_GROUP_SIZE),
+					None,
+				)
 			})
 			.collect();
 		let candidate_hashes = candidates.into_iter().map(|c| c.hash()).collect();
@@ -561,7 +564,7 @@ mod select_candidates {
 
 		let mut backed_iter = expected.clone().into_iter();
 
-		expected.sort_by_key(|c| c.candidate.descriptor.para_id);
+		expected.sort_by_key(|c| c.candidate().descriptor.para_id);
 		let mut candidates_iter = expected
 			.iter()
 			.map(|candidate| (candidate.hash(), candidate.descriptor().relay_parent));
@@ -714,13 +717,16 @@ mod select_candidates {
 
 		let expected_backed = expected_candidates
 			.iter()
-			.map(|c| BackedCandidate {
-				candidate: CommittedCandidateReceipt {
-					descriptor: c.descriptor.clone(),
-					commitments: Default::default(),
-				},
-				validity_votes: Vec::new(),
-				validator_indices: default_bitvec(MOCK_GROUP_SIZE),
+			.map(|c| {
+				BackedCandidate::new(
+					CommittedCandidateReceipt {
+						descriptor: c.descriptor().clone(),
+						commitments: Default::default(),
+					},
+					Vec::new(),
+					default_bitvec(MOCK_GROUP_SIZE),
+					None,
+				)
 			})
 			.collect();
 
@@ -750,7 +756,7 @@ mod select_candidates {
 
 				result.into_iter().for_each(|c| {
 					assert!(
-						expected_candidates.iter().any(|c2| c.candidate.corresponds_to(c2)),
+						expected_candidates.iter().any(|c2| c.candidate().corresponds_to(c2)),
 						"Failed to find candidate: {:?}",
 						c,
 					)
@@ -800,10 +806,13 @@ mod select_candidates {
 		// Build possible outputs from select_candidates
 		let backed_candidates: Vec<_> = committed_receipts
 			.iter()
-			.map(|committed_receipt| BackedCandidate {
-				candidate: committed_receipt.clone(),
-				validity_votes: Vec::new(),
-				validator_indices: default_bitvec(MOCK_GROUP_SIZE),
+			.map(|committed_receipt| {
+				BackedCandidate::new(
+					committed_receipt.clone(),
+					Vec::new(),
+					default_bitvec(MOCK_GROUP_SIZE),
+					None,
+				)
 			})
 			.collect();
 
@@ -843,7 +852,7 @@ mod select_candidates {
 
 				result.into_iter().for_each(|c| {
 					assert!(
-						expected_backed_filtered.iter().any(|c2| c.candidate.corresponds_to(c2)),
+						expected_backed_filtered.iter().any(|c2| c.candidate().corresponds_to(c2)),
 						"Failed to find candidate: {:?}",
 						c,
 					)
@@ -907,7 +916,7 @@ mod select_candidates {
 					assert!(
 						expected_candidates
 							.iter()
-							.any(|c2| c.candidate.corresponds_to(&c2.receipt())),
+							.any(|c2| c.candidate().corresponds_to(&c2.receipt())),
 						"Failed to find candidate: {:?}",
 						c,
 					)
@@ -997,7 +1006,7 @@ mod select_candidates {
 					assert!(
 						expected_candidates_clone
 							.iter()
-							.any(|c2| c.candidate.corresponds_to(&c2.receipt())),
+							.any(|c2| c.candidate().corresponds_to(&c2.receipt())),
 						"Failed to find candidate: {:?}",
 						c,
 					)
@@ -1059,7 +1068,7 @@ mod select_candidates {
 					assert!(
 						expected_candidates_clone
 							.iter()
-							.any(|c2| c.candidate.corresponds_to(&c2.receipt())),
+							.any(|c2| c.candidate().corresponds_to(&c2.receipt())),
 						"Failed to find candidate: {:?}",
 						c,
 					)
@@ -1092,13 +1101,16 @@ mod select_candidates {
 
 		let expected_backed = expected_candidates
 			.iter()
-			.map(|c| BackedCandidate {
-				candidate: CommittedCandidateReceipt {
-					descriptor: c.descriptor.clone(),
-					commitments: Default::default(),
-				},
-				validity_votes: Vec::new(),
-				validator_indices: default_bitvec(MOCK_GROUP_SIZE),
+			.map(|c| {
+				BackedCandidate::new(
+					CommittedCandidateReceipt {
+						descriptor: c.descriptor().clone(),
+						commitments: Default::default(),
+					},
+					Vec::new(),
+					default_bitvec(MOCK_GROUP_SIZE),
+					None,
+				)
 			})
 			.collect();
 
@@ -1128,7 +1140,7 @@ mod select_candidates {
 
 				result.into_iter().for_each(|c| {
 					assert!(
-						expected_candidates.iter().any(|c2| c.candidate.corresponds_to(c2)),
+						expected_candidates.iter().any(|c2| c.candidate().corresponds_to(c2)),
 						"Failed to find candidate: {:?}",
 						c,
 					)
