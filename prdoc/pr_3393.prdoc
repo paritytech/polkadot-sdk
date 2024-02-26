@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add `max_rank()` method to `RankedMember` 
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR adds a new method named max_rank to the RankedMember trait. This method facilitates the expansion of rank numbers within a collective. Initially, the maximum rank was set to IX (Grand Master), corresponding to the establishment of the Technical Fellowship and setting the default member count to nine. However, with the introduction of new collectives, this maximum rank is expected to evolve.
+
+crates:
+  - name: pallet-core-fellowship
+  - name: pallet-ranked-collective
