@@ -136,6 +136,7 @@ pub mod weights;
 use frame_support::traits::{OnTimestampSet, Time, UnixTime};
 use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
 use sp_std::{cmp, result};
+use sp_time::{InstantProvider, UnixDuration, UnixInstant};
 use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
 pub use weights::WeightInfo;
 
@@ -377,5 +378,13 @@ impl<T: Config> UnixTime for Pallet<T> {
 			}
 		}
 		core::time::Duration::from_millis(now.saturated_into::<u64>())
+	}
+}
+
+impl<T: Config> InstantProvider<UnixInstant> for Pallet<T> {
+	fn now() -> UnixInstant {
+		let ms_since_epoch: u128 = Now::<T>::get().saturated_into();
+
+		UnixInstant::from_epoch_start(UnixDuration::from_millis(ms_since_epoch))
 	}
 }
