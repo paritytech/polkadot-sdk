@@ -367,7 +367,7 @@ var srcIndex = JSON.parse('{\
 "sc_rpc_server":["",[["middleware",[],["metrics.rs","mod.rs","rate_limit.rs"]]],["lib.rs"]],\
 "sc_rpc_spec_v2":["",[["archive",[],["api.rs","archive.rs","archive_storage.rs","error.rs","mod.rs"]],["chain_head",[["subscription",[],["error.rs","inner.rs","mod.rs"]]],["api.rs","chain_head.rs","chain_head_follow.rs","chain_head_storage.rs","error.rs","event.rs","mod.rs"]],["chain_spec",[],["api.rs","chain_spec.rs","mod.rs"]],["common",[],["events.rs","mod.rs","storage.rs"]],["transaction",[],["api.rs","error.rs","event.rs","mod.rs","transaction.rs","transaction_broadcast.rs"]]],["lib.rs"]],\
 "sc_runtime_test":["",[],["lib.rs"]],\
-"sc_service":["",[["chain_ops",[],["check_block.rs","export_blocks.rs","export_raw_state.rs","import_blocks.rs","mod.rs","revert_chain.rs"]],["client",[],["block_rules.rs","call_executor.rs","client.rs","mod.rs","wasm_override.rs","wasm_substitutes.rs"]],["task_manager",[],["mod.rs","prometheus_future.rs"]]],["builder.rs","config.rs","error.rs","lib.rs","metrics.rs"]],\
+"sc_service":["",[["chain_ops",[],["check_block.rs","export_blocks.rs","export_raw_state.rs","import_blocks.rs","mod.rs","revert_chain.rs"]],["client",[],["block_rules.rs","call_executor.rs","client.rs","mod.rs","notification_pinning.rs","wasm_override.rs","wasm_substitutes.rs"]],["task_manager",[],["mod.rs","prometheus_future.rs"]]],["builder.rs","config.rs","error.rs","lib.rs","metrics.rs"]],\
 "sc_service_test":["",[],["lib.rs"]],\
 "sc_state_db":["",[],["lib.rs","noncanonical.rs","pruning.rs"]],\
 "sc_statement_store":["",[],["lib.rs","metrics.rs"]],\

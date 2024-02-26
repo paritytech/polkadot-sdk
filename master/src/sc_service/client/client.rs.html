@@ -2122,6 +2122,9 @@
 <a href="#2122" id="2122">2122</a>
 <a href="#2123" id="2123">2123</a>
 <a href="#2124" id="2124">2124</a>
+<a href="#2125" id="2125">2125</a>
+<a href="#2126" id="2126">2126</a>
+<a href="#2127" id="2127">2127</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2143,8 +2146,8 @@
 </span><span class="doccomment">//! Substrate Client
 
 </span><span class="kw">use </span><span class="kw">super</span>::block_rules::{BlockRules, LookupResult <span class="kw">as </span>BlockLookupResult};
-<span class="kw">use </span>futures::{FutureExt, StreamExt};
-<span class="kw">use </span>log::{error, info, trace, warn};
+<span class="kw">use </span><span class="kw">crate</span>::client::notification_pinning::NotificationPinningWorker;
+<span class="kw">use </span>log::{debug, info, trace, warn};
 <span class="kw">use </span>parking_lot::{Mutex, RwLock};
 <span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>rand::Rng;
@@ -2162,7 +2165,7 @@
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
-	ProofProvider, UsageProvider,
+	ProofProvider, UnpinWorkerMessage, UsageProvider,
 };
 <span class="kw">use </span>sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
@@ -2238,7 +2241,7 @@
 	block_rules: BlockRules&lt;Block&gt;,
 	config: ClientConfig&lt;Block&gt;,
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
-	unpin_worker_sender: TracingUnboundedSender&lt;Block::Hash&gt;,
+	unpin_worker_sender: TracingUnboundedSender&lt;UnpinWorkerMessage&lt;Block&gt;&gt;,
 	_phantom: PhantomData&lt;RA&gt;,
 }
 
@@ -2450,19 +2453,35 @@
 			// dropped, the block will be unpinned automatically.
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>notification) = finality_notification {
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.backend.pin_block(notification.hash) {
-					<span class="macro">error!</span>(
+					<span class="macro">debug!</span>(
 						<span class="string">&quot;Unable to pin block for finality notification. hash: {}, Error: {}&quot;</span>,
 						notification.hash, err
 					);
-				};
+				} <span class="kw">else </span>{
+					<span class="kw">let _ </span>= <span class="self">self
+						</span>.unpin_worker_sender
+						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
+						.map_err(|e| {
+							<span class="macro">log::error!</span>(
+								<span class="string">&quot;Unable to send AnnouncePin worker message for finality: {e}&quot;
+							</span>)
+						});
+				}
 			}
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>notification) = import_notification {
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.backend.pin_block(notification.hash) {
-					<span class="macro">error!</span>(
+					<span class="macro">debug!</span>(
 						<span class="string">&quot;Unable to pin block for import notification. hash: {}, Error: {}&quot;</span>,
 						notification.hash, err
 					);
+				} <span class="kw">else </span>{
+					<span class="kw">let _ </span>= <span class="self">self
+						</span>.unpin_worker_sender
+						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
+						.map_err(|e| {
+							<span class="macro">log::error!</span>(<span class="string">&quot;Unable to send AnnouncePin worker message for import: {e}&quot;</span>)
+						});
 				};
 			}
 
@@ -2540,25 +2559,12 @@
 			backend.commit_operation(op)<span class="question-mark">?</span>;
 		}
 
-		<span class="kw">let </span>(unpin_worker_sender, <span class="kw-2">mut </span>rx) =
-			tracing_unbounded::&lt;Block::Hash&gt;(<span class="string">&quot;unpin-worker-channel&quot;</span>, <span class="number">10_000</span>);
-		<span class="kw">let </span>task_backend = Arc::downgrade(<span class="kw-2">&amp;</span>backend);
-		spawn_handle.spawn(
-			<span class="string">&quot;unpin-worker&quot;</span>,
-			<span class="prelude-val">None</span>,
-			<span class="kw">async move </span>{
-				<span class="kw">while let </span><span class="prelude-val">Some</span>(message) = rx.next().<span class="kw">await </span>{
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(backend) = task_backend.upgrade() {
-						backend.unpin_block(message);
-					} <span class="kw">else </span>{
-						<span class="macro">log::debug!</span>(<span class="string">&quot;Terminating unpin-worker, backend reference was dropped.&quot;</span>);
-						<span class="kw">return
-					</span>}
-				}
-				<span class="macro">log::debug!</span>(<span class="string">&quot;Terminating unpin-worker, stream terminated.&quot;</span>)
-			}
-			.boxed(),
+		<span class="kw">let </span>(unpin_worker_sender, rx) = tracing_unbounded::&lt;UnpinWorkerMessage&lt;Block&gt;&gt;(
+			<span class="string">&quot;notification-pinning-worker-channel&quot;</span>,
+			<span class="number">10_000</span>,
 		);
+		<span class="kw">let </span>unpin_worker = NotificationPinningWorker::new(rx, backend.clone());
+		spawn_handle.spawn(<span class="string">&quot;notification-pinning-worker&quot;</span>, <span class="prelude-val">None</span>, Box::pin(unpin_worker.run()));
 
 		<span class="prelude-val">Ok</span>(Client {
 			backend,

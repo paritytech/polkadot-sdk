@@ -6973,7 +6973,7 @@
 			<span class="self">self</span>.storage.state_db.pin(<span class="kw-2">&amp;</span>hash, number.saturated_into::&lt;u64&gt;(), hint).map_err(
 				|<span class="kw">_</span>| {
 					sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(
-						<span class="string">&quot;State already discarded for `{:?}`&quot;</span>,
+						<span class="string">&quot;Unable to pin: state already discarded for `{:?}`&quot;</span>,
 						hash
 					))
 				},

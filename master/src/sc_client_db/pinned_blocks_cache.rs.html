@@ -252,7 +252,7 @@
 <span class="kw">use </span>sp_runtime::{traits::Block <span class="kw">as </span>BlockT, Justifications};
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;db::pin&quot;</span>;
-<span class="kw">const </span>PINNING_CACHE_SIZE: usize = <span class="number">1024</span>;
+<span class="kw">const </span>PINNING_CACHE_SIZE: usize = <span class="number">2048</span>;
 
 <span class="doccomment">/// Entry for pinned blocks cache.
 </span><span class="kw">struct </span>PinnedBlockCacheEntry&lt;Block: BlockT&gt; {
