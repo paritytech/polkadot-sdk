@@ -338,9 +338,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn set_params(origin: OriginFor<T>, params: Box<ParamsOf<T, I>>) -> DispatchResult {
 			T::ParamsOrigin::ensure_origin_or_root(origin)?;
-			//Params::<T, I>::put(params.as_ref());
-			//Self::deposit_event(Event::<T, I>::ParamsChanged { params: *params });
-			// Assume get_max_rank() is a function that retrieves the current max rank allowed.
+			// Retrieves the current max rank allowed.
 			let max_rank = T::Members::max_rank();
 
 			// Validate the lengths of the vectors in params are equal to max_rank.
@@ -349,7 +347,7 @@ pub mod pallet {
 					params.passive_salary.len() == expected_length &&
 					params.demotion_period.len() == expected_length &&
 					params.min_promotion_period.len() == expected_length,
-					Error::<T, I>::IncorrectParamsLength); // Ensure this error is defined in your pallet.
+					Error::<T, I>::IncorrectParamsLength);
 	
 			Params::<T, I>::put(params.as_ref());
 			Self::deposit_event(Event::<T, I>::ParamsChanged { params: *params });

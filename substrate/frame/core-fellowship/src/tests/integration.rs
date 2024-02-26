@@ -163,11 +163,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| {
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 100));
+		promote_n_times(100, 9);
 		let params = ParamsType {
-			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90],
-			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-			demotion_period: [2, 4, 6, 8, 10, 12, 14, 16, 18],
-			min_promotion_period: [3, 6, 9, 12, 15, 18, 21, 24, 27],
+			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90].to_vec(),
+			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9].to_vec(),
+			demotion_period: [2, 4, 6, 8, 10, 12, 14, 16, 18].to_vec(),
+			min_promotion_period: [3, 6, 9, 12, 15, 18, 21, 24, 27].to_vec(),
 			offboard_timeout: 1,
 		};
 		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
