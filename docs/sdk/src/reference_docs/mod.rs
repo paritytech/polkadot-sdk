@@ -43,7 +43,7 @@ pub mod extrinsic_encoding;
 // TODO: @jsdw https://github.com/paritytech/polkadot-sdk-docs/issues/42
 pub mod signed_extensions;
 
-/// Learn about *"Origin"* A topic in FRAME that enables complex account abstractions to be built.
+/// Learn about *Origins*, a topic in FRAME that enables complex account abstractions to be built.
 pub mod frame_origin;
 
 /// Learn about how to write safe and defensive code in your FRAME runtime.
