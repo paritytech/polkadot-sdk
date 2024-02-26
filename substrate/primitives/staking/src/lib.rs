@@ -170,6 +170,7 @@ pub trait StakingInterface {
 		+ MaxEncodedLen
 		+ FullCodec
 		+ TypeInfo
+		+ Zero
 		+ Saturating;
 
 	/// AccountId type used by the staking system.
@@ -308,6 +309,31 @@ pub trait StakingInterface {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_current_era(era: EraIndex);
+
+	/// Returns true if who is a `delegatee` account.
+	fn is_delegatee(who: &Self::AccountId) -> bool;
+
+	/// Effective balance of the delegatee account.
+	fn delegatee_balance(who: &Self::AccountId) -> Self::Balance;
+
+	/// Delegate funds to `Delegatee`.
+	fn delegate(who: &Self::AccountId, delegatee: &Self::AccountId, reward_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
+
+	/// Add more delegation to the pool account.
+	fn delegate_extra(
+		who: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Withdraw delegation from pool account to self.
+	fn withdraw_delegation(who: &Self::AccountId, delegatee: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
+
+	/// Does the delegatee have any pending slash.
+	fn has_pending_slash(delegatee: &Self::AccountId) -> bool;
+
+	fn delegator_slash(delegatee: &Self::AccountId, delegator: &Self::AccountId, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult;
+
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).

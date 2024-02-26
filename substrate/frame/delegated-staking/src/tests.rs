@@ -574,6 +574,7 @@ mod staking_integration {
 	}
 }
 
+// FIMXE(ank4n): Move these integration test to nomination pools.
 mod pool_integration {
 	use super::*;
 	use pallet_nomination_pools::{BondExtra, BondedPools, PoolState};
