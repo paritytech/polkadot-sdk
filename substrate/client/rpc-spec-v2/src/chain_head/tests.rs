@@ -33,7 +33,6 @@ use jsonrpsee::{
 	},
 	rpc_params, MethodsError as Error, RpcModule,
 };
-use serde_json::Value as JsonValue;
 
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
@@ -3332,11 +3331,26 @@ async fn chain_head_single_connection_context() {
 		.build(&server_url)
 		.await
 		.unwrap();
-
-	let sub: RpcClientSubscription<JsonValue> = client
-		.subscribe("chainHead_unstable_follow", rpc_params![false], "chainHead_unstable_unfollow")
+	// Calls cannot be made from a different connection context.
+	let second_client = jsonrpsee::ws_client::WsClientBuilder::default()
+		.build(&server_url)
 		.await
 		.unwrap();
+
+	let mut sub: RpcClientSubscription<FollowEvent<String>> = client
+		.subscribe("chainHead_unstable_follow", rpc_params![true], "chainHead_unstable_unfollow")
+		.await
+		.unwrap();
+
+	let event = tokio::time::timeout(std::time::Duration::from_secs(60), sub.next())
+		.await
+		.unwrap()
+		.unwrap()
+		.unwrap();
+	let finalized_hash = match event {
+		FollowEvent::Initialized(init) => init.finalized_block_hash,
+		_ => panic!("Expected FollowEvent::Initialized"),
+	};
 
 	let first_sub_id = match sub.kind() {
 		jsonrpsee::core::client::SubscriptionKind::Subscription(id) => match id {
@@ -3346,31 +3360,50 @@ async fn chain_head_single_connection_context() {
 		_ => panic!("Unexpected subscription ID"),
 	};
 
-	// Calls cannot be made from a different connection context.
-	let second_client = jsonrpsee::ws_client::WsClientBuilder::default()
-		.build(&server_url)
+	let response: MethodResponse = client
+		.request("chainHead_unstable_body", rpc_params![&first_sub_id, &finalized_hash])
 		.await
 		.unwrap();
-	let invalid_hash = hex_string(&INVALID_HASH);
+	assert_matches!(response, MethodResponse::Started(_started));
+	// Cannot make a call from a different connection context.
 	let response: MethodResponse = second_client
-		.request("chainHead_unstable_body", rpc_params![&first_sub_id, &invalid_hash])
+		.request("chainHead_unstable_body", rpc_params![&first_sub_id, &finalized_hash])
 		.await
 		.unwrap();
 	assert_matches!(response, MethodResponse::LimitReached);
 
+	let response: Option<String> = client
+		.request("chainHead_unstable_header", rpc_params![&first_sub_id, &finalized_hash])
+		.await
+		.unwrap();
+	assert!(response.is_some());
+	// Cannot make a call from a different connection context.
 	let response: Option<String> = second_client
-		.request("chainHead_unstable_header", rpc_params![&first_sub_id, &invalid_hash])
+		.request("chainHead_unstable_header", rpc_params![&first_sub_id, &finalized_hash])
 		.await
 		.unwrap();
 	assert!(response.is_none());
 
 	let key = hex_string(&KEY);
+	let response: MethodResponse = client
+		.request(
+			"chainHead_unstable_storage",
+			rpc_params![
+				&first_sub_id,
+				&finalized_hash,
+				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash }]
+			],
+		)
+		.await
+		.unwrap();
+	assert_matches!(response, MethodResponse::Started(_started));
+	// Cannot make a call from a different connection context.
 	let response: MethodResponse = second_client
 		.request(
 			"chainHead_unstable_storage",
 			rpc_params![
 				&first_sub_id,
-				&invalid_hash,
+				&finalized_hash,
 				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash }]
 			],
 		)
@@ -3381,10 +3414,19 @@ async fn chain_head_single_connection_context() {
 	let alice_id = AccountKeyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
+	let response: MethodResponse = client
+		.request(
+			"chainHead_unstable_call",
+			[&first_sub_id, &finalized_hash, "AccountNonceApi_account_nonce", &call_parameters],
+		)
+		.await
+		.unwrap();
+	assert_matches!(response, MethodResponse::Started(_started));
+	// Cannot make a call from a different connection context.
 	let response: MethodResponse = second_client
 		.request(
 			"chainHead_unstable_call",
-			[&first_sub_id, &invalid_hash, "AccountNonceApi_account_nonce", &call_parameters],
+			[&first_sub_id, &finalized_hash, "AccountNonceApi_account_nonce", &call_parameters],
 		)
 		.await
 		.unwrap();
