@@ -38,7 +38,7 @@ use sp_runtime::traits::Block as BlockT;
 const LOG_TARGET: &str = "db::notification_pinning";
 const NOTIFICATION_PINNING_LIMIT: usize = 1024;
 
-/// A limiter which automatically unpins blockst hat leave the data structure.
+/// A limiter which automatically unpins blocks that leave the data structure.
 #[derive(Clone, Debug)]
 struct UnpinningByLengthLimiter<Block: BlockT, B: Backend<Block>> {
 	max_length: usize,
