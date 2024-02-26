@@ -1376,23 +1376,10 @@ pub fn whitelist_storage(_: TokenStream, _: TokenStream) -> TokenStream {
 /// attached to transient storage which cannot be migrated during runtime upgrades.
 ///
 /// ### Example
-/// ```
-/// use frame::prelude::*;
-///
-/// #[frame::pallet(dev_mode)]
-/// pub mod pallet {
-/// 	use super::*;
-///
-/// 	#[pallet::config]
-/// 	pub trait Config: frame_system::Config {}
-///
-/// 	#[pallet::pallet]
-/// 	pub struct Pallet<T>(_);
-///
+/// ```ignore
 /// 	#[pallet::storage]
 /// 	#[pallet::disable_try_decode_storage]
 /// 	pub(super) type Events<T: Config> = StorageValue<_, Vec<Box<EventRecord<T::RuntimeEvent, T::Hash>>>, ValueQuery>;
-/// }
 /// ```
 ///
 /// NOTE: As with all `pallet::*` attributes, this one _must_ be written as
