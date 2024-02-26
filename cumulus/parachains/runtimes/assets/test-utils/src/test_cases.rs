@@ -70,7 +70,8 @@ pub fn teleports_for_native_asset_works<
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ cumulus_pallet_xcmp_queue::Config,
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,
@@ -350,7 +351,8 @@ pub fn teleports_for_foreign_assets_works<
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_assets::Config<ForeignAssetsPalletInstance>,
+		+ pallet_assets::Config<ForeignAssetsPalletInstance>
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,
@@ -701,7 +703,8 @@ pub fn asset_transactor_transfer_with_local_consensus_currency_works<Runtime, Xc
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_parachain_system::Config,
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	BalanceOf<Runtime>: From<Balance>,
@@ -826,7 +829,8 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ pallet_assets::Config<AssetsPalletInstance>,
+		+ pallet_assets::Config<AssetsPalletInstance>
+		+ pallet_timestamp::Config,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	BalanceOf<Runtime>: From<Balance>,
@@ -1093,7 +1097,8 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ pallet_assets::Config<ForeignAssetsPalletInstance>,
+		+ pallet_assets::Config<ForeignAssetsPalletInstance>
+		+ pallet_timestamp::Config,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	BalanceOf<Runtime>: From<Balance>,
@@ -1422,7 +1427,8 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ cumulus_pallet_xcmp_queue::Config,
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,

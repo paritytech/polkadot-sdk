@@ -13,9 +13,9 @@ use parachains_runtimes_test_utils::{
 };
 use snowbridge_core::{ChannelId, ParaId};
 use snowbridge_pallet_ethereum_client_fixtures::*;
-use sp_core::H160;
+use sp_core::{H160, U256};
 use sp_keyring::AccountKeyring::*;
-use sp_runtime::{traits::Header, AccountId32, SaturatedConversion, Saturating};
+use sp_runtime::{traits::Header, AccountId32, DigestItem, SaturatedConversion, Saturating};
 use xcm::{
 	latest::prelude::*,
 	v3::Error::{self, Barrier},
@@ -53,7 +53,8 @@ where
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ snowbridge_pallet_outbound_queue::Config,
+		+ snowbridge_pallet_outbound_queue::Config
+		+ pallet_timestamp::Config,
 	XcmConfig: xcm_executor::Config,
 {
 	let assethub_parachain_location = Location::new(1, Parachain(assethub_parachain_id));
@@ -125,7 +126,8 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 		+ pallet_message_queue::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ snowbridge_pallet_outbound_queue::Config
-		+ snowbridge_pallet_system::Config,
+		+ snowbridge_pallet_system::Config
+		+ pallet_timestamp::Config,
 	XcmConfig: xcm_executor::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	<Runtime as frame_system::Config>::AccountId: From<sp_runtime::AccountId32> + AsRef<[u8]>,
@@ -193,9 +195,97 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 
 			let digest = included_head.digest();
 
-			//let digest = frame_system::Pallet::<Runtime>::digest();
 			let digest_items = digest.logs();
 			assert!(digest_items.len() == 1 && digest_items[0].as_other().is_some());
+		});
+}
+
+pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works<
+	Runtime,
+	XcmConfig,
+	AllPalletsWithoutSystem,
+>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+	assethub_parachain_id: u32,
+	weth_contract_address: H160,
+	destination_address: H160,
+	fee_amount: u128,
+	snowbridge_pallet_outbound_queue: Box<
+		dyn Fn(Vec<u8>) -> Option<snowbridge_pallet_outbound_queue::Event<Runtime>>,
+	>,
+) where
+	Runtime: frame_system::Config
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ pallet_message_queue::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ snowbridge_pallet_outbound_queue::Config
+		+ snowbridge_pallet_system::Config
+		+ pallet_timestamp::Config,
+	XcmConfig: xcm_executor::Config,
+	AllPalletsWithoutSystem:
+		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	<Runtime as frame_system::Config>::AccountId: From<sp_runtime::AccountId32> + AsRef<[u8]>,
+{
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_key.collators())
+		.with_session_keys(collator_session_key.session_keys())
+		.with_para_id(runtime_para_id.into())
+		.with_tracing()
+		.build()
+		.execute_with(|| {
+			<snowbridge_pallet_system::Pallet<Runtime>>::initialize(
+				runtime_para_id.into(),
+				assethub_parachain_id.into(),
+			)
+			.unwrap();
+
+			// fund asset hub sovereign account enough so it can pay fees
+			initial_fund::<Runtime>(assethub_parachain_id, 5_000_000_000_000);
+
+			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
+				assethub_parachain_id,
+				weth_contract_address,
+				destination_address,
+				fee_amount,
+			);
+
+			assert_ok!(outcome.ensure_complete());
+
+			// check events
+			let mut events = <frame_system::Pallet<Runtime>>::events()
+				.into_iter()
+				.filter_map(|e| snowbridge_pallet_outbound_queue(e.event.encode()));
+			assert!(events.any(|e| matches!(
+				e,
+				snowbridge_pallet_outbound_queue::Event::MessageQueued { .. }
+			)));
+
+			let next_block_number: U256 = <frame_system::Pallet<Runtime>>::block_number()
+				.saturating_add(BlockNumberFor::<Runtime>::from(1u32))
+				.into();
+
+			let included_head =
+				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block_with_finalize(
+					next_block_number.as_u32(),
+				);
+			let digest = included_head.digest();
+			let digest_items = digest.logs();
+
+			let mut found_outbound_digest = false;
+			for digest_item in digest_items {
+				match digest_item {
+					DigestItem::Other(_) => found_outbound_digest = true,
+					_ => {},
+				}
+			}
+
+			assert_eq!(found_outbound_digest, true);
 		});
 }
 
@@ -213,7 +303,8 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ snowbridge_pallet_outbound_queue::Config,
+		+ snowbridge_pallet_outbound_queue::Config
+		+ pallet_timestamp::Config,
 	XcmConfig: xcm_executor::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 {
@@ -301,7 +392,8 @@ pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ snowbridge_pallet_outbound_queue::Config
-		+ snowbridge_pallet_system::Config,
+		+ snowbridge_pallet_system::Config
+		+ pallet_timestamp::Config,
 	XcmConfig: xcm_executor::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 {
@@ -349,7 +441,8 @@ pub fn ethereum_extrinsic<Runtime>(
 		+ cumulus_pallet_parachain_system::Config
 		+ snowbridge_pallet_outbound_queue::Config
 		+ snowbridge_pallet_system::Config
-		+ snowbridge_pallet_ethereum_client::Config,
+		+ snowbridge_pallet_ethereum_client::Config
+		+ pallet_timestamp::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	<Runtime as pallet_utility::Config>::RuntimeCall:
 		From<snowbridge_pallet_ethereum_client::Call<Runtime>>,
@@ -430,7 +523,8 @@ pub fn ethereum_to_polkadot_message_extrinsics_work<Runtime>(
 		+ cumulus_pallet_parachain_system::Config
 		+ snowbridge_pallet_outbound_queue::Config
 		+ snowbridge_pallet_system::Config
-		+ snowbridge_pallet_ethereum_client::Config,
+		+ snowbridge_pallet_ethereum_client::Config
+		+ pallet_timestamp::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	<Runtime as pallet_utility::Config>::RuntimeCall:
 		From<snowbridge_pallet_ethereum_client::Call<Runtime>>,
