@@ -6,8 +6,8 @@
 
 **Return value**: 
 
-- If the runtime supports the function call (see below), an object of the form `{"result":"..."}` where `result` contains a string containing the hexadecimal-encoded output of the runtime function call.
-- Otherwise, an object of the form `{"error":"..."}` where `error` is a human-readable error message indicating the problem. This string isn't meant to be shown to end users, but is for developers to understand the problem.
+- If the runtime supports the function call (see below), an object of the form `{ "success": true, "value": ... }` where `value` contains a string containing the hexadecimal-encoded output of the runtime function call.
+- Otherwise, an object of the form `{ "success": false, "error": ... }` where `error` is a human-readable error message indicating the problem. This string isn't meant to be shown to end users, but is for developers to understand the problem.
 
 The JSON-RPC server must check that the runtime supports the `SessionKeys` API (64bits blake2 hash: `0xab3c0572291feb8b`) at version 1, and call the `SessionKeys_generate_session_keys` runtime function.
 The runtime call is done against the current best block of the chain.
@@ -20,9 +20,9 @@ Contrary to most other JSON-RPC functions that perform runtime function calls wh
 
 ## Possible errors
 
-- `{"error":"..."}` is returned if the runtime doesn't support the given API.
-- `{"error":"..."}` is returned if a problem happens during the call, such as a Wasm trap.
-- `{"error":"..."}` is returned if the runtime attempts to modify the storage of the block.
+- `{ "success": false, "error": ... }` is returned if the runtime doesn't support the given API.
+- `{ "success": false, "error": ... }` is returned if a problem happens during the call, such as a Wasm trap.
+- `{ "success": false, "error": ... }` is returned if the runtime attempts to modify the storage of the block.
 
 ## About the behavior of `SessionKeys_generate_session_keys`
 
