@@ -891,15 +891,21 @@ pub mod pallet_prelude {
 /// specify pallet information.
 ///
 /// The struct must be defined as follows:
-/// ```ignore
-/// #[pallet::pallet]
-/// pub struct Pallet<T>(_);
+/// ```
+/// #[frame_support::pallet]
+/// mod pallet {
+/// 	#[pallet::pallet]         // <- the macro
+/// 	pub struct Pallet<T>(_);  // <- the struct definition
+///
+/// 	#[pallet::config]
+/// 	pub trait Config: frame_system::Config {}
+/// }
 /// ```
 /// I.e. a regular struct definition named `Pallet`, with generic T and no where clause.
 ///
 /// ## Macro expansion:
 ///
-/// The macro adds this attribute to the struct definition:
+/// The macro adds this attribute to the Pallet struct definition:
 /// ```ignore
 /// #[derive(
 /// 	frame_support::CloneNoBound,
@@ -1032,10 +1038,26 @@ pub mod pallet_macros {
 	///
 	/// Item must be defined as:
 	///
-	/// ```ignore
-	/// #[pallet::validate_unsigned]
-	/// impl<T: Config> ValidateUnsigned for Pallet<T> {
-	/// 	// ... regular trait implementation
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::validate_unsigned]
+	/// 	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
+	/// 		type Call = Call<T>;
+	///
+	/// 		fn validate_unsigned(_source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
+	/// 			// Your implementation details here
+	/// 			unimplemented!()
+	/// 		}
+	/// 	}
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	///
@@ -1059,18 +1081,28 @@ pub mod pallet_macros {
 	///
 	/// Item must be defined as:
 	///
-	/// ```ignore
-	/// #[pallet::type_value]
-	/// fn $MyDefaultName<$some_generic>() -> $default_type $optional_where_clause { $expr }
 	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use sp_runtime::FixedU128;
+	/// 	use frame_support::pallet_prelude::*;
 	///
-	/// I.e.: a function definition with generics none or `T: Config` and a returned type.
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
 	///
-	/// E.g.:
+	/// 	#[pallet::storage]
+	/// 	pub(super) type SomeStorage<T: Config> =
+	/// 		StorageValue<_, FixedU128, ValueQuery, DefaultForSomeValue>;
 	///
-	/// ```ignore
-	/// #[pallet::type_value]
-	/// fn MyDefault<T: Config>() -> T::Balance { 3.into() }
+	/// 	// Define default for ParachainId
+	/// 	#[pallet::type_value]
+	/// 	pub fn DefaultForSomeValue() -> FixedU128 {
+	/// 		FixedU128::from_u32(1)
+	/// 	}
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
 	/// ```
 	///
 	/// ## Macro expansion
@@ -1085,12 +1117,21 @@ pub mod pallet_macros {
 	/// version needs to be communicated to the macro. This can be done by using the
 	/// `pallet::storage_version` attribute:
 	///
-	/// ```ignore
-	/// const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::StorageVersion;
+	/// 	use frame_support::traits::GetStorageVersion;
 	///
-	/// #[pallet::pallet]
-	/// #[pallet::storage_version(STORAGE_VERSION)]
-	/// pub struct Pallet<T>(_);
+	/// 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+	///
+	/// 	#[pallet::pallet]
+	/// 	#[pallet::storage_version(STORAGE_VERSION)]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
 	/// ```
 	///
 	/// If not present, the current storage version is set to the default value.
@@ -1100,22 +1141,29 @@ pub mod pallet_macros {
 	/// `Pallet` that specifies pallet-specific logic.
 	///
 	/// The item the attribute attaches to must be defined as follows:
-	/// ```ignore
-	/// #[pallet::hooks]
-	/// impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> $optional_where_clause {
-	///     ...
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	/// 	use frame_system::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::hooks]
+	/// 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	/// 		// Implement hooks here
+	/// 	}
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	/// I.e. a regular trait implementation with generic bound: `T: Config`, for the trait
-	/// `Hooks<BlockNumberFor<T>>` (they are defined in preludes), for the type `Pallet<T>` and
-	/// with an optional where clause.
+	/// `Hooks<BlockNumberFor<T>>` (they are defined in preludes), for the type `Pallet<T>`.
 	///
-	/// If no `#[pallet::hooks]` exists, then the following default implementation is
-	/// automatically generated:
-	/// ```ignore
-	/// #[pallet::hooks]
-	/// impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
-	/// ```
+	/// Optionally, you could add a where clause.
 	///
 	/// ## Macro expansion
 	///
@@ -1167,12 +1215,33 @@ pub mod pallet_macros {
 	/// The closure must return `bool`.
 	///
 	/// ### Example
-	/// ```ignore
-	/// #[pallet::feeless_if(|_origin: &OriginFor<T>, something: &u32| -> bool {
-	/// 		*something == 0
-	/// 	})]
-	/// pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
-	///     ....
+	///
+	/// ```
+	/// #[frame_support::pallet(dev_mode)]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	/// 	use frame_system::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::call]
+	/// 	impl<T: Config> Pallet<T> {
+	/// 		#[pallet::call_index(0)]
+	/// 		/// Marks this call as feeless if `foo` is zero.
+	/// 		#[pallet::feeless_if(|_origin: &OriginFor<T>, foo: &u32| -> bool {
+	/// 			*foo == 0
+	/// 		})]
+	/// 		pub fn something(
+	/// 			_: OriginFor<T>,
+	/// 			foo: u32,
+	/// 		) -> DispatchResult {
+	/// 			unimplemented!()
+	/// 		}
+	/// 	}
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	///
@@ -1194,16 +1263,24 @@ pub mod pallet_macros {
 	/// returned from the dispatchable when an error occurs. The information for this error
 	/// type is then stored in metadata.
 	///
-	/// Item must be defined as:
+	/// Item must be defined as so:
 	///
-	/// ```ignore
-	/// #[pallet::error]
-	/// pub enum Error<T> {
-	/// 	/// $some_optional_doc
-	/// 	$SomeFieldLessVariant,
-	/// 	/// $some_more_optional_doc
-	/// 	$SomeVariantWithOneField(FieldType),
-	/// 	...
+	/// ```
+	/// #[frame_support::pallet(dev_mode)]
+	/// mod pallet {
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::error]
+	/// 	pub enum Error<T> {
+	/// 		/// SomeFieldLessVariant doc
+	/// 		SomeFieldLessVariant,
+	/// 		/// SomeVariantWithOneField doc
+	/// 		SomeVariantWithOneField(u32),
+	/// 	}
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	/// I.e. a regular enum named `Error`, with generic `T` and fieldless or multiple-field
@@ -1241,20 +1318,36 @@ pub mod pallet_macros {
 	/// stored under the `system` / `events` key when the block is applied (and then replaced
 	/// when the next block writes it's events).
 	///
-	/// The Event enum must be defined as follows:
+	/// The Event enum can be defined as follows:
 	///
-	/// ```ignore
-	/// #[pallet::event]
-	/// #[pallet::generate_deposit($visibility fn deposit_event)] // Optional
-	/// pub enum Event<$some_generic> $optional_where_clause {
-	/// 	/// Some doc
-	/// 	$SomeName($SomeType, $YetanotherType, ...),
-	/// 	...
+	/// ```
+	/// #[frame_support::pallet(dev_mode)]
+	/// mod pallet {
+	///     use frame_support::pallet_prelude::IsType;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::event]
+	/// 	#[pallet::generate_deposit(fn deposit_event)] // Optional
+	/// 	pub enum Event<T> {
+	/// 		/// SomeEvent doc
+	/// 		SomeEvent(u16, u32), // SomeEvent with two fields
+	/// 	}
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {
+	/// 		/// The overarching runtime event type.
+	/// 		type RuntimeEvent: From<Event<Self>>
+	/// 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	/// 	}
 	/// }
 	/// ```
 	///
 	/// I.e. an enum (with named or unnamed fields variant), named `Event`, with generic: none
 	/// or `T` or `T: Config`, and optional w here clause.
+	///
+	/// `RuntimeEvent` must be defined in the `Config`, as shown in the example.
 	///
 	/// Each field must implement [`Clone`], [`Eq`], [`PartialEq`], [`codec::Encode`],
 	/// [`codec::Decode`], and [`Debug`] (on std only). For ease of use, bound by the trait
@@ -1364,9 +1457,18 @@ pub mod pallet_macros {
 	/// If no `#[pallet::call]` exists, then a default implementation corresponding to the
 	/// following code is automatically generated:
 	///
-	/// ```ignore
-	/// #[pallet::call]
-	/// impl<T: Config> Pallet<T> {}
+	/// ```
+	/// #[frame_support::pallet(dev_mode)]
+	/// mod pallet {
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::call] // <- automatically generated
+	/// 	impl<T: Config> Pallet<T> {} // <- automatically generated
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
 	/// ```
 	pub use frame_support_procedural::call;
 
