@@ -780,7 +780,7 @@ macro_rules! assert_err_with_weight {
 			$crate::assert_err!($call.map(|_| ()).map_err(|e| e.error), $err);
 			assert_eq!(dispatch_err_with_post.post_info.actual_weight, $weight);
 		} else {
-			panic!("expected Err(_), got Ok(_).")
+			::core::panic!("expected Err(_), got Ok(_).")
 		}
 	};
 }

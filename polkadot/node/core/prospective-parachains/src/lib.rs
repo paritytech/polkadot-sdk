@@ -298,7 +298,7 @@ async fn handle_active_leaves_update<Context>(
 			)
 			.expect("ancestors are provided in reverse order and correctly; qed");
 
-			gum::debug!(
+			gum::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
 				min_relay_parent = scope.earliest_relay_parent().number,

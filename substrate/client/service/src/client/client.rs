@@ -678,8 +678,10 @@ where
 
 						// This is use by fast sync for runtime version to be resolvable from
 						// changes.
-						let state_version =
-							resolve_state_version_from_wasm(&storage, &self.executor)?;
+						let state_version = resolve_state_version_from_wasm::<_, HashingFor<Block>>(
+							&storage,
+							&self.executor,
+						)?;
 						let state_root = operation.op.reset_storage(storage, state_version)?;
 						if state_root != *import_headers.post().state_root() {
 							// State root mismatch when importing state. This should not happen in
