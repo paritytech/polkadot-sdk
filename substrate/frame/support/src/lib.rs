@@ -2709,6 +2709,8 @@ pub mod pallet_macros {
 	/// * [`macro@getter`]: Creates a custom getter function.
 	/// * [`macro@storage_prefix`]: Overrides the default prefix of the storage item.
 	/// * [`macro@unbounded`]: Declares the storage item as unbounded.
+	/// * [`macro@disable_try_decode_storage`]: Declares that try-runtime checks should not
+	///   attempt to decode the storage item.
 	///
 	/// #### Example
 	/// ```
@@ -2724,6 +2726,7 @@ pub mod pallet_macros {
 	/// 	#[pallet::getter(fn foo)]
 	/// 	#[pallet::storage_prefix = "OtherFoo"]
 	/// 	#[pallet::unbounded]
+	/// 	#[pallet::disable_try_decode_storage]
 	///     pub type Foo<T> = StorageValue<_, u32, ValueQuery>;
 	/// }
 	/// ```
