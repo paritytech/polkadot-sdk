@@ -333,10 +333,10 @@ impl PalletCmd {
 		let mut component_ranges = HashMap::<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>::new();
 		let pov_modes = Self::parse_pov_modes(&benchmarks_to_run)?;
 
-		for (pallet, extrinsic, components, _, pallet_str, extrinsic_str) in benchmarks_to_run.clone() {
+		for (pallet, extrinsic, components, _, pallet_name, extrinsic_name) in benchmarks_to_run.clone() {
 			log::info!(
 				target: LOG_TARGET,
-				"Starting benchmark: {pallet_str}::{extrinsic_str}"
+				"Starting benchmark: {pallet_name}::{extrinsic_name}"
 			);
 			let all_components = if components.is_empty() {
 				vec![Default::default()]
@@ -418,7 +418,7 @@ impl PalletCmd {
 						.map_err(|e| format!("Failed to decode benchmark results: {:?}", e))?
 						.map_err(|e| {
 							format!(
-								"Benchmark {pallet_str}::{extrinsic_str} failed: {e}",
+								"Benchmark {pallet_name}::{extrinsic_name} failed: {e}",
 							)
 						})?;
 				}
@@ -493,7 +493,7 @@ impl PalletCmd {
 
 							log::info!(
 								target: LOG_TARGET,
-								"Running  benchmark: {pallet_str}.{extrinsic_str}({} args) {}/{} {}/{}",
+								"Running  benchmark: {pallet_name}::{extrinsic_name}({} args) {}/{} {}/{}",
 								components.len(),
 								s + 1, // s starts at 0.
 								all_components.len(),
@@ -772,11 +772,11 @@ fn list_benchmark(
 	let mut benchmarks = BTreeMap::new();
 
 	// Sort and de-dub by pallet and function name.
-	benchmarks_to_run.iter().for_each(|(_, _, _, _, pallet_str, extrinsic_str)| {
+	benchmarks_to_run.iter().for_each(|(_, _, _, _, pallet_name, extrinsic_name)| {
 		benchmarks
-			.entry(pallet_str)
+			.entry(pallet_name)
 			.or_insert_with(BTreeSet::new)
-			.insert(extrinsic_str);
+			.insert(extrinsic_name);
 	});
 
 	match list_output {
