@@ -371,6 +371,8 @@ pub mod pallet {
 		type UploadOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Origin allowed to instantiate code.
+		///
+		/// NOTE: This is not enforced when a contract instantiates another contract.
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Overarching hold reason.
@@ -774,13 +776,16 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
 
-			T::UploadOrigin::ensure_origin(origin.clone())?;
-			let origin = T::InstantiateOrigin::ensure_origin(origin)?;
+			// These two origins will usually be the same; however, we treat them as separate since
+			// it is possible for the `Success` value of `UploadOrigin` and `InstantiateOrigin` to
+			// differ.
+			let upload_origin = T::UploadOrigin::ensure_origin(origin.clone())?;
+			let instantiate_origin = T::InstantiateOrigin::ensure_origin(origin)?;
 
 			let code_len = code.len() as u32;
 
 			let (module, upload_deposit) = Self::try_upload_code(
-				origin.clone(),
+				upload_origin,
 				code,
 				storage_deposit_limit.clone().map(Into::into),
 				Determinism::Enforced,
@@ -794,7 +799,7 @@ pub mod pallet {
 			let data_len = data.len() as u32;
 			let salt_len = salt.len() as u32;
 			let common = CommonInput {
-				origin: Origin::from_account_id(origin),
+				origin: Origin::from_account_id(instantiate_origin),
 				value,
 				data,
 				gas_limit,
