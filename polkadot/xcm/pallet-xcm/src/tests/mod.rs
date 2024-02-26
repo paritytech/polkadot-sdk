@@ -20,11 +20,12 @@ pub(crate) mod assets_transfer;
 
 use crate::{
 	mock::*, pallet::SupportedVersion, AssetTraps, Config, CurrentMigration, Error,
-	LatestVersionedLocation, Pallet, Queries, QueryStatus, VersionDiscoveryQueue,
-	VersionMigrationStage, VersionNotifiers, VersionNotifyTargets, WeightInfo,
+	ExecuteControllerWeightInfo, LatestVersionedLocation, Pallet, Queries, QueryStatus,
+	VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers, VersionNotifyTargets,
+	WeightInfo,
 };
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	traits::{Currency, Hooks},
 	weights::Weight,
 };
@@ -450,19 +451,19 @@ fn trapped_assets_can_be_claimed() {
 		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE + SEND_AMOUNT);
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 
-		let weight = BaseXcmWeight::get() * 3;
-		assert_ok!(<XcmPallet as xcm_builder::ExecuteController<_, _>>::execute(
-			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
-				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
-				buy_execution((Here, SEND_AMOUNT)),
-				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
-			]))),
-			weight
-		));
-		let outcome =
-			Outcome::Incomplete { used: BaseXcmWeight::get(), error: XcmError::UnknownClaim };
-		assert_eq!(last_event(), RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome }));
+		// Can't claim twice.
+		assert_err_ignore_postinfo!(
+			XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(Xcm(vec![
+					ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
+					buy_execution((Here, SEND_AMOUNT)),
+					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+				]))),
+				weight
+			),
+			Error::<Test>::LocalExecutionIncomplete
+		);
 	});
 }
 
@@ -495,11 +496,14 @@ fn incomplete_execute_reverts_side_effects() {
 		// all effects are reverted and balances unchanged for either sender or receiver
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE);
+
 		assert_eq!(
 			result,
 			Err(sp_runtime::DispatchErrorWithPostInfo {
 				post_info: frame_support::dispatch::PostDispatchInfo {
-					actual_weight: None,
+					actual_weight: Some(
+						<Pallet<Test> as ExecuteControllerWeightInfo>::execute() + weight
+					),
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
 				error: sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
