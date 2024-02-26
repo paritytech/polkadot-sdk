@@ -1056,7 +1056,7 @@ impl<T: Config> BondedPool<T> {
 
 	/// The pools balance that is transferable provided it is expendable by staking pallet.
 	fn transferable_balance(&self) -> BalanceOf<T> {
-		T::PoolAdapter::releasable_balance(&self.bonded_account())
+		T::PoolAdapter::transferable_balance(&self.bonded_account())
 	}
 
 	fn is_root(&self, who: &T::AccountId) -> bool {

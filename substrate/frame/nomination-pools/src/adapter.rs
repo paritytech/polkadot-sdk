@@ -23,11 +23,13 @@ use crate::*;
 /// tokens in delegator's accounts.
 pub struct NoDelegation<T: Config>(PhantomData<T>);
 
+
+/// TODO(ankan) Call it FundManager/CurrencyAdapter/DelegationManager
 impl<T: Config> PoolAdapter for NoDelegation<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	fn releasable_balance(who: &Self::AccountId) -> Self::Balance {
+	fn transferable_balance(who: &Self::AccountId) -> Self::Balance {
 		// Note on why we can't use `Currency::reducible_balance`: Since pooled account has a
 		// provider (staking pallet), the account can not be set expendable by
 		// `pallet-nomination-pool`. This means reducible balance always returns balance preserving

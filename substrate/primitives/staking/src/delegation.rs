@@ -69,7 +69,7 @@ pub trait PoolAdapter {
 	type AccountId: Clone + sp_std::fmt::Debug;
 
 	/// Balance that is free and can be released to delegator.
-	fn releasable_balance(who: &Self::AccountId) -> Self::Balance;
+	fn transferable_balance(who: &Self::AccountId) -> Self::Balance;
 
 	/// Total balance of the account held for staking.
 	fn total_balance(who: &Self::AccountId) -> Self::Balance;

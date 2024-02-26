@@ -252,7 +252,7 @@ impl<T: Config> PoolAdapter for Pallet<T> {
 	/// Return balance of the `Delegate` (pool account) that is not bonded.
 	///
 	/// Equivalent to [FunInspect::balance] for non delegate accounts.
-	fn releasable_balance(who: &Self::AccountId) -> Self::Balance {
+	fn transferable_balance(who: &Self::AccountId) -> Self::Balance {
 		Delegate::<T>::from(who)
 			.map(|delegate| delegate.total_unbonded())
 			.unwrap_or(Zero::zero())
