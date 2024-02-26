@@ -1344,16 +1344,6 @@
 <a href="#1344" id="1344">1344</a>
 <a href="#1345" id="1345">1345</a>
 <a href="#1346" id="1346">1346</a>
-<a href="#1347" id="1347">1347</a>
-<a href="#1348" id="1348">1348</a>
-<a href="#1349" id="1349">1349</a>
-<a href="#1350" id="1350">1350</a>
-<a href="#1351" id="1351">1351</a>
-<a href="#1352" id="1352">1352</a>
-<a href="#1353" id="1353">1353</a>
-<a href="#1354" id="1354">1354</a>
-<a href="#1355" id="1355">1355</a>
-<a href="#1356" id="1356">1356</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1509,8 +1499,8 @@
 			<span class="kw">continue
 		</span>}
 
-		<span class="kw">let </span>pallet_string = String::from_utf8(batch.pallet.clone()).unwrap();
-		<span class="kw">let </span>instance_string = String::from_utf8(batch.instance.clone()).unwrap();
+		<span class="kw">let </span>pallet_name = String::from_utf8(batch.pallet.clone()).unwrap();
+		<span class="kw">let </span>instance_name = String::from_utf8(batch.instance.clone()).unwrap();
 		<span class="kw">let </span>benchmark_data = get_benchmark_data(
 			batch,
 			storage_info,
@@ -1522,7 +1512,7 @@
 			worst_case_map_values,
 			additional_trie_layers,
 		);
-		<span class="kw">let </span>pallet_benchmarks = all_benchmarks.entry((pallet_string, instance_string)).or_default();
+		<span class="kw">let </span>pallet_benchmarks = all_benchmarks.entry((pallet_name, instance_name)).or_default();
 		pallet_benchmarks.push(benchmark_data);
 	}
 	<span class="prelude-val">Ok</span>(all_benchmarks)
@@ -1927,19 +1917,22 @@
 
 			<span class="kw">let </span><span class="kw-2">mut </span>prefix_result = result.clone();
 			<span class="kw">let </span>key_info = storage_info_map.get(<span class="kw-2">&amp;</span>prefix);
+			<span class="kw">let </span>pallet_name = <span class="kw">match </span>key_info {
+				<span class="prelude-val">Some</span>(k) =&gt; String::from_utf8(k.pallet_name.clone()).expect(<span class="string">&quot;encoded from string&quot;</span>),
+				<span class="prelude-val">None </span>=&gt; <span class="string">&quot;&quot;</span>.to_string(),
+			};
+			<span class="kw">let </span>storage_name = <span class="kw">match </span>key_info {
+				<span class="prelude-val">Some</span>(k) =&gt; String::from_utf8(k.storage_name.clone()).expect(<span class="string">&quot;encoded from string&quot;</span>),
+				<span class="prelude-val">None </span>=&gt; <span class="string">&quot;&quot;</span>.to_string(),
+			};
 			<span class="kw">let </span>max_size = key_info.and_then(|k| k.max_size);
 
 			<span class="kw">let </span>override_pov_mode = <span class="kw">match </span>key_info {
-				<span class="prelude-val">Some</span>(StorageInfo { pallet_name, storage_name, .. }) =&gt; {
-					<span class="kw">let </span>pallet_name =
-						String::from_utf8(pallet_name.clone()).expect(<span class="string">&quot;encoded from string&quot;</span>);
-					<span class="kw">let </span>storage_name =
-						String::from_utf8(storage_name.clone()).expect(<span class="string">&quot;encoded from string&quot;</span>);
-
+				<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
 					<span class="comment">// Is there an override for the storage key?
-					</span>pov_modes.get(<span class="kw-2">&amp;</span>(pallet_name.clone(), storage_name)).or(
+					</span>pov_modes.get(<span class="kw-2">&amp;</span>(pallet_name.clone(), storage_name.clone())).or(
 						<span class="comment">// .. or for the storage prefix?
-						</span>pov_modes.get(<span class="kw-2">&amp;</span>(pallet_name, <span class="string">&quot;ALL&quot;</span>.to_string())).or(
+						</span>pov_modes.get(<span class="kw-2">&amp;</span>(pallet_name.clone(), <span class="string">&quot;ALL&quot;</span>.to_string())).or(
 							<span class="comment">// .. or for the benchmark?
 							</span>pov_modes.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;ALL&quot;</span>.to_string(), <span class="string">&quot;ALL&quot;</span>.to_string())),
 						),
@@ -2018,15 +2011,10 @@
 			// writes.
 			</span><span class="kw">if </span>!is_prefix_identified {
 				<span class="kw">match </span>key_info {
-					<span class="prelude-val">Some</span>(key_info) =&gt; {
+					<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
 						<span class="kw">let </span>comment = <span class="macro">format!</span>(
 							<span class="string">&quot;Storage: `{}::{}` (r:{} w:{})&quot;</span>,
-							String::from_utf8(key_info.pallet_name.clone())
-								.expect(<span class="string">&quot;encoded from string&quot;</span>),
-							String::from_utf8(key_info.storage_name.clone())
-								.expect(<span class="string">&quot;encoded from string&quot;</span>),
-							reads,
-							writes,
+							pallet_name, storage_name, reads, writes,
 						);
 						comments.push(comment)
 					},
@@ -2054,11 +2042,7 @@
 						) {
 							<span class="prelude-val">Some</span>(new_pov) =&gt; {
 								<span class="kw">let </span>comment = <span class="macro">format!</span>(
-									<span class="string">&quot;Proof: `{}::{}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)&quot;</span>,
-									String::from_utf8(key_info.pallet_name.clone())
-										.expect(<span class="string">&quot;encoded from string&quot;</span>),
-									String::from_utf8(key_info.storage_name.clone())
-										.expect(<span class="string">&quot;encoded from string&quot;</span>),
+									<span class="string">&quot;Proof: `{pallet_name}::{storage_name}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)&quot;</span>,
 									key_info.max_values,
 									key_info.max_size,
 									new_pov,
@@ -2067,13 +2051,9 @@
 								comments.push(comment)
 							},
 							<span class="prelude-val">None </span>=&gt; {
-								<span class="kw">let </span>pallet = String::from_utf8(key_info.pallet_name.clone())
-									.expect(<span class="string">&quot;encoded from string&quot;</span>);
-								<span class="kw">let </span>item = String::from_utf8(key_info.storage_name.clone())
-									.expect(<span class="string">&quot;encoded from string&quot;</span>);
 								<span class="kw">let </span>comment = <span class="macro">format!</span>(
 									<span class="string">&quot;Proof: `{}::{}` (`max_values`: {:?}, `max_size`: {:?}, mode: `{:?}`)&quot;</span>,
-									pallet, item, key_info.max_values, key_info.max_size,
+									pallet_name, storage_name, key_info.max_values, key_info.max_size,
 									used_pov_mode,
 								);
 								comments.push(comment);

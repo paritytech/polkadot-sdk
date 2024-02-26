@@ -801,6 +801,8 @@
 <a href="#801" id="801">801</a>
 <a href="#802" id="802">802</a>
 <a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1101,16 +1103,23 @@ not created by a node that was compiled with the flag&quot;</span>;
 		<span class="comment">// Convert `Vec&lt;u8&gt;` to `String` for better readability.
 		</span><span class="kw">let </span>benchmarks_to_run: Vec&lt;<span class="kw">_</span>&gt; = benchmarks_to_run
 			.into_iter()
-			.map(|b| {
+			.map(|(pallet, extrinsic, components, pov_modes)| {
+				<span class="kw">let </span>pallet_name =
+					String::from_utf8(pallet.clone()).expect(<span class="string">&quot;Encoded from String; qed&quot;</span>);
+				<span class="kw">let </span>extrinsic_name =
+					String::from_utf8(extrinsic.clone()).expect(<span class="string">&quot;Encoded from String; qed&quot;</span>);
 				(
-					b.<span class="number">0</span>,
-					b.<span class="number">1</span>,
-					b.<span class="number">2</span>,
-					b.<span class="number">3</span>.into_iter()
+					pallet,
+					extrinsic,
+					components,
+					pov_modes
+						.into_iter()
 						.map(|(p, s)| {
 							(String::from_utf8(p).unwrap(), String::from_utf8(s).unwrap())
 						})
 						.collect(),
+					pallet_name,
+					extrinsic_name,
 				)
 			})
 			.collect();
@@ -1132,13 +1141,13 @@ not created by a node that was compiled with the flag&quot;</span>;
 		</span><span class="kw">let </span><span class="kw-2">mut </span>component_ranges = HashMap::&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;), Vec&lt;ComponentRange&gt;&gt;::new();
 		<span class="kw">let </span>pov_modes = <span class="self">Self</span>::parse_pov_modes(<span class="kw-2">&amp;</span>benchmarks_to_run)<span class="question-mark">?</span>;
 
-		<span class="kw">for </span>(pallet, extrinsic, components, <span class="kw">_</span>) <span class="kw">in </span>benchmarks_to_run.clone() {
+		<span class="kw">for </span>(pallet, extrinsic, components, <span class="kw">_</span>, pallet_name, extrinsic_name) <span class="kw">in
+			</span>benchmarks_to_run.clone()
+		{
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Starting benchmark: {}::{}&quot;</span>,
-				String::from_utf8(pallet.clone()).expect(<span class="string">&quot;Encoded from String; qed&quot;</span>),
-				String::from_utf8(extrinsic.clone()).expect(<span class="string">&quot;Encoded from String; qed&quot;</span>),
-			);
+				<span class="string">&quot;Starting benchmark: {pallet_name}::{extrinsic_name}&quot;
+			</span>);
 			<span class="kw">let </span>all_components = <span class="kw">if </span>components.is_empty() {
 				<span class="macro">vec!</span>[Default::default()]
 			} <span class="kw">else </span>{
@@ -1218,12 +1227,7 @@ not created by a node that was compiled with the flag&quot;</span>;
 						)
 						.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to decode benchmark results: {:?}&quot;</span>, e))<span class="question-mark">?
 						</span>.map_err(|e| {
-							<span class="macro">format!</span>(
-								<span class="string">&quot;Benchmark {}::{} failed: {}&quot;</span>,
-								String::from_utf8_lossy(<span class="kw-2">&amp;</span>pallet),
-								String::from_utf8_lossy(<span class="kw-2">&amp;</span>extrinsic),
-								e
-							)
+							<span class="macro">format!</span>(<span class="string">&quot;Benchmark {pallet_name}::{extrinsic_name} failed: {e}&quot;</span>,)
 						})<span class="question-mark">?</span>;
 				}
 				<span class="comment">// Do one loop of DB tracking.
@@ -1297,11 +1301,7 @@ not created by a node that was compiled with the flag&quot;</span>;
 
 							<span class="macro">log::info!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Running  benchmark: {}.{}({} args) {}/{} {}/{}&quot;</span>,
-								String::from_utf8(pallet.clone())
-									.expect(<span class="string">&quot;Encoded from String; qed&quot;</span>),
-								String::from_utf8(extrinsic.clone())
-									.expect(<span class="string">&quot;Encoded from String; qed&quot;</span>),
+								<span class="string">&quot;Running  benchmark: {pallet_name}::{extrinsic_name}({} args) {}/{} {}/{}&quot;</span>,
 								components.len(),
 								s + <span class="number">1</span>, <span class="comment">// s starts at 0.
 								</span>all_components.len(),
@@ -1510,12 +1510,14 @@ not created by a node that was compiled with the flag&quot;</span>;
 			Vec&lt;u8&gt;,
 			Vec&lt;(BenchmarkParameter, u32, u32)&gt;,
 			Vec&lt;(String, String)&gt;,
+			String,
+			String,
 		)&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;PovModesMap&gt; {
 		<span class="kw">use </span>std::collections::hash_map::Entry;
 		<span class="kw">let </span><span class="kw-2">mut </span>parsed = PovModesMap::new();
 
-		<span class="kw">for </span>(pallet, call, _components, pov_modes) <span class="kw">in </span>benchmarks {
+		<span class="kw">for </span>(pallet, call, _components, pov_modes, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span>benchmarks {
 			<span class="kw">for </span>(pallet_storage, mode) <span class="kw">in </span>pov_modes {
 				<span class="kw">let </span>mode = PovEstimationMode::from_str(<span class="kw-2">&amp;</span>mode)<span class="question-mark">?</span>;
 				<span class="kw">let </span>splits = pallet_storage.split(<span class="string">&quot;::&quot;</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -1569,6 +1571,8 @@ not created by a node that was compiled with the flag&quot;</span>;
 		Vec&lt;u8&gt;,
 		Vec&lt;(BenchmarkParameter, u32, u32)&gt;,
 		Vec&lt;(String, String)&gt;,
+		String,
+		String,
 	)&gt;,
 	list_output: ListOutput,
 	no_csv_header: bool,
@@ -1576,11 +1580,11 @@ not created by a node that was compiled with the flag&quot;</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>benchmarks = BTreeMap::new();
 
 	<span class="comment">// Sort and de-dub by pallet and function name.
-	</span>benchmarks_to_run.iter().for_each(|(pallet, extrinsic, <span class="kw">_</span>, <span class="kw">_</span>)| {
+	</span>benchmarks_to_run.iter().for_each(|(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, pallet_name, extrinsic_name)| {
 		benchmarks
-			.entry(String::from_utf8_lossy(pallet).to_string())
+			.entry(pallet_name)
 			.or_insert_with(BTreeSet::new)
-			.insert(String::from_utf8_lossy(extrinsic).to_string());
+			.insert(extrinsic_name);
 	});
 
 	<span class="kw">match </span>list_output {
