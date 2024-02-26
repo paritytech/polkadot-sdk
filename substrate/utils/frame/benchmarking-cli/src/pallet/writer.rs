@@ -668,10 +668,7 @@ pub(crate) fn process_storage_results(
 					Some(_) => {
 						let comment = format!(
 							"Storage: `{}::{}` (r:{} w:{})",
-							pallet_name,
-							storage_name,
-							reads,
-							writes,
+							pallet_name, storage_name, reads, writes,
 						);
 						comments.push(comment)
 					},

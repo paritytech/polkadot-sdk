@@ -299,13 +299,16 @@ impl PalletCmd {
 		let benchmarks_to_run: Vec<_> = benchmarks_to_run
 			.into_iter()
 			.map(|(pallet, extrinsic, components, pov_modes)| {
-				let pallet_name = String::from_utf8(pallet.clone()).expect("Encoded from String; qed");
-				let extrinsic_name = String::from_utf8(extrinsic.clone()).expect("Encoded from String; qed");
+				let pallet_name =
+					String::from_utf8(pallet.clone()).expect("Encoded from String; qed");
+				let extrinsic_name =
+					String::from_utf8(extrinsic.clone()).expect("Encoded from String; qed");
 				(
 					pallet,
 					extrinsic,
 					components,
-					pov_modes.into_iter()
+					pov_modes
+						.into_iter()
 						.map(|(p, s)| {
 							(String::from_utf8(p).unwrap(), String::from_utf8(s).unwrap())
 						})
@@ -333,7 +336,9 @@ impl PalletCmd {
 		let mut component_ranges = HashMap::<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>::new();
 		let pov_modes = Self::parse_pov_modes(&benchmarks_to_run)?;
 
-		for (pallet, extrinsic, components, _, pallet_name, extrinsic_name) in benchmarks_to_run.clone() {
+		for (pallet, extrinsic, components, _, pallet_name, extrinsic_name) in
+			benchmarks_to_run.clone()
+		{
 			log::info!(
 				target: LOG_TARGET,
 				"Starting benchmark: {pallet_name}::{extrinsic_name}"
@@ -417,9 +422,7 @@ impl PalletCmd {
 						)
 						.map_err(|e| format!("Failed to decode benchmark results: {:?}", e))?
 						.map_err(|e| {
-							format!(
-								"Benchmark {pallet_name}::{extrinsic_name} failed: {e}",
-							)
+							format!("Benchmark {pallet_name}::{extrinsic_name} failed: {e}",)
 						})?;
 				}
 				// Do one loop of DB tracking.
