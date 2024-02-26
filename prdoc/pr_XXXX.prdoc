@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "XCM payment API"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      A trait of XCM payment API was added.
+	    API provides functionality for obtaining
+      the weight required to execute an XCM message,
+	    a list of accepted `AssetId` for payment for its
+	    execution and the cost in the specified supported `AssetId`.
+	
+crates:
+  - name: xcm-payment-runtime-api
+  - name: rococo-runtime
+  - name: westend-runtime
+  
