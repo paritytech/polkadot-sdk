@@ -310,6 +310,8 @@ pub trait StakingInterface {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_current_era(era: EraIndex);
 
+	// FIXME(ank4n): Break down this trait maybe? It is too bloated currently.
+
 	/// Returns true if who is a `delegatee` account.
 	fn is_delegatee(who: &Self::AccountId) -> bool;
 

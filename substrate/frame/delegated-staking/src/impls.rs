@@ -194,6 +194,61 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	fn set_current_era(era: EraIndex) {
 		T::CoreStaking::set_current_era(era)
 	}
+
+	fn is_delegatee(who: &Self::AccountId) -> bool {
+		Self::is_delegate(who)
+	}
+
+	/// Effective balance of the delegatee account.
+	fn delegatee_balance(who: &Self::AccountId) -> Self::Balance {
+		Delegate::<T>::from(who)
+			.map(|delegate| delegate.ledger.effective_balance())
+			.unwrap_or_default()
+	}
+
+	/// Delegate funds to `Delegatee`.
+	fn delegate(who: &Self::AccountId, delegatee: &Self::AccountId, reward_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		Pallet::<T>::register_as_delegate(
+			RawOrigin::Signed(delegatee.clone()).into(),
+			reward_account.clone(),
+		)?;
+
+		// Delegate the funds from who to the pool account.
+		Pallet::<T>::delegate_funds(
+			RawOrigin::Signed(who.clone()).into(),
+			delegatee.clone(),
+			amount,
+		)
+	}
+
+	/// Add more delegation to the pool account.
+	fn delegate_extra(
+		who: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		Pallet::<T>::delegate_funds(
+			RawOrigin::Signed(who.clone()).into(),
+			delegatee.clone(),
+			amount,
+		)
+	}
+
+	/// Withdraw delegation from pool account to self.
+	fn withdraw_delegation(who: &Self::AccountId, delegatee: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		Pallet::<T>::release(RawOrigin::Signed(delegatee.clone()).into(), who.clone(), amount, 0)
+	}
+
+	/// Does the delegatee have any pending slash.
+	fn has_pending_slash(delegatee: &Self::AccountId) -> bool {
+		Delegate::<T>::from(delegatee)
+			.map(|d| !d.ledger.pending_slash.is_zero())
+			.unwrap_or(false)
+	}
+
+	fn delegator_slash(delegatee: &Self::AccountId, delegator: &Self::AccountId, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult {
+		Pallet::<T>::do_slash(delegatee.clone(), delegator.clone(), value, maybe_reporter)
+	}
 }
 
 impl<T: Config> StakingDelegationSupport for Pallet<T> {
