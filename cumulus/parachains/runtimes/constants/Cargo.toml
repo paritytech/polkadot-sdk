@@ -1,6 +1,6 @@
 [package]
 name = "testnet-parachains-constants"
-version = "1.0.0"
+version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Common constants for Testnet Parachains runtimes"
@@ -16,17 +16,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 smallvec = "1.11.0"
 
 # Substrate
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "33.0.0" }
 
 # Polkadot
-polkadot-core-primitives = { path = "../../../../polkadot/core-primitives", default-features = false }
-rococo-runtime-constants = { path = "../../../../polkadot/runtime/rococo/constants", default-features = false, optional = true }
-westend-runtime-constants = { path = "../../../../polkadot/runtime/westend/constants", default-features = false, optional = true }
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+polkadot-core-primitives = { path = "../../../../polkadot/core-primitives", default-features = false, version = "9.0.0" }
+rococo-runtime-constants = { path = "../../../../polkadot/runtime/rococo/constants", default-features = false, optional = true, version = "9.0.0" }
+westend-runtime-constants = { path = "../../../../polkadot/runtime/westend/constants", default-features = false, optional = true, version = "9.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "9.0.0" }
 
 # Cumulus
-cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
+cumulus-primitives-core = { path = "../../../primitives/core", default-features = false, version = "0.9.0" }
 
 [features]
 default = ["std"]

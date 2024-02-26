@@ -1,6 +1,6 @@
 [package]
 name = "sc-sysinfo"
-version = "27.0.0"
+version = "29.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -26,11 +26,11 @@ derive_more = "0.99"
 regex = "1"
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sc-telemetry = { path = "../telemetry" }
-sp-core = { path = "../../primitives/core" }
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
-sp-io = { path = "../../primitives/io" }
-sp-std = { path = "../../primitives/std" }
+sc-telemetry = { version = "17.0.0", path = "../telemetry" }
+sp-core = { version = "30.0.0", path = "../../primitives/core" }
+sp-crypto-hashing = { version = "0.1.0", path = "../../primitives/crypto/hashing" }
+sp-io = { version = "32.0.0", path = "../../primitives/io" }
+sp-std = { version = "14.0.0", path = "../../primitives/std" }
 
 [dev-dependencies]
 sp-runtime = { path = "../../primitives/runtime" }

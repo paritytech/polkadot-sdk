@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-pallet-outbound-queue"
 description = "Snowbridge Outbound Queue Pallet"
-version = "0.0.0"
+version = "0.2.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -20,22 +20,22 @@ codec = { version = "3.6.1", package = "parity-scale-codec", default-features = 
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1", optional = true }
 
-frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
-sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic", default-features = false }
+frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "30.0.0" }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "30.0.0" }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false, version = "30.0.0" }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false, version = "30.0.0" }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "33.0.0" }
+sp-io = { path = "../../../../substrate/primitives/io", default-features = false, version = "32.0.0" }
+sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic", default-features = false, version = "25.0.0" }
 
-bridge-hub-common = { path = "../../../../cumulus/parachains/runtimes/bridge-hubs/common", default-features = false }
+bridge-hub-common = { path = "../../../../cumulus/parachains/runtimes/bridge-hubs/common", default-features = false, version = "0.2.0" }
 
-snowbridge-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
-snowbridge-outbound-queue-merkle-tree = { path = "merkle-tree", default-features = false }
+snowbridge-core = { path = "../../primitives/core", default-features = false, features = ["serde"], version = "0.2.0" }
+snowbridge-outbound-queue-merkle-tree = { path = "merkle-tree", default-features = false, version = "0.3.0" }
 ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
 
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "9.0.0" }
 
 [dev-dependencies]
 pallet-message-queue = { path = "../../../../substrate/frame/message-queue", default-features = false }
@@ -51,7 +51,6 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-message-queue/std",
 	"scale-info/std",
 	"serde/std",
 	"snowbridge-core/std",
@@ -70,13 +69,11 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"hex-literal",
-	"pallet-message-queue/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-message-queue/try-runtime",
 	"sp-runtime/try-runtime",
 ]

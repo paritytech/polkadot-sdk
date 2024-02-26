@@ -1,6 +1,6 @@
 [package]
 name = "bridge-runtime-common"
-version = "0.7.0"
+version = "0.9.0"
 description = "Common types and functions that may be used by substrate-based runtimes of all bridged chains"
 authors.workspace = true
 edition.workspace = true
@@ -19,35 +19,35 @@ static_assertions = { version = "1.1", optional = true }
 
 # Bridge dependencies
 
-bp-header-chain = { path = "../../primitives/header-chain", default-features = false }
-bp-messages = { path = "../../primitives/messages", default-features = false }
-bp-parachains = { path = "../../primitives/parachains", default-features = false }
-bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false }
-bp-relayers = { path = "../../primitives/relayers", default-features = false }
-bp-runtime = { path = "../../primitives/runtime", default-features = false }
-bp-xcm-bridge-hub = { path = "../../primitives/xcm-bridge-hub", default-features = false }
-bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", default-features = false }
-pallet-bridge-grandpa = { path = "../../modules/grandpa", default-features = false }
-pallet-bridge-messages = { path = "../../modules/messages", default-features = false }
-pallet-bridge-parachains = { path = "../../modules/parachains", default-features = false }
-pallet-bridge-relayers = { path = "../../modules/relayers", default-features = false }
+bp-header-chain = { path = "../../primitives/header-chain", default-features = false, version = "0.9.0" }
+bp-messages = { path = "../../primitives/messages", default-features = false, version = "0.9.0" }
+bp-parachains = { path = "../../primitives/parachains", default-features = false, version = "0.9.0" }
+bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false, version = "0.9.0" }
+bp-relayers = { path = "../../primitives/relayers", default-features = false, version = "0.9.0" }
+bp-runtime = { path = "../../primitives/runtime", default-features = false, version = "0.9.0" }
+bp-xcm-bridge-hub = { path = "../../primitives/xcm-bridge-hub", default-features = false, version = "0.2.0" }
+bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", default-features = false, version = "0.8.0" }
+pallet-bridge-grandpa = { path = "../../modules/grandpa", default-features = false, version = "0.9.0" }
+pallet-bridge-messages = { path = "../../modules/messages", default-features = false, version = "0.9.0" }
+pallet-bridge-parachains = { path = "../../modules/parachains", default-features = false, version = "0.9.0" }
+pallet-bridge-relayers = { path = "../../modules/relayers", default-features = false, version = "0.9.0" }
 
 # Substrate dependencies
 
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
-pallet-utility = { path = "../../../substrate/frame/utility", default-features = false }
-sp-api = { path = "../../../substrate/primitives/api", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "30.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "30.0.0" }
+pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "30.0.0" }
+pallet-utility = { path = "../../../substrate/frame/utility", default-features = false, version = "30.0.0" }
+sp-api = { path = "../../../substrate/primitives/api", default-features = false, version = "28.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "30.0.0" }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false, version = "32.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "33.0.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-trie = { path = "../../../substrate/primitives/trie", default-features = false, version = "31.0.0" }
 
 # Polkadot dependencies
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "9.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "9.0.0" }
 
 [dev-dependencies]
 bp-test-utils = { path = "../../primitives/test-utils" }
@@ -88,7 +88,6 @@ std = [
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-bridge-parachains/runtime-benchmarks",

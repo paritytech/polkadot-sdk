@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-rococo-runtime"
-version = "0.5.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Rococo's BridgeHub  parachain runtime"
@@ -10,7 +10,7 @@ license = "Apache-2.0"
 workspace = true
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
+substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true, version = "19.0.0" }
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
@@ -24,108 +24,102 @@ scale-info = { version = "2.10.0", default-features = false, features = [
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 
 # Substrate
-frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false }
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
-frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
-frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false }
-frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true }
-pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false }
-pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false }
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
-pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false }
-pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
-pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
-pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
-pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
-sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
-sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false }
-sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
-sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false }
-sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
-sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
-sp-session = { path = "../../../../../substrate/primitives/session", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-sp-storage = { path = "../../../../../substrate/primitives/storage", default-features = false }
-sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false }
-sp-version = { path = "../../../../../substrate/primitives/version", default-features = false }
+frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "30.0.0" }
+frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false, version = "30.0.0" }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "30.0.0" }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "30.0.0" }
+frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true, version = "30.0.0" }
+frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false, version = "28.0.0" }
+frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true, version = "0.36.0" }
+pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false, version = "29.0.0" }
+pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false, version = "30.0.0" }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "30.0.0" }
+pallet-session = { path = "../../../../../substrate/frame/session", default-features = false, version = "30.0.0" }
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false, version = "33.0.0" }
+pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false, version = "30.0.0" }
+pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false, version = "29.0.0" }
+pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false, version = "30.0.0" }
+pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false, version = "30.0.0" }
+pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false, version = "30.0.0" }
+sp-api = { path = "../../../../../substrate/primitives/api", default-features = false, version = "28.0.0" }
+sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false, version = "28.0.0" }
+sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false, version = "0.34.0" }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "30.0.0" }
+sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false, version = "0.9.0" }
+sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false, version = "28.0.0" }
+sp-io = { path = "../../../../../substrate/primitives/io", default-features = false, version = "32.0.0" }
+sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false, version = "28.0.0" }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, version = "33.0.0" }
+sp-session = { path = "../../../../../substrate/primitives/session", default-features = false, version = "29.0.0" }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-storage = { path = "../../../../../substrate/primitives/storage", default-features = false, version = "20.0.0" }
+sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false, version = "28.0.0" }
+sp-version = { path = "../../../../../substrate/primitives/version", default-features = false, version = "31.0.0" }
 
 # Polkadot
-rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false }
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
-pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
-polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
-polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
+rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false, version = "9.0.0" }
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "9.0.0" }
+pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "9.0.0" }
+polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false, version = "8.0.0" }
+polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false, version = "9.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "9.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "9.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.0" }
 
 # Cumulus
-cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = [
-	"parameterized-consensus-hook",
-] }
-cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
-cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = [
-	"bridging",
-] }
-cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
-cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
-cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
-pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
-parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
-parachains-common = { path = "../../../common", default-features = false }
-testnet-parachains-constants = { path = "../../constants", default-features = false, features = ["rococo"] }
+cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false, version = "0.9.0" }
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.9.0" }
+cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false, version = "11.0.0" }
+cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false, version = "0.9.0" }
+cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = ["bridging"], version = "0.9.0" }
+cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false, version = "0.9.0" }
+cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "0.9.0" }
+cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false, version = "0.9.0" }
+pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "11.0.0" }
+parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.9.0" }
+parachains-common = { path = "../../../common", default-features = false, version = "9.0.0" }
+testnet-parachains-constants = { path = "../../constants", default-features = false, features = ["rococo"], version = "2.0.0" }
 
 # Bridges
-bp-asset-hub-rococo = { path = "../../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false }
-bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-hub-westend", default-features = false }
-bp-bridge-hub-polkadot = { path = "../../../../../bridges/primitives/chain-bridge-hub-polkadot", default-features = false }
-bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
-bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false }
-bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
-bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false }
-bp-parachains = { path = "../../../../../bridges/primitives/parachains", default-features = false }
-bp-polkadot-bulletin = { path = "../../../../../bridges/primitives/chain-polkadot-bulletin", default-features = false }
-bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false }
-bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false }
-bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
-bp-rococo = { path = "../../../../../bridges/primitives/chain-rococo", default-features = false }
-bp-westend = { path = "../../../../../bridges/primitives/chain-westend", default-features = false }
-pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", default-features = false }
-pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false }
-pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false }
-pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
-pallet-xcm-bridge-hub = { path = "../../../../../bridges/modules/xcm-bridge-hub", default-features = false }
-bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
+bp-asset-hub-rococo = { path = "../../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false, version = "0.6.0" }
+bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-hub-westend", default-features = false, version = "0.5.0" }
+bp-bridge-hub-polkadot = { path = "../../../../../bridges/primitives/chain-bridge-hub-polkadot", default-features = false, version = "0.8.0" }
+bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false, version = "0.9.0" }
+bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false, version = "0.5.0" }
+bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false, version = "0.9.0" }
+bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false, version = "0.9.0" }
+bp-parachains = { path = "../../../../../bridges/primitives/parachains", default-features = false, version = "0.9.0" }
+bp-polkadot-bulletin = { path = "../../../../../bridges/primitives/chain-polkadot-bulletin", default-features = false, version = "0.6.0" }
+bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false, version = "0.9.0" }
+bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false, version = "0.9.0" }
+bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false, version = "0.9.0" }
+bp-rococo = { path = "../../../../../bridges/primitives/chain-rococo", default-features = false, version = "0.8.0" }
+bp-westend = { path = "../../../../../bridges/primitives/chain-westend", default-features = false, version = "0.5.0" }
+pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", default-features = false, version = "0.9.0" }
+pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false, version = "0.9.0" }
+pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false, version = "0.9.0" }
+pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false, version = "0.9.0" }
+pallet-xcm-bridge-hub = { path = "../../../../../bridges/modules/xcm-bridge-hub", default-features = false, version = "0.4.0" }
+bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false, version = "0.9.0" }
 
 # Ethereum Bridge (Snowbridge)
-snowbridge-beacon-primitives = { path = "../../../../../bridges/snowbridge/primitives/beacon", default-features = false }
-snowbridge-pallet-system = { path = "../../../../../bridges/snowbridge/pallets/system", default-features = false }
-snowbridge-system-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/system/runtime-api", default-features = false }
-snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false }
-snowbridge-pallet-ethereum-client = { path = "../../../../../bridges/snowbridge/pallets/ethereum-client", default-features = false }
-snowbridge-pallet-inbound-queue = { path = "../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false }
-snowbridge-pallet-outbound-queue = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false }
-snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false }
-snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/primitives/router", default-features = false }
-snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/runtime/runtime-common", default-features = false }
+snowbridge-beacon-primitives = { path = "../../../../../bridges/snowbridge/primitives/beacon", default-features = false, version = "0.2.0" }
+snowbridge-pallet-system = { path = "../../../../../bridges/snowbridge/pallets/system", default-features = false, version = "0.2.0" }
+snowbridge-system-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/system/runtime-api", default-features = false, version = "0.2.0" }
+snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false, version = "0.2.0" }
+snowbridge-pallet-ethereum-client = { path = "../../../../../bridges/snowbridge/pallets/ethereum-client", default-features = false, version = "0.2.0" }
+snowbridge-pallet-inbound-queue = { path = "../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false, version = "0.2.0" }
+snowbridge-pallet-outbound-queue = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false, version = "0.2.0" }
+snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false, version = "0.2.0" }
+snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/primitives/router", default-features = false, version = "0.2.0" }
+snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/runtime/runtime-common", default-features = false, version = "0.2.0" }
 
-bridge-hub-common = { path = "../common", default-features = false }
+bridge-hub-common = { path = "../common", default-features = false, version = "0.2.0" }
 
 [dev-dependencies]
 static_assertions = "1.1"
 bridge-hub-test-utils = { path = "../test-utils" }
-bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", features = [
-	"integrity-test",
-] }
+bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", features = ["integrity-test"] }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 snowbridge-runtime-test-common = { path = "../../../../../bridges/snowbridge/runtime/test-common" }
 
@@ -256,7 +250,6 @@ runtime-benchmarks = [
 	"snowbridge-pallet-system/runtime-benchmarks",
 	"snowbridge-router-primitives/runtime-benchmarks",
 	"snowbridge-runtime-common/runtime-benchmarks",
-	"snowbridge-runtime-test-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

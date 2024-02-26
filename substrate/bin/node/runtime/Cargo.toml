@@ -1,6 +1,6 @@
 [package]
 name = "kitchensink-runtime"
-version = "3.0.0-dev"
+version = "0.1.0"
 authors.workspace = true
 description = "Substrate node kitchensink runtime."
 edition.workspace = true
@@ -32,120 +32,120 @@ serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "num-traits", "scale-info"] }
 
 # primitives
-sp-authority-discovery = { path = "../../../primitives/authority-discovery", default-features = false, features = ["serde"] }
-sp-consensus-babe = { path = "../../../primitives/consensus/babe", default-features = false, features = ["serde"] }
-sp-consensus-beefy = { path = "../../../primitives/consensus/beefy", default-features = false }
-sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false, features = ["serde"] }
-sp-block-builder = { path = "../../../primitives/block-builder", default-features = false }
-sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
-sp-inherents = { path = "../../../primitives/inherents", default-features = false }
-node-primitives = { path = "../primitives", default-features = false }
-sp-mixnet = { path = "../../../primitives/mixnet", default-features = false }
-sp-offchain = { path = "../../../primitives/offchain", default-features = false }
-sp-core = { path = "../../../primitives/core", default-features = false, features = ["serde"] }
-sp-std = { path = "../../../primitives/std", default-features = false }
-sp-api = { path = "../../../primitives/api", default-features = false }
-sp-runtime = { path = "../../../primitives/runtime", default-features = false, features = ["serde"] }
-sp-staking = { path = "../../../primitives/staking", default-features = false, features = ["serde"] }
-sp-storage = { path = "../../../primitives/storage", default-features = false }
-sp-session = { path = "../../../primitives/session", default-features = false }
-sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-features = false }
-sp-statement-store = { path = "../../../primitives/statement-store", default-features = false, features = ["serde"] }
-sp-version = { path = "../../../primitives/version", default-features = false, features = ["serde"] }
-sp-io = { path = "../../../primitives/io", default-features = false }
+sp-authority-discovery = { path = "../../../primitives/authority-discovery", default-features = false, features = ["serde"], version = "28.0.0" }
+sp-consensus-babe = { path = "../../../primitives/consensus/babe", default-features = false, features = ["serde"], version = "0.34.0" }
+sp-consensus-beefy = { path = "../../../primitives/consensus/beefy", default-features = false, version = "15.0.0" }
+sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false, features = ["serde"], version = "15.0.0" }
+sp-block-builder = { path = "../../../primitives/block-builder", default-features = false, version = "28.0.0" }
+sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder", version = "0.9.0" }
+sp-inherents = { path = "../../../primitives/inherents", default-features = false, version = "28.0.0" }
+node-primitives = { path = "../primitives", default-features = false, version = "2.0.0" }
+sp-mixnet = { path = "../../../primitives/mixnet", default-features = false, version = "0.6.0" }
+sp-offchain = { path = "../../../primitives/offchain", default-features = false, version = "28.0.0" }
+sp-core = { path = "../../../primitives/core", default-features = false, features = ["serde"], version = "30.0.0" }
+sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }
+sp-api = { path = "../../../primitives/api", default-features = false, version = "28.0.0" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, features = ["serde"], version = "33.0.0" }
+sp-staking = { path = "../../../primitives/staking", default-features = false, features = ["serde"], version = "28.0.0" }
+sp-storage = { path = "../../../primitives/storage", default-features = false, version = "20.0.0" }
+sp-session = { path = "../../../primitives/session", default-features = false, version = "29.0.0" }
+sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-features = false, version = "28.0.0" }
+sp-statement-store = { path = "../../../primitives/statement-store", default-features = false, features = ["serde"], version = "12.0.0" }
+sp-version = { path = "../../../primitives/version", default-features = false, features = ["serde"], version = "31.0.0" }
+sp-io = { path = "../../../primitives/io", default-features = false, version = "32.0.0" }
 
 # frame dependencies
-frame-executive = { path = "../../../frame/executive", default-features = false }
-frame-benchmarking = { path = "../../../frame/benchmarking", default-features = false }
-frame-benchmarking-pallet-pov = { path = "../../../frame/benchmarking/pov", default-features = false }
-frame-support = { path = "../../../frame/support", default-features = false, features = ["tuples-96"] }
-frame-system = { path = "../../../frame/system", default-features = false }
-frame-system-benchmarking = { path = "../../../frame/system/benchmarking", default-features = false, optional = true }
-frame-election-provider-support = { path = "../../../frame/election-provider-support", default-features = false }
-frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api", default-features = false }
-frame-try-runtime = { path = "../../../frame/try-runtime", default-features = false, optional = true }
-pallet-alliance = { path = "../../../frame/alliance", default-features = false }
-pallet-asset-conversion = { path = "../../../frame/asset-conversion", default-features = false }
-pallet-asset-rate = { path = "../../../frame/asset-rate", default-features = false }
-pallet-assets = { path = "../../../frame/assets", default-features = false }
-pallet-authority-discovery = { path = "../../../frame/authority-discovery", default-features = false }
-pallet-authorship = { path = "../../../frame/authorship", default-features = false }
-pallet-babe = { path = "../../../frame/babe", default-features = false }
-pallet-bags-list = { path = "../../../frame/bags-list", default-features = false }
-pallet-balances = { path = "../../../frame/balances", default-features = false }
-pallet-beefy = { path = "../../../frame/beefy", default-features = false }
-pallet-beefy-mmr = { path = "../../../frame/beefy-mmr", default-features = false }
-pallet-bounties = { path = "../../../frame/bounties", default-features = false }
-pallet-broker = { path = "../../../frame/broker", default-features = false }
-pallet-child-bounties = { path = "../../../frame/child-bounties", default-features = false }
-pallet-collective = { path = "../../../frame/collective", default-features = false }
-pallet-contracts = { path = "../../../frame/contracts", default-features = false }
-pallet-conviction-voting = { path = "../../../frame/conviction-voting", default-features = false }
-pallet-core-fellowship = { path = "../../../frame/core-fellowship", default-features = false }
-pallet-democracy = { path = "../../../frame/democracy", default-features = false }
-pallet-election-provider-multi-phase = { path = "../../../frame/election-provider-multi-phase", default-features = false }
-pallet-election-provider-support-benchmarking = { path = "../../../frame/election-provider-support/benchmarking", default-features = false, optional = true }
-pallet-elections-phragmen = { path = "../../../frame/elections-phragmen", default-features = false }
-pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
-pallet-fast-unstake = { path = "../../../frame/fast-unstake", default-features = false }
-pallet-nis = { path = "../../../frame/nis", default-features = false }
-pallet-grandpa = { path = "../../../frame/grandpa", default-features = false }
-pallet-im-online = { path = "../../../frame/im-online", default-features = false }
-pallet-indices = { path = "../../../frame/indices", default-features = false }
-pallet-identity = { path = "../../../frame/identity", default-features = false }
-pallet-lottery = { path = "../../../frame/lottery", default-features = false }
-pallet-membership = { path = "../../../frame/membership", default-features = false }
-pallet-message-queue = { path = "../../../frame/message-queue", default-features = false }
-pallet-mixnet = { path = "../../../frame/mixnet", default-features = false }
-pallet-mmr = { path = "../../../frame/merkle-mountain-range", default-features = false }
-pallet-multisig = { path = "../../../frame/multisig", default-features = false }
-pallet-nfts = { path = "../../../frame/nfts", default-features = false }
-pallet-nfts-runtime-api = { path = "../../../frame/nfts/runtime-api", default-features = false }
-pallet-nft-fractionalization = { path = "../../../frame/nft-fractionalization", default-features = false }
-pallet-nomination-pools = { path = "../../../frame/nomination-pools", default-features = false }
-pallet-nomination-pools-benchmarking = { path = "../../../frame/nomination-pools/benchmarking", default-features = false, optional = true }
-pallet-nomination-pools-runtime-api = { path = "../../../frame/nomination-pools/runtime-api", default-features = false }
-pallet-offences = { path = "../../../frame/offences", default-features = false }
-pallet-offences-benchmarking = { path = "../../../frame/offences/benchmarking", default-features = false, optional = true }
-pallet-glutton = { path = "../../../frame/glutton", default-features = false }
-pallet-preimage = { path = "../../../frame/preimage", default-features = false }
-pallet-proxy = { path = "../../../frame/proxy", default-features = false }
-pallet-insecure-randomness-collective-flip = { path = "../../../frame/insecure-randomness-collective-flip", default-features = false }
-pallet-ranked-collective = { path = "../../../frame/ranked-collective", default-features = false }
-pallet-recovery = { path = "../../../frame/recovery", default-features = false }
-pallet-referenda = { path = "../../../frame/referenda", default-features = false }
-pallet-remark = { path = "../../../frame/remark", default-features = false }
-pallet-root-testing = { path = "../../../frame/root-testing", default-features = false }
-pallet-salary = { path = "../../../frame/salary", default-features = false }
-pallet-session = { path = "../../../frame/session", default-features = false, features = ["historical"] }
-pallet-session-benchmarking = { path = "../../../frame/session/benchmarking", default-features = false, optional = true }
-pallet-staking = { path = "../../../frame/staking", default-features = false }
-pallet-staking-reward-curve = { path = "../../../frame/staking/reward-curve", default-features = false }
-pallet-staking-runtime-api = { path = "../../../frame/staking/runtime-api", default-features = false }
-pallet-state-trie-migration = { path = "../../../frame/state-trie-migration", default-features = false }
-pallet-statement = { path = "../../../frame/statement", default-features = false }
-pallet-scheduler = { path = "../../../frame/scheduler", default-features = false }
-pallet-society = { path = "../../../frame/society", default-features = false }
-pallet-sudo = { path = "../../../frame/sudo", default-features = false }
-pallet-timestamp = { path = "../../../frame/timestamp", default-features = false }
-pallet-tips = { path = "../../../frame/tips", default-features = false }
-pallet-treasury = { path = "../../../frame/treasury", default-features = false }
-pallet-utility = { path = "../../../frame/utility", default-features = false }
-pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false }
-pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false }
-pallet-asset-conversion-tx-payment = { path = "../../../frame/transaction-payment/asset-conversion-tx-payment", default-features = false }
-pallet-asset-tx-payment = { path = "../../../frame/transaction-payment/asset-tx-payment", default-features = false }
-pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false }
-pallet-transaction-storage = { path = "../../../frame/transaction-storage", default-features = false }
-pallet-uniques = { path = "../../../frame/uniques", default-features = false }
-pallet-vesting = { path = "../../../frame/vesting", default-features = false }
-pallet-whitelist = { path = "../../../frame/whitelist", default-features = false }
-pallet-tx-pause = { path = "../../../frame/tx-pause", default-features = false }
-pallet-safe-mode = { path = "../../../frame/safe-mode", default-features = false }
-pallet-parameters = { path = "../../../frame/parameters", default-features = false }
+frame-executive = { path = "../../../frame/executive", default-features = false, version = "30.0.0" }
+frame-benchmarking = { path = "../../../frame/benchmarking", default-features = false, version = "30.0.0" }
+frame-benchmarking-pallet-pov = { path = "../../../frame/benchmarking/pov", default-features = false, version = "20.0.0" }
+frame-support = { path = "../../../frame/support", default-features = false, features = ["tuples-96"], version = "30.0.0" }
+frame-system = { path = "../../../frame/system", default-features = false, version = "30.0.0" }
+frame-system-benchmarking = { path = "../../../frame/system/benchmarking", default-features = false, optional = true, version = "30.0.0" }
+frame-election-provider-support = { path = "../../../frame/election-provider-support", default-features = false, version = "30.0.0" }
+frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api", default-features = false, version = "28.0.0" }
+frame-try-runtime = { path = "../../../frame/try-runtime", default-features = false, optional = true, version = "0.36.0" }
+pallet-alliance = { path = "../../../frame/alliance", default-features = false, version = "29.0.0" }
+pallet-asset-conversion = { path = "../../../frame/asset-conversion", default-features = false, version = "12.0.0" }
+pallet-asset-rate = { path = "../../../frame/asset-rate", default-features = false, version = "9.0.0" }
+pallet-assets = { path = "../../../frame/assets", default-features = false, version = "31.0.0" }
+pallet-authority-discovery = { path = "../../../frame/authority-discovery", default-features = false, version = "30.0.0" }
+pallet-authorship = { path = "../../../frame/authorship", default-features = false, version = "30.0.0" }
+pallet-babe = { path = "../../../frame/babe", default-features = false, version = "30.0.0" }
+pallet-bags-list = { path = "../../../frame/bags-list", default-features = false, version = "29.0.0" }
+pallet-balances = { path = "../../../frame/balances", default-features = false, version = "30.0.0" }
+pallet-beefy = { path = "../../../frame/beefy", default-features = false, version = "30.0.0" }
+pallet-beefy-mmr = { path = "../../../frame/beefy-mmr", default-features = false, version = "30.0.0" }
+pallet-bounties = { path = "../../../frame/bounties", default-features = false, version = "29.0.0" }
+pallet-broker = { path = "../../../frame/broker", default-features = false, version = "0.8.0" }
+pallet-child-bounties = { path = "../../../frame/child-bounties", default-features = false, version = "29.0.0" }
+pallet-collective = { path = "../../../frame/collective", default-features = false, version = "30.0.0" }
+pallet-contracts = { path = "../../../frame/contracts", default-features = false, version = "29.0.0" }
+pallet-conviction-voting = { path = "../../../frame/conviction-voting", default-features = false, version = "30.0.0" }
+pallet-core-fellowship = { path = "../../../frame/core-fellowship", default-features = false, version = "14.0.0" }
+pallet-democracy = { path = "../../../frame/democracy", default-features = false, version = "30.0.0" }
+pallet-election-provider-multi-phase = { path = "../../../frame/election-provider-multi-phase", default-features = false, version = "29.0.0" }
+pallet-election-provider-support-benchmarking = { path = "../../../frame/election-provider-support/benchmarking", default-features = false, optional = true, version = "29.0.0" }
+pallet-elections-phragmen = { path = "../../../frame/elections-phragmen", default-features = false, version = "31.0.0" }
+pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false, version = "3.0.0" }
+pallet-fast-unstake = { path = "../../../frame/fast-unstake", default-features = false, version = "29.0.0" }
+pallet-nis = { path = "../../../frame/nis", default-features = false, version = "30.0.0" }
+pallet-grandpa = { path = "../../../frame/grandpa", default-features = false, version = "30.0.0" }
+pallet-im-online = { path = "../../../frame/im-online", default-features = false, version = "29.0.0" }
+pallet-indices = { path = "../../../frame/indices", default-features = false, version = "30.0.0" }
+pallet-identity = { path = "../../../frame/identity", default-features = false, version = "30.0.0" }
+pallet-lottery = { path = "../../../frame/lottery", default-features = false, version = "30.0.0" }
+pallet-membership = { path = "../../../frame/membership", default-features = false, version = "30.0.0" }
+pallet-message-queue = { path = "../../../frame/message-queue", default-features = false, version = "33.0.0" }
+pallet-mixnet = { path = "../../../frame/mixnet", default-features = false, version = "0.6.0" }
+pallet-mmr = { path = "../../../frame/merkle-mountain-range", default-features = false, version = "29.0.0" }
+pallet-multisig = { path = "../../../frame/multisig", default-features = false, version = "30.0.0" }
+pallet-nfts = { path = "../../../frame/nfts", default-features = false, version = "24.0.0" }
+pallet-nfts-runtime-api = { path = "../../../frame/nfts/runtime-api", default-features = false, version = "16.0.0" }
+pallet-nft-fractionalization = { path = "../../../frame/nft-fractionalization", default-features = false, version = "12.0.0" }
+pallet-nomination-pools = { path = "../../../frame/nomination-pools", default-features = false, version = "27.0.0" }
+pallet-nomination-pools-benchmarking = { path = "../../../frame/nomination-pools/benchmarking", default-features = false, optional = true, version = "28.0.0" }
+pallet-nomination-pools-runtime-api = { path = "../../../frame/nomination-pools/runtime-api", default-features = false, version = "25.0.0" }
+pallet-offences = { path = "../../../frame/offences", default-features = false, version = "29.0.0" }
+pallet-offences-benchmarking = { path = "../../../frame/offences/benchmarking", default-features = false, optional = true, version = "30.0.0" }
+pallet-glutton = { path = "../../../frame/glutton", default-features = false, version = "16.0.0" }
+pallet-preimage = { path = "../../../frame/preimage", default-features = false, version = "30.0.0" }
+pallet-proxy = { path = "../../../frame/proxy", default-features = false, version = "30.0.0" }
+pallet-insecure-randomness-collective-flip = { path = "../../../frame/insecure-randomness-collective-flip", default-features = false, version = "18.0.0" }
+pallet-ranked-collective = { path = "../../../frame/ranked-collective", default-features = false, version = "30.0.0" }
+pallet-recovery = { path = "../../../frame/recovery", default-features = false, version = "30.0.0" }
+pallet-referenda = { path = "../../../frame/referenda", default-features = false, version = "30.0.0" }
+pallet-remark = { path = "../../../frame/remark", default-features = false, version = "30.0.0" }
+pallet-root-testing = { path = "../../../frame/root-testing", default-features = false, version = "6.0.0" }
+pallet-salary = { path = "../../../frame/salary", default-features = false, version = "15.0.0" }
+pallet-session = { path = "../../../frame/session", default-features = false, features = ["historical"], version = "30.0.0" }
+pallet-session-benchmarking = { path = "../../../frame/session/benchmarking", default-features = false, optional = true, version = "30.0.0" }
+pallet-staking = { path = "../../../frame/staking", default-features = false, version = "30.0.0" }
+pallet-staking-reward-curve = { path = "../../../frame/staking/reward-curve", default-features = false, version = "11.0.0" }
+pallet-staking-runtime-api = { path = "../../../frame/staking/runtime-api", default-features = false, version = "16.0.0" }
+pallet-state-trie-migration = { path = "../../../frame/state-trie-migration", default-features = false, version = "31.0.0" }
+pallet-statement = { path = "../../../frame/statement", default-features = false, version = "12.0.0" }
+pallet-scheduler = { path = "../../../frame/scheduler", default-features = false, version = "31.0.0" }
+pallet-society = { path = "../../../frame/society", default-features = false, version = "30.0.0" }
+pallet-sudo = { path = "../../../frame/sudo", default-features = false, version = "30.0.0" }
+pallet-timestamp = { path = "../../../frame/timestamp", default-features = false, version = "29.0.0" }
+pallet-tips = { path = "../../../frame/tips", default-features = false, version = "29.0.0" }
+pallet-treasury = { path = "../../../frame/treasury", default-features = false, version = "29.0.0" }
+pallet-utility = { path = "../../../frame/utility", default-features = false, version = "30.0.0" }
+pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false, version = "30.0.0" }
+pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false, version = "30.0.0" }
+pallet-asset-conversion-tx-payment = { path = "../../../frame/transaction-payment/asset-conversion-tx-payment", default-features = false, version = "12.0.0" }
+pallet-asset-tx-payment = { path = "../../../frame/transaction-payment/asset-tx-payment", default-features = false, version = "30.0.0" }
+pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false, version = "5.0.0" }
+pallet-transaction-storage = { path = "../../../frame/transaction-storage", default-features = false, version = "29.0.0" }
+pallet-uniques = { path = "../../../frame/uniques", default-features = false, version = "30.0.0" }
+pallet-vesting = { path = "../../../frame/vesting", default-features = false, version = "30.0.0" }
+pallet-whitelist = { path = "../../../frame/whitelist", default-features = false, version = "29.0.0" }
+pallet-tx-pause = { path = "../../../frame/tx-pause", default-features = false, version = "11.0.0" }
+pallet-safe-mode = { path = "../../../frame/safe-mode", default-features = false, version = "11.0.0" }
+pallet-parameters = { path = "../../../frame/parameters", default-features = false, version = "0.1.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
+substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "19.0.0" }
 
 [features]
 default = ["std"]

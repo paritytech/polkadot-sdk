@@ -1,6 +1,6 @@
 [package]
 name = "sp-runtime"
-version = "31.0.1"
+version = "33.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -26,12 +26,12 @@ paste = "1.0"
 rand = { version = "0.8.5", optional = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-sp-application-crypto = { path = "../application-crypto", default-features = false }
-sp-arithmetic = { path = "../arithmetic", default-features = false }
-sp-core = { path = "../core", default-features = false }
-sp-io = { path = "../io", default-features = false }
-sp-std = { path = "../std", default-features = false }
-sp-weights = { path = "../weights", default-features = false }
+sp-application-crypto = { path = "../application-crypto", default-features = false, version = "32.0.0" }
+sp-arithmetic = { path = "../arithmetic", default-features = false, version = "25.0.0" }
+sp-core = { path = "../core", default-features = false, version = "30.0.0" }
+sp-io = { path = "../io", default-features = false, version = "32.0.0" }
+sp-std = { path = "../std", default-features = false, version = "14.0.0" }
+sp-weights = { path = "../weights", default-features = false, version = "29.0.0" }
 docify = { version = "0.2.7" }
 
 simple-mermaid = { version = "0.1.1", optional = true }
@@ -58,14 +58,11 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"simple-mermaid",
-	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-state-machine/std",
 	"sp-std/std",
-	"sp-tracing/std",
 	"sp-weights/std",
 ]
 

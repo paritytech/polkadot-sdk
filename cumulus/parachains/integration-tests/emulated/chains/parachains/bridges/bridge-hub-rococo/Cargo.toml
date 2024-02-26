@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-rococo-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -13,12 +13,10 @@ workspace = true
 [dependencies]
 
 # Substrate
-sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
-frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
-
-# Cumulus
-parachains-common = { path = "../../../../../../../parachains/common" }
-emulated-integration-tests-common = { path = "../../../../common", default-features = false }
-bridge-hub-rococo-runtime = { path = "../../../../../../runtimes/bridge-hubs/bridge-hub-rococo" }
-bridge-hub-common = { path = "../../../../../../runtimes/bridge-hubs/common", default-features = false }
-testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"] }
+sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false, version = "30.0.0" }
+frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false, version = "30.0.0" }
+parachains-common = { version = "9.0.0", path = "../../../../../../common" }
+emulated-integration-tests-common = { path = "../../../../common", default-features = false, version = "5.0.0" }
+bridge-hub-rococo-runtime = { version = "0.7.0", path = "../../../../../../runtimes/bridge-hubs/bridge-hub-rococo" }
+bridge-hub-common = { path = "../../../../../../runtimes/bridge-hubs/common", default-features = false, version = "0.2.0" }
+testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"], version = "2.0.0" }

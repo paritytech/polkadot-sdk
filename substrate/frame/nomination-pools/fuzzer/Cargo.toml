@@ -1,6 +1,6 @@
 [package]
 name = "pallet-nomination-pools-fuzzer"
-version = "2.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -19,14 +19,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 honggfuzz = "0.5.54"
 
-pallet-nomination-pools = { path = "..", features = ["fuzzing"] }
-
-frame-system = { path = "../../system" }
-frame-support = { path = "../../support" }
-
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-io = { path = "../../../primitives/io" }
-sp-tracing = { path = "../../../primitives/tracing" }
+pallet-nomination-pools = { path = "..", features = ["fuzzing"], version = "27.0.0" }
+frame-system = { version = "30.0.0", path = "../../system" }
+frame-support = { version = "30.0.0", path = "../../support" }
+sp-runtime = { version = "33.0.0", path = "../../../primitives/runtime" }
+sp-io = { version = "32.0.0", path = "../../../primitives/io" }
+sp-tracing = { version = "16.0.0", path = "../../../primitives/tracing" }
 
 rand = { version = "0.8.5", features = ["small_rng"] }
 log = { workspace = true, default-features = true }

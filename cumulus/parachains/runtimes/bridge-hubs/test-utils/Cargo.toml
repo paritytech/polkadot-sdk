@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-test-utils"
-version = "0.7.0"
+version = "0.9.0"
 authors.workspace = true
 edition.workspace = true
 description = "Utils for BridgeHub testing"
@@ -15,42 +15,40 @@ impl-trait-for-tuples = "0.2"
 log = { workspace = true }
 
 # Substrate
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
-sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
-pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
-pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
-
-# Cumulus
-asset-test-utils = { path = "../../assets/test-utils" }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
-parachains-common = { path = "../../../common", default-features = false }
-parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "30.0.0" }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "30.0.0" }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "30.0.0" }
+sp-io = { path = "../../../../../substrate/primitives/io", default-features = false, version = "32.0.0" }
+sp-keyring = { version = "33.0.0", path = "../../../../../substrate/primitives/keyring" }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, version = "33.0.0" }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-tracing = { version = "16.0.0", path = "../../../../../substrate/primitives/tracing" }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "30.0.0" }
+pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false, version = "30.0.0" }
+pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false, version = "29.0.0" }
+asset-test-utils = { version = "9.0.0", path = "../../assets/test-utils" }
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.9.0" }
+cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.9.0" }
+parachains-common = { path = "../../../common", default-features = false, version = "9.0.0" }
+parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "9.0.0" }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "9.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "9.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.0" }
 
 # Bridges
-bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
-bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false }
-bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false }
-bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false }
-bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
-bp-test-utils = { path = "../../../../../bridges/primitives/test-utils", default-features = false }
-pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", default-features = false }
-pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false }
-pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false }
-pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
-bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
+bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false, version = "0.9.0" }
+bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false, version = "0.9.0" }
+bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false, version = "0.9.0" }
+bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false, version = "0.9.0" }
+bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false, version = "0.9.0" }
+bp-test-utils = { path = "../../../../../bridges/primitives/test-utils", default-features = false, version = "0.9.0" }
+pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", default-features = false, version = "0.9.0" }
+pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false, version = "0.9.0" }
+pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false, version = "0.9.0" }
+pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false, version = "0.9.0" }
+bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false, version = "0.9.0" }
 
 [features]
 default = ["std"]

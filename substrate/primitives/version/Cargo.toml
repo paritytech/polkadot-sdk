@@ -1,6 +1,6 @@
 [package]
 name = "sp-version"
-version = "29.0.0"
+version = "31.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -23,10 +23,10 @@ parity-wasm = { version = "0.45", optional = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 thiserror = { optional = true, workspace = true }
-sp-crypto-hashing-proc-macro = { path = "../crypto/hashing/proc-macro" }
-sp-runtime = { path = "../runtime", default-features = false }
-sp-std = { path = "../std", default-features = false }
-sp-version-proc-macro = { path = "proc-macro", default-features = false }
+sp-crypto-hashing-proc-macro = { version = "0.1.0", path = "../crypto/hashing/proc-macro" }
+sp-runtime = { path = "../runtime", default-features = false, version = "33.0.0" }
+sp-std = { path = "../std", default-features = false, version = "14.0.0" }
+sp-version-proc-macro = { path = "proc-macro", default-features = false, version = "13.0.0" }
 
 [features]
 default = ["std"]

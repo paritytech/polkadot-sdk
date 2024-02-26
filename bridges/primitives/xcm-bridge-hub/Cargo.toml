@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 
 # Substrate Dependencies
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
 [features]
 default = ["std"]
