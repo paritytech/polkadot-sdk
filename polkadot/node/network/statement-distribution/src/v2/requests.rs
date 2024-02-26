@@ -357,6 +357,7 @@ impl RequestManager {
 				id,
 				&props,
 				&peer_advertised,
+				&response_manager,
 			) {
 				None => continue,
 				Some(t) => t,
@@ -378,14 +379,17 @@ impl RequestManager {
 			);
 
 			let stored_id = id.clone();
-			response_manager.push(Box::pin(async move {
-				TaggedResponse {
-					identifier: stored_id,
-					requested_peer: target,
-					props,
-					response: response_fut.await,
-				}
-			}));
+			response_manager.push(
+				Box::pin(async move {
+					TaggedResponse {
+						identifier: stored_id,
+						requested_peer: target,
+						props,
+						response: response_fut.await,
+					}
+				}),
+				target,
+			);
 
 			entry.in_flight = true;
 
@@ -413,28 +417,40 @@ impl RequestManager {
 /// A manager for pending responses.
 pub struct ResponseManager {
 	pending_responses: FuturesUnordered<BoxFuture<'static, TaggedResponse>>,
+	active_peers: HashSet<PeerId>,
 }
 
 impl ResponseManager {
 	pub fn new() -> Self {
-		Self { pending_responses: FuturesUnordered::new() }
+		Self { 
+			pending_responses: FuturesUnordered::new(),
+			active_peers: HashSet::new(),
+		}
 	}
 
 	/// Await the next incoming response to a sent request, or immediately
 	/// return `None` if there are no pending responses.
 	pub async fn incoming(&mut self) -> Option<UnhandledResponse> {
-		self.pending_responses
-			.next()
-			.await
-			.map(|response| UnhandledResponse { response })
+		if let Some(response) = self.pending_responses.next().await {
+			// Upon receiving a response, remove the peer from the active set.
+			self.active_peers.remove(&response.requested_peer);
+			return Some(UnhandledResponse { response });
+		}
+		None
 	}
 
 	fn len(&self) -> usize {
 		self.pending_responses.len()
 	}
 
-	fn push(&mut self, response: BoxFuture<'static, TaggedResponse>) {
+	fn push(&mut self, response: BoxFuture<'static, TaggedResponse>, target: PeerId) {
 		self.pending_responses.push(response);
+		self.active_peers.insert(target);
+	}
+
+	/// Returns true if we are currently sending a request to the peer.
+	fn is_sending_to(&self, peer: &PeerId) -> bool {
+		self.active_peers.contains(peer)
 	}
 }
 
@@ -462,10 +478,17 @@ fn find_request_target_with_update(
 	candidate_identifier: &CandidateIdentifier,
 	props: &RequestProperties,
 	peer_advertised: impl Fn(&CandidateIdentifier, &PeerId) -> Option<StatementFilter>,
+	response_manager: &ResponseManager,
 ) -> Option<PeerId> {
 	let mut prune = Vec::new();
 	let mut target = None;
 	for (i, p) in known_by.iter().enumerate() {
+
+		// If we are already sending to that peer, skip for now
+		if response_manager.is_sending_to(p) {
+			continue
+		}
+
 		let mut filter = match peer_advertised(candidate_identifier, p) {
 			None => {
 				prune.push(i);
