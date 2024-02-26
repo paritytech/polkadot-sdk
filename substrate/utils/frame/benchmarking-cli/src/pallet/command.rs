@@ -299,21 +299,19 @@ impl PalletCmd {
 		let benchmarks_to_run: Vec<_> = benchmarks_to_run
 			.into_iter()
 			.map(|(pallet, extrinsic, components, pov_modes)| {
-				let pallet_str = String::from_utf8(pallet.clone()).expect("Encoded from String; qed");
-				let extrinsic_str = String::from_utf8(extrinsic.clone()).expect("Encoded from String; qed");
-				let pov_modes_str = pov_modes.into_iter()
-					.map(|(p, s)| {
-						(String::from_utf8(p).unwrap(), String::from_utf8(s).unwrap())
-					})
-					.collect();
-
+				let pallet_name = String::from_utf8(pallet.clone()).expect("Encoded from String; qed");
+				let extrinsic_name = String::from_utf8(extrinsic.clone()).expect("Encoded from String; qed");
 				(
 					pallet,
 					extrinsic,
 					components,
-					pov_modes_str,
-					pallet_str,
-					extrinsic_str,
+					pov_modes.into_iter()
+						.map(|(p, s)| {
+							(String::from_utf8(p).unwrap(), String::from_utf8(s).unwrap())
+						})
+						.collect(),
+					pallet_name,
+					extrinsic_name,
 				)
 			})
 			.collect();
@@ -338,9 +336,7 @@ impl PalletCmd {
 		for (pallet, extrinsic, components, _, pallet_str, extrinsic_str) in benchmarks_to_run.clone() {
 			log::info!(
 				target: LOG_TARGET,
-				"Starting benchmark: {}::{}",
-				pallet_str,
-				extrinsic_str,
+				"Starting benchmark: {pallet_str}::{extrinsic_str}"
 			);
 			let all_components = if components.is_empty() {
 				vec![Default::default()]
@@ -422,10 +418,7 @@ impl PalletCmd {
 						.map_err(|e| format!("Failed to decode benchmark results: {:?}", e))?
 						.map_err(|e| {
 							format!(
-								"Benchmark {}::{} failed: {}",
-								pallet_str,
-								extrinsic_str,
-								e
+								"Benchmark {pallet_str}::{extrinsic_str} failed: {e}",
 							)
 						})?;
 				}
@@ -500,9 +493,7 @@ impl PalletCmd {
 
 							log::info!(
 								target: LOG_TARGET,
-								"Running  benchmark: {}.{}({} args) {}/{} {}/{}",
-								pallet_str,
-								extrinsic_str,
+								"Running  benchmark: {pallet_str}.{extrinsic_str}({} args) {}/{} {}/{}",
 								components.len(),
 								s + 1, // s starts at 0.
 								all_components.len(),

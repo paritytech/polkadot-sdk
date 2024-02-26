@@ -153,8 +153,8 @@ fn map_results(
 			continue
 		}
 
-		let pallet_string = String::from_utf8(batch.pallet.clone()).unwrap();
-		let instance_string = String::from_utf8(batch.instance.clone()).unwrap();
+		let pallet_name = String::from_utf8(batch.pallet.clone()).unwrap();
+		let instance_name = String::from_utf8(batch.instance.clone()).unwrap();
 		let benchmark_data = get_benchmark_data(
 			batch,
 			storage_info,
@@ -166,7 +166,7 @@ fn map_results(
 			worst_case_map_values,
 			additional_trie_layers,
 		);
-		let pallet_benchmarks = all_benchmarks.entry((pallet_string, instance_string)).or_default();
+		let pallet_benchmarks = all_benchmarks.entry((pallet_name, instance_name)).or_default();
 		pallet_benchmarks.push(benchmark_data);
 	}
 	Ok(all_benchmarks)
@@ -699,9 +699,7 @@ pub(crate) fn process_storage_results(
 						) {
 							Some(new_pov) => {
 								let comment = format!(
-									"Proof: `{}::{}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)",
-									pallet_name,
-									storage_name,
+									"Proof: `{pallet_name}::{storage_name}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)",
 									key_info.max_values,
 									key_info.max_size,
 									new_pov,
