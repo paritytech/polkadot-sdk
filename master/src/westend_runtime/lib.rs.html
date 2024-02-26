@@ -2612,10 +2612,6 @@
 <a href="#2612" id="2612">2612</a>
 <a href="#2613" id="2613">2613</a>
 <a href="#2614" id="2614">2614</a>
-<a href="#2615" id="2615">2615</a>
-<a href="#2616" id="2616">2616</a>
-<a href="#2617" id="2617">2617</a>
-<a href="#2618" id="2618">2618</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2686,9 +2682,8 @@
 };
 <span class="kw">use </span>runtime_parachains::{
 	assigner_coretime <span class="kw">as </span>parachains_assigner_coretime,
-	assigner_on_demand <span class="kw">as </span>parachains_assigner_on_demand,
-	assigner_parachains <span class="kw">as </span>parachains_assigner_parachains,
-	configuration <span class="kw">as </span>parachains_configuration, coretime, disputes <span class="kw">as </span>parachains_disputes,
+	assigner_on_demand <span class="kw">as </span>parachains_assigner_on_demand, configuration <span class="kw">as </span>parachains_configuration,
+	coretime, disputes <span class="kw">as </span>parachains_disputes,
 	disputes::slashing <span class="kw">as </span>parachains_slashing,
 	dmp <span class="kw">as </span>parachains_dmp, hrmp <span class="kw">as </span>parachains_hrmp, inclusion <span class="kw">as </span>parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
@@ -3861,8 +3856,6 @@
 	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo&lt;Runtime&gt;;
 }
 
-<span class="kw">impl </span>parachains_assigner_parachains::Config <span class="kw">for </span>Runtime {}
-
 <span class="kw">impl </span>parachains_assigner_coretime::Config <span class="kw">for </span>Runtime {}
 
 <span class="kw">impl </span>parachains_initializer::Config <span class="kw">for </span>Runtime {
@@ -4123,7 +4116,6 @@
 		ParaSessionInfo: parachains_session_info = <span class="number">52</span>,
 		ParasDisputes: parachains_disputes = <span class="number">53</span>,
 		ParasSlashing: parachains_slashing = <span class="number">54</span>,
-		ParachainsAssignmentProvider: parachains_assigner_parachains = <span class="number">55</span>,
 		OnDemandAssignmentProvider: parachains_assigner_on_demand = <span class="number">56</span>,
 		CoretimeAssignmentProvider: parachains_assigner_coretime = <span class="number">57</span>,
 

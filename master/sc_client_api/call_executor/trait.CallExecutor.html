@@ -17,7 +17,7 @@
         method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html">str</a>,
         call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>],
         changes: &amp;<a class="struct" href="https://doc.rust-lang.org/1.75.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;OverlayedChanges&lt;HashingFor&lt;B&gt;&gt;&gt;,
-        proof_recorder: &amp;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="../../sp_api/type.ProofRecorder.html" title="type sp_api::ProofRecorder">ProofRecorder</a>&lt;B&gt;&gt;,
+        proof_recorder: &amp;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ProofRecorder&lt;B&gt;&gt;,
         call_context: <a class="enum" href="../../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>,
         extensions: &amp;<a class="struct" href="https://doc.rust-lang.org/1.75.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../../sp_externalities/extensions/struct.Extensions.html" title="struct sp_externalities::extensions::Extensions">Extensions</a>&gt;
     ) -&gt; Result&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;&gt;;
@@ -46,7 +46,7 @@
     method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html">str</a>,
     call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>],
     changes: &amp;<a class="struct" href="https://doc.rust-lang.org/1.75.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;OverlayedChanges&lt;HashingFor&lt;B&gt;&gt;&gt;,
-    proof_recorder: &amp;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="../../sp_api/type.ProofRecorder.html" title="type sp_api::ProofRecorder">ProofRecorder</a>&lt;B&gt;&gt;,
+    proof_recorder: &amp;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ProofRecorder&lt;B&gt;&gt;,
     call_context: <a class="enum" href="../../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>,
     extensions: &amp;<a class="struct" href="https://doc.rust-lang.org/1.75.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../../sp_externalities/extensions/struct.Extensions.html" title="struct sp_externalities::extensions::Extensions">Extensions</a>&gt;
 ) -&gt; Result&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Execute a contextual call on top of state in a block of a given hash.</p>
