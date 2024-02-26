@@ -24,7 +24,7 @@ mod weight_meter;
 mod weight_v2;
 
 use bounded_collections::Get;
-use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
