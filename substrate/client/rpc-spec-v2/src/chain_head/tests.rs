@@ -27,8 +27,14 @@ use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use futures::Future;
 use jsonrpsee::{
-	core::server::Subscription as RpcSubscription, rpc_params, MethodsError as Error, RpcModule,
+	core::{
+		client::{ClientT, Subscription as RpcClientSubscription, SubscriptionClientT},
+		server::Subscription as RpcSubscription,
+	},
+	rpc_params, MethodsError as Error, RpcModule,
 };
+use serde_json::Value as JsonValue;
+
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sc_service::client::new_in_mem;
@@ -65,6 +71,34 @@ const VALUE: &[u8] = b"hello world";
 const CHILD_STORAGE_KEY: &[u8] = b"child";
 const CHILD_VALUE: &[u8] = b"child value";
 const DOES_NOT_PRODUCE_EVENTS_SECONDS: u64 = 10;
+
+/// Start an RPC server with the chainHead module.
+pub async fn run_server() -> std::net::SocketAddr {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client,
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+		},
+	)
+	.into_rpc();
+
+	let server = jsonrpsee::server::ServerBuilder::default().build("127.0.0.1:0").await.unwrap();
+
+	let addr = server.local_addr().unwrap();
+	let handle = server.start(api);
+
+	tokio::spawn(handle.stopped());
+	addr
+}
 
 async fn get_next_event<T: serde::de::DeserializeOwned>(sub: &mut RpcSubscription) -> T {
 	let (event, _sub_id) = tokio::time::timeout(std::time::Duration::from_secs(60), sub.next())
@@ -3288,4 +3322,71 @@ async fn storage_closest_merkle_value() {
 		merkle_values_lhs.get(&hex_string(b":AAAA")).unwrap(),
 		merkle_values_rhs.get(&hex_string(b":AAAA")).unwrap()
 	);
+}
+
+#[tokio::test]
+async fn chain_head_single_connection_context() {
+	let server_addr = run_server().await;
+	let server_url = format!("ws://{}", server_addr);
+	let client = jsonrpsee::ws_client::WsClientBuilder::default()
+		.build(&server_url)
+		.await
+		.unwrap();
+
+	let sub: RpcClientSubscription<JsonValue> = client
+		.subscribe("chainHead_unstable_follow", rpc_params![false], "chainHead_unstable_unfollow")
+		.await
+		.unwrap();
+
+	let first_sub_id = match sub.kind() {
+		jsonrpsee::core::client::SubscriptionKind::Subscription(id) => match id {
+			jsonrpsee::types::SubscriptionId::Num(num) => num.to_string(),
+			jsonrpsee::types::SubscriptionId::Str(s) => s.to_string(),
+		},
+		_ => panic!("Unexpected subscription ID"),
+	};
+
+	// Calls cannot be made from a different connection context.
+	let second_client = jsonrpsee::ws_client::WsClientBuilder::default()
+		.build(&server_url)
+		.await
+		.unwrap();
+	let invalid_hash = hex_string(&INVALID_HASH);
+	let response: MethodResponse = second_client
+		.request("chainHead_unstable_body", rpc_params![&first_sub_id, &invalid_hash])
+		.await
+		.unwrap();
+	assert_matches!(response, MethodResponse::LimitReached);
+
+	let response: Option<String> = second_client
+		.request("chainHead_unstable_header", rpc_params![&first_sub_id, &invalid_hash])
+		.await
+		.unwrap();
+	assert!(response.is_none());
+
+	let key = hex_string(&KEY);
+	let response: MethodResponse = second_client
+		.request(
+			"chainHead_unstable_storage",
+			rpc_params![
+				&first_sub_id,
+				&invalid_hash,
+				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash }]
+			],
+		)
+		.await
+		.unwrap();
+	assert_matches!(response, MethodResponse::LimitReached);
+
+	let alice_id = AccountKeyring::Alice.to_account_id();
+	// Hex encoded scale encoded bytes representing the call parameters.
+	let call_parameters = hex_string(&alice_id.encode());
+	let response: MethodResponse = second_client
+		.request(
+			"chainHead_unstable_call",
+			[&first_sub_id, &invalid_hash, "AccountNonceApi_account_nonce", &call_parameters],
+		)
+		.await
+		.unwrap();
+	assert_matches!(response, MethodResponse::LimitReached);
 }
