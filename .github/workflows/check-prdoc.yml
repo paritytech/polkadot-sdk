@@ -63,5 +63,5 @@ jobs:
         run: |
           echo "Validating PR#${GITHUB_PR}"
           python3 --version
-          python3 -m pip install -i https://test.pypi.org/simple/ cargo-workspace==1.2.1
+          python3 -m pip install cargo-workspace==1.2.1
           python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${GITHUB_PR}.prdoc
