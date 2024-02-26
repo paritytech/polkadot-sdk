@@ -1,6 +1,6 @@
 //! # FRAME Origin
 //!
-//! let's start by eliminating a wrong assumption that is a common mistake:
+//! Let's start by clarifying a common wrong assumption about Origin:
 //!
 //! **ORIGIN IS NOT AN ACCOUNT ID**.
 //!
