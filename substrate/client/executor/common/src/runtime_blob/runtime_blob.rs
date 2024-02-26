@@ -56,7 +56,7 @@ impl RuntimeBlob {
 					polkavm::ProgramBlob::parse(raw_blob)?.into_owned(),
 				)));
 			} else {
-				return Err(WasmError::Other(format!("expected a WASM runtime blob, found a PolkaVM runtime blob; set the 'SUBSTRATE_ENABLE_POLKAVM' environment variable to enable the experimental PolkaVM-based executor")));
+				return Err(WasmError::Other("expected a WASM runtime blob, found a PolkaVM runtime blob; set the 'SUBSTRATE_ENABLE_POLKAVM' environment variable to enable the experimental PolkaVM-based executor".to_string()));
 			}
 		}
 
