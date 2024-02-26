@@ -23,7 +23,6 @@ use crate::*;
 /// tokens in delegator's accounts.
 pub struct NoDelegation<T: Config>(PhantomData<T>);
 
-
 /// TODO(ankan) Call it FundManager/CurrencyAdapter/DelegationManager
 impl<T: Config> PoolAdapter for NoDelegation<T> {
 	type Balance = BalanceOf<T>;
@@ -86,4 +85,36 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 		defensive!("Delegator slash is not supported for direct staking");
 		Err(Error::<T>::NothingToSlash.into())
 	}
+}
+
+/// Stake Strategy trait that can support different ways of staking such as `Transfer and Stake` or
+/// `Delegate and Stake`.
+pub trait StakeStrategy {
+	type Balance: frame_support::traits::tokens::Balance;
+	type AccountId: Clone + sp_std::fmt::Debug;
+
+	/// Delegate to pool account.
+	///
+	/// This is only used for first time delegation. For adding more delegation, use
+	/// [`Self::delegate_extra`].
+	fn delegate(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		reward_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Add more delegation to the pool account.
+	fn delegate_extra(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Withdraw delegation from pool account to self.
+	fn withdraw_delegation(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
 }
