@@ -24,15 +24,19 @@ use bridge_hub_rococo_runtime::{
 	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
 	RuntimeEvent, RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
 };
+use bridge_hub_test_utils::SlotDurations;
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
-use parachains_common::{rococo::fee::WeightToFee, AccountId, AuraId, Balance};
+use parachains_common::{AccountId, AuraId, Balance};
+use snowbridge_core::ChannelId;
+use sp_consensus_aura::SlotDuration;
 use sp_core::H160;
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
-	AccountId32,
+	AccountId32, Perbill,
 };
+use testnet_parachains_constants::rococo::{consensus::*, fee::WeightToFee};
 use xcm::latest::prelude::*;
 
 parameter_types! {
@@ -95,6 +99,13 @@ fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime
 	)
 }
 
+fn slot_durations() -> SlotDurations {
+	SlotDurations {
+		relay: SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+		para: SlotDuration::from_millis(SLOT_DURATION),
+	}
+}
+
 bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	Runtime,
 	AllPalletsWithoutSystem,
@@ -103,6 +114,7 @@ bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	WeightToFee,
 	ParachainSystem,
 	collator_session_keys(),
+	slot_durations(),
 	ExistentialDeposit::get(),
 	Box::new(|runtime_event_encoded: Vec<u8>| {
 		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
@@ -210,6 +222,72 @@ mod bridge_hub_westend_tests {
 	}
 
 	#[test]
+	fn change_ethereum_nonces_by_governance_works() {
+		let channel_id_one: ChannelId = [1; 32].into();
+		let channel_id_two: ChannelId = [2; 32].into();
+		let nonce = 42;
+
+		// Reset a single inbound channel
+		bridge_hub_test_utils::test_cases::set_storage_keys_by_governance_works::<Runtime>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Box::new(|call| RuntimeCall::System(call).encode()),
+			vec![
+				(snowbridge_pallet_outbound_queue::Nonce::<Runtime>::hashed_key_for::<ChannelId>(
+					channel_id_one,
+				)
+				.to_vec(), 0u64.encode()),
+				(snowbridge_pallet_inbound_queue::Nonce::<Runtime>::hashed_key_for::<ChannelId>(
+					channel_id_one,
+				)
+				.to_vec(), 0u64.encode()),
+			],
+			|| {
+				// Outbound
+				snowbridge_pallet_outbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+					channel_id_one,
+					nonce,
+				);
+				snowbridge_pallet_outbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+					channel_id_two,
+					nonce,
+				);
+
+				// Inbound
+				snowbridge_pallet_inbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+					channel_id_one,
+					nonce,
+				);
+				snowbridge_pallet_inbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+					channel_id_two,
+					nonce,
+				);
+			},
+			|| {
+				// Outbound
+				assert_eq!(
+					snowbridge_pallet_outbound_queue::Nonce::<Runtime>::get(channel_id_one),
+					0
+				);
+				assert_eq!(
+					snowbridge_pallet_outbound_queue::Nonce::<Runtime>::get(channel_id_two),
+					nonce
+				);
+
+				// Inbound
+				assert_eq!(
+					snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id_one),
+					0
+				);
+				assert_eq!(
+					snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id_two),
+					nonce
+				);
+			},
+		);
+	}
+
+	#[test]
 	fn change_delivery_reward_by_governance_works() {
 		bridge_hub_test_utils::test_cases::change_storage_constant_by_governance_works::<
 			Runtime,
@@ -264,6 +342,7 @@ mod bridge_hub_westend_tests {
 			ConstU8<2>,
 		>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
 			Box::new(|runtime_event_encoded: Vec<u8>| {
@@ -288,6 +367,7 @@ mod bridge_hub_westend_tests {
 		// from Westend
 		from_parachain::relayed_incoming_message_works::<RuntimeTestsAdapter>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			BridgeHubWestendChainId::get(),
@@ -304,6 +384,7 @@ mod bridge_hub_westend_tests {
 		// for Westend
 		from_parachain::complex_relay_extrinsic_works::<RuntimeTestsAdapter>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
@@ -317,53 +398,61 @@ mod bridge_hub_westend_tests {
 
 	#[test]
 	pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer() {
-		let estimated = bridge_hub_test_utils::test_cases::can_calculate_weight_for_paid_export_message_with_reserve_transfer::<
-			Runtime,
-			XcmConfig,
-			WeightToFee,
-		>();
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs` value",
-			estimated,
-			max_expected
-		);
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs",
+			bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs::get(),
+			|| {
+				bridge_hub_test_utils::test_cases::can_calculate_weight_for_paid_export_message_with_reserve_transfer::<
+					Runtime,
+					XcmConfig,
+					WeightToFee,
+				>()
+			},
+			Perbill::from_percent(33),
+			Some(-33),
+			&format!(
+				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
 	}
 
 	#[test]
 	pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
-		let estimated = from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
-			RuntimeTestsAdapter,
-		>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs` value",
-			estimated,
-			max_expected
-		);
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs",
+			bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get(),
+			|| {
+				from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
+					RuntimeTestsAdapter,
+				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
+			},
+			Perbill::from_percent(33),
+			Some(-33),
+			&format!(
+				"Estimate fee for `single message delivery` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
 	}
 
 	#[test]
 	pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
-		let estimated =
-			from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
-				RuntimeTestsAdapter,
-			>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs` value",
-			estimated,
-			max_expected
-		);
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs",
+			bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get(),
+			|| {
+				from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
+					RuntimeTestsAdapter,
+				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
+			},
+			Perbill::from_percent(33),
+			Some(-33),
+			&format!(
+				"Estimate fee for `single message confirmation` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
 	}
 }
 
@@ -459,6 +548,7 @@ mod bridge_hub_bulletin_tests {
 			ConstU8<2>,
 		>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
 			Box::new(|runtime_event_encoded: Vec<u8>| {
@@ -483,6 +573,7 @@ mod bridge_hub_bulletin_tests {
 		// from Bulletin
 		from_grandpa_chain::relayed_incoming_message_works::<RuntimeTestsAdapter>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			RococoBulletinChainId::get(),
 			SIBLING_PARACHAIN_ID,
@@ -498,6 +589,7 @@ mod bridge_hub_bulletin_tests {
 		// for Bulletin
 		from_grandpa_chain::complex_relay_extrinsic_works::<RuntimeTestsAdapter>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
 			RococoBulletinChainId::get(),
@@ -509,54 +601,42 @@ mod bridge_hub_bulletin_tests {
 	}
 
 	#[test]
-	pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer() {
-		let estimated = bridge_hub_test_utils::test_cases::can_calculate_weight_for_paid_export_message_with_reserve_transfer::<
-			Runtime,
-			XcmConfig,
-			WeightToFee,
-		>();
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs` value",
-			estimated,
-			max_expected
-		);
-	}
-
-	#[test]
 	pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
-		let estimated =
-			from_grandpa_chain::can_calculate_fee_for_complex_message_delivery_transaction::<
-				RuntimeTestsAdapter,
-			>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs` value",
-			estimated,
-			max_expected
-		);
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs",
+			bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get(),
+			|| {
+				from_grandpa_chain::can_calculate_fee_for_complex_message_delivery_transaction::<
+					RuntimeTestsAdapter,
+				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
+			},
+			Perbill::from_percent(33),
+			None, /* we don't want lowering according to the Bulletin setup, because
+			       * `from_grandpa_chain` is cheaper then `from_parachain_chain` */
+			&format!(
+				"Estimate fee for `single message delivery` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
 	}
 
 	#[test]
 	pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
-		let estimated =
-			from_grandpa_chain::can_calculate_fee_for_complex_message_confirmation_transaction::<
-				RuntimeTestsAdapter,
-			>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs` value",
-			estimated,
-			max_expected
-		);
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs",
+			bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get(),
+			|| {
+				from_grandpa_chain::can_calculate_fee_for_complex_message_confirmation_transaction::<
+					RuntimeTestsAdapter,
+				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
+			},
+			Perbill::from_percent(33),
+			None, /* we don't want lowering according to the Bulletin setup, because
+			       * `from_grandpa_chain` is cheaper then `from_parachain_chain` */
+			&format!(
+				"Estimate fee for `single message confirmation` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
 	}
 }

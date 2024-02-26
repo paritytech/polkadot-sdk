@@ -155,9 +155,9 @@ impl SlotDuration {
 
 #[cfg(feature = "std")]
 impl SlotDuration {
-	/// Returns `self` as [`sp_std::time::Duration`].
-	pub const fn as_duration(&self) -> sp_std::time::Duration {
-		sp_std::time::Duration::from_millis(self.0)
+	/// Returns `self` as [`core::time::Duration`].
+	pub const fn as_duration(&self) -> core::time::Duration {
+		core::time::Duration::from_millis(self.0)
 	}
 }
 

@@ -26,7 +26,7 @@ use frame_support::{
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 use xcm::latest::prelude::*;
-use xcm_builder::{AllowUnpaidExecutionFrom, MintLocation};
+use xcm_builder::{AllowUnpaidExecutionFrom, FrameTransactionalProcessor, MintLocation};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -34,9 +34,9 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		XcmBalancesBenchmark: xcm_balances_benchmark::{Pallet},
+		System: frame_system,
+		Balances: pallet_balances,
+		XcmBalancesBenchmark: xcm_balances_benchmark,
 	}
 );
 
@@ -103,8 +103,7 @@ impl xcm_executor::traits::MatchesFungible<u64> for MatchAnyFungible {
 }
 
 // Use balances as the asset transactor.
-#[allow(deprecated)]
-pub type AssetTransactor = xcm_builder::CurrencyAdapter<
+pub type AssetTransactor = xcm_builder::FungibleAdapter<
 	Balances,
 	MatchAnyFungible,
 	AccountIdConverter,
@@ -145,6 +144,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 impl crate::Config for Test {
@@ -191,8 +191,7 @@ impl xcm_balances_benchmark::Config for Test {
 	type TrustedReserve = TrustedReserve;
 
 	fn get_asset() -> Asset {
-		let amount =
-			<Balances as frame_support::traits::fungible::Inspect<u64>>::minimum_balance() as u128;
+		let amount = 1_000_000_000_000;
 		Asset { id: AssetId(Here.into()), fun: Fungible(amount) }
 	}
 }

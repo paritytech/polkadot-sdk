@@ -25,16 +25,9 @@ use xcm::latest::{InteriorLocation, Location, NetworkId};
 pub struct StartsWith<T, L = Location>(sp_std::marker::PhantomData<(T, L)>);
 impl<T: Get<L>, L: TryInto<Location> + Clone> Contains<L> for StartsWith<T, L> {
 	fn contains(location: &L) -> bool {
-		let latest_location: Location = if let Ok(location) = (*location).clone().try_into() {
-			location
-		} else {
-			return false;
-		};
-		let latest_t = if let Ok(location) = T::get().try_into() {
-			location
-		} else {
-			return false;
-		};
+		let latest_location: Location =
+			if let Ok(location) = (*location).clone().try_into() { location } else { return false };
+		let latest_t = if let Ok(location) = T::get().try_into() { location } else { return false };
 		latest_location.starts_with(&latest_t)
 	}
 }
