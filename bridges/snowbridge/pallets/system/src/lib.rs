@@ -37,8 +37,6 @@
 //! `force_update_channel` and extrinsics to manage agents and channels for system parachains.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use pallet::*;
-
 #[cfg(test)]
 mod mock;
 
@@ -78,6 +76,8 @@ use xcm_executor::traits::ConvertLocation;
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::OriginTrait;
+
+pub use pallet::*;
 
 pub type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;

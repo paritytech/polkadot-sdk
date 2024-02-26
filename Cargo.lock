@@ -1054,6 +1054,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-session",
+ "pallet-timestamp",
  "pallet-xcm",
  "pallet-xcm-bridge-hub-router",
  "parachains-common",
@@ -2099,6 +2100,7 @@ dependencies = [
  "pallet-bridge-messages",
  "pallet-bridge-parachains",
  "pallet-bridge-relayers",
+ "pallet-timestamp",
  "pallet-utility",
  "parachains-common",
  "parachains-runtimes-test-utils",
@@ -3872,6 +3874,7 @@ dependencies = [
  "pallet-message-queue",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
  "polkadot-runtime-parachains",
  "rand",
  "sc-client-api",
@@ -4046,6 +4049,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-primitives-storage-weight-reclaim"
+version = "1.0.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "cumulus-primitives-proof-size-hostfunction",
+ "cumulus-test-runtime",
+ "docify",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "sp-trie",
+]
+
+[[package]]
 name = "cumulus-primitives-timestamp"
 version = "0.7.0"
 dependencies = [
@@ -4065,7 +4087,6 @@ dependencies = [
  "frame-support",
  "log",
  "pallet-asset-conversion",
- "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
@@ -4207,6 +4228,7 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-primitives-proof-size-hostfunction",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-test-relay-sproof-builder",
  "cumulus-test-runtime",
  "cumulus-test-service",
@@ -4251,6 +4273,7 @@ version = "0.1.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -4293,6 +4316,7 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
@@ -11338,6 +11362,7 @@ dependencies = [
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -11430,6 +11455,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-session",
+ "pallet-timestamp",
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
@@ -12486,7 +12512,9 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-statement-table",
+ "rstest",
  "sc-keystore",
+ "schnellru",
  "sp-application-crypto",
  "sp-core",
  "sp-keyring",
@@ -13156,6 +13184,7 @@ version = "7.0.0"
 dependencies = [
  "bitvec",
  "hex-literal",
+ "log",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
@@ -13248,7 +13277,6 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-vesting",
- "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
@@ -13322,6 +13350,7 @@ dependencies = [
  "polkadot-runtime-metrics",
  "rand",
  "rand_chacha 0.3.1",
+ "rstest",
  "rustc-hex",
  "sc-keystore",
  "scale-info",
@@ -13553,6 +13582,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "sp-core",
+ "tracing-gum",
 ]
 
 [[package]]
@@ -14762,6 +14792,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
+name = "relative-path"
+version = "1.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e898588f33fdd5b9420719948f9f2a32c922a246964576f71ba7f24f80610fbc"
+
+[[package]]
 name = "remote-ext-tests-bags-list"
 version = "1.0.0"
 dependencies = [
@@ -15141,6 +15177,35 @@ dependencies = [
  "libc",
  "rtoolbox",
  "winapi",
+]
+
+[[package]]
+name = "rstest"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97eeab2f3c0a199bc4be135c36c924b6590b88c377d416494288c14f2db30199"
+dependencies = [
+ "futures",
+ "futures-timer",
+ "rstest_macros",
+ "rustc_version 0.4.0",
+]
+
+[[package]]
+name = "rstest_macros"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d428f8247852f894ee1be110b375111b586d4fa431f6c46e64ba5a0dcccbe605"
+dependencies = [
+ "cfg-if",
+ "glob",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "relative-path",
+ "rustc_version 0.4.0",
+ "syn 2.0.50",
+ "unicode-ident",
 ]
 
 [[package]]
@@ -16664,6 +16729,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "sc-utils",
+ "schnellru",
  "serde",
  "serde_json",
  "sp-api",
@@ -22317,10 +22383,12 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-xcm",
  "parity-scale-codec",
+ "polkadot-service",
  "polkadot-test-client",
  "polkadot-test-runtime",
  "polkadot-test-service",
  "sp-consensus",
+ "sp-core",
  "sp-keyring",
  "sp-runtime",
  "sp-state-machine",
