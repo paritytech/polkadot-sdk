@@ -3,8 +3,8 @@
     "$id": "https://raw.githubusercontent.com/paritytech/prdoc/master/prdoc_schema_user.json",
     "version": {
       "major": 1,
-      "minor": 0,
-      "patch": 1
+      "minor": 1,
+      "patch": 0
     },
     "title": "Polkadot SDK PRDoc Schema",
     "description": "JSON Schema definition for the Polkadot SDK PR documentation",
