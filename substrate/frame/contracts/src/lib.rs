@@ -163,12 +163,6 @@ type DebugBufferVec<T> = BoundedVec<u8, <T as Config>::MaxDebugBufferLen>;
 type EventRecordOf<T> =
 	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
 
-/// The old weight type.
-///
-/// This is a copy of the [`frame_support::weights::OldWeight`] type since the contracts pallet
-/// needs to support it indefinitely.
-type OldWeight = u64;
-
 /// Used as a sentinel value when reading and writing contract memory.
 ///
 /// It is usually used to signal `None` to a contract when only a primitive is allowed
@@ -509,86 +503,6 @@ pub mod pallet {
 	where
 		<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 	{
-		/// Deprecated version if [`Self::call`] for use in an in-storage `Call`.
-		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::call().saturating_add(<Pallet<T>>::compat_weight_limit(*gas_limit)))]
-		#[allow(deprecated)]
-		#[deprecated(note = "1D weight is used in this extrinsic, please migrate to `call`")]
-		pub fn call_old_weight(
-			origin: OriginFor<T>,
-			dest: AccountIdLookupOf<T>,
-			#[pallet::compact] value: BalanceOf<T>,
-			#[pallet::compact] gas_limit: OldWeight,
-			storage_deposit_limit: Option<<BalanceOf<T> as codec::HasCompact>::Type>,
-			data: Vec<u8>,
-		) -> DispatchResultWithPostInfo {
-			Self::call(
-				origin,
-				dest,
-				value,
-				<Pallet<T>>::compat_weight_limit(gas_limit),
-				storage_deposit_limit,
-				data,
-			)
-		}
-
-		/// Deprecated version if [`Self::instantiate_with_code`] for use in an in-storage `Call`.
-		#[pallet::call_index(1)]
-		#[pallet::weight(
-			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32)
-			.saturating_add(<Pallet<T>>::compat_weight_limit(*gas_limit))
-		)]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "1D weight is used in this extrinsic, please migrate to `instantiate_with_code`"
-		)]
-		pub fn instantiate_with_code_old_weight(
-			origin: OriginFor<T>,
-			#[pallet::compact] value: BalanceOf<T>,
-			#[pallet::compact] gas_limit: OldWeight,
-			storage_deposit_limit: Option<<BalanceOf<T> as codec::HasCompact>::Type>,
-			code: Vec<u8>,
-			data: Vec<u8>,
-			salt: Vec<u8>,
-		) -> DispatchResultWithPostInfo {
-			Self::instantiate_with_code(
-				origin,
-				value,
-				<Pallet<T>>::compat_weight_limit(gas_limit),
-				storage_deposit_limit,
-				code,
-				data,
-				salt,
-			)
-		}
-
-		/// Deprecated version if [`Self::instantiate`] for use in an in-storage `Call`.
-		#[pallet::call_index(2)]
-		#[pallet::weight(
-			T::WeightInfo::instantiate(data.len() as u32, salt.len() as u32).saturating_add(<Pallet<T>>::compat_weight_limit(*gas_limit))
-		)]
-		#[allow(deprecated)]
-		#[deprecated(note = "1D weight is used in this extrinsic, please migrate to `instantiate`")]
-		pub fn instantiate_old_weight(
-			origin: OriginFor<T>,
-			#[pallet::compact] value: BalanceOf<T>,
-			#[pallet::compact] gas_limit: OldWeight,
-			storage_deposit_limit: Option<<BalanceOf<T> as codec::HasCompact>::Type>,
-			code_hash: CodeHash<T>,
-			data: Vec<u8>,
-			salt: Vec<u8>,
-		) -> DispatchResultWithPostInfo {
-			Self::instantiate(
-				origin,
-				value,
-				<Pallet<T>>::compat_weight_limit(gas_limit),
-				storage_deposit_limit,
-				code_hash,
-				data,
-				salt,
-			)
-		}
-
 		/// Upload new `code` without instantiating a contract from it.
 		///
 		/// If the code does not already exist a deposit is reserved from the caller
@@ -609,7 +523,7 @@ pub mod pallet {
 		/// To avoid this situation a constructor could employ access control so that it can
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
-		#[pallet::call_index(3)]
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
 		pub fn upload_code(
 			origin: OriginFor<T>,
@@ -627,7 +541,7 @@ pub mod pallet {
 		///
 		/// A code can only be removed by its original uploader (its owner) and only if it is
 		/// not used by any contract.
-		#[pallet::call_index(4)]
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::remove_code())]
 		pub fn remove_code(
 			origin: OriginFor<T>,
@@ -650,7 +564,7 @@ pub mod pallet {
 		/// This does **not** change the address of the contract in question. This means
 		/// that the contract address is no longer derived from its code hash after calling
 		/// this dispatchable.
-		#[pallet::call_index(5)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_code())]
 		pub fn set_code(
 			origin: OriginFor<T>,
@@ -697,7 +611,7 @@ pub mod pallet {
 		/// * If the account is a regular account, any value will be transferred.
 		/// * If no account exists and the call value is not less than `existential_deposit`,
 		/// a regular account will be created and any value will be transferred.
-		#[pallet::call_index(6)]
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::call().saturating_add(*gas_limit))]
 		pub fn call(
 			origin: OriginFor<T>,
@@ -1659,14 +1573,6 @@ impl<T: Config> Pallet<T> {
 	/// Return the existential deposit of [`Config::Currency`].
 	fn min_balance() -> BalanceOf<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
-	}
-
-	/// Convert gas_limit from 1D Weight to a 2D Weight.
-	///
-	/// Used by backwards compatible extrinsics. We cannot just set the proof_size weight limit to
-	/// zero or an old `Call` will just fail with OutOfGas.
-	fn compat_weight_limit(gas_limit: OldWeight) -> Weight {
-		Weight::from_parts(gas_limit, u64::from(T::MaxCodeLen::get()) * 2)
 	}
 }
 

@@ -18,10 +18,6 @@
 //! # Primitives for transaction weighting.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-// TODO remove once `OldWeight` is gone. I dont know why this is needed, maybe by one of the macros
-// of `OldWeight`.
-#![allow(deprecated)]
-
 extern crate self as sp_weights;
 
 mod weight_meter;
@@ -51,28 +47,6 @@ pub mod constants {
 	pub const WEIGHT_PROOF_SIZE_PER_MB: u64 = 1024 * 1024;
 	pub const WEIGHT_PROOF_SIZE_PER_KB: u64 = 1024;
 }
-
-/// The old weight type.
-///
-/// NOTE: This type exists purely for compatibility purposes! Use [`weight_v2::Weight`] in all other
-/// cases.
-#[derive(
-	Decode,
-	Encode,
-	CompactAs,
-	PartialEq,
-	Eq,
-	Clone,
-	Copy,
-	RuntimeDebug,
-	Default,
-	MaxEncodedLen,
-	TypeInfo,
-)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(transparent))]
-#[deprecated(note = "Will be removed soon; use `Weight` instead.")]
-pub struct OldWeight(pub u64);
 
 /// The weight of database operations that the runtime can invoke.
 ///
