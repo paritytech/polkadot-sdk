@@ -1,5 +1,7 @@
 [settings]
 timeout = 1000
+# Don't wait for metrics to be available when run locally
+{% if not CI_JOB_ID %} node_verifier = "None" {% endif %}
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config]
   max_validators_per_core = 1
