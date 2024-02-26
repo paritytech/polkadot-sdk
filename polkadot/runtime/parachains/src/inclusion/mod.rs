@@ -503,7 +503,6 @@ impl<T: Config> Pallet<T> {
 	/// Returns a `Vec` of `CandidateHash`es and their respective `AvailabilityCore`s that became
 	/// available, and cores free.
 	pub(crate) fn update_pending_availability_and_get_freed_cores<F>(
-		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		validators: &[ValidatorId],
 		signed_bitfields: SignedAvailabilityBitfields,
 		core_lookup: F,
@@ -514,7 +513,6 @@ impl<T: Config> Pallet<T> {
 		let now = <frame_system::Pallet<T>>::block_number();
 		let threshold = availability_threshold(validators.len());
 
-		// Track the paraids that had one/more of their candidates made available.
 		let mut paras_made_available = BTreeSet::new();
 
 		for (checked_bitfield, validator_index) in
@@ -528,7 +526,7 @@ impl<T: Config> Pallet<T> {
 				if let Some(para_id) = core_lookup(core_index) {
 					<PendingAvailability<T>>::mutate(&para_id, |candidates| {
 						if let Some(candidates) = candidates {
-							for candidate in candidates {
+							for (candidate_idx, candidate) in candidates.iter_mut().enumerate() {
 								if candidate.core == core_index {
 									// defensive check - this is constructed by loading the
 									// availability bitfield record, which is always `Some` if
@@ -537,8 +535,16 @@ impl<T: Config> Pallet<T> {
 										.availability_votes
 										.get_mut(validator_index.0 as usize)
 									{
-										paras_made_available.insert(para_id);
 										*bit = true;
+									}
+
+									// We only care if the first candidate of this para was made
+									// available. We don't enact candidates until their predecessors
+									// have been enacted.
+									if candidate_idx == 0 &&
+										candidate.availability_votes.count_ones() >= threshold
+									{
+										paras_made_available.insert(para_id);
 									}
 								}
 							}
@@ -561,71 +567,47 @@ impl<T: Config> Pallet<T> {
 		// We can only free cores whose candidates form a chain starting from the included para
 		// head.
 		// We assume dependency order is preserved in `PendingAvailability`.
-		'para_loop: for (para_id, candidates_pending_availability) in paras_made_available
+		for (para_id, candidates_pending_availability) in paras_made_available
 			.into_iter()
 			.filter_map(|para_id| <PendingAvailability<T>>::get(para_id).map(|c| (para_id, c)))
 		{
-			let mut stopped_at_index = 0;
-			let mut latest_parent_head = match <paras::Pallet<T>>::para_head(&para_id) {
-				Some(head) => head,
-				None => continue,
-			};
+			let mut stopped_at_index = None;
 
-			// We have to check all candidates, because some of them may have already been made
-			// available in the past but their ancestors were not.
+			// We try to check all candidates, because some of them may have already been made
+			// available in the past but their ancestors were not. However, we can stop when we find
+			// the first one which is not available yet.
 			for (index, pending_availability) in candidates_pending_availability.iter().enumerate()
 			{
-				stopped_at_index = index;
-
 				if pending_availability.availability_votes.count_ones() >= threshold {
-					let (relay_parent_storage_root, _) = {
-						match allowed_relay_parents
-							.acquire_info(pending_availability.descriptor.relay_parent, None)
-						{
-							None => continue 'para_loop, // TODO: fix this
-							Some(info) => info,
-						}
-					};
-
-					let pvd = make_persisted_validation_data_with_parent::<T>(
-						pending_availability.relay_parent_number,
-						relay_parent_storage_root,
-						latest_parent_head,
-					);
-					if pvd.hash() != pending_availability.descriptor.persisted_validation_data_hash
-					{
-						// TODO: fix this.
-						// This means that we've backed a parachain fork in the past. Should have
-						// never happened. Should we evict all cores of this para?
-						continue 'para_loop;
-					}
-
-					latest_parent_head = pending_availability.commitments.head_data.clone();
-
 					freed_cores.push((pending_availability.core, pending_availability.hash));
+					stopped_at_index = Some(index);
+				} else {
+					break
 				}
 			}
 
 			// Trim the pending availability candidates storage and enact candidates now.
-			<PendingAvailability<T>>::mutate(&para_id, |candidates| {
-				if let Some(candidates) = candidates {
-					let candidates_made_available = candidates.drain(0..stopped_at_index);
-					for candidate in candidates_made_available {
-						let receipt = CommittedCandidateReceipt {
-							descriptor: candidate.descriptor,
-							commitments: candidate.commitments,
-						};
-						let _weight = Self::enact_candidate(
-							candidate.relay_parent_number,
-							receipt,
-							candidate.backers,
-							candidate.availability_votes,
-							candidate.core,
-							candidate.backing_group,
-						);
+			if let Some(stopped_at_index) = stopped_at_index {
+				<PendingAvailability<T>>::mutate(&para_id, |candidates| {
+					if let Some(candidates) = candidates {
+						let candidates_made_available = candidates.drain(0..=stopped_at_index);
+						for candidate in candidates_made_available {
+							let receipt = CommittedCandidateReceipt {
+								descriptor: candidate.descriptor,
+								commitments: candidate.commitments,
+							};
+							let _weight = Self::enact_candidate(
+								candidate.relay_parent_number,
+								receipt,
+								candidate.backers,
+								candidate.availability_votes,
+								candidate.core,
+								candidate.backing_group,
+							);
+						}
 					}
-				}
-			});
+				});
+			}
 		}
 
 		freed_cores
@@ -751,19 +733,24 @@ impl<T: Config> Pallet<T> {
 
 					// Update storage now. The next candidate may be a successor of this one.
 					<PendingAvailability<T>>::mutate(&para_id, |pending_availability| {
+						let new_candidate = CandidatePendingAvailability {
+							core: *core,
+							hash: candidate_hash,
+							descriptor: candidate.candidate().descriptor.clone(),
+							commitments: candidate.candidate().commitments.clone(),
+							// initialize all availability votes to 0.
+							availability_votes: bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()],
+							relay_parent_number,
+							backers: backers.to_bitvec(),
+							backed_in_number: now,
+							backing_group: group_idx,
+						};
+
 						if let Some(pending_availability) = pending_availability {
-							pending_availability.push_back(CandidatePendingAvailability {
-								core: *core,
-								hash: candidate_hash,
-								descriptor: candidate.candidate().descriptor.clone(),
-								commitments: candidate.candidate().commitments.clone(),
-								// initialize all availability votes to 0.
-								availability_votes: bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()],
-								relay_parent_number,
-								backers: backers.to_bitvec(),
-								backed_in_number: now,
-								backing_group: group_idx,
-							});
+							pending_availability.push_back(new_candidate);
+						} else {
+							*pending_availability =
+								Some([new_candidate].into_iter().collect::<VecDeque<_>>())
 						}
 					});
 
@@ -774,6 +761,9 @@ impl<T: Config> Pallet<T> {
 						*core,
 						group_idx,
 					));
+
+					// break, we've found the candidate.
+					break
 				}
 
 				if !found_candidate {

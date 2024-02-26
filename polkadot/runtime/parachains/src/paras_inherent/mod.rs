@@ -569,7 +569,6 @@ impl<T: Config> Pallet<T> {
 		// work has now concluded.
 		let freed_concluded =
 			<inclusion::Pallet<T>>::update_pending_availability_and_get_freed_cores::<_>(
-				&allowed_relay_parents,
 				&validator_public[..],
 				bitfields.clone(),
 				<scheduler::Pallet<T>>::core_para,
