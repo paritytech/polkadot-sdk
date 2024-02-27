@@ -1028,7 +1028,33 @@ pub use frame_support_procedural::pallet;
 
 /// Contains macro stubs for all of the `pallet::` macros
 pub mod pallet_macros {
-	pub use frame_support_procedural::{unbounded, weight, whitelist_storage};
+	pub use frame_support_procedural::{weight, whitelist_storage};
+
+	/// The optional attribute `#[pallet::unbounded]` declares a storage item as unbounded.
+	/// When implementating the storage info (when `#[pallet::generate_storage_info]` is
+	/// specified on the pallet struct placeholder), the size of the storage will be declared
+	/// as unbounded. This can be useful for storage which can never go into PoV (Proof of
+	/// Validity).
+	///
+	/// ## Example
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::storage]
+	/// 	#[pallet::unbounded]
+	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	pub use frame_support_procedural::unbounded;
 
 	/// The optional attribute `#[pallet::storage_prefix = "SomeName"]` allows you to define
 	/// what storage prefix to use for a storage item when building the trie. This is helpful
@@ -1046,7 +1072,6 @@ pub mod pallet_macros {
 	///
 	/// 	#[pallet::storage]
 	/// 	#[pallet::storage_prefix = "foo"]
-	/// 	#[pallet::getter(fn my_getter_fn_name)]
 	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
 	///
 	/// 	#[pallet::config]

@@ -1012,10 +1012,11 @@ pub fn storage_prefix(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The optional attribute `#[pallet::unbounded]` declares the storage as unbounded. When
-/// implementating the storage info (when `#[pallet::generate_storage_info]` is specified on
-/// the pallet struct placeholder), the size of the storage will be declared as unbounded. This
-/// can be useful for storage which can never go into PoV (Proof of Validity).
+///
+/// ---
+///
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// `frame_support::pallet_macros::unbounded`.
 #[proc_macro_attribute]
 pub fn unbounded(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
