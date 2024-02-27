@@ -552,6 +552,16 @@ impl Peerset {
 	pub fn report_inbound_substream(&mut self, peer: PeerId) -> ValidationResult {
 		log::trace!(target: LOG_TARGET, "{}: inbound substream from {peer:?}", self.protocol);
 
+		if self.peerstore_handle.is_banned(&peer) {
+			log::debug!(
+				target: LOG_TARGET,
+				"{}: rejecting banned peer {peer:?}",
+				self.protocol,
+			);
+
+			return ValidationResult::Reject;
+		}
+
 		let state = self.peers.entry(peer).or_insert(PeerState::Disconnected);
 		let reserved_peer = self.reserved_peers.contains(&peer);
 
@@ -852,83 +862,91 @@ impl Stream for Peerset {
 
 		if let Poll::Ready(Some(action)) = Pin::new(&mut self.cmd_rx).poll_next(cx) {
 			match action {
-				PeersetCommand::DisconnectPeer { peer } => match self.peers.remove(&peer) {
-					Some(PeerState::Connected { direction }) => {
-						log::trace!(
-							target: LOG_TARGET,
-							"{}: close connection to {peer:?}, direction {direction:?}",
-							self.protocol,
-						);
+				PeersetCommand::DisconnectPeer { peer } if !self.reserved_peers.contains(&peer) =>
+					match self.peers.remove(&peer) {
+						Some(PeerState::Connected { direction }) => {
+							log::trace!(
+								target: LOG_TARGET,
+								"{}: close connection to {peer:?}, direction {direction:?}",
+								self.protocol,
+							);
 
-						self.peers.insert(peer, PeerState::Closing { direction });
-						return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
-							peers: vec![peer],
-						}))
-					},
-					Some(PeerState::Backoff) => {
-						log::trace!(
-							target: LOG_TARGET,
-							"{}: cannot disconnect {peer:?}, already backed-off",
-							self.protocol,
-						);
+							self.peers.insert(peer, PeerState::Closing { direction });
+							return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
+								peers: vec![peer],
+							}))
+						},
+						Some(PeerState::Backoff) => {
+							log::trace!(
+								target: LOG_TARGET,
+								"{}: cannot disconnect {peer:?}, already backed-off",
+								self.protocol,
+							);
 
-						self.peers.insert(peer, PeerState::Backoff);
-					},
-					// substream might have been opening but not yet fully open when the protocol
-					// or `Peerstore` request the connection to be closed
-					//
-					// if the substream opens successfully, close it immediately and mark the peer
-					// as `Disconnected`
-					Some(PeerState::Opening { direction }) => {
-						log::trace!(
-							target: LOG_TARGET,
-							"{}: canceling substream to disconnect peer {peer:?}",
-							self.protocol,
-						);
+							self.peers.insert(peer, PeerState::Backoff);
+						},
+						// substream might have been opening but not yet fully open when the
+						// protocol or `Peerstore` request the connection to be closed
+						//
+						// if the substream opens successfully, close it immediately and mark the
+						// peer as `Disconnected`
+						Some(PeerState::Opening { direction }) => {
+							log::trace!(
+								target: LOG_TARGET,
+								"{}: canceling substream to disconnect peer {peer:?}",
+								self.protocol,
+							);
 
-						self.peers.insert(peer, PeerState::Canceled { direction });
-					},
-					// protocol had issued two disconnection requests in rapid succession and the
-					// substream hadn't closed before the second disconnection request was received,
-					// this is harmless and can be ignored.
-					Some(state @ PeerState::Closing { .. }) => {
-						log::trace!(
-							target: LOG_TARGET,
-							"{}: cannot disconnect {peer:?}, already closing ({state:?})",
-							self.protocol,
-						);
+							self.peers.insert(peer, PeerState::Canceled { direction });
+						},
+						// protocol had issued two disconnection requests in rapid succession and
+						// the substream hadn't closed before the second disconnection request was
+						// received, this is harmless and can be ignored.
+						Some(state @ PeerState::Closing { .. }) => {
+							log::trace!(
+								target: LOG_TARGET,
+								"{}: cannot disconnect {peer:?}, already closing ({state:?})",
+								self.protocol,
+							);
 
-						self.peers.insert(peer, state);
-					},
-					// if peer is banned, e.g. due to genesis mismatch, `Peerstore` will issue a
-					// global disconnection request to all protocols, irrespective of the
-					// connectivity state. Peer isn't necessarily connected to all protocols at all
-					// times so this is a harmless state to be in if a disconnection request is
-					// received.
-					Some(state @ PeerState::Disconnected) => {
-						self.peers.insert(peer, state);
-					},
-					// peer had an opening substream earlier which was canceled and then,
-					// e.g., the peer was banned which caused it to be disconnected again
-					Some(state @ PeerState::Canceled { .. }) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"{}: cannot disconnect {peer:?}, already canceled ({state:?})",
-							self.protocol,
-						);
+							self.peers.insert(peer, state);
+						},
+						// if peer is banned, e.g. due to genesis mismatch, `Peerstore` will issue a
+						// global disconnection request to all protocols, irrespective of the
+						// connectivity state. Peer isn't necessarily connected to all protocols at
+						// all times so this is a harmless state to be in if a disconnection request
+						// is received.
+						Some(state @ PeerState::Disconnected) => {
+							self.peers.insert(peer, state);
+						},
+						// peer had an opening substream earlier which was canceled and then,
+						// e.g., the peer was banned which caused it to be disconnected again
+						Some(state @ PeerState::Canceled { .. }) => {
+							log::debug!(
+								target: LOG_TARGET,
+								"{}: cannot disconnect {peer:?}, already canceled ({state:?})",
+								self.protocol,
+							);
 
-						self.peers.insert(peer, state);
+							self.peers.insert(peer, state);
+						},
+						// peer doesn't exist
+						//
+						// this can happen, for example, when peer connects over
+						// `/block-announces/1` and it has wrong genesis hash which initiates a ban
+						// for that peer. Since the ban is reported to all protocols but the peer
+						// mightn't have been registered to GRANDPA or transactions yet, the peer
+						// doesn't exist in their `Peerset`s and the error can just be ignored.
+						None => {
+							log::debug!(target: LOG_TARGET, "{}: {peer:?} doesn't exist", self.protocol);
+						},
 					},
-					// peer doesn't exist
-					//
-					// this can happen, for example, when peer connects over `/block-announces/1`
-					// and it has wrong genesis hash which initiates a ban for that peer. Since the
-					// ban is reported to all protocols but the peer mightn't have been registered
-					// to GRANDPA or transactions yet, the peer doesn't exist in their `Peerset`s
-					// and the error can just be ignored.
-					None => {
-						log::debug!(target: LOG_TARGET, "{}: {peer:?} doesn't exist", self.protocol);
-					},
+				PeersetCommand::DisconnectPeer { peer } => {
+					log::debug!(
+						target: LOG_TARGET,
+						"{}: ignoring disconnection request for reserved peer {peer}",
+						self.protocol,
+					);
 				},
 				// set new reserved peers for the protocol
 				//

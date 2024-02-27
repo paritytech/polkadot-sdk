@@ -462,6 +462,7 @@ impl RequestResponseProtocol {
 					self.protocol,
 				);
 
+				self.handle.reject_request(request_id);
 				self.metrics.register_inbound_request_failure("rejected");
 			},
 			Ok(response) => {
