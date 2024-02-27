@@ -163,10 +163,9 @@ jobs:
         id: fetch_release_refs
         run: |
           chmod a+rx $BINARY
-          VERSION=$(./$BINARY --version | awk '{ print $2 }' )
-          release=$( echo $VERSION | cut -f1 -d- )
+          VERSION=${{ inputs.version }}
           echo "tag=latest" >> $GITHUB_OUTPUT
-          echo "release=${release}" >> $GITHUB_OUTPUT
+          echo "release=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Build Injected Container image for polkadot rc
         if: ${{ env.BINARY == 'polkadot' }}
