@@ -534,8 +534,8 @@ fn report_vote_equivocation_invalid_key_owner_proof() {
 		let payload2 = Payload::from_single_entry(MMR_ROOT_ID, vec![128]);
 		// generate an equivocation proof for the authority at index 0
 		let equivocation_proof = generate_vote_equivocation_proof(
-			(block_num, payload1, set_id + 1, &equivocation_keyring),
-			(block_num, payload2, set_id + 1, &equivocation_keyring),
+			(block_num, payload1, set_id, &equivocation_keyring),
+			(block_num, payload2, set_id, &equivocation_keyring),
 		);
 
 		// we need to start a new era otherwise the key ownership proof won't be
@@ -1250,7 +1250,7 @@ fn report_fork_equivocation_vote_invalid_key_owner_proof() {
 		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		// generate an equivocation for a future set
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
-			(block_num, payload, set_id + 1, &equivocation_keyring),
+			(block_num, payload, set_id, &equivocation_keyring),
 			None,
 			Some(ancestry_proof),
 		);
@@ -2068,8 +2068,7 @@ fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		// generate an equivocation proof for the authorities at indices [0, 2]
-		let commitment =
-			Commitment { validator_set_id: set_id + 1, block_number: block_num, payload };
+		let commitment = Commitment { validator_set_id: set_id, block_number: block_num, payload };
 		let equivocation_proof = generate_fork_equivocation_proof_sc(
 			commitment,
 			equivocation_keyrings,
