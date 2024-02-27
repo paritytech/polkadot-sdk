@@ -215,7 +215,7 @@ impl TestApi {
 		self.chain.write().invalid_hashes.insert(Self::hash_and_length_inner(xts).0);
 	}
 
-	/// Remove a transaction that was prior declared as invalid via `[Self::add_invalid]`.
+	/// Remove a transaction that was previously declared as invalid via `[Self::add_invalid]`.
 	///
 	/// Next time transaction pool will try to validate this
 	/// extrinsic, api will succeed.
