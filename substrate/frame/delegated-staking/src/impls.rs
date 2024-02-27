@@ -248,6 +248,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	fn delegator_slash(delegatee: &Self::AccountId, delegator: &Self::AccountId, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult {
 		Pallet::<T>::do_slash(delegatee.clone(), delegator.clone(), value, maybe_reporter)
 	}
+
+	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance {
+		Delegation::<T>::get(delegator).map(|d| d.amount).unwrap_or_default()
+	}
 }
 
 impl<T: Config> StakingDelegationSupport for Pallet<T> {

@@ -336,6 +336,8 @@ pub trait StakingInterface {
 
 	fn delegator_slash(delegatee: &Self::AccountId, delegator: &Self::AccountId, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult;
 
+	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance;
+
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).

@@ -3294,7 +3294,7 @@ impl<T: Config> Pallet<T> {
 		let bonded_account = Self::create_bonded_account(member.pool_id);
 		ensure!(T::Staking::has_pending_slash(&bonded_account), Error::<T>::NothingToSlash);
 
-		let delegated_balance = T::StakeAdapter::total_balance(&member_account);
+		let delegated_balance = T::Staking::delegated_balance(&member_account);
 		let current_balance = member.total_balance();
 		defensive_assert!(
 			delegated_balance >= current_balance,

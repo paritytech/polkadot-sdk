@@ -1909,6 +1909,11 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	fn delegator_slash(delegatee: &Self::AccountId, delegator: &Self::AccountId, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult {
 		Err(DispatchError::Other("delegate is not supported"))
 	}
+
+	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance {
+		defensive!("delegated_balance is not supported");
+		BalanceOf::<T>::zero()
+	}
 }
 
 /// Standard implementation of `StakingDelegationSupport` that supports only direct staking and no

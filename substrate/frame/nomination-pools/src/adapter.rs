@@ -123,12 +123,7 @@ impl<T: Config> StakeAdapter for DelegationStake<T> {
 	/// - For `delegate` accounts, this is their total delegation amount.
 	/// - For `delegator` accounts, this is their delegation amount.
 	fn total_balance(who: &Self::AccountId) -> Self::Balance {
-		if T::Staking::is_delegatee(who) {
-			return T::Staking::delegatee_balance(who)
-		}
-
-		// for delegators we return their held balance as well.
-		T::Currency::total_balance(who)
+		T::Staking::delegatee_balance(who)
 	}
 
 	/// Add initial delegation to the pool account.

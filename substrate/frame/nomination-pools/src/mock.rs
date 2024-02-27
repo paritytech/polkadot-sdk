@@ -266,6 +266,10 @@ impl sp_staking::StakingInterface for StakingMock {
 		unimplemented!("method currently not used in testing")
 	}
 
+	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance {
+		unimplemented!("method currently not used in testing")
+	}
+
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]

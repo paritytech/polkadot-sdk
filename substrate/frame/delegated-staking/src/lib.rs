@@ -582,7 +582,6 @@ impl<T: Config> Pallet<T> {
 			};
 
 		Delegation::<T>::from(delegate, new_delegation_amount).save(delegator);
-
 		ledger.total_delegated =
 			ledger.total_delegated.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
 		ledger.save(delegate);
@@ -630,11 +629,8 @@ impl<T: Config> Pallet<T> {
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
 		// remove delegator if nothing delegated anymore
-		if delegation.amount == BalanceOf::<T>::zero() {
-			<Delegators<T>>::remove(delegator);
-		} else {
-			delegation.save(delegator);
-		}
+		delegation.save(delegator);
+
 
 		let released = T::Currency::release(
 			&HoldReason::Delegating.into(),

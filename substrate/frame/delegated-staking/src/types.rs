@@ -75,7 +75,7 @@ impl<T: Config> Delegation<T> {
 		// Clean up if no delegation left.
 		if self.amount == Zero::zero() {
 			<Delegators<T>>::remove(key);
-			return;
+			return
 		}
 
 		<Delegators<T>>::insert(key, self)
