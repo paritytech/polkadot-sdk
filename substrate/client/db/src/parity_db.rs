@@ -39,6 +39,8 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 	archive: bool,
 	multi_tree: bool,
 ) -> parity_db::Result<std::sync::Arc<dyn Database<H>>> {
+	// TODO rem just to test ci
+	let multi_tree = true;
 	let mut config = parity_db::Options::with_columns(path, NUM_COLUMNS as u8);
 
 	let compressed = [
@@ -61,8 +63,7 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 	state_col.uniform = true;
 	state_col.append_only = archive;
 
-	//if multi_tree { TODO restore (here for testing)
-	if true {
+	if multi_tree {
 		state_col.multitree = true;
 		state_col.allow_direct_node_access = true;
 		state_col.compression = parity_db::CompressionType::NoCompression;
