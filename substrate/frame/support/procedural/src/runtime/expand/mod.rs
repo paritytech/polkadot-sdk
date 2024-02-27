@@ -43,23 +43,38 @@ const SYSTEM_PALLET_NAME: &str = "System";
 pub fn expand(def: Def, legacy_ordering: bool) -> TokenStream2 {
 	let input = def.input;
 
-	let res = match def.pallets {
-		AllPalletsDeclaration::Implicit(ref decl) =>
-			check_pallet_number(input.clone(), decl.pallet_count).and_then(|_| {
-				construct_runtime_implicit_to_explicit(input.into(), decl.clone(), legacy_ordering)
-			}),
-		AllPalletsDeclaration::Explicit(ref decl) => check_pallet_number(input, decl.pallets.len())
-			.and_then(|_| {
-				construct_runtime_final_expansion(
-					def.runtime_struct.ident.clone(),
-					decl.clone(),
-					def.runtime_types.clone(),
-					legacy_ordering,
-				)
-			}),
+	let (check_pallet_number_res, res) = match def.pallets {
+		AllPalletsDeclaration::Implicit(ref decl) => (
+			check_pallet_number(input.clone(), decl.pallet_count),
+			construct_runtime_implicit_to_explicit(input.into(), decl.clone(), legacy_ordering),
+		),
+		AllPalletsDeclaration::Explicit(ref decl) => (
+			check_pallet_number(input, decl.pallets.len()),
+			construct_runtime_final_expansion(
+				def.runtime_struct.ident.clone(),
+				decl.clone(),
+				def.runtime_types.clone(),
+				legacy_ordering,
+			),
+		),
 	};
 
 	let res = res.unwrap_or_else(|e| e.to_compile_error());
+
+	// We want to provide better error messages to the user and thus, handle the error here
+	// separately. If there is an error, we print the error and still generate all of the code to
+	// get in overall less errors for the user.
+	let res = if let Err(error) = check_pallet_number_res {
+		let error = error.to_compile_error();
+
+		quote! {
+			#error
+
+			#res
+		}
+	} else {
+		res
+	};
 
 	let res = expander::Expander::new("construct_runtime")
 		.dry(std::env::var("FRAME_EXPAND").is_err())
