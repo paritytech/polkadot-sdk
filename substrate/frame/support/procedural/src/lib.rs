@@ -991,10 +991,12 @@ pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The optional attribute `#[pallet::getter(fn $my_getter_fn_name)]` allows you to define a
-/// getter function on `Pallet`.
+#[rustfmt::skip]
 ///
-/// Also see [`pallet::storage`](`macro@storage`)
+/// ---
+///
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// [`frame_support::pallet_macros::getter`](../frame_support/pallet_macros/attr.getter.html).
 #[proc_macro_attribute]
 pub fn getter(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()

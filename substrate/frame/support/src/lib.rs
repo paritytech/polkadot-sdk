@@ -1029,9 +1029,34 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		getter, import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
+		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
 		storage_prefix, unbounded, weight, whitelist_storage,
 	};
+
+	/// The optional attribute `#[pallet::getter(fn $my_getter_fn_name)]` allows you to define
+	/// a getter function on `Pallet` storage.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::storage]
+	/// 	#[pallet::getter(fn my_getter_fn_name)]
+	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	///
+	/// See [`pallet::storage`](`frame_support::pallet_macros::storage`) for more info.
+	pub use frame_support_procedural::getter;
 
 	/// DEPRECATED: Will be removed, do not use.
 	/// See https://github.com/paritytech/substrate/pull/13535 for more details.
