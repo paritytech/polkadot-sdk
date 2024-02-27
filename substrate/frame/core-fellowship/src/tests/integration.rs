@@ -24,7 +24,7 @@ use frame_support::{
 	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, PollStatus, Polling, TryMapSuccess},
 };
 use frame_system::EnsureSignedBy;
-use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, TallyOf, Votes};
+use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, TallyOf, Votes, MemberCount};
 use sp_core::Get;
 use sp_runtime::{
 	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
@@ -279,4 +279,36 @@ fn swap_bad_noops() {
 			pallet_ranked_collective::Error::<Test>::SameMember
 		);
 	});
+}
+
+#[test]
+fn add_higher_rank() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 7));
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 5));
+		promote_n_times(7, 9);
+		promote_n_times(5, 9);
+
+		System::set_block_number(3);
+		assert_ok!(CoreFellowship::import(signed(7)));
+		assert_ok!(CoreFellowship::import(signed(5)));
+
+		// MemberCount still reads previous max rank as 9
+		assert_noop!(CoreFellowship::promote(RuntimeOrigin::root(), 7, 10), Error::<Test>::InvalidRank);
+
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 7));
+		assert_eq!(MemberCount::<Test>::get(10), 1);
+
+		let params = ParamsType {
+			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].to_vec(),
+			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].to_vec(),
+			demotion_period: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20].to_vec(),
+			min_promotion_period: [3, 6, 9, 12, 15, 18, 21, 24, 27, 30].to_vec(),
+			offboard_timeout: 1,
+		};
+		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
+
+		System::set_block_number(30);
+		assert_ok!(CoreFellowship::promote(RuntimeOrigin::root(), 5, 10));
+	})
 }
