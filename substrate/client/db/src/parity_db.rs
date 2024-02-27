@@ -61,7 +61,8 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 	state_col.uniform = true;
 	state_col.append_only = archive;
 
-	if multi_tree {
+	//if multi_tree { TODO restore (here for testing)
+	if true {
 		state_col.multitree = true;
 		state_col.allow_direct_node_access = true;
 		state_col.compression = parity_db::CompressionType::NoCompression;
