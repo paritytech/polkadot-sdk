@@ -19,9 +19,9 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 cfg-if = "1.0"
-clap = { version = "4.5.0", features = ["derive"], optional = true }
+clap = { version = "4.5.1", features = ["derive"], optional = true }
 log = { workspace = true, default-features = true }
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 futures = "0.3.21"
 pyro = { package = "pyroscope", version = "0.5.3", optional = true }
 pyroscope_pprofrs = { version = "0.2", optional = true }
