@@ -85,6 +85,7 @@ parameter_types! {
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub RelayTreasuryVoice: Location = Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]);
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -497,7 +498,11 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					pallet_uniques::Call::buy_item { .. }
 			) | RuntimeCall::ToRococoXcmRouter(
 				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
-			)
+			) |
+				// TODO: blocker for now.
+				// `Utility` dep can be dropped if we send two `Transact` instructions.
+				RuntimeCall::Utility(..) |
+				RuntimeCall::Scheduler(..)
 		)
 	}
 }

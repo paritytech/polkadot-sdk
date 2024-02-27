@@ -30,10 +30,12 @@ pallet-aura = { path = "../../../../../substrate/frame/aura", default-features =
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false }
+pallet-preimage = { path = "../../../../../substrate/frame/preimage", default-features = false }
 pallet-nft-fractionalization = { path = "../../../../../substrate/frame/nft-fractionalization", default-features = false }
 pallet-nfts = { path = "../../../../../substrate/frame/nfts", default-features = false }
 pallet-nfts-runtime-api = { path = "../../../../../substrate/frame/nfts/runtime-api", default-features = false }
 pallet-proxy = { path = "../../../../../substrate/frame/proxy", default-features = false }
+pallet-scheduler = { path = "../../../../../substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
@@ -116,9 +118,11 @@ runtime-benchmarks = [
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -150,10 +154,12 @@ try-runtime = [
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-preimage/try-runtime",
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-scheduler/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-uniques/try-runtime",
@@ -196,11 +202,13 @@ std = [
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
 	"pallet-multisig/std",
+	"pallet-preimage/std",
 	"pallet-nft-fractionalization/std",
 	"pallet-nfts-runtime-api/std",
 	"pallet-nfts/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
+	"pallet-scheduler/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
