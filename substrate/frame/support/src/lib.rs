@@ -1029,9 +1029,30 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		generate_store, getter, import_section, inherent, no_default, no_default_bounds, origin,
-		pallet_section, storage_prefix, unbounded, weight, whitelist_storage,
+		getter, import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
+		storage_prefix, unbounded, weight, whitelist_storage,
 	};
+
+	/// DEPRECATED: Will be removed, do not use.
+	/// See https://github.com/paritytech/substrate/pull/13535 for more details.
+	///
+	/// To generate a `Store` trait associating all storages, annotate your `Pallet` struct
+	/// with the attribute `#[pallet::generate_store($vis trait Store)]`, e.g.:
+	///
+	/// ```ignore
+	/// #[pallet::pallet]
+	/// #[pallet::generate_store(pub(super) trait Store)]
+	/// pub struct Pallet<T>(_);
+	/// ```
+	/// More precisely, the `Store` trait contains an associated type for each storage. It is
+	/// implemented for `Pallet` allowing access to the storage from pallet struct.
+	///
+	/// Thus when defining a storage named `Foo`, it can later be accessed from `Pallet` using
+	/// `<Pallet as Store>::Foo`.
+	///
+	/// NOTE: this attribute is only valid when applied _directly_ to your `Pallet` struct
+	/// definition.
+	pub use frame_support_procedural::generate_store;
 
 	/// Allows you to define some extra constants to be added into constant metadata.
 	///
