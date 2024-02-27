@@ -1029,9 +1029,71 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		inherent, no_default, no_default_bounds, origin, pallet_section, storage_prefix, unbounded,
-		weight, whitelist_storage,
+		no_default, no_default_bounds, origin, pallet_section, storage_prefix, unbounded, weight,
+		whitelist_storage,
 	};
+
+	/// The `#[pallet::inherent]` attribute allows the pallet to provide
+	/// [inherents](https://docs.substrate.io/fundamentals/transaction-types/#inherent-transactions).
+	/// An inherent is some piece of data that is inserted by a block authoring node at block
+	/// creation time and can either be accepted or rejected by validators based on whether the
+	/// data falls within an acceptable range.
+	///
+	/// The most common inherent is the `timestamp` that is inserted into every block. Since
+	/// there is no way to validate timestamps, validators simply check that the timestamp
+	/// reported by the block authoring node falls within an acceptable range.
+	///
+	/// Example usage:
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	/// 	use frame_support::inherent::IsFatalError;
+	/// 	use sp_timestamp::InherentError;
+	/// 	use sp_std::result;
+	///
+	/// 	// Example inherent identifier
+	/// 	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"timstap0";
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::inherent]
+	/// 	impl<T: Config> ProvideInherent for Pallet<T> {
+	/// 		type Call = Call<T>;
+	/// 		type Error = InherentError;
+	/// 		const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
+	///
+	/// 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
+	/// 			unimplemented!()
+	/// 		}
+	///
+	/// 		fn check_inherent(
+	/// 			call: &Self::Call,
+	/// 			data: &InherentData,
+	/// 		) -> result::Result<(), Self::Error> {
+	/// 			unimplemented!()
+	/// 		}
+	///
+	/// 		fn is_inherent(call: &Self::Call) -> bool {
+	/// 			unimplemented!()
+	/// 		}
+	/// 	}
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	///
+	/// I.e. a trait implementation with bound `T: Config`, of trait `ProvideInherent` for type
+	/// `Pallet<T>`, and some optional where clause.
+	///
+	/// ## Macro expansion
+	///
+	/// The macro currently makes no use of this information, but it might use this information
+	/// in the future to give information directly to `construct_runtime`.
+	pub use frame_support_procedural::inherent;
 
 	/// An attribute macro that can be attached to a module declaration. Doing so will
 	/// import the contents of the specified external pallet section that is defined

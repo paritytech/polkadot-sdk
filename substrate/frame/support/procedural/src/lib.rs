@@ -1092,32 +1092,12 @@ pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::inherent]` attribute allows the pallet to provide some
-/// [inherent](https://docs.substrate.io/fundamentals/transaction-types/#inherent-transactions).
-/// An inherent is some piece of data that is inserted by a block authoring node at block
-/// creation time and can either be accepted or rejected by validators based on whether the
-/// data falls within an acceptable range.
+#[rustfmt::skip]
 ///
-/// The most common inherent is the `timestamp` that is inserted into every block. Since there
-/// is no way to validate timestamps, validators simply check that the timestamp reported by
-/// the block authoring node falls within an acceptable range.
+/// ---
 ///
-/// Item must be defined as:
-///
-/// ```ignore
-/// #[pallet::inherent]
-/// impl<T: Config> ProvideInherent for Pallet<T> {
-/// 	// ... regular trait implementation
-/// }
-/// ```
-///
-/// I.e. a trait implementation with bound `T: Config`, of trait `ProvideInherent` for type
-/// `Pallet<T>`, and some optional where clause.
-///
-/// ## Macro expansion
-///
-/// The macro currently makes no use of this information, but it might use this information in
-/// the future to give information directly to `construct_runtime`.
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// [`frame_support::pallet_macros::inherent`](../frame_support/pallet_macros/attr.inherent.html).
 #[proc_macro_attribute]
 pub fn inherent(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
