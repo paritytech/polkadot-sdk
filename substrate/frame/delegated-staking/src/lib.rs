@@ -74,9 +74,9 @@
 //! [Config::CoreStaking] to provide delegation based staking. NominationPool can use this pallet as
 //! its Staking provider to support delegation based staking from pool accounts.
 //!
-//! #### [Staking Delegation Support](DelegateeSupport)
-//! The pallet implements the staking delegation support trait which staking pallet can use to
-//! provide compatibility with this pallet.
+//! #### [Delegatee Support](DelegateeSupport)
+//! Implements `DelegateeSupport` trait which another pallet such as [Config::CoreStaking] can use
+//! to back-support `Delegatees` in their staking implementation.
 //!
 //! ## Lazy Slashing
 //! One of the reasons why direct nominators on staking pallet cannot scale well is because all
@@ -92,7 +92,7 @@
 //! `NominationPool` can apply slash for all its members by calling
 //! [StakingInterface::delegator_slash](sp_staking::StakingInterface::delegator_slash).
 //!
-//! ## Migration from Nominator to Delegate
+//! ## Migration from Nominator to Delegatee
 //! More details [here](https://hackmd.io/@ak0n/np-delegated-staking-migration).
 //!
 //! ## Reward Destination Restrictions
@@ -118,7 +118,7 @@
 //!
 //! #### Nomination Pool with delegation support
 //!  1) delegate fund from delegator to pool account, and
-//!  2) stake from pool account as a `Delegate` account on the staking pallet.
+//!  2) stake from pool account as a `Delegatee` account on the staking pallet.
 //!
 //! The difference being, in the second approach, the delegated funds will be locked in-place in
 //! user's account enabling them to participate in use cases that allows use of `held` funds such
@@ -270,16 +270,16 @@ pub mod pallet {
 	pub(crate) type Delegators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Delegation<T>, OptionQuery>;
 
-	/// Map of `Delegate` to their `DelegationLedger`.
+	/// Map of `Delegatee` to their `DelegationLedger`.
 	#[pallet::storage]
 	pub(crate) type Delegates<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegationLedger<T>, OptionQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Register an account to be a `Delegate`.
+		/// Register an account to be a `Delegatee`.
 		///
-		/// `Delegate` accounts accepts delegations from other `delegator`s and stake funds on their
+		/// `Delegatee` accounts accepts delegations from other `delegator`s and stake funds on their
 		/// behalf.
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::default())]
@@ -305,17 +305,17 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Migrate from a `Nominator` account to `Delegate` account.
+		/// Migrate from a `Nominator` account to `Delegatee` account.
 		///
 		/// The origin needs to
 		/// - be a `Nominator` with `CoreStaking`,
-		/// - not already a `Delegate`,
+		/// - not already a `Delegatee`,
 		/// - have enough funds to transfer existential deposit to a delegator account created for
 		///   the migration.
 		///
 		/// This operation will create a new delegator account for the origin called
 		/// `proxy_delegator` and transfer the staked amount to it. The `proxy_delegator` delegates
-		/// the funds to the origin making origin a `Delegate` account. The actual `delegator`
+		/// the funds to the origin making origin a `Delegatee` account. The actual `delegator`
 		/// accounts of the origin can later migrate their funds using [Call::migrate_delegation] to
 		/// claim back their share of delegated funds from `proxy_delegator` to self.
 		#[pallet::call_index(1)]
@@ -377,7 +377,7 @@ pub mod pallet {
 			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
 			ensure!(Self::not_direct_staker(&delegator), Error::<T>::AlreadyStaker);
 
-			// ensure delegate is sane.
+			// ensure delegatee is sane.
 			ensure!(Self::is_delegatee(&delegatee), Error::<T>::NotDelegatee);
 
 			// and has enough delegated balance to migrate.
@@ -388,7 +388,7 @@ pub mod pallet {
 			Self::do_migrate_delegation(&proxy_delegator, &delegator, amount)
 		}
 
-		/// Delegate funds to a `Delegate` account and bonds it to [Config::CoreStaking].
+		/// Delegate funds to a `Delegatee` account and bonds it to [Config::CoreStaking].
 		///
 		/// If delegation already exists, it increases the delegation by `amount`.
 		#[pallet::call_index(4)]
@@ -407,7 +407,7 @@ pub mod pallet {
 			ensure!(Delegation::<T>::can_delegate(&who, &delegatee), Error::<T>::InvalidDelegation);
 			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaker);
 
-			// ensure delegate is sane.
+			// ensure delegatee is sane.
 			ensure!(
 				DelegationLedger::<T>::can_accept_delegation(&delegatee),
 				Error::<T>::NotAcceptingDelegations
@@ -423,9 +423,9 @@ pub mod pallet {
 			Self::do_bond(&delegatee, amount)
 		}
 
-		/// Toggle delegate status to start or stop accepting new delegations.
+		/// Toggle delegatee status to start or stop accepting new delegations.
 		///
-		/// This can only be used by existing delegates. If not a delegate yet, use
+		/// This can only be used by existing delegates. If not a delegatee yet, use
 		/// [Call::register_as_delegatee] first.
 		#[pallet::call_index(5)]
 		#[pallet::weight(Weight::default())]
@@ -441,7 +441,7 @@ pub mod pallet {
 
 		/// Apply slash to a delegator account.
 		///
-		/// `Delegate` accounts with pending slash in their ledger can call this to apply slash to
+		/// `Delegatee` accounts with pending slash in their ledger can call this to apply slash to
 		/// one of its `delegator` account. Each slash to a delegator account needs to be posted
 		/// separately until all pending slash is cleared.
 		#[pallet::call_index(6)]
@@ -468,7 +468,7 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Derive a (keyless) pot account from the given delegate account and account type.
+	/// Derive a (keyless) pot account from the given delegatee account and account type.
 	pub(crate) fn sub_account(
 		account_type: AccountType,
 		delegatee_account: T::AccountId,
@@ -481,12 +481,12 @@ impl<T: Config> Pallet<T> {
 		T::Currency::balance_on_hold(&HoldReason::Delegating.into(), who)
 	}
 
-	/// Returns true if who is registered as a `Delegate`.
+	/// Returns true if who is registered as a `Delegatee`.
 	fn is_delegatee(who: &T::AccountId) -> bool {
 		<Delegates<T>>::contains_key(who)
 	}
 
-	/// Returns true if who is delegating to a `Delegate` account.
+	/// Returns true if who is delegating to a `Delegatee` account.
 	fn is_delegator(who: &T::AccountId) -> bool {
 		<Delegators<T>>::contains_key(who)
 	}
@@ -610,7 +610,7 @@ impl<T: Config> Pallet<T> {
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
 		if delegatee.ledger.unclaimed_withdrawals < amount {
-			// get the updated delegate
+			// get the updated delegatee
 			delegatee = Self::withdraw_unbonded(who, num_slashing_spans)?;
 		}
 
@@ -798,16 +798,16 @@ impl<T: Config> Pallet<T> {
 		for (delegatee, ledger) in ledgers {
 			ensure!(
 				matches!(
-					T::CoreStaking::status(&delegatee).expect("delegate should be bonded"),
+					T::CoreStaking::status(&delegatee).expect("delegatee should be bonded"),
 					StakerStatus::Nominator(_) | StakerStatus::Idle
 				),
-				"delegate should be bonded and not validator"
+				"delegatee should be bonded and not validator"
 			);
 
 			ensure!(
 				ledger.stakeable_balance() >=
 					T::CoreStaking::total_stake(&delegatee)
-						.expect("delegate should exist as a nominator"),
+						.expect("delegatee should exist as a nominator"),
 				"Cannot stake more than balance"
 			);
 		}
@@ -825,7 +825,7 @@ impl<T: Config> Pallet<T> {
 				T::CoreStaking::status(delegator).is_err(),
 				"delegator should not be directly staked"
 			);
-			ensure!(!Self::is_delegatee(delegator), "delegator cannot be delegate");
+			ensure!(!Self::is_delegatee(delegator), "delegator cannot be delegatee");
 
 			delegation_aggregation
 				.entry(delegation.delegatee.clone())
@@ -834,7 +834,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		for (delegatee, total_delegated) in delegation_aggregation {
-			ensure!(!Self::is_delegator(&delegatee), "delegate cannot be delegator");
+			ensure!(!Self::is_delegator(&delegatee), "delegatee cannot be delegator");
 
 			let ledger = ledger.get(&delegatee).expect("ledger should exist");
 			ensure!(
