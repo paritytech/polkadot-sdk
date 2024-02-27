@@ -24,14 +24,16 @@ use frame_support::{
 	traits::{Currency, KeyOwnerProofSystem, OnInitialize},
 };
 use sp_consensus_beefy::{
+	check_vote_equivocation_proof,
 	known_payloads::MMR_ROOT_ID,
 	test_utils::{
-		check_vote_equivocation_proof, generate_fork_equivocation_proof_sc,
-		generate_fork_equivocation_proof_vote, generate_vote_equivocation_proof,
+		generate_fork_equivocation_proof_sc, generate_fork_equivocation_proof_vote,
+		generate_vote_equivocation_proof, Keyring as BeefyKeyring,
 	},
-	Commitment, Keyring as BeefyKeyring, Payload, ValidatorSet, KEY_TYPE as BEEFY_KEY_TYPE,
+	Commitment, Payload, ValidatorSet, KEY_TYPE as BEEFY_KEY_TYPE,
 };
 use sp_core::offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt};
+use sp_runtime::DigestItem;
 
 use crate::{mock::*, Call, Config, Error, Weight, WeightInfo};
 
@@ -1587,7 +1589,7 @@ fn report_fork_equivocation_sc_current_set_works() {
 			.collect::<Vec<_>>();
 		let equivocation_keyrings = equivocation_keys
 			.iter()
-			.map(|k| BeefyKeyring::from_public(k).unwrap())
+			.map(|k| BeefyKeyring::from_public(k.clone()).unwrap())
 			.collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
@@ -1824,7 +1826,7 @@ fn report_fork_equivocation_sc_future_block_works() {
 			.collect::<Vec<_>>();
 		let equivocation_keyrings = equivocation_keys
 			.iter()
-			.map(|k| BeefyKeyring::from_public(k).unwrap())
+			.map(|k| BeefyKeyring::from_public(k.clone()).unwrap())
 			.collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
@@ -1916,7 +1918,7 @@ fn report_fork_equivocation_sc_invalid_set_id() {
 			.collect::<Vec<_>>();
 		let equivocation_keyrings = equivocation_keys
 			.iter()
-			.map(|k| BeefyKeyring::from_public(k).unwrap())
+			.map(|k| BeefyKeyring::from_public(k.clone()).unwrap())
 			.collect();
 
 		let key_owner_proofs = equivocation_keys
@@ -2060,7 +2062,7 @@ fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 			.collect::<Vec<_>>();
 		let equivocation_keyrings = equivocation_keys
 			.iter()
-			.map(|k| BeefyKeyring::from_public(k).unwrap())
+			.map(|k| BeefyKeyring::from_public(k.clone()).unwrap())
 			.collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
@@ -2125,7 +2127,7 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 			.collect::<Vec<_>>();
 		let equivocation_keyrings: Vec<_> = equivocation_keys
 			.iter()
-			.map(|k| BeefyKeyring::from_public(k).unwrap())
+			.map(|k| BeefyKeyring::from_public(k.clone()).unwrap())
 			.collect();
 
 		// generate a key ownership proof at set id in era 1
@@ -2441,7 +2443,7 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 			.collect::<Vec<_>>();
 		let equivocation_keyrings: Vec<_> = equivocation_keys
 			.iter()
-			.map(|k| BeefyKeyring::from_public(k).unwrap())
+			.map(|k| BeefyKeyring::from_public(k.clone()).unwrap())
 			.collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
@@ -2453,7 +2455,7 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 		// 2. the second equivocation proof is for all equivocators
 		let equivocation_proof_singleton = generate_fork_equivocation_proof_sc(
 			commitment.clone(),
-			vec![equivocation_keyrings[0]],
+			vec![equivocation_keyrings[0].clone()],
 			None,
 			Some(ancestry_proof.clone()),
 		);

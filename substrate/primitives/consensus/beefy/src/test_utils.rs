@@ -18,8 +18,8 @@
 #[cfg(feature = "bls-experimental")]
 use crate::ecdsa_bls_crypto;
 use crate::{
-	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, EquivocationProof, Payload,
-	ValidatorSetId, VoteMessage,
+	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, ForkEquivocationProof,
+	Payload, ValidatorSetId, VoteEquivocationProof, VoteMessage,
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
@@ -27,7 +27,7 @@ use sp_runtime::traits::Hash;
 
 use codec::Encode;
 use sp_mmr_primitives::AncestryProof;
-use std::collections::{marker::PhantomData, HashMap};
+use std::{collections::HashMap, marker::PhantomData};
 use strum::IntoEnumIterator;
 
 /// Set of test accounts using [`crate::ecdsa_crypto`] types.
@@ -44,6 +44,8 @@ pub enum Keyring<AuthorityId> {
 	Two,
 	_Marker(PhantomData<AuthorityId>),
 }
+
+// impl AuthorityIdBound for Keyring<ecdsa_crypto::AuthorityId> {}
 
 /// Trait representing BEEFY specific generation and signing behavior of authority id
 ///
@@ -161,7 +163,7 @@ pub fn generate_vote_equivocation_proof(
 
 /// Create a new `ForkEquivocationProof` based on vote & canonical header.
 pub fn generate_fork_equivocation_proof_vote<Header, Hash>(
-	vote: (u64, Payload, ValidatorSetId, &Keyring),
+	vote: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
 	canonical_header: Option<Header>,
 	ancestry_proof: Option<AncestryProof<Hash>>,
 ) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {
@@ -178,7 +180,7 @@ pub fn generate_fork_equivocation_proof_vote<Header, Hash>(
 /// Create a new `ForkEquivocationProof` based on signed commitment & canonical header.
 pub fn generate_fork_equivocation_proof_sc<Header, Hash>(
 	commitment: Commitment<u64>,
-	keyrings: Vec<Keyring>,
+	keyrings: Vec<Keyring<ecdsa_crypto::AuthorityId>>,
 	canonical_header: Option<Header>,
 	ancestry_proof: Option<AncestryProof<Hash>>,
 ) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {

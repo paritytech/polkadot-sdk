@@ -247,7 +247,7 @@ where
 	B: Block,
 	BE: Backend<B> + Send + Sync,
 	P: PayloadProvider<B> + Send + Sync,
-	R: ProvideRuntimeApi<B> + Send + Sync,
+	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	pub(crate) fn new(
@@ -612,7 +612,7 @@ pub(crate) mod tests {
 		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
 		let mut net = BeefyTestNet::new(1);
 		let backend = net.peer(0).client().as_backend();
-		let fisherman = create_fisherman(keyring, Arc::new(api.clone()), backend.clone());
+		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
 
 		let (gv, mut report_stream) =
 			GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
@@ -733,7 +733,7 @@ pub(crate) mod tests {
 		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
 		let mut net = BeefyTestNet::new(1);
 		let backend = net.peer(0).client().as_backend();
-		let fisherman = create_fisherman(keyring, Arc::new(api.clone()), backend.clone());
+		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
 
 		let (gv, _) = GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
@@ -817,7 +817,7 @@ pub(crate) mod tests {
 		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
 		let mut net = BeefyTestNet::new(1);
 		let backend = net.peer(0).client().as_backend();
-		let fisherman = create_fisherman(keyring, Arc::new(api.clone()), backend.clone());
+		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
 
 		let (gv, _) = GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });

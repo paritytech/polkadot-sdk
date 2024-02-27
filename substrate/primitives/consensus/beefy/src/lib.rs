@@ -36,7 +36,6 @@ mod payload;
 
 pub mod mmr;
 pub mod witness;
-use core::fmt::Debug;
 
 /// Test utilities
 #[cfg(feature = "std")]

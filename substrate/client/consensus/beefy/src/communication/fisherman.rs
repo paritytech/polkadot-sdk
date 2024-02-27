@@ -17,11 +17,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	error::Error,
-	expect_validator_set_nonblocking,
-	justification::BeefyVersionedFinalityProof,
-	keystore::{BeefyKeystore, BeefySignatureHasher},
-	LOG_TARGET,
+	error::Error, expect_validator_set_nonblocking, justification::BeefyVersionedFinalityProof,
+	keystore::BeefyKeystore, LOG_TARGET,
 };
 use log::{debug, warn};
 use sc_client_api::Backend;
@@ -30,8 +27,8 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
 	check_fork_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, ForkEquivocationProof, MmrHashing, MmrRootHash, Payload, PayloadProvider,
-	SignedCommitment, ValidatorSet, VoteMessage,
+	BeefyApi, BeefySignatureHasher, ForkEquivocationProof, MmrHashing, MmrRootHash, Payload,
+	PayloadProvider, SignedCommitment, ValidatorSet, VoteMessage,
 };
 use sp_mmr_primitives::{AncestryProof, MmrApi};
 use sp_runtime::{
@@ -45,7 +42,7 @@ use std::{marker::PhantomData, sync::Arc};
 pub(crate) struct Fisherman<B: Block, BE, P, R> {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
-	pub key_store: Arc<BeefyKeystore>,
+	pub key_store: Arc<BeefyKeystore<AuthorityId>>,
 	pub payload_provider: P,
 	pub _phantom: PhantomData<B>,
 }

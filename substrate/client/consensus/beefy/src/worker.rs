@@ -582,7 +582,7 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	pub sync: Arc<S>,
 
 	// communication (created once, but returned and reused if worker is restarted/reinitialized)
-	pub comms: BeefyComms<B>,
+	pub comms: BeefyComms<B, BE, P, RuntimeApi>,
 
 	// channels
 	/// Links between the block importer, the background voter and the RPC layer.
@@ -602,7 +602,7 @@ where
 	P: PayloadProvider<B>,
 	S: SyncOracle,
 	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	fn best_grandpa_block(&self) -> NumberFor<B> {
 		*self.persisted_state.voting_oracle.best_grandpa_block_header.number()
@@ -1292,9 +1292,9 @@ pub(crate) mod tests {
 		mmr::MmrRootProvider,
 		test_utils::{
 			generate_fork_equivocation_proof_sc, generate_fork_equivocation_proof_vote,
-			generate_vote_equivocation_proof,
+			generate_vote_equivocation_proof, Keyring,
 		},
-		ForkEquivocationProof, Keyring, Payload, SignedCommitment,
+		ForkEquivocationProof, Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::{Header as HeaderT, One};
 	use std::marker::PhantomData;
@@ -1336,7 +1336,8 @@ pub(crate) mod tests {
 		TestApi,
 		Arc<SyncingService<Block>>,
 	> {
-		let key_store: Arc<BeefyKeystore> = Arc::new(Some(create_beefy_keystore(*key)).into());
+		let key_store: Arc<BeefyKeystore<AuthorityId>> =
+			Arc::new(Some(create_beefy_keystore(key)).into());
 
 		let (to_rpc_justif_sender, from_voter_justif_stream) =
 			BeefyVersionedFinalityProofStream::<Block>::channel();
@@ -1418,7 +1419,7 @@ pub(crate) mod tests {
 			base: BeefyWorkerBase {
 				backend,
 				runtime: api,
-				key_store: Some(keystore).into(),
+				key_store,
 				metrics,
 				_phantom: Default::default(),
 			},
@@ -1955,6 +1956,7 @@ pub(crate) mod tests {
 
 		// verify: Alice reports Bob
 		let ancestry_proof = alice_worker
+			.base
 			.runtime
 			.runtime_api()
 			.generate_ancestry_proof(*hashes.last().unwrap(), block_number, None)
@@ -1978,7 +1980,7 @@ pub(crate) mod tests {
 			);
 			// verify Alice reports Bob's equivocation to runtime
 			let reported =
-				alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+				alice_worker.base.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
 			assert_eq!(reported.len(), 1);
 			assert_eq!(*reported.get(0).unwrap(), proof);
 		}
@@ -2001,7 +2003,7 @@ pub(crate) mod tests {
 			);
 			// verify Alice does *not* report her own equivocation to runtime
 			let reported =
-				alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+				alice_worker.base.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
 			assert_eq!(reported.len(), 1);
 			assert!(*reported.get(0).unwrap() != proof);
 		}
@@ -2042,7 +2044,7 @@ pub(crate) mod tests {
 				Ok(true)
 			);
 			let mut reported =
-				alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+				alice_worker.base.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
 			// verify Alice report Bob's and Charlie's equivocation to runtime
 			assert_eq!(reported.len(), 2);
 			assert_eq!(reported.pop(), Some(proof));
@@ -2087,7 +2089,7 @@ pub(crate) mod tests {
 			Ok(true)
 		);
 		let mut reported =
-			alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+			alice_worker.base.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
 		assert_eq!(reported.len(), 2);
 		assert_eq!(reported.pop(), Some(future_proof));
 	}
