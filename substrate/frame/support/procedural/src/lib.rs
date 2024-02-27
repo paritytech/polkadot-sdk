@@ -1001,26 +1001,12 @@ pub fn getter(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The optional attribute `#[pallet::storage_prefix = "SomeName"]` allows you to define the
-/// storage prefix to use. This is helpful if you wish to rename the storage field but don't
-/// want to perform a migration.
+#[rustfmt::skip]
 ///
-/// E.g:
+/// ---
 ///
-/// ```ignore
-/// #[pallet::storage]
-/// #[pallet::storage_prefix = "foo"]
-/// #[pallet::getter(fn my_storage)]
-/// pub(super) type MyStorage<T> = StorageMap<Hasher = Blake2_128Concat, Key = u32, Value = u32>;
-/// ```
-///
-/// or
-///
-/// ```ignore
-/// #[pallet::storage]
-/// #[pallet::getter(fn my_storage)]
-/// pub(super) type MyStorage<T> = StorageMap<_, Blake2_128Concat, u32, u32>;
-/// ```
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// [`frame_support::pallet_macros::storage_prefix`](../frame_support/pallet_macros/attr.storage_prefix.html).
 #[proc_macro_attribute]
 pub fn storage_prefix(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
