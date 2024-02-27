@@ -962,6 +962,7 @@ dependencies = [
  "staging-xcm-executor",
  "testnet-parachains-constants",
  "westend-runtime",
+ "westend-runtime-constants",
  "westend-system-emulated-network",
 ]
 
@@ -1004,7 +1005,9 @@ dependencies = [
  "pallet-nft-fractionalization",
  "pallet-nfts",
  "pallet-nfts-runtime-api",
+ "pallet-preimage",
  "pallet-proxy",
+ "pallet-scheduler",
  "pallet-session",
  "pallet-timestamp",
  "pallet-transaction-payment",

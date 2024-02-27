@@ -31,6 +31,7 @@ xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", def
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false }
 pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false }
 westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
+westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants" }
 
 # Cumulus
 parachains-common = { path = "../../../../../../parachains/common" }

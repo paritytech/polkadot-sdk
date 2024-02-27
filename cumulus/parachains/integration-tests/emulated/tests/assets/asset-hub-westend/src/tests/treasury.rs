@@ -18,9 +18,12 @@ use asset_hub_westend_runtime::xcm_config::LocationToAccountId as AssetHubLocati
 use emulated_integration_tests_common::accounts::{ALICE, BOB};
 use frame_support::{
 	dispatch::RawOrigin,
-	traits::fungibles::{Create, Inspect, Mutate},
+	traits::{
+		fungibles::{Create, Inspect, Mutate},
+		schedule::v3::TaskName,
+	},
 };
-use parachains_common::westend::currency::UNITS;
+use westend_runtime_constants::currency::UNITS;
 
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
 use westend_runtime_constants::currency::EXISTENTIAL_DEPOSIT;
@@ -131,11 +134,9 @@ fn create_and_claim_treasury_spend() {
 
 #[test]
 fn spend_and_swap() {
-	use emulated_integration_tests_common::impls::Network;
 	use frame_support::traits::OnInitialize;
 	use sp_runtime::traits::Dispatchable;
 	use westend_runtime::{AssetRate, OriginCaller};
-	use westend_system_emulated_network::WestendMockNet;
 	use xcm::v3::{
 		Junction::{GeneralIndex, PalletInstance, Parachain, Plurality},
 		Junctions::X1,
@@ -183,7 +184,7 @@ fn spend_and_swap() {
 	let total_swap_amount_in =
 		(total_swap_amount_out / USDT_UNITS) / (usdt_to_native_rate - 1) * UNITS;
 	// Number of swaps we want to split the acquisition of `total_swap_amount_out`.
-	let mut swaps_number: u32 = 2;
+	let swaps_number: u32 = 2;
 
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
@@ -353,6 +354,30 @@ fn spend_and_swap() {
 			keep_alive: false,
 		});
 
+		let task_name: TaskName = [1u8; 32];
+
+		let scheduled_swap_call =
+			AssetHubRuntimeCall::Utility(pallet_utility::Call::<AssetHubRuntime>::batch_all {
+				calls: vec![
+					AssetHubRuntimeCall::Scheduler(
+						pallet_scheduler::Call::<AssetHubRuntime>::schedule_named_after {
+							id: task_name,
+							after: 10,
+							maybe_periodic: Some((100, swaps_number)),
+							priority: 3,
+							call: bx!(swap_call),
+						},
+					),
+					AssetHubRuntimeCall::Scheduler(
+						pallet_scheduler::Call::<AssetHubRuntime>::set_retry_named {
+							id: task_name,
+							retries: 3,
+							period: 2,
+						},
+					),
+				],
+			});
+
 		let spend_and_swap_call =
 			RuntimeCall::Utility(pallet_utility::Call::<Runtime>::batch_all {
 				calls: vec![
@@ -369,37 +394,21 @@ fn spend_and_swap() {
 					// the risk is low. This is especially true when the account balance is
 					// sufficient, and any potential failure poses minimal harm.
 					RuntimeCall::Treasury(pallet_treasury::Call::<Runtime>::payout { index: 0 }),
-					// TODO - Instead of scheduling the send call on the Relay Chain, consider
-					// scheduling it on AssetHub. To achieve this, wrap the scheduled call with
-					// `pallet_xcm::execute(call)`. This allows transacting the permissioned
-					// `schedule_after` call with `origin_kind = Xcm` and executing a swap with
-					// `origin_kind = SovereignAccount`.
-					// Additionally, the `LocationToAccountId` type should be capable of converting
-					// a `Location` wrapped into `pallet_xcm::Origin::Xcm(location)` into a
-					// sovereign account.
-					RuntimeCall::Scheduler(pallet_scheduler::Call::<Runtime>::schedule_after {
-						after: 10,
-						// TODO - provide a retry mechanism for the scheduler.
-						// Right now, if any of the planned swaps fails, it won't be retried.
-						maybe_periodic: Some((100, swaps_number)),
-						priority: 3,
-						call: bx!(RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
-							dest: bx!(VersionedLocation::V3(asset_hub_location)),
-							message: bx!(VersionedXcm::V3(Xcm(vec![
-								v3::Instruction::UnpaidExecution {
-									weight_limit: Unlimited,
-									check_origin: None
-								},
-								v3::Instruction::Transact {
-									origin_kind: v3::OriginKind::SovereignAccount,
-									require_weight_at_most: Weight::from_parts(
-										5_000_000_000,
-										50_000
-									),
-									call: swap_call.encode().into(),
-								}
-							])))
-						})),
+					// Send XCM message to AssetHub with a call that schedules periodic swaps to
+					// acquire a desired usdt amount.
+					RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
+						dest: bx!(VersionedLocation::V3(asset_hub_location)),
+						message: bx!(VersionedXcm::V3(Xcm(vec![
+							v3::Instruction::UnpaidExecution {
+								weight_limit: Unlimited,
+								check_origin: None
+							},
+							v3::Instruction::Transact {
+								origin_kind: v3::OriginKind::SovereignAccount,
+								require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
+								call: scheduled_swap_call.encode().into(),
+							}
+						]))),
 					}),
 				],
 			});
@@ -410,8 +419,7 @@ fn spend_and_swap() {
 			Westend,
 			vec![
 				RuntimeEvent::Treasury(pallet_treasury::Event::Paid { .. }) => {},
-				RuntimeEvent::Scheduler(pallet_scheduler::Event::Scheduled { when: 20, .. }) => {},
-				RuntimeEvent::Utility(pallet_utility::Event::BatchCompleted { .. }) => {},
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
 			]
 		);
 	});
@@ -427,7 +435,9 @@ fn spend_and_swap() {
 			AssetHubWestend,
 			vec![
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer { .. }) => {},
+				RuntimeEvent::Scheduler(pallet_scheduler::Event::Scheduled { when: 15, .. }) => {},
 				RuntimeEvent::ParachainSystem(cumulus_pallet_parachain_system::Event::UpwardMessageSent { .. }) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true ,.. }) => {},
 				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true ,.. }) => {},
 			]
 		);
@@ -455,28 +465,16 @@ fn spend_and_swap() {
 		);
 	});
 
-	// Move to the block at which the first scheduled call should be executed.
-	<WestendMockNet as Network>::set_relay_block_number(20);
-
-	Westend::execute_with(|| {
-		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
-
-		// Make the scheduler service the scheduled calls.
-
-		westend_runtime::Scheduler::on_initialize(<Westend as Chain>::System::block_number());
-
-		assert_expected_events!(
-			Westend,
-			vec![
-				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-				RuntimeEvent::Scheduler(pallet_scheduler::Event::Dispatched { .. }) => {},
-				RuntimeEvent::Scheduler(pallet_scheduler::Event::Scheduled { when: 120, .. }) => {},
-			]
-		);
-	});
-
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		// Set the block number for the first scheduled swap.
+		<AssetHubWestend as Chain>::System::set_block_number(15);
+
+		// Make the scheduler service the scheduled calls.
+		asset_hub_westend_runtime::Scheduler::on_initialize(
+			<AssetHubWestend as Chain>::System::block_number(),
+		);
 
 		// First swap was successful.
 
@@ -489,26 +487,27 @@ fn spend_and_swap() {
 			AssetHubWestend,
 			vec![
 				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::SwapExecuted { .. }) => {},
-				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true ,.. }) => {},
+				RuntimeEvent::Scheduler(pallet_scheduler::Event::Dispatched { result: Ok(()), .. }) => {},
+				RuntimeEvent::Scheduler(pallet_scheduler::Event::Scheduled { when: 115, .. }) => {},
 			]
 		);
 	});
 
-	<WestendMockNet as Network>::set_relay_block_number(120);
-	swaps_number -= 1;
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
-	Westend::execute_with(|| {
-		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
+		// Freeze usdt asset class to cause a failure for the next swap.
 
-		// Make the scheduler serviced the scheduled calls.
-
-		westend_runtime::Scheduler::on_initialize(<Westend as Chain>::System::block_number());
+		assert_ok!(AssetHubAssets::freeze_asset(
+			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			USDT_ID.into()
+		));
 
 		assert_expected_events!(
-			Westend,
+			AssetHubWestend,
 			vec![
-				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-				RuntimeEvent::Scheduler(pallet_scheduler::Event::Dispatched { .. }) => {},
+				RuntimeEvent::Assets(pallet_assets::Event::AssetFrozen { .. }) => {},
 			]
 		);
 	});
@@ -516,7 +515,15 @@ fn spend_and_swap() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
-		// Last swap was successful.
+		// Set the block number for the second scheduled swap.
+		<AssetHubWestend as Chain>::System::set_block_number(115);
+
+		// Make the scheduler service the scheduled calls.
+		asset_hub_westend_runtime::Scheduler::on_initialize(
+			<AssetHubWestend as Chain>::System::block_number(),
+		);
+
+		// Second swap fails.
 
 		assert_eq!(
 			<AssetHubAssets as Inspect<_>>::balance(USDT_ID, &asset_hub_treasury_account),
@@ -526,8 +533,55 @@ fn spend_and_swap() {
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
+				RuntimeEvent::Scheduler(pallet_scheduler::Event::Dispatched { result: Err(..), .. }) => {},
+				// Retry scheduled for failed swap task.
+				RuntimeEvent::Scheduler(pallet_scheduler::Event::Scheduled { when: 117, .. }) => {},
+			]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		// Thaw usdt asset class for next swap to succeed.
+
+		assert_ok!(AssetHubAssets::thaw_asset(
+			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			USDT_ID.into()
+		));
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::Assets(pallet_assets::Event::AssetThawed { .. }) => {},
+			]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		// Set the block number for the retry time of the second scheduled swap.
+		<AssetHubWestend as Chain>::System::set_block_number(117);
+
+		// Make the scheduler service the scheduled calls.
+		asset_hub_westend_runtime::Scheduler::on_initialize(
+			<AssetHubWestend as Chain>::System::block_number(),
+		);
+
+		// Retry of the second swap succeeds.
+
+		assert_eq!(
+			<AssetHubAssets as Inspect<_>>::balance(USDT_ID, &asset_hub_treasury_account),
+			total_swap_amount_out
+		);
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
 				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::SwapExecuted { .. }) => {},
-				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true ,.. }) => {},
+				RuntimeEvent::Scheduler(pallet_scheduler::Event::Dispatched { result: Ok(()), .. }) => {},
 			]
 		);
 	});
