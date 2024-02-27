@@ -22531,6 +22531,7 @@ version = "1.0.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
+ "scale-info",
  "sp-api",
  "sp-runtime",
  "sp-std 14.0.0",

@@ -18,17 +18,19 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Codec;
+use codec::{Codec, Decode, Encode};
+use frame_support::pallet_prelude::TypeInfo;
 use sp_std::vec::Vec;
 use sp_weights::Weight;
-use xcm::latest::{AssetId, Xcm};
+use xcm::{Version, VersionedAssetId, VersionedXcm};
+
 sp_api::decl_runtime_apis! {
 	/// A trait of XCM payment API.
 	///
 	/// API provides functionality for obtaining
 	/// the weight required to execute an XCM message,
 	/// a list of accepted `AssetId` for payment for its
-	/// execution and the cost in the specified supported `AssetId`.
+	/// execution and the cost in the specified supported one.
 	///
 	/// To determine the execution weight of the calls required
 	/// for some instructions (for example, [`xcm::latest::Instruction::Transact`])
@@ -38,7 +40,11 @@ sp_api::decl_runtime_apis! {
 		Call: Codec,
 	{
 		/// Returns a list of acceptable payment assets.
-		fn query_acceptable_payment_assets() -> Vec<AssetId>;
+		///
+		/// # Arguments
+		///
+		/// * `xcm_version`: Version.
+		fn query_acceptable_payment_assets(xcm_version: Version) -> Result<Vec<VersionedAssetId>, Error>;
 
 		/// Converts a weight into a fee for the specified `AssetId`.
 		/// Returns `None` if the `AssetId` isn't supported as a acceptable for the fee payment.
@@ -46,14 +52,28 @@ sp_api::decl_runtime_apis! {
 		/// # Arguments
 		///
 		/// * `weight`: convertible `Weight`.
-		/// * `asset`: `AssetId`.
-		fn query_weight_to_asset_fee(weight: Weight, asset: AssetId) -> Option<u128>;
+		/// * `asset`: `VersionedAssetId`.
+		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, Error>;
 
 		/// Returns a weight needed to execute a XCM.
 		///
 		/// # Arguments
 		///
-		/// * `message`: `Xcm`.
-		fn query_xcm_weight(message: Xcm<Call>) -> Result<Weight, Xcm<Call>>;
+		/// * `message`: `VersionedXcm`.
+		fn query_xcm_weight(message: VersionedXcm<Call>) -> Result<Weight, Error>;
 	}
+}
+
+#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+pub enum Error {
+	#[codec(index = 0)]
+	Unimplemented,
+	#[codec(index = 1)]
+	VersionedConversionFailed,
+	#[codec(index = 2)]
+	WeightNotComputable,
+	/// XCM version not able to be handled.
+	UnhandledXcmVersion,
+	#[codec(index = 4)]
+	AssetNotFound,
 }

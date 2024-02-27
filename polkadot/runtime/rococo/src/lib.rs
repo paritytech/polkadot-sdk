@@ -98,7 +98,7 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::{latest::prelude::*, VersionedLocation};
+use xcm::{latest::prelude::*, IntoVersion, VersionedAssetId, VersionedLocation, VersionedXcm};
 use xcm_builder::PayOverXcm;
 
 pub use frame_system::Call as SystemCall;
@@ -123,6 +123,8 @@ use governance::{
 	pallet_custom_origins, AuctionAdmin, Fellows, GeneralAdmin, LeaseAdmin, Treasurer,
 	TreasurySpender,
 };
+use xcm_executor::traits::WeightBounds;
+use xcm_payment_runtime_api::Error as XcmPaymentError;
 
 #[cfg(test)]
 mod tests;
@@ -217,7 +219,7 @@ pub struct OriginPrivilegeCmp;
 impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 	fn cmp_privilege(left: &OriginCaller, right: &OriginCaller) -> Option<Ordering> {
 		if left == right {
-			return Some(Ordering::Equal)
+			return Some(Ordering::Equal);
 		}
 
 		match (left, right) {
@@ -378,10 +380,12 @@ impl OpaqueKeys for OldSessionKeys {
 			<<Babe as BoundToRuntimeAppPublic>::Public>::ID => self.babe.as_ref(),
 			sp_core::crypto::key_types::IM_ONLINE => self.im_online.as_ref(),
 			<<Initializer as BoundToRuntimeAppPublic>::Public>::ID => self.para_validator.as_ref(),
-			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID =>
-				self.para_assignment.as_ref(),
-			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID =>
-				self.authority_discovery.as_ref(),
+			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID => {
+				self.para_assignment.as_ref()
+			},
+			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID => {
+				self.authority_discovery.as_ref()
+			},
 			<<Beefy as BoundToRuntimeAppPublic>::Public>::ID => self.beefy.as_ref(),
 			_ => &[],
 		}
@@ -880,19 +884,19 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
-					RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
+					| RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions { .. } |
-					RuntimeCall::Crowdloan { .. } |
-					RuntimeCall::Registrar { .. } |
-					RuntimeCall::Multisig(..) |
-					RuntimeCall::Slots { .. }
+				RuntimeCall::Auctions { .. }
+					| RuntimeCall::Crowdloan { .. }
+					| RuntimeCall::Registrar { .. }
+					| RuntimeCall::Multisig(..)
+					| RuntimeCall::Slots { .. }
 			),
 			ProxyType::Society => matches!(c, RuntimeCall::Society(..)),
 			ProxyType::OnDemandOrdering => matches!(c, RuntimeCall::OnDemandAssignmentProvider(..)),
@@ -1508,11 +1512,11 @@ pub mod migrations {
 			let now = frame_system::Pallet::<Runtime>::block_number();
 			let lease = slots::Pallet::<Runtime>::lease(para);
 			if lease.is_empty() {
-				return None
+				return None;
 			}
 			// Lease not yet started, ignore:
 			if lease.iter().any(Option::is_none) {
-				return None
+				return None;
 			}
 			let (index, _) =
 				<slots::Pallet<Runtime> as Leaser<BlockNumber>>::lease_period_index(now)?;
@@ -1574,7 +1578,7 @@ pub mod migrations {
 		fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 			if System::last_runtime_upgrade_spec_version() > UPGRADE_SESSION_KEYS_FROM_SPEC {
 				log::warn!(target: "runtime::session_keys", "Skipping session keys migration pre-upgrade check due to spec version (already applied?)");
-				return Ok(Vec::new())
+				return Ok(Vec::new());
 			}
 
 			log::info!(target: "runtime::session_keys", "Collecting pre-upgrade session keys state");
@@ -1603,7 +1607,7 @@ pub mod migrations {
 		fn on_runtime_upgrade() -> Weight {
 			if System::last_runtime_upgrade_spec_version() > UPGRADE_SESSION_KEYS_FROM_SPEC {
 				log::info!("Skipping session keys upgrade: already applied");
-				return <Runtime as frame_system::Config>::DbWeight::get().reads(1)
+				return <Runtime as frame_system::Config>::DbWeight::get().reads(1);
 			}
 			log::trace!("Upgrading session keys");
 			Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
@@ -1616,7 +1620,7 @@ pub mod migrations {
 		) -> Result<(), sp_runtime::TryRuntimeError> {
 			if System::last_runtime_upgrade_spec_version() > UPGRADE_SESSION_KEYS_FROM_SPEC {
 				log::warn!(target: "runtime::session_keys", "Skipping session keys migration post-upgrade check due to spec version (already applied?)");
-				return Ok(())
+				return Ok(());
 			}
 
 			let key_ids = SessionKeys::key_ids();
@@ -1800,19 +1804,33 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl xcm_payment_runtime_api::XcmPaymentRuntimeApi<Block, RuntimeCall> for Runtime {
-		fn query_acceptable_payment_assets() -> Vec<AssetId> {
-			vec![AssetId::Concrete(xcm_config::TokenLocation::get())]
+		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentError> {
+			if !matches!(xcm_version, 3 | 4) {
+				return Err(XcmPaymentError::UnhandledXcmVersion);
+			}
+			Ok([VersionedAssetId::V4(xcm_config::TokenLocation::get().into())]
+				.into_iter()
+				.filter_map(|asset| asset.into_version(xcm_version).ok())
+				.collect())
 		}
 
-		fn query_weight_to_asset_fee(weight: Weight, asset: AssetId) -> Option<u128> {
-			let local_asset = AssetId::Concrete(xcm_config::TokenLocation::get());
-			if asset != local_asset { return None; }
-			Some(WeightToFee::weight_to_fee(&weight))
+		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentError> {
+			let local_asset = VersionedAssetId::V4(xcm_config::TokenLocation::get().into());
+			let asset = asset
+				.into_version(4)
+				.map_err(|_| XcmPaymentError::VersionedConversionFailed)?;
+
+			if  asset != local_asset { return Err(XcmPaymentError::AssetNotFound); }
+
+			Ok(WeightToFee::weight_to_fee(&weight))
 		}
 
-		fn query_xcm_weight(message: Xcm<RuntimeCall>) -> Result<Weight, Xcm<RuntimeCall>> {
-			<xcm_executor::XcmExecutor<xcm_config::XcmConfig>>::prepare(message)
-				.map(|wm| wm.weight_of())
+		fn query_xcm_weight(message: VersionedXcm<RuntimeCall>) -> Result<Weight, XcmPaymentError> {
+			<<xcm_config::XcmConfig as xcm_executor::Config>::Weigher as WeightBounds<_>>::weight(&mut message
+				.try_into()
+				.map_err(|_| XcmPaymentError::VersionedConversionFailed)?
+			)
+				.map_err(|_| XcmPaymentError::WeightNotComputable)
 		}
 	}
 
@@ -2527,7 +2545,7 @@ mod remote_tests {
 	#[tokio::test]
 	async fn run_migrations() {
 		if var("RUN_MIGRATION_TESTS").is_err() {
-			return
+			return;
 		}
 
 		sp_tracing::try_init_simple();
