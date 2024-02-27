@@ -175,7 +175,7 @@ zombienet-polkadot-functional-0013-systematic-chunk-recovery:
       --test="0013-systematic-chunk-recovery.zndsl"
 
 zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
-extends:
+  extends:
     - .zombienet-polkadot-common
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
