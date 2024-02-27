@@ -127,6 +127,7 @@ members = [
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
 	"cumulus/primitives/proof-size-hostfunction",
+	"cumulus/primitives/storage-weight-reclaim",
 	"cumulus/primitives/timestamp",
 	"cumulus/primitives/utility",
 	"cumulus/test/client",
@@ -537,6 +538,14 @@ default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
 polkavm-linker = "0.8.2"
 polkavm-derive = "0.8.0"
 log = { version = "0.4.20", default-features = false }
+quote = { version = "1.0.33" }
+serde = { version = "1.0.197", default-features = false }
+serde-big-array = { version = "0.3.2" }
+serde_derive = { version = "1.0.117" }
+serde_json = { version = "1.0.114", default-features = false }
+serde_yaml = { version = "0.9" }
+syn = { version = "2.0.50" }
+thiserror = { version = "1.0.48" }
 
 [profile.release]
 # Polkadot runtime requires unwinding.

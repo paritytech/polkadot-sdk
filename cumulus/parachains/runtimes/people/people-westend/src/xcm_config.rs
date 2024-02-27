@@ -27,7 +27,8 @@ use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
-		AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
+		RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
@@ -147,13 +148,6 @@ impl Contains<Location> for ParentOrParentsPlurality {
 	}
 }
 
-pub struct ParentOrSiblings;
-impl Contains<Location> for ParentOrSiblings {
-	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, []) | (1, [Parachain(_)]))
-	}
-}
-
 pub struct FellowsPlurality;
 impl Contains<Location> for FellowsPlurality {
 	fn contains(location: &Location) -> bool {
@@ -227,7 +221,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					// get free execution.
 					AllowExplicitUnpaidExecutionFrom<(ParentOrParentsPlurality, FellowsPlurality)>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 				),
 				UniversalLocation,
 				ConstU32<8>,
