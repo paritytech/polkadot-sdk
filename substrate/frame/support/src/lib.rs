@@ -1029,9 +1029,61 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
-		storage_prefix, unbounded, weight, whitelist_storage,
+		inherent, no_default, no_default_bounds, origin, pallet_section, storage_prefix, unbounded,
+		weight, whitelist_storage,
 	};
+
+	/// An attribute macro that can be attached to a module declaration. Doing so will
+	/// import the contents of the specified external pallet section that is defined
+	/// elsewhere using [`#[pallet_section]`](`pallet_section`).
+	///
+	/// ## Example
+	/// ```
+	/// use frame_support::pallet_macros::pallet_section;
+	/// use frame_support::pallet_macros::import_section;
+	///
+	/// /// A [`pallet_section`] that defines the events for a pallet.
+	/// /// This can later be imported into the pallet using [`import_section`].
+	/// #[pallet_section]
+	/// mod events {
+	/// 	#[pallet::event]
+	/// 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	/// 	pub enum Event<T: Config> {
+	/// 		/// Event documentation should end with an array that provides descriptive names for event
+	/// 		/// parameters. [something, who]
+	/// 		SomethingStored { something: u32, who: T::AccountId },
+	/// 	}
+	/// }
+	///
+	/// #[import_section(events)]
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {
+	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	/// 	}
+	/// }
+	/// ```
+	///
+	/// This will result in the contents of `some_section` being _verbatim_ imported into
+	/// the pallet above. Note that since the tokens for `some_section` are essentially
+	/// copy-pasted into the target pallet, you cannot refer to imports that don't also
+	/// exist in the target pallet, but this is easily resolved by including all relevant
+	/// `use` statements within your pallet section, so they are imported as well, or by
+	/// otherwise ensuring that you have the same imports on the target pallet.
+	///
+	/// It is perfectly permissible to import multiple pallet sections into the same pallet,
+	/// which can be done by having multiple `#[import_section(something)]` attributes
+	/// attached to the pallet.
+	///
+	/// Note that sections are imported by their module name/ident, and should be referred to
+	/// by their _full path_ from the perspective of the target pallet.
+	pub use frame_support_procedural::import_section;
 
 	/// The optional attribute `#[pallet::getter(fn $my_getter_fn_name)]` allows you to define
 	/// a getter function on `Pallet` storage.
