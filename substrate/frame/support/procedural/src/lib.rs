@@ -843,17 +843,12 @@ pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// To bypass the `frame_system::Config` supertrait check, use the attribute
-/// `pallet::disable_frame_system_supertrait_check`, e.g.:
+#[rustfmt::skip]
 ///
-/// ```ignore
-/// #[pallet::config]
-/// #[pallet::disable_frame_system_supertrait_check]
-/// pub trait Config: pallet_timestamp::Config {}
-/// ```
+/// ---
 ///
-/// NOTE: Bypassing the `frame_system::Config` supertrait check is typically desirable when you
-/// want to write an alternative to the `frame_system` pallet.
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// [`frame_support::pallet_macros::disable_frame_system_supertrait_check`](../frame_support/pallet_macros/attr.disable_frame_system_supertrait_check.html).
 #[proc_macro_attribute]
 pub fn disable_frame_system_supertrait_check(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()

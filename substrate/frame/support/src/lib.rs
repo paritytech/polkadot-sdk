@@ -1029,10 +1029,36 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		disable_frame_system_supertrait_check, extra_constants, generate_store, getter,
-		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
-		storage_prefix, unbounded, weight, whitelist_storage,
+		extra_constants, generate_store, getter, import_section, inherent, no_default,
+		no_default_bounds, origin, pallet_section, storage_prefix, unbounded, weight,
+		whitelist_storage,
 	};
+
+	#[rustfmt::skip]
+	/// To bypass the `frame_system::Config` supertrait check, use the attribute
+	/// `pallet::disable_frame_system_supertrait_check`, e.g.:
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::config]
+	/// 	#[pallet::disable_frame_system_supertrait_check]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	///
+	/// Bypassing the `frame_system::Config` supertrait check is typically desirable when
+	/// you want to write an alternative to the `frame_system` pallet.
+	///
+	/// To learn more about supertraits, see the
+	/// [trait_based_programming](../../polkadot_sdk_docs/reference_docs/trait_based_programming/index.html)
+	/// reference doc.
+	pub use frame_support_procedural::disable_frame_system_supertrait_check;
 
 	/// The mandatory attribute `#[pallet::config]` defines the configurable options for the
 	/// pallet.
