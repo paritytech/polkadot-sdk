@@ -37,4 +37,4 @@ sp-core = { path = "../../primitives/core" }
 sp-keystore = { path = "../../primitives/keystore" }
 sp-mixnet = { path = "../../primitives/mixnet" }
 sp-runtime = { path = "../../primitives/runtime" }
-thiserror = "1.0"
+thiserror = { workspace = true }

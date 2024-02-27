@@ -587,11 +587,12 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					})
 					.collect();
 
-				BackedCandidate::<T::Hash> {
+				BackedCandidate::<T::Hash>::new(
 					candidate,
 					validity_votes,
-					validator_indices: bitvec::bitvec![u8, bitvec::order::Lsb0; 1; group_validators.len()],
-				}
+					bitvec::bitvec![u8, bitvec::order::Lsb0; 1; group_validators.len()],
+					None,
+				)
 			})
 			.collect()
 	}
