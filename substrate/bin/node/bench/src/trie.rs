@@ -299,6 +299,7 @@ impl core::Benchmark for TrieWriteBenchmark {
 		sc_client_db::apply_tree_commit::<BlakeTwo256>(
 			commit,
 			db.state_db.is_none(),
+			db.prefix_keys,
 			&mut transaction,
 		);
 		db.db.commit(transaction).expect("Failed to write transaction");

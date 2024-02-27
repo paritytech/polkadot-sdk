@@ -1184,6 +1184,7 @@ impl<T: Clone> FrozenForDuration<T> {
 pub fn apply_tree_commit<H: Hash>(
 	commit: TrieCommit<H::Out>,
 	db_tree_support: bool,
+	prefix_keys: bool,
 	tx: &mut Transaction<DbHash>,
 ) {
 	fn convert<H: Hash>(node: sp_trie::Changeset<H::Out, DBLocation>) -> sp_database::NodeRef {
@@ -1208,8 +1209,32 @@ pub fn apply_tree_commit<H: Hash>(
 				}
 			},
 		}
-	} else {
+	} else if prefix_keys {
 		let mut memdb = sp_trie::PrefixedMemoryDB::<H>::default();
+		commit.apply_to(&mut memdb);
+
+		for (key, (val, rc)) in memdb.drain() {
+			if rc > 0 {
+				if rc == 1 {
+					tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
+				} else {
+					tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
+					for _ in 0..rc - 1 {
+						tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
+					}
+				}
+			} else if rc < 0 {
+				if rc == -1 {
+					tx.remove(columns::STATE, key.as_ref());
+				} else {
+					for _ in 0..-rc {
+						tx.remove(columns::STATE, key.as_ref());
+					}
+				}
+			}
+		}
+	} else {
+		let mut memdb = sp_trie::MemoryDB::<H>::default();
 		commit.apply_to(&mut memdb);
 
 		for (key, (val, rc)) in memdb.drain() {
@@ -1775,6 +1800,7 @@ impl<Block: BlockT> Backend<Block> {
 					apply_tree_commit::<HashingFor<Block>>(
 						trie_commit,
 						self.storage.db.supports_tree_column(),
+						self.storage.db.supports_ref_counting(),
 						&mut transaction,
 					);
 				}
