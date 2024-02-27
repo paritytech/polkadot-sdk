@@ -948,26 +948,13 @@ pub fn feeless_if(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// Allows you to define some extra constants to be added into constant metadata.
+#[rustfmt::skip]
 ///
-/// Item must be defined as:
+/// ---
 ///
-/// ```ignore
-/// #[pallet::extra_constants]
-/// impl<T: Config> Pallet<T> where $optional_where_clause {
-/// 	/// $some_doc
-/// 	$vis fn $fn_name() -> $some_return_type {
-/// 		...
-/// 	}
-/// 	...
-/// }
-/// ```
-/// I.e. a regular rust `impl` block with some optional where clause and functions with 0 args,
-/// 0 generics, and some return type.
+/// Rust-Analyzer Users: Documentation for this macro can be found at
 ///
-/// ## Macro expansion
-///
-/// The macro add some extra constants to pallet constant metadata.
+/// [`frame_support::pallet_macros::extra_constants`](../frame_support/pallet_macros/attr.extra_constants.html).
 #[proc_macro_attribute]
 pub fn extra_constants(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()

@@ -1029,10 +1029,41 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		extra_constants, generate_store, getter, import_section, inherent, no_default,
-		no_default_bounds, origin, pallet_section, storage_prefix, unbounded, weight,
-		whitelist_storage,
+		generate_store, getter, import_section, inherent, no_default, no_default_bounds, origin,
+		pallet_section, storage_prefix, unbounded, weight, whitelist_storage,
 	};
+
+	/// Allows you to define some extra constants to be added into constant metadata.
+	///
+	/// Must be defined like:
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::config]
+	/// 	#[pallet::disable_frame_system_supertrait_check]
+	/// 	pub trait Config: frame_system::Config {}
+	///
+	/// 	#[pallet::extra_constants]
+	/// 	impl<T: Config> Pallet<T> // $optional_where_clause
+	/// 	{
+	/// 	#[pallet::constant_name(SomeU32ConstantName)]
+	/// 		/// Some doc
+	/// 		fn some_u32_constant() -> u32 {
+	/// 			100u32
+	/// 		}
+	/// 	}
+	/// }
+	/// ```
+	///
+	/// I.e. a regular rust `impl` block with some optional where clause and functions with 0
+	/// args, 0 generics, and some return type.
+	pub use frame_support_procedural::extra_constants;
 
 	#[rustfmt::skip]
 	/// To bypass the `frame_system::Config` supertrait check, use the attribute
