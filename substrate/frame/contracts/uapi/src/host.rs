@@ -790,7 +790,7 @@ pub trait HostFn {
 	///
 	/// # Parameters
 	///
-	/// - `dest`: The XCM destination, should be decodable as [VersionedMultiLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedMultiLocation.html),
+	/// - `dest`: The XCM destination, should be decodable as [VersionedLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedLocation.html),
 	///   traps otherwise.
 	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
 	///   traps otherwise.
@@ -803,4 +803,34 @@ pub trait HostFn {
 		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
 	)]
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
+
+	/// Create a new query, using the contract's address as the responder.
+	///
+	/// # Parameters
+	///
+	/// - `timeout_ptr`: The query timeout, should be decodable as a `BlockNumberFor<T>`.
+	/// - `match_querier`: The match_querier should be decodable as [VersionedLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedLocation.html),
+	/// - `output`: A reference to the output data buffer to write the
+	///   [`xcm_builder::QueryHandler::QueryId`].
+	///
+	/// # Return Value
+	///
+	/// Returns `ReturnCode::Success` when the query was successfully created. When the query
+	/// creation fails, `ReturnCode::XcmQueryFailed` is returned.
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
+	fn xcm_query(timeout: &[u8], match_querier: &[u8], output: &mut [u8]) -> Result;
+
+	/// Take an XCM response for the specified query.
+	///
+	/// # Parameters
+	///
+	/// - `query_id`: The [`xcm_builder::QueryHandler::QueryId`]
+	/// - `output`: A reference to the output data buffer to write the
+	///   [`xcm_builder::QueryResponseStatus`].
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
+	fn xcm_take_response(query_id: &[u8], output: &mut [u8]) -> Result;
 }

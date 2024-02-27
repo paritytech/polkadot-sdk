@@ -103,6 +103,8 @@ define_error_codes! {
 	XcmExecutionFailed = 13,
 	/// The `xcm_send` call failed.
 	XcmSendFailed = 14,
+	/// The `xcm_query` call failed.
+	XcmQueryFailed = 15,
 }
 
 /// The raw return code returned by the host side.

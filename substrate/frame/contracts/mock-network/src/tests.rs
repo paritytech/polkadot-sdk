@@ -16,10 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	parachain::{self, Runtime},
+	parachain::{self, Runtime, RuntimeOrigin},
 	parachain_account_sovereign_account_id,
 	primitives::{AccountId, CENTS},
-	relay_chain, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
+	relay_chain, MockNet, ParaA, ParachainBalances, ParachainPalletXcm, Relay, ALICE, BOB,
+	INITIAL_BALANCE,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -27,14 +28,17 @@ use frame_support::{
 	pallet_prelude::Weight,
 	traits::{fungibles::Mutate, Currency},
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_balances::{BalanceLock, Reasons};
 use pallet_contracts::{Code, CollectEvents, DebugInfo, Determinism};
 use pallet_contracts_fixtures::compile_module;
 use pallet_contracts_uapi::ReturnErrorCode;
 use xcm::{v4::prelude::*, VersionedLocation, VersionedXcm};
+use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 use xcm_simulator::TestExt;
 
 type ParachainContracts = pallet_contracts::Pallet<parachain::Runtime>;
+type QueryId = <pallet_xcm::Pallet<parachain::Runtime> as QueryHandler>::QueryId;
 
 macro_rules! assert_return_code {
 	( $x:expr , $y:expr $(,)? ) => {{
@@ -275,4 +279,103 @@ fn test_xcm_send() {
 			vec![BalanceLock { id: *b"py/xcmlk", amount: 5 * CENTS, reasons: Reasons::All }]
 		);
 	});
+}
+
+#[test]
+fn test_xcm_query() {
+	MockNet::reset();
+	let contract_addr = instantiate_test_contract("xcm_query");
+
+	ParaA::execute_with(|| {
+		let match_querier = Location::from(AccountId32 { network: None, id: ALICE.into() });
+		let match_querier = VersionedLocation::V4(match_querier);
+		let timeout: BlockNumberFor<parachain::Runtime> = 1u32.into();
+
+		// Invoke the contract to create an XCM query.
+		let exec = ParachainContracts::bare_call(
+			ALICE,
+			contract_addr.clone(),
+			0,
+			Weight::MAX,
+			None,
+			(timeout, match_querier).encode(),
+			DebugInfo::UnsafeDebug,
+			CollectEvents::UnsafeCollect,
+			Determinism::Enforced,
+		);
+
+		let mut data = &exec.result.unwrap().data[..];
+		let query_id = QueryId::decode(&mut data).expect("Failed to decode message");
+
+		// Verify that the query exists and is pending.
+		let response = <ParachainPalletXcm as QueryHandler>::take_response(query_id);
+		let expected_response = QueryResponseStatus::Pending { timeout };
+		assert_eq!(response, expected_response);
+	});
+}
+
+#[test]
+fn test_xcm_take_response() {
+	MockNet::reset();
+	let contract_addr = instantiate_test_contract("xcm_take_response");
+
+	ParaA::execute_with(|| {
+		let querier: Location = (Parent, AccountId32 { network: None, id: ALICE.into() }).into();
+		let responder = Location::from(AccountId32 {
+			network: Some(NetworkId::ByGenesis([0u8; 32])),
+			id: ALICE.into(),
+		});
+
+		// Register a new query.
+		let query_id = ParachainPalletXcm::new_query(responder, 1u32.into(), querier.clone());
+
+		// Helper closure to call the contract to take the response.
+		let call = |query_id: QueryId| {
+			let exec = ParachainContracts::bare_call(
+				ALICE,
+				contract_addr.clone(),
+				0,
+				Weight::MAX,
+				None,
+				query_id.encode(),
+				DebugInfo::UnsafeDebug,
+				CollectEvents::UnsafeCollect,
+				Determinism::Enforced,
+			);
+
+			QueryResponseStatus::<BlockNumberFor<parachain::Runtime>>::decode(
+				&mut &exec.result.unwrap().data[..],
+			)
+			.expect("Failed to decode message")
+		};
+
+		// Query is not yet answered.
+		assert_eq!(QueryResponseStatus::Pending { timeout: 1u32.into() }, call(query_id));
+
+		// Execute the XCM program that answers the query.
+		let message = Xcm(vec![QueryResponse {
+			query_id,
+			response: Response::ExecutionResult(None),
+			max_weight: Weight::zero(),
+			querier: Some(querier),
+		}]);
+		ParachainPalletXcm::execute(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedXcm::V4(message)),
+			Weight::from_parts(1_000_000_000, 1_000_000_000),
+		)
+		.unwrap();
+
+		// First call returns the response.
+		assert_eq!(
+			QueryResponseStatus::Ready {
+				response: Response::ExecutionResult(None),
+				at: 1u32.into()
+			},
+			call(query_id)
+		);
+
+		// Second call returns `NotFound`. (Query was already answered)
+		assert_eq!(QueryResponseStatus::NotFound, call(query_id));
+	})
 }

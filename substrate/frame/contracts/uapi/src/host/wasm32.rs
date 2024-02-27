@@ -168,6 +168,14 @@ mod sys {
 			msg_len: u32,
 			output_ptr: *mut u8,
 		) -> ReturnCode;
+
+		pub fn xcm_query(
+			timeout_ptr: *const u8,
+			match_querier: *const u8,
+			output_ptr: *mut u8,
+		) -> ReturnCode;
+
+		pub fn xcm_take_response(query_id_ptr: *const u8, output_ptr: *mut u8) -> ReturnCode;
 	}
 
 	pub mod v1 {
@@ -828,6 +836,18 @@ impl HostFn for HostFnImpl {
 		let ret_code = unsafe {
 			sys::xcm_send(dest.as_ptr(), msg.as_ptr(), msg.len() as _, output.as_mut_ptr())
 		};
+		ret_code.into()
+	}
+
+	fn xcm_query(timeout: &[u8], match_querier: &[u8], output: &mut [u8]) -> Result {
+		let ret_code = unsafe {
+			sys::xcm_query(timeout.as_ptr(), match_querier.as_ptr(), output.as_mut_ptr())
+		};
+		ret_code.into()
+	}
+
+	fn xcm_take_response(query_id: &[u8], output: &mut [u8]) -> Result {
+		let ret_code = unsafe { sys::xcm_take_response(query_id.as_ptr(), output.as_mut_ptr()) };
 		ret_code.into()
 	}
 }
