@@ -1063,45 +1063,39 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn collect_timedout(
 		pred: impl Fn(BlockNumberFor<T>) -> AvailabilityTimeoutStatus<BlockNumberFor<T>>,
 	) -> Vec<CoreIndex> {
-		let mut timed_out_paras = BTreeMap::new();
 		let mut cleaned_up_cores = Vec::new();
 
 		for (para_id, candidates_pending_availability) in <PendingAvailability<T>>::iter() {
+			let mut timed_out = None;
 			for (idx, candidate) in candidates_pending_availability.iter().enumerate() {
 				if pred(candidate.backed_in_number).timed_out {
-					timed_out_paras.insert(para_id, idx);
+					timed_out = Some(idx);
 					// Found the first timed out candidate of this para. All other successors will
-					// be timed out as well. Break and go to the next para
+					// be timed out as well.
 					break
 				}
 			}
-		}
 
-		for (para_id, idx) in timed_out_paras.iter() {
-			let timed_out_candidates: Option<Vec<CandidatePendingAvailability<_, _>>> =
+			if let Some(idx) = timed_out {
 				<PendingAvailability<T>>::mutate(&para_id, |candidates| {
 					if let Some(candidates) = candidates {
-						Some(candidates.drain(idx..).collect())
-					} else {
-						None
+						let cleaned_up = candidates.drain(idx..);
+						for candidate in cleaned_up {
+							cleaned_up_cores.push(candidate.core);
+
+							let receipt = CandidateReceipt {
+								descriptor: candidate.descriptor,
+								commitments_hash: candidate.commitments.hash(),
+							};
+
+							Self::deposit_event(Event::<T>::CandidateTimedOut(
+								receipt,
+								candidate.commitments.head_data,
+								candidate.core,
+							));
+						}
 					}
 				});
-
-			if let Some(candidates) = timed_out_candidates {
-				for candidate in candidates {
-					cleaned_up_cores.push(candidate.core);
-
-					let receipt = CandidateReceipt {
-						descriptor: candidate.descriptor,
-						commitments_hash: candidate.commitments.hash(),
-					};
-
-					Self::deposit_event(Event::<T>::CandidateTimedOut(
-						receipt,
-						candidate.commitments.head_data,
-						candidate.core,
-					));
-				}
 			}
 		}
 
@@ -1123,10 +1117,10 @@ impl<T: Config> Pallet<T> {
 			let mut earliest_disputed_idx = None;
 			for (index, candidate) in pending_candidates.iter().enumerate() {
 				if disputed.contains(&candidate.hash) {
-					if let Some(prev_disputed_idx) = earliest_disputed_idx {
-						// Find the earliest disputed index.
-						earliest_disputed_idx = Some(sp_std::cmp::min(prev_disputed_idx, index));
-					}
+					earliest_disputed_idx = Some(index);
+					// Since we're looping the candidates in dependency order, we've found the
+					// earliest disputed index for this paraid.
+					break;
 				}
 			}
 
@@ -1135,9 +1129,8 @@ impl<T: Config> Pallet<T> {
 				<PendingAvailability<T>>::mutate(&para_id, |record| {
 					if let Some(record) = record {
 						let cleaned_up = record.drain(earliest_disputed_idx..);
-						for candidate in cleaned_up {
-							cleaned_up_cores.push((candidate.core, candidate.hash));
-						}
+						cleaned_up_cores
+							.extend(cleaned_up.map(|candidate| (candidate.core, candidate.hash)));
 					}
 				});
 			}
@@ -1153,7 +1146,7 @@ impl<T: Config> Pallet<T> {
 	/// This should generally not be used but it is useful during execution of Runtime APIs,
 	/// where the changes to the state are expected to be discarded directly after.
 	pub(crate) fn force_enact(para: ParaId) {
-		// TODO: this does not take elastic-scaling into account, it enacts the first candidate.
+		// This does not take elastic-scaling into account, it enacts the first candidate.
 		let enacted_candidate =
 			<PendingAvailability<T>>::mutate(&para, |candidates| match candidates {
 				Some(candidates) => candidates.pop_front(),
