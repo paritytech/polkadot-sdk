@@ -156,12 +156,12 @@ pub use crate::wasm::api_doc;
 type CodeHash<T> = <T as frame_system::Config>::Hash;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type BalanceOf<T> =
-	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type CodeVec<T> = BoundedVec<u8, <T as Config>::MaxCodeLen>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type DebugBufferVec<T> = BoundedVec<u8, <T as Config>::MaxDebugBufferLen>;
 type EventRecordOf<T> =
-	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
+EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
 
 /// The old weight type.
 ///
@@ -258,17 +258,17 @@ pub mod pallet {
 
 		/// The fungible in which fees are paid and contract balances are held.
 		type Currency: Inspect<Self::AccountId>
-			+ Mutate<Self::AccountId>
-			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		+ Mutate<Self::AccountId>
+		+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
 		type RuntimeCall: Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
-			+ GetDispatchInfo
-			+ codec::Decode
-			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
+		+ GetDispatchInfo
+		+ codec::Decode
+		+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Filter that is applied to calls dispatched by contracts.
 		///
@@ -524,9 +524,89 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
-	where
-		<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+		where
+			<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 	{
+		/// Deprecated version if [`Self::call`] for use in an in-storage `Call`.
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::call().saturating_add(<Pallet<T>>::compat_weight_limit(*gas_limit)))]
+		#[allow(deprecated)]
+		#[deprecated(note = "1D weight is used in this extrinsic, please migrate to `call`")]
+		pub fn call_old_weight(
+			origin: OriginFor<T>,
+			dest: AccountIdLookupOf<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+			#[pallet::compact] gas_limit: OldWeight,
+			storage_deposit_limit: Option<<BalanceOf<T> as codec::HasCompact>::Type>,
+			data: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			Self::call(
+				origin,
+				dest,
+				value,
+				<Pallet<T>>::compat_weight_limit(gas_limit),
+				storage_deposit_limit,
+				data,
+			)
+		}
+
+		/// Deprecated version if [`Self::instantiate_with_code`] for use in an in-storage `Call`.
+		#[pallet::call_index(1)]
+		#[pallet::weight(
+		T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32)
+		.saturating_add(<Pallet<T>>::compat_weight_limit(*gas_limit))
+		)]
+		#[allow(deprecated)]
+		#[deprecated(
+		note = "1D weight is used in this extrinsic, please migrate to `instantiate_with_code`"
+		)]
+		pub fn instantiate_with_code_old_weight(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+			#[pallet::compact] gas_limit: OldWeight,
+			storage_deposit_limit: Option<<BalanceOf<T> as codec::HasCompact>::Type>,
+			code: Vec<u8>,
+			data: Vec<u8>,
+			salt: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			Self::instantiate_with_code(
+				origin,
+				value,
+				<Pallet<T>>::compat_weight_limit(gas_limit),
+				storage_deposit_limit,
+				code,
+				data,
+				salt,
+			)
+		}
+
+		/// Deprecated version if [`Self::instantiate`] for use in an in-storage `Call`.
+		#[pallet::call_index(2)]
+		#[pallet::weight(
+		T::WeightInfo::instantiate(data.len() as u32, salt.len() as u32).saturating_add(<Pallet<T>>::compat_weight_limit(*gas_limit))
+		)]
+		#[allow(deprecated)]
+		#[deprecated(note = "1D weight is used in this extrinsic, please migrate to `instantiate`")]
+		pub fn instantiate_old_weight(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+			#[pallet::compact] gas_limit: OldWeight,
+			storage_deposit_limit: Option<<BalanceOf<T> as codec::HasCompact>::Type>,
+			code_hash: CodeHash<T>,
+			data: Vec<u8>,
+			salt: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			Self::instantiate(
+				origin,
+				value,
+				<Pallet<T>>::compat_weight_limit(gas_limit),
+				storage_deposit_limit,
+				code_hash,
+				data,
+				salt,
+			)
+		}
+
 		/// Upload new `code` without instantiating a contract from it.
 		///
 		/// If the code does not already exist a deposit is reserved from the caller
@@ -692,8 +772,8 @@ pub mod pallet {
 		/// - The `deploy` function is executed in the context of the newly-created account.
 		#[pallet::call_index(7)]
 		#[pallet::weight(
-			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32)
-			.saturating_add(*gas_limit)
+		T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32)
+		.saturating_add(*gas_limit)
 		)]
 		pub fn instantiate_with_code(
 			origin: OriginFor<T>,
@@ -752,7 +832,7 @@ pub mod pallet {
 		/// must be supplied.
 		#[pallet::call_index(8)]
 		#[pallet::weight(
-			T::WeightInfo::instantiate(data.len() as u32, salt.len() as u32).saturating_add(*gas_limit)
+		T::WeightInfo::instantiate(data.len() as u32, salt.len() as u32).saturating_add(*gas_limit)
 		)]
 		pub fn instantiate(
 			origin: OriginFor<T>,
@@ -1044,7 +1124,7 @@ pub mod pallet {
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
 	pub(crate) type ContractInfoOf<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, ContractInfo<T>>;
+	StorageMap<_, Twox64Concat, T::AccountId, ContractInfo<T>>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
@@ -1057,13 +1137,13 @@ pub mod pallet {
 	/// and the latest deleted contract in queue.
 	#[pallet::storage]
 	pub(crate) type DeletionQueueCounter<T: Config> =
-		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
+	StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
 
 	/// A migration can span across multiple blocks. This storage defines a cursor to track the
 	/// progress of the migration, enabling us to resume from the last completed position.
 	#[pallet::storage]
 	pub(crate) type MigrationInProgress<T: Config> =
-		StorageValue<_, migration::Cursor, OptionQuery>;
+	StorageValue<_, migration::Cursor, OptionQuery>;
 }
 
 /// The type of origins supported by the contracts pallet.
@@ -1125,7 +1205,7 @@ struct InstantiateInput<T: Config> {
 
 /// Determines whether events should be collected during execution.
 #[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
+Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
 )]
 pub enum CollectEvents {
 	/// Collect events.
@@ -1143,7 +1223,7 @@ pub enum CollectEvents {
 
 /// Determines whether debug messages will be collected.
 #[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
+Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
 )]
 pub enum DebugInfo {
 	/// Collect debug messages.
@@ -1208,19 +1288,19 @@ trait Invokable<T: Config>: Sized {
 				*f = true;
 				Ok(())
 			})
-			.expect("Returns `Ok` if called within `using_once`. It is syntactically obvious that this is the case; qed")
-			.map_or_else(
-				|_| InternalOutput {
-					gas_meter: GasMeter::new(gas_limit),
-					storage_deposit: Default::default(),
-					result: Err(ExecError {
-						error: <Error<T>>::ReentranceDenied.into(),
-						origin: ErrorOrigin::Caller,
-					}),
-				},
-				// Enter contract call.
-				|_| self.run(common, GasMeter::new(gas_limit)),
-			)
+				.expect("Returns `Ok` if called within `using_once`. It is syntactically obvious that this is the case; qed")
+				.map_or_else(
+					|_| InternalOutput {
+						gas_meter: GasMeter::new(gas_limit),
+						storage_deposit: Default::default(),
+						result: Err(ExecError {
+							error: <Error<T>>::ReentranceDenied.into(),
+							origin: ErrorOrigin::Caller,
+						}),
+					},
+					// Enter contract call.
+					|_| self.run(common, GasMeter::new(gas_limit)),
+				)
 		})
 	}
 
@@ -1229,7 +1309,7 @@ trait Invokable<T: Config>: Sized {
 	///
 	/// Called by dispatchables and public functions through the [`Invokable::run_guarded`].
 	fn run(self, common: CommonInput<T>, gas_meter: GasMeter<T>)
-		-> InternalOutput<T, Self::Output>;
+		   -> InternalOutput<T, Self::Output>;
 
 	/// This method ensures that the given `origin` is allowed to invoke the current `Invokable`.
 	///
@@ -1597,6 +1677,14 @@ impl<T: Config> Pallet<T> {
 	/// Return the existential deposit of [`Config::Currency`].
 	fn min_balance() -> BalanceOf<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
+	}
+
+	/// Convert gas_limit from 1D Weight to a 2D Weight.
+	///
+	/// Used by backwards compatible extrinsics. We cannot just set the proof_size weight limit to
+	/// zero or an old `Call` will just fail with OutOfGas.
+	fn compat_weight_limit(gas_limit: OldWeight) -> Weight {
+		Weight::from_parts(gas_limit, u64::from(T::MaxCodeLen::get()) * 2)
 	}
 }
 
