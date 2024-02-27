@@ -204,9 +204,7 @@ pub mod pallet_bar {
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			todo!();
-		}
+		fn build(&self) {}
 	}
 
 	#[pallet::call]
