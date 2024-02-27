@@ -47,7 +47,6 @@ sp_api::decl_runtime_apis! {
 		fn query_acceptable_payment_assets(xcm_version: Version) -> Result<Vec<VersionedAssetId>, Error>;
 
 		/// Converts a weight into a fee for the specified `AssetId`.
-		/// Returns `None` if the `AssetId` isn't supported as a acceptable for the fee payment.
 		///
 		/// # Arguments
 		///
