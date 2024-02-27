@@ -1029,13 +1029,51 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		no_default_bounds, origin, pallet_section, storage_prefix, unbounded, weight,
-		whitelist_storage,
+		pallet_section, storage_prefix, unbounded, weight, whitelist_storage,
 	};
+
+	/// The `#[pallet::origin]` attribute allows you to define some origin for the pallet.
+	///
+	/// Item must be either a type alias, an enum, or a struct. It needs to be public.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[derive(PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, TypeInfo, RuntimeDebug)]
+	/// 	#[pallet::origin]
+	/// 	pub enum Origin {
+	/// 		/// SomeOrigin doc.
+	/// 		SomeOrigin,
+	/// 		/// AnotherOrigin doc.
+	/// 		AnotherOrigin,
+	/// 	}
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	///
+	/// **WARNING**: modifying origin changes the outer runtime origin. This outer runtime
+	/// origin can be stored on-chain (e.g. in
+	/// [`pallet_scheduler`](../../pallet_scheduler/index.html), thus any change must be
+	/// done with care as it might require some migration.
+	///
+	/// NOTE: for instantiable pallets, the origin must be generic over `T` and `I`.
+	///
+	/// Read more about origins at the [Origin Reference
+	/// Docs](../../polkadot_sdk_docs/reference_docs/frame_origin/index.html).
+	pub use frame_support_procedural::origin;
 
 	/// The optional attribute `#[pallet::no_default_bounds]` can be attached to trait items
 	/// within a `Config` trait impl that has
-	/// [`#[pallet::config(with_default)]`](`frame_support::config`) attached.
+	/// [`#[pallet::config(with_default)]`](`config`) attached.
 	///
 	/// Attaching this attribute to a trait item ensures that the generated trait
 	/// `DefaultConfig` will not have any bounds for this trait item.
