@@ -17,7 +17,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use sc_utils::notification::{NotificationSender, NotificationStream, TracingKeyStr};
-use sp_consensus_beefy::AuthorityIdBound;
 use sp_runtime::traits::Block as BlockT;
 
 use crate::justification::BeefyVersionedFinalityProof;

@@ -22,7 +22,7 @@ use sc_network::{PeerId, ReputationChange};
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
 use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 
-use codec::{Decode, DecodeAll, Encode, WrapperTypeEncode};
+use codec::{Decode, DecodeAll, Encode};
 use log::{debug, trace};
 use parking_lot::{Mutex, RwLock};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -511,11 +511,8 @@ pub(crate) mod tests {
 	use sc_network_test::Block;
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 	use sp_consensus_beefy::{
-		ecdsa_crypto,
-		ecdsa_crypto::{Public as EcdsaPublic, Signature},
-		known_payloads,
-		test_utils::Keyring,
-		Commitment, MmrRootHash, Payload, SignedCommitment, VoteMessage,
+		ecdsa_crypto, known_payloads, test_utils::Keyring, Commitment, MmrRootHash, Payload,
+		SignedCommitment, VoteMessage,
 	};
 	use sp_keystore::{testing::MemoryKeystore, Keystore};
 
@@ -539,14 +536,16 @@ pub(crate) mod tests {
 	pub fn sign_commitment<BN: Encode>(
 		who: &Keyring<ecdsa_crypto::AuthorityId>,
 		commitment: &Commitment<BN>,
-	) -> Signature {
+	) -> ecdsa_crypto::Signature {
 		let store = MemoryKeystore::new();
 		store.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&who.to_seed())).unwrap();
 		let beefy_keystore: BeefyKeystore<ecdsa_crypto::AuthorityId> = Some(store.into()).into();
 		beefy_keystore.sign(&who.public(), &commitment.encode()).unwrap()
 	}
 
-	fn dummy_vote(block_number: u64) -> VoteMessage<u64, ecdsa_crypto::AuthorityId, Signature> {
+	fn dummy_vote(
+		block_number: u64,
+	) -> VoteMessage<u64, ecdsa_crypto::AuthorityId, ecdsa_crypto::Signature> {
 		let payload = Payload::from_single_entry(
 			known_payloads::MMR_ROOT_ID,
 			MmrRootHash::default().encode(),

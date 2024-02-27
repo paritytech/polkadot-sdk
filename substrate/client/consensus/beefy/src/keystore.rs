@@ -28,9 +28,6 @@ use std::marker::PhantomData;
 
 use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
 
-#[cfg(feature = "bls-experimental")]
-use sp_consensus_beefy::ecdsa_bls_crypto;
-
 use crate::{error, LOG_TARGET};
 
 /// A BEEFY specific keystore implemented as a `Newtype`. This is basically a

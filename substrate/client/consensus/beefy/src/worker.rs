@@ -34,7 +34,7 @@ use crate::{
 };
 use sp_application_crypto::RuntimeAppPublic;
 
-use codec::{Codec, Decode, DecodeAll, Encode, WrapperTypeEncode};
+use codec::{Codec, Decode, DecodeAll, Encode};
 use futures::{stream::Fuse, FutureExt, StreamExt};
 use log::{debug, error, info, log_enabled, trace, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
@@ -45,10 +45,9 @@ use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_blockchain::{Backend as BlockchainBackend, Error as ClientError, Result as ClientResult};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
-	check_equivocation_proof,
-	ecdsa_crypto::{AuthorityId, Signature},
-	AuthorityIdBound, BeefyApi, BeefySignatureHasher, Commitment, ConsensusLog, EquivocationProof,
-	PayloadProvider, ValidatorSet, VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
+	check_equivocation_proof, AuthorityIdBound, BeefyApi, BeefySignatureHasher, Commitment,
+	ConsensusLog, EquivocationProof, PayloadProvider, ValidatorSet, VersionedFinalityProof,
+	VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
 	generic::{BlockId, OpaqueDigestItemId},
@@ -1343,12 +1342,12 @@ pub(crate) mod tests {
 		Backend,
 	};
 
-	impl<B: super::Block> PersistedState<B, AuthorityId> {
-		pub fn voting_oracle(&self) -> &VoterOracle<B, AuthorityId> {
+	impl<B: super::Block> PersistedState<B, ecdsa_crypto::AuthorityId> {
+		pub fn voting_oracle(&self) -> &VoterOracle<B, ecdsa_crypto::AuthorityId> {
 			&self.voting_oracle
 		}
 
-		pub fn active_round(&self) -> Result<&Rounds<B, AuthorityId>, Error> {
+		pub fn active_round(&self) -> Result<&Rounds<B, ecdsa_crypto::AuthorityId>, Error> {
 			self.voting_oracle.active_rounds()
 		}
 
@@ -1357,24 +1356,24 @@ pub(crate) mod tests {
 		}
 	}
 
-	impl<B: super::Block> VoterOracle<B, AuthorityId> {
-		pub fn sessions(&self) -> &VecDeque<Rounds<B, AuthorityId>> {
+	impl<B: super::Block> VoterOracle<B, ecdsa_crypto::AuthorityId> {
+		pub fn sessions(&self) -> &VecDeque<Rounds<B, ecdsa_crypto::AuthorityId>> {
 			&self.sessions
 		}
 	}
 
 	fn create_beefy_worker(
 		peer: &mut BeefyPeer,
-		key: &Keyring<AuthorityId>,
+		key: &Keyring<ecdsa_crypto::AuthorityId>,
 		min_block_delta: u32,
-		genesis_validator_set: ValidatorSet<AuthorityId>,
+		genesis_validator_set: ValidatorSet<ecdsa_crypto::AuthorityId>,
 	) -> BeefyWorker<
 		Block,
 		Backend,
 		MmrRootProvider<Block, TestApi>,
 		TestApi,
 		Arc<SyncingService<Block>>,
-		AuthorityId,
+		ecdsa_crypto::AuthorityId,
 	> {
 		let keystore = create_beefy_keystore(key);
 
@@ -1715,7 +1714,8 @@ pub(crate) mod tests {
 		let validator_set = ValidatorSet::new(make_beefy_ids(peers), id).unwrap();
 		header.digest_mut().push(DigestItem::Consensus(
 			BEEFY_ENGINE_ID,
-			ConsensusLog::<AuthorityId>::AuthoritiesChange(validator_set.clone()).encode(),
+			ConsensusLog::<ecdsa_crypto::AuthorityId>::AuthoritiesChange(validator_set.clone())
+				.encode(),
 		));
 
 		// verify validator set is correctly extracted from digest

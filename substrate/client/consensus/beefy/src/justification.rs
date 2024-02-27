@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::keystore::BeefyKeystore;
-use codec::{Decode, DecodeAll, Encode, WrapperTypeEncode};
+use codec::{DecodeAll, Encode};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_beefy::{AuthorityIdBound, ValidatorSet, ValidatorSetId, VersionedFinalityProof};

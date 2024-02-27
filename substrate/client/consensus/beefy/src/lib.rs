@@ -45,9 +45,7 @@ use sp_blockchain::{
 	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
 };
 use sp_consensus::{Error as ConsensusError, SyncOracle};
-use sp_consensus_beefy::{
-	AuthorityIdBound, BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID,
-};
+use sp_consensus_beefy::{AuthorityIdBound, BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet};
 use sp_keystore::KeystorePtr;
 use sp_mmr_primitives::MmrApi;
 use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};

@@ -23,7 +23,7 @@ use log::debug;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, AuthorityIdBound, BeefyApi, BEEFY_ENGINE_ID};
+use sp_consensus_beefy::{AuthorityIdBound, BeefyApi, BEEFY_ENGINE_ID};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	EncodedJustification,
