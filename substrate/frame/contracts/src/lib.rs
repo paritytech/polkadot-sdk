@@ -163,6 +163,12 @@ type DebugBufferVec<T> = BoundedVec<u8, <T as Config>::MaxDebugBufferLen>;
 type EventRecordOf<T> =
 	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
 
+/// The old weight type.
+///
+/// This is a copy of the [`frame_support::weights::OldWeight`] type since the contracts pallet
+/// needs to support it indefinitely.
+type OldWeight = u64;
+
 /// Used as a sentinel value when reading and writing contract memory.
 ///
 /// It is usually used to signal `None` to a contract when only a primitive is allowed
