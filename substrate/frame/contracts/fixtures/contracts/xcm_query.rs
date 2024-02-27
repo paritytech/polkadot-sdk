@@ -28,7 +28,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(512, timeout: [u8; 8],  match_querier: [u8],);
+	input!(512, timeout: [u8; 8], match_querier: [u8],);
 	let mut query_id = [0u8; 8];
 
 	#[allow(deprecated)]
