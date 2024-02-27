@@ -17,20 +17,26 @@
 use super::*;
 use bounded_collections::{ConstU32, WeakBoundedVec};
 use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
-use frame_support::weights::Weight;
+use frame_support::{
+	traits::fungible::{Inspect, Mutate},
+	weights::Weight,
+};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
 use xcm::{latest::prelude::*, v2};
+use xcm_builder::EnsureDelivery;
+use xcm_executor::traits::FeeReason;
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
-
-const BALANCE: u128 = 1_000_000_000_000;
 
 /// Pallet we're benchmarking here.
 pub struct Pallet<T: Config>(crate::Pallet<T>);
 
 /// Trait that must be implemented by runtime to be able to benchmark pallet properly.
 pub trait Config: crate::Config {
+	/// Helper that ensures successful delivery for extrinsics/benchmarks which need `SendXcm`.
+	type DeliveryHelper: EnsureDelivery;
+
 	/// A `Location` that can be reached via `XcmRouter`. Used only in benchmarks.
 	///
 	/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
@@ -95,28 +101,34 @@ benchmarks! {
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 
-		let caller: T::AccountId = whitelisted_caller();
+		let transferred_amount = match &asset.fun {
+			Fungible(amount) => *amount,
+			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
+		}.into();
+		let assets: Assets = asset.into();
 
+		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-
-		helpers::make_free_balance_be::<T>(origin_location.clone(), asset.id.0.clone(), BALANCE.into());
-
-		match &asset.fun {
-			Fungible(transferred_amount) => {
-				assert!(BALANCE >= (*transferred_amount).into());
-			},
-			NonFungible(instance) => {
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
-					.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-			}
-		};
-		let assets: Assets = asset.into();
-
-		if !T::XcmTeleportFilter::contains(&(origin_location, assets.clone().into_inner())) {
+		if !T::XcmTeleportFilter::contains(&(origin_location.clone(), assets.clone().into_inner())) {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&origin_location,
+			&destination,
+			FeeReason::ChargeFees,
+		);
+
+		// Actual balance (e.g. `ensure_successful_delivery` could drip delivery fees, ...)
+		let balance = <pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller);
+		// Add transferred_amount to origin
+		<pallet_balances::Pallet<T> as Mutate<_>>::mint_into(&caller, transferred_amount)?;
+		// verify initial balance
+		let balance = balance + transferred_amount;
+		assert_eq!(<pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller), balance);
 
 		let recipient = [0u8; 32];
 		let versioned_dest: VersionedLocation = destination.into();
@@ -124,34 +136,44 @@ benchmarks! {
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
+	verify {
+		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
+		assert!(<pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller) <= balance - transferred_amount);
+	}
 
 	reserve_transfer_assets {
 		let (asset, destination) = T::reserve_transferable_asset_and_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 
-		let caller: T::AccountId = whitelisted_caller();
+		let transferred_amount = match &asset.fun {
+			Fungible(amount) => *amount,
+			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
+		}.into();
+		let assets: Assets = asset.into();
 
+		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		helpers::make_free_balance_be::<T>(origin_location.clone(), asset.id.0.clone(), BALANCE.into());
-
-		match &asset.fun {
-			Fungible(transferred_amount) => {
-				assert!(BALANCE >= (*transferred_amount).into());
-			},
-			NonFungible(instance) => {
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
-					.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-			}
-		}
-
-		let assets: Assets = asset.clone().into();
-
-		if !T::XcmReserveTransferFilter::contains(&(origin_location, assets.clone().into_inner())) {
+		if !T::XcmReserveTransferFilter::contains(&(origin_location.clone(), assets.clone().into_inner())) {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&origin_location,
+			&destination,
+			FeeReason::ChargeFees,
+		);
+
+		// Actual balance (e.g. `ensure_successful_delivery` could drip delivery fees, ...)
+		let balance = <pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller);
+		// Add transferred_amount to origin
+		<pallet_balances::Pallet<T> as Mutate<_>>::mint_into(&caller, transferred_amount)?;
+		// verify initial balance
+		let balance = balance + transferred_amount;
+		assert_eq!(<pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller), balance);
 
 		let recipient = [0u8; 32];
 		let versioned_dest: VersionedLocation = destination.into();
@@ -159,6 +181,10 @@ benchmarks! {
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
+	verify {
+		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
+		assert!(<pallet_balances::Pallet<T> as Inspect<_>>::balance(&caller) <= balance - transferred_amount);
+	}
 
 	transfer_assets {
 		let (assets, fee_index, destination, verify) = T::set_up_complex_asset_transfer().ok_or(
