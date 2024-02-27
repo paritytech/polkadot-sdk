@@ -53,12 +53,7 @@ where
 {
 	let p: mmr_lib::NodeMerkleProof<H, _> = mmr_lib::NodeMerkleProof::<H, M>::new(
 		mmr_size,
-		ancestry_proof
-			.proof
-			.items
-			.into_iter()
-			.map(|(index, hash)| (index, hash))
-			.collect(),
+		ancestry_proof.proof.items.into_iter().collect(),
 	);
 
 	let ancestry_proof = mmr_lib::AncestryProof::<H, _> {
