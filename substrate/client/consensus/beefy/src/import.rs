@@ -165,7 +165,7 @@ where
 						self.justification_sender
 							.notify(|| Ok::<_, ()>(proof))
 							.expect("the closure always returns Ok; qed.");
-						metric_inc!(self, beefy_good_justification_imports);
+						metric_inc!(self.metrics, beefy_good_justification_imports);
 					},
 					Err(err) => {
 						debug!(
@@ -174,7 +174,7 @@ where
 							number,
 							err,
 						);
-						metric_inc!(self, beefy_bad_justification_imports);
+						metric_inc!(self.metrics, beefy_bad_justification_imports);
 					},
 				}
 			},

@@ -47,11 +47,11 @@
   extends:
     - .zombienet-substrate-common
   variables:
-    # DB generated from commit: https://github.com/paritytech/polkadot-sdk/commit/2e4b8996c4924fc39f85198019039cf0987f89ec
+    # DB generated from commit: https://github.com/paritytech/polkadot-sdk/commit/868788a5bff3ef94869bd36432726703fe3b4e96
     # TODO: As a workaround for https://github.com/paritytech/polkadot-sdk/issues/2568 the DB was generated in archive mode.
     # After the issue is fixed, we should replace it with a pruned version of the DB.
-    DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-510ac1c891afe26bad6fcd6d74185917b3fb1b4f.tgz"
-    DB_BLOCK_HEIGHT: 47222
+    DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-9677807d738b951e9f6c82e5fd15518eb0ae0419.tgz"
+    DB_BLOCK_HEIGHT: 56687
 
 zombienet-substrate-0000-block-building:
   extends:

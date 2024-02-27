@@ -540,6 +540,9 @@ morph_types! {
 	/// Morpher to disregard the source value and replace with another.
 	pub type Replace<V: TypedGet> = |_| -> V::Type { V::get() };
 
+	/// Morpher to disregard the source value and replace with the default of `V`.
+	pub type ReplaceWithDefault<V: Default> = |_| -> V { Default::default() };
+
 	/// Mutator which reduces a scalar by a particular amount.
 	pub type ReduceBy<N: TypedGet> = |r: N::Type| -> N::Type {
 		r.checked_sub(&N::get()).unwrap_or(Zero::zero())
@@ -1790,7 +1793,7 @@ pub trait ValidateUnsigned {
 	/// this code before the unsigned extrinsic enters the transaction pool and also periodically
 	/// afterwards to ensure the validity. To prevent dos-ing a network with unsigned
 	/// extrinsics, these validity checks should include some checks around uniqueness, for example,
-	/// like checking that the unsigned extrinsic was sent by an authority in the active set.
+	/// checking that the unsigned extrinsic was sent by an authority in the active set.
 	///
 	/// Changes made to storage should be discarded by caller.
 	fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity;

@@ -537,8 +537,8 @@ pub(crate) mod tests {
 	use sc_network_test::{Block, TestNetFactory};
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 	use sp_consensus_beefy::{
-		ecdsa_crypto::Signature, known_payloads, Commitment, Keyring, MmrRootHash, Payload,
-		SignedCommitment, VoteMessage,
+		ecdsa_crypto::Signature, known_payloads, test_utils::Keyring, Commitment, MmrRootHash,
+		Payload, SignedCommitment, VoteMessage,
 	};
 	use sp_keystore::{testing::MemoryKeystore, Keystore};
 
@@ -559,10 +559,13 @@ pub(crate) mod tests {
 		}
 	}
 
-	pub fn sign_commitment<BN: Encode>(who: &Keyring, commitment: &Commitment<BN>) -> Signature {
+	pub fn sign_commitment<BN: Encode>(
+		who: &Keyring<AuthorityId>,
+		commitment: &Commitment<BN>,
+	) -> Signature {
 		let store = MemoryKeystore::new();
 		store.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&who.to_seed())).unwrap();
-		let beefy_keystore: BeefyKeystore = Some(store.into()).into();
+		let beefy_keystore: BeefyKeystore<AuthorityId> = Some(store.into()).into();
 		beefy_keystore.sign(&who.public(), &commitment.encode()).unwrap()
 	}
 
@@ -590,7 +593,10 @@ pub(crate) mod tests {
 			.validators()
 			.iter()
 			.map(|validator: &AuthorityId| {
-				Some(sign_commitment(&Keyring::from_public(validator).unwrap(), &commitment))
+				Some(sign_commitment(
+					&Keyring::<AuthorityId>::from_public(validator).unwrap(),
+					&commitment,
+				))
 			})
 			.collect();
 
@@ -599,7 +605,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn should_validate_messages() {
-		let keyring = Keyring::Alice;
+		let keyring = Keyring::<AuthorityId>::Alice;
 		let keys = vec![keyring.public()];
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
 

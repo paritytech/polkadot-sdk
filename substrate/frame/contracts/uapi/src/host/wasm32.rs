@@ -23,7 +23,7 @@ mod sys {
 	extern "C" {
 		pub fn account_reentrance_count(account_ptr: *const u8) -> u32;
 
-		pub fn add_delegate_dependency(code_hash_ptr: *const u8);
+		pub fn lock_delegate_dependency(code_hash_ptr: *const u8);
 
 		pub fn address(output_ptr: *mut u8, output_len_ptr: *mut u32);
 
@@ -125,7 +125,7 @@ mod sys {
 
 		pub fn reentrance_count() -> u32;
 
-		pub fn remove_delegate_dependency(code_hash_ptr: *const u8);
+		pub fn unlock_delegate_dependency(code_hash_ptr: *const u8);
 
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32) -> !;
 
@@ -160,7 +160,7 @@ mod sys {
 
 		pub fn weight_to_fee(gas: u64, output_ptr: *mut u8, output_len_ptr: *mut u32);
 
-		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32, output_ptr: *mut u8) -> ReturnCode;
+		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32) -> ReturnCode;
 
 		pub fn xcm_send(
 			dest_ptr: *const u8,
@@ -336,13 +336,14 @@ macro_rules! impl_hash_fn {
 }
 
 impl HostFn for HostFnImpl {
+	#[inline(always)]
 	fn instantiate_v1(
 		code_hash: &[u8],
 		gas: u64,
 		value: &[u8],
 		input: &[u8],
-		mut address: Option<&mut [u8]>,
-		mut output: Option<&mut [u8]>,
+		mut address: Option<&mut &mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 		salt: &[u8],
 	) -> Result {
 		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
@@ -379,8 +380,8 @@ impl HostFn for HostFnImpl {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input: &[u8],
-		mut address: Option<&mut [u8]>,
-		mut output: Option<&mut [u8]>,
+		mut address: Option<&mut &mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 		salt: &[u8],
 	) -> Result {
 		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
@@ -418,12 +419,13 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn call(
 		callee: &[u8],
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
@@ -449,13 +451,14 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn call_v1(
 		flags: CallFlags,
 		callee: &[u8],
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
@@ -488,7 +491,7 @@ impl HostFn for HostFnImpl {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_ptr = ptr_or_sentinel(&deposit);
@@ -520,11 +523,12 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::caller_is_root() }.into_u32()
 	}
 
+	#[inline(always)]
 	fn delegate_call(
 		flags: CallFlags,
 		code_hash: &[u8],
 		input: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
@@ -602,6 +606,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn get_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code =
@@ -610,6 +615,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn get_storage_v1(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
@@ -626,6 +632,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
@@ -665,7 +672,7 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::v1::terminate(beneficiary.as_ptr()) }
 	}
 
-	fn call_chain_extension(func_id: u32, input: &[u8], mut output: Option<&mut [u8]>) -> u32 {
+	fn call_chain_extension(func_id: u32, input: &[u8], mut output: Option<&mut &mut [u8]>) -> u32 {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
 			unsafe {
@@ -685,6 +692,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into_u32()
 	}
 
+	#[inline(always)]
 	fn input(output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
 		{
@@ -707,6 +715,7 @@ impl HostFn for HostFnImpl {
 		(v1) => [gas_left],
 	}
 
+	#[inline(always)]
 	fn weight_to_fee(gas: u64, output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
 		{
@@ -794,12 +803,12 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::account_reentrance_count(account.as_ptr()) }
 	}
 
-	fn add_delegate_dependency(code_hash: &[u8]) {
-		unsafe { sys::add_delegate_dependency(code_hash.as_ptr()) }
+	fn lock_delegate_dependency(code_hash: &[u8]) {
+		unsafe { sys::lock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
-	fn remove_delegate_dependency(code_hash: &[u8]) {
-		unsafe { sys::remove_delegate_dependency(code_hash.as_ptr()) }
+	fn unlock_delegate_dependency(code_hash: &[u8]) {
+		unsafe { sys::unlock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
 	fn instantiation_nonce() -> u64 {
@@ -810,9 +819,8 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::reentrance_count() }
 	}
 
-	fn xcm_execute(msg: &[u8], output: &mut &mut [u8]) -> Result {
-		let ret_code =
-			unsafe { sys::xcm_execute(msg.as_ptr(), msg.len() as _, output.as_mut_ptr()) };
+	fn xcm_execute(msg: &[u8]) -> Result {
+		let ret_code = unsafe { sys::xcm_execute(msg.as_ptr(), msg.len() as _) };
 		ret_code.into()
 	}
 

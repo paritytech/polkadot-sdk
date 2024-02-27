@@ -15,24 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::vec;
-
 use codec::Encode;
-use sp_consensus_beefy::{
-	check_vote_equivocation_proof, generate_fork_equivocation_proof_sc,
-	generate_fork_equivocation_proof_vote, generate_vote_equivocation_proof,
-	known_payloads::MMR_ROOT_ID, Commitment, Keyring as BeefyKeyring, Payload, ValidatorSet,
-	KEY_TYPE as BEEFY_KEY_TYPE,
-};
-use sp_core::offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt};
-
-use sp_runtime::DigestItem;
+use std::vec;
 
 use frame_support::{
 	assert_err, assert_ok,
 	dispatch::{GetDispatchInfo, Pays},
 	traits::{Currency, KeyOwnerProofSystem, OnInitialize},
 };
+use sp_consensus_beefy::{
+	known_payloads::MMR_ROOT_ID,
+	test_utils::{
+		check_vote_equivocation_proof, generate_fork_equivocation_proof_sc,
+		generate_fork_equivocation_proof_vote, generate_vote_equivocation_proof,
+	},
+	Commitment, Keyring as BeefyKeyring, Payload, ValidatorSet, KEY_TYPE as BEEFY_KEY_TYPE,
+};
+use sp_core::offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt};
 
 use crate::{mock::*, Call, Config, Error, Weight, WeightInfo};
 
