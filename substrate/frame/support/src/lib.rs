@@ -1033,6 +1033,18 @@ pub mod pallet_macros {
 		whitelist_storage,
 	};
 
+	/// The optional attribute `#[pallet::no_default_bounds]` can be attached to trait items
+	/// within a `Config` trait impl that has
+	/// [`#[pallet::config(with_default)]`](`frame_support::config`) attached.
+	///
+	/// Attaching this attribute to a trait item ensures that the generated trait
+	/// `DefaultConfig` will not have any bounds for this trait item.
+	///
+	/// As an example, if you have a trait item `type AccountId: SomeTrait;` in your `Config`
+	/// trait, the generated `DefaultConfig` will only have `type AccountId;` with no trait
+	/// bound.
+	pub use frame_support_procedural::no_default_bounds;
+
 	/// The optional attribute `#[pallet::no_default]` can be attached to trait items within a
 	/// `Config` trait impl that has [`#[pallet::config(with_default)]`](`config`)
 	/// attached.
