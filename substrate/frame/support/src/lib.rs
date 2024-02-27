@@ -1029,9 +1029,18 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		no_default, no_default_bounds, origin, pallet_section, storage_prefix, unbounded, weight,
+		no_default_bounds, origin, pallet_section, storage_prefix, unbounded, weight,
 		whitelist_storage,
 	};
+
+	/// The optional attribute `#[pallet::no_default]` can be attached to trait items within a
+	/// `Config` trait impl that has [`#[pallet::config(with_default)]`](`config`)
+	/// attached.
+	///
+	/// Attaching this attribute to a trait item ensures that that trait item will not be used
+	/// as a default with the [`#[derive_impl(..)]`](`frame_support::derive_impl`) attribute
+	/// macro.
+	pub use frame_support_procedural::no_default;
 
 	/// The `#[pallet::inherent]` attribute allows the pallet to provide
 	/// [inherents](https://docs.substrate.io/fundamentals/transaction-types/#inherent-transactions).
@@ -1173,7 +1182,7 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::getter;
 
 	/// DEPRECATED: Will be removed, do not use.
-	/// See https://github.com/paritytech/substrate/pull/13535 for more details.
+	/// See <https://github.com/paritytech/substrate/pull/13535> for more details.
 	///
 	/// To generate a `Store` trait associating all storages, annotate your `Pallet` struct
 	/// with the attribute `#[pallet::generate_store($vis trait Store)]`, e.g.:

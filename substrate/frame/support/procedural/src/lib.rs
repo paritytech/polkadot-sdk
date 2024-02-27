@@ -677,11 +677,12 @@ pub fn derive_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
 	.into()
 }
 
-/// The optional attribute `#[pallet::no_default]` can be attached to trait items within a
-/// `Config` trait impl that has [`#[pallet::config(with_default)]`](`macro@config`) attached.
+#[rustfmt::skip]
 ///
-/// Attaching this attribute to a trait item ensures that that trait item will not be used as a
-/// default with the [`#[derive_impl(..)]`](`macro@derive_impl`) attribute macro.
+/// ---
+///
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// [`frame_support::pallet_macros::no_default`](../frame_support/pallet_macros/attr.no_default.html).
 #[proc_macro_attribute]
 pub fn no_default(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
