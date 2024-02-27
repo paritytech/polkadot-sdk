@@ -351,6 +351,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use adapter::StakeAdapter;
 use codec::Codec;
 use frame_support::{
 	defensive, defensive_assert, ensure,
@@ -375,7 +376,6 @@ use sp_runtime::{
 };
 use sp_staking::{EraIndex, StakingInterface};
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
-use adapter::StakeAdapter;
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 use sp_runtime::TryRuntimeError;
@@ -1655,7 +1655,10 @@ pub mod pallet {
 		type MaxMetadataLen: Get<u32>;
 
 		/// An adapter to support delegated to direct staking.
-		type StakeAdapter: adapter::StakeAdapter<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
+		type StakeAdapter: adapter::StakeAdapter<
+			AccountId = Self::AccountId,
+			Balance = BalanceOf<Self>,
+		>;
 	}
 
 	/// The sum of funds across all pools.

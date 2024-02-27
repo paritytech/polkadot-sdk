@@ -239,7 +239,12 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 
 	/// Delegate funds to `Delegatee`.
-	fn delegate(who: &Self::AccountId, delegatee: &Self::AccountId, reward_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+	fn delegate(
+		who: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		reward_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
 		unimplemented!("method currently not used in testing")
 	}
 
@@ -253,7 +258,11 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 
 	/// Withdraw delegation from pool account to self.
-	fn withdraw_delegation(who: &Self::AccountId, delegatee: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+	fn withdraw_delegation(
+		who: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
 		unimplemented!("method currently not used in testing")
 	}
 
@@ -262,14 +271,18 @@ impl sp_staking::StakingInterface for StakingMock {
 		false
 	}
 
-	fn delegator_slash(delegatee: &Self::AccountId, delegator: &Self::AccountId, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult {
+	fn delegator_slash(
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		maybe_reporter: Option<Self::AccountId>,
+	) -> sp_runtime::DispatchResult {
 		unimplemented!("method currently not used in testing")
 	}
 
 	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance {
 		unimplemented!("method currently not used in testing")
 	}
-
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]

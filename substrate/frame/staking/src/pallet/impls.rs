@@ -1882,7 +1882,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	/// Delegate funds to `Delegatee`.
-	fn delegate(who: &Self::AccountId, delegatee: &Self::AccountId, reward_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+	fn delegate(
+		who: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		reward_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
 		Err(DispatchError::Other("delegate is not supported"))
 	}
 
@@ -1896,7 +1901,11 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	/// Withdraw delegation from pool account to self.
-	fn withdraw_delegation(who: &Self::AccountId, delegatee: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+	fn withdraw_delegation(
+		who: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
 		Err(DispatchError::Other("withdraw_delegation is not supported"))
 	}
 
@@ -1906,7 +1915,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		false
 	}
 
-	fn delegator_slash(delegatee: &Self::AccountId, delegator: &Self::AccountId, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult {
+	fn delegator_slash(
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		maybe_reporter: Option<Self::AccountId>,
+	) -> sp_runtime::DispatchResult {
 		Err(DispatchError::Other("delegator_slash is not supported"))
 	}
 

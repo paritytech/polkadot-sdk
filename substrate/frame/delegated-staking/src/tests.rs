@@ -1010,7 +1010,10 @@ mod pool_integration {
 						Event::Released { delegatee: pool_acc, delegator: i, amount: 50 },
 					]
 				);
-				assert_eq!(get_pool_delegatee(pool_id).ledger.pending_slash, pre_pending_slash - 50);
+				assert_eq!(
+					get_pool_delegatee(pool_id).ledger.pending_slash,
+					pre_pending_slash - 50
+				);
 				assert_eq!(held_balance(&i), 0);
 				assert_eq!(Balances::free_balance(i) - pre_balance, 50);
 			}
@@ -1025,7 +1028,10 @@ mod pool_integration {
 				assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into(), i));
 
 				// each member is slashed 50% of 100 = 50.
-				assert_eq!(get_pool_delegatee(pool_id).ledger.pending_slash, pre_pending_slash - 50);
+				assert_eq!(
+					get_pool_delegatee(pool_id).ledger.pending_slash,
+					pre_pending_slash - 50
+				);
 				// left with 50.
 				assert_eq!(held_balance(&i), 50);
 			}

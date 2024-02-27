@@ -84,9 +84,9 @@ impl<T: Config> Delegation<T> {
 
 /// Ledger of all delegations to a `Delegate`.
 ///
-/// This keeps track of the active balance of the `delegatee` that is made up from the funds that are
-/// currently delegated to this `delegatee`. It also tracks the pending slashes yet to be applied
-/// among other things.
+/// This keeps track of the active balance of the `delegatee` that is made up from the funds that
+/// are currently delegated to this `delegatee`. It also tracks the pending slashes yet to be
+/// applied among other things.
 // FIXME(ank4n): Break up into two storage items - bookkeeping stuff and settings stuff.
 #[derive(Default, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]

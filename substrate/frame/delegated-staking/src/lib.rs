@@ -55,11 +55,11 @@
 //!
 //! #### Dispatchable Calls
 //! The pallet exposes the following [`Call`]s:
-//! - `register_as_delegatee`: Register an account to be a `delegatee`. Once an account is registered
-//! 	as a `delegatee`, for staking operations, only its delegated funds are used. This means it
-//! 	cannot use its own free balance to stake.
+//! - `register_as_delegatee`: Register an account to be a `delegatee`. Once an account is
+//!   registered as a `delegatee`, for staking operations, only its delegated funds are used. This
+//!   means it cannot use its own free balance to stake.
 //! - `migrate_to_delegate`: This allows a `Nominator` account to become a `delegatee` account.
-//! 	Explained in more detail in the `Migration` section.
+//!   Explained in more detail in the `Migration` section.
 //! - `release`: Release funds to `delegator` from `unclaimed_withdrawals` register of the
 //!   `delegatee`.
 //! - `migrate_delegation`: Migrate delegated funds from one account to another. This is useful for
@@ -512,7 +512,10 @@ impl<T: Config> Pallet<T> {
 		frame_system::Pallet::<T>::inc_providers(who);
 	}
 
-	fn do_migrate_to_delegatee(who: &T::AccountId, reward_account: &T::AccountId) -> DispatchResult {
+	fn do_migrate_to_delegatee(
+		who: &T::AccountId,
+		reward_account: &T::AccountId,
+	) -> DispatchResult {
 		// We create a proxy delegator that will keep all the delegation funds until funds are
 		// transferred to actual delegator.
 		let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, who.clone());
@@ -626,7 +629,6 @@ impl<T: Config> Pallet<T> {
 		// remove delegator if nothing delegated anymore
 		delegation.save(delegator);
 
-
 		let released = T::Currency::release(
 			&HoldReason::Delegating.into(),
 			&delegator,
@@ -687,7 +689,8 @@ impl<T: Config> Pallet<T> {
 		// some checks that must have already been checked before.
 		ensure!(source_delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 		debug_assert!(
-			!Self::is_delegator(destination_delegator) && !Self::is_delegatee(destination_delegator)
+			!Self::is_delegator(destination_delegator) &&
+				!Self::is_delegatee(destination_delegator)
 		);
 
 		// update delegations

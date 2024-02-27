@@ -206,7 +206,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	/// Delegate funds to `Delegatee`.
-	fn delegate(who: &Self::AccountId, delegatee: &Self::AccountId, reward_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+	fn delegate(
+		who: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		reward_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
 		Pallet::<T>::register_as_delegatee(
 			RawOrigin::Signed(delegatee.clone()).into(),
 			reward_account.clone(),
@@ -234,7 +239,11 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	/// Withdraw delegation from pool account to self.
-	fn withdraw_delegation(who: &Self::AccountId, delegatee: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+	fn withdraw_delegation(
+		who: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
 		// fixme(ank4n): This should not require slashing spans.
 		Pallet::<T>::release(RawOrigin::Signed(delegatee.clone()).into(), who.clone(), amount, 0)
 	}
@@ -246,7 +255,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.unwrap_or(false)
 	}
 
-	fn delegator_slash(delegatee: &Self::AccountId, delegator: &Self::AccountId, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult {
+	fn delegator_slash(
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		maybe_reporter: Option<Self::AccountId>,
+	) -> sp_runtime::DispatchResult {
 		Pallet::<T>::do_slash(delegatee.clone(), delegator.clone(), value, maybe_reporter)
 	}
 
