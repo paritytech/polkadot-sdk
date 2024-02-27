@@ -67,7 +67,7 @@ pub(crate) fn assert_bridge_hub_westend_message_accepted(expected_processed: boo
 				BridgeHubWestend,
 				vec![
 					// pay for bridge fees
-					RuntimeEvent::Balances(pallet_balances::Event::Withdraw { .. }) => {},
+					RuntimeEvent::Balances(pallet_balances::Event::Burned { .. }) => {},
 					// message exported
 					RuntimeEvent::BridgeRococoMessages(
 						pallet_bridge_messages::Event::MessageAccepted { .. }

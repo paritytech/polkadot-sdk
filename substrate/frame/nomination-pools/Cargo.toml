@@ -31,7 +31,7 @@ sp-std = { path = "../../primitives/std", default-features = false }
 sp-staking = { path = "../../primitives/staking", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
-log = { version = "0.4.0", default-features = false }
+log = { workspace = true }
 
 # Optional: use for testing and/or fuzzing
 pallet-balances = { path = "../balances", optional = true }

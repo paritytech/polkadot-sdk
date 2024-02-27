@@ -169,6 +169,7 @@ fn polkadot_testnet_genesis(
 				max_head_data_size: 32 * 1024,
 				no_show_slots: 10,
 				minimum_validation_upgrade_delay: 5,
+				max_downward_message_size: 1024,
 				scheduler_params: SchedulerParams {
 					group_rotation_frequency: 20,
 					paras_availability_period: 4,

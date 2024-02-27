@@ -151,7 +151,7 @@ impl<
 	fn can_check_out(_dest: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungible_adapter",
-			"check_out dest: {:?}, what: {:?}",
+			"can_check_out dest: {:?}, what: {:?}",
 			_dest,
 			what
 		);
@@ -204,7 +204,7 @@ impl<
 	) -> result::Result<AssetsInHolding, XcmError> {
 		log::trace!(
 			target: "xcm::fungible_adapter",
-			"deposit_asset what: {:?}, who: {:?}",
+			"withdraw_asset what: {:?}, who: {:?}",
 			what, who,
 		);
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;

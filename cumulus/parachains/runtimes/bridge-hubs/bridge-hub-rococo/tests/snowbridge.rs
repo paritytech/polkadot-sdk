@@ -20,9 +20,9 @@ use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
 	bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
 	bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
-	xcm_config::XcmConfig, BridgeRejectObsoleteHeadersAndMessages, Executive,
-	MessageQueueServiceWeight, Runtime, RuntimeCall, RuntimeEvent, SessionKeys, SignedExtra,
-	UncheckedExtrinsic,
+	xcm_config::XcmConfig, AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages,
+	Executive, MessageQueueServiceWeight, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
+	SignedExtra, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
@@ -102,7 +102,7 @@ pub fn transfer_token_to_ethereum_insufficient_fund() {
 		H160::random(),
 		H160::random(),
 		DefaultBridgeHubEthereumBaseFee::get(),
-		FailedToTransactAsset("InsufficientBalance"),
+		FailedToTransactAsset("Funds are unavailable"),
 	)
 }
 
@@ -133,6 +133,32 @@ fn ethereum_to_polkadot_message_extrinsics_work() {
 		1013,
 		construct_and_apply_extrinsic,
 	);
+}
+
+/// Tests that the digest items are as expected when a Ethereum Outbound message is received.
+/// If the MessageQueue pallet is configured before (i.e. the MessageQueue pallet is listed before
+/// the EthereumOutboundQueue in the construct_runtime macro) the EthereumOutboundQueue, this test
+/// will fail.
+#[test]
+pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works() {
+	snowbridge_runtime_test_common::ethereum_outbound_queue_processes_messages_before_message_queue_works::<
+		Runtime,
+		XcmConfig,
+		AllPalletsWithoutSystem,
+	>(
+		collator_session_keys(),
+		1013,
+		1000,
+		H160::random(),
+		H160::random(),
+		DefaultBridgeHubEthereumBaseFee::get(),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::EthereumOutboundQueue(event)) => Some(event),
+				_ => None,
+			}
+		}),
+	)
 }
 
 fn construct_extrinsic(
