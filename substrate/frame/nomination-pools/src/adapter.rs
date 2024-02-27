@@ -33,22 +33,22 @@ pub trait StakeAdapter {
 	fn total_balance(who: &Self::AccountId) -> Self::Balance;
 
 	/// Bond delegator via the pool account.
-	fn bond(
+	fn delegator_bond(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
 
-	/// Add more bond via the pool account.
-	fn bond_extra(
+	/// Add more bond for delegator via the pool account.
+	fn delegator_bond_extra(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
 
-	/// Claim withdrawn amount in the pool account.
-	fn claim_withdraw(
+	/// Withdrawn amount from pool to delegator.
+	fn delegator_withdraw(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
@@ -77,7 +77,7 @@ impl<T: Config> StakeAdapter for TransferStake<T> {
 		T::Currency::total_balance(who)
 	}
 
-	fn bond(
+	fn delegator_bond(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		reward_account: &Self::AccountId,
@@ -87,7 +87,7 @@ impl<T: Config> StakeAdapter for TransferStake<T> {
 		T::Staking::bond(pool_account, amount, reward_account)
 	}
 
-	fn bond_extra(
+	fn delegator_bond_extra(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
@@ -96,7 +96,7 @@ impl<T: Config> StakeAdapter for TransferStake<T> {
 		T::Staking::bond_extra(pool_account, amount)
 	}
 
-	fn claim_withdraw(
+	fn delegator_withdraw(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
@@ -135,7 +135,7 @@ impl<T: Config> StakeAdapter for DelegationStake<T> {
 		T::Currency::total_balance(who)
 	}
 
-	fn bond(
+	fn delegator_bond(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		reward_account: &Self::AccountId,
@@ -145,7 +145,7 @@ impl<T: Config> StakeAdapter for DelegationStake<T> {
 		T::Staking::delegate(who, pool_account, reward_account, amount)
 	}
 
-	fn bond_extra(
+	fn delegator_bond_extra(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
@@ -153,7 +153,7 @@ impl<T: Config> StakeAdapter for DelegationStake<T> {
 		T::Staking::delegate_extra(who, pool_account, amount)
 	}
 
-	fn claim_withdraw(
+	fn delegator_withdraw(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,

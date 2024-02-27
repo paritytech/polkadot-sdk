@@ -1265,11 +1265,11 @@ impl<T: Config> BondedPool<T> {
 
 		match ty {
 			BondType::Create =>
-				T::StakeAdapter::bond(who, &bonded_account, &reward_account, amount)?,
+				T::StakeAdapter::delegator_bond(who, &bonded_account, &reward_account, amount)?,
 			// The pool should always be created in such a way its in a state to bond extra, but if
 			// the active balance is slashed below the minimum bonded or the account cannot be
 			// found, we exit early.
-			BondType::Later => T::StakeAdapter::bond_extra(who, &bonded_account, amount)?,
+			BondType::Later => T::StakeAdapter::delegator_bond_extra(who, &bonded_account, amount)?,
 		}
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_accrue(amount);
@@ -2303,7 +2303,7 @@ pub mod pallet {
 				// order to ensure members can leave the pool and it can be destroyed.
 				.min(bonded_pool.transferable_balance());
 
-			T::StakeAdapter::claim_withdraw(
+			T::StakeAdapter::delegator_withdraw(
 				&member_account,
 				&bonded_pool.bonded_account(),
 				balance_to_unbond,
