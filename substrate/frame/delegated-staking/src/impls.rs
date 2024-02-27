@@ -19,7 +19,6 @@
 //! Implementations of public traits, namely [StakingInterface], and [StakingDelegationSupport].
 
 use super::*;
-use sp_staking::delegation::PoolAdapter;
 
 /// StakingInterface implementation with delegation support.
 ///

@@ -2298,7 +2298,7 @@ pub mod pallet {
 				// order to ensure members can leave the pool and it can be destroyed.
 				.min(bonded_pool.transferable_balance());
 
-			T::StakeAdapter::withdraw(
+			T::StakeAdapter::claim_withdraw(
 				&member_account,
 				&bonded_pool.bonded_account(),
 				balance_to_unbond,

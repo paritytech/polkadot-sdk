@@ -181,7 +181,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
-	type PoolAdapter = DelegatedStaking;
+	type StakeAdapter = pallet_nomination_pools::adapter::DelegationStake<Self>;
 }
 
 frame_support::construct_runtime!(

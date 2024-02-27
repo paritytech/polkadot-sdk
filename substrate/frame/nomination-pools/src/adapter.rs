@@ -44,7 +44,7 @@ pub trait StakeAdapter {
 	) -> DispatchResult;
 
 	/// Revoke delegation to pool account.
-	fn withdraw(
+	fn claim_withdraw(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
@@ -95,7 +95,7 @@ impl<T: Config> StakeAdapter for TransferStake<T> {
 		T::Staking::bond_extra(pool_account, amount)
 	}
 
-	fn withdraw(
+	fn claim_withdraw(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
@@ -152,7 +152,7 @@ impl<T: Config> StakeAdapter for DelegationStake<T> {
 		T::Staking::delegate_extra(who, pool_account, amount)
 	}
 
-	fn withdraw(
+	fn claim_withdraw(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
