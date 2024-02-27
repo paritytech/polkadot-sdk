@@ -3074,6 +3074,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "coretime-rococo-emulated-chain"
+version = "0.1.0"
+dependencies = [
+ "coretime-rococo-runtime",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "rococo-emulated-chain",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "coretime-rococo-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "assert_matches",
+ "asset-test-utils",
+ "coretime-rococo-runtime",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "pallet-asset-conversion",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-broker",
+ "pallet-message-queue",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "penpal-runtime",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "rococo-runtime",
+ "rococo-runtime-constants",
+ "rococo-system-emulated-network",
+ "sp-runtime",
+ "staging-xcm",
+ "staging-xcm-executor",
+]
+
+[[package]]
 name = "coretime-rococo-runtime"
 version = "0.1.0"
 dependencies = [
@@ -15151,6 +15194,7 @@ version = "0.0.0"
 dependencies = [
  "asset-hub-rococo-emulated-chain",
  "bridge-hub-rococo-emulated-chain",
+ "coretime-rococo-emulated-chain",
  "emulated-integration-tests-common",
  "penpal-emulated-chain",
  "people-rococo-emulated-chain",
