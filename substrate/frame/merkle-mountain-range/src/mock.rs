@@ -23,7 +23,7 @@ use frame_support::{derive_impl, parameter_types};
 use sp_mmr_primitives::{Compact, LeafDataProvider};
 use sp_runtime::traits::Keccak256;
 
-type Block = frame_system::mocking::MockBlockU32<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -36,7 +36,6 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl Config for Test {
