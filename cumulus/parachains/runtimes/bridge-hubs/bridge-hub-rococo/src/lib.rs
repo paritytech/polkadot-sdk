@@ -73,8 +73,6 @@ use testnet_parachains_constants::rococo::{
 	consensus::*, currency::*, fee::WeightToFee, snowbridge::INBOUND_QUEUE_PALLET_INDEX, time::*,
 };
 
-#[cfg(feature = "runtime-benchmarks")]
-use bp_runtime::Chain;
 use bp_runtime::HeaderId;
 use bridge_hub_common::{
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
@@ -104,8 +102,6 @@ use polkadot_runtime_common::prod_or_fast;
 
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
-#[cfg(not(feature = "runtime-benchmarks"))]
-use bridge_hub_common::BridgeHubMessageRouter;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -206,7 +202,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-rococo"),
 	impl_name: create_runtime_str!("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_006_001,
+	spec_version: 1_007_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 4,
@@ -369,11 +365,15 @@ parameter_types! {
 impl pallet_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
-	#[cfg(feature = "runtime-benchmarks")]
+	// Use the NoopMessageProcessor exclusively for benchmarks, not for tests with the
+	// runtime-benchmarks feature as tests require the BridgeHubMessageRouter to process messages.
+	// The "test" feature flag doesn't work, hence the reliance on the "std" feature, which is
+	// enabled during tests.
+	#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
 	type MessageProcessor =
 		pallet_message_queue::mock_helpers::NoopMessageProcessor<AggregateMessageOrigin>;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type MessageProcessor = BridgeHubMessageRouter<
+	#[cfg(not(all(not(feature = "std"), feature = "runtime-benchmarks")))]
+	type MessageProcessor = bridge_hub_common::BridgeHubMessageRouter<
 		xcm_builder::ProcessXcmMessage<
 			AggregateMessageOrigin,
 			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
@@ -732,7 +732,7 @@ construct_runtime!(
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
-		MessageQueue: pallet_message_queue = 250,
+		MessageQueue: pallet_message_queue = 175,
 	}
 );
 
@@ -1111,6 +1111,12 @@ impl_runtime_apis! {
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					xcm_config::XcmConfig,
+					ExistentialDepositAsset,
+					xcm_config::PriceForParentDelivery,
+				>;
+
 				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
 				}
@@ -1119,7 +1125,7 @@ impl_runtime_apis! {
 					// Relay/native token can be teleported between BH and Relay.
 					Some((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
 						Parent.into(),
@@ -1298,7 +1304,7 @@ impl_runtime_apis! {
 			impl BridgeMessagesConfig<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance> for Runtime {
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
 					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>::bench_lane_id();
-					let bridged_chain_id = bp_bridge_hub_westend::BridgeHubWestend::ID;
+					let bridged_chain_id = bridge_to_westend_config::BridgeHubWestendChainId::get();
 					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
 						relayer,
 						bp_relayers::RewardsAccountParams::new(

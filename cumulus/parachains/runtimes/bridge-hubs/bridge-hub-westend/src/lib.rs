@@ -69,8 +69,6 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmOriginToTransactDispatchOrigin, XcmRouter};
 
-#[cfg(feature = "runtime-benchmarks")]
-use bp_runtime::Chain;
 use bp_runtime::HeaderId;
 
 #[cfg(any(feature = "std", test))]
@@ -178,7 +176,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-westend"),
 	impl_name: create_runtime_str!("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_006_000,
+	spec_version: 1_007_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 4,
@@ -524,6 +522,7 @@ mod benches {
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
+		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
@@ -807,6 +806,12 @@ impl_runtime_apis! {
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					xcm_config::XcmConfig,
+					ExistentialDepositAsset,
+					xcm_config::PriceForParentDelivery,
+				>;
+
 				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
 				}
@@ -815,7 +820,7 @@ impl_runtime_apis! {
 					// Relay/native token can be teleported between BH and Relay.
 					Some((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
 						Parent.into(),
@@ -991,7 +996,7 @@ impl_runtime_apis! {
 			impl BridgeMessagesConfig<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance> for Runtime {
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
 					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>>::bench_lane_id();
-					let bridged_chain_id = bp_bridge_hub_rococo::BridgeHubRococo::ID;
+					let bridged_chain_id = bridge_to_rococo_config::BridgeHubRococoChainId::get();
 					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
 						relayer,
 						bp_relayers::RewardsAccountParams::new(

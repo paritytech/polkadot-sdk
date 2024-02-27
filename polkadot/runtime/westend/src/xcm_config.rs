@@ -39,15 +39,13 @@ use westend_runtime_constants::{
 	xcm::body::{FELLOWSHIP_ADMIN_INDEX, TREASURER_INDEX},
 };
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
 	ChildParachainConvertsVia, DescribeBodyTerminal, DescribeFamily, FrameTransactionalProcessor,
-	HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	FungibleAdapter, HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
@@ -75,8 +73,7 @@ pub type LocationConverter = (
 	HashedDescription<AccountId, DescribeFamily<DescribeBodyTerminal>>,
 );
 
-#[allow(deprecated)]
-pub type LocalAssetTransactor = XcmCurrencyAdapter<
+pub type LocalAssetTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
@@ -117,12 +114,16 @@ parameter_types! {
 	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
 	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
 	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
+	pub Encointer: Location = Parachain(ENCOINTER_ID).into_location();
 	pub People: Location = Parachain(PEOPLE_ID).into_location();
+	pub Broker: Location = Parachain(BROKER_ID).into_location();
 	pub Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
 	pub WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
 	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
 	pub WndForBridgeHub: (AssetFilter, Location) = (Wnd::get(), BridgeHub::get());
+	pub WndForEncointer: (AssetFilter, Location) = (Wnd::get(), Encointer::get());
 	pub WndForPeople: (AssetFilter, Location) = (Wnd::get(), People::get());
+	pub WndForBroker: (AssetFilter, Location) = (Wnd::get(), Broker::get());
 	pub MaxInstructions: u32 = 100;
 	pub MaxAssetsIntoHolding: u32 = 64;
 }
@@ -131,7 +132,9 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<WndForAssetHub>,
 	xcm_builder::Case<WndForCollectives>,
 	xcm_builder::Case<WndForBridgeHub>,
+	xcm_builder::Case<WndForEncointer>,
 	xcm_builder::Case<WndForPeople>,
+	xcm_builder::Case<WndForBroker>,
 );
 
 pub struct OnlyParachains;
@@ -262,7 +265,7 @@ pub type LocalPalletOriginToLocation = (
 	StakingAdminToPlurality,
 	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	FellowshipAdminToPlurality,
-	// `Treasurer` origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// `Treasurer` origin to be used in XCM as a corresponding Plurality `Location` value.
 	TreasurerToPlurality,
 );
 

@@ -18,12 +18,14 @@
 //! Proc macro of Support code for the runtime.
 
 #![recursion_limit = "512"]
+#![deny(rustdoc::broken_intra_doc_links)]
 
 mod benchmark;
 mod construct_runtime;
 mod crate_version;
 mod derive_impl;
 mod dummy_part_checker;
+mod dynamic_params;
 mod key_prefix;
 mod match_and_insert;
 mod no_bound;
@@ -890,12 +892,13 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 		item.ident != "RuntimeOrigin" &&
 		item.ident != "RuntimeHoldReason" &&
 		item.ident != "RuntimeFreezeReason" &&
+		item.ident != "RuntimeParameters" &&
 		item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
 			item,
 			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, \
-			`RuntimeTask`, `RuntimeOrigin` or `PalletInfo`",
+			`RuntimeTask`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
 		)
 		.to_compile_error()
 		.into()
@@ -1477,22 +1480,11 @@ pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::origin]` attribute allows you to define some origin for the pallet.
 ///
-/// Item must be either a type alias, an enum, or a struct. It needs to be public.
+/// ---
 ///
-/// E.g.:
-///
-/// ```ignore
-/// #[pallet::origin]
-/// pub struct Origin<T>(PhantomData<(T)>);
-/// ```
-///
-/// **WARNING**: modifying origin changes the outer runtime origin. This outer runtime origin
-/// can be stored on-chain (e.g. in `pallet-scheduler`), thus any change must be done with care
-/// as it might require some migration.
-///
-/// NOTE: for instantiable pallets, the origin must be generic over `T` and `I`.
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::origin`.
 #[proc_macro_attribute]
 pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1684,4 +1676,53 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 		#internal_mod
 	}
 	.into()
+}
+
+/// Mark a module that contains dynamic parameters.
+///
+/// See the `pallet_parameters` for a full example.
+///
+/// # Arguments
+///
+/// The macro accepts two positional arguments, of which the second is optional.
+///
+/// ## Aggregated Enum Name
+///
+/// This sets the name that the aggregated Key-Value enum will be named after. Common names would be
+/// `RuntimeParameters`, akin to `RuntimeCall`, `RuntimeOrigin` etc. There is no default value for
+/// this argument.
+///
+/// ## Parameter Storage Backend
+///
+/// The second argument provides access to the storage of the parameters. It can either be set on
+/// on this attribute, or on the inner ones. If set on both, the inner one takes precedence.
+#[proc_macro_attribute]
+pub fn dynamic_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_params(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
+}
+
+/// Define a module inside a [`macro@dynamic_params`] module that contains dynamic parameters.
+///
+/// See the `pallet_parameters` for a full example.
+///
+/// # Argument
+///
+/// This attribute takes one optional argument. The argument can either be put here or on the
+/// surrounding `#[dynamic_params]` attribute. If set on both, the inner one takes precedence.
+#[proc_macro_attribute]
+pub fn dynamic_pallet_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_pallet_params(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
+}
+
+/// Used internally by [`dynamic_params`].
+#[doc(hidden)]
+#[proc_macro_attribute]
+pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_aggregated_params_internal(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
 }
