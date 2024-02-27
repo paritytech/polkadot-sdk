@@ -37,7 +37,7 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 	create: bool,
 	upgrade: bool,
 	archive: bool,
-	multi_tree: bool,
+	_multi_tree: bool,
 ) -> parity_db::Result<std::sync::Arc<dyn Database<H>>> {
 	// TODO rem just to test ci
 	let multi_tree = true;
