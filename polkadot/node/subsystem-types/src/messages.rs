@@ -1108,11 +1108,22 @@ pub struct ProspectiveValidationDataRequest {
 	pub para_id: ParaId,
 	/// The relay-parent of the candidate.
 	pub candidate_relay_parent: Hash,
-	/// The parent head-data hash.
-	pub parent_head_data_hash: Hash,
-	/// Optionally, the head-data of the parent.
-	/// This will be provided for collations with elastic scaling enabled.
-	pub maybe_parent_head_data: Option<HeadData>,
+	/// The parent head-data.
+	pub parent_head_data: ParentHeadData,
+}
+
+/// The parent head-data hash with optional data itself.
+#[derive(Debug)]
+pub enum ParentHeadData {
+	/// Parent head-data hash.
+	OnlyHash(Hash),
+	/// Parent head-data along with its hash.
+	WithData {
+		/// This will be provided for collations with elastic scaling enabled.
+		head_data: HeadData,
+		/// Parent head-data hash.
+		hash: Hash,
+	},
 }
 
 /// Indicates the relay-parents whose fragment tree a candidate

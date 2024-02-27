@@ -44,7 +44,7 @@ use polkadot_node_subsystem::{
 	jaeger,
 	messages::{
 		CanSecondRequest, CandidateBackingMessage, CollatorProtocolMessage, IfDisconnected,
-		NetworkBridgeEvent, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
+		NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData, ProspectiveParachainsMessage,
 		ProspectiveValidationDataRequest,
 	},
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, PerLeafSpan,
@@ -1784,12 +1784,14 @@ where
 {
 	let (tx, rx) = oneshot::channel();
 
-	let request = ProspectiveValidationDataRequest {
-		para_id,
-		candidate_relay_parent,
-		parent_head_data_hash,
-		maybe_parent_head_data,
+	let parent_head_data = if let Some(head_data) = maybe_parent_head_data {
+		ParentHeadData::WithData { head_data, hash: parent_head_data_hash }
+	} else {
+		ParentHeadData::OnlyHash(parent_head_data_hash)
 	};
+
+	let request =
+		ProspectiveValidationDataRequest { para_id, candidate_relay_parent, parent_head_data };
 
 	sender
 		.send_message(ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx))
