@@ -840,6 +840,7 @@ pub mod pallet {
 	///
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
+	#[pallet::disable_try_decode_storage]
 	#[pallet::getter(fn host_configuration)]
 	pub(super) type HostConfiguration<T: Config> = StorageValue<_, AbridgedHostConfiguration>;
 
