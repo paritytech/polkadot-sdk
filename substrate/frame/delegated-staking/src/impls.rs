@@ -23,7 +23,7 @@ use super::*;
 /// StakingInterface implementation with delegation support.
 ///
 /// Only supports Nominators via Delegated Bonds. It is possible for a nominator to migrate and
-/// become a `Delegate`.
+/// become a `delegatee`.
 impl<T: Config> StakingInterface for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
@@ -53,12 +53,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<Self::Balance>, DispatchError> {
-		ensure!(Self::is_delegate(who), Error::<T>::NotSupported);
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
 		return T::CoreStaking::stake(who);
 	}
 
 	fn total_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
-		if Self::is_delegate(who) {
+		if Self::is_delegatee(who) {
 			return T::CoreStaking::total_stake(who);
 		}
 
@@ -79,7 +79,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn fully_unbond(who: &Self::AccountId) -> DispatchResult {
-		ensure!(Self::is_delegate(who), Error::<T>::NotSupported);
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
 		return T::CoreStaking::fully_unbond(who);
 	}
 
@@ -89,35 +89,35 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		payee: &Self::AccountId,
 	) -> DispatchResult {
 		// ensure who is not already staked
-		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::NotDelegate);
-		let delegate = Delegate::<T>::from(who)?;
+		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::NotDelegatee);
+		let delegatee = Delegatee::<T>::from(who)?;
 
-		ensure!(delegate.available_to_bond() >= value, Error::<T>::NotEnoughFunds);
-		ensure!(delegate.ledger.payee == *payee, Error::<T>::InvalidRewardDestination);
+		ensure!(delegatee.available_to_bond() >= value, Error::<T>::NotEnoughFunds);
+		ensure!(delegatee.ledger.payee == *payee, Error::<T>::InvalidRewardDestination);
 
 		T::CoreStaking::bond(who, value, payee)
 	}
 
 	fn nominate(who: &Self::AccountId, validators: Vec<Self::AccountId>) -> DispatchResult {
-		ensure!(Self::is_delegate(who), Error::<T>::NotSupported);
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
 		return T::CoreStaking::nominate(who, validators);
 	}
 
 	fn chill(who: &Self::AccountId) -> DispatchResult {
-		ensure!(Self::is_delegate(who), Error::<T>::NotSupported);
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
 		return T::CoreStaking::chill(who);
 	}
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
-		let delegation_register = <Delegates<T>>::get(who).ok_or(Error::<T>::NotDelegate)?;
+		let delegation_register = <Delegates<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
 		ensure!(delegation_register.stakeable_balance() >= extra, Error::<T>::NotEnoughFunds);
 
 		T::CoreStaking::bond_extra(who, extra)
 	}
 
 	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult {
-		let delegate = Delegate::<T>::from(stash)?;
-		ensure!(delegate.bonded_stake() >= value, Error::<T>::NotEnoughFunds);
+		let delegatee = Delegatee::<T>::from(stash)?;
+		ensure!(delegatee.bonded_stake() >= value, Error::<T>::NotEnoughFunds);
 
 		T::CoreStaking::unbond(stash, value)
 	}
@@ -130,7 +130,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		num_slashing_spans: u32,
 	) -> Result<bool, DispatchError> {
 		Pallet::<T>::withdraw_unbonded(&pool_acc, num_slashing_spans)
-			.map(|delegate| delegate.ledger.total_delegated.is_zero())
+			.map(|delegatee| delegatee.ledger.total_delegated.is_zero())
 	}
 
 	fn desired_validator_count() -> u32 {
@@ -154,7 +154,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError> {
-		ensure!(Self::is_delegate(who), Error::<T>::NotSupported);
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
 		T::CoreStaking::status(who)
 	}
 
@@ -195,24 +195,24 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn is_delegatee(who: &Self::AccountId) -> bool {
-		Self::is_delegate(who)
+		Self::is_delegatee(who)
 	}
 
 	/// Effective balance of the delegatee account.
 	fn delegatee_balance(who: &Self::AccountId) -> Self::Balance {
-		Delegate::<T>::from(who)
-			.map(|delegate| delegate.ledger.effective_balance())
+		Delegatee::<T>::from(who)
+			.map(|delegatee| delegatee.ledger.effective_balance())
 			.unwrap_or_default()
 	}
 
 	/// Delegate funds to `Delegatee`.
 	fn delegate(who: &Self::AccountId, delegatee: &Self::AccountId, reward_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-		Pallet::<T>::register_as_delegate(
+		Pallet::<T>::register_as_delegatee(
 			RawOrigin::Signed(delegatee.clone()).into(),
 			reward_account.clone(),
 		)?;
 
-		// Delegate the funds from who to the pool account.
+		// Delegate the funds from who to the delegatee account.
 		Pallet::<T>::delegate_funds(
 			RawOrigin::Signed(who.clone()).into(),
 			delegatee.clone(),
@@ -241,7 +241,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	/// Does the delegatee have any pending slash.
 	fn has_pending_slash(delegatee: &Self::AccountId) -> bool {
-		Delegate::<T>::from(delegatee)
+		Delegatee::<T>::from(delegatee)
 			.map(|d| !d.ledger.pending_slash.is_zero())
 			.unwrap_or(false)
 	}
@@ -262,8 +262,8 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	/// this balance is total delegator that can be staked, and importantly not extra balance that
 	/// is delegated but not bonded yet.
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
-		Delegate::<T>::from(who)
-			.map(|delegate| delegate.ledger.stakeable_balance())
+		Delegatee::<T>::from(who)
+			.map(|delegatee| delegatee.ledger.stakeable_balance())
 			.unwrap_or_default()
 	}
 
@@ -290,8 +290,8 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 		register.payee != reward_acc
 	}
 
-	fn is_delegate(who: &Self::AccountId) -> bool {
-		Self::is_delegate(who)
+	fn is_delegatee(who: &Self::AccountId) -> bool {
+		Self::is_delegatee(who)
 	}
 
 	fn report_slash(who: &Self::AccountId, slash: Self::Balance) {

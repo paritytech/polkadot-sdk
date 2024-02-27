@@ -17,7 +17,7 @@
 
 //! # Delegated Staking Pallet
 //!
-//! An abstraction over staking pallet to support delegation of funds to a `delegate` account which
+//! An abstraction over staking pallet to support delegation of funds to a `delegatee` account which
 //! can use all the delegated funds to it in the staking pallet as if its own fund.
 //!
 //! NOTE: The pallet exposes extrinsics which are not yet meant to be exposed in the runtime but
@@ -34,40 +34,40 @@
 //!
 //! #### Reward and Slashing
 //! This pallet does not enforce any specific strategy for how rewards or slashes are applied. It
-//! is upto the `delegate` account to decide how to apply the rewards and slashes.
+//! is upto the `delegatee` account to decide how to apply the rewards and slashes.
 //!
 //! This importantly allows clients of this pallet to build their own strategies for reward/slashes.
-//! For example, a `delegate` account can choose to first slash the reward pot before slashing the
+//! For example, a `delegatee` account can choose to first slash the reward pot before slashing the
 //! delegators. Or part of the reward can go to a insurance fund that can be used to cover any
 //! potential future slashes. The goal is to eventually allow foreign MultiLocations
 //! (smart contracts or pallets on another chain) to build their own pooled staking solutions
 //! similar to `NominationPool`.
 //!
 //! ## Key Terminologies
-//! - *Delegate*: An account who accepts delegations from other accounts (called `Delegators`).
-//! - *Delegator*: An account who delegates their funds to a `delegate`.
-//! - *DelegationLedger*: A data structure that stores important information about the `delegate`
+//! - *delegatee*: An account who accepts delegations from other accounts (called `Delegators`).
+//! - *Delegator*: An account who delegates their funds to a `delegatee`.
+//! - *DelegationLedger*: A data structure that stores important information about the `delegatee`
 //! 	such as their total delegated stake.
-//! - *Delegation*: A data structure that stores the amount of funds delegated to a `delegate` by a
+//! - *Delegation*: A data structure that stores the amount of funds delegated to a `delegatee` by a
 //! 	`delegator`.
 //!
 //! ## Interface
 //!
 //! #### Dispatchable Calls
 //! The pallet exposes the following [`Call`]s:
-//! - `register_as_delegate`: Register an account to be a `Delegate`. Once an account is registered
-//! 	as a `Delegate`, for staking operations, only its delegated funds are used. This means it
+//! - `register_as_delegatee`: Register an account to be a `delegatee`. Once an account is registered
+//! 	as a `delegatee`, for staking operations, only its delegated funds are used. This means it
 //! 	cannot use its own free balance to stake.
-//! - `migrate_to_delegate`: This allows a `Nominator` account to become a `Delegate` account.
+//! - `migrate_to_delegate`: This allows a `Nominator` account to become a `delegatee` account.
 //! 	Explained in more detail in the `Migration` section.
 //! - `release`: Release funds to `delegator` from `unclaimed_withdrawals` register of the
-//!   `delegate`.
+//!   `delegatee`.
 //! - `migrate_delegation`: Migrate delegated funds from one account to another. This is useful for
-//!   example, delegators to a pool account which has migrated to be `delegate` to migrate their
+//!   example, delegators to a pool account which has migrated to be `delegatee` to migrate their
 //!   funds from pool account back to their own account and delegated to pool as a `delegator`. Once
 //!   the funds are migrated, the `delegator` can use the funds for other purposes which allows
 //!   usage of held funds in an account, such as governance.
-//! - `delegate_funds`: Delegate funds to a `Delegate` account and update the bond to staking.
+//! - `delegate_funds`: Delegate funds to a `delegatee` account and update the bond to staking.
 //!
 //! #### [Staking Interface](StakingInterface)
 //! This pallet reimplements the staking interface as a wrapper implementation over
@@ -78,33 +78,28 @@
 //! The pallet implements the staking delegation support trait which staking pallet can use to
 //! provide compatibility with this pallet.
 //!
-//! #### [Pool Adapter](sp_staking::delegation::PoolAdapter)
-//! The pallet also implements the pool adapter trait which allows NominationPool to use this pallet
-//! to support delegation based staking from pool accounts. This strategy also allows the pool to
-//! switch implementations while having minimal changes to its own logic.
-//!
 //! ## Lazy Slashing
 //! One of the reasons why direct nominators on staking pallet cannot scale well is because all
 //! nominators are slashed at the same time. This is expensive and needs to be bounded operation.
 //!
-//! This pallet implements a lazy slashing mechanism. Any slashes to a `delegate` are posted in its
+//! This pallet implements a lazy slashing mechanism. Any slashes to a `delegatee` are posted in its
 //! `DelegationLedger` as a pending slash. Since the actual amount is held in the multiple
-//! `delegator` accounts, this pallet has no way to know how to apply slash. It is `delegate`'s
+//! `delegator` accounts, this pallet has no way to know how to apply slash. It is `delegatee`'s
 //! responsibility to apply slashes for each delegator, one at a time. Staking pallet ensures the
 //! pending slash never exceeds staked amount and would freeze further withdraws until pending
 //! slashes are applied.
 //!
 //! `NominationPool` can apply slash for all its members by calling
-//! [PoolAdapter::delegator_slash](sp_staking::delegation::PoolAdapter::delegator_slash).
+//! [StakingInterface::delegator_slash](sp_staking::StakingInterface::delegator_slash).
 //!
 //! ## Migration from Nominator to Delegate
 //! More details [here](https://hackmd.io/@ak0n/np-delegated-staking-migration).
 //!
 //! ## Reward Destination Restrictions
-//! This pallets set an important restriction of rewards account to be separate from `delegate`
-//! account. This is because, `delegate` balance is not what is directly exposed but the funds that
-//! are delegated to it. For `delegate` accounts, we have also no way to auto-compound rewards. The
-//! rewards need to be paid out to delegators and then delegated again to the `delegate` account.
+//! This pallets set an important restriction of rewards account to be separate from `delegatee`
+//! account. This is because, `delegatee` balance is not what is directly exposed but the funds that
+//! are delegated to it. For `delegatee` accounts, we have also no way to auto-compound rewards. The
+//! rewards need to be paid out to delegators and then delegated again to the `delegatee` account.
 //!
 //! ## Nomination Pool vs Delegation Staking
 //! This pallet is not a replacement for Nomination Pool but adds a new primitive over staking
@@ -220,9 +215,9 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The account cannot perform this operation.
 		NotAllowed,
-		/// An existing staker cannot become a `delegate`.
+		/// An existing staker cannot become a `delegatee`.
 		AlreadyStaker,
-		/// Reward Destination cannot be `delegate` account.
+		/// Reward Destination cannot be `delegatee` account.
 		InvalidRewardDestination,
 		/// Delegation conditions are not met.
 		///
@@ -232,13 +227,13 @@ pub mod pallet {
 		InvalidDelegation,
 		/// The account does not have enough funds to perform the operation.
 		NotEnoughFunds,
-		/// Not an existing `delegate` account.
-		NotDelegate,
+		/// Not an existing `delegatee` account.
+		NotDelegatee,
 		/// Not a Delegator account.
 		NotDelegator,
 		/// Some corruption in internal state.
 		BadState,
-		/// Unapplied pending slash restricts operation on `delegate`.
+		/// Unapplied pending slash restricts operation on `delegatee`.
 		UnappliedSlash,
 		/// Failed to withdraw amount from Core Staking.
 		WithdrawFailed,
@@ -260,16 +255,16 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Funds delegated by a delegator.
-		Delegated { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
+		Delegated { delegatee: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 		/// Funds released to a delegator.
-		Released { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
+		Released { delegatee: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 		/// Funds slashed from a delegator.
-		Slashed { delegate: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
+		Slashed { delegatee: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	/// Map of Delegators to their `Delegation`.
 	///
-	/// Implementation note: We are not using a double map with `delegator` and `delegate` account
+	/// Implementation note: We are not using a double map with `delegator` and `delegatee` account
 	/// as keys since we want to restrict delegators to delegate only to one account at a time.
 	#[pallet::storage]
 	pub(crate) type Delegators<T: Config> =
@@ -288,22 +283,22 @@ pub mod pallet {
 		/// behalf.
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::default())]
-		pub fn register_as_delegate(
+		pub fn register_as_delegatee(
 			origin: OriginFor<T>,
 			reward_account: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			// Existing `delegate` cannot register again.
-			ensure!(!Self::is_delegate(&who), Error::<T>::NotAllowed);
+			// Existing `delegatee` cannot register again.
+			ensure!(!Self::is_delegatee(&who), Error::<T>::NotAllowed);
 
-			// A delegator cannot become a `delegate`.
+			// A delegator cannot become a `delegatee`.
 			ensure!(!Self::is_delegator(&who), Error::<T>::NotAllowed);
 
 			// They cannot be already a direct staker in the staking pallet.
 			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaker);
 
-			// Reward account cannot be same as `delegate` account.
+			// Reward account cannot be same as `delegatee` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
 
 			Self::do_register_delegator(&who, &reward_account);
@@ -325,26 +320,26 @@ pub mod pallet {
 		/// claim back their share of delegated funds from `proxy_delegator` to self.
 		#[pallet::call_index(1)]
 		#[pallet::weight(Weight::default())]
-		pub fn migrate_to_delegate(
+		pub fn migrate_to_delegatee(
 			origin: OriginFor<T>,
 			reward_account: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// ensure who is not already a delegate.
-			ensure!(!Self::is_delegate(&who), Error::<T>::NotAllowed);
+			// ensure who is not already a delegatee.
+			ensure!(!Self::is_delegatee(&who), Error::<T>::NotAllowed);
 
 			// and they should already be a nominator in `CoreStaking`.
 			ensure!(Self::is_direct_nominator(&who), Error::<T>::NotAllowed);
 
-			// Reward account cannot be same as `delegate` account.
+			// Reward account cannot be same as `delegatee` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
 
-			Self::do_migrate_to_delegate(&who, &reward_account)
+			Self::do_migrate_to_delegatee(&who, &reward_account)
 		}
 
 		/// Release delegated amount to delegator.
 		///
-		/// This can be called by existing `delegate` accounts.
+		/// This can be called by existing `delegatee` accounts.
 		///
 		/// Tries to withdraw unbonded fund from `CoreStaking` if needed and release amount to
 		/// `delegator`.
@@ -362,7 +357,7 @@ pub mod pallet {
 
 		/// Migrate delegated fund.
 		///
-		/// This can be called by migrating `delegate` accounts.
+		/// This can be called by migrating `delegatee` accounts.
 		///
 		/// This moves delegator funds from `pxoxy_delegator` account to `delegator` account.
 		#[pallet::call_index(3)]
@@ -372,21 +367,21 @@ pub mod pallet {
 			delegator: T::AccountId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
-			let delegate = ensure_signed(origin)?;
+			let delegatee = ensure_signed(origin)?;
 
 			// Ensure they have minimum delegation.
 			ensure!(amount >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 
 			// Ensure delegator is sane.
-			ensure!(!Self::is_delegate(&delegator), Error::<T>::NotAllowed);
+			ensure!(!Self::is_delegatee(&delegator), Error::<T>::NotAllowed);
 			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
 			ensure!(Self::not_direct_staker(&delegator), Error::<T>::AlreadyStaker);
 
 			// ensure delegate is sane.
-			ensure!(Self::is_delegate(&delegate), Error::<T>::NotDelegate);
+			ensure!(Self::is_delegatee(&delegatee), Error::<T>::NotDelegatee);
 
 			// and has enough delegated balance to migrate.
-			let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, delegate);
+			let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, delegatee);
 			let balance_remaining = Self::held_balance_of(&proxy_delegator);
 			ensure!(balance_remaining >= amount, Error::<T>::NotEnoughFunds);
 
@@ -400,7 +395,7 @@ pub mod pallet {
 		#[pallet::weight(Weight::default())]
 		pub fn delegate_funds(
 			origin: OriginFor<T>,
-			delegate: T::AccountId,
+			delegatee: T::AccountId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -409,12 +404,12 @@ pub mod pallet {
 			ensure!(amount > T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 
 			// ensure delegator is sane.
-			ensure!(Delegation::<T>::can_delegate(&who, &delegate), Error::<T>::InvalidDelegation);
+			ensure!(Delegation::<T>::can_delegate(&who, &delegatee), Error::<T>::InvalidDelegation);
 			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaker);
 
 			// ensure delegate is sane.
 			ensure!(
-				DelegationLedger::<T>::can_accept_delegation(&delegate),
+				DelegationLedger::<T>::can_accept_delegation(&delegatee),
 				Error::<T>::NotAcceptingDelegations
 			);
 
@@ -423,23 +418,23 @@ pub mod pallet {
 			ensure!(delegator_balance >= amount, Error::<T>::NotEnoughFunds);
 
 			// add to delegation
-			Self::do_delegate(&who, &delegate, amount)?;
+			Self::do_delegate(&who, &delegatee, amount)?;
 			// bond the amount to `CoreStaking`.
-			Self::do_bond(&delegate, amount)
+			Self::do_bond(&delegatee, amount)
 		}
 
 		/// Toggle delegate status to start or stop accepting new delegations.
 		///
 		/// This can only be used by existing delegates. If not a delegate yet, use
-		/// [Call::register_as_delegate] first.
+		/// [Call::register_as_delegatee] first.
 		#[pallet::call_index(5)]
 		#[pallet::weight(Weight::default())]
-		pub fn toggle_delegate_status(origin: OriginFor<T>) -> DispatchResult {
+		pub fn toggle_delegatee_status(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let delegate = Delegate::<T>::from(&who)?;
-			let should_block = !delegate.ledger.blocked;
-			delegate.update_status(should_block).save();
+			let delegatee = Delegatee::<T>::from(&who)?;
+			let should_block = !delegatee.ledger.blocked;
+			delegatee.update_status(should_block).save();
 
 			Ok(())
 		}
@@ -476,9 +471,9 @@ impl<T: Config> Pallet<T> {
 	/// Derive a (keyless) pot account from the given delegate account and account type.
 	pub(crate) fn sub_account(
 		account_type: AccountType,
-		delegate_account: T::AccountId,
+		delegatee_account: T::AccountId,
 	) -> T::AccountId {
-		T::PalletId::get().into_sub_account_truncating((account_type, delegate_account.clone()))
+		T::PalletId::get().into_sub_account_truncating((account_type, delegatee_account.clone()))
 	}
 
 	/// Balance of a delegator that is delegated.
@@ -487,7 +482,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns true if who is registered as a `Delegate`.
-	fn is_delegate(who: &T::AccountId) -> bool {
+	fn is_delegatee(who: &T::AccountId) -> bool {
 		<Delegates<T>>::contains_key(who)
 	}
 
@@ -517,7 +512,7 @@ impl<T: Config> Pallet<T> {
 		frame_system::Pallet::<T>::inc_providers(who);
 	}
 
-	fn do_migrate_to_delegate(who: &T::AccountId, reward_account: &T::AccountId) -> DispatchResult {
+	fn do_migrate_to_delegatee(who: &T::AccountId, reward_account: &T::AccountId) -> DispatchResult {
 		// We create a proxy delegator that will keep all the delegation funds until funds are
 		// transferred to actual delegator.
 		let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, who.clone());
@@ -549,30 +544,30 @@ impl<T: Config> Pallet<T> {
 		Self::do_delegate(&proxy_delegator, who, stake.total)
 	}
 
-	fn do_bond(delegate_acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
-		let delegate = Delegate::<T>::from(delegate_acc)?;
+	fn do_bond(delegatee_acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		let delegatee = Delegatee::<T>::from(delegatee_acc)?;
 
-		let available_to_bond = delegate.available_to_bond();
+		let available_to_bond = delegatee.available_to_bond();
 		defensive_assert!(amount == available_to_bond, "not expected value to bond");
 
-		if delegate.is_bonded() {
-			T::CoreStaking::bond_extra(&delegate.key, amount)
+		if delegatee.is_bonded() {
+			T::CoreStaking::bond_extra(&delegatee.key, amount)
 		} else {
-			T::CoreStaking::bond(&delegate.key, amount, &delegate.reward_account())
+			T::CoreStaking::bond(&delegatee.key, amount, &delegatee.reward_account())
 		}
 	}
 
 	fn do_delegate(
 		delegator: &T::AccountId,
-		delegate: &T::AccountId,
+		delegatee: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		let mut ledger = DelegationLedger::<T>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
+		let mut ledger = DelegationLedger::<T>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
 		debug_assert!(!ledger.blocked);
 
 		let new_delegation_amount =
 			if let Some(existing_delegation) = Delegation::<T>::get(delegator) {
-				ensure!(&existing_delegation.delegate == delegate, Error::<T>::InvalidDelegation);
+				ensure!(&existing_delegation.delegatee == delegatee, Error::<T>::InvalidDelegation);
 				existing_delegation
 					.amount
 					.checked_add(&amount)
@@ -581,15 +576,15 @@ impl<T: Config> Pallet<T> {
 				amount
 			};
 
-		Delegation::<T>::from(delegate, new_delegation_amount).save(delegator);
+		Delegation::<T>::from(delegatee, new_delegation_amount).save(delegator);
 		ledger.total_delegated =
 			ledger.total_delegated.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
-		ledger.save(delegate);
+		ledger.save(delegatee);
 
 		T::Currency::hold(&HoldReason::Delegating.into(), delegator, amount)?;
 
 		Self::deposit_event(Event::<T>::Delegated {
-			delegate: delegate.clone(),
+			delegatee: delegatee.clone(),
 			delegator: delegator.clone(),
 			amount,
 		});
@@ -603,24 +598,24 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
-		let mut delegate = Delegate::<T>::from(who)?;
+		let mut delegatee = Delegatee::<T>::from(who)?;
 		let mut delegation = Delegation::<T>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
 
 		// make sure delegation to be released is sound.
-		ensure!(&delegation.delegate == who, Error::<T>::NotDelegate);
+		ensure!(&delegation.delegatee == who, Error::<T>::NotDelegatee);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
-		if delegate.ledger.unclaimed_withdrawals < amount {
+		if delegatee.ledger.unclaimed_withdrawals < amount {
 			// get the updated delegate
-			delegate = Self::withdraw_unbonded(who, num_slashing_spans)?;
+			delegatee = Self::withdraw_unbonded(who, num_slashing_spans)?;
 		}
 
 		// if we still do not have enough funds to release, abort.
-		ensure!(delegate.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
+		ensure!(delegatee.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
 
-		// claim withdraw from delegate.
-		delegate.remove_unclaimed_withdraw(amount)?.save_or_kill()?;
+		// claim withdraw from delegatee.
+		delegatee.remove_unclaimed_withdraw(amount)?.save_or_kill()?;
 
 		// book keep delegation
 		delegation.amount = delegation
@@ -642,7 +637,7 @@ impl<T: Config> Pallet<T> {
 		defensive_assert!(released == amount, "hold should have been released fully");
 
 		Self::deposit_event(Event::<T>::Released {
-			delegate: who.clone(),
+			delegatee: who.clone(),
 			delegator: delegator.clone(),
 			amount,
 		});
@@ -651,17 +646,17 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn withdraw_unbonded(
-		delegate_acc: &T::AccountId,
+		delegatee_acc: &T::AccountId,
 		num_slashing_spans: u32,
-	) -> Result<Delegate<T>, DispatchError> {
-		let delegate = Delegate::<T>::from(delegate_acc)?;
-		let pre_total = T::CoreStaking::stake(delegate_acc).defensive()?.total;
+	) -> Result<Delegatee<T>, DispatchError> {
+		let delegatee = Delegatee::<T>::from(delegatee_acc)?;
+		let pre_total = T::CoreStaking::stake(delegatee_acc).defensive()?.total;
 
 		let stash_killed: bool =
-			T::CoreStaking::withdraw_unbonded(delegate_acc.clone(), num_slashing_spans)
+			T::CoreStaking::withdraw_unbonded(delegatee_acc.clone(), num_slashing_spans)
 				.map_err(|_| Error::<T>::WithdrawFailed)?;
 
-		let maybe_post_total = T::CoreStaking::stake(delegate_acc);
+		let maybe_post_total = T::CoreStaking::stake(delegatee_acc);
 		// One of them should be true
 		defensive_assert!(
 			!(stash_killed && maybe_post_total.is_ok()),
@@ -673,11 +668,11 @@ impl<T: Config> Pallet<T> {
 		let new_withdrawn =
 			pre_total.checked_sub(&post_total).defensive_ok_or(Error::<T>::BadState)?;
 
-		let delegate = delegate.add_unclaimed_withdraw(new_withdrawn)?;
+		let delegatee = delegatee.add_unclaimed_withdraw(new_withdrawn)?;
 
-		delegate.clone().save();
+		delegatee.clone().save();
 
-		Ok(delegate)
+		Ok(delegatee)
 	}
 
 	/// Migrates delegation of `amount` from `source` account to `destination` account.
@@ -692,11 +687,11 @@ impl<T: Config> Pallet<T> {
 		// some checks that must have already been checked before.
 		ensure!(source_delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 		debug_assert!(
-			!Self::is_delegator(destination_delegator) && !Self::is_delegate(destination_delegator)
+			!Self::is_delegator(destination_delegator) && !Self::is_delegatee(destination_delegator)
 		);
 
 		// update delegations
-		Delegation::<T>::from(&source_delegation.delegate, amount).save(destination_delegator);
+		Delegation::<T>::from(&source_delegation.delegatee, amount).save(destination_delegator);
 
 		source_delegation
 			.decrease_delegation(amount)
@@ -734,15 +729,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn do_slash(
-		delegate_acc: T::AccountId,
+		delegatee_acc: T::AccountId,
 		delegator: T::AccountId,
 		amount: BalanceOf<T>,
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
-		let delegate = Delegate::<T>::from(&delegate_acc)?;
+		let delegatee = Delegatee::<T>::from(&delegatee_acc)?;
 		let delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
 
-		ensure!(delegation.delegate == delegate_acc, Error::<T>::NotDelegate);
+		ensure!(delegation.delegatee == delegatee_acc, Error::<T>::NotDelegatee);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
 		let (mut credit, missing) =
@@ -752,8 +747,8 @@ impl<T: Config> Pallet<T> {
 
 		let actual_slash = credit.peek();
 
-		// remove the applied slashed amount from delegate.
-		delegate.remove_slash(actual_slash).save();
+		// remove the applied slashed amount from delegatee.
+		delegatee.remove_slash(actual_slash).save();
 
 		delegation
 			.decrease_delegation(actual_slash)
@@ -772,7 +767,7 @@ impl<T: Config> Pallet<T> {
 
 		T::OnSlash::on_unbalanced(credit);
 
-		Self::deposit_event(Event::<T>::Slashed { delegate: delegate_acc, delegator, amount });
+		Self::deposit_event(Event::<T>::Slashed { delegatee: delegatee_acc, delegator, amount });
 
 		Ok(())
 	}
@@ -797,10 +792,10 @@ impl<T: Config> Pallet<T> {
 	fn check_delegates(
 		ledgers: BTreeMap<T::AccountId, DelegationLedger<T>>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
-		for (delegate, ledger) in ledgers {
+		for (delegatee, ledger) in ledgers {
 			ensure!(
 				matches!(
-					T::CoreStaking::status(&delegate).expect("delegate should be bonded"),
+					T::CoreStaking::status(&delegatee).expect("delegate should be bonded"),
 					StakerStatus::Nominator(_) | StakerStatus::Idle
 				),
 				"delegate should be bonded and not validator"
@@ -808,7 +803,7 @@ impl<T: Config> Pallet<T> {
 
 			ensure!(
 				ledger.stakeable_balance() >=
-					T::CoreStaking::total_stake(&delegate)
+					T::CoreStaking::total_stake(&delegatee)
 						.expect("delegate should exist as a nominator"),
 				"Cannot stake more than balance"
 			);
@@ -827,18 +822,18 @@ impl<T: Config> Pallet<T> {
 				T::CoreStaking::status(delegator).is_err(),
 				"delegator should not be directly staked"
 			);
-			ensure!(!Self::is_delegate(delegator), "delegator cannot be delegate");
+			ensure!(!Self::is_delegatee(delegator), "delegator cannot be delegate");
 
 			delegation_aggregation
-				.entry(delegation.delegate.clone())
+				.entry(delegation.delegatee.clone())
 				.and_modify(|e| *e += delegation.amount)
 				.or_insert(delegation.amount);
 		}
 
-		for (delegate, total_delegated) in delegation_aggregation {
-			ensure!(!Self::is_delegator(&delegate), "delegate cannot be delegator");
+		for (delegatee, total_delegated) in delegation_aggregation {
+			ensure!(!Self::is_delegator(&delegatee), "delegate cannot be delegator");
 
-			let ledger = ledger.get(&delegate).expect("ledger should exist");
+			let ledger = ledger.get(&delegatee).expect("ledger should exist");
 			ensure!(
 				ledger.total_delegated == total_delegated,
 				"ledger total delegated should match delegations"

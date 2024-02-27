@@ -24,9 +24,9 @@ use frame_support::traits::DefensiveSaturating;
 /// The type of pot account being created.
 #[derive(Encode, Decode)]
 pub(crate) enum AccountType {
-	/// A proxy delegator account created for a nominator who migrated to a `delegate` account.
+	/// A proxy delegator account created for a nominator who migrated to a `delegatee` account.
 	///
-	/// Funds for unmigrated `delegator` accounts of the `delegate` are kept here.
+	/// Funds for unmigrated `delegator` accounts of the `delegatee` are kept here.
 	ProxyDelegator,
 }
 
@@ -35,7 +35,7 @@ pub(crate) enum AccountType {
 #[scale_info(skip_type_params(T))]
 pub struct Delegation<T: Config> {
 	/// The target of delegation.
-	pub delegate: T::AccountId,
+	pub delegatee: T::AccountId,
 	/// The amount delegated.
 	pub amount: BalanceOf<T>,
 }
@@ -45,15 +45,15 @@ impl<T: Config> Delegation<T> {
 		<Delegators<T>>::get(delegator)
 	}
 
-	pub(crate) fn from(delegate: &T::AccountId, amount: BalanceOf<T>) -> Self {
-		Delegation { delegate: delegate.clone(), amount }
+	pub(crate) fn from(delegatee: &T::AccountId, amount: BalanceOf<T>) -> Self {
+		Delegation { delegatee: delegatee.clone(), amount }
 	}
 
-	pub(crate) fn can_delegate(delegator: &T::AccountId, delegate: &T::AccountId) -> bool {
+	pub(crate) fn can_delegate(delegator: &T::AccountId, delegatee: &T::AccountId) -> bool {
 		Delegation::<T>::get(delegator)
-			.map(|delegation| delegation.delegate == delegate.clone())
+			.map(|delegation| delegation.delegatee == delegatee.clone())
 			.unwrap_or(
-				// all good if its a new delegator expect it should not am existing delegate.
+				// all good if its a new delegator except it should not be an existing delegatee.
 				!<Delegates<T>>::contains_key(delegator),
 			)
 	}
@@ -61,14 +61,14 @@ impl<T: Config> Delegation<T> {
 	/// Checked decrease of delegation amount. Consumes self and returns a new copy.
 	pub(crate) fn decrease_delegation(self, amount: BalanceOf<T>) -> Option<Self> {
 		let updated_delegation = self.amount.checked_sub(&amount)?;
-		Some(Delegation::from(&self.delegate, updated_delegation))
+		Some(Delegation::from(&self.delegatee, updated_delegation))
 	}
 
 	/// Checked increase of delegation amount. Consumes self and returns a new copy.
 	#[allow(unused)]
 	pub(crate) fn increase_delegation(self, amount: BalanceOf<T>) -> Option<Self> {
 		let updated_delegation = self.amount.checked_add(&amount)?;
-		Some(Delegation::from(&self.delegate, updated_delegation))
+		Some(Delegation::from(&self.delegatee, updated_delegation))
 	}
 
 	pub(crate) fn save(self, key: &T::AccountId) {
@@ -84,8 +84,8 @@ impl<T: Config> Delegation<T> {
 
 /// Ledger of all delegations to a `Delegate`.
 ///
-/// This keeps track of the active balance of the `delegate` that is made up from the funds that are
-/// currently delegated to this `delegate`. It also tracks the pending slashes yet to be applied
+/// This keeps track of the active balance of the `delegatee` that is made up from the funds that are
+/// currently delegated to this `delegatee`. It also tracks the pending slashes yet to be applied
 /// among other things.
 // FIXME(ank4n): Break up into two storage items - bookkeeping stuff and settings stuff.
 #[derive(Default, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -93,7 +93,7 @@ impl<T: Config> Delegation<T> {
 pub struct DelegationLedger<T: Config> {
 	/// Where the reward should be paid out.
 	pub payee: T::AccountId,
-	/// Sum of all delegated funds to this `delegate`.
+	/// Sum of all delegated funds to this `delegatee`.
 	#[codec(compact)]
 	pub total_delegated: BalanceOf<T>,
 	/// Funds that are withdrawn from core staking but not released to delegator/s. It is a subset
@@ -104,7 +104,7 @@ pub struct DelegationLedger<T: Config> {
 	/// Slashes that are not yet applied.
 	#[codec(compact)]
 	pub pending_slash: BalanceOf<T>,
-	/// Whether this `delegate` is blocked from receiving new delegations.
+	/// Whether this `delegatee` is blocked from receiving new delegations.
 	pub blocked: bool,
 }
 
@@ -123,8 +123,8 @@ impl<T: Config> DelegationLedger<T> {
 		<Delegates<T>>::get(key)
 	}
 
-	pub(crate) fn can_accept_delegation(delegate: &T::AccountId) -> bool {
-		DelegationLedger::<T>::get(delegate)
+	pub(crate) fn can_accept_delegation(delegatee: &T::AccountId) -> bool {
+		DelegationLedger::<T>::get(delegatee)
 			.map(|ledger| !ledger.blocked)
 			.unwrap_or(false)
 	}
@@ -133,7 +133,7 @@ impl<T: Config> DelegationLedger<T> {
 		<Delegates<T>>::insert(key, self)
 	}
 
-	/// Effective total balance of the `delegate`.
+	/// Effective total balance of the `delegatee`.
 	pub(crate) fn effective_balance(&self) -> BalanceOf<T> {
 		defensive_assert!(
 			self.total_delegated >= self.pending_slash,
@@ -152,15 +152,15 @@ impl<T: Config> DelegationLedger<T> {
 
 /// Wrapper around `DelegationLedger` to provide additional functionality.
 #[derive(Clone)]
-pub struct Delegate<T: Config> {
+pub struct Delegatee<T: Config> {
 	pub key: T::AccountId,
 	pub ledger: DelegationLedger<T>,
 }
 
-impl<T: Config> Delegate<T> {
-	pub(crate) fn from(delegate: &T::AccountId) -> Result<Delegate<T>, DispatchError> {
-		let ledger = DelegationLedger::<T>::get(delegate).ok_or(Error::<T>::NotDelegate)?;
-		Ok(Delegate { key: delegate.clone(), ledger })
+impl<T: Config> Delegatee<T> {
+	pub(crate) fn from(delegatee: &T::AccountId) -> Result<Delegatee<T>, DispatchError> {
+		let ledger = DelegationLedger::<T>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		Ok(Delegatee { key: delegatee.clone(), ledger })
 	}
 
 	/// Remove funds that are withdrawn from [Config::CoreStaking] but not claimed by a delegator.
@@ -182,7 +182,7 @@ impl<T: Config> Delegate<T> {
 			.checked_sub(&amount)
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
-		Ok(Delegate {
+		Ok(Delegatee {
 			ledger: DelegationLedger {
 				total_delegated: new_total_delegated,
 				unclaimed_withdrawals: new_unclaimed_withdrawals,
@@ -203,7 +203,7 @@ impl<T: Config> Delegate<T> {
 			.checked_add(&amount)
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
-		Ok(Delegate {
+		Ok(Delegatee {
 			ledger: DelegationLedger {
 				unclaimed_withdrawals: new_unclaimed_withdrawals,
 				..self.ledger
@@ -214,7 +214,7 @@ impl<T: Config> Delegate<T> {
 
 	/// Reloads self from storage.
 	#[allow(unused)]
-	pub(crate) fn refresh(&self) -> Result<Delegate<T>, DispatchError> {
+	pub(crate) fn refresh(&self) -> Result<Delegatee<T>, DispatchError> {
 		Self::from(&self.key)
 	}
 
@@ -249,7 +249,7 @@ impl<T: Config> Delegate<T> {
 		let pending_slash = self.ledger.pending_slash.defensive_saturating_sub(amount);
 		let total_delegated = self.ledger.total_delegated.defensive_saturating_sub(amount);
 
-		Delegate {
+		Delegatee {
 			ledger: DelegationLedger { pending_slash, total_delegated, ..self.ledger },
 			..self
 		}
@@ -268,7 +268,7 @@ impl<T: Config> Delegate<T> {
 	}
 
 	pub(crate) fn update_status(self, block: bool) -> Self {
-		Delegate { ledger: DelegationLedger { blocked: block, ..self.ledger }, ..self }
+		Delegatee { ledger: DelegationLedger { blocked: block, ..self.ledger }, ..self }
 	}
 
 	pub(crate) fn save(self) {

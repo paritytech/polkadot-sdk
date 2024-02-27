@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as delegated_staking, types::Delegate, HoldReason};
+use crate::{self as delegated_staking, types::Delegatee, HoldReason};
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
@@ -283,15 +283,15 @@ pub(crate) fn fund(who: &AccountId, amount: Balance) {
 /// `delegate_amount` is incremented by the amount `increment` starting with `base_delegate_amount`
 /// from lower index to higher index of delegators.
 pub(crate) fn setup_delegation_stake(
-	delegate: AccountId,
+	delegatee: AccountId,
 	reward_acc: AccountId,
 	delegators: Vec<AccountId>,
 	base_delegate_amount: Balance,
 	increment: Balance,
 ) -> Balance {
-	fund(&delegate, 100);
-	assert_ok!(DelegatedStaking::register_as_delegate(
-		RawOrigin::Signed(delegate).into(),
+	fund(&delegatee, 100);
+	assert_ok!(DelegatedStaking::register_as_delegatee(
+		RawOrigin::Signed(delegatee).into(),
 		reward_acc
 	));
 	let mut delegated_amount: Balance = 0;
@@ -302,14 +302,14 @@ pub(crate) fn setup_delegation_stake(
 		fund(delegator, amount_to_delegate + ExistentialDeposit::get());
 		assert_ok!(DelegatedStaking::delegate_funds(
 			RawOrigin::Signed(delegator.clone()).into(),
-			delegate,
+			delegatee,
 			amount_to_delegate
 		));
 	}
 
 	// sanity checks
-	assert_eq!(DelegatedStaking::stakeable_balance(&delegate), delegated_amount);
-	assert_eq!(Delegate::<T>::from(&delegate).unwrap().available_to_bond(), 0);
+	assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), delegated_amount);
+	assert_eq!(Delegatee::<T>::from(&delegatee).unwrap().available_to_bond(), 0);
 
 	delegated_amount
 }
@@ -320,11 +320,11 @@ pub(crate) fn start_era(era: sp_staking::EraIndex) {
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
 	Staking::stake(&who).unwrap() == Stake { total, active } &&
-		get_delegate(&who).ledger.stakeable_balance() == total
+		get_delegatee(&who).ledger.stakeable_balance() == total
 }
 
-pub(crate) fn get_delegate(delegate: &AccountId) -> Delegate<T> {
-	Delegate::<T>::from(delegate).expect("delegate should exist")
+pub(crate) fn get_delegatee(delegatee: &AccountId) -> Delegatee<T> {
+	Delegatee::<T>::from(delegatee).expect("delegate should exist")
 }
 
 pub(crate) fn held_balance(who: &AccountId) -> Balance {

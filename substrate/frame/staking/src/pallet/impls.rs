@@ -1107,7 +1107,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
-		if T::DelegationSupport::is_delegate(who) {
+		if T::DelegationSupport::is_delegatee(who) {
 			return T::DelegationSupport::stakeable_balance(who);
 		}
 
@@ -1118,7 +1118,7 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		reward_destination: Option<T::AccountId>,
 	) -> bool {
-		if T::DelegationSupport::is_delegate(who) {
+		if T::DelegationSupport::is_delegatee(who) {
 			return T::DelegationSupport::restrict_reward_destination(who, reward_destination);
 		}
 
@@ -1129,8 +1129,8 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> sp_runtime::DispatchResult {
-		// only apply lock if it is not a delegate. Delegate accounts are already locked/held.
-		if !T::DelegationSupport::is_delegate(who) {
+		// only apply lock if it is not a delegatee. delegatee accounts are already locked/held.
+		if !T::DelegationSupport::is_delegatee(who) {
 			T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
 		}
 
@@ -1892,12 +1892,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		delegatee: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		Err(DispatchError::Other("delegate is not supported"))
+		Err(DispatchError::Other("delegate_extra is not supported"))
 	}
 
 	/// Withdraw delegation from pool account to self.
 	fn withdraw_delegation(who: &Self::AccountId, delegatee: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-		Err(DispatchError::Other("delegate is not supported"))
+		Err(DispatchError::Other("withdraw_delegation is not supported"))
 	}
 
 	/// Does the delegatee have any pending slash.
@@ -1907,7 +1907,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn delegator_slash(delegatee: &Self::AccountId, delegator: &Self::AccountId, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult {
-		Err(DispatchError::Other("delegate is not supported"))
+		Err(DispatchError::Other("delegator_slash is not supported"))
 	}
 
 	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance {
@@ -1926,7 +1926,7 @@ impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 		defensive!("stakeable balance should not have been called for NoDelegation");
 		BalanceOf::<T>::zero()
 	}
-	fn is_delegate(_who: &Self::AccountId) -> bool {
+	fn is_delegatee(_who: &Self::AccountId) -> bool {
 		false
 	}
 	fn report_slash(_who: &Self::AccountId, _slash: Self::Balance) {
