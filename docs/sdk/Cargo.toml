@@ -17,13 +17,16 @@ workspace = true
 # Needed for all FRAME-based code
 parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
-frame = { path = "../../substrate/frame", features = ["experimental", "runtime"] }
+frame = { path = "../../substrate/frame", features = [
+	"experimental",
+	"runtime",
+] }
 pallet-examples = { path = "../../substrate/frame/examples" }
 pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }
 
 # How we build docs in rust-docs
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b" }
-docify = "0.2.6"
+simple-mermaid = "0.1.1"
+docify = "0.2.7"
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
 node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli" }
@@ -52,7 +55,18 @@ cumulus-pallet-parachain-system = { path = "../../cumulus/pallets/parachain-syst
 ] }
 parachain-info = { package = "staging-parachain-info", path = "../../cumulus/parachains/pallets/parachain-info" }
 pallet-aura = { path = "../../substrate/frame/aura", default-features = false }
+
+# Pallets and FRAME internals
 pallet-timestamp = { path = "../../substrate/frame/timestamp" }
+pallet-balances = { path = "../../substrate/frame/balances" }
+pallet-transaction-payment = { path = "../../substrate/frame/transaction-payment" }
+pallet-utility = { path = "../../substrate/frame/utility" }
+pallet-multisig = { path = "../../substrate/frame/multisig" }
+pallet-proxy = { path = "../../substrate/frame/proxy" }
+pallet-authorship = { path = "../../substrate/frame/authorship" }
+pallet-collective = { path = "../../substrate/frame/collective" }
+pallet-democracy = { path = "../../substrate/frame/democracy" }
+frame-system = { path = "../../substrate/frame/system" }
 
 # Primitives
 sp-io = { path = "../../substrate/primitives/io" }
@@ -61,9 +75,8 @@ sp-core = { path = "../../substrate/primitives/core" }
 sp-keyring = { path = "../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../substrate/primitives/runtime" }
 
-[dev-dependencies]
-parity-scale-codec = "3.6.5"
-scale-info = "2.9.0"
+# XCM
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
 
 [features]
 experimental = ["pallet-aura/experimental"]

@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-common"
-version = "0.1.0"
+version = "0.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Bridge hub common utilities"
@@ -16,7 +16,7 @@ sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-fea
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-snowbridge-core = { path = "../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false }
+snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false }
 
 [features]
 default = ["std"]

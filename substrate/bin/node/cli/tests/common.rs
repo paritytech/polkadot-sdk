@@ -112,7 +112,7 @@ pub fn executor_call(
 	let heap_pages = t.storage(sp_core::storage::well_known_keys::HEAP_PAGES);
 	let runtime_code = RuntimeCode {
 		code_fetcher: &sp_core::traits::WrappedRuntimeCode(code.as_slice().into()),
-		hash: sp_core::blake2_256(&code).to_vec(),
+		hash: sp_crypto_hashing::blake2_256(&code).to_vec(),
 		heap_pages: heap_pages.and_then(|hp| Decode::decode(&mut &hp[..]).ok()),
 	};
 	sp_tracing::try_init_simple();

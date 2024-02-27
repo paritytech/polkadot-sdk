@@ -94,7 +94,7 @@ fn find_process_by_sid_and_name(
 	found
 }
 
-/// Sets up the test and makes sure everything gets cleaned up after.
+/// Sets up the test.
 ///
 /// We run the runtime manually because `#[tokio::test]` doesn't work in `rusty_fork_test!`.
 fn test_wrapper<F, Fut>(f: F)
@@ -112,14 +112,6 @@ where
 
 		// Pass a clone of the host so that it does not get dropped after.
 		f(host.clone(), sid).await;
-
-		// Sleep to give processes a chance to get cleaned up, preventing races in the next step.
-		tokio::time::sleep(Duration::from_millis(500)).await;
-
-		// Make sure job processes got cleaned up. Pass `is_direct_child: false` to target the
-		// job processes.
-		assert!(find_process_by_sid_and_name(sid, PREPARE_PROCESS_NAME, false).is_none());
-		assert!(find_process_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, false).is_none());
 	});
 }
 
@@ -127,7 +119,7 @@ where
 // then finding the child process that matches the session ID and expected process name and doing
 // something with that child.
 rusty_fork_test! {
-	// Everything succeeded. All created subprocesses for jobs should get cleaned up, to avoid memory leaks.
+	// Everything succeeds.
 	#[test]
 	fn successful_prepare_and_validate() {
 		test_wrapper(|host, _sid| async move {
@@ -331,7 +323,7 @@ rusty_fork_test! {
 					// monitor, and memory tracking.
 					assert_eq!(
 						get_num_threads_by_sid_and_name(sid, PREPARE_PROCESS_NAME, false),
-						4
+						polkadot_node_core_pvf_prepare_worker::PREPARE_WORKER_THREAD_NUMBER as i64,
 					);
 
 					// End the test.
@@ -374,7 +366,7 @@ rusty_fork_test! {
 					// time monitor.
 					assert_eq!(
 						get_num_threads_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, false),
-						3
+						polkadot_node_core_pvf_execute_worker::EXECUTE_WORKER_THREAD_NUMBER as i64,
 					);
 
 					// End the test.

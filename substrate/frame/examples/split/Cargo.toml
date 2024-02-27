@@ -1,6 +1,6 @@
 [package]
 name = "pallet-example-split"
-version = "4.0.0-dev"
+version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "MIT-0"
@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 frame-support = { path = "../../support", default-features = false }

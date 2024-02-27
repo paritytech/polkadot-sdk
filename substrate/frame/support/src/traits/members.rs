@@ -297,6 +297,13 @@ pub trait RankedMembers {
 	fn demote(who: &Self::AccountId) -> DispatchResult;
 }
 
+/// Handler that can deal with the swap of two members.
+#[impl_trait_for_tuples::impl_for_tuples(16)]
+pub trait RankedMembersSwapHandler<AccountId, Rank> {
+	/// Member `old` was swapped with `new` at `rank`.
+	fn swapped(who: &AccountId, new_who: &AccountId, rank: Rank);
+}
+
 /// Trait for type that can handle the initialization of account IDs at genesis.
 pub trait InitializeMembers<AccountId> {
 	/// Initialize the members to the given `members`.

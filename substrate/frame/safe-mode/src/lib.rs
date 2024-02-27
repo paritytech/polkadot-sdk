@@ -79,13 +79,14 @@ pub mod mock;
 mod tests;
 pub mod weights;
 
+use core::convert::TryInto;
 use frame_support::{
 	defensive_assert,
 	pallet_prelude::*,
 	traits::{
 		fungible::{
-			hold::{Inspect as FunHoldInspect, Mutate as FunHoldMutate},
-			Inspect as FunInspect,
+			self,
+			hold::{Inspect, Mutate},
 		},
 		tokens::{Fortitude, Precision},
 		CallMetadata, Contains, Defensive, GetCallMetadata, PalletInfoAccess, SafeModeNotify,
@@ -96,13 +97,12 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use sp_arithmetic::traits::Zero;
 use sp_runtime::traits::Saturating;
-use sp_std::{convert::TryInto, prelude::*};
 
 pub use pallet::*;
 pub use weights::*;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -117,8 +117,8 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Currency type for this pallet, used for Deposits.
-		type Currency: FunHoldInspect<Self::AccountId>
-			+ FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		type Currency: Inspect<Self::AccountId>
+			+ Mutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The hold reason when reserving funds for entering or extending the safe-mode.
 		type RuntimeHoldReason: From<HoldReason>;

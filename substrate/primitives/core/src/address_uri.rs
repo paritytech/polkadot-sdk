@@ -184,7 +184,7 @@ impl<'a> AddressUri<'a> {
 					Error::in_pass(initial_input, initial_input_len - input.len())
 				} else {
 					Error::in_phrase(initial_input, initial_input_len - input.len())
-				});
+				})
 			}
 		}
 

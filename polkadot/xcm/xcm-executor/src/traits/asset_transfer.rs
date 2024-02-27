@@ -30,7 +30,7 @@ pub enum Error {
 }
 
 /// Specify which type of asset transfer is required for a particular `(asset, dest)` combination.
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum TransferType {
 	/// should teleport `asset` to `dest`
 	Teleport,
@@ -38,8 +38,8 @@ pub enum TransferType {
 	LocalReserve,
 	/// should reserve-transfer `asset` to `dest`, using `dest` as reserve
 	DestinationReserve,
-	/// should reserve-transfer `asset` to `dest`, using remote chain `MultiLocation` as reserve
-	RemoteReserve(MultiLocation),
+	/// should reserve-transfer `asset` to `dest`, using remote chain `Location` as reserve
+	RemoteReserve(Location),
 }
 
 /// A trait for identifying asset transfer type based on `IsTeleporter` and `IsReserve`
@@ -47,17 +47,17 @@ pub enum TransferType {
 pub trait XcmAssetTransfers {
 	/// Combinations of (Asset, Location) pairs which we trust as reserves. Meaning
 	/// reserve-based-transfers are to be used for assets matching this filter.
-	type IsReserve: ContainsPair<MultiAsset, MultiLocation>;
+	type IsReserve: ContainsPair<Asset, Location>;
 
 	/// Combinations of (Asset, Location) pairs which we trust as teleporters. Meaning teleports are
 	/// to be used for assets matching this filter.
-	type IsTeleporter: ContainsPair<MultiAsset, MultiLocation>;
+	type IsTeleporter: ContainsPair<Asset, Location>;
 
 	/// How to withdraw and deposit an asset.
 	type AssetTransactor: TransactAsset;
 
 	/// Determine transfer type to be used for transferring `asset` from local chain to `dest`.
-	fn determine_for(asset: &MultiAsset, dest: &MultiLocation) -> Result<TransferType, Error> {
+	fn determine_for(asset: &Asset, dest: &Location) -> Result<TransferType, Error> {
 		if Self::IsTeleporter::contains(asset, dest) {
 			// we trust destination for teleporting asset
 			return Ok(TransferType::Teleport)
@@ -67,11 +67,8 @@ pub trait XcmAssetTransfers {
 		}
 
 		// try to determine reserve location based on asset id/location
-		let asset_location = match asset.id {
-			Concrete(location) => Ok(location.chain_location()),
-			_ => Err(Error::NotConcrete),
-		}?;
-		if asset_location == MultiLocation::here() ||
+		let asset_location = asset.id.0.chain_location();
+		if asset_location == Location::here() ||
 			Self::IsTeleporter::contains(asset, &asset_location)
 		{
 			// if the asset is local, then it's a local reserve
@@ -86,5 +83,14 @@ pub trait XcmAssetTransfers {
 			// determine asset reserve
 			Err(Error::UnknownReserve)
 		}
+	}
+}
+
+impl XcmAssetTransfers for () {
+	type IsReserve = ();
+	type IsTeleporter = ();
+	type AssetTransactor = ();
+	fn determine_for(_: &Asset, _: &Location) -> Result<TransferType, Error> {
+		return Err(Error::UnknownReserve);
 	}
 }

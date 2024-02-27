@@ -51,8 +51,8 @@ pub trait ExportXcm {
 	fn validate(
 		network: NetworkId,
 		channel: u32,
-		universal_source: &mut Option<InteriorMultiLocation>,
-		destination: &mut Option<InteriorMultiLocation>,
+		universal_source: &mut Option<InteriorLocation>,
+		destination: &mut Option<InteriorLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket>;
 
@@ -71,11 +71,11 @@ impl ExportXcm for Tuple {
 	fn validate(
 		network: NetworkId,
 		channel: u32,
-		universal_source: &mut Option<InteriorMultiLocation>,
-		destination: &mut Option<InteriorMultiLocation>,
+		universal_source: &mut Option<InteriorLocation>,
+		destination: &mut Option<InteriorLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		let mut maybe_cost: Option<MultiAssets> = None;
+		let mut maybe_cost: Option<Assets> = None;
 		let one_ticket: Self::Ticket = (for_tuples! { #(
 			if maybe_cost.is_some() {
 				None
@@ -112,8 +112,8 @@ impl ExportXcm for Tuple {
 pub fn validate_export<T: ExportXcm>(
 	network: NetworkId,
 	channel: u32,
-	universal_source: InteriorMultiLocation,
-	dest: InteriorMultiLocation,
+	universal_source: InteriorLocation,
+	dest: InteriorLocation,
 	msg: Xcm<()>,
 ) -> SendResult<T::Ticket> {
 	T::validate(network, channel, &mut Some(universal_source), &mut Some(dest), &mut Some(msg))
@@ -130,10 +130,10 @@ pub fn validate_export<T: ExportXcm>(
 pub fn export_xcm<T: ExportXcm>(
 	network: NetworkId,
 	channel: u32,
-	universal_source: InteriorMultiLocation,
-	dest: InteriorMultiLocation,
+	universal_source: InteriorLocation,
+	dest: InteriorLocation,
 	msg: Xcm<()>,
-) -> Result<(XcmHash, MultiAssets), SendError> {
+) -> Result<(XcmHash, Assets), SendError> {
 	let (ticket, price) = T::validate(
 		network,
 		channel,

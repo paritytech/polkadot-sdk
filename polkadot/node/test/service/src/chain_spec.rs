@@ -169,6 +169,7 @@ fn polkadot_testnet_genesis(
 				paras_availability_period: 4,
 				no_show_slots: 10,
 				minimum_validation_upgrade_delay: 5,
+				max_downward_message_size: 1024,
 				..Default::default()
 			},
 		}

@@ -29,19 +29,18 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
-use parachains_common::SLOT_DURATION;
 use polkadot_parachain_primitives::primitives::{
 	HeadData, HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat,
 };
 use sp_consensus_aura::{SlotDuration, AURA_ENGINE_ID};
-use sp_core::Encode;
-use sp_runtime::{traits::Header, BuildStorage, Digest, DigestItem};
+use sp_core::{Encode, U256};
+use sp_runtime::{traits::Header, BuildStorage, Digest, DigestItem, SaturatedConversion};
 use xcm::{
-	latest::{MultiAsset, MultiLocation, XcmContext, XcmHash},
+	latest::{Asset, Location, XcmContext, XcmHash},
 	prelude::*,
 	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
-use xcm_executor::{traits::TransactAsset, Assets};
+use xcm_executor::{traits::TransactAsset, AssetsInHolding};
 
 pub mod test_cases;
 
@@ -115,6 +114,11 @@ impl<Runtime: frame_system::Config + pallet_balances::Config + pallet_session::C
 	}
 }
 
+pub struct SlotDurations {
+	pub relay: SlotDuration,
+	pub para: SlotDuration,
+}
+
 /// A set of traits for a minimal parachain runtime, that may be used in conjunction with the
 /// `ExtBuilder` and the `RuntimeHelper`.
 pub trait BasicParachainRuntime:
@@ -125,6 +129,7 @@ pub trait BasicParachainRuntime:
 	+ parachain_info::Config
 	+ pallet_collator_selection::Config
 	+ cumulus_pallet_parachain_system::Config
+	+ pallet_timestamp::Config
 {
 }
 
@@ -136,7 +141,8 @@ where
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_parachain_system::Config,
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 	ValidatorIdOf<T>: From<AccountIdOf<T>>,
 {
 }
@@ -255,8 +261,10 @@ pub struct RuntimeHelper<Runtime, AllPalletsWithoutSystem>(
 );
 /// Utility function that advances the chain to the desired block number.
 /// If an author is provided, that author information is injected to all the blocks in the meantime.
-impl<Runtime: frame_system::Config, AllPalletsWithoutSystem>
-	RuntimeHelper<Runtime, AllPalletsWithoutSystem>
+impl<
+		Runtime: frame_system::Config + cumulus_pallet_parachain_system::Config + pallet_timestamp::Config,
+		AllPalletsWithoutSystem,
+	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
 where
 	AccountIdOf<Runtime>:
 		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
@@ -292,8 +300,71 @@ where
 		last_header.expect("run_to_block empty block range")
 	}
 
+	pub fn run_to_block_with_finalize(n: u32) -> HeaderFor<Runtime> {
+		let mut last_header = None;
+		loop {
+			let block_number = frame_system::Pallet::<Runtime>::block_number();
+			if block_number >= n.into() {
+				break
+			}
+			// Set the new block number and author
+			let header = frame_system::Pallet::<Runtime>::finalize();
+
+			let pre_digest = Digest {
+				logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, block_number.encode())],
+			};
+			frame_system::Pallet::<Runtime>::reset_events();
+
+			let next_block_number = block_number + 1u32.into();
+			frame_system::Pallet::<Runtime>::initialize(
+				&next_block_number,
+				&header.hash(),
+				&pre_digest,
+			);
+			AllPalletsWithoutSystem::on_initialize(next_block_number);
+
+			let parent_head = HeadData(header.encode());
+			let sproof_builder = RelayStateSproofBuilder {
+				para_id: <Runtime>::SelfParaId::get(),
+				included_para_head: parent_head.clone().into(),
+				..Default::default()
+			};
+
+			let (relay_parent_storage_root, relay_chain_state) =
+				sproof_builder.into_state_root_and_proof();
+			let inherent_data = ParachainInherentData {
+				validation_data: PersistedValidationData {
+					parent_head,
+					relay_parent_number: (block_number.saturated_into::<u32>() * 2 + 1).into(),
+					relay_parent_storage_root,
+					max_pov_size: 100_000_000,
+				},
+				relay_chain_state,
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+			};
+
+			let _ = cumulus_pallet_parachain_system::Pallet::<Runtime>::set_validation_data(
+				Runtime::RuntimeOrigin::none(),
+				inherent_data,
+			);
+			let _ = pallet_timestamp::Pallet::<Runtime>::set(
+				Runtime::RuntimeOrigin::none(),
+				300_u32.into(),
+			);
+			AllPalletsWithoutSystem::on_finalize(next_block_number);
+			let header = frame_system::Pallet::<Runtime>::finalize();
+			last_header = Some(header);
+		}
+		last_header.expect("run_to_block empty block range")
+	}
+
 	pub fn root_origin() -> <Runtime as frame_system::Config>::RuntimeOrigin {
 		<Runtime as frame_system::Config>::RuntimeOrigin::root()
+	}
+
+	pub fn block_number() -> U256 {
+		frame_system::Pallet::<Runtime>::block_number().into()
 	}
 
 	pub fn origin_of(
@@ -307,12 +378,12 @@ impl<XcmConfig: xcm_executor::Config, AllPalletsWithoutSystem>
 	RuntimeHelper<XcmConfig, AllPalletsWithoutSystem>
 {
 	pub fn do_transfer(
-		from: MultiLocation,
-		to: MultiLocation,
-		(asset, amount): (MultiLocation, u128),
-	) -> Result<Assets, XcmError> {
+		from: Location,
+		to: Location,
+		(asset, amount): (Location, u128),
+	) -> Result<AssetsInHolding, XcmError> {
 		<XcmConfig::AssetTransactor as TransactAsset>::transfer_asset(
-			&MultiAsset { id: Concrete(asset), fun: Fungible(amount) },
+			&Asset { id: AssetId(asset), fun: Fungible(amount) },
 			&from,
 			&to,
 			// We aren't able to track the XCM that initiated the fee deposit, so we create a
@@ -329,12 +400,13 @@ impl<
 {
 	pub fn do_teleport_assets<HrmpChannelOpener>(
 		origin: <Runtime as frame_system::Config>::RuntimeOrigin,
-		dest: MultiLocation,
-		beneficiary: MultiLocation,
-		(asset, amount): (MultiLocation, u128),
+		dest: Location,
+		beneficiary: Location,
+		(asset, amount): (Location, u128),
 		open_hrmp_channel: Option<(u32, u32)>,
 		included_head: HeaderFor<Runtime>,
 		slot_digest: &[u8],
+		slot_durations: &SlotDurations,
 	) -> DispatchResult
 	where
 		HrmpChannelOpener: frame_support::inherent::ProvideInherent<
@@ -348,6 +420,7 @@ impl<
 				target_para_id.into(),
 				included_head,
 				slot_digest,
+				slot_durations,
 			);
 		}
 
@@ -356,7 +429,7 @@ impl<
 			origin,
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
-			Box::new((Concrete(asset), amount).into()),
+			Box::new((AssetId(asset), amount).into()),
 			0,
 		)
 	}
@@ -379,12 +452,13 @@ impl<
 		]);
 
 		// execute xcm as parent origin
-		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		<<Runtime as pallet_xcm::Config>::XcmExecutor>::execute_xcm(
-			MultiLocation::parent(),
+		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		<<Runtime as pallet_xcm::Config>::XcmExecutor>::prepare_and_execute(
+			Location::parent(),
 			xcm,
-			hash,
+			&mut hash,
 			Self::xcm_max_weight(XcmReceivedFrom::Parent),
+			Weight::zero(),
 		)
 	}
 }
@@ -451,7 +525,7 @@ impl<
 }
 
 pub fn assert_metadata<Fungibles, AccountId>(
-	asset_id: impl Into<Fungibles::AssetId> + Copy,
+	asset_id: impl Into<Fungibles::AssetId> + Clone,
 	expected_name: &str,
 	expected_symbol: &str,
 	expected_decimals: u8,
@@ -459,20 +533,20 @@ pub fn assert_metadata<Fungibles, AccountId>(
 	Fungibles: frame_support::traits::fungibles::metadata::Inspect<AccountId>
 		+ frame_support::traits::fungibles::Inspect<AccountId>,
 {
-	assert_eq!(Fungibles::name(asset_id.into()), Vec::from(expected_name),);
-	assert_eq!(Fungibles::symbol(asset_id.into()), Vec::from(expected_symbol),);
+	assert_eq!(Fungibles::name(asset_id.clone().into()), Vec::from(expected_name),);
+	assert_eq!(Fungibles::symbol(asset_id.clone().into()), Vec::from(expected_symbol),);
 	assert_eq!(Fungibles::decimals(asset_id.into()), expected_decimals);
 }
 
 pub fn assert_total<Fungibles, AccountId>(
-	asset_id: impl Into<Fungibles::AssetId> + Copy,
+	asset_id: impl Into<Fungibles::AssetId> + Clone,
 	expected_total_issuance: impl Into<Fungibles::Balance>,
 	expected_active_issuance: impl Into<Fungibles::Balance>,
 ) where
 	Fungibles: frame_support::traits::fungibles::metadata::Inspect<AccountId>
 		+ frame_support::traits::fungibles::Inspect<AccountId>,
 {
-	assert_eq!(Fungibles::total_issuance(asset_id.into()), expected_total_issuance.into());
+	assert_eq!(Fungibles::total_issuance(asset_id.clone().into()), expected_total_issuance.into());
 	assert_eq!(Fungibles::active_issuance(asset_id.into()), expected_active_issuance.into());
 }
 
@@ -492,12 +566,12 @@ pub fn mock_open_hrmp_channel<
 	recipient: ParaId,
 	included_head: HeaderFor<C>,
 	mut slot_digest: &[u8],
+	slot_durations: &SlotDurations,
 ) {
-	const RELAY_CHAIN_SLOT_DURATION: SlotDuration = SlotDuration::from_millis(6000);
 	let slot = Slot::decode(&mut slot_digest).expect("failed to decode digest");
 	// Convert para slot to relay chain.
-	let timestamp = slot.saturating_mul(SLOT_DURATION);
-	let relay_slot = Slot::from_timestamp(timestamp.into(), RELAY_CHAIN_SLOT_DURATION);
+	let timestamp = slot.saturating_mul(slot_durations.para.as_millis());
+	let relay_slot = Slot::from_timestamp(timestamp.into(), slot_durations.relay);
 
 	let n = 1_u32;
 	let mut sproof_builder = RelayStateSproofBuilder {

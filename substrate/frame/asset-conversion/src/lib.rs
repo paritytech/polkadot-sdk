@@ -40,7 +40,7 @@
 //! non-native asset 1, you would pass in a path of `[DOT, 1]` or `[1, DOT]`. If you want to swap
 //! from non-native asset 1 to non-native asset 2, you would pass in a path of `[1, DOT, 2]`.
 //!
-//! (For an example of configuring this pallet to use `MultiLocation` as an asset id, see the
+//! (For an example of configuring this pallet to use `Location` as an asset id, see the
 //! cumulus repo).
 //!
 //! Here is an example `state_call` that asks for a quote of a pool of native versus asset 1:
