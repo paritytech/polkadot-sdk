@@ -40,9 +40,9 @@
 //!
 //! Note that [`OriginFor`](frame_system::pallet_prelude::OriginFor) is merely a shorthand for
 //! [`frame_system::Config::RuntimeOrigin`]. Given the name prefix `Runtime`, we can learn that
-//! `RuntimeOrigin` is similar to `RuntimeCall` and others, a runtime composite enum that is amalgamated
-//! at the runtime level. Read [`crate::reference_docs::frame_runtime_types`] to familiarize
-//! yourself with these types.
+//! `RuntimeOrigin` is similar to `RuntimeCall` and others, a runtime composite enum that is
+//! amalgamated at the runtime level. Read [`crate::reference_docs::frame_runtime_types`] to
+//! familiarize yourself with these types.
 //!
 //! To understand this better, we will next create a pallet with a custom origin, which will add a
 //! new variant to `RuntimeOrigin`.
