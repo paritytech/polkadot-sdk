@@ -345,7 +345,6 @@ benchmarks! {
 
 pub mod helpers {
 	use super::*;
-
 	pub fn native_teleport_as_asset_transfer<T>(
 		native_asset_location: Location,
 		destination: Location,
