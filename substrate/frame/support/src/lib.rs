@@ -1028,6 +1028,36 @@ pub use frame_support_procedural::pallet;
 
 /// Contains macro stubs for all of the `pallet::` macros
 pub mod pallet_macros {
+
+	/// The optional attribute `#[pallet::whitelist_storage]` will declare the
+	/// storage as whitelisted from benchmarking. Doing so will exclude reads of
+	/// that value's storage key from counting towards weight calculations during
+	/// benchmarking.
+	///
+	/// This attribute should only be attached to storages that are known to be
+	/// read/used in every block. This will result in a more accurate benchmarking weight.
+	///
+	/// ### Example
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::storage]
+	/// 	#[pallet::whitelist_storage]
+	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	///
+	/// NOTE: As with all `pallet::*` attributes, this one _must_ be written as
+	/// `#[pallet::whitelist_storage]` and can only be placed inside a `pallet` module in order
+	/// for it to work properly.
 	pub use frame_support_procedural::whitelist_storage;
 
 	/// Each dispatchable needs to define a weight with the `#[pallet::weight($expr)]`

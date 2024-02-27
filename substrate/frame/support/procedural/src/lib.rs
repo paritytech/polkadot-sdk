@@ -1025,24 +1025,11 @@ pub fn unbounded(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The optional attribute `#[pallet::whitelist_storage]` will declare the
-/// storage as whitelisted from benchmarking. Doing so will exclude reads of
-/// that value's storage key from counting towards weight calculations during
-/// benchmarking.
 ///
-/// This attribute should only be attached to storages that are known to be
-/// read/used in every block. This will result in a more accurate benchmarking weight.
+/// ---
 ///
-/// ### Example
-/// ```ignore
-/// #[pallet::storage]
-/// #[pallet::whitelist_storage]
-/// pub(super) type Number<T: Config> = StorageValue<_, frame_system::pallet_prelude::BlockNumberFor::<T>, ValueQuery>;
-/// ```
-///
-/// NOTE: As with all `pallet::*` attributes, this one _must_ be written as
-/// `#[pallet::whitelist_storage]` and can only be placed inside a `pallet` module in order for
-/// it to work properly.
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// `frame_support::pallet_macros::whitelist_storage`.
 #[proc_macro_attribute]
 pub fn whitelist_storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
