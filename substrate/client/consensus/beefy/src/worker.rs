@@ -42,7 +42,7 @@ use sc_network_gossip::GossipEngine;
 use sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
-use sp_blockchain::{Backend as BlockchainBackend, Error as ClientError, Result as ClientResult};
+use sp_blockchain::Backend as BlockchainBackend;
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
 	check_equivocation_proof, AuthorityIdBound, BeefyApi, BeefySignatureHasher, Commitment,
