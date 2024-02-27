@@ -171,7 +171,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::CoreStaking::slash_reward_fraction()
 	}
 
-	fn release_all(_who: &Self::AccountId) {
+	fn unsafe_release_all(_who: &Self::AccountId) {
 		defensive_assert!(false, "not supported for delegated impl of staking interface");
 	}
 
@@ -235,6 +235,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	/// Withdraw delegation from pool account to self.
 	fn withdraw_delegation(who: &Self::AccountId, delegatee: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		// fixme(ank4n): This should not require slashing spans.
 		Pallet::<T>::release(RawOrigin::Signed(delegatee.clone()).into(), who.clone(), amount, 0)
 	}
 

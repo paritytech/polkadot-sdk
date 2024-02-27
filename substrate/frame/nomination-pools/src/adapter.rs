@@ -17,7 +17,11 @@
 
 use crate::*;
 
-/// Pool adapter trait that can support multiple modes of staking: i.e. Delegated or Direct.
+/// An adapter trait that can support multiple staking strategies: e.g. `Transfer and stake` or
+/// `delegation and stake`.
+///
+/// This trait is very specific to nomination pool and meant to make switching between different
+/// staking implementations easier.
 pub trait StakeAdapter {
 	type Balance: frame_support::traits::tokens::Balance;
 	type AccountId: Clone + sp_std::fmt::Debug;
@@ -25,10 +29,10 @@ pub trait StakeAdapter {
 	/// Balance of the account.
 	fn balance(who: &Self::AccountId) -> Self::Balance;
 
-	/// Total balance of the account held for staking.
+	/// Total balance of the account.
 	fn total_balance(who: &Self::AccountId) -> Self::Balance;
 
-	/// Initiate delegation to the pool account.
+	/// Bond delegator via the pool account.
 	fn bond(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
@@ -36,14 +40,14 @@ pub trait StakeAdapter {
 		amount: Self::Balance,
 	) -> DispatchResult;
 
-	/// Add more delegation to the pool account.
+	/// Add more bond via the pool account.
 	fn bond_extra(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
 
-	/// Revoke delegation to pool account.
+	/// Claim withdrawn amount in the pool account.
 	fn claim_withdraw(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
@@ -51,13 +55,11 @@ pub trait StakeAdapter {
 	) -> DispatchResult;
 }
 
-/// Basic pool adapter that only supports Direct Staking.
+/// An adapter implementation that supports transfer based staking
 ///
-/// When delegating, tokens are moved between the delegator and pool account as opposed to holding
-/// tokens in delegator's accounts.
+/// The funds are transferred to the pool account and then staked via the pool account.
 pub struct TransferStake<T: Config>(PhantomData<T>);
 
-/// TODO(ankan) Call it FundManager/CurrencyAdapter/DelegationManager
 impl<T: Config> StakeAdapter for TransferStake<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
@@ -105,6 +107,10 @@ impl<T: Config> StakeAdapter for TransferStake<T> {
 	}
 }
 
+/// An adapter implementation that supports delegation based staking
+///
+/// The funds are delegated from pool account to a delegatee and then staked. The advantage of this
+/// approach is that the funds are held in the delegator account and not in the pool account.
 pub struct DelegationStake<T: Config>(PhantomData<T>);
 
 impl<T: Config> StakeAdapter for DelegationStake<T> {
@@ -112,14 +118,15 @@ impl<T: Config> StakeAdapter for DelegationStake<T> {
 	type AccountId = T::AccountId;
 
 	fn balance(who: &Self::AccountId) -> Self::Balance {
+		// Pool account is a delegatee, and its balance is the sum of all member delegations towards
+		// it.
 		if T::Staking::is_delegatee(who) {
-			return T::Staking::delegatee_balance(who)
+			return T::Staking::delegatee_balance(who);
 		}
 
 		T::Currency::balance(who)
 	}
 
-	/// Return total balance of the account.
 	fn total_balance(who: &Self::AccountId) -> Self::Balance {
 		if T::Staking::is_delegatee(who) {
 			return T::Staking::delegatee_balance(who);
@@ -128,16 +135,13 @@ impl<T: Config> StakeAdapter for DelegationStake<T> {
 		T::Currency::total_balance(who)
 	}
 
-	/// Add initial delegation to the pool account.
-	///
-	/// Equivalent to [FunMutate::transfer] for Direct Staking.
 	fn bond(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		// This is the first delegation so we needs to register the pool account as a `delegate`.
+		// For delegation staking, we just delegate the funds to pool account.
 		T::Staking::delegate(who, pool_account, reward_account, amount)
 	}
 
@@ -154,7 +158,6 @@ impl<T: Config> StakeAdapter for DelegationStake<T> {
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		// fixme(ank4n): This should not require slashing spans.
 		T::Staking::withdraw_delegation(who, pool_account, amount)
 	}
 }

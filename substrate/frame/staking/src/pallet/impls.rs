@@ -1867,7 +1867,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		SlashRewardFraction::<T>::get()
 	}
 
-	fn release_all(who: &Self::AccountId) {
+	fn unsafe_release_all(who: &Self::AccountId) {
 		T::Currency::remove_lock(crate::STAKING_ID, who)
 	}
 

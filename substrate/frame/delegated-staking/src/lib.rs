@@ -535,7 +535,7 @@ impl<T: Config> Pallet<T> {
 		let stake = T::CoreStaking::stake(who)?;
 
 		// release funds from core staking.
-		T::CoreStaking::release_all(who);
+		T::CoreStaking::unsafe_release_all(who);
 
 		// transferring just released staked amount. This should never fail but if it does, it
 		// indicates bad state and we abort.

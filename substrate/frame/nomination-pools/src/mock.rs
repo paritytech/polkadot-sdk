@@ -225,7 +225,7 @@ impl sp_staking::StakingInterface for StakingMock {
 		unimplemented!("method currently not used in testing")
 	}
 
-	fn release_all(_who: &Self::AccountId) {
+	fn unsafe_release_all(_who: &Self::AccountId) {
 		unimplemented!("method currently not used in testing")
 	}
 
