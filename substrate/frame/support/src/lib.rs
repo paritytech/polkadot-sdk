@@ -1026,11 +1026,31 @@ pub mod pallet_prelude {
 /// reiterating the documentation on the pallet module itself.
 pub use frame_support_procedural::pallet;
 
-/// Contains macro stubs for all of the pallet:: macros
+/// Contains macro stubs for all of the `pallet::` macros
 pub mod pallet_macros {
-	pub use frame_support_procedural::{
-		pallet_section, storage_prefix, unbounded, weight, whitelist_storage,
-	};
+	pub use frame_support_procedural::{storage_prefix, unbounded, weight, whitelist_storage};
+
+	/// Can be attached to a module. Doing so will declare that module as importable into a
+	/// pallet via [`#[import_section]`](`import_section`).
+	///
+	/// Note that sections are imported by their module name/ident, and should be referred to
+	/// by their _full path_ from the perspective of the target pallet. Do not attempt to make
+	/// use of `use` statements to bring pallet sections into scope, as this will not work
+	/// (unless you do so as part of a wildcard import, in which case it will work).
+	///
+	/// ## Naming Logistics
+	///
+	/// Also note that because of how `#[pallet_section]` works, pallet section names must be
+	/// globally unique _within the crate in which they are defined_. For more information on
+	/// why this must be the case, see macro_magic's
+	/// [`#[export_tokens]`](https://docs.rs/macro_magic/latest/macro_magic/attr.export_tokens.html) macro.
+	///
+	/// Optionally, you may provide an argument to `#[pallet_section]` such as
+	/// `#[pallet_section(some_ident)]`, in the event that there is another pallet section in
+	/// same crate with the same ident/name. The ident you specify can then be used instead of
+	/// the module's ident name when you go to import it via
+	/// [`#[import_section]`](`import_section`).
+	pub use frame_support_procedural::pallet_section;
 
 	/// The `#[pallet::origin]` attribute allows you to define some origin for the pallet.
 	///
