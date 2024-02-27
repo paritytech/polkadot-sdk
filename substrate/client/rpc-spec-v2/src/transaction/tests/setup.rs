@@ -20,7 +20,7 @@ use crate::{
 	chain_head::test_utils::ChainHeadMockClient,
 	transaction::{
 		api::TransactionBroadcastApiServer,
-		tests::executor::{TaskExecutorBroadcast, TaskExecutorRecv},
+		tests::executor::{TaskExecutorBroadcast, TaskExecutorState},
 		TransactionBroadcast as RpcTransactionBroadcast,
 	},
 };
@@ -72,11 +72,11 @@ pub fn setup_api(
 	Arc<MiddlewarePool>,
 	Arc<ChainHeadMockClient<Client<Backend>>>,
 	RpcModule<RpcTransactionBroadcast<MiddlewarePool, ChainHeadMockClient<Client<Backend>>>>,
-	TaskExecutorRecv,
+	TaskExecutorState,
 	MiddlewarePoolRecv,
 ) {
 	let (pool, api, _) = maintained_pool(options);
-	let (pool, pool_recv) = MiddlewarePool::new(Arc::new(pool).clone());
+	let (pool, pool_state) = MiddlewarePool::new(Arc::new(pool).clone());
 	let pool = Arc::new(pool);
 
 	let builder = TestClientBuilder::new();
@@ -89,7 +89,7 @@ pub fn setup_api(
 		RpcTransactionBroadcast::new(client_mock.clone(), pool.clone(), Arc::new(task_executor))
 			.into_rpc();
 
-	(api, pool, client_mock, tx_api, executor_recv, pool_recv)
+	(api, pool, client_mock, tx_api, executor_recv, pool_state)
 }
 
 /// Get the next event from the provided middleware in at most 5 seconds.

@@ -88,7 +88,8 @@ async fn tx_broadcast_enters_pool() {
 		.unwrap();
 
 	// Ensure the broadcast future finishes.
-	let _ = get_next_event!(&mut exec_middleware);
+	let _ = get_next_event!(&mut exec_middleware.recv);
+	assert_eq!(0, exec_middleware.num_tasks());
 }
 
 #[tokio::test]
@@ -116,7 +117,8 @@ async fn tx_broadcast_invalid_tx() {
 	// Await the broadcast future to exit.
 	// Without this we'd be subject to races, where we try to call the stop before the tx is
 	// dropped.
-	let _ = get_next_event!(&mut exec_middleware);
+	let _ = get_next_event!(&mut exec_middleware.recv);
+	assert_eq!(0, exec_middleware.num_tasks());
 
 	// The broadcast future was dropped, and the operation is no longer active.
 	// When the operation is not active, either from the tx being finalized or a
@@ -227,8 +229,9 @@ async fn tx_broadcast_resubmits_future_nonce_tx() {
 	);
 
 	// Both broadcast futures must exit.
-	let _ = get_next_event!(&mut exec_middleware);
-	let _ = get_next_event!(&mut exec_middleware);
+	let _ = get_next_event!(&mut exec_middleware.recv);
+	let _ = get_next_event!(&mut exec_middleware.recv);
+	assert_eq!(0, exec_middleware.num_tasks());
 }
 
 /// This test is similar to `tx_broadcast_enters_pool`
@@ -294,7 +297,8 @@ async fn tx_broadcast_stop_after_broadcast_finishes() {
 	);
 
 	// Ensure the broadcast future terminated properly.
-	let _ = get_next_event!(&mut exec_middleware);
+	let _ = get_next_event!(&mut exec_middleware.recv);
+	assert_eq!(0, exec_middleware.num_tasks());
 
 	// The operation ID is no longer valid, check that the broadcast future
 	// cleared out the inner state of the operation.
@@ -420,7 +424,8 @@ async fn tx_broadcast_resubmits_invalid_tx() {
 	);
 
 	// Ensure the broadcast future terminated properly.
-	let _ = get_next_event!(&mut exec_middleware);
+	let _ = get_next_event!(&mut exec_middleware.recv);
+	assert_eq!(0, exec_middleware.num_tasks());
 }
 
 /// This is similar to `tx_broadcast_resubmits_invalid_tx`.
