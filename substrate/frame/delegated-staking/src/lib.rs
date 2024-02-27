@@ -46,7 +46,7 @@
 //! ## Key Terminologies
 //! - *delegatee*: An account who accepts delegations from other accounts (called `Delegators`).
 //! - *Delegator*: An account who delegates their funds to a `delegatee`.
-//! - *DelegationLedger*: A data structure that stores important information about the `delegatee`
+//! - *DelegateeLedger*: A data structure that stores important information about the `delegatee`
 //! 	such as their total delegated stake.
 //! - *Delegation*: A data structure that stores the amount of funds delegated to a `delegatee` by a
 //! 	`delegator`.
@@ -83,7 +83,7 @@
 //! nominators are slashed at the same time. This is expensive and needs to be bounded operation.
 //!
 //! This pallet implements a lazy slashing mechanism. Any slashes to a `delegatee` are posted in its
-//! `DelegationLedger` as a pending slash. Since the actual amount is held in the multiple
+//! `DelegateeLedger` as a pending slash. Since the actual amount is held in the multiple
 //! `delegator` accounts, this pallet has no way to know how to apply slash. It is `delegatee`'s
 //! responsibility to apply slashes for each delegator, one at a time. Staking pallet ensures the
 //! pending slash never exceeds staked amount and would freeze further withdraws until pending
@@ -270,10 +270,10 @@ pub mod pallet {
 	pub(crate) type Delegators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Delegation<T>, OptionQuery>;
 
-	/// Map of `Delegatee` to their `DelegationLedger`.
+	/// Map of `Delegatee` to their `DelegateeLedger`.
 	#[pallet::storage]
 	pub(crate) type Delegatees<T: Config> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegationLedger<T>, OptionQuery>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegateeLedger<T>, OptionQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -409,7 +409,7 @@ pub mod pallet {
 
 			// ensure delegatee is sane.
 			ensure!(
-				DelegationLedger::<T>::can_accept_delegation(&delegatee),
+				DelegateeLedger::<T>::can_accept_delegation(&delegatee),
 				Error::<T>::NotAcceptingDelegations
 			);
 
@@ -504,7 +504,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn do_register_delegatee(who: &T::AccountId, reward_account: &T::AccountId) {
-		DelegationLedger::<T>::new(reward_account).save(who);
+		DelegateeLedger::<T>::new(reward_account).save(who);
 
 		// Delegatee is a virtual account. Make this account exist.
 		// TODO: Someday if we expose these calls in a runtime, we should take a deposit for
@@ -565,7 +565,7 @@ impl<T: Config> Pallet<T> {
 		delegatee: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		let mut ledger = DelegationLedger::<T>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		let mut ledger = DelegateeLedger::<T>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
 		debug_assert!(!ledger.blocked);
 
 		let new_delegation_amount =
@@ -793,7 +793,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn check_delegates(
-		ledgers: BTreeMap<T::AccountId, DelegationLedger<T>>,
+		ledgers: BTreeMap<T::AccountId, DelegateeLedger<T>>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		for (delegatee, ledger) in ledgers {
 			ensure!(
@@ -817,7 +817,7 @@ impl<T: Config> Pallet<T> {
 
 	fn check_delegators(
 		delegations: BTreeMap<T::AccountId, Delegation<T>>,
-		ledger: BTreeMap<T::AccountId, DelegationLedger<T>>,
+		ledger: BTreeMap<T::AccountId, DelegateeLedger<T>>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		let mut delegation_aggregation = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
 		for (delegator, delegation) in delegations.iter() {

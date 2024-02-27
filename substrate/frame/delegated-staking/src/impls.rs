@@ -124,7 +124,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	/// Withdraw unbonding funds until current era.
 	///
-	/// Funds are moved to unclaimed_withdrawals register of the `DelegationLedger`.
+	/// Funds are moved to unclaimed_withdrawals register of the `DelegateeLedger`.
 	fn withdraw_unbonded(
 		pool_acc: Self::AccountId,
 		num_slashing_spans: u32,

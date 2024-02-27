@@ -320,29 +320,32 @@ pub trait StakingInterface {
 
 	/// Delegate funds to `Delegatee`.
 	fn delegate(
-		who: &Self::AccountId,
+		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
 
-	/// Add more delegation to the pool account.
+	/// Add more delegation to the `delegatee`.
 	fn delegate_extra(
-		who: &Self::AccountId,
+		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
 
-	/// Withdraw delegation from pool account to self.
+	/// Withdraw or revoke delegation to `delegatee`.
 	fn withdraw_delegation(
 		who: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
 
-	/// Does the delegatee have any pending slash.
+	/// Returns true if there are pending slashes posted to the `delegatee` account.
 	fn has_pending_slash(delegatee: &Self::AccountId) -> bool;
 
+	/// Apply a pending slash to a `delegatee` by slashing `value` from `delegator`.
+	///
+	/// If a reporter is provided, the reporter will receive a fraction of the slash as reward.
 	fn delegator_slash(
 		delegatee: &Self::AccountId,
 		delegator: &Self::AccountId,
@@ -350,6 +353,8 @@ pub trait StakingInterface {
 		maybe_reporter: Option<Self::AccountId>,
 	) -> sp_runtime::DispatchResult;
 
+
+	/// Returns the total amount of funds delegated by a `delegator`.
 	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance;
 }
 

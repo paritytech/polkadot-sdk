@@ -90,7 +90,7 @@ impl<T: Config> Delegation<T> {
 // FIXME(ank4n): Break up into two storage items - bookkeeping stuff and settings stuff.
 #[derive(Default, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
-pub struct DelegationLedger<T: Config> {
+pub struct DelegateeLedger<T: Config> {
 	/// Where the reward should be paid out.
 	pub payee: T::AccountId,
 	/// Sum of all delegated funds to this `delegatee`.
@@ -108,9 +108,9 @@ pub struct DelegationLedger<T: Config> {
 	pub blocked: bool,
 }
 
-impl<T: Config> DelegationLedger<T> {
+impl<T: Config> DelegateeLedger<T> {
 	pub(crate) fn new(reward_destination: &T::AccountId) -> Self {
-		DelegationLedger {
+		DelegateeLedger {
 			payee: reward_destination.clone(),
 			total_delegated: Zero::zero(),
 			unclaimed_withdrawals: Zero::zero(),
@@ -124,7 +124,7 @@ impl<T: Config> DelegationLedger<T> {
 	}
 
 	pub(crate) fn can_accept_delegation(delegatee: &T::AccountId) -> bool {
-		DelegationLedger::<T>::get(delegatee)
+		DelegateeLedger::<T>::get(delegatee)
 			.map(|ledger| !ledger.blocked)
 			.unwrap_or(false)
 	}
@@ -150,16 +150,16 @@ impl<T: Config> DelegationLedger<T> {
 	}
 }
 
-/// Wrapper around `DelegationLedger` to provide additional functionality.
+/// Wrapper around `DelegateeLedger` to provide additional functionality.
 #[derive(Clone)]
 pub struct Delegatee<T: Config> {
 	pub key: T::AccountId,
-	pub ledger: DelegationLedger<T>,
+	pub ledger: DelegateeLedger<T>,
 }
 
 impl<T: Config> Delegatee<T> {
 	pub(crate) fn from(delegatee: &T::AccountId) -> Result<Delegatee<T>, DispatchError> {
-		let ledger = DelegationLedger::<T>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		let ledger = DelegateeLedger::<T>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
 		Ok(Delegatee { key: delegatee.clone(), ledger })
 	}
 
@@ -183,7 +183,7 @@ impl<T: Config> Delegatee<T> {
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
 		Ok(Delegatee {
-			ledger: DelegationLedger {
+			ledger: DelegateeLedger {
 				total_delegated: new_total_delegated,
 				unclaimed_withdrawals: new_unclaimed_withdrawals,
 				..self.ledger
@@ -204,7 +204,7 @@ impl<T: Config> Delegatee<T> {
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
 		Ok(Delegatee {
-			ledger: DelegationLedger {
+			ledger: DelegateeLedger {
 				unclaimed_withdrawals: new_unclaimed_withdrawals,
 				..self.ledger
 			},
@@ -252,7 +252,7 @@ impl<T: Config> Delegatee<T> {
 		let total_delegated = self.ledger.total_delegated.defensive_saturating_sub(amount);
 
 		Delegatee {
-			ledger: DelegationLedger { pending_slash, total_delegated, ..self.ledger },
+			ledger: DelegateeLedger { pending_slash, total_delegated, ..self.ledger },
 			..self
 		}
 	}
@@ -270,7 +270,7 @@ impl<T: Config> Delegatee<T> {
 	}
 
 	pub(crate) fn update_status(self, block: bool) -> Self {
-		Delegatee { ledger: DelegationLedger { blocked: block, ..self.ledger }, ..self }
+		Delegatee { ledger: DelegateeLedger { blocked: block, ..self.ledger }, ..self }
 	}
 
 	pub(crate) fn save(self) {
