@@ -21,7 +21,7 @@ use asset_hub_westend_runtime::{
 	xcm_config,
 	xcm_config::{
 		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
-		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, ForeignCreatorsSovereignAccountOf,
+		ForeignCreatorsSovereignAccountOf,
 		LocationToAccountId, TrustBackedAssetsPalletLocation, TrustBackedAssetsPalletLocationV3,
 		WestendLocation, WestendLocationV3, XcmConfig,
 	},
@@ -30,6 +30,7 @@ use asset_hub_westend_runtime::{
 	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
 	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
+use assets_common::ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger;
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -482,7 +483,7 @@ fn test_foreign_asset_xcm_take_first_trader() {
 
 			// Lets calculate amount needed
 			let asset_amount_needed =
-			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(
+			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::<Runtime, WeightToFee, Balances, ForeignAssetsInstance>::charge_weight_in_fungibles(
 					foreign_location,
 					bought,
 				)

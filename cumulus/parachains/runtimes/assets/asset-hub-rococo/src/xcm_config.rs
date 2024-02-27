@@ -67,9 +67,7 @@ use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 parameter_types! {
 	pub const TokenLocation: Location = Location::parent();
-	pub const TokenLocationAsNative: Location = Location::here();
 	pub const TokenLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
-	pub const TokenLocationAsNativeV3: xcm::v3::Location = xcm::v3::Location::here();
 	pub const RelayNetwork: NetworkId = NetworkId::Rococo;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
@@ -120,7 +118,7 @@ pub type FungibleTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	(IsConcrete<TokenLocation>, IsConcrete<TokenLocationAsNative>),
+	IsConcrete<TokenLocation>,
 	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -563,7 +561,6 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader = (
-		UsingComponents<WeightToFee, TokenLocationAsNative, AccountId, Balances, ToStakingPot<Runtime>>,
 		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
 			TokenLocationV3,

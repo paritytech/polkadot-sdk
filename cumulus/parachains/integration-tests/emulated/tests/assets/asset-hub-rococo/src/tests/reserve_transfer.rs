@@ -229,26 +229,6 @@ fn para_to_para_through_relay_sender_assertions(t: ParaToParaThroughRelayTest) {
 	);
 }
 
-fn para_to_para_through_system_para_sender_assertions(t: ParaToParaThroughSystemParaTest) {
-	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-	let system_para_native_asset_location = SystemAssetHubLocationV3::get();
-	PenpalA::assert_xcm_pallet_attempted_complete(None);
-
-	assert_expected_events!(
-		PenpalA,
-		vec![
-			// Amount to reserve transfer is transferred to Parachain's Sovereign account
-			RuntimeEvent::ForeignAssets(
-				pallet_assets::Event::Burned { asset_id, owner, balance },
-			) => {
-				asset_id: *asset_id == system_para_native_asset_location,
-				owner: *owner == t.sender.account_id,
-				balance: *balance == t.args.amount,
-			},
-		]
-	);
-}
-
 fn para_to_para_relay_hop_assertions(t: ParaToParaThroughRelayTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
 	let sov_penpal_a_on_rococo =
@@ -279,35 +259,6 @@ fn para_to_para_relay_hop_assertions(t: ParaToParaThroughRelayTest) {
 	);
 }
 
-fn para_to_para_system_para_hop_assertions(t: ParaToParaThroughSystemParaTest) {
-	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-	let sov_penpal_a_on_rococo =
-		Rococo::sovereign_account_id_of(Rococo::child_location_of(PenpalA::para_id()));
-	let sov_penpal_b_on_rococo =
-		Rococo::sovereign_account_id_of(Rococo::child_location_of(PenpalB::para_id()));
-
-	AssetHubRococo::assert_xcmp_queue_success(None);
-
-	assert_expected_events!(
-		AssetHubRococo,
-		vec![
-			// Withdrawn from sender parachain SA
-			RuntimeEvent::Balances(
-				pallet_balances::Event::Burned { who, amount }
-			) => {
-				who: *who == sov_penpal_a_on_rococo,
-				amount: *amount == t.args.amount,
-			},
-			// Deposited to receiver parachain SA
-			RuntimeEvent::Balances(
-				pallet_balances::Event::Minted { who, .. }
-			) => {
-				who: *who == sov_penpal_b_on_rococo,
-			},
-		]
-	);
-}
-
 fn para_to_para_through_relay_receiver_assertions(t: ParaToParaThroughRelayTest) {
 	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
 	let relay_asset_location = RelayLocationV3::get();
@@ -319,23 +270,6 @@ fn para_to_para_through_relay_receiver_assertions(t: ParaToParaThroughRelayTest)
 		vec![
 			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 				asset_id: *asset_id == relay_asset_location,
-				owner: *owner == t.receiver.account_id,
-			},
-		]
-	);
-}
-
-fn para_to_para_through_system_para_receiver_assertions(t: ParaToParaThroughSystemParaTest) {
-	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
-	let system_para_native_asset_location = SystemAssetHubLocationV3::get();
-
-	PenpalB::assert_xcmp_queue_success(None);
-
-	assert_expected_events!(
-		PenpalB,
-		vec![
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
-				asset_id: *asset_id == system_para_native_asset_location,
 				owner: *owner == t.receiver.account_id,
 			},
 		]
@@ -376,17 +310,6 @@ fn para_to_system_para_reserve_transfer_assets(t: ParaToSystemParaTest) -> Dispa
 }
 
 fn para_to_para_through_relay_limited_reserve_transfer_assets(t: ParaToParaThroughRelayTest) -> DispatchResult {
-	<PenpalA as PenpalAPallet>::PolkadotXcm::limited_reserve_transfer_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
-		t.args.weight_limit,
-	)
-}
-
-fn para_to_para_through_system_para_limited_reserve_transfer_assets(t: ParaToParaThroughSystemParaTest) -> DispatchResult {
 	<PenpalA as PenpalAPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -836,83 +759,6 @@ fn reserve_transfer_native_asset_from_para_to_para_trough_relay() {
 	let receiver_assets_after = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &receiver)
-	});
-
-	// Sender's balance is reduced
-	assert_eq!(sender_assets_before - amount_to_send - delivery_fees, sender_assets_after);
-	// Receiver's balance is increased
-	assert!(receiver_assets_after > receiver_assets_before);
-}
-
-/// Reserve Transfers of native asset from Parachain to Parachain (through Relay reserve) should
-/// work
-#[test]
-fn reserve_transfer_native_asset_from_para_to_para_through_system_para() {
-	// Init values for Parachain Origin
-	let destination = PenpalA::sibling_location_of(PenpalB::para_id());
-	let sender = PenpalASender::get();
-	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 10000;
-	let asset_owner = penpal_asset_owner();
-	let assets: Assets = ((Parent, Parachain(ASSETHUB_PARA_ID)), amount_to_send).into();
-	let system_para_native_asset_location = SystemAssetHubLocationV3::get();
-	let sender_as_seen_by_system_para = AssetHubRococo::sibling_location_of(PenpalA::para_id());
-	let sov_of_sender_on_system_para = AssetHubRococo::sovereign_account_id_of(sender_as_seen_by_system_para);
-
-	// fund the PenpalA's SA on Rococo with the native tokens held in reserve
-	AssetHubRococo::fund_accounts(vec![(sov_of_sender_on_system_para.into(), amount_to_send * 2)]);
-
-	// fund Parachain's sender account
-	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
-		system_para_native_asset_location,
-		sender.clone(),
-		amount_to_send
-	);
-
-	// Init values for Parachain Desitnation
-	let receiver = PenpalBReceiver::get();
-
-	// Init Test
-	let test_args = TestContext {
-		sender: sender.clone(),
-		receiver: receiver.clone(),
-		args: TestArgs::new_para(destination.clone(), receiver.clone(), amount_to_send, assets.clone(), None, 0),
-	};
-	let mut test = ParaToParaThroughSystemParaTest::new(test_args);
-
-	// Query initial balances
-	let sender_assets_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_native_asset_location.clone(), &sender)
-	});
-	let receiver_assets_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_native_asset_location.clone(), &receiver)
-	});
-
-	// Set assertions and dispatchables
-	test.set_assertion::<PenpalA>(para_to_para_through_system_para_sender_assertions);
-	test.set_assertion::<AssetHubRococo>(para_to_para_system_para_hop_assertions);
-	test.set_assertion::<PenpalB>(para_to_para_through_system_para_receiver_assertions);
-	test.set_dispatchable::<PenpalA>(para_to_para_through_system_para_limited_reserve_transfer_assets);
-	test.assert();
-
-	// Calculate delivery fees
-	let delivery_fees = PenpalA::execute_with(|| {
-		let reanchored_assets = assets.reanchored( &destination, &PenpalUniversalLocation::get()).unwrap();
-		xcm_helpers::transfer_assets_delivery_fees::<
-			<PenpalRococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(reanchored_assets, 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
-	});
-
-	// Query final balances
-	let sender_assets_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_native_asset_location.clone(), &sender)
-	});
-	let receiver_assets_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_native_asset_location.clone(), &receiver)
 	});
 
 	// Sender's balance is reduced
