@@ -501,6 +501,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 			) |
 				// TODO: blocker for now.
 				// `Utility` dep can be dropped if we send two `Transact` instructions.
+				// `Scheduler`'s calls are permissioned.
 				RuntimeCall::Utility(..) |
 				RuntimeCall::Scheduler(..)
 		)
