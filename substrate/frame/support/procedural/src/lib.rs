@@ -812,75 +812,11 @@ fn pallet_macro_stub() -> TokenStream {
 	.into()
 }
 
-/// The mandatory attribute `#[pallet::config]` defines the configurable options for the pallet.
 ///
-/// Item must be defined as:
+/// ---
 ///
-/// ```ignore
-/// #[pallet::config]
-/// pub trait Config: frame_system::Config + $optionally_some_other_supertraits
-/// $optional_where_clause
-/// {
-/// ...
-/// }
-/// ```
-///
-/// I.e. a regular trait definition named `Config`, with the supertrait
-/// `frame_system::pallet::Config`, and optionally other supertraits and a where clause.
-/// (Specifying other supertraits here is known as [tight
-/// coupling](https://docs.substrate.io/reference/how-to-guides/pallet-design/use-tight-coupling/))
-///
-/// The associated type `RuntimeEvent` is reserved. If defined, it must have the bounds
-/// `From<Event>` and `IsType<<Self as frame_system::Config>::RuntimeEvent>`.
-///
-/// [`pallet::event`](`macro@event`) must be present if `RuntimeEvent` exists as a config item
-/// in your `#[pallet::config]`.
-///
-/// ## Optional: `with_default`
-///
-/// An optional `with_default` argument may also be specified. Doing so will automatically
-/// generate a `DefaultConfig` trait inside your pallet which is suitable for use with
-/// [`[#[derive_impl(..)]`](`macro@derive_impl`) to derive a default testing config:
-///
-/// ```ignore
-/// #[pallet::config(with_default)]
-/// pub trait Config: frame_system::Config {
-/// 		type RuntimeEvent: Parameter
-/// 			+ Member
-/// 			+ From<Event<Self>>
-/// 			+ Debug
-/// 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-///
-/// 		#[pallet::no_default]
-/// 		type BaseCallFilter: Contains<Self::RuntimeCall>;
-/// 	// ...
-/// }
-/// ```
-///
-/// As shown above, you may also attach the [`#[pallet::no_default]`](`macro@no_default`)
-/// attribute to specify that a particular trait item _cannot_ be used as a default when a test
-/// `Config` is derived using the [`#[derive_impl(..)]`](`macro@derive_impl`) attribute macro.
-/// This will cause that particular trait item to simply not appear in default testing configs
-/// based on this config (the trait item will not be included in `DefaultConfig`).
-///
-/// ### `DefaultConfig` Caveats
-///
-/// The auto-generated `DefaultConfig` trait:
-/// - is always a _subset_ of your pallet's `Config` trait.
-/// - can only contain items that don't rely on externalities, such as `frame_system::Config`.
-///
-/// Trait items that _do_ rely on externalities should be marked with
-/// [`#[pallet::no_default]`](`macro@no_default`)
-///
-/// Consequently:
-/// - Any items that rely on externalities _must_ be marked with
-///   [`#[pallet::no_default]`](`macro@no_default`) or your trait will fail to compile when used
-///   with [`derive_impl`](`macro@derive_impl`).
-/// - Items marked with [`#[pallet::no_default]`](`macro@no_default`) are entirely excluded from the
-///   `DefaultConfig` trait, and therefore any impl of `DefaultConfig` doesn't need to implement
-///   such items.
-///
-/// For more information, see [`macro@derive_impl`].
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// [`frame_support::pallet_macros::config`](../frame_support/pallet_macros/attr.config.html).
 #[proc_macro_attribute]
 pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1245,61 +1181,69 @@ pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+#[rustfmt::skip]
 ///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::composite_enum`.
+/// [`frame_support::pallet_macros::composite_enum`](../frame_support/pallet_macros/attr.composite_enum.html).
 #[proc_macro_attribute]
 pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+#[rustfmt::skip]
 ///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::tasks_experimental`.
+/// [`frame_support::pallet_macros::tasks_experimental`](../frame_support/pallet_macros/attr.tasks_experimental.html).
 #[proc_macro_attribute]
 pub fn tasks_experimental(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+#[rustfmt::skip]
 ///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::task_list`.
+/// [`frame_support::pallet_macros::task_list`](../frame_support/pallet_macros/attr.task_list.html).
 #[proc_macro_attribute]
 pub fn task_list(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+#[rustfmt::skip]
 ///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
 /// `frame_support::pallet_macros::task_condition`.
+/// [`frame_support::pallet_macros::task_condition`](../frame_support/pallet_macros/attr.task_condition.html).
 #[proc_macro_attribute]
 pub fn task_condition(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+#[rustfmt::skip]
 ///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
 /// `frame_support::pallet_macros::task_weight`.
+/// [`frame_support::pallet_macros::task_weight`](../frame_support/pallet_macros/attr.task_weight.html).
 #[proc_macro_attribute]
 pub fn task_weight(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+#[rustfmt::skip]
 ///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::task_index`.
+/// [`frame_support::pallet_macros::task_index`](../frame_support/pallet_macros/attr.task_index.html).
 #[proc_macro_attribute]
 pub fn task_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
