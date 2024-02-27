@@ -42,7 +42,9 @@ use sc_consensus::BlockImport;
 use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
+use sp_blockchain::{
+	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
+};
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
 	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
@@ -227,9 +229,9 @@ pub struct BeefyParams<B: Block, BE, C, N, P, R, S> {
 /// Helper object holding BEEFY worker communication/gossip components.
 ///
 /// These are created once, but will be reused if worker is restarted/reinitialized.
-pub(crate) struct BeefyComms<B: Block> {
+pub(crate) struct BeefyComms<B: Block, BE, P, R> {
 	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B>>,
+	pub gossip_validator: Arc<GossipValidator<B, BE, P, R>>,
 	pub gossip_report_stream: TracingUnboundedReceiver<PeerReport>,
 	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
 }
@@ -244,7 +246,7 @@ pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi> {
 	// utilities
 	backend: Arc<BE>,
 	runtime: Arc<RuntimeApi>,
-	key_store: BeefyKeystore<AuthorityId>,
+	key_store: Arc<BeefyKeystore<AuthorityId>>,
 	// voter metrics
 	metrics: Option<VoterMetrics>,
 	persisted_state: PersistedState<B>,
@@ -255,7 +257,7 @@ where
 	B: Block + codec::Codec,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	/// This will wait for the chain to enable BEEFY (if not yet enabled) and also wait for the
 	/// backend to sync all headers required by the voter to build a contiguous chain of mandatory
@@ -263,13 +265,13 @@ where
 	/// persisted state in AUX DB and latest chain information/progress.
 	///
 	/// Returns a sane `BeefyWorkerBuilder` that can build the `BeefyWorker`.
-	pub async fn async_initialize(
+	pub async fn async_initialize<P: PayloadProvider<B> + Send + Sync>(
 		backend: Arc<BE>,
 		runtime: Arc<R>,
-		key_store: BeefyKeystore<AuthorityId>,
+		key_store: Arc<BeefyKeystore<AuthorityId>>,
 		metrics: Option<VoterMetrics>,
 		min_block_delta: u32,
-		gossip_validator: Arc<GossipValidator<B>>,
+		gossip_validator: Arc<GossipValidator<B, BE, P, R>>,
 		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
 	) -> Result<Self, Error> {
 		// Wait for BEEFY pallet to be active before starting voter.
@@ -299,7 +301,7 @@ where
 		self,
 		payload_provider: P,
 		sync: Arc<S>,
-		comms: BeefyComms<B>,
+		comms: BeefyComms<B, BE, P, R>,
 		links: BeefyVoterLinks<B>,
 		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
 	) -> BeefyWorker<B, BE, P, R, S> {
@@ -558,7 +560,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 				builder_init_result = BeefyWorkerBuilder::async_initialize(
 					backend.clone(),
 					runtime.clone(),
-					key_store.clone().into(),
+					key_store.clone(),
 					metrics.clone(),
 					min_block_delta,
 					beefy_comms.gossip_validator.clone(),
@@ -757,7 +759,7 @@ where
 		if let Ok(Some(active)) = runtime.runtime_api().validator_set(header.hash()) {
 			return Ok(active)
 		} else {
-			match worker::find_authorities_change::<B>(&header) {
+			match crate::find_authorities_change::<B>(&header) {
 				Some(active) => return Ok(active),
 				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
 				// there.

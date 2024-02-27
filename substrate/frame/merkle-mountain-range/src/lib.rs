@@ -27,7 +27,7 @@
 //! - on-chain storage - hashes only; not full leaf content;
 //! - off-chain storage - via Indexing API we push full leaf content (and all internal nodes as
 //! well) to the Off-chain DB, so that the data is available for Off-chain workers.
-//! Hashing used for MMR is configurable independently from the rest of the runtime (i.e. not using
+//! Hashing used for MMR is configurable independently of the rest of the runtime (i.e. not using
 //! `frame_system::Hashing`) so something compatible with external chains can be used (like
 //! Keccak256 for Ethereum compatibility).
 //!

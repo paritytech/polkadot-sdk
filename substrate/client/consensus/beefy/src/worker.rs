@@ -373,7 +373,7 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	// utilities
 	pub backend: Arc<BE>,
 	pub runtime: Arc<RuntimeApi>,
-	pub key_store: BeefyKeystore<AuthorityId>,
+	pub key_store: Arc<BeefyKeystore<AuthorityId>>,
 	pub payload_provider: P,
 	pub sync: Arc<S>,
 
@@ -585,7 +585,7 @@ where
 			},
 			VoteImportResult::Equivocation(proof) => {
 				metric_inc!(self.metrics, beefy_equivocation_votes);
-				self.report_equivocation(proof)?;
+				self.report_vote_equivocation(proof)?;
 			},
 			VoteImportResult::Invalid => metric_inc!(self.metrics, beefy_invalid_votes),
 			VoteImportResult::Stale => metric_inc!(self.metrics, beefy_stale_votes),
@@ -1223,7 +1223,7 @@ pub(crate) mod tests {
 		BeefyWorker {
 			backend,
 			runtime: api,
-			key_store: Some(keystore).into(),
+			key_store: key_store.into(),
 			metrics,
 			payload_provider,
 			sync: Arc::new(sync),
@@ -1512,7 +1512,7 @@ pub(crate) mod tests {
 		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), expected);
 
 		// worker has no keystore
-		worker.key_store = None.into();
+		worker.key_store = Arc::new(None.into());
 		let expected_err = Err(Error::Keystore("no Keystore".into()));
 		assert_eq!(
 			verify_validator_set::<Block>(&1, &validator_set, &worker.key_store),
@@ -1668,7 +1668,7 @@ pub(crate) mod tests {
 		let api_alice = Arc::new(api_alice);
 
 		let mut net = BeefyTestNet::new(1);
-		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
+		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone(), None);
 		worker.runtime = api_alice.clone();
 
 		// let there be a block with num = 1:
@@ -1756,7 +1756,6 @@ pub(crate) mod tests {
 
 		// verify: Alice reports Bob
 		let ancestry_proof = alice_worker
-			.base
 			.runtime
 			.runtime_api()
 			.generate_ancestry_proof(*hashes.last().unwrap(), block_number, None)
@@ -1780,7 +1779,7 @@ pub(crate) mod tests {
 			);
 			// verify Alice reports Bob's equivocation to runtime
 			let reported =
-				alice_worker.base.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+				alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
 			assert_eq!(reported.len(), 1);
 			assert_eq!(*reported.get(0).unwrap(), proof);
 		}
@@ -1803,7 +1802,7 @@ pub(crate) mod tests {
 			);
 			// verify Alice does *not* report her own equivocation to runtime
 			let reported =
-				alice_worker.base.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+				alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
 			assert_eq!(reported.len(), 1);
 			assert!(*reported.get(0).unwrap() != proof);
 		}
@@ -1844,7 +1843,7 @@ pub(crate) mod tests {
 				Ok(true)
 			);
 			let mut reported =
-				alice_worker.base.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+				alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
 			// verify Alice report Bob's and Charlie's equivocation to runtime
 			assert_eq!(reported.len(), 2);
 			assert_eq!(reported.pop(), Some(proof));
@@ -1889,7 +1888,7 @@ pub(crate) mod tests {
 			Ok(true)
 		);
 		let mut reported =
-			alice_worker.base.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+			alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
 		assert_eq!(reported.len(), 2);
 		assert_eq!(reported.pop(), Some(future_proof));
 	}

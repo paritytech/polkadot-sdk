@@ -251,7 +251,7 @@ where
 	pub(crate) fn new(
 		known_peers: Arc<Mutex<KnownPeers<B>>>,
 		fisherman: Fisherman<B, BE, P, R>,
-	) -> (GossipValidator<B>, TracingUnboundedReceiver<PeerReport>) {
+	) -> (GossipValidator<B, BE, P, R>, TracingUnboundedReceiver<PeerReport>) {
 		let (tx, rx) = tracing_unbounded("mpsc_beefy_gossip_validator", 100_000);
 		let val = GossipValidator {
 			votes_topic: votes_topic::<B>(),
