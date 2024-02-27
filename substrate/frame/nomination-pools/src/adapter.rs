@@ -22,8 +22,8 @@ pub trait StakeAdapter {
 	type Balance: frame_support::traits::tokens::Balance;
 	type AccountId: Clone + sp_std::fmt::Debug;
 
-	/// Balance that is free and can be released to delegator.
-	fn transferable_balance(who: &Self::AccountId) -> Self::Balance;
+	/// Balance of the account.
+	fn balance(who: &Self::AccountId) -> Self::Balance;
 
 	/// Total balance of the account held for staking.
 	fn total_balance(who: &Self::AccountId) -> Self::Balance;
@@ -51,7 +51,6 @@ pub trait StakeAdapter {
 	) -> DispatchResult;
 }
 
-
 /// Basic pool adapter that only supports Direct Staking.
 ///
 /// When delegating, tokens are moved between the delegator and pool account as opposed to holding
@@ -63,13 +62,13 @@ impl<T: Config> StakeAdapter for TransferStake<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	fn transferable_balance(who: &Self::AccountId) -> Self::Balance {
+	fn balance(who: &Self::AccountId) -> Self::Balance {
 		// Note on why we can't use `Currency::reducible_balance`: Since pooled account has a
 		// provider (staking pallet), the account can not be set expendable by
 		// `pallet-nomination-pool`. This means reducible balance always returns balance preserving
 		// ED in the account. What we want though is transferable balance given the account can be
 		// dusted.
-		T::Currency::balance(who).saturating_sub(T::Staking::active_stake(who).unwrap_or_default())
+		T::Currency::balance(who)
 	}
 
 	fn total_balance(who: &Self::AccountId) -> Self::Balance {
@@ -107,23 +106,26 @@ impl<T: Config> StakeAdapter for TransferStake<T> {
 }
 
 pub struct DelegationStake<T: Config>(PhantomData<T>);
+
 impl<T: Config> StakeAdapter for DelegationStake<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	/// Return balance of the `Delegate` (pool account) that is not bonded.
-	///
-	/// Equivalent to [FunInspect::balance] for non delegate accounts.
-	fn transferable_balance(who: &Self::AccountId) -> Self::Balance {
-		T::Staking::delegatee_balance(who).saturating_sub(T::Staking::active_stake(who).unwrap_or_default())
+	fn balance(who: &Self::AccountId) -> Self::Balance {
+		if T::Staking::is_delegatee(who) {
+			return T::Staking::delegatee_balance(who)
+		}
+
+		T::Currency::balance(who)
 	}
 
-	/// Returns balance of account that is held.
-	///
-	/// - For `delegate` accounts, this is their total delegation amount.
-	/// - For `delegator` accounts, this is their delegation amount.
+	/// Return total balance of the account.
 	fn total_balance(who: &Self::AccountId) -> Self::Balance {
-		T::Staking::delegatee_balance(who)
+		if T::Staking::is_delegatee(who) {
+			return T::Staking::delegatee_balance(who);
+		}
+
+		T::Currency::total_balance(who)
 	}
 
 	/// Add initial delegation to the pool account.
