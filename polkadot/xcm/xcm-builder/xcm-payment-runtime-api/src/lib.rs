@@ -35,7 +35,7 @@ sp_api::decl_runtime_apis! {
 	/// To determine the execution weight of the calls required
 	/// for some instructions (for example, [`xcm::latest::Instruction::Transact`])
 	/// `TransactionPaymentCallApi`can be used.
-	pub trait XcmPaymentRuntimeApi<Call>
+	pub trait XcmPaymentApi<Call>
 	where
 		Call: Codec,
 	{

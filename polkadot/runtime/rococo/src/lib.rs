@@ -1803,7 +1803,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_payment_runtime_api::XcmPaymentRuntimeApi<Block, RuntimeCall> for Runtime {
+	impl xcm_payment_runtime_api::XcmPaymentApi<Block, RuntimeCall> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentError> {
 			if !matches!(xcm_version, 3 | 4) {
 				return Err(XcmPaymentError::UnhandledXcmVersion);
