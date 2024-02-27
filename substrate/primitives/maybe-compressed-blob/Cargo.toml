@@ -14,5 +14,5 @@ readme = "README.md"
 workspace = true
 
 [dependencies]
-thiserror = "1.0"
+thiserror = { workspace = true }
 zstd = { version = "0.12.4", default-features = false }
