@@ -50,7 +50,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, ConstU8},
+	traits::{ConstBool, ConstU16, ConstU32, ConstU64, ConstU8},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -205,6 +205,10 @@ impl pallet_authorship::Config for Runtime {
 	type EventHandler = (CollatorSelection,);
 }
 
+parameter_types! {
+	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
+}
+
 impl pallet_balances::Config for Runtime {
 	type MaxLocks = ConstU32<50>;
 	/// The type for recording an account's balance.
@@ -212,7 +216,7 @@ impl pallet_balances::Config for Runtime {
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
-	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
+	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 	type MaxReserves = ConstU32<50>;
@@ -427,6 +431,7 @@ mod benches {
 		[pallet_sudo, Sudo]
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
+		[cumulus_pallet_parachain_system, ParachainSystem]
 		[pallet_contracts, Contracts]
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 	);
@@ -712,9 +717,22 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
+			parameter_types! {
+				pub ExistentialDepositAsset: Option<Asset> = Some((
+					xcm_config::RelayLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			use xcm::latest::prelude::*;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					xcm_config::XcmConfig,
+					ExistentialDepositAsset,
+					xcm_config::PriceForParentDelivery,
+				>;
+
 				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
 				}
@@ -723,7 +741,7 @@ impl_runtime_apis! {
 					// Relay/native token can be teleported between Contracts-System-Para and Relay.
 					Some((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
 						Parent.into(),

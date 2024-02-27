@@ -647,6 +647,20 @@ impl RelayChainRpcClient {
 			.await
 	}
 
+	pub async fn validation_code_hash(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> Result<Option<ValidationCodeHash>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_validation_code_hash",
+			at,
+			Some((para_id, occupied_core_assumption)),
+		)
+		.await
+	}
+
 	fn send_register_message_to_worker(
 		&self,
 		message: RpcDispatcherMessage,
