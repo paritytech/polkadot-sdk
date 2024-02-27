@@ -1,5 +1,147 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Proc macro of Support code for the runtime."><title>frame_support_procedural - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_support_procedural/index.html">frame_support_procedural</a><span class="version">23.0.0</span></h2></div><div class="sidebar-elems"><ul class="block">
-            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#attributes">Attribute Macros</a></li><li><a href="#derives">Derive Macros</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">frame_support_procedural</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/frame_support_procedural/lib.rs.html#18-1739">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Proc macro of Support code for the runtime.</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Proc macro of Support code for the runtime."><title>frame_support_procedural - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function() {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+
+nav.side-bar {
+	width: 300px;
+}
+
+.sidebar-table-of-contents {
+    margin-bottom: 1em;
+    padding: 0.5em;
+}
+
+.sidebar-table-of-contents a {
+    display: block;
+    margin: 0.2em 0;
+}
+
+.sidebar-table-of-contents .h2 {
+    font-weight: bold;
+    margin-left: 0;
+}
+
+.sidebar-table-of-contents .h3 {
+    margin-left: 1em;
+}
+
+.sidebar-table-of-contents .h4 {
+    margin-left: 2em;
+}
+
+.sidebar h2.location {
+  display: none;
+}
+
+.sidebar-elems {
+  display: none;
+}
+
+/* Center the 'Expand for More' button */
+.expand-button {
+  display: inline-block; /* Use inline-block for sizing */
+  margin: 10px auto; /* Auto margins for horizontal centering */
+  padding: 5px 10px;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  width: auto;
+  /* Centering the button within its parent container */
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_support_procedural/index.html">frame_support_procedural</a><span class="version">23.0.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#attributes">Attribute Macros</a></li><li><a href="#derives">Derive Macros</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">frame_support_procedural</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/frame_support_procedural/lib.rs.html#18-1728">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Proc macro of Support code for the runtime.</p>
 </div></details><h2 id="macros" class="small-section-header"><a href="#macros">Macros</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.__create_tt_macro.html" title="macro frame_support_procedural::__create_tt_macro">__create_tt_macro</a></div><div class="desc docblock-short">Internal macro used by <code>frame_support</code> to create tt-call-compliant macros</div></li><li><div class="item-name"><a class="macro" href="macro.__generate_dummy_part_checker.html" title="macro frame_support_procedural::__generate_dummy_part_checker">__generate_dummy_part_checker</a></div><div class="desc docblock-short">Internal macro use by frame_support to generate dummy part checker for old pallet declaration</div></li><li><div class="item-name"><a class="macro" href="macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime">construct_runtime</a></div><div class="desc docblock-short">Construct a runtime, with the given name and the given pallets.</div></li><li><div class="item-name"><a class="macro" href="macro.crate_to_crate_version.html" title="macro frame_support_procedural::crate_to_crate_version">crate_to_crate_version</a></div></li><li><div class="item-name"><a class="macro" href="macro.impl_key_prefix_for_tuples.html" title="macro frame_support_procedural::impl_key_prefix_for_tuples">impl_key_prefix_for_tuples</a></div><div class="desc docblock-short">This macro is meant to be used by frame-support only.
 It implements the trait <code>HasKeyPrefix</code> and <code>HasReversibleKeyPrefix</code> for tuple of <code>Key</code>.</div></li><li><div class="item-name"><a class="macro" href="macro.match_and_insert.html" title="macro frame_support_procedural::match_and_insert">match_and_insert</a></div><div class="desc docblock-short">Macro that inserts some tokens after the first match of some pattern.</div></li></ul><h2 id="attributes" class="small-section-header"><a href="#attributes">Attribute Macros</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.benchmark.html" title="attr frame_support_procedural::benchmark">benchmark</a></div><div class="desc docblock-short">An attribute macro used to declare a benchmark within a benchmarking module. Must be
 attached to a function definition containing an <code>#[extrinsic_call]</code> or <code>#[block]</code>
@@ -37,7 +179,8 @@ creation time and can either be accepted or rejected by validators based on whet
 data falls within an acceptable range.</div></li><li><div class="item-name"><a class="attr" href="attr.inject_runtime_type.html" title="attr frame_support_procedural::inject_runtime_type">inject_runtime_type</a></div></li><li><div class="item-name"><a class="attr" href="attr.instance_benchmarks.html" title="attr frame_support_procedural::instance_benchmarks">instance_benchmarks</a></div><div class="desc docblock-short">An attribute macro that can be attached to a (non-empty) module declaration. Doing so will
 designate that module as an instance benchmarking module.</div></li><li><div class="item-name"><a class="attr" href="attr.no_default.html" title="attr frame_support_procedural::no_default">no_default</a></div><div class="desc docblock-short">The optional attribute <code>#[pallet::no_default]</code> can be attached to trait items within a
 <code>Config</code> trait impl that has <a href="attr.config.html" title="attr frame_support_procedural::config"><code>#[pallet::config(with_default)]</code></a> attached.</div></li><li><div class="item-name"><a class="attr" href="attr.no_default_bounds.html" title="attr frame_support_procedural::no_default_bounds">no_default_bounds</a></div><div class="desc docblock-short">The optional attribute <code>#[pallet::no_default_bounds]</code> can be attached to trait items within a
-<code>Config</code> trait impl that has <a href="attr.config.html" title="attr frame_support_procedural::config"><code>#[pallet::config(with_default)]</code></a> attached.</div></li><li><div class="item-name"><a class="attr" href="attr.origin.html" title="attr frame_support_procedural::origin">origin</a></div><div class="desc docblock-short">The <code>#[pallet::origin]</code> attribute allows you to define some origin for the pallet.</div></li><li><div class="item-name"><a class="attr" href="attr.pallet.html" title="attr frame_support_procedural::pallet">pallet</a></div><div class="desc docblock-short">The pallet struct placeholder <code>#[pallet::pallet]</code> is mandatory and allows you to specify
+<code>Config</code> trait impl that has <a href="attr.config.html" title="attr frame_support_procedural::config"><code>#[pallet::config(with_default)]</code></a> attached.</div></li><li><div class="item-name"><a class="attr" href="attr.origin.html" title="attr frame_support_procedural::origin">origin</a></div><div class="desc docblock-short"><hr />
+</div></li><li><div class="item-name"><a class="attr" href="attr.pallet.html" title="attr frame_support_procedural::pallet">pallet</a></div><div class="desc docblock-short">The pallet struct placeholder <code>#[pallet::pallet]</code> is mandatory and allows you to specify
 pallet information.</div></li><li><div class="item-name"><a class="attr" href="attr.pallet_section.html" title="attr frame_support_procedural::pallet_section">pallet_section</a></div><div class="desc docblock-short">Can be attached to a module. Doing so will declare that module as importable into a pallet
 via <a href="attr.import_section.html" title="attr frame_support_procedural::import_section"><code>#[import_section]</code></a>.</div></li><li><div class="item-name"><a class="attr" href="attr.register_default_impl.html" title="attr frame_support_procedural::register_default_impl">register_default_impl</a></div><div class="desc docblock-short">Attach this attribute to an impl statement that you want to use with
 <a href="attr.derive_impl.html" title="attr frame_support_procedural::derive_impl"><code>#[derive_impl(..)]</code></a>.</div></li><li><div class="item-name"><a class="attr" href="attr.require_transactional.html" title="attr frame_support_procedural::require_transactional">require_transactional</a></div></li><li><div class="item-name"><a class="attr" href="attr.storage.html" title="attr frame_support_procedural::storage">storage</a></div><div class="desc docblock-short"><hr />

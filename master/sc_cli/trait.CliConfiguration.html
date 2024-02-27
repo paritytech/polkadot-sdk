@@ -1,4 +1,146 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A trait that allows converting an object to a Configuration"><title>CliConfiguration in sc_cli - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_cli/index.html">sc_cli</a><span class="version">0.36.0</span></h2></div><h2 class="location"><a href="#">CliConfiguration</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.shared_params">shared_params</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.announce_block">announce_block</a></li><li><a href="#method.base_path">base_path</a></li><li><a href="#method.blocks_pruning">blocks_pruning</a></li><li><a href="#method.chain_id">chain_id</a></li><li><a href="#method.create_configuration">create_configuration</a></li><li><a href="#method.database">database</a></li><li><a href="#method.database_cache_size">database_cache_size</a></li><li><a href="#method.database_config">database_config</a></li><li><a href="#method.database_params">database_params</a></li><li><a href="#method.default_heap_pages">default_heap_pages</a></li><li><a href="#method.detailed_log_output">detailed_log_output</a></li><li><a href="#method.dev_key_seed">dev_key_seed</a></li><li><a href="#method.disable_grandpa">disable_grandpa</a></li><li><a href="#method.disable_log_color">disable_log_color</a></li><li><a href="#method.enable_log_reloading">enable_log_reloading</a></li><li><a href="#method.force_authoring">force_authoring</a></li><li><a href="#method.import_params">import_params</a></li><li><a href="#method.init">init</a></li><li><a href="#method.is_dev">is_dev</a></li><li><a href="#method.keystore_config">keystore_config</a></li><li><a href="#method.keystore_params">keystore_params</a></li><li><a href="#method.log_filters">log_filters</a></li><li><a href="#method.max_runtime_instances">max_runtime_instances</a></li><li><a href="#method.network_config">network_config</a></li><li><a href="#method.network_params">network_params</a></li><li><a href="#method.node_key">node_key</a></li><li><a href="#method.node_key_params">node_key_params</a></li><li><a href="#method.node_name">node_name</a></li><li><a href="#method.offchain_worker">offchain_worker</a></li><li><a href="#method.offchain_worker_params">offchain_worker_params</a></li><li><a href="#method.prometheus_config">prometheus_config</a></li><li><a href="#method.pruning_params">pruning_params</a></li><li><a href="#method.role">role</a></li><li><a href="#method.rpc_addr">rpc_addr</a></li><li><a href="#method.rpc_batch_config">rpc_batch_config</a></li><li><a href="#method.rpc_buffer_capacity_per_connection">rpc_buffer_capacity_per_connection</a></li><li><a href="#method.rpc_cors">rpc_cors</a></li><li><a href="#method.rpc_max_connections">rpc_max_connections</a></li><li><a href="#method.rpc_max_request_size">rpc_max_request_size</a></li><li><a href="#method.rpc_max_response_size">rpc_max_response_size</a></li><li><a href="#method.rpc_max_subscriptions_per_connection">rpc_max_subscriptions_per_connection</a></li><li><a href="#method.rpc_methods">rpc_methods</a></li><li><a href="#method.rpc_rate_limit">rpc_rate_limit</a></li><li><a href="#method.runtime_cache_size">runtime_cache_size</a></li><li><a href="#method.state_pruning">state_pruning</a></li><li><a href="#method.telemetry_endpoints">telemetry_endpoints</a></li><li><a href="#method.tracing_receiver">tracing_receiver</a></li><li><a href="#method.tracing_targets">tracing_targets</a></li><li><a href="#method.transaction_pool">transaction_pool</a></li><li><a href="#method.trie_cache_maximum_size">trie_cache_maximum_size</a></li><li><a href="#method.wasm_method">wasm_method</a></li><li><a href="#method.wasm_runtime_overrides">wasm_runtime_overrides</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate sc_cli</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">sc_cli</a>::<wbr><a class="trait" href="#">CliConfiguration</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/sc_cli/config.rs.html#92-653">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait CliConfiguration&lt;DCV: <a class="trait" href="trait.DefaultConfigurationValues.html" title="trait sc_cli::DefaultConfigurationValues">DefaultConfigurationValues</a> = <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> {
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A trait that allows converting an object to a Configuration"><title>CliConfiguration in sc_cli - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function() {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+
+nav.side-bar {
+	width: 300px;
+}
+
+.sidebar-table-of-contents {
+    margin-bottom: 1em;
+    padding: 0.5em;
+}
+
+.sidebar-table-of-contents a {
+    display: block;
+    margin: 0.2em 0;
+}
+
+.sidebar-table-of-contents .h2 {
+    font-weight: bold;
+    margin-left: 0;
+}
+
+.sidebar-table-of-contents .h3 {
+    margin-left: 1em;
+}
+
+.sidebar-table-of-contents .h4 {
+    margin-left: 2em;
+}
+
+.sidebar h2.location {
+  display: none;
+}
+
+.sidebar-elems {
+  display: none;
+}
+
+/* Center the 'Expand for More' button */
+.expand-button {
+  display: inline-block; /* Use inline-block for sizing */
+  margin: 10px auto; /* Auto margins for horizontal centering */
+  padding: 5px 10px;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  width: auto;
+  /* Centering the button within its parent container */
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_cli/index.html">sc_cli</a><span class="version">0.36.0</span></h2></div><h2 class="location"><a href="#">CliConfiguration</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.shared_params">shared_params</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.announce_block">announce_block</a></li><li><a href="#method.base_path">base_path</a></li><li><a href="#method.blocks_pruning">blocks_pruning</a></li><li><a href="#method.chain_id">chain_id</a></li><li><a href="#method.create_configuration">create_configuration</a></li><li><a href="#method.database">database</a></li><li><a href="#method.database_cache_size">database_cache_size</a></li><li><a href="#method.database_config">database_config</a></li><li><a href="#method.database_params">database_params</a></li><li><a href="#method.default_heap_pages">default_heap_pages</a></li><li><a href="#method.detailed_log_output">detailed_log_output</a></li><li><a href="#method.dev_key_seed">dev_key_seed</a></li><li><a href="#method.disable_grandpa">disable_grandpa</a></li><li><a href="#method.disable_log_color">disable_log_color</a></li><li><a href="#method.enable_log_reloading">enable_log_reloading</a></li><li><a href="#method.force_authoring">force_authoring</a></li><li><a href="#method.import_params">import_params</a></li><li><a href="#method.init">init</a></li><li><a href="#method.is_dev">is_dev</a></li><li><a href="#method.keystore_config">keystore_config</a></li><li><a href="#method.keystore_params">keystore_params</a></li><li><a href="#method.log_filters">log_filters</a></li><li><a href="#method.max_runtime_instances">max_runtime_instances</a></li><li><a href="#method.network_config">network_config</a></li><li><a href="#method.network_params">network_params</a></li><li><a href="#method.node_key">node_key</a></li><li><a href="#method.node_key_params">node_key_params</a></li><li><a href="#method.node_name">node_name</a></li><li><a href="#method.offchain_worker">offchain_worker</a></li><li><a href="#method.offchain_worker_params">offchain_worker_params</a></li><li><a href="#method.prometheus_config">prometheus_config</a></li><li><a href="#method.pruning_params">pruning_params</a></li><li><a href="#method.role">role</a></li><li><a href="#method.rpc_addr">rpc_addr</a></li><li><a href="#method.rpc_batch_config">rpc_batch_config</a></li><li><a href="#method.rpc_buffer_capacity_per_connection">rpc_buffer_capacity_per_connection</a></li><li><a href="#method.rpc_cors">rpc_cors</a></li><li><a href="#method.rpc_max_connections">rpc_max_connections</a></li><li><a href="#method.rpc_max_request_size">rpc_max_request_size</a></li><li><a href="#method.rpc_max_response_size">rpc_max_response_size</a></li><li><a href="#method.rpc_max_subscriptions_per_connection">rpc_max_subscriptions_per_connection</a></li><li><a href="#method.rpc_methods">rpc_methods</a></li><li><a href="#method.rpc_rate_limit">rpc_rate_limit</a></li><li><a href="#method.runtime_cache_size">runtime_cache_size</a></li><li><a href="#method.state_pruning">state_pruning</a></li><li><a href="#method.telemetry_endpoints">telemetry_endpoints</a></li><li><a href="#method.tracing_receiver">tracing_receiver</a></li><li><a href="#method.tracing_targets">tracing_targets</a></li><li><a href="#method.transaction_pool">transaction_pool</a></li><li><a href="#method.trie_cache_maximum_size">trie_cache_maximum_size</a></li><li><a href="#method.wasm_method">wasm_method</a></li><li><a href="#method.wasm_runtime_overrides">wasm_runtime_overrides</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate sc_cli</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">sc_cli</a>::<wbr><a class="trait" href="#">CliConfiguration</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/sc_cli/config.rs.html#92-653">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait CliConfiguration&lt;DCV: <a class="trait" href="trait.DefaultConfigurationValues.html" title="trait sc_cli::DefaultConfigurationValues">DefaultConfigurationValues</a> = <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> {
 <details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 53 methods</span></summary>    // Required method
     fn <a href="#tymethod.shared_params" class="fn">shared_params</a>(&amp;self) -&gt; &amp;<a class="struct" href="struct.SharedParams.html" title="struct sc_cli::SharedParams">SharedParams</a>;
 

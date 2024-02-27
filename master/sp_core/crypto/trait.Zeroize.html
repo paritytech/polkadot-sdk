@@ -1,4 +1,146 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trait to zeroize a memory buffer. Trait for securely erasing values from memory."><title>Zeroize in sp_core::crypto - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sp_core/index.html">sp_core</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Zeroize</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.zeroize">zeroize</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-Zeroize-for-()">()</a></li><li><a href="#impl-Zeroize-for-(A,+B)">(A, B)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C)">(A, B, C)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D)">(A, B, C, D)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E)">(A, B, C, D, E)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E,+F)">(A, B, C, D, E, F)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E,+F,+G)">(A, B, C, D, E, F, G)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E,+F,+G,+H)">(A, B, C, D, E, F, G, H)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E,+F,+G,+H,+I)">(A, B, C, D, E, F, G, H, I)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J)">(A, B, C, D, E, F, G, H, I, J)</a></li><li><a href="#impl-Zeroize-for-(A,)">(A,)</a></li><li><a href="#impl-Zeroize-for-Affine%3CP%3E">Affine&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-Affine%3CP%3E">Affine&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-BigInt%3CN%3E">BigInt&lt;N&gt;</a></li><li><a href="#impl-Zeroize-for-Box%3C%5BZ%5D%3E">Box&lt;[Z]&gt;</a></li><li><a href="#impl-Zeroize-for-Box%3Cstr%3E">Box&lt;str&gt;</a></li><li><a href="#impl-Zeroize-for-CString">CString</a></li><li><a href="#impl-Zeroize-for-CompressedEdwardsY">CompressedEdwardsY</a></li><li><a href="#impl-Zeroize-for-CompressedEdwardsY">CompressedEdwardsY</a></li><li><a href="#impl-Zeroize-for-CompressedRistretto">CompressedRistretto</a></li><li><a href="#impl-Zeroize-for-CompressedRistretto">CompressedRistretto</a></li><li><a href="#impl-Zeroize-for-CubicExtField%3CP%3E">CubicExtField&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-EdwardsPoint">EdwardsPoint</a></li><li><a href="#impl-Zeroize-for-EdwardsPoint">EdwardsPoint</a></li><li><a href="#impl-Zeroize-for-Fp%3CP,+N%3E">Fp&lt;P, N&gt;</a></li><li><a href="#impl-Zeroize-for-GenericArray%3CT,+N%3E">GenericArray&lt;T, N&gt;</a></li><li><a href="#impl-Zeroize-for-IterMut%3C'a,+Z%3E">IterMut&lt;&#x27;a, Z&gt;</a></li><li><a href="#impl-Zeroize-for-Keypair">Keypair</a></li><li><a href="#impl-Zeroize-for-Keypair">Keypair</a></li><li><a href="#impl-Zeroize-for-MiniSecretKey">MiniSecretKey</a></li><li><a href="#impl-Zeroize-for-MiniSecretKey">MiniSecretKey</a></li><li><a href="#impl-Zeroize-for-MontgomeryPoint">MontgomeryPoint</a></li><li><a href="#impl-Zeroize-for-MontgomeryPoint">MontgomeryPoint</a></li><li><a href="#impl-Zeroize-for-MontgomeryPoint">MontgomeryPoint</a></li><li><a href="#impl-Zeroize-for-NonZeroI128">NonZeroI128</a></li><li><a href="#impl-Zeroize-for-NonZeroI16">NonZeroI16</a></li><li><a href="#impl-Zeroize-for-NonZeroI32">NonZeroI32</a></li><li><a href="#impl-Zeroize-for-NonZeroI64">NonZeroI64</a></li><li><a href="#impl-Zeroize-for-NonZeroI8">NonZeroI8</a></li><li><a href="#impl-Zeroize-for-NonZeroIsize">NonZeroIsize</a></li><li><a href="#impl-Zeroize-for-NonZeroU128">NonZeroU128</a></li><li><a href="#impl-Zeroize-for-NonZeroU16">NonZeroU16</a></li><li><a href="#impl-Zeroize-for-NonZeroU32">NonZeroU32</a></li><li><a href="#impl-Zeroize-for-NonZeroU64">NonZeroU64</a></li><li><a href="#impl-Zeroize-for-NonZeroU8">NonZeroU8</a></li><li><a href="#impl-Zeroize-for-NonZeroUsize">NonZeroUsize</a></li><li><a href="#impl-Zeroize-for-Option%3CZ%3E">Option&lt;Z&gt;</a></li><li><a href="#impl-Zeroize-for-PairingOutput%3CP%3E">PairingOutput&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-PhantomData%3CZ%3E">PhantomData&lt;Z&gt;</a></li><li><a href="#impl-Zeroize-for-PhantomPinned">PhantomPinned</a></li><li><a href="#impl-Zeroize-for-Projective%3CP%3E">Projective&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-Projective%3CP%3E">Projective&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-QuadExtField%3CP%3E">QuadExtField&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-RistrettoPoint">RistrettoPoint</a></li><li><a href="#impl-Zeroize-for-RistrettoPoint">RistrettoPoint</a></li><li><a href="#impl-Zeroize-for-Scalar">Scalar</a></li><li><a href="#impl-Zeroize-for-Scalar">Scalar</a></li><li><a href="#impl-Zeroize-for-Scalar">Scalar</a></li><li><a href="#impl-Zeroize-for-SecretKey">SecretKey</a></li><li><a href="#impl-Zeroize-for-SecretKey">SecretKey</a></li><li><a href="#impl-Zeroize-for-SecretKey%3CK%3E">SecretKey&lt;K&gt;</a></li><li><a href="#impl-Zeroize-for-SecretScalar%3CF%3E">SecretScalar&lt;F&gt;</a></li><li><a href="#impl-Zeroize-for-SigningKey">SigningKey</a></li><li><a href="#impl-Zeroize-for-String">String</a></li><li><a href="#impl-Zeroize-for-Transcript">Transcript</a></li><li><a href="#impl-Zeroize-for-Transcript">Transcript</a></li><li><a href="#impl-Zeroize-for-Vec%3CZ%3E">Vec&lt;Z&gt;</a></li><li><a href="#impl-Zeroize-for-Wrapping%3CZ%3E">Wrapping&lt;Z&gt;</a></li><li><a href="#impl-Zeroize-for-%5BMaybeUninit%3CZ%3E%5D">[MaybeUninit&lt;Z&gt;]</a></li><li><a href="#impl-Zeroize-for-%5BZ;+N%5D">[Z; N]</a></li><li><a href="#impl-Zeroize-for-%5BZ%5D">[Z]</a></li><li><a href="#impl-Zeroize-for-__m128">__m128</a></li><li><a href="#impl-Zeroize-for-__m128d">__m128d</a></li><li><a href="#impl-Zeroize-for-__m128i">__m128i</a></li><li><a href="#impl-Zeroize-for-str">str</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In sp_core::crypto</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">sp_core</a>::<wbr><a href="index.html">crypto</a>::<wbr><a class="trait" href="#">Zeroize</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Zeroize {
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trait to zeroize a memory buffer. Trait for securely erasing values from memory."><title>Zeroize in sp_core::crypto - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function() {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+
+nav.side-bar {
+	width: 300px;
+}
+
+.sidebar-table-of-contents {
+    margin-bottom: 1em;
+    padding: 0.5em;
+}
+
+.sidebar-table-of-contents a {
+    display: block;
+    margin: 0.2em 0;
+}
+
+.sidebar-table-of-contents .h2 {
+    font-weight: bold;
+    margin-left: 0;
+}
+
+.sidebar-table-of-contents .h3 {
+    margin-left: 1em;
+}
+
+.sidebar-table-of-contents .h4 {
+    margin-left: 2em;
+}
+
+.sidebar h2.location {
+  display: none;
+}
+
+.sidebar-elems {
+  display: none;
+}
+
+/* Center the 'Expand for More' button */
+.expand-button {
+  display: inline-block; /* Use inline-block for sizing */
+  margin: 10px auto; /* Auto margins for horizontal centering */
+  padding: 5px 10px;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  width: auto;
+  /* Centering the button within its parent container */
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sp_core/index.html">sp_core</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Zeroize</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.zeroize">zeroize</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-Zeroize-for-()">()</a></li><li><a href="#impl-Zeroize-for-(A,+B)">(A, B)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C)">(A, B, C)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D)">(A, B, C, D)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E)">(A, B, C, D, E)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E,+F)">(A, B, C, D, E, F)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E,+F,+G)">(A, B, C, D, E, F, G)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E,+F,+G,+H)">(A, B, C, D, E, F, G, H)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E,+F,+G,+H,+I)">(A, B, C, D, E, F, G, H, I)</a></li><li><a href="#impl-Zeroize-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J)">(A, B, C, D, E, F, G, H, I, J)</a></li><li><a href="#impl-Zeroize-for-(A,)">(A,)</a></li><li><a href="#impl-Zeroize-for-Affine%3CP%3E">Affine&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-Affine%3CP%3E">Affine&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-BigInt%3CN%3E">BigInt&lt;N&gt;</a></li><li><a href="#impl-Zeroize-for-Box%3C%5BZ%5D%3E">Box&lt;[Z]&gt;</a></li><li><a href="#impl-Zeroize-for-Box%3Cstr%3E">Box&lt;str&gt;</a></li><li><a href="#impl-Zeroize-for-CString">CString</a></li><li><a href="#impl-Zeroize-for-CompressedEdwardsY">CompressedEdwardsY</a></li><li><a href="#impl-Zeroize-for-CompressedEdwardsY">CompressedEdwardsY</a></li><li><a href="#impl-Zeroize-for-CompressedRistretto">CompressedRistretto</a></li><li><a href="#impl-Zeroize-for-CompressedRistretto">CompressedRistretto</a></li><li><a href="#impl-Zeroize-for-CubicExtField%3CP%3E">CubicExtField&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-EdwardsPoint">EdwardsPoint</a></li><li><a href="#impl-Zeroize-for-EdwardsPoint">EdwardsPoint</a></li><li><a href="#impl-Zeroize-for-Fp%3CP,+N%3E">Fp&lt;P, N&gt;</a></li><li><a href="#impl-Zeroize-for-GenericArray%3CT,+N%3E">GenericArray&lt;T, N&gt;</a></li><li><a href="#impl-Zeroize-for-IterMut%3C'a,+Z%3E">IterMut&lt;&#x27;a, Z&gt;</a></li><li><a href="#impl-Zeroize-for-Keypair">Keypair</a></li><li><a href="#impl-Zeroize-for-Keypair">Keypair</a></li><li><a href="#impl-Zeroize-for-MiniSecretKey">MiniSecretKey</a></li><li><a href="#impl-Zeroize-for-MiniSecretKey">MiniSecretKey</a></li><li><a href="#impl-Zeroize-for-MontgomeryPoint">MontgomeryPoint</a></li><li><a href="#impl-Zeroize-for-MontgomeryPoint">MontgomeryPoint</a></li><li><a href="#impl-Zeroize-for-MontgomeryPoint">MontgomeryPoint</a></li><li><a href="#impl-Zeroize-for-NonZeroI128">NonZeroI128</a></li><li><a href="#impl-Zeroize-for-NonZeroI16">NonZeroI16</a></li><li><a href="#impl-Zeroize-for-NonZeroI32">NonZeroI32</a></li><li><a href="#impl-Zeroize-for-NonZeroI64">NonZeroI64</a></li><li><a href="#impl-Zeroize-for-NonZeroI8">NonZeroI8</a></li><li><a href="#impl-Zeroize-for-NonZeroIsize">NonZeroIsize</a></li><li><a href="#impl-Zeroize-for-NonZeroU128">NonZeroU128</a></li><li><a href="#impl-Zeroize-for-NonZeroU16">NonZeroU16</a></li><li><a href="#impl-Zeroize-for-NonZeroU32">NonZeroU32</a></li><li><a href="#impl-Zeroize-for-NonZeroU64">NonZeroU64</a></li><li><a href="#impl-Zeroize-for-NonZeroU8">NonZeroU8</a></li><li><a href="#impl-Zeroize-for-NonZeroUsize">NonZeroUsize</a></li><li><a href="#impl-Zeroize-for-Option%3CZ%3E">Option&lt;Z&gt;</a></li><li><a href="#impl-Zeroize-for-PairingOutput%3CP%3E">PairingOutput&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-PhantomData%3CZ%3E">PhantomData&lt;Z&gt;</a></li><li><a href="#impl-Zeroize-for-PhantomPinned">PhantomPinned</a></li><li><a href="#impl-Zeroize-for-Projective%3CP%3E">Projective&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-Projective%3CP%3E">Projective&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-QuadExtField%3CP%3E">QuadExtField&lt;P&gt;</a></li><li><a href="#impl-Zeroize-for-RistrettoPoint">RistrettoPoint</a></li><li><a href="#impl-Zeroize-for-RistrettoPoint">RistrettoPoint</a></li><li><a href="#impl-Zeroize-for-Scalar">Scalar</a></li><li><a href="#impl-Zeroize-for-Scalar">Scalar</a></li><li><a href="#impl-Zeroize-for-Scalar">Scalar</a></li><li><a href="#impl-Zeroize-for-SecretKey">SecretKey</a></li><li><a href="#impl-Zeroize-for-SecretKey">SecretKey</a></li><li><a href="#impl-Zeroize-for-SecretKey%3CK%3E">SecretKey&lt;K&gt;</a></li><li><a href="#impl-Zeroize-for-SecretScalar%3CF%3E">SecretScalar&lt;F&gt;</a></li><li><a href="#impl-Zeroize-for-SigningKey">SigningKey</a></li><li><a href="#impl-Zeroize-for-String">String</a></li><li><a href="#impl-Zeroize-for-Transcript">Transcript</a></li><li><a href="#impl-Zeroize-for-Transcript">Transcript</a></li><li><a href="#impl-Zeroize-for-Vec%3CZ%3E">Vec&lt;Z&gt;</a></li><li><a href="#impl-Zeroize-for-Wrapping%3CZ%3E">Wrapping&lt;Z&gt;</a></li><li><a href="#impl-Zeroize-for-%5BMaybeUninit%3CZ%3E%5D">[MaybeUninit&lt;Z&gt;]</a></li><li><a href="#impl-Zeroize-for-%5BZ;+N%5D">[Z; N]</a></li><li><a href="#impl-Zeroize-for-%5BZ%5D">[Z]</a></li><li><a href="#impl-Zeroize-for-__m128">__m128</a></li><li><a href="#impl-Zeroize-for-__m128d">__m128d</a></li><li><a href="#impl-Zeroize-for-__m128i">__m128i</a></li><li><a href="#impl-Zeroize-for-str">str</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In sp_core::crypto</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">sp_core</a>::<wbr><a href="index.html">crypto</a>::<wbr><a class="trait" href="#">Zeroize</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Zeroize {
     // Required method
     fn <a href="#tymethod.zeroize" class="fn">zeroize</a>(&amp;mut self);
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait to zeroize a memory buffer.

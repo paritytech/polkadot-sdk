@@ -1,4 +1,146 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Defines a multiplicative identity element for `Self`."><title>One in polkadot_service::runtime_traits - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_service/index.html">polkadot_service</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">One</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.one">one</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.is_one">is_one</a></li><li><a href="#method.set_one">set_one</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-One-for-AutoSimd%3C%5Bf32;+16%5D%3E">AutoSimd&lt;[f32; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf32;+2%5D%3E">AutoSimd&lt;[f32; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf32;+4%5D%3E">AutoSimd&lt;[f32; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf32;+8%5D%3E">AutoSimd&lt;[f32; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf64;+2%5D%3E">AutoSimd&lt;[f64; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf64;+4%5D%3E">AutoSimd&lt;[f64; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf64;+8%5D%3E">AutoSimd&lt;[f64; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi128;+1%5D%3E">AutoSimd&lt;[i128; 1]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi128;+2%5D%3E">AutoSimd&lt;[i128; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi128;+4%5D%3E">AutoSimd&lt;[i128; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi16;+16%5D%3E">AutoSimd&lt;[i16; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi16;+2%5D%3E">AutoSimd&lt;[i16; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi16;+32%5D%3E">AutoSimd&lt;[i16; 32]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi16;+4%5D%3E">AutoSimd&lt;[i16; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi16;+8%5D%3E">AutoSimd&lt;[i16; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi32;+16%5D%3E">AutoSimd&lt;[i32; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi32;+2%5D%3E">AutoSimd&lt;[i32; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi32;+4%5D%3E">AutoSimd&lt;[i32; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi32;+8%5D%3E">AutoSimd&lt;[i32; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi64;+2%5D%3E">AutoSimd&lt;[i64; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi64;+4%5D%3E">AutoSimd&lt;[i64; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi64;+8%5D%3E">AutoSimd&lt;[i64; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi8;+16%5D%3E">AutoSimd&lt;[i8; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi8;+2%5D%3E">AutoSimd&lt;[i8; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi8;+32%5D%3E">AutoSimd&lt;[i8; 32]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi8;+4%5D%3E">AutoSimd&lt;[i8; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi8;+8%5D%3E">AutoSimd&lt;[i8; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bisize;+2%5D%3E">AutoSimd&lt;[isize; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bisize;+4%5D%3E">AutoSimd&lt;[isize; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bisize;+8%5D%3E">AutoSimd&lt;[isize; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu128;+1%5D%3E">AutoSimd&lt;[u128; 1]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu128;+2%5D%3E">AutoSimd&lt;[u128; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu128;+4%5D%3E">AutoSimd&lt;[u128; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu16;+16%5D%3E">AutoSimd&lt;[u16; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu16;+2%5D%3E">AutoSimd&lt;[u16; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu16;+32%5D%3E">AutoSimd&lt;[u16; 32]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu16;+4%5D%3E">AutoSimd&lt;[u16; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu16;+8%5D%3E">AutoSimd&lt;[u16; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu32;+16%5D%3E">AutoSimd&lt;[u32; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu32;+2%5D%3E">AutoSimd&lt;[u32; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu32;+4%5D%3E">AutoSimd&lt;[u32; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu32;+8%5D%3E">AutoSimd&lt;[u32; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu64;+2%5D%3E">AutoSimd&lt;[u64; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu64;+4%5D%3E">AutoSimd&lt;[u64; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu64;+8%5D%3E">AutoSimd&lt;[u64; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu8;+16%5D%3E">AutoSimd&lt;[u8; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu8;+2%5D%3E">AutoSimd&lt;[u8; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu8;+32%5D%3E">AutoSimd&lt;[u8; 32]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu8;+4%5D%3E">AutoSimd&lt;[u8; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu8;+8%5D%3E">AutoSimd&lt;[u8; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Busize;+2%5D%3E">AutoSimd&lt;[usize; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Busize;+4%5D%3E">AutoSimd&lt;[usize; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Busize;+8%5D%3E">AutoSimd&lt;[usize; 8]&gt;</a></li><li><a href="#impl-One-for-BigInt">BigInt</a></li><li><a href="#impl-One-for-BigUint">BigUint</a></li><li><a href="#impl-One-for-BigUint">BigUint</a></li><li><a href="#impl-One-for-Complex%3CT%3E">Complex&lt;T&gt;</a></li><li><a href="#impl-One-for-CubicExtField%3CP%3E">CubicExtField&lt;P&gt;</a></li><li><a href="#impl-One-for-DualQuaternion%3CT%3E">DualQuaternion&lt;T&gt;</a></li><li><a href="#impl-One-for-FixedI128">FixedI128</a></li><li><a href="#impl-One-for-FixedI64">FixedI64</a></li><li><a href="#impl-One-for-FixedU128">FixedU128</a></li><li><a href="#impl-One-for-FixedU64">FixedU64</a></li><li><a href="#impl-One-for-Fp%3CP,+N%3E">Fp&lt;P, N&gt;</a></li><li><a href="#impl-One-for-Isometry%3CT,+R,+D%3E">Isometry&lt;T, R, D&gt;</a></li><li><a href="#impl-One-for-Matrix%3CT,+D,+D,+%3CDefaultAllocator+as+Allocator%3CT,+D,+D%3E%3E::Buffer%3E">Matrix&lt;T, D, D, &lt;DefaultAllocator as Allocator&lt;T, D, D&gt;&gt;::Buffer&gt;</a></li><li><a href="#impl-One-for-NotNan%3CT%3E">NotNan&lt;T&gt;</a></li><li><a href="#impl-One-for-PerU16">PerU16</a></li><li><a href="#impl-One-for-Perbill">Perbill</a></li><li><a href="#impl-One-for-Percent">Percent</a></li><li><a href="#impl-One-for-Permill">Permill</a></li><li><a href="#impl-One-for-Perquintill">Perquintill</a></li><li><a href="#impl-One-for-QuadExtField%3CP%3E">QuadExtField&lt;P&gt;</a></li><li><a href="#impl-One-for-Quaternion%3CT%3E">Quaternion&lt;T&gt;</a></li><li><a href="#impl-One-for-Ratio%3CT%3E">Ratio&lt;T&gt;</a></li><li><a href="#impl-One-for-Rotation%3CT,+D%3E">Rotation&lt;T, D&gt;</a></li><li><a href="#impl-One-for-Scale%3CT,+D%3E">Scale&lt;T, D&gt;</a></li><li><a href="#impl-One-for-Similarity%3CT,+R,+D%3E">Similarity&lt;T, R, D&gt;</a></li><li><a href="#impl-One-for-Transform%3CT,+C,+D%3E">Transform&lt;T, C, D&gt;</a></li><li><a href="#impl-One-for-Translation%3CT,+D%3E">Translation&lt;T, D&gt;</a></li><li><a href="#impl-One-for-U128">U128</a></li><li><a href="#impl-One-for-U256">U256</a></li><li><a href="#impl-One-for-U512">U512</a></li><li><a href="#impl-One-for-Unit%3CComplex%3CT%3E%3E">Unit&lt;Complex&lt;T&gt;&gt;</a></li><li><a href="#impl-One-for-Unit%3CDualQuaternion%3CT%3E%3E">Unit&lt;DualQuaternion&lt;T&gt;&gt;</a></li><li><a href="#impl-One-for-Unit%3CQuaternion%3CT%3E%3E">Unit&lt;Quaternion&lt;T&gt;&gt;</a></li><li><a href="#impl-One-for-WideF32x4">WideF32x4</a></li><li><a href="#impl-One-for-WideF32x8">WideF32x8</a></li><li><a href="#impl-One-for-WideF64x4">WideF64x4</a></li><li><a href="#impl-One-for-Wrapping%3CT%3E">Wrapping&lt;T&gt;</a></li><li><a href="#impl-One-for-f32">f32</a></li><li><a href="#impl-One-for-f64">f64</a></li><li><a href="#impl-One-for-i128">i128</a></li><li><a href="#impl-One-for-i16">i16</a></li><li><a href="#impl-One-for-i32">i32</a></li><li><a href="#impl-One-for-i64">i64</a></li><li><a href="#impl-One-for-i8">i8</a></li><li><a href="#impl-One-for-isize">isize</a></li><li><a href="#impl-One-for-u128">u128</a></li><li><a href="#impl-One-for-u16">u16</a></li><li><a href="#impl-One-for-u32">u32</a></li><li><a href="#impl-One-for-u64">u64</a></li><li><a href="#impl-One-for-u8">u8</a></li><li><a href="#impl-One-for-usize">usize</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_service::runtime_traits</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">polkadot_service</a>::<wbr><a href="index.html">runtime_traits</a>::<wbr><a class="trait" href="#">One</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/num-traits/0.2/src/num_traits/identities.rs.html#88">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait One: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/arith/trait.Mul.html" title="trait core::ops::arith::Mul">Mul</a>&lt;Output = Self&gt; {
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Defines a multiplicative identity element for `Self`."><title>One in polkadot_service::runtime_traits - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function() {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+
+nav.side-bar {
+	width: 300px;
+}
+
+.sidebar-table-of-contents {
+    margin-bottom: 1em;
+    padding: 0.5em;
+}
+
+.sidebar-table-of-contents a {
+    display: block;
+    margin: 0.2em 0;
+}
+
+.sidebar-table-of-contents .h2 {
+    font-weight: bold;
+    margin-left: 0;
+}
+
+.sidebar-table-of-contents .h3 {
+    margin-left: 1em;
+}
+
+.sidebar-table-of-contents .h4 {
+    margin-left: 2em;
+}
+
+.sidebar h2.location {
+  display: none;
+}
+
+.sidebar-elems {
+  display: none;
+}
+
+/* Center the 'Expand for More' button */
+.expand-button {
+  display: inline-block; /* Use inline-block for sizing */
+  margin: 10px auto; /* Auto margins for horizontal centering */
+  padding: 5px 10px;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  width: auto;
+  /* Centering the button within its parent container */
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_service/index.html">polkadot_service</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">One</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.one">one</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.is_one">is_one</a></li><li><a href="#method.set_one">set_one</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-One-for-AutoSimd%3C%5Bf32;+16%5D%3E">AutoSimd&lt;[f32; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf32;+2%5D%3E">AutoSimd&lt;[f32; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf32;+4%5D%3E">AutoSimd&lt;[f32; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf32;+8%5D%3E">AutoSimd&lt;[f32; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf64;+2%5D%3E">AutoSimd&lt;[f64; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf64;+4%5D%3E">AutoSimd&lt;[f64; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bf64;+8%5D%3E">AutoSimd&lt;[f64; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi128;+1%5D%3E">AutoSimd&lt;[i128; 1]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi128;+2%5D%3E">AutoSimd&lt;[i128; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi128;+4%5D%3E">AutoSimd&lt;[i128; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi16;+16%5D%3E">AutoSimd&lt;[i16; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi16;+2%5D%3E">AutoSimd&lt;[i16; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi16;+32%5D%3E">AutoSimd&lt;[i16; 32]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi16;+4%5D%3E">AutoSimd&lt;[i16; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi16;+8%5D%3E">AutoSimd&lt;[i16; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi32;+16%5D%3E">AutoSimd&lt;[i32; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi32;+2%5D%3E">AutoSimd&lt;[i32; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi32;+4%5D%3E">AutoSimd&lt;[i32; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi32;+8%5D%3E">AutoSimd&lt;[i32; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi64;+2%5D%3E">AutoSimd&lt;[i64; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi64;+4%5D%3E">AutoSimd&lt;[i64; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi64;+8%5D%3E">AutoSimd&lt;[i64; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi8;+16%5D%3E">AutoSimd&lt;[i8; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi8;+2%5D%3E">AutoSimd&lt;[i8; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi8;+32%5D%3E">AutoSimd&lt;[i8; 32]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi8;+4%5D%3E">AutoSimd&lt;[i8; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bi8;+8%5D%3E">AutoSimd&lt;[i8; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bisize;+2%5D%3E">AutoSimd&lt;[isize; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bisize;+4%5D%3E">AutoSimd&lt;[isize; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bisize;+8%5D%3E">AutoSimd&lt;[isize; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu128;+1%5D%3E">AutoSimd&lt;[u128; 1]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu128;+2%5D%3E">AutoSimd&lt;[u128; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu128;+4%5D%3E">AutoSimd&lt;[u128; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu16;+16%5D%3E">AutoSimd&lt;[u16; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu16;+2%5D%3E">AutoSimd&lt;[u16; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu16;+32%5D%3E">AutoSimd&lt;[u16; 32]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu16;+4%5D%3E">AutoSimd&lt;[u16; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu16;+8%5D%3E">AutoSimd&lt;[u16; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu32;+16%5D%3E">AutoSimd&lt;[u32; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu32;+2%5D%3E">AutoSimd&lt;[u32; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu32;+4%5D%3E">AutoSimd&lt;[u32; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu32;+8%5D%3E">AutoSimd&lt;[u32; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu64;+2%5D%3E">AutoSimd&lt;[u64; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu64;+4%5D%3E">AutoSimd&lt;[u64; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu64;+8%5D%3E">AutoSimd&lt;[u64; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu8;+16%5D%3E">AutoSimd&lt;[u8; 16]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu8;+2%5D%3E">AutoSimd&lt;[u8; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu8;+32%5D%3E">AutoSimd&lt;[u8; 32]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu8;+4%5D%3E">AutoSimd&lt;[u8; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Bu8;+8%5D%3E">AutoSimd&lt;[u8; 8]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Busize;+2%5D%3E">AutoSimd&lt;[usize; 2]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Busize;+4%5D%3E">AutoSimd&lt;[usize; 4]&gt;</a></li><li><a href="#impl-One-for-AutoSimd%3C%5Busize;+8%5D%3E">AutoSimd&lt;[usize; 8]&gt;</a></li><li><a href="#impl-One-for-BigInt">BigInt</a></li><li><a href="#impl-One-for-BigUint">BigUint</a></li><li><a href="#impl-One-for-BigUint">BigUint</a></li><li><a href="#impl-One-for-Complex%3CT%3E">Complex&lt;T&gt;</a></li><li><a href="#impl-One-for-CubicExtField%3CP%3E">CubicExtField&lt;P&gt;</a></li><li><a href="#impl-One-for-DualQuaternion%3CT%3E">DualQuaternion&lt;T&gt;</a></li><li><a href="#impl-One-for-FixedI128">FixedI128</a></li><li><a href="#impl-One-for-FixedI64">FixedI64</a></li><li><a href="#impl-One-for-FixedU128">FixedU128</a></li><li><a href="#impl-One-for-FixedU64">FixedU64</a></li><li><a href="#impl-One-for-Fp%3CP,+N%3E">Fp&lt;P, N&gt;</a></li><li><a href="#impl-One-for-Isometry%3CT,+R,+D%3E">Isometry&lt;T, R, D&gt;</a></li><li><a href="#impl-One-for-Matrix%3CT,+D,+D,+%3CDefaultAllocator+as+Allocator%3CT,+D,+D%3E%3E::Buffer%3E">Matrix&lt;T, D, D, &lt;DefaultAllocator as Allocator&lt;T, D, D&gt;&gt;::Buffer&gt;</a></li><li><a href="#impl-One-for-NotNan%3CT%3E">NotNan&lt;T&gt;</a></li><li><a href="#impl-One-for-PerU16">PerU16</a></li><li><a href="#impl-One-for-Perbill">Perbill</a></li><li><a href="#impl-One-for-Percent">Percent</a></li><li><a href="#impl-One-for-Permill">Permill</a></li><li><a href="#impl-One-for-Perquintill">Perquintill</a></li><li><a href="#impl-One-for-QuadExtField%3CP%3E">QuadExtField&lt;P&gt;</a></li><li><a href="#impl-One-for-Quaternion%3CT%3E">Quaternion&lt;T&gt;</a></li><li><a href="#impl-One-for-Ratio%3CT%3E">Ratio&lt;T&gt;</a></li><li><a href="#impl-One-for-Rotation%3CT,+D%3E">Rotation&lt;T, D&gt;</a></li><li><a href="#impl-One-for-Scale%3CT,+D%3E">Scale&lt;T, D&gt;</a></li><li><a href="#impl-One-for-Similarity%3CT,+R,+D%3E">Similarity&lt;T, R, D&gt;</a></li><li><a href="#impl-One-for-Transform%3CT,+C,+D%3E">Transform&lt;T, C, D&gt;</a></li><li><a href="#impl-One-for-Translation%3CT,+D%3E">Translation&lt;T, D&gt;</a></li><li><a href="#impl-One-for-U128">U128</a></li><li><a href="#impl-One-for-U256">U256</a></li><li><a href="#impl-One-for-U512">U512</a></li><li><a href="#impl-One-for-Unit%3CComplex%3CT%3E%3E">Unit&lt;Complex&lt;T&gt;&gt;</a></li><li><a href="#impl-One-for-Unit%3CDualQuaternion%3CT%3E%3E">Unit&lt;DualQuaternion&lt;T&gt;&gt;</a></li><li><a href="#impl-One-for-Unit%3CQuaternion%3CT%3E%3E">Unit&lt;Quaternion&lt;T&gt;&gt;</a></li><li><a href="#impl-One-for-WideF32x4">WideF32x4</a></li><li><a href="#impl-One-for-WideF32x8">WideF32x8</a></li><li><a href="#impl-One-for-WideF64x4">WideF64x4</a></li><li><a href="#impl-One-for-Wrapping%3CT%3E">Wrapping&lt;T&gt;</a></li><li><a href="#impl-One-for-f32">f32</a></li><li><a href="#impl-One-for-f64">f64</a></li><li><a href="#impl-One-for-i128">i128</a></li><li><a href="#impl-One-for-i16">i16</a></li><li><a href="#impl-One-for-i32">i32</a></li><li><a href="#impl-One-for-i64">i64</a></li><li><a href="#impl-One-for-i8">i8</a></li><li><a href="#impl-One-for-isize">isize</a></li><li><a href="#impl-One-for-u128">u128</a></li><li><a href="#impl-One-for-u16">u16</a></li><li><a href="#impl-One-for-u32">u32</a></li><li><a href="#impl-One-for-u64">u64</a></li><li><a href="#impl-One-for-u8">u8</a></li><li><a href="#impl-One-for-usize">usize</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_service::runtime_traits</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">polkadot_service</a>::<wbr><a href="index.html">runtime_traits</a>::<wbr><a class="trait" href="#">One</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/num-traits/0.2/src/num_traits/identities.rs.html#88">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait One: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/arith/trait.Mul.html" title="trait core::ops::arith::Mul">Mul</a>&lt;Output = Self&gt; {
     // Required method
     fn <a href="#tymethod.one" class="fn">one</a>() -&gt; Self;
 

@@ -1,4 +1,146 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Traits and associated utilities for use in the FRAME environment."><title>frame_support::traits - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module traits</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In crate frame_support</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">frame_support</a>::<wbr><a class="mod" href="#">traits</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/frame_support/traits.rs.html#18-138">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Traits and associated utilities for use in the FRAME environment.</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Traits and associated utilities for use in the FRAME environment."><title>frame_support::traits - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function() {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+
+nav.side-bar {
+	width: 300px;
+}
+
+.sidebar-table-of-contents {
+    margin-bottom: 1em;
+    padding: 0.5em;
+}
+
+.sidebar-table-of-contents a {
+    display: block;
+    margin: 0.2em 0;
+}
+
+.sidebar-table-of-contents .h2 {
+    font-weight: bold;
+    margin-left: 0;
+}
+
+.sidebar-table-of-contents .h3 {
+    margin-left: 1em;
+}
+
+.sidebar-table-of-contents .h4 {
+    margin-left: 2em;
+}
+
+.sidebar h2.location {
+  display: none;
+}
+
+.sidebar-elems {
+  display: none;
+}
+
+/* Center the 'Expand for More' button */
+.expand-button {
+  display: inline-block; /* Use inline-block for sizing */
+  margin: 10px auto; /* Auto margins for horizontal centering */
+  padding: 5px 10px;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  width: auto;
+  /* Centering the button within its parent container */
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module traits</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In crate frame_support</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">frame_support</a>::<wbr><a class="mod" href="#">traits</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/frame_support/traits.rs.html#18-138">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Traits and associated utilities for use in the FRAME environment.</p>
 <p>NOTE: If you’re looking for <code>parameter_types</code>, it has moved in to the top-level module.</p>
 </div></details><h2 id="reexports" class="small-section-header"><a href="#reexports">Re-exports</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.ActiveIssuanceOf"><code>pub use tokens::currency::<a class="struct" href="tokens/currency/struct.ActiveIssuanceOf.html" title="struct frame_support::traits::tokens::currency::ActiveIssuanceOf">ActiveIssuanceOf</a>;</code></div></li><li><div class="item-name" id="reexport.Currency"><code>pub use tokens::currency::<a class="trait" href="tokens/currency/trait.Currency.html" title="trait frame_support::traits::tokens::currency::Currency">Currency</a>;</code></div></li><li><div class="item-name" id="reexport.LockIdentifier"><code>pub use tokens::currency::<a class="type" href="tokens/currency/type.LockIdentifier.html" title="type frame_support::traits::tokens::currency::LockIdentifier">LockIdentifier</a>;</code></div></li><li><div class="item-name" id="reexport.LockableCurrency"><code>pub use tokens::currency::<a class="trait" href="tokens/currency/trait.LockableCurrency.html" title="trait frame_support::traits::tokens::currency::LockableCurrency">LockableCurrency</a>;</code></div></li><li><div class="item-name" id="reexport.NamedReservableCurrency"><code>pub use tokens::currency::<a class="trait" href="tokens/currency/trait.NamedReservableCurrency.html" title="trait frame_support::traits::tokens::currency::NamedReservableCurrency">NamedReservableCurrency</a>;</code></div></li><li><div class="item-name" id="reexport.ReservableCurrency"><code>pub use tokens::currency::<a class="trait" href="tokens/currency/trait.ReservableCurrency.html" title="trait frame_support::traits::tokens::currency::ReservableCurrency">ReservableCurrency</a>;</code></div></li><li><div class="item-name" id="reexport.TotalIssuanceOf"><code>pub use tokens::currency::<a class="struct" href="tokens/currency/struct.TotalIssuanceOf.html" title="struct frame_support::traits::tokens::currency::TotalIssuanceOf">TotalIssuanceOf</a>;</code></div></li><li><div class="item-name" id="reexport.VestingSchedule"><code>pub use tokens::currency::<a class="trait" href="tokens/currency/trait.VestingSchedule.html" title="trait frame_support::traits::tokens::currency::VestingSchedule">VestingSchedule</a>;</code></div></li><li><div class="item-name" id="reexport.fungible"><code>pub use tokens::<a class="mod" href="tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible">fungible</a>;</code></div></li><li><div class="item-name" id="reexport.fungibles"><code>pub use tokens::<a class="mod" href="tokens/fungibles/index.html" title="mod frame_support::traits::tokens::fungibles">fungibles</a>;</code></div></li><li><div class="item-name" id="reexport.Imbalance"><code>pub use tokens::imbalance::<a class="trait" href="tokens/imbalance/trait.Imbalance.html" title="trait frame_support::traits::tokens::imbalance::Imbalance">Imbalance</a>;</code></div></li><li><div class="item-name" id="reexport.OnUnbalanced"><code>pub use tokens::imbalance::<a class="trait" href="tokens/imbalance/trait.OnUnbalanced.html" title="trait frame_support::traits::tokens::imbalance::OnUnbalanced">OnUnbalanced</a>;</code></div></li><li><div class="item-name" id="reexport.SignedImbalance"><code>pub use tokens::imbalance::<a class="enum" href="tokens/imbalance/enum.SignedImbalance.html" title="enum frame_support::traits::tokens::imbalance::SignedImbalance">SignedImbalance</a>;</code></div></li><li><div class="item-name" id="reexport.nonfungible"><code>pub use tokens::<a class="mod" href="tokens/nonfungible/index.html" title="mod frame_support::traits::tokens::nonfungible">nonfungible</a>;</code></div></li><li><div class="item-name" id="reexport.nonfungible_v2"><code>pub use tokens::<a class="mod" href="tokens/nonfungible_v2/index.html" title="mod frame_support::traits::tokens::nonfungible_v2">nonfungible_v2</a>;</code></div></li><li><div class="item-name" id="reexport.nonfungibles"><code>pub use tokens::<a class="mod" href="tokens/nonfungibles/index.html" title="mod frame_support::traits::tokens::nonfungibles">nonfungibles</a>;</code></div></li><li><div class="item-name" id="reexport.nonfungibles_v2"><code>pub use tokens::<a class="mod" href="tokens/nonfungibles_v2/index.html" title="mod frame_support::traits::tokens::nonfungibles_v2">nonfungibles_v2</a>;</code></div></li><li><div class="item-name" id="reexport.BalanceStatus"><code>pub use tokens::<a class="enum" href="tokens/enum.BalanceStatus.html" title="enum frame_support::traits::tokens::BalanceStatus">BalanceStatus</a>;</code></div></li><li><div class="item-name" id="reexport.ExistenceRequirement"><code>pub use tokens::<a class="enum" href="tokens/enum.ExistenceRequirement.html" title="enum frame_support::traits::tokens::ExistenceRequirement">ExistenceRequirement</a>;</code></div></li><li><div class="item-name" id="reexport.Locker"><code>pub use tokens::<a class="trait" href="tokens/trait.Locker.html" title="trait frame_support::traits::tokens::Locker">Locker</a>;</code></div></li><li><div class="item-name" id="reexport.WithdrawReasons"><code>pub use tokens::<a class="struct" href="tokens/struct.WithdrawReasons.html" title="struct frame_support::traits::tokens::WithdrawReasons">WithdrawReasons</a>;</code></div></li><li><div class="item-name" id="reexport.Task"><code>pub use tasks::<a class="trait" href="tasks/trait.Task.html" title="trait frame_support::traits::tasks::Task">Task</a>;</code></div></li></ul><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="defensive_prelude/index.html" title="mod frame_support::traits::defensive_prelude">defensive_prelude</a></div><div class="desc docblock-short">Prelude module for all defensive traits to be imported at once.</div></li><li><div class="item-name"><a class="mod" href="dynamic_params/index.html" title="mod frame_support::traits::dynamic_params">dynamic_params</a></div><div class="desc docblock-short">Types and traits for dynamic parameters.</div></li><li><div class="item-name"><a class="mod" href="schedule/index.html" title="mod frame_support::traits::schedule">schedule</a></div><div class="desc docblock-short">Traits and associated utilities for scheduling dispatchables in FRAME.</div></li><li><div class="item-name"><a class="mod" href="tasks/index.html" title="mod frame_support::traits::tasks">tasks</a></div><div class="desc docblock-short">Contains the <a href="tasks/trait.Task.html" title="trait frame_support::traits::tasks::Task"><code>Task</code></a> trait, which defines a general-purpose way for defining and executing
 service work, and supporting types.</div></li><li><div class="item-name"><a class="mod" href="tokens/index.html" title="mod frame_support::traits::tokens">tokens</a></div><div class="desc docblock-short">Traits for working with tokens and their associated datastructures.</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AsContains.html" title="struct frame_support::traits::AsContains">AsContains</a></div><div class="desc docblock-short">Adapter struct for turning an <code>OrderedMembership</code> impl into a <code>Contains</code> impl.</div></li><li><div class="item-name"><a class="struct" href="struct.AsEnsureOriginWithArg.html" title="struct frame_support::traits::AsEnsureOriginWithArg">AsEnsureOriginWithArg</a></div></li><li><div class="item-name"><a class="struct" href="struct.Backing.html" title="struct frame_support::traits::Backing">Backing</a></div><div class="desc docblock-short">Some amount of backing from a group. The precise definition of what it means to “back” something

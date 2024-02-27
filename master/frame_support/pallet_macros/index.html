@@ -1,4 +1,146 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Contains macro stubs for all of the pallet:: macros"><title>frame_support::pallet_macros - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module pallet_macros</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#attributes">Attribute Macros</a></li></ul></section><h2><a href="../index.html">In crate frame_support</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">frame_support</a>::<wbr><a class="mod" href="#">pallet_macros</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/frame_support/lib.rs.html#2273">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Contains macro stubs for all of the pallet:: macros</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Contains macro stubs for all of the pallet:: macros"><title>frame_support::pallet_macros - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function() {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+
+nav.side-bar {
+	width: 300px;
+}
+
+.sidebar-table-of-contents {
+    margin-bottom: 1em;
+    padding: 0.5em;
+}
+
+.sidebar-table-of-contents a {
+    display: block;
+    margin: 0.2em 0;
+}
+
+.sidebar-table-of-contents .h2 {
+    font-weight: bold;
+    margin-left: 0;
+}
+
+.sidebar-table-of-contents .h3 {
+    margin-left: 1em;
+}
+
+.sidebar-table-of-contents .h4 {
+    margin-left: 2em;
+}
+
+.sidebar h2.location {
+  display: none;
+}
+
+.sidebar-elems {
+  display: none;
+}
+
+/* Center the 'Expand for More' button */
+.expand-button {
+  display: inline-block; /* Use inline-block for sizing */
+  margin: 10px auto; /* Auto margins for horizontal centering */
+  padding: 5px 10px;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  width: auto;
+  /* Centering the button within its parent container */
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module pallet_macros</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#attributes">Attribute Macros</a></li></ul></section><h2><a href="../index.html">In crate frame_support</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">frame_support</a>::<wbr><a class="mod" href="#">pallet_macros</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/frame_support/lib.rs.html#2273">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Contains macro stubs for all of the pallet:: macros</p>
 </div></details><h2 id="attributes" class="small-section-header"><a href="#attributes">Attribute Macros</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.call.html" title="attr frame_support::pallet_macros::call">call</a></div><div class="desc docblock-short">Allows a pallet to declare a set of functions as a <em>dispatchable extrinsic</em>. In
 slightly simplified terms, this macro declares the set of “transactions” of a pallet.</div></li><li><div class="item-name"><a class="attr" href="attr.call_index.html" title="attr frame_support::pallet_macros::call_index">call_index</a></div><div class="desc docblock-short">Enforce the index of a variant in the generated <code>enum Call</code>. See <a href="attr.call.html" title="attr frame_support::pallet_macros::call"><code>call</code></a> for more
 information.</div></li><li><div class="item-name"><a class="attr" href="attr.compact.html" title="attr frame_support::pallet_macros::compact">compact</a></div><div class="desc docblock-short">Declares the arguments of a <a href="attr.call.html" title="attr frame_support::pallet_macros::call"><code>call</code></a> function to be encoded using
@@ -26,20 +168,20 @@ An inherent is some piece of data that is inserted by a block authoring node at 
 creation time and can either be accepted or rejected by validators based on whether the
 data falls within an acceptable range.</div></li><li><div class="item-name"><a class="attr" href="attr.no_default.html" title="attr frame_support::pallet_macros::no_default">no_default</a></div><div class="desc docblock-short">The optional attribute <code>#[pallet::no_default]</code> can be attached to trait items within a
 <code>Config</code> trait impl that has <a href="attr.config.html" title="attr frame_support::pallet_macros::config"><code>#[pallet::config(with_default)]</code></a> attached.</div></li><li><div class="item-name"><a class="attr" href="attr.no_default_bounds.html" title="attr frame_support::pallet_macros::no_default_bounds">no_default_bounds</a></div><div class="desc docblock-short">The optional attribute <code>#[pallet::no_default_bounds]</code> can be attached to trait items within a
-<code>Config</code> trait impl that has <a href="attr.config.html" title="attr frame_support::pallet_macros::config"><code>#[pallet::config(with_default)]</code></a> attached.</div></li><li><div class="item-name"><a class="attr" href="attr.origin.html" title="attr frame_support::pallet_macros::origin">origin</a></div><div class="desc docblock-short">The <code>#[pallet::origin]</code> attribute allows you to define some origin for the pallet.</div></li><li><div class="item-name"><a class="attr" href="attr.pallet_section.html" title="attr frame_support::pallet_macros::pallet_section">pallet_section</a></div><div class="desc docblock-short">Can be attached to a module. Doing so will declare that module as importable into a pallet
+<code>Config</code> trait impl that has <a href="attr.config.html" title="attr frame_support::pallet_macros::config"><code>#[pallet::config(with_default)]</code></a> attached.</div></li><li><div class="item-name"><a class="attr" href="attr.origin.html" title="attr frame_support::pallet_macros::origin">origin</a></div><div class="desc docblock-short">Allows a pallet to declare a type as an origin.</div></li><li><div class="item-name"><a class="attr" href="attr.pallet_section.html" title="attr frame_support::pallet_macros::pallet_section">pallet_section</a></div><div class="desc docblock-short">Can be attached to a module. Doing so will declare that module as importable into a pallet
 via <a href="attr.import_section.html" title="attr frame_support::pallet_macros::import_section"><code>#[import_section]</code></a>.</div></li><li><div class="item-name"><a class="attr" href="attr.storage.html" title="attr frame_support::pallet_macros::storage">storage</a></div><div class="desc docblock-short">Declares a type alias as a storage item. Storage items are pointers to data stored
 on-chain (the <em>blockchain state</em>), under a specific key. The exact key is dependent on
 the type of the storage.</div></li><li><div class="item-name"><a class="attr" href="attr.storage_prefix.html" title="attr frame_support::pallet_macros::storage_prefix">storage_prefix</a></div><div class="desc docblock-short">The optional attribute <code>#[pallet::storage_prefix = &quot;SomeName&quot;]</code> allows you to define the
 storage prefix to use. This is helpful if you wish to rename the storage field but don’t
 want to perform a migration.</div></li><li><div class="item-name"><a class="attr" href="attr.storage_version.html" title="attr frame_support::pallet_macros::storage_version">storage_version</a></div><div class="desc docblock-short">Because the <code>pallet::pallet</code> macro implements <code>GetStorageVersion</code>, the current storage
 version needs to be communicated to the macro. This can be done by using the
-<code>pallet::storage_version</code> attribute:</div></li><li><div class="item-name"><a class="attr" href="attr.task_condition.html" title="attr frame_support::pallet_macros::task_condition">task_condition</a></div><div class="desc docblock-short">This attribute is attached to a function inside an <code>impl</code> block annoated with
+<code>pallet::storage_version</code> attribute:</div></li><li><div class="item-name"><a class="attr" href="attr.task_condition.html" title="attr frame_support::pallet_macros::task_condition">task_condition</a></div><div class="desc docblock-short">This attribute is attached to a function inside an <code>impl</code> block annotated with
 <a href="attr.tasks_experimental.html" title="attr frame_support::pallet_macros::tasks_experimental"><code>pallet::tasks_experimental</code></a> to define the conditions for a
-given work item to be valid.</div></li><li><div class="item-name"><a class="attr" href="attr.task_index.html" title="attr frame_support::pallet_macros::task_index">task_index</a></div><div class="desc docblock-short">This attribute is attached to a function inside an <code>impl</code> block annoated with
+given work item to be valid.</div></li><li><div class="item-name"><a class="attr" href="attr.task_index.html" title="attr frame_support::pallet_macros::task_index">task_index</a></div><div class="desc docblock-short">This attribute is attached to a function inside an <code>impl</code> block annotated with
 <a href="attr.tasks_experimental.html" title="attr frame_support::pallet_macros::tasks_experimental"><code>pallet::tasks_experimental</code></a> to define the index of a given
-work item.</div></li><li><div class="item-name"><a class="attr" href="attr.task_list.html" title="attr frame_support::pallet_macros::task_list">task_list</a></div><div class="desc docblock-short">This attribute is attached to a function inside an <code>impl</code> block annoated with
+work item.</div></li><li><div class="item-name"><a class="attr" href="attr.task_list.html" title="attr frame_support::pallet_macros::task_list">task_list</a></div><div class="desc docblock-short">This attribute is attached to a function inside an <code>impl</code> block annotated with
 <a href="attr.tasks_experimental.html" title="attr frame_support::pallet_macros::tasks_experimental"><code>pallet::tasks_experimental</code></a> to define an iterator over the
-available work items for a task.</div></li><li><div class="item-name"><a class="attr" href="attr.task_weight.html" title="attr frame_support::pallet_macros::task_weight">task_weight</a></div><div class="desc docblock-short">This attribute is attached to a function inside an <code>impl</code> block annoated with
+available work items for a task.</div></li><li><div class="item-name"><a class="attr" href="attr.task_weight.html" title="attr frame_support::pallet_macros::task_weight">task_weight</a></div><div class="desc docblock-short">This attribute is attached to a function inside an <code>impl</code> block annotated with
 <a href="attr.tasks_experimental.html" title="attr frame_support::pallet_macros::tasks_experimental"><code>pallet::tasks_experimental</code></a> define the weight of a given work
 item.</div></li><li><div class="item-name"><a class="attr" href="attr.tasks_experimental.html" title="attr frame_support::pallet_macros::tasks_experimental">tasks_experimental</a></div><div class="desc docblock-short">Allows you to define some service work that can be recognized by a script or an
 off-chain worker. Such a script can then create and submit all such work items at any
