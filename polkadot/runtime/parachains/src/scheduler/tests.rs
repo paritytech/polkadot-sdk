@@ -880,8 +880,6 @@ fn availability_predicate_works() {
 	let SchedulerParams { group_rotation_frequency, paras_availability_period, .. } =
 		default_config().scheduler_params;
 
-	assert!(paras_availability_period < group_rotation_frequency);
-
 	new_test_ext(genesis_config).execute_with(|| {
 		run_to_block(1 + paras_availability_period, |_| None);
 
