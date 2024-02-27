@@ -17,9 +17,7 @@
 use super::*;
 use bounded_collections::{ConstU32, WeakBoundedVec};
 use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
-use frame_support::{
-	weights::Weight,
-};
+use frame_support::weights::Weight;
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
 use xcm::{latest::prelude::*, v2};
@@ -120,7 +118,11 @@ benchmarks! {
 		match &asset.fun {
 			Fungible(amount) => {
 				// Add transferred_amount to origin
-				helpers::mint_into::<T>(origin_location, asset.id.0, *amount);
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					&Asset { fun: Fungible(*amount), id: asset.id },
+					&origin_location,
+					None,
+				).map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 			},
 			NonFungible(instance) => {
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
@@ -160,7 +162,11 @@ benchmarks! {
 		match &asset.fun {
 			Fungible(amount) => {
 				// Add transferred_amount to origin
-				helpers::mint_into::<T>(origin_location, asset.id.0, *amount);
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					&Asset { fun: Fungible(*amount), id: asset.id },
+					&origin_location,
+					None,
+				).map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 			},
 			NonFungible(instance) => {
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
@@ -340,43 +346,33 @@ benchmarks! {
 pub mod helpers {
 	use super::*;
 
-	pub fn mint_into<T: Config>(who: Location, asset_location: Location, balance: u128) {
-		<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-			&Asset { fun: Fungible(balance), id: AssetId(asset_location) },
-			&who,
-			None,
-		)
-		.unwrap();
-	}
-
-	/* TODO: FIX
-	pub fn native_teleport_as_asset_transfer<T: Config>(
+	pub fn native_teleport_as_asset_transfer<T>(
 		native_asset_location: Location,
 		destination: Location,
-	) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+	) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)>
+	where
+		T: Config + pallet_balances::Config,
+		u128: From<<T as pallet_balances::Config>::Balance>,
+	{
 		// Relay/native token can be teleported to/from AH.
-		let amount = BALANCE;
-		let asset = Asset { fun: Fungible(amount.into()), id: AssetId(native_asset_location) };
+		let amount = T::ExistentialDeposit::get() * 100u32.into();
+		let assets: Assets =
+			Asset { fun: Fungible(amount.into()), id: AssetId(native_asset_location) }.into();
 		let fee_index = 0u32;
 
 		// Give some multiple of transferred amount
-		let balance = amount * 10;
-		let who: T::AccountId = whitelisted_caller();
-
-		let send_origin = RawOrigin::Signed(who.clone());
-		let Ok(origin_location) = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
-		else {
-			return None;
-		};
-		helpers::mint_into::<T>(
-			origin_location.clone(),
-			asset.id.0.clone(),
-			balance.into(),
-		);
+		let balance = amount * 10u32.into();
+		let who = whitelisted_caller();
+		let _ =
+			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
+		// verify initial balance
+		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&who), balance);
 
 		// verify transferred successfully
-		let verify = Box::new(move || {});
-		Some((asset.into(), fee_index, destination, verify))
+		let verify = Box::new(move || {
+			// verify balance after transfer, decreased by transferred amount (and delivery fees)
+			assert!(pallet_balances::Pallet::<T>::free_balance(&who) <= balance - amount);
+		});
+		Some((assets, fee_index, destination, verify))
 	}
-	*/
 }
