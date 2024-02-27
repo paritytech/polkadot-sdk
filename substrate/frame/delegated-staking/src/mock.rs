@@ -34,7 +34,7 @@ use frame_support::dispatch::RawOrigin;
 use pallet_staking::CurrentEra;
 use sp_core::U256;
 use sp_runtime::traits::Convert;
-use sp_staking::{delegation::StakingDelegationSupport, Stake, StakingInterface};
+use sp_staking::{delegation::DelegateeSupport, Stake, StakingInterface};
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -109,7 +109,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
-	type DelegationSupport = DelegatedStaking;
+	type DelegateeSupport = DelegatedStaking;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type CurrencyToVote = ();
 	type RewardRemainder = ();

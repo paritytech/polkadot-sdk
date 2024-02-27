@@ -37,9 +37,9 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	delegation::StakingDelegationSupport,
-	EraIndex, Page, SessionIndex,
-	StakingAccount::{self, Controller, Stash},
+    delegation::DelegateeSupport,
+    EraIndex, Page, SessionIndex,
+    StakingAccount::{self, Controller, Stash},
 };
 use sp_std::prelude::*;
 
@@ -106,7 +106,7 @@ pub mod pallet {
 			+ MaxEncodedLen;
 
 		/// Something that provides delegation support to staking pallet.
-		type DelegationSupport: StakingDelegationSupport<
+		type DelegateeSupport: DelegateeSupport<
 			Balance = Self::CurrencyBalance,
 			AccountId = Self::AccountId,
 		>;

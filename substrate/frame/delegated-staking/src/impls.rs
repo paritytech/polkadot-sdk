@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Implementations of public traits, namely [StakingInterface], and [StakingDelegationSupport].
+//! Implementations of public traits, namely [StakingInterface], and [DelegateeSupport].
 
 use super::*;
 
@@ -269,7 +269,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
-impl<T: Config> StakingDelegationSupport for Pallet<T> {
+impl<T: Config> DelegateeSupport for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 

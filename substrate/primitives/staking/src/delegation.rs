@@ -20,8 +20,12 @@ use scale_info::TypeInfo;
 use sp_runtime::{DispatchResult, Saturating};
 use sp_std::ops::Sub;
 
-/// Something that provides delegation support to core staking.
-pub trait StakingDelegationSupport {
+/// A trait that can be used as a plugin to support delegation based accounts, called `Delegatee`.
+///
+/// For example, `pallet-staking` which implements `StakingInterface` but does not implement
+/// account delegations out of the box can be provided with a custom implementation of this trait to
+/// learn how to handle these special accounts.
+pub trait DelegateeSupport {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
 		+ Ord
@@ -36,10 +40,11 @@ pub trait StakingDelegationSupport {
 	/// AccountId type used by the staking system.
 	type AccountId: Clone + sp_std::fmt::Debug;
 
-	/// Balance of who which is available for stake.
-	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance;
+	/// Balance of `delegatee` which is available for stake.
+	fn stakeable_balance(delegatee: &Self::AccountId) -> Self::Balance;
 
-	/// Returns true if provided reward destination is not allowed.
+	/// Returns true if `delegatee` is restricted to update which account they can receive their
+	/// staking rewards.
 	fn restrict_reward_destination(
 		_who: &Self::AccountId,
 		_reward_destination: Option<Self::AccountId>,
@@ -48,9 +53,12 @@ pub trait StakingDelegationSupport {
 		false
 	}
 
-	/// Returns true if `who` accepts delegations for stake.
+	/// Returns true if `who` is a `delegatee` and accepts delegations from other accounts.
 	fn is_delegatee(who: &Self::AccountId) -> bool;
 
 	/// Reports an ongoing slash to the `delegatee` account that would be applied lazily.
+	///
+	/// Slashing a delegatee account is not immediate since the balance is made up of multiple child
+	/// delegators. This function should bookkeep the slash to be applied later.
 	fn report_slash(who: &Self::AccountId, slash: Self::Balance);
 }

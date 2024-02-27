@@ -39,12 +39,12 @@ use sp_runtime::{
 	Perbill, Percent,
 };
 use sp_staking::{
-	currency_to_vote::CurrencyToVote,
-	delegation::StakingDelegationSupport,
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
-	StakingAccount::{self, Controller, Stash},
-	StakingInterface,
+    currency_to_vote::CurrencyToVote,
+    delegation::DelegateeSupport,
+    offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+    EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
+    StakingAccount::{self, Controller, Stash},
+    StakingInterface,
 };
 use sp_std::prelude::*;
 
@@ -1107,8 +1107,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
-		if T::DelegationSupport::is_delegatee(who) {
-			return T::DelegationSupport::stakeable_balance(who);
+		if T::DelegateeSupport::is_delegatee(who) {
+			return T::DelegateeSupport::stakeable_balance(who);
 		}
 
 		T::Currency::free_balance(who)
@@ -1118,8 +1118,8 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		reward_destination: Option<T::AccountId>,
 	) -> bool {
-		if T::DelegationSupport::is_delegatee(who) {
-			return T::DelegationSupport::restrict_reward_destination(who, reward_destination);
+		if T::DelegateeSupport::is_delegatee(who) {
+			return T::DelegateeSupport::restrict_reward_destination(who, reward_destination);
 		}
 
 		false
@@ -1130,7 +1130,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 	) -> sp_runtime::DispatchResult {
 		// only apply lock if it is not a delegatee. delegatee accounts are already locked/held.
-		if !T::DelegationSupport::is_delegatee(who) {
+		if !T::DelegateeSupport::is_delegatee(who) {
 			T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
 		}
 
@@ -1930,10 +1930,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
-/// Standard implementation of `StakingDelegationSupport` that supports only direct staking and no
+/// Standard implementation of `DelegateeSupport` that supports only direct staking and no
 /// delegated staking.
 pub struct NoDelegation<T>(PhantomData<T>);
-impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
+impl<T: Config> DelegateeSupport for NoDelegation<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 	fn stakeable_balance(_who: &Self::AccountId) -> Self::Balance {

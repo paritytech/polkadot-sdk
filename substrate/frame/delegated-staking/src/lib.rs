@@ -74,7 +74,7 @@
 //! [Config::CoreStaking] to provide delegation based staking. NominationPool can use this pallet as
 //! its Staking provider to support delegation based staking from pool accounts.
 //!
-//! #### [Staking Delegation Support](StakingDelegationSupport)
+//! #### [Staking Delegation Support](DelegateeSupport)
 //! The pallet implements the staking delegation support trait which staking pallet can use to
 //! provide compatibility with this pallet.
 //!
@@ -171,7 +171,7 @@ use sp_runtime::{
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_staking::{
-	delegation::StakingDelegationSupport, EraIndex, Stake, StakerStatus, StakingInterface,
+	delegation::DelegateeSupport, EraIndex, Stake, StakerStatus, StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
 

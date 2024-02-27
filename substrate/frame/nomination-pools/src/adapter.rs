@@ -17,11 +17,10 @@
 
 use crate::*;
 
-/// An adapter trait that can support multiple staking strategies: e.g. `Transfer and stake` or
-/// `delegation and stake`.
+/// An adapter trait that can support multiple staking strategies.
 ///
-/// This trait is very specific to nomination pool and meant to make switching between different
-/// staking implementations easier.
+/// Depending on which staking strategy we want to use, the staking logic can be slightly
+/// different. Refer the two possible strategies currently: [`TransferStake`] and [`DelegationStake`].
 pub trait StakeAdapter {
 	type Balance: frame_support::traits::tokens::Balance;
 	type AccountId: Clone + sp_std::fmt::Debug;
@@ -55,9 +54,10 @@ pub trait StakeAdapter {
 	) -> DispatchResult;
 }
 
-/// An adapter implementation that supports transfer based staking
+/// An adapter implementation that supports transfer based staking.
 ///
-/// The funds are transferred to the pool account and then staked via the pool account.
+/// In order to stake, this adapter transfers the funds from the delegator account to the pool
+/// account and stakes directly on [Config::Staking].
 pub struct TransferStake<T: Config>(PhantomData<T>);
 
 impl<T: Config> StakeAdapter for TransferStake<T> {
@@ -107,10 +107,11 @@ impl<T: Config> StakeAdapter for TransferStake<T> {
 	}
 }
 
-/// An adapter implementation that supports delegation based staking
+/// An adapter implementation that supports delegation based staking.
 ///
-/// The funds are delegated from pool account to a delegatee and then staked. The advantage of this
-/// approach is that the funds are held in the delegator account and not in the pool account.
+/// In this approach, first the funds are delegated from delegator to the pool account and later
+/// staked with [Config::Staking]. The advantage of this approach is that the funds are held in the
+/// use account itself and not in the pool account.
 pub struct DelegationStake<T: Config>(PhantomData<T>);
 
 impl<T: Config> StakeAdapter for DelegationStake<T> {
