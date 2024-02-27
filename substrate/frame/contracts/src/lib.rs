@@ -637,7 +637,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			Migration::<T>::ensure_migrated()?;
 			let origin = ensure_signed(origin)?;
-			Self::bare_upload_code(origin, code, storage_deposit_limit.map(Into::into), determinism)
+			Self::bare_upload_code(
+				origin,
+				code,
+				storage_deposit_limit.map(Into::into),
+				determinism,
+			)
 				.map(|_| ())
 		}
 
@@ -682,7 +687,7 @@ pub mod pallet {
 				let contract = if let Some(contract) = contract {
 					contract
 				} else {
-					return Err(<Error<T>>::ContractNotFound.into())
+					return Err(<Error<T>>::ContractNotFound.into());
 				};
 				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
 				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
@@ -735,14 +740,19 @@ pub mod pallet {
 				debug_message: None,
 			};
 			let dest = T::Lookup::lookup(dest)?;
-			let mut output =
-				CallInput::<T> { dest, determinism: Determinism::Enforced }.run_guarded(common);
+			let mut output = CallInput::<T> {
+				dest,
+				determinism: Determinism::Enforced,
+			}
+				.run_guarded(common);
 			if let Ok(retval) = &output.result {
 				if retval.did_revert() {
 					output.result = Err(<Error<T>>::ContractReverted.into());
 				}
 			}
-			output.gas_meter.into_dispatch_result(output.result, T::WeightInfo::call())
+			output
+				.gas_meter
+				.into_dispatch_result(output.result, T::WeightInfo::call())
 		}
 
 		/// Instantiates a new contract from the supplied `code` optionally transferring
@@ -811,8 +821,11 @@ pub mod pallet {
 				debug_message: None,
 			};
 
-			let mut output =
-				InstantiateInput::<T> { code: WasmCode::Wasm(module), salt }.run_guarded(common);
+			let mut output = InstantiateInput::<T> {
+				code: WasmCode::Wasm(module),
+				salt,
+			}
+				.run_guarded(common);
 			if let Ok(retval) = &output.result {
 				if retval.1.did_revert() {
 					output.result = Err(<Error<T>>::ContractReverted.into());
@@ -854,7 +867,10 @@ pub mod pallet {
 				storage_deposit_limit: storage_deposit_limit.map(Into::into),
 				debug_message: None,
 			};
-			let mut output = InstantiateInput::<T> { code: WasmCode::CodeHash(code_hash), salt }
+			let mut output = InstantiateInput::<T> {
+				code: WasmCode::CodeHash(code_hash),
+				salt,
+			}
 				.run_guarded(common);
 			if let Ok(retval) = &output.result {
 				if retval.1.did_revert() {
@@ -881,16 +897,22 @@ pub mod pallet {
 			let (result, weight) = Migration::<T>::migrate(weight_limit);
 
 			match result {
-				Completed =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
-				InProgress { steps_done, .. } if steps_done > 0 =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
-				InProgress { .. } =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::Yes }),
+				Completed => Ok(PostDispatchInfo {
+					actual_weight: Some(weight),
+					pays_fee: Pays::No,
+				}),
+				InProgress { steps_done, .. } if steps_done > 0 => Ok(PostDispatchInfo {
+					actual_weight: Some(weight),
+					pays_fee: Pays::No,
+				}),
+				InProgress { .. } => Ok(PostDispatchInfo {
+					actual_weight: Some(weight),
+					pays_fee: Pays::Yes,
+				}),
 				NoMigrationInProgress | NoMigrationPerformed => {
 					let err: DispatchError = <Error<T>>::NoMigrationPerformed.into();
 					Err(err.with_weight(T::WeightInfo::migrate()))
-				},
+				}
 			}
 		}
 	}
@@ -898,7 +920,10 @@ pub mod pallet {
 	#[pallet::event]
 	pub enum Event<T: Config> {
 		/// Contract deployed by address at the specified address.
-		Instantiated { deployer: T::AccountId, contract: T::AccountId },
+		Instantiated {
+			deployer: T::AccountId,
+			contract: T::AccountId,
+		},
 
 		/// Contract has been removed.
 		///
@@ -914,7 +939,11 @@ pub mod pallet {
 		},
 
 		/// Code with the specified hash has been stored.
-		CodeStored { code_hash: T::Hash, deposit_held: BalanceOf<T>, uploader: T::AccountId },
+		CodeStored {
+			code_hash: T::Hash,
+			deposit_held: BalanceOf<T>,
+			uploader: T::AccountId,
+		},
 
 		/// A custom event emitted by the contract.
 		ContractEmitted {
@@ -926,7 +955,11 @@ pub mod pallet {
 		},
 
 		/// A code with the specified hash was removed.
-		CodeRemoved { code_hash: T::Hash, deposit_released: BalanceOf<T>, remover: T::AccountId },
+		CodeRemoved {
+			code_hash: T::Hash,
+			deposit_released: BalanceOf<T>,
+			remover: T::AccountId,
+		},
 
 		/// A contract's code was updated.
 		ContractCodeUpdated {
@@ -1274,8 +1307,11 @@ trait Invokable<T: Config>: Sized {
 			return InternalOutput {
 				gas_meter: GasMeter::new(gas_limit),
 				storage_deposit: Default::default(),
-				result: Err(ExecError { error: e.into(), origin: ErrorOrigin::Caller }),
-			}
+				result: Err(ExecError {
+					error: e.into(),
+					origin: ErrorOrigin::Caller,
+				}),
+			};
 		}
 
 		executing_contract::using_once(&mut false, || {
@@ -1326,16 +1362,23 @@ impl<T: Config> Invokable<T> for CallInput<T> {
 		mut gas_meter: GasMeter<T>,
 	) -> InternalOutput<T, Self::Output> {
 		let CallInput { dest, determinism } = self;
-		let CommonInput { origin, value, data, debug_message, .. } = common;
+		let CommonInput {
+			origin,
+			value,
+			data,
+			debug_message,
+			..
+		} = common;
 		let mut storage_meter =
 			match StorageMeter::new(&origin, common.storage_deposit_limit, common.value) {
 				Ok(meter) => meter,
-				Err(err) =>
+				Err(err) => {
 					return InternalOutput {
 						result: Err(err.into()),
 						gas_meter,
 						storage_deposit: Default::default(),
-					},
+					}
+				}
 			};
 		let schedule = T::Schedule::get();
 		let result = ExecStack::<T, WasmBlob<T>>::run_call(
@@ -1351,7 +1394,11 @@ impl<T: Config> Invokable<T> for CallInput<T> {
 		);
 
 		match storage_meter.try_into_deposit(&origin) {
-			Ok(storage_deposit) => InternalOutput { gas_meter, storage_deposit, result },
+			Ok(storage_deposit) => InternalOutput {
+				gas_meter,
+				storage_deposit,
+				result,
+			},
 			Err(err) => InternalOutput {
 				gas_meter,
 				storage_deposit: Default::default(),
@@ -1377,7 +1424,10 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 		let try_exec = || {
 			let schedule = T::Schedule::get();
 			let InstantiateInput { salt, .. } = self;
-			let CommonInput { origin: contract_origin, .. } = common;
+			let CommonInput {
+				origin: contract_origin,
+				..
+			} = common;
 			let origin = contract_origin.account_id()?;
 
 			let executable = match self.code {
@@ -1388,7 +1438,12 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 			let contract_origin = Origin::from_account_id(origin.clone());
 			let mut storage_meter =
 				StorageMeter::new(&contract_origin, common.storage_deposit_limit, common.value)?;
-			let CommonInput { value, data, debug_message, .. } = common;
+			let CommonInput {
+				value,
+				data,
+				debug_message,
+				..
+			} = common;
 			let result = ExecStack::<T, WasmBlob<T>>::run_instantiate(
 				origin.clone(),
 				executable,
@@ -1404,7 +1459,11 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 			storage_deposit = storage_meter.try_into_deposit(&contract_origin)?;
 			result
 		};
-		InternalOutput { result: try_exec(), gas_meter, storage_deposit }
+		InternalOutput {
+			result: try_exec(),
+			gas_meter,
+			storage_deposit,
+		}
 	}
 
 	fn ensure_origin(&self, origin: Origin<T>) -> Result<(), DispatchError> {
@@ -1416,18 +1475,18 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 }
 
 macro_rules! ensure_no_migration_in_progress {
-	() => {
-		if Migration::<T>::in_progress() {
-			return ContractResult {
-				gas_consumed: Zero::zero(),
-				gas_required: Zero::zero(),
-				storage_deposit: Default::default(),
-				debug_message: Vec::new(),
-				result: Err(Error::<T>::MigrationInProgress.into()),
-				events: None,
-			}
-		}
-	};
+    () => {
+        if Migration::<T>::in_progress() {
+            return ContractResult {
+                gas_consumed: Zero::zero(),
+                gas_required: Zero::zero(),
+                storage_deposit: Default::default(),
+                debug_message: Vec::new(),
+                result: Err(Error::<T>::MigrationInProgress.into()),
+                events: None,
+            };
+        }
+    };
 }
 
 impl<T: Config> Pallet<T> {
@@ -1472,7 +1531,11 @@ impl<T: Config> Pallet<T> {
 		};
 		let output = CallInput::<T> { dest, determinism }.run_guarded(common);
 		let events = if matches!(collect_events, CollectEvents::UnsafeCollect) {
-			Some(System::<T>::read_events_no_consensus().map(|e| *e).collect())
+			Some(
+				System::<T>::read_events_no_consensus()
+					.map(|e| *e)
+					.collect(),
+			)
 		} else {
 			None
 		};
@@ -1522,7 +1585,11 @@ impl<T: Config> Pallet<T> {
 		// collect events if CollectEvents is UnsafeCollect
 		let events = || {
 			if collect_events == CollectEvents::UnsafeCollect {
-				Some(System::<T>::read_events_no_consensus().map(|e| *e).collect())
+				Some(
+					System::<T>::read_events_no_consensus()
+						.map(|e| *e)
+						.collect(),
+				)
 			} else {
 				None
 			}
@@ -1540,7 +1607,7 @@ impl<T: Config> Pallet<T> {
 
 				let (module, deposit) = match result {
 					Ok(result) => result,
-					Err(error) =>
+					Err(error) => {
 						return ContractResult {
 							gas_consumed: Zero::zero(),
 							gas_required: Zero::zero(),
@@ -1548,13 +1615,14 @@ impl<T: Config> Pallet<T> {
 							debug_message: debug_message.unwrap_or(Default::default()).into(),
 							result: Err(error),
 							events: events(),
-						},
+						}
+					}
 				};
 
 				storage_deposit_limit =
 					storage_deposit_limit.map(|l| l.saturating_sub(deposit.into()));
 				(WasmCode::Wasm(module), deposit)
-			},
+			}
 			Code::Existing(hash) => (WasmCode::CodeHash(hash), Default::default()),
 		};
 
@@ -1596,7 +1664,10 @@ impl<T: Config> Pallet<T> {
 		Migration::<T>::ensure_migrated()?;
 		let (module, deposit) =
 			Self::try_upload_code(origin, code, storage_deposit_limit, determinism, None)?;
-		Ok(CodeUploadReturnValue { code_hash: *module.code_hash(), deposit })
+		Ok(CodeUploadReturnValue {
+			code_hash: *module.code_hash(),
+			deposit,
+		})
 	}
 
 	/// Uploads new code and returns the Wasm blob and deposit amount collected.
@@ -1615,7 +1686,10 @@ impl<T: Config> Pallet<T> {
 			})?;
 		let deposit = module.store_code()?;
 		if let Some(storage_deposit_limit) = storage_deposit_limit {
-			ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
+			ensure!(
+                storage_deposit_limit >= deposit,
+                <Error<T>>::StorageDepositLimitExhausted
+            );
 		}
 
 		Ok((module, deposit))
@@ -1624,7 +1698,7 @@ impl<T: Config> Pallet<T> {
 	/// Query storage of a specified contract under a specified key.
 	pub fn get_storage(address: T::AccountId, key: Vec<u8>) -> GetStorageResult {
 		if Migration::<T>::in_progress() {
-			return Err(ContractAccessError::MigrationInProgress)
+			return Err(ContractAccessError::MigrationInProgress);
 		}
 		let contract_info =
 			ContractInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
@@ -1689,58 +1763,58 @@ impl<T: Config> Pallet<T> {
 }
 
 sp_api::decl_runtime_apis! {
-	/// The API used to dry-run contract interactions.
-	#[api_version(2)]
-	pub trait ContractsApi<AccountId, Balance, BlockNumber, Hash, EventRecord> where
-		AccountId: Codec,
-		Balance: Codec,
-		BlockNumber: Codec,
-		Hash: Codec,
-		EventRecord: Codec,
-	{
-		/// Perform a call from a specified account to a given contract.
+    /// The API used to dry-run contract interactions.
+    #[api_version(2)]
+    pub trait ContractsApi<AccountId, Balance, BlockNumber, Hash, EventRecord> where
+        AccountId: Codec,
+        Balance: Codec,
+        BlockNumber: Codec,
+        Hash: Codec,
+        EventRecord: Codec,
+    {
+        /// Perform a call from a specified account to a given contract.
 		///
 		/// See [`crate::Pallet::bare_call`].
-		fn call(
-			origin: AccountId,
-			dest: AccountId,
-			value: Balance,
-			gas_limit: Option<Weight>,
-			storage_deposit_limit: Option<Balance>,
-			input_data: Vec<u8>,
-		) -> ContractExecResult<Balance, EventRecord>;
+        fn call(
+            origin: AccountId,
+            dest: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            input_data: Vec<u8>,
+        ) -> ContractExecResult<Balance, EventRecord>;
 
-		/// Instantiate a new contract.
+        /// Instantiate a new contract.
 		///
 		/// See `[crate::Pallet::bare_instantiate]`.
-		fn instantiate(
-			origin: AccountId,
-			value: Balance,
-			gas_limit: Option<Weight>,
-			storage_deposit_limit: Option<Balance>,
-			code: Code<Hash>,
-			data: Vec<u8>,
-			salt: Vec<u8>,
-		) -> ContractInstantiateResult<AccountId, Balance, EventRecord>;
+        fn instantiate(
+            origin: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            code: Code<Hash>,
+            data: Vec<u8>,
+            salt: Vec<u8>,
+        ) -> ContractInstantiateResult<AccountId, Balance, EventRecord>;
 
-		/// Upload new code without instantiating a contract from it.
+        /// Upload new code without instantiating a contract from it.
 		///
 		/// See [`crate::Pallet::bare_upload_code`].
-		fn upload_code(
-			origin: AccountId,
-			code: Vec<u8>,
-			storage_deposit_limit: Option<Balance>,
-			determinism: Determinism,
-		) -> CodeUploadResult<Hash, Balance>;
+        fn upload_code(
+            origin: AccountId,
+            code: Vec<u8>,
+            storage_deposit_limit: Option<Balance>,
+            determinism: Determinism,
+        ) -> CodeUploadResult<Hash, Balance>;
 
-		/// Query a given storage key in a given contract.
+        /// Query a given storage key in a given contract.
 		///
 		/// Returns `Ok(Some(Vec<u8>))` if the storage value exists under the given key in the
 		/// specified account and `Ok(None)` if it doesn't. If the account specified by the address
 		/// doesn't exist, or doesn't have a contract then `Err` is returned.
-		fn get_storage(
-			address: AccountId,
-			key: Vec<u8>,
-		) -> GetStorageResult;
-	}
+        fn get_storage(
+            address: AccountId,
+            key: Vec<u8>,
+        ) -> GetStorageResult;
+    }
 }
