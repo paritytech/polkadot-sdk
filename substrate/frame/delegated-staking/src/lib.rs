@@ -272,7 +272,7 @@ pub mod pallet {
 
 	/// Map of `Delegatee` to their `DelegationLedger`.
 	#[pallet::storage]
-	pub(crate) type Delegates<T: Config> =
+	pub(crate) type Delegatees<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegationLedger<T>, OptionQuery>;
 
 	#[pallet::call]
@@ -301,7 +301,7 @@ pub mod pallet {
 			// Reward account cannot be same as `delegatee` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
 
-			Self::do_register_delegator(&who, &reward_account);
+			Self::do_register_delegatee(&who, &reward_account);
 			Ok(())
 		}
 
@@ -483,7 +483,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns true if who is registered as a `Delegatee`.
 	fn is_delegatee(who: &T::AccountId) -> bool {
-		<Delegates<T>>::contains_key(who)
+		<Delegatees<T>>::contains_key(who)
 	}
 
 	/// Returns true if who is delegating to a `Delegatee` account.
@@ -503,10 +503,10 @@ impl<T: Config> Pallet<T> {
 			.unwrap_or(false)
 	}
 
-	fn do_register_delegator(who: &T::AccountId, reward_account: &T::AccountId) {
+	fn do_register_delegatee(who: &T::AccountId, reward_account: &T::AccountId) {
 		DelegationLedger::<T>::new(reward_account).save(who);
 
-		// Pool account is a virtual account. Make this account exist.
+		// Delegatee is a virtual account. Make this account exist.
 		// TODO: Someday if we expose these calls in a runtime, we should take a deposit for
 		// being a delegator.
 		frame_system::Pallet::<T>::inc_providers(who);
@@ -540,7 +540,7 @@ impl<T: Config> Pallet<T> {
 		T::Currency::transfer(who, &proxy_delegator, stake.total, Preservation::Protect)
 			.map_err(|_| Error::<T>::BadState)?;
 
-		Self::do_register_delegator(who, reward_account);
+		Self::do_register_delegatee(who, reward_account);
 		// FIXME(ank4n) expose set payee in staking interface.
 		// T::CoreStaking::set_payee(who, reward_account)
 
@@ -579,7 +579,7 @@ impl<T: Config> Pallet<T> {
 				amount
 			};
 
-		Delegation::<T>::from(delegatee, new_delegation_amount).save(delegator);
+		Delegation::<T>::from(delegatee, new_delegation_amount).save_or_kill(delegator);
 		ledger.total_delegated =
 			ledger.total_delegated.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
 		ledger.save(delegatee);
@@ -627,7 +627,7 @@ impl<T: Config> Pallet<T> {
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
 		// remove delegator if nothing delegated anymore
-		delegation.save(delegator);
+		delegation.save_or_kill(delegator);
 
 		let released = T::Currency::release(
 			&HoldReason::Delegating.into(),
@@ -694,12 +694,12 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// update delegations
-		Delegation::<T>::from(&source_delegation.delegatee, amount).save(destination_delegator);
+		Delegation::<T>::from(&source_delegation.delegatee, amount).save_or_kill(destination_delegator);
 
 		source_delegation
 			.decrease_delegation(amount)
 			.defensive_ok_or(Error::<T>::BadState)?
-			.save(source_delegator);
+			.save_or_kill(source_delegator);
 
 		// FIXME(ank4n): If all funds are migrated from source, it can be cleaned up and ED returned
 		// to delegate or alternatively whoever cleans it up. This could be a permission-less
@@ -756,7 +756,7 @@ impl<T: Config> Pallet<T> {
 		delegation
 			.decrease_delegation(actual_slash)
 			.ok_or(ArithmeticError::Overflow)?
-			.save(&delegator);
+			.save_or_kill(&delegator);
 
 		if let Some(reporter) = maybe_reporter {
 			let reward_payout: BalanceOf<T> =
@@ -784,7 +784,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		// build map to avoid reading storage multiple times.
 		let delegation_map = Delegators::<T>::iter().collect::<BTreeMap<_, _>>();
-		let ledger_map = Delegates::<T>::iter().collect::<BTreeMap<_, _>>();
+		let ledger_map = Delegatees::<T>::iter().collect::<BTreeMap<_, _>>();
 
 		Self::check_delegates(ledger_map.clone())?;
 		Self::check_delegators(delegation_map, ledger_map)?;

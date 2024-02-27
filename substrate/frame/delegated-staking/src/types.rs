@@ -54,7 +54,7 @@ impl<T: Config> Delegation<T> {
 			.map(|delegation| delegation.delegatee == delegatee.clone())
 			.unwrap_or(
 				// all good if its a new delegator except it should not be an existing delegatee.
-				!<Delegates<T>>::contains_key(delegator),
+				!<Delegatees<T>>::contains_key(delegator),
 			)
 	}
 
@@ -71,7 +71,7 @@ impl<T: Config> Delegation<T> {
 		Some(Delegation::from(&self.delegatee, updated_delegation))
 	}
 
-	pub(crate) fn save(self, key: &T::AccountId) {
+	pub(crate) fn save_or_kill(self, key: &T::AccountId) {
 		// Clean up if no delegation left.
 		if self.amount == Zero::zero() {
 			<Delegators<T>>::remove(key);
@@ -82,7 +82,7 @@ impl<T: Config> Delegation<T> {
 	}
 }
 
-/// Ledger of all delegations to a `Delegate`.
+/// Ledger of all delegations to a `Delegatee`.
 ///
 /// This keeps track of the active balance of the `delegatee` that is made up from the funds that
 /// are currently delegated to this `delegatee`. It also tracks the pending slashes yet to be
@@ -120,7 +120,7 @@ impl<T: Config> DelegationLedger<T> {
 	}
 
 	pub(crate) fn get(key: &T::AccountId) -> Option<Self> {
-		<Delegates<T>>::get(key)
+		<Delegatees<T>>::get(key)
 	}
 
 	pub(crate) fn can_accept_delegation(delegatee: &T::AccountId) -> bool {
@@ -130,7 +130,7 @@ impl<T: Config> DelegationLedger<T> {
 	}
 
 	pub(crate) fn save(self, key: &T::AccountId) {
-		<Delegates<T>>::insert(key, self)
+		<Delegatees<T>>::insert(key, self)
 	}
 
 	/// Effective total balance of the `delegatee`.
@@ -226,20 +226,22 @@ impl<T: Config> Delegatee<T> {
 		let bonded_stake = self.bonded_stake();
 		let stakeable = self.ledger.stakeable_balance();
 
-		defensive_assert!(stakeable >= bonded_stake, "cannot expose more than delegate balance");
+		defensive_assert!(stakeable >= bonded_stake, "cannot be bonded with more than delegatee balance");
 
 		stakeable.saturating_sub(bonded_stake)
 	}
 
-	/// Balance of `Delegate` that is not bonded.
+	/// Balance of `Delegatee` that is not bonded.
 	///
-	/// Includes `unclaimed_withdrawals` of `Delegate`.
+	/// This is similar to [Self::available_to_bond] except it also includes `unclaimed_withdrawals`
+	/// of `Delegatee`.
+	#[cfg(test)]
 	pub(crate) fn total_unbonded(&self) -> BalanceOf<T> {
 		let bonded_stake = self.bonded_stake();
 
 		let net_balance = self.ledger.effective_balance();
 
-		defensive_assert!(net_balance >= bonded_stake, "cannot expose more than delegate balance");
+		defensive_assert!(net_balance >= bonded_stake, "cannot be bonded with more than the delegatee balance");
 
 		net_balance.saturating_sub(bonded_stake)
 	}
@@ -288,7 +290,7 @@ impl<T: Config> Delegatee<T> {
 					self.ledger.pending_slash == Zero::zero(),
 				Error::<T>::BadState
 			);
-			<Delegates<T>>::remove(key);
+			<Delegatees<T>>::remove(key);
 		} else {
 			self.ledger.save(&key)
 		}

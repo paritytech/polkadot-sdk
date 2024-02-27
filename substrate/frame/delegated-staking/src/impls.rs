@@ -109,7 +109,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
-		let delegation_register = <Delegates<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
+		let delegation_register = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
 		ensure!(delegation_register.stakeable_balance() >= extra, Error::<T>::NotEnoughFunds);
 
 		T::CoreStaking::bond_extra(who, extra)
@@ -285,7 +285,7 @@ impl<T: Config> DelegateeSupport for Pallet<T> {
 		who: &Self::AccountId,
 		reward_destination: Option<Self::AccountId>,
 	) -> bool {
-		let maybe_register = <Delegates<T>>::get(who);
+		let maybe_register = <Delegatees<T>>::get(who);
 
 		if maybe_register.is_none() {
 			// no restrictions for non delegates.
@@ -309,7 +309,7 @@ impl<T: Config> DelegateeSupport for Pallet<T> {
 	}
 
 	fn report_slash(who: &Self::AccountId, slash: Self::Balance) {
-		<Delegates<T>>::mutate(who, |maybe_register| match maybe_register {
+		<Delegatees<T>>::mutate(who, |maybe_register| match maybe_register {
 			Some(register) => register.pending_slash.saturating_accrue(slash),
 			None => {
 				defensive!("should not be called on non-delegate");

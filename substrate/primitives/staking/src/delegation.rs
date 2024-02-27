@@ -17,7 +17,7 @@
 
 use codec::{FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_runtime::{DispatchResult, Saturating};
+use sp_runtime::Saturating;
 use sp_std::ops::Sub;
 
 /// A trait that can be used as a plugin to support delegation based accounts, called `Delegatee`.

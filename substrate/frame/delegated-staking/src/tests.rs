@@ -914,7 +914,7 @@ mod pool_integration {
 			);
 
 			// Make sure all data is cleaned up.
-			assert_eq!(Delegates::<T>::contains_key(Pools::create_bonded_account(pool_id)), false);
+			assert_eq!(Delegatees::<T>::contains_key(Pools::create_bonded_account(pool_id)), false);
 			assert_eq!(Delegators::<T>::contains_key(creator), false);
 			for i in 300..310 {
 				assert_eq!(Delegators::<T>::contains_key(i), false);
