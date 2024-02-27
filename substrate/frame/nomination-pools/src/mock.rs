@@ -259,7 +259,7 @@ impl sp_staking::StakingInterface for StakingMock {
 
 	/// Does the delegatee have any pending slash.
 	fn has_pending_slash(delegatee: &Self::AccountId) -> bool {
-		unimplemented!("method currently not used in testing")
+		false
 	}
 
 	fn delegator_slash(delegatee: &Self::AccountId, delegator: &Self::AccountId, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult {
@@ -349,7 +349,7 @@ impl pools::Config for Runtime {
 	type MaxMetadataLen = MaxMetadataLen;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
-	type PoolAdapter = adapter::NoDelegation<Self>;
+	type StakeAdapter = adapter::TransferStake<Self>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

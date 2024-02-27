@@ -373,8 +373,9 @@ use sp_runtime::{
 	},
 	FixedPointNumber, Perbill,
 };
-use sp_staking::{delegation::PoolAdapter, EraIndex, StakingInterface};
+use sp_staking::{EraIndex, StakingInterface};
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
+use adapter::StakeAdapter;
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 use sp_runtime::TryRuntimeError;
@@ -1056,7 +1057,7 @@ impl<T: Config> BondedPool<T> {
 
 	/// The pools balance that is transferable provided it is expendable by staking pallet.
 	fn transferable_balance(&self) -> BalanceOf<T> {
-		T::PoolAdapter::transferable_balance(&self.bonded_account())
+		T::StakeAdapter::transferable_balance(&self.bonded_account())
 	}
 
 	fn is_root(&self, who: &T::AccountId) -> bool {
@@ -1262,11 +1263,11 @@ impl<T: Config> BondedPool<T> {
 
 		match ty {
 			BondType::Create =>
-				T::PoolAdapter::delegate(who, &bonded_account, &reward_account, amount)?,
+				T::StakeAdapter::bond(who, &bonded_account, &reward_account, amount)?,
 			// The pool should always be created in such a way its in a state to bond extra, but if
 			// the active balance is slashed below the minimum bonded or the account cannot be
 			// found, we exit early.
-			BondType::Later => T::PoolAdapter::delegate_extra(who, &bonded_account, amount)?,
+			BondType::Later => T::StakeAdapter::bond_extra(who, &bonded_account, amount)?,
 		}
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_accrue(amount);
@@ -1288,7 +1289,7 @@ impl<T: Config> BondedPool<T> {
 	}
 
 	fn has_pending_slash(&self) -> bool {
-		T::PoolAdapter::has_pending_slash(&self.bonded_account())
+		T::Staking::has_pending_slash(&self.bonded_account())
 	}
 }
 
@@ -1652,7 +1653,7 @@ pub mod pallet {
 		type MaxMetadataLen: Get<u32>;
 
 		/// An adapter to support delegated to direct staking.
-		type PoolAdapter: PoolAdapter<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
+		type StakeAdapter: adapter::StakeAdapter<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
 	}
 
 	/// The sum of funds across all pools.
@@ -2297,7 +2298,7 @@ pub mod pallet {
 				// order to ensure members can leave the pool and it can be destroyed.
 				.min(bonded_pool.transferable_balance());
 
-			T::PoolAdapter::release_delegation(
+			T::StakeAdapter::withdraw(
 				&member_account,
 				&bonded_pool.bonded_account(),
 				balance_to_unbond,
@@ -2895,7 +2896,7 @@ impl<T: Config> Pallet<T> {
 			"could not transfer all amount to depositor while dissolving pool"
 		);
 		defensive_assert!(
-			T::PoolAdapter::total_balance(&bonded_pool.bonded_account()) == Zero::zero(),
+			T::StakeAdapter::total_balance(&bonded_pool.bonded_account()) == Zero::zero(),
 			"dissolving pool should not have any balance"
 		);
 		// NOTE: Defensively force set balance to zero.
@@ -3291,9 +3292,9 @@ impl<T: Config> Pallet<T> {
 		let member =
 			PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 		let bonded_account = Self::create_bonded_account(member.pool_id);
-		ensure!(T::PoolAdapter::has_pending_slash(&bonded_account), Error::<T>::NothingToSlash);
+		ensure!(T::Staking::has_pending_slash(&bonded_account), Error::<T>::NothingToSlash);
 
-		let delegated_balance = T::PoolAdapter::total_balance(&member_account);
+		let delegated_balance = T::StakeAdapter::total_balance(&member_account);
 		let current_balance = member.total_balance();
 		defensive_assert!(
 			delegated_balance >= current_balance,
@@ -3303,7 +3304,7 @@ impl<T: Config> Pallet<T> {
 		// if nothing to slash, return error.
 		ensure!(delegated_balance > current_balance, Error::<T>::NothingToSlash);
 
-		T::PoolAdapter::delegator_slash(
+		T::Staking::delegator_slash(
 			&bonded_account,
 			&member_account,
 			delegated_balance.defensive_saturating_sub(current_balance),
@@ -3505,7 +3506,7 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::Staking::active_stake(&pool_account).unwrap_or_default();
-			let total_balance = T::PoolAdapter::total_balance(&pool_account);
+			let total_balance = T::StakeAdapter::total_balance(&pool_account);
 
 			assert!(
                 total_balance >= bonded_balance + sum_unbonding_balance,

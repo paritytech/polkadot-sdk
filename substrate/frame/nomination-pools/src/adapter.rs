@@ -17,14 +17,49 @@
 
 use crate::*;
 
+/// Pool adapter trait that can support multiple modes of staking: i.e. Delegated or Direct.
+pub trait StakeAdapter {
+	type Balance: frame_support::traits::tokens::Balance;
+	type AccountId: Clone + sp_std::fmt::Debug;
+
+	/// Balance that is free and can be released to delegator.
+	fn transferable_balance(who: &Self::AccountId) -> Self::Balance;
+
+	/// Total balance of the account held for staking.
+	fn total_balance(who: &Self::AccountId) -> Self::Balance;
+
+	/// Initiate delegation to the pool account.
+	fn bond(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		reward_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Add more delegation to the pool account.
+	fn bond_extra(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Revoke delegation to pool account.
+	fn withdraw(
+		who: &Self::AccountId,
+		pool_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+}
+
+
 /// Basic pool adapter that only supports Direct Staking.
 ///
 /// When delegating, tokens are moved between the delegator and pool account as opposed to holding
 /// tokens in delegator's accounts.
-pub struct NoDelegation<T: Config>(PhantomData<T>);
+pub struct TransferStake<T: Config>(PhantomData<T>);
 
 /// TODO(ankan) Call it FundManager/CurrencyAdapter/DelegationManager
-impl<T: Config> PoolAdapter for NoDelegation<T> {
+impl<T: Config> StakeAdapter for TransferStake<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
@@ -41,7 +76,7 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 		T::Currency::total_balance(who)
 	}
 
-	fn delegate(
+	fn bond(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		reward_account: &Self::AccountId,
@@ -51,7 +86,7 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 		T::Staking::bond(pool_account, amount, reward_account)
 	}
 
-	fn delegate_extra(
+	fn bond_extra(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
@@ -60,7 +95,7 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 		T::Staking::bond_extra(pool_account, amount)
 	}
 
-	fn release_delegation(
+	fn withdraw(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
@@ -69,52 +104,60 @@ impl<T: Config> PoolAdapter for NoDelegation<T> {
 
 		Ok(())
 	}
-
-	fn has_pending_slash(_delegate: &Self::AccountId) -> bool {
-		// for direct staking, slashing is eager, and we don't need to do anything here.
-		false
-	}
-
-	fn delegator_slash(
-		_delegate: &Self::AccountId,
-		_delegator: &Self::AccountId,
-		_value: Self::Balance,
-		_maybe_reporter: Option<Self::AccountId>,
-	) -> sp_runtime::DispatchResult {
-		// for direct staking, slashing is eager, and we don't need to do anything here.
-		defensive!("Delegator slash is not supported for direct staking");
-		Err(Error::<T>::NothingToSlash.into())
-	}
 }
 
-/// Stake Strategy trait that can support different ways of staking such as `Transfer and Stake` or
-/// `Delegate and Stake`.
-pub trait StakeStrategy {
-	type Balance: frame_support::traits::tokens::Balance;
-	type AccountId: Clone + sp_std::fmt::Debug;
+pub struct DelegationStake<T: Config>(PhantomData<T>);
+impl<T: Config> StakeAdapter for DelegationStake<T> {
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
 
-	/// Delegate to pool account.
+	/// Return balance of the `Delegate` (pool account) that is not bonded.
 	///
-	/// This is only used for first time delegation. For adding more delegation, use
-	/// [`Self::delegate_extra`].
-	fn delegate(
+	/// Equivalent to [FunInspect::balance] for non delegate accounts.
+	fn transferable_balance(who: &Self::AccountId) -> Self::Balance {
+		T::Staking::delegatee_balance(who).saturating_sub(T::Staking::active_stake(who).unwrap_or_default())
+	}
+
+	/// Returns balance of account that is held.
+	///
+	/// - For `delegate` accounts, this is their total delegation amount.
+	/// - For `delegator` accounts, this is their delegation amount.
+	fn total_balance(who: &Self::AccountId) -> Self::Balance {
+		if T::Staking::is_delegatee(who) {
+			return T::Staking::delegatee_balance(who)
+		}
+
+		// for delegators we return their held balance as well.
+		T::Currency::total_balance(who)
+	}
+
+	/// Add initial delegation to the pool account.
+	///
+	/// Equivalent to [FunMutate::transfer] for Direct Staking.
+	fn bond(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
-	) -> DispatchResult;
+	) -> DispatchResult {
+		// This is the first delegation so we needs to register the pool account as a `delegate`.
+		T::Staking::delegate(who, pool_account, reward_account, amount)
+	}
 
-	/// Add more delegation to the pool account.
-	fn delegate_extra(
+	fn bond_extra(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
-	) -> DispatchResult;
+	) -> DispatchResult {
+		T::Staking::delegate_extra(who, pool_account, amount)
+	}
 
-	/// Withdraw delegation from pool account to self.
-	fn withdraw_delegation(
+	fn withdraw(
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
-	) -> DispatchResult;
+	) -> DispatchResult {
+		// fixme(ank4n): This should not require slashing spans.
+		T::Staking::withdraw_delegation(who, pool_account, amount)
+	}
 }
