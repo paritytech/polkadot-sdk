@@ -29,7 +29,11 @@ use frame_support::{
 use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
+	impl_tx_ext_default,
+	traits::{
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+		TransactionExtensionBase,
+	},
 	transaction_validity::TransactionValidityError,
 	DispatchResult,
 };
@@ -119,42 +123,40 @@ impl<T: Config + Send + Sync> core::fmt::Debug for StorageWeightReclaim<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for StorageWeightReclaim<T>
+impl<T: Config + Send + Sync> TransactionExtensionBase for StorageWeightReclaim<T> {
+	const IDENTIFIER: &'static str = "StorageWeightReclaim";
+	type Implicit = ();
+}
+
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for StorageWeightReclaim<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	const IDENTIFIER: &'static str = "StorageWeightReclaim";
-
-	type AccountId = T::AccountId;
-	type Call = T::RuntimeCall;
-	type AdditionalSigned = ();
+	type Val = ();
 	type Pre = Option<u64>;
 
-	fn additional_signed(
-		&self,
-	) -> Result<Self::AdditionalSigned, sp_runtime::transaction_validity::TransactionValidityError>
-	{
-		Ok(())
-	}
-
-	fn pre_dispatch(
+	fn prepare(
 		self,
-		_who: &Self::AccountId,
-		_call: &Self::Call,
-		_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+		_val: Self::Val,
+		_origin: &T::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-	) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
+		_context: &Context,
+	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(get_proof_size())
 	}
 
 	fn post_dispatch(
-		pre: Option<Self::Pre>,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
+		pre: Self::Pre,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
+		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
-		let Some(Some(pre_dispatch_proof_size)) = pre else {
+		let Some(pre_dispatch_proof_size) = pre else {
 			return Ok(());
 		};
 
@@ -194,6 +196,8 @@ where
 		});
 		Ok(())
 	}
+
+	impl_tx_ext_default!(T::RuntimeCall; Context; validate);
 }
 
 #[cfg(test)]
@@ -205,7 +209,7 @@ mod tests {
 		weights::{Weight, WeightMeter},
 	};
 	use frame_system::{BlockWeight, CheckWeight};
-	use sp_runtime::{AccountId32, BuildStorage};
+	use sp_runtime::{traits::DispatchTransaction, AccountId32, BuildStorage};
 	use sp_std::marker::PhantomData;
 	use sp_trie::proof_size_extension::ProofSizeExt;
 
@@ -268,19 +272,20 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
-			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&ALICE, CALL, &info, LEN)
+			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(0));
 
-			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
 			// We expect a refund of 400
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
-				Some(pre),
+				pre,
 				&info,
 				&post_info,
 				LEN,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 
 			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 600);
@@ -299,18 +304,19 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
-			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&ALICE, CALL, &info, LEN)
+			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, None);
 
-			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
-				Some(pre),
+				pre,
 				&info,
 				&post_info,
 				LEN,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 
 			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1000);
@@ -327,19 +333,20 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 100), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
-			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&ALICE, CALL, &info, LEN)
+			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
 			// We expect no refund
-			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
-				Some(pre),
+				pre,
 				&info,
 				&post_info,
 				LEN,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 
 			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1100);
@@ -354,18 +361,19 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
-			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&ALICE, CALL, &info, LEN)
+			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(0));
 
-			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
-				Some(pre),
+				pre,
 				&info,
 				&post_info,
 				LEN,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 
 			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 0);
@@ -382,18 +390,19 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
-			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&ALICE, CALL, &info, LEN)
+			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(300));
 
-			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
-				Some(pre),
+				pre,
 				&info,
 				&post_info,
 				LEN,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 
 			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 800);
@@ -416,20 +425,21 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
-			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&ALICE, CALL, &info, LEN)
+			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
 			// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
-			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
-				Some(pre),
+				pre,
 				&info,
 				&post_info,
 				LEN,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 
 			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 900);
@@ -451,20 +461,21 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
-			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&ALICE, CALL, &info, LEN)
+			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
 			// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
-			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
-				Some(pre),
+				pre,
 				&info,
 				&post_info,
 				LEN,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 
 			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1150);
@@ -487,22 +498,23 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
-			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&ALICE, CALL, &info, LEN)
+			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
-				Some(pre),
+				pre,
 				&info,
 				&post_info,
 				LEN,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 			// `CheckWeight` gets called after `StorageWeightReclaim` this time.
 			// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
-			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
 
 			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 900);
 		})
@@ -523,22 +535,23 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
-			let pre = StorageWeightReclaim::<Test>(PhantomData)
-				.pre_dispatch(&ALICE, CALL, &info, LEN)
+			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
-				Some(pre),
+				pre,
 				&info,
 				&post_info,
 				LEN,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 			// `CheckWeight` gets called after `StorageWeightReclaim` this time.
 			// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
-			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
 
 			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1150);
 		})
