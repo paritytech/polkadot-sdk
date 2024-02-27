@@ -3086,6 +3086,7 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
+ "testnet-parachains-constants",
 ]
 
 [[package]]

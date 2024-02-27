@@ -23,9 +23,10 @@ use coretime_rococo_runtime::{
 	xcm_config::LocationToAccountId, AuraExt, Balances, Broker, ParachainInfo, PolkadotXcm,
 	XcmpQueue,
 };
+use cumulus_primitives_core::AggregateMessageOrigin;
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impls::Parachain, xcm_emulator::decl_test_parachains,
+	impl_xcm_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 
 decl_test_parachains! {
@@ -39,6 +40,7 @@ decl_test_parachains! {
 			XcmpMessageHandler: XcmpQueue,
 			LocationToAccountId: LocationToAccountId,
 			ParachainInfo: ParachainInfo,
+			MessageOrigin: AggregateMessageOrigin,
 		},
 		pallets = {
 			PolkadotXcm: PolkadotXcm,
@@ -50,3 +52,4 @@ decl_test_parachains! {
 
 impl_accounts_helpers_for_parachain!(CoretimeRococo);
 impl_assert_events_helpers_for_parachain!(CoretimeRococo);
+impl_xcm_helpers_for_parachain!(CoretimeRococo);
