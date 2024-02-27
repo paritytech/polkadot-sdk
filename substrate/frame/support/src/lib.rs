@@ -1028,7 +1028,39 @@ pub use frame_support_procedural::pallet;
 
 /// Contains macro stubs for all of the `pallet::` macros
 pub mod pallet_macros {
-	pub use frame_support_procedural::{weight, whitelist_storage};
+	pub use frame_support_procedural::whitelist_storage;
+
+	/// Each dispatchable needs to define a weight with the `#[pallet::weight($expr)]`
+	/// attribute. The first argument must be `origin: OriginFor<T>`.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	/// 	use frame_system::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::call]
+	/// 	impl<T: Config> Pallet<T> {
+	/// 		#[pallet::weight({0})] // <- set actual weight here
+	/// 		#[pallet::call_index(0)]
+	/// 		pub fn something(
+	/// 			_: OriginFor<T>,
+	/// 			foo: u32,
+	/// 		) -> DispatchResult {
+	/// 			unimplemented!()
+	/// 		}
+	/// 	}
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	pub use frame_support_procedural::weight;
 
 	/// The optional attribute `#[pallet::unbounded]` declares a storage item as unbounded.
 	/// When implementating the storage info (when `#[pallet::generate_storage_info]` is

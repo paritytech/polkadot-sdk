@@ -885,8 +885,11 @@ pub fn hooks(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// Each dispatchable needs to define a weight with `#[pallet::weight($expr)]` attribute, the
-/// first argument must be `origin: OriginFor<T>`.
+///
+/// ---
+///
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// `frame_support::pallet_macros::weight`.
 #[proc_macro_attribute]
 pub fn weight(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
