@@ -133,7 +133,7 @@ async fn tx_broadcast_invalid_tx() {
 }
 
 #[tokio::test]
-async fn tx_invalid_stop() {
+async fn tx_stop_with_invalid_operation_id() {
 	let (_, _, _, tx_api, _, _) = setup_api(Default::default());
 
 	// Make an invalid stop call.
