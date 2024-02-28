@@ -68,7 +68,7 @@ pub trait DelegateeSupport {
 /// an account.
 pub trait DelegatedStakeInterface: StakingInterface {
 	/// Effective balance of the `delegatee` account.
-	fn delegatee_balance(who: &Self::AccountId) -> Self::Balance;
+	fn delegatee_balance(delegatee: &Self::AccountId) -> Self::Balance;
 
 	/// Returns the total amount of funds delegated by a `delegator`.
 	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance;
@@ -90,7 +90,7 @@ pub trait DelegatedStakeInterface: StakingInterface {
 
 	/// Withdraw or revoke delegation to `delegatee`.
 	fn withdraw_delegation(
-		who: &Self::AccountId,
+		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
