@@ -15,9 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{writer, PalletCmd};
-use crate::pallet::{types::FetchedCode, GenesisBuilder};
 use super::{writer, ListOutput, PalletCmd};
+use crate::pallet::{types::FetchedCode, GenesisBuilder};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
@@ -41,9 +40,8 @@ use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
 use sp_state_machine::{OverlayedChanges, StateMachine};
-use std::{borrow::Cow, collections::HashMap, fmt::Debug, fs, str::FromStr, time};
-use sp_state_machine::StateMachine;
 use std::{
+	borrow::Cow,
 	collections::{BTreeMap, BTreeSet, HashMap},
 	fmt::Debug,
 	fs,
@@ -161,10 +159,10 @@ impl PalletCmd {
 		Hasher: Hash,
 		ExtraHostFunctions: sp_wasm_interface::HostFunctions,
 	{
-		self.run_with_spec::<Hasher, ExtraHostFunctions>(Some(config.chain_spec))
+		self.run_with_maybe_spec::<Hasher, ExtraHostFunctions>(Some(config.chain_spec))
 	}
 
-	pub fn run_with_spec<Hasher, ExtraHostFunctions>(
+	pub fn run_with_maybe_spec<Hasher, ExtraHostFunctions>(
 		&self,
 		chain_spec: Option<Box<dyn ChainSpec>>,
 	) -> Result<()>
@@ -354,12 +352,13 @@ impl PalletCmd {
 		let mut component_ranges = HashMap::<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>::new();
 		let pov_modes = Self::parse_pov_modes(&benchmarks_to_run)?;
 
-		for (pallet, extrinsic, components, _, pallet_name, extrinsic_name) in
-			benchmarks_to_run.clone()
+		'outer: for (i, (pallet, extrinsic, components, _, pallet_name, extrinsic_name)) in
+			benchmarks_to_run.clone().into_iter().enumerate()
 		{
 			log::info!(
 				target: LOG_TARGET,
-				"Starting benchmark: {pallet_name}::{extrinsic_name}"
+				"[{: >3} %] Starting benchmark: {pallet_name}::{extrinsic_name}",
+				(i * 100) / benchmarks_to_run.len(),
 			);
 			let all_components = if components.is_empty() {
 				vec![Default::default()]
@@ -411,7 +410,7 @@ impl PalletCmd {
 				// First we run a verification
 				if !self.no_verify {
 					let state = &state_without_tracking;
-					let result = StateMachine::new(
+					let result = match StateMachine::new(
 						state,
 						&mut changes,
 						&executor,
@@ -429,23 +428,35 @@ impl PalletCmd {
 						CallContext::Offchain,
 					)
 					.execute()
-					.map_err(|e| {
-						format!("Error executing and verifying runtime benchmark: {}", e)
-					})?;
+					{
+						Err(e) => {
+							log::error!("Error executing and verifying runtime benchmark: {}", e);
+							continue 'outer
+						},
+						Ok(r) => r,
+					};
 					// Dont use these results since verification code will add overhead.
 					let _batch =
-						<std::result::Result<Vec<BenchmarkBatch>, String> as Decode>::decode(
+						match <std::result::Result<Vec<BenchmarkBatch>, String> as Decode>::decode(
 							&mut &result[..],
-						)
-						.map_err(|e| format!("Failed to decode benchmark results: {:?}", e))?
-						.map_err(|e| {
-							format!("Benchmark {pallet_name}::{extrinsic_name} failed: {e}",)
-						})?;
+						) {
+							Err(e) => {
+								log::error!("Failed to decode benchmark results: {:?}", e);
+								continue 'outer
+							},
+							Ok(Err(e)) => {
+								log::error!(
+									"Benchmark {pallet_name}::{extrinsic_name} failed: {e}",
+								);
+								continue 'outer
+							},
+							Ok(Ok(b)) => b,
+						};
 				}
 				// Do one loop of DB tracking.
 				{
 					let state = &state_with_tracking;
-					let result = StateMachine::new(
+					let result = match StateMachine::new(
 						state, // todo remove tracking
 						&mut changes,
 						&executor,
@@ -463,15 +474,32 @@ impl PalletCmd {
 						CallContext::Offchain,
 					)
 					.execute()
-					.map_err(|e| format!("Error executing runtime benchmark: {}", e))?;
+					{
+						Err(e) => {
+							log::error!("Error executing runtime benchmark: {}", e);
+							continue 'outer
+						},
+						Ok(r) => r,
+					};
 
 					let batch =
-						<std::result::Result<Vec<BenchmarkBatch>, String> as Decode>::decode(
+						match <std::result::Result<Vec<BenchmarkBatch>, String> as Decode>::decode(
 							&mut &result[..],
-						)
-						.map_err(|e| format!("Failed to decode benchmark results: {:?}", e))??;
+						) {
+							Err(e) => {
+								log::error!("Failed to decode benchmark results: {:?}", e);
+								continue 'outer
+							},
+							Ok(Err(e)) => {
+								log::error!(
+									"Benchmark {pallet_name}::{extrinsic_name} failed: {e}",
+								);
+								continue 'outer
+							},
+							Ok(Ok(b)) => b,
+						};
 
-					batches_db.extend(batch);
+					batches_db.extend(batch); // FAIL-CI check if missing and error
 				}
 				// Finally run a bunch of loops to get extrinsic timing information.
 				for r in 0..self.external_repeat {
@@ -494,6 +522,7 @@ impl PalletCmd {
 						CallContext::Offchain,
 					)
 					.execute()
+					// No continue here, any error should have been caught by the verification step.
 					.map_err(|e| format!("Error executing runtime benchmark: {}", e))?;
 
 					let batch =
@@ -511,7 +540,8 @@ impl PalletCmd {
 
 							log::info!(
 								target: LOG_TARGET,
-								"Running  benchmark: {pallet_name}::{extrinsic_name}({} args) {}/{} {}/{}",
+								"[{: >3} %] Running  benchmark: {pallet_name}::{extrinsic_name}({} args) {}/{} {}/{}",
+								(i * 100) / benchmarks_to_run.len(),
 								components.len(),
 								s + 1, // s starts at 0.
 								all_components.len(),
@@ -522,6 +552,18 @@ impl PalletCmd {
 					}
 				}
 			}
+		}
+
+		assert!(batches_db.len() == batches.len() / self.external_repeat as usize);
+		if let Some(failed) = benchmarks_to_run.len().checked_sub(batches.len()) {
+			log::error!(
+				target: LOG_TARGET,
+				"Some benchmarks failed, but the results where still written to disk."
+			);
+			return Err(format!(
+				"There were {failed} benchmarks that either returned an error or panicked."
+			)
+			.into());
 		}
 
 		// Combine all of the benchmark results, so that benchmarks of the same pallet/function
@@ -550,7 +592,9 @@ impl PalletCmd {
 					);
 				};
 
-				(chain_spec.build_storage()?, Default::default())
+				let storage = chain_spec.build_storage().map_err(|e| format!("The runtime returned an error when trying to build the genesis storage. Please ensure that all pallets define a genesis config that can be built. For more info see: https://github.com/paritytech/polkadot-sdk/pull/3412\nError: {e}"))?;
+
+				(storage, Default::default())
 			},
 			(Some(GenesisBuilder::Runtime), _) | (None, true) =>
 				(Default::default(), self.genesis_from_runtime::<H>()?),

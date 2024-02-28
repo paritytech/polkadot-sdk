@@ -283,7 +283,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			code_retention_period: Default::default(),
 			max_code_size: MAX_CODE_SIZE,
 			max_pov_size: Default::default(),
-			max_head_data_size: Default::default(),
+			max_head_data_size: 1 << 20,
 			coretime_cores: Default::default(),
 			on_demand_retries: Default::default(),
 			scheduling_lookahead: 1,
@@ -543,7 +543,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	#[pallet::getter(fn config)]
-	pub(crate) type ActiveConfig<T: Config> =
+	pub type ActiveConfig<T: Config> =
 		StorageValue<_, HostConfiguration<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Pending configuration changes.

@@ -520,14 +520,30 @@ impl<T: Config> Registrar for Pallet<T> {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn worst_head_data() -> HeadData {
 		let max_head_size = configuration::Pallet::<T>::config().max_head_data_size;
-		assert!(max_head_size > 0, "max_head_data can't be zero for generating worst head data.");
+		if max_head_size == 0 {
+			log::warn!(
+				"max_head_data can't be zero for generating worst head data - using default."
+			);
+			let mut cfg = configuration::ActiveConfig::<T>::get();
+			cfg.max_head_data_size = 1 * 1024 * 1024;
+			configuration::ActiveConfig::<T>::put(&cfg);
+		}
 		vec![0u8; max_head_size as usize].into()
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn worst_validation_code() -> ValidationCode {
 		let max_code_size = configuration::Pallet::<T>::config().max_code_size;
-		assert!(max_code_size > 0, "max_code_size can't be zero for generating worst code data.");
+
+		if max_code_size == 0 {
+			log::warn!(
+				"max_code_size can't be zero for generating worst validation code - using default."
+			);
+			let mut cfg = configuration::ActiveConfig::<T>::get();
+			cfg.max_code_size = 1 * 1024 * 1024;
+			configuration::ActiveConfig::<T>::put(&cfg);
+		}
+
 		let validation_code = vec![0u8; max_code_size as usize];
 		validation_code.into()
 	}

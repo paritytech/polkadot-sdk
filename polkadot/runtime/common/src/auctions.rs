@@ -1737,7 +1737,7 @@ mod benchmarking {
 		traits::{EnsureOrigin, OnInitialize},
 	};
 	use frame_system::RawOrigin;
-	use runtime_parachains::paras;
+	use runtime_parachains::{configuration, paras};
 	use sp_runtime::{traits::Bounded, SaturatedConversion};
 
 	use frame_benchmarking::{account, benchmarks, whitelisted_caller, BenchmarkError};
@@ -1873,6 +1873,11 @@ mod benchmarking {
 			// If there is an offset, we need to be on that block to be able to do lease things.
 			let (lease_length, offset) = T::Leaser::lease_period_length();
 			frame_system::Pallet::<T>::set_block_number(offset + One::one());
+
+			let mut cfg = configuration::Pallet::<T>::config();
+			cfg.max_head_data_size = cfg.max_head_data_size.min(1 * 1024 * 1024);
+			cfg.max_code_size = cfg.max_code_size.min(1 * 1024 * 1024);
+			configuration::ActiveConfig::<T>::put(cfg);
 
 			// Create a new auction
 			let duration: BlockNumberFor<T> = lease_length / 2u32.into();

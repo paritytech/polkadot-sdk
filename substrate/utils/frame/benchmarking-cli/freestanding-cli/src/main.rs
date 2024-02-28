@@ -16,6 +16,11 @@
 // limitations under the License.
 
 //! Entry point for the free standing `benchmark pallet` command runner.
+//!
+//! This runner has the advantage that the node does not need to be build with the `try-runtime`
+//! feature or similar. It can be shipped independently and used by any chain - as long as that
+//! chain's runtime is not making use of 3rd party host functions. In that case, it would need to be
+//! forked (or extended with some plugin system).
 
 use clap::Parser;
 use frame_benchmarking_cli::PalletCmd;
@@ -28,5 +33,7 @@ type HostFunctions = sp_statement_store::runtime_api::HostFunctions;
 type HostFunctions = ();
 
 fn main() -> Result<()> {
-	PalletCmd::parse().run_with_spec::<BlakeTwo256, HostFunctions>(None)
+	env_logger::init();
+	log::info!("Benchmarking pallet CLI");
+	PalletCmd::parse().run_with_maybe_spec::<BlakeTwo256, HostFunctions>(None)
 }
