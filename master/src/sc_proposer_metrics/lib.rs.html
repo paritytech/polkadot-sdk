@@ -259,6 +259,10 @@ nav.side-bar {
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -305,11 +309,14 @@ nav.side-bar {
 }
 
 <span class="doccomment">/// The reason why proposing a block ended.
+</span><span class="attr">#[derive(Clone, Copy, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>EndProposingReason {
 	NoMoreTransactions,
 	HitDeadline,
 	HitBlockSizeLimit,
 	HitBlockWeightLimit,
+	<span class="doccomment">/// No transactions are allowed in the block.
+	</span>TransactionForbidden,
 }
 
 <span class="doccomment">/// Authorship metrics.
@@ -373,6 +380,7 @@ nav.side-bar {
 			EndProposingReason::NoMoreTransactions =&gt; <span class="string">&quot;no_more_transactions&quot;</span>,
 			EndProposingReason::HitBlockSizeLimit =&gt; <span class="string">&quot;hit_block_size_limit&quot;</span>,
 			EndProposingReason::HitBlockWeightLimit =&gt; <span class="string">&quot;hit_block_weight_limit&quot;</span>,
+			EndProposingReason::TransactionForbidden =&gt; <span class="string">&quot;transactions_forbidden&quot;</span>,
 		};
 
 		<span class="self">self</span>.end_proposing_reason.with_label_values(<span class="kw-2">&amp;</span>[reason]).inc();

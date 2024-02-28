@@ -806,6 +806,76 @@ nav.side-bar {
 <a href="#664" id="664">664</a>
 <a href="#665" id="665">665</a>
 <a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -833,9 +903,73 @@ nav.side-bar {
 <span class="kw">use </span>impl_trait_for_tuples::impl_for_tuples;
 <span class="kw">use </span>sp_runtime::traits::AtLeast32BitUnsigned;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>sp_weights::WeightMeter;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
+
+<span class="doccomment">/// Provides a callback to execute logic before the all inherents.
+</span><span class="kw">pub trait </span>PreInherents {
+	<span class="doccomment">/// Called before all inherents were applied but after `on_initialize`.
+	</span><span class="kw">fn </span>pre_inherents() {}
+}
+
+<span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(feature = <span class="string">&quot;tuples-128&quot;</span>, impl_for_tuples(<span class="number">128</span>))]
+</span><span class="kw">impl </span>PreInherents <span class="kw">for </span>Tuple {
+	<span class="kw">fn </span>pre_inherents() {
+		<span class="macro">for_tuples!</span>( #( Tuple::pre_inherents(); )* );
+	}
+}
+
+<span class="doccomment">/// Provides a callback to execute logic after the all inherents.
+</span><span class="kw">pub trait </span>PostInherents {
+	<span class="doccomment">/// Called after all inherents were applied.
+	</span><span class="kw">fn </span>post_inherents() {}
+}
+
+<span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(feature = <span class="string">&quot;tuples-128&quot;</span>, impl_for_tuples(<span class="number">128</span>))]
+</span><span class="kw">impl </span>PostInherents <span class="kw">for </span>Tuple {
+	<span class="kw">fn </span>post_inherents() {
+		<span class="macro">for_tuples!</span>( #( Tuple::post_inherents(); )* );
+	}
+}
+
+<span class="doccomment">/// Provides a callback to execute logic before the all transactions.
+</span><span class="kw">pub trait </span>PostTransactions {
+	<span class="doccomment">/// Called after all transactions were applied but before `on_finalize`.
+	</span><span class="kw">fn </span>post_transactions() {}
+}
+
+<span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(feature = <span class="string">&quot;tuples-128&quot;</span>, impl_for_tuples(<span class="number">128</span>))]
+</span><span class="kw">impl </span>PostTransactions <span class="kw">for </span>Tuple {
+	<span class="kw">fn </span>post_transactions() {
+		<span class="macro">for_tuples!</span>( #( Tuple::post_transactions(); )* );
+	}
+}
+
+<span class="doccomment">/// Periodically executes logic. Is not guaranteed to run within a specific timeframe and should
+/// only be used on logic that has no deadline.
+</span><span class="kw">pub trait </span>OnPoll&lt;BlockNumber&gt; {
+	<span class="doccomment">/// Code to execute every now and then at the beginning of the block after inherent application.
+	///
+	/// The remaining weight limit must be respected.
+	</span><span class="kw">fn </span>on_poll(_n: BlockNumber, _weight: <span class="kw-2">&amp;mut </span>WeightMeter) {}
+}
+
+<span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(feature = <span class="string">&quot;tuples-128&quot;</span>, impl_for_tuples(<span class="number">128</span>))]
+</span><span class="kw">impl</span>&lt;BlockNumber: Clone&gt; OnPoll&lt;BlockNumber&gt; <span class="kw">for </span>Tuple {
+	<span class="kw">fn </span>on_poll(n: BlockNumber, weight: <span class="kw-2">&amp;mut </span>WeightMeter) {
+		<span class="macro">for_tuples!</span>( #( Tuple::on_poll(n.clone(), weight); )* );
+	}
+}
 
 <span class="doccomment">/// See [`Hooks::on_initialize`].
 </span><span class="kw">pub trait </span>OnInitialize&lt;BlockNumber&gt; {
@@ -1181,6 +1315,12 @@ nav.side-bar {
 	</span><span class="kw">fn </span>on_idle(_n: BlockNumber, _remaining_weight: Weight) -&gt; Weight {
 		Weight::zero()
 	}
+
+	<span class="doccomment">/// A hook to run logic after inherent application.
+	///
+	/// Is not guaranteed to execute in a block and should therefore only be used in no-deadline
+	/// scenarios.
+	</span><span class="kw">fn </span>on_poll(_n: BlockNumber, _weight: <span class="kw-2">&amp;mut </span>WeightMeter) {}
 
 	<span class="doccomment">/// Hook executed when a code change (aka. a &quot;runtime upgrade&quot;) is detected by the FRAME
 	/// `Executive` pallet.

@@ -974,6 +974,12 @@ nav.side-bar {
 <a href="#832" id="832">832</a>
 <a href="#833" id="833">833</a>
 <a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1077,7 +1083,7 @@ nav.side-bar {
 		generic::BlockId,
 		traits::{Block <span class="kw">as </span>BlockT, Hash <span class="kw">as </span>HashT, HashingFor, Header <span class="kw">as </span>HeaderT, NumberFor},
 		transaction_validity::TransactionValidity,
-		RuntimeString, TransactionOutcome,
+		ExtrinsicInclusionMode, RuntimeString, TransactionOutcome,
 	};
 	<span class="kw">pub use </span>sp_std::{mem, slice, vec};
 	<span class="kw">pub use </span>sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
@@ -1091,11 +1097,11 @@ nav.side-bar {
 <span class="kw">use </span>sp_core::OpaqueMetadata;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_externalities::{Extension, Extensions};
-<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_runtime::traits::HashingFor;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub use </span>sp_runtime::TransactionOutcome;
+<span class="kw">use </span>sp_runtime::{traits::Block <span class="kw">as </span>BlockT, ExtrinsicInclusionMode};
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub use </span>sp_state_machine::StorageProof;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
@@ -1256,7 +1262,7 @@ nav.side-bar {
 /// ```rust
 /// use sp_version::create_runtime_str;
 /// #
-/// # use sp_runtime::traits::Block as BlockT;
+/// # use sp_runtime::{ExtrinsicInclusionMode, traits::Block as BlockT};
 /// # use sp_test_primitives::Block;
 /// #
 /// # /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro
@@ -1283,7 +1289,9 @@ nav.side-bar {
 /// #           unimplemented!()
 /// #       }
 /// #       fn execute_block(_block: Block) {}
-/// #       fn initialize_block(_header: &amp;&lt;Block as BlockT&gt;::Header) {}
+/// #       fn initialize_block(_header: &amp;&lt;Block as BlockT&gt;::Header) -&gt; ExtrinsicInclusionMode {
+/// #           unimplemented!()
+/// #       }
 /// #   }
 ///
 ///     impl self::Balance&lt;Block&gt; for Runtime {
@@ -1516,11 +1524,12 @@ nav.side-bar {
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 #[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>ApiError {
-	<span class="attr">#[error(<span class="string">&quot;Failed to decode return value of {function}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">&quot;Failed to decode return value of {function}: {error} raw data: {raw:?}&quot;</span>)]
 	</span>FailedToDecodeReturnValue {
 		function: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
 		<span class="attr">#[source]
 		</span>error: codec::Error,
+		raw: Vec&lt;u8&gt;,
 	},
 	<span class="attr">#[error(<span class="string">&quot;Failed to convert return value from runtime to node of {function}&quot;</span>)]
 	</span>FailedToConvertReturnValue {
@@ -1776,15 +1785,18 @@ nav.side-bar {
 <span class="macro">decl_runtime_apis! </span>{
 	<span class="doccomment">/// The `Core` runtime api that every Substrate runtime needs to implement.
 	</span><span class="attr">#[core_trait]
-	#[api_version(<span class="number">4</span>)]
+	#[api_version(<span class="number">5</span>)]
 	</span><span class="kw">pub trait </span>Core {
 		<span class="doccomment">/// Returns the version of the runtime.
 		</span><span class="kw">fn </span>version() -&gt; RuntimeVersion;
 		<span class="doccomment">/// Execute the given block.
 		</span><span class="kw">fn </span>execute_block(block: Block);
 		<span class="doccomment">/// Initialize a block with the given header.
-		</span><span class="attr">#[renamed(<span class="string">&quot;initialise_block&quot;</span>, <span class="number">2</span>)]
+		</span><span class="attr">#[changed_in(<span class="number">5</span>)]
+		#[renamed(<span class="string">&quot;initialise_block&quot;</span>, <span class="number">2</span>)]
 		</span><span class="kw">fn </span>initialize_block(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header);
+		<span class="doccomment">/// Initialize a block with the given header and return the runtime executive mode.
+		</span><span class="kw">fn </span>initialize_block(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) -&gt; ExtrinsicInclusionMode;
 	}
 
 	<span class="doccomment">/// The `Metadata` api trait that returns metadata for the runtime.

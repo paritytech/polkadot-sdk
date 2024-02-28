@@ -878,6 +878,7 @@ nav.side-bar {
 <a href="#736" id="736">736</a>
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1336,6 +1337,7 @@ nav.side-bar {
 						|err| #crate_::ApiError::FailedToDecodeReturnValue {
 							function: #function_name,
 							error: err,
+							raw: r.clone(),
 						}
 					)
 				)

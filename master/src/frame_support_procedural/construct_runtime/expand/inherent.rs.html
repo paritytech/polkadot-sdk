@@ -391,6 +391,9 @@ nav.side-bar {
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -597,47 +600,50 @@ nav.side-bar {
 			}
 		}
 
+		<span class="kw">impl </span>#scrate::traits::IsInherent&lt;&lt;#block <span class="kw">as </span>#scrate::sp_runtime::traits::Block&gt;::Extrinsic&gt; <span class="kw">for </span>#runtime {
+			<span class="kw">fn </span>is_inherent(ext: <span class="kw-2">&amp;</span>&lt;#block <span class="kw">as </span>#scrate::sp_runtime::traits::Block&gt;::Extrinsic) -&gt; bool {
+				<span class="kw">use </span>#scrate::inherent::ProvideInherent;
+				<span class="kw">use </span>#scrate::traits::{IsSubType, ExtrinsicCall};
+
+				<span class="kw">if </span>#scrate::sp_runtime::traits::Extrinsic::is_signed(ext).unwrap_or(<span class="bool-val">false</span>) {
+					<span class="comment">// Signed extrinsics are never inherents.
+					</span><span class="kw">return </span><span class="bool-val">false
+				</span>}
+
+				#(
+					#pallet_attrs
+					{
+						<span class="kw">let </span>call = &lt;#unchecked_extrinsic <span class="kw">as </span>ExtrinsicCall&gt;::call(ext);
+						<span class="kw">if let </span><span class="prelude-val">Some</span>(call) = IsSubType::&lt;<span class="kw">_</span>&gt;::is_sub_type(call) {
+							<span class="kw">if </span>&lt;#pallet_names <span class="kw">as </span>ProvideInherent&gt;::is_inherent(<span class="kw-2">&amp;</span>call) {
+								<span class="kw">return </span><span class="bool-val">true</span>;
+							}
+						}
+					}
+				)*
+				<span class="bool-val">false
+			</span>}
+		}
+
 		<span class="kw">impl </span>#scrate::traits::EnsureInherentsAreFirst&lt;#block&gt; <span class="kw">for </span>#runtime {
-			<span class="kw">fn </span>ensure_inherents_are_first(block: <span class="kw-2">&amp;</span>#block) -&gt; <span class="prelude-ty">Result</span>&lt;(), u32&gt; {
+			<span class="kw">fn </span>ensure_inherents_are_first(block: <span class="kw-2">&amp;</span>#block) -&gt; <span class="prelude-ty">Result</span>&lt;u32, u32&gt; {
 				<span class="kw">use </span>#scrate::inherent::ProvideInherent;
 				<span class="kw">use </span>#scrate::traits::{IsSubType, ExtrinsicCall};
 				<span class="kw">use </span>#scrate::sp_runtime::traits::Block <span class="kw">as _</span>;
 
-				<span class="kw">let </span><span class="kw-2">mut </span>first_signed_observed = <span class="bool-val">false</span>;
+				<span class="kw">let </span><span class="kw-2">mut </span>num_inherents = <span class="number">0u32</span>;
 
 				<span class="kw">for </span>(i, xt) <span class="kw">in </span>block.extrinsics().iter().enumerate() {
-					<span class="kw">let </span>is_signed = #scrate::sp_runtime::traits::Extrinsic::is_signed(xt)
-						.unwrap_or(<span class="bool-val">false</span>);
+					<span class="kw">if </span>&lt;<span class="self">Self </span><span class="kw">as </span>#scrate::traits::IsInherent&lt;<span class="kw">_</span>&gt;&gt;::is_inherent(xt) {
+						<span class="kw">if </span>num_inherents != i <span class="kw">as </span>u32 {
+							<span class="kw">return </span><span class="prelude-val">Err</span>(i <span class="kw">as </span>u32);
+						}
 
-					<span class="kw">let </span>is_inherent = <span class="kw">if </span>is_signed {
-						<span class="comment">// Signed extrinsics are not inherents.
-						</span><span class="bool-val">false
-					</span>} <span class="kw">else </span>{
-						<span class="kw">let </span><span class="kw-2">mut </span>is_inherent = <span class="bool-val">false</span>;
-						#(
-							#pallet_attrs
-							{
-								<span class="kw">let </span>call = &lt;#unchecked_extrinsic <span class="kw">as </span>ExtrinsicCall&gt;::call(xt);
-								<span class="kw">if let </span><span class="prelude-val">Some</span>(call) = IsSubType::&lt;<span class="kw">_</span>&gt;::is_sub_type(call) {
-									<span class="kw">if </span>#pallet_names::is_inherent(<span class="kw-2">&amp;</span>call) {
-										is_inherent = <span class="bool-val">true</span>;
-									}
-								}
-							}
-						)*
-						is_inherent
-					};
-
-					<span class="kw">if </span>!is_inherent {
-						first_signed_observed = <span class="bool-val">true</span>;
-					}
-
-					<span class="kw">if </span>first_signed_observed &amp;&amp; is_inherent {
-						<span class="kw">return </span><span class="prelude-val">Err</span>(i <span class="kw">as </span>u32)
-					}
+						num_inherents += <span class="number">1</span>; <span class="comment">// Safe since we are in an `enumerate` loop.
+					</span>}
 				}
 
-				<span class="prelude-val">Ok</span>(())
+				<span class="prelude-val">Ok</span>(num_inherents)
 			}
 		}
 	}

@@ -1668,7 +1668,7 @@ nav.side-bar {
 	create_runtime_str, impl_opaque_keys,
 	traits::{BlakeTwo256, Block <span class="kw">as </span>BlockT, DispatchInfoOf, NumberFor, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
-	ApplyExtrinsicResult, Perbill,
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
 </span><span class="kw">use </span>sp_version::NativeVersion;
@@ -2087,9 +2087,9 @@ nav.side-bar {
 			Executive::execute_block(block);
 		}
 
-		<span class="kw">fn </span>initialize_block(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) {
+		<span class="kw">fn </span>initialize_block(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) -&gt; ExtrinsicInclusionMode {
 			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;initialize_block: {header:#?}&quot;</span>);
-			Executive::initialize_block(header);
+			Executive::initialize_block(header)
 		}
 	}
 

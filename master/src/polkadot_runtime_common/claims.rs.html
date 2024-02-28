@@ -1814,31 +1814,6 @@ nav.side-bar {
 <a href="#1672" id="1672">1672</a>
 <a href="#1673" id="1673">1673</a>
 <a href="#1674" id="1674">1674</a>
-<a href="#1675" id="1675">1675</a>
-<a href="#1676" id="1676">1676</a>
-<a href="#1677" id="1677">1677</a>
-<a href="#1678" id="1678">1678</a>
-<a href="#1679" id="1679">1679</a>
-<a href="#1680" id="1680">1680</a>
-<a href="#1681" id="1681">1681</a>
-<a href="#1682" id="1682">1682</a>
-<a href="#1683" id="1683">1683</a>
-<a href="#1684" id="1684">1684</a>
-<a href="#1685" id="1685">1685</a>
-<a href="#1686" id="1686">1686</a>
-<a href="#1687" id="1687">1687</a>
-<a href="#1688" id="1688">1688</a>
-<a href="#1689" id="1689">1689</a>
-<a href="#1690" id="1690">1690</a>
-<a href="#1691" id="1691">1691</a>
-<a href="#1692" id="1692">1692</a>
-<a href="#1693" id="1693">1693</a>
-<a href="#1694" id="1694">1694</a>
-<a href="#1695" id="1695">1695</a>
-<a href="#1696" id="1696">1696</a>
-<a href="#1697" id="1697">1697</a>
-<a href="#1698" id="1698">1698</a>
-<a href="#1699" id="1699">1699</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2543,7 +2518,6 @@ nav.side-bar {
 	<span class="kw">use </span>secp_utils::<span class="kw-2">*</span>;
 
 	<span class="kw">use </span>parity_scale_codec::Encode;
-	<span class="kw">use </span>sp_core::H256;
 	<span class="comment">// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	</span><span class="kw">use </span><span class="kw">crate</span>::claims;
@@ -2556,11 +2530,8 @@ nav.side-bar {
 	};
 	<span class="kw">use </span>pallet_balances;
 	<span class="kw">use </span>sp_runtime::{
-		traits::{BlakeTwo256, Identity, IdentityLookup},
-		transaction_validity::TransactionLongevity,
-		BuildStorage,
-		DispatchError::BadOrigin,
-		TokenError,
+		traits::Identity, transaction_validity::TransactionLongevity, BuildStorage,
+		DispatchError::BadOrigin, TokenError,
 	};
 
 	<span class="kw">type </span>Block = frame_system::mocking::MockBlock&lt;Test&gt;;
@@ -2575,34 +2546,13 @@ nav.side-bar {
 		}
 	);
 
-	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub const </span>BlockHashCount: u32 = <span class="number">250</span>;
-	}
-
 	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
 	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
-		<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
-		<span class="kw">type </span>BlockWeights = ();
-		<span class="kw">type </span>BlockLength = ();
-		<span class="kw">type </span>DbWeight = ();
 		<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 		<span class="kw">type </span>RuntimeCall = RuntimeCall;
-		<span class="kw">type </span>Nonce = u64;
-		<span class="kw">type </span>Hash = H256;
-		<span class="kw">type </span>Hashing = BlakeTwo256;
-		<span class="kw">type </span>AccountId = u64;
-		<span class="kw">type </span>Lookup = IdentityLookup&lt;u64&gt;;
 		<span class="kw">type </span>Block = Block;
 		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>BlockHashCount = BlockHashCount;
-		<span class="kw">type </span>Version = ();
-		<span class="kw">type </span>PalletInfo = PalletInfo;
 		<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;u64&gt;;
-		<span class="kw">type </span>OnNewAccount = ();
-		<span class="kw">type </span>OnKilledAccount = ();
-		<span class="kw">type </span>SystemWeightInfo = ();
-		<span class="kw">type </span>SS58Prefix = ();
-		<span class="kw">type </span>OnSetCode = ();
 		<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">16</span>&gt;;
 	}
 

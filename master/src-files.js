@@ -182,6 +182,7 @@ var srcIndex = JSON.parse('{\
 "pallet_lottery":["",[],["lib.rs","weights.rs"]],\
 "pallet_membership":["",[["migrations",[],["mod.rs","v4.rs"]]],["lib.rs","weights.rs"]],\
 "pallet_message_queue":["",[],["lib.rs","mock_helpers.rs","weights.rs"]],\
+"pallet_migrations":["",[],["lib.rs","mock_helpers.rs","weights.rs"]],\
 "pallet_mixnet":["",[],["lib.rs"]],\
 "pallet_mmr":["",[["mmr",[],["mmr.rs","mod.rs","storage.rs"]]],["default_weights.rs","lib.rs"]],\
 "pallet_multisig":["",[],["lib.rs","migrations.rs","weights.rs"]],\

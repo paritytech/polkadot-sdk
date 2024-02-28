@@ -1624,6 +1624,17 @@ nav.side-bar {
 <a href="#1482" id="1482">1482</a>
 <a href="#1483" id="1483">1483</a>
 <a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1649,6 +1660,7 @@ nav.side-bar {
 <span class="kw">use </span>scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 <span class="kw">use </span>sp_arithmetic::traits::{CheckedAdd, CheckedMul, CheckedSub, One, Saturating};
 <span class="kw">use </span>sp_core::bounded::bounded_vec::TruncateFrom;
+
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16, ConstU32,
@@ -2521,11 +2533,21 @@ nav.side-bar {
 <span class="doccomment">/// A trait to ensure the inherent are before non-inherent in a block.
 ///
 /// This is typically implemented on runtime, through `construct_runtime!`.
-</span><span class="kw">pub trait </span>EnsureInherentsAreFirst&lt;Block&gt; {
+</span><span class="kw">pub trait </span>EnsureInherentsAreFirst&lt;Block: sp_runtime::traits::Block&gt;:
+	IsInherent&lt;&lt;Block <span class="kw">as </span>sp_runtime::traits::Block&gt;::Extrinsic&gt;
+{
 	<span class="doccomment">/// Ensure the position of inherent is correct, i.e. they are before non-inherents.
 	///
-	/// On error return the index of the inherent with invalid position (counting from 0).
-	</span><span class="kw">fn </span>ensure_inherents_are_first(block: <span class="kw-2">&amp;</span>Block) -&gt; <span class="prelude-ty">Result</span>&lt;(), u32&gt;;
+	/// On error return the index of the inherent with invalid position (counting from 0). On
+	/// success it returns the index of the last inherent. `0` therefore means that there are no
+	/// inherents.
+	</span><span class="kw">fn </span>ensure_inherents_are_first(block: <span class="kw-2">&amp;</span>Block) -&gt; <span class="prelude-ty">Result</span>&lt;u32, u32&gt;;
+}
+
+<span class="doccomment">/// A trait to check if an extrinsic is an inherent.
+</span><span class="kw">pub trait </span>IsInherent&lt;Extrinsic&gt; {
+	<span class="doccomment">/// Whether this extrinsic is an inherent.
+	</span><span class="kw">fn </span>is_inherent(ext: <span class="kw-2">&amp;</span>Extrinsic) -&gt; bool;
 }
 
 <span class="doccomment">/// An extrinsic on which we can get access to call.

@@ -718,6 +718,14 @@ nav.side-bar {
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 
@@ -760,6 +768,7 @@ nav.side-bar {
 }
 
 <span class="kw">pub fn </span>send_transfer_token_message&lt;Runtime, XcmConfig&gt;(
+	ethereum_chain_id: u64,
 	assethub_parachain_id: u32,
 	weth_contract_address: H160,
 	destination_address: H160,
@@ -809,7 +818,7 @@ nav.side-bar {
 		WithdrawAsset(Assets::from(<span class="macro">vec!</span>[fee.clone()])),
 		BuyExecution { fees: fee, weight_limit: Unlimited },
 		ExportMessage {
-			network: Ethereum { chain_id: <span class="number">11155111 </span>},
+			network: Ethereum { chain_id: ethereum_chain_id },
 			destination: Here,
 			xcm: inner_xcm,
 		},
@@ -827,6 +836,7 @@ nav.side-bar {
 }
 
 <span class="kw">pub fn </span>send_transfer_token_message_success&lt;Runtime, XcmConfig&gt;(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -869,6 +879,7 @@ nav.side-bar {
 			</span>initial_fund::&lt;Runtime&gt;(assethub_parachain_id, <span class="number">5_000_000_000_000</span>);
 
 			<span class="kw">let </span>outcome = send_transfer_token_message::&lt;Runtime, XcmConfig&gt;(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,
@@ -925,6 +936,7 @@ nav.side-bar {
 	XcmConfig,
 	AllPalletsWithoutSystem,
 &gt;(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -969,6 +981,7 @@ nav.side-bar {
 			</span>initial_fund::&lt;Runtime&gt;(assethub_parachain_id, <span class="number">5_000_000_000_000</span>);
 
 			<span class="kw">let </span>outcome = send_transfer_token_message::&lt;Runtime, XcmConfig&gt;(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,
@@ -1010,6 +1023,7 @@ nav.side-bar {
 }
 
 <span class="kw">pub fn </span>send_unpaid_transfer_token_message&lt;Runtime, XcmConfig&gt;(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -1073,7 +1087,7 @@ nav.side-bar {
 			</span><span class="kw">let </span>xcm = Xcm(<span class="macro">vec!</span>[
 				UnpaidExecution { weight_limit: Unlimited, check_origin: <span class="prelude-val">None </span>},
 				ExportMessage {
-					network: Ethereum { chain_id: <span class="number">11155111 </span>},
+					network: Ethereum { chain_id: ethereum_chain_id },
 					destination: Here,
 					xcm: inner_xcm,
 				},
@@ -1095,6 +1109,7 @@ nav.side-bar {
 
 <span class="attr">#[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub fn </span>send_transfer_token_message_failure&lt;Runtime, XcmConfig&gt;(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -1134,6 +1149,7 @@ nav.side-bar {
 			</span>initial_fund::&lt;Runtime&gt;(assethub_parachain_id, initial_amount);
 
 			<span class="kw">let </span>outcome = send_transfer_token_message::&lt;Runtime, XcmConfig&gt;(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,

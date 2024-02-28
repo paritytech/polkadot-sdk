@@ -443,6 +443,22 @@ nav.side-bar {
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -570,6 +586,22 @@ nav.side-bar {
 			res
 		},
 	}
+}
+
+<span class="doccomment">/// Same as [`with_transaction`] but casts any internal error to `()`.
+///
+/// This rids `E` of the `From&lt;DispatchError&gt;` bound that is required by `with_transaction`.
+</span><span class="kw">pub fn </span>with_transaction_opaque_err&lt;T, E, F&gt;(f: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;T, E&gt;, ()&gt;
+<span class="kw">where
+	</span>F: FnOnce() -&gt; TransactionOutcome&lt;<span class="prelude-ty">Result</span>&lt;T, E&gt;&gt;,
+{
+	with_transaction(<span class="kw">move </span>|| -&gt; TransactionOutcome&lt;<span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;T, E&gt;, DispatchError&gt;&gt; {
+		<span class="kw">match </span>f() {
+			TransactionOutcome::Commit(res) =&gt; TransactionOutcome::Commit(<span class="prelude-val">Ok</span>(res)),
+			TransactionOutcome::Rollback(res) =&gt; TransactionOutcome::Rollback(<span class="prelude-val">Ok</span>(res)),
+		}
+	})
+	.map_err(|<span class="kw">_</span>| ())
 }
 
 <span class="doccomment">/// Same as [`with_transaction`] but without a limit check on nested transactional layers.

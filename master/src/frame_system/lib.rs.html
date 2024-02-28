@@ -2325,6 +2325,76 @@ nav.side-bar {
 <a href="#2183" id="2183">2183</a>
 <a href="#2184" id="2184">2184</a>
 <a href="#2185" id="2185">2185</a>
+<a href="#2186" id="2186">2186</a>
+<a href="#2187" id="2187">2187</a>
+<a href="#2188" id="2188">2188</a>
+<a href="#2189" id="2189">2189</a>
+<a href="#2190" id="2190">2190</a>
+<a href="#2191" id="2191">2191</a>
+<a href="#2192" id="2192">2192</a>
+<a href="#2193" id="2193">2193</a>
+<a href="#2194" id="2194">2194</a>
+<a href="#2195" id="2195">2195</a>
+<a href="#2196" id="2196">2196</a>
+<a href="#2197" id="2197">2197</a>
+<a href="#2198" id="2198">2198</a>
+<a href="#2199" id="2199">2199</a>
+<a href="#2200" id="2200">2200</a>
+<a href="#2201" id="2201">2201</a>
+<a href="#2202" id="2202">2202</a>
+<a href="#2203" id="2203">2203</a>
+<a href="#2204" id="2204">2204</a>
+<a href="#2205" id="2205">2205</a>
+<a href="#2206" id="2206">2206</a>
+<a href="#2207" id="2207">2207</a>
+<a href="#2208" id="2208">2208</a>
+<a href="#2209" id="2209">2209</a>
+<a href="#2210" id="2210">2210</a>
+<a href="#2211" id="2211">2211</a>
+<a href="#2212" id="2212">2212</a>
+<a href="#2213" id="2213">2213</a>
+<a href="#2214" id="2214">2214</a>
+<a href="#2215" id="2215">2215</a>
+<a href="#2216" id="2216">2216</a>
+<a href="#2217" id="2217">2217</a>
+<a href="#2218" id="2218">2218</a>
+<a href="#2219" id="2219">2219</a>
+<a href="#2220" id="2220">2220</a>
+<a href="#2221" id="2221">2221</a>
+<a href="#2222" id="2222">2222</a>
+<a href="#2223" id="2223">2223</a>
+<a href="#2224" id="2224">2224</a>
+<a href="#2225" id="2225">2225</a>
+<a href="#2226" id="2226">2226</a>
+<a href="#2227" id="2227">2227</a>
+<a href="#2228" id="2228">2228</a>
+<a href="#2229" id="2229">2229</a>
+<a href="#2230" id="2230">2230</a>
+<a href="#2231" id="2231">2231</a>
+<a href="#2232" id="2232">2232</a>
+<a href="#2233" id="2233">2233</a>
+<a href="#2234" id="2234">2234</a>
+<a href="#2235" id="2235">2235</a>
+<a href="#2236" id="2236">2236</a>
+<a href="#2237" id="2237">2237</a>
+<a href="#2238" id="2238">2238</a>
+<a href="#2239" id="2239">2239</a>
+<a href="#2240" id="2240">2240</a>
+<a href="#2241" id="2241">2241</a>
+<a href="#2242" id="2242">2242</a>
+<a href="#2243" id="2243">2243</a>
+<a href="#2244" id="2244">2244</a>
+<a href="#2245" id="2245">2245</a>
+<a href="#2246" id="2246">2246</a>
+<a href="#2247" id="2247">2247</a>
+<a href="#2248" id="2248">2248</a>
+<a href="#2249" id="2249">2249</a>
+<a href="#2250" id="2250">2250</a>
+<a href="#2251" id="2251">2251</a>
+<a href="#2252" id="2252">2252</a>
+<a href="#2253" id="2253">2253</a>
+<a href="#2254" id="2254">2254</a>
+<a href="#2255" id="2255">2255</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2457,11 +2527,13 @@ nav.side-bar {
 		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	migrations::MultiStepMigrator,
 	pallet_prelude::Pays,
 	storage::{<span class="self">self</span>, StorageStreamIter},
 	traits::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
-		OnKilledAccount, OnNewAccount, OriginTrait, PalletInfo, SortedMembers, StoredMap, TypedGet,
+		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
+		StoredMap, TypedGet,
 	},
 	Parameter,
 };
@@ -2496,6 +2568,7 @@ nav.side-bar {
 <span class="comment">// Backward compatible re-export.
 </span><span class="kw">pub use </span>extensions::check_mortality::CheckMortality <span class="kw">as </span>CheckEra;
 <span class="kw">pub use </span>frame_support::dispatch::RawOrigin;
+<span class="kw">use </span>frame_support::traits::{PostInherents, PostTransactions, PreInherents};
 <span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::system&quot;</span>;
@@ -2626,6 +2699,11 @@ nav.side-bar {
 			<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
 			<span class="kw">type </span>BlockHashCount = frame_support::traits::ConstU64&lt;<span class="number">10</span>&gt;;
 			<span class="kw">type </span>OnSetCode = ();
+			<span class="kw">type </span>SingleBlockMigrations = ();
+			<span class="kw">type </span>MultiBlockMigrator = ();
+			<span class="kw">type </span>PreInherents = ();
+			<span class="kw">type </span>PostInherents = ();
+			<span class="kw">type </span>PostTransactions = ();
 		}
 
 		<span class="doccomment">/// Default configurations of this pallet in a solo-chain environment.
@@ -2720,6 +2798,11 @@ nav.side-bar {
 
 			<span class="doccomment">/// The set code logic, just the default since we&#39;re not a parachain.
 			</span><span class="kw">type </span>OnSetCode = ();
+			<span class="kw">type </span>SingleBlockMigrations = ();
+			<span class="kw">type </span>MultiBlockMigrator = ();
+			<span class="kw">type </span>PreInherents = ();
+			<span class="kw">type </span>PostInherents = ();
+			<span class="kw">type </span>PostTransactions = ();
 		}
 
 		<span class="doccomment">/// Default configurations of this pallet in a relay-chain environment.
@@ -2899,6 +2982,35 @@ nav.side-bar {
 
 		<span class="doccomment">/// The maximum number of consumers allowed on a single account.
 		</span><span class="kw">type </span>MaxConsumers: ConsumerLimits;
+
+		<span class="doccomment">/// All migrations that should run in the next runtime upgrade.
+		///
+		/// These used to be formerly configured in `Executive`. Parachains need to ensure that
+		/// running all these migrations in one block will not overflow the weight limit of a block.
+		/// The migrations are run *before* the pallet `on_runtime_upgrade` hooks, just like the
+		/// `OnRuntimeUpgrade` migrations.
+		</span><span class="kw">type </span>SingleBlockMigrations: OnRuntimeUpgrade;
+
+		<span class="doccomment">/// The migrator that is used to run Multi-Block-Migrations.
+		///
+		/// Can be set to [`pallet-migrations`] or an alternative implementation of the interface.
+		/// The diagram in `frame_executive::block_flowchart` explains when it runs.
+		</span><span class="kw">type </span>MultiBlockMigrator: MultiStepMigrator;
+
+		<span class="doccomment">/// A callback that executes in *every block* directly before all inherents were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		</span><span class="kw">type </span>PreInherents: PreInherents;
+
+		<span class="doccomment">/// A callback that executes in *every block* directly after all inherents were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		</span><span class="kw">type </span>PostInherents: PostInherents;
+
+		<span class="doccomment">/// A callback that executes in *every block* directly after all transactions were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		</span><span class="kw">type </span>PostTransactions: PostTransactions;
 	}
 
 	<span class="attr">#[pallet::pallet]
@@ -2946,6 +3058,9 @@ nav.side-bar {
 		}
 
 		<span class="doccomment">/// Set the new runtime code without doing any checks of the given `code`.
+		///
+		/// Note that runtime upgrades will not run if this is called with a not-increasing spec
+		/// version!
 		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
 		#[pallet::weight((T::SystemWeightInfo::set_code(), DispatchClass::Operational))]
 		</span><span class="kw">pub fn </span>set_code_without_checks(
@@ -3141,6 +3256,8 @@ nav.side-bar {
 		</span>NonZeroRefCount,
 		<span class="doccomment">/// The origin filter prevent the call to be dispatched.
 		</span>CallFiltered,
+		<span class="doccomment">/// A multi-block migration is ongoing and prevents the current code from being replaced.
+		</span>MultiBlockMigrationsOngoing,
 		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
 		</span><span class="doccomment">/// The specified [`Task`] is not valid.
 		</span>InvalidTask,
@@ -3171,6 +3288,10 @@ nav.side-bar {
 	<span class="doccomment">/// Total extrinsics count for the current block.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ExtrinsicCount&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32&gt;;
+
+	<span class="doccomment">/// Whether all inherents have been applied.
+	</span><span class="attr">#[pallet::storage]
+	</span><span class="kw">pub type </span>InherentsApplied&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, bool, ValueQuery&gt;;
 
 	<span class="doccomment">/// The current weight for the block.
 	</span><span class="attr">#[pallet::storage]
@@ -3700,6 +3821,19 @@ nav.side-bar {
 		<span class="self">Self</span>::deposit_event(Event::CodeUpdated);
 	}
 
+	<span class="doccomment">/// Whether all inherents have been applied.
+	</span><span class="kw">pub fn </span>inherents_applied() -&gt; bool {
+		InherentsApplied::&lt;T&gt;::get()
+	}
+
+	<span class="doccomment">/// Note that all inherents have been applied.
+	///
+	/// Should be called immediately after all inherents have been applied. Must be called at least
+	/// once per block.
+	</span><span class="kw">pub fn </span>note_inherents_applied() {
+		InherentsApplied::&lt;T&gt;::put(<span class="bool-val">true</span>);
+	}
+
 	<span class="doccomment">/// Increment the reference counter on an account.
 	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `inc_consumers` instead&quot;</span>]
 	</span><span class="kw">pub fn </span>inc_ref(who: <span class="kw-2">&amp;</span>T::AccountId) {
@@ -4019,6 +4153,7 @@ nav.side-bar {
 		&lt;Digest&lt;T&gt;&gt;::put(digest);
 		&lt;ParentHash&lt;T&gt;&gt;::put(parent_hash);
 		&lt;BlockHash&lt;T&gt;&gt;::insert(<span class="kw-2">*</span>number - One::one(), parent_hash);
+		&lt;InherentsApplied&lt;T&gt;&gt;::kill();
 
 		<span class="comment">// Remove previous block data from storage
 		</span>BlockWeight::&lt;T&gt;::kill();
@@ -4065,6 +4200,7 @@ nav.side-bar {
 		ExecutionPhase::&lt;T&gt;::kill();
 		AllExtrinsicsLen::&lt;T&gt;::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
+		InherentsApplied::&lt;T&gt;::kill();
 
 		<span class="comment">// The following fields
 		//
@@ -4308,10 +4444,14 @@ nav.side-bar {
 
 	<span class="doccomment">/// Determine whether or not it is possible to update the code.
 	///
-	/// Checks the given code if it is a valid runtime wasm blob by instantianting
+	/// Checks the given code if it is a valid runtime wasm blob by instantiating
 	/// it and extracting the runtime version of it. It checks that the runtime version
 	/// of the old and new runtime has the same spec name and that the spec version is increasing.
 	</span><span class="kw">pub fn </span>can_set_code(code: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::DispatchError&gt; {
+		<span class="kw">if </span>T::MultiBlockMigrator::ongoing() {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::MultiBlockMigrationsOngoing.into())
+		}
+
 		<span class="kw">let </span>current_version = T::Version::get();
 		<span class="kw">let </span>new_version = sp_io::misc::runtime_version(code)
 			.and_then(|v| RuntimeVersion::decode(<span class="kw-2">&amp;mut &amp;</span>v[..]).ok())

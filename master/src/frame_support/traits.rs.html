@@ -278,6 +278,7 @@ nav.side-bar {
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -339,10 +340,10 @@ nav.side-bar {
 	AccountTouch, Backing, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
 	ConstU16, ConstU32, ConstU64, ConstU8, DefensiveMax, DefensiveMin, DefensiveSaturating,
 	DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly, EstimateCallFee,
-	ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime, IsSubType, IsType,
-	Len, OffchainWorker, OnKilledAccount, OnNewAccount, PrivilegeCmp, SameOrOther, Time,
-	TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque,
-	WrapperOpaque,
+	ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime, IsInherent,
+	IsSubType, IsType, Len, OffchainWorker, OnKilledAccount, OnNewAccount, PrivilegeCmp,
+	SameOrOther, Time, TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf,
+	WrapperKeepOpaque, WrapperOpaque,
 };
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">pub use </span>misc::{PreimageProvider, PreimageRecipient};
@@ -366,7 +367,8 @@ nav.side-bar {
 </span><span class="kw">pub use </span>hooks::GenesisBuild;
 <span class="kw">pub use </span>hooks::{
 	BeforeAllRuntimeMigrations, BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis,
-	OnIdle, OnInitialize, OnRuntimeUpgrade, OnTimestampSet,
+	OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, OnTimestampSet, PostInherents,
+	PostTransactions, PreInherents,
 };
 
 <span class="kw">pub mod </span>schedule;

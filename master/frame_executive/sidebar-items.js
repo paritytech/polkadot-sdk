@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Executive"],"type":["CallOf","CheckedOf","OriginOf"]};
+window.SIDEBAR_ITEMS = {"mod":["block_flowchart"],"struct":["Executive"],"type":["CallOf","CheckedOf","OriginOf"]};

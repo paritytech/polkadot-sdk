@@ -3182,6 +3182,28 @@ nav.side-bar {
 <a href="#3040" id="3040">3040</a>
 <a href="#3041" id="3041">3041</a>
 <a href="#3042" id="3042">3042</a>
+<a href="#3043" id="3043">3043</a>
+<a href="#3044" id="3044">3044</a>
+<a href="#3045" id="3045">3045</a>
+<a href="#3046" id="3046">3046</a>
+<a href="#3047" id="3047">3047</a>
+<a href="#3048" id="3048">3048</a>
+<a href="#3049" id="3049">3049</a>
+<a href="#3050" id="3050">3050</a>
+<a href="#3051" id="3051">3051</a>
+<a href="#3052" id="3052">3052</a>
+<a href="#3053" id="3053">3053</a>
+<a href="#3054" id="3054">3054</a>
+<a href="#3055" id="3055">3055</a>
+<a href="#3056" id="3056">3056</a>
+<a href="#3057" id="3057">3057</a>
+<a href="#3058" id="3058">3058</a>
+<a href="#3059" id="3059">3059</a>
+<a href="#3060" id="3060">3060</a>
+<a href="#3061" id="3061">3061</a>
+<a href="#3062" id="3062">3062</a>
+<a href="#3063" id="3063">3063</a>
+<a href="#3064" id="3064">3064</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3494,6 +3516,7 @@ nav.side-bar {
 	<span class="kw">type </span>SystemWeightInfo = frame_system::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>SS58Prefix = ConstU16&lt;<span class="number">42</span>&gt;;
 	<span class="kw">type </span>MaxConsumers = ConstU32&lt;<span class="number">16</span>&gt;;
+	<span class="kw">type </span>MultiBlockMigrator = MultiBlockMigrations;
 }
 
 <span class="kw">impl </span>pallet_insecure_randomness_collective_flip::Config <span class="kw">for </span>Runtime {}
@@ -5192,6 +5215,25 @@ nav.side-bar {
 }
 
 <span class="macro">parameter_types! </span>{
+	<span class="kw">pub </span>MbmServiceWeight: Weight = Perbill::from_percent(<span class="number">80</span>) * RuntimeBlockWeights::get().max_block;
+}
+
+<span class="kw">impl </span>pallet_migrations::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="kw">type </span>Migrations = ();
+	<span class="comment">// Benchmarks need mocked migrations to guarantee that they succeed.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	<span class="kw">type </span>CursorMaxLen = ConstU32&lt;<span class="number">65_536</span>&gt;;
+	<span class="kw">type </span>IdentifierMaxLen = ConstU32&lt;<span class="number">256</span>&gt;;
+	<span class="kw">type </span>MigrationStatusHandler = ();
+	<span class="kw">type </span>FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	<span class="kw">type </span>MaxServiceWeight = MbmServiceWeight;
+	<span class="kw">type </span>WeightInfo = pallet_migrations::weights::SubstrateWeight&lt;Runtime&gt;;
+}
+
+<span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>BrokerPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/broke&quot;</span>);
 }
 
@@ -5425,6 +5467,7 @@ nav.side-bar {
 		TxPause: pallet_tx_pause,
 		SafeMode: pallet_safe_mode,
 		Statement: pallet_statement,
+		MultiBlockMigrations: pallet_migrations,
 		Broker: pallet_broker,
 		TasksExample: pallet_example_tasks,
 		Mixnet: pallet_mixnet,
@@ -5556,6 +5599,7 @@ nav.side-bar {
 		[pallet_lottery, Lottery]
 		[pallet_membership, TechnicalMembership]
 		[pallet_message_queue, MessageQueue]
+		[pallet_migrations, MultiBlockMigrations]
 		[pallet_mmr, Mmr]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::&lt;Runtime&gt;]
@@ -5601,7 +5645,7 @@ nav.side-bar {
 			Executive::execute_block(block);
 		}
 
-		<span class="kw">fn </span>initialize_block(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) {
+		<span class="kw">fn </span>initialize_block(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) -&gt; sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}

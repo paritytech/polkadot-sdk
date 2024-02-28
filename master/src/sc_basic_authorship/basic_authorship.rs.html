@@ -1292,6 +1292,7 @@ nav.side-bar {
 <a href="#1150" id="1150">1150</a>
 <a href="#1151" id="1151">1151</a>
 <a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1332,7 +1333,7 @@ nav.side-bar {
 <span class="kw">use </span>sp_inherents::InherentData;
 <span class="kw">use </span>sp_runtime::{
 	traits::{BlakeTwo256, Block <span class="kw">as </span>BlockT, Hash <span class="kw">as </span>HashT, Header <span class="kw">as </span>HeaderT},
-	Digest, Percent, SaturatedConversion,
+	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
 <span class="kw">use </span>std::{marker::PhantomData, pin::Pin, sync::Arc, time};
 
@@ -1629,11 +1630,12 @@ nav.side-bar {
 
 		<span class="self">self</span>.apply_inherents(<span class="kw-2">&amp;mut </span>block_builder, inherent_data)<span class="question-mark">?</span>;
 
-		<span class="comment">// TODO call `after_inherents` and check if we should apply extrinsincs here
-		// &lt;https://github.com/paritytech/substrate/pull/14275/&gt;
-
-		</span><span class="kw">let </span>end_reason =
-			<span class="self">self</span>.apply_extrinsics(<span class="kw-2">&amp;mut </span>block_builder, deadline, block_size_limit).<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>mode = block_builder.extrinsic_inclusion_mode();
+		<span class="kw">let </span>end_reason = <span class="kw">match </span>mode {
+			ExtrinsicInclusionMode::AllExtrinsics =&gt;
+				<span class="self">self</span>.apply_extrinsics(<span class="kw-2">&amp;mut </span>block_builder, deadline, block_size_limit).<span class="kw">await</span><span class="question-mark">?</span>,
+			ExtrinsicInclusionMode::OnlyInherents =&gt; EndProposingReason::TransactionForbidden,
+		};
 		<span class="kw">let </span>(block, storage_changes, proof) = block_builder.build()<span class="question-mark">?</span>.into_inner();
 		<span class="kw">let </span>block_took = block_timer.elapsed();
 
