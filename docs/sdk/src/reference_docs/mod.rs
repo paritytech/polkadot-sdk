@@ -92,9 +92,8 @@ pub mod cli;
 // TODO: @JoshOrndorff @kianenigma https://github.com/paritytech/polkadot-sdk-docs/issues/54
 pub mod consensus_swapping;
 
-/// Learn about all the advance ways to test your coordinate a rutnime upgrade and data migration.
-// TODO: @liamaharon https://github.com/paritytech/polkadot-sdk-docs/issues/55
-pub mod frame_runtime_migration;
+/// Learn about Runtime Upgrades and best practices for writing Migrations.
+pub mod frame_runtime_upgrades_and_migrations;
 
 /// Learn about light nodes, how they function, and how Substrate-based chains come
 /// light-node-first out of the box.

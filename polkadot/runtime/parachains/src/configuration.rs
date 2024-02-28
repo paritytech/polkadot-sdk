@@ -505,7 +505,7 @@ impl WeightInfo for TestWeightInfo {
 pub mod pallet {
 	use super::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	///
 	/// v0-v1:  <https://github.com/paritytech/polkadot/pull/3575>
 	/// v1-v2:  <https://github.com/paritytech/polkadot/pull/4420>
