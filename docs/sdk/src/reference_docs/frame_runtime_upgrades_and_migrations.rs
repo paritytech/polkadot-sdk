@@ -106,7 +106,7 @@
 //! ### Note on the Manipulability of PoV Size and Execution Time
 //!
 //! While [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) can help ensure with
-//! very high certianty that a migration will succeed given **existing** on-chain state, it cannot
+//! very high certainty that a migration will succeed given **existing** on-chain state, it cannot
 //! prevent a malicious actor from manipulating state in a way that will cause the migration to take
 //! longer or produce a PoV much larger than previously measured.
 //!
