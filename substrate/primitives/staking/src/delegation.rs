@@ -15,9 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::StakingInterface;
 use codec::{FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_runtime::Saturating;
+use sp_runtime::{DispatchResult, Saturating};
 use sp_std::ops::Sub;
 
 /// A trait that can be used as a plugin to support delegation based accounts, called `Delegatee`.
@@ -61,4 +62,50 @@ pub trait DelegateeSupport {
 	/// Slashing a delegatee account is not immediate since the balance is made up of multiple child
 	/// delegators. This function should bookkeep the slash to be applied later.
 	fn report_slash(who: &Self::AccountId, slash: Self::Balance);
+}
+
+pub trait DelegatedStakeInterface: StakingInterface {
+	/// Returns true if who is a `delegatee` account.
+	fn is_delegatee(who: &Self::AccountId) -> bool;
+
+	/// Effective balance of the delegatee account.
+	fn delegatee_balance(who: &Self::AccountId) -> Self::Balance;
+
+	/// Delegate funds to `Delegatee`.
+	fn delegate(
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		reward_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Add more delegation to the `delegatee`.
+	fn delegate_extra(
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Withdraw or revoke delegation to `delegatee`.
+	fn withdraw_delegation(
+		who: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Returns true if there are pending slashes posted to the `delegatee` account.
+	fn has_pending_slash(delegatee: &Self::AccountId) -> bool;
+
+	/// Apply a pending slash to a `delegatee` by slashing `value` from `delegator`.
+	///
+	/// If a reporter is provided, the reporter will receive a fraction of the slash as reward.
+	fn delegator_slash(
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		maybe_reporter: Option<Self::AccountId>,
+	) -> sp_runtime::DispatchResult;
+
+	/// Returns the total amount of funds delegated by a `delegator`.
+	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance;
 }

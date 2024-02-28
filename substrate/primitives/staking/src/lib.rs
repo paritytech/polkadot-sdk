@@ -309,53 +309,6 @@ pub trait StakingInterface {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_current_era(era: EraIndex);
-
-	// FIXME(ank4n): Break down this trait maybe? It is too bloated currently.
-
-	/// Returns true if who is a `delegatee` account.
-	fn is_delegatee(who: &Self::AccountId) -> bool;
-
-	/// Effective balance of the delegatee account.
-	fn delegatee_balance(who: &Self::AccountId) -> Self::Balance;
-
-	/// Delegate funds to `Delegatee`.
-	fn delegate(
-		delegator: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		reward_account: &Self::AccountId,
-		amount: Self::Balance,
-	) -> DispatchResult;
-
-	/// Add more delegation to the `delegatee`.
-	fn delegate_extra(
-		delegator: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		amount: Self::Balance,
-	) -> DispatchResult;
-
-	/// Withdraw or revoke delegation to `delegatee`.
-	fn withdraw_delegation(
-		who: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		amount: Self::Balance,
-	) -> DispatchResult;
-
-	/// Returns true if there are pending slashes posted to the `delegatee` account.
-	fn has_pending_slash(delegatee: &Self::AccountId) -> bool;
-
-	/// Apply a pending slash to a `delegatee` by slashing `value` from `delegator`.
-	///
-	/// If a reporter is provided, the reporter will receive a fraction of the slash as reward.
-	fn delegator_slash(
-		delegatee: &Self::AccountId,
-		delegator: &Self::AccountId,
-		value: Self::Balance,
-		maybe_reporter: Option<Self::AccountId>,
-	) -> sp_runtime::DispatchResult;
-
-
-	/// Returns the total amount of funds delegated by a `delegator`.
-	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance;
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).

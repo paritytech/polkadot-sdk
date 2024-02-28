@@ -19,6 +19,7 @@
 //! Implementations of public traits, namely [StakingInterface], and [DelegateeSupport].
 
 use super::*;
+use sp_staking::delegation::DelegatedStakeInterface;
 
 /// StakingInterface implementation with delegation support.
 ///
@@ -193,7 +194,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	fn set_current_era(era: EraIndex) {
 		T::CoreStaking::set_current_era(era)
 	}
+}
 
+impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 	fn is_delegatee(who: &Self::AccountId) -> bool {
 		Self::is_delegatee(who)
 	}

@@ -170,9 +170,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
-use sp_staking::{
-	delegation::DelegateeSupport, EraIndex, Stake, StakerStatus, StakingInterface,
-};
+use sp_staking::{delegation::DelegateeSupport, EraIndex, Stake, StakerStatus, StakingInterface};
 use sp_std::{convert::TryInto, prelude::*};
 
 pub type BalanceOf<T> =
@@ -279,8 +277,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Register an account to be a `Delegatee`.
 		///
-		/// `Delegatee` accounts accepts delegations from other `delegator`s and stake funds on their
-		/// behalf.
+		/// `Delegatee` accounts accepts delegations from other `delegator`s and stake funds on
+		/// their behalf.
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::default())]
 		pub fn register_as_delegatee(
@@ -694,7 +692,8 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// update delegations
-		Delegation::<T>::from(&source_delegation.delegatee, amount).save_or_kill(destination_delegator);
+		Delegation::<T>::from(&source_delegation.delegatee, amount)
+			.save_or_kill(destination_delegator);
 
 		source_delegation
 			.decrease_delegation(amount)

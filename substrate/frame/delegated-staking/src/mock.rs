@@ -175,13 +175,12 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = sp_runtime::FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type Staking = DelegatedStaking;
 	type PostUnbondingPoolsWindow = ConstU32<2>;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
-	type StakeAdapter = pallet_nomination_pools::adapter::DelegationStake<Self>;
+	type StakeAdapter = pallet_nomination_pools::adapter::DelegateStake<Self, DelegatedStaking>;
 }
 
 frame_support::construct_runtime!(
