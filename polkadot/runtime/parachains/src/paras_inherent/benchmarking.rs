@@ -120,7 +120,7 @@ benchmarks! {
 		// with `v` validity votes.
 		// let votes = v as usize;
 		let votes = min(scheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).unwrap().len(), v as usize);
-		assert_eq!(benchmark.backed_candidates.get(0).unwrap().validity_votes.len(), votes);
+		assert_eq!(benchmark.backed_candidates.get(0).unwrap().validity_votes().len(), votes);
 
 		benchmark.bitfields.clear();
 		benchmark.disputes.clear();
@@ -177,7 +177,7 @@ benchmarks! {
 		// There is 1 backed
 		assert_eq!(benchmark.backed_candidates.len(), 1);
 		assert_eq!(
-			benchmark.backed_candidates.get(0).unwrap().validity_votes.len(),
+			benchmark.backed_candidates.get(0).unwrap().validity_votes().len(),
 			votes,
 		);
 

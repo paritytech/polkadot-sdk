@@ -433,6 +433,11 @@ pub mod pallet {
 			Self::do_try_state()?;
 			Ok(())
 		}
+
+		#[cfg(any(feature = "std", test))]
+		fn integrity_test() {
+			T::Tracks::check_integrity().expect("Static tracks configuration is valid.");
+		}
 	}
 
 	#[pallet::call]

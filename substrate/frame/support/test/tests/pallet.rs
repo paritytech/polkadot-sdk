@@ -28,6 +28,7 @@ use frame_support::{
 		UnfilteredDispatchable,
 	},
 	weights::{RuntimeDbWeight, Weight},
+	OrdNoBound, PartialOrdNoBound,
 };
 use scale_info::{meta_type, TypeInfo};
 use sp_io::{
@@ -467,6 +468,8 @@ pub mod pallet {
 		RuntimeDebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
+		PartialOrdNoBound,
+		OrdNoBound,
 		Encode,
 		Decode,
 		TypeInfo,

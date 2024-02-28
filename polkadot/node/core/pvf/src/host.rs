@@ -24,7 +24,7 @@ use crate::{
 	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
-	prepare, security, Priority, SecurityStatus, ValidationError, LOG_TARGET,
+	prepare, Priority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 use always_assert::never;
 use futures::{
@@ -59,6 +59,9 @@ pub const PREPARE_BINARY_NAME: &str = "polkadot-prepare-worker";
 
 /// The name of binary spawned to execute a PVF
 pub const EXECUTE_BINARY_NAME: &str = "polkadot-execute-worker";
+
+/// The size of incoming message queue
+pub const HOST_MESSAGE_QUEUE_SIZE: usize = 10;
 
 /// An alias to not spell the type for the oneshot sender for the PVF execution result.
 pub(crate) type ResultSender = oneshot::Sender<Result<ValidationResult, ValidationError>>;
@@ -222,12 +225,34 @@ pub async fn start(
 
 	// Run checks for supported security features once per host startup. If some checks fail, warn
 	// if Secure Validator Mode is disabled and return an error otherwise.
-	let security_status = match security::check_security_status(&config).await {
+	#[cfg(target_os = "linux")]
+	let security_status = match crate::security::check_security_status(&config).await {
 		Ok(ok) => ok,
 		Err(err) => return Err(SubsystemError::Context(err)),
 	};
+	#[cfg(not(target_os = "linux"))]
+	let security_status = if config.secure_validator_mode {
+		gum::error!(
+			target: LOG_TARGET,
+			"{}{}{}",
+			crate::SECURE_MODE_ERROR,
+			crate::SECURE_LINUX_NOTE,
+			crate::IGNORE_SECURE_MODE_TIP
+		);
+		return Err(SubsystemError::Context(
+			"could not enable Secure Validator Mode for non-Linux; check logs".into(),
+		));
+	} else {
+		gum::warn!(
+			target: LOG_TARGET,
+			"{}{}",
+			crate::SECURE_MODE_WARNING,
+			crate::SECURE_LINUX_NOTE,
+		);
+		SecurityStatus::default()
+	};
 
-	let (to_host_tx, to_host_rx) = mpsc::channel(10);
+	let (to_host_tx, to_host_rx) = mpsc::channel(HOST_MESSAGE_QUEUE_SIZE);
 
 	let validation_host = ValidationHost { to_host_tx, security_status: security_status.clone() };
 
@@ -486,7 +511,8 @@ async fn handle_precheck_pvf(
 ///
 /// If the prepare job failed previously, we may retry it under certain conditions.
 ///
-/// When preparing for execution, we use a more lenient timeout ([`LENIENT_PREPARATION_TIMEOUT`])
+/// When preparing for execution, we use a more lenient timeout
+/// ([`DEFAULT_LENIENT_PREPARATION_TIMEOUT`](polkadot_primitives::executor_params::DEFAULT_LENIENT_PREPARATION_TIMEOUT))
 /// than when prechecking.
 async fn handle_execute_pvf(
 	artifacts: &mut Artifacts,
@@ -905,7 +931,7 @@ pub(crate) mod tests {
 			let _ = pulse.next().await.unwrap();
 
 			let el = start.elapsed().as_millis();
-			assert!(el > 50 && el < 150, "{}", el);
+			assert!(el > 50 && el < 150, "pulse duration: {}", el);
 		}
 	}
 

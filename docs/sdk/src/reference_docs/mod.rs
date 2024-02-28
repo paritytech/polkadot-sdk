@@ -43,16 +43,16 @@ pub mod extrinsic_encoding;
 // TODO: @jsdw https://github.com/paritytech/polkadot-sdk-docs/issues/42
 pub mod signed_extensions;
 
-/// Learn about *"Origin"* A topic in FRAME that enables complex account abstractions to be built.
-// TODO: @shawntabrizi https://github.com/paritytech/polkadot-sdk-docs/issues/43
+/// Learn about *Origins*, a topic in FRAME that enables complex account abstractions to be built.
 pub mod frame_origin;
 
 /// Learn about how to write safe and defensive code in your FRAME runtime.
 // TODO: @CrackTheCode016 https://github.com/paritytech/polkadot-sdk-docs/issues/44
 pub mod safe_defensive_programming;
 
-/// Learn about composite enums in FRAME-based runtimes, such as "RuntimeEvent" and "RuntimeCall".
-pub mod frame_composite_enums;
+/// Learn about composite enums and other runtime level types, such as "RuntimeEvent" and
+/// "RuntimeCall".
+pub mod frame_runtime_types;
 
 /// Learn about how to make a pallet/runtime that is fee-less and instead uses another mechanism to
 /// control usage and sybil attacks.

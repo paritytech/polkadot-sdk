@@ -64,7 +64,7 @@ pub mod v1 {
 		}
 	}
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let in_code_version = Pallet::<T>::in_code_storage_version();

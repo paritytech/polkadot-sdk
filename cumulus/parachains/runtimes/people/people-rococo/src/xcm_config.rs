@@ -27,24 +27,23 @@ use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
-		AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
+		RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, DescribeTerminus, EnsureXcmOrigin, HashedDescription, IsConcrete,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	DenyThenTry, DescribeTerminus, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
+	HashedDescription, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -97,8 +96,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting the native currency on this chain.
-#[allow(deprecated)]
-pub type CurrencyTransactor = CurrencyAdapter<
+pub type FungibleTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
@@ -150,13 +148,6 @@ impl Contains<Location> for ParentOrParentsPlurality {
 	}
 }
 
-pub struct ParentOrSiblings;
-impl Contains<Location> for ParentOrSiblings {
-	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, []) | (1, [Parachain(_)]))
-	}
-}
-
 /// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
 /// account for proof size weights.
 ///
@@ -176,13 +167,17 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 
 		matches!(
 			call,
-			RuntimeCall::PolkadotXcm(pallet_xcm::Call::force_xcm_version { .. }) |
-				RuntimeCall::System(
-					frame_system::Call::set_heap_pages { .. } |
-						frame_system::Call::set_code { .. } |
-						frame_system::Call::set_code_without_checks { .. } |
-						frame_system::Call::kill_prefix { .. },
-				) | RuntimeCall::ParachainSystem(..) |
+			RuntimeCall::PolkadotXcm(
+				pallet_xcm::Call::force_xcm_version { .. } |
+					pallet_xcm::Call::force_default_xcm_version { .. }
+			) | RuntimeCall::System(
+				frame_system::Call::set_heap_pages { .. } |
+					frame_system::Call::set_code { .. } |
+					frame_system::Call::set_code_without_checks { .. } |
+					frame_system::Call::authorize_upgrade { .. } |
+					frame_system::Call::authorize_upgrade_without_checks { .. } |
+					frame_system::Call::kill_prefix { .. },
+			) | RuntimeCall::ParachainSystem(..) |
 				RuntimeCall::Timestamp(..) |
 				RuntimeCall::Balances(..) |
 				RuntimeCall::CollatorSelection(
@@ -218,7 +213,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					// Parent and its pluralities (i.e. governance bodies) get free execution.
 					AllowExplicitUnpaidExecutionFrom<ParentOrParentsPlurality>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 				),
 				UniversalLocation,
 				ConstU32<8>,
@@ -240,7 +235,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
-	type AssetTransactor = CurrencyTransactor;
+	type AssetTransactor = FungibleTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	// People chain does not recognize a reserve location for any asset. Users must teleport ROC
 	// where allowed (e.g. with the Relay Chain).
@@ -273,6 +268,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 /// Converts a local signed origin into an XCM location. Forms the basis for local origins

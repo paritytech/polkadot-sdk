@@ -40,7 +40,6 @@
 //! If there are not, or if no prime is set, then the motion is dropped without being executed.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "128"]
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;

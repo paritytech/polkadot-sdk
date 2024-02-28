@@ -32,3 +32,4 @@ pub mod archive;
 pub mod error;
 
 pub use api::ArchiveApiServer;
+pub use archive::{Archive, ArchiveConfig};
