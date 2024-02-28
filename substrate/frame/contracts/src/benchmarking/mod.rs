@@ -297,7 +297,7 @@ benchmarks! {
 	#[pov_mode = Measured]
 	migration_noop {
 		let version = LATEST_MIGRATION_VERSION;
-		assert_eq!(StorageVersion::get::<Pallet<T>>(), version);
+		StorageVersion::new(version).put::<Pallet<T>>();
 	}:  {
 		Migration::<T>::migrate(Weight::MAX)
 	} verify {
@@ -321,7 +321,7 @@ benchmarks! {
 	#[pov_mode = Measured]
 	on_runtime_upgrade_noop {
 		let latest_version = LATEST_MIGRATION_VERSION;
-		assert_eq!(StorageVersion::get::<Pallet<T>>(), latest_version);
+		StorageVersion::new(latest_version).put::<Pallet<T>>();
 	}:  {
 		<Migration::<T, false> as frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade()
 	} verify {

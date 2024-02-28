@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::{writer, PalletCmd};
+use crate::pallet::{types::FetchedCode, GenesisBuilder};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
@@ -23,7 +24,7 @@ use frame_benchmarking::{
 };
 use frame_support::traits::StorageInfo;
 use linked_hash_map::LinkedHashMap;
-use sc_cli::{execution_method_from_cli, CliConfiguration, Result, SharedParams};
+use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_service::Configuration;
@@ -33,13 +34,13 @@ use sp_core::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
-	traits::{CallContext, ReadRuntimeVersionExt},
+	traits::{CallContext, ReadRuntimeVersionExt, WrappedRuntimeCode},
 };
 use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
-use sp_state_machine::StateMachine;
-use std::{collections::HashMap, fmt::Debug, fs, str::FromStr, time};
+use sp_state_machine::{OverlayedChanges, StateMachine};
+use std::{borrow::Cow, collections::HashMap, fmt::Debug, fs, str::FromStr, time};
 
 /// Logging target
 const LOG_TARGET: &'static str = "frame::benchmark::pallet";
@@ -139,6 +140,11 @@ This could mean that you either did not build the node correctly with the \
 `--features runtime-benchmarks` flag, or the chain spec that you are using was \
 not created by a node that was compiled with the flag";
 
+/// Warn when using the chain spec to generate the genesis state.
+const WARN_SPEC_GENESIS_CTOR: &'static str = "Using the chain spec instead of the runtime to generate the genesis state is deprecated.
+Please remove the `--chain`/`--dev`/`--local` argument, point `--runtime` to your runtime blob and set `--genesis-builder=runtime`.
+This warning may become a hard error after December 2024.";
+
 impl PalletCmd {
 	/// Runs the command and benchmarks a pallet.
 	pub fn run<Hasher, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
@@ -146,10 +152,21 @@ impl PalletCmd {
 		Hasher: Hash,
 		ExtraHostFunctions: sp_wasm_interface::HostFunctions,
 	{
+		self.run_with_spec::<Hasher, ExtraHostFunctions>(Some(config.chain_spec))
+	}
+
+	pub fn run_with_spec<Hasher, ExtraHostFunctions>(
+		&self,
+		chain_spec: Option<Box<dyn ChainSpec>>,
+	) -> Result<()>
+	where
+		Hasher: Hash,
+		ExtraHostFunctions: sp_wasm_interface::HostFunctions,
+	{
 		let _d = self.execution.as_ref().map(|exec| {
-			// We print the warning at the end, since there is often A LOT of output.
+			// We print the error at the end, since there is often A LOT of output.
 			sp_core::defer::DeferGuard::new(move || {
-				log::warn!(
+				log::error!(
 					target: LOG_TARGET,
 					"⚠️  Argument `--execution` is deprecated. Its value of `{exec}` has on effect.",
 				)
@@ -188,15 +205,15 @@ impl PalletCmd {
 			return self.output_from_results(&batches)
 		}
 
-		let spec = config.chain_spec;
 		let pallet = self.pallet.clone().unwrap_or_default();
 		let pallet = pallet.as_bytes();
 		let extrinsic = self.extrinsic.clone().unwrap_or_default();
 		let extrinsic_split: Vec<&str> = extrinsic.split(',').collect();
 		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
 
-		let genesis_storage = spec.build_storage()?;
-		let mut changes = Default::default();
+		let (genesis_storage, genesis_changes) = self.genesis_storage::<Hasher>(&chain_spec)?;
+		let mut changes = genesis_changes.clone();
+
 		let cache_size = Some(self.database_cache_size as usize);
 		let state_with_tracking = BenchmarkingState::<Hasher>::new(
 			genesis_storage.clone(),
@@ -218,11 +235,11 @@ impl PalletCmd {
 		let method =
 			execution_method_from_cli(self.wasm_method, self.wasmtime_instantiation_strategy);
 
-		let heap_pages =
-			self.heap_pages
-				.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static {
-					extra_pages: p as _,
-				});
+		// Get Benchmark List
+		let state = &state_without_tracking;
+		let runtime = self.runtime_blob(&state_without_tracking)?;
+		let runtime_code = runtime.code()?;
+		let alloc_strategy = Self::alloc_strategy(runtime_code.heap_pages);
 
 		let executor = WasmExecutor::<(
 			sp_io::SubstrateHostFunctions,
@@ -230,8 +247,8 @@ impl PalletCmd {
 			ExtraHostFunctions,
 		)>::builder()
 		.with_execution_method(method)
-		.with_onchain_heap_alloc_strategy(heap_pages)
-		.with_offchain_heap_alloc_strategy(heap_pages)
+		.with_onchain_heap_alloc_strategy(alloc_strategy)
+		.with_offchain_heap_alloc_strategy(alloc_strategy)
 		.with_max_runtime_instances(2)
 		.with_runtime_cache_size(2)
 		.build();
@@ -249,8 +266,6 @@ impl PalletCmd {
 			extensions
 		};
 
-		// Get Benchmark List
-		let state = &state_without_tracking;
 		let result = StateMachine::new(
 			state,
 			&mut changes,
@@ -258,7 +273,7 @@ impl PalletCmd {
 			"Benchmark_benchmark_metadata",
 			&(self.extra).encode(),
 			&mut extensions(),
-			&sp_state_machine::backend::BackendRuntimeCode::new(state).runtime_code()?,
+			&runtime_code,
 			CallContext::Offchain,
 		)
 		.execute()
@@ -323,6 +338,7 @@ impl PalletCmd {
 		let mut component_ranges = HashMap::<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>::new();
 		let pov_modes = Self::parse_pov_modes(&benchmarks_to_run)?;
 
+		//use rayon::prelude::IntoParallelIterator;
 		for (pallet, extrinsic, components, _) in benchmarks_to_run.clone() {
 			log::info!(
 				target: LOG_TARGET,
@@ -394,8 +410,7 @@ impl PalletCmd {
 						)
 							.encode(),
 						&mut extensions(),
-						&sp_state_machine::backend::BackendRuntimeCode::new(state)
-							.runtime_code()?,
+						&runtime_code,
 						CallContext::Offchain,
 					)
 					.execute()
@@ -434,8 +449,7 @@ impl PalletCmd {
 						)
 							.encode(),
 						&mut extensions(),
-						&sp_state_machine::backend::BackendRuntimeCode::new(state)
-							.runtime_code()?,
+						&runtime_code,
 						CallContext::Offchain,
 					)
 					.execute()
@@ -466,8 +480,7 @@ impl PalletCmd {
 						)
 							.encode(),
 						&mut extensions(),
-						&sp_state_machine::backend::BackendRuntimeCode::new(state)
-							.runtime_code()?,
+						&runtime_code,
 						CallContext::Offchain,
 					)
 					.execute()
@@ -488,7 +501,7 @@ impl PalletCmd {
 
 							log::info!(
 								target: LOG_TARGET,
-								"Running  benchmark: {}.{}({} args) {}/{} {}/{}",
+								"Running  benchmark: {}::{}({} args) {}/{} {}/{}",
 								String::from_utf8(pallet.clone())
 									.expect("Encoded from String; qed"),
 								String::from_utf8(extrinsic.clone())
@@ -509,6 +522,126 @@ impl PalletCmd {
 		// are together.
 		let batches = combine_batches(batches, batches_db);
 		self.output(&batches, &storage_info, &component_ranges, pov_modes)
+	}
+
+	/// Produce a genesis storage and genesis changes.
+	///
+	/// It would be easier to only return only type, but there is no easy way to convert them.
+	// TODO: Re-write `BenchmarkingState` to not be such a clusterfuck and only accept
+	// `OverlayedChanges` instead of a mix between `OverlayedChanges` and `State`. But this can only
+	// be done once we deprecated and removed the legacy interface.
+	fn genesis_storage<H: Hash>(
+		&self,
+		chain_spec: &Option<Box<dyn ChainSpec>>,
+	) -> Result<(sp_storage::Storage, OverlayedChanges<H>)> {
+		Ok(match (self.genesis_builder, self.runtime.is_some()) {
+			(Some(GenesisBuilder::None), _) => Default::default(),
+			(Some(GenesisBuilder::Spec), _) | (None, false) => {
+				log::warn!("{WARN_SPEC_GENESIS_CTOR}");
+				let Some(chain_spec) = chain_spec else {
+					return Err(
+						"No chain spec specified although to generate the genesis state".into()
+					);
+				};
+
+				(chain_spec.build_storage()?, Default::default())
+			},
+			(Some(GenesisBuilder::Runtime), _) | (None, true) =>
+				(Default::default(), self.genesis_from_runtime::<H>()?),
+		})
+	}
+
+	/// Generate the genesis changeset with the runtime API.
+	fn genesis_from_runtime<H: Hash>(&self) -> Result<OverlayedChanges<H>> {
+		let state = BenchmarkingState::<H>::new(
+			Default::default(),
+			Some(self.database_cache_size as usize),
+			false,
+			false,
+		)?;
+
+		// Create a dummy WasmExecutor just to build the genesis storage.
+		let executor = WasmExecutor::<(
+			sp_io::SubstrateHostFunctions,
+			frame_benchmarking::benchmarking::HostFunctions,
+			(),
+		)>::builder()
+		// TODO add extra host functions
+		.with_allow_missing_host_functions(true)
+		.build();
+
+		let runtime = self.runtime_blob(&state)?;
+		let runtime_code = runtime.code()?;
+
+		// TODO register extensions
+		let genesis_json: Vec<u8> = StateMachine::new(
+			&state,
+			&mut Default::default(),
+			&executor,
+			"GenesisBuilder_create_default_config",
+			&[], // no args for this call
+			&mut Extensions::default(),
+			&runtime_code,
+			CallContext::Offchain,
+		)
+		.execute()
+		.map_err(|e| format!("Could not call GenesisBuilder Runtime API: {}", e))?;
+		let genesis_json: Vec<u8> = codec::Decode::decode(&mut &genesis_json[..])
+			.map_err(|e| format!("Failed to decode genesis config: {:?}", e))?;
+		// Sanity check that it is JSON before we plug it into the next runtime call.
+		assert!(serde_json::from_slice::<serde_json::Value>(&genesis_json).is_ok());
+
+		let mut changes = Default::default();
+		let genesis_state: Vec<u8> = StateMachine::new(
+			&state,
+			&mut changes,
+			&executor,
+			"GenesisBuilder_build_config",
+			&genesis_json.encode(),
+			&mut Extensions::default(),
+			&runtime_code,
+			CallContext::Offchain,
+		)
+		.execute()
+		.map_err(|e| format!("Could not call GenesisBuilder Runtime API: {}", e))?;
+
+		let _: () = codec::Decode::decode(&mut &genesis_state[..])
+			.map_err(|e| format!("Failed to decode (): {:?}", e))?;
+
+		Ok(changes)
+	}
+
+	/// The runtime blob for this benchmark.
+	///
+	/// The runtime will either be loaded from the `:code` key or can be overwritten with the
+	/// `--runtime` arg.
+	fn runtime_blob<'a, H: Hash>(
+		&self,
+		state: &'a BenchmarkingState<H>,
+	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
+		match (&self.runtime, &self.shared_params.chain) {
+			(Some(runtime), None) => {
+				log::info!("Loading WASM from file: {}", runtime.display());
+				let code = fs::read(runtime)?;
+				let hash = sp_core::blake2_256(&code).to_vec();
+				let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
+
+				Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })
+			},
+			(None, Some(_)) => {
+				log::info!("Loading WASM from genesis state");
+				let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
+
+				Ok(FetchedCode::FromGenesis { state })
+			},
+			_ => Err("Exactly one of `--runtime` or `--chain` must be provided".into()),
+		}
+	}
+
+	fn alloc_strategy(heap_pages: Option<u64>) -> HeapAllocStrategy {
+		heap_pages.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static {
+			extra_pages: p as _,
+		})
 	}
 
 	fn output(

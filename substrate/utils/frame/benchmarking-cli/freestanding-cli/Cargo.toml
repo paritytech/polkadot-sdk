@@ -1,0 +1,17 @@
+[package]
+name = "frame-benchmarking-freestanding-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sp-runtime = { path = "../../../../primitives/runtime" }
+clap = { version = "4.5.1", features = ["derive"] }
+frame-benchmarking-cli = { path = "../" }
+sc-cli = { path = "../../../../client/cli" }
+
+# optional host functions
+sp-statement-store = { path = "../../../../primitives/statement-store", optional = true }
+
+[features]
+default = [ "extended-host-functions" ]
+extended-host-functions = [ "dep:sp-statement-store" ]
