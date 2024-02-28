@@ -164,7 +164,7 @@ mod v9 {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			let old_claim_permission_count: u64 = Decode::decode(&mut &data[..]).unwrap();
-			let new_claim_permission_count: u64 = ClaimPermissions::<T>::iter_keys().count();
+			let new_claim_permission_count = ClaimPermissions::<T>::iter_keys().count() as u64;
 
 			// There should no longer be `PermissionlessAll` claim
 			// permissions in storage.
