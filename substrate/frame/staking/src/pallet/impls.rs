@@ -39,12 +39,12 @@ use sp_runtime::{
 	Perbill, Percent,
 };
 use sp_staking::{
-    currency_to_vote::CurrencyToVote,
-    delegation::DelegateeSupport,
-    offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-    EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
-    StakingAccount::{self, Controller, Stash},
-    StakingInterface,
+	currency_to_vote::CurrencyToVote,
+	delegation::DelegateeSupport,
+	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
+	StakingAccount::{self, Controller, Stash},
+	StakingInterface,
 };
 use sp_std::prelude::*;
 

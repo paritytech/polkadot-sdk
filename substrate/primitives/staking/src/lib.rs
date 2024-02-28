@@ -353,7 +353,6 @@ pub trait StakingInterface {
 		maybe_reporter: Option<Self::AccountId>,
 	) -> sp_runtime::DispatchResult;
 
-
 	/// Returns the total amount of funds delegated by a `delegator`.
 	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance;
 }

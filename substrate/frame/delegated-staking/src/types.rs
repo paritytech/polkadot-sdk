@@ -226,7 +226,10 @@ impl<T: Config> Delegatee<T> {
 		let bonded_stake = self.bonded_stake();
 		let stakeable = self.ledger.stakeable_balance();
 
-		defensive_assert!(stakeable >= bonded_stake, "cannot be bonded with more than delegatee balance");
+		defensive_assert!(
+			stakeable >= bonded_stake,
+			"cannot be bonded with more than delegatee balance"
+		);
 
 		stakeable.saturating_sub(bonded_stake)
 	}
@@ -241,7 +244,10 @@ impl<T: Config> Delegatee<T> {
 
 		let net_balance = self.ledger.effective_balance();
 
-		defensive_assert!(net_balance >= bonded_stake, "cannot be bonded with more than the delegatee balance");
+		defensive_assert!(
+			net_balance >= bonded_stake,
+			"cannot be bonded with more than the delegatee balance"
+		);
 
 		net_balance.saturating_sub(bonded_stake)
 	}

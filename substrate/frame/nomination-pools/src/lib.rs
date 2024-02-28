@@ -2296,12 +2296,8 @@ pub mod pallet {
 				// order to ensure members can leave the pool and it can be destroyed.
 				.min(T::Staker::transferable_balance(bonded_pool.id));
 
-			T::Staker::member_withdraw(
-				&member_account,
-				bonded_pool.id,
-				balance_to_unbond,
-			)
-			.defensive()?;
+			T::Staker::member_withdraw(&member_account, bonded_pool.id, balance_to_unbond)
+				.defensive()?;
 
 			Self::deposit_event(Event::<T>::Withdrawn {
 				member: member_account.clone(),
