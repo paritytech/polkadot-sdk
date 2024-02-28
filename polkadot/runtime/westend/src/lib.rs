@@ -1707,6 +1707,8 @@ pub mod migrations {
 			crate::xcm_config::XcmRouter,
 			GetLegacyLeaseImpl,
 		>,
+		// Only toggles a bit in the configuraiton, doesn't chage the structure.
+		parachains_configuration::migration::v12::MigrateToV12<Runtime>,
 	);
 }
 
