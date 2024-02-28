@@ -141,10 +141,9 @@ pub mod pallet {
 		DisputeStatementsUnsortedOrDuplicates,
 		/// A dispute statement was invalid.
 		DisputeInvalid,
-		/// A candidate was backed by a disabled validator
-		BackedByDisabled,
-		/// A candidate was backed even though the paraid was not scheduled.
-		BackedOnUnscheduledCore,
+		/// A candidate was filtered during inherent execution. This should have only been done
+		/// during creation.
+		CandidatesFilteredDuringExecution,
 		/// Too many candidates supplied.
 		UnscheduledCandidate,
 	}
@@ -612,12 +611,8 @@ impl<T: Config> Pallet<T> {
 			scheduled.entry(para_id).or_default().insert(core_idx);
 		}
 
-		let SanitizedBackedCandidates {
-			backed_candidates_with_core,
-			votes_from_disabled_were_dropped,
-			dropped_unscheduled_candidates,
-			count,
-		} = sanitize_backed_candidates::<T>(
+		let initial_candidate_count = backed_candidates.len();
+		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
 			backed_candidates,
 			&allowed_relay_parents,
 			// TODO: see this old comment // NOTE: this is the only place where we check the
@@ -626,23 +621,20 @@ impl<T: Config> Pallet<T> {
 			scheduled,
 			core_index_enabled,
 		);
+		let count = count_backed_candidates(&backed_candidates_with_core);
 
 		ensure!(count <= total_scheduled_cores, Error::<T>::UnscheduledCandidate);
 
 		METRICS.on_candidates_sanitized(count as u64);
 
-		// In `Enter` context (invoked during execution) there should be no backing votes from
-		// disabled validators because they should have been filtered out during inherent data
-		// preparation (`ProvideInherent` context). Abort in such cases.
+		// In `Enter` context (invoked during execution) no more candidates should be filtered,
+		// because they have already been filtered during `ProvideInherent` context. Abort in such
+		// cases.
 		if context == ProcessInherentDataContext::Enter {
-			ensure!(!votes_from_disabled_were_dropped, Error::<T>::BackedByDisabled);
-		}
-
-		// In `Enter` context (invoked during execution) we shouldn't have filtered any candidates
-		// due to a para not being scheduled. They have been filtered during inherent data
-		// preparation (`ProvideInherent` context). Abort in such cases.
-		if context == ProcessInherentDataContext::Enter {
-			ensure!(!dropped_unscheduled_candidates, Error::<T>::BackedOnUnscheduledCore);
+			ensure!(
+				initial_candidate_count == count,
+				Error::<T>::CandidatesFilteredDuringExecution
+			);
 		}
 
 		// Process backed candidates according to scheduled cores.
@@ -942,21 +934,6 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 	bitfields
 }
 
-// Result from `sanitize_backed_candidates`
-#[derive(Debug, PartialEq)]
-struct SanitizedBackedCandidates<Hash> {
-	// Sanitized backed candidates along with the assigned core. The `Vec` is sorted according to
-	// the occupied core index.
-	backed_candidates_with_core: BTreeMap<ParaId, Vec<(BackedCandidate<Hash>, CoreIndex)>>,
-	// Set to true if any votes from disabled validators were dropped from the input.
-	votes_from_disabled_were_dropped: bool,
-	// Set to true if any candidates were dropped due to filtering done in
-	// `map_candidates_to_cores`
-	dropped_unscheduled_candidates: bool,
-	// Total candidate count after sanitization
-	count: usize,
-}
-
 /// Performs various filtering on the backed candidates inherent data.
 /// Must maintain the invariant that the returned candidate collection contains the candidates
 /// sorted in dependency order for each para. When doing any filtering, we must therefore drop any
@@ -972,7 +949,7 @@ struct SanitizedBackedCandidates<Hash> {
 /// 4. all backing votes from disabled validators
 /// 5. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
 ///
-/// Returns struct `SanitizedBackedCandidates` where `backed_candidates_with_core` are the scheduled
+/// Returns the scheduled
 /// backed candidates which passed filtering, mapped by para id and in the right dependency order.
 fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	backed_candidates: Vec<BackedCandidate<T::Hash>>,
@@ -980,7 +957,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	concluded_invalid_with_descendants: BTreeSet<CandidateHash>,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	core_index_enabled: bool,
-) -> SanitizedBackedCandidates<T::Hash> {
+) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
 	// Map the candidates to the right paraids, while making sure that the order between candidates
 	// of the same para is preserved.
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
@@ -990,8 +967,6 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 			.or_default()
 			.push(candidate);
 	}
-
-	// TODO: all filters need to return whether or not we dropped any candidates.
 
 	// Check that candidates pertaining to the same para form a chain. Drop the ones that
 	// don't, along with the rest of candidates which follow them in the input vector.
@@ -1005,32 +980,30 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 
 	// Map candidates to scheduled cores. Filter out any unscheduled candidates along with their
 	// descendants.
-	let (mut backed_candidates_with_core, dropped_unscheduled_candidates) =
-		map_candidates_to_cores::<T>(
-			&allowed_relay_parents,
-			scheduled,
-			core_index_enabled,
-			candidates_per_para,
-		);
+	let mut backed_candidates_with_core = map_candidates_to_cores::<T>(
+		&allowed_relay_parents,
+		scheduled,
+		core_index_enabled,
+		candidates_per_para,
+	);
 
 	// Filter out backing statements from disabled validators. If by that we render a candidate with
 	// less backing votes than required, filter that candidate also. As all the other filtering
 	// operations above, we drop the descendants of the dropped candidates also.
-	let votes_from_disabled_were_dropped = filter_backed_statements_from_disabled_validators::<T>(
+	filter_backed_statements_from_disabled_validators::<T>(
 		&mut backed_candidates_with_core,
 		&allowed_relay_parents,
 		core_index_enabled,
 	);
 
-	SanitizedBackedCandidates {
-		dropped_unscheduled_candidates,
-		votes_from_disabled_were_dropped,
-		count: backed_candidates_with_core.iter().fold(0, |mut count, (_id, candidates)| {
-			count += candidates.len();
-			count
-		}),
-		backed_candidates_with_core,
-	}
+	backed_candidates_with_core
+}
+
+fn count_backed_candidates<B>(backed_candidates: &BTreeMap<ParaId, Vec<B>>) -> usize {
+	backed_candidates.iter().fold(0, |mut count, (_id, candidates)| {
+		count += candidates.len();
+		count
+	})
 }
 
 /// Derive entropy from babe provided per block randomness.
@@ -1348,9 +1321,8 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 	mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	core_index_enabled: bool,
 	candidates: BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
-) -> (BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>, bool) {
+) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
 	let mut backed_candidates_with_core = BTreeMap::new();
-	let mut dropped_unscheduled_candidates = false;
 
 	for (para_id, backed_candidates) in candidates.into_iter() {
 		// Sanity check, should never be true.
@@ -1401,7 +1373,6 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 							// if we got a candidate for a core index which is not scheduled, stop
 							// the work for this para. the already processed candidate chain in
 							// temp_backed_candidates is still fine though.
-							dropped_unscheduled_candidates = true;
 
 							break;
 						}
@@ -1409,7 +1380,6 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 						// if we got a candidate which does not contain its core index, stop the
 						// work for this para. the already processed candidate chain in
 						// temp_backed_candidates is still fine though.
-						dropped_unscheduled_candidates = true;
 
 						break;
 					}
@@ -1420,12 +1390,12 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 					.or_insert_with(|| vec![])
 					.extend(temp_backed_candidates);
 			} else {
-				dropped_unscheduled_candidates = true;
+				// log
 			}
 		}
 	}
 
-	(backed_candidates_with_core, dropped_unscheduled_candidates)
+	backed_candidates_with_core
 }
 
 fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclusion::Config>(
