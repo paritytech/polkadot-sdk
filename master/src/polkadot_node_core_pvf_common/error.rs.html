@@ -292,6 +292,7 @@ nav.side-bar {
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -310,6 +311,7 @@ nav.side-bar {
 
 </span><span class="kw">use </span><span class="kw">crate</span>::prepare::{PrepareSuccess, PrepareWorkerSuccess};
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+<span class="kw">pub use </span>sc_executor_common::error::Error <span class="kw">as </span>ExecuteError;
 
 <span class="doccomment">/// Result of PVF preparation from a worker, with checksum of the compiled PVF and stats of the
 /// preparation if successful.

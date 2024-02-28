@@ -1097,6 +1097,21 @@ nav.side-bar {
 <a href="#955" id="955">955</a>
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1794,6 +1809,8 @@ nav.side-bar {
 			))),
 		<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
+		<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(err))) =&gt;
+			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 
 		<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(<span class="macro">format!</span>(
@@ -1879,40 +1896,50 @@ nav.side-bar {
 			<span class="kw">return </span>validation_result
 		}
 
+		<span class="macro">macro_rules! </span>break_if_no_retries_left {
+			(<span class="macro-nonterminal">$counter</span>:ident) =&gt; {
+				<span class="kw">if </span><span class="macro-nonterminal">$counter </span>&gt; <span class="number">0 </span>{
+					<span class="macro-nonterminal">$counter </span>-= <span class="number">1</span>;
+				} <span class="kw">else </span>{
+					<span class="kw">break
+				</span>}
+			};
+		}
+
 		<span class="comment">// Allow limited retries for each kind of error.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>num_death_retries_left = <span class="number">1</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>num_job_error_retries_left = <span class="number">1</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>num_internal_retries_left = <span class="number">1</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>num_runtime_construction_retries_left = <span class="number">1</span>;
 		<span class="kw">loop </span>{
 			<span class="comment">// Stop retrying if we exceeded the timeout.
 			</span><span class="kw">if </span>total_time_start.elapsed() + retry_delay &gt; exec_timeout {
 				<span class="kw">break
 			</span>}
-
+			<span class="kw">let </span><span class="kw-2">mut </span>retry_immediately = <span class="bool-val">false</span>;
 			<span class="kw">match </span>validation_result {
 				<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(
 					PossiblyInvalidError::AmbiguousWorkerDeath |
 					PossiblyInvalidError::AmbiguousJobDeath(<span class="kw">_</span>),
-				)) =&gt;
-					<span class="kw">if </span>num_death_retries_left &gt; <span class="number">0 </span>{
-						num_death_retries_left -= <span class="number">1</span>;
-					} <span class="kw">else </span>{
-						<span class="kw">break
-					</span>},
+				)) =&gt; <span class="macro">break_if_no_retries_left!</span>(num_death_retries_left),
 
 				<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(<span class="kw">_</span>))) =&gt;
-					<span class="kw">if </span>num_job_error_retries_left &gt; <span class="number">0 </span>{
-						num_job_error_retries_left -= <span class="number">1</span>;
-					} <span class="kw">else </span>{
-						<span class="kw">break
-					</span>},
+					<span class="macro">break_if_no_retries_left!</span>(num_job_error_retries_left),
 
 				<span class="prelude-val">Err</span>(ValidationError::Internal(<span class="kw">_</span>)) =&gt;
-					<span class="kw">if </span>num_internal_retries_left &gt; <span class="number">0 </span>{
-						num_internal_retries_left -= <span class="number">1</span>;
-					} <span class="kw">else </span>{
-						<span class="kw">break
-					</span>},
+					<span class="macro">break_if_no_retries_left!</span>(num_internal_retries_left),
+
+				<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(
+					PossiblyInvalidError::RuntimeConstruction(<span class="kw">_</span>),
+				)) =&gt; {
+					<span class="macro">break_if_no_retries_left!</span>(num_runtime_construction_retries_left);
+					<span class="self">self</span>.precheck_pvf(pvf.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+					<span class="comment">// In this case the error is deterministic
+					// And a retry forces the ValidationBackend
+					// to re-prepare the artifact so
+					// there is no need to wait before the retry
+					</span>retry_immediately = <span class="bool-val">true</span>;
+				},
 
 				<span class="prelude-val">Ok</span>(<span class="kw">_</span>) | <span class="prelude-val">Err</span>(ValidationError::Invalid(<span class="kw">_</span>) | ValidationError::Preparation(<span class="kw">_</span>)) =&gt; <span class="kw">break</span>,
 			}
@@ -1920,8 +1947,11 @@ nav.side-bar {
 			<span class="comment">// If we got a possibly transient error, retry once after a brief delay, on the
 			// assumption that the conditions that caused this error may have resolved on their own.
 			</span>{
-				<span class="comment">// Wait a brief delay before retrying.
-				</span>futures_timer::Delay::new(retry_delay).<span class="kw">await</span>;
+				<span class="comment">// In case of many transient errors it is necessary to wait a little bit
+				// for the error to be probably resolved
+				</span><span class="kw">if </span>!retry_immediately {
+					futures_timer::Delay::new(retry_delay).<span class="kw">await</span>;
+				}
 
 				<span class="kw">let </span>new_timeout = exec_timeout.saturating_sub(total_time_start.elapsed());
 

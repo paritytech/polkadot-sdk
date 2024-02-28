@@ -242,6 +242,21 @@ nav.side-bar {
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -284,6 +299,9 @@ nav.side-bar {
 	},
 	<span class="doccomment">/// The candidate is invalid.
 	</span>InvalidCandidate(String),
+	<span class="doccomment">/// Instantiation of the WASM module instance failed during an execution.
+	/// Possibly related to local issues or dirty node update. May be retried with re-preparation.
+	</span>RuntimeConstruction(String),
 	<span class="doccomment">/// The job timed out.
 	</span>JobTimedOut,
 	<span class="doccomment">/// The job process has died. We must kill the worker just in case.
@@ -312,6 +330,9 @@ nav.side-bar {
 		<span class="doccomment">/// The result of parachain validation.
 		</span>result_descriptor: ValidationResult,
 	},
+	<span class="doccomment">/// A possibly transient runtime instantiation error happened during the execution; may be
+	/// retried with re-preparation
+	</span>RuntimeConstruction(String),
 	<span class="doccomment">/// The candidate is invalid.
 	</span>InvalidCandidate(String),
 }
@@ -323,6 +344,15 @@ nav.side-bar {
 			<span class="self">Self</span>::InvalidCandidate(ctx.to_string())
 		} <span class="kw">else </span>{
 			<span class="self">Self</span>::InvalidCandidate(<span class="macro">format!</span>(<span class="string">&quot;{}: {}&quot;</span>, ctx, msg))
+		}
+	}
+
+	<span class="doccomment">/// Creates a may retry response from a context `ctx` and a message `msg` (which can be empty).
+	</span><span class="kw">pub fn </span>runtime_construction(ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, msg: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+		<span class="kw">if </span>msg.is_empty() {
+			<span class="self">Self</span>::RuntimeConstruction(ctx.to_string())
+		} <span class="kw">else </span>{
+			<span class="self">Self</span>::RuntimeConstruction(<span class="macro">format!</span>(<span class="string">&quot;{}: {}&quot;</span>, ctx, msg))
 		}
 	}
 }

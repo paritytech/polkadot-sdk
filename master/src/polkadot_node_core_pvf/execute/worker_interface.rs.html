@@ -451,6 +451,14 @@ nav.side-bar {
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -540,6 +548,10 @@ nav.side-bar {
 	/// a trap. Errors related to the preparation process are not expected to be encountered by the
 	/// execution workers.
 	</span>InvalidCandidate { err: String, idle_worker: IdleWorker },
+	<span class="doccomment">/// The error is probably transient. It may be for example
+	/// because the artifact was prepared with a Wasmtime version different from the version
+	/// in the current execution environment.
+	</span>RuntimeConstruction { err: String, idle_worker: IdleWorker },
 	<span class="doccomment">/// The execution time exceeded the hard limit. The worker is terminated.
 	</span>HardTimeout,
 	<span class="doccomment">/// An I/O error happened during communication with the worker. This may mean that the worker
@@ -643,6 +655,10 @@ nav.side-bar {
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},
 			WorkerResponse::InvalidCandidate(err) =&gt; Outcome::InvalidCandidate {
+				err,
+				idle_worker: IdleWorker { stream, pid, worker_dir },
+			},
+			WorkerResponse::RuntimeConstruction(err) =&gt; Outcome::RuntimeConstruction {
 				err,
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},

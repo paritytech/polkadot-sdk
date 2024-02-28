@@ -208,6 +208,14 @@ operator error or some bug in the system.</li>
 reason, which may or may not be independent of the candidate or PVF.</li>
 <li><strong>Internal errors:</strong> See &quot;Internal Errors&quot; section. In this case, after the
 retry we abstain from voting.</li>
+<li><strong>RuntimeConstruction</strong> error. The precheck handles a general case of a wrong
+artifact but doesn't guarantee its consistency between the preparation and
+the execution. If something happened with the artifact between
+the preparation of the artifact and its execution (e.g. the artifact was
+corrupted on disk or a dirty node upgrade happened when the prepare worker
+has a wasmtime version different from the execute worker's wasmtime version).
+We treat such an error as possibly transient due to local issues and retry
+one time.</li>
 </ol>
 <h3 id="preparation-timeouts"><a class="header" href="#preparation-timeouts">Preparation timeouts</a></h3>
 <p>We use timeouts for both preparation and execution jobs to limit the amount of
@@ -312,7 +320,7 @@ outside world.</p>
 attackers potentially sensitive data unnecessarily? And even if everything else
 is locked down, env vars can potentially provide a source of randomness (see
 point 1, &quot;Consensus faults&quot; above).</p>
-<footer id="last-change">Last change: 2023-12-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/707dbcc638">707dbcc638</a></footer>
+<footer id="last-change">Last change: 2024-02-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/426136671a">426136671a</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

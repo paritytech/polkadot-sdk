@@ -539,7 +539,8 @@ nav.side-bar {
 
 </span><span class="doccomment">//! Interface to the Substrate Executor
 
-</span><span class="kw">use </span>polkadot_primitives::{
+</span><span class="kw">use </span><span class="kw">crate</span>::error::ExecuteError;
+<span class="kw">use </span>polkadot_primitives::{
 	executor_params::{DEFAULT_LOGICAL_STACK_MAX, DEFAULT_NATIVE_STACK_MAX},
 	ExecutorParam, ExecutorParams,
 };
@@ -632,7 +633,7 @@ nav.side-bar {
 	compiled_artifact_blob: <span class="kw-2">&amp;</span>[u8],
 	executor_params: <span class="kw-2">&amp;</span>ExecutorParams,
 	params: <span class="kw-2">&amp;</span>[u8],
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, String&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ExecuteError&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>extensions = sp_externalities::Extensions::new();
 
 	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
@@ -646,7 +647,6 @@ nav.side-bar {
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(ok)) =&gt; <span class="prelude-val">Ok</span>(ok),
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) | <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
 	}
-	.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;execute error: {:?}&quot;</span>, err))
 }
 
 <span class="doccomment">/// Constructs the runtime for the given PVF, given the artifact bytes.

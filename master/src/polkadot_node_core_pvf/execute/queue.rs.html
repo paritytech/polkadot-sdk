@@ -678,6 +678,52 @@ nav.side-bar {
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -705,7 +751,7 @@ nav.side-bar {
 	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 <span class="kw">use </span>futures::{
-	channel::mpsc,
+	channel::{mpsc, oneshot},
 	future::BoxFuture,
 	stream::{FuturesUnordered, StreamExt <span class="kw">as _</span>},
 	Future, FutureExt,
@@ -732,6 +778,12 @@ nav.side-bar {
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>ToQueue {
 	Enqueue { artifact: ArtifactPathId, pending_execution_request: PendingExecutionRequest },
+}
+
+<span class="doccomment">/// A response from queue.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub enum </span>FromQueue {
+	RemoveArtifact { artifact: ArtifactId, reply_to: oneshot::Sender&lt;()&gt; },
 }
 
 <span class="doccomment">/// An execution request that should execute the PVF (known in the context) and send the results
@@ -817,6 +869,8 @@ nav.side-bar {
 
 	<span class="doccomment">/// The receiver that receives messages to the pool.
 	</span>to_queue_rx: mpsc::Receiver&lt;ToQueue&gt;,
+	<span class="doccomment">/// The sender to send messages back to validation host.
+	</span>from_queue_tx: mpsc::UnboundedSender&lt;FromQueue&gt;,
 
 	<span class="comment">// Some variables related to the current session.
 	</span>program_path: PathBuf,
@@ -841,6 +895,7 @@ nav.side-bar {
 		node_version: <span class="prelude-ty">Option</span>&lt;String&gt;,
 		security_status: SecurityStatus,
 		to_queue_rx: mpsc::Receiver&lt;ToQueue&gt;,
+		from_queue_tx: mpsc::UnboundedSender&lt;FromQueue&gt;,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			metrics,
@@ -850,6 +905,7 @@ nav.side-bar {
 			node_version,
 			security_status,
 			to_queue_rx,
+			from_queue_tx,
 			queue: VecDeque::new(),
 			mux: Mux::new(),
 			workers: Workers {
@@ -981,7 +1037,7 @@ nav.side-bar {
 			handle_worker_spawned(queue, idle, handle, job);
 		},
 		QueueEvent::StartWork(worker, outcome, artifact_id, result_tx) =&gt; {
-			handle_job_finish(queue, worker, outcome, artifact_id, result_tx);
+			handle_job_finish(queue, worker, outcome, artifact_id, result_tx).<span class="kw">await</span>;
 		},
 	}
 }
@@ -1007,42 +1063,69 @@ nav.side-bar {
 
 <span class="doccomment">/// If there are pending jobs in the queue, schedules the next of them onto the just freed up
 /// worker. Otherwise, puts back into the available workers list.
-</span><span class="kw">fn </span>handle_job_finish(
+</span><span class="kw">async fn </span>handle_job_finish(
 	queue: <span class="kw-2">&amp;mut </span>Queue,
 	worker: Worker,
 	outcome: Outcome,
 	artifact_id: ArtifactId,
 	result_tx: ResultSender,
 ) {
-	<span class="kw">let </span>(idle_worker, result, duration) = <span class="kw">match </span>outcome {
+	<span class="kw">let </span>(idle_worker, result, duration, sync_channel) = <span class="kw">match </span>outcome {
 		Outcome::Ok { result_descriptor, duration, idle_worker } =&gt; {
 			<span class="comment">// TODO: propagate the soft timeout
 
-			</span>(<span class="prelude-val">Some</span>(idle_worker), <span class="prelude-val">Ok</span>(result_descriptor), <span class="prelude-val">Some</span>(duration))
+			</span>(<span class="prelude-val">Some</span>(idle_worker), <span class="prelude-val">Ok</span>(result_descriptor), <span class="prelude-val">Some</span>(duration), <span class="prelude-val">None</span>)
 		},
 		Outcome::InvalidCandidate { err, idle_worker } =&gt; (
 			<span class="prelude-val">Some</span>(idle_worker),
 			<span class="prelude-val">Err</span>(ValidationError::Invalid(InvalidCandidate::WorkerReportedInvalid(err))),
 			<span class="prelude-val">None</span>,
+			<span class="prelude-val">None</span>,
 		),
-		Outcome::InternalError { err } =&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::Internal(err)), <span class="prelude-val">None</span>),
+		Outcome::RuntimeConstruction { err, idle_worker } =&gt; {
+			<span class="comment">// The task for artifact removal is executed concurrently with
+			// the message to the host on the execution result.
+			</span><span class="kw">let </span>(result_tx, result_rx) = oneshot::channel();
+			queue
+				.from_queue_tx
+				.unbounded_send(FromQueue::RemoveArtifact {
+					artifact: artifact_id.clone(),
+					reply_to: result_tx,
+				})
+				.expect(<span class="string">&quot;from execute queue receiver is listened by the host; qed&quot;</span>);
+			(
+				<span class="prelude-val">Some</span>(idle_worker),
+				<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(
+					err,
+				))),
+				<span class="prelude-val">None</span>,
+				<span class="prelude-val">Some</span>(result_rx),
+			)
+		},
+		Outcome::InternalError { err } =&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::Internal(err)), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
 		<span class="comment">// Either the worker or the job timed out. Kill the worker in either case. Treated as
 		// definitely-invalid, because if we timed out, there&#39;s no time left for a retry.
 		</span>Outcome::HardTimeout =&gt;
-			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::Invalid(InvalidCandidate::HardTimeout)), <span class="prelude-val">None</span>),
+			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::Invalid(InvalidCandidate::HardTimeout)), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
 		<span class="comment">// &quot;Maybe invalid&quot; errors (will retry).
 		</span>Outcome::WorkerIntfErr =&gt; (
 			<span class="prelude-val">None</span>,
 			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
+			<span class="prelude-val">None</span>,
 			<span class="prelude-val">None</span>,
 		),
 		Outcome::JobDied { err } =&gt; (
 			<span class="prelude-val">None</span>,
 			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))),
 			<span class="prelude-val">None</span>,
+			<span class="prelude-val">None</span>,
 		),
-		Outcome::JobError { err } =&gt;
-			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))), <span class="prelude-val">None</span>),
+		Outcome::JobError { err } =&gt; (
+			<span class="prelude-val">None</span>,
+			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))),
+			<span class="prelude-val">None</span>,
+			<span class="prelude-val">None</span>,
+		),
 	};
 
 	queue.metrics.execute_finished();
@@ -1064,6 +1147,12 @@ nav.side-bar {
 			<span class="question-mark">?</span>duration,
 			<span class="string">&quot;execute worker concluded successfully&quot;</span>,
 		);
+	}
+
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(sync_channel) = sync_channel {
+		<span class="comment">// err means the sender is dropped (the artifact is already removed from the cache)
+		// so that&#39;s legitimate to ignore the result
+		</span><span class="kw">let _ </span>= sync_channel.<span class="kw">await</span>;
 	}
 
 	<span class="comment">// First we send the result. It may fail due to the other end of the channel being dropped,
@@ -1201,8 +1290,10 @@ nav.side-bar {
 	spawn_timeout: Duration,
 	node_version: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	security_status: SecurityStatus,
-) -&gt; (mpsc::Sender&lt;ToQueue&gt;, <span class="kw">impl </span>Future&lt;Output = ()&gt;) {
+) -&gt; (mpsc::Sender&lt;ToQueue&gt;, mpsc::UnboundedReceiver&lt;FromQueue&gt;, <span class="kw">impl </span>Future&lt;Output = ()&gt;) {
 	<span class="kw">let </span>(to_queue_tx, to_queue_rx) = mpsc::channel(<span class="number">20</span>);
+	<span class="kw">let </span>(from_queue_tx, from_queue_rx) = mpsc::unbounded();
+
 	<span class="kw">let </span>run = Queue::new(
 		metrics,
 		program_path,
@@ -1212,8 +1303,9 @@ nav.side-bar {
 		node_version,
 		security_status,
 		to_queue_rx,
+		from_queue_tx,
 	)
 	.run();
-	(to_queue_tx, run)
+	(to_queue_tx, from_queue_rx, run)
 }
 </code></pre></div></section></main></body></html>

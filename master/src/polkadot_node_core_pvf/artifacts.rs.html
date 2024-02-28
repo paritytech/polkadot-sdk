@@ -437,6 +437,14 @@ nav.side-bar {
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -675,6 +683,14 @@ nav.side-bar {
 			</span>.inner
 			.insert(artifact_id, ArtifactState::Prepared { path, last_time_needed, prepare_stats })
 			.is_none());
+	}
+
+	<span class="doccomment">/// Remove artifact by its id.
+	</span><span class="kw">pub fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, artifact_id: ArtifactId) -&gt; <span class="prelude-ty">Option</span>&lt;(ArtifactId, PathBuf)&gt; {
+		<span class="self">self</span>.inner.remove(<span class="kw-2">&amp;</span>artifact_id).and_then(|state| <span class="kw">match </span>state {
+			ArtifactState::Prepared { path, .. } =&gt; <span class="prelude-val">Some</span>((artifact_id, path)),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+		})
 	}
 
 	<span class="doccomment">/// Remove artifacts older than the given TTL and return id and path of the removed ones.

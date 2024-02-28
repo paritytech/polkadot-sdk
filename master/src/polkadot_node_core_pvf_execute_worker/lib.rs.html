@@ -786,6 +786,12 @@ nav.side-bar {
 <a href="#644" id="644">644</a>
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -804,7 +810,9 @@ nav.side-bar {
 
 </span><span class="doccomment">//! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-</span><span class="kw">pub use </span>polkadot_node_core_pvf_common::executor_interface::execute_artifact;
+</span><span class="kw">pub use </span>polkadot_node_core_pvf_common::{
+	error::ExecuteError, executor_interface::execute_artifact,
+};
 
 <span class="comment">// NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -1025,7 +1033,9 @@ nav.side-bar {
 		//         [`executor_interface::prepare`].
 		</span>execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
-		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>JobResponse::format_invalid(<span class="string">&quot;execute&quot;</span>, <span class="kw-2">&amp;</span>err),
+		<span class="prelude-val">Err</span>(ExecuteError::RuntimeConstruction(wasmerr)) =&gt;
+			<span class="kw">return </span>JobResponse::runtime_construction(<span class="string">&quot;execute&quot;</span>, <span class="kw-2">&amp;</span>wasmerr.to_string()),
+		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>JobResponse::format_invalid(<span class="string">&quot;execute&quot;</span>, <span class="kw-2">&amp;</span>err.to_string()),
 		<span class="prelude-val">Ok</span>(d) =&gt; d,
 	};
 
@@ -1338,6 +1348,8 @@ nav.side-bar {
 					<span class="prelude-val">Ok</span>(WorkerResponse::Ok { result_descriptor, duration: cpu_tv })
 				},
 				<span class="prelude-val">Ok</span>(JobResponse::InvalidCandidate(err)) =&gt; <span class="prelude-val">Ok</span>(WorkerResponse::InvalidCandidate(err)),
+				<span class="prelude-val">Ok</span>(JobResponse::RuntimeConstruction(err)) =&gt;
+					<span class="prelude-val">Ok</span>(WorkerResponse::RuntimeConstruction(err)),
 				<span class="prelude-val">Err</span>(job_error) =&gt; {
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
