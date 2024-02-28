@@ -1,0 +1,59 @@
+name: Check labels
+
+on:
+  pull_request:
+    types: [labeled, opened, synchronize, unlabeled]
+  merge_group:
+
+jobs:
+  check-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check labels
+        env:
+          IMAGE: paritytech/ruled_labels:0.4.0
+          MOUNT: /work
+          GITHUB_PR: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API_BASE: https://api.github.com/repos
+          REPO: ${{ github.repository }}
+          RULES_PATH: labels/ruled_labels
+          CHECK_SPECS: "specs_polkadot-sdk.yaml"
+        run: |
+          if [ ${{ github.ref }} == "refs/heads/master" ]; then
+            echo "Skipping master"
+            exit 0
+          fi
+          if [ $(echo ${{ github.ref }} | grep -c "gh-readonly-queue") -eq 1 ]; then
+            echo "Skipping merge queue"
+            exit 0
+          fi
+
+          docker pull $IMAGE
+          echo "REPO: ${REPO}"
+          echo "GITHUB_PR: ${GITHUB_PR}"
+
+          # Clone repo with labels specs
+          echo "Cloning repo with labels specs"
+
+          # Temporary, before https://github.com/paritytech/labels/pull/29 is not merged
+          git clone https://github.com/paritytech/labels
+
+          # Fetch the labels for the PR under test
+          echo "Fetch the labels for $API_BASE/${REPO}/pulls/${GITHUB_PR}"
+          labels=$( curl -H "Authorization: token ${GITHUB_TOKEN}" -s "$API_BASE/${REPO}/pulls/${GITHUB_PR}" | jq '.labels | .[] | .name' | tr "\n" ",")
+          echo "Labels: ${labels}"
+
+          if [ -z "${labels}" ]; then
+            echo "No labels found, checking without them"
+            docker run --rm -i -v $PWD/${RULES_PATH}/:$MOUNT $IMAGE check $MOUNT/$CHECK_SPECS --no-label
+          fi
+
+          labels_args=${labels: :-1}
+          printf "Checking labels: %s\n" "${labels_args}"
+
+          # Prevent the shell from splitting labels with spaces
+          IFS=","
+
+          # --dev is more useful to debug mode to debug
+          docker run --rm -i -v $PWD/${RULES_PATH}/:$MOUNT $IMAGE check $MOUNT/$CHECK_SPECS --labels ${labels_args} --dev --tags PR
