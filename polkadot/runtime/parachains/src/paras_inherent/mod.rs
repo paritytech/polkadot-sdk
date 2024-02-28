@@ -24,12 +24,12 @@
 use crate::{
 	configuration,
 	disputes::DisputesHandler,
-	inclusion, initializer,
+	inclusion::{self, CandidateCheckContext, PVDMismatch},
+	initializer,
 	metrics::METRICS,
 	paras,
 	scheduler::{self, FreedReason},
 	shared::{self, AllowedRelayParentsTracker},
-	util::make_persisted_validation_data_with_parent,
 	ParaId,
 };
 use bitvec::prelude::BitVec;
@@ -615,8 +615,6 @@ impl<T: Config> Pallet<T> {
 		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
 			backed_candidates,
 			&allowed_relay_parents,
-			// TODO: see this old comment // NOTE: this is the only place where we check the
-			// relay-parent.
 			freed_disputed_candidates,
 			scheduled,
 			core_index_enabled,
@@ -1294,40 +1292,37 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 	filter_candidates::<T, _>(candidates, |para_id, candidate| {
 		let Some(latest_head_data) = para_latest_head_data.get(&para_id) else { return false };
 
-		let Some((relay_parent_storage_root, relay_parent_number)) =
-			allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent, None)
-		else {
-			log::debug!(
-				target: LOG_TARGET,
-				"Relay parent {:?} for candidate {:?} is not in the allowed relay parents. Dropping the candidate.",
-				candidate.descriptor().relay_parent,
-				candidate.candidate().hash(),
-			);
+		let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
+		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 
-			return false
-		};
-
-		let persisted_validation_data = make_persisted_validation_data_with_parent::<T>(
-			relay_parent_number,
-			relay_parent_storage_root,
+		match check_ctx.verify_backed_candidate(
+			&allowed_relay_parents,
+			candidate.candidate(),
 			latest_head_data.clone(),
-		);
-
-		let expected = persisted_validation_data.hash();
-
-		if expected == candidate.descriptor().persisted_validation_data_hash {
-			para_latest_head_data
-				.insert(para_id, candidate.candidate().commitments.head_data.clone());
-
-			true
-		} else {
-			log::debug!(
-				target: LOG_TARGET,
-				"Found backed candidates which don't form a chain for paraid {:?}. The order may also be wrong. Dropping the candidates.",
-				para_id
-			);
-
-			false
+		) {
+			Ok(Err(err)) if err == PVDMismatch => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Found backed candidates which don't form a chain for paraid {:?}. The order may also be wrong. Dropping the candidates.",
+					para_id
+				);
+				false
+			},
+			Ok(Err(_)) => {
+				// Currently unreachable as the only error is PVDMismatch.
+				false
+			},
+			Ok(Ok(_)) => true,
+			Err(err) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Backed candidate verification for candidate {:?} of paraid {:?} failed with {:?}",
+					candidate.candidate().hash(),
+					para_id,
+					err
+				);
+				false
+			},
 		}
 	});
 }

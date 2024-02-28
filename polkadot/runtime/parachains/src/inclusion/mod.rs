@@ -661,14 +661,12 @@ impl<T: Config> Pallet<T> {
 			for (candidate, core) in candidates.iter() {
 				let candidate_hash = candidate.candidate().hash();
 
-				// TODO: find out if we're correctly building the context here.
 				let check_ctx = CandidateCheckContext::<T>::new(None);
 				let relay_parent_number = match check_ctx.verify_backed_candidate(
 					&allowed_relay_parents,
 					candidate.candidate(),
 					latest_head_data.clone(),
 				)? {
-					// TODO: can a PVD mismatch hide some other issue?
 					Err(PVDMismatch) => {
 						// This means that this candidate is not a child of
 						// latest_head_data.
@@ -1200,6 +1198,7 @@ pub(crate) struct CandidateCheckContext<T: Config> {
 
 /// An error indicating that creating Persisted Validation Data failed
 /// while checking a candidate's validity.
+#[derive(PartialEq)]
 pub(crate) struct PVDMismatch;
 
 impl<T: Config> CandidateCheckContext<T> {
