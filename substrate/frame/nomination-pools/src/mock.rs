@@ -229,58 +229,58 @@ impl sp_staking::StakingInterface for StakingMock {
 		unimplemented!("method currently not used in testing")
 	}
 
-	fn is_delegatee(who: &Self::AccountId) -> bool {
+	fn is_delegatee(_who: &Self::AccountId) -> bool {
 		unimplemented!("method currently not used in testing")
 	}
 
 	/// Effective balance of the delegatee account.
-	fn delegatee_balance(who: &Self::AccountId) -> Self::Balance {
+	fn delegatee_balance(_who: &Self::AccountId) -> Self::Balance {
 		unimplemented!("method currently not used in testing")
 	}
 
 	/// Delegate funds to `Delegatee`.
 	fn delegate(
-		who: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		reward_account: &Self::AccountId,
-		amount: Self::Balance,
+		_who: &Self::AccountId,
+		_delegatee: &Self::AccountId,
+		_reward_account: &Self::AccountId,
+		_amount: Self::Balance,
 	) -> DispatchResult {
 		unimplemented!("method currently not used in testing")
 	}
 
 	/// Add more delegation to the pool account.
 	fn delegate_extra(
-		who: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		amount: Self::Balance,
+		_who: &Self::AccountId,
+		_delegatee: &Self::AccountId,
+		_amount: Self::Balance,
 	) -> DispatchResult {
 		unimplemented!("method currently not used in testing")
 	}
 
 	/// Withdraw delegation from pool account to self.
 	fn withdraw_delegation(
-		who: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		amount: Self::Balance,
+		_who: &Self::AccountId,
+		_delegatee: &Self::AccountId,
+		_amount: Self::Balance,
 	) -> DispatchResult {
 		unimplemented!("method currently not used in testing")
 	}
 
 	/// Does the delegatee have any pending slash.
-	fn has_pending_slash(delegatee: &Self::AccountId) -> bool {
+	fn has_pending_slash(_delegatee: &Self::AccountId) -> bool {
 		false
 	}
 
 	fn delegator_slash(
-		delegatee: &Self::AccountId,
-		delegator: &Self::AccountId,
-		value: Self::Balance,
-		maybe_reporter: Option<Self::AccountId>,
+		_delegatee: &Self::AccountId,
+		_delegator: &Self::AccountId,
+		_value: Self::Balance,
+		_maybe_reporter: Option<Self::AccountId>,
 	) -> sp_runtime::DispatchResult {
 		unimplemented!("method currently not used in testing")
 	}
 
-	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance {
+	fn delegated_balance(_delegator: &Self::AccountId) -> Self::Balance {
 		unimplemented!("method currently not used in testing")
 	}
 }
@@ -360,14 +360,12 @@ impl pools::Config for Runtime {
 	type RewardCounter = RewardCounter;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type Staking = StakingMock;
 	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = MaxMetadataLen;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
-	type StakeAdapter = adapter::TransferStake<Self>;
-	type Staker = adapter::TransferStakeStrategy<Self, StakingMock>;
+	type StakeAdapter = adapter::TransferStakeStrategy<Self, StakingMock>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
