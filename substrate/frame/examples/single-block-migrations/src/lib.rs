@@ -112,8 +112,8 @@
 //! Note that the storage migration logic is attached to a standalone struct implementing
 //! [`OnRuntimeUpgrade`], rather than implementing the
 //! [`Hooks::on_runtime_upgrade`](frame_support::traits::Hooks::on_runtime_upgrade) hook directly on
-//! the pallet. The pallet hook is better suited for executing other types of logic that needs to
-//! execute on runtime upgrade, but not so much for storage migrations.
+//! the pallet. The pallet hook is better suited for special types of logic that need to execute on
+//! every runtime upgrade, but not so much for one-off storage migrations.
 //!
 //! ### `pub mod versioned`
 //!
