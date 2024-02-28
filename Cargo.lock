@@ -4166,6 +4166,7 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-overseer",
  "polkadot-primitives",
+ "polkadot-service",
  "sc-authority-discovery",
  "sc-client-api",
  "sc-network",
@@ -9965,6 +9966,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-single-block-migrations"
+version = "0.0.1"
+dependencies = [
+ "docify",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-try-runtime",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "sp-version",
+]
+
+[[package]]
 name = "pallet-example-split"
 version = "10.0.0"
 dependencies = [
@@ -10005,6 +10026,7 @@ dependencies = [
  "pallet-example-frame-crate",
  "pallet-example-kitchensink",
  "pallet-example-offchain-worker",
+ "pallet-example-single-block-migrations",
  "pallet-example-split",
  "pallet-example-tasks",
 ]
@@ -13384,11 +13406,24 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "docify",
  "frame",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
  "kitchensink-runtime",
  "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collective",
  "pallet-default-config-example",
+ "pallet-democracy",
+ "pallet-example-single-block-migrations",
  "pallet-examples",
+ "pallet-multisig",
+ "pallet-proxy",
+ "pallet-scheduler",
  "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-utility",
  "parity-scale-codec",
  "sc-cli",
  "sc-client-db",
@@ -13408,6 +13443,7 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
+ "sp-version",
  "staging-chain-spec-builder",
  "staging-node-cli",
  "staging-parachain-info",
