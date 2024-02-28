@@ -26,7 +26,10 @@ mod enter {
 	use crate::{
 		builder::{Bench, BenchBuilder},
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
-		scheduler::common::Assignment,
+		scheduler::{
+			common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+			ParasEntry,
+		},
 	};
 	use assert_matches::assert_matches;
 	use frame_support::assert_ok;
@@ -697,6 +700,25 @@ mod enter {
 				2
 			);
 
+			// One core was scheduled. We should put the assignment back, before calling enter().
+			let now = <frame_system::Pallet<Test>>::block_number() + 1;
+			let used_cores = 5;
+			let cores = (0..used_cores)
+				.into_iter()
+				.map(|i| {
+					let AssignmentProviderConfig { ttl, .. } =
+						scheduler::Pallet::<Test>::assignment_provider_config(CoreIndex(i));
+					// Load an assignment into provider so that one is present to pop
+					let assignment =
+						<Test as scheduler::Config>::AssignmentProvider::get_mock_assignment(
+							CoreIndex(i),
+							ParaId::from(i),
+						);
+					(CoreIndex(i), [ParasEntry::new(assignment, now + ttl)].into())
+				})
+				.collect();
+			scheduler::ClaimQueue::<Test>::set(cores);
+
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
 				limit_inherent_data,
@@ -980,6 +1002,7 @@ mod sanitizers {
 		AvailabilityBitfield, GroupIndex, Hash, Id as ParaId, SignedAvailabilityBitfield,
 		ValidatorIndex,
 	};
+	use rstest::rstest;
 	use sp_core::crypto::UncheckedFrom;
 
 	use crate::mock::Test;
@@ -1238,12 +1261,13 @@ mod sanitizers {
 		// Backed candidates and scheduled parachains used for `sanitize_backed_candidates` testing
 		struct TestData {
 			backed_candidates: Vec<BackedCandidate>,
-			scheduled_paras: BTreeMap<primitives::Id, CoreIndex>,
+			all_backed_candidates_with_core: Vec<(BackedCandidate, CoreIndex)>,
+			scheduled_paras: BTreeMap<primitives::Id, BTreeSet<CoreIndex>>,
 		}
 
 		// Generate test data for the candidates and assert that the evnironment is set as expected
 		// (check the comments for details)
-		fn get_test_data() -> TestData {
+		fn get_test_data(core_index_enabled: bool) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 
 			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
@@ -1285,9 +1309,14 @@ mod sanitizers {
 			shared::Pallet::<Test>::set_active_validators_ascending(validator_ids);
 
 			// Two scheduled parachains - ParaId(1) on CoreIndex(0) and ParaId(2) on CoreIndex(1)
-			let scheduled = (0_usize..2)
+			let scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = (0_usize..2)
 				.into_iter()
-				.map(|idx| (ParaId::from(1_u32 + idx as u32), CoreIndex::from(idx as u32)))
+				.map(|idx| {
+					(
+						ParaId::from(1_u32 + idx as u32),
+						[CoreIndex::from(idx as u32)].into_iter().collect(),
+					)
+				})
 				.collect::<BTreeMap<_, _>>();
 
 			// Set the validator groups in `scheduler`
@@ -1301,7 +1330,7 @@ mod sanitizers {
 				(
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(1) },
+						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
 						RELAY_PARENT_NUM,
 					)]),
 				),
@@ -1319,12 +1348,12 @@ mod sanitizers {
 				match group_index {
 					group_index if group_index == GroupIndex::from(0) => Some(vec![0, 1]),
 					group_index if group_index == GroupIndex::from(1) => Some(vec![2, 3]),
-					_ => panic!("Group index out of bounds for 2 parachains and 1 parathread core"),
+					_ => panic!("Group index out of bounds"),
 				}
 				.map(|m| m.into_iter().map(ValidatorIndex).collect::<Vec<_>>())
 			};
 
-			// Two backed candidates from each parachain
+			// One backed candidate from each parachain
 			let backed_candidates = (0_usize..2)
 				.into_iter()
 				.map(|idx0| {
@@ -1348,6 +1377,7 @@ mod sanitizers {
 						&keystore,
 						&signing_context,
 						BackingKind::Threshold,
+						core_index_enabled.then_some(CoreIndex(idx0 as u32)),
 					);
 					backed
 				})
@@ -1369,13 +1399,373 @@ mod sanitizers {
 				]
 			);
 
-			TestData { backed_candidates, scheduled_paras: scheduled }
+			let all_backed_candidates_with_core = backed_candidates
+				.iter()
+				.map(|candidate| {
+					// Only one entry for this test data.
+					(
+						candidate.clone(),
+						scheduled
+							.get(&candidate.descriptor().para_id)
+							.unwrap()
+							.first()
+							.copied()
+							.unwrap(),
+					)
+				})
+				.collect();
+
+			TestData {
+				backed_candidates,
+				scheduled_paras: scheduled,
+				all_backed_candidates_with_core,
+			}
 		}
 
-		#[test]
-		fn happy_path() {
+		// Generate test data for the candidates and assert that the evnironment is set as expected
+		// (check the comments for details)
+		// Para 1 scheduled on core 0 and core 1. Two candidates are supplied.
+		// Para 2 scheduled on cores 2 and 3. One candidate supplied.
+		// Para 3 scheduled on core 4. One candidate supplied.
+		// Para 4 scheduled on core 5. Two candidates supplied.
+		// Para 5 scheduled on core 6. No candidates supplied.
+		fn get_test_data_multiple_cores_per_para(core_index_enabled: bool) -> TestData {
+			const RELAY_PARENT_NUM: u32 = 3;
+
+			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
+			// votes) won't behave correctly
+			shared::Pallet::<Test>::add_allowed_relay_parent(
+				default_header().hash(),
+				Default::default(),
+				RELAY_PARENT_NUM,
+				1,
+			);
+
+			let header = default_header();
+			let relay_parent = header.hash();
+			let session_index = SessionIndex::from(0_u32);
+
+			let keystore = LocalKeystore::in_memory();
+			let keystore = Arc::new(keystore) as KeystorePtr;
+			let signing_context = SigningContext { parent_hash: relay_parent, session_index };
+
+			let validators = vec![
+				keyring::Sr25519Keyring::Alice,
+				keyring::Sr25519Keyring::Bob,
+				keyring::Sr25519Keyring::Charlie,
+				keyring::Sr25519Keyring::Dave,
+				keyring::Sr25519Keyring::Eve,
+				keyring::Sr25519Keyring::Ferdie,
+				keyring::Sr25519Keyring::One,
+			];
+			for validator in validators.iter() {
+				Keystore::sr25519_generate_new(
+					&*keystore,
+					PARACHAIN_KEY_TYPE_ID,
+					Some(&validator.to_seed()),
+				)
+				.unwrap();
+			}
+
+			// Set active validators in `shared` pallet
+			let validator_ids =
+				validators.iter().map(|v| v.public().into()).collect::<Vec<ValidatorId>>();
+			shared::Pallet::<Test>::set_active_validators_ascending(validator_ids);
+
+			// Set the validator groups in `scheduler`
+			scheduler::Pallet::<Test>::set_validator_groups(vec![
+				vec![ValidatorIndex(0)],
+				vec![ValidatorIndex(1)],
+				vec![ValidatorIndex(2)],
+				vec![ValidatorIndex(3)],
+				vec![ValidatorIndex(4)],
+				vec![ValidatorIndex(5)],
+				vec![ValidatorIndex(6)],
+			]);
+
+			// Update scheduler's claimqueue with the parachains
+			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+				(
+					CoreIndex::from(0),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(1),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(1) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(2),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(2) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(3),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(3) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(4),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 3.into(), core_index: CoreIndex(4) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(5),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 4.into(), core_index: CoreIndex(5) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(6),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 5.into(), core_index: CoreIndex(6) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+			]));
+
+			// Callback used for backing candidates
+			let group_validators = |group_index: GroupIndex| {
+				match group_index {
+					group_index if group_index == GroupIndex::from(0) => Some(vec![0]),
+					group_index if group_index == GroupIndex::from(1) => Some(vec![1]),
+					group_index if group_index == GroupIndex::from(2) => Some(vec![2]),
+					group_index if group_index == GroupIndex::from(3) => Some(vec![3]),
+					group_index if group_index == GroupIndex::from(4) => Some(vec![4]),
+					group_index if group_index == GroupIndex::from(5) => Some(vec![5]),
+					group_index if group_index == GroupIndex::from(6) => Some(vec![6]),
+
+					_ => panic!("Group index out of bounds"),
+				}
+				.map(|m| m.into_iter().map(ValidatorIndex).collect::<Vec<_>>())
+			};
+
+			let mut backed_candidates = vec![];
+			let mut all_backed_candidates_with_core = vec![];
+
+			// Para 1
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(1),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(1 as u8),
+					persisted_validation_data_hash: [42u8; 32].into(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed: BackedCandidate = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(0 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(0 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				if core_index_enabled {
+					all_backed_candidates_with_core.push((backed, CoreIndex(0)));
+				}
+
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(1),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(2 as u8),
+					persisted_validation_data_hash: [42u8; 32].into(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(1 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(1 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				if core_index_enabled {
+					all_backed_candidates_with_core.push((backed, CoreIndex(1)));
+				}
+			}
+
+			// Para 2
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(2),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(3 as u8),
+					persisted_validation_data_hash: [42u8; 32].into(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(2 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(2 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				if core_index_enabled {
+					all_backed_candidates_with_core.push((backed, CoreIndex(2)));
+				}
+			}
+
+			// Para 3
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(3),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(4 as u8),
+					persisted_validation_data_hash: [42u8; 32].into(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(4 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(4 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				all_backed_candidates_with_core.push((backed, CoreIndex(4)));
+			}
+
+			// Para 4
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(4),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(5 as u8),
+					persisted_validation_data_hash: [42u8; 32].into(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(5 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					None,
+				);
+				backed_candidates.push(backed.clone());
+				all_backed_candidates_with_core.push((backed, CoreIndex(5)));
+
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(4),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(6 as u8),
+					persisted_validation_data_hash: [42u8; 32].into(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(5 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(5 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+			}
+
+			// No candidate for para 5.
+
+			// State sanity checks
+			assert_eq!(
+				<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
+				vec![
+					(CoreIndex(0), ParaId::from(1)),
+					(CoreIndex(1), ParaId::from(1)),
+					(CoreIndex(2), ParaId::from(2)),
+					(CoreIndex(3), ParaId::from(2)),
+					(CoreIndex(4), ParaId::from(3)),
+					(CoreIndex(5), ParaId::from(4)),
+					(CoreIndex(6), ParaId::from(5)),
+				]
+			);
+			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
+			for (core_idx, para_id) in <scheduler::Pallet<Test>>::scheduled_paras() {
+				scheduled.entry(para_id).or_default().insert(core_idx);
+			}
+
+			assert_eq!(
+				shared::Pallet::<Test>::active_validator_indices(),
+				vec![
+					ValidatorIndex(0),
+					ValidatorIndex(1),
+					ValidatorIndex(2),
+					ValidatorIndex(3),
+					ValidatorIndex(4),
+					ValidatorIndex(5),
+					ValidatorIndex(6),
+				]
+			);
+
+			TestData {
+				backed_candidates,
+				scheduled_paras: scheduled,
+				all_backed_candidates_with_core,
+			}
+		}
+
+		#[rstest]
+		#[case(false)]
+		#[case(true)]
+		fn happy_path(#[case] core_index_enabled: bool) {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { backed_candidates, scheduled_paras: scheduled } = get_test_data();
+				let TestData {
+					backed_candidates,
+					all_backed_candidates_with_core,
+					scheduled_paras: scheduled,
+				} = get_test_data(core_index_enabled);
 
 				let has_concluded_invalid =
 					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
@@ -1385,47 +1775,95 @@ mod sanitizers {
 						backed_candidates.clone(),
 						&<shared::Pallet<Test>>::allowed_relay_parents(),
 						has_concluded_invalid,
-						&scheduled
+						scheduled,
+						core_index_enabled
 					),
 					SanitizedBackedCandidates {
-						backed_candidates,
-						votes_from_disabled_were_dropped: false
+						backed_candidates_with_core: all_backed_candidates_with_core,
+						votes_from_disabled_were_dropped: false,
+						dropped_unscheduled_candidates: false
 					}
 				);
+			});
+		}
 
-				{}
+		#[rstest]
+		#[case(false)]
+		#[case(true)]
+		fn test_with_multiple_cores_per_para(#[case] core_index_enabled: bool) {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData {
+					backed_candidates,
+					all_backed_candidates_with_core: expected_all_backed_candidates_with_core,
+					scheduled_paras: scheduled,
+				} = get_test_data_multiple_cores_per_para(core_index_enabled);
+
+				let has_concluded_invalid =
+					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
+
+				assert_eq!(
+					sanitize_backed_candidates::<Test, _>(
+						backed_candidates.clone(),
+						&<shared::Pallet<Test>>::allowed_relay_parents(),
+						has_concluded_invalid,
+						scheduled,
+						core_index_enabled
+					),
+					SanitizedBackedCandidates {
+						backed_candidates_with_core: expected_all_backed_candidates_with_core,
+						votes_from_disabled_were_dropped: false,
+						dropped_unscheduled_candidates: true
+					}
+				);
 			});
 		}
 
 		// nothing is scheduled, so no paraids match, thus all backed candidates are skipped
-		#[test]
-		fn nothing_scheduled() {
+		#[rstest]
+		#[case(false, false)]
+		#[case(true, true)]
+		#[case(false, true)]
+		#[case(true, false)]
+		fn nothing_scheduled(
+			#[case] core_index_enabled: bool,
+			#[case] multiple_cores_per_para: bool,
+		) {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { backed_candidates, scheduled_paras: _ } = get_test_data();
-				let scheduled = &BTreeMap::new();
+				let TestData { backed_candidates, .. } = if multiple_cores_per_para {
+					get_test_data_multiple_cores_per_para(core_index_enabled)
+				} else {
+					get_test_data(core_index_enabled)
+				};
+				let scheduled = BTreeMap::new();
 				let has_concluded_invalid =
 					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
 
 				let SanitizedBackedCandidates {
-					backed_candidates: sanitized_backed_candidates,
+					backed_candidates_with_core: sanitized_backed_candidates,
 					votes_from_disabled_were_dropped,
+					dropped_unscheduled_candidates,
 				} = sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					has_concluded_invalid,
-					&scheduled,
+					scheduled,
+					core_index_enabled,
 				);
 
 				assert!(sanitized_backed_candidates.is_empty());
 				assert!(!votes_from_disabled_were_dropped);
+				assert!(dropped_unscheduled_candidates);
 			});
 		}
 
 		// candidates that have concluded as invalid are filtered out
-		#[test]
-		fn invalid_are_filtered_out() {
+		#[rstest]
+		#[case(false)]
+		#[case(true)]
+		fn invalid_are_filtered_out(#[case] core_index_enabled: bool) {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { backed_candidates, scheduled_paras: scheduled } = get_test_data();
+				let TestData { backed_candidates, scheduled_paras: scheduled, .. } =
+					get_test_data(core_index_enabled);
 
 				// mark every second one as concluded invalid
 				let set = {
@@ -1440,45 +1878,55 @@ mod sanitizers {
 				let has_concluded_invalid =
 					|_idx: usize, candidate: &BackedCandidate| set.contains(&candidate.hash());
 				let SanitizedBackedCandidates {
-					backed_candidates: sanitized_backed_candidates,
+					backed_candidates_with_core: sanitized_backed_candidates,
 					votes_from_disabled_were_dropped,
+					dropped_unscheduled_candidates,
 				} = sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					has_concluded_invalid,
-					&scheduled,
+					scheduled,
+					core_index_enabled,
 				);
 
 				assert_eq!(sanitized_backed_candidates.len(), backed_candidates.len() / 2);
 				assert!(!votes_from_disabled_were_dropped);
+				assert!(!dropped_unscheduled_candidates);
 			});
 		}
 
-		#[test]
-		fn disabled_non_signing_validator_doesnt_get_filtered() {
+		#[rstest]
+		#[case(false)]
+		#[case(true)]
+		fn disabled_non_signing_validator_doesnt_get_filtered(#[case] core_index_enabled: bool) {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
+				let TestData { mut all_backed_candidates_with_core, .. } =
+					get_test_data(core_index_enabled);
 
 				// Disable Eve
 				set_disabled_validators(vec![4]);
 
-				let before = backed_candidates.clone();
+				let before = all_backed_candidates_with_core.clone();
 
 				// Eve is disabled but no backing statement is signed by it so nothing should be
 				// filtered
 				assert!(!filter_backed_statements_from_disabled_validators::<Test>(
-					&mut backed_candidates,
+					&mut all_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled_paras
+					core_index_enabled
 				));
-				assert_eq!(backed_candidates, before);
+				assert_eq!(all_backed_candidates_with_core, before);
 			});
 		}
-
-		#[test]
-		fn drop_statements_from_disabled_without_dropping_candidate() {
+		#[rstest]
+		#[case(false)]
+		#[case(true)]
+		fn drop_statements_from_disabled_without_dropping_candidate(
+			#[case] core_index_enabled: bool,
+		) {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
+				let TestData { mut all_backed_candidates_with_core, .. } =
+					get_test_data(core_index_enabled);
 
 				// Disable Alice
 				set_disabled_validators(vec![0]);
@@ -1491,61 +1939,83 @@ mod sanitizers {
 				configuration::Pallet::<Test>::force_set_active_config(hc);
 
 				// Verify the initial state is as expected
-				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
 				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices.get(0).unwrap(),
-					true
+					all_backed_candidates_with_core.get(0).unwrap().0.validity_votes().len(),
+					2
 				);
-				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices.get(1).unwrap(),
-					true
-				);
-				let untouched = backed_candidates.get(1).unwrap().clone();
+				let (validator_indices, maybe_core_index) = all_backed_candidates_with_core
+					.get(0)
+					.unwrap()
+					.0
+					.validator_indices_and_core_index(core_index_enabled);
+				if core_index_enabled {
+					assert!(maybe_core_index.is_some());
+				} else {
+					assert!(maybe_core_index.is_none());
+				}
+
+				assert_eq!(validator_indices.get(0).unwrap(), true);
+				assert_eq!(validator_indices.get(1).unwrap(), true);
+				let untouched = all_backed_candidates_with_core.get(1).unwrap().0.clone();
 
 				assert!(filter_backed_statements_from_disabled_validators::<Test>(
-					&mut backed_candidates,
+					&mut all_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled_paras
+					core_index_enabled
 				));
 
+				let (validator_indices, maybe_core_index) = all_backed_candidates_with_core
+					.get(0)
+					.unwrap()
+					.0
+					.validator_indices_and_core_index(core_index_enabled);
+				if core_index_enabled {
+					assert!(maybe_core_index.is_some());
+				} else {
+					assert!(maybe_core_index.is_none());
+				}
+
 				// there should still be two backed candidates
-				assert_eq!(backed_candidates.len(), 2);
+				assert_eq!(all_backed_candidates_with_core.len(), 2);
 				// but the first one should have only one validity vote
-				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 1);
+				assert_eq!(
+					all_backed_candidates_with_core.get(0).unwrap().0.validity_votes().len(),
+					1
+				);
 				// Validator 0 vote should be dropped, validator 1 - retained
-				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices.get(0).unwrap(),
-					false
-				);
-				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices.get(1).unwrap(),
-					true
-				);
+				assert_eq!(validator_indices.get(0).unwrap(), false);
+				assert_eq!(validator_indices.get(1).unwrap(), true);
 				// the second candidate shouldn't be modified
-				assert_eq!(*backed_candidates.get(1).unwrap(), untouched);
+				assert_eq!(all_backed_candidates_with_core.get(1).unwrap().0, untouched);
 			});
 		}
 
-		#[test]
-		fn drop_candidate_if_all_statements_are_from_disabled() {
+		#[rstest]
+		#[case(false)]
+		#[case(true)]
+		fn drop_candidate_if_all_statements_are_from_disabled(#[case] core_index_enabled: bool) {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
+				let TestData { mut all_backed_candidates_with_core, .. } =
+					get_test_data(core_index_enabled);
 
 				// Disable Alice and Bob
 				set_disabled_validators(vec![0, 1]);
 
 				// Verify the initial state is as expected
-				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
-				let untouched = backed_candidates.get(1).unwrap().clone();
+				assert_eq!(
+					all_backed_candidates_with_core.get(0).unwrap().0.validity_votes().len(),
+					2
+				);
+				let untouched = all_backed_candidates_with_core.get(1).unwrap().0.clone();
 
 				assert!(filter_backed_statements_from_disabled_validators::<Test>(
-					&mut backed_candidates,
+					&mut all_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled_paras
+					core_index_enabled
 				));
 
-				assert_eq!(backed_candidates.len(), 1);
-				assert_eq!(*backed_candidates.get(0).unwrap(), untouched);
+				assert_eq!(all_backed_candidates_with_core.len(), 1);
+				assert_eq!(all_backed_candidates_with_core.get(0).unwrap().0, untouched);
 			});
 		}
 	}
