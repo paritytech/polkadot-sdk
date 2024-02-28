@@ -103,10 +103,10 @@
 //!   of the same WASM blob, and is therefore guaranteed to be up to date.
 //!
 //! For example, imagine you have modified a storage item to have a new type. This will possibly
-//! require a [`crate::reference_docs::frame_runtime_migration`], and any offchain code, such as a
-//! Polkadot-JS application, will have to be updated to reflect this change. Whereas the WASM
-//! offchain worker code is guaranteed to already be updated, or else the runtime code will not even
-//! compile.
+//! require a [`crate::reference_docs::frame_runtime_upgrades_and_migrations`], and any offchain
+//! code, such as a Polkadot-JS application, will have to be updated to reflect this change. Whereas
+//! the WASM offchain worker code is guaranteed to already be updated, or else the runtime code will
+//! not even compile.
 //!
 //!
 //! ## Further References
