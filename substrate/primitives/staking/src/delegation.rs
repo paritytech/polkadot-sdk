@@ -64,14 +64,16 @@ pub trait DelegateeSupport {
 	fn report_slash(who: &Self::AccountId, slash: Self::Balance);
 }
 
+/// Trait that extends on [`StakingInterface`] to provide additional capability to delegate funds to
+/// an account.
 pub trait DelegatedStakeInterface: StakingInterface {
 	/// Returns true if who is a `delegatee` account.
 	fn is_delegatee(who: &Self::AccountId) -> bool;
 
-	/// Effective balance of the delegatee account.
+	/// Effective balance of the `delegatee` account.
 	fn delegatee_balance(who: &Self::AccountId) -> Self::Balance;
 
-	/// Delegate funds to `Delegatee`.
+	/// Delegate funds to `delegatee`.
 	fn delegate(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
