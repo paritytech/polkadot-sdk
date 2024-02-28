@@ -34,6 +34,6 @@ type HostFunctions = ();
 
 fn main() -> Result<()> {
 	env_logger::init();
-	log::info!("Benchmarking pallet CLI");
+
 	PalletCmd::parse().run_with_maybe_spec::<BlakeTwo256, HostFunctions>(None)
 }

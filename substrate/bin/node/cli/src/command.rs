@@ -107,7 +107,6 @@ pub fn run() -> Result<()> {
 							)
 						}
 
-						HashingFor::<Block>::asdf;
 						cmd.run::<HashingFor<Block>, sp_statement_store::runtime_api::HostFunctions>(config)
 					},
 					BenchmarkCmd::Block(cmd) => {

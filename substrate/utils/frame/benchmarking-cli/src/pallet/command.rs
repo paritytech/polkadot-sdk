@@ -574,10 +574,10 @@ impl PalletCmd {
 
 	/// Produce a genesis storage and genesis changes.
 	///
-	/// It would be easier to only return only type, but there is no easy way to convert them.
+	/// It would be easier to only return one type, but there is no easy way to convert them.
 	// TODO: Re-write `BenchmarkingState` to not be such a clusterfuck and only accept
 	// `OverlayedChanges` instead of a mix between `OverlayedChanges` and `State`. But this can only
-	// be done once we deprecated and removed the legacy interface.
+	// be done once we deprecated and removed the legacy interface :(
 	fn genesis_storage<H: Hash>(
 		&self,
 		chain_spec: &Option<Box<dyn ChainSpec>>,
