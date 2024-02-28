@@ -1024,43 +1024,26 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn collect_timedout(
 		pred: impl Fn(BlockNumberFor<T>) -> AvailabilityTimeoutStatus<BlockNumberFor<T>>,
 	) -> Vec<CoreIndex> {
-		let mut cleaned_up_cores = Vec::new();
+		let timed_out: Vec<_> =
+			Self::free_cores(|candidate| pred(candidate.backed_in_number).timed_out, None)
+				.collect();
+		let mut timed_out_cores = Vec::with_capacity(timed_out.len());
+		for candidate in timed_out.iter() {
+			timed_out_cores.push(candidate.core);
 
-		for (para_id, candidates_pending_availability) in <PendingAvailability<T>>::iter() {
-			let mut timed_out = None;
-			for (idx, candidate) in candidates_pending_availability.iter().enumerate() {
-				if pred(candidate.backed_in_number).timed_out {
-					timed_out = Some(idx);
-					// Found the first timed out candidate of this para. All other successors will
-					// be timed out as well.
-					break
-				}
-			}
+			let receipt = CandidateReceipt {
+				descriptor: candidate.descriptor.clone(),
+				commitments_hash: candidate.commitments.hash(),
+			};
 
-			if let Some(idx) = timed_out {
-				<PendingAvailability<T>>::mutate(&para_id, |candidates| {
-					if let Some(candidates) = candidates {
-						let cleaned_up = candidates.drain(idx..);
-						for candidate in cleaned_up {
-							cleaned_up_cores.push(candidate.core);
-
-							let receipt = CandidateReceipt {
-								descriptor: candidate.descriptor,
-								commitments_hash: candidate.commitments.hash(),
-							};
-
-							Self::deposit_event(Event::<T>::CandidateTimedOut(
-								receipt,
-								candidate.commitments.head_data,
-								candidate.core,
-							));
-						}
-					}
-				});
-			}
+			Self::deposit_event(Event::<T>::CandidateTimedOut(
+				receipt,
+				candidate.commitments.head_data.clone(),
+				candidate.core,
+			));
 		}
 
-		cleaned_up_cores
+		timed_out_cores
 	}
 
 	/// Cleans up all cores pending availability occupied by one of the disputed candidates or which
@@ -1069,35 +1052,43 @@ impl<T: Config> Pallet<T> {
 	/// Returns a vector of cleaned-up core IDs, along with the evicted candidate hashes.
 	pub(crate) fn collect_disputed(
 		disputed: &BTreeSet<CandidateHash>,
-	) -> Vec<(CoreIndex, CandidateHash)> {
-		let mut cleaned_up_cores = Vec::with_capacity(disputed.len());
+	) -> impl Iterator<Item = (CoreIndex, CandidateHash)> + '_ {
+		Self::free_cores(|candidate| disputed.contains(&candidate.hash), Some(disputed.len()))
+			.map(|candidate| (candidate.core, candidate.hash))
+	}
+
+	fn free_cores<P: Fn(&CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>) -> bool>(
+		pred: P,
+		capacity_hint: Option<usize>,
+	) -> impl Iterator<Item = CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
+		let mut cleaned_up_cores =
+			if let Some(capacity) = capacity_hint { Vec::with_capacity(capacity) } else { vec![] };
 
 		for (para_id, pending_candidates) in <PendingAvailability<T>>::iter() {
 			// We assume that pending candidates are stored in dependency order. So we need to store
-			// the earliest disputed candidate. All others that follow will get freed as well.
-			let mut earliest_disputed_idx = None;
+			// the earliest dropped candidate. All others that follow will get freed as well.
+			let mut earliest_dropped_idx = None;
 			for (index, candidate) in pending_candidates.iter().enumerate() {
-				if disputed.contains(&candidate.hash) {
-					earliest_disputed_idx = Some(index);
+				if pred(candidate) {
+					earliest_dropped_idx = Some(index);
 					// Since we're looping the candidates in dependency order, we've found the
 					// earliest disputed index for this paraid.
 					break;
 				}
 			}
 
-			if let Some(earliest_disputed_idx) = earliest_disputed_idx {
+			if let Some(earliest_dropped_idx) = earliest_dropped_idx {
 				// Do cleanups and record the cleaned up cores
 				<PendingAvailability<T>>::mutate(&para_id, |record| {
 					if let Some(record) = record {
-						let cleaned_up = record.drain(earliest_disputed_idx..);
-						cleaned_up_cores
-							.extend(cleaned_up.map(|candidate| (candidate.core, candidate.hash)));
+						let cleaned_up = record.drain(earliest_dropped_idx..);
+						cleaned_up_cores.extend(cleaned_up);
 					}
 				});
 			}
 		}
 
-		cleaned_up_cores
+		cleaned_up_cores.into_iter()
 	}
 
 	/// Forcibly enact the candidate with the given ID as though it had been deemed available

@@ -545,7 +545,6 @@ impl<T: Config> Pallet<T> {
 			BTreeMap<CoreIndex, FreedReason>,
 			BTreeSet<CandidateHash>,
 		) = <inclusion::Pallet<T>>::collect_disputed(&current_concluded_invalid_disputes)
-			.into_iter()
 			.map(|(core, candidate)| ((core, FreedReason::Concluded), candidate))
 			.unzip();
 
