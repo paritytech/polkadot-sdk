@@ -3,7 +3,7 @@ name = "pallet-xcm-benchmarks"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "8.0.1"
+version = "8.0.2"
 description = "Benchmarks for the XCM pallet"
 
 [lints]
@@ -23,7 +23,7 @@ sp-io = { path = "../../../substrate/primitives/io", default-features = false, v
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false, version = "8.0.1" }
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, version = "29.0.0" }
 xcm = { package = "staging-xcm", path = "..", default-features = false, version = "8.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false, version = "8.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false, version = "8.0.1" }
 log = "0.4.17"
 
 [dev-dependencies]

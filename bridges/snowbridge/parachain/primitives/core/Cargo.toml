@@ -19,7 +19,7 @@ hex-literal = { version = "0.4.1" }
 
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false, version = "7.0.0" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.1" }
 
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "29.0.0" }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "29.0.0" }

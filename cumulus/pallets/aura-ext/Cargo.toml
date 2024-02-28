@@ -24,7 +24,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false, version = "0.8.0" }
+cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false, version = "0.8.1" }
 
 [dev-dependencies]
 cumulus-pallet-parachain-system = { path = "../parachain-system" }

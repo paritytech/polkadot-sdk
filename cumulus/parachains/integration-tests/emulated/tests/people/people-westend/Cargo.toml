@@ -22,7 +22,7 @@ xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", def
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
 westend-runtime = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/westend" }
 westend-runtime-constants = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/westend/constants" }
-polkadot-runtime-common = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/common" }
+polkadot-runtime-common = { version = "8.0.1", path = "../../../../../../../polkadot/runtime/common" }
 asset-test-utils = { version = "8.0.1", path = "../../../../../runtimes/assets/test-utils" }
 parachains-common = { version = "8.0.0", path = "../../../../../common" }
 people-westend-runtime = { version = "0.2.0", path = "../../../../../runtimes/people/people-westend" }

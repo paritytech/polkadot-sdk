@@ -22,7 +22,7 @@ xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", def
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
 rococo-runtime = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/rococo" }
 rococo-runtime-constants = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/rococo/constants" }
-polkadot-runtime-common = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/common" }
+polkadot-runtime-common = { version = "8.0.1", path = "../../../../../../../polkadot/runtime/common" }
 asset-test-utils = { version = "8.0.1", path = "../../../../../runtimes/assets/test-utils" }
 parachains-common = { version = "8.0.0", path = "../../../../../common" }
 people-rococo-runtime = { version = "0.2.0", path = "../../../../../runtimes/people/people-rococo" }

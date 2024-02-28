@@ -75,7 +75,7 @@ cumulus-test-runtime = { version = "0.1.0", path = "../runtime" }
 cumulus-relay-chain-minimal-node = { version = "0.8.0", path = "../../client/relay-chain-minimal-node" }
 cumulus-client-pov-recovery = { version = "0.8.0", path = "../../client/pov-recovery" }
 cumulus-test-relay-sproof-builder = { version = "0.8.0", path = "../relay-sproof-builder" }
-cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.8.0" }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.8.1" }
 pallet-timestamp = { version = "28.0.0", path = "../../../substrate/frame/timestamp" }
 
 [dev-dependencies]
