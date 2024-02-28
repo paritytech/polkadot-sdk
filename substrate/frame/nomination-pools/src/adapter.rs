@@ -389,7 +389,7 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		match bond_type {
 			BondType::Create => {
 				// first delegation
-				let reward_account = Pallet::<T>::create_bonded_account(pool);
+				let reward_account = Pallet::<T>::create_reward_account(pool);
 				Staking::delegate(who, &pool_account, &reward_account, amount)
 			},
 			BondType::Later => {

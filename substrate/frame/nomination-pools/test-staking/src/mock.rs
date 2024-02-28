@@ -181,13 +181,12 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type Staking = Staking;
 	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = ConstU32<8>;
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
-	type StakeAdapter = pallet_nomination_pools::adapter::TransferStake<Self>;
+	type StakeAdapter = pallet_nomination_pools::adapter::TransferStakeStrategy<Self, Staking>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
