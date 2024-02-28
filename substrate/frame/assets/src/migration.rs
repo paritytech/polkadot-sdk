@@ -68,8 +68,8 @@ pub mod v1 {
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let in_code_version = Pallet::<T>::in_code_storage_version();
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
-			if onchain_version == 0 && in_code_version == 1 {
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
+			if on_chain_version == 0 && in_code_version == 1 {
 				let mut translated = 0u64;
 				Asset::<T>::translate::<
 					OldAssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T>>,
@@ -117,12 +117,12 @@ pub mod v1 {
 			);
 
 			let in_code_version = Pallet::<T>::in_code_storage_version();
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
 
 			frame_support::ensure!(in_code_version == 1, "must_upgrade");
 			ensure!(
-				in_code_version == onchain_version,
-				"after migration, the in_code_version and onchain_version should be the same"
+				in_code_version == on_chain_version,
+				"after migration, the in_code_version and on_chain_version should be the same"
 			);
 
 			Asset::<T>::iter().try_for_each(|(_id, asset)| -> Result<(), TryRuntimeError> {

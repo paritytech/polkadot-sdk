@@ -55,16 +55,16 @@ pub mod v1 {
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let in_code_version = Pallet::<T>::in_code_storage_version();
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
 
 			log::info!(
 				target: LOG_TARGET,
 				"Running migration with in-code storage version {:?} / onchain {:?}",
 				in_code_version,
-				onchain_version
+				on_chain_version
 			);
 
-			if onchain_version == 0 && in_code_version == 1 {
+			if on_chain_version == 0 && in_code_version == 1 {
 				let mut translated = 0u64;
 				let mut configs_iterated = 0u64;
 				Collection::<T>::translate::<
