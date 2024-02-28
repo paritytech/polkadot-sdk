@@ -199,7 +199,7 @@ pub fn pallet(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// An attribute macro that can be attached to a (non-empty) module declaration. Doing so will
 /// designate that module as a benchmarking module.
 ///
-/// See `frame_benchmarking::v2`.
+/// See `frame_benchmarking::v2` for more info.
 #[proc_macro_attribute]
 pub fn benchmarks(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	match benchmark::benchmarks(attr, tokens, false) {
@@ -211,7 +211,7 @@ pub fn benchmarks(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 /// An attribute macro that can be attached to a (non-empty) module declaration. Doing so will
 /// designate that module as an instance benchmarking module.
 ///
-/// See `frame_benchmarking::v2`.
+/// See `frame_benchmarking::v2` for more info.
 #[proc_macro_attribute]
 pub fn instance_benchmarks(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	match benchmark::benchmarks(attr, tokens, true) {
@@ -224,7 +224,7 @@ pub fn instance_benchmarks(attr: TokenStream, tokens: TokenStream) -> TokenStrea
 /// attached to a function definition containing an `#[extrinsic_call]` or `#[block]`
 /// attribute.
 ///
-/// See `frame_benchmarking::v2`.
+/// See `frame_benchmarking::v2` for more info.
 #[proc_macro_attribute]
 pub fn benchmark(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream {
 	quote!(compile_error!(
@@ -237,7 +237,7 @@ pub fn benchmark(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream {
 /// used as a boundary designating where the benchmark setup code ends, and the benchmark
 /// verification code begins.
 ///
-/// See `frame_benchmarking::v2`.
+/// See `frame_benchmarking::v2` for more info.
 #[proc_macro_attribute]
 pub fn extrinsic_call(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream {
 	quote!(compile_error!(
@@ -250,7 +250,7 @@ pub fn extrinsic_call(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream 
 /// enclosing benchmark function, This attribute is also used as a boundary designating where
 /// the benchmark setup code ends, and the benchmark verification code begins.
 ///
-/// See `frame_benchmarking::v2`.
+/// See `frame_benchmarking::v2` for more info.
 #[proc_macro_attribute]
 pub fn block(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream {
 	quote!(compile_error!(
