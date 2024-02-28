@@ -6,7 +6,7 @@
 //! 2. a state transition function
 //!
 //! In Substrate-based blockchains, state transition functions are referred to as
-//! [runtimes](https://docs.substrate.io/learn/runtime-development/).
+//! [runtimes](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/blockchain_state_machines/index.html).
 //!
 //! Traditionally, before Substrate, upgrading state transition functions required node
 //! operators to download new software and restart their nodes in a process called
@@ -25,15 +25,17 @@
 //! ## Performing a Runtime Upgrade
 //!
 //! To upgrade a runtime, an [`Origin`](frame_system::RawOrigin) with the necesarry permissions
-//! (usually via governance) executes [`set_code`] (or [`set_code_without_checks`]) with the
-//! desired new blob.
+//! (usually via governance) changes the `:code` storage. Usually, this is performed via a call to
+//! [`set_code`] (or [`set_code_without_checks`]) with the desired new runtime blob, scheduled
+//! using [`pallet_scheduler`].
 //!
 //! Prior to building the new runtime, don't forget to update the
 //! [`RuntimeVersion`](sp_version::RuntimeVersion).
 //!
 //! # Migrations
 //!
-//! It is often desirable to define logic to execute immediately after runtime upgrades.
+//! It is often desirable to define logic to execute immediately after runtime upgrades (see
+//! [this diagram](frame::traits::Hooks)).
 //!
 //! Self-contained pieces of logic that execute after a runtime upgrade are called "Migrations".
 //!

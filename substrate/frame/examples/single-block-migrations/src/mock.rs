@@ -55,7 +55,6 @@ impl pallet_balances::Config for MockRuntime {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type MaxHolds = ();
 }
 
 impl Config for MockRuntime {}
