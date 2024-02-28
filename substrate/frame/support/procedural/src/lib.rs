@@ -809,7 +809,7 @@ fn pallet_macro_stub() -> TokenStream {
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::config`](../frame_support/pallet_macros/attr.config.html).
+/// `frame_support::pallet_macros::config`.
 #[proc_macro_attribute]
 pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
