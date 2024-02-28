@@ -30,14 +30,14 @@
 //!
 //! ## Traits and Trait Implementations
 //!
-//! Broardly, token logic in Substrate can be divided into two categories, traits and trait
-//! implementations.
+//! Broardly speaking, token logic in Substrate can be divided into two categories: traits, and
+//! trait implementations.
 //!
-//! Traits define common interfaces that types of token should implement. For example, the
+//! *Traits* define common interfaces that types of token should implement. For example, the
 //! [`fungible::Inspect`] trait specifies that implementations of this trait must contain methods
 //! for accessing the total issuance of the token, the balance of individual accounts, etc.
 //!
-//! Trait implementations are concrete implementations of these traits. For example, one of the
+//! *Trait implementations* are concrete implementations of these traits. For example, one of the
 //! many traits [`pallet_balances`] implements is [`fungible::Inspect`].
 //!
 //! The distinction between traits and trait implementations is helpful because it allows pallets
@@ -59,8 +59,11 @@
 //! ## Fungible Token Traits in Substrate
 //!
 //! The [`frame_support::traits::fungible`] crate contains the latest set of Substrate
-//! fungible token traits, and are recommended to use for all new logic. See the crate documentation
-//! for more info about these traits.
+//! fungible token traits, and is recommended to use for all new logic requiring a fungible tokens.
+//! See the crate documentation for more info about these fungible traits.
+//!
+//! [`frame_support::traits::fungibles`] provides very similar functionality to
+//! [`frame_support::traits::fungible`], except it supports managing multiple tokens.
 //!
 //! You may notice the trait [`frame_support::traits::Currency`] with similar functionality is also
 //! used in the codebase, however this trait is deprecated and existing logic is in the process of
@@ -68,5 +71,20 @@
 //!
 //! ## Fungible Token Trait Implementations in Substrate
 //!
-//! [`pallet_balances`] is the most common fungible token implementation, usually used for the
-//! network native token.
+//! [`pallet_balances`] implements [`frame_support::traits::fungible`], and is the most commonly
+//! used fungible implementation in Substrate. Most of the time, it's used for managing the native
+//! token of the blockchain network.
+//!
+//! [`pallet_assets`] implements [`frame_support::traits::fungibles`], and is another popular
+//! fungible token implementation. It supports the creation and management of multiple assets in a
+//! single crate, making it a good choice when a network requires more assets in
+//! addition to its native token.
+//!
+//! ## Non-Fungible Tokens in Substrate
+//!
+//! The [`pallet_uniques`] is recommended to use for all NFT use cases in Substrate.
+//! See the crate documentation for more info about this pallet.
+//!
+//! The [`pallet_nfts`] is deprecatd and should not be used.
+//!
+//! akkk

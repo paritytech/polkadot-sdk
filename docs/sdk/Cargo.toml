@@ -66,6 +66,8 @@ pallet-proxy = { path = "../../substrate/frame/proxy" }
 pallet-authorship = { path = "../../substrate/frame/authorship" }
 pallet-collective = { path = "../../substrate/frame/collective" }
 pallet-democracy = { path = "../../substrate/frame/democracy" }
+pallet-uniques = { path = "../../substrate/frame/uniques" }
+pallet-nfts = { path = "../../substrate/frame/nfts" }
 frame-system = { path = "../../substrate/frame/system" }
 
 # Primitives
