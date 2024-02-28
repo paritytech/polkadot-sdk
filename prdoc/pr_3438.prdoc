@@ -6,8 +6,8 @@ doc:
       Makes permissionless withdrawing the default claim permission, giving any network participant
       access to claim pool rewards on member's behalf, by default.
 
-      Removes the PermissionlessAll variant, and adds a migration to remove PermissionlessAll from
-      ClaimPermission. Also removes default values from storage.
+      Removes the PermissionlessAll variant, and adds a migration to migrate PermissionlessAll to
+      PermissionlessWithdraw.
 
 crates:
   - name: pallet-nomination-pools

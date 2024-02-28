@@ -130,15 +130,15 @@ mod v9 {
 	}
 
 	impl OldClaimPermission {
-		// NOTE: As `PermissionlessWithraw` is now default, we do not need these entries in storage.
-		// `PermissionlessAll` entries are also removed.
 		fn migrate_to_v9(self) -> Option<ClaimPermission> {
 			match self {
 				OldClaimPermission::Permissioned => Some(ClaimPermission::Permissioned),
 				OldClaimPermission::PermissionlessCompound =>
 					Some(ClaimPermission::PermissionlessCompound),
-				OldClaimPermission::PermissionlessWithdraw => None,
-				OldClaimPermission::PermissionlessAll => None,
+				OldClaimPermission::PermissionlessWithdraw =>
+					Some(ClaimPermission::PermissionlessWithdraw),
+				OldClaimPermission::PermissionlessAll =>
+					Some(ClaimPermission::PermissionlessWithdraw),
 			}
 		}
 	}

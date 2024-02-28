@@ -466,16 +466,6 @@ impl Default for ClaimPermission {
 }
 
 impl ClaimPermission {
-	/// If the current permission is `PermissionlessWithdraw`, return `None`, otherwise return
-	/// `Some(self)`.
-	fn default_as_none(self) -> Option<ClaimPermission> {
-		if self == ClaimPermission::default() {
-			None
-		} else {
-			Some(self)
-		}
-	}
-
 	/// Permissionless compounding of pool rewards is allowed if the current permission is
 	/// `PermissionlessCompound`.
 	fn can_bond_extra(&self) -> bool {
@@ -2639,15 +2629,9 @@ pub mod pallet {
 
 			ensure!(PoolMembers::<T>::contains_key(&who), Error::<T>::PoolMemberNotFound);
 
-			// If the permission is `None`, then remove the claim permission.
-			match permission.default_as_none() {
-				Some(claim_permission) => {
-					ClaimPermissions::<T>::insert(&who, claim_permission);
-				},
-				None => {
-					ClaimPermissions::<T>::remove(&who);
-				},
-			}
+			ClaimPermissions::<T>::mutate(who, |source| {
+				*source = permission;
+			});
 
 			Ok(())
 		}
