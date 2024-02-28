@@ -525,7 +525,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type DbWeight: Get<RuntimeDbWeight>;
 
-		/// Get the chain's current version.
+		/// Get the chain's in-code version.
 		#[pallet::constant]
 		type Version: Get<RuntimeVersion>;
 
