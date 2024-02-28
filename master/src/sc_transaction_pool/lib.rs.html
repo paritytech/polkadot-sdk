@@ -936,6 +936,7 @@ nav.side-bar {
 <a href="#794" id="794">794</a>
 <a href="#795" id="795">795</a>
 <a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1102,8 +1103,9 @@ nav.side-bar {
 		pool_api: Arc&lt;PoolApi&gt;,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
+		options: graph::Options,
 	) -&gt; (<span class="self">Self</span>, Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;) {
-		<span class="kw">let </span>pool = Arc::new(graph::Pool::new(Default::default(), <span class="bool-val">true</span>.into(), pool_api.clone()));
+		<span class="kw">let </span>pool = Arc::new(graph::Pool::new(options, <span class="bool-val">true</span>.into(), pool_api.clone()));
 		<span class="kw">let </span>(revalidation_queue, background_task) = revalidation::RevalidationQueue::new_background(
 			pool_api.clone(),
 			pool.clone(),
