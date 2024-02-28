@@ -1499,22 +1499,11 @@ pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::origin]` attribute allows you to define some origin for the pallet.
 ///
-/// Item must be either a type alias, an enum, or a struct. It needs to be public.
+/// ---
 ///
-/// E.g.:
-///
-/// ```ignore
-/// #[pallet::origin]
-/// pub struct Origin<T>(PhantomData<(T)>);
-/// ```
-///
-/// **WARNING**: modifying origin changes the outer runtime origin. This outer runtime origin
-/// can be stored on-chain (e.g. in `pallet-scheduler`), thus any change must be done with care
-/// as it might require some migration.
-///
-/// NOTE: for instantiable pallets, the origin must be generic over `T` and `I`.
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::origin`.
 #[proc_macro_attribute]
 pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
