@@ -555,6 +555,42 @@ pub fn __create_tt_macro(input: TokenStream) -> TokenStream {
 	tt_macro::create_tt_return_macro(input)
 }
 
+/// Allows accessing on-chain pallet storage that is no longer accessible via the pallet.
+///
+/// This is especially useful when writing storage migrations, when types of storage items are
+/// modified or outright removed, but the previous definition is required to perform the migration.
+///
+/// ## Example
+///
+/// Imagine a pallet with the following storage definition:
+/// ```ignore
+/// #[pallet::storage]
+/// pub type Value<T: Config> = StorageValue<_, u32>;
+/// ```
+/// `Value` can be accessed by calling `Value::<T>::get()`.
+///
+/// Now imagine the definition of `Value` is updated to a `(u32, u32)`:
+/// ```ignore
+/// #[pallet::storage]
+/// pub type Value<T: Config> = StorageValue<_, (u32, u32)>;
+/// ```
+/// The on-chain value of `Value` is `u32`, but `Value::<T>::get()` expects it to be `(u32, u32)`.
+///
+/// In this instance the developer must write a storage migration to reading the old value of
+/// `Value` and writing it back to storage in the new format, so that the on-chain storage layout is
+/// consistent with what is defined in the pallet.
+///
+/// We can read the old v0 value of `Value` in the migration by creating a `storage_alias`:
+/// ```ignore
+/// pub(crate) mod v0 {
+/// 	use super::*;
+///
+/// 	#[storage_alias]
+/// 	pub type Value<T: crate::Config> = StorageValue<crate::Pallet<T>, u32>;
+/// }
+/// ```
+///
+/// The developer can now access the old value of `Value` by calling `v0::Value::<T>::get()`.
 #[proc_macro_attribute]
 pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream {
 	storage_alias::storage_alias(attributes.into(), input.into())
@@ -1058,7 +1094,7 @@ pub fn generate_store(_: TokenStream, _: TokenStream) -> TokenStream {
 /// pub struct Pallet<T>(_);
 /// ```
 ///
-/// If not present, the current storage version is set to the default value.
+/// If not present, the in-code storage version is set to the default value.
 #[proc_macro_attribute]
 pub fn storage_version(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1371,6 +1407,25 @@ pub fn whitelist_storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+/// The optional attribute `#[pallet::disable_try_decode_storage]` will declare the
+/// storage as whitelisted from decoding during try-runtime checks. This should only be
+/// attached to transient storage which cannot be migrated during runtime upgrades.
+///
+/// ### Example
+/// ```ignore
+/// 	#[pallet::storage]
+/// 	#[pallet::disable_try_decode_storage]
+/// 	pub(super) type Events<T: Config> = StorageValue<_, Vec<Box<EventRecord<T::RuntimeEvent, T::Hash>>>, ValueQuery>;
+/// ```
+///
+/// NOTE: As with all `pallet::*` attributes, this one _must_ be written as
+/// `#[pallet::disable_try_decode_storage]` and can only be placed inside a `pallet` module in order
+/// for it to work properly.
+#[proc_macro_attribute]
+pub fn disable_try_decode_storage(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
 /// The `#[pallet::type_value]` attribute lets you define a struct implementing the `Get` trait
 /// to ease the use of storage types. This attribute is meant to be used alongside
 /// [`#[pallet::storage]`](`macro@storage`) to define a storage's default value. This attribute
@@ -1480,22 +1535,11 @@ pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::origin]` attribute allows you to define some origin for the pallet.
 ///
-/// Item must be either a type alias, an enum, or a struct. It needs to be public.
+/// ---
 ///
-/// E.g.:
-///
-/// ```ignore
-/// #[pallet::origin]
-/// pub struct Origin<T>(PhantomData<(T)>);
-/// ```
-///
-/// **WARNING**: modifying origin changes the outer runtime origin. This outer runtime origin
-/// can be stored on-chain (e.g. in `pallet-scheduler`), thus any change must be done with care
-/// as it might require some migration.
-///
-/// NOTE: for instantiable pallets, the origin must be generic over `T` and `I`.
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::origin`.
 #[proc_macro_attribute]
 pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()

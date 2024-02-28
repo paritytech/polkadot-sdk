@@ -251,6 +251,13 @@ impl PerSessionState {
 		if local_index.is_some() {
 			self.local_validator.get_or_insert(LocalValidatorIndex::Inactive);
 		}
+
+		gum::info!(
+			target: LOG_TARGET,
+			index_in_gossip_topology = ?local_index,
+			index_in_parachain_authorities = ?self.local_validator,
+			"Node uses the following topology indices"
+		);
 	}
 
 	/// Returns `true` if local is neither active or inactive validator node.
@@ -768,7 +775,15 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 		let pruned = state.implicit_view.deactivate_leaf(*leaf);
 		for pruned_rp in pruned {
 			// clean up per-relay-parent data based on everything removed.
-			state.per_relay_parent.remove(&pruned_rp);
+			state
+				.per_relay_parent
+				.remove(&pruned_rp)
+				.as_ref()
+				.and_then(|pruned| pruned.active_validator_state())
+				.map(|active_state| {
+					active_state.cluster_tracker.warn_if_too_many_pending_statements(pruned_rp)
+				});
+
 			// clean up requests related to this relay parent.
 			state.request_manager.remove_by_relay_parent(*leaf);
 		}
