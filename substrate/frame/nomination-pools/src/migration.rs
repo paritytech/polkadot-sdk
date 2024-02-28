@@ -147,7 +147,8 @@ mod v9 {
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV8ToV9<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			Ok(Vec::new())
+			let claim_permission_count = ClaimPermissions::<T>::iter_keys().count();
+			Ok((claim_permission_count as u64).encode())
 		}
 
 		fn on_runtime_upgrade() -> Weight {
@@ -161,17 +162,15 @@ mod v9 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
-			// There should no longer be `PermissionlessAll` or `PermissionlessWithdraw` claim
+		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let old_claim_permission_count: u64 = Decode::decode(&mut &data[..]).unwrap();
+			let new_claim_permission_count = ClaimPermissions::<T>::iter_keys().count();
+
+			// There should no longer be `PermissionlessAll` claim
 			// permissions in storage.
 			ensure!(
-				ClaimPermissions::<T>::iter().all(|(_, val)| match val {
-					ClaimPermission::Permissioned |
-					ClaimPermission::PermissionlessCompound |
-					ClaimPermission::PermissionlessWithdraw => true,
-					_ => false,
-				}),
-				"A `ClaimPermission` value has not been migrated."
+				old_claim_permission_count == new_claim_permission_count,
+				"Not all`ClaimPermission` values have been migrated."
 			);
 			Ok(())
 		}
