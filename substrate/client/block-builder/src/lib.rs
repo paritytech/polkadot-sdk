@@ -198,6 +198,7 @@ pub struct BlockBuilder<'a, Block: BlockT, C: ProvideRuntimeApi<Block> + 'a> {
 	extrinsics: Vec<Block::Extrinsic>,
 	api: ApiRef<'a, C::Api>,
 	call_api_at: &'a C,
+	/// Version of the [`BlockBuilderApi`] runtime API.
 	version: u32,
 	parent_hash: Block::Hash,
 	/// The estimated size of the block header.
@@ -244,11 +245,12 @@ where
 		}
 
 		api.set_call_context(CallContext::Onchain);
-		let version = api
-			.api_version::<dyn BlockBuilderApi<Block>>(parent_hash)?
-			.ok_or_else(|| Error::VersionInvalid("BlockBuilderApi".to_string()))?;
 
-		let extrinsic_inclusion_mode = if version >= 5 {
+		let core_version = api
+			.api_version::<dyn Core<Block>>(parent_hash)?
+			.ok_or_else(|| Error::VersionInvalid("Core".to_string()))?;
+
+		let extrinsic_inclusion_mode = if core_version >= 5 {
 			api.initialize_block(parent_hash, &header)?
 		} else {
 			#[allow(deprecated)]
@@ -256,11 +258,15 @@ where
 			ExtrinsicInclusionMode::AllExtrinsics
 		};
 
+		let bb_version = api
+			.api_version::<dyn BlockBuilderApi<Block>>(parent_hash)?
+			.ok_or_else(|| Error::VersionInvalid("BlockBuilderApi".to_string()))?;
+
 		Ok(Self {
 			parent_hash,
 			extrinsics: Vec::new(),
 			api,
-			version,
+			version: bb_version,
 			estimated_header_size,
 			call_api_at,
 			extrinsic_inclusion_mode,
