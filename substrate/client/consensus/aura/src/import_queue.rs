@@ -36,7 +36,7 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
+use sp_consensus_aura::{inherents::AuraInherentData, AuraApi, SlotDuration};
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider as _};
@@ -141,7 +141,7 @@ where
 	where
 		C: ProvideRuntimeApi<B>,
 		C::Api: BlockBuilderApi<B>,
-		CIDP: CreateInherentDataProviders<B, ()>,
+		CIDP: CreateInherentDataProviders<B, SlotDuration>,
 	{
 		let inherent_res = self
 			.client
@@ -165,12 +165,12 @@ where
 #[async_trait::async_trait]
 impl<B: BlockT, C, P, CIDP> Verifier<B> for AuraVerifier<C, P, CIDP, NumberFor<B>>
 where
-	C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
+	C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore + UsageProvider<B>,
 	C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId<P>> + ApiExt<B>,
 	P: Pair,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
-	CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
+	CIDP: CreateInherentDataProviders<B, SlotDuration> + Send + Sync,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	async fn verify(
@@ -199,9 +199,17 @@ where
 		)
 		.map_err(|e| format!("Could not fetch authorities at {:?}: {}", parent_hash, e))?;
 
+		let slot_duration = crate::slot_duration(self.client.as_ref()).unwrap();
+		info!(
+			target: LOG_TARGET,
+			"Checking slot duration {:?} {:?}",
+			slot_duration,
+			self.client.as_ref().usage_info().chain.best_hash,
+		);
+
 		let create_inherent_data_providers = self
 			.create_inherent_data_providers
-			.create_inherent_data_providers(parent_hash, ())
+			.create_inherent_data_providers(parent_hash, slot_duration)
 			.await
 			.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
 
@@ -365,7 +373,7 @@ where
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
+	CIDP: CreateInherentDataProviders<Block, SlotDuration> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
