@@ -592,8 +592,7 @@ impl BlockEntry {
 	pub fn candidate_is_pending_signature(&self, candidate_hash: CandidateHash) -> bool {
 		self.candidates_pending_signature
 			.values()
-			.find(|context| context.candidate_hash == candidate_hash)
-			.is_some()
+			.any(|context| context.candidate_hash == candidate_hash)
 	}
 
 	/// Candidate hashes  for candidates pending signatures
