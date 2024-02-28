@@ -44,9 +44,7 @@ pub fn make_persisted_validation_data<T: paras::Config + hrmp::Config>(
 
 /// Make the persisted validation data for a particular parachain, a specified relay-parent, its
 /// storage root and parent head data.
-///
-/// This ties together the storage of several modules.
-pub fn make_persisted_validation_data_with_parent<T: paras::Config>(
+pub fn make_persisted_validation_data_with_parent<T: configuration::Config>(
 	relay_parent_number: BlockNumberFor<T>,
 	relay_parent_storage_root: T::Hash,
 	parent_head: HeadData,

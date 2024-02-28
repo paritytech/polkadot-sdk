@@ -238,7 +238,7 @@ pub mod pallet {
 	/// the given `freed_concluded`).
 	///
 	/// The parameter `freed_concluded` contains all core indicies that became
-	/// free due to candidate that became available.
+	/// free due to candidates that became available.
 	pub(crate) fn collect_all_freed_cores<T, I>(
 		freed_concluded: I,
 	) -> BTreeMap<CoreIndex, FreedReason>
@@ -254,7 +254,11 @@ pub mod pallet {
 			Vec::new()
 		};
 
-		// Schedule paras again, given freed cores, and reasons for freeing.
+		if !freed_timeout.is_empty() {
+			log::debug!(target: LOG_TARGET, "Evicted timed out cores: {:?}", freed_timeout);
+		}
+
+		// We'll schedule paras again, given freed cores, and reasons for freeing.
 		let freed = freed_concluded
 			.into_iter()
 			.map(|(c, _hash)| (c, FreedReason::Concluded))
@@ -953,33 +957,32 @@ struct SanitizedBackedCandidates<Hash> {
 	count: usize,
 }
 
+/// Performs various filtering on the backed candidates inherent data.
+/// Must maintain the invariant that the returned candidate collection contains the candidates
+/// sorted in dependency order for each para. When doing any filtering, we must therefore drop any
+/// subsequent candidates after the filtered one.
+///
 /// Filter out:
-/// 1. any candidates that have a concluded invalid dispute
-/// 2. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
+/// 1. any candidates which don't form a chain with the other candidates of the paraid (even if they
+///    do form a chain but are not in the right order).
+/// 2. any candidates that have a concluded invalid dispute or who are descendants of a concluded
+///    invalid candidate.
+/// 3. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
 ///    but have no injected core index.
-/// 3. all backing votes from disabled validators
-/// 4. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
+/// 4. all backing votes from disabled validators
+/// 5. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
 ///
-/// `scheduled` follows the same naming scheme as provided in the
-/// guide: Currently `free` but might become `occupied`.
-/// For the filtering here the relevant part is only the current `free`
-/// state.
-///
-/// `candidate_has_concluded_invalid_dispute` must return `true` if the candidate
-/// is disputed or is a descendant of a disputed candidate, false otherwise.
-///
-/// Returns struct `SanitizedBackedCandidates` where `backed_candidates` are sorted according to the
-/// occupied core index.
-/// This function must preserve the dependency order between candidates of the same para.
+/// Returns struct `SanitizedBackedCandidates` where `backed_candidates_with_core` are the scheduled
+/// backed candidates which passed filtering, mapped by para id and in the right dependency order.
 fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	backed_candidates: Vec<BackedCandidate<T::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-	concluded_invalid: BTreeSet<CandidateHash>,
+	concluded_invalid_with_descendants: BTreeSet<CandidateHash>,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	core_index_enabled: bool,
 ) -> SanitizedBackedCandidates<T::Hash> {
-	// For all the modifications that will happen below, make sure we're preserving the order.
-
+	// Map the candidates to the right paraids, while making sure that the order between candidates
+	// of the same para is preserved.
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
 	for candidate in backed_candidates {
 		candidates_per_para
@@ -991,16 +994,17 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	// TODO: all filters need to return whether or not we dropped any candidates.
 
 	// Check that candidates pertaining to the same para form a chain. Drop the ones that
-	// don't.
+	// don't, along with the rest of candidates which follow them in the input vector.
 	filter_unchained_candidates::<T>(&mut candidates_per_para, allowed_relay_parents);
 
 	// Remove any candidates that were concluded invalid or who are descendants of concluded invalid
-	// candidates.
+	// candidates (along with their descendants).
 	filter_candidates::<T, _>(&mut candidates_per_para, |_, candidate| {
-		!concluded_invalid.contains(&candidate.candidate().hash())
+		!concluded_invalid_with_descendants.contains(&candidate.candidate().hash())
 	});
 
-	// Map candidates to scheduled cores. Filter out any unscheduled candidates.
+	// Map candidates to scheduled cores. Filter out any unscheduled candidates along with their
+	// descendants.
 	let (mut backed_candidates_with_core, dropped_unscheduled_candidates) =
 		map_candidates_to_cores::<T>(
 			&allowed_relay_parents,
@@ -1009,7 +1013,9 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 			candidates_per_para,
 		);
 
-	// Filter out backing statements from disabled validators
+	// Filter out backing statements from disabled validators. If by that we render a candidate with
+	// less backing votes than required, filter that candidate also. As all the other filtering
+	// operations above, we drop the descendants of the dropped candidates also.
 	let votes_from_disabled_were_dropped = filter_backed_statements_from_disabled_validators::<T>(
 		&mut backed_candidates_with_core,
 		&allowed_relay_parents,
@@ -1108,6 +1114,8 @@ fn limit_and_sanitize_disputes<
 	}
 }
 
+// Helper function for filtering candidates which don't pass the given predicate. When/if the first
+// candidate which failes the predicate is found, all the other candidates that follow are dropped.
 fn filter_candidates<
 	T: inclusion::Config + paras::Config + inclusion::Config,
 	F: FnMut(ParaId, &BackedCandidate<T::Hash>) -> bool,
@@ -1137,6 +1145,8 @@ fn filter_candidates<
 	candidates.retain(|_, c| !c.is_empty());
 }
 
+// Helper function for filtering candidates which don't pass the given predicate. When/if the first
+// candidate which failes the predicate is found, all the other candidates that follow are dropped.
 fn filter_candidates_with_core<
 	T: inclusion::Config + paras::Config + inclusion::Config,
 	F: FnMut(ParaId, &mut BackedCandidate<T::Hash>, CoreIndex) -> bool,
@@ -1166,9 +1176,8 @@ fn filter_candidates_with_core<
 	candidates.retain(|_, c| !c.is_empty());
 }
 
-// Filters statements from disabled validators in `BackedCandidate`, non-scheduled candidates and
-// few more sanity checks. Returns `true` if at least one statement is removed and `false`
-// otherwise.
+// Filters statements from disabled validators in `BackedCandidate` and does a few more sanity
+// checks. Returns `true` if at least one statement is removed and `false` otherwise.
 fn filter_backed_statements_from_disabled_validators<
 	T: shared::Config + scheduler::Config + inclusion::Config,
 >(
@@ -1274,6 +1283,8 @@ fn filter_backed_statements_from_disabled_validators<
 	filtered || backed_len_before != backed_candidates_with_core.len()
 }
 
+// Check that candidates pertaining to the same para form a chain. Drop the ones that
+// don't, along with the rest of candidates which follow them in the input vector.
 fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion::Config>(
 	candidates: &mut BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
@@ -1326,10 +1337,12 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 }
 
 /// Map candidates to scheduled cores.
-/// If the para only has one scheduled core and no `CoreIndex` is injected, map the candidate to the
+/// If the para only has one scheduled core and one candidate supplied, map the candidate to the
 /// single core. If the para has multiple cores scheduled, only map the candidates which have a
 /// proper core injected. Filter out the rest.
 /// Also returns whether or not we dropped any candidates.
+/// When dropping a candidate of a para, we must drop all subsequent candidates from that para
+/// (because they form a chain).
 fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclusion::Config>(
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,

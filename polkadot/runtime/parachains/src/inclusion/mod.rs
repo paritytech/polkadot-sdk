@@ -538,9 +538,9 @@ impl<T: Config> Pallet<T> {
 										*bit = true;
 									}
 
-									// We only care if the first candidate of this para was made
-									// available. We don't enact candidates until their predecessors
-									// have been enacted.
+									// In terms of candidate enactment, we only care if the first
+									// candidate of this para was made available. We don't enact
+									// candidates until their predecessors have been enacted.
 									if candidate_idx == 0 &&
 										candidate.availability_votes.count_ones() >= threshold
 									{
@@ -613,11 +613,12 @@ impl<T: Config> Pallet<T> {
 		freed_cores
 	}
 
-	/// Process candidates that have been backed. Provide the relay storage root, a set of
-	/// candidates and scheduled cores.
+	/// Process candidates that have been backed. Provide a set of
+	/// candidates along with their scheduled cores.
 	///
-	/// Both should be sorted ascending by core index, and the candidates should be a subset of
-	/// scheduled cores. If these conditions are not met, the execution of the function fails.
+	/// Candidates of a paraid should sorted ascending by core index. If this condition is not met,
+	/// candidates of the para which don't satisfy this criteria will be dropped. (This really
+	/// should not happen here, if the candidates were properly sanitised in paras_inherent).
 	pub(crate) fn process_candidates<GV>(
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
@@ -627,12 +628,11 @@ impl<T: Config> Pallet<T> {
 	where
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
 	{
-		let now = <frame_system::Pallet<T>>::block_number();
-
 		if candidates.is_empty() {
 			return Ok(ProcessedCandidates::default())
 		}
 
+		let now = <frame_system::Pallet<T>>::block_number();
 		let validators = shared::Pallet::<T>::active_validator_keys();
 
 		// Collect candidate receipts with backers.
@@ -641,6 +641,8 @@ impl<T: Config> Pallet<T> {
 		let mut core_indices = Vec::with_capacity(candidates.len());
 
 		for (para_id, candidates) in candidates {
+			// PVD hash should have already been checked in `filter_unchained_candidates`, but do it
+			// again for safety.
 			let maybe_latest_head_data = match <PendingAvailability<T>>::get(&para_id)
 				.map(|pending_candidates| {
 					pending_candidates.back().map(|x| x.commitments.head_data.clone())
@@ -650,7 +652,7 @@ impl<T: Config> Pallet<T> {
 				Some(head_data) => Some(head_data),
 				None => <paras::Pallet<T>>::para_head(&para_id),
 			};
-			// this cannot be None
+			// this cannot be None if the parachain was registered.
 			let mut latest_head_data = match maybe_latest_head_data {
 				None => continue,
 				Some(latest_head_data) => latest_head_data,
@@ -742,7 +744,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(ProcessedCandidates::<T::Hash> {
-			core_indices, // TODO: these may need to be sorted.
+			core_indices,
 			candidate_receipt_with_backing_validator_indices,
 		})
 	}
