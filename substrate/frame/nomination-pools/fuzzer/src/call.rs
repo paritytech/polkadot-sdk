@@ -270,7 +270,7 @@ fn main() {
 				if iteration %
 					(std::env::var("SANITY_CHECK_INTERVAL")
 						.ok()
-						.and_then(|x| x.parse::<u64>().ok()))
+						.and_then(|x| x.parse::<u32>().ok()))
 					.unwrap_or(1) == 0
 				{
 					log!(info, "running sanity checks at {}", iteration);
