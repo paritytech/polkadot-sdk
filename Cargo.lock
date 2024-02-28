@@ -10011,7 +10011,7 @@ dependencies = [
 name = "pallet-example-single-block-migrations"
 version = "0.0.1"
 dependencies = [
- "docify",
+ "docify 0.2.7",
  "frame-executive",
  "frame-support",
  "frame-system",
