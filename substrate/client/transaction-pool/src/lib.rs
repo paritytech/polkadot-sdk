@@ -164,8 +164,9 @@ where
 		pool_api: Arc<PoolApi>,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
+		options: graph::Options,
 	) -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
-		let pool = Arc::new(graph::Pool::new(Default::default(), true.into(), pool_api.clone()));
+		let pool = Arc::new(graph::Pool::new(options, true.into(), pool_api.clone()));
 		let (revalidation_queue, background_task) = revalidation::RevalidationQueue::new_background(
 			pool_api.clone(),
 			pool.clone(),
