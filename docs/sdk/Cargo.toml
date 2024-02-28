@@ -23,6 +23,7 @@ frame = { path = "../../substrate/frame", features = [
 ] }
 pallet-examples = { path = "../../substrate/frame/examples" }
 pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }
+pallet-example-offchain-worker = { path = "../../substrate/frame/examples/offchain-worker" }
 
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"
@@ -33,8 +34,12 @@ node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli"
 kitchensink-runtime = { path = "../../substrate/bin/node/runtime" }
 chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder" }
 subkey = { path = "../../substrate/bin/utils/subkey" }
+frame-system = { path = "../../substrate/frame/system", default-features = false }
+frame-support = { path = "../../substrate/frame/support", default-features = false }
+frame-executive = { path = "../../substrate/frame/executive", default-features = false }
+pallet-example-single-block-migrations = { path = "../../substrate/frame/examples/single-block-migrations" }
 
-# Substrate
+# Substrate Client
 sc-network = { path = "../../substrate/client/network" }
 sc-rpc-api = { path = "../../substrate/client/rpc-api" }
 sc-rpc = { path = "../../substrate/client/rpc" }
@@ -46,6 +51,7 @@ sc-consensus-grandpa = { path = "../../substrate/client/consensus/grandpa" }
 sc-consensus-beefy = { path = "../../substrate/client/consensus/beefy" }
 sc-consensus-manual-seal = { path = "../../substrate/client/consensus/manual-seal" }
 sc-consensus-pow = { path = "../../substrate/client/consensus/pow" }
+
 substrate-wasm-builder = { path = "../../substrate/utils/wasm-builder" }
 
 # Cumulus
@@ -66,7 +72,7 @@ pallet-proxy = { path = "../../substrate/frame/proxy" }
 pallet-authorship = { path = "../../substrate/frame/authorship" }
 pallet-collective = { path = "../../substrate/frame/collective" }
 pallet-democracy = { path = "../../substrate/frame/democracy" }
-frame-system = { path = "../../substrate/frame/system" }
+pallet-scheduler = { path = "../../substrate/frame/scheduler" }
 
 # Primitives
 sp-io = { path = "../../substrate/primitives/io" }
@@ -74,6 +80,8 @@ sp-api = { path = "../../substrate/primitives/api" }
 sp-core = { path = "../../substrate/primitives/core" }
 sp-keyring = { path = "../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../substrate/primitives/runtime" }
+sp-offchain = { path = "../../substrate/primitives/offchain" }
+sp-version = { path = "../../substrate/primitives/version" }
 
 # XCM
 xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
