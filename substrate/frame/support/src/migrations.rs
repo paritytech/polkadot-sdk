@@ -51,12 +51,30 @@ use sp_std::{marker::PhantomData, vec::Vec};
 /// Otherwise, a warning is logged notifying the developer that the upgrade was a noop and should
 /// probably be removed.
 ///
+/// It is STRONGLY RECOMMENDED to write the unversioned migration logic in a private module and
+/// only export the versioned migration logic to prevent accidentally using the unversioned
+/// migration in any runtimes.
+///
 /// ### Examples
 /// ```ignore
 /// // In file defining migrations
-/// pub struct VersionUncheckedMigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
-/// impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6<T> {
-/// 	// OnRuntimeUpgrade implementation...
+///
+/// /// Private module containing *version unchecked* migration logic.
+/// ///
+/// /// Should only be used by the [`VersionedMigration`] type in this module to create something to
+/// /// export.
+/// ///
+/// /// We keep this private so the unversioned migration cannot accidentally be used in any runtimes.
+/// ///
+/// /// For more about this pattern of keeping items private, see
+/// /// - https://github.com/rust-lang/rust/issues/30905
+/// /// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
+/// mod version_unchecked {
+/// 	use super::*;
+/// 	pub struct MigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
+/// 	impl<T: Config> OnRuntimeUpgrade for  VersionUncheckedMigrateV5ToV6<T> {
+/// 		// OnRuntimeUpgrade implementation...
+/// 	}
 /// }
 ///
 /// pub type MigrateV5ToV6<T, I> =
@@ -99,7 +117,7 @@ impl<
 		const FROM: u16,
 		const TO: u16,
 		Inner: crate::traits::OnRuntimeUpgrade,
-		Pallet: GetStorageVersion<CurrentStorageVersion = StorageVersion> + PalletInfoAccess,
+		Pallet: GetStorageVersion<InCodeStorageVersion = StorageVersion> + PalletInfoAccess,
 		DbWeight: Get<RuntimeDbWeight>,
 	> crate::traits::OnRuntimeUpgrade for VersionedMigration<FROM, TO, Inner, Pallet, DbWeight>
 {
@@ -170,25 +188,25 @@ impl<
 	}
 }
 
-/// Can store the current pallet version in storage.
-pub trait StoreCurrentStorageVersion<T: GetStorageVersion + PalletInfoAccess> {
-	/// Write the current storage version to the storage.
-	fn store_current_storage_version();
+/// Can store the in-code pallet version on-chain.
+pub trait StoreInCodeStorageVersion<T: GetStorageVersion + PalletInfoAccess> {
+	/// Write the in-code storage version on-chain.
+	fn store_in_code_storage_version();
 }
 
-impl<T: GetStorageVersion<CurrentStorageVersion = StorageVersion> + PalletInfoAccess>
-	StoreCurrentStorageVersion<T> for StorageVersion
+impl<T: GetStorageVersion<InCodeStorageVersion = StorageVersion> + PalletInfoAccess>
+	StoreInCodeStorageVersion<T> for StorageVersion
 {
-	fn store_current_storage_version() {
-		let version = <T as GetStorageVersion>::current_storage_version();
+	fn store_in_code_storage_version() {
+		let version = <T as GetStorageVersion>::in_code_storage_version();
 		version.put::<T>();
 	}
 }
 
-impl<T: GetStorageVersion<CurrentStorageVersion = NoStorageVersionSet> + PalletInfoAccess>
-	StoreCurrentStorageVersion<T> for NoStorageVersionSet
+impl<T: GetStorageVersion<InCodeStorageVersion = NoStorageVersionSet> + PalletInfoAccess>
+	StoreInCodeStorageVersion<T> for NoStorageVersionSet
 {
-	fn store_current_storage_version() {
+	fn store_in_code_storage_version() {
 		StorageVersion::default().put::<T>();
 	}
 }
@@ -200,7 +218,7 @@ pub trait PalletVersionToStorageVersionHelper {
 
 impl<T: GetStorageVersion + PalletInfoAccess> PalletVersionToStorageVersionHelper for T
 where
-	T::CurrentStorageVersion: StoreCurrentStorageVersion<T>,
+	T::InCodeStorageVersion: StoreInCodeStorageVersion<T>,
 {
 	fn migrate(db_weight: &RuntimeDbWeight) -> Weight {
 		const PALLET_VERSION_STORAGE_KEY_POSTFIX: &[u8] = b":__PALLET_VERSION__:";
@@ -211,8 +229,7 @@ where
 
 		sp_io::storage::clear(&pallet_version_key(<T as PalletInfoAccess>::name()));
 
-		<T::CurrentStorageVersion as StoreCurrentStorageVersion<T>>::store_current_storage_version(
-		);
+		<T::InCodeStorageVersion as StoreInCodeStorageVersion<T>>::store_in_code_storage_version();
 
 		db_weight.writes(2)
 	}
@@ -233,7 +250,7 @@ impl PalletVersionToStorageVersionHelper for T {
 
 /// Migrate from the `PalletVersion` struct to the new [`StorageVersion`] struct.
 ///
-/// This will remove all `PalletVersion's` from the state and insert the current storage version.
+/// This will remove all `PalletVersion's` from the state and insert the in-code storage version.
 pub fn migrate_from_pallet_version_to_storage_version<
 	Pallets: PalletVersionToStorageVersionHelper,
 >(
