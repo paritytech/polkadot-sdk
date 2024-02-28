@@ -587,12 +587,10 @@ impl PalletCmd {
 			(Some(GenesisBuilder::Spec), _) | (None, false) => {
 				log::warn!("{WARN_SPEC_GENESIS_CTOR}");
 				let Some(chain_spec) = chain_spec else {
-					return Err(
-						"No chain spec specified although to generate the genesis state".into()
-					);
+					return Err("No chain spec specified to generate the genesis state".into());
 				};
 
-				let storage = chain_spec.build_storage().map_err(|e| format!("The runtime returned an error when trying to build the genesis storage. Please ensure that all pallets define a genesis config that can be built. For more info see: https://github.com/paritytech/polkadot-sdk/pull/3412\nError: {e}"))?;
+				let storage = chain_spec.build_storage().map_err(|e| format!("The runtime returned an error when trying to build the genesis storage. Please ensure that all pallets define a genesis config that can be built. For more info, see: https://github.com/paritytech/polkadot-sdk/pull/3412\nError: {e}"))?;
 
 				(storage, Default::default())
 			},
@@ -601,7 +599,7 @@ impl PalletCmd {
 		})
 	}
 
-	/// Generate the genesis changeset with the runtime API.
+	/// Generate the genesis changeset by the runtime API.
 	fn genesis_from_runtime<H: Hash>(&self) -> Result<OverlayedChanges<H>> {
 		let state = BenchmarkingState::<H>::new(
 			Default::default(),
@@ -636,13 +634,18 @@ impl PalletCmd {
 		)
 		.execute()
 		.map_err(|e| format!("Could not call GenesisBuilder Runtime API: {}", e))?;
+
 		let genesis_json: Vec<u8> = codec::Decode::decode(&mut &genesis_json[..])
 			.map_err(|e| format!("Failed to decode genesis config: {:?}", e))?;
+
 		// Sanity check that it is JSON before we plug it into the next runtime call.
-		assert!(serde_json::from_slice::<serde_json::Value>(&genesis_json).is_ok());
+		assert!(
+			serde_json::from_slice::<serde_json::Value>(&genesis_json).is_ok(),
+			"The runtime returned invalid an invalid genesis JSON"
+		);
 
 		let mut changes = Default::default();
-		let genesis_state: Vec<u8> = StateMachine::new(
+		let build_config_ret: Vec<u8> = StateMachine::new(
 			&state,
 			&mut changes,
 			&executor,
@@ -655,16 +658,17 @@ impl PalletCmd {
 		.execute()
 		.map_err(|e| format!("Could not call GenesisBuilder Runtime API: {}", e))?;
 
-		let _: () = codec::Decode::decode(&mut &genesis_state[..])
-			.map_err(|e| format!("Failed to decode (): {:?}", e))?;
+		if build_config_ret != vec![0u8] {
+			log::warn!("GenesisBuilder::build_config should not return any data - ignoring");
+		}
 
 		Ok(changes)
 	}
 
-	/// The runtime blob for this benchmark.
+	/// Get the runtime blob for this benchmark.
 	///
-	/// The runtime will either be loaded from the `:code` key or can be overwritten with the
-	/// `--runtime` arg.
+	/// The runtime will either be loaded from the `:code` key out of the chain spec, or from a file
+	/// when specified with `--runtime`.
 	fn runtime_blob<'a, H: Hash>(
 		&self,
 		state: &'a BenchmarkingState<H>,

@@ -17,10 +17,10 @@
 
 //! Entry point for the free standing `benchmark pallet` command runner.
 //!
-//! This runner has the advantage that the node does not need to be build with the `try-runtime`
-//! feature or similar. It can be shipped independently and used by any chain - as long as that
-//! chain's runtime is not making use of 3rd party host functions. In that case, it would need to be
-//! forked (or extended with some plugin system).
+//! This runner has the advantage that the node does not need to be build with the
+//! `runtime-benchmarks` feature or similar. It can be shipped independently and used by any chain -
+//! as long as that chain's runtime is not making use of 3rd party host functions. In that case, it
+//! would need to be forked (or extended with some plugin system).
 
 use clap::Parser;
 use frame_benchmarking_cli::PalletCmd;
