@@ -70,7 +70,7 @@ use std::{
 	sync::Arc,
 };
 
-use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+use bitvec::vec::BitVec;
 use futures::{
 	channel::{mpsc, oneshot},
 	future::BoxFuture,
@@ -494,20 +494,15 @@ fn table_attested_to_backed(
 	}
 	vote_positions.sort_by_key(|(_orig, pos_in_group)| *pos_in_group);
 
-	if inject_core_index {
-		let core_index_to_inject: BitVec<u8, BitOrderLsb0> =
-			BitVec::from_vec(vec![core_index.0 as u8]);
-		validator_indices.extend(core_index_to_inject);
-	}
-
-	Some(BackedCandidate {
+	Some(BackedCandidate::new(
 		candidate,
-		validity_votes: vote_positions
+		vote_positions
 			.into_iter()
 			.map(|(pos_in_votes, _pos_in_group)| validity_votes[pos_in_votes].clone())
 			.collect(),
 		validator_indices,
-	})
+		inject_core_index.then_some(core_index),
+	))
 }
 
 async fn store_available_data(
@@ -1775,7 +1770,7 @@ async fn post_import_statement_actions<Context>(
 				&rp_state.table_context,
 				rp_state.inject_core_index,
 			) {
-				let para_id = backed.candidate.descriptor.para_id;
+				let para_id = backed.candidate().descriptor.para_id;
 				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?candidate_hash,
@@ -1796,7 +1791,7 @@ async fn post_import_statement_actions<Context>(
 					// notify collator protocol.
 					ctx.send_message(CollatorProtocolMessage::Backed {
 						para_id,
-						para_head: backed.candidate.descriptor.para_head,
+						para_head: backed.candidate().descriptor.para_head,
 					})
 					.await;
 					// Notify statement distribution of backed candidate.
@@ -1887,18 +1882,20 @@ async fn background_validate_and_make_available<Context>(
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
-			if let Err(e) = validate_and_make_available(params).await {
-				if let Error::BackgroundValidationMpsc(error) = e {
+			if let Err(error) = validate_and_make_available(params).await {
+				if let Error::BackgroundValidationMpsc(error) = error {
 					gum::debug!(
 						target: LOG_TARGET,
+						?candidate_hash,
 						?error,
 						"Mpsc background validation mpsc died during validation- leaf no longer active?"
 					);
 				} else {
 					gum::error!(
 						target: LOG_TARGET,
-						"Failed to validate and make available: {:?}",
-						e
+						?candidate_hash,
+						?error,
+						"Failed to validate and make available",
 					);
 				}
 			}
