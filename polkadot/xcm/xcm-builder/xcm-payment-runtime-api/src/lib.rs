@@ -27,14 +27,14 @@ use xcm::{Version, VersionedAssetId, VersionedXcm};
 sp_api::decl_runtime_apis! {
 	/// A trait of XCM payment API.
 	///
-	/// API provides functionality for obtaining
-	/// the weight required to execute an XCM message,
-	/// a list of accepted `AssetId` for payment for its
-	/// execution and the cost in the specified supported one.
+	/// API provides functionality for obtaining:
 	///
-	/// To determine the execution weight of the calls required
-	/// for some instructions (for example, [`xcm::latest::Instruction::Transact`])
-	/// `TransactionPaymentCallApi`can be used.
+	/// * the weight required to execute an XCM message,
+	/// * a list of acceptable `AssetId`s for message execution payment,
+	/// * the cost of the weight in the specified acceptable `AssetId`.
+	///
+	/// To determine the execution weight of the calls required for
+	/// [`xcm::latest::Instruction::Transact`] instruction, `TransactionPaymentCallApi` can be used.
 	pub trait XcmPaymentApi<Call>
 	where
 		Call: Codec,
@@ -46,6 +46,13 @@ sp_api::decl_runtime_apis! {
 		/// * `xcm_version`: Version.
 		fn query_acceptable_payment_assets(xcm_version: Version) -> Result<Vec<VersionedAssetId>, Error>;
 
+		/// Returns a weight needed to execute a XCM.
+		///
+		/// # Arguments
+		///
+		/// * `message`: `VersionedXcm`.
+		fn query_xcm_weight(message: VersionedXcm<Call>) -> Result<Weight, Error>;
+
 		/// Converts a weight into a fee for the specified `AssetId`.
 		///
 		/// # Arguments
@@ -53,13 +60,6 @@ sp_api::decl_runtime_apis! {
 		/// * `weight`: convertible `Weight`.
 		/// * `asset`: `VersionedAssetId`.
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, Error>;
-
-		/// Returns a weight needed to execute a XCM.
-		///
-		/// # Arguments
-		///
-		/// * `message`: `VersionedXcm`.
-		fn query_xcm_weight(message: VersionedXcm<Call>) -> Result<Weight, Error>;
 	}
 }
 

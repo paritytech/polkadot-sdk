@@ -1826,10 +1826,10 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<RuntimeCall>) -> Result<Weight, XcmPaymentError> {
-			<<xcm_config::XcmConfig as xcm_executor::Config>::Weigher as WeightBounds<_>>::weight(&mut message
+			let mut message = message
 				.try_into()
-				.map_err(|_| XcmPaymentError::VersionedConversionFailed)?
-			)
+				.map_err(|_| XcmPaymentError::VersionedConversionFailed)?;
+			<xcm_config::XcmConfig as xcm_executor::Config>::Weigher::weight(&mut message)
 				.map_err(|_| XcmPaymentError::WeightNotComputable)
 		}
 	}
