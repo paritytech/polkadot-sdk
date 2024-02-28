@@ -171,7 +171,7 @@ mod tests {
 	};
 	use frame_system::limits;
 
-	type Block = frame_system::mocking::MockBlock<Test>;
+	type Block = frame_system::mocking::MockBlockU32<Test>;
 
 	frame_support::construct_runtime!(
 		pub enum Test
@@ -189,6 +189,7 @@ mod tests {
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
+		type BlockHashCount = frame_support::traits::ConstU32<10>;
 	}
 
 	impl pallet_insecure_randomness_collective_flip::Config for Test {}
@@ -205,7 +206,7 @@ mod tests {
 		}
 	}
 
-	fn setup_blocks(blocks: u64) {
+	fn setup_blocks(blocks: u32) {
 		let mut parent_hash = System::parent_hash();
 
 		for i in 1..(blocks + 1) {
@@ -274,7 +275,7 @@ mod tests {
 
 			let (random, known_since) = CollectiveFlip::random_seed();
 
-			assert_eq!(known_since, 162 - RANDOM_MATERIAL_LEN as u64);
+			assert_eq!(known_since, 162 - RANDOM_MATERIAL_LEN as u32);
 			assert_ne!(random, H256::zero());
 			assert!(!CollectiveFlip::random_material().contains(&random));
 		});
