@@ -1660,7 +1660,7 @@ pub mod pallet {
 			Balance = BalanceOf<Self>,
 		>;
 
-		// type Staker: adapter::StakeStrategy<Self::Staking>;
+		type Staker: adapter::StakeStrategy<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
 	}
 
 	/// The sum of funds across all pools.

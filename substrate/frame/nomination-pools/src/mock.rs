@@ -367,6 +367,7 @@ impl pools::Config for Runtime {
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type StakeAdapter = adapter::TransferStake<Self>;
+	type Staker = adapter::TransferStakeStrategy<Self, StakingMock>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
