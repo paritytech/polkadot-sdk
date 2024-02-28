@@ -290,21 +290,12 @@ fn test_disambugation_path() {
 	assert_eq!(disambiguation_path.unwrap(), parse_quote!(SomeScope::SomePath));
 
 	// disambiguation path is not specified and the default_impl_path has more than one segment
-	let disambiguation_path = compute_disambiguation_path(
-		None,
-		foreign_impl.clone(),
-		default_impl_path.clone(),
-	);
-	assert_eq!(
-		disambiguation_path.unwrap(),
-		parse_quote!(SomeScope::SomeTrait)
-	);
+	let disambiguation_path =
+		compute_disambiguation_path(None, foreign_impl.clone(), default_impl_path.clone());
+	assert_eq!(disambiguation_path.unwrap(), parse_quote!(SomeScope::SomeTrait));
 
 	// disambiguation path is not specified and the default_impl_path has only one segment
-	let disambiguation_path = compute_disambiguation_path(
-		None,
-		foreign_impl.clone(),
-		parse_quote!(SomeType),
-	);
+	let disambiguation_path =
+		compute_disambiguation_path(None, foreign_impl.clone(), parse_quote!(SomeType));
 	assert_eq!(disambiguation_path.unwrap(), parse_quote!(SomeTrait));
 }
