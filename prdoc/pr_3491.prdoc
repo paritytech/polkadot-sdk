@@ -6,7 +6,7 @@ title: Remove Deprecated OldWeight
 doc:
   - audience: Runtime Dev
     description: |
-      Removed deprecated sp_weights::OldWeight type. Use [`weight_v2::Weight`]
+      Removed deprecated sp_weights::OldWeight type. Use [`weight_v2::Weight`] instead.
 
 crates:
     - name: frame-support
