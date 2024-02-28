@@ -125,7 +125,7 @@
 //! 		"--build-env",
 //! 		"SKIP_WASM_BUILD=1",
 //! 		"--",
-//! 		"build",
+//! 		"check",
 //! 		"--message-format=json",
 //! 		"--all-targets",
 //! 		"--all-features",
