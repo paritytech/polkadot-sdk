@@ -42,7 +42,7 @@ type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
 pub type AccountPublic = <MultiSignature as Verify>::Signer;
 pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -59,6 +59,7 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl pallet_balances::Config for Test {
@@ -97,7 +98,7 @@ impl pallet_identity::Config for Test {
 	type OffchainSignature = MultiSignature;
 	type SigningPublicKey = AccountPublic;
 	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
-	type PendingUsernameExpiration = ConstU64<100>;
+	type PendingUsernameExpiration = ConstU32<100>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
@@ -123,7 +124,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-fn run_to_block(n: u64) {
+fn run_to_block(n: u32) {
 	while System::block_number() < n {
 		Identity::on_finalize(System::block_number());
 		Balances::on_finalize(System::block_number());
@@ -1234,7 +1235,7 @@ fn set_username_with_acceptance_should_work() {
 		// set up username
 		let (username, full_username) = test_username_of(b"101".to_vec(), suffix);
 		let now = frame_system::Pallet::<Test>::block_number();
-		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u64>>::get();
+		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u32>>::get();
 
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority),
@@ -1508,7 +1509,7 @@ fn unaccepted_usernames_should_expire() {
 		// set up username
 		let (username, full_username) = test_username_of(b"101".to_vec(), suffix);
 		let now = frame_system::Pallet::<Test>::block_number();
-		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u64>>::get();
+		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u32>>::get();
 
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority),
