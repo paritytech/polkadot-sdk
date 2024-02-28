@@ -393,9 +393,9 @@ nav.side-bar {
 <span class="kw">pub struct </span>MigrateToTrackInactiveV2&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToTrackInactiveV2&lt;T&gt; {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-		<span class="kw">let </span>onchain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
+		<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
 
-		<span class="kw">if </span>onchain_version == <span class="number">1 </span>{
+		<span class="kw">if </span>on_chain_version == <span class="number">1 </span>{
 			<span class="kw">let </span><span class="kw-2">mut </span>translated = <span class="number">0u64</span>;
 			<span class="kw">for </span>item <span class="kw">in </span>Funds::&lt;T&gt;::iter_values() {
 				<span class="kw">let </span>b =

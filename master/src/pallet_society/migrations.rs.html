@@ -537,11 +537,11 @@ nav.side-bar {
 {
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
-		<span class="kw">let </span>current = Pallet::&lt;T, I&gt;::current_storage_version();
-		<span class="kw">let </span>onchain = Pallet::&lt;T, I&gt;::on_chain_storage_version();
-		<span class="macro">ensure!</span>(onchain == <span class="number">0 </span>&amp;&amp; current == <span class="number">2</span>, <span class="string">&quot;pallet_society: invalid version&quot;</span>);
+		<span class="kw">let </span>in_code = Pallet::&lt;T, I&gt;::in_code_storage_version();
+		<span class="kw">let </span>on_chain = Pallet::&lt;T, I&gt;::on_chain_storage_version();
+		<span class="macro">ensure!</span>(on_chain == <span class="number">0 </span>&amp;&amp; in_code == <span class="number">2</span>, <span class="string">&quot;pallet_society: invalid version&quot;</span>);
 
-		<span class="prelude-val">Ok</span>((old::Candidates::&lt;T, I&gt;::get(), old::Members::&lt;T, I&gt;::get()).encode())
+		<span class="prelude-val">Ok</span>((v0::Candidates::&lt;T, I&gt;::get(), v0::Members::&lt;T, I&gt;::get()).encode())
 	}
 
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
@@ -600,7 +600,7 @@ nav.side-bar {
 	&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
 &gt;;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>old {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>v0 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::storage_alias;
 
@@ -727,37 +727,37 @@ nav.side-bar {
 	}
 
 	<span class="comment">// We don&#39;t use these - make sure they don&#39;t exist.
-	</span><span class="macro">assert_eq!</span>(old::SuspendedCandidates::&lt;T, I&gt;::iter().count(), <span class="number">0</span>);
-	<span class="macro">assert_eq!</span>(old::Strikes::&lt;T, I&gt;::iter().count(), <span class="number">0</span>);
-	<span class="macro">assert_eq!</span>(old::Vouching::&lt;T, I&gt;::iter().count(), <span class="number">0</span>);
-	<span class="macro">assert!</span>(!old::Defender::&lt;T, I&gt;::exists());
-	<span class="macro">assert!</span>(!old::Members::&lt;T, I&gt;::exists());
+	</span><span class="macro">assert_eq!</span>(v0::SuspendedCandidates::&lt;T, I&gt;::iter().count(), <span class="number">0</span>);
+	<span class="macro">assert_eq!</span>(v0::Strikes::&lt;T, I&gt;::iter().count(), <span class="number">0</span>);
+	<span class="macro">assert_eq!</span>(v0::Vouching::&lt;T, I&gt;::iter().count(), <span class="number">0</span>);
+	<span class="macro">assert!</span>(!v0::Defender::&lt;T, I&gt;::exists());
+	<span class="macro">assert!</span>(!v0::Members::&lt;T, I&gt;::exists());
 }
 
 <span class="kw">pub fn </span>from_original&lt;T: Config&lt;I&gt;, I: Instance + <span class="lifetime">&#39;static</span>&gt;(
 	past_payouts: <span class="kw-2">&amp;mut </span>[(&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T, I&gt;)],
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
 	<span class="comment">// Migrate Bids from old::Bids (just a trunctation).
-	</span>Bids::&lt;T, I&gt;::put(BoundedVec::&lt;<span class="kw">_</span>, T::MaxBids&gt;::truncate_from(old::Bids::&lt;T, I&gt;::take()));
+	</span>Bids::&lt;T, I&gt;::put(BoundedVec::&lt;<span class="kw">_</span>, T::MaxBids&gt;::truncate_from(v0::Bids::&lt;T, I&gt;::take()));
 
 	<span class="comment">// Initialise round counter.
 	</span>RoundCount::&lt;T, I&gt;::put(<span class="number">0</span>);
 
 	<span class="comment">// Migrate Candidates from old::Candidates
-	</span><span class="kw">for </span>Bid { who: candidate, kind, value } <span class="kw">in </span>old::Candidates::&lt;T, I&gt;::take().into_iter() {
+	</span><span class="kw">for </span>Bid { who: candidate, kind, value } <span class="kw">in </span>v0::Candidates::&lt;T, I&gt;::take().into_iter() {
 		<span class="kw">let </span><span class="kw-2">mut </span>tally = Tally::default();
 		<span class="comment">// Migrate Votes from old::Votes
 		// No need to drain, since we&#39;re overwriting values.
-		</span><span class="kw">for </span>(voter, vote) <span class="kw">in </span>old::Votes::&lt;T, I&gt;::iter_prefix(<span class="kw-2">&amp;</span>candidate) {
+		</span><span class="kw">for </span>(voter, vote) <span class="kw">in </span>v0::Votes::&lt;T, I&gt;::iter_prefix(<span class="kw-2">&amp;</span>candidate) {
 			Votes::&lt;T, I&gt;::insert(
 				<span class="kw-2">&amp;</span>candidate,
 				<span class="kw-2">&amp;</span>voter,
-				Vote { approve: vote == old::Vote::Approve, weight: <span class="number">1 </span>},
+				Vote { approve: vote == v0::Vote::Approve, weight: <span class="number">1 </span>},
 			);
 			<span class="kw">match </span>vote {
-				old::Vote::Approve =&gt; tally.approvals.saturating_inc(),
-				old::Vote::Reject =&gt; tally.rejections.saturating_inc(),
-				old::Vote::Skeptic =&gt; Skeptic::&lt;T, I&gt;::put(<span class="kw-2">&amp;</span>voter),
+				v0::Vote::Approve =&gt; tally.approvals.saturating_inc(),
+				v0::Vote::Reject =&gt; tally.rejections.saturating_inc(),
+				v0::Vote::Skeptic =&gt; Skeptic::&lt;T, I&gt;::put(<span class="kw-2">&amp;</span>voter),
 			}
 		}
 		Candidates::&lt;T, I&gt;::insert(
@@ -768,9 +768,9 @@ nav.side-bar {
 
 	<span class="comment">// Migrate Members from old::Members old::Strikes old::Vouching
 	</span><span class="kw">let </span><span class="kw-2">mut </span>member_count = <span class="number">0</span>;
-	<span class="kw">for </span>member <span class="kw">in </span>old::Members::&lt;T, I&gt;::take() {
-		<span class="kw">let </span>strikes = old::Strikes::&lt;T, I&gt;::take(<span class="kw-2">&amp;</span>member);
-		<span class="kw">let </span>vouching = old::Vouching::&lt;T, I&gt;::take(<span class="kw-2">&amp;</span>member);
+	<span class="kw">for </span>member <span class="kw">in </span>v0::Members::&lt;T, I&gt;::take() {
+		<span class="kw">let </span>strikes = v0::Strikes::&lt;T, I&gt;::take(<span class="kw-2">&amp;</span>member);
+		<span class="kw">let </span>vouching = v0::Vouching::&lt;T, I&gt;::take(<span class="kw-2">&amp;</span>member);
 		<span class="kw">let </span>record = MemberRecord { index: member_count, rank: <span class="number">0</span>, strikes, vouching };
 		Members::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>member, record);
 		MemberByIndex::&lt;T, I&gt;::insert(member_count, <span class="kw-2">&amp;</span>member);
@@ -811,7 +811,7 @@ nav.side-bar {
 	<span class="comment">// Migrate Payouts from: old::Payouts and raw info (needed since we can&#39;t query old chain
 	// state).
 	</span>past_payouts.sort();
-	<span class="kw">for </span>(who, <span class="kw-2">mut </span>payouts) <span class="kw">in </span>old::Payouts::&lt;T, I&gt;::iter() {
+	<span class="kw">for </span>(who, <span class="kw-2">mut </span>payouts) <span class="kw">in </span>v0::Payouts::&lt;T, I&gt;::iter() {
 		payouts.truncate(T::MaxPayouts::get() <span class="kw">as </span>usize);
 		<span class="comment">// ^^ Safe since we already truncated.
 		</span><span class="kw">let </span>paid = past_payouts
@@ -826,19 +826,19 @@ nav.side-bar {
 	}
 
 	<span class="comment">// Migrate SuspendedMembers from old::SuspendedMembers old::Strikes old::Vouching.
-	</span><span class="kw">for </span>who <span class="kw">in </span>old::SuspendedMembers::&lt;T, I&gt;::iter_keys() {
-		<span class="kw">let </span>strikes = old::Strikes::&lt;T, I&gt;::take(<span class="kw-2">&amp;</span>who);
-		<span class="kw">let </span>vouching = old::Vouching::&lt;T, I&gt;::take(<span class="kw-2">&amp;</span>who);
+	</span><span class="kw">for </span>who <span class="kw">in </span>v0::SuspendedMembers::&lt;T, I&gt;::iter_keys() {
+		<span class="kw">let </span>strikes = v0::Strikes::&lt;T, I&gt;::take(<span class="kw-2">&amp;</span>who);
+		<span class="kw">let </span>vouching = v0::Vouching::&lt;T, I&gt;::take(<span class="kw-2">&amp;</span>who);
 		<span class="kw">let </span>record = MemberRecord { index: <span class="number">0</span>, rank: <span class="number">0</span>, strikes, vouching };
 		SuspendedMembers::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>who, record);
 	}
 
 	<span class="comment">// Any suspended candidates remaining are rejected.
-	</span><span class="kw">let _ </span>= old::SuspendedCandidates::&lt;T, I&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
+	</span><span class="kw">let _ </span>= v0::SuspendedCandidates::&lt;T, I&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
 
 	<span class="comment">// We give the current defender the benefit of the doubt.
-	</span>old::Defender::&lt;T, I&gt;::kill();
-	<span class="kw">let _ </span>= old::DefenderVotes::&lt;T, I&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
+	</span>v0::Defender::&lt;T, I&gt;::kill();
+	<span class="kw">let _ </span>= v0::DefenderVotes::&lt;T, I&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
 
 	<span class="prelude-val">Ok</span>(T::BlockWeights::get().max_block)
 }

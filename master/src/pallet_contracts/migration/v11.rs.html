@@ -304,7 +304,7 @@ nav.side-bar {
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, storage_alias, DefaultNoBound};
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
-<span class="kw">mod </span>old {
+<span class="kw">mod </span>v10 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="attr">#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
@@ -326,11 +326,11 @@ nav.side-bar {
 
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, feature = <span class="string">&quot;try-runtime&quot;</span>))]
 </span><span class="kw">pub fn </span>fill_old_queue&lt;T: Config&gt;(len: usize) {
-	<span class="kw">let </span>queue: Vec&lt;old::DeletedContract&gt; =
-		core::iter::repeat_with(|| old::DeletedContract { trie_id: Default::default() })
+	<span class="kw">let </span>queue: Vec&lt;v10::DeletedContract&gt; =
+		core::iter::repeat_with(|| v10::DeletedContract { trie_id: Default::default() })
 			.take(len)
 			.collect();
-	old::DeletionQueue::&lt;T&gt;::set(<span class="prelude-val">Some</span>(queue));
+	v10::DeletionQueue::&lt;T&gt;::set(<span class="prelude-val">Some</span>(queue));
 }
 
 <span class="attr">#[storage_alias]
@@ -355,7 +355,7 @@ nav.side-bar {
 	}
 
 	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
-		<span class="kw">let </span><span class="prelude-val">Some</span>(old_queue) = old::DeletionQueue::&lt;T&gt;::take() <span class="kw">else </span>{
+		<span class="kw">let </span><span class="prelude-val">Some</span>(old_queue) = v10::DeletionQueue::&lt;T&gt;::take() <span class="kw">else </span>{
 			<span class="kw">return </span>(IsFinished::Yes, Weight::zero())
 		};
 		<span class="kw">let </span>len = old_queue.len();
@@ -381,7 +381,7 @@ nav.side-bar {
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">fn </span>pre_upgrade_step() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
-		<span class="kw">let </span>old_queue = old::DeletionQueue::&lt;T&gt;::take().unwrap_or_default();
+		<span class="kw">let </span>old_queue = v10::DeletionQueue::&lt;T&gt;::take().unwrap_or_default();
 
 		<span class="kw">if </span>old_queue.is_empty() {
 			<span class="kw">let </span>len = <span class="number">10u32</span>;

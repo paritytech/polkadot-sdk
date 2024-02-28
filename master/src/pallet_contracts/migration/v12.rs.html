@@ -524,7 +524,7 @@ nav.side-bar {
 <span class="kw">use </span>sp_runtime::{traits::Zero, FixedPointNumber, FixedU128, Saturating};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="kw">mod </span>old {
+<span class="kw">mod </span>v11 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="kw">pub type </span>BalanceOf&lt;T, OldCurrency&gt; = &lt;OldCurrency <span class="kw">as </span>frame_support::traits::Currency&lt;
@@ -577,7 +577,7 @@ nav.side-bar {
 {
 	owner: AccountIdOf&lt;T&gt;,
 	<span class="attr">#[codec(compact)]
-	</span>deposit: old::BalanceOf&lt;T, OldCurrency&gt;,
+	</span>deposit: v11::BalanceOf&lt;T, OldCurrency&gt;,
 	<span class="attr">#[codec(compact)]
 	</span>refcount: u64,
 	determinism: Determinism,
@@ -602,17 +602,17 @@ nav.side-bar {
 	<span class="kw">let </span>hash = T::Hashing::hash(<span class="kw-2">&amp;</span>code);
 	PristineCode::&lt;T&gt;::insert(hash, code.clone());
 
-	<span class="kw">let </span>module = old::PrefabWasmModule {
+	<span class="kw">let </span>module = v11::PrefabWasmModule {
 		instruction_weights_version: Default::default(),
 		initial: Default::default(),
 		maximum: Default::default(),
 		code,
 		determinism: Determinism::Enforced,
 	};
-	old::CodeStorage::&lt;T&gt;::insert(hash, module);
+	v11::CodeStorage::&lt;T&gt;::insert(hash, module);
 
-	<span class="kw">let </span>info = old::OwnerInfo { owner: account, deposit: u32::MAX.into(), refcount: u64::MAX };
-	old::OwnerInfoOf::&lt;T, OldCurrency&gt;::insert(hash, info);
+	<span class="kw">let </span>info = v11::OwnerInfo { owner: account, deposit: u32::MAX.into(), refcount: u64::MAX };
+	v11::OwnerInfoOf::&lt;T, OldCurrency&gt;::insert(hash, info);
 }
 
 <span class="attr">#[derive(Encode, Decode, MaxEncodedLen, DefaultNoBound)]
@@ -638,16 +638,16 @@ nav.side-bar {
 
 	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
 		<span class="kw">let </span><span class="kw-2">mut </span>iter = <span class="kw">if let </span><span class="prelude-val">Some</span>(last_key) = <span class="self">self</span>.last_code_hash.take() {
-			old::OwnerInfoOf::&lt;T, OldCurrency&gt;::iter_from(
-				old::OwnerInfoOf::&lt;T, OldCurrency&gt;::hashed_key_for(last_key),
+			v11::OwnerInfoOf::&lt;T, OldCurrency&gt;::iter_from(
+				v11::OwnerInfoOf::&lt;T, OldCurrency&gt;::hashed_key_for(last_key),
 			)
 		} <span class="kw">else </span>{
-			old::OwnerInfoOf::&lt;T, OldCurrency&gt;::iter()
+			v11::OwnerInfoOf::&lt;T, OldCurrency&gt;::iter()
 		};
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((hash, old_info)) = iter.next() {
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Migrating OwnerInfo for code_hash {:?}&quot;</span>, hash);
 
-			<span class="kw">let </span>module = old::CodeStorage::&lt;T&gt;::take(hash)
+			<span class="kw">let </span>module = v11::CodeStorage::&lt;T&gt;::take(hash)
 				.expect(<span class="macro">format!</span>(<span class="string">&quot;No PrefabWasmModule found for code_hash: {:?}&quot;</span>, hash).as_str());
 
 			<span class="kw">let </span>code_len = module.code.len();
@@ -674,7 +674,7 @@ nav.side-bar {
 			<span class="kw">let </span>bytes_before = module
 				.encoded_size()
 				.saturating_add(code_len)
-				.saturating_add(old::OwnerInfo::&lt;T, OldCurrency&gt;::max_encoded_len())
+				.saturating_add(v11::OwnerInfo::&lt;T, OldCurrency&gt;::max_encoded_len())
 				<span class="kw">as </span>u32;
 			<span class="kw">let </span>items_before = <span class="number">3u32</span>;
 			<span class="kw">let </span>deposit_expected_before = price_per_byte
@@ -731,10 +731,10 @@ nav.side-bar {
 	</span><span class="kw">fn </span>pre_upgrade_step() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 		<span class="kw">let </span>len = <span class="number">100</span>;
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Taking sample of {} OwnerInfo(s)&quot;</span>, len);
-		<span class="kw">let </span>sample: Vec&lt;<span class="kw">_</span>&gt; = old::OwnerInfoOf::&lt;T, OldCurrency&gt;::iter()
+		<span class="kw">let </span>sample: Vec&lt;<span class="kw">_</span>&gt; = v11::OwnerInfoOf::&lt;T, OldCurrency&gt;::iter()
 			.take(len)
 			.map(|(k, v)| {
-				<span class="kw">let </span>module = old::CodeStorage::&lt;T&gt;::get(k)
+				<span class="kw">let </span>module = v11::CodeStorage::&lt;T&gt;::get(k)
 					.expect(<span class="string">&quot;No PrefabWasmModule found for code_hash: {:?}&quot;</span>);
 				<span class="kw">let </span>info: CodeInfo&lt;T, OldCurrency&gt; = CodeInfo {
 					determinism: module.determinism,
@@ -748,9 +748,9 @@ nav.side-bar {
 			.collect();
 
 		<span class="kw">let </span>storage: u32 =
-			old::CodeStorage::&lt;T&gt;::iter().map(|(_k, v)| v.encoded_size() <span class="kw">as </span>u32).sum();
-		<span class="kw">let </span><span class="kw-2">mut </span>deposit: old::BalanceOf&lt;T, OldCurrency&gt; = Default::default();
-		old::OwnerInfoOf::&lt;T, OldCurrency&gt;::iter().for_each(|(_k, v)| deposit += v.deposit);
+			v11::CodeStorage::&lt;T&gt;::iter().map(|(_k, v)| v.encoded_size() <span class="kw">as </span>u32).sum();
+		<span class="kw">let </span><span class="kw-2">mut </span>deposit: v11::BalanceOf&lt;T, OldCurrency&gt; = Default::default();
+		v11::OwnerInfoOf::&lt;T, OldCurrency&gt;::iter().for_each(|(_k, v)| deposit += v.deposit);
 
 		<span class="prelude-val">Ok</span>((sample, deposit, storage).encode())
 	}
@@ -759,7 +759,7 @@ nav.side-bar {
 	</span><span class="kw">fn </span>post_upgrade_step(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">let </span>state = &lt;(
 			Vec&lt;(CodeHash&lt;T&gt;, CodeInfo&lt;T, OldCurrency&gt;)&gt;,
-			old::BalanceOf&lt;T, OldCurrency&gt;,
+			v11::BalanceOf&lt;T, OldCurrency&gt;,
 			u32,
 		) <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>state[..])
 		.unwrap();
@@ -773,7 +773,7 @@ nav.side-bar {
 			<span class="macro">ensure!</span>(info.refcount == old.refcount, <span class="string">&quot;invalid refcount&quot;</span>);
 		}
 
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((k, <span class="kw">_</span>)) = old::CodeStorage::&lt;T&gt;::iter().next() {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>((k, <span class="kw">_</span>)) = v11::CodeStorage::&lt;T&gt;::iter().next() {
 			<span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;CodeStorage is still NOT empty, found code_hash: {:?}&quot;</span>,
@@ -782,7 +782,7 @@ nav.side-bar {
 		} <span class="kw">else </span>{
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;CodeStorage is empty.&quot;</span>);
 		}
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((k, <span class="kw">_</span>)) = old::OwnerInfoOf::&lt;T, OldCurrency&gt;::iter().next() {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>((k, <span class="kw">_</span>)) = v11::OwnerInfoOf::&lt;T, OldCurrency&gt;::iter().next() {
 			<span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;OwnerInfoOf is still NOT empty, found code_hash: {:?}&quot;</span>,
@@ -792,7 +792,7 @@ nav.side-bar {
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;OwnerInfoOf is empty.&quot;</span>);
 		}
 
-		<span class="kw">let </span><span class="kw-2">mut </span>deposit: old::BalanceOf&lt;T, OldCurrency&gt; = Default::default();
+		<span class="kw">let </span><span class="kw-2">mut </span>deposit: v11::BalanceOf&lt;T, OldCurrency&gt; = Default::default();
 		<span class="kw">let </span><span class="kw-2">mut </span>items = <span class="number">0u32</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>storage_info = <span class="number">0u32</span>;
 		CodeInfoOf::&lt;T, OldCurrency&gt;::iter().for_each(|(_k, v)| {

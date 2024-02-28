@@ -592,7 +592,7 @@ nav.side-bar {
 		}
 	);
 
-	<span class="kw">let </span>(storage_version, current_storage_version_ty) =
+	<span class="kw">let </span>(storage_version, in_code_storage_version_ty) =
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(v) = def.pallet_struct.storage_version.as_ref() {
 			(<span class="macro">quote::quote! </span>{ #v }, <span class="macro">quote::quote! </span>{ #frame_support::traits::StorageVersion })
 		} <span class="kw">else </span>{
@@ -635,9 +635,9 @@ nav.side-bar {
 			<span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt;
 			#config_where_clause
 		{
-			<span class="kw">type </span>CurrentStorageVersion = #current_storage_version_ty;
+			<span class="kw">type </span>InCodeStorageVersion = #in_code_storage_version_ty;
 
-			<span class="kw">fn </span>current_storage_version() -&gt; <span class="self">Self</span>::CurrentStorageVersion {
+			<span class="kw">fn </span>in_code_storage_version() -&gt; <span class="self">Self</span>::InCodeStorageVersion {
 				#storage_version
 			}
 

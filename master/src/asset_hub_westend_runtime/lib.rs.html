@@ -2916,17 +2916,17 @@ nav.side-bar {
 		<span class="kw">let </span><span class="kw-2">mut </span>writes = <span class="number">0</span>;
 
 		<span class="kw">if </span>PolkadotXcm::on_chain_storage_version() == StorageVersion::new(<span class="number">0</span>) {
-			PolkadotXcm::current_storage_version().put::&lt;PolkadotXcm&gt;();
+			PolkadotXcm::in_code_storage_version().put::&lt;PolkadotXcm&gt;();
 			writes.saturating_inc();
 		}
 
 		<span class="kw">if </span>ForeignAssets::on_chain_storage_version() == StorageVersion::new(<span class="number">0</span>) {
-			ForeignAssets::current_storage_version().put::&lt;ForeignAssets&gt;();
+			ForeignAssets::in_code_storage_version().put::&lt;ForeignAssets&gt;();
 			writes.saturating_inc();
 		}
 
 		<span class="kw">if </span>PoolAssets::on_chain_storage_version() == StorageVersion::new(<span class="number">0</span>) {
-			PoolAssets::current_storage_version().put::&lt;PoolAssets&gt;();
+			PoolAssets::in_code_storage_version().put::&lt;PoolAssets&gt;();
 			writes.saturating_inc();
 		}
 

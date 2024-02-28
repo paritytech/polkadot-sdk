@@ -1451,7 +1451,7 @@ nav.side-bar {
 			runtime_code,
 			ext,
 			heap_alloc_strategy,
-			|<span class="kw">_</span>, <span class="kw-2">mut </span>instance, _onchain_version, <span class="kw-2">mut </span>ext| {
+			|<span class="kw">_</span>, <span class="kw-2">mut </span>instance, _on_chain_version, <span class="kw-2">mut </span>ext| {
 				with_externalities_safe(<span class="kw-2">&amp;mut **</span>ext, <span class="kw">move </span>|| instance.call_export(method, data))
 			},
 		);
@@ -1615,18 +1615,18 @@ nav.side-bar {
 			runtime_code,
 			ext,
 			heap_alloc_strategy,
-			|<span class="kw">_</span>, <span class="kw-2">mut </span>instance, onchain_version, <span class="kw-2">mut </span>ext| {
-				<span class="kw">let </span>onchain_version =
-					onchain_version.ok_or_else(|| Error::ApiError(<span class="string">&quot;Unknown version&quot;</span>.into()))<span class="question-mark">?</span>;
+			|<span class="kw">_</span>, <span class="kw-2">mut </span>instance, on_chain_version, <span class="kw-2">mut </span>ext| {
+				<span class="kw">let </span>on_chain_version =
+					on_chain_version.ok_or_else(|| Error::ApiError(<span class="string">&quot;Unknown version&quot;</span>.into()))<span class="question-mark">?</span>;
 
 				<span class="kw">let </span>can_call_with =
-					onchain_version.can_call_with(<span class="kw-2">&amp;</span><span class="self">self</span>.native_version.runtime_version);
+					on_chain_version.can_call_with(<span class="kw-2">&amp;</span><span class="self">self</span>.native_version.runtime_version);
 
 				<span class="kw">if </span>use_native &amp;&amp; can_call_with {
 					<span class="macro">tracing::trace!</span>(
 						target: <span class="string">&quot;executor&quot;</span>,
 						native = %<span class="self">self</span>.native_version.runtime_version,
-						chain = %onchain_version,
+						chain = %on_chain_version,
 						<span class="string">&quot;Request for native execution succeeded&quot;</span>,
 					);
 
@@ -1638,7 +1638,7 @@ nav.side-bar {
 						<span class="macro">tracing::trace!</span>(
 							target: <span class="string">&quot;executor&quot;</span>,
 							native = %<span class="self">self</span>.native_version.runtime_version,
-							chain = %onchain_version,
+							chain = %on_chain_version,
 							<span class="string">&quot;Request for native execution failed&quot;</span>,
 						);
 					}

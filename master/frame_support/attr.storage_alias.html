@@ -140,7 +140,7 @@ nav.side-bar {
 
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="index.html">frame_support</a>::<wbr><a class="attr" href="#">storage_alias</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/frame_support_procedural/lib.rs.html#559">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[storage_alias]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generate a <a href="pallet_macros/attr.storage.html" title="attr frame_support::pallet_macros::storage"><code>#[pallet::storage]</code></a> alias outside of a pallet.</p>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="index.html">frame_support</a>::<wbr><a class="attr" href="#">storage_alias</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/frame_support_procedural/lib.rs.html#595">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[storage_alias]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generate a <a href="pallet_macros/attr.storage.html" title="attr frame_support::pallet_macros::storage"><code>#[pallet::storage]</code></a> alias outside of a pallet.</p>
 <p>This storage alias works similarly to the <a href="pallet_macros/attr.storage.html" title="attr frame_support::pallet_macros::storage"><code>#[pallet::storage]</code></a>
 attribute macro. It supports <a href="storage/types/struct.StorageValue.html" title="struct frame_support::storage::types::StorageValue"><code>StorageValue</code></a>,
 <a href="storage/types/struct.StorageMap.html" title="struct frame_support::storage::types::StorageMap"><code>StorageMap</code></a>,
@@ -253,4 +253,30 @@ indication that it should use the pallet name as the <code>prefix</code>:</li>
 		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;System&quot;</span>[..], PalletValue::&lt;Runtime&gt;::pallet_prefix());
 	});
 }</code></pre></div>
+<p>Allows accessing on-chain pallet storage that is no longer accessible via the pallet.</p>
+<p>This is especially useful when writing storage migrations, when types of storage items are
+modified or outright removed, but the previous definition is required to perform the migration.</p>
+<h3 id="example"><a href="#example">Example</a></h3>
+<p>Imagine a pallet with the following storage definition:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
+</span><span class="kw">pub type </span>Value&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32&gt;;</code></pre></div>
+<p><code>Value</code> can be accessed by calling <code>Value::&lt;T&gt;::get()</code>.</p>
+<p>Now imagine the definition of <code>Value</code> is updated to a <code>(u32, u32)</code>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
+</span><span class="kw">pub type </span>Value&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, (u32, u32)&gt;;</code></pre></div>
+<p>The on-chain value of <code>Value</code> is <code>u32</code>, but <code>Value::&lt;T&gt;::get()</code> expects it to be <code>(u32, u32)</code>.</p>
+<p>In this instance the developer must write a storage migration to reading the old value of
+<code>Value</code> and writing it back to storage in the new format, so that the on-chain storage layout is
+consistent with what is defined in the pallet.</p>
+<p>We can read the old v0 value of <code>Value</code> in the migration by creating a <code>storage_alias</code>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>v0 {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[storage_alias]
+	</span><span class="kw">pub type </span>Value&lt;T: <span class="kw">crate</span>::Config&gt; = StorageValue&lt;<span class="kw">crate</span>::Pallet&lt;T&gt;, u32&gt;;
+}</code></pre></div>
+<p>The developer can now access the old value of <code>Value</code> by calling <code>v0::Value::&lt;T&gt;::get()</code>.</p>
 </div></details></section></div></main></body></html>

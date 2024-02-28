@@ -1062,10 +1062,10 @@ nav.side-bar {
 <span class="kw">impl</span>&lt;T: Config, <span class="kw">const </span>TEST_ALL_STEPS: bool&gt; OnRuntimeUpgrade <span class="kw">for </span>Migration&lt;T, TEST_ALL_STEPS&gt; {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 		<span class="kw">let </span>name = &lt;Pallet&lt;T&gt;&gt;::name();
-		<span class="kw">let </span>current_version = &lt;Pallet&lt;T&gt;&gt;::current_storage_version();
+		<span class="kw">let </span>in_code_version = &lt;Pallet&lt;T&gt;&gt;::in_code_storage_version();
 		<span class="kw">let </span>on_chain_version = &lt;Pallet&lt;T&gt;&gt;::on_chain_storage_version();
 
-		<span class="kw">if </span>on_chain_version == current_version {
+		<span class="kw">if </span>on_chain_version == in_code_version {
 			<span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;{name}: No Migration performed storage_version = latest_version = {:?}&quot;</span>,
@@ -1088,7 +1088,7 @@ nav.side-bar {
 
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;{name}: Upgrading storage from {on_chain_version:?} to {current_version:?}.&quot;</span>,
+			<span class="string">&quot;{name}: Upgrading storage from {on_chain_version:?} to {in_code_version:?}.&quot;</span>,
 		);
 
 		<span class="kw">let </span>cursor = T::Migrations::new(on_chain_version + <span class="number">1</span>);
@@ -1108,21 +1108,21 @@ nav.side-bar {
 		// Instead, we call the migrations `pre_upgrade` and `post_upgrade` hooks when we iterate
 		// over our migrations.
 		</span><span class="kw">let </span>on_chain_version = &lt;Pallet&lt;T&gt;&gt;::on_chain_storage_version();
-		<span class="kw">let </span>current_version = &lt;Pallet&lt;T&gt;&gt;::current_storage_version();
+		<span class="kw">let </span>in_code_version = &lt;Pallet&lt;T&gt;&gt;::in_code_storage_version();
 
-		<span class="kw">if </span>on_chain_version == current_version {
+		<span class="kw">if </span>on_chain_version == in_code_version {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(Default::default())
 		}
 
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Requested migration of {} from {:?}(on-chain storage version) to {:?}(current storage version)&quot;</span>,
-			&lt;Pallet&lt;T&gt;&gt;::name(), on_chain_version, current_version
+			<span class="string">&quot;Requested migration of {} from {:?}(on-chain storage version) to {:?}(in-code storage version)&quot;</span>,
+			&lt;Pallet&lt;T&gt;&gt;::name(), on_chain_version, in_code_version
 		);
 
 		<span class="macro">ensure!</span>(
-			T::Migrations::is_upgrade_supported(on_chain_version, current_version),
-			<span class="string">&quot;Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, current storage version)&quot;
+			T::Migrations::is_upgrade_supported(on_chain_version, in_code_version),
+			<span class="string">&quot;Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, in-code storage version)&quot;
 		</span>);
 
 		<span class="prelude-val">Ok</span>(Default::default())
@@ -1220,7 +1220,7 @@ nav.side-bar {
 				},
 				StepResult::Completed { steps_done } =&gt; {
 					in_progress_version.put::&lt;Pallet&lt;T&gt;&gt;();
-					<span class="kw">if </span>&lt;Pallet&lt;T&gt;&gt;::current_storage_version() != in_progress_version {
+					<span class="kw">if </span>&lt;Pallet&lt;T&gt;&gt;::in_code_storage_version() != in_progress_version {
 						<span class="macro">log::info!</span>(
 							target: LOG_TARGET,
 							<span class="string">&quot;{name}: Next migration is {:?},&quot;</span>,

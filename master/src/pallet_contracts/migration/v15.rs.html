@@ -517,7 +517,7 @@ nav.side-bar {
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 </span><span class="kw">use </span>sp_std::vec::Vec;
 
-<span class="kw">mod </span>old {
+<span class="kw">mod </span>v14 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="attr">#[derive(
@@ -552,7 +552,7 @@ nav.side-bar {
 	<span class="kw">let </span>entropy = (<span class="string">b&quot;contract_depo_v1&quot;</span>, account.clone()).using_encoded(T::Hashing::hash);
 	<span class="kw">let </span>deposit_account = Decode::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(entropy.as_ref()))
 		.expect(<span class="string">&quot;infinite length input; no invalid inputs for type; qed&quot;</span>);
-	<span class="kw">let </span>info = old::ContractInfo {
+	<span class="kw">let </span>info = v14::ContractInfo {
 		trie_id: info.trie_id.clone(),
 		deposit_account,
 		code_hash: info.code_hash,
@@ -563,7 +563,7 @@ nav.side-bar {
 		storage_base_deposit: info.storage_base_deposit(),
 		delegate_dependencies: info.delegate_dependencies().clone(),
 	};
-	old::ContractInfoOf::&lt;T&gt;::insert(account, info);
+	v14::ContractInfoOf::&lt;T&gt;::insert(account, info);
 }
 
 <span class="attr">#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -598,11 +598,11 @@ nav.side-bar {
 
 	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
 		<span class="kw">let </span><span class="kw-2">mut </span>iter = <span class="kw">if let </span><span class="prelude-val">Some</span>(last_account) = <span class="self">self</span>.last_account.take() {
-			old::ContractInfoOf::&lt;T&gt;::iter_from(old::ContractInfoOf::&lt;T&gt;::hashed_key_for(
+			v14::ContractInfoOf::&lt;T&gt;::iter_from(v14::ContractInfoOf::&lt;T&gt;::hashed_key_for(
 				last_account,
 			))
 		} <span class="kw">else </span>{
-			old::ContractInfoOf::&lt;T&gt;::iter()
+			v14::ContractInfoOf::&lt;T&gt;::iter()
 		};
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((account, old_contract)) = iter.next() {
@@ -714,11 +714,11 @@ nav.side-bar {
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">fn </span>pre_upgrade_step() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
-		<span class="kw">let </span>sample: Vec&lt;<span class="kw">_</span>&gt; = old::ContractInfoOf::&lt;T&gt;::iter().take(<span class="number">100</span>).collect();
+		<span class="kw">let </span>sample: Vec&lt;<span class="kw">_</span>&gt; = v14::ContractInfoOf::&lt;T&gt;::iter().take(<span class="number">100</span>).collect();
 
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Taking sample of {} contracts&quot;</span>, sample.len());
 
-		<span class="kw">let </span>state: Vec&lt;(T::AccountId, old::ContractInfo&lt;T&gt;, BalanceOf&lt;T&gt;, BalanceOf&lt;T&gt;)&gt; = sample
+		<span class="kw">let </span>state: Vec&lt;(T::AccountId, v14::ContractInfo&lt;T&gt;, BalanceOf&lt;T&gt;, BalanceOf&lt;T&gt;)&gt; = sample
 			.iter()
 			.map(|(account, contract)| {
 				(
@@ -736,7 +736,7 @@ nav.side-bar {
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">fn </span>post_upgrade_step(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">let </span>sample =
-			&lt;Vec&lt;(T::AccountId, old::ContractInfo&lt;T&gt;, BalanceOf&lt;T&gt;, BalanceOf&lt;T&gt;)&gt; <span class="kw">as </span>Decode&gt;::decode(
+			&lt;Vec&lt;(T::AccountId, v14::ContractInfo&lt;T&gt;, BalanceOf&lt;T&gt;, BalanceOf&lt;T&gt;)&gt; <span class="kw">as </span>Decode&gt;::decode(
 				<span class="kw-2">&amp;mut &amp;</span>state[..],
 			)
 			.expect(<span class="string">&quot;pre_upgrade_step provides a valid state; qed&quot;</span>);

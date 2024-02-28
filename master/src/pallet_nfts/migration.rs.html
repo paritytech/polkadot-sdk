@@ -316,17 +316,17 @@ nav.side-bar {
 	</span><span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV1&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-			<span class="kw">let </span>current_version = Pallet::&lt;T&gt;::current_storage_version();
-			<span class="kw">let </span>onchain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
+			<span class="kw">let </span>in_code_version = Pallet::&lt;T&gt;::in_code_storage_version();
+			<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
 
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Running migration with current storage version {:?} / onchain {:?}&quot;</span>,
-				current_version,
-				onchain_version
+				<span class="string">&quot;Running migration with in-code storage version {:?} / onchain {:?}&quot;</span>,
+				in_code_version,
+				on_chain_version
 			);
 
-			<span class="kw">if </span>onchain_version == <span class="number">0 </span>&amp;&amp; current_version == <span class="number">1 </span>{
+			<span class="kw">if </span>on_chain_version == <span class="number">0 </span>&amp;&amp; in_code_version == <span class="number">1 </span>{
 				<span class="kw">let </span><span class="kw-2">mut </span>translated = <span class="number">0u64</span>;
 				<span class="kw">let </span><span class="kw-2">mut </span>configs_iterated = <span class="number">0u64</span>;
 				Collection::&lt;T&gt;::translate::&lt;
@@ -339,13 +339,13 @@ nav.side-bar {
 					<span class="prelude-val">Some</span>(old_value.migrate_to_v1(item_configs))
 				});
 
-				current_version.put::&lt;Pallet&lt;T&gt;&gt;();
+				in_code_version.put::&lt;Pallet&lt;T&gt;&gt;();
 
 				<span class="macro">log::info!</span>(
 					target: LOG_TARGET,
 					<span class="string">&quot;Upgraded {} records, storage to version {:?}&quot;</span>,
 					translated,
-					current_version
+					in_code_version
 				);
 				T::DbWeight::get().reads_writes(translated + configs_iterated + <span class="number">1</span>, translated + <span class="number">1</span>)
 			} <span class="kw">else </span>{

@@ -1887,6 +1887,42 @@ nav.side-bar {
 <a href="#1745" id="1745">1745</a>
 <a href="#1746" id="1746">1746</a>
 <a href="#1747" id="1747">1747</a>
+<a href="#1748" id="1748">1748</a>
+<a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
+<a href="#1753" id="1753">1753</a>
+<a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
+<a href="#1759" id="1759">1759</a>
+<a href="#1760" id="1760">1760</a>
+<a href="#1761" id="1761">1761</a>
+<a href="#1762" id="1762">1762</a>
+<a href="#1763" id="1763">1763</a>
+<a href="#1764" id="1764">1764</a>
+<a href="#1765" id="1765">1765</a>
+<a href="#1766" id="1766">1766</a>
+<a href="#1767" id="1767">1767</a>
+<a href="#1768" id="1768">1768</a>
+<a href="#1769" id="1769">1769</a>
+<a href="#1770" id="1770">1770</a>
+<a href="#1771" id="1771">1771</a>
+<a href="#1772" id="1772">1772</a>
+<a href="#1773" id="1773">1773</a>
+<a href="#1774" id="1774">1774</a>
+<a href="#1775" id="1775">1775</a>
+<a href="#1776" id="1776">1776</a>
+<a href="#1777" id="1777">1777</a>
+<a href="#1778" id="1778">1778</a>
+<a href="#1779" id="1779">1779</a>
+<a href="#1780" id="1780">1780</a>
+<a href="#1781" id="1781">1781</a>
+<a href="#1782" id="1782">1782</a>
+<a href="#1783" id="1783">1783</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2444,7 +2480,43 @@ nav.side-bar {
 	tt_macro::create_tt_return_macro(input)
 }
 
-<span class="attr">#[proc_macro_attribute]
+<span class="doccomment">/// Allows accessing on-chain pallet storage that is no longer accessible via the pallet.
+///
+/// This is especially useful when writing storage migrations, when types of storage items are
+/// modified or outright removed, but the previous definition is required to perform the migration.
+///
+/// ## Example
+///
+/// Imagine a pallet with the following storage definition:
+/// ```ignore
+/// #[pallet::storage]
+/// pub type Value&lt;T: Config&gt; = StorageValue&lt;_, u32&gt;;
+/// ```
+/// `Value` can be accessed by calling `Value::&lt;T&gt;::get()`.
+///
+/// Now imagine the definition of `Value` is updated to a `(u32, u32)`:
+/// ```ignore
+/// #[pallet::storage]
+/// pub type Value&lt;T: Config&gt; = StorageValue&lt;_, (u32, u32)&gt;;
+/// ```
+/// The on-chain value of `Value` is `u32`, but `Value::&lt;T&gt;::get()` expects it to be `(u32, u32)`.
+///
+/// In this instance the developer must write a storage migration to reading the old value of
+/// `Value` and writing it back to storage in the new format, so that the on-chain storage layout is
+/// consistent with what is defined in the pallet.
+///
+/// We can read the old v0 value of `Value` in the migration by creating a `storage_alias`:
+/// ```ignore
+/// pub(crate) mod v0 {
+/// 	use super::*;
+///
+/// 	#[storage_alias]
+/// 	pub type Value&lt;T: crate::Config&gt; = StorageValue&lt;crate::Pallet&lt;T&gt;, u32&gt;;
+/// }
+/// ```
+///
+/// The developer can now access the old value of `Value` by calling `v0::Value::&lt;T&gt;::get()`.
+</span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>storage_alias(attributes: TokenStream, input: TokenStream) -&gt; TokenStream {
 	storage_alias::storage_alias(attributes.into(), input.into())
 		.unwrap_or_else(|r| r.into_compile_error())
@@ -2947,7 +3019,7 @@ nav.side-bar {
 /// pub struct Pallet&lt;T&gt;(_);
 /// ```
 ///
-/// If not present, the current storage version is set to the default value.
+/// If not present, the in-code storage version is set to the default value.
 </span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>storage_version(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
 	pallet_macro_stub()

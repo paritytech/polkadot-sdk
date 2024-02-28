@@ -244,14 +244,14 @@ nav.side-bar {
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV1&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
-			<span class="kw">let </span>onchain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
-			<span class="macro">ensure!</span>(onchain_version &lt; <span class="number">1</span>, <span class="string">&quot;assigned_slots::MigrateToV1 migration can be deleted&quot;</span>);
+			<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
+			<span class="macro">ensure!</span>(on_chain_version &lt; <span class="number">1</span>, <span class="string">&quot;assigned_slots::MigrateToV1 migration can be deleted&quot;</span>);
 			<span class="prelude-val">Ok</span>(Default::default())
 		}
 
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; frame_support::weights::Weight {
-			<span class="kw">let </span>onchain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
-			<span class="kw">if </span>onchain_version &lt; <span class="number">1 </span>{
+			<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
+			<span class="kw">if </span>on_chain_version &lt; <span class="number">1 </span>{
 				<span class="kw">const </span>MAX_PERMANENT_SLOTS: u32 = <span class="number">100</span>;
 				<span class="kw">const </span>MAX_TEMPORARY_SLOTS: u32 = <span class="number">100</span>;
 
@@ -267,8 +267,8 @@ nav.side-bar {
 
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>post_upgrade(_state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
-			<span class="kw">let </span>onchain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
-			<span class="macro">ensure!</span>(onchain_version == <span class="number">1</span>, <span class="string">&quot;assigned_slots::MigrateToV1 needs to be run&quot;</span>);
+			<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
+			<span class="macro">ensure!</span>(on_chain_version == <span class="number">1</span>, <span class="string">&quot;assigned_slots::MigrateToV1 needs to be run&quot;</span>);
 			<span class="macro">assert_eq!</span>(&lt;MaxPermanentSlots&lt;T&gt;&gt;::get(), <span class="number">100</span>);
 			<span class="macro">assert_eq!</span>(&lt;MaxTemporarySlots&lt;T&gt;&gt;::get(), <span class="number">100</span>);
 			<span class="prelude-val">Ok</span>(())

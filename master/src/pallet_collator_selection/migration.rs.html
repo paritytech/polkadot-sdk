@@ -265,8 +265,8 @@ nav.side-bar {
 	<span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV1&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-			<span class="kw">let </span>onchain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
-			<span class="kw">if </span>onchain_version == <span class="number">0 </span>{
+			<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
+			<span class="kw">if </span>on_chain_version == <span class="number">0 </span>{
 				<span class="kw">let </span>invulnerables_len = Invulnerables::&lt;T&gt;::get().to_vec().len();
 				&lt;Invulnerables&lt;T&gt;&gt;::mutate(|invulnerables| {
 					invulnerables.sort();
@@ -279,7 +279,7 @@ nav.side-bar {
 					invulnerables_len,
 				);
 				<span class="comment">// Similar complexity to `set_invulnerables` (put storage value)
-				// Plus 1 read for length, 1 read for `onchain_version`, 1 write to put version
+				// Plus 1 read for length, 1 read for `on_chain_version`, 1 write to put version
 				</span>T::WeightInfo::set_invulnerables(invulnerables_len <span class="kw">as </span>u32)
 					.saturating_add(T::DbWeight::get().reads_writes(<span class="number">2</span>, <span class="number">1</span>))
 			} <span class="kw">else </span>{
@@ -317,8 +317,8 @@ nav.side-bar {
 				<span class="string">&quot;after migration, there should be the same number of invulnerables&quot;
 			</span>);
 
-			<span class="kw">let </span>onchain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
-			<span class="macro">frame_support::ensure!</span>(onchain_version &gt;= <span class="number">1</span>, <span class="string">&quot;must_upgrade&quot;</span>);
+			<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
+			<span class="macro">frame_support::ensure!</span>(on_chain_version &gt;= <span class="number">1</span>, <span class="string">&quot;must_upgrade&quot;</span>);
 
 			<span class="prelude-val">Ok</span>(())
 		}

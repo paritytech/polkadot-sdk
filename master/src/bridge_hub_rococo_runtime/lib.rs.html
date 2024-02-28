@@ -1828,12 +1828,12 @@ nav.side-bar {
 		<span class="kw">let </span><span class="kw-2">mut </span>writes = <span class="number">0</span>;
 
 		<span class="kw">if </span>PolkadotXcm::on_chain_storage_version() == StorageVersion::new(<span class="number">0</span>) {
-			PolkadotXcm::current_storage_version().put::&lt;PolkadotXcm&gt;();
+			PolkadotXcm::in_code_storage_version().put::&lt;PolkadotXcm&gt;();
 			writes.saturating_inc();
 		}
 
 		<span class="kw">if </span>Balances::on_chain_storage_version() == StorageVersion::new(<span class="number">0</span>) {
-			Balances::current_storage_version().put::&lt;Balances&gt;();
+			Balances::in_code_storage_version().put::&lt;Balances&gt;();
 			writes.saturating_inc();
 		}
 

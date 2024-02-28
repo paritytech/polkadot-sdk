@@ -280,7 +280,7 @@ nav.side-bar {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">use </span>sp_runtime::Saturating;
 
-			<span class="kw">let </span>current = Pallet::&lt;T&gt;::current_storage_version();
+			<span class="kw">let </span>current = Pallet::&lt;T&gt;::in_code_storage_version();
 			<span class="kw">let </span>onchain = Pallet::&lt;T&gt;::on_chain_storage_version();
 
 			<span class="kw">if </span>onchain &gt; <span class="number">0 </span>{

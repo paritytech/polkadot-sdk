@@ -334,7 +334,7 @@ definition.</p>
 <p>Also see <a href="pallet_macros/attr.generate_store.html" title="attr frame_support::pallet_macros::generate_store"><code>pallet::generate_store</code></a>.</p>
 <h2 id="palletstorage_version"><a href="#palletstorage_version"><code>pallet::storage_version</code></a></h2>
 <p>Because the <a href="#pallet-struct-placeholder-palletpallet-mandatory"><code>pallet::pallet</code></a> macro
-implements <a href="traits/trait.GetStorageVersion.html" title="trait frame_support::traits::GetStorageVersion"><code>traits::GetStorageVersion</code></a>, the current storage version needs to be
+implements <a href="traits/trait.GetStorageVersion.html" title="trait frame_support::traits::GetStorageVersion"><code>traits::GetStorageVersion</code></a>, the in-code storage version needs to be
 communicated to the macro. This can be done by using the <code>pallet::storage_version</code>
 attribute:</p>
 
@@ -343,7 +343,7 @@ attribute:</p>
 <span class="attr">#[pallet::pallet]
 #[pallet::storage_version(STORAGE_VERSION)]
 </span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);</code></pre></div>
-<p>If not present, the current storage version is set to the default value.</p>
+<p>If not present, the in-code storage version is set to the default value.</p>
 <p>Also see <a href="pallet_macros/attr.storage_version.html" title="attr frame_support::pallet_macros::storage_version"><code>pallet::storage_version</code></a></p>
 <h2 id="hooks-pallethooks-optional"><a href="#hooks-pallethooks-optional">Hooks: <code>#[pallet::hooks]</code> (optional)</a></h2>
 <p>The <code>pallet::hooks</code> attribute allows you to specify a <code>Hooks</code> implementation for <code>Pallet</code>

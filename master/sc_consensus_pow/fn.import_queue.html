@@ -144,10 +144,10 @@ nav.side-bar {
     block_import: BoxBlockImport&lt;B&gt;,
     justification_import: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BoxJustificationImport&lt;B&gt;&gt;,
     algorithm: Algorithm,
-    spawner: &amp;impl <a class="trait" href="../sp_core/traits/trait.SpawnEssentialNamed.html" title="trait sp_core::traits::SpawnEssentialNamed">SpawnEssentialNamed</a>,
+    spawner: &amp;impl SpawnEssentialNamed,
     registry: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Registry&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.PowImportQueue.html" title="type sc_consensus_pow::PowImportQueue">PowImportQueue</a>&lt;B&gt;, Error&gt;<span class="where fmt-newline">where
-    B: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,
+    B: BlockT,
     Algorithm: <a class="trait" href="trait.PowAlgorithm.html" title="trait sc_consensus_pow::PowAlgorithm">PowAlgorithm</a>&lt;B&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     Algorithm::<a class="associatedtype" href="trait.PowAlgorithm.html#associatedtype.Difficulty" title="type sc_consensus_pow::PowAlgorithm::Difficulty">Difficulty</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Import queue for PoW engine.</p>
 </div></details></section></div></main></body></html>

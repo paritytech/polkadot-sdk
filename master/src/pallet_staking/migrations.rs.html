@@ -753,11 +753,11 @@ nav.side-bar {
 	<span class="kw">pub struct </span>MigrateToV14&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV14&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-			<span class="kw">let </span>current = Pallet::&lt;T&gt;::current_storage_version();
+			<span class="kw">let </span>in_code = Pallet::&lt;T&gt;::in_code_storage_version();
 			<span class="kw">let </span>on_chain = Pallet::&lt;T&gt;::on_chain_storage_version();
 
-			<span class="kw">if </span>current == <span class="number">14 </span>&amp;&amp; on_chain == <span class="number">13 </span>{
-				current.put::&lt;Pallet&lt;T&gt;&gt;();
+			<span class="kw">if </span>in_code == <span class="number">14 </span>&amp;&amp; on_chain == <span class="number">13 </span>{
+				in_code.put::&lt;Pallet&lt;T&gt;&gt;();
 
 				<span class="macro">log!</span>(info, <span class="string">&quot;v14 applied successfully.&quot;</span>);
 				T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
@@ -794,12 +794,12 @@ nav.side-bar {
 		}
 
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-			<span class="kw">let </span>current = Pallet::&lt;T&gt;::current_storage_version();
+			<span class="kw">let </span>in_code = Pallet::&lt;T&gt;::in_code_storage_version();
 			<span class="kw">let </span>onchain = StorageVersion::&lt;T&gt;::get();
 
-			<span class="kw">if </span>current == <span class="number">13 </span>&amp;&amp; onchain == ObsoleteReleases::V12_0_0 {
+			<span class="kw">if </span>in_code == <span class="number">13 </span>&amp;&amp; onchain == ObsoleteReleases::V12_0_0 {
 				StorageVersion::&lt;T&gt;::kill();
-				current.put::&lt;Pallet&lt;T&gt;&gt;();
+				in_code.put::&lt;Pallet&lt;T&gt;&gt;();
 
 				<span class="macro">log!</span>(info, <span class="string">&quot;v13 applied successfully&quot;</span>);
 				T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>)

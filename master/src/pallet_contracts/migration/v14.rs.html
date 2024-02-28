@@ -457,7 +457,7 @@ nav.side-bar {
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 </span><span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
 
-<span class="kw">mod </span>old {
+<span class="kw">mod </span>v13 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="kw">pub type </span>BalanceOf&lt;T, OldCurrency&gt; = &lt;OldCurrency <span class="kw">as </span>frame_support::traits::Currency&lt;
@@ -474,7 +474,7 @@ nav.side-bar {
 	{
 		<span class="kw">pub </span>owner: AccountIdOf&lt;T&gt;,
 		<span class="attr">#[codec(compact)]
-		</span><span class="kw">pub </span>deposit: old::BalanceOf&lt;T, OldCurrency&gt;,
+		</span><span class="kw">pub </span>deposit: v13::BalanceOf&lt;T, OldCurrency&gt;,
 		<span class="attr">#[codec(compact)]
 		</span><span class="kw">pub </span>refcount: u64,
 		<span class="kw">pub </span>determinism: Determinism,
@@ -499,14 +499,14 @@ nav.side-bar {
 	<span class="kw">let </span>code = <span class="macro">vec!</span>[<span class="number">42u8</span>; len <span class="kw">as </span>usize];
 	<span class="kw">let </span>hash = T::Hashing::hash(<span class="kw-2">&amp;</span>code);
 
-	<span class="kw">let </span>info = old::CodeInfo {
+	<span class="kw">let </span>info = v13::CodeInfo {
 		owner: account,
 		deposit: <span class="number">10_000u32</span>.into(),
 		refcount: u64::MAX,
 		determinism: Determinism::Enforced,
 		code_len: len,
 	};
-	old::CodeInfoOf::&lt;T, OldCurrency&gt;::insert(hash, info);
+	v13::CodeInfoOf::&lt;T, OldCurrency&gt;::insert(hash, info);
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
@@ -518,9 +518,9 @@ nav.side-bar {
 	OldCurrency: ReservableCurrency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
 {
 	<span class="doccomment">/// Total reserved balance as code upload deposit for the owner.
-	</span>reserved: old::BalanceOf&lt;T, OldCurrency&gt;,
+	</span>reserved: v13::BalanceOf&lt;T, OldCurrency&gt;,
 	<span class="doccomment">/// Total balance of the owner.
-	</span>total: old::BalanceOf&lt;T, OldCurrency&gt;,
+	</span>total: v13::BalanceOf&lt;T, OldCurrency&gt;,
 }
 
 <span class="attr">#[derive(Encode, Decode, MaxEncodedLen, DefaultNoBound)]
@@ -547,11 +547,11 @@ nav.side-bar {
 
 	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
 		<span class="kw">let </span><span class="kw-2">mut </span>iter = <span class="kw">if let </span><span class="prelude-val">Some</span>(last_hash) = <span class="self">self</span>.last_code_hash.take() {
-			old::CodeInfoOf::&lt;T, OldCurrency&gt;::iter_from(
-				old::CodeInfoOf::&lt;T, OldCurrency&gt;::hashed_key_for(last_hash),
+			v13::CodeInfoOf::&lt;T, OldCurrency&gt;::iter_from(
+				v13::CodeInfoOf::&lt;T, OldCurrency&gt;::hashed_key_for(last_hash),
 			)
 		} <span class="kw">else </span>{
-			old::CodeInfoOf::&lt;T, OldCurrency&gt;::iter()
+			v13::CodeInfoOf::&lt;T, OldCurrency&gt;::iter()
 		};
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((hash, code_info)) = iter.next() {
@@ -607,7 +607,7 @@ nav.side-bar {
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">fn </span>pre_upgrade_step() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
-		<span class="kw">let </span>info: Vec&lt;<span class="kw">_</span>&gt; = old::CodeInfoOf::&lt;T, OldCurrency&gt;::iter().collect();
+		<span class="kw">let </span>info: Vec&lt;<span class="kw">_</span>&gt; = v13::CodeInfoOf::&lt;T, OldCurrency&gt;::iter().collect();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>owner_balance_allocation =
 			BTreeMap::&lt;AccountIdOf&lt;T&gt;, BalanceAllocation&lt;T, OldCurrency&gt;&gt;::new();

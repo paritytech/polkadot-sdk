@@ -267,9 +267,9 @@ nav.side-bar {
 };
 
 <span class="kw">fn </span>migrate_v0_to_v1&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(accounts: <span class="kw-2">&amp;</span>[T::AccountId]) -&gt; Weight {
-	<span class="kw">let </span>onchain_version = Pallet::&lt;T, I&gt;::on_chain_storage_version();
+	<span class="kw">let </span>on_chain_version = Pallet::&lt;T, I&gt;::on_chain_storage_version();
 
-	<span class="kw">if </span>onchain_version == <span class="number">0 </span>{
+	<span class="kw">if </span>on_chain_version == <span class="number">0 </span>{
 		<span class="kw">let </span>total = accounts
 			.iter()
 			.map(|a| Pallet::&lt;T, I&gt;::total_balance(a))
@@ -321,9 +321,9 @@ nav.side-bar {
 <span class="kw">pub struct </span>ResetInactive&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; OnRuntimeUpgrade <span class="kw">for </span>ResetInactive&lt;T, I&gt; {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-		<span class="kw">let </span>onchain_version = Pallet::&lt;T, I&gt;::on_chain_storage_version();
+		<span class="kw">let </span>on_chain_version = Pallet::&lt;T, I&gt;::on_chain_storage_version();
 
-		<span class="kw">if </span>onchain_version == <span class="number">1 </span>{
+		<span class="kw">if </span>on_chain_version == <span class="number">1 </span>{
 			<span class="comment">// Remove the old `StorageVersion` type.
 			</span>frame_support::storage::unhashed::kill(<span class="kw-2">&amp;</span>frame_support::storage::storage_prefix(
 				Pallet::&lt;T, I&gt;::name().as_bytes(),

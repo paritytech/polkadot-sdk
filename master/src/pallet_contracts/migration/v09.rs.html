@@ -314,7 +314,7 @@ nav.side-bar {
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="kw">mod </span>old {
+<span class="kw">mod </span>v8 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="attr">#[derive(Encode, Decode)]
@@ -336,14 +336,14 @@ nav.side-bar {
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">pub fn </span>store_old_dummy_code&lt;T: Config&gt;(len: usize) {
 	<span class="kw">use </span>sp_runtime::traits::Hash;
-	<span class="kw">let </span>module = old::PrefabWasmModule {
+	<span class="kw">let </span>module = v8::PrefabWasmModule {
 		instruction_weights_version: <span class="number">0</span>,
 		initial: <span class="number">0</span>,
 		maximum: <span class="number">0</span>,
 		code: <span class="macro">vec!</span>[<span class="number">42u8</span>; len],
 	};
 	<span class="kw">let </span>hash = T::Hashing::hash(<span class="kw-2">&amp;</span>module.code);
-	old::CodeStorage::&lt;T&gt;::insert(hash, module);
+	v8::CodeStorage::&lt;T&gt;::insert(hash, module);
 }
 
 <span class="attr">#[derive(Encode, Decode)]
@@ -375,9 +375,9 @@ nav.side-bar {
 
 	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
 		<span class="kw">let </span><span class="kw-2">mut </span>iter = <span class="kw">if let </span><span class="prelude-val">Some</span>(last_key) = <span class="self">self</span>.last_code_hash.take() {
-			old::CodeStorage::&lt;T&gt;::iter_from(old::CodeStorage::&lt;T&gt;::hashed_key_for(last_key))
+			v8::CodeStorage::&lt;T&gt;::iter_from(v8::CodeStorage::&lt;T&gt;::hashed_key_for(last_key))
 		} <span class="kw">else </span>{
-			old::CodeStorage::&lt;T&gt;::iter()
+			v8::CodeStorage::&lt;T&gt;::iter()
 		};
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((key, old)) = iter.next() {
@@ -401,7 +401,7 @@ nav.side-bar {
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">fn </span>pre_upgrade_step() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
-		<span class="kw">let </span>sample: Vec&lt;<span class="kw">_</span>&gt; = old::CodeStorage::&lt;T&gt;::iter().take(<span class="number">100</span>).collect();
+		<span class="kw">let </span>sample: Vec&lt;<span class="kw">_</span>&gt; = v8::CodeStorage::&lt;T&gt;::iter().take(<span class="number">100</span>).collect();
 
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Taking sample of {} contract codes&quot;</span>, sample.len());
 		<span class="prelude-val">Ok</span>(sample.encode())
@@ -409,7 +409,7 @@ nav.side-bar {
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">fn </span>post_upgrade_step(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-		<span class="kw">let </span>sample = &lt;Vec&lt;(CodeHash&lt;T&gt;, old::PrefabWasmModule)&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>state[..])
+		<span class="kw">let </span>sample = &lt;Vec&lt;(CodeHash&lt;T&gt;, v8::PrefabWasmModule)&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>state[..])
 			.expect(<span class="string">&quot;pre_upgrade_step provides a valid state; qed&quot;</span>);
 
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Validating sample of {} contract codes&quot;</span>, sample.len());

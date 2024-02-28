@@ -483,16 +483,16 @@ nav.side-bar {
 		}
 
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-			<span class="kw">let </span>current_version = Pallet::&lt;T, I&gt;::current_storage_version();
-			<span class="kw">let </span>onchain_version = Pallet::&lt;T, I&gt;::on_chain_storage_version();
+			<span class="kw">let </span>in_code_version = Pallet::&lt;T, I&gt;::in_code_storage_version();
+			<span class="kw">let </span>on_chain_version = Pallet::&lt;T, I&gt;::on_chain_storage_version();
 			<span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads(<span class="number">1</span>);
 			<span class="macro">log::info!</span>(
 				target: TARGET,
-				<span class="string">&quot;running migration with current storage version {:?} / onchain {:?}.&quot;</span>,
-				current_version,
-				onchain_version
+				<span class="string">&quot;running migration with in-code storage version {:?} / onchain {:?}.&quot;</span>,
+				in_code_version,
+				on_chain_version
 			);
-			<span class="kw">if </span>onchain_version != <span class="number">0 </span>{
+			<span class="kw">if </span>on_chain_version != <span class="number">0 </span>{
 				<span class="macro">log::warn!</span>(target: TARGET, <span class="string">&quot;skipping migration from v0 to v1.&quot;</span>);
 				<span class="kw">return </span>weight
 			}
@@ -523,8 +523,8 @@ nav.side-bar {
 
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-			<span class="kw">let </span>onchain_version = Pallet::&lt;T, I&gt;::on_chain_storage_version();
-			<span class="macro">ensure!</span>(onchain_version == <span class="number">1</span>, <span class="string">&quot;must upgrade from version 0 to 1.&quot;</span>);
+			<span class="kw">let </span>on_chain_version = Pallet::&lt;T, I&gt;::on_chain_storage_version();
+			<span class="macro">ensure!</span>(on_chain_version == <span class="number">1</span>, <span class="string">&quot;must upgrade from version 0 to 1.&quot;</span>);
 			<span class="kw">let </span>pre_referendum_count: u32 = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>state[..])
 				.expect(<span class="string">&quot;failed to decode the state from pre-upgrade.&quot;</span>);
 			<span class="kw">let </span>post_referendum_count = ReferendumInfoFor::&lt;T, I&gt;::iter().count() <span class="kw">as </span>u32;
