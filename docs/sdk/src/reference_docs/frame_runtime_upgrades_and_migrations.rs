@@ -37,8 +37,9 @@
 //!
 //! Self-contained pieces of logic that execute after a runtime upgrade are called "Migrations".
 //!
-//! Migrations are typically used to 'migrate' pallet storage into a new layout when the expected
-//! storage layout of a pallet changes, but they do anything including but not limited to:
+//! The typical use case of a migration is to 'migrate' pallet storage from one layout to another,
+//! for example when the encoding of a storage item is changed. However, they can also execute
+//! arbitary logic such as:
 //!
 //! - Calling arbitrary pallet methods
 //! - Mutating arbitrary on-chain state
@@ -108,8 +109,8 @@
 //! longer or produce a PoV much larger than previously measured.
 //!
 //! Therefore, it is important to write migrations in such a way that the execution time or PoV size
-//! it adds to the block cannot be easily manipulated. e.g., in your migration, do not iterate over
-//! storage that can quickly or cheaply be bloated.
+//! it adds to the block cannot be easily manipulated. e.g., do not iterate over storage that can
+//! quickly or cheaply be bloated.
 //!
 //! If writing your migration in such a way is not possible, a multi block migration should be used
 //! instead.
