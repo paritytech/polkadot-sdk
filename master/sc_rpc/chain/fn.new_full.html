@@ -144,7 +144,7 @@ nav.side-bar {
     client: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Client&gt;,
     executor: <a class="type" href="../type.SubscriptionTaskExecutor.html" title="type sc_rpc::SubscriptionTaskExecutor">SubscriptionTaskExecutor</a>
 ) -&gt; <a class="struct" href="struct.Chain.html" title="struct sc_rpc::chain::Chain">Chain</a>&lt;Block, Client&gt;<span class="where fmt-newline">where
-    Block: BlockT + 'static,
-    Block::Header: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
+    Block: <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a> + 'static,
+    Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
     Client: BlockBackend&lt;Block&gt; + HeaderBackend&lt;Block&gt; + BlockchainEvents&lt;Block&gt; + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Create new state API that works on full node.</p>
 </div></details></section></div></main></body></html>

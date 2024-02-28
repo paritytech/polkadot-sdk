@@ -145,8 +145,8 @@ nav.side-bar {
     executor: <a class="type" href="../type.SubscriptionTaskExecutor.html" title="type sc_rpc::SubscriptionTaskExecutor">SubscriptionTaskExecutor</a>,
     deny_unsafe: <a class="enum" href="../enum.DenyUnsafe.html" title="enum sc_rpc::DenyUnsafe">DenyUnsafe</a>
 ) -&gt; (<a class="struct" href="struct.State.html" title="struct sc_rpc::state::State">State</a>&lt;Block, Client&gt;, <a class="struct" href="struct.ChildState.html" title="struct sc_rpc::state::ChildState">ChildState</a>&lt;Block, Client&gt;)<span class="where fmt-newline">where
-    Block: BlockT + 'static,
-    Block::Hash: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
+    Block: <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a> + 'static,
+    Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
     BE: Backend&lt;Block&gt; + 'static,
     Client: ExecutorProvider&lt;Block&gt; + StorageProvider&lt;Block, BE&gt; + ProofProvider&lt;Block&gt; + HeaderMetadata&lt;Block, Error = Error&gt; + BlockchainEvents&lt;Block&gt; + CallApiAt&lt;Block&gt; + HeaderBackend&lt;Block&gt; + BlockBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     Client::Api: Metadata&lt;Block&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Create new state API that works on full node.</p>
