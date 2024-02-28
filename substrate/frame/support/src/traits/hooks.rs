@@ -25,9 +25,73 @@ use crate::weights::Weight;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_std::prelude::*;
+use sp_weights::WeightMeter;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
+
+/// Provides a callback to execute logic before the all inherents.
+pub trait PreInherents {
+	/// Called before all inherents were applied but after `on_initialize`.
+	fn pre_inherents() {}
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+impl PreInherents for Tuple {
+	fn pre_inherents() {
+		for_tuples!( #( Tuple::pre_inherents(); )* );
+	}
+}
+
+/// Provides a callback to execute logic after the all inherents.
+pub trait PostInherents {
+	/// Called after all inherents were applied.
+	fn post_inherents() {}
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+impl PostInherents for Tuple {
+	fn post_inherents() {
+		for_tuples!( #( Tuple::post_inherents(); )* );
+	}
+}
+
+/// Provides a callback to execute logic before the all transactions.
+pub trait PostTransactions {
+	/// Called after all transactions were applied but before `on_finalize`.
+	fn post_transactions() {}
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+impl PostTransactions for Tuple {
+	fn post_transactions() {
+		for_tuples!( #( Tuple::post_transactions(); )* );
+	}
+}
+
+/// Periodically executes logic. Is not guaranteed to run within a specific timeframe and should
+/// only be used on logic that has no deadline.
+pub trait OnPoll<BlockNumber> {
+	/// Code to execute every now and then at the beginning of the block after inherent application.
+	///
+	/// The remaining weight limit must be respected.
+	fn on_poll(_n: BlockNumber, _weight: &mut WeightMeter) {}
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+impl<BlockNumber: Clone> OnPoll<BlockNumber> for Tuple {
+	fn on_poll(n: BlockNumber, weight: &mut WeightMeter) {
+		for_tuples!( #( Tuple::on_poll(n.clone(), weight); )* );
+	}
+}
 
 /// See [`Hooks::on_initialize`].
 pub trait OnInitialize<BlockNumber> {
@@ -373,6 +437,12 @@ pub trait Hooks<BlockNumber> {
 	fn on_idle(_n: BlockNumber, _remaining_weight: Weight) -> Weight {
 		Weight::zero()
 	}
+
+	/// A hook to run logic after inherent application.
+	///
+	/// Is not guaranteed to execute in a block and should therefore only be used in no-deadline
+	/// scenarios.
+	fn on_poll(_n: BlockNumber, _weight: &mut WeightMeter) {}
 
 	/// Hook executed when a code change (aka. a "runtime upgrade") is detected by the FRAME
 	/// `Executive` pallet.
