@@ -1,7 +1,7 @@
 title: "Fix multi-collator parachain transition to async backing"
 
 doc:
-  - audience: Node Dev
+  - audience: Node Operator
     description: |
       The dynamic Aura slot duration, introduced in PR#3211, didn't take the block import pipeline
       into account. The result was the parachain backed by multiple collators not being able to
