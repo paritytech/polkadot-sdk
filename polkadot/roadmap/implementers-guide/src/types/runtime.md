@@ -5,7 +5,7 @@ Types used within the runtime exclusively and pervasively.
 ## Host Configuration
 
 The internal-to-runtime configuration of the parachain host is kept in `struct HostConfiguration`. This is expected to
-be altered only by governance procedures or via migrations from the polkadot-sdk codebase. The latest definition of
+be altered only by governance procedures or via migrations from the Polkadot-SDK codebase. The latest definition of
 `HostConfiguration` can be found in the project repo
 [here](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/runtime/parachains/src/configuration.rs). Each
 parameter has got a doc comment so for any details please refer to the code.
@@ -21,7 +21,7 @@ Check the definitions of these structs for further details.
 ### Configuration migrations
 Modifying `HostConfiguration` requires a storage migration. These migrations are located in the
 [`migrations`](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/runtime/parachains/src/configuration.rs)
-subfolder of polkadot-sdk repo.
+subfolder of Polkadot-SDK repo.
 
 ## ParaInherentData
 
