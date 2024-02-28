@@ -1595,6 +1595,9 @@ nav.side-bar {
 <a href="#1453" id="1453">1453</a>
 <a href="#1454" id="1454">1454</a>
 <a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1689,6 +1692,7 @@ nav.side-bar {
 <span class="kw">pub use </span>consensus_common::{Proposal, SelectChain};
 <span class="kw">use </span>frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 <span class="kw">use </span>mmr_gadget::MmrGadget;
+<span class="kw">use </span>polkadot_node_subsystem_types::DefaultSubsystemClient;
 <span class="kw">pub use </span>polkadot_primitives::{Block, BlockId, BlockNumber, CollatorPair, Hash, Id <span class="kw">as </span>ParaId};
 <span class="kw">pub use </span>sc_client_api::{Backend, CallExecutor};
 <span class="kw">pub use </span>sc_consensus::{BlockImport, LongestChain};
@@ -2678,12 +2682,17 @@ nav.side-bar {
 			<span class="prelude-val">None
 		</span>};
 
+	<span class="kw">let </span>runtime_client = Arc::new(DefaultSubsystemClient::new(
+		overseer_client.clone(),
+		OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+	));
+
 	<span class="kw">let </span>overseer_handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(authority_discovery_service) = authority_discovery_service {
 		<span class="kw">let </span>(overseer, overseer_handle) = overseer_gen
-			.generate::&lt;service::SpawnTaskHandle, FullClient&gt;(
+			.generate::&lt;service::SpawnTaskHandle, DefaultSubsystemClient&lt;FullClient&gt;&gt;(
 				overseer_connector,
 				OverseerGenArgs {
-					runtime_client: overseer_client.clone(),
+					runtime_client,
 					network_service: network.clone(),
 					sync_service: sync_service.clone(),
 					authority_discovery_service,
@@ -2696,9 +2705,6 @@ nav.side-bar {
 					overseer_message_channel_capacity_override,
 					req_protocol_names,
 					peerset_protocol_names,
-					offchain_transaction_pool_factory: OffchainTransactionPoolFactory::new(
-						transaction_pool.clone(),
-					),
 					notification_services,
 				},
 				ext_overseer_args,

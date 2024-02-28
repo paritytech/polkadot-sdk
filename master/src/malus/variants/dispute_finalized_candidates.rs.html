@@ -403,11 +403,6 @@ nav.side-bar {
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -444,14 +439,13 @@ nav.side-bar {
 </span><span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>polkadot_cli::{
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
-		HeaderBackend, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
-		ParachainHost, ProvideRuntimeApi,
+		AuxStore, Error, ExtendedOverseerGenArgs, Overseer, OverseerConnector, OverseerGen,
+		OverseerGenArgs, OverseerHandle,
 	},
 	validator_overseer_builder, Cli,
 };
-<span class="kw">use </span>polkadot_node_subsystem::{messages::ApprovalVotingMessage, SpawnGlue};
-<span class="kw">use </span>polkadot_node_subsystem_types::{DefaultSubsystemClient, OverseerSignal};
+<span class="kw">use </span>polkadot_node_subsystem::SpawnGlue;
+<span class="kw">use </span>polkadot_node_subsystem_types::{ChainApiBackend, OverseerSignal, RuntimeApiSubsystemClient};
 <span class="kw">use </span>polkadot_node_subsystem_util::request_candidate_events;
 <span class="kw">use </span>polkadot_primitives::CandidateEvent;
 <span class="kw">use </span>sp_core::traits::SpawnNamed;
@@ -647,13 +641,9 @@ nav.side-bar {
 		connector: OverseerConnector,
 		args: OverseerGenArgs&lt;<span class="lifetime">&#39;_</span>, Spawner, RuntimeClient&gt;,
 		ext_args: <span class="prelude-ty">Option</span>&lt;ExtendedOverseerGenArgs&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;
-		(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;&gt;, OverseerHandle),
-		Error,
-	&gt;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;RuntimeClient&gt;&gt;, OverseerHandle), Error&gt;
 	<span class="kw">where
-		</span>RuntimeClient: <span class="lifetime">&#39;static </span>+ ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + AuxStore,
-		RuntimeClient::Api: ParachainHost&lt;Block&gt; + BabeApi&lt;Block&gt; + AuthorityDiscoveryApi&lt;Block&gt;,
+		</span>RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + <span class="lifetime">&#39;static</span>,
 		Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin,
 	{
 		<span class="macro">gum::info!</span>(

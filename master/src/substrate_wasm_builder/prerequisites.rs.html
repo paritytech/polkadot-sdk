@@ -345,6 +345,16 @@ nav.side-bar {
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -496,6 +506,14 @@ nav.side-bar {
 		sysroot_cmd.output().ok().and_then(|o| String::from_utf8(o.stdout).ok())
 	}
 
+	<span class="kw">fn </span>get_toolchain(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+		<span class="kw">let </span>sysroot = <span class="self">self</span>.get_sysroot()<span class="question-mark">?</span>;
+		Path::new(sysroot.trim())
+			.file_name()
+			.and_then(|s| s.to_str())
+			.map(|s| s.to_string())
+	}
+
 	<span class="kw">fn </span>try_build(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="prelude-ty">Option</span>&lt;String&gt;&gt; {
 		<span class="kw">let </span><span class="prelude-val">Ok</span>(result) = <span class="self">self</span>.prepare_command(<span class="string">&quot;build&quot;</span>).output() <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="prelude-val">None</span>) };
 		<span class="kw">if </span>!result.status.success() {
@@ -511,14 +529,15 @@ nav.side-bar {
 	<span class="kw">let </span>dummy_crate = DummyCrate::new(<span class="kw-2">&amp;</span>cargo_command, RuntimeTarget::Wasm);
 
 	<span class="kw">if let </span><span class="prelude-val">Err</span>(error) = dummy_crate.try_build() {
+		<span class="kw">let </span>toolchain = dummy_crate.get_toolchain().unwrap_or(<span class="string">&quot;&lt;unknown&gt;&quot;</span>.to_string());
 		<span class="kw">let </span>basic_error_message = colorize_error_message(
-			<span class="string">&quot;Rust WASM toolchain is not properly installed; please install it!&quot;</span>,
+			<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Rust WASM target for toolchain {toolchain} is not properly installed; please install it!&quot;</span>)
 		);
 		<span class="kw">return match </span>error {
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(basic_error_message),
 			<span class="prelude-val">Some</span>(error) <span class="kw">if </span>error.contains(<span class="string">&quot;the `wasm32-unknown-unknown` target may not be installed&quot;</span>) =&gt; {
-				<span class="prelude-val">Err</span>(colorize_error_message(<span class="string">&quot;Cannot compile the WASM runtime: the `wasm32-unknown-unknown` target is not installed!\n\
-				                         You can install it with `rustup target add wasm32-unknown-unknown` if you&#39;re using `rustup`.&quot;</span>))
+				<span class="prelude-val">Err</span>(colorize_error_message(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Cannot compile the WASM runtime: the `wasm32-unknown-unknown` target is not installed!\n\
+				                         You can install it with `rustup target add wasm32-unknown-unknown --toolchain {toolchain}` if you&#39;re using `rustup`.&quot;</span>)))
 			},
 			<span class="comment">// Apparently this can happen when we&#39;re running on a non Tier 1 platform.
 			</span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>error) <span class="kw">if </span>error.contains(<span class="string">&quot;linker `rust-lld` not found&quot;</span>) =&gt;
@@ -540,9 +559,10 @@ nav.side-bar {
 			<span class="kw">let </span>src_path =
 				Path::new(sysroot.trim()).join(<span class="string">&quot;lib&quot;</span>).join(<span class="string">&quot;rustlib&quot;</span>).join(<span class="string">&quot;src&quot;</span>).join(<span class="string">&quot;rust&quot;</span>);
 			<span class="kw">if </span>!src_path.exists() {
+				<span class="kw">let </span>toolchain = dummy_crate.get_toolchain().unwrap_or(<span class="string">&quot;&lt;toolchain&gt;&quot;</span>.to_string());
 				<span class="kw">return </span><span class="prelude-val">Err</span>(colorize_error_message(
-					<span class="string">&quot;Cannot compile the WASM runtime: no standard library sources found!\n\
-					 You can install them with `rustup component add rust-src` if you&#39;re using `rustup`.&quot;</span>,
+					<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Cannot compile the WASM runtime: no standard library sources found at {}!\n\
+					 You can install them with `rustup component add rust-src --toolchain {toolchain}` if you&#39;re using `rustup`.&quot;</span>, src_path.display()),
 				))
 			}
 		}

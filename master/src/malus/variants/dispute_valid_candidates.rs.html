@@ -245,11 +245,6 @@ nav.side-bar {
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -276,14 +271,13 @@ nav.side-bar {
 
 </span><span class="kw">use </span>polkadot_cli::{
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
-		HeaderBackend, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
-		ParachainHost, ProvideRuntimeApi,
+		AuxStore, Error, ExtendedOverseerGenArgs, Overseer, OverseerConnector, OverseerGen,
+		OverseerGenArgs, OverseerHandle,
 	},
 	validator_overseer_builder, Cli,
 };
 <span class="kw">use </span>polkadot_node_subsystem::SpawnGlue;
-<span class="kw">use </span>polkadot_node_subsystem_types::DefaultSubsystemClient;
+<span class="kw">use </span>polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 <span class="kw">use </span>sp_core::traits::SpawnNamed;
 
 <span class="comment">// Filter wrapping related types.
@@ -332,13 +326,9 @@ nav.side-bar {
 		connector: OverseerConnector,
 		args: OverseerGenArgs&lt;<span class="lifetime">&#39;_</span>, Spawner, RuntimeClient&gt;,
 		ext_args: <span class="prelude-ty">Option</span>&lt;ExtendedOverseerGenArgs&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;
-		(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;&gt;, OverseerHandle),
-		Error,
-	&gt;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;RuntimeClient&gt;&gt;, OverseerHandle), Error&gt;
 	<span class="kw">where
-		</span>RuntimeClient: <span class="lifetime">&#39;static </span>+ ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + AuxStore,
-		RuntimeClient::Api: ParachainHost&lt;Block&gt; + BabeApi&lt;Block&gt; + AuthorityDiscoveryApi&lt;Block&gt;,
+		</span>RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + <span class="lifetime">&#39;static</span>,
 		Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin,
 	{
 		<span class="kw">let </span>spawner = args.spawner.clone();

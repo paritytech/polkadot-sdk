@@ -318,6 +318,10 @@ nav.side-bar {
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -360,7 +364,11 @@ nav.side-bar {
 	genesis_hash: Hash,
 	best_header: Header,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
-	(Arc&lt;NetworkService&lt;Block, Hash&gt;&gt;, NetworkStarter, Box&lt;<span class="kw">dyn </span>sp_consensus::SyncOracle + Send&gt;),
+	(
+		Arc&lt;NetworkService&lt;Block, Hash&gt;&gt;,
+		NetworkStarter,
+		Arc&lt;<span class="kw">dyn </span>sp_consensus::SyncOracle + Send + Sync&gt;,
+	),
 	Error,
 &gt; {
 	<span class="kw">let </span>protocol_id = config.protocol_id();
@@ -432,7 +440,7 @@ nav.side-bar {
 
 	<span class="kw">let </span>network_starter = NetworkStarter::new(network_start_tx);
 
-	<span class="prelude-val">Ok</span>((network_service, network_starter, Box::new(SyncOracle {})))
+	<span class="prelude-val">Ok</span>((network_service, network_starter, Arc::new(SyncOracle {})))
 }
 
 <span class="kw">fn </span>adjust_network_config_light_in_peers(config: <span class="kw-2">&amp;mut </span>NetworkConfiguration) {

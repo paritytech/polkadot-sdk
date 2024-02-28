@@ -639,10 +639,6 @@ nav.side-bar {
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
-<a href="#503" id="503">503</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -668,10 +664,6 @@ nav.side-bar {
 
 <span class="kw">use </span>polkadot_node_core_candidate_validation::find_validation_data;
 <span class="kw">use </span>polkadot_node_primitives::{InvalidCandidate, ValidationResult};
-<span class="kw">use </span>polkadot_node_subsystem::{
-	messages::{CandidateValidationMessage, ValidationFailed},
-	overseer,
-};
 
 <span class="kw">use </span>polkadot_primitives::{
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, PersistedValidationData,

@@ -681,42 +681,6 @@ nav.side-bar {
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -733,10 +697,9 @@ nav.side-bar {
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use super</span>::{AuthorityDiscoveryApi, Block, Error, Hash, IsParachainNode, Registry};
-<span class="kw">use </span>polkadot_node_subsystem_types::DefaultSubsystemClient;
+</span><span class="kw">use super</span>::{Block, Error, Hash, IsParachainNode, Registry};
+<span class="kw">use </span>polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 <span class="kw">use </span>polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemError};
-<span class="kw">use </span>sc_transaction_pool_api::OffchainTransactionPoolFactory;
 <span class="kw">use </span>sp_core::traits::SpawnNamed;
 
 <span class="kw">use </span>polkadot_availability_distribution::IncomingRequestReceivers;
@@ -759,14 +722,10 @@ nav.side-bar {
 };
 
 <span class="kw">use </span>parking_lot::Mutex;
-<span class="kw">use </span>polkadot_primitives::runtime_api::ParachainHost;
 <span class="kw">use </span>sc_authority_discovery::Service <span class="kw">as </span>AuthorityDiscoveryService;
 <span class="kw">use </span>sc_client_api::AuxStore;
 <span class="kw">use </span>sc_keystore::LocalKeystore;
 <span class="kw">use </span>sc_network::{NetworkStateInfo, NotificationService};
-<span class="kw">use </span>sp_api::ProvideRuntimeApi;
-<span class="kw">use </span>sp_blockchain::HeaderBackend;
-<span class="kw">use </span>sp_consensus_babe::BabeApi;
 <span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">pub use </span>polkadot_approval_distribution::ApprovalDistribution <span class="kw">as </span>ApprovalDistributionSubsystem;
@@ -799,16 +758,14 @@ nav.side-bar {
 <span class="doccomment">/// Arguments passed for overseer construction.
 </span><span class="kw">pub struct </span>OverseerGenArgs&lt;<span class="lifetime">&#39;a</span>, Spawner, RuntimeClient&gt;
 <span class="kw">where
-	</span>RuntimeClient: <span class="lifetime">&#39;static </span>+ ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + AuxStore,
-	RuntimeClient::Api: ParachainHost&lt;Block&gt; + BabeApi&lt;Block&gt; + AuthorityDiscoveryApi&lt;Block&gt;,
-	Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin,
+	</span>Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin,
 {
 	<span class="doccomment">/// Runtime client generic, providing the `ProvieRuntimeApi` trait besides others.
 	</span><span class="kw">pub </span>runtime_client: Arc&lt;RuntimeClient&gt;,
 	<span class="doccomment">/// Underlying network service implementation.
 	</span><span class="kw">pub </span>network_service: Arc&lt;sc_network::NetworkService&lt;Block, Hash&gt;&gt;,
 	<span class="doccomment">/// Underlying syncing service implementation.
-	</span><span class="kw">pub </span>sync_service: Arc&lt;sc_network_sync::SyncingService&lt;Block&gt;&gt;,
+	</span><span class="kw">pub </span>sync_service: Arc&lt;<span class="kw">dyn </span>consensus_common::SyncOracle + Send + Sync&gt;,
 	<span class="doccomment">/// Underlying authority discovery service.
 	</span><span class="kw">pub </span>authority_discovery_service: AuthorityDiscoveryService,
 	<span class="doccomment">/// Collations request receiver for network protocol v1.
@@ -830,8 +787,6 @@ nav.side-bar {
 	</span><span class="kw">pub </span>req_protocol_names: ReqProtocolNames,
 	<span class="doccomment">/// `PeerSet` protocol names to protocols mapping.
 	</span><span class="kw">pub </span>peerset_protocol_names: PeerSetProtocolNames,
-	<span class="doccomment">/// The offchain transaction pool factory.
-	</span><span class="kw">pub </span>offchain_transaction_pool_factory: OffchainTransactionPoolFactory&lt;Block&gt;,
 	<span class="doccomment">/// Notification services for validation/collation protocols.
 	</span><span class="kw">pub </span>notification_services: HashMap&lt;PeerSet, Box&lt;<span class="kw">dyn </span>NotificationService&gt;&gt;,
 }
@@ -879,7 +834,6 @@ nav.side-bar {
 		overseer_message_channel_capacity_override,
 		req_protocol_names,
 		peerset_protocol_names,
-		offchain_transaction_pool_factory,
 		notification_services,
 	}: OverseerGenArgs&lt;Spawner, RuntimeClient&gt;,
 	ExtendedOverseerGenArgs {
@@ -899,7 +853,7 @@ nav.side-bar {
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
 	InitializedOverseerBuilder&lt;
 		SpawnGlue&lt;Spawner&gt;,
-		Arc&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;,
+		Arc&lt;RuntimeClient&gt;,
 		CandidateValidationSubsystem,
 		PvfCheckerSubsystem,
 		CandidateBackingSubsystem,
@@ -909,7 +863,7 @@ nav.side-bar {
 		BitfieldSigningSubsystem,
 		BitfieldDistributionSubsystem,
 		ProvisionerSubsystem,
-		RuntimeApiSubsystem&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;,
+		RuntimeApiSubsystem&lt;RuntimeClient&gt;,
 		AvailabilityStoreSubsystem,
 		NetworkBridgeRxSubsystem&lt;
 			Arc&lt;sc_network::NetworkService&lt;Block, Hash&gt;&gt;,
@@ -933,8 +887,7 @@ nav.side-bar {
 	Error,
 &gt;
 <span class="kw">where
-	</span>RuntimeClient: <span class="lifetime">&#39;static </span>+ ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + AuxStore,
-	RuntimeClient::Api: ParachainHost&lt;Block&gt; + BabeApi&lt;Block&gt; + AuthorityDiscoveryApi&lt;Block&gt;,
+	</span>RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + <span class="lifetime">&#39;static</span>,
 	Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin,
 {
 	<span class="kw">use </span>polkadot_node_subsystem_util::metrics::Metrics;
@@ -945,11 +898,6 @@ nav.side-bar {
 	<span class="kw">let </span>spawner = SpawnGlue(spawner);
 
 	<span class="kw">let </span>network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)<span class="question-mark">?</span>;
-
-	<span class="kw">let </span>runtime_api_client = Arc::new(DefaultSubsystemClient::new(
-		runtime_client.clone(),
-		offchain_transaction_pool_factory,
-	));
 
 	<span class="kw">let </span>builder = Overseer::builder()
 		.network_bridge_tx(NetworkBridgeTxSubsystem::new(
@@ -1017,7 +965,7 @@ nav.side-bar {
 		})
 		.provisioner(ProvisionerSubsystem::new(Metrics::register(registry)<span class="question-mark">?</span>))
 		.runtime_api(RuntimeApiSubsystem::new(
-			runtime_api_client.clone(),
+			runtime_client.clone(),
 			Metrics::register(registry)<span class="question-mark">?</span>,
 			spawner.clone(),
 		))
@@ -1058,7 +1006,7 @@ nav.side-bar {
 		.activation_external_listeners(Default::default())
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
-		.supports_parachains(runtime_api_client)
+		.supports_parachains(runtime_client)
 		.metrics(metrics)
 		.spawner(spawner);
 
@@ -1086,13 +1034,12 @@ nav.side-bar {
 		overseer_message_channel_capacity_override,
 		req_protocol_names,
 		peerset_protocol_names,
-		offchain_transaction_pool_factory,
 		notification_services,
 	}: OverseerGenArgs&lt;Spawner, RuntimeClient&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
 	InitializedOverseerBuilder&lt;
 		SpawnGlue&lt;Spawner&gt;,
-		Arc&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;,
+		Arc&lt;RuntimeClient&gt;,
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
@@ -1102,7 +1049,7 @@ nav.side-bar {
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
-		RuntimeApiSubsystem&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;,
+		RuntimeApiSubsystem&lt;RuntimeClient&gt;,
 		DummySubsystem,
 		NetworkBridgeRxSubsystem&lt;
 			Arc&lt;sc_network::NetworkService&lt;Block, Hash&gt;&gt;,
@@ -1126,23 +1073,16 @@ nav.side-bar {
 	Error,
 &gt;
 <span class="kw">where
-	</span>RuntimeClient: <span class="lifetime">&#39;static </span>+ ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + AuxStore,
-	RuntimeClient::Api: ParachainHost&lt;Block&gt; + BabeApi&lt;Block&gt; + AuthorityDiscoveryApi&lt;Block&gt;,
-	Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin,
+	</span>Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin,
+	RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + <span class="lifetime">&#39;static</span>,
 {
 	<span class="kw">use </span>polkadot_node_subsystem_util::metrics::Metrics;
 
-	<span class="kw">let </span>metrics = &lt;OverseerMetrics <span class="kw">as </span>MetricsTrait&gt;::register(registry)<span class="question-mark">?</span>;
 	<span class="kw">let </span>notification_sinks = Arc::new(Mutex::new(HashMap::new()));
 
 	<span class="kw">let </span>spawner = SpawnGlue(spawner);
 
 	<span class="kw">let </span>network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)<span class="question-mark">?</span>;
-
-	<span class="kw">let </span>runtime_api_client = Arc::new(DefaultSubsystemClient::new(
-		runtime_client.clone(),
-		offchain_transaction_pool_factory,
-	));
 
 	<span class="kw">let </span>builder = Overseer::builder()
 		.network_bridge_tx(NetworkBridgeTxSubsystem::new(
@@ -1194,7 +1134,7 @@ nav.side-bar {
 		})
 		.provisioner(DummySubsystem)
 		.runtime_api(RuntimeApiSubsystem::new(
-			runtime_api_client.clone(),
+			runtime_client.clone(),
 			Metrics::register(registry)<span class="question-mark">?</span>,
 			spawner.clone(),
 		))
@@ -1209,8 +1149,8 @@ nav.side-bar {
 		.activation_external_listeners(Default::default())
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
-		.supports_parachains(runtime_api_client)
-		.metrics(metrics)
+		.supports_parachains(runtime_client)
+		.metrics(Metrics::register(registry)<span class="question-mark">?</span>)
 		.spawner(spawner);
 
 	<span class="kw">let </span>builder = <span class="kw">if let </span><span class="prelude-val">Some</span>(capacity) = overseer_message_channel_capacity_override {
@@ -1229,13 +1169,9 @@ nav.side-bar {
 		connector: OverseerConnector,
 		args: OverseerGenArgs&lt;Spawner, RuntimeClient&gt;,
 		ext_args: <span class="prelude-ty">Option</span>&lt;ExtendedOverseerGenArgs&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;
-		(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;&gt;, OverseerHandle),
-		Error,
-	&gt;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;RuntimeClient&gt;&gt;, OverseerHandle), Error&gt;
 	<span class="kw">where
-		</span>RuntimeClient: <span class="lifetime">&#39;static </span>+ ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + AuxStore,
-		RuntimeClient::Api: ParachainHost&lt;Block&gt; + BabeApi&lt;Block&gt; + AuthorityDiscoveryApi&lt;Block&gt;,
+		</span>RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + <span class="lifetime">&#39;static</span>,
 		Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin;
 
 	<span class="comment">// It would be nice to make `create_subsystems` part of this trait,
@@ -1252,13 +1188,9 @@ nav.side-bar {
 		connector: OverseerConnector,
 		args: OverseerGenArgs&lt;Spawner, RuntimeClient&gt;,
 		ext_args: <span class="prelude-ty">Option</span>&lt;ExtendedOverseerGenArgs&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;
-		(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;&gt;, OverseerHandle),
-		Error,
-	&gt;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;RuntimeClient&gt;&gt;, OverseerHandle), Error&gt;
 	<span class="kw">where
-		</span>RuntimeClient: <span class="lifetime">&#39;static </span>+ ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + AuxStore,
-		RuntimeClient::Api: ParachainHost&lt;Block&gt; + BabeApi&lt;Block&gt; + AuthorityDiscoveryApi&lt;Block&gt;,
+		</span>RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + <span class="lifetime">&#39;static</span>,
 		Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin,
 	{
 		<span class="kw">let </span>ext_args = ext_args.ok_or(Error::Overseer(SubsystemError::Context(
@@ -1280,13 +1212,9 @@ nav.side-bar {
 		connector: OverseerConnector,
 		args: OverseerGenArgs&lt;Spawner, RuntimeClient&gt;,
 		_ext_args: <span class="prelude-ty">Option</span>&lt;ExtendedOverseerGenArgs&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;
-		(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;&gt;, OverseerHandle),
-		Error,
-	&gt;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;RuntimeClient&gt;&gt;, OverseerHandle), Error&gt;
 	<span class="kw">where
-		</span>RuntimeClient: <span class="lifetime">&#39;static </span>+ ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + AuxStore,
-		RuntimeClient::Api: ParachainHost&lt;Block&gt; + BabeApi&lt;Block&gt; + AuthorityDiscoveryApi&lt;Block&gt;,
+		</span>RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + <span class="lifetime">&#39;static</span>,
 		Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin,
 	{
 		collator_overseer_builder(args)<span class="question-mark">?

@@ -149,7 +149,7 @@ nav.side-bar {
     SelectChain: SelectChain&lt;Block&gt; + 'static,
     CIDP: CreateInherentDataProviders&lt;Block, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     CIDP::InherentDataProviders: InherentDataProviderExt + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
-    Spawn: SpawnEssentialNamed,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Start an import queue for the BABE consensus algorithm.</p>
+    Spawn: <a class="trait" href="../sp_core/traits/trait.SpawnEssentialNamed.html" title="trait sp_core::traits::SpawnEssentialNamed">SpawnEssentialNamed</a>,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Start an import queue for the BABE consensus algorithm.</p>
 <p>This method returns the import queue, some data that needs to be passed to the block authoring
 logic (<code>BabeLink</code>), and a future that must be run to
 completion and is responsible for listening to finality notifications and
