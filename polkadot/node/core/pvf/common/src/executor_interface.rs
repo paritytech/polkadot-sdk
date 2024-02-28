@@ -16,6 +16,7 @@
 
 //! Interface to the Substrate Executor
 
+use crate::error::ExecuteError;
 use polkadot_primitives::{
 	executor_params::{DEFAULT_LOGICAL_STACK_MAX, DEFAULT_NATIVE_STACK_MAX},
 	ExecutorParam, ExecutorParams,
@@ -109,7 +110,7 @@ pub unsafe fn execute_artifact(
 	compiled_artifact_blob: &[u8],
 	executor_params: &ExecutorParams,
 	params: &[u8],
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, ExecuteError> {
 	let mut extensions = sp_externalities::Extensions::new();
 
 	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
@@ -123,7 +124,6 @@ pub unsafe fn execute_artifact(
 		Ok(Ok(ok)) => Ok(ok),
 		Ok(Err(err)) | Err(err) => Err(err),
 	}
-	.map_err(|err| format!("execute error: {:?}", err))
 }
 
 /// Constructs the runtime for the given PVF, given the artifact bytes.
