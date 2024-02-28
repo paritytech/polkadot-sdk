@@ -141,7 +141,7 @@ where
 	where
 		C: ProvideRuntimeApi<B>,
 		C::Api: BlockBuilderApi<B>,
-		CIDP: CreateInherentDataProviders<B, SlotDuration>,
+		CIDP: CreateInherentDataProviders<B, ()>,
 	{
 		let inherent_res = self
 			.client
@@ -170,7 +170,7 @@ where
 	P: Pair,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
-	CIDP: CreateInherentDataProviders<B, SlotDuration> + Send + Sync,
+	CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	async fn verify(
@@ -199,17 +199,9 @@ where
 		)
 		.map_err(|e| format!("Could not fetch authorities at {:?}: {}", parent_hash, e))?;
 
-		let slot_duration = crate::slot_duration(self.client.as_ref()).unwrap();
-		info!(
-			target: LOG_TARGET,
-			"Checking slot duration {:?} {:?}",
-			slot_duration,
-			self.client.as_ref().usage_info().chain.best_hash,
-		);
-
 		let create_inherent_data_providers = self
 			.create_inherent_data_providers
-			.create_inherent_data_providers(parent_hash, slot_duration)
+			.create_inherent_data_providers(parent_hash, ())
 			.await
 			.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
 
@@ -373,7 +365,7 @@ where
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, SlotDuration> + Sync + Send + 'static,
+	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
