@@ -40,9 +40,10 @@
 //! ## Nondeterministic Execution
 //!
 //! Needless to say, given the above description, the code in your offchain worker API can be
-//! nondeterministic, as it is not part of the blockchain's STF, so it can be executed at unknown times, by unknown nodes, and has no impact on the
-//! state. This is why an HTTP ([`sp_runtime::offchain::http`]) API is readily provided to the
-//! offchain worker APIs. Because there is no need for determinism in this context.
+//! nondeterministic, as it is not part of the blockchain's STF, so it can be executed at unknown
+//! times, by unknown nodes, and has no impact on the state. This is why an HTTP
+//! ([`sp_runtime::offchain::http`]) API is readily provided to the offchain worker APIs. Because
+//! there is no need for determinism in this context.
 //!
 //! > A common mistake here is for novice developers to see this HTTP API, and imagine that
 //! > `polkadot-sdk` somehow magically solved the determinism in blockchains, and now a blockchain
