@@ -1,0 +1,11 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Update Polkadot testing.md
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Update `testing.md` on Polkadot Testing, remove references to Gurke or simnet
+
+crates: [ ]
