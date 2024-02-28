@@ -301,7 +301,7 @@ mod tests {
 		let v11 = V11HostConfiguration::<primitives::BlockNumber>::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
-			// Implant the v10 version in the state.
+			// Implant the v11 version in the state.
 			v11::ActiveConfig::<Test>::set(Some(v11));
 			// Ensure there're no pending configs.
 			v12::PendingConfigs::<Test>::set(None);
