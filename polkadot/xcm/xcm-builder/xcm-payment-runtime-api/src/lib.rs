@@ -65,14 +65,18 @@ sp_api::decl_runtime_apis! {
 
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 pub enum Error {
+	/// An API part is unsupported.
 	#[codec(index = 0)]
 	Unimplemented,
+	/// Converting a versioned data structure from one version to another failed.
 	#[codec(index = 1)]
 	VersionedConversionFailed,
+	/// XCM message weight calculation failed.
 	#[codec(index = 2)]
 	WeightNotComputable,
 	/// XCM version not able to be handled.
 	UnhandledXcmVersion,
+	/// The given asset is not handled(as a fee payment).
 	#[codec(index = 4)]
 	AssetNotFound,
 }
