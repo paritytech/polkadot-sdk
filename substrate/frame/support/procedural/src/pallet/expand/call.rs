@@ -304,7 +304,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#[doc(hidden)]
 			#[codec(skip)]
 			__Ignore(
-				#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen,)>,
+				::core::marker::PhantomData<(#type_use_gen,)>,
 				#frame_support::Never,
 			),
 			#(

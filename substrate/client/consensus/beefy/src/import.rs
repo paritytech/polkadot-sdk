@@ -159,7 +159,7 @@ where
 						// The proof is valid and the block is imported and final, we can import.
 						debug!(
 							target: LOG_TARGET,
-							"🥩 import justif {:?} for block number {:?}.", proof, number
+							"🥩 import justif {} for block number {:?}.", proof, number
 						);
 						// Send the justification to the BEEFY voter for processing.
 						self.justification_sender

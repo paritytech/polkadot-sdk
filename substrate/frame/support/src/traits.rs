@@ -124,6 +124,8 @@ pub use safe_mode::{SafeMode, SafeModeError, SafeModeNotify};
 mod tx_pause;
 pub use tx_pause::{TransactionPause, TransactionPauseError};
 
+pub mod dynamic_params;
+
 pub mod tasks;
 pub use tasks::Task;
 

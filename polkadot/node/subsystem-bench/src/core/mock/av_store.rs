@@ -13,30 +13,24 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-//!
+
 //! A generic av store subsystem mockup suitable to be used in benchmarks.
 
+use crate::core::network::{HandleNetworkMessage, NetworkMessage};
+use futures::{channel::oneshot, FutureExt};
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::request_response::{
 	v1::{AvailableDataFetchingResponse, ChunkFetchingResponse, ChunkResponse},
 	Requests,
 };
-use polkadot_primitives::CandidateHash;
-use sc_network::ProtocolName;
-
-use std::collections::HashMap;
-
-use futures::{channel::oneshot, FutureExt};
-
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
-
 use polkadot_node_subsystem::{
 	messages::AvailabilityStoreMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
-
 use polkadot_node_subsystem_types::OverseerSignal;
-
-use crate::core::network::{HandleNetworkMessage, NetworkMessage};
+use polkadot_primitives::CandidateHash;
+use sc_network::ProtocolName;
+use std::collections::HashMap;
 
 pub struct AvailabilityStoreState {
 	candidate_hashes: HashMap<CandidateHash, usize>,
