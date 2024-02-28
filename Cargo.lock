@@ -3753,7 +3753,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "assert_matches",
  "bytes",
@@ -3963,7 +3963,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-utility"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -10950,7 +10950,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -10975,7 +10975,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-benchmarks"
-version = "8.0.1"
+version = "8.0.2"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12992,7 +12992,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-common"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -18977,7 +18977,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "assert_matches",
  "frame-support",
