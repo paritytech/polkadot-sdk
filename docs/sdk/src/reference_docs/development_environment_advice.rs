@@ -39,6 +39,8 @@
 //!   // See the polkadot-sdk CI job that checks formatting for the current version used in
 //!   // polkadot-sdk.
 //!   "rust-analyzer.rustfmt.extraArgs": ["+nightly-2024-01-22"],
+//!   // useful when writing documentation
+//!   "rust-analyzer.semanticHighlighting.doc.comment.inject.enable": true,
 //! }
 //! ```
 //!
@@ -111,3 +113,38 @@
 //! If you have a powerful remote server available, you may consider using
 //! [cargo-remote](https://github.com/sgeisler/cargo-remote) to execute cargo commands on it,
 //! freeing up local resources for other tasks like `rust-analyzer`.
+//!
+//! When using `cargo-remote`, you can configure your editor to perform the the typical
+//! "check-on-save" remotely as well. The configuration for VSCode is as follows:
+//!
+//! ```json
+//! {
+//! 	"rust-analyzer.cargo.buildScripts.overrideCommand": [
+//! 		"cargo",
+//! 		"remote",
+//! 		"--build-env",
+//! 		"SKIP_WASM_BUILD=1",
+//! 		"--",
+//! 		"build",
+//! 		"--message-format=json",
+//! 		"--all-targets",
+//! 		"--all-features",
+//! 		"--tests",
+//! 		"--target-dir=target/rust-analyzer"
+//! 	],
+//! 	"rust-analyzer.check.overrideCommand": [
+//! 		"cargo",
+//! 		"remote",
+//! 		"--build-env",
+//! 		"SKIP_WASM_BUILD=1",
+//! 		"--",
+//! 		"check",
+//! 		"--workspace",
+//! 		"--message-format=json",
+//! 		"--all-targets",
+//! 		"--all-features",
+//! 		"--tests",
+//! 		"--target-dir=target/rust-analyzer"
+//! 	],
+//! }
+//! ```
