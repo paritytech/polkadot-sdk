@@ -102,15 +102,7 @@ fn backed_candidate_leads_to_advertisement() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
@@ -137,7 +129,7 @@ fn backed_candidate_leads_to_advertisement() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Send enough statements to make candidate backable, make sure announcements are sent.
@@ -232,7 +224,7 @@ fn backed_candidate_leads_to_advertisement() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		overseer
@@ -320,15 +312,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 			send_peer_view_change(&mut overseer, peer_d.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
@@ -400,7 +384,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into() => { }
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		overseer
@@ -453,6 +437,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 			validator_count,
 			group_size,
 			&peers_to_connect,
+			false,
 		)
 		.await;
 		let [_, _, peer_c, peer_d, _] = peers[..] else { panic!() };
@@ -530,7 +515,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
 			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_RESPONSE);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive Backed message.
@@ -561,7 +546,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive a manifest about the same candidate from peer D.
@@ -624,6 +609,7 @@ fn receive_ack_for_unconfirmed_candidate() {
 				validator_count,
 				group_size,
 				&peers_to_connect,
+				false,
 			)
 			.await;
 		let [_, _, peer_c, _] = peers[..] else { panic!() };
@@ -692,6 +678,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 			validator_count,
 			group_size,
 			&peers_to_connect,
+			true,
 		)
 		.await;
 		let [peer_a, peer_b, peer_c, peer_d] = peers[..] else { panic!() };
@@ -733,7 +720,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive an unexpected acknowledgement from peer D.
@@ -798,7 +785,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive an unexpected acknowledgement from peer D.
@@ -853,6 +840,7 @@ fn received_acknowledgements_for_externally_confirmed() {
 			validator_count,
 			group_size,
 			&peers_to_connect,
+			false,
 		)
 		.await;
 		let [peer_a, _, peer_c, peer_d, _] = peers[..] else { panic!() };
@@ -930,7 +918,7 @@ fn received_acknowledgements_for_externally_confirmed() {
 			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
 			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_RESPONSE);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		let ack = BackedCandidateAcknowledgement {
@@ -1022,15 +1010,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 			send_peer_view_change(&mut overseer, peer_e.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
@@ -1121,7 +1101,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into()
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive advertisement from peer D (after confirmation but before backing).
@@ -1208,15 +1188,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 			send_peer_view_change(&mut overseer, peer_e.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
@@ -1301,13 +1273,8 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 			persisted_validation_data: pvd.clone(),
 		};
 		let membership = vec![(relay_parent, vec![0])];
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![(hypothetical, membership)],
-			None,
-			false,
-		)
-		.await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![(hypothetical, membership)])
+			.await;
 
 		// Statements are sent to the Backing subsystem.
 		{
@@ -1371,7 +1338,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive a manifest about the same candidate from peer D. Contains different statements.
@@ -1514,17 +1481,8 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		// Confirm the candidate locally so that we don't send out requests.
@@ -1549,7 +1507,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Send enough statements to make candidate backable, make sure announcements are sent.
@@ -1616,7 +1574,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			})
 			.await;
 
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 
 		// Relay parent enters view of peer C.
 		{
@@ -1737,17 +1695,8 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		// Confirm the candidate locally so that we don't send out requests.
@@ -1772,7 +1721,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Send enough statements to make candidate backable, make sure announcements are sent.
@@ -1867,7 +1816,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Peer leaves view.
@@ -1949,17 +1898,8 @@ fn grid_statements_imported_to_backing() {
 			send_peer_view_change(&mut overseer, peer_e.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		// Receive an advertisement from C.
@@ -2042,13 +1982,8 @@ fn grid_statements_imported_to_backing() {
 			persisted_validation_data: pvd.clone(),
 		};
 		let membership = vec![(relay_parent, vec![0])];
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![(hypothetical, membership)],
-			None,
-			false,
-		)
-		.await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![(hypothetical, membership)])
+			.await;
 
 		// Receive messages from Backing subsystem.
 		{
@@ -2165,17 +2100,8 @@ fn advertisements_rejected_from_incorrect_peers() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
@@ -2289,17 +2215,8 @@ fn manifest_rejected_with_unknown_relay_parent() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
@@ -2391,17 +2308,8 @@ fn manifest_rejected_when_not_a_validator() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
@@ -2498,17 +2406,8 @@ fn manifest_rejected_when_group_does_not_match_para() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
@@ -2613,17 +2512,8 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 			send_peer_view_change(&mut overseer, peer_e.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
@@ -2713,7 +2603,7 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into()
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive conflicting advertisement from peer C after confirmation.
@@ -2755,7 +2645,6 @@ fn inactive_local_participates_in_grid() {
 		async_backing_params: None,
 	};
 
-	let dummy_relay_parent = Hash::repeat_byte(2);
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
 
@@ -2795,25 +2684,10 @@ fn inactive_local_participates_in_grid() {
 			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &dummy_leaf, &state, true).await;
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(dummy_relay_parent),
-			false,
-		)
-		.await;
-
+		activate_leaf(&mut overseer, &dummy_leaf, &state, true, vec![]).await;
 		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
-		activate_leaf(&mut overseer, &test_leaf, &state, false).await;
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, false, vec![]).await;
 
 		// Receive an advertisement from A.
 		let manifest = BackedCandidateManifest {
@@ -2876,7 +2750,7 @@ fn inactive_local_participates_in_grid() {
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
 				if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
 		);
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 
 		overseer
 	});

@@ -26,7 +26,7 @@ use pallet_contracts::{
 };
 use sp_runtime::Perbill;
 
-pub use parachains_common::rococo::currency::deposit;
+use testnet_parachains_constants::rococo::currency::deposit;
 
 // Prints debug output of the `contracts` pallet to stdout if the node is
 // started with `-lruntime::contracts=debug`.
@@ -72,5 +72,6 @@ impl Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Debug = ();
 	type Environment = ();
+	type ApiVersion = ();
 	type Xcm = pallet_xcm::Pallet<Self>;
 }

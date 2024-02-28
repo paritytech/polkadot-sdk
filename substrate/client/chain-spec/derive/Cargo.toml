@@ -1,6 +1,6 @@
 [package]
 name = "sc-chain-spec-derive"
-version = "4.0.0-dev"
+version = "11.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 proc-macro = true
 
 [dependencies]
-proc-macro-crate = "2.0.1"
+proc-macro-crate = "3.0.0"
 proc-macro2 = "1.0.56"
-quote = "1.0.28"
-syn = "2.0.41"
+quote = { workspace = true }
+syn = { workspace = true }

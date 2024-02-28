@@ -237,12 +237,13 @@ fn generate_wasm_interface(impls: &[ItemImpl]) -> Result<TokenStream> {
 					#c::std_disabled! {
 						#( #attrs )*
 						#[no_mangle]
-						pub unsafe fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
+						#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
+						pub unsafe extern fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
 							let mut #input = if input_len == 0 {
 								&[0u8; 0]
 							} else {
 								unsafe {
-									#c::slice::from_raw_parts(input_data, input_len)
+									::core::slice::from_raw_parts(input_data, input_len)
 								}
 							};
 
@@ -344,7 +345,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					&self,
 					backend: &B,
 					parent_hash: Block::Hash,
-				) -> core::result::Result<
+				) -> ::core::result::Result<
 					#crate_::StorageChanges<Block>,
 				String
 					> where Self: Sized {

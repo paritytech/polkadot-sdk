@@ -127,7 +127,7 @@
 //! runtimes, a call is represented as an enum of enums, where the outer enum represents the FRAME
 //! pallet being called, and the inner enum represents the call being made within that pallet, and
 //! any arguments to it. Read more about the call enum
-//! [here][crate::reference_docs::frame_composite_enums].
+//! [here][crate::reference_docs::frame_runtime_types].
 //!
 //! FRAME `Call` enums are automatically generated, and end up looking something like this:
 #![doc = docify::embed!("./src/reference_docs/extrinsic_encoding.rs", call_data)]
@@ -172,7 +172,7 @@
 //! }
 //! ```
 //!
-//! The bytes representing `call_data` and `signed_extensions_extra` can be obtained as descibed
+//! The bytes representing `call_data` and `signed_extensions_extra` can be obtained as described
 //! above. `signed_extensions_additional` is constructed by SCALE encoding the
 //! ["additional signed" data][sp_runtime::traits::SignedExtension::AdditionalSigned] for each
 //! signed extension that the chain is using, in order.

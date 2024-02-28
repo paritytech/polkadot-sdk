@@ -23,10 +23,6 @@ use crate::{
 
 use polkadot_node_core_candidate_validation::find_validation_data;
 use polkadot_node_primitives::{InvalidCandidate, ValidationResult};
-use polkadot_node_subsystem::{
-	messages::{CandidateValidationMessage, ValidationFailed},
-	overseer,
-};
 
 use polkadot_primitives::{
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, PersistedValidationData,
@@ -188,7 +184,7 @@ where
 		let _candidate_descriptor = candidate_descriptor.clone();
 		let mut subsystem_sender = subsystem_sender.clone();
 		let (sender, receiver) = std::sync::mpsc::channel();
-		self.spawner.spawn(
+		self.spawner.spawn_blocking(
 			"malus-get-validation-data",
 			Some("malus"),
 			Box::pin(async move {
