@@ -104,6 +104,7 @@ substrate-test-utils = { path = "../../../substrate/test-utils" }
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-primitives-storage-weight-reclaim/runtime-benchmarks",
 	"cumulus-test-client/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
@@ -117,7 +118,6 @@ runtime-benchmarks = [
 	"rococo-parachain-runtime/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"cumulus-primitives-storage-weight-reclaim/runtime-benchmarks"
 ]
 
 [[bench]]

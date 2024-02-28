@@ -138,6 +138,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-primitives-storage-weight-reclaim/runtime-benchmarks",
 	"cumulus-primitives-utility/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -158,7 +159,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"cumulus-primitives-storage-weight-reclaim/runtime-benchmarks"
 ]
 
 try-runtime = [
