@@ -98,7 +98,12 @@ impl SecondingError {
 	/// Returns true if an error indicates that a peer is malicious.
 	pub fn is_malicious(&self) -> bool {
 		use SecondingError::*;
-		matches!(self, PersistedValidationDataMismatch | CandidateHashMismatch | Duplicate)
+		matches!(
+			self,
+			PersistedValidationDataMismatch |
+				CandidateHashMismatch |
+				Duplicate | ParentHeadDataMismatch
+		)
 	}
 }
 
