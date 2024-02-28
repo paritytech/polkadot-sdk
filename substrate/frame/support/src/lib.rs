@@ -2284,9 +2284,8 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		composite_enum, config, disable_frame_system_supertrait_check, disable_try_decode_storage,
 		error, event, extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
-		import_section, inherent, no_default, no_default_bounds, pallet_section,
-		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
-		whitelist_storage,
+		import_section, inherent, no_default, no_default_bounds, pallet_section, storage_prefix,
+		storage_version, type_value, unbounded, validate_unsigned, weight, whitelist_storage,
 	};
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
