@@ -58,11 +58,10 @@
 //! [`frame::pallet_macros::hooks`].
 //!
 //! ```
-//! use frame::prelude::*;
-//!
+//! 
 //! #[frame::pallet]
 //! pub mod pallet {
-//! 	use super::*;
+//! 	use frame::prelude::*;
 //!
 //! 	#[pallet::config]
 //! 	pub trait Config: frame_system::Config {}
@@ -71,8 +70,8 @@
 //! 	pub struct Pallet<T>(_);
 //!
 //! 	#[pallet::hooks]
-//! 	impl<T: Config> Hooks for Pallet<T> {
-//! 		fn offchain_worker(block_number: T::BlockNumber) {
+//! 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+//! 		fn offchain_worker(block_number: BlockNumberFor<T>) {
 //! 			// ...
 //! 		}
 //! 	}
