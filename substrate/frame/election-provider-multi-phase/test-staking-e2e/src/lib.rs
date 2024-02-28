@@ -134,7 +134,7 @@ fn offchainify_works() {
 fn mass_slash_doesnt_enter_emergency_phase() {
 	let epm_builder = EpmExtBuilder::default().disable_emergency_throttling();
 	let staking_builder = StakingExtBuilder::default().validator_count(7);
-	let (ext, _, _) = ExtBuilder::default()
+	let (mut ext, _, _) = ExtBuilder::default()
 		.epm(epm_builder)
 		.staking(staking_builder)
 		.build_offchainify();
