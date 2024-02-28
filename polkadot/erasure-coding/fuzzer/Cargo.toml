@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 polkadot-erasure-coding = { version = "8.0.0", path = ".." }
 honggfuzz = "0.5"
-polkadot-primitives = { version = "8.0.0", path = "../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../primitives" }
 primitives = { package = "polkadot-node-primitives", path = "../../node/primitives", version = "8.0.0" }
 
 [[bin]]

@@ -14,7 +14,7 @@ workspace = true
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 polkadot-test-runtime = { version = "0.1.0", path = "../../../runtime/test-runtime" }
 polkadot-test-service = { version = "0.1.0", path = "../service" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 substrate-test-client = { version = "0.1.0", path = "../../../../substrate/test-utils/client" }
 sc-service = { version = "0.36.0", path = "../../../../substrate/client/service" }

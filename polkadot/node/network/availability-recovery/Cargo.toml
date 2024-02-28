@@ -19,7 +19,7 @@ thiserror = "1.0.48"
 async-trait = "0.1.74"
 gum = { package = "tracing-gum", path = "../../gum", version = "8.0.0" }
 polkadot-erasure-coding = { version = "8.0.0", path = "../../../erasure-coding" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../primitives" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../../subsystem-util" }

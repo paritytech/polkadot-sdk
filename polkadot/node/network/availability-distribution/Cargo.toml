@@ -13,7 +13,7 @@ workspace = true
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum", version = "8.0.0" }
 parity-scale-codec = { version = "3.6.1", features = ["std"] }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-erasure-coding = { version = "8.0.0", path = "../../../erasure-coding" }
 polkadot-node-network-protocol = { version = "8.0.0", path = "../protocol" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }

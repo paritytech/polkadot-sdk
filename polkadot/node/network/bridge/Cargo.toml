@@ -14,7 +14,7 @@ always-assert = "0.1"
 async-trait = "0.1.74"
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum", version = "8.0.0" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 sc-network = { version = "0.35.0", path = "../../../../substrate/client/network" }
 sp-consensus = { version = "0.33.0", path = "../../../../substrate/primitives/consensus/common" }

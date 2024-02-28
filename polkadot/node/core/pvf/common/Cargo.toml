@@ -19,7 +19,7 @@ thiserror = "1.0.31"
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 polkadot-parachain-primitives = { version = "7.0.0", path = "../../../../parachain" }
-polkadot-primitives = { version = "8.0.0", path = "../../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../../primitives" }
 sc-executor = { version = "0.33.0", path = "../../../../../substrate/client/executor" }
 sc-executor-common = { version = "0.30.0", path = "../../../../../substrate/client/executor/common" }
 sc-executor-wasmtime = { version = "0.30.0", path = "../../../../../substrate/client/executor/wasmtime" }

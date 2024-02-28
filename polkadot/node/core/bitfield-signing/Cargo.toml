@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum", version = "8.0.0" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../../subsystem-util" }
 sp-keystore = { version = "0.35.0", path = "../../../../substrate/primitives/keystore" }

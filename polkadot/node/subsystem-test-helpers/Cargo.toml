@@ -17,7 +17,7 @@ parking_lot = "0.12.1"
 polkadot-node-subsystem = { version = "8.0.0", path = "../subsystem" }
 polkadot-erasure-coding = { version = "8.0.0", path = "../../erasure-coding" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../subsystem-util" }
-polkadot-primitives = { version = "8.0.0", path = "../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../primitives" }
 polkadot-node-primitives = { version = "8.0.0", path = "../primitives" }
 sc-client-api = { version = "29.0.0", path = "../../../substrate/client/api" }
 sc-utils = { version = "15.0.0", path = "../../../substrate/client/utils" }

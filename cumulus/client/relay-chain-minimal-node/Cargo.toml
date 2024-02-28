@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-polkadot-primitives = { version = "8.0.0", path = "../../../polkadot/primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../polkadot/primitives" }
 polkadot-core-primitives = { version = "8.0.0", path = "../../../polkadot/core-primitives" }
 polkadot-overseer = { version = "8.0.0", path = "../../../polkadot/node/overseer" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../../../polkadot/node/subsystem-util" }

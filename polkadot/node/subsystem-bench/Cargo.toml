@@ -20,7 +20,7 @@ polkadot-node-subsystem = { version = "8.0.0", path = "../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../subsystem-util" }
 polkadot-node-subsystem-types = { version = "8.0.0", path = "../subsystem-types" }
 polkadot-node-primitives = { version = "8.0.0", path = "../primitives" }
-polkadot-primitives = { version = "8.0.0", path = "../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../primitives" }
 polkadot-node-network-protocol = { version = "8.0.0", path = "../network/protocol" }
 polkadot-availability-recovery = { path = "../network/availability-recovery", features = ["subsystem-benchmarks"], version = "8.0.0" }
 polkadot-availability-distribution = { version = "8.0.0", path = "../network/availability-distribution" }

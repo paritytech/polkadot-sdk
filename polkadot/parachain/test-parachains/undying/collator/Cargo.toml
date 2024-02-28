@@ -21,7 +21,7 @@ futures = "0.3.21"
 futures-timer = "3.0.2"
 log = "0.4.17"
 test-parachain-undying = { version = "0.1.0", path = ".." }
-polkadot-primitives = { version = "8.0.0", path = "../../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../../primitives" }
 polkadot-cli = { version = "8.0.0", path = "../../../../cli" }
 polkadot-service = { path = "../../../../node/service", features = ["rococo-native"], version = "8.0.0" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../../../node/primitives" }

@@ -13,4 +13,4 @@ workspace = true
 coarsetime = "0.1.22"
 tracing = "0.1.35"
 gum-proc-macro = { package = "tracing-gum-proc-macro", path = "proc-macro", version = "5.0.0" }
-polkadot-primitives = { path = "../../primitives", features = ["std"], version = "8.0.0" }
+polkadot-primitives = { path = "../../primitives", features = ["std"], version = "8.0.1" }

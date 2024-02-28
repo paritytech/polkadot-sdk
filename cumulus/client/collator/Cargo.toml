@@ -22,7 +22,7 @@ sp-runtime = { version = "32.0.0", path = "../../../substrate/primitives/runtime
 polkadot-node-primitives = { version = "8.0.0", path = "../../../polkadot/node/primitives" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../../polkadot/node/subsystem" }
 polkadot-overseer = { version = "8.0.0", path = "../../../polkadot/node/overseer" }
-polkadot-primitives = { version = "8.0.0", path = "../../../polkadot/primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../polkadot/primitives" }
 cumulus-client-consensus-common = { version = "0.8.0", path = "../consensus/common" }
 cumulus-client-network = { version = "0.8.0", path = "../network" }
 cumulus-primitives-core = { version = "0.8.0", path = "../../primitives/core" }

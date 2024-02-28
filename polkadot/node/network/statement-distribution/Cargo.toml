@@ -13,7 +13,7 @@ workspace = true
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum", version = "8.0.0" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 sp-staking = { path = "../../../../substrate/primitives/staking", default-features = false, version = "27.0.0" }
 sp-keystore = { version = "0.35.0", path = "../../../../substrate/primitives/keystore" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }

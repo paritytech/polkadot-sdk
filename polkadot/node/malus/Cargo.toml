@@ -35,9 +35,9 @@ polkadot-node-subsystem-util = { version = "8.0.0", path = "../subsystem-util" }
 polkadot-node-subsystem-types = { version = "8.0.0", path = "../subsystem-types" }
 polkadot-node-core-dispute-coordinator = { version = "8.0.0", path = "../core/dispute-coordinator" }
 polkadot-node-core-candidate-validation = { version = "8.0.0", path = "../core/candidate-validation" }
-polkadot-node-core-backing = { version = "8.0.0", path = "../core/backing" }
+polkadot-node-core-backing = { version = "8.0.1", path = "../core/backing" }
 polkadot-node-primitives = { version = "8.0.0", path = "../primitives" }
-polkadot-primitives = { version = "8.0.0", path = "../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../primitives" }
 color-eyre = { version = "0.6.1", default-features = false }
 assert_matches = "1.5"
 async-trait = "0.1.74"

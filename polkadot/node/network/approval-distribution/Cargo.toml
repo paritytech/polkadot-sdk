@@ -15,7 +15,7 @@ polkadot-node-network-protocol = { version = "8.0.0", path = "../protocol" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../primitives" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../../subsystem-util" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-node-jaeger = { version = "8.0.0", path = "../../jaeger" }
 rand = "0.8"
 itertools = "0.10.5"

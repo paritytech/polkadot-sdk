@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-backing"
-version = "8.0.0"
+version = "8.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,12 +12,12 @@ workspace = true
 [dependencies]
 futures = "0.3.21"
 sp-keystore = { version = "0.35.0", path = "../../../../substrate/primitives/keystore" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../primitives" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../../subsystem-util" }
 erasure-coding = { package = "polkadot-erasure-coding", path = "../../../erasure-coding", version = "8.0.0" }
-statement-table = { package = "polkadot-statement-table", path = "../../../statement-table", version = "8.0.0" }
+statement-table = { package = "polkadot-statement-table", path = "../../../statement-table", version = "8.0.1" }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 gum = { package = "tracing-gum", path = "../../gum", version = "8.0.0" }
 thiserror = "1.0.48"

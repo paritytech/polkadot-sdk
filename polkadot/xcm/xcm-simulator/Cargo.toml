@@ -21,4 +21,4 @@ xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", ver
 xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", version = "8.0.1" }
 polkadot-core-primitives = { version = "8.0.0", path = "../../core-primitives" }
 polkadot-parachain-primitives = { version = "7.0.0", path = "../../parachain" }
-polkadot-runtime-parachains = { version = "8.0.0", path = "../../runtime/parachains" }
+polkadot-runtime-parachains = { version = "8.0.1", path = "../../runtime/parachains" }

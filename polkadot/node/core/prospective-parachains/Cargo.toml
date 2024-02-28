@@ -16,7 +16,7 @@ parity-scale-codec = "3.6.4"
 thiserror = "1.0.48"
 fatality = "0.0.6"
 bitvec = "1"
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../primitives" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../../subsystem-util" }

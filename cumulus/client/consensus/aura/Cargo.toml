@@ -41,7 +41,7 @@ cumulus-client-parachain-inherent = { version = "0.2.0", path = "../../parachain
 cumulus-primitives-aura = { version = "0.8.0", path = "../../../primitives/aura" }
 cumulus-primitives-core = { version = "0.8.0", path = "../../../primitives/core" }
 cumulus-client-collator = { version = "0.8.0", path = "../../collator" }
-polkadot-primitives = { version = "8.0.0", path = "../../../../polkadot/primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../../polkadot/primitives" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../../../polkadot/node/primitives" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../../../polkadot/node/subsystem" }
 polkadot-overseer = { version = "8.0.0", path = "../../../../polkadot/node/overseer" }

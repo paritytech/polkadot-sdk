@@ -22,7 +22,7 @@ grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../subst
 pallet-staking = { path = "../../../../../../../substrate/frame/staking", default-features = false, version = "29.0.0" }
 
 # Polkadot
-polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false, version = "8.0.0" }
+polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false, version = "8.0.1" }
 westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants", default-features = false, version = "8.0.0" }
 westend-runtime = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/westend" }
 parachains-common = { version = "8.0.0", path = "../../../../../common" }

@@ -13,7 +13,7 @@ workspace = true
 futures = "0.3.21"
 futures-timer = "3"
 gum = { package = "tracing-gum", path = "../../gum", version = "8.0.0" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../primitives" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../../subsystem-util" }

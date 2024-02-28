@@ -24,7 +24,7 @@ sp-api = { path = "../../../substrate/primitives/api", default-features = false,
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
 # Polkadot Dependencies
-polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "8.0.0" }
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "8.0.1" }
 
 [features]
 default = ["std"]

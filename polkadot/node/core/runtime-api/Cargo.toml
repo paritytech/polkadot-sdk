@@ -14,7 +14,7 @@ futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum", version = "8.0.0" }
 schnellru = "0.2.1"
 sp-consensus-babe = { version = "0.33.0", path = "../../../../substrate/primitives/consensus/babe" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-node-metrics = { version = "8.0.0", path = "../../metrics" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-subsystem-types = { version = "8.0.0", path = "../../subsystem-types" }

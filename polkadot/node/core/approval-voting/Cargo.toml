@@ -25,7 +25,7 @@ itertools = "0.10.5"
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../../subsystem-util" }
 polkadot-overseer = { version = "8.0.0", path = "../../overseer" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../primitives" }
 polkadot-node-jaeger = { version = "8.0.0", path = "../../jaeger" }
 

@@ -17,7 +17,7 @@ gum = { package = "tracing-gum", path = "../../gum", version = "8.0.0" }
 sp-core = { version = "29.0.0", path = "../../../../substrate/primitives/core" }
 sp-runtime = { version = "32.0.0", path = "../../../../substrate/primitives/runtime" }
 sp-keystore = { version = "0.35.0", path = "../../../../substrate/primitives/keystore" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-node-network-protocol = { version = "8.0.0", path = "../protocol" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../primitives" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../../subsystem-util" }

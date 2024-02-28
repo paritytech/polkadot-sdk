@@ -22,7 +22,7 @@ erasure = { package = "polkadot-erasure-coding", path = "../../../erasure-coding
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../../subsystem-util" }
 polkadot-overseer = { version = "8.0.0", path = "../../overseer" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../primitives" }
 sp-consensus = { path = "../../../../substrate/primitives/consensus/common", default-features = false, version = "0.33.0" }
 polkadot-node-jaeger = { version = "8.0.0", path = "../../jaeger" }

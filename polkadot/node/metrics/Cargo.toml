@@ -20,7 +20,7 @@ sc-cli = { version = "0.37.0", path = "../../../substrate/client/cli" }
 substrate-prometheus-endpoint = { version = "0.17.0", path = "../../../substrate/utils/prometheus" }
 sc-tracing = { version = "29.0.0", path = "../../../substrate/client/tracing" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-primitives = { package = "polkadot-primitives", path = "../../primitives", version = "8.0.0" }
+primitives = { package = "polkadot-primitives", path = "../../primitives", version = "8.0.1" }
 bs58 = { version = "0.5.0", features = ["alloc"] }
 log = "0.4.17"
 

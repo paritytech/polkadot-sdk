@@ -27,7 +27,7 @@ sp-runtime = { version = "32.0.0", path = "../../../../substrate/primitives/runt
 sp-timestamp = { version = "27.0.0", path = "../../../../substrate/primitives/timestamp" }
 sp-trie = { version = "30.0.0", path = "../../../../substrate/primitives/trie" }
 substrate-prometheus-endpoint = { version = "0.17.0", path = "../../../../substrate/utils/prometheus" }
-polkadot-primitives = { version = "8.0.0", path = "../../../../polkadot/primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../../polkadot/primitives" }
 cumulus-primitives-core = { version = "0.8.0", path = "../../../primitives/core" }
 cumulus-relay-chain-interface = { version = "0.8.0", path = "../../relay-chain-interface" }
 cumulus-client-pov-recovery = { version = "0.8.0", path = "../../pov-recovery" }

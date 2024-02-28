@@ -28,7 +28,7 @@ sp-consensus = { version = "0.33.0", path = "../../../substrate/primitives/conse
 sp-core = { version = "29.0.0", path = "../../../substrate/primitives/core" }
 sp-runtime = { version = "32.0.0", path = "../../../substrate/primitives/runtime" }
 sp-transaction-pool = { version = "27.0.0", path = "../../../substrate/primitives/transaction-pool" }
-polkadot-primitives = { version = "8.0.0", path = "../../../polkadot/primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../polkadot/primitives" }
 cumulus-client-cli = { version = "0.8.0", path = "../cli" }
 cumulus-client-collator = { version = "0.8.0", path = "../collator" }
 cumulus-client-consensus-common = { version = "0.8.0", path = "../consensus/common" }

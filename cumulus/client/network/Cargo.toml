@@ -24,7 +24,7 @@ sp-runtime = { version = "32.0.0", path = "../../../substrate/primitives/runtime
 sp-state-machine = { version = "0.36.0", path = "../../../substrate/primitives/state-machine" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../../polkadot/node/primitives" }
 polkadot-parachain-primitives = { version = "7.0.0", path = "../../../polkadot/parachain" }
-polkadot-primitives = { version = "8.0.0", path = "../../../polkadot/primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../polkadot/primitives" }
 cumulus-relay-chain-interface = { version = "0.8.0", path = "../relay-chain-interface" }
 
 [dev-dependencies]

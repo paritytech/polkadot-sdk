@@ -97,8 +97,8 @@ frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarki
 hex-literal = { version = "0.4.1" }
 
 runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, version = "8.0.1" }
-runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false, version = "8.0.0" }
-primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false, version = "8.0.0" }
+runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false, version = "8.0.1" }
+primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false, version = "8.0.1" }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false, version = "7.0.0" }
 
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "8.0.0" }

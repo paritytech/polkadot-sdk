@@ -19,7 +19,7 @@ polkadot-node-network-protocol = { version = "8.0.0", path = "../network/protoco
 polkadot-node-primitives = { version = "8.0.0", path = "../primitives" }
 polkadot-node-subsystem-types = { version = "8.0.0", path = "../subsystem-types" }
 polkadot-node-metrics = { version = "8.0.0", path = "../metrics" }
-polkadot-primitives = { version = "8.0.0", path = "../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../primitives" }
 orchestra = { version = "0.3.5", default-features = false, features = ["futures_channel"] }
 gum = { package = "tracing-gum", path = "../gum", version = "8.0.0" }
 sp-core = { version = "29.0.0", path = "../../../substrate/primitives/core" }

@@ -56,7 +56,7 @@ sc-cli = { version = "0.37.0", path = "../../../substrate/client/cli" }
 sc-block-builder = { version = "0.34.0", path = "../../../substrate/client/block-builder" }
 sc-executor-wasmtime = { version = "0.30.0", path = "../../../substrate/client/executor/wasmtime" }
 sc-executor-common = { version = "0.30.0", path = "../../../substrate/client/executor/common" }
-polkadot-primitives = { version = "8.0.0", path = "../../../polkadot/primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../polkadot/primitives" }
 polkadot-service = { version = "8.0.0", path = "../../../polkadot/node/service" }
 polkadot-test-service = { version = "0.1.0", path = "../../../polkadot/node/test/service" }
 polkadot-cli = { version = "8.0.0", path = "../../../polkadot/cli" }

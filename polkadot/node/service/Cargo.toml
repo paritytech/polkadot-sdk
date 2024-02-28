@@ -90,13 +90,13 @@ polkadot-core-primitives = { version = "8.0.0", path = "../../core-primitives" }
 polkadot-node-core-parachains-inherent = { version = "8.0.0", path = "../core/parachains-inherent" }
 polkadot-overseer = { version = "8.0.0", path = "../overseer" }
 polkadot-parachain-primitives = { version = "7.0.0", path = "../../parachain" }
-polkadot-primitives = { version = "8.0.0", path = "../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../primitives" }
 polkadot-node-primitives = { version = "8.0.0", path = "../primitives" }
 polkadot-rpc = { version = "8.0.0", path = "../../rpc" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../subsystem-util" }
 polkadot-node-subsystem-types = { version = "8.0.0", path = "../subsystem-types" }
-polkadot-runtime-parachains = { version = "8.0.0", path = "../../runtime/parachains" }
+polkadot-runtime-parachains = { version = "8.0.1", path = "../../runtime/parachains" }
 polkadot-node-network-protocol = { version = "8.0.0", path = "../network/protocol" }
 
 # Polkadot Runtime Constants
@@ -119,14 +119,14 @@ polkadot-network-bridge = { path = "../network/bridge", optional = true, version
 polkadot-node-collation-generation = { path = "../collation-generation", optional = true, version = "8.0.0" }
 polkadot-node-core-approval-voting = { path = "../core/approval-voting", optional = true, version = "8.0.0" }
 polkadot-node-core-av-store = { path = "../core/av-store", optional = true, version = "8.0.0" }
-polkadot-node-core-backing = { path = "../core/backing", optional = true, version = "8.0.0" }
+polkadot-node-core-backing = { path = "../core/backing", optional = true, version = "8.0.1" }
 polkadot-node-core-bitfield-signing = { path = "../core/bitfield-signing", optional = true, version = "8.0.0" }
 polkadot-node-core-candidate-validation = { path = "../core/candidate-validation", optional = true, version = "8.0.0" }
 polkadot-node-core-chain-api = { path = "../core/chain-api", optional = true, version = "8.0.0" }
 polkadot-node-core-chain-selection = { path = "../core/chain-selection", optional = true, version = "8.0.0" }
 polkadot-node-core-dispute-coordinator = { path = "../core/dispute-coordinator", optional = true, version = "8.0.0" }
 polkadot-node-core-prospective-parachains = { path = "../core/prospective-parachains", optional = true, version = "7.0.0" }
-polkadot-node-core-provisioner = { path = "../core/provisioner", optional = true, version = "8.0.0" }
+polkadot-node-core-provisioner = { path = "../core/provisioner", optional = true, version = "8.0.1" }
 polkadot-node-core-pvf = { path = "../core/pvf", optional = true, version = "8.0.0" }
 polkadot-node-core-pvf-checker = { path = "../core/pvf-checker", optional = true, version = "8.0.0" }
 polkadot-node-core-runtime-api = { path = "../core/runtime-api", optional = true, version = "8.0.0" }

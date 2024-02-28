@@ -13,7 +13,7 @@ workspace = true
 mick-jaeger = "0.1.8"
 lazy_static = "1.4"
 parking_lot = "0.12.1"
-polkadot-primitives = { version = "8.0.0", path = "../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../primitives" }
 polkadot-node-primitives = { version = "8.0.0", path = "../primitives" }
 sc-network = { version = "0.35.0", path = "../../../substrate/client/network" }
 sp-core = { version = "29.0.0", path = "../../../substrate/primitives/core" }

@@ -19,7 +19,7 @@ sc-network-common = { version = "0.34.0", path = "../../../../substrate/client/n
 polkadot-node-network-protocol = { version = "8.0.0", path = "../protocol" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../../subsystem-util" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 
 futures = "0.3.21"
 futures-timer = "3.0.2"

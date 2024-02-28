@@ -16,7 +16,7 @@ polkadot-erasure-coding = { version = "8.0.0", path = "../../erasure-coding" }
 polkadot-node-primitives = { version = "8.0.0", path = "../primitives" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../subsystem-util" }
-polkadot-primitives = { version = "8.0.0", path = "../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../primitives" }
 sp-core = { version = "29.0.0", path = "../../../substrate/primitives/core" }
 sp-maybe-compressed-blob = { version = "11.0.0", path = "../../../substrate/primitives/maybe-compressed-blob" }
 thiserror = "1.0.48"

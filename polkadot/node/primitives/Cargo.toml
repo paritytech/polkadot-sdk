@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 bounded-vec = "0.7"
 futures = "0.3.21"
-polkadot-primitives = { version = "8.0.0", path = "../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../primitives" }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 sp-core = { version = "29.0.0", path = "../../../substrate/primitives/core" }
 sp-application-crypto = { version = "31.0.0", path = "../../../substrate/primitives/application-crypto" }

@@ -28,7 +28,7 @@ polkadot-node-subsystem-types = { version = "8.0.0", path = "../subsystem-types"
 polkadot-node-jaeger = { version = "8.0.0", path = "../jaeger" }
 polkadot-node-metrics = { version = "8.0.0", path = "../metrics" }
 polkadot-node-network-protocol = { version = "8.0.0", path = "../network/protocol" }
-polkadot-primitives = { version = "8.0.0", path = "../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../primitives" }
 polkadot-node-primitives = { version = "8.0.0", path = "../primitives" }
 polkadot-overseer = { version = "8.0.0", path = "../overseer" }
 metered = { package = "prioritized-metered-channel", version = "0.6.1", default-features = false, features = ["futures_channel"] }

@@ -21,7 +21,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
 # Polkadot
-polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "8.0.0" }
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "8.0.1" }
 
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false, version = "0.8.1" }

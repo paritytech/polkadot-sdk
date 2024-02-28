@@ -19,7 +19,7 @@ serde_json = "1.0.111"
 tempfile = "3.2.0"
 tokio = "1.24.2"
 polkadot-overseer = { version = "8.0.0", path = "../../overseer" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-parachain-primitives = { version = "7.0.0", path = "../../../parachain" }
 polkadot-rpc = { version = "8.0.0", path = "../../../rpc" }
 polkadot-runtime-common = { version = "8.0.1", path = "../../../runtime/common" }
@@ -28,7 +28,7 @@ polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../primitives" }
 polkadot-test-runtime = { version = "0.1.0", path = "../../../runtime/test-runtime" }
 test-runtime-constants = { version = "0.1.0", path = "../../../runtime/test-runtime/constants" }
-polkadot-runtime-parachains = { version = "8.0.0", path = "../../../runtime/parachains" }
+polkadot-runtime-parachains = { version = "8.0.1", path = "../../../runtime/parachains" }
 sp-authority-discovery = { version = "27.0.0", path = "../../../../substrate/primitives/authority-discovery" }
 sc-authority-discovery = { version = "0.35.0", path = "../../../../substrate/client/authority-discovery" }
 babe = { package = "sc-consensus-babe", path = "../../../../substrate/client/consensus/babe", version = "0.35.0" }

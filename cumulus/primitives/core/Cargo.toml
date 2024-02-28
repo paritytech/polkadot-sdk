@@ -22,7 +22,7 @@ sp-trie = { path = "../../../substrate/primitives/trie", default-features = fals
 # Polkadot
 polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false, version = "8.0.0" }
 polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false, version = "7.0.0" }
-polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "8.0.0" }
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "8.0.1" }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "8.0.0" }
 
 [features]

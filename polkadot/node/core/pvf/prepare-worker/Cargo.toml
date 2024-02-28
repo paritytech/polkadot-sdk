@@ -22,7 +22,7 @@ nix = { version = "0.27.1", features = ["process", "resource", "sched"] }
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 polkadot-node-core-pvf-common = { version = "8.0.0", path = "../common" }
-polkadot-primitives = { version = "8.0.0", path = "../../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../../primitives" }
 sc-executor-common = { version = "0.30.0", path = "../../../../../substrate/client/executor/common" }
 sc-executor-wasmtime = { version = "0.30.0", path = "../../../../../substrate/client/executor/wasmtime" }
 

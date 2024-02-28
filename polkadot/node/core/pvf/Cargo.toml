@@ -33,7 +33,7 @@ polkadot-node-core-pvf-common = { version = "8.0.0", path = "common" }
 polkadot-node-metrics = { version = "8.0.0", path = "../../metrics" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../primitives" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
-polkadot-primitives = { version = "8.0.0", path = "../../../primitives" }
+polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 sp-core = { version = "29.0.0", path = "../../../../substrate/primitives/core" }
 sp-wasm-interface = { version = "20.0.0", path = "../../../../substrate/primitives/wasm-interface" }
 sp-maybe-compressed-blob = { version = "11.0.0", path = "../../../../substrate/primitives/maybe-compressed-blob" }
