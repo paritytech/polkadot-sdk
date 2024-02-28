@@ -1576,7 +1576,7 @@ pub mod pallet {
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use sp_runtime::Perbill;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
 	#[pallet::pallet]
@@ -2616,14 +2616,13 @@ pub mod pallet {
 				.ok_or(Error::<T>::PoolMemberNotFound)?
 				.active_points();
 
-			if bonded_pool.points_to_balance(depositor_points) <
+			if bonded_pool.points_to_balance(depositor_points) >=
 				T::Staking::minimum_nominator_bond()
 			{
-				T::Staking::chill(&bonded_pool.bonded_account())
-			} else {
 				ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
-				T::Staking::chill(&bonded_pool.bonded_account())
 			}
+
+			T::Staking::chill(&bonded_pool.bonded_account())
 		}
 
 		/// `origin` bonds funds from `extra` for some pool member `member` into their respective
