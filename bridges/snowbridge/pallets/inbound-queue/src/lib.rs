@@ -44,7 +44,7 @@ use envelope::Envelope;
 use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::Preservation,
+		tokens::{Fortitude, Preservation},
 	},
 	weights::WeightToFee,
 	PalletError,
@@ -52,6 +52,7 @@ use frame_support::{
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
+use sp_runtime::traits::Zero;
 use sp_std::{convert::TryFrom, vec};
 use xcm::prelude::{
 	send_xcm, Instruction::SetTopic, Junction::*, Location, SendError as XcmpSendError, SendXcm,
@@ -261,11 +262,19 @@ pub mod pallet {
 				}
 			})?;
 
-			// Reward relayer from the sovereign account of the destination parachain
-			// Expected to fail if sovereign account has no funds
+			// Reward relayer from the sovereign account of the destination parachain, only if funds
+			// are available
 			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
 			let delivery_cost = Self::calculate_delivery_cost(message.encode().len() as u32);
-			T::Token::transfer(&sovereign_account, &who, delivery_cost, Preservation::Preserve)?;
+			let amount = T::Token::reducible_balance(
+				&sovereign_account,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			)
+			.min(delivery_cost);
+			if amount > BalanceOf::<T>::zero() {
+				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
+			}
 
 			// Decode message into XCM
 			let (xcm, fee) =

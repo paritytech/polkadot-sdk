@@ -29,7 +29,7 @@ use snowbridge_pallet_inbound_queue_fixtures::{
 use snowbridge_pallet_system;
 use snowbridge_router_primitives::inbound::GlobalConsensusEthereumConvertsFor;
 use sp_core::H256;
-use sp_runtime::{ArithmeticError::Underflow, DispatchError::Arithmetic};
+use sp_runtime::{DispatchError::Token, TokenError::FundsUnavailable};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
 const INITIAL_FUND: u128 = 5_000_000_000 * ROCOCO_ED;
@@ -532,6 +532,6 @@ fn send_token_from_ethereum_to_asset_hub_fail_for_insufficient_fund() {
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id().into(), 1_000);
 
 	BridgeHubRococo::execute_with(|| {
-		assert_err!(send_inbound_message(make_register_token_message()), Arithmetic(Underflow));
+		assert_err!(send_inbound_message(make_register_token_message()), Token(FundsUnavailable));
 	});
 }
