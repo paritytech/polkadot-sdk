@@ -36,7 +36,7 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_aura::{inherents::AuraInherentData, AuraApi, SlotDuration};
+use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider as _};
@@ -165,7 +165,7 @@ where
 #[async_trait::async_trait]
 impl<B: BlockT, C, P, CIDP> Verifier<B> for AuraVerifier<C, P, CIDP, NumberFor<B>>
 where
-	C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore + UsageProvider<B>,
+	C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
 	C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId<P>> + ApiExt<B>,
 	P: Pair,
 	P::Public: Codec + Debug,
