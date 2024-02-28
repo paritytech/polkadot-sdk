@@ -3851,6 +3851,7 @@ to = "0.1.0"
 bump = "major"
 
 [[crate]]
+publish = false
 # cumulus/polkadot-parachain
 name = "polkadot-parachain-bin"
 from = "6.0.0"
