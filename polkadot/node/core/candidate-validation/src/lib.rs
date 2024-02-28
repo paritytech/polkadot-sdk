@@ -802,7 +802,7 @@ trait ValidationBackend {
 			if total_time_start.elapsed() + retry_delay > exec_timeout {
 				break
 			}
-			let mut wait_retry_delay = true;
+			let mut retry_immediately = false;
 			match validation_result {
 				Err(ValidationError::PossiblyInvalid(
 					PossiblyInvalidError::AmbiguousWorkerDeath |
@@ -820,7 +820,11 @@ trait ValidationBackend {
 				)) => {
 					break_if_no_retries_left!(num_runtime_construction_retries_left);
 					self.precheck_pvf(pvf.clone()).await?;
-					wait_retry_delay = false;
+					// In this case the error is deterministic
+					// And a retry forces the ValidationBackend
+					// to re-prepare the artifact so
+					// there is no need to wait before the retry
+					retry_immediately = true;
 				},
 
 				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
@@ -829,8 +833,9 @@ trait ValidationBackend {
 			// If we got a possibly transient error, retry once after a brief delay, on the
 			// assumption that the conditions that caused this error may have resolved on their own.
 			{
-				// Wait a brief delay before retrying.
-				if wait_retry_delay {
+				// In case of many transient errors it is necessary to wait a little bit
+				// for the error to be probably resolved
+				if !retry_immediately {
 					futures_timer::Delay::new(retry_delay).await;
 				}
 
