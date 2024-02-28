@@ -281,11 +281,11 @@ impl HostFn for HostFnImpl {
 		todo!()
 	}
 
-	fn add_delegate_dependency(code_hash: &[u8]) {
+	fn lock_delegate_dependency(code_hash: &[u8]) {
 		todo!()
 	}
 
-	fn remove_delegate_dependency(code_hash: &[u8]) {
+	fn unlock_delegate_dependency(code_hash: &[u8]) {
 		todo!()
 	}
 
