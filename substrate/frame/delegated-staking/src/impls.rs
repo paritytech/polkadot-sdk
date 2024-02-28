@@ -197,15 +197,15 @@ impl<T: Config> StakingInterface for Pallet<T> {
 }
 
 impl<T: Config> DelegatedStakeInterface for Pallet<T> {
-	fn is_delegatee(who: &Self::AccountId) -> bool {
-		Self::is_delegatee(who)
-	}
-
 	/// Effective balance of the delegatee account.
 	fn delegatee_balance(who: &Self::AccountId) -> Self::Balance {
 		Delegatee::<T>::from(who)
 			.map(|delegatee| delegatee.ledger.effective_balance())
 			.unwrap_or_default()
+	}
+
+	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance {
+		Delegation::<T>::get(delegator).map(|d| d.amount).unwrap_or_default()
 	}
 
 	/// Delegate funds to `Delegatee`.
@@ -265,10 +265,6 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		maybe_reporter: Option<Self::AccountId>,
 	) -> sp_runtime::DispatchResult {
 		Pallet::<T>::do_slash(delegatee.clone(), delegator.clone(), value, maybe_reporter)
-	}
-
-	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance {
-		Delegation::<T>::get(delegator).map(|d| d.amount).unwrap_or_default()
 	}
 }
 
