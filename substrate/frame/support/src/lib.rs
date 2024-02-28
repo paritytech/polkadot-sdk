@@ -1029,141 +1029,6 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the `pallet::` macros
 pub mod pallet_macros {
 
-	/// The optional attribute `#[pallet::whitelist_storage]` will declare the
-	/// storage as whitelisted from benchmarking. Doing so will exclude reads of
-	/// that value's storage key from counting towards weight calculations during
-	/// benchmarking.
-	///
-	/// This attribute should only be attached to storages that are known to be
-	/// read/used in every block. This will result in a more accurate benchmarking weight.
-	///
-	/// ### Example
-	/// ```
-	/// #[frame_support::pallet]
-	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
-	/// 	#[pallet::pallet]
-	/// 	pub struct Pallet<T>(_);
-	///
-	/// 	#[pallet::storage]
-	/// 	#[pallet::whitelist_storage]
-	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
-	/// }
-	/// ```
-	///
-	/// NOTE: As with all `pallet::*` attributes, this one _must_ be written as
-	/// `#[pallet::whitelist_storage]` and can only be placed inside a `pallet` module in order
-	/// for it to work properly.
-	pub use frame_support_procedural::whitelist_storage;
-
-	/// Each dispatchable needs to define a weight with the `#[pallet::weight($expr)]`
-	/// attribute. The first argument must be `origin: OriginFor<T>`.
-	///
-	/// ## Example
-	///
-	/// ```
-	/// #[frame_support::pallet]
-	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	/// 	use frame_system::pallet_prelude::*;
-	///
-	/// 	#[pallet::pallet]
-	/// 	pub struct Pallet<T>(_);
-	///
-	/// 	#[pallet::call]
-	/// 	impl<T: Config> Pallet<T> {
-	/// 		#[pallet::weight({0})] // <- set actual weight here
-	/// 		#[pallet::call_index(0)]
-	/// 		pub fn something(
-	/// 			_: OriginFor<T>,
-	/// 			foo: u32,
-	/// 		) -> DispatchResult {
-	/// 			unimplemented!()
-	/// 		}
-	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
-	/// }
-	/// ```
-	pub use frame_support_procedural::weight;
-
-	/// The optional attribute `#[pallet::unbounded]` declares a storage item as unbounded.
-	/// When implementating the storage info (when `#[pallet::generate_storage_info]` is
-	/// specified on the pallet struct placeholder), the size of the storage will be declared
-	/// as unbounded. This can be useful for storage which can never go into PoV (Proof of
-	/// Validity).
-	///
-	/// ## Example
-	///
-	/// ```
-	/// #[frame_support::pallet]
-	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
-	/// 	#[pallet::pallet]
-	/// 	pub struct Pallet<T>(_);
-	///
-	/// 	#[pallet::storage]
-	/// 	#[pallet::unbounded]
-	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
-	/// }
-	/// ```
-	pub use frame_support_procedural::unbounded;
-
-	/// The optional attribute `#[pallet::storage_prefix = "SomeName"]` allows you to define
-	/// what storage prefix to use for a storage item when building the trie. This is helpful
-	/// if you wish to rename the storage field but don't want to perform a migration.
-	///
-	/// ## Example
-	///
-	/// ```
-	/// #[frame_support::pallet]
-	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
-	/// 	#[pallet::pallet]
-	/// 	pub struct Pallet<T>(_);
-	///
-	/// 	#[pallet::storage]
-	/// 	#[pallet::storage_prefix = "foo"]
-	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
-	/// }
-	/// ```
-	pub use frame_support_procedural::storage_prefix;
-
-	/// Can be attached to a module. Doing so will declare that module as importable into a
-	/// pallet via [`#[import_section]`](`import_section`).
-	///
-	/// Note that sections are imported by their module name/ident, and should be referred to
-	/// by their _full path_ from the perspective of the target pallet. Do not attempt to make
-	/// use of `use` statements to bring pallet sections into scope, as this will not work
-	/// (unless you do so as part of a wildcard import, in which case it will work).
-	///
-	/// ## Naming Logistics
-	///
-	/// Also note that because of how `#[pallet_section]` works, pallet section names must be
-	/// globally unique _within the crate in which they are defined_. For more information on
-	/// why this must be the case, see macro_magic's
-	/// [`#[export_tokens]`](https://docs.rs/macro_magic/latest/macro_magic/attr.export_tokens.html) macro.
-	///
-	/// Optionally, you may provide an argument to `#[pallet_section]` such as
-	/// `#[pallet_section(some_ident)]`, in the event that there is another pallet section in
-	/// same crate with the same ident/name. The ident you specify can then be used instead of
-	/// the module's ident name when you go to import it via
-	/// [`#[import_section]`](`import_section`).
-	pub use frame_support_procedural::pallet_section;
-
 	/// The `#[pallet::origin]` attribute allows you to define some origin for the pallet.
 	///
 	/// Item must be either a type alias, an enum, or a struct. It needs to be public.
@@ -1202,27 +1067,6 @@ pub mod pallet_macros {
 	/// Read more about origins at the [Origin Reference
 	/// Docs](../../polkadot_sdk_docs/reference_docs/frame_origin/index.html).
 	pub use frame_support_procedural::origin;
-
-	/// The optional attribute `#[pallet::no_default_bounds]` can be attached to trait items
-	/// within a `Config` trait impl that has
-	/// [`#[pallet::config(with_default)]`](`config`) attached.
-	///
-	/// Attaching this attribute to a trait item ensures that the generated trait
-	/// `DefaultConfig` will not have any bounds for this trait item.
-	///
-	/// As an example, if you have a trait item `type AccountId: SomeTrait;` in your `Config`
-	/// trait, the generated `DefaultConfig` will only have `type AccountId;` with no trait
-	/// bound.
-	pub use frame_support_procedural::no_default_bounds;
-
-	/// The optional attribute `#[pallet::no_default]` can be attached to trait items within a
-	/// `Config` trait impl that has [`#[pallet::config(with_default)]`](`config`)
-	/// attached.
-	///
-	/// Attaching this attribute to a trait item ensures that that trait item will not be used
-	/// as a default with the [`#[derive_impl(..)]`](`frame_support::derive_impl`) attribute
-	/// macro.
-	pub use frame_support_procedural::no_default;
 
 	/// The `#[pallet::inherent]` attribute allows the pallet to provide
 	/// [inherents](https://docs.substrate.io/fundamentals/transaction-types/#inherent-transactions).
@@ -2410,6 +2254,162 @@ pub mod pallet_macros {
 	/// Now, this can be executed as follows:
 	#[doc = docify::embed!("src/tests/tasks.rs", tasks_work)]
 	pub use frame_support_procedural::tasks_experimental;
+
+	/// The optional attribute `#[pallet::whitelist_storage]` will declare the
+	/// storage as whitelisted from benchmarking. Doing so will exclude reads of
+	/// that value's storage key from counting towards weight calculations during
+	/// benchmarking.
+	///
+	/// This attribute should only be attached to storages that are known to be
+	/// read/used in every block. This will result in a more accurate benchmarking weight.
+	///
+	/// ### Example
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::storage]
+	/// 	#[pallet::whitelist_storage]
+	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	///
+	/// NOTE: As with all `pallet::*` attributes, this one _must_ be written as
+	/// `#[pallet::whitelist_storage]` and can only be placed inside a `pallet` module in order
+	/// for it to work properly.
+	pub use frame_support_procedural::whitelist_storage;
+
+	/// Each dispatchable needs to define a weight with the `#[pallet::weight($expr)]`
+	/// attribute. The first argument must be `origin: OriginFor<T>`.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	/// 	use frame_system::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::call]
+	/// 	impl<T: Config> Pallet<T> {
+	/// 		#[pallet::weight({0})] // <- set actual weight here
+	/// 		#[pallet::call_index(0)]
+	/// 		pub fn something(
+	/// 			_: OriginFor<T>,
+	/// 			foo: u32,
+	/// 		) -> DispatchResult {
+	/// 			unimplemented!()
+	/// 		}
+	/// 	}
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	pub use frame_support_procedural::weight;
+
+	/// The optional attribute `#[pallet::unbounded]` declares a storage item as unbounded.
+	/// When implementating the storage info (when `#[pallet::generate_storage_info]` is
+	/// specified on the pallet struct placeholder), the size of the storage will be declared
+	/// as unbounded. This can be useful for storage which can never go into PoV (Proof of
+	/// Validity).
+	///
+	/// ## Example
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::storage]
+	/// 	#[pallet::unbounded]
+	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	pub use frame_support_procedural::unbounded;
+
+	/// The optional attribute `#[pallet::storage_prefix = "SomeName"]` allows you to define
+	/// what storage prefix to use for a storage item when building the trie. This is helpful
+	/// if you wish to rename the storage field but don't want to perform a migration.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::storage]
+	/// 	#[pallet::storage_prefix = "foo"]
+	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
+	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	/// }
+	/// ```
+	pub use frame_support_procedural::storage_prefix;
+
+	/// The optional attribute `#[pallet::no_default_bounds]` can be attached to trait items
+	/// within a `Config` trait impl that has
+	/// [`#[pallet::config(with_default)]`](`config`) attached.
+	///
+	/// Attaching this attribute to a trait item ensures that the generated trait
+	/// `DefaultConfig` will not have any bounds for this trait item.
+	///
+	/// As an example, if you have a trait item `type AccountId: SomeTrait;` in your `Config`
+	/// trait, the generated `DefaultConfig` will only have `type AccountId;` with no trait
+	/// bound.
+	pub use frame_support_procedural::no_default_bounds;
+
+	/// The optional attribute `#[pallet::no_default]` can be attached to trait items within a
+	/// `Config` trait impl that has [`#[pallet::config(with_default)]`](`config`)
+	/// attached.
+	///
+	/// Attaching this attribute to a trait item ensures that that trait item will not be used
+	/// as a default with the [`#[derive_impl(..)]`](`frame_support::derive_impl`) attribute
+	/// macro.
+	pub use frame_support_procedural::no_default;
+
+	/// Can be attached to a module. Doing so will declare that module as importable into a
+	/// pallet via [`#[import_section]`](`import_section`).
+	///
+	/// Note that sections are imported by their module name/ident, and should be referred to
+	/// by their _full path_ from the perspective of the target pallet. Do not attempt to make
+	/// use of `use` statements to bring pallet sections into scope, as this will not work
+	/// (unless you do so as part of a wildcard import, in which case it will work).
+	///
+	/// ## Naming Logistics
+	///
+	/// Also note that because of how `#[pallet_section]` works, pallet section names must be
+	/// globally unique _within the crate in which they are defined_. For more information on
+	/// why this must be the case, see macro_magic's
+	/// [`#[export_tokens]`](https://docs.rs/macro_magic/latest/macro_magic/attr.export_tokens.html) macro.
+	///
+	/// Optionally, you may provide an argument to `#[pallet_section]` such as
+	/// `#[pallet_section(some_ident)]`, in the event that there is another pallet section in
+	/// same crate with the same ident/name. The ident you specify can then be used instead of
+	/// the module's ident name when you go to import it via
+	/// [`#[import_section]`](`import_section`).
+	pub use frame_support_procedural::pallet_section;
 }
 
 #[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]
