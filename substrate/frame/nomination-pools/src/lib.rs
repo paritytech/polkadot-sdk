@@ -2401,6 +2401,11 @@ pub mod pallet {
 		///
 		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
 		/// account.
+		///
+		/// # Note
+		///
+		/// In addition to a `root` or `nominator` role of `origin`, pool's depositor needs to have
+		/// at least `depositor_min_bond` in the pool to start nominating.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::nominate(validators.len() as u32))]
 		pub fn nominate(
