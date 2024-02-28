@@ -1748,7 +1748,7 @@ impl<Block: BlockT> Backend<Block> {
 								} else {
 									changeset.inserted.push((key.to_vec(), val.to_vec()));
 									for _ in 0..rc - 1 {
-										changeset.inserted.push((key.to_vec(), Default::default()));
+										changeset.inserted.push((key.to_vec(), val.to_vec()));
 									}
 								}
 							} else if rc < 0 {
