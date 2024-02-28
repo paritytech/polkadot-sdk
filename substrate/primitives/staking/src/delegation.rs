@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::StakingInterface;
 use codec::{FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{DispatchResult, Saturating};
 use sp_std::ops::Sub;
-use crate::StakingInterface;
 
 /// A trait that can be used as a plugin to support delegation based accounts, called `Delegatee`.
 ///

@@ -18,8 +18,8 @@
 
 //! Implementations of public traits, namely [StakingInterface], and [DelegateeSupport].
 
-use sp_staking::delegation::DelegatedStakeInterface;
 use super::*;
+use sp_staking::delegation::DelegatedStakeInterface;
 
 /// StakingInterface implementation with delegation support.
 ///

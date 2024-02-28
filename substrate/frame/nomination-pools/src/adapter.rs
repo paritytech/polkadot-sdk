@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_staking::delegation::DelegatedStakeInterface;
 use crate::*;
+use sp_staking::delegation::DelegatedStakeInterface;
 
 /// An adapter trait that can support multiple staking strategies.
 ///
@@ -195,8 +195,10 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 /// use account itself and not in the pool account.
 pub struct DelegateStake<T: Config, Staking: DelegatedStakeInterface>(PhantomData<(T, Staking)>);
 
-impl<T: Config, Staking: DelegatedStakeInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
-	StakeStrategy for DelegateStake<T, Staking>
+impl<
+		T: Config,
+		Staking: DelegatedStakeInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>,
+	> StakeStrategy for DelegateStake<T, Staking>
 {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
