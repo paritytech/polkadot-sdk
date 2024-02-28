@@ -24,7 +24,7 @@ use frame_support::{
 	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, PollStatus, Polling, TryMapSuccess},
 };
 use frame_system::EnsureSignedBy;
-use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, TallyOf, Votes, MemberCount};
+use pallet_ranked_collective::{EnsureRanked, Geometric, MemberCount, Rank, TallyOf, Votes};
 use sp_core::Get;
 use sp_runtime::{
 	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
@@ -294,7 +294,10 @@ fn add_higher_rank() {
 		assert_ok!(CoreFellowship::import(signed(5)));
 
 		// MemberCount still reads previous max rank as 9
-		assert_noop!(CoreFellowship::promote(RuntimeOrigin::root(), 7, 10), Error::<Test>::InvalidRank);
+		assert_noop!(
+			CoreFellowship::promote(RuntimeOrigin::root(), 7, 10),
+			Error::<Test>::InvalidRank
+		);
 
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 7));
 		assert_eq!(MemberCount::<Test>::get(10), 1);

@@ -90,14 +90,8 @@ impl RankedMembers for TestClub {
 		})
 	}
 	fn max_rank() -> Self::Rank {
-        CLUB.with(|club| {
-            club.borrow()
-                .values()
-                .max()
-                .cloned()
-                .unwrap_or(Self::min_rank())
-        })
-    }
+		CLUB.with(|club| club.borrow().values().max().cloned().unwrap_or(Self::min_rank()))
+	}
 }
 
 fn set_rank(who: u64, rank: u16) {
@@ -139,7 +133,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			min_promotion_period: [3, 6, 9, 12, 15, 18, 21, 24, 27].to_vec(),
 			offboard_timeout: 1,
 		};
-		
+
 		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
 		System::set_block_number(1);
 	});

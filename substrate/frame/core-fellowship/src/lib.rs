@@ -343,15 +343,17 @@ pub mod pallet {
 
 			// Validate the lengths of the vectors in params are equal to max_rank.
 			let expected_length = max_rank as usize; // Convert max_rank to usize for comparison.
-			ensure!(params.active_salary.len() == expected_length &&
+			ensure!(
+				params.active_salary.len() == expected_length &&
 					params.passive_salary.len() == expected_length &&
 					params.demotion_period.len() == expected_length &&
 					params.min_promotion_period.len() == expected_length,
-					Error::<T, I>::IncorrectParamsLength);
-	
+				Error::<T, I>::IncorrectParamsLength
+			);
+
 			Params::<T, I>::put(params.as_ref());
 			Self::deposit_event(Event::<T, I>::ParamsChanged { params: *params });
-	
+
 			Ok(())
 		}
 

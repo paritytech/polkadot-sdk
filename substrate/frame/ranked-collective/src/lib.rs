@@ -1006,9 +1006,9 @@ pub mod pallet {
 
 		fn max_rank() -> Self::Rank {
 			MemberCount::<T, I>::iter()
-            .map(|(rank, _)| rank)
-            .max()
-            .unwrap_or(Self::min_rank())
+				.map(|(rank, _)| rank)
+				.max()
+				.unwrap_or(Self::min_rank())
 		}
 	}
 }
