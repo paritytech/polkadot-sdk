@@ -338,7 +338,7 @@ can be used for post-check. NOTE: if <code>pre_upgrade</code> is not implemented
 be passed in, in such case <code>post_upgrade</code> should ignore it.</p>
 <p>This hook is never meant to be executed on-chain but is meant to be used by testing tools.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.offchain_worker" class="method"><a class="src rightside" href="../../src/frame_support/traits/hooks.rs.html#463">source</a><h4 class="code-header">fn <a href="#method.offchain_worker" class="fn">offchain_worker</a>(_n: BlockNumber)</h4></section></summary><div class="docblock"><p>Implementing this function on a pallet allows you to perform long-running tasks that are
-dispatched as separate threads, and entirely independent of the main wasm runtime.</p>
+dispatched as separate threads, and entirely independent of the main blockchain execution.</p>
 <p>This function can freely read from the state, but any change it makes to the state is
 meaningless. Writes can be pushed back to the chain by submitting extrinsics from the
 offchain worker to the transaction pool. See <code>pallet-example-offchain-worker</code> for more
