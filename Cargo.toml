@@ -337,6 +337,7 @@ members = [
 	"substrate/frame/examples/frame-crate",
 	"substrate/frame/examples/kitchensink",
 	"substrate/frame/examples/offchain-worker",
+	"substrate/frame/examples/single-block-migrations",
 	"substrate/frame/examples/split",
 	"substrate/frame/examples/tasks",
 	"substrate/frame/executive",
