@@ -975,7 +975,17 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	// Remove any candidates that were concluded invalid or who are descendants of concluded invalid
 	// candidates (along with their descendants).
 	filter_candidates::<T, _>(&mut candidates_per_para, |_, candidate| {
-		!concluded_invalid_with_descendants.contains(&candidate.candidate().hash())
+		let keep = !concluded_invalid_with_descendants.contains(&candidate.candidate().hash());
+
+		if !keep {
+			log::debug!(
+				target: LOG_TARGET,
+				"Found backed candidate {:?} which was concluded invalid or is a descendant of a concluded invalid candidate, for paraid {:?}.",
+				candidate.candidate().hash(),
+				candidate.descriptor().para_id
+			);
+		}
+		keep
 	});
 
 	// Map candidates to scheduled cores. Filter out any unscheduled candidates along with their
@@ -1150,7 +1160,7 @@ fn filter_candidates_with_core<
 }
 
 // Filters statements from disabled validators in `BackedCandidate` and does a few more sanity
-// checks. Returns `true` if at least one statement is removed and `false` otherwise.
+// checks.
 fn filter_backed_statements_from_disabled_validators<
 	T: shared::Config + scheduler::Config + inclusion::Config,
 >(
@@ -1160,19 +1170,14 @@ fn filter_backed_statements_from_disabled_validators<
 	>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	core_index_enabled: bool,
-) -> bool {
+) {
 	let disabled_validators =
 		BTreeSet::<_>::from_iter(shared::Pallet::<T>::disabled_validators().into_iter());
 
 	if disabled_validators.is_empty() {
 		// No disabled validators - nothing to do
-		return false
+		return
 	}
-
-	let backed_len_before = backed_candidates_with_core.len();
-
-	// Flag which will be returned. Set to `true` if at least one vote is filtered.
-	let mut filtered = false;
 
 	let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
 
@@ -1180,22 +1185,25 @@ fn filter_backed_statements_from_disabled_validators<
 	// the validator group assigned to the parachain. To obtain this group we need:
 	// 1. Core index assigned to the parachain which has produced the candidate
 	// 2. The relay chain block number of the candidate
-	filter_candidates_with_core::<T, _>(backed_candidates_with_core, |_, bc, core_idx| {
+	filter_candidates_with_core::<T, _>(backed_candidates_with_core, |para_id, bc, core_idx| {
 		let (validator_indices, maybe_core_index) =
 			bc.validator_indices_and_core_index(core_index_enabled);
 		let mut validator_indices = BitVec::<_>::from(validator_indices);
 
 		// Get relay parent block number of the candidate. We need this to get the group index
 		// assigned to this core at this block number
-		let relay_parent_block_number = match allowed_relay_parents
-			.acquire_info(bc.descriptor().relay_parent, None)
-		{
-			Some((_, block_num)) => block_num,
-			None => {
-				log::debug!(target: LOG_TARGET, "Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.", bc.descriptor().relay_parent);
-				return false
-			},
-		};
+		let relay_parent_block_number =
+			match allowed_relay_parents.acquire_info(bc.descriptor().relay_parent, None) {
+				Some((_, block_num)) => block_num,
+				None => {
+					log::debug!(
+						target: LOG_TARGET,
+						"Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.",
+						bc.descriptor().relay_parent
+					);
+					return false
+				},
+			};
 
 		// Get the group index for the core
 		let group_idx = match <scheduler::Pallet<T>>::group_assigned_to_core(
@@ -1235,25 +1243,24 @@ fn filter_backed_statements_from_disabled_validators<
 			bc.validity_votes_mut().remove(idx);
 		}
 
-		// If at least one statement was dropped we need to return `true`
-		if indices_to_drop.count_ones() > 0 {
-			filtered = true;
-		}
-
 		// By filtering votes we might render the candidate invalid and cause a failure in
 		// [`process_candidates`]. To avoid this we have to perform a sanity check here. If there
 		// are not enough backing votes after filtering we will remove the whole candidate.
 		if bc.validity_votes().len() <
 			effective_minimum_backing_votes(validator_group.len(), minimum_backing_votes)
 		{
+			log::debug!(
+				target: LOG_TARGET,
+				"Dropping candidate {:?} of paraid {:?} because it was left with too few backing votes after votes from disabled validators were filtered.",
+				bc.candidate().hash(),
+				para_id
+			);
+
 			return false
 		}
 
 		true
 	});
-
-	// Also return `true` if a whole candidate was dropped from the set
-	filtered || backed_len_before != backed_candidates_with_core.len()
 }
 
 // Check that candidates pertaining to the same para form a chain. Drop the ones that
@@ -1275,7 +1282,10 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 		};
 		// this cannot be None
 		let latest_head_data = match maybe_latest_head_data {
-			None => continue,
+			None => {
+				log::warn!(target: LOG_TARGET, "Latest included head data for paraid {:?} is None", para_id);
+				continue
+			},
 			Some(latest_head_data) => latest_head_data,
 		};
 		para_latest_head_data.insert(*para_id, latest_head_data);
@@ -1287,6 +1297,13 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 		let Some((relay_parent_storage_root, relay_parent_number)) =
 			allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent, None)
 		else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Relay parent {:?} for candidate {:?} is not in the allowed relay parents. Dropping the candidate.",
+				candidate.descriptor().relay_parent,
+				candidate.candidate().hash(),
+			);
+
 			return false
 		};
 
@@ -1304,6 +1321,12 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 
 			true
 		} else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Found backed candidates which don't form a chain for paraid {:?}. The order may also be wrong. Dropping the candidates.",
+				para_id
+			);
+
 			false
 		}
 	});
@@ -1374,12 +1397,27 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 							// the work for this para. the already processed candidate chain in
 							// temp_backed_candidates is still fine though.
 
+							log::debug!(
+								target: LOG_TARGET,
+								"Found a backed candidate {:?} with injected core index {}, which is not scheduled for paraid {:?}.",
+								candidate.candidate().hash(),
+								core_index.0,
+								candidate.descriptor().para_id
+							);
+
 							break;
 						}
 					} else {
 						// if we got a candidate which does not contain its core index, stop the
 						// work for this para. the already processed candidate chain in
 						// temp_backed_candidates is still fine though.
+
+						log::debug!(
+							target: LOG_TARGET,
+							"Found a backed candidate {:?} with no injected core index, for paraid {:?} which has mulitple scheduled cores.",
+							candidate.candidate().hash(),
+							candidate.descriptor().para_id
+						);
 
 						break;
 					}
@@ -1390,7 +1428,12 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 					.or_insert_with(|| vec![])
 					.extend(temp_backed_candidates);
 			} else {
-				// log
+				log::warn!(
+					target: LOG_TARGET,
+					"Found a paraid {:?} which has mulitple scheduled cores but ElasticScalingMVP feature is not enabled: {:?}",
+					para_id,
+					scheduled_cores
+				);
 			}
 		}
 	}
@@ -1417,7 +1460,7 @@ fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclus
 			None => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Relay parent {:?} for candidate {:?} is not in the allowed relay parents. Dropping the candidate.",
+					"Relay parent {:?} for candidate {:?} is not in the allowed relay parents.",
 					candidate.descriptor().relay_parent,
 					candidate.candidate().hash(),
 				);
@@ -1434,9 +1477,8 @@ fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclus
 		None => {
 			log::debug!(
 				target: LOG_TARGET,
-				"Can't get the group index for core idx {:?}. Dropping the candidate {:?}.",
+				"Can't get the group index for core idx {:?}.",
 				core_idx,
-				candidate.candidate().hash(),
 			);
 			return None
 		},
@@ -1450,6 +1492,14 @@ fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclus
 	if group_validators.len() == validator_indices.len() {
 		Some(core_idx)
 	} else {
+		log::debug!(
+			target: LOG_TARGET,
+			"Expected validator_indices count different than the real one: {}, {} for candidate {:?}",
+			group_validators.len(),
+			validator_indices.len(),
+			candidate.candidate().hash()
+		);
+
 		None
 	}
 }
