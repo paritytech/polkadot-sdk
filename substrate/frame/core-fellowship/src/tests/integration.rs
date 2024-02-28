@@ -35,7 +35,7 @@ type Class = Rank;
 use crate as pallet_core_fellowship;
 use crate::*;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -54,6 +54,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 parameter_types! {
@@ -84,7 +85,7 @@ pub struct TestPolls;
 impl Polling<TallyOf<Test>> for TestPolls {
 	type Index = u8;
 	type Votes = Votes;
-	type Moment = u64;
+	type Moment = u32;
 	type Class = Class;
 
 	fn classes() -> Vec<Self::Class> {

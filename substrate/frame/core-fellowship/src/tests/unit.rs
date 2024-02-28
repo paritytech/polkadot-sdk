@@ -32,7 +32,7 @@ use sp_runtime::{traits::TryMorphInto, BuildStorage, DispatchError, DispatchResu
 use crate as pallet_core_fellowship;
 use crate::*;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -50,6 +50,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 thread_local! {
@@ -139,7 +140,7 @@ fn next_block() {
 	System::set_block_number(System::block_number() + 1);
 }
 
-fn run_to(n: u64) {
+fn run_to(n: u32) {
 	while System::block_number() < n {
 		next_block();
 	}
@@ -149,7 +150,7 @@ fn signed(who: u64) -> RuntimeOrigin {
 	RuntimeOrigin::signed(who)
 }
 
-fn next_demotion(who: u64) -> u64 {
+fn next_demotion(who: u64) -> u32 {
 	let member = Member::<Test>::get(who).unwrap();
 	let demotion_period = Params::<Test>::get().demotion_period;
 	member.last_proof + demotion_period[TestClub::rank_of(&who).unwrap() as usize - 1]
