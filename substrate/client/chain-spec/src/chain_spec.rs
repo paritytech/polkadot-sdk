@@ -1237,15 +1237,7 @@ mod tests {
 			"TestName",
 			"test",
 			ChainType::Local,
-			move || substrate_test_runtime::RuntimeGenesisConfig {
-				babe: substrate_test_runtime::BabeConfig {
-					epoch_config: Some(
-						substrate_test_runtime::TEST_RUNTIME_BABE_EPOCH_CONFIGURATION,
-					),
-					..Default::default()
-				},
-				..Default::default()
-			},
+			|| Default::default(),
 			Vec::new(),
 			None,
 			None,
