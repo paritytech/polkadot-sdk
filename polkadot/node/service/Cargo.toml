@@ -185,8 +185,8 @@ full-node = [
 ]
 
 # Configure the native runtimes to use.
-westend-native = ["westend-runtime", "westend-runtime-constants", "bitvec"]
-rococo-native = ["rococo-runtime", "rococo-runtime-constants", "bitvec"]
+westend-native = ["bitvec", "westend-runtime", "westend-runtime-constants"]
+rococo-native = ["bitvec", "rococo-runtime", "rococo-runtime-constants"]
 
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
