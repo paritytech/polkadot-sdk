@@ -28,7 +28,7 @@ use sp_runtime::BuildStorage;
 use super::*;
 use crate as pallet_conviction_voting;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -51,6 +51,7 @@ impl Contains<RuntimeCall> for BaseFilter {
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl pallet_balances::Config for Test {
@@ -72,7 +73,7 @@ impl pallet_balances::Config for Test {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum TestPollState {
 	Ongoing(TallyOf<Test>, u8),
-	Completed(u64, bool),
+	Completed(u32, bool),
 }
 use TestPollState::*;
 
@@ -88,7 +89,7 @@ pub struct TestPolls;
 impl Polling<TallyOf<Test>> for TestPolls {
 	type Index = u8;
 	type Votes = u64;
-	type Moment = u64;
+	type Moment = u32;
 	type Class = u8;
 	fn classes() -> Vec<u8> {
 		vec![0, 1, 2]
@@ -104,7 +105,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	}
 	fn access_poll<R>(
 		index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, u64, u8>) -> R,
+		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, u32, u8>) -> R,
 	) -> R {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
@@ -119,7 +120,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	}
 	fn try_access_poll<R>(
 		index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, u64, u8>) -> Result<R, DispatchError>,
+		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, u32, u8>) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError> {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
@@ -159,7 +160,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
-	type VoteLockingPeriod = ConstU64<3>;
+	type VoteLockingPeriod = ConstU32<3>;
 	type MaxVotes = ConstU32<3>;
 	type WeightInfo = ();
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
@@ -191,7 +192,7 @@ fn next_block() {
 }
 
 #[allow(dead_code)]
-fn run_to(n: u64) {
+fn run_to(n: u32) {
 	while System::block_number() < n {
 		next_block();
 	}
