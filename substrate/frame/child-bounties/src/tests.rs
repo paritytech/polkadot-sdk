@@ -39,7 +39,7 @@ use sp_runtime::{
 
 use super::Event as ChildBountiesEvent;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 type BountiesError = pallet_bounties::Error<Test>;
 
 frame_support::construct_runtime!(
@@ -67,6 +67,7 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl pallet_balances::Config for Test {
@@ -102,7 +103,7 @@ impl pallet_treasury::Config for Test {
 	type ProposalBond = ProposalBond;
 	type ProposalBondMinimum = ConstU64<1>;
 	type ProposalBondMaximum = ();
-	type SpendPeriod = ConstU64<2>;
+	type SpendPeriod = ConstU32<2>;
 	type Burn = Burn;
 	type BurnDestination = ();
 	type WeightInfo = ();
@@ -114,7 +115,7 @@ impl pallet_treasury::Config for Test {
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 	type BalanceConverter = UnityAssetBalanceConversion;
-	type PayoutPeriod = ConstU64<10>;
+	type PayoutPeriod = ConstU32<10>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -128,8 +129,8 @@ parameter_types! {
 impl pallet_bounties::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
-	type BountyDepositPayoutDelay = ConstU64<3>;
-	type BountyUpdatePeriod = ConstU64<10>;
+	type BountyDepositPayoutDelay = ConstU32<3>;
+	type BountyUpdatePeriod = ConstU32<10>;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
@@ -208,7 +209,7 @@ fn add_child_bounty() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		let fee = 8;
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, fee));
@@ -301,7 +302,7 @@ fn child_bounty_assign_curator() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		let fee = 4;
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, fee));
@@ -410,7 +411,7 @@ fn award_claim_child_bounty() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 6));
 		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
@@ -501,7 +502,7 @@ fn close_child_bounty_added() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 6));
 
@@ -558,7 +559,7 @@ fn close_child_bounty_active() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 6));
 
@@ -616,7 +617,7 @@ fn close_child_bounty_pending() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		let parent_fee = 6;
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, parent_fee));
@@ -677,7 +678,7 @@ fn child_bounty_added_unassign_curator() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 6));
 
@@ -719,7 +720,7 @@ fn child_bounty_curator_proposed_unassign_curator() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 6));
 
@@ -796,7 +797,7 @@ fn child_bounty_active_unassign_curator() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 6));
 		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
@@ -811,7 +812,7 @@ fn child_bounty_active_unassign_curator() {
 		assert_eq!(last_event(), ChildBountiesEvent::Added { index: 0, child_index: 0 });
 
 		System::set_block_number(3);
-		<Treasury as OnInitialize<u64>>::on_initialize(3);
+		<Treasury as OnInitialize<u32>>::on_initialize(3);
 
 		// Propose and accept curator for child-bounty.
 		let fee = 6;
@@ -831,7 +832,7 @@ fn child_bounty_active_unassign_curator() {
 		);
 
 		System::set_block_number(4);
-		<Treasury as OnInitialize<u64>>::on_initialize(4);
+		<Treasury as OnInitialize<u32>>::on_initialize(4);
 
 		// Unassign curator - from reject origin.
 		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::root(), 0, 0));
@@ -870,7 +871,7 @@ fn child_bounty_active_unassign_curator() {
 		);
 
 		System::set_block_number(5);
-		<Treasury as OnInitialize<u64>>::on_initialize(5);
+		<Treasury as OnInitialize<u32>>::on_initialize(5);
 
 		// Unassign curator again - from parent curator.
 		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed(4), 0, 0));
@@ -907,7 +908,7 @@ fn child_bounty_active_unassign_curator() {
 		);
 
 		System::set_block_number(6);
-		<Treasury as OnInitialize<u64>>::on_initialize(6);
+		<Treasury as OnInitialize<u32>>::on_initialize(6);
 
 		// Unassign curator again - from child-bounty curator.
 		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed(6), 0, 0));
@@ -946,7 +947,7 @@ fn child_bounty_active_unassign_curator() {
 		);
 
 		System::set_block_number(7);
-		<Treasury as OnInitialize<u64>>::on_initialize(7);
+		<Treasury as OnInitialize<u32>>::on_initialize(7);
 
 		// Unassign curator again - from non curator; non reject origin; some random guy.
 		// Bounty update period is not yet complete.
@@ -956,7 +957,7 @@ fn child_bounty_active_unassign_curator() {
 		);
 
 		System::set_block_number(20);
-		<Treasury as OnInitialize<u64>>::on_initialize(20);
+		<Treasury as OnInitialize<u32>>::on_initialize(20);
 
 		// Unassign child curator from random account after inactivity.
 		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed(3), 0, 0));
@@ -1001,7 +1002,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 6));
 		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
@@ -1016,7 +1017,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		assert_eq!(last_event(), ChildBountiesEvent::Added { index: 0, child_index: 0 });
 
 		System::set_block_number(3);
-		<Treasury as OnInitialize<u64>>::on_initialize(3);
+		<Treasury as OnInitialize<u32>>::on_initialize(3);
 
 		// Propose and accept curator for child-bounty.
 		let fee = 8;
@@ -1036,13 +1037,13 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		);
 
 		System::set_block_number(4);
-		<Treasury as OnInitialize<u64>>::on_initialize(4);
+		<Treasury as OnInitialize<u32>>::on_initialize(4);
 
 		// Unassign parent bounty curator.
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(5);
-		<Treasury as OnInitialize<u64>>::on_initialize(5);
+		<Treasury as OnInitialize<u32>>::on_initialize(5);
 
 		// Try unassign child-bounty curator - from non curator; non reject
 		// origin; some random guy. Bounty update period is not yet complete.
@@ -1071,14 +1072,14 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		assert_eq!(Balances::reserved_balance(8), 0); // slashed
 
 		System::set_block_number(6);
-		<Treasury as OnInitialize<u64>>::on_initialize(6);
+		<Treasury as OnInitialize<u32>>::on_initialize(6);
 
 		// Propose and accept curator for parent-bounty again.
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 5, 6));
 		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(5), 0));
 
 		System::set_block_number(7);
-		<Treasury as OnInitialize<u64>>::on_initialize(7);
+		<Treasury as OnInitialize<u32>>::on_initialize(7);
 
 		// Propose and accept curator for child-bounty again.
 		let fee = 2;
@@ -1098,7 +1099,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		);
 
 		System::set_block_number(8);
-		<Treasury as OnInitialize<u64>>::on_initialize(8);
+		<Treasury as OnInitialize<u32>>::on_initialize(8);
 
 		assert_noop!(
 			ChildBounties::unassign_curator(RuntimeOrigin::signed(3), 0, 0),
@@ -1109,7 +1110,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::signed(5), 0));
 
 		System::set_block_number(9);
-		<Treasury as OnInitialize<u64>>::on_initialize(9);
+		<Treasury as OnInitialize<u32>>::on_initialize(9);
 
 		// Unassign curator again - from parent curator.
 		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed(7), 0, 0));
@@ -1156,7 +1157,7 @@ fn close_parent_with_child_bounty() {
 		);
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 6));
 		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
@@ -1171,7 +1172,7 @@ fn close_parent_with_child_bounty() {
 		assert_eq!(last_event(), ChildBountiesEvent::Added { index: 0, child_index: 0 });
 
 		System::set_block_number(4);
-		<Treasury as OnInitialize<u64>>::on_initialize(4);
+		<Treasury as OnInitialize<u32>>::on_initialize(4);
 
 		// Try close parent-bounty.
 		// Child bounty active, can't close parent.
@@ -1213,7 +1214,7 @@ fn children_curator_fee_calculation_test() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 6));
 		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
@@ -1228,7 +1229,7 @@ fn children_curator_fee_calculation_test() {
 		assert_eq!(last_event(), ChildBountiesEvent::Added { index: 0, child_index: 0 });
 
 		System::set_block_number(4);
-		<Treasury as OnInitialize<u64>>::on_initialize(4);
+		<Treasury as OnInitialize<u32>>::on_initialize(4);
 
 		let fee = 6;
 
@@ -1306,7 +1307,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), parent_index));
 
 		System::set_block_number(2);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 
 		assert_ok!(Bounties::propose_curator(
 			RuntimeOrigin::root(),
@@ -1333,7 +1334,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 			b"12345-p1".to_vec()
 		));
 		System::set_block_number(3);
-		<Treasury as OnInitialize<u64>>::on_initialize(3);
+		<Treasury as OnInitialize<u32>>::on_initialize(3);
 		assert_ok!(ChildBounties::propose_curator(
 			RuntimeOrigin::signed(parent_curator),
 			parent_index,
@@ -1368,7 +1369,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 			b"12345-p1".to_vec()
 		));
 		System::set_block_number(4);
-		<Treasury as OnInitialize<u64>>::on_initialize(4);
+		<Treasury as OnInitialize<u32>>::on_initialize(4);
 		assert_ok!(ChildBounties::propose_curator(
 			RuntimeOrigin::signed(parent_curator),
 			parent_index,
@@ -1401,7 +1402,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 			b"12345-p1".to_vec()
 		));
 		System::set_block_number(5);
-		<Treasury as OnInitialize<u64>>::on_initialize(5);
+		<Treasury as OnInitialize<u32>>::on_initialize(5);
 		assert_ok!(ChildBounties::propose_curator(
 			RuntimeOrigin::signed(parent_curator),
 			parent_index,
@@ -1437,7 +1438,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 			b"12345-p1".to_vec()
 		));
 		System::set_block_number(5);
-		<Treasury as OnInitialize<u64>>::on_initialize(5);
+		<Treasury as OnInitialize<u32>>::on_initialize(5);
 		assert_ok!(ChildBounties::propose_curator(
 			RuntimeOrigin::signed(parent_curator),
 			parent_index,
