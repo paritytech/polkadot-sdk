@@ -438,7 +438,7 @@ pub async fn start_rococo_parachain_node(
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
 		para_id,
-		polkadot_parachain_build_rpc_extensions::<FakeRuntimeApi>,
+		build_parachain_rpc_extensions::<FakeRuntimeApi>,
 		build_aura_import_queue,
 		start_lookahead_aura_consensus,
 		hwbench,
@@ -464,7 +464,7 @@ pub fn build_shell_import_queue(
 	.map_err(Into::into)
 }
 
-fn polkadot_parachain_build_rpc_extensions<RuntimeApi>(
+fn build_parachain_rpc_extensions<RuntimeApi>(
 	deny_unsafe: sc_rpc::DenyUnsafe,
 	client: Arc<ParachainClient<RuntimeApi>>,
 	backend: Arc<ParachainBackend>,
@@ -482,7 +482,7 @@ where
 	rpc::create_full(deps, backend).map_err(Into::into)
 }
 
-fn contracts_build_rpc_extensions(
+fn build_contracts_rpc_extensions(
 	deny_unsafe: sc_rpc::DenyUnsafe,
 	client: Arc<ParachainClient<FakeRuntimeApi>>,
 	_backend: Arc<ParachainBackend>,
@@ -509,73 +509,7 @@ pub async fn start_shell_node(
 		para_id,
 		|_, _, _, _| Ok(RpcModule::new(())),
 		build_shell_import_queue,
-		|client,
-		 block_import,
-		 prometheus_registry,
-		 telemetry,
-		 task_manager,
-		 relay_chain_interface,
-		 transaction_pool,
-		 _sync_oracle,
-		 _keystore,
-		 _relay_chain_slot_duration,
-		 para_id,
-		 collator_key,
-		 overseer_handle,
-		 announce_block,
-		 _backend| {
-			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				task_manager.spawn_handle(),
-				client.clone(),
-				transaction_pool,
-				prometheus_registry,
-				telemetry,
-			);
-
-			let free_for_all = cumulus_client_consensus_relay_chain::build_relay_chain_consensus(
-				cumulus_client_consensus_relay_chain::BuildRelayChainConsensusParams {
-					para_id,
-					proposer_factory,
-					block_import,
-					relay_chain_interface: relay_chain_interface.clone(),
-					create_inherent_data_providers: move |_, (relay_parent, validation_data)| {
-						let relay_chain_interface = relay_chain_interface.clone();
-						async move {
-							let parachain_inherent =
-							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
-								relay_parent,
-								&relay_chain_interface,
-								&validation_data,
-								para_id,
-							).await;
-							let parachain_inherent = parachain_inherent.ok_or_else(|| {
-								Box::<dyn std::error::Error + Send + Sync>::from(
-									"Failed to create parachain inherent",
-								)
-							})?;
-							Ok(parachain_inherent)
-						}
-					},
-				},
-			);
-
-			let spawner = task_manager.spawn_handle();
-
-			// Required for free-for-all consensus
-			#[allow(deprecated)]
-			old_consensus::start_collator_sync(old_consensus::StartCollatorParams {
-				para_id,
-				block_status: client.clone(),
-				announce_block,
-				overseer_handle,
-				spawner,
-				key: collator_key,
-				parachain_consensus: free_for_all,
-				runtime_api: client.clone(),
-			});
-
-			Ok(())
-		},
+		start_relay_chain_consensus,
 		hwbench,
 	)
 	.await
@@ -763,7 +697,7 @@ pub async fn start_generic_aura_node(
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
 		para_id,
-		polkadot_parachain_build_rpc_extensions::<FakeRuntimeApi>,
+		build_parachain_rpc_extensions::<FakeRuntimeApi>,
 		build_relay_to_aura_import_queue::<_, AuraId>,
 		|client,
 		 block_import,
@@ -844,7 +778,7 @@ pub async fn start_generic_aura_lookahead_node(
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
 		para_id,
-		polkadot_parachain_build_rpc_extensions::<FakeRuntimeApi>,
+		build_parachain_rpc_extensions::<FakeRuntimeApi>,
 		build_relay_to_aura_import_queue::<_, AuraId>,
 		start_lookahead_aura_consensus,
 		hwbench,
@@ -883,7 +817,7 @@ where
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
 		para_id,
-		polkadot_parachain_build_rpc_extensions::<RuntimeApi>,
+		build_parachain_rpc_extensions::<RuntimeApi>,
 		build_relay_to_aura_import_queue::<_, AuraId>,
 		|client,
 		 block_import,
@@ -1032,7 +966,7 @@ where
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
 		para_id,
-		polkadot_parachain_build_rpc_extensions::<RuntimeApi>,
+		build_parachain_rpc_extensions::<RuntimeApi>,
 		build_relay_to_aura_import_queue::<_, AuraId>,
 		|client,
 		 block_import,
@@ -1141,6 +1075,78 @@ where
 	.await
 }
 
+/// Start relay-chain consensus that is free for all.
+/// Everyone can submit a block, the relay-chain decides
+/// what is backed and included.
+fn start_relay_chain_consensus(
+	client: Arc<ParachainClient<FakeRuntimeApi>>,
+	block_import: ParachainBlockImport<FakeRuntimeApi>,
+	prometheus_registry: Option<&Registry>,
+	telemetry: Option<TelemetryHandle>,
+	task_manager: &TaskManager,
+	relay_chain_interface: Arc<dyn RelayChainInterface>,
+	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
+	sync_oracle: Arc<SyncingService<Block>>,
+	keystore: KeystorePtr,
+	relay_chain_slot_duration: Duration,
+	para_id: ParaId,
+	collator_key: CollatorPair,
+	overseer_handle: OverseerHandle,
+	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+	backend: Arc<ParachainBackend>,
+) -> Result<(), sc_service::Error> {
+	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		task_manager.spawn_handle(),
+		client.clone(),
+		transaction_pool,
+		prometheus_registry,
+		telemetry,
+	);
+
+	let free_for_all = cumulus_client_consensus_relay_chain::build_relay_chain_consensus(
+		cumulus_client_consensus_relay_chain::BuildRelayChainConsensusParams {
+			para_id,
+			proposer_factory,
+			block_import,
+			relay_chain_interface: relay_chain_interface.clone(),
+			create_inherent_data_providers: move |_, (relay_parent, validation_data)| {
+				let relay_chain_interface = relay_chain_interface.clone();
+				async move {
+					let parachain_inherent =
+							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
+								relay_parent,
+								&relay_chain_interface,
+								&validation_data,
+								para_id,
+							).await;
+					let parachain_inherent = parachain_inherent.ok_or_else(|| {
+						Box::<dyn std::error::Error + Send + Sync>::from(
+							"Failed to create parachain inherent",
+						)
+					})?;
+					Ok(parachain_inherent)
+				}
+			},
+		},
+	);
+
+	let spawner = task_manager.spawn_handle();
+
+	// Required for free-for-all consensus
+	#[allow(deprecated)]
+	old_consensus::start_collator_sync(old_consensus::StartCollatorParams {
+		para_id,
+		block_status: client.clone(),
+		announce_block,
+		overseer_handle,
+		spawner,
+		key: collator_key,
+		parachain_consensus: free_for_all,
+		runtime_api: client.clone(),
+	});
+
+	Ok(())
+}
 /// Start consensus using the lookahead aura collator.
 fn start_lookahead_aura_consensus(
 	client: Arc<ParachainClient<FakeRuntimeApi>>,
@@ -1239,7 +1245,7 @@ pub async fn start_contracts_rococo_node(
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
 		para_id,
-		contracts_build_rpc_extensions,
+		build_contracts_rpc_extensions,
 		build_aura_import_queue,
 		start_lookahead_aura_consensus,
 		hwbench,
