@@ -338,6 +338,8 @@ map.</p>
 <li><a href="attr.getter.html" title="attr frame_support::pallet_macros::getter"><code>getter</code></a>: Creates a custom getter function.</li>
 <li><a href="attr.storage_prefix.html" title="attr frame_support::pallet_macros::storage_prefix"><code>storage_prefix</code></a>: Overrides the default prefix of the storage item.</li>
 <li><a href="attr.unbounded.html" title="attr frame_support::pallet_macros::unbounded"><code>unbounded</code></a>: Declares the storage item as unbounded.</li>
+<li><a href="attr.disable_try_decode_storage.html" title="attr frame_support::pallet_macros::disable_try_decode_storage"><code>disable_try_decode_storage</code></a>: Declares that try-runtime checks should not
+attempt to decode the storage item.</li>
 </ul>
 <h5 id="example-5"><a href="#example-5">Example</a></h5>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[frame_support::pallet]
@@ -347,6 +349,7 @@ map.</p>
 	#[pallet::getter(<span class="kw">fn </span>foo)]
 	#[pallet::storage_prefix = <span class="string">&quot;OtherFoo&quot;</span>]
 	#[pallet::unbounded]
+	#[pallet::disable_try_decode_storage]
     </span><span class="kw">pub type </span>Foo&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 }</code></pre></div>
 <hr />

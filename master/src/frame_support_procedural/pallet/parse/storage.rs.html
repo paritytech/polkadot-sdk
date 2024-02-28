@@ -1067,6 +1067,26 @@ nav.side-bar {
 <a href="#925" id="925">925</a>
 <a href="#926" id="926">926</a>
 <a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1098,6 +1118,7 @@ nav.side-bar {
 	<span class="macro">syn::custom_keyword!</span>(storage_prefix);
 	<span class="macro">syn::custom_keyword!</span>(unbounded);
 	<span class="macro">syn::custom_keyword!</span>(whitelist_storage);
+	<span class="macro">syn::custom_keyword!</span>(disable_try_decode_storage);
 	<span class="macro">syn::custom_keyword!</span>(OptionQuery);
 	<span class="macro">syn::custom_keyword!</span>(ResultQuery);
 	<span class="macro">syn::custom_keyword!</span>(ValueQuery);
@@ -1108,11 +1129,13 @@ nav.side-bar {
 /// * `#[pallet::storage_prefix = &quot;CustomName&quot;]`
 /// * `#[pallet::unbounded]`
 /// * `#[pallet::whitelist_storage]
+/// * `#[pallet::disable_try_decode_storage]`
 </span><span class="kw">pub enum </span>PalletStorageAttr {
 	Getter(syn::Ident, proc_macro2::Span),
 	StorageName(syn::LitStr, proc_macro2::Span),
 	Unbounded(proc_macro2::Span),
 	WhitelistStorage(proc_macro2::Span),
+	DisableTryDecodeStorage(proc_macro2::Span),
 }
 
 <span class="kw">impl </span>PalletStorageAttr {
@@ -1122,6 +1145,7 @@ nav.side-bar {
 			<span class="self">Self</span>::StorageName(<span class="kw">_</span>, span) |
 			<span class="self">Self</span>::Unbounded(span) |
 			<span class="self">Self</span>::WhitelistStorage(span) =&gt; <span class="kw-2">*</span>span,
+			<span class="self">Self</span>::DisableTryDecodeStorage(span) =&gt; <span class="kw-2">*</span>span,
 		}
 	}
 }
@@ -1162,6 +1186,9 @@ nav.side-bar {
 		} <span class="kw">else if </span>lookahead.peek(keyword::whitelist_storage) {
 			content.parse::&lt;keyword::whitelist_storage&gt;()<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(<span class="self">Self</span>::WhitelistStorage(attr_span))
+		} <span class="kw">else if </span>lookahead.peek(keyword::disable_try_decode_storage) {
+			content.parse::&lt;keyword::disable_try_decode_storage&gt;()<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(<span class="self">Self</span>::DisableTryDecodeStorage(attr_span))
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Err</span>(lookahead.error())
 		}
@@ -1173,6 +1200,7 @@ nav.side-bar {
 	rename_as: <span class="prelude-ty">Option</span>&lt;syn::LitStr&gt;,
 	unbounded: bool,
 	whitelisted: bool,
+	try_decode: bool,
 }
 
 <span class="kw">impl </span>PalletStorageAttrInfo {
@@ -1181,6 +1209,7 @@ nav.side-bar {
 		<span class="kw">let </span><span class="kw-2">mut </span>rename_as = <span class="prelude-val">None</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>unbounded = <span class="bool-val">false</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>whitelisted = <span class="bool-val">false</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>disable_try_decode_storage = <span class="bool-val">false</span>;
 		<span class="kw">for </span>attr <span class="kw">in </span>attrs {
 			<span class="kw">match </span>attr {
 				PalletStorageAttr::Getter(ident, ..) <span class="kw">if </span>getter.is_none() =&gt; getter = <span class="prelude-val">Some</span>(ident),
@@ -1188,6 +1217,8 @@ nav.side-bar {
 					rename_as = <span class="prelude-val">Some</span>(name),
 				PalletStorageAttr::Unbounded(..) <span class="kw">if </span>!unbounded =&gt; unbounded = <span class="bool-val">true</span>,
 				PalletStorageAttr::WhitelistStorage(..) <span class="kw">if </span>!whitelisted =&gt; whitelisted = <span class="bool-val">true</span>,
+				PalletStorageAttr::DisableTryDecodeStorage(..) <span class="kw">if </span>!disable_try_decode_storage =&gt;
+					disable_try_decode_storage = <span class="bool-val">true</span>,
 				attr =&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 						attr.attr_span(),
@@ -1196,7 +1227,13 @@ nav.side-bar {
 			}
 		}
 
-		<span class="prelude-val">Ok</span>(PalletStorageAttrInfo { getter, rename_as, unbounded, whitelisted })
+		<span class="prelude-val">Ok</span>(PalletStorageAttrInfo {
+			getter,
+			rename_as,
+			unbounded,
+			whitelisted,
+			try_decode: !disable_try_decode_storage,
+		})
 	}
 }
 
@@ -1255,6 +1292,8 @@ nav.side-bar {
 	</span><span class="kw">pub </span>unbounded: bool,
 	<span class="doccomment">/// Whether or not reads to this storage key will be ignored by benchmarking
 	</span><span class="kw">pub </span>whitelisted: bool,
+	<span class="doccomment">/// Whether or not to try to decode the storage key when running try-runtime checks.
+	</span><span class="kw">pub </span>try_decode: bool,
 	<span class="doccomment">/// Whether or not a default hasher is allowed to replace `_`
 	</span><span class="kw">pub </span>use_default_hasher: bool,
 }
@@ -1844,7 +1883,7 @@ nav.side-bar {
 		};
 
 		<span class="kw">let </span>attrs: Vec&lt;PalletStorageAttr&gt; = helper::take_item_pallet_attrs(<span class="kw-2">&amp;mut </span>item.attrs)<span class="question-mark">?</span>;
-		<span class="kw">let </span>PalletStorageAttrInfo { getter, rename_as, <span class="kw-2">mut </span>unbounded, whitelisted } =
+		<span class="kw">let </span>PalletStorageAttrInfo { getter, rename_as, <span class="kw-2">mut </span>unbounded, whitelisted, try_decode } =
 			PalletStorageAttrInfo::from_attrs(attrs)<span class="question-mark">?</span>;
 
 		<span class="comment">// set all storages to be unbounded if dev_mode is enabled
@@ -1990,6 +2029,7 @@ nav.side-bar {
 			named_generics,
 			unbounded,
 			whitelisted,
+			try_decode,
 			use_default_hasher,
 		})
 	}

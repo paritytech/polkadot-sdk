@@ -1903,6 +1903,7 @@ nav.side-bar {
 <a href="#1761" id="1761">1761</a>
 <a href="#1762" id="1762">1762</a>
 <a href="#1763" id="1763">1763</a>
+<a href="#1764" id="1764">1764</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2745,6 +2746,7 @@ nav.side-bar {
 	///
 	/// This data is also absent from the genesis.
 	</span><span class="attr">#[pallet::storage]
+	#[pallet::disable_try_decode_storage]
 	#[pallet::getter(<span class="kw">fn </span>host_configuration)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>HostConfiguration&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, AbridgedHostConfiguration&gt;;
 

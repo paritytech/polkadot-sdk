@@ -183,6 +183,7 @@ order in which they are mentioned in this document:</p>
 <li><a href="#palletstorage_prefix--somename-optional"><code>pallet::storage_prefix = &quot;SomeName&quot;</code></a></li>
 <li><a href="#palletunbounded-optional"><code>pallet::unbounded</code></a></li>
 <li><a href="#palletwhitelist_storage-optional"><code>pallet::whitelist_storage</code></a></li>
+<li><a href="#palletdisable_try_decode_storage-optional"><code>pallet::disable_try_decode_storage</code></a></li>
 <li><a href="#cfg-for-storage"><code>cfg(..)</code></a> (on storage items)</li>
 <li><a href="#type-value-pallettype_value-optional"><code>pallet::type_value</code></a></li>
 <li><a href="#genesis-config-palletgenesis_config-optional"><code>pallet::genesis_config</code></a></li>
@@ -560,6 +561,12 @@ can be useful for storage which can never go into PoV (Proof of Validity).</p>
 whitelisted from benchmarking.</p>
 <p>See
 <a href="pallet_macros/attr.whitelist_storage.html" title="attr frame_support::pallet_macros::whitelist_storage"><code>pallet::whitelist_storage</code></a>
+for more info.</p>
+<h3 id="palletdisable_try_decode_storage-optional"><a href="#palletdisable_try_decode_storage-optional"><code>#[pallet::disable_try_decode_storage]</code> (optional)</a></h3>
+<p>The optional attribute <code>#[pallet::disable_try_decode_storage]</code> will declare the storage as
+whitelisted state decoding during try-runtime logic.</p>
+<p>See
+<a href="pallet_macros/attr.disable_try_decode_storage.html" title="attr frame_support::pallet_macros::disable_try_decode_storage"><code>pallet::disable_try_decode_storage</code></a>
 for more info.</p>
 <h3 id="cfg-for-storage"><a href="#cfg-for-storage"><code>#[cfg(..)]</code> (for storage)</a></h3>
 <p>The optional attributes <code>#[cfg(..)]</code> allow conditional compilation for the storage.</p>

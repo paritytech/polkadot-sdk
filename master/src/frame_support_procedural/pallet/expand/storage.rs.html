@@ -1056,6 +1056,9 @@ nav.side-bar {
 <a href="#914" id="914">914</a>
 <a href="#915" id="915">915</a>
 <a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1892,7 +1895,10 @@ nav.side-bar {
 			.storages
 			.iter()
 			.filter_map(|storage| {
-				<span class="kw">if </span>storage.cfg_attrs.is_empty() {
+				<span class="comment">// A little hacky; don&#39;t generate for cfg gated storages to not get compile errors
+				// when building &quot;frame-feature-testing&quot; gated storages in the &quot;frame-support-test&quot;
+				// crate.
+				</span><span class="kw">if </span>storage.try_decode &amp;&amp; storage.cfg_attrs.is_empty() {
 					<span class="kw">let </span>ident = <span class="kw-2">&amp;</span>storage.ident;
 					<span class="kw">let </span>gen = <span class="kw-2">&amp;</span>def.type_use_generics(storage.attr_span);
 					<span class="prelude-val">Some</span>(<span class="macro">quote::quote_spanned!</span>(storage.attr_span =&gt; #ident&lt;#gen&gt; ))

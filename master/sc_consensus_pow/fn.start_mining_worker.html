@@ -153,7 +153,7 @@ nav.side-bar {
     timeout: <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>,
     build_time: <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>
 ) -&gt; (<a class="struct" href="struct.MiningHandle.html" title="struct sc_consensus_pow::MiningHandle">MiningHandle</a>&lt;Block, Algorithm, L, &lt;E::Proposer as Proposer&lt;Block&gt;&gt;::Proof&gt;, impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;)<span class="where fmt-newline">where
-    Block: BlockT,
+    Block: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,
     C: BlockchainEvents&lt;Block&gt; + 'static,
     S: SelectChain&lt;Block&gt; + 'static,
     Algorithm: <a class="trait" href="trait.PowAlgorithm.html" title="trait sc_consensus_pow::PowAlgorithm">PowAlgorithm</a>&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,
