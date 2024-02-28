@@ -1871,63 +1871,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::Currency::remove_lock(crate::STAKING_ID, who)
 	}
 
-	fn is_delegatee(_who: &Self::AccountId) -> bool {
-		defensive!("is_delegatee is not supported");
-		false
-	}
-
-	fn delegatee_balance(_who: &Self::AccountId) -> Self::Balance {
-		defensive!("delegatee_balance is not supported");
-		BalanceOf::<T>::zero()
-	}
-
-	/// Delegate funds to `Delegatee`.
-	fn delegate(
-		_who: &Self::AccountId,
-		_delegatee: &Self::AccountId,
-		_reward_account: &Self::AccountId,
-		_amount: Self::Balance,
-	) -> DispatchResult {
-		Err(DispatchError::Other("delegate is not supported"))
-	}
-
-	/// Add more delegation to the pool account.
-	fn delegate_extra(
-		_who: &Self::AccountId,
-		_delegatee: &Self::AccountId,
-		_amount: Self::Balance,
-	) -> DispatchResult {
-		Err(DispatchError::Other("delegate_extra is not supported"))
-	}
-
-	/// Withdraw delegation from pool account to self.
-	fn withdraw_delegation(
-		_who: &Self::AccountId,
-		_delegatee: &Self::AccountId,
-		_amount: Self::Balance,
-	) -> DispatchResult {
-		Err(DispatchError::Other("withdraw_delegation is not supported"))
-	}
-
-	/// Does the delegatee have any pending slash.
-	fn has_pending_slash(_delegatee: &Self::AccountId) -> bool {
-		// slashing is greedy, so no pending slash.
-		false
-	}
-
-	fn delegator_slash(
-		_delegatee: &Self::AccountId,
-		_delegator: &Self::AccountId,
-		_value: Self::Balance,
-		_maybe_reporter: Option<Self::AccountId>,
-	) -> sp_runtime::DispatchResult {
-		Err(DispatchError::Other("delegator_slash is not supported"))
-	}
-
-	fn delegated_balance(_delegator: &Self::AccountId) -> Self::Balance {
-		defensive!("delegated_balance is not supported");
-		BalanceOf::<T>::zero()
-	}
 }
 
 /// Standard implementation of `DelegateeSupport` that supports only direct staking and no

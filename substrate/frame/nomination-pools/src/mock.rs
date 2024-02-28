@@ -228,61 +228,6 @@ impl sp_staking::StakingInterface for StakingMock {
 	fn unsafe_release_all(_who: &Self::AccountId) {
 		unimplemented!("method currently not used in testing")
 	}
-
-	fn is_delegatee(_who: &Self::AccountId) -> bool {
-		unimplemented!("method currently not used in testing")
-	}
-
-	/// Effective balance of the delegatee account.
-	fn delegatee_balance(_who: &Self::AccountId) -> Self::Balance {
-		unimplemented!("method currently not used in testing")
-	}
-
-	/// Delegate funds to `Delegatee`.
-	fn delegate(
-		_who: &Self::AccountId,
-		_delegatee: &Self::AccountId,
-		_reward_account: &Self::AccountId,
-		_amount: Self::Balance,
-	) -> DispatchResult {
-		unimplemented!("method currently not used in testing")
-	}
-
-	/// Add more delegation to the pool account.
-	fn delegate_extra(
-		_who: &Self::AccountId,
-		_delegatee: &Self::AccountId,
-		_amount: Self::Balance,
-	) -> DispatchResult {
-		unimplemented!("method currently not used in testing")
-	}
-
-	/// Withdraw delegation from pool account to self.
-	fn withdraw_delegation(
-		_who: &Self::AccountId,
-		_delegatee: &Self::AccountId,
-		_amount: Self::Balance,
-	) -> DispatchResult {
-		unimplemented!("method currently not used in testing")
-	}
-
-	/// Does the delegatee have any pending slash.
-	fn has_pending_slash(_delegatee: &Self::AccountId) -> bool {
-		false
-	}
-
-	fn delegator_slash(
-		_delegatee: &Self::AccountId,
-		_delegator: &Self::AccountId,
-		_value: Self::Balance,
-		_maybe_reporter: Option<Self::AccountId>,
-	) -> sp_runtime::DispatchResult {
-		unimplemented!("method currently not used in testing")
-	}
-
-	fn delegated_balance(_delegator: &Self::AccountId) -> Self::Balance {
-		unimplemented!("method currently not used in testing")
-	}
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]

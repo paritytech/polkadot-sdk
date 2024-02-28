@@ -15,9 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use sp_staking::delegation::DelegatedStakeInterface;
 use crate::*;
-
-
 
 /// An adapter trait that can support multiple staking strategies.
 ///
@@ -194,9 +193,9 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 /// In this approach, first the funds are delegated from delegator to the pool account and later
 /// staked with `Staking`. The advantage of this approach is that the funds are held in the
 /// use account itself and not in the pool account.
-pub struct DelegateStake<T: Config, Staking: StakingInterface>(PhantomData<(T, Staking)>);
+pub struct DelegateStake<T: Config, Staking: DelegatedStakeInterface>(PhantomData<(T, Staking)>);
 
-impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
+impl<T: Config, Staking: DelegatedStakeInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
 	StakeStrategy for DelegateStake<T, Staking>
 {
 	type Balance = BalanceOf<T>;
