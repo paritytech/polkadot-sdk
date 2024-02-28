@@ -1847,6 +1847,7 @@ impl<T: Config> Pallet<T> {
 	/// Invariants:
 	/// * A bonded ledger should always have an assigned `Payee`.
 	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
+	/// * The stash account in the ledger must match that of the bonded acount.
 	fn check_payees() -> Result<(), TryRuntimeError> {
 		for (stash, _) in Bonded::<T>::iter() {
 			ensure!(Payee::<T>::get(&stash).is_some(), "bonded ledger does not have payee set");
@@ -1861,6 +1862,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Invariants:
+	/// * Number of voters in `VoterList` match that of the number of Nominators and Validators in
+	/// the system (validator is both voter and target).
+	/// * Number of targets in `TargetList` matches the number of validators in the system.
+	/// * Current validator count is bounded by the election provider's max winners.
 	fn check_count() -> Result<(), TryRuntimeError> {
 		ensure!(
 			<T as Config>::VoterList::count() ==
@@ -1879,6 +1885,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Invariants:
+	/// * `ledger.controller` is not stored in the storage (but populated at retrieval).
+	/// * Stake consistency: ledger.total == ledger.active + sum(ledger.unlocking).
+	/// * The controller keyeing the ledger and the ledger stash matches the state of the `Bonded`
+	/// storage.
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
 		Bonded::<T>::iter()
 			.map(|(stash, ctrl)| {
@@ -1896,8 +1907,10 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Invariants:
+	/// * For each era exposed validator, check if the exposure total is sane (exposure.total  =
+	/// exposure.own + exposure.own).
 	fn check_exposures() -> Result<(), TryRuntimeError> {
-		// a check per validator to ensure the exposure struct is always sane.
 		let era = Self::active_era().unwrap().index;
 		ErasStakers::<T>::iter_prefix_values(era)
 			.map(|expo| {
@@ -1915,6 +1928,10 @@ impl<T: Config> Pallet<T> {
 			.collect::<Result<(), TryRuntimeError>>()
 	}
 
+	/// Invariants:
+	/// * For each paged era exposed validator, check if the exposure total is sane (exposure.total
+	/// = exposure.own + exposure.own).
+	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
 		use sp_staking::PagedExposureMetadata;
 		use sp_std::collections::btree_map::BTreeMap;
@@ -1979,6 +1996,8 @@ impl<T: Config> Pallet<T> {
 			.collect::<Result<(), TryRuntimeError>>()
 	}
 
+	/// Invariants:
+	/// * Checks that each nominator has its entire stake correctly distributed.
 	fn check_nominators() -> Result<(), TryRuntimeError> {
 		// a check per nominator to ensure their entire stake is correctly distributed. Will only
 		// kick-in if the nomination was submitted before the current era.
@@ -2048,6 +2067,22 @@ impl<T: Config> Pallet<T> {
 		let real_total: BalanceOf<T> =
 			ledger.unlocking.iter().fold(ledger.active, |a, c| a + c.value);
 		ensure!(real_total == ledger.total, "ledger.total corrupt");
+
+		// bonded stash matches the (generated) controller in the staking ledger.
+		if let Some(controller) = Bonded::<T>::get(ledger.stash.clone()) {
+			if ledger.controller != Some(controller.clone()) {
+				log!(
+                    warn,
+                    "🧪 controller in existing ledger != diff bonded controller:\nbonded_ctrl: {:?}\nctrl: {:?}",
+                    controller,
+                    ledger.controller,
+                );
+			}
+		//ensure!(ledger.stash == bonded_stash, "bonded stash != stash in the ledger");
+		} else {
+			log!(warn, "🧨 ledger controller not bonded for stash {:?}", ledger.stash);
+		}
+		//.ok_or("ledger does not have a bonded (controller, stash) tuple")?;
 
 		Ok(())
 	}
