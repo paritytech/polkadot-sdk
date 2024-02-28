@@ -33,6 +33,5 @@ pub extern "C" fn call() {
 
 	#[allow(deprecated)]
 	api::xcm_take_response(query_id, &mut response_status).unwrap();
-
 	api::return_value(uapi::ReturnFlags::empty(), &response_status);
 }

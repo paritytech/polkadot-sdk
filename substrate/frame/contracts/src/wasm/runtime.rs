@@ -2104,7 +2104,7 @@ pub mod env {
 	}
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
-	/// See [`pallet_contracts_uapi::HostFn::execute_xcm`].
+	/// See [`pallet_contracts_uapi::HostFn::xcm_execute`].
 	#[unstable]
 	fn xcm_execute(
 		ctx: _,
@@ -2143,7 +2143,7 @@ pub mod env {
 	}
 
 	/// Send an XCM program from the contract to the specified destination.
-	/// See [`pallet_contracts_uapi::HostFn::send_xcm`].
+	/// See [`pallet_contracts_uapi::HostFn::xcm_send`].
 	#[unstable]
 	fn xcm_send(
 		ctx: _,
@@ -2181,18 +2181,7 @@ pub mod env {
 	}
 
 	/// Create a new query, using the contract's address as the responder.
-	///
-	/// # Parameters
-	///
-	/// - `timeout_ptr`: the pointer into the linear memory where the timeout is placed.
-	/// - `match_querier_ptr`: the pointer into the linear memory where the match_querier is placed.
-	/// - `output_ptr`: the pointer into the linear memory where the
-	///   [`xcm_builder::QueryHandler::QueryId`] is placed.
-	///
-	/// # Return Value
-	///
-	/// Returns `ReturnCode::Success` when the query was successfully created. When the query
-	/// creation fails, `ReturnCode::XcmQueryFailed` is returned.
+	/// See [`pallet_contracts_uapi::HostFn::xcm_query`].
 	#[unstable]
 	fn xcm_query(
 		ctx: _,
@@ -2212,6 +2201,10 @@ pub mod env {
 		let weight = <<E::T as Config>::Xcm as QueryController<_, _>>::WeightInfo::query();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
+
+		// TODO:
+		// - Take deposit for query.
+		// - Keep a map of account_id to query_id.
 
 		match <<E::T as Config>::Xcm>::query(origin, timeout, match_querier) {
 			Ok(query_id) => {
@@ -2248,6 +2241,10 @@ pub mod env {
 		output_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		use xcm_builder::{QueryController, QueryControllerWeightInfo, QueryHandler};
+
+		// TODO:
+		// - Ensure query_id belong to contract
+		// - Release deposit for query.
 
 		let query_id: <<E::T as Config>::Xcm as QueryHandler>::QueryId =
 			ctx.read_sandbox_memory_as(memory, query_id_ptr)?;
