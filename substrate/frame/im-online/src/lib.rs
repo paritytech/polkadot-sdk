@@ -251,7 +251,7 @@ type OffchainResult<T, A> = Result<A, OffchainErr<BlockNumberFor<T>>>;
 pub mod pallet {
 	use super::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
