@@ -162,3 +162,33 @@ impl<T: Config> StakeAdapter for DelegationStake<T> {
 		T::Staking::withdraw_delegation(who, pool_account, amount)
 	}
 }
+
+/// **** New Shiny Adapters **** ///
+pub trait StakeStrategy<Staking: StakingInterface> {
+	fn balance(who: &Staking::AccountId) -> Staking::Balance;
+	fn bond(
+		who: &Staking::AccountId,
+		pool_account: &Staking::AccountId,
+		reward_account: &Staking::AccountId,
+		amount: Staking::Balance,
+	) -> DispatchResult;
+}
+
+pub struct TransferStakeStrategy<T: Config>(PhantomData<T>);
+
+impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>> StakeStrategy<Staking> for TransferStakeStrategy<T> {
+	fn balance(who: &T::AccountId) -> BalanceOf<T> {
+		T::Currency::balance(who)
+	}
+
+	fn bond(
+		who: &T::AccountId,
+		pool_account: &T::AccountId,
+		reward_account: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> DispatchResult {
+		T::Currency::transfer(who, &pool_account, amount, Preservation::Expendable)?;
+		Staking::bond(pool_account, amount, reward_account)
+	}
+
+}
