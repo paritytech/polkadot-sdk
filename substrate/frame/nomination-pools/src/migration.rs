@@ -166,7 +166,9 @@ mod v9 {
 			// permissions in storage.
 			ensure!(
 				ClaimPermissions::<T>::iter().all(|(_, val)| match val {
-					ClaimPermission::Permissioned | ClaimPermission::PermissionlessCompound => true,
+					ClaimPermission::Permissioned |
+					ClaimPermission::PermissionlessCompound |
+					ClaimPermission::PermissionlessWithdraw => true,
 					_ => false,
 				}),
 				"A `ClaimPermission` value has not been migrated."
