@@ -117,6 +117,7 @@ runtime-benchmarks = [
 	"rococo-parachain-runtime/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"cumulus-primitives-storage-weight-reclaim/runtime-benchmarks"
 ]
 
 [[bench]]
