@@ -20,7 +20,8 @@ use crate::*;
 /// An adapter trait that can support multiple staking strategies.
 ///
 /// Depending on which staking strategy we want to use, the staking logic can be slightly
-/// different. Refer the two possible strategies currently: [`TransferStake`] and [`DelegationStake`].
+/// different. Refer the two possible strategies currently: [`TransferStake`] and
+/// [`DelegationStake`].
 pub trait StakeAdapter {
 	type Balance: frame_support::traits::tokens::Balance;
 	type AccountId: Clone + sp_std::fmt::Debug;
@@ -186,10 +187,7 @@ pub trait StakeStrategy {
 	fn active_stake(pool: PoolId) -> Self::Balance;
 	fn total_stake(pool: PoolId) -> Self::Balance;
 
-	fn nominate(
-		pool_id: PoolId,
-		validators: Vec<Self::AccountId>,
-	) -> DispatchResult;
+	fn nominate(pool_id: PoolId, validators: Vec<Self::AccountId>) -> DispatchResult;
 
 	fn chill(pool_id: PoolId) -> DispatchResult;
 
@@ -197,17 +195,12 @@ pub trait StakeStrategy {
 		who: &Self::AccountId,
 		pool_id: PoolId,
 		amount: Self::Balance,
+		bond_type: BondType,
 	) -> DispatchResult;
 
-	fn unbond(
-		pool_id: PoolId,
-		amount: Self::Balance,
-	) -> DispatchResult;
+	fn unbond(pool_id: PoolId, amount: Self::Balance) -> DispatchResult;
 
-	fn withdraw_unbonded(
-		pool_id: PoolId,
-		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError>;
+	fn withdraw_unbonded(pool_id: PoolId, num_slashing_spans: u32) -> Result<bool, DispatchError>;
 
 	fn member_withdraw(
 		who: &Self::AccountId,
@@ -223,12 +216,13 @@ pub trait StakeStrategy {
 		amount: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult;
-
 }
 
 pub struct TransferStakeStrategy<T: Config, Staking: StakingInterface>(PhantomData<(T, Staking)>);
 
-impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>> StakeStrategy for TransferStakeStrategy<T, Staking> {
+impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
+	StakeStrategy for TransferStakeStrategy<T, Staking>
+{
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
@@ -277,18 +271,26 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		Staking::chill(&pool_account)
 	}
 
-	fn bond(who: &T::AccountId, pool: PoolId, amount: BalanceOf<T>) -> DispatchResult {
+	fn bond(
+		who: &T::AccountId,
+		pool: PoolId,
+		amount: BalanceOf<T>,
+		bond_type: BondType,
+	) -> DispatchResult {
 		let pool_account = Pallet::<T>::create_bonded_account(pool);
-		let reward_account = Pallet::<T>::create_bonded_account(pool);
+		let reward_account = Pallet::<T>::create_reward_account(pool);
 
-		if Staking::status(&pool_account).is_err() {
-			// first bond
-			T::Currency::transfer(who, &pool_account, amount, Preservation::Expendable)?;
-			Staking::bond(&pool_account, amount, &reward_account)
-		} else {
-			// additional bond
-			T::Currency::transfer(who, &pool_account, amount, Preservation::Preserve)?;
-			Staking::bond_extra(&pool_account, amount)
+		match bond_type {
+			BondType::Create => {
+				// first bond
+				T::Currency::transfer(who, &pool_account, amount, Preservation::Expendable)?;
+				Staking::bond(&pool_account, amount, &reward_account)
+			},
+			BondType::Later => {
+				// additional bond
+				T::Currency::transfer(who, &pool_account, amount, Preservation::Preserve)?;
+				Staking::bond_extra(&pool_account, amount)
+			},
 		}
 	}
 
@@ -314,14 +316,21 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		false
 	}
 
-	fn member_slash(who: &T::AccountId, pool: PoolId, amount: Staking::Balance, maybe_reporter: Option<T::AccountId>) -> DispatchResult {
+	fn member_slash(
+		who: &T::AccountId,
+		pool: PoolId,
+		amount: Staking::Balance,
+		maybe_reporter: Option<T::AccountId>,
+	) -> DispatchResult {
 		Err(Error::<T>::Defensive(DefensiveError::DelegationUnsupported).into())
 	}
 }
 
 pub struct DelegateStakeStrategy<T: Config, Staking: StakingInterface>(PhantomData<(T, Staking)>);
 
-impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>> StakeStrategy for DelegateStakeStrategy<T, Staking> {
+impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
+	StakeStrategy for DelegateStakeStrategy<T, Staking>
+{
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
@@ -334,7 +343,6 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 	fn minimum_nominator_bond() -> Staking::Balance {
 		Staking::minimum_nominator_bond()
 	}
-
 
 	fn transferable_balance(pool: PoolId) -> BalanceOf<T> {
 		let pool_account = Pallet::<T>::create_bonded_account(pool);
@@ -370,16 +378,24 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		Staking::chill(&pool_account)
 	}
 
-	fn bond(who: &T::AccountId, pool: PoolId, amount: BalanceOf<T>) -> DispatchResult {
+	fn bond(
+		who: &T::AccountId,
+		pool: PoolId,
+		amount: BalanceOf<T>,
+		bond_type: BondType,
+	) -> DispatchResult {
 		let pool_account = Pallet::<T>::create_bonded_account(pool);
 
-		if Staking::status(&pool_account).is_err() {
-			// first delegation
-			let reward_account = Pallet::<T>::create_bonded_account(pool);
-			Staking::delegate(who, &pool_account, &reward_account, amount)
-		} else {
-			// additional delegation
-			Staking::delegate_extra(who, &pool_account, amount)
+		match bond_type {
+			BondType::Create => {
+				// first delegation
+				let reward_account = Pallet::<T>::create_bonded_account(pool);
+				Staking::delegate(who, &pool_account, &reward_account, amount)
+			},
+			BondType::Later => {
+				// additional delegation
+				Staking::delegate_extra(who, &pool_account, amount)
+			},
 		}
 	}
 
@@ -404,7 +420,12 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		Staking::has_pending_slash(&pool_account)
 	}
 
-	fn member_slash(who: &T::AccountId, pool: PoolId, amount: Staking::Balance, maybe_reporter: Option<T::AccountId>) -> DispatchResult {
+	fn member_slash(
+		who: &T::AccountId,
+		pool: PoolId,
+		amount: Staking::Balance,
+		maybe_reporter: Option<T::AccountId>,
+	) -> DispatchResult {
 		let pool_account = Pallet::<T>::create_bonded_account(pool);
 		Staking::delegator_slash(&pool_account, who, amount, maybe_reporter)
 	}

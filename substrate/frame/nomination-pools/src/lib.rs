@@ -351,7 +351,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use adapter::StakeAdapter;
+use adapter::{StakeAdapter, StakeStrategy};
 use codec::Codec;
 use frame_support::{
 	defensive, defensive_assert, ensure,
@@ -1055,13 +1055,6 @@ impl<T: Config> BondedPool<T> {
 		self
 	}
 
-	/// The pools balance that is transferable provided it is expendable by staking pallet.
-	fn transferable_balance(&self) -> BalanceOf<T> {
-		let account = self.bonded_account();
-		T::StakeAdapter::balance(&account)
-			.saturating_sub(T::Staking::active_stake(&account).unwrap_or_default())
-	}
-
 	fn is_root(&self, who: &T::AccountId) -> bool {
 		self.roles.root.as_ref().map_or(false, |root| root == who)
 	}
@@ -1263,14 +1256,10 @@ impl<T: Config> BondedPool<T> {
 		let points_issued = self.issue(amount);
 		let reward_account = self.reward_account();
 
-		match ty {
-			BondType::Create =>
-				T::StakeAdapter::delegator_bond(who, &bonded_account, &reward_account, amount)?,
-			// The pool should always be created in such a way its in a state to bond extra, but if
-			// the active balance is slashed below the minimum bonded or the account cannot be
-			// found, we exit early.
-			BondType::Later => T::StakeAdapter::delegator_bond_extra(who, &bonded_account, amount)?,
-		}
+		// The pool should always be created in such a way it is in a state to bond extra, but if
+		// the active balance is slashed below the minimum bonded or the account cannot be
+		// found, we exit early.
+		T::Staker::bond(who, self.id, amount, ty)?;
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_accrue(amount);
 		});
@@ -2305,11 +2294,11 @@ pub mod pallet {
 				// don't exist. This check is also defensive in cases where the unbond pool does not
 				// update its balance (e.g. a bug in the slashing hook.) We gracefully proceed in
 				// order to ensure members can leave the pool and it can be destroyed.
-				.min(bonded_pool.transferable_balance());
+				.min(T::Staker::transferable_balance(bonded_pool.id));
 
-			T::StakeAdapter::delegator_withdraw(
+			T::Staker::member_withdraw(
 				&member_account,
-				&bonded_pool.bonded_account(),
+				bonded_pool.id,
 				balance_to_unbond,
 			)
 			.defensive()?;
@@ -2905,7 +2894,7 @@ impl<T: Config> Pallet<T> {
 			"could not transfer all amount to depositor while dissolving pool"
 		);
 		defensive_assert!(
-			T::StakeAdapter::total_balance(&bonded_pool.bonded_account()) == Zero::zero(),
+			T::Staker::total_balance(bonded_pool.id) == Zero::zero(),
 			"dissolving pool should not have any balance"
 		);
 		// NOTE: Defensively force set balance to zero.
@@ -3515,7 +3504,7 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::Staking::active_stake(&pool_account).unwrap_or_default();
-			let total_balance = T::StakeAdapter::total_balance(&pool_account);
+			let total_balance = T::Staker::total_balance(pool_id);
 
 			assert!(
                 total_balance >= bonded_balance + sum_unbonding_balance,
