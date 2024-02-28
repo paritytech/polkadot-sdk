@@ -27,7 +27,7 @@ use frame_support::{
 use sp_core::H256;
 use sp_runtime::BuildStorage;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -53,7 +53,7 @@ impl frame_system::Config for Test {
 	type Lookup = Indices;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
+	type BlockHashCount = ConstU32<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
