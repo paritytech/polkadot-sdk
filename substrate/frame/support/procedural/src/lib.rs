@@ -186,7 +186,6 @@ pub fn construct_runtime(input: TokenStream) -> TokenStream {
 	construct_runtime::construct_runtime(input)
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -200,7 +199,7 @@ pub fn pallet(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// An attribute macro that can be attached to a (non-empty) module declaration. Doing so will
 /// designate that module as a benchmarking module.
 ///
-/// See [`frame_benchmarking::v2`](../../frame_benchmarking/v2/index.html) for more info.
+/// See `frame_benchmarking::v2`.
 #[proc_macro_attribute]
 pub fn benchmarks(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	match benchmark::benchmarks(attr, tokens, false) {
@@ -212,7 +211,7 @@ pub fn benchmarks(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 /// An attribute macro that can be attached to a (non-empty) module declaration. Doing so will
 /// designate that module as an instance benchmarking module.
 ///
-/// See [`frame_benchmarking::v2`](../../frame_benchmarking/v2/index.html) for more info.
+/// See `frame_benchmarking::v2`.
 #[proc_macro_attribute]
 pub fn instance_benchmarks(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	match benchmark::benchmarks(attr, tokens, true) {
@@ -225,7 +224,7 @@ pub fn instance_benchmarks(attr: TokenStream, tokens: TokenStream) -> TokenStrea
 /// attached to a function definition containing an `#[extrinsic_call]` or `#[block]`
 /// attribute.
 ///
-/// See [`frame_benchmarking::v2`](../../frame_benchmarking/v2/index.html) for more info.
+/// See `frame_benchmarking::v2`.
 #[proc_macro_attribute]
 pub fn benchmark(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream {
 	quote!(compile_error!(
@@ -238,7 +237,7 @@ pub fn benchmark(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream {
 /// used as a boundary designating where the benchmark setup code ends, and the benchmark
 /// verification code begins.
 ///
-/// See [`frame_benchmarking::v2`](../../frame_benchmarking/v2/index.html) for more info.
+/// See `frame_benchmarking::v2`.
 #[proc_macro_attribute]
 pub fn extrinsic_call(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream {
 	quote!(compile_error!(
@@ -251,7 +250,7 @@ pub fn extrinsic_call(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream 
 /// enclosing benchmark function, This attribute is also used as a boundary designating where
 /// the benchmark setup code ends, and the benchmark verification code begins.
 ///
-/// See [`frame_benchmarking::v2`](../../frame_benchmarking/v2/index.html) for more info.
+/// See `frame_benchmarking::v2`.
 #[proc_macro_attribute]
 pub fn block(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream {
 	quote!(compile_error!(
@@ -285,12 +284,11 @@ pub fn transactional(attr: TokenStream, input: TokenStream) -> TokenStream {
 	transactional::transactional(attr, input).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::require_transactional`](../frame_support/attr.require_transactional.html).
+/// `frame_support::require_transactional`.
 #[proc_macro_attribute]
 pub fn require_transactional(attr: TokenStream, input: TokenStream) -> TokenStream {
 	transactional::require_transactional(attr, input)
@@ -441,12 +439,11 @@ pub fn __create_tt_macro(input: TokenStream) -> TokenStream {
 	tt_macro::create_tt_return_macro(input)
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::storage_alias`](../frame_support/attr.storage_alias.html).
+/// `frame_support::storage_alias`.
 #[proc_macro_attribute]
 pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream {
 	storage_alias::storage_alias(attributes.into(), input.into())
@@ -677,23 +674,21 @@ pub fn derive_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
 	.into()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::no_default`](../frame_support/pallet_macros/attr.no_default.html).
+/// `frame_support::pallet_macros::no_default`.
 #[proc_macro_attribute]
 pub fn no_default(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::no_default_bounds`](../frame_support/pallet_macros/attr.no_default_bounds.html).
+/// `frame_support::pallet_macros::no_default_bounds`.
 #[proc_macro_attribute]
 pub fn no_default_bounds(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -773,12 +768,11 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 	}
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_prelude::inject_runtime_type`](../frame_support/pallet_prelude/attr.inject_runtime_type.html).
+/// `frame_support::pallet_prelude::inject_runtime_type`.
 #[proc_macro_attribute]
 pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	let item = tokens.clone();
@@ -825,51 +819,47 @@ pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::constant`](../frame_support/pallet_macros/attr.constant.html).
+/// `frame_support::pallet_macros::constant`.
 #[proc_macro_attribute]
 pub fn constant(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::constant_name`](../frame_support/pallet_macros/attr.constant_name.html).
+/// `frame_support::pallet_macros::constant_name`.
 #[proc_macro_attribute]
 pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::disable_frame_system_supertrait_check`](../frame_support/pallet_macros/attr.disable_frame_system_supertrait_check.html).
+/// `frame_support::pallet_macros::disable_frame_system_supertrait_check`.
 #[proc_macro_attribute]
 pub fn disable_frame_system_supertrait_check(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::generate_store`](../frame_support/pallet_macros/attr.generate_store.html).
+/// `frame_support::pallet_macros::generate_store`.
 #[proc_macro_attribute]
 pub fn generate_store(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::storage_version`](../frame_support/pallet_macros/attr.storage_version.html).
+/// `frame_support::pallet_macros::storage_version`.
 #[proc_macro_attribute]
 pub fn storage_version(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -915,38 +905,35 @@ pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 /// Each dispatchable may also be annotated with the `#[pallet::call_index($idx)]` attribute,
 /// which explicitly defines the codec index for the dispatchable function in the `Call` enum.
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::call_index`](../frame_support/pallet_macros/attr.call_index.html).
+/// `frame_support::pallet_macros::call_index`.
 #[proc_macro_attribute]
 pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
 ///
-/// [`frame_support::pallet_macros::feeless_if`](../frame_support/pallet_macros/attr.feeless_if.html).
+/// `frame_support::pallet_macros::feeless_if`.
 #[proc_macro_attribute]
 pub fn feeless_if(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
 ///
-/// [`frame_support::pallet_macros::extra_constants`](../frame_support/pallet_macros/attr.extra_constants.html).
+/// `frame_support::pallet_macros::extra_constants`.
 #[proc_macro_attribute]
 pub fn extra_constants(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -972,12 +959,11 @@ pub fn event(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::generate_deposit`](../frame_support/pallet_macros/attr.generate_deposit.html).
+/// `frame_support::pallet_macros::generate_deposit`.
 #[proc_macro_attribute]
 pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -993,7 +979,6 @@ pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1004,7 +989,6 @@ pub fn getter(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1035,7 +1019,6 @@ pub fn whitelist_storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1046,7 +1029,6 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1057,7 +1039,6 @@ pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1068,7 +1049,6 @@ pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1079,7 +1059,6 @@ pub fn inherent(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1090,7 +1069,6 @@ pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1101,7 +1079,6 @@ pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1112,7 +1089,6 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1123,7 +1099,6 @@ pub fn tasks_experimental(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1134,7 +1109,6 @@ pub fn task_list(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1145,7 +1119,6 @@ pub fn task_condition(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1156,7 +1129,6 @@ pub fn task_weight(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1167,7 +1139,6 @@ pub fn task_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
@@ -1186,12 +1157,10 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	}
 }
 
-#[rustfmt::skip]
 ///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::import_section`.
 /// `frame_support::pallet_macros::import_section`.
 #[import_tokens_attr {
     format!(
