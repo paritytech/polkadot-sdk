@@ -148,6 +148,7 @@ use sp_io::TestExternalities;
 pub mod limits;
 #[cfg(test)]
 pub(crate) mod mock;
+
 pub mod offchain;
 
 mod extensions;
@@ -451,6 +452,7 @@ pub mod pallet {
 			+ Clone
 			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>;
 
+		#[docify::export(system_runtime_call)]
 		/// The aggregated `RuntimeCall` type.
 		#[pallet::no_default_bounds]
 		type RuntimeCall: Parameter
@@ -523,7 +525,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type DbWeight: Get<RuntimeDbWeight>;
 
-		/// Get the chain's current version.
+		/// Get the chain's in-code version.
 		#[pallet::constant]
 		type Version: Get<RuntimeVersion>;
 
@@ -847,7 +849,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	#[pallet::getter(fn block_weight)]
-	pub(super) type BlockWeight<T: Config> = StorageValue<_, ConsumedWeight, ValueQuery>;
+	pub type BlockWeight<T: Config> = StorageValue<_, ConsumedWeight, ValueQuery>;
 
 	/// Total length (in bytes) for all extrinsics put together, for the current block.
 	#[pallet::storage]
@@ -892,6 +894,7 @@ pub mod pallet {
 	/// just in case someone still reads them from within the runtime.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
+	#[pallet::disable_try_decode_storage]
 	#[pallet::unbounded]
 	pub(super) type Events<T: Config> =
 		StorageValue<_, Vec<Box<EventRecord<T::RuntimeEvent, T::Hash>>>, ValueQuery>;

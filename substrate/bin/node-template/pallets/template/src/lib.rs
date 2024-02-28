@@ -90,9 +90,7 @@ pub mod pallet {
 	///
 	/// In this template, we are declaring a storage item called `Something` that stores a single
 	/// `u32` value. Learn more about runtime storage here: <https://docs.substrate.io/build/runtime-storage/>
-	/// The [`getter`] macro generates a function to conveniently retrieve the value from storage.
 	#[pallet::storage]
-	#[pallet::getter(fn something)]
 	pub type Something<T> = StorageValue<_, u32>;
 
 	/// Events that functions in this pallet can emit.
@@ -187,7 +185,7 @@ pub mod pallet {
 			let _who = ensure_signed(origin)?;
 
 			// Read a value from storage.
-			match Pallet::<T>::something() {
+			match Something::<T>::get() {
 				// Return an error if the value has not been set.
 				None => Err(Error::<T>::NoneValue.into()),
 				Some(old) => {

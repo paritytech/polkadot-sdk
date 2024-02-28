@@ -17,4 +17,4 @@ log = { workspace = true, default-features = true }
 fs4 = "0.7.0"
 sp-core = { path = "../../primitives/core" }
 tokio = { version = "1.22.0", features = ["time"] }
-thiserror = "1.0.48"
+thiserror = { workspace = true }

@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[FRAME] Add genesis test and remove some checks"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The construct_runtime macro now generates a test to assert that all `GenesisConfig`s of all
+      pallets can be build within the runtime. This ensures that the `BuildGenesisConfig` runtime
+      API works.
+      Further, some checks from a few pallets were removed to make this pass.
+
+crates:
+  - name: pallet-babe
+  - name: cumulus-pallet-aura-ext
+  - name: pallet-session
