@@ -165,30 +165,158 @@ impl<T: Config> StakeAdapter for DelegationStake<T> {
 
 /// **** New Shiny Adapters **** ///
 pub trait StakeStrategy<Staking: StakingInterface> {
-	fn balance(who: &Staking::AccountId) -> Staking::Balance;
+
+	fn bonding_duration() -> EraIndex {
+		Staking::bonding_duration()
+	}
+	fn current_era() -> EraIndex {
+		Staking::current_era()
+	}
+	fn minimum_nominator_bond() -> Staking::Balance {
+		Staking::minimum_nominator_bond()
+	}
+
+	/// Transferable balance of the pool.
+	///
+	/// This is the amount that can be withdrawn from the pool.
+	///
+	/// Does not include reward account.
+	fn transferable_balance(id: PoolId) -> Staking::Balance;
+
+	/// Total balance of the pool including amount that is actively staked.
+	fn total_balance(id: PoolId) -> Staking::Balance;
+	fn delegated_balance(member_account: Staking::AccountId) -> Staking::Balance;
+
+	fn active_stake(pool: PoolId) -> Staking::Balance;
+	fn total_stake(pool: PoolId) -> Staking::Balance;
+
+	fn nominate(
+		pool_id: PoolId,
+		validators: Vec<Staking::AccountId>,
+	) -> DispatchResult;
+
+	fn chill(pool_id: PoolId) -> DispatchResult;
+
 	fn bond(
 		who: &Staking::AccountId,
-		pool_account: &Staking::AccountId,
-		reward_account: &Staking::AccountId,
+		pool_id: PoolId,
 		amount: Staking::Balance,
 	) -> DispatchResult;
+
+	fn unbond(
+		pool_id: PoolId,
+		amount: Staking::Balance,
+	) -> DispatchResult;
+
+	fn withdraw_unbonded(
+		pool_id: PoolId,
+		num_slashing_spans: u32,
+	) -> Result<bool, DispatchError>;
+
+	fn delegator_withdraw(
+		who: &Staking::AccountId,
+		pool: PoolId,
+		amount: Staking::Balance,
+	) -> DispatchResult;
+
+	fn has_pending_slash(pool: PoolId) -> bool;
+
+	fn delegator_slash(
+		who: &Staking::AccountId,
+		pool: PoolId,
+		amount: Staking::Balance,
+		maybe_reporter: Option<Staking::AccountId>,
+	) -> DispatchResult;
+
 }
 
 pub struct TransferStakeStrategy<T: Config>(PhantomData<T>);
 
 impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>> StakeStrategy<Staking> for TransferStakeStrategy<T> {
-	fn balance(who: &T::AccountId) -> BalanceOf<T> {
-		T::Currency::balance(who)
+	fn bonding_duration() -> EraIndex {
+		Staking::bonding_duration()
 	}
 
-	fn bond(
-		who: &T::AccountId,
-		pool_account: &T::AccountId,
-		reward_account: &T::AccountId,
-		amount: BalanceOf<T>,
-	) -> DispatchResult {
-		T::Currency::transfer(who, &pool_account, amount, Preservation::Expendable)?;
-		Staking::bond(pool_account, amount, reward_account)
+	fn current_era() -> EraIndex {
+		Staking::current_era()
 	}
 
+	fn minimum_nominator_bond() -> Staking::Balance {
+		Staking::minimum_nominator_bond()
+	}
+
+	fn transferable_balance(pool: PoolId) -> BalanceOf<T> {
+		let pool_account = Pallet::<T>::create_bonded_account(pool);
+		T::Currency::balance(&pool_account).saturating_sub(<Self as StakeStrategy<Staking>>::active_stake(pool))
+	}
+
+	fn total_balance(pool: PoolId) -> BalanceOf<T> {
+		let pool_account = Pallet::<T>::create_bonded_account(pool);
+		T::Currency::total_balance(&pool_account)
+	}
+
+	fn delegated_balance(member_account: Staking::AccountId) -> Staking::Balance {
+		defensive!("delegation not supported");
+		Zero::zero()
+	}
+
+	fn active_stake(pool: PoolId) -> BalanceOf<T> {
+		let pool_account = Pallet::<T>::create_bonded_account(pool);
+		Staking::active_stake(&pool_account).unwrap_or_default()
+	}
+
+	fn total_stake(pool: PoolId) -> Staking::Balance {
+		let pool_account = Pallet::<T>::create_bonded_account(pool);
+		Staking::total_stake(&pool_account).unwrap_or_default()
+	}
+
+	fn nominate(pool_id: PoolId, validators: Vec<Staking::AccountId>) -> DispatchResult {
+		let pool_account = Pallet::<T>::create_bonded_account(pool_id);
+		Staking::nominate(&pool_account, validators)
+	}
+
+	fn chill(pool_id: PoolId) -> DispatchResult {
+		let pool_account = Pallet::<T>::create_bonded_account(pool_id);
+		Staking::chill(&pool_account)
+	}
+
+	fn bond(who: &T::AccountId, pool: PoolId, amount: BalanceOf<T>) -> DispatchResult {
+		let pool_account = Pallet::<T>::create_bonded_account(pool);
+		let reward_account = Pallet::<T>::create_bonded_account(pool);
+
+		if Staking::status(&pool_account).is_err() {
+			// first bond
+			T::Currency::transfer(who, &pool_account, amount, Preservation::Expendable)?;
+			Staking::bond(&pool_account, amount, &reward_account)
+		} else {
+			// additional bond
+			T::Currency::transfer(who, &pool_account, amount, Preservation::Preserve)?;
+			Staking::bond_extra(&pool_account, amount)
+		}
+	}
+
+	fn unbond(pool_id: PoolId, amount: Staking::Balance) -> DispatchResult {
+		let pool_account = Pallet::<T>::create_bonded_account(pool_id);
+		Staking::unbond(&pool_account, amount)
+	}
+
+	fn withdraw_unbonded(pool_id: PoolId, num_slashing_spans: u32) -> Result<bool, DispatchError> {
+		let pool_account = Pallet::<T>::create_bonded_account(pool_id);
+		Staking::withdraw_unbonded(pool_account, num_slashing_spans)
+	}
+
+	fn delegator_withdraw(who: &T::AccountId, pool: PoolId, amount: BalanceOf<T>) -> DispatchResult {
+		let pool_account = Pallet::<T>::create_bonded_account(pool);
+		T::Currency::transfer(&pool_account, &who, amount, Preservation::Expendable)?;
+		Ok(())
+	}
+
+	fn has_pending_slash(_pool: PoolId) -> bool {
+		// for transfer stake strategy, slashing is greedy
+		false
+	}
+
+	fn delegator_slash(who: &Staking::AccountId, pool: PoolId, amount: Staking::Balance, maybe_reporter: Option<Staking::AccountId>) -> DispatchResult {
+		Err(Error::<T>::Defensive(DefensiveError::DelegationUnsupported).into())
+	}
 }

@@ -1660,7 +1660,7 @@ pub mod pallet {
 			Balance = BalanceOf<Self>,
 		>;
 
-		type Staker: adapter::StakeStrategy<Self::Staking>;
+		// type Staker: adapter::StakeStrategy<Self::Staking>;
 	}
 
 	/// The sum of funds across all pools.
@@ -1968,6 +1968,8 @@ pub mod pallet {
 		/// The bonded account should only be killed by the staking system when the depositor is
 		/// withdrawing
 		BondedStashKilledPrematurely,
+		/// Using stake strategy that does not support delegation
+		DelegationUnsupported,
 	}
 
 	impl<T> From<DefensiveError> for Error<T> {
