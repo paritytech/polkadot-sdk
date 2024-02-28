@@ -36,7 +36,7 @@ use sp_runtime::{
 };
 use sp_std::collections::btree_map::BTreeMap;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -50,6 +50,7 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -191,7 +192,7 @@ impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = ItemOf<TestFungibles<(), u64, (), ConstU64<0>, ()>, (), u64>;
 	type OnRevenue = IntoZero;
-	type TimeslicePeriod = ConstU64<2>;
+	type TimeslicePeriod = ConstU32<2>;
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = TestCoretimeProvider;
@@ -202,7 +203,7 @@ impl crate::Config for Test {
 	type PriceAdapter = Linear;
 }
 
-pub fn advance_to(b: u64) {
+pub fn advance_to(b: u32) {
 	while System::block_number() < b {
 		System::set_block_number(System::block_number() + 1);
 		TestCoretimeProvider::bump();
@@ -247,16 +248,16 @@ impl TestExt {
 	}
 
 	pub fn advance_notice(mut self, advance_notice: Timeslice) -> Self {
-		self.0.advance_notice = advance_notice as u64;
+		self.0.advance_notice = advance_notice;
 		self
 	}
 
-	pub fn interlude_length(mut self, interlude_length: u64) -> Self {
+	pub fn interlude_length(mut self, interlude_length: u32) -> Self {
 		self.0.interlude_length = interlude_length;
 		self
 	}
 
-	pub fn leadin_length(mut self, leadin_length: u64) -> Self {
+	pub fn leadin_length(mut self, leadin_length: u32) -> Self {
 		self.0.leadin_length = leadin_length;
 		self
 	}
