@@ -25,7 +25,7 @@ sp-tracing = { version = "16.0.0", path = "../../../../substrate/primitives/trac
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false, version = "29.0.0" }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.8.0" }
+cumulus-pallet-parachain-system = { path = "../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.8.1" }
 cumulus-pallet-xcmp-queue = { path = "../../../pallets/xcmp-queue", default-features = false, version = "0.8.0" }
 pallet-collator-selection = { path = "../../../pallets/collator-selection", default-features = false, version = "10.0.0" }
 parachain-info = { package = "staging-parachain-info", path = "../../pallets/parachain-info", default-features = false, version = "0.8.0" }
@@ -36,7 +36,7 @@ cumulus-test-relay-sproof-builder = { path = "../../../test/relay-sproof-builder
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "8.0.0" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
-pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.0" }
+pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.1" }
 polkadot-parachain-primitives = { path = "../../../../polkadot/parachain", default-features = false, version = "7.0.0" }
 
 [dev-dependencies]

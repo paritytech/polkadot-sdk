@@ -16,7 +16,7 @@ frame-support = { path = "../../../../substrate/frame/support", default-features
 frame-system = { version = "29.0.0", path = "../../../../substrate/frame/system" }
 futures = "0.3.21"
 pallet-transaction-payment = { version = "29.0.0", path = "../../../../substrate/frame/transaction-payment" }
-pallet-xcm = { version = "8.0.0", path = "../../pallet-xcm" }
+pallet-xcm = { version = "8.0.1", path = "../../pallet-xcm" }
 polkadot-test-client = { version = "0.1.0", path = "../../../node/test/client" }
 polkadot-test-runtime = { version = "0.1.0", path = "../../../runtime/test-runtime" }
 polkadot-test-service = { version = "0.1.0", path = "../../../node/test/service" }

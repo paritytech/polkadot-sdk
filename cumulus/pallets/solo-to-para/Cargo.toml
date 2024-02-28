@@ -24,7 +24,7 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false,
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "8.0.0" }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false, version = "0.8.0" }
+cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false, version = "0.8.1" }
 
 [features]
 default = ["std"]

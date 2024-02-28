@@ -28,7 +28,7 @@ pallet-balances = { version = "29.0.0", path = "../../../substrate/frame/balance
 pallet-message-queue = { version = "32.0.0", path = "../../../substrate/frame/message-queue" }
 cumulus-primitives-core = { version = "0.8.0", path = "../../primitives/core" }
 cumulus-pallet-xcmp-queue = { version = "0.8.0", path = "../../pallets/xcmp-queue" }
-cumulus-pallet-parachain-system = { version = "0.8.0", path = "../../pallets/parachain-system" }
+cumulus-pallet-parachain-system = { version = "0.8.1", path = "../../pallets/parachain-system" }
 cumulus-primitives-parachain-inherent = { version = "0.8.0", path = "../../primitives/parachain-inherent" }
 cumulus-test-relay-sproof-builder = { version = "0.8.0", path = "../../test/relay-sproof-builder" }
 parachains-common = { version = "8.0.0", path = "../../parachains/common" }

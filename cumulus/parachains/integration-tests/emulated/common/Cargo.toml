@@ -29,12 +29,12 @@ polkadot-service = { path = "../../../../../polkadot/node/service", default-feat
 polkadot-primitives = { version = "8.0.0", path = "../../../../../polkadot/primitives" }
 polkadot-runtime-parachains = { version = "8.0.0", path = "../../../../../polkadot/runtime/parachains" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", version = "8.0.0" }
-pallet-xcm = { version = "8.0.0", path = "../../../../../polkadot/xcm/pallet-xcm" }
+pallet-xcm = { version = "8.0.1", path = "../../../../../polkadot/xcm/pallet-xcm" }
 parachains-common = { version = "8.0.0", path = "../../../common" }
 cumulus-primitives-core = { version = "0.8.0", path = "../../../../primitives/core" }
 xcm-emulator = { version = "0.6.0", path = "../../../../xcm/xcm-emulator" }
 cumulus-pallet-xcmp-queue = { version = "0.8.0", path = "../../../../pallets/xcmp-queue" }
-cumulus-pallet-parachain-system = { version = "0.8.0", path = "../../../../pallets/parachain-system" }
+cumulus-pallet-parachain-system = { version = "0.8.1", path = "../../../../pallets/parachain-system" }
 asset-test-utils = { version = "8.0.1", path = "../../../runtimes/assets/test-utils" }
 bp-messages = { version = "0.8.0", path = "../../../../../bridges/primitives/messages" }
 pallet-bridge-messages = { version = "0.8.0", path = "../../../../../bridges/modules/messages" }

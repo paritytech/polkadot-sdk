@@ -61,12 +61,12 @@ pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-featur
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false, version = "29.0.0" }
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false, version = "29.0.0" }
 
-runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, version = "8.0.0" }
+runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, version = "8.0.1" }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false, version = "8.0.0" }
-pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, version = "8.0.0" }
+pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, version = "8.0.1" }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false, version = "7.0.0" }
 polkadot-runtime-parachains = { path = "../parachains", default-features = false, version = "8.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "8.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, version = "8.0.1" }
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "8.0.0" }
 
