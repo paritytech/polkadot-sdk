@@ -1034,6 +1034,26 @@ impl<Block: BlockT> StorageDb<Block> {
 			self.db.get_node(columns::STATE, root.as_ref(), Default::default()).is_some()
 		}
 	}
+
+	/// Db do not have empty trie node optimization, so in certain
+	/// case it can be necessary to manually add it.
+	pub fn insert_empty_trie_node(&mut self) {
+		use trie_db::NodeCodec;
+		type C<B> = sp_trie::NodeCodec<HashingFor<B>>;
+		let mut transaction = Transaction::default();
+		let empty_hash = C::<Block>::hashed_null_node();
+		let empty_data = C::<Block>::empty_node().to_vec();
+		let state_capabilities = self.db.state_capabilities();
+		if state_capabilities == StateCapabilities::TreeColumn {
+			let commit = trie_db::triedbmut::Changeset::new_empty::<C<Block>>();
+			apply_tree_commit::<HashingFor<Block>>(commit, state_capabilities, &mut transaction);
+		} else {
+			// cannot use apply tree commit as null node would not be include in temp memdb.
+			transaction.set_from_vec(columns::STATE, empty_hash.as_ref(), empty_data);
+		}
+
+		self.db.commit(transaction).expect("Failed to write transaction");
+	}
 }
 
 impl<Block: BlockT> sp_state_machine::AsDB<HashingFor<Block>> for StorageDb<Block> {
@@ -1388,8 +1408,7 @@ impl<Block: BlockT> Backend<Block> {
 
 		let blockchain = BlockchainDb::new(db.clone())?;
 
-		let storage_db =
-			StorageDb { db: db.clone(), state_db };
+		let storage_db = StorageDb { db: db.clone(), state_db };
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
@@ -4703,17 +4722,7 @@ pub(crate) mod tests {
 		db: &mut StorageDb<Block>,
 		key_values: impl IntoIterator<Item = (Vec<u8>, Vec<u8>)>,
 	) -> H256 {
-		insert_empty_trie_node(db);
-		/*
-		overlay.emplace(
-			array_bytes::hex2bytes(
-				"03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
-			)
-			.expect("null key is valid"),
-			Default::default(),
-			vec![0],
-		);
-		*/
+		db.insert_empty_trie_node();
 		let mut trie_db = TrieDBMutBuilderV1::<BlakeTwo256>::new(db).build();
 		for (key, value) in key_values {
 			trie_db.insert(&key, &value).expect("trie insertion failed");
@@ -4723,11 +4732,7 @@ pub(crate) mod tests {
 		let root = commit.root_hash();
 
 		let mut transaction = Transaction::default();
-		apply_tree_commit::<BlakeTwo256>(
-			commit,
-			db.db.state_capabilities(),
-			&mut transaction,
-		);
+		apply_tree_commit::<BlakeTwo256>(commit, db.db.state_capabilities(), &mut transaction);
 
 		db.db.commit(transaction).expect("Failed to write transaction");
 
@@ -4742,7 +4747,7 @@ pub(crate) mod tests {
 		use sp_state_machine::AsDB;
 		use trie_db::Trie;
 		let db = db.as_node_db();
-		let mut trie_db = TrieDBBuilderV1::<BlakeTwo256, _>::new(db, &root).build();
+		let trie_db = TrieDBBuilderV1::<BlakeTwo256, _>::new(db, &root).build();
 		for (key, value) in key_values {
 			let queried = trie_db.get(&key).expect("trie insertion failed");
 			assert_eq!(queried.as_ref(), Some(value));
@@ -4832,41 +4837,6 @@ pub(crate) mod tests {
 	}
 	// -------- End Copied from substrate/bin/node/bench/src/tempdb.rs --------
 
-	fn insert_empty_trie_node(db: &mut StorageDb<Block>) {
-		let state_capabilities = db.db.state_capabilities();
-		if state_capabilities.needs_key_prefixing() {
-			let mut mdb = sp_trie::PrefixedMemoryDB::<HashingFor<Block>>::default();
-			// both triedbmut are the same on empty storage.
-			let commit =
-				sp_trie::trie_types::TrieDBMutBuilderV1::<HashingFor<Block>>::new(&mut mdb)
-					.build()
-					.commit();
-			let mut transaction = Transaction::default();
-			apply_tree_commit::<BlakeTwo256>(
-				commit,
-				state_capabilities,
-				&mut transaction,
-			);
-
-			db.db.commit(transaction).expect("Failed to write transaction");
-		} else {
-			let mut mdb = MemoryDB::<HashingFor<Block>>::default();
-			let commit =
-				sp_trie::trie_types::TrieDBMutBuilderV1::<HashingFor<Block>>::new(&mut mdb)
-					.build()
-					.commit();
-
-			let mut transaction = Transaction::default();
-			apply_tree_commit::<BlakeTwo256>(
-				commit,
-				state_capabilities,
-				&mut transaction,
-			);
-
-			db.db.commit(transaction).expect("Failed to write transaction");
-		};
-	}
-
 	#[test]
 	fn check_state_on_db() {
 		let key_values = [
@@ -4875,14 +4845,14 @@ pub(crate) mod tests {
 		];
 
 		let db_kind = [
-			DatabaseType::ParityDb,
 			DatabaseType::ParityDbMulti,
+			DatabaseType::ParityDb,
 			#[cfg(feature = "rocksdb")]
 			DatabaseType::RocksDb,
 		];
-		let mut database = TempDatabase::new();
 		for kind in db_kind {
-			let mut database = database.open(kind);
+			let mut temp = TempDatabase::new();
+			let mut database = temp.open(kind);
 			let root = generate_trie(&mut database, key_values.iter().cloned());
 			query_trie(&database, root, &key_values);
 		}

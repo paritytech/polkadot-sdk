@@ -25,19 +25,11 @@ use sp_trie::trie_types::TrieDBMutBuilderV1;
 /// Will fill your database `db` with trie data from `key_values` and
 /// return root.
 pub fn generate_trie(
-	db: sc_client_db::StorageDb<Block>,
+	mut db: sc_client_db::StorageDb<Block>,
 	key_values: impl IntoIterator<Item = (Vec<u8>, Vec<u8>)>,
 ) -> Hash {
-	/*
-	overlay.emplace(
-		array_bytes::hex2bytes(
-			"03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
-		)
-		.expect("null key is valid"),
-		Default::default(),
-		vec![0],
-	);
-	*/
+	db.insert_empty_trie_node();
+
 	let mut trie_db = TrieDBMutBuilderV1::<BlakeTwo256>::new(&db).build();
 	for (key, value) in key_values {
 		trie_db.insert(&key, &value).expect("trie insertion failed");
@@ -49,7 +41,6 @@ pub fn generate_trie(
 	let mut transaction = sc_client_db::Transaction::default();
 	sc_client_db::apply_tree_commit::<BlakeTwo256>(
 		commit,
-		db.state_db.is_none(),
 		db.db.state_capabilities(),
 		&mut transaction,
 	);

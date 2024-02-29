@@ -18,7 +18,9 @@
 use crate::{columns, utils::NUM_COLUMNS};
 use parity_db::Operation;
 /// A `Database` adapter for parity-db.
-use sp_database::{error::DatabaseError, Change, ColumnId, DBLocation, Database, StateCapabilities, Transaction};
+use sp_database::{
+	error::DatabaseError, Change, ColumnId, DBLocation, Database, StateCapabilities, Transaction,
+};
 
 struct DbAdapter(parity_db::Db, bool);
 
