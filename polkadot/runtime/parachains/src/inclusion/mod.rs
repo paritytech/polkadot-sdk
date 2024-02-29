@@ -643,17 +643,9 @@ impl<T: Config> Pallet<T> {
 		for (para_id, candidates) in candidates {
 			// PVD hash should have already been checked in `filter_unchained_candidates`, but do it
 			// again for safety.
-			let maybe_latest_head_data = match <PendingAvailability<T>>::get(&para_id)
-				.map(|pending_candidates| {
-					pending_candidates.back().map(|x| x.commitments.head_data.clone())
-				})
-				.flatten()
-			{
-				Some(head_data) => Some(head_data),
-				None => <paras::Pallet<T>>::para_head(&para_id),
-			};
+
 			// this cannot be None if the parachain was registered.
-			let mut latest_head_data = match maybe_latest_head_data {
+			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
 				None => continue,
 				Some(latest_head_data) => latest_head_data,
 			};
@@ -745,6 +737,19 @@ impl<T: Config> Pallet<T> {
 			core_indices,
 			candidate_receipt_with_backing_validator_indices,
 		})
+	}
+
+	// Get the latest backed output head data of this para.
+	pub(crate) fn para_latest_head_data(para_id: &ParaId) -> Option<HeadData> {
+		match <PendingAvailability<T>>::get(para_id)
+			.map(|pending_candidates| {
+				pending_candidates.back().map(|x| x.commitments.head_data.clone())
+			})
+			.flatten()
+		{
+			Some(head_data) => Some(head_data),
+			None => <paras::Pallet<T>>::para_head(para_id),
+		}
 	}
 
 	fn check_backing_votes(

@@ -972,7 +972,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 
 	// Remove any candidates that were concluded invalid or who are descendants of concluded invalid
 	// candidates (along with their descendants).
-	filter_candidates::<T, _>(&mut candidates_per_para, |_, candidate| {
+	filter_candidates::<T, _, _>(&mut candidates_per_para, |_, candidate| {
 		let keep = !concluded_invalid_with_descendants.contains(&candidate.candidate().hash());
 
 		if !keep {
@@ -1099,15 +1099,16 @@ fn limit_and_sanitize_disputes<
 // candidate which failes the predicate is found, all the other candidates that follow are dropped.
 fn filter_candidates<
 	T: inclusion::Config + paras::Config + inclusion::Config,
-	F: FnMut(ParaId, &BackedCandidate<T::Hash>) -> bool,
+	F: FnMut(ParaId, &mut C) -> bool,
+	C,
 >(
-	candidates: &mut BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
+	candidates_per_para: &mut BTreeMap<ParaId, Vec<C>>,
 	mut pred: F,
 ) {
-	for (para_id, candidates) in candidates.iter_mut() {
+	for (para_id, candidates) in candidates_per_para.iter_mut() {
 		let mut latest_valid_idx = None;
 
-		for (idx, candidate) in candidates.iter().enumerate() {
+		for (idx, candidate) in candidates.iter_mut().enumerate() {
 			if pred(*para_id, candidate) {
 				// Found a valid candidate.
 				latest_valid_idx = Some(idx);
@@ -1123,38 +1124,7 @@ fn filter_candidates<
 		}
 	}
 
-	candidates.retain(|_, c| !c.is_empty());
-}
-
-// Helper function for filtering candidates which don't pass the given predicate. When/if the first
-// candidate which failes the predicate is found, all the other candidates that follow are dropped.
-fn filter_candidates_with_core<
-	T: inclusion::Config + paras::Config + inclusion::Config,
-	F: FnMut(ParaId, &mut BackedCandidate<T::Hash>, CoreIndex) -> bool,
->(
-	candidates: &mut BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
-	mut pred: F,
-) {
-	for (para_id, candidates) in candidates.iter_mut() {
-		let mut latest_valid_idx = None;
-
-		for (idx, (candidate, core_idx)) in candidates.iter_mut().enumerate() {
-			if pred(*para_id, candidate, *core_idx) {
-				// Found a valid candidate.
-				latest_valid_idx = Some(idx);
-			} else {
-				break
-			}
-		}
-
-		if let Some(latest_valid_idx) = latest_valid_idx {
-			candidates.truncate(latest_valid_idx + 1);
-		} else {
-			candidates.clear();
-		}
-	}
-
-	candidates.retain(|_, c| !c.is_empty());
+	candidates_per_para.retain(|_, c| !c.is_empty());
 }
 
 // Filters statements from disabled validators in `BackedCandidate` and does a few more sanity
@@ -1183,7 +1153,7 @@ fn filter_backed_statements_from_disabled_validators<
 	// the validator group assigned to the parachain. To obtain this group we need:
 	// 1. Core index assigned to the parachain which has produced the candidate
 	// 2. The relay chain block number of the candidate
-	filter_candidates_with_core::<T, _>(backed_candidates_with_core, |para_id, bc, core_idx| {
+	filter_candidates::<T, _, _>(backed_candidates_with_core, |para_id, (bc, core_idx)| {
 		let (validator_indices, maybe_core_index) =
 			bc.validator_indices_and_core_index(core_index_enabled);
 		let mut validator_indices = BitVec::<_>::from(validator_indices);
@@ -1205,7 +1175,7 @@ fn filter_backed_statements_from_disabled_validators<
 
 		// Get the group index for the core
 		let group_idx = match <scheduler::Pallet<T>>::group_assigned_to_core(
-			core_idx,
+			*core_idx,
 			relay_parent_block_number + One::one(),
 		) {
 			Some(group_idx) => group_idx,
@@ -1269,17 +1239,8 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 ) {
 	let mut para_latest_head_data: BTreeMap<ParaId, HeadData> = BTreeMap::new();
 	for para_id in candidates.keys() {
-		let maybe_latest_head_data = match <inclusion::PendingAvailability<T>>::get(&para_id)
-			.map(|pending_candidates| {
-				pending_candidates.back().map(|x| x.candidate_commitments().head_data.clone())
-			})
-			.flatten()
-		{
-			Some(head_data) => Some(head_data),
-			None => <paras::Pallet<T>>::para_head(&para_id),
-		};
 		// this cannot be None
-		let latest_head_data = match maybe_latest_head_data {
+		let latest_head_data = match <inclusion::Pallet<T>>::para_latest_head_data(&para_id) {
 			None => {
 				log::warn!(target: LOG_TARGET, "Latest included head data for paraid {:?} is None", para_id);
 				continue
@@ -1289,7 +1250,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 		para_latest_head_data.insert(*para_id, latest_head_data);
 	}
 
-	filter_candidates::<T, _>(candidates, |para_id, candidate| {
+	filter_candidates::<T, _, _>(candidates, |para_id, candidate| {
 		let Some(latest_head_data) = para_latest_head_data.get(&para_id) else { return false };
 
 		let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
@@ -1377,15 +1338,11 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 						// the next para.
 						break;
 					}
-					let maybe_injected_core_index: Option<CoreIndex> = get_injected_core_index::<T>(
-						allowed_relay_parents,
-						&candidate,
-						core_index_enabled,
-					);
+					let maybe_injected_core_index: Option<CoreIndex> =
+						get_injected_core_index::<T>(allowed_relay_parents, &candidate);
 
 					if let Some(core_index) = maybe_injected_core_index {
-						if scheduled_cores.contains(&core_index) {
-							scheduled_cores.remove(&core_index);
+						if scheduled_cores.remove(&core_index) {
 							temp_backed_candidates.push((candidate, core_index));
 						} else {
 							// if we got a candidate for a core index which is not scheduled, stop
@@ -1439,13 +1396,11 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclusion::Config>(
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	candidate: &BackedCandidate<T::Hash>,
-	core_index_enabled: bool,
 ) -> Option<CoreIndex> {
 	// After stripping the 8 bit extensions, the `validator_indices` field length is expected
 	// to be equal to backing group size. If these don't match, the `CoreIndex` is badly encoded,
 	// or not supported.
-	let (validator_indices, maybe_core_idx) =
-		candidate.validator_indices_and_core_index(core_index_enabled);
+	let (validator_indices, maybe_core_idx) = candidate.validator_indices_and_core_index(true);
 
 	let Some(core_idx) = maybe_core_idx else { return None };
 
