@@ -986,37 +986,37 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 		let mut writes = 0;
 
 		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
-			PolkadotXcm::current_storage_version().put::<PolkadotXcm>();
+			PolkadotXcm::in_code_storage_version().put::<PolkadotXcm>();
 			writes.saturating_inc();
 		}
 
 		if Multisig::on_chain_storage_version() == StorageVersion::new(0) {
-			Multisig::current_storage_version().put::<Multisig>();
+			Multisig::in_code_storage_version().put::<Multisig>();
 			writes.saturating_inc();
 		}
 
 		if Assets::on_chain_storage_version() == StorageVersion::new(0) {
-			Assets::current_storage_version().put::<Assets>();
+			Assets::in_code_storage_version().put::<Assets>();
 			writes.saturating_inc();
 		}
 
 		if Uniques::on_chain_storage_version() == StorageVersion::new(0) {
-			Uniques::current_storage_version().put::<Uniques>();
+			Uniques::in_code_storage_version().put::<Uniques>();
 			writes.saturating_inc();
 		}
 
 		if Nfts::on_chain_storage_version() == StorageVersion::new(0) {
-			Nfts::current_storage_version().put::<Nfts>();
+			Nfts::in_code_storage_version().put::<Nfts>();
 			writes.saturating_inc();
 		}
 
 		if ForeignAssets::on_chain_storage_version() == StorageVersion::new(0) {
-			ForeignAssets::current_storage_version().put::<ForeignAssets>();
+			ForeignAssets::in_code_storage_version().put::<ForeignAssets>();
 			writes.saturating_inc();
 		}
 
 		if PoolAssets::on_chain_storage_version() == StorageVersion::new(0) {
-			PoolAssets::current_storage_version().put::<PoolAssets>();
+			PoolAssets::in_code_storage_version().put::<PoolAssets>();
 			writes.saturating_inc();
 		}
 
@@ -1093,7 +1093,7 @@ impl_runtime_apis! {
 			Executive::execute_block(block)
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}
@@ -1355,8 +1355,31 @@ impl_runtime_apis! {
 				Config as XcmBridgeHubRouterConfig,
 			};
 
+			parameter_types! {
+				pub ExistentialDepositAsset: Option<Asset> = Some((
+					TokenLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+				pub const RandomParaId: ParaId = ParaId::new(43211234);
+			}
+
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
+				type DeliveryHelper = (
+					cumulus_primitives_utility::ToParentDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForParentDelivery,
+					>,
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						RandomParaId,
+						ParachainSystem,
+					>
+				);
+
 				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
 				}
@@ -1365,7 +1388,7 @@ impl_runtime_apis! {
 					// Relay/native token can be teleported between AH and Relay.
 					Some((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
 						Parent.into(),
@@ -1373,17 +1396,13 @@ impl_runtime_apis! {
 				}
 
 				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
-					// AH can reserve transfer native token to some random parachain.
-					let random_para_id = 43211234;
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
-						random_para_id.into()
-					);
 					Some((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
-						ParentThen(Parachain(random_para_id).into()).into(),
+						// AH can reserve transfer native token to some random parachain.
+						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
 					))
 				}
 
@@ -1468,13 +1487,6 @@ impl_runtime_apis! {
 
 			use xcm_config::{TokenLocation, MaxAssetsIntoHolding};
 			use pallet_xcm_benchmarks::asset_instance_from;
-
-			parameter_types! {
-				pub ExistentialDepositAsset: Option<Asset> = Some((
-					TokenLocation::get(),
-					ExistentialDeposit::get()
-				).into());
-			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
