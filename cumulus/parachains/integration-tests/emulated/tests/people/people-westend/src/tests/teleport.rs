@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use people_westend_runtime::xcm_config::XcmConfig as PeopleWestendXcmConfig;
 use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 

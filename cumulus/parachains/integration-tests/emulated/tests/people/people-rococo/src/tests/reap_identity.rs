@@ -38,7 +38,7 @@
 //! - The freed deposit from the Relay Chain is sufficient for the parachain deposit; and
 //! - The account will exist on the parachain.
 
-use crate::*;
+use crate::imports::*;
 use frame_support::BoundedVec;
 use pallet_balances::Event as BalancesEvent;
 use pallet_identity::{legacy::IdentityInfo, Data, Event as IdentityEvent};
