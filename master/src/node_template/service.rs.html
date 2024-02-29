@@ -451,6 +451,12 @@ nav.side-bar {
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 </span><span class="kw">use </span>futures::FutureExt;
@@ -533,23 +539,29 @@ nav.side-bar {
 		telemetry.as_ref().map(|x| x.handle()),
 	)<span class="question-mark">?</span>;
 
-	<span class="kw">let </span>slot_duration = sc_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
-
+	<span class="kw">let </span>cidp_client = client.clone();
 	<span class="kw">let </span>import_queue =
 		sc_consensus_aura::import_queue::&lt;AuraPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(ImportQueueParams {
 			block_import: grandpa_block_import.clone(),
 			justification_import: <span class="prelude-val">Some</span>(Box::new(grandpa_block_import.clone())),
 			client: client.clone(),
-			create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{
-				<span class="kw">let </span>timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			create_inherent_data_providers: <span class="kw">move </span>|parent_hash, <span class="kw">_</span>| {
+				<span class="kw">let </span>cidp_client = cidp_client.clone();
+				<span class="kw">async move </span>{
+					<span class="kw">let </span>slot_duration = sc_consensus_aura::standalone::slot_duration_at(
+						<span class="kw-2">&amp;*</span>cidp_client,
+						parent_hash,
+					)<span class="question-mark">?</span>;
+					<span class="kw">let </span>timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-				<span class="kw">let </span>slot =
-					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-						<span class="kw-2">*</span>timestamp,
-						slot_duration,
-					);
+					<span class="kw">let </span>slot =
+						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+							<span class="kw-2">*</span>timestamp,
+							slot_duration,
+						);
 
-				<span class="prelude-val">Ok</span>((slot, timestamp))
+					<span class="prelude-val">Ok</span>((slot, timestamp))
+				}
 			},
 			spawner: <span class="kw-2">&amp;</span>task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),

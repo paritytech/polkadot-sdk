@@ -2342,6 +2342,11 @@ nav.side-bar {
 <a href="#2200" id="2200">2200</a>
 <a href="#2201" id="2201">2201</a>
 <a href="#2202" id="2202">2202</a>
+<a href="#2203" id="2203">2203</a>
+<a href="#2204" id="2204">2204</a>
+<a href="#2205" id="2205">2205</a>
+<a href="#2206" id="2206">2206</a>
+<a href="#2207" id="2207">2207</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -3595,28 +3600,33 @@ nav.side-bar {
 	&lt;&lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair <span class="kw">as </span>Pair&gt;::Signature:
 		TryFrom&lt;Vec&lt;u8&gt;&gt; + std::hash::Hash + sp_runtime::traits::Member + Codec,
 {
-	<span class="kw">let </span>client2 = client.clone();
+	<span class="kw">let </span>verifier_client = client.clone();
 
 	<span class="kw">let </span>aura_verifier = <span class="kw">move </span>|| {
-		<span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client2).unwrap();
-
 		Box::new(cumulus_client_consensus_aura::build_verifier::&lt;
 			&lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair,
 			<span class="kw">_</span>,
 			<span class="kw">_</span>,
 			<span class="kw">_</span>,
 		&gt;(cumulus_client_consensus_aura::BuildVerifierParams {
-			client: client2.clone(),
-			create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, <span class="kw">_</span>| <span class="kw">async move </span>{
-				<span class="kw">let </span>timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			client: verifier_client.clone(),
+			create_inherent_data_providers: <span class="kw">move </span>|parent_hash, <span class="kw">_</span>| {
+				<span class="kw">let </span>cidp_client = verifier_client.clone();
+				<span class="kw">async move </span>{
+					<span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration_at(
+						<span class="kw-2">&amp;*</span>cidp_client,
+						parent_hash,
+					)<span class="question-mark">?</span>;
+					<span class="kw">let </span>timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-				<span class="kw">let </span>slot =
-							sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-								<span class="kw-2">*</span>timestamp,
-								slot_duration,
-							);
+					<span class="kw">let </span>slot =
+								sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+									<span class="kw-2">*</span>timestamp,
+									slot_duration,
+								);
 
-				<span class="prelude-val">Ok</span>((slot, timestamp))
+					<span class="prelude-val">Ok</span>((slot, timestamp))
+				}
 			},
 			telemetry: telemetry_handle,
 		})) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;

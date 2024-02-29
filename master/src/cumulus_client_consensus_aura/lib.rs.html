@@ -390,6 +390,9 @@ nav.side-bar {
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -446,7 +449,10 @@ nav.side-bar {
 <span class="kw">mod </span>import_queue;
 
 <span class="kw">pub use </span>import_queue::{build_verifier, import_queue, BuildVerifierParams, ImportQueueParams};
-<span class="kw">pub use </span>sc_consensus_aura::{slot_duration, AuraVerifier, BuildAuraWorkerParams, SlotProportion};
+<span class="kw">pub use </span>sc_consensus_aura::{
+	slot_duration, standalone::slot_duration_at, AuraVerifier, BuildAuraWorkerParams,
+	SlotProportion,
+};
 <span class="kw">pub use </span>sc_consensus_slots::InherentDataProviderExt;
 
 <span class="kw">pub mod </span>collator;
