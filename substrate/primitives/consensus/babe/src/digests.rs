@@ -24,6 +24,7 @@ use super::{
 
 use sp_core::sr25519::vrf::VrfSignature;
 use sp_runtime::{DigestItem, RuntimeDebug};
+#[cfg(not(feature = "std"))]
 use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};

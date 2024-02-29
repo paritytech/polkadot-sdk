@@ -28,6 +28,7 @@ use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{traits::Header, ConsensusEngineId, RuntimeDebug};
+#[cfg(not(feature = "std"))]
 use sp_std::vec::Vec;
 
 use crate::digests::{NextConfigDescriptor, NextEpochDescriptor};

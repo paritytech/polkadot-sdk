@@ -2798,6 +2798,7 @@ pub(crate) mod tests {
 		ConsensusEngineId, StateVersion,
 	};
 	use trie_db::node_db::EMPTY_PREFIX;
+	use sp_trie::trie_types::{TrieDBBuilderV1, TrieDBMutBuilderV1};
 
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
 	const CONS1_ENGINE_ID: ConsensusEngineId = *b"CON1";
@@ -4692,5 +4693,164 @@ pub(crate) mod tests {
 		assert!(bc.body(fork_hash_3).unwrap().is_some());
 		backend.unpin_block(fork_hash_3);
 		assert!(bc.body(fork_hash_3).unwrap().is_none());
+	}
+
+	fn generate_trie(
+		db: &mut StorageDb<Block>,
+		key_values: impl IntoIterator<Item = (Vec<u8>, Vec<u8>)>,
+	) -> H256 {
+		/*
+		overlay.emplace(
+			array_bytes::hex2bytes(
+				"03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
+			)
+			.expect("null key is valid"),
+			Default::default(),
+			vec![0],
+		);
+		*/
+		let mut trie_db = TrieDBMutBuilderV1::<BlakeTwo256>::new(db).build();
+		for (key, value) in key_values {
+			trie_db.insert(&key, &value).expect("trie insertion failed");
+		}
+
+		let commit = trie_db.commit();
+		let root = commit.root_hash();
+
+		let mut transaction = Transaction::default();
+		apply_tree_commit::<BlakeTwo256>(
+			commit,
+			db.state_db.is_none(),
+			db.prefix_keys,
+			&mut transaction,
+		);
+
+		db.db.commit(transaction).expect("Failed to write transaction");
+
+		root
+	}
+
+	fn query_trie<'a>(
+		db: &StorageDb<Block>,
+		root: H256,
+		key_values: impl IntoIterator<Item = &'a (Vec<u8>, Vec<u8>)>,
+	) {
+		use trie_db::Trie;
+		/*
+		overlay.emplace(
+			array_bytes::hex2bytes(
+				"03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
+			)
+			.expect("null key is valid"),
+			Default::default(),
+			vec![0],
+		);
+		*/
+		use sp_state_machine::AsDB;
+		let db = db.as_node_db();
+		let mut trie_db = TrieDBBuilderV1::<BlakeTwo256, _>::new(db, &root).build();
+		for (key, value) in key_values {
+			let queried = trie_db.get(&key).expect("trie insertion failed");
+			assert_eq!(queried.as_ref(), Some(value));
+		}
+	}
+
+	// -------- Copied from substrate/bin/node/bench/src/tempdb.rs --------
+	// should be moved here or test here moved to node bench
+	// (kind of prefer here due to compilation time)
+	#[derive(Clone, Copy, Debug)]
+	pub enum DatabaseType {
+		#[cfg(feature = "rocksdb")]
+		RocksDb,
+		ParityDb,
+		ParityDbMulti,
+	}
+
+	pub struct TempDatabase(tempfile::TempDir);
+
+	impl TempDatabase {
+		pub fn new() -> Self {
+			let dir = tempfile::tempdir().expect("temp dir creation failed");
+			log::trace!(
+				target: "bench-logistics",
+				"Created temp db at {}",
+				dir.path().to_string_lossy(),
+			);
+
+			TempDatabase(dir)
+		}
+
+		pub fn open(&mut self, db_type: DatabaseType) -> StorageDb<Block> {
+			match db_type {
+				#[cfg(feature = "rocksdb")]
+				DatabaseType::RocksDb => {
+					let db = open_database::<Block>(
+						&DatabaseSource::RocksDb {
+							path: self.0.path().into(),
+							cache_size: 128 * 1024 * 1024,
+						},
+						true,
+						false,
+					)
+					.expect("Database backend error");
+					StorageDb::<Block> { db, state_db: None, prefix_keys: true }
+				},
+				DatabaseType::ParityDbMulti | DatabaseType::ParityDb => {
+					let db = open_database::<Block>(
+						&DatabaseSource::ParityDb {
+							path: self.0.path().into(),
+							multi_tree: matches!(db_type, DatabaseType::ParityDbMulti),
+						},
+						true,
+						false,
+					)
+					.expect("Database backend error");
+					StorageDb::<Block> { db, state_db: None, prefix_keys: false }
+				},
+			}
+		}
+	}
+
+	impl Clone for TempDatabase {
+		fn clone(&self) -> Self {
+			let new_dir = tempfile::tempdir().expect("temp dir creation failed");
+			let self_dir = self.0.path();
+
+			log::trace!(
+				target: "bench-logistics",
+				"Cloning db ({}) to {}",
+				self_dir.to_string_lossy(),
+				new_dir.path().to_string_lossy(),
+			);
+			let self_db_files = std::fs::read_dir(self_dir)
+				.expect("failed to list file in seed dir")
+				.map(|f_result| f_result.expect("failed to read file in seed db").path())
+				.collect::<Vec<PathBuf>>();
+			fs_extra::copy_items(
+				&self_db_files,
+				new_dir.path(),
+				&fs_extra::dir::CopyOptions::new(),
+			)
+			.expect("Copy of seed database is ok");
+
+			TempDatabase(new_dir)
+		}
+	}
+	// -------- End Copied from substrate/bin/node/bench/src/tempdb.rs --------
+
+
+	#[test]
+	fn check_state_on_db() {
+		let key_values = [
+			(b"key1".to_vec(), b"value1".to_vec()),
+//			(b"key2".to_vec(), b"value2".to_vec()),
+		];
+
+		let mut database = TempDatabase::new();
+		{
+			let mut database =  database.open(DatabaseType::RocksDb);
+			let root = generate_trie(&mut database, key_values.iter().cloned());
+			query_trie(&database, root, &key_values);
+		}
 	}
 }
