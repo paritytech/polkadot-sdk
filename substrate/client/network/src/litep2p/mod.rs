@@ -61,7 +61,7 @@ use litep2p::{
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
 	transport::{
-		tcp::config::Config as TcpTransportConfig,
+		tcp::config::Config as TcpTransportConfig, webrtc::config::Config as WebRtcConfig,
 		websocket::config::Config as WebSocketTransportConfig,
 	},
 	Error as Litep2pError, Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
@@ -363,6 +363,12 @@ impl Litep2pNetworkBackend {
 				yamux_config,
 				..Default::default()
 			})
+			.with_webrtc(WebRtcConfig {
+				listen_addresses: vec!["/ip4/192.168.1.170/udp/8888/webrtc-direct"
+					.parse()
+					.unwrap()],
+				..Default::default()
+			})
 	}
 }
 
@@ -557,7 +563,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			HashSet::from_iter(network_config.public_addresses.iter().cloned()),
 		));
 		litep2p.listen_addresses().for_each(|address| {
-			log::debug!(target: LOG_TARGET, "listening on: {address}");
+			log::info!(target: LOG_TARGET, "listening on: {address}");
 
 			listen_addresses.write().insert(address.clone());
 		});
