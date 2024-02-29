@@ -55,8 +55,7 @@ pub enum PalletStructAttr {
 impl PalletStructAttr {
 	fn span(&self) -> proc_macro2::Span {
 		match self {
-			Self::WithoutStorageInfoTrait(span) |
-			Self::StorageVersion { span, .. } => *span,
+			Self::WithoutStorageInfoTrait(span) | Self::StorageVersion { span, .. } => *span,
 		}
 	}
 }
