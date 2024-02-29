@@ -245,7 +245,7 @@ fetch_release_artifacts_from_s3() {
   echo "OUTPUT_DIR : $OUTPUT_DIR"
 
   URL_BASE=$(get_s3_url_base $BINARY)
-  log_info "URL_BASE=$URL_BASE"
+  echo "URL_BASE=$URL_BASE"
 
   URL_BINARY=$URL_BASE/$VERSION/$BINARY
   URL_SHA=$URL_BASE/$VERSION/$BINARY.sha256
@@ -257,7 +257,7 @@ fetch_release_artifacts_from_s3() {
 
   echo "Fetching artifacts..."
   for URL in $URL_BINARY $URL_SHA $URL_ASC; do
-    log_info "Fetching %s" "$URL"
+    echo "Fetching %s" "$URL"
     curl --progress-bar -LO "$URL" || echo "Missing $URL"
   done
 
@@ -281,7 +281,7 @@ function get_s3_url_base() {
         ;;
 
     *)
-        log_error "UNSUPPORTED BINARY $name"
+        printf "UNSUPPORTED BINARY $name"
         exit 1
         ;;
     esac
