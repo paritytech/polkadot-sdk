@@ -46,6 +46,10 @@ pub trait DelegateeSupport {
 
 	/// Returns true if `delegatee` is restricted to update which account they can receive their
 	/// staking rewards.
+	///
+	/// For `delegatee` accounts we restrict the reward destination to be the same as the
+	/// `delegatee` account itself. This is since the actual `delegatee` balances is not considered
+	/// while staking. Instead, their balance is made up of multiple child delegators.
 	fn restrict_reward_destination(
 		_who: &Self::AccountId,
 		_reward_destination: Option<Self::AccountId>,

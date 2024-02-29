@@ -35,12 +35,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn minimum_validator_bond() -> Self::Balance {
-		defensive_assert!(false, "not supported for delegated impl of staking interface");
 		T::CoreStaking::minimum_validator_bond()
 	}
 
 	fn stash_by_ctrl(_controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError> {
-		defensive_assert!(false, "not supported for delegated impl of staking interface");
 		// ctrl are deprecated, just return err.
 		Err(Error::<T>::NotSupported.into())
 	}
@@ -90,7 +88,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		payee: &Self::AccountId,
 	) -> DispatchResult {
 		// ensure who is not already staked
-		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::NotDelegatee);
+		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::AlreadyStaker);
 		let delegatee = Delegatee::<T>::from(who)?;
 
 		ensure!(delegatee.available_to_bond() >= value, Error::<T>::NotEnoughFunds);
@@ -100,18 +98,18 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn nominate(who: &Self::AccountId, validators: Vec<Self::AccountId>) -> DispatchResult {
-		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
+		ensure!(Self::is_delegatee(who), Error::<T>::NotDelegatee);
 		return T::CoreStaking::nominate(who, validators);
 	}
 
 	fn chill(who: &Self::AccountId) -> DispatchResult {
-		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
+		ensure!(Self::is_delegatee(who), Error::<T>::NotDelegatee);
 		return T::CoreStaking::chill(who);
 	}
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
-		let delegation_register = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
-		ensure!(delegation_register.stakeable_balance() >= extra, Error::<T>::NotEnoughFunds);
+		let ledger = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
+		ensure!(ledger.stakeable_balance() >= extra, Error::<T>::NotEnoughFunds);
 
 		T::CoreStaking::bond_extra(who, extra)
 	}
@@ -127,40 +125,35 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	///
 	/// Funds are moved to unclaimed_withdrawals register of the `DelegateeLedger`.
 	fn withdraw_unbonded(
-		pool_acc: Self::AccountId,
+		delegatee_acc: Self::AccountId,
 		num_slashing_spans: u32,
 	) -> Result<bool, DispatchError> {
-		Pallet::<T>::withdraw_unbonded(&pool_acc, num_slashing_spans)
+		Pallet::<T>::withdraw_unbonded(&delegatee_acc, num_slashing_spans)
 			.map(|delegatee| delegatee.ledger.total_delegated.is_zero())
 	}
 
 	fn desired_validator_count() -> u32 {
-		defensive_assert!(false, "not supported for delegated impl of staking interface");
 		T::CoreStaking::desired_validator_count()
 	}
 
 	fn election_ongoing() -> bool {
-		defensive_assert!(false, "not supported for delegated impl of staking interface");
 		T::CoreStaking::election_ongoing()
 	}
 
 	fn force_unstake(_who: Self::AccountId) -> DispatchResult {
-		defensive_assert!(false, "not supported for delegated impl of staking interface");
 		Err(Error::<T>::NotSupported.into())
 	}
 
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {
-		defensive_assert!(false, "not supported for delegated impl of staking interface");
 		T::CoreStaking::is_exposed_in_era(who, era)
 	}
 
 	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError> {
-		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
+		ensure!(Self::is_delegatee(who), Error::<T>::NotDelegatee);
 		T::CoreStaking::status(who)
 	}
 
 	fn is_validator(who: &Self::AccountId) -> bool {
-		defensive_assert!(false, "not supported for delegated impl of staking interface");
 		T::CoreStaking::is_validator(who)
 	}
 
@@ -173,7 +166,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn unsafe_release_all(_who: &Self::AccountId) {
-		defensive_assert!(false, "not supported for delegated impl of staking interface");
+		defensive_assert!(false, "unsafe_release_all is not supported");
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -228,7 +221,7 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		)
 	}
 
-	/// Add more delegation to the pool account.
+	/// Add more delegation to the delegatee account.
 	fn delegate_extra(
 		who: &Self::AccountId,
 		delegatee: &Self::AccountId,
@@ -241,17 +234,25 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		)
 	}
 
-	/// Withdraw delegation from pool account to self.
+	/// Withdraw delegation of `delegator` to `delegatee`.
+	///
+	/// If there are funds in `delegatee` account that can be withdrawn, then those funds would be
+	/// unlocked/released in the delegator's account.
 	fn withdraw_delegation(
-		who: &Self::AccountId,
+		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		// fixme(ank4n): This should not require slashing spans.
-		Pallet::<T>::release(RawOrigin::Signed(delegatee.clone()).into(), who.clone(), amount, 0)
+		// fixme(ank4n): Can this not require slashing spans?
+		Pallet::<T>::release(
+			RawOrigin::Signed(delegatee.clone()).into(),
+			delegator.clone(),
+			amount,
+			0,
+		)
 	}
 
-	/// Does the delegatee have any pending slash.
+	/// Returns true if the `delegatee` have any slash pending to be applied.
 	fn has_pending_slash(delegatee: &Self::AccountId) -> bool {
 		Delegatee::<T>::from(delegatee)
 			.map(|d| !d.ledger.pending_slash.is_zero())

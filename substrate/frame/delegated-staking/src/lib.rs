@@ -213,7 +213,7 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The account cannot perform this operation.
 		NotAllowed,
-		/// An existing staker cannot become a `delegatee`.
+		/// An existing staker cannot perform this action.
 		AlreadyStaker,
 		/// Reward Destination cannot be `delegatee` account.
 		InvalidRewardDestination,
