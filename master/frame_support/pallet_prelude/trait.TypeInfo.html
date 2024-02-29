@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">TypeInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Identity">Identity</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.type_info">type_info</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-TypeInfo-for-%26T">&amp;T</a></li><li><a href="#impl-TypeInfo-for-%26mut+T">&amp;mut T</a></li><li><a href="#impl-TypeInfo-for-()">()</a></li><li><a href="#impl-TypeInfo-for-(A,+B)">(A, B)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C)">(A, B, C)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D)">(A, B, C, D)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E)">(A, B, C, D, E)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F)">(A, B, C, D, E, F)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G)">(A, B, C, D, E, F, G)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H)">(A, B, C, D, E, F, G, H)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I)">(A, B, C, D, E, F, G, H, I)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J)">(A, B, C, D, E, F, G, H, I, J)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K)">(A, B, C, D, E, F, G, H, I, J, K)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L)">(A, B, C, D, E, F, G, H, I, J, K, L)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M)">(A, B, C, D, E, F, G, H, I, J, K, L, M)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+N)">(A, B, C, D, E, F, G, H, I, J, K, L, M, N)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+N,+O)">(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+N,+O,+P)">(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+N,+O,+P,+Q)">(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+N,+O,+P,+Q,+R)">(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+N,+O,+P,+Q,+R,+S)">(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)</a></li><li><a href="#impl-TypeInfo-for-(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+N,+O,+P,+Q,+R,+S,+T)">(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)</a></li><li><a href="#impl-TypeInfo-for-(A,)">(A,)</a></li><li><a href="#impl-TypeInfo-for-AccountId32">AccountId32</a></li><li><a href="#impl-TypeInfo-for-AnySignature">AnySignature</a></li><li><a href="#impl-TypeInfo-for-Arc%3CT%3E">Arc&lt;T&gt;</a></li><li><a href="#impl-TypeInfo-for-ArithmeticError">ArithmeticError</a></li><li><a href="#impl-TypeInfo-for-ArkScale%3CT,+U%3E">ArkScale&lt;T, U&gt;</a></li><li><a href="#impl-TypeInfo-for-ArkScale%3CT,+U%3E">ArkScale&lt;T, U&gt;</a></li><li><a href="#impl-TypeInfo-for-BTreeMap%3CK,+V%3E">BTreeMap&lt;K, V&gt;</a></li><li><a href="#impl-TypeInfo-for-BTreeSet%3CT%3E">BTreeSet&lt;T&gt;</a></li><li><a href="#impl-TypeInfo-for-BitVec%3CT,+O%3E">BitVec&lt;T, O&gt;</a></li><li><a href="#impl-TypeInfo-for-BlakeTwo256">BlakeTwo256</a></li><li><a href="#impl-TypeInfo-for-Block%3CHeader,+Extrinsic%3E">Block&lt;Header, Extrinsic&gt;</a></li><li><a href="#impl-TypeInfo-for-Block%3CXt%3E">Block&lt;Xt&gt;</a></li><li><a href="#impl-TypeInfo-for-Box%3CT%3E">Box&lt;T&gt;</a></li><li><a href="#impl-TypeInfo-for-Compact%3CT%3E">Compact&lt;T&gt;</a></li><li><a href="#impl-TypeInfo-for-CompactProof">CompactProof</a></li><li><a href="#impl-TypeInfo-for-Cow%3C'static,+T%3E">Cow&lt;&#x27;static, T&gt;</a></li><li><a href="#impl-TypeInfo-for-Digest">Digest</a></li><li><a href="#impl-TypeInfo-for-DigestItem">DigestItem</a></li><li><a href="#impl-TypeInfo-for-DisableStrategy">DisableStrategy</a></li><li><a href="#impl-TypeInfo-for-DispatchError">DispatchError</a></li><li><a href="#impl-TypeInfo-for-DispatchErrorWithPostInfo%3CInfo%3E">DispatchErrorWithPostInfo&lt;Info&gt;</a></li><li><a href="#impl-TypeInfo-for-Duration">Duration</a></li><li><a href="#impl-TypeInfo-for-Era">Era</a></li><li><a href="#impl-TypeInfo-for-Exposure%3CAccountId,+Balance%3E">Exposure&lt;AccountId, Balance&gt;</a></li><li><a href="#impl-TypeInfo-for-ExposurePage%3CAccountId,+Balance%3E">ExposurePage&lt;AccountId, Balance&gt;</a></li><li><a href="#impl-TypeInfo-for-ExtrinsicInclusionMode">ExtrinsicInclusionMode</a></li><li><a href="#impl-TypeInfo-for-FixedI128">FixedI128</a></li><li><a href="#impl-TypeInfo-for-FixedI64">FixedI64</a></li><li><a href="#impl-TypeInfo-for-FixedU128">FixedU128</a></li><li><a href="#impl-TypeInfo-for-FixedU64">FixedU64</a></li><li><a href="#impl-TypeInfo-for-H128">H128</a></li><li><a href="#impl-TypeInfo-for-H160">H160</a></li><li><a href="#impl-TypeInfo-for-H256">H256</a></li><li><a href="#impl-TypeInfo-for-H384">H384</a></li><li><a href="#impl-TypeInfo-for-H512">H512</a></li><li><a href="#impl-TypeInfo-for-H768">H768</a></li><li><a href="#impl-TypeInfo-for-Header%3CNumber,+Hash%3E">Header&lt;Number, Hash&gt;</a></li><li><a href="#impl-TypeInfo-for-IndividualExposure%3CAccountId,+Balance%3E">IndividualExposure&lt;AccountId, Balance&gt;</a></li><li><a href="#impl-TypeInfo-for-Keccak256">Keccak256</a></li><li><a href="#impl-TypeInfo-for-KeyTypeId">KeyTypeId</a></li><li><a href="#impl-TypeInfo-for-Lsb0">Lsb0</a></li><li><a href="#impl-TypeInfo-for-ModuleError">ModuleError</a></li><li><a href="#impl-TypeInfo-for-ModuleError">ModuleError</a></li><li><a href="#impl-TypeInfo-for-Msb0">Msb0</a></li><li><a href="#impl-TypeInfo-for-MultiAddress%3CAccountId,+AccountIndex%3E">MultiAddress&lt;AccountId, AccountIndex&gt;</a></li><li><a href="#impl-TypeInfo-for-MultiSignature">MultiSignature</a></li><li><a href="#impl-TypeInfo-for-MultiSigner">MultiSigner</a></li><li><a href="#impl-TypeInfo-for-NonZeroI128">NonZeroI128</a></li><li><a href="#impl-TypeInfo-for-NonZeroI16">NonZeroI16</a></li><li><a href="#impl-TypeInfo-for-NonZeroI32">NonZeroI32</a></li><li><a href="#impl-TypeInfo-for-NonZeroI64">NonZeroI64</a></li><li><a href="#impl-TypeInfo-for-NonZeroI8">NonZeroI8</a></li><li><a href="#impl-TypeInfo-for-NonZeroU128">NonZeroU128</a></li><li><a href="#impl-TypeInfo-for-NonZeroU16">NonZeroU16</a></li><li><a href="#impl-TypeInfo-for-NonZeroU32">NonZeroU32</a></li><li><a href="#impl-TypeInfo-for-NonZeroU64">NonZeroU64</a></li><li><a href="#impl-TypeInfo-for-NonZeroU8">NonZeroU8</a></li><li><a href="#impl-TypeInfo-for-OffenceDetails%3CReporter,+Offender%3E">OffenceDetails&lt;Reporter, Offender&gt;</a></li><li><a href="#impl-TypeInfo-for-OpaqueExtrinsic">OpaqueExtrinsic</a></li><li><a href="#impl-TypeInfo-for-OpaqueMetadata">OpaqueMetadata</a></li><li><a href="#impl-TypeInfo-for-OpaqueMultiaddr">OpaqueMultiaddr</a></li><li><a href="#impl-TypeInfo-for-OpaqueNetworkState">OpaqueNetworkState</a></li><li><a href="#impl-TypeInfo-for-OpaquePeerId">OpaquePeerId</a></li><li><a href="#impl-TypeInfo-for-Option%3CT%3E">Option&lt;T&gt;</a></li><li><a href="#impl-TypeInfo-for-PagedExposureMetadata%3CBalance%3E">PagedExposureMetadata&lt;Balance&gt;</a></li><li><a href="#impl-TypeInfo-for-PerU16">PerU16</a></li><li><a href="#impl-TypeInfo-for-Perbill">Perbill</a></li><li><a href="#impl-TypeInfo-for-Percent">Percent</a></li><li><a href="#impl-TypeInfo-for-Permill">Permill</a></li><li><a href="#impl-TypeInfo-for-Perquintill">Perquintill</a></li><li><a href="#impl-TypeInfo-for-PiecewiseLinear%3C'a%3E">PiecewiseLinear&lt;&#x27;a&gt;</a></li><li><a href="#impl-TypeInfo-for-AppPublic">Public</a></li><li><a href="#impl-TypeInfo-for-AppPublic">Public</a></li><li><a href="#impl-TypeInfo-for-AppPublic">Public</a></li><li><a href="#impl-TypeInfo-for-AppPublic">Public</a></li><li><a href="#impl-TypeInfo-for-Public">Public</a></li><li><a href="#impl-TypeInfo-for-Public">Public</a></li><li><a href="#impl-TypeInfo-for-Public">Public</a></li><li><a href="#impl-TypeInfo-for-Public">Public</a></li><li><a href="#impl-TypeInfo-for-Public%3CLEFT_PLUS_RIGHT_LEN%3E">Public&lt;LEFT_PLUS_RIGHT_LEN&gt;</a></li><li><a href="#impl-TypeInfo-for-Range%3CIdx%3E">Range&lt;Idx&gt;</a></li><li><a href="#impl-TypeInfo-for-RangeInclusive%3CIdx%3E">RangeInclusive&lt;Idx&gt;</a></li><li><a href="#impl-TypeInfo-for-Rc%3CT%3E">Rc&lt;T&gt;</a></li><li><a href="#impl-TypeInfo-for-Result%3CT,+E%3E">Result&lt;T, E&gt;</a></li><li><a href="#impl-TypeInfo-for-RingContext%3CD%3E">RingContext&lt;D&gt;</a></li><li><a href="#impl-TypeInfo-for-RingVerifierData">RingVerifierData</a></li><li><a href="#impl-TypeInfo-for-RingVrfSignature">RingVrfSignature</a></li><li><a href="#impl-TypeInfo-for-RuntimeString">RuntimeString</a></li><li><a href="#impl-TypeInfo-for-RuntimeVersion">RuntimeVersion</a></li><li><a href="#impl-TypeInfo-for-AppSignature">Signature</a></li><li><a href="#impl-TypeInfo-for-AppSignature">Signature</a></li><li><a href="#impl-TypeInfo-for-AppSignature">Signature</a></li><li><a href="#impl-TypeInfo-for-AppSignature">Signature</a></li><li><a href="#impl-TypeInfo-for-Signature">Signature</a></li><li><a href="#impl-TypeInfo-for-Signature">Signature</a></li><li><a href="#impl-TypeInfo-for-Signature">Signature</a></li><li><a href="#impl-TypeInfo-for-Signature">Signature</a></li><li><a href="#impl-TypeInfo-for-Signature%3CLEFT_PLUS_RIGHT_LEN%3E">Signature&lt;LEFT_PLUS_RIGHT_LEN&gt;</a></li><li><a href="#impl-TypeInfo-for-StakerStatus%3CAccountId%3E">StakerStatus&lt;AccountId&gt;</a></li><li><a href="#impl-TypeInfo-for-StorageProof">StorageProof</a></li><li><a href="#impl-TypeInfo-for-String">String</a></li><li><a href="#impl-TypeInfo-for-TestSignature">TestSignature</a></li><li><a href="#impl-TypeInfo-for-TestXt%3CCall,+Extra%3E">TestXt&lt;Call, Extra&gt;</a></li><li><a href="#impl-TypeInfo-for-TokenError">TokenError</a></li><li><a href="#impl-TypeInfo-for-TransactionalError">TransactionalError</a></li><li><a href="#impl-TypeInfo-for-U128">U128</a></li><li><a href="#impl-TypeInfo-for-U256">U256</a></li><li><a href="#impl-TypeInfo-for-U512">U512</a></li><li><a href="#impl-TypeInfo-for-UintAuthorityId">UintAuthorityId</a></li><li><a href="#impl-TypeInfo-for-UncheckedExtrinsic%3CAddress,+Call,+Signature,+Extra%3E">UncheckedExtrinsic&lt;Address, Call, Signature, Extra&gt;</a></li><li><a href="#impl-TypeInfo-for-Vec%3CT%3E">Vec&lt;T&gt;</a></li><li><a href="#impl-TypeInfo-for-VecDeque%3CT%3E">VecDeque&lt;T&gt;</a></li><li><a href="#impl-TypeInfo-for-Void">Void</a></li><li><a href="#impl-TypeInfo-for-VrfPreOutput">VrfPreOutput</a></li><li><a href="#impl-TypeInfo-for-VrfPreOutput">VrfPreOutput</a></li><li><a href="#impl-TypeInfo-for-VrfProof">VrfProof</a></li><li><a href="#impl-TypeInfo-for-VrfSignature">VrfSignature</a></li><li><a href="#impl-TypeInfo-for-VrfSignature">VrfSignature</a></li><li><a href="#impl-TypeInfo-for-%5BT;+N%5D">[T; N]</a></li><li><a href="#impl-TypeInfo-for-%5BT%5D">[T]</a></li><li><a href="#impl-TypeInfo-for-bool">bool</a></li><li><a href="#impl-TypeInfo-for-char">char</a></li><li><a href="#impl-TypeInfo-for-i128">i128</a></li><li><a href="#impl-TypeInfo-for-i16">i16</a></li><li><a href="#impl-TypeInfo-for-i32">i32</a></li><li><a href="#impl-TypeInfo-for-i64">i64</a></li><li><a href="#impl-TypeInfo-for-i8">i8</a></li><li><a href="#impl-TypeInfo-for-str">str</a></li><li><a href="#impl-TypeInfo-for-u128">u128</a></li><li><a href="#impl-TypeInfo-for-u16">u16</a></li><li><a href="#impl-TypeInfo-for-u32">u32</a></li><li><a href="#impl-TypeInfo-for-u64">u64</a></li><li><a href="#impl-TypeInfo-for-u8">u8</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In frame_support::pallet_prelude</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">frame_support</a>::<wbr><a href="index.html">pallet_prelude</a>::<wbr><a class="trait" href="#">TypeInfo</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait TypeInfo {

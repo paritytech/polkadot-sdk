@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../sp_core/index.html">sp_core</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module storage</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section><h2><a href="../index.html">In sp_core::offchain</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">sp_core</a>::<wbr><a href="../index.html">offchain</a>::<wbr><a class="mod" href="#">storage</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/sp_core/offchain/storage.rs.html#18-184">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>In-memory implementation of offchain workers database.</p>

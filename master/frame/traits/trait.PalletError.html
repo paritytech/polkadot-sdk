@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame/index.html">frame</a><span class="version">0.0.1-dev</span></h2></div><h2 class="location"><a href="#">PalletError</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.MAX_ENCODED_SIZE">MAX_ENCODED_SIZE</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-PalletError-for-()">()</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1)">(TupleElement0, TupleElement1)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2)">(TupleElement0, TupleElement1, TupleElement2)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17)</a></li><li><a href="#impl-PalletError-for-(TupleElement0,)">(TupleElement0,)</a></li><li><a href="#impl-PalletError-for-Compact%3Cu128%3E">Compact&lt;u128&gt;</a></li><li><a href="#impl-PalletError-for-Compact%3Cu16%3E">Compact&lt;u16&gt;</a></li><li><a href="#impl-PalletError-for-Compact%3Cu32%3E">Compact&lt;u32&gt;</a></li><li><a href="#impl-PalletError-for-Compact%3Cu64%3E">Compact&lt;u64&gt;</a></li><li><a href="#impl-PalletError-for-Compact%3Cu8%3E">Compact&lt;u8&gt;</a></li><li><a href="#impl-PalletError-for-Duration">Duration</a></li><li><a href="#impl-PalletError-for-Option%3CT%3E">Option&lt;T&gt;</a></li><li><a href="#impl-PalletError-for-Range%3CT%3E">Range&lt;T&gt;</a></li><li><a href="#impl-PalletError-for-Result%3CT,+E%3E">Result&lt;T, E&gt;</a></li><li><a href="#impl-PalletError-for-%5BT;+N%5D">[T; N]</a></li><li><a href="#impl-PalletError-for-bool">bool</a></li><li><a href="#impl-PalletError-for-i128">i128</a></li><li><a href="#impl-PalletError-for-i16">i16</a></li><li><a href="#impl-PalletError-for-i32">i32</a></li><li><a href="#impl-PalletError-for-i64">i64</a></li><li><a href="#impl-PalletError-for-i8">i8</a></li><li><a href="#impl-PalletError-for-u128">u128</a></li><li><a href="#impl-PalletError-for-u16">u16</a></li><li><a href="#impl-PalletError-for-u32">u32</a></li><li><a href="#impl-PalletError-for-u64">u64</a></li><li><a href="#impl-PalletError-for-u8">u8</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In frame::traits</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">frame</a>::<wbr><a href="index.html">traits</a>::<wbr><a class="trait" href="#">PalletError</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait PalletError: <a class="trait" href="../derive/trait.Encode.html" title="trait frame::derive::Encode">Encode</a> + <a class="trait" href="../derive/trait.Decode.html" title="trait frame::derive::Decode">Decode</a> {
@@ -330,4 +335,4 @@ thrown.</p>
     TupleElement14: <a class="trait" href="trait.PalletError.html" title="trait frame::traits::PalletError">PalletError</a>,
     TupleElement15: <a class="trait" href="trait.PalletError.html" title="trait frame::traits::PalletError">PalletError</a>,
     TupleElement16: <a class="trait" href="trait.PalletError.html" title="trait frame::traits::PalletError">PalletError</a>,
-    TupleElement17: <a class="trait" href="trait.PalletError.html" title="trait frame::traits::PalletError">PalletError</a>,</span></h3></section></summary><div class="impl-items"><section id="associatedconstant.MAX_ENCODED_SIZE-40" class="associatedconstant trait-impl"><a href="#associatedconstant.MAX_ENCODED_SIZE-40" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.MAX_ENCODED_SIZE" class="constant">MAX_ENCODED_SIZE</a>: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a> = _</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-PalletError-for-Never" class="impl"><a href="#impl-PalletError-for-Never" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.PalletError.html" title="trait frame::traits::PalletError">PalletError</a> for Never</h3></section></summary><div class="impl-items"><section id="associatedconstant.MAX_ENCODED_SIZE-41" class="associatedconstant trait-impl"><a href="#associatedconstant.MAX_ENCODED_SIZE-41" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.MAX_ENCODED_SIZE" class="constant">MAX_ENCODED_SIZE</a>: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a> = 0usize</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-PalletError-for-Error%3CT%3E" class="impl"><a class="src rightside" href="../../src/frame_system/lib.rs.html#257">source</a><a href="#impl-PalletError-for-Error%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.PalletError.html" title="trait frame::traits::PalletError">PalletError</a> for <a class="enum" href="../prelude/frame_system/enum.Error.html" title="enum frame::prelude::frame_system::Error">Error</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><section id="associatedconstant.MAX_ENCODED_SIZE-42" class="associatedconstant trait-impl"><a class="src rightside" href="../../src/frame_system/lib.rs.html#257">source</a><a href="#associatedconstant.MAX_ENCODED_SIZE-42" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.MAX_ENCODED_SIZE" class="constant">MAX_ENCODED_SIZE</a>: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a> = 1usize</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-PalletError-for-PhantomData%3CT%3E" class="impl"><a href="#impl-PalletError-for-PhantomData%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.PalletError.html" title="trait frame::traits::PalletError">PalletError</a> for <a class="struct" href="struct.PhantomData.html" title="struct frame::traits::PhantomData">PhantomData</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><section id="associatedconstant.MAX_ENCODED_SIZE-43" class="associatedconstant trait-impl"><a href="#associatedconstant.MAX_ENCODED_SIZE-43" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.MAX_ENCODED_SIZE" class="constant">MAX_ENCODED_SIZE</a>: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a> = 0usize</h4></section></div></details></div><script src="../../trait.impl/frame_support/traits/error/trait.PalletError.js" data-ignore-extern-crates="parity_scale_codec,core,frame_support,std,frame_system" async></script></section></div></main></body></html>
+    TupleElement17: <a class="trait" href="trait.PalletError.html" title="trait frame::traits::PalletError">PalletError</a>,</span></h3></section></summary><div class="impl-items"><section id="associatedconstant.MAX_ENCODED_SIZE-40" class="associatedconstant trait-impl"><a href="#associatedconstant.MAX_ENCODED_SIZE-40" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.MAX_ENCODED_SIZE" class="constant">MAX_ENCODED_SIZE</a>: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a> = _</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-PalletError-for-Never" class="impl"><a href="#impl-PalletError-for-Never" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.PalletError.html" title="trait frame::traits::PalletError">PalletError</a> for Never</h3></section></summary><div class="impl-items"><section id="associatedconstant.MAX_ENCODED_SIZE-41" class="associatedconstant trait-impl"><a href="#associatedconstant.MAX_ENCODED_SIZE-41" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.MAX_ENCODED_SIZE" class="constant">MAX_ENCODED_SIZE</a>: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a> = 0usize</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-PalletError-for-Error%3CT%3E" class="impl"><a href="#impl-PalletError-for-Error%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.PalletError.html" title="trait frame::traits::PalletError">PalletError</a> for <a class="enum" href="../prelude/frame_system/enum.Error.html" title="enum frame::prelude::frame_system::Error">Error</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><section id="associatedconstant.MAX_ENCODED_SIZE-42" class="associatedconstant trait-impl"><a href="#associatedconstant.MAX_ENCODED_SIZE-42" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.MAX_ENCODED_SIZE" class="constant">MAX_ENCODED_SIZE</a>: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a> = 1usize</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-PalletError-for-PhantomData%3CT%3E" class="impl"><a href="#impl-PalletError-for-PhantomData%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.PalletError.html" title="trait frame::traits::PalletError">PalletError</a> for <a class="struct" href="struct.PhantomData.html" title="struct frame::traits::PhantomData">PhantomData</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><section id="associatedconstant.MAX_ENCODED_SIZE-43" class="associatedconstant trait-impl"><a href="#associatedconstant.MAX_ENCODED_SIZE-43" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.MAX_ENCODED_SIZE" class="constant">MAX_ENCODED_SIZE</a>: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a> = 0usize</h4></section></div></details></div><script src="../../trait.impl/frame_support/traits/error/trait.PalletError.js" data-ignore-extern-crates="parity_scale_codec,core,frame_support,std,frame_system" async></script></section></div></main></body></html>

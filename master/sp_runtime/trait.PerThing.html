@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_runtime/index.html">sp_runtime</a><span class="version">31.0.1</span></h2></div><h2 class="location"><a href="#">PerThing</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Inner">Inner</a></li><li><a href="#associatedtype.Upper">Upper</a></li></ul><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.ACCURACY">ACCURACY</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.deconstruct">deconstruct</a></li><li><a href="#tymethod.from_float">from_float</a></li><li><a href="#tymethod.from_parts">from_parts</a></li><li><a href="#tymethod.from_rational_with_rounding">from_rational_with_rounding</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.from_fraction">from_fraction</a></li><li><a href="#method.from_percent">from_percent</a></li><li><a href="#method.from_rational">from_rational</a></li><li><a href="#method.from_rational_approximation">from_rational_approximation</a></li><li><a href="#method.is_one">is_one</a></li><li><a href="#method.is_zero">is_zero</a></li><li><a href="#method.left_from_one">left_from_one</a></li><li><a href="#method.less_epsilon">less_epsilon</a></li><li><a href="#method.mul_ceil">mul_ceil</a></li><li><a href="#method.mul_floor">mul_floor</a></li><li><a href="#method.one">one</a></li><li><a href="#method.plus_epsilon">plus_epsilon</a></li><li><a href="#method.saturating_reciprocal_mul">saturating_reciprocal_mul</a></li><li><a href="#method.saturating_reciprocal_mul_ceil">saturating_reciprocal_mul_ceil</a></li><li><a href="#method.saturating_reciprocal_mul_floor">saturating_reciprocal_mul_floor</a></li><li><a href="#method.square">square</a></li><li><a href="#method.try_less_epsilon">try_less_epsilon</a></li><li><a href="#method.try_plus_epsilon">try_plus_epsilon</a></li><li><a href="#method.zero">zero</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate sp_runtime</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">sp_runtime</a>::<wbr><a class="trait" href="#">PerThing</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/sp_arithmetic/per_things.rs.html#94-107">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait PerThing: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="traits/trait.Saturating.html" title="trait sp_runtime::traits::Saturating">Saturating</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html" title="trait core::cmp::PartialOrd">PartialOrd</a> + <a class="trait" href="traits/trait.Bounded.html" title="trait sp_runtime::traits::Bounded">Bounded</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/arith/trait.Div.html" title="trait core::ops::arith::Div">Div</a>&lt;Output = Self&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/arith/trait.Mul.html" title="trait core::ops::arith::Mul">Mul</a>&lt;Output = Self&gt; + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/pow/trait.Pow.html" title="trait num_traits::pow::Pow">Pow</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>, Output = Self&gt; {

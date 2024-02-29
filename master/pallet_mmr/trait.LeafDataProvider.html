@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_mmr/index.html">pallet_mmr</a><span class="version">27.0.0</span></h2></div><h2 class="location"><a href="#">LeafDataProvider</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.LeafData">LeafData</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.leaf_data">leaf_data</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-LeafDataProvider-for-()">()</a></li><li><a href="#impl-LeafDataProvider-for-(A,+B)">(A, B)</a></li><li><a href="#impl-LeafDataProvider-for-(A,+B,+C)">(A, B, C)</a></li><li><a href="#impl-LeafDataProvider-for-(A,+B,+C,+D)">(A, B, C, D)</a></li><li><a href="#impl-LeafDataProvider-for-(A,+B,+C,+D,+E)">(A, B, C, D, E)</a></li><li><a href="#impl-LeafDataProvider-for-(A,)">(A,)</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate pallet_mmr</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">pallet_mmr</a>::<wbr><a class="trait" href="#">LeafDataProvider</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait LeafDataProvider {
@@ -211,4 +216,4 @@ this pallet at the very beginning of each block.</p>
     D: <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>,
     E: <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>,</span></h3></section></summary><div class="docblock"><p><a href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a> implementation for <code>Compact&lt;H, (DataOrHash&lt;H, Tuple&gt;, ...)&gt;</code></p>
 <p>This provides a compact-form encoding for tuples wrapped in [Compact].</p>
-</div><div class="impl-items"><section id="associatedtype.LeafData-11" class="associatedtype trait-impl"><a href="#associatedtype.LeafData-11" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.LeafData" class="associatedtype">LeafData</a> = Compact&lt;H, (DataOrHash&lt;H, &lt;A as <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>&gt;::<a class="associatedtype" href="trait.LeafDataProvider.html#associatedtype.LeafData" title="type pallet_mmr::LeafDataProvider::LeafData">LeafData</a>&gt;, DataOrHash&lt;H, &lt;B as <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>&gt;::<a class="associatedtype" href="trait.LeafDataProvider.html#associatedtype.LeafData" title="type pallet_mmr::LeafDataProvider::LeafData">LeafData</a>&gt;, DataOrHash&lt;H, &lt;C as <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>&gt;::<a class="associatedtype" href="trait.LeafDataProvider.html#associatedtype.LeafData" title="type pallet_mmr::LeafDataProvider::LeafData">LeafData</a>&gt;, DataOrHash&lt;H, &lt;D as <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>&gt;::<a class="associatedtype" href="trait.LeafDataProvider.html#associatedtype.LeafData" title="type pallet_mmr::LeafDataProvider::LeafData">LeafData</a>&gt;, DataOrHash&lt;H, &lt;E as <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>&gt;::<a class="associatedtype" href="trait.LeafDataProvider.html#associatedtype.LeafData" title="type pallet_mmr::LeafDataProvider::LeafData">LeafData</a>&gt;)&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-LeafDataProvider-for-ParentNumberAndHash%3CT%3E" class="impl"><a class="src rightside" href="../src/pallet_mmr/lib.rs.html#95-104">source</a><a href="#impl-LeafDataProvider-for-ParentNumberAndHash%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt; <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a> for <a class="struct" href="struct.ParentNumberAndHash.html" title="struct pallet_mmr::ParentNumberAndHash">ParentNumberAndHash</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.LeafData-12" class="associatedtype trait-impl"><a href="#associatedtype.LeafData-12" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.LeafData" class="associatedtype">LeafData</a> = (&lt;&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.Block" title="type frame_system::pallet::Config::Block">Block</a> as HeaderProvider&gt;::HeaderT as <a class="trait" href="../sp_runtime/traits/trait.Header.html" title="trait sp_runtime::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../sp_runtime/traits/trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a>, &lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.Hash" title="type frame_system::pallet::Config::Hash">Hash</a>)</h4></section></div></details></div><script src="../trait.impl/sp_mmr_primitives/trait.LeafDataProvider.js" data-ignore-extern-crates="sp_mmr_primitives,std" async></script></section></div></main></body></html>
+</div><div class="impl-items"><section id="associatedtype.LeafData-11" class="associatedtype trait-impl"><a href="#associatedtype.LeafData-11" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.LeafData" class="associatedtype">LeafData</a> = Compact&lt;H, (DataOrHash&lt;H, &lt;A as <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>&gt;::<a class="associatedtype" href="trait.LeafDataProvider.html#associatedtype.LeafData" title="type pallet_mmr::LeafDataProvider::LeafData">LeafData</a>&gt;, DataOrHash&lt;H, &lt;B as <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>&gt;::<a class="associatedtype" href="trait.LeafDataProvider.html#associatedtype.LeafData" title="type pallet_mmr::LeafDataProvider::LeafData">LeafData</a>&gt;, DataOrHash&lt;H, &lt;C as <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>&gt;::<a class="associatedtype" href="trait.LeafDataProvider.html#associatedtype.LeafData" title="type pallet_mmr::LeafDataProvider::LeafData">LeafData</a>&gt;, DataOrHash&lt;H, &lt;D as <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>&gt;::<a class="associatedtype" href="trait.LeafDataProvider.html#associatedtype.LeafData" title="type pallet_mmr::LeafDataProvider::LeafData">LeafData</a>&gt;, DataOrHash&lt;H, &lt;E as <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>&gt;::<a class="associatedtype" href="trait.LeafDataProvider.html#associatedtype.LeafData" title="type pallet_mmr::LeafDataProvider::LeafData">LeafData</a>&gt;)&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-LeafDataProvider-for-ParentNumberAndHash%3CT%3E" class="impl"><a class="src rightside" href="../src/pallet_mmr/lib.rs.html#95-104">source</a><a href="#impl-LeafDataProvider-for-ParentNumberAndHash%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: Config&gt; <a class="trait" href="trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a> for <a class="struct" href="struct.ParentNumberAndHash.html" title="struct pallet_mmr::ParentNumberAndHash">ParentNumberAndHash</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.LeafData-12" class="associatedtype trait-impl"><a href="#associatedtype.LeafData-12" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.LeafData" class="associatedtype">LeafData</a> = (&lt;&lt;&lt;T as Config&gt;::Block as HeaderProvider&gt;::HeaderT as <a class="trait" href="../sp_runtime/traits/trait.Header.html" title="trait sp_runtime::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../sp_runtime/traits/trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a>, &lt;T as Config&gt;::Hash)</h4></section></div></details></div><script src="../trait.impl/sp_mmr_primitives/trait.LeafDataProvider.js" data-ignore-extern-crates="sp_mmr_primitives,std" async></script></section></div></main></body></html>

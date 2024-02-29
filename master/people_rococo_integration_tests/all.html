@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../people_rococo_integration_tests/index.html">people_rococo_integration_tests</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li><li><a href="#derives">Derive Macros</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.AccountId32.html">AccountId32</a></li><li><a href="struct.AlwaysV2.html">AlwaysV2</a></li><li><a href="struct.AlwaysV3.html">AlwaysV3</a></li><li><a href="struct.AlwaysV4.html">AlwaysV4</a></li><li><a href="struct.Ancestor.html">Ancestor</a></li><li><a href="struct.AncestorThen.html">AncestorThen</a></li><li><a href="struct.Asset.html">Asset</a></li><li><a href="struct.AssetId.html">AssetId</a></li><li><a href="struct.Assets.html">Assets</a></li><li><a href="struct.Location.html">Location</a></li><li><a href="struct.PalletInfo.html">PalletInfo</a></li><li><a href="struct.Parent.html">Parent</a></li><li><a href="struct.ParentThen.html">ParentThen</a></li><li><a href="struct.PeopleRococoReceiver.html">PeopleRococoReceiver</a></li><li><a href="struct.PeopleRococoSender.html">PeopleRococoSender</a></li><li><a href="struct.QueryResponseInfo.html">QueryResponseInfo</a></li><li><a href="struct.RococoReceiver.html">RococoReceiver</a></li><li><a href="struct.RococoSender.html">RococoSender</a></li><li><a href="struct.Test.html">Test</a></li><li><a href="struct.TestArgs.html">TestArgs</a></li><li><a href="struct.TestContext.html">TestContext</a></li><li><a href="struct.Weight.html">Weight</a></li><li><a href="struct.Xcm.html">Xcm</a></li><li><a href="struct.XcmContext.html">XcmContext</a></li><li><a href="opaque/struct.Ancestor.html">opaque::Ancestor</a></li><li><a href="opaque/struct.AncestorThen.html">opaque::AncestorThen</a></li><li><a href="opaque/struct.Asset.html">opaque::Asset</a></li><li><a href="opaque/struct.AssetId.html">opaque::AssetId</a></li><li><a href="opaque/struct.Assets.html">opaque::Assets</a></li><li><a href="opaque/struct.Location.html">opaque::Location</a></li><li><a href="opaque/struct.PalletInfo.html">opaque::PalletInfo</a></li><li><a href="opaque/struct.Parent.html">opaque::Parent</a></li><li><a href="opaque/struct.ParentThen.html">opaque::ParentThen</a></li><li><a href="opaque/struct.QueryResponseInfo.html">opaque::QueryResponseInfo</a></li><li><a href="opaque/struct.Weight.html">opaque::Weight</a></li><li><a href="opaque/struct.XcmContext.html">opaque::XcmContext</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.AssetFilter.html">AssetFilter</a></li><li><a href="enum.AssetInstance.html">AssetInstance</a></li><li><a href="enum.BodyId.html">BodyId</a></li><li><a href="enum.BodyPart.html">BodyPart</a></li><li><a href="enum.DispatchError.html">DispatchError</a></li><li><a href="enum.Error.html">Error</a></li><li><a href="enum.Fungibility.html">Fungibility</a></li><li><a href="enum.Instruction.html">Instruction</a></li><li><a href="enum.Junction.html">Junction</a></li><li><a href="enum.Junctions.html">Junctions</a></li><li><a href="enum.MaybeErrorCode.html">MaybeErrorCode</a></li><li><a href="enum.NetworkId.html">NetworkId</a></li><li><a href="enum.OriginKind.html">OriginKind</a></li><li><a href="enum.Outcome.html">Outcome</a></li><li><a href="enum.Response.html">Response</a></li><li><a href="enum.SendError.html">SendError</a></li><li><a href="enum.Unsupported.html">Unsupported</a></li><li><a href="enum.VersionedAsset.html">VersionedAsset</a></li><li><a href="enum.VersionedAssetId.html">VersionedAssetId</a></li><li><a href="enum.VersionedAssets.html">VersionedAssets</a></li><li><a href="enum.VersionedInteriorLocation.html">VersionedInteriorLocation</a></li><li><a href="enum.VersionedLocation.html">VersionedLocation</a></li><li><a href="enum.VersionedResponse.html">VersionedResponse</a></li><li><a href="enum.VersionedXcm.html">VersionedXcm</a></li><li><a href="enum.WeightLimit.html">WeightLimit</a></li><li><a href="enum.WildAsset.html">WildAsset</a></li><li><a href="enum.WildFungibility.html">WildFungibility</a></li><li><a href="enum.XcmError.html">XcmError</a></li><li><a href="opaque/enum.AssetFilter.html">opaque::AssetFilter</a></li><li><a href="opaque/enum.AssetInstance.html">opaque::AssetInstance</a></li><li><a href="opaque/enum.BodyId.html">opaque::BodyId</a></li><li><a href="opaque/enum.BodyPart.html">opaque::BodyPart</a></li><li><a href="opaque/enum.Fungibility.html">opaque::Fungibility</a></li><li><a href="opaque/enum.Junction.html">opaque::Junction</a></li><li><a href="opaque/enum.Junctions.html">opaque::Junctions</a></li><li><a href="opaque/enum.MaybeErrorCode.html">opaque::MaybeErrorCode</a></li><li><a href="opaque/enum.NetworkId.html">opaque::NetworkId</a></li><li><a href="opaque/enum.OriginKind.html">opaque::OriginKind</a></li><li><a href="opaque/enum.Outcome.html">opaque::Outcome</a></li><li><a href="opaque/enum.Response.html">opaque::Response</a></li><li><a href="opaque/enum.SendError.html">opaque::SendError</a></li><li><a href="opaque/enum.WeightLimit.html">opaque::WeightLimit</a></li><li><a href="opaque/enum.WildAsset.html">opaque::WildAsset</a></li><li><a href="opaque/enum.WildFungibility.html">opaque::WildFungibility</a></li><li><a href="opaque/enum.XcmError.html">opaque::XcmError</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.Chain.html">Chain</a></li><li><a href="trait.Encode.html">Encode</a></li><li><a href="trait.ExecuteXcm.html">ExecuteXcm</a></li><li><a href="trait.GetVersion.html">GetVersion</a></li><li><a href="trait.Inspect.html">Inspect</a></li><li><a href="trait.IntoVersion.html">IntoVersion</a></li><li><a href="trait.Para.html">Para</a></li><li><a href="trait.PeopleRococoPallet.html">PeopleRococoPallet</a></li><li><a href="trait.PreparedMessage.html">PreparedMessage</a></li><li><a href="trait.Reanchorable.html">Reanchorable</a></li><li><a href="trait.Relay.html">Relay</a></li><li><a href="trait.RococoPallet.html">RococoPallet</a></li><li><a href="trait.SendXcm.html">SendXcm</a></li><li><a href="trait.TestExt.html">TestExt</a></li><li><a href="trait.WrapVersion.html">WrapVersion</a></li><li><a href="trait.XcmWeightInfo.html">XcmWeightInfo</a></li><li><a href="opaque/trait.ExecuteXcm.html">opaque::ExecuteXcm</a></li><li><a href="opaque/trait.PreparedMessage.html">opaque::PreparedMessage</a></li><li><a href="opaque/trait.Reanchorable.html">opaque::Reanchorable</a></li><li><a href="opaque/trait.SendXcm.html">opaque::SendXcm</a></li><li><a href="opaque/trait.XcmWeightInfo.html">opaque::XcmWeightInfo</a></li></ul><h3 id="macros">Macros</h3><ul class="all-items"><li><a href="macro.assert_err.html">assert_err</a></li><li><a href="macro.assert_expected_events.html">assert_expected_events</a></li><li><a href="macro.assert_ok.html">assert_ok</a></li><li><a href="macro.bx.html">bx</a></li><li><a href="macro.test_parachain_is_trusted_teleporter.html">test_parachain_is_trusted_teleporter</a></li></ul><h3 id="derives">Derive Macros</h3><ul class="all-items"><li><a href="derive.Encode.html">Encode</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="opaque/fn.send_xcm.html">opaque::send_xcm</a></li><li><a href="opaque/fn.validate_send.html">opaque::validate_send</a></li><li><a href="fn.send_xcm.html">send_xcm</a></li><li><a href="fn.validate_send.html">validate_send</a></li><li><a href="fn.weight_within_threshold.html">weight_within_threshold</a></li><li><a href="xcm_helpers/fn.pay_over_xcm_delivery_fees.html">xcm_helpers::pay_over_xcm_delivery_fees</a></li><li><a href="xcm_helpers/fn.query_response_delivery_fees.html">xcm_helpers::query_response_delivery_fees</a></li><li><a href="xcm_helpers/fn.transfer_assets_delivery_fees.html">xcm_helpers::transfer_assets_delivery_fees</a></li><li><a href="fn.xcm_transact_paid_execution.html">xcm_transact_paid_execution</a></li><li><a href="fn.xcm_transact_unpaid_execution.html">xcm_transact_unpaid_execution</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.AccountId.html">AccountId</a></li><li><a href="type.AlwaysLatest.html">AlwaysLatest</a></li><li><a href="type.AlwaysLts.html">AlwaysLts</a></li><li><a href="type.Balance.html">Balance</a></li><li><a href="type.DispatchResult.html">DispatchResult</a></li><li><a href="type.InteriorLocation.html">InteriorLocation</a></li><li><a href="type.ParaToSystemParaTest.html">ParaToSystemParaTest</a></li><li><a href="type.PenpalA.html">PenpalA</a></li><li><a href="type.PeopleRococo.html">PeopleRococo</a></li><li><a href="type.QueryId.html">QueryId</a></li><li><a href="type.RelayToParaTest.html">RelayToParaTest</a></li><li><a href="type.RelayToSystemParaTest.html">RelayToSystemParaTest</a></li><li><a href="type.Rococo.html">Rococo</a></li><li><a href="type.SendResult.html">SendResult</a></li><li><a href="type.SystemParaToParaTest.html">SystemParaToParaTest</a></li><li><a href="type.SystemParaToRelayTest.html">SystemParaToRelayTest</a></li><li><a href="type.XcmHash.html">XcmHash</a></li><li><a href="type.XcmResult.html">XcmResult</a></li><li><a href="type.XcmVersion.html">XcmVersion</a></li><li><a href="opaque/type.Instruction.html">opaque::Instruction</a></li><li><a href="opaque/type.InteriorLocation.html">opaque::InteriorLocation</a></li><li><a href="opaque/type.QueryId.html">opaque::QueryId</a></li><li><a href="opaque/type.SendResult.html">opaque::SendResult</a></li><li><a href="opaque/type.Xcm.html">opaque::Xcm</a></li><li><a href="opaque/type.XcmHash.html">opaque::XcmHash</a></li><li><a href="opaque/type.XcmResult.html">opaque::XcmResult</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.PEOPLE_ROCOCO_ED.html">PEOPLE_ROCOCO_ED</a></li><li><a href="constant.PROOF_SIZE_THRESHOLD.html">PROOF_SIZE_THRESHOLD</a></li><li><a href="constant.REF_TIME_THRESHOLD.html">REF_TIME_THRESHOLD</a></li><li><a href="constant.ROCOCO_ED.html">ROCOCO_ED</a></li><li><a href="constant.XCM_V3.html">XCM_V3</a></li><li><a href="constant.XCM_VERSION.html">XCM_VERSION</a></li><li><a href="opaque/constant.XCM_VERSION.html">opaque::XCM_VERSION</a></li></ul></section></div></main></body></html>

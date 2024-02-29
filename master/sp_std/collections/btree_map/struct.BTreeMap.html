@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc struct"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../sp_std/index.html">sp_std</a><span class="version">14.0.0</span></h2></div><h2 class="location"><a href="#">BTreeMap</a></h2><div class="sidebar-elems"><section><h3><a href="#implementations">Methods</a></h3><ul class="block method"><li><a href="#method.append">append</a></li><li><a href="#method.clear">clear</a></li><li><a href="#method.contains_key">contains_key</a></li><li><a href="#method.entry">entry</a></li><li><a href="#method.extract_if">extract_if</a></li><li><a href="#method.first_entry">first_entry</a></li><li><a href="#method.first_key_value">first_key_value</a></li><li><a href="#method.get">get</a></li><li><a href="#method.get_key_value">get_key_value</a></li><li><a href="#method.get_mut">get_mut</a></li><li><a href="#method.insert">insert</a></li><li><a href="#method.into_keys">into_keys</a></li><li><a href="#method.into_values">into_values</a></li><li><a href="#method.is_empty">is_empty</a></li><li><a href="#method.iter">iter</a></li><li><a href="#method.iter_mut">iter_mut</a></li><li><a href="#method.keys">keys</a></li><li><a href="#method.last_entry">last_entry</a></li><li><a href="#method.last_key_value">last_key_value</a></li><li><a href="#method.len">len</a></li><li><a href="#method.lower_bound">lower_bound</a></li><li><a href="#method.lower_bound_mut">lower_bound_mut</a></li><li><a href="#method.new">new</a></li><li><a href="#method.new_in">new_in</a></li><li><a href="#method.pop_first">pop_first</a></li><li><a href="#method.pop_last">pop_last</a></li><li><a href="#method.range">range</a></li><li><a href="#method.range_mut">range_mut</a></li><li><a href="#method.remove">remove</a></li><li><a href="#method.remove_entry">remove_entry</a></li><li><a href="#method.retain">retain</a></li><li><a href="#method.split_off">split_off</a></li><li><a href="#method.try_insert">try_insert</a></li><li><a href="#method.upper_bound">upper_bound</a></li><li><a href="#method.upper_bound_mut">upper_bound_mut</a></li><li><a href="#method.values">values</a></li><li><a href="#method.values_mut">values_mut</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-Clone-for-BTreeMap%3CK,+V,+A%3E">Clone</a></li><li><a href="#impl-Debug-for-BTreeMap%3CK,+V,+A%3E">Debug</a></li><li><a href="#impl-Default-for-BTreeMap%3CK,+V%3E">Default</a></li><li><a href="#impl-Drop-for-BTreeMap%3CK,+V,+A%3E">Drop</a></li><li><a href="#impl-Eq-for-BTreeMap%3CK,+V,+A%3E">Eq</a></li><li><a href="#impl-Extend%3C(%26K,+%26V)%3E-for-BTreeMap%3CK,+V,+A%3E">Extend&lt;(&amp;&#x27;a K, &amp;&#x27;a V)&gt;</a></li><li><a href="#impl-Extend%3C(K,+V)%3E-for-BTreeMap%3CK,+V,+A%3E">Extend&lt;(K, V)&gt;</a></li><li><a href="#impl-From%3C%5B(K,+V);+N%5D%3E-for-BTreeMap%3CK,+V%3E">From&lt;[(K, V); N]&gt;</a></li><li><a href="#impl-FromIterator%3C(K,+V)%3E-for-BTreeMap%3CK,+V%3E">FromIterator&lt;(K, V)&gt;</a></li><li><a href="#impl-Hash-for-BTreeMap%3CK,+V,+A%3E">Hash</a></li><li><a href="#impl-Index%3C%26Q%3E-for-BTreeMap%3CK,+V,+A%3E">Index&lt;&amp;Q&gt;</a></li><li><a href="#impl-IntoIterator-for-%26BTreeMap%3CK,+V,+A%3E">IntoIterator</a></li><li><a href="#impl-IntoIterator-for-%26mut+BTreeMap%3CK,+V,+A%3E">IntoIterator</a></li><li><a href="#impl-IntoIterator-for-BTreeMap%3CK,+V,+A%3E">IntoIterator</a></li><li><a href="#impl-Ord-for-BTreeMap%3CK,+V,+A%3E">Ord</a></li><li><a href="#impl-PartialEq-for-BTreeMap%3CK,+V,+A%3E">PartialEq</a></li><li><a href="#impl-PartialOrd-for-BTreeMap%3CK,+V,+A%3E">PartialOrd</a></li><li><a href="#impl-UnwindSafe-for-BTreeMap%3CK,+V,+A%3E">UnwindSafe</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-RefUnwindSafe-for-BTreeMap%3CK,+V,+A%3E">RefUnwindSafe</a></li><li><a href="#impl-Send-for-BTreeMap%3CK,+V,+A%3E">Send</a></li><li><a href="#impl-Sync-for-BTreeMap%3CK,+V,+A%3E">Sync</a></li><li><a href="#impl-Unpin-for-BTreeMap%3CK,+V,+A%3E">Unpin</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T">Any</a></li><li><a href="#impl-Borrow%3CT%3E-for-T">Borrow&lt;T&gt;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T">BorrowMut&lt;T&gt;</a></li><li><a href="#impl-From%3CT%3E-for-T">From&lt;T&gt;</a></li><li><a href="#impl-Into%3CU%3E-for-T">Into&lt;U&gt;</a></li><li><a href="#impl-ToOwned-for-T">ToOwned</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T">TryFrom&lt;U&gt;</a></li><li><a href="#impl-TryInto%3CU%3E-for-T">TryInto&lt;U&gt;</a></li></ul></section><h2><a href="index.html">In sp_std::collections::btree_map</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Struct <a href="../../index.html">sp_std</a>::<wbr><a href="../index.html">collections</a>::<wbr><a href="index.html">btree_map</a>::<wbr><a class="struct" href="#">BTreeMap</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/alloc/collections/btree/map.rs.html#172-176">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub struct BTreeMap&lt;K, V, A = <a class="struct" href="../../alloc/struct.Global.html" title="struct sp_std::alloc::Global">Global</a>&gt;<span class="where fmt-newline">where

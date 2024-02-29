@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../cumulus_test_client/index.html">cumulus_test_client</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">HostFunctions</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.host_functions">host_functions</a></li><li><a href="#tymethod.register_static">register_static</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-HostFunctions-for-()">()</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1)">(TupleElement0, TupleElement1)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2)">(TupleElement0, TupleElement1, TupleElement2)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18,+TupleElement19)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18, TupleElement19)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18,+TupleElement19,+TupleElement20)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18, TupleElement19, TupleElement20)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18,+TupleElement19,+TupleElement20,+TupleElement21)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18, TupleElement19, TupleElement20, TupleElement21)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18,+TupleElement19,+TupleElement20,+TupleElement21,+TupleElement22)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18, TupleElement19, TupleElement20, TupleElement21, TupleElement22)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18,+TupleElement19,+TupleElement20,+TupleElement21,+TupleElement22,+TupleElement23)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18, TupleElement19, TupleElement20, TupleElement21, TupleElement22, TupleElement23)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18,+TupleElement19,+TupleElement20,+TupleElement21,+TupleElement22,+TupleElement23,+TupleElement24)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18, TupleElement19, TupleElement20, TupleElement21, TupleElement22, TupleElement23, TupleElement24)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18,+TupleElement19,+TupleElement20,+TupleElement21,+TupleElement22,+TupleElement23,+TupleElement24,+TupleElement25)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18, TupleElement19, TupleElement20, TupleElement21, TupleElement22, TupleElement23, TupleElement24, TupleElement25)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18,+TupleElement19,+TupleElement20,+TupleElement21,+TupleElement22,+TupleElement23,+TupleElement24,+TupleElement25,+TupleElement26)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18, TupleElement19, TupleElement20, TupleElement21, TupleElement22, TupleElement23, TupleElement24, TupleElement25, TupleElement26)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18,+TupleElement19,+TupleElement20,+TupleElement21,+TupleElement22,+TupleElement23,+TupleElement24,+TupleElement25,+TupleElement26,+TupleElement27)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18, TupleElement19, TupleElement20, TupleElement21, TupleElement22, TupleElement23, TupleElement24, TupleElement25, TupleElement26, TupleElement27)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18,+TupleElement19,+TupleElement20,+TupleElement21,+TupleElement22,+TupleElement23,+TupleElement24,+TupleElement25,+TupleElement26,+TupleElement27,+TupleElement28)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18, TupleElement19, TupleElement20, TupleElement21, TupleElement22, TupleElement23, TupleElement24, TupleElement25, TupleElement26, TupleElement27, TupleElement28)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,+TupleElement1,+TupleElement2,+TupleElement3,+TupleElement4,+TupleElement5,+TupleElement6,+TupleElement7,+TupleElement8,+TupleElement9,+TupleElement10,+TupleElement11,+TupleElement12,+TupleElement13,+TupleElement14,+TupleElement15,+TupleElement16,+TupleElement17,+TupleElement18,+TupleElement19,+TupleElement20,+TupleElement21,+TupleElement22,+TupleElement23,+TupleElement24,+TupleElement25,+TupleElement26,+TupleElement27,+TupleElement28,+TupleElement29)">(TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7, TupleElement8, TupleElement9, TupleElement10, TupleElement11, TupleElement12, TupleElement13, TupleElement14, TupleElement15, TupleElement16, TupleElement17, TupleElement18, TupleElement19, TupleElement20, TupleElement21, TupleElement22, TupleElement23, TupleElement24, TupleElement25, TupleElement26, TupleElement27, TupleElement28, TupleElement29)</a></li><li><a href="#impl-HostFunctions-for-(TupleElement0,)">(TupleElement0,)</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li><li><a href="#impl-HostFunctions-for-HostFunctions">HostFunctions</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In cumulus_test_client::sc_executor::sp_wasm_interface</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">cumulus_test_client</a>::<wbr><a href="../index.html">sc_executor</a>::<wbr><a href="index.html">sp_wasm_interface</a>::<wbr><a class="trait" href="#">HostFunctions</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/sp_wasm_interface/lib.rs.html#362">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait HostFunctions: 'static + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> {

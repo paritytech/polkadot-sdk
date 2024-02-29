@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc enum"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_runtime/index.html">sp_runtime</a><span class="version">31.0.1</span></h2></div><h2 class="location"><a href="#">Either</a></h2><div class="sidebar-elems"><section><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.Left">Left</a></li><li><a href="#variant.Right">Right</a></li></ul><h3><a href="#implementations">Methods</a></h3><ul class="block method"><li><a href="#method.as_mut">as_mut</a></li><li><a href="#method.as_pin_mut">as_pin_mut</a></li><li><a href="#method.as_pin_ref">as_pin_ref</a></li><li><a href="#method.as_ref">as_ref</a></li><li><a href="#method.either">either</a></li><li><a href="#method.either_into">either_into</a></li><li><a href="#method.either_with">either_with</a></li><li><a href="#method.expect_left">expect_left</a></li><li><a href="#method.expect_right">expect_right</a></li><li><a href="#method.factor_err">factor_err</a></li><li><a href="#method.factor_first">factor_first</a></li><li><a href="#method.factor_none">factor_none</a></li><li><a href="#method.factor_ok">factor_ok</a></li><li><a href="#method.factor_second">factor_second</a></li><li><a href="#method.flip">flip</a></li><li><a href="#method.into_inner">into_inner</a></li><li><a href="#method.into_iter">into_iter</a></li><li><a href="#method.is_left">is_left</a></li><li><a href="#method.is_right">is_right</a></li><li><a href="#method.left">left</a></li><li><a href="#method.left_and_then">left_and_then</a></li><li><a href="#method.left_or">left_or</a></li><li><a href="#method.left_or_default">left_or_default</a></li><li><a href="#method.left_or_else">left_or_else</a></li><li><a href="#method.map">map</a></li><li><a href="#method.map_either">map_either</a></li><li><a href="#method.map_either_with">map_either_with</a></li><li><a href="#method.map_left">map_left</a></li><li><a href="#method.map_right">map_right</a></li><li><a href="#method.right">right</a></li><li><a href="#method.right_and_then">right_and_then</a></li><li><a href="#method.right_or">right_or</a></li><li><a href="#method.right_or_default">right_or_default</a></li><li><a href="#method.right_or_else">right_or_else</a></li><li><a href="#method.unwrap_left">unwrap_left</a></li><li><a href="#method.unwrap_right">unwrap_right</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-AsMut%3CCStr%3E-for-Either%3CL,+R%3E">AsMut&lt;CStr&gt;</a></li><li><a href="#impl-AsMut%3COsStr%3E-for-Either%3CL,+R%3E">AsMut&lt;OsStr&gt;</a></li><li><a href="#impl-AsMut%3CPath%3E-for-Either%3CL,+R%3E">AsMut&lt;Path&gt;</a></li><li><a href="#impl-AsMut%3CTarget%3E-for-Either%3CL,+R%3E">AsMut&lt;Target&gt;</a></li><li><a href="#impl-AsMut%3C%5BTarget%5D%3E-for-Either%3CL,+R%3E">AsMut&lt;[Target]&gt;</a></li><li><a href="#impl-AsMut%3Cstr%3E-for-Either%3CL,+R%3E">AsMut&lt;str&gt;</a></li><li><a href="#impl-AsRef%3CCStr%3E-for-Either%3CL,+R%3E">AsRef&lt;CStr&gt;</a></li><li><a href="#impl-AsRef%3COsStr%3E-for-Either%3CL,+R%3E">AsRef&lt;OsStr&gt;</a></li><li><a href="#impl-AsRef%3CPath%3E-for-Either%3CL,+R%3E">AsRef&lt;Path&gt;</a></li><li><a href="#impl-AsRef%3CTarget%3E-for-Either%3CL,+R%3E">AsRef&lt;Target&gt;</a></li><li><a href="#impl-AsRef%3C%5BTarget%5D%3E-for-Either%3CL,+R%3E">AsRef&lt;[Target]&gt;</a></li><li><a href="#impl-AsRef%3Cstr%3E-for-Either%3CL,+R%3E">AsRef&lt;str&gt;</a></li><li><a href="#impl-BufRead-for-Either%3CL,+R%3E">BufRead</a></li><li><a href="#impl-Clone-for-Either%3CL,+R%3E">Clone</a></li><li><a href="#impl-Copy-for-Either%3CL,+R%3E">Copy</a></li><li><a href="#impl-Debug-for-Either%3CL,+R%3E">Debug</a></li><li><a href="#impl-Deref-for-Either%3CL,+R%3E">Deref</a></li><li><a href="#impl-DerefMut-for-Either%3CL,+R%3E">DerefMut</a></li><li><a href="#impl-Display-for-Either%3CL,+R%3E">Display</a></li><li><a href="#impl-DoubleEndedIterator-for-Either%3CL,+R%3E">DoubleEndedIterator</a></li><li><a href="#impl-Eq-for-Either%3CL,+R%3E">Eq</a></li><li><a href="#impl-Error-for-Either%3CL,+R%3E">Error</a></li><li><a href="#impl-ExactSizeIterator-for-Either%3CL,+R%3E">ExactSizeIterator</a></li><li><a href="#impl-Extend%3CA%3E-for-Either%3CL,+R%3E">Extend&lt;A&gt;</a></li><li><a href="#impl-From%3CResult%3CR,+L%3E%3E-for-Either%3CL,+R%3E">From&lt;Result&lt;R, L&gt;&gt;</a></li><li><a href="#impl-FusedIterator-for-Either%3CL,+R%3E">FusedIterator</a></li><li><a href="#impl-Future-for-Either%3CL,+R%3E">Future</a></li><li><a href="#impl-Hash-for-Either%3CL,+R%3E">Hash</a></li><li><a href="#impl-IndexedParallelIterator-for-Either%3CL,+R%3E">IndexedParallelIterator</a></li><li><a href="#impl-Into%3CResult%3CR,+L%3E%3E-for-Either%3CL,+R%3E">Into&lt;Result&lt;R, L&gt;&gt;</a></li><li><a href="#impl-Iterator-for-Either%3CL,+R%3E">Iterator</a></li><li><a href="#impl-Ord-for-Either%3CL,+R%3E">Ord</a></li><li><a href="#impl-ParallelExtend%3CT%3E-for-Either%3CL,+R%3E">ParallelExtend&lt;T&gt;</a></li><li><a href="#impl-ParallelIterator-for-Either%3CL,+R%3E">ParallelIterator</a></li><li><a href="#impl-PartialEq-for-Either%3CL,+R%3E">PartialEq</a></li><li><a href="#impl-PartialOrd-for-Either%3CL,+R%3E">PartialOrd</a></li><li><a href="#impl-Read-for-Either%3CL,+R%3E">Read</a></li><li><a href="#impl-Seek-for-Either%3CL,+R%3E">Seek</a></li><li><a href="#impl-StructuralEq-for-Either%3CL,+R%3E">StructuralEq</a></li><li><a href="#impl-StructuralPartialEq-for-Either%3CL,+R%3E">StructuralPartialEq</a></li><li><a href="#impl-Write-for-Either%3CL,+R%3E">Write</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-RefUnwindSafe-for-Either%3CL,+R%3E">RefUnwindSafe</a></li><li><a href="#impl-Send-for-Either%3CL,+R%3E">Send</a></li><li><a href="#impl-Sync-for-Either%3CL,+R%3E">Sync</a></li><li><a href="#impl-Unpin-for-Either%3CL,+R%3E">Unpin</a></li><li><a href="#impl-UnwindSafe-for-Either%3CL,+R%3E">UnwindSafe</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T">Any</a></li><li><a href="#impl-AsBits%3CT%3E-for-A">AsBits&lt;T&gt;</a></li><li><a href="#impl-AsByteSlice%3CT%3E-for-U">AsByteSlice&lt;T&gt;</a></li><li><a href="#impl-AsMutBits%3CT%3E-for-A">AsMutBits&lt;T&gt;</a></li><li><a href="#impl-AsMutByteSlice%3CT%3E-for-U">AsMutByteSlice&lt;T&gt;</a></li><li><a href="#impl-AsMutSliceOf-for-U">AsMutSliceOf</a></li><li><a href="#impl-AsSliceOf-for-U">AsSliceOf</a></li><li><a href="#impl-Borrow%3CT%3E-for-T">Borrow&lt;T&gt;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T">BorrowMut&lt;T&gt;</a></li><li><a href="#impl-CallHasher-for-T">CallHasher</a></li><li><a href="#impl-CheckedConversion-for-T">CheckedConversion</a></li><li><a href="#impl-Conv-for-T">Conv</a></li><li><a href="#impl-DynClone-for-T">DynClone</a></li><li><a href="#impl-Equivalent%3CK%3E-for-Q">Equivalent&lt;K&gt;</a></li><li><a href="#impl-Equivalent%3CK%3E-for-Q-1">Equivalent&lt;K&gt;</a></li><li><a href="#impl-Error-for-T">Error</a></li><li><a href="#impl-FmtForward-for-T">FmtForward</a></li><li><a href="#impl-From%3CT%3E-for-T">From&lt;T&gt;</a></li><li><a href="#impl-FutureExt-for-T">FutureExt</a></li><li><a href="#impl-Instrument-for-T">Instrument</a></li><li><a href="#impl-Into%3CU%3E-for-T">Into&lt;U&gt;</a></li><li><a href="#impl-IntoFuture-for-F">IntoFuture</a></li><li><a href="#impl-IntoIterator-for-I">IntoIterator</a></li><li><a href="#impl-IntoParallelIterator-for-T">IntoParallelIterator</a></li><li><a href="#impl-IsWrappedBy%3COuter%3E-for-T">IsWrappedBy&lt;Outer&gt;</a></li><li><a href="#impl-IteratorRandom-for-I">IteratorRandom</a></li><li><a href="#impl-Itertools-for-T">Itertools</a></li><li><a href="#impl-Joiner-for-T">Joiner</a></li><li><a href="#impl-JsonSchemaMaybe-for-T">JsonSchemaMaybe</a></li><li><a href="#impl-MaybeDebug-for-T">MaybeDebug</a></li><li><a href="#impl-MaybeDisplay-for-T">MaybeDisplay</a></li><li><a href="#impl-MaybeHash-for-T">MaybeHash</a></li><li><a href="#impl-MaybeHash-for-T-1">MaybeHash</a></li><li><a href="#impl-MaybeRefUnwindSafe-for-T">MaybeRefUnwindSafe</a></li><li><a href="#impl-MaybeRefUnwindSafe-for-T-1">MaybeRefUnwindSafe</a></li><li><a href="#impl-Member-for-T">Member</a></li><li><a href="#impl-MultiUnzip%3C()%3E-for-IT">MultiUnzip&lt;()&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,+FromB)%3E-for-IT">MultiUnzip&lt;(FromA, FromB)&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,+FromB,+FromC)%3E-for-IT">MultiUnzip&lt;(FromA, FromB, FromC)&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,+FromB,+FromC,+FromD)%3E-for-IT">MultiUnzip&lt;(FromA, FromB, FromC, FromD)&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,+FromB,+FromC,+FromD,+FromE)%3E-for-IT">MultiUnzip&lt;(FromA, FromB, FromC, FromD, FromE)&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,+FromB,+FromC,+FromD,+FromE,+FromF)%3E-for-IT">MultiUnzip&lt;(FromA, FromB, FromC, FromD, FromE, FromF)&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,+FromB,+FromC,+FromD,+FromE,+FromF,+FromG)%3E-for-IT">MultiUnzip&lt;(FromA, FromB, FromC, FromD, FromE, FromF, FromG)&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,+FromB,+FromC,+FromD,+FromE,+FromF,+FromG,+FromH)%3E-for-IT">MultiUnzip&lt;(FromA, FromB, FromC, FromD, FromE, FromF, FromG, FromH)&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,+FromB,+FromC,+FromD,+FromE,+FromF,+FromG,+FromH,+FromI)%3E-for-IT">MultiUnzip&lt;(FromA, FromB, FromC, FromD, FromE, FromF, FromG, FromH, FromI)&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,+FromB,+FromC,+FromD,+FromE,+FromF,+FromG,+FromH,+FromI,+FromJ)%3E-for-IT">MultiUnzip&lt;(FromA, FromB, FromC, FromD, FromE, FromF, FromG, FromH, FromI, FromJ)&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,+FromB,+FromC,+FromD,+FromE,+FromF,+FromG,+FromH,+FromI,+FromJ,+FromK)%3E-for-IT">MultiUnzip&lt;(FromA, FromB, FromC, FromD, FromE, FromF, FromG, FromH, FromI, FromJ, FromK)&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,+FromB,+FromC,+FromD,+FromE,+FromF,+FromG,+FromH,+FromI,+FromJ,+FromK,+FromL)%3E-for-IT">MultiUnzip&lt;(FromA, FromB, FromC, FromD, FromE, FromF, FromG, FromH, FromI, FromJ, FromK, FromL)&gt;</a></li><li><a href="#impl-MultiUnzip%3C(FromA,)%3E-for-IT">MultiUnzip&lt;(FromA,)&gt;</a></li><li><a href="#impl-Output-for-W">Output</a></li><li><a href="#impl-ParseFormatted-for-S">ParseFormatted</a></li><li><a href="#impl-Pipe-for-T">Pipe</a></li><li><a href="#impl-Pointable-for-T">Pointable</a></li><li><a href="#impl-ReadBytesExt-for-R">ReadBytesExt</a></li><li><a href="#impl-Same-for-T">Same</a></li><li><a href="#impl-SaturatedConversion-for-T">SaturatedConversion</a></li><li><a href="#impl-Tap-for-T">Tap</a></li><li><a href="#impl-ToHex-for-T">ToHex</a></li><li><a href="#impl-ToOwned-for-T">ToOwned</a></li><li><a href="#impl-ToString-for-T">ToString</a></li><li><a href="#impl-TryCollect%3CBoundedBTreeMap%3CK,+V,+Bound%3E%3E-for-I">TryCollect&lt;BoundedBTreeMap&lt;K, V, Bound&gt;&gt;</a></li><li><a href="#impl-TryCollect%3CBoundedBTreeSet%3CT,+Bound%3E%3E-for-I">TryCollect&lt;BoundedBTreeSet&lt;T, Bound&gt;&gt;</a></li><li><a href="#impl-TryCollect%3CBoundedVec%3CT,+Bound%3E%3E-for-I">TryCollect&lt;BoundedVec&lt;T, Bound&gt;&gt;</a></li><li><a href="#impl-TryConv-for-T">TryConv</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T">TryFrom&lt;U&gt;</a></li><li><a href="#impl-TryFuture-for-F">TryFuture</a></li><li><a href="#impl-TryFutureExt-for-Fut">TryFutureExt</a></li><li><a href="#impl-TryInto%3CU%3E-for-T">TryInto&lt;U&gt;</a></li><li><a href="#impl-UncheckedInto%3CT%3E-for-S">UncheckedInto&lt;T&gt;</a></li><li><a href="#impl-UnicodeNormalization%3CI%3E-for-I">UnicodeNormalization&lt;I&gt;</a></li><li><a href="#impl-UniqueSaturatedInto%3CT%3E-for-S">UniqueSaturatedInto&lt;T&gt;</a></li><li><a href="#impl-VZip%3CV%3E-for-T">VZip&lt;V&gt;</a></li><li><a href="#impl-WithSubscriber-for-T">WithSubscriber</a></li><li><a href="#impl-WriteBytesExt-for-W">WriteBytesExt</a></li></ul></section><h2><a href="index.html">In crate sp_runtime</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Enum <a href="index.html">sp_runtime</a>::<wbr><a class="enum" href="#">Either</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/either/1/src/either/lib.rs.html#50">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub enum Either&lt;L, R&gt; {
@@ -1929,7 +1934,7 @@ the underlying writer. <a>Read more</a></div></details></div></details><section 
     T: 'static + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Display.html" title="trait core::fmt::Display">Display</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,</span></h3></section><section id="impl-JsonSchemaMaybe-for-T" class="impl"><a href="#impl-JsonSchemaMaybe-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; JsonSchemaMaybe for T</h3></section><section id="impl-MaybeDebug-for-T" class="impl"><a href="#impl-MaybeDebug-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; MaybeDebug for T<span class="where fmt-newline">where
     T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>,</span></h3></section><section id="impl-MaybeDisplay-for-T" class="impl"><a class="src rightside" href="../src/sp_runtime/traits.rs.html#1126-1135">source</a><a href="#impl-MaybeDisplay-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="traits/trait.MaybeDisplay.html" title="trait sp_runtime::traits::MaybeDisplay">MaybeDisplay</a> for T<span class="where fmt-newline">where
     T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Display.html" title="trait core::fmt::Display">Display</a>,</span></h3></section><section id="impl-MaybeHash-for-T" class="impl"><a class="src rightside" href="../src/sp_runtime/traits.rs.html#1126-1135">source</a><a href="#impl-MaybeHash-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="traits/trait.MaybeHash.html" title="trait sp_runtime::traits::MaybeHash">MaybeHash</a> for T<span class="where fmt-newline">where
-    T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/hash/trait.Hash.html" title="trait core::hash::Hash">Hash</a>,</span></h3></section><section id="impl-MaybeHash-for-T-1" class="impl"><a href="#impl-MaybeHash-for-T-1" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; MaybeHash for T<span class="where fmt-newline">where
+    T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/hash/trait.Hash.html" title="trait core::hash::Hash">Hash</a>,</span></h3></section><section id="impl-MaybeHash-for-T-1" class="impl"><a class="src rightside" href="../src/sp_application_crypto/traits.rs.html#56">source</a><a href="#impl-MaybeHash-for-T-1" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../sp_application_crypto/traits/trait.MaybeHash.html" title="trait sp_application_crypto::traits::MaybeHash">MaybeHash</a> for T<span class="where fmt-newline">where
     T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/hash/trait.Hash.html" title="trait core::hash::Hash">Hash</a>,</span></h3></section><section id="impl-MaybeRefUnwindSafe-for-T" class="impl"><a class="src rightside" href="../src/sp_wasm_interface/lib.rs.html#262">source</a><a href="#impl-MaybeRefUnwindSafe-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../sp_wasm_interface/trait.MaybeRefUnwindSafe.html" title="trait sp_wasm_interface::MaybeRefUnwindSafe">MaybeRefUnwindSafe</a> for T<span class="where fmt-newline">where
     T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a>,</span></h3></section><section id="impl-MaybeRefUnwindSafe-for-T-1" class="impl"><a class="src rightside" href="../src/sp_wasm_interface/lib.rs.html#262">source</a><a href="#impl-MaybeRefUnwindSafe-for-T-1" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../sp_wasm_interface/trait.MaybeRefUnwindSafe.html" title="trait sp_wasm_interface::MaybeRefUnwindSafe">MaybeRefUnwindSafe</a> for T<span class="where fmt-newline">where
     T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a>,</span></h3></section><section id="impl-Member-for-T" class="impl"><a class="src rightside" href="../src/sp_runtime/traits.rs.html#1147">source</a><a href="#impl-Member-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="traits/trait.Member.html" title="trait sp_runtime::traits::Member">Member</a> for T<span class="where fmt-newline">where

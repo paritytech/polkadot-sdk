@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">EncodeLikeTuple</a></h2><div class="sidebar-elems"><section><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-EncodeLikeTuple%3C(A,+B)%3E-for-%26(AA,+BB)">&amp;(AA, BB)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C)%3E-for-%26(AA,+BB,+CC)">&amp;(AA, BB, CC)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D)%3E-for-%26(AA,+BB,+CC,+DD)">&amp;(AA, BB, CC, DD)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E)%3E-for-%26(AA,+BB,+CC,+DD,+EE)">&amp;(AA, BB, CC, DD, EE)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF)">&amp;(AA, BB, CC, DD, EE, FF)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF,+GG)">&amp;(AA, BB, CC, DD, EE, FF, GG)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH)">&amp;(AA, BB, CC, DD, EE, FF, GG, HH)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II)">&amp;(AA, BB, CC, DD, EE, FF, GG, HH, II)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ)">&amp;(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK)">&amp;(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL)">&amp;(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL,+MM)">&amp;(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+O)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL,+MM,+OO)">&amp;(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, OO)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+O,+P)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL,+MM,+OO,+PP)">&amp;(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, OO, PP)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+O,+P,+Q)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL,+MM,+OO,+PP,+QQ)">&amp;(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, OO, PP, QQ)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+O,+P,+Q,+R)%3E-for-%26(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL,+MM,+OO,+PP,+QQ,+RR)">&amp;(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, OO, PP, QQ, RR)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,)%3E-for-%26(AA,)">&amp;(AA,)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B)%3E-for-(AA,+BB)">(AA, BB)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C)%3E-for-(AA,+BB,+CC)">(AA, BB, CC)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D)%3E-for-(AA,+BB,+CC,+DD)">(AA, BB, CC, DD)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E)%3E-for-(AA,+BB,+CC,+DD,+EE)">(AA, BB, CC, DD, EE)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF)">(AA, BB, CC, DD, EE, FF)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF,+GG)">(AA, BB, CC, DD, EE, FF, GG)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH)">(AA, BB, CC, DD, EE, FF, GG, HH)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II)">(AA, BB, CC, DD, EE, FF, GG, HH, II)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ)">(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK)">(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL)">(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL,+MM)">(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+O)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL,+MM,+OO)">(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, OO)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+O,+P)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL,+MM,+OO,+PP)">(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, OO, PP)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+O,+P,+Q)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL,+MM,+OO,+PP,+QQ)">(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, OO, PP, QQ)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,+B,+C,+D,+E,+F,+G,+H,+I,+J,+K,+L,+M,+O,+P,+Q,+R)%3E-for-(AA,+BB,+CC,+DD,+EE,+FF,+GG,+HH,+II,+JJ,+KK,+LL,+MM,+OO,+PP,+QQ,+RR)">(AA, BB, CC, DD, EE, FF, GG, HH, II, JJ, KK, LL, MM, OO, PP, QQ, RR)</a></li><li><a href="#impl-EncodeLikeTuple%3C(A,)%3E-for-(AA,)">(AA,)</a></li><li><a href="#impl-EncodeLikeTuple%3CU%3E-for-Ref%3C'a,+T,+U%3E">Ref&lt;&#x27;a, T, U&gt;</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In frame_support::storage::types</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">frame_support</a>::<wbr><a href="../index.html">storage</a>::<wbr><a href="index.html">types</a>::<wbr><a class="trait" href="#">EncodeLikeTuple</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/frame_support/storage/types/key.rs.html#166">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait EncodeLikeTuple&lt;T&gt;: Sealed { }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Marker trait to indicate that each element in the tuple encodes like the corresponding element

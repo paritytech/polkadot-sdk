@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc struct"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_staking/index.html">pallet_staking</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Exposure</a></h2><div class="sidebar-elems"><section><h3><a href="#fields">Fields</a></h3><ul class="block structfield"><li><a href="#structfield.others">others</a></li><li><a href="#structfield.own">own</a></li><li><a href="#structfield.total">total</a></li></ul><h3><a href="#implementations">Methods</a></h3><ul class="block method"><li><a href="#method.into_pages">into_pages</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-Clone-for-Exposure%3CAccountId,+Balance%3E">Clone</a></li><li><a href="#impl-Debug-for-Exposure%3CAccountId,+Balance%3E">Debug</a></li><li><a href="#impl-Decode-for-Exposure%3CAccountId,+Balance%3E">Decode</a></li><li><a href="#impl-Default-for-Exposure%3CAccountId,+Balance%3E">Default</a></li><li><a href="#impl-Encode-for-Exposure%3CAccountId,+Balance%3E">Encode</a></li><li><a href="#impl-EncodeLike-for-Exposure%3CAccountId,+Balance%3E">EncodeLike</a></li><li><a href="#impl-Eq-for-Exposure%3CAccountId,+Balance%3E">Eq</a></li><li><a href="#impl-Ord-for-Exposure%3CAccountId,+Balance%3E">Ord</a></li><li><a href="#impl-PartialEq-for-Exposure%3CAccountId,+Balance%3E">PartialEq</a></li><li><a href="#impl-PartialOrd-for-Exposure%3CAccountId,+Balance%3E">PartialOrd</a></li><li><a href="#impl-SessionManager%3C%3CT+as+Config%3E::AccountId,+Exposure%3C%3CT+as+Config%3E::AccountId,+%3CT+as+Config%3E::CurrencyBalance%3E%3E-for-Pallet%3CT%3E">SessionManager&lt;&lt;T as Config&gt;::AccountId, Exposure&lt;&lt;T as Config&gt;::AccountId, &lt;T as Config&gt;::CurrencyBalance&gt;&gt;</a></li><li><a href="#impl-StructuralEq-for-Exposure%3CAccountId,+Balance%3E">StructuralEq</a></li><li><a href="#impl-StructuralPartialEq-for-Exposure%3CAccountId,+Balance%3E">StructuralPartialEq</a></li><li><a href="#impl-TypeInfo-for-Exposure%3CAccountId,+Balance%3E">TypeInfo</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-RefUnwindSafe-for-Exposure%3CAccountId,+Balance%3E">RefUnwindSafe</a></li><li><a href="#impl-Send-for-Exposure%3CAccountId,+Balance%3E">Send</a></li><li><a href="#impl-Sync-for-Exposure%3CAccountId,+Balance%3E">Sync</a></li><li><a href="#impl-Unpin-for-Exposure%3CAccountId,+Balance%3E">Unpin</a></li><li><a href="#impl-UnwindSafe-for-Exposure%3CAccountId,+Balance%3E">UnwindSafe</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T">Any</a></li><li><a href="#impl-Borrow%3CT%3E-for-T">Borrow&lt;T&gt;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T">BorrowMut&lt;T&gt;</a></li><li><a href="#impl-CheckedConversion-for-T">CheckedConversion</a></li><li><a href="#impl-Clear-for-T">Clear</a></li><li><a href="#impl-Codec-for-S">Codec</a></li><li><a href="#impl-Conv-for-T">Conv</a></li><li><a href="#impl-DecodeAll-for-T">DecodeAll</a></li><li><a href="#impl-DecodeLimit-for-T">DecodeLimit</a></li><li><a href="#impl-DefensiveMax%3CT%3E-for-T">DefensiveMax&lt;T&gt;</a></li><li><a href="#impl-DefensiveMin%3CT%3E-for-T">DefensiveMin&lt;T&gt;</a></li><li><a href="#impl-DynClone-for-T">DynClone</a></li><li><a href="#impl-EncodeLike%3C%26%26T%3E-for-T">EncodeLike&lt;&amp;&amp;T&gt;</a></li><li><a href="#impl-EncodeLike%3C%26T%3E-for-T">EncodeLike&lt;&amp;T&gt;</a></li><li><a href="#impl-EncodeLike%3C%26mut+T%3E-for-T">EncodeLike&lt;&amp;mut T&gt;</a></li><li><a href="#impl-EncodeLike%3CArc%3CT%3E%3E-for-T">EncodeLike&lt;Arc&lt;T&gt;&gt;</a></li><li><a href="#impl-EncodeLike%3CBox%3CT%3E%3E-for-T">EncodeLike&lt;Box&lt;T&gt;&gt;</a></li><li><a href="#impl-EncodeLike%3CCow%3C'a,+T%3E%3E-for-T">EncodeLike&lt;Cow&lt;&#x27;a, T&gt;&gt;</a></li><li><a href="#impl-EncodeLike%3CRc%3CT%3E%3E-for-T">EncodeLike&lt;Rc&lt;T&gt;&gt;</a></li><li><a href="#impl-Equivalent%3CK%3E-for-Q">Equivalent&lt;K&gt;</a></li><li><a href="#impl-Equivalent%3CK%3E-for-Q-1">Equivalent&lt;K&gt;</a></li><li><a href="#impl-FmtForward-for-T">FmtForward</a></li><li><a href="#impl-From%3CT%3E-for-T">From&lt;T&gt;</a></li><li><a href="#impl-FullCodec-for-S">FullCodec</a></li><li><a href="#impl-FullEncode-for-S">FullEncode</a></li><li><a href="#impl-Hashable-for-T">Hashable</a></li><li><a href="#impl-IdentifierT-for-T">IdentifierT</a></li><li><a href="#impl-Instrument-for-T">Instrument</a></li><li><a href="#impl-Into%3CU%3E-for-T">Into&lt;U&gt;</a></li><li><a href="#impl-IntoKey%3CU%3E-for-T">IntoKey&lt;U&gt;</a></li><li><a href="#impl-IsType%3CT%3E-for-T">IsType&lt;T&gt;</a></li><li><a href="#impl-IsWrappedBy%3COuter%3E-for-T">IsWrappedBy&lt;Outer&gt;</a></li><li><a href="#impl-JsonSchemaMaybe-for-T">JsonSchemaMaybe</a></li><li><a href="#impl-KeyedVec-for-T">KeyedVec</a></li><li><a href="#impl-MaybeDebug-for-T">MaybeDebug</a></li><li><a href="#impl-MaybeRefUnwindSafe-for-T">MaybeRefUnwindSafe</a></li><li><a href="#impl-MaybeRefUnwindSafe-for-T-1">MaybeRefUnwindSafe</a></li><li><a href="#impl-Member-for-T">Member</a></li><li><a href="#impl-Parameter-for-T">Parameter</a></li><li><a href="#impl-Pipe-for-T">Pipe</a></li><li><a href="#impl-Pointable-for-T">Pointable</a></li><li><a href="#impl-Same-for-T">Same</a></li><li><a href="#impl-SaturatedConversion-for-T">SaturatedConversion</a></li><li><a href="#impl-StaticTypeInfo-for-T">StaticTypeInfo</a></li><li><a href="#impl-Tap-for-T">Tap</a></li><li><a href="#impl-ToOwned-for-T">ToOwned</a></li><li><a href="#impl-TryConv-for-T">TryConv</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T">TryFrom&lt;U&gt;</a></li><li><a href="#impl-TryInto%3CU%3E-for-T">TryInto&lt;U&gt;</a></li><li><a href="#impl-TryIntoKey%3CU%3E-for-T">TryIntoKey&lt;U&gt;</a></li><li><a href="#impl-UncheckedInto%3CT%3E-for-S">UncheckedInto&lt;T&gt;</a></li><li><a href="#impl-UniqueSaturatedInto%3CT%3E-for-S">UniqueSaturatedInto&lt;T&gt;</a></li><li><a href="#impl-VZip%3CV%3E-for-T">VZip&lt;V&gt;</a></li><li><a href="#impl-WithSubscriber-for-T">WithSubscriber</a></li></ul></section><h2><a href="index.html">In crate pallet_staking</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Struct <a href="index.html">pallet_staking</a>::<wbr><a class="struct" href="#">Exposure</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub struct Exposure&lt;AccountId, Balance&gt;<span class="where fmt-newline">where
@@ -191,12 +196,12 @@ sufficient, and should not be overridden without very good reason.</div></detail
     AccountId: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html" title="trait core::cmp::PartialOrd">PartialOrd</a>,
     Balance: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html" title="trait core::cmp::PartialOrd">PartialOrd</a> + HasCompact,</span></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.partial_cmp" class="method trait-impl"><a href="#method.partial_cmp" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html#tymethod.partial_cmp" class="fn">partial_cmp</a>(&amp;self, other: &amp;<a class="struct" href="struct.Exposure.html" title="struct pallet_staking::Exposure">Exposure</a>&lt;AccountId, Balance&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/cmp/enum.Ordering.html" title="enum core::cmp::Ordering">Ordering</a>&gt;</h4></section></summary><div class='docblock'>This method returns an ordering between <code>self</code> and <code>other</code> values if one exists. <a href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html#tymethod.partial_cmp">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.lt" class="method trait-impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/core/cmp.rs.html#1122">source</a></span><a href="#method.lt" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html#method.lt" class="fn">lt</a>(&amp;self, other: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;Rhs</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>This method tests less than (for <code>self</code> and <code>other</code>) and is used by the <code>&lt;</code> operator. <a href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html#method.lt">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.le" class="method trait-impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/core/cmp.rs.html#1139">source</a></span><a href="#method.le" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html#method.le" class="fn">le</a>(&amp;self, other: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;Rhs</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>This method tests less than or equal to (for <code>self</code> and <code>other</code>) and is used by the <code>&lt;=</code>
 operator. <a href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html#method.le">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.gt" class="method trait-impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/core/cmp.rs.html#1155">source</a></span><a href="#method.gt" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html#method.gt" class="fn">gt</a>(&amp;self, other: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;Rhs</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>This method tests greater than (for <code>self</code> and <code>other</code>) and is used by the <code>&gt;</code> operator. <a href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html#method.gt">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.ge" class="method trait-impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/core/cmp.rs.html#1172">source</a></span><a href="#method.ge" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html#method.ge" class="fn">ge</a>(&amp;self, other: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;Rhs</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>This method tests greater than or equal to (for <code>self</code> and <code>other</code>) and is used by the <code>&gt;=</code>
-operator. <a href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html#method.ge">Read more</a></div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-SessionManager%3C%3CT+as+Config%3E::AccountId,+Exposure%3C%3CT+as+Config%3E::AccountId,+%3CT+as+Config%3E::CurrencyBalance%3E%3E-for-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../src/pallet_staking/pallet/impls.rs.html#1294-1339">source</a><a href="#impl-SessionManager%3C%3CT+as+Config%3E::AccountId,+Exposure%3C%3CT+as+Config%3E::AccountId,+%3CT+as+Config%3E::CurrencyBalance%3E%3E-for-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait pallet_staking::Config">Config</a>&gt; SessionManager&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>, <a class="struct" href="struct.Exposure.html" title="struct pallet_staking::Exposure">Exposure</a>&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>, &lt;T as <a class="trait" href="trait.Config.html" title="trait pallet_staking::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.CurrencyBalance" title="type pallet_staking::Config::CurrencyBalance">CurrencyBalance</a>&gt;&gt; for <a class="struct" href="struct.Pallet.html" title="struct pallet_staking::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new_session" class="method trait-impl"><a class="src rightside" href="../src/pallet_staking/pallet/impls.rs.html#1297-1313">source</a><a href="#method.new_session" class="anchor">§</a><h4 class="code-header">fn <a class="fn">new_session</a>(
+operator. <a href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html#method.ge">Read more</a></div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-SessionManager%3C%3CT+as+Config%3E::AccountId,+Exposure%3C%3CT+as+Config%3E::AccountId,+%3CT+as+Config%3E::CurrencyBalance%3E%3E-for-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../src/pallet_staking/pallet/impls.rs.html#1294-1339">source</a><a href="#impl-SessionManager%3C%3CT+as+Config%3E::AccountId,+Exposure%3C%3CT+as+Config%3E::AccountId,+%3CT+as+Config%3E::CurrencyBalance%3E%3E-for-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait pallet_staking::Config">Config</a>&gt; SessionManager&lt;&lt;T as Config&gt;::AccountId, <a class="struct" href="struct.Exposure.html" title="struct pallet_staking::Exposure">Exposure</a>&lt;&lt;T as Config&gt;::AccountId, &lt;T as <a class="trait" href="trait.Config.html" title="trait pallet_staking::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.CurrencyBalance" title="type pallet_staking::Config::CurrencyBalance">CurrencyBalance</a>&gt;&gt; for <a class="struct" href="struct.Pallet.html" title="struct pallet_staking::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new_session" class="method trait-impl"><a class="src rightside" href="../src/pallet_staking/pallet/impls.rs.html#1297-1313">source</a><a href="#method.new_session" class="anchor">§</a><h4 class="code-header">fn <a class="fn">new_session</a>(
     new_index: SessionIndex
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(T::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>, <a class="struct" href="struct.Exposure.html" title="struct pallet_staking::Exposure">Exposure</a>&lt;T::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>, <a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;T&gt;&gt;)&gt;&gt;</h4></section></summary><div class='docblock'>If there was a validator set change, its returns the set of new validators along with their
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(T::AccountId, <a class="struct" href="struct.Exposure.html" title="struct pallet_staking::Exposure">Exposure</a>&lt;T::AccountId, <a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;T&gt;&gt;)&gt;&gt;</h4></section></summary><div class='docblock'>If there was a validator set change, its returns the set of new validators along with their
 full identifications.</div></details><section id="method.new_session_genesis" class="method trait-impl"><a class="src rightside" href="../src/pallet_staking/pallet/impls.rs.html#1314-1332">source</a><a href="#method.new_session_genesis" class="anchor">§</a><h4 class="code-header">fn <a class="fn">new_session_genesis</a>(
     new_index: SessionIndex
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(T::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>, <a class="struct" href="struct.Exposure.html" title="struct pallet_staking::Exposure">Exposure</a>&lt;T::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>, <a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;T&gt;&gt;)&gt;&gt;</h4></section><section id="method.start_session" class="method trait-impl"><a class="src rightside" href="../src/pallet_staking/pallet/impls.rs.html#1333-1335">source</a><a href="#method.start_session" class="anchor">§</a><h4 class="code-header">fn <a class="fn">start_session</a>(start_index: SessionIndex)</h4></section><section id="method.end_session" class="method trait-impl"><a class="src rightside" href="../src/pallet_staking/pallet/impls.rs.html#1336-1338">source</a><a href="#method.end_session" class="anchor">§</a><h4 class="code-header">fn <a class="fn">end_session</a>(end_index: SessionIndex)</h4></section></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypeInfo-for-Exposure%3CAccountId,+Balance%3E" class="impl"><a href="#impl-TypeInfo-for-Exposure%3CAccountId,+Balance%3E" class="anchor">§</a><h3 class="code-header">impl&lt;AccountId, Balance&gt; TypeInfo for <a class="struct" href="struct.Exposure.html" title="struct pallet_staking::Exposure">Exposure</a>&lt;AccountId, Balance&gt;<span class="where fmt-newline">where
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(T::AccountId, <a class="struct" href="struct.Exposure.html" title="struct pallet_staking::Exposure">Exposure</a>&lt;T::AccountId, <a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;T&gt;&gt;)&gt;&gt;</h4></section><section id="method.start_session" class="method trait-impl"><a class="src rightside" href="../src/pallet_staking/pallet/impls.rs.html#1333-1335">source</a><a href="#method.start_session" class="anchor">§</a><h4 class="code-header">fn <a class="fn">start_session</a>(start_index: SessionIndex)</h4></section><section id="method.end_session" class="method trait-impl"><a class="src rightside" href="../src/pallet_staking/pallet/impls.rs.html#1336-1338">source</a><a href="#method.end_session" class="anchor">§</a><h4 class="code-header">fn <a class="fn">end_session</a>(end_index: SessionIndex)</h4></section></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-TypeInfo-for-Exposure%3CAccountId,+Balance%3E" class="impl"><a href="#impl-TypeInfo-for-Exposure%3CAccountId,+Balance%3E" class="anchor">§</a><h3 class="code-header">impl&lt;AccountId, Balance&gt; TypeInfo for <a class="struct" href="struct.Exposure.html" title="struct pallet_staking::Exposure">Exposure</a>&lt;AccountId, Balance&gt;<span class="where fmt-newline">where
     Balance: HasCompact + TypeInfo + 'static,
     <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="struct.IndividualExposure.html" title="struct pallet_staking::IndividualExposure">IndividualExposure</a>&lt;AccountId, Balance&gt;&gt;: TypeInfo + 'static,
     AccountId: TypeInfo + 'static,</span></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Identity" class="associatedtype trait-impl"><a href="#associatedtype.Identity" class="anchor">§</a><h4 class="code-header">type <a class="associatedtype">Identity</a> = <a class="struct" href="struct.Exposure.html" title="struct pallet_staking::Exposure">Exposure</a>&lt;AccountId, Balance&gt;</h4></section></summary><div class='docblock'>The type identifying for which type info is provided. <a>Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.type_info" class="method trait-impl"><a href="#method.type_info" class="anchor">§</a><h4 class="code-header">fn <a class="fn">type_info</a>() -&gt; Type</h4></section></summary><div class='docblock'>Returns the static type identifier for <code>Self</code>.</div></details></div></details><section id="impl-EncodeLike-for-Exposure%3CAccountId,+Balance%3E" class="impl"><a href="#impl-EncodeLike-for-Exposure%3CAccountId,+Balance%3E" class="anchor">§</a><h3 class="code-header">impl&lt;AccountId, Balance&gt; EncodeLike for <a class="struct" href="struct.Exposure.html" title="struct pallet_staking::Exposure">Exposure</a>&lt;AccountId, Balance&gt;<span class="where fmt-newline">where

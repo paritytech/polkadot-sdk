@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc struct"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_election_provider_support/index.html">frame_election_provider_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">OnChainExecution</a></h2><div class="sidebar-elems"><section><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-ElectionProvider-for-OnChainExecution%3CT%3E">ElectionProvider</a></li><li><a href="#impl-ElectionProviderBase-for-OnChainExecution%3CT%3E">ElectionProviderBase</a></li><li><a href="#impl-InstantElectionProvider-for-OnChainExecution%3CT%3E">InstantElectionProvider</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-RefUnwindSafe-for-OnChainExecution%3CT%3E">RefUnwindSafe</a></li><li><a href="#impl-Send-for-OnChainExecution%3CT%3E">Send</a></li><li><a href="#impl-Sync-for-OnChainExecution%3CT%3E">Sync</a></li><li><a href="#impl-Unpin-for-OnChainExecution%3CT%3E">Unpin</a></li><li><a href="#impl-UnwindSafe-for-OnChainExecution%3CT%3E">UnwindSafe</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T">Any</a></li><li><a href="#impl-Borrow%3CT%3E-for-T">Borrow&lt;T&gt;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T">BorrowMut&lt;T&gt;</a></li><li><a href="#impl-CheckedConversion-for-T">CheckedConversion</a></li><li><a href="#impl-Conv-for-T">Conv</a></li><li><a href="#impl-FmtForward-for-T">FmtForward</a></li><li><a href="#impl-From%3CT%3E-for-T">From&lt;T&gt;</a></li><li><a href="#impl-Instrument-for-T">Instrument</a></li><li><a href="#impl-Into%3CU%3E-for-T">Into&lt;U&gt;</a></li><li><a href="#impl-IntoKey%3CU%3E-for-T">IntoKey&lt;U&gt;</a></li><li><a href="#impl-IsType%3CT%3E-for-T">IsType&lt;T&gt;</a></li><li><a href="#impl-IsWrappedBy%3COuter%3E-for-T">IsWrappedBy&lt;Outer&gt;</a></li><li><a href="#impl-JsonSchemaMaybe-for-T">JsonSchemaMaybe</a></li><li><a href="#impl-MaybeRefUnwindSafe-for-T">MaybeRefUnwindSafe</a></li><li><a href="#impl-MaybeRefUnwindSafe-for-T-1">MaybeRefUnwindSafe</a></li><li><a href="#impl-Pipe-for-T">Pipe</a></li><li><a href="#impl-Pointable-for-T">Pointable</a></li><li><a href="#impl-Same-for-T">Same</a></li><li><a href="#impl-SaturatedConversion-for-T">SaturatedConversion</a></li><li><a href="#impl-Tap-for-T">Tap</a></li><li><a href="#impl-TryConv-for-T">TryConv</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T">TryFrom&lt;U&gt;</a></li><li><a href="#impl-TryInto%3CU%3E-for-T">TryInto&lt;U&gt;</a></li><li><a href="#impl-TryIntoKey%3CU%3E-for-T">TryIntoKey&lt;U&gt;</a></li><li><a href="#impl-UncheckedInto%3CT%3E-for-S">UncheckedInto&lt;T&gt;</a></li><li><a href="#impl-UniqueSaturatedInto%3CT%3E-for-S">UniqueSaturatedInto&lt;T&gt;</a></li><li><a href="#impl-VZip%3CV%3E-for-T">VZip&lt;V&gt;</a></li><li><a href="#impl-WithSubscriber-for-T">WithSubscriber</a></li></ul></section><h2><a href="index.html">In frame_election_provider_support::onchain</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Struct <a href="../index.html">frame_election_provider_support</a>::<wbr><a href="index.html">onchain</a>::<wbr><a class="struct" href="#">OnChainExecution</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/frame_election_provider_support/onchain.rs.html#57">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub struct OnChainExecution&lt;T: <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt;(/* private fields */);</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A simple on-chain implementation of the election provider trait.</p>
@@ -146,7 +151,7 @@ nav.side-bar {
 thoughtful value must be set as <a href="trait.Config.html#associatedtype.Bounds" title="associated type frame_election_provider_support::onchain::Config::Bounds"><code>Config::Bounds</code></a> to ensure the size of the input is sensible.</p>
 </div></details><h2 id="trait-implementations" class="small-section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-ElectionProvider-for-OnChainExecution%3CT%3E" class="impl"><a class="src rightside" href="../../src/frame_election_provider_support/onchain.rs.html#170-179">source</a><a href="#impl-ElectionProvider-for-OnChainExecution%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt; <a class="trait" href="../trait.ElectionProvider.html" title="trait frame_election_provider_support::ElectionProvider">ElectionProvider</a> for <a class="struct" href="struct.OnChainExecution.html" title="struct frame_election_provider_support::onchain::OnChainExecution">OnChainExecution</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.ongoing" class="method trait-impl"><a class="src rightside" href="../../src/frame_election_provider_support/onchain.rs.html#171-173">source</a><a href="#method.ongoing" class="anchor">§</a><h4 class="code-header">fn <a href="../trait.ElectionProvider.html#tymethod.ongoing" class="fn">ongoing</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>Indicate if this election provider is currently ongoing an asynchronous election or not.</div></details><details class="toggle method-toggle" open><summary><section id="method.elect" class="method trait-impl"><a class="src rightside" href="../../src/frame_election_provider_support/onchain.rs.html#175-178">source</a><a href="#method.elect" class="anchor">§</a><h4 class="code-header">fn <a href="../trait.ElectionProvider.html#tymethod.elect" class="fn">elect</a>() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="../type.BoundedSupportsOf.html" title="type frame_election_provider_support::BoundedSupportsOf">BoundedSupportsOf</a>&lt;Self&gt;, Self::<a class="associatedtype" href="../trait.ElectionProviderBase.html#associatedtype.Error" title="type frame_election_provider_support::ElectionProviderBase::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Performs the election. This should be implemented as a self-weighing function. The
 implementor should register its appropriate weight at the end of execution with the
-system pallet directly.</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-ElectionProviderBase-for-OnChainExecution%3CT%3E" class="impl"><a class="src rightside" href="../../src/frame_election_provider_support/onchain.rs.html#148-154">source</a><a href="#impl-ElectionProviderBase-for-OnChainExecution%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt; <a class="trait" href="../trait.ElectionProviderBase.html" title="trait frame_election_provider_support::ElectionProviderBase">ElectionProviderBase</a> for <a class="struct" href="struct.OnChainExecution.html" title="struct frame_election_provider_support::onchain::OnChainExecution">OnChainExecution</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.AccountId" class="associatedtype trait-impl"><a href="#associatedtype.AccountId" class="anchor">§</a><h4 class="code-header">type <a href="../trait.ElectionProviderBase.html#associatedtype.AccountId" class="associatedtype">AccountId</a> = &lt;&lt;T as <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.System" title="type frame_election_provider_support::onchain::Config::System">System</a> as <a class="trait" href="../../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a></h4></section></summary><div class='docblock'>The account identifier type.</div></details><details class="toggle" open><summary><section id="associatedtype.BlockNumber" class="associatedtype trait-impl"><a href="#associatedtype.BlockNumber" class="anchor">§</a><h4 class="code-header">type <a href="../trait.ElectionProviderBase.html#associatedtype.BlockNumber" class="associatedtype">BlockNumber</a> = &lt;&lt;&lt;&lt;T as <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.System" title="type frame_election_provider_support::onchain::Config::System">System</a> as <a class="trait" href="../../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../../frame_system/pallet/trait.Config.html#associatedtype.Block" title="type frame_system::pallet::Config::Block">Block</a> as HeaderProvider&gt;::HeaderT as <a class="trait" href="../../sp_runtime/traits/trait.Header.html" title="trait sp_runtime::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a></h4></section></summary><div class='docblock'>The block number type.</div></details><details class="toggle" open><summary><section id="associatedtype.Error" class="associatedtype trait-impl"><a href="#associatedtype.Error" class="anchor">§</a><h4 class="code-header">type <a href="../trait.ElectionProviderBase.html#associatedtype.Error" class="associatedtype">Error</a> = <a class="enum" href="enum.Error.html" title="enum frame_election_provider_support::onchain::Error">Error</a></h4></section></summary><div class='docblock'>The error type that is returned by the provider.</div></details><details class="toggle" open><summary><section id="associatedtype.MaxWinners" class="associatedtype trait-impl"><a href="#associatedtype.MaxWinners" class="anchor">§</a><h4 class="code-header">type <a href="../trait.ElectionProviderBase.html#associatedtype.MaxWinners" class="associatedtype">MaxWinners</a> = &lt;T as <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.MaxWinners" title="type frame_election_provider_support::onchain::Config::MaxWinners">MaxWinners</a></h4></section></summary><div class='docblock'>The upper bound on election winners that can be returned. <a href="../trait.ElectionProviderBase.html#associatedtype.MaxWinners">Read more</a></div></details><details class="toggle" open><summary><section id="associatedtype.DataProvider" class="associatedtype trait-impl"><a href="#associatedtype.DataProvider" class="anchor">§</a><h4 class="code-header">type <a href="../trait.ElectionProviderBase.html#associatedtype.DataProvider" class="associatedtype">DataProvider</a> = &lt;T as <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.DataProvider" title="type frame_election_provider_support::onchain::Config::DataProvider">DataProvider</a></h4></section></summary><div class='docblock'>The data provider of the election.</div></details><details class="toggle method-toggle" open><summary><section id="method.desired_targets_checked" class="method trait-impl"><a class="src rightside" href="../../src/frame_election_provider_support/lib.rs.html#392-400">source</a><a href="#method.desired_targets_checked" class="anchor">§</a><h4 class="code-header">fn <a href="../trait.ElectionProviderBase.html#method.desired_targets_checked" class="fn">desired_targets_checked</a>() -&gt; <a class="type" href="../data_provider/type.Result.html" title="type frame_election_provider_support::data_provider::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class='docblock'>checked call to <code>Self::DataProvider::desired_targets()</code> ensuring the value never exceeds
+system pallet directly.</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-ElectionProviderBase-for-OnChainExecution%3CT%3E" class="impl"><a class="src rightside" href="../../src/frame_election_provider_support/onchain.rs.html#148-154">source</a><a href="#impl-ElectionProviderBase-for-OnChainExecution%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt; <a class="trait" href="../trait.ElectionProviderBase.html" title="trait frame_election_provider_support::ElectionProviderBase">ElectionProviderBase</a> for <a class="struct" href="struct.OnChainExecution.html" title="struct frame_election_provider_support::onchain::OnChainExecution">OnChainExecution</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.AccountId" class="associatedtype trait-impl"><a href="#associatedtype.AccountId" class="anchor">§</a><h4 class="code-header">type <a href="../trait.ElectionProviderBase.html#associatedtype.AccountId" class="associatedtype">AccountId</a> = &lt;&lt;T as <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.System" title="type frame_election_provider_support::onchain::Config::System">System</a> as Config&gt;::AccountId</h4></section></summary><div class='docblock'>The account identifier type.</div></details><details class="toggle" open><summary><section id="associatedtype.BlockNumber" class="associatedtype trait-impl"><a href="#associatedtype.BlockNumber" class="anchor">§</a><h4 class="code-header">type <a href="../trait.ElectionProviderBase.html#associatedtype.BlockNumber" class="associatedtype">BlockNumber</a> = &lt;&lt;&lt;&lt;T as <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.System" title="type frame_election_provider_support::onchain::Config::System">System</a> as Config&gt;::Block as HeaderProvider&gt;::HeaderT as <a class="trait" href="../../sp_runtime/traits/trait.Header.html" title="trait sp_runtime::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a></h4></section></summary><div class='docblock'>The block number type.</div></details><details class="toggle" open><summary><section id="associatedtype.Error" class="associatedtype trait-impl"><a href="#associatedtype.Error" class="anchor">§</a><h4 class="code-header">type <a href="../trait.ElectionProviderBase.html#associatedtype.Error" class="associatedtype">Error</a> = <a class="enum" href="enum.Error.html" title="enum frame_election_provider_support::onchain::Error">Error</a></h4></section></summary><div class='docblock'>The error type that is returned by the provider.</div></details><details class="toggle" open><summary><section id="associatedtype.MaxWinners" class="associatedtype trait-impl"><a href="#associatedtype.MaxWinners" class="anchor">§</a><h4 class="code-header">type <a href="../trait.ElectionProviderBase.html#associatedtype.MaxWinners" class="associatedtype">MaxWinners</a> = &lt;T as <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.MaxWinners" title="type frame_election_provider_support::onchain::Config::MaxWinners">MaxWinners</a></h4></section></summary><div class='docblock'>The upper bound on election winners that can be returned. <a href="../trait.ElectionProviderBase.html#associatedtype.MaxWinners">Read more</a></div></details><details class="toggle" open><summary><section id="associatedtype.DataProvider" class="associatedtype trait-impl"><a href="#associatedtype.DataProvider" class="anchor">§</a><h4 class="code-header">type <a href="../trait.ElectionProviderBase.html#associatedtype.DataProvider" class="associatedtype">DataProvider</a> = &lt;T as <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.DataProvider" title="type frame_election_provider_support::onchain::Config::DataProvider">DataProvider</a></h4></section></summary><div class='docblock'>The data provider of the election.</div></details><details class="toggle method-toggle" open><summary><section id="method.desired_targets_checked" class="method trait-impl"><a class="src rightside" href="../../src/frame_election_provider_support/lib.rs.html#392-400">source</a><a href="#method.desired_targets_checked" class="anchor">§</a><h4 class="code-header">fn <a href="../trait.ElectionProviderBase.html#method.desired_targets_checked" class="fn">desired_targets_checked</a>() -&gt; <a class="type" href="../data_provider/type.Result.html" title="type frame_election_provider_support::data_provider::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class='docblock'>checked call to <code>Self::DataProvider::desired_targets()</code> ensuring the value never exceeds
 <a href="../trait.ElectionProviderBase.html#associatedtype.MaxWinners"><code>Self::MaxWinners</code></a>.</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-InstantElectionProvider-for-OnChainExecution%3CT%3E" class="impl"><a class="src rightside" href="../../src/frame_election_provider_support/onchain.rs.html#156-168">source</a><a href="#impl-InstantElectionProvider-for-OnChainExecution%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait frame_election_provider_support::onchain::Config">Config</a>&gt; <a class="trait" href="../trait.InstantElectionProvider.html" title="trait frame_election_provider_support::InstantElectionProvider">InstantElectionProvider</a> for <a class="struct" href="struct.OnChainExecution.html" title="struct frame_election_provider_support::onchain::OnChainExecution">OnChainExecution</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><section id="method.instant_elect" class="method trait-impl"><a class="src rightside" href="../../src/frame_election_provider_support/onchain.rs.html#157-167">source</a><a href="#method.instant_elect" class="anchor">§</a><h4 class="code-header">fn <a href="../trait.InstantElectionProvider.html#tymethod.instant_elect" class="fn">instant_elect</a>(
     forced_input_voters_bounds: <a class="struct" href="../bounds/struct.DataProviderBounds.html" title="struct frame_election_provider_support::bounds::DataProviderBounds">DataProviderBounds</a>,
     forced_input_targets_bounds: <a class="struct" href="../bounds/struct.DataProviderBounds.html" title="struct frame_election_provider_support::bounds::DataProviderBounds">DataProviderBounds</a>

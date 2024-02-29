@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_node_network_protocol/index.html">polkadot_node_network_protocol</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">AuthorityDiscovery</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.get_addresses_by_authority_id">get_addresses_by_authority_id</a></li><li><a href="#tymethod.get_authority_ids_by_peer_id">get_authority_ids_by_peer_id</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-AuthorityDiscovery-for-Service">Service</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_node_network_protocol::authority_discovery</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">polkadot_node_network_protocol</a>::<wbr><a href="index.html">authority_discovery</a>::<wbr><a class="trait" href="#">AuthorityDiscovery</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/polkadot_node_network_protocol/authority_discovery.rs.html#32-43">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait AuthorityDiscovery: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + 'static {
@@ -168,7 +173,7 @@ nav.side-bar {
 ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;AuthorityDiscoveryId&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
     Self: 'async_trait,
     'life0: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Get the [<code>AuthorityDiscoveryId</code>] for the given <a href="../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId"><code>PeerId</code></a> from the local address cache.</p>
-</div></details></div><h2 id="foreign-impls" class="small-section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-AuthorityDiscovery-for-Service" class="impl"><a class="src rightside" href="../../src/polkadot_node_network_protocol/authority_discovery.rs.html#46-60">source</a><a href="#impl-AuthorityDiscovery-for-Service" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.AuthorityDiscovery.html" title="trait polkadot_node_network_protocol::authority_discovery::AuthorityDiscovery">AuthorityDiscovery</a> for <a class="struct" href="../../sc_authority_discovery/service/struct.Service.html" title="struct sc_authority_discovery::service::Service">Service</a></h3></section></summary><div class="impl-items"><section id="method.get_addresses_by_authority_id" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_node_network_protocol/authority_discovery.rs.html#47-52">source</a><a href="#method.get_addresses_by_authority_id" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.get_addresses_by_authority_id" class="fn">get_addresses_by_authority_id</a>&lt;'life0, 'async_trait&gt;(
+</div></details></div><h2 id="foreign-impls" class="small-section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-AuthorityDiscovery-for-Service" class="impl"><a class="src rightside" href="../../src/polkadot_node_network_protocol/authority_discovery.rs.html#46-60">source</a><a href="#impl-AuthorityDiscovery-for-Service" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.AuthorityDiscovery.html" title="trait polkadot_node_network_protocol::authority_discovery::AuthorityDiscovery">AuthorityDiscovery</a> for Service</h3></section></summary><div class="impl-items"><section id="method.get_addresses_by_authority_id" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_node_network_protocol/authority_discovery.rs.html#47-52">source</a><a href="#method.get_addresses_by_authority_id" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.get_addresses_by_authority_id" class="fn">get_addresses_by_authority_id</a>&lt;'life0, 'async_trait&gt;(
     &amp;'life0 mut self,
     authority: AuthorityDiscoveryId
 ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../request_response/network/struct.Multiaddr.html" title="struct polkadot_node_network_protocol::request_response::network::Multiaddr">Multiaddr</a>&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where

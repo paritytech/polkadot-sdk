@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_contracts/index.html">pallet_contracts</a><span class="version">27.0.0</span></h2></div><h2 class="location"><a href="#">Ext</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.T">T</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.account_reentrance_count">account_reentrance_count</a></li><li><a href="#tymethod.address">address</a></li><li><a href="#tymethod.append_debug_buffer">append_debug_buffer</a></li><li><a href="#tymethod.balance">balance</a></li><li><a href="#tymethod.block_number">block_number</a></li><li><a href="#tymethod.call">call</a></li><li><a href="#tymethod.call_runtime">call_runtime</a></li><li><a href="#tymethod.caller">caller</a></li><li><a href="#tymethod.caller_is_origin">caller_is_origin</a></li><li><a href="#tymethod.caller_is_root">caller_is_root</a></li><li><a href="#tymethod.charge_storage">charge_storage</a></li><li><a href="#tymethod.code_hash">code_hash</a></li><li><a href="#tymethod.debug_buffer_enabled">debug_buffer_enabled</a></li><li><a href="#tymethod.decrement_refcount">decrement_refcount</a></li><li><a href="#tymethod.delegate_call">delegate_call</a></li><li><a href="#tymethod.deposit_event">deposit_event</a></li><li><a href="#tymethod.ecdsa_recover">ecdsa_recover</a></li><li><a href="#tymethod.ecdsa_to_eth_address">ecdsa_to_eth_address</a></li><li><a href="#tymethod.gas_meter">gas_meter</a></li><li><a href="#tymethod.gas_meter_mut">gas_meter_mut</a></li><li><a href="#tymethod.get_storage">get_storage</a></li><li><a href="#tymethod.get_storage_size">get_storage_size</a></li><li><a href="#tymethod.get_weight_price">get_weight_price</a></li><li><a href="#tymethod.increment_refcount">increment_refcount</a></li><li><a href="#tymethod.instantiate">instantiate</a></li><li><a href="#tymethod.is_contract">is_contract</a></li><li><a href="#tymethod.lock_delegate_dependency">lock_delegate_dependency</a></li><li><a href="#tymethod.max_value_size">max_value_size</a></li><li><a href="#tymethod.minimum_balance">minimum_balance</a></li><li><a href="#tymethod.nonce">nonce</a></li><li><a href="#tymethod.now">now</a></li><li><a href="#tymethod.own_code_hash">own_code_hash</a></li><li><a href="#tymethod.random">random</a></li><li><a href="#tymethod.reentrance_count">reentrance_count</a></li><li><a href="#tymethod.schedule">schedule</a></li><li><a href="#tymethod.set_code_hash">set_code_hash</a></li><li><a href="#tymethod.set_storage">set_storage</a></li><li><a href="#tymethod.sr25519_verify">sr25519_verify</a></li><li><a href="#tymethod.terminate">terminate</a></li><li><a href="#tymethod.transfer">transfer</a></li><li><a href="#tymethod.unlock_delegate_dependency">unlock_delegate_dependency</a></li><li><a href="#tymethod.value_transferred">value_transferred</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_contracts::chain_extension</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_contracts</a>::<wbr><a href="index.html">chain_extension</a>::<wbr><a class="trait" href="#">Ext</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_contracts/exec.rs.html#138-368">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Ext: Sealed {
@@ -207,13 +212,13 @@ nav.side-bar {
 <span class="item-spacer"></span>    fn <a href="#tymethod.random" class="fn">random</a>(
         &amp;self,
         subject: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>]
-    ) -&gt; (&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a> as <a class="trait" href="trait.SysConfig.html" title="trait pallet_contracts::chain_extension::SysConfig">Config</a>&gt;::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Hash" title="type pallet_contracts::chain_extension::SysConfig::Hash">Hash</a>, <a class="type" href="../../frame_system/pallet_prelude/type.BlockNumberFor.html" title="type frame_system::pallet_prelude::BlockNumberFor">BlockNumberFor</a>&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a>&gt;);
+    ) -&gt; (&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a> as <a class="trait" href="trait.SysConfig.html" title="trait pallet_contracts::chain_extension::SysConfig">Config</a>&gt;::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Hash" title="type pallet_contracts::chain_extension::SysConfig::Hash">Hash</a>, BlockNumberFor&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a>&gt;);
 <span class="item-spacer"></span>    fn <a href="#tymethod.deposit_event" class="fn">deposit_event</a>(
         &amp;mut self,
         topics: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a> as <a class="trait" href="trait.SysConfig.html" title="trait pallet_contracts::chain_extension::SysConfig">Config</a>&gt;::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Hash" title="type pallet_contracts::chain_extension::SysConfig::Hash">Hash</a>&gt;,
         data: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;
     );
-<span class="item-spacer"></span>    fn <a href="#tymethod.block_number" class="fn">block_number</a>(&amp;self) -&gt; <a class="type" href="../../frame_system/pallet_prelude/type.BlockNumberFor.html" title="type frame_system::pallet_prelude::BlockNumberFor">BlockNumberFor</a>&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.block_number" class="fn">block_number</a>(&amp;self) -&gt; BlockNumberFor&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.max_value_size" class="fn">max_value_size</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.get_weight_price" class="fn">get_weight_price</a>(
         &amp;self,
@@ -350,14 +355,14 @@ However, this function does not require any storage lookup and therefore uses le
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.random" class="method"><a class="src rightside" href="../../src/pallet_contracts/exec.rs.html#252">source</a><h4 class="code-header">fn <a href="#tymethod.random" class="fn">random</a>(
     &amp;self,
     subject: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>]
-) -&gt; (&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a> as <a class="trait" href="trait.SysConfig.html" title="trait pallet_contracts::chain_extension::SysConfig">Config</a>&gt;::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Hash" title="type pallet_contracts::chain_extension::SysConfig::Hash">Hash</a>, <a class="type" href="../../frame_system/pallet_prelude/type.BlockNumberFor.html" title="type frame_system::pallet_prelude::BlockNumberFor">BlockNumberFor</a>&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a>&gt;)</h4></section></summary><div class="docblock"><p>Returns a random number for the current block with the given subject.</p>
+) -&gt; (&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a> as <a class="trait" href="trait.SysConfig.html" title="trait pallet_contracts::chain_extension::SysConfig">Config</a>&gt;::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Hash" title="type pallet_contracts::chain_extension::SysConfig::Hash">Hash</a>, BlockNumberFor&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a>&gt;)</h4></section></summary><div class="docblock"><p>Returns a random number for the current block with the given subject.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.deposit_event" class="method"><a class="src rightside" href="../../src/pallet_contracts/exec.rs.html#257">source</a><h4 class="code-header">fn <a href="#tymethod.deposit_event" class="fn">deposit_event</a>(
     &amp;mut self,
     topics: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a> as <a class="trait" href="trait.SysConfig.html" title="trait pallet_contracts::chain_extension::SysConfig">Config</a>&gt;::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Hash" title="type pallet_contracts::chain_extension::SysConfig::Hash">Hash</a>&gt;,
     data: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;
 )</h4></section></summary><div class="docblock"><p>Deposit an event with the given topics.</p>
 <p>There should not be any duplicates in <code>topics</code>.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.block_number" class="method"><a class="src rightside" href="../../src/pallet_contracts/exec.rs.html#260">source</a><h4 class="code-header">fn <a href="#tymethod.block_number" class="fn">block_number</a>(&amp;self) -&gt; <a class="type" href="../../frame_system/pallet_prelude/type.BlockNumberFor.html" title="type frame_system::pallet_prelude::BlockNumberFor">BlockNumberFor</a>&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the current block number.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.block_number" class="method"><a class="src rightside" href="../../src/pallet_contracts/exec.rs.html#260">source</a><h4 class="code-header">fn <a href="#tymethod.block_number" class="fn">block_number</a>(&amp;self) -&gt; BlockNumberFor&lt;Self::<a class="associatedtype" href="trait.Ext.html#associatedtype.T" title="type pallet_contracts::chain_extension::Ext::T">T</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the current block number.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.max_value_size" class="method"><a class="src rightside" href="../../src/pallet_contracts/exec.rs.html#263">source</a><h4 class="code-header">fn <a href="#tymethod.max_value_size" class="fn">max_value_size</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Returns the maximum allowed size of a storage item.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_weight_price" class="method"><a class="src rightside" href="../../src/pallet_contracts/exec.rs.html#266">source</a><h4 class="code-header">fn <a href="#tymethod.get_weight_price" class="fn">get_weight_price</a>(
     &amp;self,

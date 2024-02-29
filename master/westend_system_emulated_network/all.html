@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../westend_system_emulated_network/index.html">westend_system_emulated_network</a><span class="version">0.0.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.AssetHubWestendParaReceiver.html">AssetHubWestendParaReceiver</a></li><li><a href="struct.AssetHubWestendParaSender.html">AssetHubWestendParaSender</a></li><li><a href="struct.BridgeHubWestendParaReceiver.html">BridgeHubWestendParaReceiver</a></li><li><a href="struct.BridgeHubWestendParaSender.html">BridgeHubWestendParaSender</a></li><li><a href="struct.CollectivesWestendParaReceiver.html">CollectivesWestendParaReceiver</a></li><li><a href="struct.CollectivesWestendParaSender.html">CollectivesWestendParaSender</a></li><li><a href="struct.PenpalAParaReceiver.html">PenpalAParaReceiver</a></li><li><a href="struct.PenpalAParaSender.html">PenpalAParaSender</a></li><li><a href="struct.PenpalBParaReceiver.html">PenpalBParaReceiver</a></li><li><a href="struct.PenpalBParaSender.html">PenpalBParaSender</a></li><li><a href="struct.PeopleWestendParaReceiver.html">PeopleWestendParaReceiver</a></li><li><a href="struct.PeopleWestendParaSender.html">PeopleWestendParaSender</a></li><li><a href="struct.WestendMockNet.html">WestendMockNet</a></li><li><a href="struct.WestendRelayReceiver.html">WestendRelayReceiver</a></li><li><a href="struct.WestendRelaySender.html">WestendRelaySender</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.AssetHubWestendPara.html">AssetHubWestendPara</a></li><li><a href="type.BridgeHubWestendPara.html">BridgeHubWestendPara</a></li><li><a href="type.CollectivesWestendPara.html">CollectivesWestendPara</a></li><li><a href="type.PenpalAPara.html">PenpalAPara</a></li><li><a href="type.PenpalBPara.html">PenpalBPara</a></li><li><a href="type.PeopleWestendPara.html">PeopleWestendPara</a></li><li><a href="type.WestendRelay.html">WestendRelay</a></li></ul></section></div></main></body></html>

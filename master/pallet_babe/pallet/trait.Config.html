@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_babe/index.html">pallet_babe</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Config</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.DisabledValidators">DisabledValidators</a></li><li><a href="#associatedtype.EpochChangeTrigger">EpochChangeTrigger</a></li><li><a href="#associatedtype.EpochDuration">EpochDuration</a></li><li><a href="#associatedtype.EquivocationReportSystem">EquivocationReportSystem</a></li><li><a href="#associatedtype.ExpectedBlockTime">ExpectedBlockTime</a></li><li><a href="#associatedtype.KeyOwnerProof">KeyOwnerProof</a></li><li><a href="#associatedtype.MaxAuthorities">MaxAuthorities</a></li><li><a href="#associatedtype.MaxNominators">MaxNominators</a></li><li><a href="#associatedtype.WeightInfo">WeightInfo</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_babe::pallet</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_babe</a>::<wbr><a href="index.html">pallet</a>::<wbr><a class="trait" href="#">Config</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_babe/lib.rs.html#122-172">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Config: Config {
@@ -149,7 +154,7 @@ nav.side-bar {
     type <a href="#associatedtype.MaxAuthorities" class="associatedtype">MaxAuthorities</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;;
     type <a href="#associatedtype.MaxNominators" class="associatedtype">MaxNominators</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;;
     type <a href="#associatedtype.KeyOwnerProof" class="associatedtype">KeyOwnerProof</a>: Parameter + GetSessionNumber + GetValidatorCount;
-    type <a href="#associatedtype.EquivocationReportSystem" class="associatedtype">EquivocationReportSystem</a>: OffenceReportSystem&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="../../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;, (EquivocationProof&lt;<a class="type" href="../../frame_system/pallet_prelude/type.HeaderFor.html" title="type frame_system::pallet_prelude::HeaderFor">HeaderFor</a>&lt;Self&gt;&gt;, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.KeyOwnerProof" title="type pallet_babe::pallet::Config::KeyOwnerProof">KeyOwnerProof</a>)&gt;;
+    type <a href="#associatedtype.EquivocationReportSystem" class="associatedtype">EquivocationReportSystem</a>: OffenceReportSystem&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::AccountId&gt;, (EquivocationProof&lt;HeaderFor&lt;Self&gt;&gt;, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.KeyOwnerProof" title="type pallet_babe::pallet::Config::KeyOwnerProof">KeyOwnerProof</a>)&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
 <p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
 which it is embedded in. A type, function, or constant in this trait is essentially left to be
@@ -176,7 +181,7 @@ initialization.</p>
 </div></details><details class="toggle" open><summary><section id="associatedtype.KeyOwnerProof" class="method"><a class="src rightside" href="../../src/pallet_babe/lib.rs.html#163">source</a><h4 class="code-header">type <a href="#associatedtype.KeyOwnerProof" class="associatedtype">KeyOwnerProof</a>: Parameter + GetSessionNumber + GetValidatorCount</h4></section></summary><div class="docblock"><p>The proof of key ownership, used for validating equivocation reports.
 The proof must include the session index and validator count of the
 session at which the equivocation occurred.</p>
-</div></details><details class="toggle" open><summary><section id="associatedtype.EquivocationReportSystem" class="method"><a class="src rightside" href="../../src/pallet_babe/lib.rs.html#168-171">source</a><h4 class="code-header">type <a href="#associatedtype.EquivocationReportSystem" class="associatedtype">EquivocationReportSystem</a>: OffenceReportSystem&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="../../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;, (EquivocationProof&lt;<a class="type" href="../../frame_system/pallet_prelude/type.HeaderFor.html" title="type frame_system::pallet_prelude::HeaderFor">HeaderFor</a>&lt;Self&gt;&gt;, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.KeyOwnerProof" title="type pallet_babe::pallet::Config::KeyOwnerProof">KeyOwnerProof</a>)&gt;</h4></section></summary><div class="docblock"><p>The equivocation handling subsystem, defines methods to check/report an
+</div></details><details class="toggle" open><summary><section id="associatedtype.EquivocationReportSystem" class="method"><a class="src rightside" href="../../src/pallet_babe/lib.rs.html#168-171">source</a><h4 class="code-header">type <a href="#associatedtype.EquivocationReportSystem" class="associatedtype">EquivocationReportSystem</a>: OffenceReportSystem&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::AccountId&gt;, (EquivocationProof&lt;HeaderFor&lt;Self&gt;&gt;, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.KeyOwnerProof" title="type pallet_babe::pallet::Config::KeyOwnerProof">KeyOwnerProof</a>)&gt;</h4></section></summary><div class="docblock"><p>The equivocation handling subsystem, defines methods to check/report an
 offence and for submitting a transaction to report an equivocation
 (from an offchain context).</p>
 </div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/pallet_babe/pallet/trait.Config.js" async></script></section></div></main></body></html>

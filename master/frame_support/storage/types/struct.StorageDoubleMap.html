@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc struct"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">StorageDoubleMap</a></h2><div class="sidebar-elems"><section><h3><a href="#implementations">Methods</a></h3><ul class="block method"><li><a href="#method.append">append</a></li><li><a href="#method.clear">clear</a></li><li><a href="#method.clear_prefix">clear_prefix</a></li><li><a href="#method.contains_key">contains_key</a></li><li><a href="#method.decode_len">decode_len</a></li><li><a href="#method.decode_non_dedup_len">decode_non_dedup_len</a></li><li><a href="#method.drain">drain</a></li><li><a href="#method.drain_prefix">drain_prefix</a></li><li><a href="#method.get">get</a></li><li><a href="#method.hashed_key_for">hashed_key_for</a></li><li><a href="#method.insert">insert</a></li><li><a href="#method.iter">iter</a></li><li><a href="#method.iter_from">iter_from</a></li><li><a href="#method.iter_key_prefix">iter_key_prefix</a></li><li><a href="#method.iter_key_prefix_from">iter_key_prefix_from</a></li><li><a href="#method.iter_keys">iter_keys</a></li><li><a href="#method.iter_keys_from">iter_keys_from</a></li><li><a href="#method.iter_prefix">iter_prefix</a></li><li><a href="#method.iter_prefix_from">iter_prefix_from</a></li><li><a href="#method.iter_prefix_values">iter_prefix_values</a></li><li><a href="#method.iter_values">iter_values</a></li><li><a href="#method.migrate_keys">migrate_keys</a></li><li><a href="#method.mutate">mutate</a></li><li><a href="#method.mutate_exists">mutate_exists</a></li><li><a href="#method.remove">remove</a></li><li><a href="#method.remove_all">remove_all</a></li><li><a href="#method.remove_prefix">remove_prefix</a></li><li><a href="#method.set">set</a></li><li><a href="#method.swap">swap</a></li><li><a href="#method.take">take</a></li><li><a href="#method.translate">translate</a></li><li><a href="#method.translate_values">translate_values</a></li><li><a href="#method.try_append">try_append</a></li><li><a href="#method.try_get">try_get</a></li><li><a href="#method.try_mutate">try_mutate</a></li><li><a href="#method.try_mutate_exists">try_mutate_exists</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-PartialStorageInfoTrait-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E">PartialStorageInfoTrait</a></li><li><a href="#impl-StorageEntryMetadataBuilder-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E">StorageEntryMetadataBuilder</a></li><li><a href="#impl-StorageInfoTrait-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E">StorageInfoTrait</a></li><li><a href="#impl-StoragePrefixedMap%3CValue%3E-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E">StoragePrefixedMap&lt;Value&gt;</a></li><li><a href="#impl-TryDecodeEntireStorage-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E">TryDecodeEntireStorage</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-RefUnwindSafe-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E">RefUnwindSafe</a></li><li><a href="#impl-Send-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E">Send</a></li><li><a href="#impl-Sync-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E">Sync</a></li><li><a href="#impl-Unpin-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E">Unpin</a></li><li><a href="#impl-UnwindSafe-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E">UnwindSafe</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T">Any</a></li><li><a href="#impl-Borrow%3CT%3E-for-T">Borrow&lt;T&gt;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T">BorrowMut&lt;T&gt;</a></li><li><a href="#impl-CheckedConversion-for-T">CheckedConversion</a></li><li><a href="#impl-Conv-for-T">Conv</a></li><li><a href="#impl-FmtForward-for-T">FmtForward</a></li><li><a href="#impl-From%3CT%3E-for-T">From&lt;T&gt;</a></li><li><a href="#impl-Instrument-for-T">Instrument</a></li><li><a href="#impl-Into%3CU%3E-for-T">Into&lt;U&gt;</a></li><li><a href="#impl-IntoKey%3CU%3E-for-T">IntoKey&lt;U&gt;</a></li><li><a href="#impl-IsType%3CT%3E-for-T">IsType&lt;T&gt;</a></li><li><a href="#impl-IsWrappedBy%3COuter%3E-for-T">IsWrappedBy&lt;Outer&gt;</a></li><li><a href="#impl-JsonSchemaMaybe-for-T">JsonSchemaMaybe</a></li><li><a href="#impl-MaybeRefUnwindSafe-for-T">MaybeRefUnwindSafe</a></li><li><a href="#impl-MaybeRefUnwindSafe-for-T-1">MaybeRefUnwindSafe</a></li><li><a href="#impl-Pipe-for-T">Pipe</a></li><li><a href="#impl-Pointable-for-T">Pointable</a></li><li><a href="#impl-Same-for-T">Same</a></li><li><a href="#impl-SaturatedConversion-for-T">SaturatedConversion</a></li><li><a href="#impl-StorageDoubleMap%3CK1,+K2,+V%3E-for-G">StorageDoubleMap&lt;K1, K2, V&gt;</a></li><li><a href="#impl-Tap-for-T">Tap</a></li><li><a href="#impl-TryAppendDoubleMap%3CK1,+K2,+T,+I%3E-for-StorageDoubleMapT">TryAppendDoubleMap&lt;K1, K2, T, I&gt;</a></li><li><a href="#impl-TryConv-for-T">TryConv</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T">TryFrom&lt;U&gt;</a></li><li><a href="#impl-TryInto%3CU%3E-for-T">TryInto&lt;U&gt;</a></li><li><a href="#impl-TryIntoKey%3CU%3E-for-T">TryIntoKey&lt;U&gt;</a></li><li><a href="#impl-UncheckedInto%3CT%3E-for-S">UncheckedInto&lt;T&gt;</a></li><li><a href="#impl-UniqueSaturatedInto%3CT%3E-for-S">UniqueSaturatedInto&lt;T&gt;</a></li><li><a href="#impl-VZip%3CV%3E-for-T">VZip&lt;V&gt;</a></li><li><a href="#impl-WithSubscriber-for-T">WithSubscriber</a></li></ul></section><h2><a href="index.html">In frame_support::storage::types</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Struct <a href="../../index.html">frame_support</a>::<wbr><a href="../index.html">storage</a>::<wbr><a href="index.html">types</a>::<wbr><a class="struct" href="#">StorageDoubleMap</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/frame_support/storage/types/double_map.rs.html#95-117">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub struct StorageDoubleMap&lt;Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind = <a class="struct" href="struct.OptionQuery.html" title="struct frame_support::storage::types::OptionQuery">OptionQuery</a>, OnEmpty = <a class="struct" href="../../pallet_prelude/struct.GetDefault.html" title="struct frame_support::pallet_prelude::GetDefault">GetDefault</a>, MaxValues = <a class="struct" href="../../pallet_prelude/struct.GetDefault.html" title="struct frame_support::pallet_prelude::GetDefault">GetDefault</a>&gt;(/* private fields */);</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A type representing a <em>double map</em> in storage. This structure associates a pair of keys with a

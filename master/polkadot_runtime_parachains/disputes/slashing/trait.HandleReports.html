@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_runtime_parachains/index.html">polkadot_runtime_parachains</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">HandleReports</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.ReportLongevity">ReportLongevity</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.is_known_offence">is_known_offence</a></li><li><a href="#tymethod.report_offence">report_offence</a></li><li><a href="#tymethod.submit_unsigned_slashing_report">submit_unsigned_slashing_report</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-HandleReports%3CT%3E-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_runtime_parachains::disputes::slashing</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">polkadot_runtime_parachains</a>::<wbr><a href="../index.html">disputes</a>::<wbr><a href="index.html">slashing</a>::<wbr><a class="trait" href="#">HandleReports</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_runtime_parachains/disputes/slashing.rs.html#314-338">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait HandleReports&lt;T: <a class="trait" href="pallet/trait.Config.html" title="trait polkadot_runtime_parachains::disputes::slashing::pallet::Config">Config</a>&gt; {
@@ -183,6 +188,6 @@ This should be called offchain.</p>
     _dispute_proof: DisputeProof,
     _key_owner_proof: T::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.KeyOwnerProof" title="type polkadot_runtime_parachains::disputes::slashing::pallet::Config::KeyOwnerProof">KeyOwnerProof</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, <a class="type" href="../../../sp_runtime/type.TryRuntimeError.html" title="type sp_runtime::TryRuntimeError">TryRuntimeError</a>&gt;</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-HandleReports%3CT%3E-for-SlashingReportHandler%3C%3CT+as+Config%3E::KeyOwnerIdentification,+R,+L%3E" class="impl"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/disputes/slashing.rs.html#660-728">source</a><a href="#impl-HandleReports%3CT%3E-for-SlashingReportHandler%3C%3CT+as+Config%3E::KeyOwnerIdentification,+R,+L%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, R, L&gt; <a class="trait" href="trait.HandleReports.html" title="trait polkadot_runtime_parachains::disputes::slashing::HandleReports">HandleReports</a>&lt;T&gt; for <a class="struct" href="struct.SlashingReportHandler.html" title="struct polkadot_runtime_parachains::disputes::slashing::SlashingReportHandler">SlashingReportHandler</a>&lt;T::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.KeyOwnerIdentification" title="type polkadot_runtime_parachains::disputes::slashing::pallet::Config::KeyOwnerIdentification">KeyOwnerIdentification</a>, R, L&gt;<span class="where fmt-newline">where
-    T: <a class="trait" href="pallet/trait.Config.html" title="trait polkadot_runtime_parachains::disputes::slashing::pallet::Config">Config</a> + <a class="trait" href="../../../frame_system/offchain/trait.SendTransactionTypes.html" title="trait frame_system::offchain::SendTransactionTypes">SendTransactionTypes</a>&lt;<a class="enum" href="pallet/enum.Call.html" title="enum polkadot_runtime_parachains::disputes::slashing::pallet::Call">Call</a>&lt;T&gt;&gt;,
-    R: ReportOffence&lt;T::<a class="associatedtype" href="../../../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>, T::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.KeyOwnerIdentification" title="type polkadot_runtime_parachains::disputes::slashing::pallet::Config::KeyOwnerIdentification">KeyOwnerIdentification</a>, <a class="struct" href="struct.SlashingOffence.html" title="struct polkadot_runtime_parachains::disputes::slashing::SlashingOffence">SlashingOffence</a>&lt;T::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.KeyOwnerIdentification" title="type polkadot_runtime_parachains::disputes::slashing::pallet::Config::KeyOwnerIdentification">KeyOwnerIdentification</a>&gt;&gt;,
+    T: <a class="trait" href="pallet/trait.Config.html" title="trait polkadot_runtime_parachains::disputes::slashing::pallet::Config">Config</a> + SendTransactionTypes&lt;<a class="enum" href="pallet/enum.Call.html" title="enum polkadot_runtime_parachains::disputes::slashing::pallet::Call">Call</a>&lt;T&gt;&gt;,
+    R: ReportOffence&lt;T::AccountId, T::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.KeyOwnerIdentification" title="type polkadot_runtime_parachains::disputes::slashing::pallet::Config::KeyOwnerIdentification">KeyOwnerIdentification</a>, <a class="struct" href="struct.SlashingOffence.html" title="struct polkadot_runtime_parachains::disputes::slashing::SlashingOffence">SlashingOffence</a>&lt;T::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.KeyOwnerIdentification" title="type polkadot_runtime_parachains::disputes::slashing::pallet::Config::KeyOwnerIdentification">KeyOwnerIdentification</a>&gt;&gt;,
     L: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u64.html">u64</a>&gt;,</span></h3></section></summary><div class="impl-items"><section id="associatedtype.ReportLongevity-2" class="associatedtype trait-impl"><a href="#associatedtype.ReportLongevity-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.ReportLongevity" class="associatedtype">ReportLongevity</a> = L</h4></section></div></details></div><script src="../../../trait.impl/polkadot_runtime_parachains/disputes/slashing/trait.HandleReports.js" data-ignore-extern-crates="std" async></script></section></div></main></body></html>

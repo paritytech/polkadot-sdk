@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc struct"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_asset_tx_payment/index.html">pallet_asset_tx_payment</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">FungiblesAdapter</a></h2><div class="sidebar-elems"><section><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-OnChargeAssetTransaction%3CT%3E-for-FungiblesAdapter%3CCON,+HC%3E">OnChargeAssetTransaction&lt;T&gt;</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-RefUnwindSafe-for-FungiblesAdapter%3CCON,+HC%3E">RefUnwindSafe</a></li><li><a href="#impl-Send-for-FungiblesAdapter%3CCON,+HC%3E">Send</a></li><li><a href="#impl-Sync-for-FungiblesAdapter%3CCON,+HC%3E">Sync</a></li><li><a href="#impl-Unpin-for-FungiblesAdapter%3CCON,+HC%3E">Unpin</a></li><li><a href="#impl-UnwindSafe-for-FungiblesAdapter%3CCON,+HC%3E">UnwindSafe</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T">Any</a></li><li><a href="#impl-Borrow%3CT%3E-for-T">Borrow&lt;T&gt;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T">BorrowMut&lt;T&gt;</a></li><li><a href="#impl-CheckedConversion-for-T">CheckedConversion</a></li><li><a href="#impl-Conv-for-T">Conv</a></li><li><a href="#impl-FmtForward-for-T">FmtForward</a></li><li><a href="#impl-From%3CT%3E-for-T">From&lt;T&gt;</a></li><li><a href="#impl-Instrument-for-T">Instrument</a></li><li><a href="#impl-Into%3CU%3E-for-T">Into&lt;U&gt;</a></li><li><a href="#impl-IntoKey%3CU%3E-for-T">IntoKey&lt;U&gt;</a></li><li><a href="#impl-IsType%3CT%3E-for-T">IsType&lt;T&gt;</a></li><li><a href="#impl-IsWrappedBy%3COuter%3E-for-T">IsWrappedBy&lt;Outer&gt;</a></li><li><a href="#impl-JsonSchemaMaybe-for-T">JsonSchemaMaybe</a></li><li><a href="#impl-MaybeRefUnwindSafe-for-T">MaybeRefUnwindSafe</a></li><li><a href="#impl-MaybeRefUnwindSafe-for-T-1">MaybeRefUnwindSafe</a></li><li><a href="#impl-Pipe-for-T">Pipe</a></li><li><a href="#impl-Pointable-for-T">Pointable</a></li><li><a href="#impl-Same-for-T">Same</a></li><li><a href="#impl-SaturatedConversion-for-T">SaturatedConversion</a></li><li><a href="#impl-Tap-for-T">Tap</a></li><li><a href="#impl-TryConv-for-T">TryConv</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T">TryFrom&lt;U&gt;</a></li><li><a href="#impl-TryInto%3CU%3E-for-T">TryInto&lt;U&gt;</a></li><li><a href="#impl-TryIntoKey%3CU%3E-for-T">TryIntoKey&lt;U&gt;</a></li><li><a href="#impl-UncheckedInto%3CT%3E-for-S">UncheckedInto&lt;T&gt;</a></li><li><a href="#impl-UniqueSaturatedInto%3CT%3E-for-S">UniqueSaturatedInto&lt;T&gt;</a></li><li><a href="#impl-VZip%3CV%3E-for-T">VZip&lt;V&gt;</a></li><li><a href="#impl-WithSubscriber-for-T">WithSubscriber</a></li></ul></section><h2><a href="index.html">In crate pallet_asset_tx_payment</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Struct <a href="index.html">pallet_asset_tx_payment</a>::<wbr><a class="struct" href="#">FungiblesAdapter</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_asset_tx_payment/payment.rs.html#94">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub struct FungiblesAdapter&lt;CON, HC&gt;(/* private fields */);</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Implements the asset transaction for a balance to asset converter (implementing
@@ -145,31 +150,31 @@ nav.side-bar {
 <p>The credit handler is given the complete fee in terms of the asset used for the transaction.</p>
 </div></details><h2 id="trait-implementations" class="small-section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-OnChargeAssetTransaction%3CT%3E-for-FungiblesAdapter%3CCON,+HC%3E" class="impl"><a class="src rightside" href="../src/pallet_asset_tx_payment/payment.rs.html#98-174">source</a><a href="#impl-OnChargeAssetTransaction%3CT%3E-for-FungiblesAdapter%3CCON,+HC%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, CON, HC&gt; <a class="trait" href="trait.OnChargeAssetTransaction.html" title="trait pallet_asset_tx_payment::OnChargeAssetTransaction">OnChargeAssetTransaction</a>&lt;T&gt; for <a class="struct" href="struct.FungiblesAdapter.html" title="struct pallet_asset_tx_payment::FungiblesAdapter">FungiblesAdapter</a>&lt;CON, HC&gt;<span class="where fmt-newline">where
     T: <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>,
-    CON: ConversionToAssetBalance&lt;&lt;&lt;T as Config&gt;::OnChargeTransaction as OnChargeTransaction&lt;T&gt;&gt;::Balance, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;&gt;::AssetId, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;&gt;::Balance&gt;,
-    HC: <a class="trait" href="trait.HandleCredit.html" title="trait pallet_asset_tx_payment::HandleCredit">HandleCredit</a>&lt;T::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>, T::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a>&gt;,
-    &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;&gt;::AssetId: FullCodec + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="../sp_runtime/traits/trait.MaybeSerializeDeserialize.html" title="trait sp_runtime::traits::MaybeSerializeDeserialize">MaybeSerializeDeserialize</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + TypeInfo,</span></h3></section></summary><div class="docblock"><p>Default implementation for a runtime instantiating this pallet, a balance to asset converter and
+    CON: ConversionToAssetBalance&lt;&lt;&lt;T as Config&gt;::OnChargeTransaction as OnChargeTransaction&lt;T&gt;&gt;::Balance, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::AssetId, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance&gt;,
+    HC: <a class="trait" href="trait.HandleCredit.html" title="trait pallet_asset_tx_payment::HandleCredit">HandleCredit</a>&lt;T::AccountId, T::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a>&gt;,
+    &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::AssetId: FullCodec + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="../sp_runtime/traits/trait.MaybeSerializeDeserialize.html" title="trait sp_runtime::traits::MaybeSerializeDeserialize">MaybeSerializeDeserialize</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + TypeInfo,</span></h3></section></summary><div class="docblock"><p>Default implementation for a runtime instantiating this pallet, a balance to asset converter and
 a credit handler.</p>
 </div><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.withdraw_fee" class="method trait-impl"><a class="src rightside" href="../src/pallet_asset_tx_payment/payment.rs.html#112-141">source</a><a href="#method.withdraw_fee" class="anchor">§</a><h4 class="code-header">fn <a href="trait.OnChargeAssetTransaction.html#tymethod.withdraw_fee" class="fn">withdraw_fee</a>(
-    who: &amp;T::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>,
-    _call: &amp;T::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.RuntimeCall" title="type frame_system::pallet::Config::RuntimeCall">RuntimeCall</a>,
-    _info: &amp;<a class="type" href="../sp_runtime/traits/type.DispatchInfoOf.html" title="type sp_runtime::traits::DispatchInfoOf">DispatchInfoOf</a>&lt;T::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.RuntimeCall" title="type frame_system::pallet::Config::RuntimeCall">RuntimeCall</a>&gt;,
+    who: &amp;T::AccountId,
+    _call: &amp;T::RuntimeCall,
+    _info: &amp;<a class="type" href="../sp_runtime/traits/type.DispatchInfoOf.html" title="type sp_runtime::traits::DispatchInfoOf">DispatchInfoOf</a>&lt;T::RuntimeCall&gt;,
     asset_id: Self::<a class="associatedtype" href="trait.OnChargeAssetTransaction.html#associatedtype.AssetId" title="type pallet_asset_tx_payment::OnChargeAssetTransaction::AssetId">AssetId</a>,
     fee: Self::<a class="associatedtype" href="trait.OnChargeAssetTransaction.html#associatedtype.Balance" title="type pallet_asset_tx_payment::OnChargeAssetTransaction::Balance">Balance</a>,
     _tip: Self::<a class="associatedtype" href="trait.OnChargeAssetTransaction.html#associatedtype.Balance" title="type pallet_asset_tx_payment::OnChargeAssetTransaction::Balance">Balance</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.OnChargeAssetTransaction.html#associatedtype.LiquidityInfo" title="type pallet_asset_tx_payment::OnChargeAssetTransaction::LiquidityInfo">LiquidityInfo</a>, <a class="enum" href="../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section></summary><div class="docblock"><p>Withdraw the predicted fee from the transaction origin.</p>
 <p>Note: The <code>fee</code> already includes the <code>tip</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.correct_and_deposit_fee" class="method trait-impl"><a class="src rightside" href="../src/pallet_asset_tx_payment/payment.rs.html#149-173">source</a><a href="#method.correct_and_deposit_fee" class="anchor">§</a><h4 class="code-header">fn <a href="trait.OnChargeAssetTransaction.html#tymethod.correct_and_deposit_fee" class="fn">correct_and_deposit_fee</a>(
-    who: &amp;T::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>,
-    _dispatch_info: &amp;<a class="type" href="../sp_runtime/traits/type.DispatchInfoOf.html" title="type sp_runtime::traits::DispatchInfoOf">DispatchInfoOf</a>&lt;T::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.RuntimeCall" title="type frame_system::pallet::Config::RuntimeCall">RuntimeCall</a>&gt;,
-    _post_info: &amp;<a class="type" href="../sp_runtime/traits/type.PostDispatchInfoOf.html" title="type sp_runtime::traits::PostDispatchInfoOf">PostDispatchInfoOf</a>&lt;T::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.RuntimeCall" title="type frame_system::pallet::Config::RuntimeCall">RuntimeCall</a>&gt;,
+    who: &amp;T::AccountId,
+    _dispatch_info: &amp;<a class="type" href="../sp_runtime/traits/type.DispatchInfoOf.html" title="type sp_runtime::traits::DispatchInfoOf">DispatchInfoOf</a>&lt;T::RuntimeCall&gt;,
+    _post_info: &amp;<a class="type" href="../sp_runtime/traits/type.PostDispatchInfoOf.html" title="type sp_runtime::traits::PostDispatchInfoOf">PostDispatchInfoOf</a>&lt;T::RuntimeCall&gt;,
     corrected_fee: Self::<a class="associatedtype" href="trait.OnChargeAssetTransaction.html#associatedtype.Balance" title="type pallet_asset_tx_payment::OnChargeAssetTransaction::Balance">Balance</a>,
     tip: Self::<a class="associatedtype" href="trait.OnChargeAssetTransaction.html#associatedtype.Balance" title="type pallet_asset_tx_payment::OnChargeAssetTransaction::Balance">Balance</a>,
     paid: Self::<a class="associatedtype" href="trait.OnChargeAssetTransaction.html#associatedtype.LiquidityInfo" title="type pallet_asset_tx_payment::OnChargeAssetTransaction::LiquidityInfo">LiquidityInfo</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(&lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;&gt;::Balance, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;&gt;::Balance), <a class="enum" href="../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section></summary><div class="docblock"><p>Hand the fee and the tip over to the <code>[HandleCredit]</code> implementation.
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(&lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance), <a class="enum" href="../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section></summary><div class="docblock"><p>Hand the fee and the tip over to the <code>[HandleCredit]</code> implementation.
 Since the predicted fee might have been too high, parts of the fee may be refunded.</p>
 <p>Note: The <code>corrected_fee</code> already includes the <code>tip</code>.</p>
 <p>Returns the fee and tip in the asset used for payment as (fee, tip).</p>
-</div></details><details class="toggle" open><summary><section id="associatedtype.Balance" class="associatedtype trait-impl"><a href="#associatedtype.Balance" class="anchor">§</a><h4 class="code-header">type <a href="trait.OnChargeAssetTransaction.html#associatedtype.Balance" class="associatedtype">Balance</a> = &lt;&lt;T as Config&gt;::OnChargeTransaction as OnChargeTransaction&lt;T&gt;&gt;::Balance</h4></section></summary><div class='docblock'>The underlying integer type in which fees are calculated.</div></details><details class="toggle" open><summary><section id="associatedtype.AssetId" class="associatedtype trait-impl"><a href="#associatedtype.AssetId" class="anchor">§</a><h4 class="code-header">type <a href="trait.OnChargeAssetTransaction.html#associatedtype.AssetId" class="associatedtype">AssetId</a> = &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;&gt;::AssetId</h4></section></summary><div class='docblock'>The type used to identify the assets used for transaction payment.</div></details><details class="toggle" open><summary><section id="associatedtype.LiquidityInfo" class="associatedtype trait-impl"><a href="#associatedtype.LiquidityInfo" class="anchor">§</a><h4 class="code-header">type <a href="trait.OnChargeAssetTransaction.html#associatedtype.LiquidityInfo" class="associatedtype">LiquidityInfo</a> = Imbalance&lt;&lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;&gt;::AssetId, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;&gt;::Balance, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Balanced&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;&gt;::OnDropCredit, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Balanced&lt;&lt;T as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;&gt;::OnDropDebt&gt;</h4></section></summary><div class='docblock'>The type used to store the intermediate values between pre- and post-dispatch.</div></details></div></details></div><h2 id="synthetic-implementations" class="small-section-header">Auto Trait Implementations<a href="#synthetic-implementations" class="anchor">§</a></h2><div id="synthetic-implementations-list"><section id="impl-RefUnwindSafe-for-FungiblesAdapter%3CCON,+HC%3E" class="impl"><a href="#impl-RefUnwindSafe-for-FungiblesAdapter%3CCON,+HC%3E" class="anchor">§</a><h3 class="code-header">impl&lt;CON, HC&gt; <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a> for <a class="struct" href="struct.FungiblesAdapter.html" title="struct pallet_asset_tx_payment::FungiblesAdapter">FungiblesAdapter</a>&lt;CON, HC&gt;<span class="where fmt-newline">where
+</div></details><details class="toggle" open><summary><section id="associatedtype.Balance" class="associatedtype trait-impl"><a href="#associatedtype.Balance" class="anchor">§</a><h4 class="code-header">type <a href="trait.OnChargeAssetTransaction.html#associatedtype.Balance" class="associatedtype">Balance</a> = &lt;&lt;T as Config&gt;::OnChargeTransaction as OnChargeTransaction&lt;T&gt;&gt;::Balance</h4></section></summary><div class='docblock'>The underlying integer type in which fees are calculated.</div></details><details class="toggle" open><summary><section id="associatedtype.AssetId" class="associatedtype trait-impl"><a href="#associatedtype.AssetId" class="anchor">§</a><h4 class="code-header">type <a href="trait.OnChargeAssetTransaction.html#associatedtype.AssetId" class="associatedtype">AssetId</a> = &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::AssetId</h4></section></summary><div class='docblock'>The type used to identify the assets used for transaction payment.</div></details><details class="toggle" open><summary><section id="associatedtype.LiquidityInfo" class="associatedtype trait-impl"><a href="#associatedtype.LiquidityInfo" class="anchor">§</a><h4 class="code-header">type <a href="trait.OnChargeAssetTransaction.html#associatedtype.LiquidityInfo" class="associatedtype">LiquidityInfo</a> = Imbalance&lt;&lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::AssetId, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Balanced&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::OnDropCredit, &lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_asset_tx_payment::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Fungibles" title="type pallet_asset_tx_payment::pallet::Config::Fungibles">Fungibles</a> as Balanced&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::OnDropDebt&gt;</h4></section></summary><div class='docblock'>The type used to store the intermediate values between pre- and post-dispatch.</div></details></div></details></div><h2 id="synthetic-implementations" class="small-section-header">Auto Trait Implementations<a href="#synthetic-implementations" class="anchor">§</a></h2><div id="synthetic-implementations-list"><section id="impl-RefUnwindSafe-for-FungiblesAdapter%3CCON,+HC%3E" class="impl"><a href="#impl-RefUnwindSafe-for-FungiblesAdapter%3CCON,+HC%3E" class="anchor">§</a><h3 class="code-header">impl&lt;CON, HC&gt; <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a> for <a class="struct" href="struct.FungiblesAdapter.html" title="struct pallet_asset_tx_payment::FungiblesAdapter">FungiblesAdapter</a>&lt;CON, HC&gt;<span class="where fmt-newline">where
     CON: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a>,
     HC: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a>,</span></h3></section><section id="impl-Send-for-FungiblesAdapter%3CCON,+HC%3E" class="impl"><a href="#impl-Send-for-FungiblesAdapter%3CCON,+HC%3E" class="anchor">§</a><h3 class="code-header">impl&lt;CON, HC&gt; <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> for <a class="struct" href="struct.FungiblesAdapter.html" title="struct pallet_asset_tx_payment::FungiblesAdapter">FungiblesAdapter</a>&lt;CON, HC&gt;<span class="where fmt-newline">where
     CON: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>,

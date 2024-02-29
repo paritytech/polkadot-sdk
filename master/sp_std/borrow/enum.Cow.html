@@ -56,7 +56,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sidebarElems.style.display = 'none';
 
 		// Add click event listener to the button
-		expandButton.addEventListener('click', function() {
+		expandButton.addEventListener('click', function () {
 			// Toggle the display of the '.sidebar-elems'
 			if (sidebarElems.style.display === 'none') {
 				sidebarElems.style.display = 'block';
@@ -74,6 +74,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
 			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
 		}
 
 		createToC();
@@ -84,60 +87,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </script>
 
 <style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
 
-nav.side-bar {
-	width: 300px;
-}
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
 
-.sidebar-table-of-contents {
-    margin-bottom: 1em;
-    padding: 0.5em;
-}
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
 
-.sidebar-table-of-contents a {
-    display: block;
-    margin: 0.2em 0;
-}
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
 
-.sidebar-table-of-contents .h2 {
-    font-weight: bold;
-    margin-left: 0;
-}
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
 
-.sidebar-table-of-contents .h3 {
-    margin-left: 1em;
-}
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
 
-.sidebar-table-of-contents .h4 {
-    margin-left: 2em;
-}
+		.sidebar h2.location {
+			display: none;
+		}
 
-.sidebar h2.location {
-  display: none;
-}
+		.sidebar-elems {
+			display: none;
+		}
 
-.sidebar-elems {
-  display: none;
-}
-
-/* Center the 'Expand for More' button */
-.expand-button {
-  display: inline-block; /* Use inline-block for sizing */
-  margin: 10px auto; /* Auto margins for horizontal centering */
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  width: auto;
-  /* Centering the button within its parent container */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc enum"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sp_std/index.html">sp_std</a><span class="version">14.0.0</span></h2></div><h2 class="location"><a href="#">Cow</a></h2><div class="sidebar-elems"><section><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.Borrowed">Borrowed</a></li><li><a href="#variant.Owned">Owned</a></li></ul><h3><a href="#implementations">Methods</a></h3><ul class="block method"><li><a href="#method.into_owned">into_owned</a></li><li><a href="#method.is_borrowed">is_borrowed</a></li><li><a href="#method.is_owned">is_owned</a></li><li><a href="#method.to_mut">to_mut</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-Add-for-Cow%3C'a,+str%3E">Add</a></li><li><a href="#impl-Add%3C%26str%3E-for-Cow%3C'a,+str%3E">Add&lt;&amp;&#x27;a str&gt;</a></li><li><a href="#impl-AddAssign-for-Cow%3C'a,+str%3E">AddAssign</a></li><li><a href="#impl-AddAssign%3C%26str%3E-for-Cow%3C'a,+str%3E">AddAssign&lt;&amp;&#x27;a str&gt;</a></li><li><a href="#impl-AsRef%3CPath%3E-for-Cow%3C'_,+OsStr%3E">AsRef&lt;Path&gt;</a></li><li><a href="#impl-AsRef%3CT%3E-for-Cow%3C'_,+T%3E">AsRef&lt;T&gt;</a></li><li><a href="#impl-Borrow%3CB%3E-for-Cow%3C'a,+B%3E">Borrow&lt;B&gt;</a></li><li><a href="#impl-Clone-for-Cow%3C'_,+B%3E">Clone</a></li><li><a href="#impl-Debug-for-Cow%3C'_,+B%3E">Debug</a></li><li><a href="#impl-Default-for-Cow%3C'_,+B%3E">Default</a></li><li><a href="#impl-Deref-for-Cow%3C'_,+B%3E">Deref</a></li><li><a href="#impl-Display-for-Cow%3C'_,+B%3E">Display</a></li><li><a href="#impl-Eq-for-Cow%3C'_,+B%3E">Eq</a></li><li><a href="#impl-Extend%3CCow%3C'a,+OsStr%3E%3E-for-OsString">Extend&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-Extend%3CCow%3C'a,+str%3E%3E-for-String">Extend&lt;Cow&lt;&#x27;a, str&gt;&gt;</a></li><li><a href="#impl-From%3C%26CStr%3E-for-Cow%3C'a,+CStr%3E">From&lt;&amp;&#x27;a CStr&gt;</a></li><li><a href="#impl-From%3C%26CString%3E-for-Cow%3C'a,+CStr%3E">From&lt;&amp;&#x27;a CString&gt;</a></li><li><a href="#impl-From%3C%26OsStr%3E-for-Cow%3C'a,+OsStr%3E">From&lt;&amp;&#x27;a OsStr&gt;</a></li><li><a href="#impl-From%3C%26OsString%3E-for-Cow%3C'a,+OsStr%3E">From&lt;&amp;&#x27;a OsString&gt;</a></li><li><a href="#impl-From%3C%26Path%3E-for-Cow%3C'a,+Path%3E">From&lt;&amp;&#x27;a Path&gt;</a></li><li><a href="#impl-From%3C%26PathBuf%3E-for-Cow%3C'a,+Path%3E">From&lt;&amp;&#x27;a PathBuf&gt;</a></li><li><a href="#impl-From%3C%26String%3E-for-Cow%3C'a,+str%3E">From&lt;&amp;&#x27;a String&gt;</a></li><li><a href="#impl-From%3C%26Vec%3CT%3E%3E-for-Cow%3C'a,+%5BT%5D%3E">From&lt;&amp;&#x27;a Vec&lt;T&gt;&gt;</a></li><li><a href="#impl-From%3C%26%5BT%5D%3E-for-Cow%3C'a,+%5BT%5D%3E">From&lt;&amp;&#x27;a [T]&gt;</a></li><li><a href="#impl-From%3C%26str%3E-for-Cow%3C'a,+str%3E">From&lt;&amp;&#x27;a str&gt;</a></li><li><a href="#impl-From%3CCString%3E-for-Cow%3C'a,+CStr%3E">From&lt;CString&gt;</a></li><li><a href="#impl-From%3CCow%3C'_,+CStr%3E%3E-for-Box%3CCStr%3E">From&lt;Cow&lt;&#x27;_, CStr&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'_,+OsStr%3E%3E-for-Box%3COsStr%3E">From&lt;Cow&lt;&#x27;_, OsStr&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'_,+Path%3E%3E-for-Box%3CPath%3E">From&lt;Cow&lt;&#x27;_, Path&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'_,+%5BT%5D%3E%3E-for-Box%3C%5BT%5D%3E">From&lt;Cow&lt;&#x27;_, [T]&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'_,+str%3E%3E-for-Box%3Cstr%3E">From&lt;Cow&lt;&#x27;_, str&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'a,+B%3E%3E-for-Arc%3CB%3E">From&lt;Cow&lt;&#x27;a, B&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'a,+B%3E%3E-for-Rc%3CB%3E">From&lt;Cow&lt;&#x27;a, B&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'a,+CStr%3E%3E-for-CString">From&lt;Cow&lt;&#x27;a, CStr&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'a,+OsStr%3E%3E-for-OsString">From&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'a,+Path%3E%3E-for-PathBuf">From&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'a,+%5BT%5D%3E%3E-for-Vec%3CT%3E">From&lt;Cow&lt;&#x27;a, [T]&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'a,+str%3E%3E-for-Box%3Cdyn+Error%3E">From&lt;Cow&lt;&#x27;a, str&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'a,+str%3E%3E-for-String">From&lt;Cow&lt;&#x27;a, str&gt;&gt;</a></li><li><a href="#impl-From%3CCow%3C'b,+str%3E%3E-for-Box%3Cdyn+Error+%2B+Send+%2B+Sync%3E">From&lt;Cow&lt;&#x27;b, str&gt;&gt;</a></li><li><a href="#impl-From%3COsString%3E-for-Cow%3C'a,+OsStr%3E">From&lt;OsString&gt;</a></li><li><a href="#impl-From%3CPathBuf%3E-for-Cow%3C'a,+Path%3E">From&lt;PathBuf&gt;</a></li><li><a href="#impl-From%3CString%3E-for-Cow%3C'a,+str%3E">From&lt;String&gt;</a></li><li><a href="#impl-From%3CVec%3CT%3E%3E-for-Cow%3C'a,+%5BT%5D%3E">From&lt;Vec&lt;T&gt;&gt;</a></li><li><a href="#impl-FromIterator%3C%26str%3E-for-Cow%3C'a,+str%3E">FromIterator&lt;&amp;&#x27;b str&gt;</a></li><li><a href="#impl-FromIterator%3CCow%3C'a,+OsStr%3E%3E-for-OsString">FromIterator&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-FromIterator%3CCow%3C'a,+str%3E%3E-for-String">FromIterator&lt;Cow&lt;&#x27;a, str&gt;&gt;</a></li><li><a href="#impl-FromIterator%3CString%3E-for-Cow%3C'a,+str%3E">FromIterator&lt;String&gt;</a></li><li><a href="#impl-FromIterator%3CT%3E-for-Cow%3C'a,+%5BT%5D%3E">FromIterator&lt;T&gt;</a></li><li><a href="#impl-FromIterator%3Cchar%3E-for-Cow%3C'a,+str%3E">FromIterator&lt;char&gt;</a></li><li><a href="#impl-Hash-for-Cow%3C'_,+B%3E">Hash</a></li><li><a href="#impl-Ord-for-Cow%3C'_,+B%3E">Ord</a></li><li><a href="#impl-PartialEq%3C%26Path%3E-for-Cow%3C'b,+OsStr%3E">PartialEq&lt;&amp;&#x27;a Path&gt;</a></li><li><a href="#impl-PartialEq%3C%26OsStr%3E-for-Cow%3C'a,+OsStr%3E">PartialEq&lt;&amp;&#x27;b OsStr&gt;</a></li><li><a href="#impl-PartialEq%3C%26OsStr%3E-for-Cow%3C'a,+Path%3E">PartialEq&lt;&amp;&#x27;b OsStr&gt;</a></li><li><a href="#impl-PartialEq%3C%26Path%3E-for-Cow%3C'a,+Path%3E">PartialEq&lt;&amp;&#x27;b Path&gt;</a></li><li><a href="#impl-PartialEq%3C%26str%3E-for-Cow%3C'a,+str%3E">PartialEq&lt;&amp;&#x27;b str&gt;</a></li><li><a href="#impl-PartialEq%3C%26%5BU%5D%3E-for-Cow%3C'_,+%5BT%5D%3E">PartialEq&lt;&amp;[U]&gt;</a></li><li><a href="#impl-PartialEq%3C%26mut+%5BU%5D%3E-for-Cow%3C'_,+%5BT%5D%3E">PartialEq&lt;&amp;mut [U]&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+OsStr%3E%3E-for-%26OsStr">PartialEq&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+OsStr%3E%3E-for-OsStr">PartialEq&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+OsStr%3E%3E-for-OsString">PartialEq&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+OsStr%3E%3E-for-Path">PartialEq&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+OsStr%3E%3E-for-PathBuf">PartialEq&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+Path%3E%3E-for-%26OsStr">PartialEq&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+Path%3E%3E-for-%26Path">PartialEq&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+Path%3E%3E-for-OsStr">PartialEq&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+Path%3E%3E-for-OsString">PartialEq&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+Path%3E%3E-for-Path">PartialEq&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+Path%3E%3E-for-PathBuf">PartialEq&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+str%3E%3E-for-%26str">PartialEq&lt;Cow&lt;&#x27;a, str&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+str%3E%3E-for-String">PartialEq&lt;Cow&lt;&#x27;a, str&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'a,+str%3E%3E-for-str">PartialEq&lt;Cow&lt;&#x27;a, str&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'b,+C%3E%3E-for-Cow%3C'a,+B%3E">PartialEq&lt;Cow&lt;&#x27;b, C&gt;&gt;</a></li><li><a href="#impl-PartialEq%3CCow%3C'b,+OsStr%3E%3E-for-%26Path">PartialEq&lt;Cow&lt;&#x27;b, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialEq%3COsStr%3E-for-Cow%3C'a,+OsStr%3E">PartialEq&lt;OsStr&gt;</a></li><li><a href="#impl-PartialEq%3COsStr%3E-for-Cow%3C'a,+Path%3E">PartialEq&lt;OsStr&gt;</a></li><li><a href="#impl-PartialEq%3COsString%3E-for-Cow%3C'a,+OsStr%3E">PartialEq&lt;OsString&gt;</a></li><li><a href="#impl-PartialEq%3COsString%3E-for-Cow%3C'a,+Path%3E">PartialEq&lt;OsString&gt;</a></li><li><a href="#impl-PartialEq%3CPath%3E-for-Cow%3C'a,+OsStr%3E">PartialEq&lt;Path&gt;</a></li><li><a href="#impl-PartialEq%3CPath%3E-for-Cow%3C'a,+Path%3E">PartialEq&lt;Path&gt;</a></li><li><a href="#impl-PartialEq%3CPathBuf%3E-for-Cow%3C'a,+OsStr%3E">PartialEq&lt;PathBuf&gt;</a></li><li><a href="#impl-PartialEq%3CPathBuf%3E-for-Cow%3C'a,+Path%3E">PartialEq&lt;PathBuf&gt;</a></li><li><a href="#impl-PartialEq%3CString%3E-for-Cow%3C'a,+str%3E">PartialEq&lt;String&gt;</a></li><li><a href="#impl-PartialEq%3CVec%3CU,+A%3E%3E-for-Cow%3C'_,+%5BT%5D%3E">PartialEq&lt;Vec&lt;U, A&gt;&gt;</a></li><li><a href="#impl-PartialEq%3Cstr%3E-for-Cow%3C'a,+str%3E">PartialEq&lt;str&gt;</a></li><li><a href="#impl-PartialOrd-for-Cow%3C'a,+B%3E">PartialOrd</a></li><li><a href="#impl-PartialOrd%3C%26Path%3E-for-Cow%3C'b,+OsStr%3E">PartialOrd&lt;&amp;&#x27;a Path&gt;</a></li><li><a href="#impl-PartialOrd%3C%26OsStr%3E-for-Cow%3C'a,+OsStr%3E">PartialOrd&lt;&amp;&#x27;b OsStr&gt;</a></li><li><a href="#impl-PartialOrd%3C%26OsStr%3E-for-Cow%3C'a,+Path%3E">PartialOrd&lt;&amp;&#x27;b OsStr&gt;</a></li><li><a href="#impl-PartialOrd%3C%26Path%3E-for-Cow%3C'a,+Path%3E">PartialOrd&lt;&amp;&#x27;b Path&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'a,+OsStr%3E%3E-for-%26OsStr">PartialOrd&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'a,+OsStr%3E%3E-for-OsStr">PartialOrd&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'a,+OsStr%3E%3E-for-OsString">PartialOrd&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'a,+OsStr%3E%3E-for-Path">PartialOrd&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'a,+OsStr%3E%3E-for-PathBuf">PartialOrd&lt;Cow&lt;&#x27;a, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'a,+Path%3E%3E-for-%26OsStr">PartialOrd&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'a,+Path%3E%3E-for-%26Path">PartialOrd&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'a,+Path%3E%3E-for-OsStr">PartialOrd&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'a,+Path%3E%3E-for-OsString">PartialOrd&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'a,+Path%3E%3E-for-Path">PartialOrd&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'a,+Path%3E%3E-for-PathBuf">PartialOrd&lt;Cow&lt;&#x27;a, Path&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3CCow%3C'b,+OsStr%3E%3E-for-%26Path">PartialOrd&lt;Cow&lt;&#x27;b, OsStr&gt;&gt;</a></li><li><a href="#impl-PartialOrd%3COsStr%3E-for-Cow%3C'a,+OsStr%3E">PartialOrd&lt;OsStr&gt;</a></li><li><a href="#impl-PartialOrd%3COsStr%3E-for-Cow%3C'a,+Path%3E">PartialOrd&lt;OsStr&gt;</a></li><li><a href="#impl-PartialOrd%3COsString%3E-for-Cow%3C'a,+OsStr%3E">PartialOrd&lt;OsString&gt;</a></li><li><a href="#impl-PartialOrd%3COsString%3E-for-Cow%3C'a,+Path%3E">PartialOrd&lt;OsString&gt;</a></li><li><a href="#impl-PartialOrd%3CPath%3E-for-Cow%3C'a,+OsStr%3E">PartialOrd&lt;Path&gt;</a></li><li><a href="#impl-PartialOrd%3CPath%3E-for-Cow%3C'a,+Path%3E">PartialOrd&lt;Path&gt;</a></li><li><a href="#impl-PartialOrd%3CPathBuf%3E-for-Cow%3C'a,+OsStr%3E">PartialOrd&lt;PathBuf&gt;</a></li><li><a href="#impl-PartialOrd%3CPathBuf%3E-for-Cow%3C'a,+Path%3E">PartialOrd&lt;PathBuf&gt;</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-RefUnwindSafe-for-Cow%3C'a,+B%3E">RefUnwindSafe</a></li><li><a href="#impl-Send-for-Cow%3C'a,+B%3E">Send</a></li><li><a href="#impl-Sync-for-Cow%3C'a,+B%3E">Sync</a></li><li><a href="#impl-Unpin-for-Cow%3C'a,+B%3E">Unpin</a></li><li><a href="#impl-UnwindSafe-for-Cow%3C'a,+B%3E">UnwindSafe</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T">Any</a></li><li><a href="#impl-Borrow%3CT%3E-for-T">Borrow&lt;T&gt;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T">BorrowMut&lt;T&gt;</a></li><li><a href="#impl-From%3CT%3E-for-T">From&lt;T&gt;</a></li><li><a href="#impl-Into%3CU%3E-for-T">Into&lt;U&gt;</a></li><li><a href="#impl-ToOwned-for-T">ToOwned</a></li><li><a href="#impl-ToString-for-T">ToString</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T">TryFrom&lt;U&gt;</a></li><li><a href="#impl-TryInto%3CU%3E-for-T">TryInto&lt;U&gt;</a></li></ul></section><h2><a href="index.html">In sp_std::borrow</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Enum <a href="../index.html">sp_std</a>::<wbr><a href="index.html">borrow</a>::<wbr><a class="enum" href="#">Cow</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/alloc/borrow.rs.html#180">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub enum Cow&lt;'a, B&gt;<span class="where fmt-newline">where
