@@ -184,8 +184,7 @@ fn measure_write<Block: BlockT>(
 	let mut tx = Transaction::<DbHash>::default();
 	sc_client_db::apply_tree_commit::<HashingFor<Block>>(
 		stx,
-		db.supports_tree_column(),
-		db.supports_ref_counting(),
+		db.state_capabilities(),
 		&mut tx,
 	);
 

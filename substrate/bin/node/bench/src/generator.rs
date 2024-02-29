@@ -50,7 +50,7 @@ pub fn generate_trie(
 	sc_client_db::apply_tree_commit::<BlakeTwo256>(
 		commit,
 		db.state_db.is_none(),
-		db.prefix_keys,
+		db.db.state_capabilities(),
 		&mut transaction,
 	);
 

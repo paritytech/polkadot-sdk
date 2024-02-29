@@ -101,6 +101,27 @@ impl<H> Transaction<H> {
 	}
 }
 
+/// Specific capabilities of databases.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum StateCapabilities {
+	/// Allow direct storage tree nodes.
+	TreeColumn,
+	/// Reference counted storage is supported.
+	RefCounted,
+	/// Nothing specific, will require key prefixing.
+	None,
+}
+
+impl StateCapabilities {
+	/// Whether the database needs key prefixing.
+	pub fn needs_key_prefixing(self) -> bool {
+		match self {
+			StateCapabilities::None => true,
+			_ => false,
+		}
+	}
+}
+
 pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {
 	/// Commit the `transaction` to the database atomically. Any further calls to `get` or `lookup`
 	/// will reflect the new state.
@@ -130,18 +151,11 @@ pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {
 		}
 	}
 
-	/// Check if database supports internal ref counting for state data.
+	/// Capabilities for state data.
 	///
-	/// For backwards compatibility returns `false` by default.
-	fn supports_ref_counting(&self) -> bool {
-		false
-	}
-
-	/// Check if database supports tree columns.
-	///
-	/// For backwards compatibility returns `false` by default.
-	fn supports_tree_column(&self) -> bool {
-		false
+	/// For backwards compatibility returns `None` by default.
+	fn state_capabilities(&self) -> StateCapabilities {
+		StateCapabilities::None
 	}
 
 	/// Retrieve the tree node previously stored against `key` and `location` or `None` if

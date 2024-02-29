@@ -53,7 +53,7 @@ impl TempDatabase {
 					false,
 				)
 				.expect("Database backend error");
-				sc_client_db::StorageDb::<Block> { db, state_db: None, prefix_keys: true }
+				sc_client_db::StorageDb::<Block> { db, state_db: None }
 			},
 			DatabaseType::ParityDbMulti | DatabaseType::ParityDb => {
 				let db = sc_client_db::open_database::<Block>(
@@ -65,7 +65,7 @@ impl TempDatabase {
 					false,
 				)
 				.expect("Database backend error");
-				sc_client_db::StorageDb::<Block> { db, state_db: None, prefix_keys: false }
+				sc_client_db::StorageDb::<Block> { db, state_db: None }
 			},
 		}
 	}

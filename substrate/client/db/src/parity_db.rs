@@ -18,7 +18,7 @@
 use crate::{columns, utils::NUM_COLUMNS};
 use parity_db::Operation;
 /// A `Database` adapter for parity-db.
-use sp_database::{error::DatabaseError, Change, ColumnId, DBLocation, Database, Transaction};
+use sp_database::{error::DatabaseError, Change, ColumnId, DBLocation, Database, StateCapabilities, Transaction};
 
 struct DbAdapter(parity_db::Db, bool);
 
@@ -174,11 +174,11 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 		}
 	}
 
-	fn supports_ref_counting(&self) -> bool {
-		true
-	}
-
-	fn supports_tree_column(&self) -> bool {
-		self.1
+	fn state_capabilities(&self) -> StateCapabilities {
+		if self.1 {
+			StateCapabilities::TreeColumn
+		} else {
+			StateCapabilities::RefCounted
+		}
 	}
 }

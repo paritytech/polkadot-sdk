@@ -93,7 +93,7 @@ use trie_db::node_db::Prefix;
 
 // Re-export the Database trait so that one can pass an implementation of it.
 pub use sc_state_db::PruningMode;
-pub use sp_database::{Database, Transaction};
+pub use sp_database::{Database, StateCapabilities, Transaction};
 pub use utils::open_database;
 
 pub use bench::BenchmarkingState;
@@ -1023,13 +1023,11 @@ pub struct StorageDb<Block: BlockT> {
 	pub db: Arc<dyn Database<DbHash>>,
 	/// Pruning manager.
 	pub state_db: Option<Arc<StateDb<Block::Hash, Vec<u8>, StateMetaDb>>>,
-	/// Do backend database requires keys prefixing.
-	pub prefix_keys: bool,
 }
 
 impl<Block: BlockT> StorageDb<Block> {
 	fn contains_root(&self, root: &Block::Hash) -> bool {
-		if self.prefix_keys {
+		if self.db.state_capabilities().needs_key_prefixing() {
 			let key = prefixed_key::<HashingFor<Block>>(root, Default::default());
 			self.db.get_node(columns::STATE, key.as_ref(), Default::default()).is_some()
 		} else {
@@ -1054,7 +1052,7 @@ impl<Block: BlockT> sp_state_machine::NodeDB<HashingFor<Block>, DBValue, DBLocat
 		location: DBLocation,
 	) -> Option<(DBValue, Vec<DBLocation>)> {
 		if let Some(state_db) = &self.state_db {
-			if self.prefix_keys {
+			if self.db.state_capabilities().needs_key_prefixing() {
 				let key = prefixed_key::<HashingFor<Block>>(key, prefix);
 				state_db.get(&key, &StateNodeDb(&*self.db))
 			} else {
@@ -1183,8 +1181,7 @@ impl<T: Clone> FrozenForDuration<T> {
 /// Apply trie commit to the database transaction.
 pub fn apply_tree_commit<H: Hash>(
 	commit: TrieCommit<H::Out>,
-	db_tree_support: bool,
-	prefix_keys: bool,
+	state_capabilities: StateCapabilities,
 	tx: &mut Transaction<DbHash>,
 ) {
 	fn convert<H: Hash>(node: sp_trie::Changeset<H::Out, DBLocation>) -> sp_database::NodeRef {
@@ -1197,66 +1194,70 @@ pub fn apply_tree_commit<H: Hash>(
 		}
 	}
 
-	if db_tree_support {
-		let hash = commit.root_hash();
-		match commit {
-			sp_trie::Changeset::Existing(node) => {
-				tx.reference_tree(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
-			},
-			new_node @ sp_trie::Changeset::New(_) => {
-				if let sp_database::NodeRef::New(n) = convert::<H>(new_node) {
-					tx.insert_tree(columns::STATE, DbHash::from_slice(hash.as_ref()), n);
-				}
-			},
-		}
-	} else if prefix_keys {
-		let mut memdb = sp_trie::PrefixedMemoryDB::<H>::default();
-		commit.apply_to(&mut memdb);
-
-		for (key, (val, rc)) in memdb.drain() {
-			if rc > 0 {
-				if rc == 1 {
-					tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
-				} else {
-					tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
-					for _ in 0..rc - 1 {
-						tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
+	match state_capabilities {
+		StateCapabilities::TreeColumn => {
+			let hash = commit.root_hash();
+			match commit {
+				sp_trie::Changeset::Existing(node) => {
+					tx.reference_tree(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
+				},
+				new_node @ sp_trie::Changeset::New(_) => {
+					if let sp_database::NodeRef::New(n) = convert::<H>(new_node) {
+						tx.insert_tree(columns::STATE, DbHash::from_slice(hash.as_ref()), n);
 					}
-				}
-			} else if rc < 0 {
-				if rc == -1 {
-					tx.remove(columns::STATE, key.as_ref());
-				} else {
-					for _ in 0..-rc {
+				},
+			}
+		},
+		StateCapabilities::RefCounted => {
+			let mut memdb = sp_trie::MemoryDB::<H>::default();
+			commit.apply_to(&mut memdb);
+
+			for (key, (val, rc)) in memdb.drain() {
+				if rc > 0 {
+					if rc == 1 {
+						tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
+					} else {
+						tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
+						for _ in 0..rc - 1 {
+							tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
+						}
+					}
+				} else if rc < 0 {
+					if rc == -1 {
 						tx.remove(columns::STATE, key.as_ref());
+					} else {
+						for _ in 0..-rc {
+							tx.remove(columns::STATE, key.as_ref());
+						}
 					}
 				}
 			}
-		}
-	} else {
-		let mut memdb = sp_trie::MemoryDB::<H>::default();
-		commit.apply_to(&mut memdb);
+		},
+		StateCapabilities::None => {
+			let mut memdb = sp_trie::PrefixedMemoryDB::<H>::default();
+			commit.apply_to(&mut memdb);
 
-		for (key, (val, rc)) in memdb.drain() {
-			if rc > 0 {
-				if rc == 1 {
-					tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
-				} else {
-					tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
-					for _ in 0..rc - 1 {
+			for (key, (val, rc)) in memdb.drain() {
+				if rc > 0 {
+					if rc == 1 {
 						tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
+					} else {
+						tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
+						for _ in 0..rc - 1 {
+							tx.set_from_vec(columns::STATE, key.as_ref(), val.to_vec());
+						}
 					}
-				}
-			} else if rc < 0 {
-				if rc == -1 {
-					tx.remove(columns::STATE, key.as_ref());
-				} else {
-					for _ in 0..-rc {
+				} else if rc < 0 {
+					if rc == -1 {
 						tx.remove(columns::STATE, key.as_ref());
+					} else {
+						for _ in 0..-rc {
+							tx.remove(columns::STATE, key.as_ref());
+						}
 					}
 				}
 			}
-		}
+		},
 	}
 }
 
@@ -1363,19 +1364,23 @@ impl<Block: BlockT> Backend<Block> {
 		let requested_mode = config.state_pruning.clone();
 		let map_e = sp_blockchain::Error::from_state_db;
 		let state_meta_db = StateMetaDb(db.clone());
-		let (state_db, pruning_mode, init_commit) = if db.supports_tree_column() {
-			let (init_commit, actual_mode) = StateDb::<Block::Hash, _, _>::open_meta(
-				&state_meta_db,
-				requested_mode,
-				should_init,
-			)
-			.map_err(map_e)?;
-			(None, actual_mode, init_commit)
-		} else {
-			let (init_commit, state_db) =
-				StateDb::open(state_meta_db, requested_mode, true, should_init).map_err(map_e)?;
-			let state_pruning_used = state_db.pruning_mode();
-			(Some(Arc::new(state_db)), state_pruning_used, init_commit)
+		let (state_db, pruning_mode, init_commit) = match db.state_capabilities() {
+			StateCapabilities::TreeColumn => {
+				let (init_commit, actual_mode) = StateDb::<Block::Hash, _, _>::open_meta(
+					&state_meta_db,
+					requested_mode,
+					should_init,
+				)
+				.map_err(map_e)?;
+				(None, actual_mode, init_commit)
+			},
+			StateCapabilities::RefCounted | StateCapabilities::None => {
+				let (init_commit, state_db) =
+					StateDb::open(state_meta_db, requested_mode, true, should_init)
+						.map_err(map_e)?;
+				let state_pruning_used = state_db.pruning_mode();
+				(Some(Arc::new(state_db)), state_pruning_used, init_commit)
+			},
 		};
 
 		let mut db_init_transaction = Transaction::new();
@@ -1384,7 +1389,7 @@ impl<Block: BlockT> Backend<Block> {
 		let blockchain = BlockchainDb::new(db.clone())?;
 
 		let storage_db =
-			StorageDb { db: db.clone(), state_db, prefix_keys: !db.supports_ref_counting() };
+			StorageDb { db: db.clone(), state_db };
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
@@ -1708,7 +1713,7 @@ impl<Block: BlockT> Backend<Block> {
 					let mut removal: u64 = 0;
 					let mut bytes_removal: u64 = 0;
 
-					if self.storage.prefix_keys {
+					if self.storage.db.state_capabilities().needs_key_prefixing() {
 						let mut memdb = sp_trie::PrefixedMemoryDB::<HashingFor<Block>>::default();
 						trie_commit.apply_to(&mut memdb);
 						for (key, (val, rc)) in memdb.drain() {
@@ -1799,8 +1804,7 @@ impl<Block: BlockT> Backend<Block> {
 					// Just write changes to the db.
 					apply_tree_commit::<HashingFor<Block>>(
 						trie_commit,
-						self.storage.db.supports_tree_column(),
-						self.storage.db.supports_ref_counting(),
+						self.storage.db.state_capabilities(),
 						&mut transaction,
 					);
 				}
@@ -2797,8 +2801,8 @@ pub(crate) mod tests {
 		traits::{BlakeTwo256, Hash},
 		ConsensusEngineId, StateVersion,
 	};
-	use trie_db::node_db::EMPTY_PREFIX;
 	use sp_trie::trie_types::{TrieDBBuilderV1, TrieDBMutBuilderV1};
+	use trie_db::node_db::EMPTY_PREFIX;
 
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
 	const CONS1_ENGINE_ID: ConsensusEngineId = *b"CON1";
@@ -4699,6 +4703,7 @@ pub(crate) mod tests {
 		db: &mut StorageDb<Block>,
 		key_values: impl IntoIterator<Item = (Vec<u8>, Vec<u8>)>,
 	) -> H256 {
+		insert_empty_trie_node(db);
 		/*
 		overlay.emplace(
 			array_bytes::hex2bytes(
@@ -4720,8 +4725,7 @@ pub(crate) mod tests {
 		let mut transaction = Transaction::default();
 		apply_tree_commit::<BlakeTwo256>(
 			commit,
-			db.state_db.is_none(),
-			db.prefix_keys,
+			db.db.state_capabilities(),
 			&mut transaction,
 		);
 
@@ -4735,18 +4739,8 @@ pub(crate) mod tests {
 		root: H256,
 		key_values: impl IntoIterator<Item = &'a (Vec<u8>, Vec<u8>)>,
 	) {
-		use trie_db::Trie;
-		/*
-		overlay.emplace(
-			array_bytes::hex2bytes(
-				"03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
-			)
-			.expect("null key is valid"),
-			Default::default(),
-			vec![0],
-		);
-		*/
 		use sp_state_machine::AsDB;
+		use trie_db::Trie;
 		let db = db.as_node_db();
 		let mut trie_db = TrieDBBuilderV1::<BlakeTwo256, _>::new(db, &root).build();
 		for (key, value) in key_values {
@@ -4793,7 +4787,7 @@ pub(crate) mod tests {
 						false,
 					)
 					.expect("Database backend error");
-					StorageDb::<Block> { db, state_db: None, prefix_keys: true }
+					StorageDb::<Block> { db, state_db: None }
 				},
 				DatabaseType::ParityDbMulti | DatabaseType::ParityDb => {
 					let db = open_database::<Block>(
@@ -4805,7 +4799,7 @@ pub(crate) mod tests {
 						false,
 					)
 					.expect("Database backend error");
-					StorageDb::<Block> { db, state_db: None, prefix_keys: false }
+					StorageDb::<Block> { db, state_db: None }
 				},
 			}
 		}
@@ -4838,17 +4832,57 @@ pub(crate) mod tests {
 	}
 	// -------- End Copied from substrate/bin/node/bench/src/tempdb.rs --------
 
+	fn insert_empty_trie_node(db: &mut StorageDb<Block>) {
+		let state_capabilities = db.db.state_capabilities();
+		if state_capabilities.needs_key_prefixing() {
+			let mut mdb = sp_trie::PrefixedMemoryDB::<HashingFor<Block>>::default();
+			// both triedbmut are the same on empty storage.
+			let commit =
+				sp_trie::trie_types::TrieDBMutBuilderV1::<HashingFor<Block>>::new(&mut mdb)
+					.build()
+					.commit();
+			let mut transaction = Transaction::default();
+			apply_tree_commit::<BlakeTwo256>(
+				commit,
+				state_capabilities,
+				&mut transaction,
+			);
+
+			db.db.commit(transaction).expect("Failed to write transaction");
+		} else {
+			let mut mdb = MemoryDB::<HashingFor<Block>>::default();
+			let commit =
+				sp_trie::trie_types::TrieDBMutBuilderV1::<HashingFor<Block>>::new(&mut mdb)
+					.build()
+					.commit();
+
+			let mut transaction = Transaction::default();
+			apply_tree_commit::<BlakeTwo256>(
+				commit,
+				state_capabilities,
+				&mut transaction,
+			);
+
+			db.db.commit(transaction).expect("Failed to write transaction");
+		};
+	}
 
 	#[test]
 	fn check_state_on_db() {
 		let key_values = [
 			(b"key1".to_vec(), b"value1".to_vec()),
-//			(b"key2".to_vec(), b"value2".to_vec()),
+			//			(b"key2".to_vec(), b"value2".to_vec()),
 		];
 
+		let db_kind = [
+			DatabaseType::ParityDb,
+			DatabaseType::ParityDbMulti,
+			#[cfg(feature = "rocksdb")]
+			DatabaseType::RocksDb,
+		];
 		let mut database = TempDatabase::new();
-		{
-			let mut database =  database.open(DatabaseType::RocksDb);
+		for kind in db_kind {
+			let mut database = database.open(kind);
 			let root = generate_trie(&mut database, key_values.iter().cloned());
 			query_trie(&database, root, &key_values);
 		}
