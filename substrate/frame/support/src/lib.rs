@@ -1266,9 +1266,7 @@ pub mod pallet_macros {
 	/// To bypass the `frame_system::Config` supertrait check, use the attribute
 	/// `pallet::disable_frame_system_supertrait_check`, e.g.:
 	///
-	/// TODO: Fix the doctest
-	///
-	/// ```ignore
+	/// ```
 	/// use frame_support::pallet_prelude::*;
 	/// use frame_system::pallet_prelude::*;
 	/// #[frame_support::pallet]
