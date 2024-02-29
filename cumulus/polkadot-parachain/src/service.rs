@@ -1086,14 +1086,14 @@ fn start_relay_chain_consensus(
 	task_manager: &TaskManager,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
-	sync_oracle: Arc<SyncingService<Block>>,
+	_sync_oracle: Arc<SyncingService<Block>>,
 	keystore: KeystorePtr,
-	relay_chain_slot_duration: Duration,
+	_relay_chain_slot_duration: Duration,
 	para_id: ParaId,
 	collator_key: CollatorPair,
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
-	backend: Arc<ParachainBackend>,
+	_backend: Arc<ParachainBackend>,
 ) -> Result<(), sc_service::Error> {
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
@@ -1147,6 +1147,7 @@ fn start_relay_chain_consensus(
 
 	Ok(())
 }
+
 /// Start consensus using the lookahead aura collator.
 fn start_lookahead_aura_consensus(
 	client: Arc<ParachainClient<FakeRuntimeApi>>,
