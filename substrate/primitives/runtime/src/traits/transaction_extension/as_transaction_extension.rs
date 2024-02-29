@@ -24,7 +24,7 @@ use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
 
 use crate::{
-	traits::{AsSystemOriginSigner, SignedExtension},
+	traits::{AsSystemOriginSigner, SignedExtension, ValidateResult},
 	InvalidTransaction,
 };
 
@@ -76,10 +76,7 @@ where
 		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
-	) -> Result<
-		(ValidTransaction, (), <SE::Call as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError,
-	> {
+	) -> ValidateResult<Self::Val, SE::Call> {
 		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		let r = self.0.validate(who, call, info, len)?;
 		Ok((r, (), origin))

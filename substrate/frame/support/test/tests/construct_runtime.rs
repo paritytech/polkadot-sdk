@@ -683,7 +683,7 @@ fn test_metadata() {
 					name: "Version",
 					ty: meta_type::<RuntimeVersion>(),
 					value: RuntimeVersion::default().encode(),
-					docs: maybe_docs(vec![ " Get the chain's current version."]),
+					docs: maybe_docs(vec![ " Get the chain's in-code version."]),
 				},
 				PalletConstantMetadata {
 					name: "SS58Prefix",

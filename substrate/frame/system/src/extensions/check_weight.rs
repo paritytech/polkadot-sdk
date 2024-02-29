@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase,
+		TransactionExtensionBase, ValidateResult,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	DispatchResult, ValidTransaction,
@@ -108,21 +108,6 @@ where
 		Self(Default::default())
 	}
 
-	/// Do the pre-dispatch checks. This can be applied to both signed and unsigned.
-	///
-	/// It checks and notes the new weight and length.
-	pub fn do_prepare(
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		next_len: u32,
-	) -> Result<(), TransactionValidityError> {
-		let next_weight = Self::check_block_weight(info)?;
-		// Extrinsic weight already checked in `validate`.
-
-		crate::AllExtrinsicsLen::<T>::put(next_len);
-		crate::BlockWeight::<T>::put(next_weight);
-		Ok(())
-	}
-
 	/// Do the validate checks. This can be applied to both signed and unsigned.
 	///
 	/// It only checks that the block weight and length limit will not exceed.
@@ -140,6 +125,21 @@ where
 		Self::check_extrinsic_weight(info)?;
 
 		Ok((Default::default(), next_len))
+	}
+
+	/// Do the pre-dispatch checks. This can be applied to both signed and unsigned.
+	///
+	/// It checks and notes the new weight and length.
+	pub fn do_prepare(
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		next_len: u32,
+	) -> Result<(), TransactionValidityError> {
+		let next_weight = Self::check_block_weight(info)?;
+		// Extrinsic weight already checked in `validate`.
+
+		crate::AllExtrinsicsLen::<T>::put(next_len);
+		crate::BlockWeight::<T>::put(next_weight);
+		Ok(())
 	}
 }
 
@@ -224,6 +224,20 @@ where
 	type Pre = ();
 	type Val = u32; /* next block length */
 
+	fn validate(
+		&self,
+		origin: T::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+		_context: &mut Context,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		let (validity, next_len) = Self::do_validate(info, len)?;
+		Ok((validity, next_len, origin))
+	}
+
 	fn prepare(
 		self,
 		val: Self::Val,
@@ -234,23 +248,6 @@ where
 		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Self::do_prepare(info, val)
-	}
-
-	fn validate(
-		&self,
-		origin: T::RuntimeOrigin,
-		_call: &T::RuntimeCall,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
-		_context: &mut Context,
-		_self_implicit: Self::Implicit,
-		_inherited_implication: &impl Encode,
-	) -> Result<
-		(sp_runtime::transaction_validity::ValidTransaction, Self::Val, T::RuntimeOrigin),
-		sp_runtime::transaction_validity::TransactionValidityError,
-	> {
-		let (validity, next_len) = Self::do_validate(info, len)?;
-		Ok((validity, next_len, origin))
 	}
 
 	fn post_dispatch(
