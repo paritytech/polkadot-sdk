@@ -3762,6 +3762,61 @@ nav.side-bar {
 <a href="#3620" id="3620">3620</a>
 <a href="#3621" id="3621">3621</a>
 <a href="#3622" id="3622">3622</a>
+<a href="#3623" id="3623">3623</a>
+<a href="#3624" id="3624">3624</a>
+<a href="#3625" id="3625">3625</a>
+<a href="#3626" id="3626">3626</a>
+<a href="#3627" id="3627">3627</a>
+<a href="#3628" id="3628">3628</a>
+<a href="#3629" id="3629">3629</a>
+<a href="#3630" id="3630">3630</a>
+<a href="#3631" id="3631">3631</a>
+<a href="#3632" id="3632">3632</a>
+<a href="#3633" id="3633">3633</a>
+<a href="#3634" id="3634">3634</a>
+<a href="#3635" id="3635">3635</a>
+<a href="#3636" id="3636">3636</a>
+<a href="#3637" id="3637">3637</a>
+<a href="#3638" id="3638">3638</a>
+<a href="#3639" id="3639">3639</a>
+<a href="#3640" id="3640">3640</a>
+<a href="#3641" id="3641">3641</a>
+<a href="#3642" id="3642">3642</a>
+<a href="#3643" id="3643">3643</a>
+<a href="#3644" id="3644">3644</a>
+<a href="#3645" id="3645">3645</a>
+<a href="#3646" id="3646">3646</a>
+<a href="#3647" id="3647">3647</a>
+<a href="#3648" id="3648">3648</a>
+<a href="#3649" id="3649">3649</a>
+<a href="#3650" id="3650">3650</a>
+<a href="#3651" id="3651">3651</a>
+<a href="#3652" id="3652">3652</a>
+<a href="#3653" id="3653">3653</a>
+<a href="#3654" id="3654">3654</a>
+<a href="#3655" id="3655">3655</a>
+<a href="#3656" id="3656">3656</a>
+<a href="#3657" id="3657">3657</a>
+<a href="#3658" id="3658">3658</a>
+<a href="#3659" id="3659">3659</a>
+<a href="#3660" id="3660">3660</a>
+<a href="#3661" id="3661">3661</a>
+<a href="#3662" id="3662">3662</a>
+<a href="#3663" id="3663">3663</a>
+<a href="#3664" id="3664">3664</a>
+<a href="#3665" id="3665">3665</a>
+<a href="#3666" id="3666">3666</a>
+<a href="#3667" id="3667">3667</a>
+<a href="#3668" id="3668">3668</a>
+<a href="#3669" id="3669">3669</a>
+<a href="#3670" id="3670">3670</a>
+<a href="#3671" id="3671">3671</a>
+<a href="#3672" id="3672">3672</a>
+<a href="#3673" id="3673">3673</a>
+<a href="#3674" id="3674">3674</a>
+<a href="#3675" id="3675">3675</a>
+<a href="#3676" id="3676">3676</a>
+<a href="#3677" id="3677">3677</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -5017,13 +5072,20 @@ nav.side-bar {
 			Action::BecomeActive =&gt; {
 				<span class="kw-2">*</span>mode = Mode::Active;
 
-				<span class="kw">let </span>messages = distribution_messages_for_activation(
+				<span class="kw">let </span>(messages, next_actions) = distribution_messages_for_activation(
+					ctx,
 					overlayed_db,
 					state,
 					delayed_approvals_timers,
-				)<span class="question-mark">?</span>;
+					session_info_provider,
+				)
+				.<span class="kw">await</span><span class="question-mark">?</span>;
 
 				ctx.send_messages(messages.into_iter()).<span class="kw">await</span>;
+				<span class="kw">let </span>next_actions: Vec&lt;Action&gt; =
+					next_actions.into_iter().map(|v| v.clone()).chain(actions_iter).collect();
+
+				actions_iter = next_actions.into_iter();
 			},
 			Action::Conclude =&gt; {
 				conclude = <span class="bool-val">true</span>;
@@ -5077,15 +5139,19 @@ nav.side-bar {
 	}
 }
 
-<span class="kw">fn </span>distribution_messages_for_activation(
+<span class="attr">#[overseer::contextbounds(ApprovalVoting, prefix = <span class="self">self</span>::overseer)]
+</span><span class="kw">async fn </span>distribution_messages_for_activation&lt;Context&gt;(
+	ctx: <span class="kw-2">&amp;mut </span>Context,
 	db: <span class="kw-2">&amp;</span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
 	state: <span class="kw-2">&amp;</span>State,
 	delayed_approvals_timers: <span class="kw-2">&amp;mut </span>DelayedApprovalTimer,
-) -&gt; SubsystemResult&lt;Vec&lt;ApprovalDistributionMessage&gt;&gt; {
+	session_info_provider: <span class="kw-2">&amp;mut </span>RuntimeInfo,
+) -&gt; SubsystemResult&lt;(Vec&lt;ApprovalDistributionMessage&gt;, Vec&lt;Action&gt;)&gt; {
 	<span class="kw">let </span>all_blocks: Vec&lt;Hash&gt; = db.load_all_blocks()<span class="question-mark">?</span>;
 
 	<span class="kw">let </span><span class="kw-2">mut </span>approval_meta = Vec::with_capacity(all_blocks.len());
 	<span class="kw">let </span><span class="kw-2">mut </span>messages = Vec::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>actions = Vec::new();
 
 	messages.push(ApprovalDistributionMessage::NewBlocks(Vec::new())); <span class="comment">// dummy value.
 
@@ -5160,16 +5226,60 @@ nav.side-bar {
 									<span class="kw-2">&amp;</span>claimed_core_indices,
 									<span class="kw-2">&amp;</span>block_entry,
 								) {
-									<span class="prelude-val">Ok</span>(bitfield) =&gt; messages.push(
-										ApprovalDistributionMessage::DistributeAssignment(
-											IndirectAssignmentCertV2 {
-												block_hash,
-												validator: assignment.validator_index(),
-												cert: assignment.cert().clone(),
-											},
-											bitfield,
-										),
-									),
+									<span class="prelude-val">Ok</span>(bitfield) =&gt; {
+										<span class="macro">gum::debug!</span>(
+											target: LOG_TARGET,
+											candidate_hash = <span class="question-mark">?</span>candidate_entry.candidate_receipt().hash(),
+											<span class="question-mark">?</span>block_hash,
+											<span class="string">&quot;Discovered, triggered assignment, not approved yet&quot;</span>,
+										);
+
+										<span class="kw">let </span>indirect_cert = IndirectAssignmentCertV2 {
+											block_hash,
+											validator: assignment.validator_index(),
+											cert: assignment.cert().clone(),
+										};
+										messages.push(
+											ApprovalDistributionMessage::DistributeAssignment(
+												indirect_cert.clone(),
+												bitfield.clone(),
+											),
+										);
+
+										<span class="kw">if </span>!block_entry
+											.candidate_is_pending_signature(<span class="kw-2">*</span>candidate_hash)
+										{
+											<span class="kw">let </span>ExtendedSessionInfo { <span class="kw-2">ref </span>executor_params, .. } =
+												<span class="kw">match </span>get_extended_session_info(
+													session_info_provider,
+													ctx.sender(),
+													block_entry.block_hash(),
+													block_entry.session(),
+												)
+												.<span class="kw">await
+												</span>{
+													<span class="prelude-val">Some</span>(i) =&gt; i,
+													<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
+												};
+
+											actions.push(Action::LaunchApproval {
+												claimed_candidate_indices: bitfield,
+												candidate_hash: candidate_entry
+													.candidate_receipt()
+													.hash(),
+												indirect_cert,
+												assignment_tranche: assignment.tranche(),
+												relay_block_hash: block_hash,
+												session: block_entry.session(),
+												executor_params: executor_params.clone(),
+												candidate: candidate_entry
+													.candidate_receipt()
+													.clone(),
+												backing_group: approval_entry.backing_group(),
+												distribute_assignment: <span class="bool-val">false</span>,
+											});
+										}
+									},
 									<span class="prelude-val">Err</span>(err) =&gt; {
 										<span class="comment">// Should never happen. If we fail here it means the
 										// assignment is null (no cores claimed).
@@ -5260,7 +5370,7 @@ nav.side-bar {
 	}
 
 	messages[<span class="number">0</span>] = ApprovalDistributionMessage::NewBlocks(approval_meta);
-	<span class="prelude-val">Ok</span>(messages)
+	<span class="prelude-val">Ok</span>((messages, actions))
 }
 
 <span class="comment">// Handle an incoming signal from the overseer. Returns true if execution should conclude.
