@@ -37,7 +37,7 @@
 //! availability cores over time.
 
 use crate::{configuration, initializer::SessionChangeNotification, paras};
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, traits::Defensive};
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
 use primitives::{
@@ -235,16 +235,16 @@ impl<T: Config> Pallet<T> {
 		if n_cores == 0 || validators.is_empty() {
 			ValidatorGroups::<T>::set(Vec::new());
 		} else {
-			let group_base_size =
-				validators.len().checked_div(n_cores as usize).unwrap_or_else(|| {
-					defensive!("n_cores should not be 0");
-					0
-				});
-			let n_larger_groups =
-				validators.len().checked_rem(n_cores as usize).unwrap_or_else(|| {
-					defensive!("n_cores should not be 0");
-					0
-				});
+			let group_base_size = validators
+				.len()
+				.checked_div(n_cores as usize)
+				.defensive_proof("n_cores should not be 0")
+				.unwrap_or(0);
+			let n_larger_groups = validators
+				.len()
+				.checked_rem(n_cores as usize)
+				.defensive_proof("n_cores should not be 0")
+				.unwrap_or(0);
 
 			// Groups contain indices into the validators from the session change notification,
 			// which are already shuffled.
