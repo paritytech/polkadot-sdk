@@ -55,7 +55,6 @@ fn counter() {
 	assert_eq!(read_counter(), initial_counter + 7);
 	increment_counter(1);
 	assert_eq!(read_counter(), initial_counter + 8);
-	
 }
 
 #[polkavm_derive::polkavm_export]
@@ -82,9 +81,7 @@ extern "C" fn increment_forever() {
 
 #[polkavm_derive::polkavm_export]
 extern "C" fn offset() {
-	let offset = unsafe {
-		OFFSET
-	};
+	let offset = unsafe { OFFSET };
 	increment_counter(offset);
 	unsafe {
 		OFFSET += 1;
