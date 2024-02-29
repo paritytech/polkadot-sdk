@@ -197,7 +197,7 @@ pub mod runtime {
 		// Types often used in the runtime APIs.
 		pub use sp_core::OpaqueMetadata;
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_runtime::ApplyExtrinsicResult;
+		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 
 		pub use frame_system_rpc_runtime_api::*;
 		pub use sp_api::{self, *};
