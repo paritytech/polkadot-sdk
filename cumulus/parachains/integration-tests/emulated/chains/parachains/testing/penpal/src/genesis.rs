@@ -13,22 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Substrate
+// SubstratePenpal
 use sp_core::{sr25519, storage::Storage};
-
+use frame_support::parameter_types;
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
 };
 use parachains_common::{Balance, AccountId};
-use penpal_runtime::xcm_config::{RelayLocationV3, SystemAssetHubLocationV3};
+use penpal_runtime::xcm_config::{RelayLocationV3, SystemAssetHubLocationV3, LocalReservableFromAssetHubV3};
 // Penpal
 pub const PARA_ID_A: u32 = 2000;
 pub const PARA_ID_B: u32 = 2001;
 pub const ED: Balance = penpal_runtime::EXISTENTIAL_DEPOSIT;
 
-pub fn asset_owner() -> AccountId {
-	get_account_id_from_seed::<sr25519::Public>("Alice")
+parameter_types! {
+	pub PenpalSudoAcccount: AccountId = get_account_id_from_seed::<sr25519::Public>("Alice");
+	pub PenpalAssetOwner: AccountId = PenpalSudoAcccount::get();
 }
 
 pub fn genesis(para_id: u32) -> Storage {
@@ -63,14 +64,20 @@ pub fn genesis(para_id: u32) -> Storage {
 			..Default::default()
 		},
 		sudo: penpal_runtime::SudoConfig {
-			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+			key: Some(PenpalSudoAcccount::get()),
+		},
+		assets: penpal_runtime::AssetsConfig {
+			assets: vec![
+				(penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID, PenpalAssetOwner::get(), false, ED),
+			],
+			.. Default::default()
 		},
 		foreign_assets: penpal_runtime::ForeignAssetsConfig {
 			assets: vec![
-					// AssetHub Native asset representation
-					(SystemAssetHubLocationV3::get(), get_account_id_from_seed::<sr25519::Public>("Alice"), true, ED),
 					// Relay Native asset representation
-					(RelayLocationV3::get(), get_account_id_from_seed::<sr25519::Public>("Alice"), true, ED)
+					(RelayLocationV3::get(), PenpalAssetOwner::get(), true, ED),
+					// Sufficient AssetHub asset representation
+					(LocalReservableFromAssetHubV3::get(), PenpalAssetOwner::get(), true, ED),
 				],
 			..Default::default()
 		},

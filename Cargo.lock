@@ -955,6 +955,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "penpal-runtime",
  "polkadot-runtime-common",
  "sp-runtime",
  "staging-xcm",
@@ -4927,6 +4928,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "paste",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "sc-consensus-grandpa",
@@ -11675,10 +11677,8 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "penpal-runtime",
- "rococo-emulated-chain",
  "sp-core",
  "staging-xcm",
- "westend-emulated-chain",
 ]
 
 [[package]]

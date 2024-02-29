@@ -46,7 +46,7 @@ use sp_runtime::traits::Zero;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
+	AccountId32Aliases, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
 	ConvertedConcreteId, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
 	FungibleAdapter, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, NoChecking,
@@ -198,7 +198,7 @@ impl Contains<Location> for ParentOrParentsExecutivePlurality {
 pub struct CommonGoodAssetsParachain;
 impl Contains<Location> for CommonGoodAssetsParachain {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [Parachain(1000)]))
+		matches!(location.unpack(), (1, [Parachain(ASSET_HUB_ID)]))
 	}
 }
 
@@ -212,12 +212,6 @@ pub type Barrier = TrailingSetTopicAsId<(
 			// If the message is one that immediately attempts to pay for execution, then
 			// allow it.
 			AllowTopLevelPaidExecutionFrom<Everything>,
-			// System Assets parachain, parent and its exec plurality get free
-			// execution
-			AllowExplicitUnpaidExecutionFrom<(
-				CommonGoodAssetsParachain,
-				ParentOrParentsExecutivePlurality,
-			)>,
 			// Subscriptions for version tracking are OK.
 			AllowSubscriptionsFrom<Everything>,
 		),
@@ -285,27 +279,41 @@ where
 	}
 }
 
+// This asset can be added to AH as Asset and reserved transfer between Penpal and AH
+pub const RESERVABLE_ASSET_ID: u32 = 1;
 // This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
 pub const TELEPORTABLE_ASSET_ID: u32 = 2;
+
+pub const ASSETS_PALLET_ID: u8 = 50;
+pub const ASSET_HUB_ID: u32 = 1000;
+
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
-	pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(1000)]);
-	pub SystemAssetHubLocationV3: xcm::v3::Location = xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(1000)]);
+	pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
+	pub SystemAssetHubLocationV3: xcm::v3::Location = xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(ASSET_HUB_ID)]);
 	pub RelayLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
 	// ALWAYS ensure that the index in PalletInstance stays up-to-date with
 	// the Relay Chain's Asset Hub's Assets pallet index
 	pub SystemAssetHubAssetsPalletLocation: Location =
-		Location::new(1, [Parachain(1000), PalletInstance(50)]);
+		Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID)]);
 	pub AssetsPalletLocation: Location =
-		Location::new(0, [PalletInstance(50)]);
+		Location::new(0, [PalletInstance(ASSETS_PALLET_ID)]);
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub LocalTeleportableToAssetHub: Location = Location::new(
 		0,
-		[PalletInstance(50), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
+		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
 	);
 	pub LocalTeleportableToAssetHubV3: xcm::v3::Location = xcm::v3::Location::new(
 		0,
-		[xcm::v3::Junction::PalletInstance(50), xcm::v3::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
+		[xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID), xcm::v3::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
+	);
+	pub LocalReservableFromAssetHub: Location = Location::new(
+		1,
+		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())]
+	);
+	pub LocalReservableFromAssetHubV3: xcm::v3::Location = xcm::v3::Location::new(
+		1,
+		[xcm::v3::Junction::Parachain(ASSET_HUB_ID), xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID), xcm::v3::Junction::GeneralIndex(RESERVABLE_ASSET_ID.into())]
 	);
 	pub EthereumLocation: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 }

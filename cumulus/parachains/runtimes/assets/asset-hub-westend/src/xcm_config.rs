@@ -612,7 +612,7 @@ impl xcm_executor::Config for XcmConfig {
 		// `pallet_assets` instance - `ForeignAssets`.
 		cumulus_primitives_utility::TakeFirstAssetTrader<
 			AccountId,
-			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger<Runtime, WeightToFee, Balances, ForeignAssetsInstance>
+			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger<Runtime, WeightToFee, Balances, ForeignAssetsInstance>,
 			ForeignAssetsConvertedConcreteId,
 			ForeignAssets,
 			cumulus_primitives_utility::XcmFeesTo32ByteAccount<

@@ -33,7 +33,7 @@ fn send_transact_as_superuser_from_relay_to_system_para_works() {
 #[test]
 fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 	let para_sovereign_account = AssetHubWestend::sovereign_account_id_of(
-		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
+		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
 
 	// Force create and mint assets for Parachain's sovereign account
@@ -60,8 +60,8 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 	let native_asset =
 		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], fee_amount).into();
 
-	let root_origin = <PenpalB as Chain>::RuntimeOrigin::root();
-	let system_para_destination = PenpalB::sibling_location_of(AssetHubWestend::para_id()).into();
+	let root_origin = <PenpalA as Chain>::RuntimeOrigin::root();
+	let system_para_destination = PenpalA::sibling_location_of(AssetHubWestend::para_id()).into();
 	let xcm = xcm_transact_paid_execution(
 		call,
 		origin_kind,
@@ -69,21 +69,21 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		para_sovereign_account.clone(),
 	);
 
-	PenpalB::execute_with(|| {
-		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::send(
+	PenpalA::execute_with(|| {
+		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
 			root_origin,
 			bx!(system_para_destination),
 			bx!(xcm),
 		));
 
-		PenpalB::assert_xcm_pallet_sent();
+		PenpalA::assert_xcm_pallet_sent();
 	});
 
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 		AssetHubWestend::assert_xcmp_queue_success(Some(Weight::from_parts(
-			16_290_336_000,
+			15_594_564_000,
 			562_893,
 		)));
 

@@ -20,17 +20,15 @@ mod imports {
 	// Substrate
 	pub use frame_support::{
 		assert_err, assert_ok,
-		instances::Instance2,
 		pallet_prelude::Weight,
-		sp_runtime::{AccountId32, DispatchError, DispatchResult, ModuleError},
+		sp_runtime::{DispatchError, DispatchResult, ModuleError},
 		traits::fungibles::Inspect,
-		BoundedVec,
 	};
 
 	// Polkadot
 	pub use xcm::{
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v3::{self, Error, NetworkId::Westend as WestendId},
+		v3,
 	};
 
 	// Cumulus
@@ -38,51 +36,53 @@ mod imports {
 	pub use emulated_integration_tests_common::{
 		test_parachain_is_trusted_teleporter,
 		xcm_emulator::{
-			assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
+			assert_expected_events, bx, Chain, Parachain as Para,
 			RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
 		},
-		xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
+		xcm_helpers::{xcm_transact_paid_execution, non_fee_asset},
+		XCM_V3, RESERVABLE_ASSET_ID, ASSETS_PALLET_ID
 	};
-	pub use parachains_common::{AccountId, Balance};
+	pub use parachains_common::{Balance, AccountId};
 	pub use westend_system_emulated_network::{
 		asset_hub_westend_emulated_chain::{
-			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
+			genesis::{ED as ASSET_HUB_WESTEND_ED,  AssetHubWestendAssetOwner}, AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		collectives_westend_emulated_chain::{
-			genesis::ED as COLLECTIVES_WESTEND_ED,
 			CollectivesWestendParaPallet as CollectivesWestendPallet,
 		},
-		penpal_emulated_chain::PenpalBParaPallet as PenpalBPallet,
+		penpal_emulated_chain::{PenpalAParaPallet as PenpalAPallet, PenpalBParaPallet as PenpalBPallet, PenpalAssetOwner},
 		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
 		AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 		AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
-		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-		CollectivesWestendPara as CollectivesWestend, PenpalAPara as PenpalA,
-		PenpalAParaReceiver as PenpalAReceiver, PenpalBPara as PenpalB,
-		PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
-		WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
-		WestendRelaySender as WestendSender,
+		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver, PenpalAPara as PenpalA,
+		CollectivesWestendPara as CollectivesWestend,
+		PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
+		PenpalBPara as PenpalB, PenpalBParaReceiver as PenpalBReceiver, WestendRelay as Westend,
+		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
-	pub const ASSET_ID: u32 = 1;
+	// Runtimes
+	pub use westend_runtime::xcm_config::{XcmConfig as WestendXcmConfig, UniversalLocation as WestendUniversalLocation};
+	pub use asset_hub_westend_runtime::xcm_config::{
+		XcmConfig as AssetHubWestendXcmConfig, UniversalLocation as AssetHubWestendUniversalLocation,
+		WestendLocationV3 as RelayLocationV3,
+	};
+	pub use penpal_runtime::xcm_config::{
+		LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3,
+		UniversalLocation as PenpalUniversalLocation, XcmConfig as PenpalWestendXcmConfig,
+		LocalReservableFromAssetHubV3 as PenpalLocalReservableFromAssetHubV3,
+	};
+
+	pub const ASSET_ID: u32 = 3;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
-	// `Assets` pallet index
-	pub const ASSETS_PALLET_ID: u8 = 50;
 
 	pub type RelayToSystemParaTest = Test<Westend, AssetHubWestend>;
-	pub type RelayToParaTest = Test<Westend, PenpalB>;
+	pub type RelayToParaTest = Test<Westend, PenpalA>;
+	pub type ParaToRelayTest = Test<PenpalA, Westend>;
 	pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
-	pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalB>;
-	pub type ParaToSystemParaTest = Test<PenpalB, AssetHubWestend>;
-	pub type ParaToParaTest = Test<PenpalB, PenpalA, Westend>;
-
-	emulated_integration_tests_common::include_penpal_create_foreign_asset_on_asset_hub!(
-		PenpalB,
-		AssetHubWestend,
-		WESTEND_ED,
-		testnet_parachains_constants::westend::fee::WeightToFee
-	);
+	pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalA>;
+	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubWestend>;
+	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
 }
 
 #[cfg(test)]

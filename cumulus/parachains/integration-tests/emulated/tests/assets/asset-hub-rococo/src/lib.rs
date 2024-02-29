@@ -40,14 +40,14 @@ mod imports {
 			RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
 		},
 		xcm_helpers::{xcm_transact_paid_execution, non_fee_asset},
-		XCM_V3,
+		XCM_V3, RESERVABLE_ASSET_ID, ASSETS_PALLET_ID
 	};
 	pub use parachains_common::Balance;
 	pub use rococo_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
-			genesis::{ED as ASSET_HUB_ROCOCO_ED, PARA_ID as ASSETHUB_PARA_ID}, AssetHubRococoParaPallet as AssetHubRococoPallet,
+			genesis::{ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoAssetOwner}, AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
-		penpal_emulated_chain::{PenpalAParaPallet as PenpalAPallet, PenpalBParaPallet as PenpalBPallet, asset_owner as penpal_asset_owner},
+		penpal_emulated_chain::{ED as PENPAL_ED, PenpalAParaPallet as PenpalAPallet, PenpalBParaPallet as PenpalBPallet, PenpalAssetOwner},
 		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, BridgeHubRococoPara as BridgeHubRococo,
@@ -65,29 +65,20 @@ mod imports {
 	};
 	pub use penpal_runtime::xcm_config::{
 		LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3,
-		SystemAssetHubLocationV3,
-		UniversalLocation as PenpalUniversalLocation, XcmConfig as PenpalRococoXcmConfig
+		UniversalLocation as PenpalUniversalLocation, XcmConfig as PenpalRococoXcmConfig,
+		LocalReservableFromAssetHubV3 as PenpalLocalReservableFromAssetHubV3,
 	};
 
-	pub const ASSET_ID: u32 = 1;
+	pub const ASSET_ID: u32 = 3;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
-	// `Assets` pallet index
-	pub const ASSETS_PALLET_ID: u8 = 50;
 
 	pub type RelayToSystemParaTest = Test<Rococo, AssetHubRococo>;
 	pub type RelayToParaTest = Test<Rococo, PenpalA>;
+	pub type ParaToRelayTest = Test<PenpalA, Rococo>;
 	pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
 	pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
 	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Rococo>;
-	pub type ParaToParaThroughSystemParaTest = Test<PenpalA, PenpalB, AssetHubRococo>;
-
-	emulated_integration_tests_common::include_penpal_create_foreign_asset_on_asset_hub!(
-		PenpalA,
-		AssetHubRococo,
-		ROCOCO_ED,
-		testnet_parachains_constants::rococo::fee::WeightToFee
-	);
 }
 
 #[cfg(test)]
