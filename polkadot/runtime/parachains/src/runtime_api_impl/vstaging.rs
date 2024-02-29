@@ -16,12 +16,16 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{configuration, initializer, shared};
+use crate::{configuration, initializer, scheduler, shared};
+use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	ValidatorIndex,
+	vstaging::{ApprovalVotingParams, NodeFeatures, ParasEntry},
+	CoreIndex, ValidatorIndex,
 };
-use sp_std::prelude::Vec;
+use sp_std::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	prelude::Vec,
+};
 
 /// Implementation for `DisabledValidators`
 // CAVEAT: this should only be called on the node side
@@ -38,8 +42,14 @@ pub fn node_features<T: initializer::Config>() -> NodeFeatures {
 	<configuration::Pallet<T>>::config().node_features
 }
 
-/// Approval voting subsystem configuration parameteres
+/// Approval voting subsystem configuration parameters
 pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams {
 	let config = <configuration::Pallet<T>>::config();
 	config.approval_voting_params
+}
+
+/// Returns the claimqueue from the scheduler
+pub fn claim_queue<T: scheduler::Config>(
+) -> BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumberFor<T>>>> {
+	<scheduler::Pallet<T>>::claimqueue()
 }

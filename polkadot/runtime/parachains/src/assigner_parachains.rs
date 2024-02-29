@@ -23,11 +23,11 @@ mod mock_helpers;
 mod tests;
 
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::CoreIndex;
+use primitives::{vstaging::Assignment, CoreIndex};
 
 use crate::{
 	configuration, paras,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
 };
 
 pub use pallet::*;

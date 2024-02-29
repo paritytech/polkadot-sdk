@@ -21,17 +21,18 @@ use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
 	async_backing, slashing,
-	vstaging::{ApprovalVotingParams, NodeFeatures},
+	vstaging::{ApprovalVotingParams, NodeFeatures, ParasEntry},
 	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	Slot, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
+	GroupRotationInfo, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, Slot, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 use sp_api::ApiError;
 use sp_core::testing::TaskExecutor;
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, HashMap, VecDeque},
 	sync::{Arc, Mutex},
 };
 use test_helpers::{dummy_committed_candidate_receipt, dummy_validation_code};
@@ -284,6 +285,13 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	}
 
 	async fn disabled_validators(&self, _: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
+		todo!("Not required for tests")
+	}
+
+	async fn claim_queue(
+		&self,
+		_: Hash,
+	) -> Result<BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>, ApiError> {
 		todo!("Not required for tests")
 	}
 }

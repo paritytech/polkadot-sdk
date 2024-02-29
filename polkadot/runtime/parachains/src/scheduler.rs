@@ -41,6 +41,7 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
 use primitives::{
+	vstaging::{Assignment, ParasEntry},
 	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, ValidatorIndex,
 };
 use sp_runtime::traits::One;
@@ -51,7 +52,7 @@ use sp_std::{
 
 pub mod common;
 
-use common::{Assignment, AssignmentProvider, AssignmentProviderConfig};
+use common::{AssignmentProvider, AssignmentProviderConfig};
 
 pub use pallet::*;
 
@@ -152,34 +153,8 @@ pub mod pallet {
 	pub(crate) type ClaimQueue<T: Config> =
 		StorageValue<_, BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>, ValueQuery>;
 
-	/// Assignments as tracked in the claim queue.
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq, Clone)]
-	pub struct ParasEntry<N> {
-		/// The underlying [`Assignment`].
-		pub assignment: Assignment,
-		/// The number of times the entry has timed out in availability already.
-		pub availability_timeouts: u32,
-		/// The block height until this entry needs to be backed.
-		///
-		/// If missed the entry will be removed from the claim queue without ever having occupied
-		/// the core.
-		pub ttl: N,
-	}
-
 	/// Convenience type declaration for `ParasEntry`.
 	pub type ParasEntryType<T> = ParasEntry<BlockNumberFor<T>>;
-
-	impl<N> ParasEntry<N> {
-		/// Create a new `ParasEntry`.
-		pub fn new(assignment: Assignment, now: N) -> Self {
-			ParasEntry { assignment, availability_timeouts: 0, ttl: now }
-		}
-
-		/// Return `Id` from the underlying `Assignment`.
-		pub fn para_id(&self) -> ParaId {
-			self.assignment.para_id()
-		}
-	}
 
 	/// Availability timeout status of a core.
 	pub(crate) struct AvailabilityTimeoutStatus<BlockNumber> {

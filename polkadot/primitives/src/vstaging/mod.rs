@@ -24,6 +24,8 @@ use parity_scale_codec::{Decode, Encode};
 use primitives::RuntimeDebug;
 use scale_info::TypeInfo;
 
+use crate::v6::Id as ParaId;
+
 /// Approval voting configuration parameters
 #[derive(
 	RuntimeDebug,
@@ -72,5 +74,55 @@ pub mod node_features {
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
 		FirstUnassigned = 2,
+	}
+}
+
+/// Assignments as tracked in the scheduler [`ClaimQueue`].
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq, Clone)]
+pub struct ParasEntry<N> {
+	/// The underlying [`Assignment`].
+	pub assignment: Assignment,
+	/// The number of times the entry has timed out in availability already.
+	pub availability_timeouts: u32,
+	/// The block height until this entry needs to be backed.
+	///
+	/// If missed the entry will be removed from the claim queue without ever having occupied
+	/// the core.
+	pub ttl: N,
+}
+
+impl<N> ParasEntry<N> {
+	/// Create a new `ParasEntry`.
+	pub fn new(assignment: Assignment, now: N) -> Self {
+		ParasEntry { assignment, availability_timeouts: 0, ttl: now }
+	}
+
+	/// Return `Id` from the underlying `Assignment`.
+	pub fn para_id(&self) -> ParaId {
+		self.assignment.para_id()
+	}
+}
+
+/// Assignment (ParaId -> CoreIndex).
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
+pub enum Assignment {
+	/// A pool assignment.
+	Pool {
+		/// The assigned para id.
+		para_id: ParaId,
+		/// The core index the para got assigned to.
+		core_index: CoreIndex,
+	},
+	/// A bulk assignment.
+	Bulk(ParaId),
+}
+
+impl Assignment {
+	/// Returns the [`ParaId`] this assignment is associated to.
+	pub fn para_id(&self) -> ParaId {
+		match self {
+			Self::Pool { para_id, .. } => *para_id,
+			Self::Bulk(para_id) => *para_id,
+		}
 	}
 }

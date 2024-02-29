@@ -26,14 +26,12 @@ mod enter {
 	use crate::{
 		builder::{Bench, BenchBuilder},
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
-		scheduler::{
-			common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
-			ParasEntry,
-		},
+		scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
 	};
 	use assert_matches::assert_matches;
 	use frame_support::assert_ok;
 	use frame_system::limits;
+	use primitives::vstaging::{Assignment, ParasEntry};
 	use sp_runtime::Perbill;
 	use sp_std::collections::btree_map::BTreeMap;
 
@@ -1250,13 +1248,10 @@ mod sanitizers {
 	}
 
 	mod candidates {
-		use crate::{
-			mock::set_disabled_validators,
-			scheduler::{common::Assignment, ParasEntry},
-		};
-		use sp_std::collections::vec_deque::VecDeque;
-
 		use super::*;
+		use crate::mock::set_disabled_validators;
+		use primitives::vstaging::{Assignment, ParasEntry};
+		use sp_std::collections::vec_deque::VecDeque;
 
 		// Backed candidates and scheduled parachains used for `sanitize_backed_candidates` testing
 		struct TestData {
