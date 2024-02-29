@@ -590,7 +590,7 @@ pub mod pallet2 {
 			Self::deposit_event(Event::Something(31));
 
 			if UpdateStorageVersion::get() {
-				Self::current_storage_version().put::<Self>();
+				Self::in_code_storage_version().put::<Self>();
 			}
 
 			Weight::zero()
@@ -1310,7 +1310,7 @@ fn pallet_on_genesis() {
 		assert_eq!(pallet::Pallet::<Runtime>::on_chain_storage_version(), StorageVersion::new(0));
 		pallet::Pallet::<Runtime>::on_genesis();
 		assert_eq!(
-			pallet::Pallet::<Runtime>::current_storage_version(),
+			pallet::Pallet::<Runtime>::in_code_storage_version(),
 			pallet::Pallet::<Runtime>::on_chain_storage_version(),
 		);
 	})
@@ -2257,10 +2257,10 @@ fn pallet_on_chain_storage_version_initializes_correctly() {
 		AllPalletsWithSystem,
 	>;
 
-	// Simple example of a pallet with current version 10 being added to the runtime for the first
+	// Simple example of a pallet with in-code version 10 being added to the runtime for the first
 	// time.
 	TestExternalities::default().execute_with(|| {
-		let current_version = Example::current_storage_version();
+		let in_code_version = Example::in_code_storage_version();
 
 		// Check the pallet has no storage items set.
 		let pallet_hashed_prefix = twox_128(Example::name().as_bytes());
@@ -2271,14 +2271,14 @@ fn pallet_on_chain_storage_version_initializes_correctly() {
 		// version.
 		Executive::execute_on_runtime_upgrade();
 
-		// Check that the storage version was initialized to the current version
+		// Check that the storage version was initialized to the in-code version
 		let on_chain_version_after = StorageVersion::get::<Example>();
-		assert_eq!(on_chain_version_after, current_version);
+		assert_eq!(on_chain_version_after, in_code_version);
 	});
 
-	// Pallet with no current storage version should have the on-chain version initialized to 0.
+	// Pallet with no in-code storage version should have the on-chain version initialized to 0.
 	TestExternalities::default().execute_with(|| {
-		// Example4 current_storage_version is NoStorageVersionSet.
+		// Example4 in_code_storage_version is NoStorageVersionSet.
 
 		// Check the pallet has no storage items set.
 		let pallet_hashed_prefix = twox_128(Example4::name().as_bytes());
@@ -2308,7 +2308,7 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 
 	impl OnRuntimeUpgrade for CustomUpgrade {
 		fn on_runtime_upgrade() -> Weight {
-			Example2::current_storage_version().put::<Example2>();
+			Example2::in_code_storage_version().put::<Example2>();
 
 			Default::default()
 		}
@@ -2351,14 +2351,14 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 	>;
 
 	TestExternalities::default().execute_with(|| {
-		// Set the on-chain version to one less than the current version for `Example`, simulating a
+		// Set the on-chain version to one less than the in-code version for `Example`, simulating a
 		// forgotten migration
 		StorageVersion::new(9).put::<Example2>();
 
 		// The version isn't changed, we should detect it.
 		assert!(
 			Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap_err() ==
-				"On chain and current storage version do not match. Missing runtime upgrade?"
+				"On chain and in-code storage version do not match. Missing runtime upgrade?"
 					.into()
 		);
 	});
