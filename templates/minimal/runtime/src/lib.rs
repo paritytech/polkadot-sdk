@@ -29,7 +29,8 @@ use frame::{
 	prelude::*,
 	runtime::{
 		apis::{
-			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult, OpaqueMetadata,
+			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult,
+			ExtrinsicInclusionMode, OpaqueMetadata,
 		},
 		prelude::*,
 	},
@@ -123,7 +124,7 @@ impl_runtime_apis! {
 			RuntimeExecutive::execute_block(block)
 		}
 
-		fn initialize_block(header: &Header) {
+		fn initialize_block(header: &Header) -> ExtrinsicInclusionMode {
 			RuntimeExecutive::initialize_block(header)
 		}
 	}
