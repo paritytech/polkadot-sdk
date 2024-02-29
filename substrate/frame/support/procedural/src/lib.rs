@@ -639,6 +639,11 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// default to `A` from the `impl A for B` part of the default impl. This is useful for scenarios
 /// where all of the relevant types are already in scope via `use` statements.
 ///
+/// In case the `default_impl_path` is scoped to a different module such as
+/// `some::path::TestTraitImpl`, the same scope is assumed for the `disambiguation_path`, i.e.
+/// `some::A`. This enables the use of `derive_impl` attribute without having to specify the
+/// `disambiguation_path` in most (if not all) uses within FRAME's context.
+///
 /// Conversely, the `default_impl_path` argument is required and cannot be omitted.
 ///
 /// Optionally, `no_aggregated_types` can be specified as follows:
