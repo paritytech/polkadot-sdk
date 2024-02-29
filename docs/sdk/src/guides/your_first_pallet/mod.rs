@@ -128,8 +128,8 @@
 //!
 //! Recall that within our pallet, (almost) all blocks of code are generic over `<T: Config>`. And,
 //! because `trait Config: frame_system::Config`, we can get access to all items in `Config` (or
-//! `frame_system::Config`) using `T::NameOfItem`. This is all within the boundaries of how Rust
-//! traits and generics work. If unfamiliar with this pattern, read
+//! `frame_system::Config`) using `T::NameOfItem`. This is all within the boundaries of how
+//! Rust traits and generics work. If unfamiliar with this pattern, read
 //! [`crate::reference_docs::trait_based_programming`] before going further.
 //!
 //! Crucially, a typical FRAME runtime contains a `struct Runtime`. The main role of this `struct`
@@ -270,7 +270,7 @@
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", config_v2)]
 //!
 //! > These `Runtime*` types are better explained in
-//! > [`crate::reference_docs::frame_composite_enums`].
+//! > [`crate::reference_docs::frame_runtime_types`].
 //!
 //! Then, we can rewrite the `transfer` dispatchable as such:
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_v2)]
@@ -285,7 +285,6 @@
 //! [`crate::guides::your_first_pallet::pallet_v2::tests::runtime_v2::RuntimeEvent`].
 //!
 //!
-//!
 //! ## What Next?
 //!
 //! The following topics where used in this guide, but not covered in depth. It is suggested to
@@ -293,7 +292,7 @@
 //!
 //! - [`crate::reference_docs::safe_defensive_programming`].
 //! - [`crate::reference_docs::frame_origin`].
-//! - [`crate::reference_docs::frame_composite_enums`].
+//! - [`crate::reference_docs::frame_runtime_types`].
 //! - The pallet we wrote in this guide was using `dev_mode`, learn more in
 //!   [`frame::pallet_macros::config`].
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
