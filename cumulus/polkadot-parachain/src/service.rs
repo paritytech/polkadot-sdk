@@ -1087,7 +1087,7 @@ fn start_relay_chain_consensus(
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
 	_sync_oracle: Arc<SyncingService<Block>>,
-	keystore: KeystorePtr,
+	_keystore: KeystorePtr,
 	_relay_chain_slot_duration: Duration,
 	para_id: ParaId,
 	collator_key: CollatorPair,
