@@ -142,6 +142,16 @@ impl Default for TestState {
 }
 
 impl TestState {
+	/// Adds a few more scheduled cores to the state for the same para id
+	/// compared to the default.
+	pub fn with_elastic_scaling() -> Self {
+		let mut state = Self::default();
+		let para_id = state.para_id;
+		state.availability_cores.push(CoreState::Scheduled(ScheduledCore { para_id, collator: None }));
+		state.availability_cores.push(CoreState::Scheduled(ScheduledCore { para_id, collator: None }));
+		state
+	}
+
 	fn current_group_validator_indices(&self) -> &[ValidatorIndex] {
 		let core_num = self.availability_cores.len();
 		let GroupIndex(group_idx) = self.group_rotation_info.group_for_core(CoreIndex(0), core_num);

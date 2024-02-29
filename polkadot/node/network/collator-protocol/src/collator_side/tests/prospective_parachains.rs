@@ -372,6 +372,118 @@ fn distribute_collation_up_to_limit() {
 	)
 }
 
+/// Tests that collator send the parent head data in
+/// case the para is assigned to multiple cores (elastic scaling).
+#[test]
+fn send_parent_head_data_for_elastic_scaling() {
+	let test_state = TestState::with_elastic_scaling();
+
+	let local_peer_id = test_state.local_peer_id;
+	let collator_pair = test_state.collator_pair.clone();
+
+	test_harness(
+		local_peer_id,
+		collator_pair,
+		ReputationAggregator::new(|_| true),
+		|test_harness| async move {
+			let mut virtual_overseer = test_harness.virtual_overseer;
+			let req_v1_cfg = test_harness.req_v1_cfg;
+			let mut req_v2_cfg = test_harness.req_v2_cfg;
+
+			let head_b = Hash::from_low_u64_be(129);
+			let head_b_num: u32 = 63;
+
+			// Set collating para id.
+			overseer_send(
+				&mut virtual_overseer,
+				CollatorProtocolMessage::CollateOn(test_state.para_id),
+			)
+			.await;
+			update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+
+			let pov_data = PoV { block_data: BlockData(vec![1 as u8]) };
+			let candidate = TestCandidateBuilder {
+				para_id: test_state.para_id,
+				relay_parent: head_b,
+				pov_hash: pov_data.hash(),
+				..Default::default()
+			}
+			.build();
+
+			let phd = HeadData(vec![1, 2, 3]);
+			let phdh = phd.hash();
+
+			distribute_collation_with_receipt(
+				&mut virtual_overseer,
+				&test_state,
+				head_b,
+				true,
+				candidate.clone(),
+				pov_data.clone(),
+				phdh,
+			)
+			.await;
+
+			let peer = test_state.validator_peer_id[0];
+			let validator_id = test_state.current_group_validator_authority_ids()[0].clone();
+			connect_peer(
+				&mut virtual_overseer,
+				peer,
+				CollationVersion::V2,
+				Some(validator_id.clone()),
+			)
+			.await;
+			expect_declare_msg_v2(&mut virtual_overseer, &test_state, &peer).await;
+
+			send_peer_view_change(&mut virtual_overseer, &peer, vec![head_b]).await;
+			let hashes: Vec<_> = vec![candidate.hash()];
+			expect_advertise_collation_msg(&mut virtual_overseer, &peer, head_b, Some(hashes))
+				.await;
+
+			let (pending_response, rx) = oneshot::channel();
+			req_v2_cfg
+				.inbound_queue
+				.as_mut()
+				.unwrap()
+				.send(RawIncomingRequest {
+					peer,
+					payload: request_v2::CollationFetchingRequest {
+						relay_parent: head_b,
+						para_id: test_state.para_id,
+						candidate_hash: candidate.hash(),
+					}
+					.encode(),
+					pending_response,
+				})
+				.await
+				.unwrap();
+
+			assert_matches!(
+				rx.await,
+				Ok(full_response) => {
+					let response: request_v2::CollationFetchingResponse =
+						request_v2::CollationFetchingResponse::decode(&mut
+							full_response.result
+							.expect("We should have a proper answer").as_ref()
+						).expect("Decoding should work");
+						assert_matches!(
+							response,
+							request_v1::CollationFetchingResponse::CollationWithParentHeadData {
+								receipt, pov, parent_head_data
+							} => {
+								assert_eq!(receipt, candidate);
+								assert_eq!(pov, pov_data);
+								assert_eq!(parent_head_data, phd);
+							}
+						);
+				}
+			);
+
+			TestHarness { virtual_overseer, req_v1_cfg, req_v2_cfg }
+		},
+	)
+}
+
 /// Tests that collator correctly handles peer V2 requests.
 #[test]
 fn advertise_and_send_collation_by_hash() {
