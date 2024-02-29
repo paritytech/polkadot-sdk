@@ -440,12 +440,8 @@ impl<T: Config> Pallet<T> {
 
 	/// If there is a sale ongoing returns the current price of a core.
 	pub fn api_sale_price() -> Option<BalanceOf<T>> {
-		let Some(status) = Status::<T>::get() else {
-			return None;
-		};
-		let Some(sale) = SaleInfo::<T>::get() else {
-			return None;
-		};
+		let status = Status::<T>::get()?;
+		let sale = SaleInfo::<T>::get()?;
 
 		if sale.first_core < status.core_count || sale.cores_sold < sale.cores_offered {
 			return None;

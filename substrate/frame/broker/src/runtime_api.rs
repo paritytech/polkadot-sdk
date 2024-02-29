@@ -17,8 +17,6 @@
 
 //! Runtime API definition for the FRAME Broker pallet.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use codec::Codec;
 
 sp_api::decl_runtime_apis! {

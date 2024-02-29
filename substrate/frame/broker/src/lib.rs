@@ -134,7 +134,7 @@ pub mod pallet {
 	pub type AllowedRenewals<T> =
 		StorageMap<_, Twox64Concat, AllowedRenewalId, AllowedRenewalRecordOf<T>, OptionQuery>;
 
-	/// The current (unassigned) Regions.
+	/// The current (unassigned or provisionally assigend) Regions.
 	#[pallet::storage]
 	pub type Regions<T> = StorageMap<_, Blake2_128Concat, RegionId, RegionRecordOf<T>, OptionQuery>;
 
