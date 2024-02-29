@@ -1,7 +1,7 @@
 title: "Pools: Make PermissionlessWithdraw the default claim permission"
 
 doc:
-  - audience: Runtime Dev
+  - audience: Runtime User
     description: |
       Makes permissionless withdrawing the default claim permission, giving any network participant
       access to claim pool rewards on member's behalf, by default.
