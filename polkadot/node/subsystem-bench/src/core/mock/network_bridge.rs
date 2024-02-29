@@ -13,26 +13,24 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-//!
+
 //! Mocked `network-bridge` subsystems that uses a `NetworkInterface` to access
 //! the emulated network.
-use futures::{channel::mpsc::UnboundedSender, FutureExt, StreamExt};
-use polkadot_node_subsystem_types::{
-	messages::{BitfieldDistributionMessage, NetworkBridgeEvent},
-	OverseerSignal,
+
+use crate::core::{
+	configuration::TestAuthorities,
+	network::{NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage, RequestExt},
 };
-
-use sc_network::{request_responses::ProtocolConfig, PeerId, RequestFailure};
-
+use futures::{channel::mpsc::UnboundedSender, FutureExt, StreamExt};
+use polkadot_node_network_protocol::Versioned;
 use polkadot_node_subsystem::{
 	messages::NetworkBridgeTxMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
-
-use polkadot_node_network_protocol::Versioned;
-
-use crate::core::network::{
-	NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage, RequestExt,
+use polkadot_node_subsystem_types::{
+	messages::{ApprovalDistributionMessage, BitfieldDistributionMessage, NetworkBridgeEvent},
+	OverseerSignal,
 };
+use sc_network::{request_responses::ProtocolConfig, RequestFailure};
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge";
 const CHUNK_REQ_PROTOCOL_NAME_V1: &str =
@@ -44,6 +42,8 @@ pub struct MockNetworkBridgeTx {
 	network: NetworkEmulatorHandle,
 	/// A channel to the network interface,
 	to_network_interface: UnboundedSender<NetworkMessage>,
+	/// Test authorithies
+	test_authorithies: TestAuthorities,
 }
 
 /// A mock of the network bridge tx subsystem.
@@ -58,8 +58,9 @@ impl MockNetworkBridgeTx {
 	pub fn new(
 		network: NetworkEmulatorHandle,
 		to_network_interface: UnboundedSender<NetworkMessage>,
+		test_authorithies: TestAuthorities,
 	) -> MockNetworkBridgeTx {
-		Self { network, to_network_interface }
+		Self { network, to_network_interface, test_authorithies }
 	}
 }
 
@@ -126,9 +127,21 @@ impl MockNetworkBridgeTx {
 					NetworkBridgeTxMessage::ReportPeer(_) => {
 						// ingore rep changes
 					},
-					_ => {
-						unimplemented!("Unexpected network bridge message")
+					NetworkBridgeTxMessage::SendValidationMessage(peers, message) => {
+						for peer in peers {
+							self.to_network_interface
+								.unbounded_send(NetworkMessage::MessageFromNode(
+									self.test_authorithies
+										.peer_id_to_authority
+										.get(&peer)
+										.unwrap()
+										.clone(),
+									message.clone(),
+								))
+								.expect("Should not fail");
+						}
 					},
+					_ => unimplemented!("Unexpected network bridge message"),
 				},
 			}
 		}
@@ -145,16 +158,23 @@ impl MockNetworkBridgeRx {
 				maybe_peer_message = from_network_interface.next() => {
 					if let Some(message) = maybe_peer_message {
 						match message {
-							NetworkMessage::MessageFromPeer(message) => match message {
+							NetworkMessage::MessageFromPeer(peer_id, message) => match message {
 								Versioned::V2(
 									polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(
 										bitfield,
 									),
 								) => {
 									ctx.send_message(
-										BitfieldDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(PeerId::random(), polkadot_node_network_protocol::Versioned::V2(bitfield)))
+										BitfieldDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::Versioned::V2(bitfield)))
 									).await;
 								},
+								Versioned::V3(
+									polkadot_node_network_protocol::v3::ValidationProtocol::ApprovalDistribution(msg)
+								) => {
+									ctx.send_message(
+										ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::Versioned::V3(msg)))
+									).await;
+								}
 								_ => {
 									unimplemented!("We only talk v2 network protocol")
 								},

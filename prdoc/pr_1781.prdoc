@@ -1,0 +1,45 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Multi-Block-Migrations, `poll` hook and new System Callbacks"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The major things that this MR touches are:
+
+      **Multi-Block-Migrations**: `pallet-migrations` is introduced that can be configured in the
+      `System` of a runtime to act as multi-block migrator. The `migrations` pallet then in turn
+      receives the list of MBMs as config parameter. The list of migrations can be an aggregated
+      tuple of `SteppedMigration` trait implementation.  
+      It is paramount that the `migrations` pallet is configured in `System` once it is deployed. A
+      test is in place to double check this.
+
+      To integrate this into your runtime, it is only necessary to change the return type of
+      `initialize_block` to `RuntimeExecutiveMode`. For extended info please see
+      https://github.com/paritytech/polkadot-sdk/pull/1781.
+
+      **poll**: a new pallet hook named `poll` is added. This can be used for places where the code
+      that should be executed is not deadline critical. Runtime devs are advised to skim their usage
+      of `on_initialize` and `on_finalize` to see whether they can be replace with `poll`. `poll` is
+      not guaranteed to be called each block. In fact it will not be called when MBMs are ongoing.
+
+      **System Callbacks**: The `system` pallet gets five new config items - all of which can be
+      safely set to `()` as default. They are:  
+      - `SingleBlockMigrations`: replaces the `Executive` now for configuring migrations.
+      - `MultiBlockMigrator`: the `pallet-migrations` would be set here, if deployed.
+      - `PreInherents`: a hook that runs before any inherent.
+      - `PostInherents`: a hook to run between inherents and `poll`/MBM logic.
+      - `PostTransactions`: a hook to run after all transactions but before `on_idle`.
+
+crates:
+  - name: frame-executive
+  - name: frame-system
+  - name: frame-support
+  - name: frame-support-procedural
+  - name: pallet-migrations
+  - name: sc-basic-authorship
+  - name: sc-block-builder
+  - name: sp-api
+  - name: sp-api-proc-macro
+  - name: sp-runtime

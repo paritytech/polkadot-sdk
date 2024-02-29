@@ -46,9 +46,8 @@ use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
 
 use runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime,
-	assigner_on_demand as parachains_assigner_on_demand,
-	assigner_parachains as parachains_assigner_parachains,
-	configuration as parachains_configuration, coretime, disputes as parachains_disputes,
+	assigner_on_demand as parachains_assigner_on_demand, configuration as parachains_configuration,
+	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
@@ -150,7 +149,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_006_002,
+	spec_version: 1_007_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -309,12 +308,11 @@ impl pallet_balances::Config for Runtime {
 	type MaxLocks = MaxLocks;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
-	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_balances_balances::WeightInfo<Runtime>;
 	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<3>;
+	type MaxFreezes = ConstU32<1>;
 }
 
 parameter_types! {
@@ -1039,8 +1037,6 @@ impl parachains_assigner_on_demand::Config for Runtime {
 	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
 }
 
-impl parachains_assigner_parachains::Config for Runtime {}
-
 impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
@@ -1167,7 +1163,6 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<3>;
 	type MaxFreezes = ConstU32<1>;
 }
 
@@ -1331,13 +1326,6 @@ construct_runtime! {
 		Offences: pallet_offences = 7,
 		Historical: session_historical = 34,
 
-		// BEEFY Bridges support.
-		Beefy: pallet_beefy = 240,
-		// MMR leaf construction must be before session in order to have leaf contents
-		// refer to block<N-1> consistently. see substrate issue #11797 for details.
-		Mmr: pallet_mmr = 241,
-		MmrLeaf: pallet_beefy_mmr = 242,
-
 		Session: pallet_session = 8,
 		Grandpa: pallet_grandpa = 10,
 		AuthorityDiscovery: pallet_authority_discovery = 12,
@@ -1410,7 +1398,6 @@ construct_runtime! {
 		ParasSlashing: parachains_slashing = 63,
 		MessageQueue: pallet_message_queue = 64,
 		OnDemandAssignmentProvider: parachains_assigner_on_demand = 66,
-		ParachainsAssignmentProvider: parachains_assigner_parachains = 67,
 		CoretimeAssignmentProvider: parachains_assigner_coretime = 68,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
@@ -1422,6 +1409,13 @@ construct_runtime! {
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm = 99,
+
+		// BEEFY Bridges support.
+		Beefy: pallet_beefy = 240,
+		// MMR leaf construction must be after session in order to have a leaf's next_auth_set
+		// refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
+		Mmr: pallet_mmr = 241,
+		MmrLeaf: pallet_beefy_mmr = 242,
 
 		// Pallet for migrating Identity to a parachain. To be removed post-migration.
 		IdentityMigrator: identity_migrator = 248,
@@ -1664,6 +1658,10 @@ pub mod migrations {
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
 		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
 		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
+		parachains_configuration::migration::v12::MigrateToV12<Runtime>,
+
+		// permanent
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
 }
 
@@ -1771,7 +1769,7 @@ sp_api::impl_runtime_apis! {
 			Executive::execute_block(block);
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}
@@ -1823,6 +1821,12 @@ sp_api::impl_runtime_apis! {
 
 	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
+			use sp_runtime::{traits::Header, DigestItem};
+
+			if header.digest().logs().iter().any(|di| di == &DigestItem::RuntimeEnvironmentUpdated) {
+				pallet_im_online::migration::clear_offchain_storage(Session::validators().len() as u32);
+			}
+
 			Executive::offchain_worker(header)
 		}
 	}
@@ -2269,12 +2273,30 @@ sp_api::impl_runtime_apis! {
 					TokenLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-				pub ToParachain: ParaId = rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into();
+				pub AssetHubParaId: ParaId = rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into();
+				pub const RandomParaId: ParaId = ParaId::new(43211234);
 			}
 
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl frame_benchmarking::baseline::Config for Runtime {}
 			impl pallet_xcm::benchmarking::Config for Runtime {
+				type DeliveryHelper = (
+					runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForChildParachainDelivery,
+						AssetHubParaId,
+						(),
+					>,
+					runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForChildParachainDelivery,
+						RandomParaId,
+						(),
+					>
+				);
+
 				fn reachable_dest() -> Option<Location> {
 					Some(crate::xcm_config::AssetHub::get())
 				}
@@ -2283,7 +2305,7 @@ sp_api::impl_runtime_apis! {
 					// Relay/native token can be teleported to/from AH.
 					Some((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Here.into())
 						},
 						crate::xcm_config::AssetHub::get(),
@@ -2294,10 +2316,10 @@ sp_api::impl_runtime_apis! {
 					// Relay can reserve transfer native token to some random parachain.
 					Some((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Here.into())
 						},
-						Parachain(43211234).into(),
+						Parachain(RandomParaId::get().into()).into(),
 					))
 				}
 
@@ -2322,7 +2344,7 @@ sp_api::impl_runtime_apis! {
 					XcmConfig,
 					ExistentialDepositAsset,
 					xcm_config::PriceForChildParachainDelivery,
-					ToParachain,
+					AssetHubParaId,
 					(),
 				>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {

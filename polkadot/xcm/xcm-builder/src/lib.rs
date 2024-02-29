@@ -94,6 +94,11 @@ pub use nonfungibles_adapter::{
 	NonFungiblesAdapter, NonFungiblesMutateAdapter, NonFungiblesTransferAdapter,
 };
 
+mod nonfungible_adapter;
+pub use nonfungible_adapter::{
+	NonFungibleAdapter, NonFungibleMutateAdapter, NonFungibleTransferAdapter,
+};
+
 mod origin_aliases;
 pub use origin_aliases::AliasForeignAccountId32;
 
@@ -112,7 +117,7 @@ mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
 
 mod routing;
-pub use routing::{WithTopicSource, WithUniqueTopic};
+pub use routing::{EnsureDelivery, WithTopicSource, WithUniqueTopic};
 
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;
