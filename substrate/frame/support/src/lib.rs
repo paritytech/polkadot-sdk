@@ -1038,8 +1038,8 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
+	/// 	# use frame_support::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
@@ -1051,9 +1051,9 @@ pub mod pallet_macros {
 	/// 		/// AnotherOrigin doc.
 	/// 		AnotherOrigin,
 	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// 	# #[pallet::config]
+	/// 	# pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	///
@@ -1070,6 +1070,7 @@ pub mod pallet_macros {
 
 	/// The `#[pallet::inherent]` attribute allows the pallet to provide
 	/// [inherents](https://docs.substrate.io/fundamentals/transaction-types/#inherent-transactions).
+	///
 	/// An inherent is some piece of data that is inserted by a block authoring node at block
 	/// creation time and can either be accepted or rejected by validators based on whether the
 	/// data falls within an acceptable range.
@@ -1083,11 +1084,11 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	/// 	use frame_support::inherent::IsFatalError;
-	/// 	use sp_timestamp::InherentError;
-	/// 	use sp_std::result;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// # 	use frame_support::inherent::IsFatalError;
+	/// # 	use sp_timestamp::InherentError;
+	/// # 	use sp_std::result;
+	/// #
 	/// 	// Example inherent identifier
 	/// 	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"timstap0";
 	///
@@ -1115,9 +1116,9 @@ pub mod pallet_macros {
 	/// 			unimplemented!()
 	/// 		}
 	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	///
@@ -1130,15 +1131,17 @@ pub mod pallet_macros {
 	/// in the future to give information directly to `construct_runtime`.
 	pub use frame_support_procedural::inherent;
 
+	/// Allows breaking writing a pallet in multiple parts.
+	///
 	/// An attribute macro that can be attached to a module declaration. Doing so will
 	/// import the contents of the specified external pallet section that is defined
 	/// elsewhere using [`#[pallet_section]`](`pallet_section`).
 	///
 	/// ## Example
 	/// ```
-	/// use frame_support::pallet_macros::pallet_section;
-	/// use frame_support::pallet_macros::import_section;
-	///
+	/// # use frame_support::pallet_macros::pallet_section;
+	/// # use frame_support::pallet_macros::import_section;
+	/// #
 	/// /// A [`pallet_section`] that defines the events for a pallet.
 	/// /// This can later be imported into the pallet using [`import_section`].
 	/// #[pallet_section]
@@ -1155,15 +1158,15 @@ pub mod pallet_macros {
 	/// #[import_section(events)]
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {
-	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-	/// 	}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {
+	/// # 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	/// # 	}
 	/// }
 	/// ```
 	///
@@ -1182,31 +1185,32 @@ pub mod pallet_macros {
 	/// by their _full path_ from the perspective of the target pallet.
 	pub use frame_support_procedural::import_section;
 
-	/// The optional attribute `#[pallet::getter(fn $my_getter_fn_name)]` allows you to define
-	/// a getter function on `Pallet` storage.
+	/// Allows defining getter functions on `Pallet` storage.
 	///
 	/// ## Example
 	///
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
 	/// 	#[pallet::storage]
 	/// 	#[pallet::getter(fn my_getter_fn_name)]
 	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	///
 	/// See [`pallet::storage`](`frame_support::pallet_macros::storage`) for more info.
 	pub use frame_support_procedural::getter;
 
+	/// Allows generating the `Store` trait for all storages.
+	///
 	/// DEPRECATED: Will be removed, do not use.
 	/// See <https://github.com/paritytech/substrate/pull/13535> for more details.
 	///
@@ -1232,15 +1236,14 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
-	/// 	#[pallet::config]
-	/// 	#[pallet::disable_frame_system_supertrait_check]
-	/// 	pub trait Config: frame_system::Config {}
-	///
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
+	/// #
 	/// 	#[pallet::extra_constants]
 	/// 	impl<T: Config> Pallet<T> // $optional_where_clause
 	/// 	{
@@ -1258,13 +1261,21 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::extra_constants;
 
 	#[rustfmt::skip]
+	/// Allows bypassing the `frame_system::Config` supertrait check.
+	///
 	/// To bypass the `frame_system::Config` supertrait check, use the attribute
 	/// `pallet::disable_frame_system_supertrait_check`, e.g.:
 	///
-	/// ```
+	/// TODO: Fix the doctest
+	///
+	/// ```ignore
+	/// use frame_support::pallet_prelude::*;
+	/// use frame_system::pallet_prelude::*;
 	/// #[frame_support::pallet]
 	/// mod pallet {
 	/// 	use frame_support::pallet_prelude::*;
+	/// 	use frame_system::pallet_prelude::*;
+	/// 	trait OtherTrait {}
 	///
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
@@ -1283,16 +1294,15 @@ pub mod pallet_macros {
 	/// reference doc.
 	pub use frame_support_procedural::disable_frame_system_supertrait_check;
 
-	/// The mandatory attribute `#[pallet::config]` defines the configurable options for the
-	/// pallet.
+	/// The mandatory attribute allowing definition of configurable types for the pallet.
 	///
 	/// Item must be defined as:
 	///
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
@@ -1326,11 +1336,11 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	/// 	use frame_system::pallet_prelude::*;
-	/// 	use core::fmt::Debug;
-	/// 	use frame_support::traits::Contains;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// # 	use frame_system::pallet_prelude::*;
+	/// # 	use core::fmt::Debug;
+	/// # 	use frame_support::traits::Contains;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
@@ -1378,6 +1388,8 @@ pub mod pallet_macros {
 	/// For more information, see [`frame_support::derive_impl`].
 	pub use frame_support_procedural::config;
 
+	/// Allows defining an enum that gets composed as an aggregate enum by `construct_runtime`.
+	///
 	/// The `#[pallet::composite_enum]` attribute allows you to define an enum that gets
 	/// composed as an aggregate enum by `construct_runtime`. This is similar in principle with
 	/// [frame_support_procedural::event] and [frame_support_procedural::error].
@@ -1408,8 +1420,8 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
@@ -1421,22 +1433,21 @@ pub mod pallet_macros {
 	/// 		#[codec(index = 1)]
 	/// 		SomeOtherHoldReason,
 	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	pub use frame_support_procedural::composite_enum;
 
-	/// The `#[pallet::validate_unsigned]` attribute allows the pallet to validate some
-	/// unsigned transaction:
+	/// Allows the pallet to validate unsigned transactions.
 	///
 	/// Item must be defined as:
 	///
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
@@ -1449,9 +1460,9 @@ pub mod pallet_macros {
 	/// 			unimplemented!()
 	/// 		}
 	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	///
@@ -1468,9 +1479,10 @@ pub mod pallet_macros {
 	/// in the future to give information directly to [`frame_support::construct_runtime`].
 	pub use frame_support_procedural::validate_unsigned;
 
-	/// The `#[pallet::type_value]` attribute lets you define a struct implementing the
-	/// [`Get`](frame_support::traits::Get) trait to ease the use of storage types. This
-	/// attribute is meant to be used alongside [`#[pallet::storage]`](`storage`) to
+	/// Allows defining a struct implementing the [`Get`](frame_support::traits::Get) trait to
+	/// ease the use of storage types.
+	///
+	/// This attribute is meant to be used alongside [`#[pallet::storage]`](`storage`) to
 	/// define a storage's default value. This attribute can be used multiple times.
 	///
 	/// Item must be defined as:
@@ -1478,9 +1490,9 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use sp_runtime::FixedU128;
-	/// 	use frame_support::pallet_prelude::*;
-	///
+	/// # 	use sp_runtime::FixedU128;
+	/// # 	use frame_support::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
@@ -1493,9 +1505,9 @@ pub mod pallet_macros {
 	/// 	pub fn DefaultForSomeValue() -> FixedU128 {
 	/// 		FixedU128::from_u32(1)
 	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	///
@@ -1506,6 +1518,8 @@ pub mod pallet_macros {
 	/// calling the user defined function.
 	pub use frame_support_procedural::type_value;
 
+	/// Allows defining a storage version for the pallet.
+	///
 	/// Because the `pallet::pallet` macro implements
 	/// [`GetStorageVersion`](frame_support::traits::GetStorageVersion), the current storage
 	/// version needs to be communicated to the macro. This can be done by using the
@@ -1514,34 +1528,35 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::StorageVersion;
-	/// 	use frame_support::traits::GetStorageVersion;
-	///
+	/// # 	use frame_support::pallet_prelude::StorageVersion;
+	/// # 	use frame_support::traits::GetStorageVersion;
+	/// #
 	/// 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 	///
 	/// 	#[pallet::pallet]
 	/// 	#[pallet::storage_version(STORAGE_VERSION)]
 	/// 	pub struct Pallet<T>(_);
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	///
 	/// If not present, the current storage version is set to the default value.
 	pub use frame_support_procedural::storage_version;
 
-	/// The `#[pallet::hooks]` attribute allows you to specify a [`frame_support::traits::Hooks`] implementation for
-	/// `Pallet` that specifies pallet-specific logic.
+	/// The `#[pallet::hooks]` attribute allows you to specify a
+	/// [`frame_support::traits::Hooks`] implementation for `Pallet` that specifies
+	/// pallet-specific logic.
 	///
 	/// The item the attribute attaches to must be defined as follows:
 	///
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	/// 	use frame_system::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// # 	use frame_system::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
@@ -1549,9 +1564,9 @@ pub mod pallet_macros {
 	/// 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 	/// 		// Implement hooks here
 	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	/// I.e. a regular trait implementation with generic bound: `T: Config`, for the trait
@@ -1577,8 +1592,7 @@ pub mod pallet_macros {
 	/// following hooks emit traces: `on_initialize`, `on_finalize` and `on_runtime_upgrade`.
 	pub use frame_support_procedural::hooks;
 
-	/// The attribute `#[pallet::generate_deposit($visibility fn deposit_event)]` generates a
-	/// helper function on `Pallet` that handles deposit events.
+	/// Generates a helper function on `Pallet` that handles deposit events.
 	///
 	/// NOTE: For instantiable pallets, the event must be generic over `T` and `I`.
 	///
@@ -1600,6 +1614,8 @@ pub mod pallet_macros {
 	/// deposit_event` on `Pallet`.
 	pub use frame_support_procedural::generate_deposit;
 
+	/// Allows defining logic to make an extrinsic call feeless.
+	///
 	/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]`
 	/// attribute, which explicitly defines the condition for the dispatchable to be feeless.
 	///
@@ -1613,9 +1629,9 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet(dev_mode)]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	/// 	use frame_system::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// # 	use frame_system::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
@@ -1633,9 +1649,9 @@ pub mod pallet_macros {
 	/// 			unimplemented!()
 	/// 		}
 	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	///
@@ -1653,9 +1669,10 @@ pub mod pallet_macros {
 	/// [`pallet_skip_feeless_payment::CheckIfFeeless`]: ../../pallet_skip_feeless_payment/struct.SkipCheckIfFeeless.html
 	pub use frame_support_procedural::feeless_if;
 
-	/// The `#[pallet::error]` attribute allows you to define an error enum that will be
-	/// returned from the dispatchable when an error occurs. The information for this error
-	/// type is then stored in metadata.
+	/// Allows defining an error enum that will be returned from the dispatchable when an error
+	/// occurs.
+	///
+	/// The information for this error type is then stored in runtime metadata.
 	///
 	/// Item must be defined as so:
 	///
@@ -1672,9 +1689,9 @@ pub mod pallet_macros {
 	/// 		/// SomeVariantWithOneField doc
 	/// 		SomeVariantWithOneField(u32),
 	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	/// I.e. a regular enum named `Error`, with generic `T` and fieldless or multiple-field
@@ -1708,17 +1725,18 @@ pub mod pallet_macros {
 	/// `DispatchError`.
 	pub use frame_support_procedural::error;
 
-	/// The `#[pallet::event]` attribute allows you to define pallet events. Pallet events are
-	/// stored under the `system` / `events` key when the block is applied (and then replaced
-	/// when the next block writes it's events).
+	/// Allows defining pallet events.
+	///
+	/// Pallet events are stored under the `system` / `events` key when the block is applied
+	/// (and then replaced when the next block writes it's events).
 	///
 	/// The Event enum can be defined as follows:
 	///
 	/// ```
 	/// #[frame_support::pallet(dev_mode)]
 	/// mod pallet {
-	///     use frame_support::pallet_prelude::IsType;
-	///
+	/// #     use frame_support::pallet_prelude::IsType;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
@@ -1748,8 +1766,10 @@ pub mod pallet_macros {
 	/// `Member`, available in `frame_support::pallet_prelude`.
 	pub use frame_support_procedural::event;
 
-	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
-	/// slightly simplified terms, this macro declares the set of "transactions" of a pallet.
+	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*.
+	///
+	/// In slightly simplified terms, this macro declares the set of "transactions" of a
+	/// pallet.
 	///
 	/// > The exact definition of **extrinsic** can be found in
 	/// > [`sp_runtime::generic::UncheckedExtrinsic`].
@@ -1866,8 +1886,9 @@ pub mod pallet_macros {
 	/// ```
 	pub use frame_support_procedural::call;
 
-	/// Enforce the index of a variant in the generated `enum Call`. See [`call`] for more
-	/// information.
+	/// Enforce the index of a variant in the generated `enum Call`.
+	///
+	/// See [`call`] for more information.
 	///
 	/// All call indexes start from 0, until it encounters a dispatchable function with a
 	/// defined call index. The dispatchable function that lexically follows the function with
@@ -1877,7 +1898,9 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::call_index;
 
 	/// Declares the arguments of a [`call`] function to be encoded using
-	/// [`codec::Compact`]. This will results in smaller extrinsic encoding.
+	/// [`codec::Compact`].
+	///
+	/// This will results in smaller extrinsic encoding.
 	///
 	/// A common example of `compact` is for numeric values that are often times far far away
 	/// from their theoretical maximum. For example, in the context of a crypto-currency, the
@@ -1973,8 +1996,8 @@ pub mod pallet_macros {
 	/// ```
 	pub use frame_support_procedural::genesis_build;
 
-	/// The `#[pallet::constant]` attribute can be used to add an associated type trait bounded
-	/// by [`Get`](frame_support::pallet_prelude::Get) from [`pallet::config`](`macro@config`)
+	/// Allows adding an associated type trait bounded by
+	/// [`Get`](frame_support::pallet_prelude::Get) from [`pallet::config`](`macro@config`)
 	/// into metadata.
 	///
 	/// ## Example
@@ -1995,9 +2018,10 @@ pub mod pallet_macros {
 	/// ```
 	pub use frame_support_procedural::constant;
 
-	/// Declares a type alias as a storage item. Storage items are pointers to data stored
-	/// on-chain (the *blockchain state*), under a specific key. The exact key is dependent on
-	/// the type of the storage.
+	/// Declares a type alias as a storage item.
+	///
+	/// Storage items are pointers to data stored on-chain (the *blockchain state*), under a
+	/// specific key. The exact key is dependent on the type of the storage.
 	///
 	/// > From the perspective of this pallet, the entire blockchain state is abstracted behind
 	/// > a key-value api, namely [`sp_io::storage`].
@@ -2196,6 +2220,9 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	pub use frame_support_procedural::storage;
+
+	/// Allows defining conditions for a task to run.
+	///
 	/// This attribute is attached to a function inside an `impl` block annoated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the conditions for a
 	/// given work item to be valid.
@@ -2204,6 +2231,9 @@ pub mod pallet_macros {
 	/// should have the same signature as the function it is attached to, except that it should
 	/// return a `bool` instead.
 	pub use frame_support_procedural::task_condition;
+
+	/// Allows defining an index for a task.
+	///
 	/// This attribute is attached to a function inside an `impl` block annoated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the index of a given
 	/// work item.
@@ -2211,22 +2241,29 @@ pub mod pallet_macros {
 	/// It takes an integer literal as input, which is then used to define the index. This
 	/// index should be unique for each function in the `impl` block.
 	pub use frame_support_procedural::task_index;
+
+	/// Allows defining an iterator over available work items for a task.
+	///
 	/// This attribute is attached to a function inside an `impl` block annoated with
-	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define an iterator over the
-	/// available work items for a task.
+	/// [`pallet::tasks_experimental`](`tasks_experimental`).
 	///
 	/// It takes an iterator as input that yields a tuple with same types as the function
 	/// arguments.
 	pub use frame_support_procedural::task_list;
+
+	/// Allows defining the weight of a task.
+	///
 	/// This attribute is attached to a function inside an `impl` block annoated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) define the weight of a given work
 	/// item.
 	///
 	/// It takes a closure as input, which should return a `Weight` value.
 	pub use frame_support_procedural::task_weight;
+
 	/// Allows you to define some service work that can be recognized by a script or an
-	/// off-chain worker. Such a script can then create and submit all such work items at any
-	/// given time.
+	/// off-chain worker.
+	///
+	/// Such a script can then create and submit all such work items at any given time.
 	///
 	/// These work items are defined as instances of the [`Task`](frame_support::traits::Task)
 	/// trait. [`pallet:tasks_experimental`](`tasks_experimental`) when attached to an `impl`
@@ -2252,10 +2289,10 @@ pub mod pallet_macros {
 	#[doc = docify::embed!("src/tests/tasks.rs", tasks_work)]
 	pub use frame_support_procedural::tasks_experimental;
 
-	/// The optional attribute `#[pallet::whitelist_storage]` will declare the
-	/// storage as whitelisted from benchmarking. Doing so will exclude reads of
-	/// that value's storage key from counting towards weight calculations during
-	/// benchmarking.
+	/// Declare the storage as whitelisted from benchmarking.
+	///
+	/// Doing so will exclude reads of that value's storage key from counting towards weight
+	/// calculations during benchmarking.
 	///
 	/// This attribute should only be attached to storages that are known to be
 	/// read/used in every block. This will result in a more accurate benchmarking weight.
@@ -2264,21 +2301,23 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
 	/// 	#[pallet::storage]
 	/// 	#[pallet::whitelist_storage]
 	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	pub use frame_support_procedural::whitelist_storage;
 
+	/// Allows specifying the weight of a call.
+	///
 	/// Each dispatchable needs to define a weight with the `#[pallet::weight($expr)]`
 	/// attribute. The first argument must be `origin: OriginFor<T>`.
 	///
@@ -2287,9 +2326,9 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	/// 	use frame_system::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// # 	use frame_system::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
@@ -2304,14 +2343,15 @@ pub mod pallet_macros {
 	/// 			unimplemented!()
 	/// 		}
 	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	pub use frame_support_procedural::weight;
 
-	/// The optional attribute `#[pallet::unbounded]` declares a storage item as unbounded.
+	/// Declares a storage as unbounded in potential size.
+	///
 	/// When implementating the storage info (when `#[pallet::generate_storage_info]` is
 	/// specified on the pallet struct placeholder), the size of the storage will be declared
 	/// as unbounded. This can be useful for storage which can never go into PoV (Proof of
@@ -2322,48 +2362,48 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
 	/// 	#[pallet::storage]
 	/// 	#[pallet::unbounded]
 	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	pub use frame_support_procedural::unbounded;
 
-	/// The optional attribute `#[pallet::storage_prefix = "SomeName"]` allows you to define
-	/// what storage prefix to use for a storage item when building the trie. This is helpful
-	/// if you wish to rename the storage field but don't want to perform a migration.
+	/// Allow defining what storage prefix to use for a storage item when building the trie.
+	///
+	/// This is helpful if you wish to rename the storage field but don't want to perform a
+	/// migration.
 	///
 	/// ## Example
 	///
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	///
+	/// # 	use frame_support::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
 	/// 	#[pallet::storage]
 	/// 	#[pallet::storage_prefix = "foo"]
 	/// 	pub type MyStorage<T> = StorageValue<_, u32>;
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
 	pub use frame_support_procedural::storage_prefix;
 
-	/// The optional attribute `#[pallet::no_default_bounds]` can be attached to trait items
-	/// within a `Config` trait impl that has
-	/// [`#[pallet::config(with_default)]`](`config`) attached.
+	/// Allows ensuring that the generated `DefaultConfig` will not have any bounds for that
+	/// trait item.
 	///
 	/// Attaching this attribute to a trait item ensures that the generated trait
 	/// `DefaultConfig` will not have any bounds for this trait item.
@@ -2373,17 +2413,16 @@ pub mod pallet_macros {
 	/// bound.
 	pub use frame_support_procedural::no_default_bounds;
 
+	/// Allows ensuring that the trait item will not be used as a default with the
+	/// `#[derive_impl(..)]` attribute macro.
+	///
 	/// The optional attribute `#[pallet::no_default]` can be attached to trait items within a
 	/// `Config` trait impl that has [`#[pallet::config(with_default)]`](`config`)
 	/// attached.
-	///
-	/// Attaching this attribute to a trait item ensures that that trait item will not be used
-	/// as a default with the [`#[derive_impl(..)]`](`frame_support::derive_impl`) attribute
-	/// macro.
 	pub use frame_support_procedural::no_default;
 
-	/// Can be attached to a module. Doing so will declare that module as importable into a
-	/// pallet via [`#[import_section]`](`import_section`).
+	/// Allows declaring a module as importable into a pallet via
+	/// [`#[import_section]`](`import_section`).
 	///
 	/// Note that sections are imported by their module name/ident, and should be referred to
 	/// by their _full path_ from the perspective of the target pallet. Do not attempt to make
