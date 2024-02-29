@@ -72,12 +72,16 @@ pub trait DelegateeSupport {
 /// an account.
 pub trait DelegatedStakeInterface: StakingInterface {
 	/// Effective balance of the `delegatee` account.
+	///
+	/// This takes into account any pending slashes to `Delegatee`.
 	fn delegatee_balance(delegatee: &Self::AccountId) -> Self::Balance;
 
 	/// Returns the total amount of funds delegated by a `delegator`.
 	fn delegator_balance(delegator: &Self::AccountId) -> Self::Balance;
 
 	/// Delegate funds to `delegatee`.
+	///
+	/// Only used for the initial delegation. Use [`Self::delegate_extra`] to add more delegation.
 	fn delegate(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
@@ -86,6 +90,8 @@ pub trait DelegatedStakeInterface: StakingInterface {
 	) -> DispatchResult;
 
 	/// Add more delegation to the `delegatee`.
+	///
+	/// If this is the first delegation, use [`Self::delegate`] instead.
 	fn delegate_extra(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
@@ -93,6 +99,9 @@ pub trait DelegatedStakeInterface: StakingInterface {
 	) -> DispatchResult;
 
 	/// Withdraw or revoke delegation to `delegatee`.
+	///
+	/// If there are `delegatee` funds upto `amount` available to withdraw, then those funds would be
+	/// released to the `delegator`
 	fn withdraw_delegation(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
@@ -100,6 +109,9 @@ pub trait DelegatedStakeInterface: StakingInterface {
 	) -> DispatchResult;
 
 	/// Returns true if there are pending slashes posted to the `delegatee` account.
+	///
+	/// Slashes to `delegatee` account are not immediate and are applied lazily. Since `delegatee`
+	/// has an unbounded number of delegators, immediate slashing is not possible.
 	fn has_pending_slash(delegatee: &Self::AccountId) -> bool;
 
 	/// Apply a pending slash to a `delegatee` by slashing `value` from `delegator`.

@@ -20,8 +20,15 @@
 //! An abstraction over staking pallet to support delegation of funds to a `delegatee` account which
 //! can use all the delegated funds to it in the staking pallet as if its own fund.
 //!
-//! NOTE: The pallet exposes extrinsics which are not yet meant to be exposed in the runtime but
-//! only to be used by other pallets in the same runtime.
+//! NOTE: The pallet exposes some dispatchable calls already, but they might not be fully usable
+//! from outside the runtime. In the current version, the pallet is meant to be used by other
+//! pallets in the same runtime. Eventually though, expect those calls to be functionally complete
+//! and usable by off-chain programs as well as xcm based multi locations.
+//!
+//! Declaring dispatchable still has the benefit of being transactable for unit tests as well as
+//! aligned with general direction of moving towards a permissionless pallet. For example, we could
+//! clearly signal who is the expected signer of any interaction with this pallet and take into
+//! security considerations already.
 //!
 //! ## Goals
 //!
@@ -44,12 +51,12 @@
 //! similar to `NominationPool`.
 //!
 //! ## Key Terminologies
-//! - *Delegatee*: An account who accepts delegations from other accounts.
-//! - *Delegator*: An account who delegates their funds to a `delegatee`.
-//! - *DelegateeLedger*: A data structure that stores important information about the `delegatee`
+//! - **Delegatee**: An account who accepts delegations from other accounts.
+//! - **Delegator**: An account who delegates their funds to a `delegatee`.
+//! - **DelegateeLedger**: A data structure that stores important information about the `delegatee`
 //! 	such as their total delegated stake.
-//! - *Delegation*: A data structure that stores the amount of funds delegated to a `delegatee` by a
-//! 	`delegator`.
+//! - **Delegation**: A data structure that stores the amount of funds delegated to a `delegatee` by
+//! 	a `delegator`.
 //!
 //! ## Interface
 //!
