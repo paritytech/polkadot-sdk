@@ -209,6 +209,7 @@ pub mod pallet {
 	where
 		T::AccountId: From<SomeType1> + From<SomeType3> + SomeAssociation1,
 	{
+		/// call foo doc comment put in metadata
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		pub fn foo(
@@ -224,6 +225,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		/// call foo_storage_layer doc comment put in metadata
 		#[pallet::call_index(1)]
 		#[pallet::weight({1})]
 		pub fn foo_storage_layer(
@@ -268,6 +270,7 @@ pub mod pallet {
 	#[pallet::error]
 	#[derive(PartialEq, Eq)]
 	pub enum Error<T> {
+		/// error doc comment put in metadata
 		InsufficientProposersBalance,
 		NonExistentStorageValue,
 		Code(u8),
@@ -284,6 +287,7 @@ pub mod pallet {
 	where
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
 	{
+		/// event doc comment put in metadata
 		Proposed(<T as frame_system::Config>::AccountId),
 		Spending(BalanceOf<T>),
 		Something(u32),
@@ -1354,6 +1358,39 @@ fn migrate_from_pallet_version_to_storage_version() {
 		assert_eq!(Example2::on_chain_storage_version(), pallet2::STORAGE_VERSION);
 		assert_eq!(System::on_chain_storage_version(), StorageVersion::new(0));
 	});
+}
+
+#[test]
+fn pallet_item_docs_in_metadata() {
+	// call
+	let call_variants = match meta_type::<pallet::Call<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(call_variants[0].docs, vec!["call foo doc comment put in metadata"]);
+	assert_eq!(call_variants[1].docs, vec!["call foo_storage_layer doc comment put in metadata"]);
+	assert!(call_variants[2].docs.is_empty());
+
+	// event
+	let event_variants = match meta_type::<pallet::Event<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(event_variants[0].docs, vec!["event doc comment put in metadata"]);
+	assert!(event_variants[1].docs.is_empty());
+
+	// error
+	let error_variants = match meta_type::<pallet::Error<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(error_variants[0].docs, vec!["error doc comment put in metadata"]);
+	assert!(error_variants[1].docs.is_empty());
+
+	// storage is already covered in the main `fn metadata` test.
 }
 
 #[test]
