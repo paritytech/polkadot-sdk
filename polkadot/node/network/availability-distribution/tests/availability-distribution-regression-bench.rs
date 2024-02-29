@@ -14,6 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+//! availability-read regression tests
+//!
+//! TODO: Explain the test case after configuration adjusted to Kusama
+//!
+//! Subsystems involved:
+//! - availability-distribution
+//! - bitfield-distribution
+//! - availability-store
+
 use polkadot_subsystem_bench::{
 	availability::{benchmark_availability_write, prepare_test, TestDataAvailability, TestState},
 	configuration::{PeerLatency, TestConfiguration},
@@ -26,6 +35,8 @@ const WARM_UP_PRECISION: f64 = 0.01;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
+
+	// TODO: Adjust the test configurations to Kusama values
 	let mut config = TestConfiguration::default();
 	config.latency = Some(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 });
 	config.n_validators = 1000;
