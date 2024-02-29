@@ -84,6 +84,7 @@ cumulus-pallet-xcm = { path = "../../../cumulus/pallets/xcm", default-features =
 cumulus-pallet-xcmp-queue = { path = "../../../cumulus/pallets/xcmp-queue", default-features = false }
 cumulus-primitives-core = { path = "../../../cumulus/primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../cumulus/primitives/utility", default-features = false }
+cumulus-primitives-storage-weight-reclaim = { path = "../../../cumulus/primitives/storage-weight-reclaim", default-features = false }
 pallet-collator-selection = { path = "../../../cumulus/pallets/collator-selection", default-features = false }
 parachains-common = { path = "../../../cumulus/parachains/common", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../cumulus/parachains/pallets/parachain-info", default-features = false }
@@ -98,6 +99,7 @@ std = [
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-core/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
