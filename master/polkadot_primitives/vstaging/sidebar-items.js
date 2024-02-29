@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["node_features"],"struct":["ApprovalVotingParams"],"type":["NodeFeatures"]};
+window.SIDEBAR_ITEMS = {"mod":["node_features"],"struct":["ApprovalVotingParams","SchedulerParams"],"type":["NodeFeatures"]};

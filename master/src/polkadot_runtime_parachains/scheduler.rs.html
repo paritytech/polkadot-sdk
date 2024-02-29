@@ -828,15 +828,6 @@ nav.side-bar {
 <a href="#686" id="686">686</a>
 <a href="#687" id="687">687</a>
 <a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -890,7 +881,7 @@ nav.side-bar {
 
 <span class="kw">pub mod </span>common;
 
-<span class="kw">use </span>common::{Assignment, AssignmentProvider, AssignmentProviderConfig};
+<span class="kw">use </span>common::{Assignment, AssignmentProvider};
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
@@ -1061,7 +1052,7 @@ nav.side-bar {
 
 		<span class="kw">let </span>n_cores = core::cmp::max(
 			T::AssignmentProvider::session_core_count(),
-			<span class="kw">match </span>config.max_validators_per_core {
+			<span class="kw">match </span>config.scheduler_params.max_validators_per_core {
 				<span class="prelude-val">Some</span>(x) <span class="kw">if </span>x != <span class="number">0 </span>=&gt; validators.len() <span class="kw">as </span>u32 / x,
 				<span class="kw">_ </span>=&gt; <span class="number">0</span>,
 			},
@@ -1189,6 +1180,7 @@ nav.side-bar {
 	</span><span class="kw">fn </span>drop_expired_claims_from_claimqueue() {
 		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
 		<span class="kw">let </span>availability_cores = AvailabilityCores::&lt;T&gt;::get();
+		<span class="kw">let </span>ttl = &lt;configuration::Pallet&lt;T&gt;&gt;::config().scheduler_params.ttl;
 
 		ClaimQueue::&lt;T&gt;::mutate(|cq| {
 			<span class="kw">for </span>(idx, <span class="kw">_</span>) <span class="kw">in </span>(<span class="number">0u32</span>..).zip(availability_cores) {
@@ -1221,8 +1213,6 @@ nav.side-bar {
 						</span><span class="kw">if let </span><span class="prelude-val">Some</span>(assignment) =
 							T::AssignmentProvider::pop_assignment_for_core(core_idx)
 						{
-							<span class="kw">let </span>AssignmentProviderConfig { ttl, .. } =
-								T::AssignmentProvider::get_provider_config(core_idx);
 							core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
 						}
 					}
@@ -1267,7 +1257,7 @@ nav.side-bar {
 		</span>}
 
 		<span class="kw">let </span>rotations_since_session_start: BlockNumberFor&lt;T&gt; =
-			(at - session_start_block) / config.group_rotation_frequency;
+			(at - session_start_block) / config.scheduler_params.group_rotation_frequency;
 
 		<span class="kw">let </span>rotations_since_session_start =
 			&lt;BlockNumberFor&lt;T&gt; <span class="kw">as </span>TryInto&lt;u32&gt;&gt;::try_into(rotations_since_session_start)
@@ -1299,9 +1289,9 @@ nav.side-bar {
 				// Note: blocks backed in this rotation will never time out here as backed_in +
 				// config.paras_availability_period will always be &gt; now for these blocks, as
 				// otherwise above condition would not be true.
-				</span>pending_since + config.paras_availability_period
+				</span>pending_since + config.scheduler_params.paras_availability_period
 			} <span class="kw">else </span>{
-				next_rotation + config.paras_availability_period
+				next_rotation + config.scheduler_params.paras_availability_period
 			};
 
 			AvailabilityTimeoutStatus { timed_out: time_out_at &lt;= now, live_until: time_out_at }
@@ -1317,7 +1307,8 @@ nav.side-bar {
 		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() + One::one();
 		<span class="kw">let </span>rotation_info = <span class="self">Self</span>::group_rotation_info(now);
 
-		<span class="kw">let </span>current_window = rotation_info.last_rotation_at() + config.paras_availability_period;
+		<span class="kw">let </span>current_window =
+			rotation_info.last_rotation_at() + config.scheduler_params.paras_availability_period;
 		now &lt; current_window
 	}
 
@@ -1327,7 +1318,7 @@ nav.side-bar {
 	) -&gt; GroupRotationInfo&lt;BlockNumberFor&lt;T&gt;&gt; {
 		<span class="kw">let </span>session_start_block = <span class="self">Self</span>::session_start_block();
 		<span class="kw">let </span>group_rotation_frequency =
-			&lt;configuration::Pallet&lt;T&gt;&gt;::config().group_rotation_frequency;
+			&lt;configuration::Pallet&lt;T&gt;&gt;::config().scheduler_params.group_rotation_frequency;
 
 		GroupRotationInfo { session_start_block, now, group_rotation_frequency }
 	}
@@ -1347,6 +1338,8 @@ nav.side-bar {
 	<span class="doccomment">/// Return the next thing that will be scheduled on this core assuming it is currently
 	/// occupied and the candidate occupying it times out.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>next_up_on_time_out(core: CoreIndex) -&gt; <span class="prelude-ty">Option</span>&lt;ScheduledCore&gt; {
+		<span class="kw">let </span>max_availability_timeouts =
+			&lt;configuration::Pallet&lt;T&gt;&gt;::config().scheduler_params.max_availability_timeouts;
 		<span class="self">Self</span>::next_up_on_available(core).or_else(|| {
 			<span class="comment">// Or, if none, the claim currently occupying the core,
 			// as it would be put back on the queue after timing out if number of retries is not at
@@ -1354,16 +1347,12 @@ nav.side-bar {
 			</span><span class="kw">let </span>cores = AvailabilityCores::&lt;T&gt;::get();
 			cores.get(core.<span class="number">0 </span><span class="kw">as </span>usize).and_then(|c| <span class="kw">match </span>c {
 				CoreOccupied::Free =&gt; <span class="prelude-val">None</span>,
-				CoreOccupied::Paras(pe) =&gt; {
-					<span class="kw">let </span>AssignmentProviderConfig { max_availability_timeouts, .. } =
-						T::AssignmentProvider::get_provider_config(core);
-
+				CoreOccupied::Paras(pe) =&gt;
 					<span class="kw">if </span>pe.availability_timeouts &lt; max_availability_timeouts {
 						<span class="prelude-val">Some</span>(<span class="self">Self</span>::paras_entry_to_scheduled_core(pe))
 					} <span class="kw">else </span>{
 						<span class="prelude-val">None
-					</span>}
-				},
+					</span>},
 			})
 		})
 	}
@@ -1405,7 +1394,7 @@ nav.side-bar {
 	//  ClaimQueue related functions
 	//
 	</span><span class="kw">fn </span>claimqueue_lookahead() -&gt; u32 {
-		&lt;configuration::Pallet&lt;T&gt;&gt;::config().scheduling_lookahead
+		&lt;configuration::Pallet&lt;T&gt;&gt;::config().scheduler_params.lookahead
 	}
 
 	<span class="doccomment">/// Frees cores and fills the free claimqueue spots by popping from the `AssignmentProvider`.
@@ -1424,15 +1413,15 @@ nav.side-bar {
 		</span><span class="kw">let </span>n_lookahead = <span class="self">Self</span>::claimqueue_lookahead().max(<span class="number">1</span>);
 		<span class="kw">let </span>n_session_cores = T::AssignmentProvider::session_core_count();
 		<span class="kw">let </span>cq = ClaimQueue::&lt;T&gt;::get();
-		<span class="kw">let </span>ttl = &lt;configuration::Pallet&lt;T&gt;&gt;::config().on_demand_ttl;
+		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>max_availability_timeouts = config.scheduler_params.max_availability_timeouts;
+		<span class="kw">let </span>ttl = config.scheduler_params.ttl;
 
 		<span class="kw">for </span>core_idx <span class="kw">in </span><span class="number">0</span>..n_session_cores {
 			<span class="kw">let </span>core_idx = CoreIndex::from(core_idx);
 
 			<span class="comment">// add previously timedout paras back into the queue
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>entry) = timedout_paras.remove(<span class="kw-2">&amp;</span>core_idx) {
-				<span class="kw">let </span>AssignmentProviderConfig { max_availability_timeouts, .. } =
-					T::AssignmentProvider::get_provider_config(core_idx);
 				<span class="kw">if </span>entry.availability_timeouts &lt; max_availability_timeouts {
 					<span class="comment">// Increment the timeout counter.
 					</span>entry.availability_timeouts += <span class="number">1</span>;
@@ -1505,13 +1494,6 @@ nav.side-bar {
 		claimqueue
 			.into_iter()
 			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.assignment.para_id())))
-	}
-
-	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>assignment_provider_config(
-		core_idx: CoreIndex,
-	) -&gt; AssignmentProviderConfig&lt;BlockNumberFor&lt;T&gt;&gt; {
-		T::AssignmentProvider::get_provider_config(core_idx)
 	}
 
 	<span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]

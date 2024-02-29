@@ -209,16 +209,6 @@ nav.side-bar {
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -248,7 +238,7 @@ nav.side-bar {
 
 <span class="kw">use crate</span>::{
 	configuration, paras,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider},
 };
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
@@ -278,16 +268,6 @@ nav.side-bar {
 	<span class="doccomment">/// Bulk assignment has no need to push the assignment back on a session change,
 	/// this is a no-op in the case of a bulk assignment slot.
 	</span><span class="kw">fn </span>push_back_assignment(<span class="kw">_</span>: Assignment) {}
-
-	<span class="kw">fn </span>get_provider_config(_core_idx: CoreIndex) -&gt; AssignmentProviderConfig&lt;BlockNumberFor&lt;T&gt;&gt; {
-		AssignmentProviderConfig {
-			<span class="comment">// The next assignment already goes to the same [`ParaId`], no timeout tracking needed.
-			</span>max_availability_timeouts: <span class="number">0</span>,
-			<span class="comment">// The next assignment already goes to the same [`ParaId`], this can be any number
-			// that&#39;s high enough to clear the time it takes to clear backing/availability.
-			</span>ttl: <span class="number">10u32</span>.into(),
-		}
-	}
 
 	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
 	</span><span class="kw">fn </span>get_mock_assignment(<span class="kw">_</span>: CoreIndex, para_id: primitives::Id) -&gt; Assignment {

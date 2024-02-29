@@ -2774,6 +2774,7 @@ nav.side-bar {
 <a href="#2632" id="2632">2632</a>
 <a href="#2633" id="2633">2633</a>
 <a href="#2634" id="2634">2634</a>
+<a href="#2635" id="2635">2635</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4475,6 +4476,7 @@ nav.side-bar {
 		<span class="comment">// Migrate Identity pallet for Usernames
 		</span>pallet_identity::migration::versioned::V0ToV1&lt;Runtime, IDENTITY_MIGRATION_KEY_LIMIT&gt;,
 		parachains_configuration::migration::v11::MigrateToV11&lt;Runtime&gt;,
+		parachains_configuration::migration::v12::MigrateToV12&lt;Runtime&gt;,
 		<span class="comment">// permanent
 		</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
 		<span class="comment">// Migrate from legacy lease to coretime. Needs to run after configuration v11

@@ -227,21 +227,6 @@ nav.side-bar {
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -292,22 +277,10 @@ nav.side-bar {
 	}
 }
 
-<span class="attr">#[derive(Encode, Decode, TypeInfo)]
-</span><span class="doccomment">/// A set of variables required by the scheduler in order to operate.
-</span><span class="kw">pub struct </span>AssignmentProviderConfig&lt;BlockNumber&gt; {
-	<span class="doccomment">/// How many times a collation can time out on availability.
-	/// Zero timeouts still means that a collation can be provided as per the slot auction
-	/// assignment provider.
-	</span><span class="kw">pub </span>max_availability_timeouts: u32,
-
-	<span class="doccomment">/// How long the collator has to provide a collation to the backing group before being dropped.
-	</span><span class="kw">pub </span>ttl: BlockNumber,
-}
-
 <span class="kw">pub trait </span>AssignmentProvider&lt;BlockNumber&gt; {
 	<span class="doccomment">/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
 	///
-	/// This is where assignments come into existance.
+	/// This is where assignments come into existence.
 	</span><span class="kw">fn </span>pop_assignment_for_core(core_idx: CoreIndex) -&gt; <span class="prelude-ty">Option</span>&lt;Assignment&gt;;
 
 	<span class="doccomment">/// A previously popped `Assignment` has been fully processed.
@@ -321,13 +294,10 @@ nav.side-bar {
 	<span class="doccomment">/// Push back a previously popped assignment.
 	///
 	/// If the assignment could not be processed within the current session, it can be pushed back
-	/// to the assignment provider in order to be poppped again later.
+	/// to the assignment provider in order to be popped again later.
 	///
 	/// This is the second way the life of an assignment can come to an end.
 	</span><span class="kw">fn </span>push_back_assignment(assignment: Assignment);
-
-	<span class="doccomment">/// Returns a set of variables needed by the scheduler
-	</span><span class="kw">fn </span>get_provider_config(core_idx: CoreIndex) -&gt; AssignmentProviderConfig&lt;BlockNumber&gt;;
 
 	<span class="doccomment">/// Push some assignment for mocking/benchmarks purposes.
 	///

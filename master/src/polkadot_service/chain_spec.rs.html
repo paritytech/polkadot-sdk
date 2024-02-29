@@ -1229,6 +1229,14 @@ nav.side-bar {
 <a href="#1087" id="1087">1087</a>
 <a href="#1088" id="1088">1088</a>
 <a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1255,6 +1263,8 @@ nav.side-bar {
 <span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
 <span class="kw">use </span>sp_consensus_babe::AuthorityId <span class="kw">as </span>BabeId;
 
+<span class="attr">#[cfg(any(feature = <span class="string">&quot;rococo-native&quot;</span>, feature = <span class="string">&quot;westend-native&quot;</span>,))]
+</span><span class="kw">use </span>polkadot_primitives::vstaging::SchedulerParams;
 <span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
 </span><span class="kw">use </span>rococo_runtime <span class="kw">as </span>rococo;
 <span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
@@ -1360,8 +1370,6 @@ nav.side-bar {
 		max_code_size: MAX_CODE_SIZE,
 		max_pov_size: MAX_POV_SIZE,
 		max_head_data_size: <span class="number">32 </span>* <span class="number">1024</span>,
-		group_rotation_frequency: <span class="number">20</span>,
-		paras_availability_period: <span class="number">4</span>,
 		max_upward_queue_count: <span class="number">8</span>,
 		max_upward_queue_size: <span class="number">1024 </span>* <span class="number">1024</span>,
 		max_downward_message_size: <span class="number">1024 </span>* <span class="number">1024</span>,
@@ -1382,10 +1390,15 @@ nav.side-bar {
 		relay_vrf_modulo_samples: <span class="number">2</span>,
 		zeroth_delay_tranche_width: <span class="number">0</span>,
 		minimum_validation_upgrade_delay: <span class="number">5</span>,
-		scheduling_lookahead: <span class="number">2</span>,
 		async_backing_params: AsyncBackingParams {
 			max_candidate_depth: <span class="number">3</span>,
 			allowed_ancestry_len: <span class="number">2</span>,
+		},
+		scheduler_params: SchedulerParams {
+			lookahead: <span class="number">2</span>,
+			group_rotation_frequency: <span class="number">20</span>,
+			paras_availability_period: <span class="number">4</span>,
+			..Default::default()
 		},
 		..Default::default()
 	}
@@ -2122,7 +2135,10 @@ nav.side-bar {
 		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(root_key.clone()) },
 		<span class="string">&quot;configuration&quot;</span>: {
 			<span class="string">&quot;config&quot;</span>: polkadot_runtime_parachains::configuration::HostConfiguration {
-				max_validators_per_core: <span class="prelude-val">Some</span>(<span class="number">1</span>),
+				scheduler_params: SchedulerParams {
+					max_validators_per_core: <span class="prelude-val">Some</span>(<span class="number">1</span>),
+					..default_parachains_host_configuration().scheduler_params
+				},
 				..default_parachains_host_configuration()
 			},
 		},

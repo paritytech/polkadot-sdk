@@ -628,14 +628,6 @@ nav.side-bar {
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
 <a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -668,7 +660,7 @@ nav.side-bar {
 <span class="kw">use crate</span>::{
 	assigner_on_demand, configuration,
 	paras::AssignCoretime,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider},
 	ParaId,
 };
 
@@ -954,14 +946,6 @@ nav.side-bar {
 		}
 	}
 
-	<span class="kw">fn </span>get_provider_config(_core_idx: CoreIndex) -&gt; AssignmentProviderConfig&lt;BlockNumberFor&lt;T&gt;&gt; {
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
-		AssignmentProviderConfig {
-			max_availability_timeouts: config.on_demand_retries,
-			ttl: config.on_demand_ttl,
-		}
-	}
-
 	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
 	</span><span class="kw">fn </span>get_mock_assignment(<span class="kw">_</span>: CoreIndex, para_id: primitives::Id) -&gt; Assignment {
 		<span class="comment">// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
@@ -971,7 +955,7 @@ nav.side-bar {
 
 	<span class="kw">fn </span>session_core_count() -&gt; u32 {
 		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
-		config.coretime_cores
+		config.scheduler_params.num_cores
 	}
 }
 
@@ -1120,8 +1104,8 @@ nav.side-bar {
 
 		<span class="comment">// Add a new core and assign the para to it.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
-		<span class="kw">let </span>core = config.coretime_cores;
-		config.coretime_cores.saturating_inc();
+		<span class="kw">let </span>core = config.scheduler_params.num_cores;
+		config.scheduler_params.num_cores.saturating_inc();
 
 		<span class="comment">// `assign_coretime` is only called at genesis or by root, so setting the active
 		// config here is fine.

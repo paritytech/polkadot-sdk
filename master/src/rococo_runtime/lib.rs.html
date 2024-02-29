@@ -2642,6 +2642,7 @@ nav.side-bar {
 <a href="#2500" id="2500">2500</a>
 <a href="#2501" id="2501">2501</a>
 <a href="#2502" id="2502">2502</a>
+<a href="#2503" id="2503">2503</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4302,6 +4303,7 @@ nav.side-bar {
 		parachains_configuration::migration::v11::MigrateToV11&lt;Runtime&gt;,
 		<span class="comment">// This needs to come after the `parachains_configuration` above as we are reading the configuration.
 		</span>coretime::migration::MigrateToCoretime&lt;Runtime, <span class="kw">crate</span>::xcm_config::XcmRouter, GetLegacyLeaseImpl&gt;,
+		parachains_configuration::migration::v12::MigrateToV12&lt;Runtime&gt;,
 
 		<span class="comment">// permanent
 		</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,

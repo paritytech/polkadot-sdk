@@ -329,6 +329,11 @@ nav.side-bar {
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -350,7 +355,9 @@ nav.side-bar {
 </span><span class="kw">use </span>babe_primitives::AuthorityId <span class="kw">as </span>BabeId;
 <span class="kw">use </span>grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
 <span class="kw">use </span>pallet_staking::Forcing;
-<span class="kw">use </span>polkadot_primitives::{AccountId, AssignmentId, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE};
+<span class="kw">use </span>polkadot_primitives::{
+	vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE,
+};
 <span class="kw">use </span>polkadot_service::chain_spec::{get_account_id_from_seed, get_from_seed, Extensions};
 <span class="kw">use </span>polkadot_test_runtime::BABE_GENESIS_EPOCH_CONFIG;
 <span class="kw">use </span>sc_chain_spec::{ChainSpec, ChainType};
@@ -496,11 +503,14 @@ nav.side-bar {
 				max_code_size: MAX_CODE_SIZE,
 				max_pov_size: MAX_POV_SIZE,
 				max_head_data_size: <span class="number">32 </span>* <span class="number">1024</span>,
-				group_rotation_frequency: <span class="number">20</span>,
-				paras_availability_period: <span class="number">4</span>,
 				no_show_slots: <span class="number">10</span>,
 				minimum_validation_upgrade_delay: <span class="number">5</span>,
 				max_downward_message_size: <span class="number">1024</span>,
+				scheduler_params: SchedulerParams {
+					group_rotation_frequency: <span class="number">20</span>,
+					paras_availability_period: <span class="number">4</span>,
+					..Default::default()
+				},
 				..Default::default()
 			},
 		}

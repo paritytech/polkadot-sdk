@@ -608,8 +608,8 @@ nav.side-bar {
 	}
 
 	<span class="kw">pub fn </span>initializer_on_new_session(notification: <span class="kw-2">&amp;</span>SessionChangeNotification&lt;BlockNumberFor&lt;T&gt;&gt;) {
-		<span class="kw">let </span>old_core_count = notification.prev_config.coretime_cores;
-		<span class="kw">let </span>new_core_count = notification.new_config.coretime_cores;
+		<span class="kw">let </span>old_core_count = notification.prev_config.scheduler_params.num_cores;
+		<span class="kw">let </span>new_core_count = notification.new_config.scheduler_params.num_cores;
 		<span class="kw">if </span>new_core_count != old_core_count {
 			<span class="kw">let </span>core_count: u16 = new_core_count.saturated_into();
 			<span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[

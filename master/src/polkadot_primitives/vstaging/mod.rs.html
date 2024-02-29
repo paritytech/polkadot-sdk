@@ -216,6 +216,82 @@ nav.side-bar {
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -241,6 +317,7 @@ nav.side-bar {
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>primitives::RuntimeDebug;
 <span class="kw">use </span>scale_info::TypeInfo;
+<span class="kw">use </span>sp_arithmetic::Perbill;
 
 <span class="doccomment">/// Approval voting configuration parameters
 </span><span class="attr">#[derive(
@@ -265,6 +342,81 @@ nav.side-bar {
 <span class="kw">impl </span>Default <span class="kw">for </span>ApprovalVotingParams {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ max_approval_coalesce_count: <span class="number">1 </span>}
+	}
+}
+
+<span class="doccomment">/// Scheduler configuration parameters. All coretime/ondemand parameters are here.
+</span><span class="attr">#[derive(
+	RuntimeDebug,
+	Copy,
+	Clone,
+	PartialEq,
+	Encode,
+	Decode,
+	TypeInfo,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+</span><span class="kw">pub struct </span>SchedulerParams&lt;BlockNumber&gt; {
+	<span class="doccomment">/// How often parachain groups should be rotated across parachains.
+	///
+	/// Must be non-zero.
+	</span><span class="kw">pub </span>group_rotation_frequency: BlockNumber,
+	<span class="doccomment">/// Availability timeout for a block on a core, measured in blocks.
+	///
+	/// This is the maximum amount of blocks after a core became occupied that validators have time
+	/// to make the block available.
+	///
+	/// This value only has effect on group rotations. If backers backed something at the end of
+	/// their rotation, the occupied core affects the backing group that comes afterwards. We limit
+	/// the effect one backing group can have on the next to `paras_availability_period` blocks.
+	///
+	/// Within a group rotation there is no timeout as backers are only affecting themselves.
+	///
+	/// Must be at least 1. With a value of 1, the previous group will not be able to negatively
+	/// affect the following group at the expense of a tight availability timeline at group
+	/// rotation boundaries.
+	</span><span class="kw">pub </span>paras_availability_period: BlockNumber,
+	<span class="doccomment">/// The maximum number of validators to have per core.
+	///
+	/// `None` means no maximum.
+	</span><span class="kw">pub </span>max_validators_per_core: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+	<span class="doccomment">/// The amount of blocks ahead to schedule paras.
+	</span><span class="kw">pub </span>lookahead: u32,
+	<span class="doccomment">/// How many cores are managed by the coretime chain.
+	</span><span class="kw">pub </span>num_cores: u32,
+	<span class="doccomment">/// The max number of times a claim can time out in availability.
+	</span><span class="kw">pub </span>max_availability_timeouts: u32,
+	<span class="doccomment">/// The maximum queue size of the pay as you go module.
+	</span><span class="kw">pub </span>on_demand_queue_max_size: u32,
+	<span class="doccomment">/// The target utilization of the spot price queue in percentages.
+	</span><span class="kw">pub </span>on_demand_target_queue_utilization: Perbill,
+	<span class="doccomment">/// How quickly the fee rises in reaction to increased utilization.
+	/// The lower the number the slower the increase.
+	</span><span class="kw">pub </span>on_demand_fee_variability: Perbill,
+	<span class="doccomment">/// The minimum amount needed to claim a slot in the spot pricing queue.
+	</span><span class="kw">pub </span>on_demand_base_fee: Balance,
+	<span class="doccomment">/// The number of blocks a claim stays in the scheduler&#39;s claimqueue before getting cleared.
+	/// This number should go reasonably higher than the number of blocks in the async backing
+	/// lookahead.
+	</span><span class="kw">pub </span>ttl: BlockNumber,
+}
+
+<span class="kw">impl</span>&lt;BlockNumber: Default + From&lt;u32&gt;&gt; Default <span class="kw">for </span>SchedulerParams&lt;BlockNumber&gt; {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{
+			group_rotation_frequency: <span class="number">1u32</span>.into(),
+			paras_availability_period: <span class="number">1u32</span>.into(),
+			max_validators_per_core: Default::default(),
+			lookahead: <span class="number">1</span>,
+			num_cores: Default::default(),
+			max_availability_timeouts: Default::default(),
+			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+			on_demand_target_queue_utilization: Perbill::from_percent(<span class="number">25</span>),
+			on_demand_fee_variability: Perbill::from_percent(<span class="number">3</span>),
+			on_demand_base_fee: <span class="number">10_000_000u128</span>,
+			ttl: <span class="number">5u32</span>.into(),
+		}
 	}
 }
 

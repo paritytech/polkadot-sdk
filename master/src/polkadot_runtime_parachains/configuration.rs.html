@@ -1567,27 +1567,6 @@ nav.side-bar {
 <a href="#1425" id="1425">1425</a>
 <a href="#1426" id="1426">1426</a>
 <a href="#1427" id="1427">1427</a>
-<a href="#1428" id="1428">1428</a>
-<a href="#1429" id="1429">1429</a>
-<a href="#1430" id="1430">1430</a>
-<a href="#1431" id="1431">1431</a>
-<a href="#1432" id="1432">1432</a>
-<a href="#1433" id="1433">1433</a>
-<a href="#1434" id="1434">1434</a>
-<a href="#1435" id="1435">1435</a>
-<a href="#1436" id="1436">1436</a>
-<a href="#1437" id="1437">1437</a>
-<a href="#1438" id="1438">1438</a>
-<a href="#1439" id="1439">1439</a>
-<a href="#1440" id="1440">1440</a>
-<a href="#1441" id="1441">1441</a>
-<a href="#1442" id="1442">1442</a>
-<a href="#1443" id="1443">1443</a>
-<a href="#1444" id="1444">1444</a>
-<a href="#1445" id="1445">1445</a>
-<a href="#1446" id="1446">1446</a>
-<a href="#1447" id="1447">1447</a>
-<a href="#1448" id="1448">1448</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1619,7 +1598,6 @@ nav.side-bar {
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
-	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 <span class="kw">use </span>sp_runtime::{traits::Zero, Perbill};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
@@ -1633,6 +1611,7 @@ nav.side-bar {
 <span class="kw">pub mod </span>migration;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
+<span class="kw">use </span>primitives::vstaging::SchedulerParams;
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::configuration&quot;</span>;
 
@@ -1708,9 +1687,9 @@ nav.side-bar {
 	/// been completed.
 	///
 	/// Note, there are situations in which `expected_at` in the past. For example, if
-	/// [`paras_availability_period`](Self::paras_availability_period) is less than the delay set
-	/// by this field or if PVF pre-check took more time than the delay. In such cases, the upgrade
-	/// is further at the earliest possible time determined by
+	/// [`paras_availability_period`](SchedulerParams::paras_availability_period) is less than the
+	/// delay set by this field or if PVF pre-check took more time than the delay. In such cases,
+	/// the upgrade is further at the earliest possible time determined by
 	/// [`minimum_validation_upgrade_delay`](Self::minimum_validation_upgrade_delay).
 	///
 	/// The rationale for this delay has to do with relay-chain reversions. In case there is an
@@ -1762,48 +1741,7 @@ nav.side-bar {
 	/// How long to keep code on-chain, in blocks. This should be sufficiently long that disputes
 	/// have concluded.
 	</span><span class="kw">pub </span>code_retention_period: BlockNumber,
-	<span class="doccomment">/// How many cores are managed by the coretime chain.
-	</span><span class="kw">pub </span>coretime_cores: u32,
-	<span class="doccomment">/// The number of retries that a on demand author has to submit their block.
-	</span><span class="kw">pub </span>on_demand_retries: u32,
-	<span class="doccomment">/// The maximum queue size of the pay as you go module.
-	</span><span class="kw">pub </span>on_demand_queue_max_size: u32,
-	<span class="doccomment">/// The target utilization of the spot price queue in percentages.
-	</span><span class="kw">pub </span>on_demand_target_queue_utilization: Perbill,
-	<span class="doccomment">/// How quickly the fee rises in reaction to increased utilization.
-	/// The lower the number the slower the increase.
-	</span><span class="kw">pub </span>on_demand_fee_variability: Perbill,
-	<span class="doccomment">/// The minimum amount needed to claim a slot in the spot pricing queue.
-	</span><span class="kw">pub </span>on_demand_base_fee: Balance,
-	<span class="doccomment">/// The number of blocks an on demand claim stays in the scheduler&#39;s claimqueue before getting
-	/// cleared. This number should go reasonably higher than the number of blocks in the async
-	/// backing lookahead.
-	</span><span class="kw">pub </span>on_demand_ttl: BlockNumber,
-	<span class="doccomment">/// How often parachain groups should be rotated across parachains.
-	///
-	/// Must be non-zero.
-	</span><span class="kw">pub </span>group_rotation_frequency: BlockNumber,
-	<span class="doccomment">/// The minimum availability period, in blocks.
-	///
-	/// This is the minimum amount of blocks after a core became occupied that validators have time
-	/// to make the block available.
-	///
-	/// This value only has effect on group rotations. If backers backed something at the end of
-	/// their rotation, the occupied core affects the backing group that comes afterwards. We limit
-	/// the effect one backing group can have on the next to `paras_availability_period` blocks.
-	///
-	/// Within a group rotation there is no timeout as backers are only affecting themselves.
-	///
-	/// Must be at least 1. With a value of 1, the previous group will not be able to negatively
-	/// affect the following group at the expense of a tight availability timeline at group
-	/// rotation boundaries.
-	</span><span class="kw">pub </span>paras_availability_period: BlockNumber,
-	<span class="doccomment">/// The amount of blocks ahead to schedule paras.
-	</span><span class="kw">pub </span>scheduling_lookahead: u32,
-	<span class="doccomment">/// The maximum number of validators to have per core.
-	///
-	/// `None` means no maximum.
-	</span><span class="kw">pub </span>max_validators_per_core: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+
 	<span class="doccomment">/// The maximum number of validators to use for parachain consensus, period.
 	///
 	/// `None` means no maximum.
@@ -1847,7 +1785,7 @@ nav.side-bar {
 	/// scheduled. This number is controlled by this field.
 	///
 	/// This value should be greater than
-	/// [`paras_availability_period`](Self::paras_availability_period).
+	/// [`paras_availability_period`](SchedulerParams::paras_availability_period).
 	</span><span class="kw">pub </span>minimum_validation_upgrade_delay: BlockNumber,
 	<span class="doccomment">/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
@@ -1856,6 +1794,8 @@ nav.side-bar {
 	</span><span class="kw">pub </span>node_features: NodeFeatures,
 	<span class="doccomment">/// Params used by approval-voting
 	</span><span class="kw">pub </span>approval_voting_params: ApprovalVotingParams,
+	<span class="doccomment">/// Scheduler parameters
+	</span><span class="kw">pub </span>scheduler_params: SchedulerParams&lt;BlockNumber&gt;,
 }
 
 <span class="kw">impl</span>&lt;BlockNumber: Default + From&lt;u32&gt;&gt; Default <span class="kw">for </span>HostConfiguration&lt;BlockNumber&gt; {
@@ -1865,8 +1805,6 @@ nav.side-bar {
 				max_candidate_depth: <span class="number">0</span>,
 				allowed_ancestry_len: <span class="number">0</span>,
 			},
-			group_rotation_frequency: <span class="number">1u32</span>.into(),
-			paras_availability_period: <span class="number">1u32</span>.into(),
 			no_show_slots: <span class="number">1u32</span>.into(),
 			validation_upgrade_cooldown: Default::default(),
 			validation_upgrade_delay: <span class="number">2u32</span>.into(),
@@ -1874,10 +1812,6 @@ nav.side-bar {
 			max_code_size: MAX_CODE_SIZE,
 			max_pov_size: Default::default(),
 			max_head_data_size: Default::default(),
-			coretime_cores: Default::default(),
-			on_demand_retries: Default::default(),
-			scheduling_lookahead: <span class="number">1</span>,
-			max_validators_per_core: Default::default(),
 			max_validators: <span class="prelude-val">None</span>,
 			dispute_period: <span class="number">6</span>,
 			dispute_post_conclusion_acceptance_period: <span class="number">100</span>.into(),
@@ -1902,13 +1836,9 @@ nav.side-bar {
 			minimum_validation_upgrade_delay: <span class="number">2</span>.into(),
 			executor_params: Default::default(),
 			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: <span class="number">1 </span>},
-			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
-			on_demand_base_fee: <span class="number">10_000_000u128</span>,
-			on_demand_fee_variability: Perbill::from_percent(<span class="number">3</span>),
-			on_demand_target_queue_utilization: Perbill::from_percent(<span class="number">25</span>),
-			on_demand_ttl: <span class="number">5u32</span>.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
+			scheduler_params: Default::default(),
 		}
 	}
 }
@@ -1949,6 +1879,8 @@ nav.side-bar {
 	</span>ZeroMinimumBackingVotes,
 	<span class="doccomment">/// `executor_params` are inconsistent.
 	</span>InconsistentExecutorParams { inner: ExecutorParamError },
+	<span class="doccomment">/// TTL should be bigger than lookahead
+	</span>LookaheadExceedsTTL,
 }
 
 <span class="kw">impl</span>&lt;BlockNumber&gt; HostConfiguration&lt;BlockNumber&gt;
@@ -1963,11 +1895,11 @@ nav.side-bar {
 	</span><span class="kw">pub fn </span>check_consistency(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), InconsistentError&lt;BlockNumber&gt;&gt; {
 		<span class="kw">use </span>InconsistentError::<span class="kw-2">*</span>;
 
-		<span class="kw">if </span><span class="self">self</span>.group_rotation_frequency.is_zero() {
+		<span class="kw">if </span><span class="self">self</span>.scheduler_params.group_rotation_frequency.is_zero() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(ZeroGroupRotationFrequency)
 		}
 
-		<span class="kw">if </span><span class="self">self</span>.paras_availability_period.is_zero() {
+		<span class="kw">if </span><span class="self">self</span>.scheduler_params.paras_availability_period.is_zero() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(ZeroParasAvailabilityPeriod)
 		}
 
@@ -1989,10 +1921,11 @@ nav.side-bar {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(MaxPovSizeExceedHardLimit { max_pov_size: <span class="self">self</span>.max_pov_size })
 		}
 
-		<span class="kw">if </span><span class="self">self</span>.minimum_validation_upgrade_delay &lt;= <span class="self">self</span>.paras_availability_period {
+		<span class="kw">if </span><span class="self">self</span>.minimum_validation_upgrade_delay &lt;= <span class="self">self</span>.scheduler_params.paras_availability_period
+		{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(MinimumValidationUpgradeDelayLessThanChainAvailabilityPeriod {
 				minimum_validation_upgrade_delay: <span class="self">self</span>.minimum_validation_upgrade_delay.clone(),
-				paras_availability_period: <span class="self">self</span>.paras_availability_period.clone(),
+				paras_availability_period: <span class="self">self</span>.scheduler_params.paras_availability_period.clone(),
 			})
 		}
 
@@ -2037,6 +1970,10 @@ nav.side-bar {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(InconsistentExecutorParams { inner })
 		}
 
+		<span class="kw">if </span><span class="self">self</span>.scheduler_params.ttl &lt; <span class="self">self</span>.scheduler_params.lookahead.into() {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(LookaheadExceedsTTL)
+		}
+
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -2061,6 +1998,7 @@ nav.side-bar {
 	<span class="kw">fn </span>set_config_with_executor_params() -&gt; Weight;
 	<span class="kw">fn </span>set_config_with_perbill() -&gt; Weight;
 	<span class="kw">fn </span>set_node_feature() -&gt; Weight;
+	<span class="kw">fn </span>set_config_with_scheduler_params() -&gt; Weight;
 }
 
 <span class="kw">pub struct </span>TestWeightInfo;
@@ -2089,6 +2027,9 @@ nav.side-bar {
 	<span class="kw">fn </span>set_node_feature() -&gt; Weight {
 		Weight::MAX
 	}
+	<span class="kw">fn </span>set_config_with_scheduler_params() -&gt; Weight {
+		Weight::MAX
+	}
 }
 
 <span class="attr">#[frame_support::pallet]
@@ -2110,7 +2051,8 @@ nav.side-bar {
 	/// v8-v9:  &lt;https://github.com/paritytech/polkadot/pull/7577&gt;
 	/// v9-v10: &lt;https://github.com/paritytech/polkadot-sdk/pull/2177&gt;
 	/// v10-11: &lt;https://github.com/paritytech/polkadot-sdk/pull/1191&gt;
-	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">11</span>);
+	/// v11-12: &lt;https://github.com/paritytech/polkadot-sdk/pull/3181&gt;
+	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">12</span>);
 
 	<span class="attr">#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -2269,16 +2211,16 @@ nav.side-bar {
 			<span class="self">Self</span>::set_coretime_cores_unchecked(new)
 		}
 
-		<span class="doccomment">/// Set the number of retries for a particular on demand.
+		<span class="doccomment">/// Set the max number of times a claim may timeout on a core before it is abandoned
 		</span><span class="attr">#[pallet::call_index(<span class="number">7</span>)]
 		#[pallet::weight((
 			T::WeightInfo::set_config_with_u32(),
 			DispatchClass::Operational,
 		))]
-		</span><span class="kw">pub fn </span>set_on_demand_retries(origin: OriginFor&lt;T&gt;, new: u32) -&gt; DispatchResult {
+		</span><span class="kw">pub fn </span>set_max_availability_timeouts(origin: OriginFor&lt;T&gt;, new: u32) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.on_demand_retries = new;
+				config.scheduler_params.max_availability_timeouts = new;
 			})
 		}
 
@@ -2294,7 +2236,7 @@ nav.side-bar {
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.group_rotation_frequency = new;
+				config.scheduler_params.group_rotation_frequency = new;
 			})
 		}
 
@@ -2310,7 +2252,7 @@ nav.side-bar {
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.paras_availability_period = new;
+				config.scheduler_params.paras_availability_period = new;
 			})
 		}
 
@@ -2323,7 +2265,7 @@ nav.side-bar {
 		</span><span class="kw">pub fn </span>set_scheduling_lookahead(origin: OriginFor&lt;T&gt;, new: u32) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.scheduling_lookahead = new;
+				config.scheduler_params.lookahead = new;
 			})
 		}
 
@@ -2339,7 +2281,7 @@ nav.side-bar {
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.max_validators_per_core = new;
+				config.scheduler_params.max_validators_per_core = new;
 			})
 		}
 
@@ -2731,7 +2673,7 @@ nav.side-bar {
 		</span><span class="kw">pub fn </span>set_on_demand_base_fee(origin: OriginFor&lt;T&gt;, new: Balance) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.on_demand_base_fee = new;
+				config.scheduler_params.on_demand_base_fee = new;
 			})
 		}
 
@@ -2744,7 +2686,7 @@ nav.side-bar {
 		</span><span class="kw">pub fn </span>set_on_demand_fee_variability(origin: OriginFor&lt;T&gt;, new: Perbill) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.on_demand_fee_variability = new;
+				config.scheduler_params.on_demand_fee_variability = new;
 			})
 		}
 
@@ -2757,7 +2699,7 @@ nav.side-bar {
 		</span><span class="kw">pub fn </span>set_on_demand_queue_max_size(origin: OriginFor&lt;T&gt;, new: u32) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.on_demand_queue_max_size = new;
+				config.scheduler_params.on_demand_queue_max_size = new;
 			})
 		}
 		<span class="doccomment">/// Set the on demand (parathreads) fee variability.
@@ -2772,7 +2714,7 @@ nav.side-bar {
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.on_demand_target_queue_utilization = new;
+				config.scheduler_params.on_demand_target_queue_utilization = new;
 			})
 		}
 		<span class="doccomment">/// Set the on demand (parathreads) ttl in the claimqueue.
@@ -2784,7 +2726,7 @@ nav.side-bar {
 		</span><span class="kw">pub fn </span>set_on_demand_ttl(origin: OriginFor&lt;T&gt;, new: BlockNumberFor&lt;T&gt;) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.on_demand_ttl = new;
+				config.scheduler_params.ttl = new;
 			})
 		}
 
@@ -2834,6 +2776,22 @@ nav.side-bar {
 				config.approval_voting_params = new;
 			})
 		}
+
+		<span class="doccomment">/// Set scheduler-params.
+		</span><span class="attr">#[pallet::call_index(<span class="number">55</span>)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_scheduler_params(),
+			DispatchClass::Operational,
+		))]
+		</span><span class="kw">pub fn </span>set_scheduler_params(
+			origin: OriginFor&lt;T&gt;,
+			new: SchedulerParams&lt;BlockNumberFor&lt;T&gt;&gt;,
+		) -&gt; DispatchResult {
+			ensure_root(origin)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::schedule_config_update(|config| {
+				config.scheduler_params = new;
+			})
+		}
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
@@ -2842,7 +2800,7 @@ nav.side-bar {
 		/// To be used if authorization is checked otherwise.
 		</span><span class="kw">pub fn </span>set_coretime_cores_unchecked(new: u32) -&gt; DispatchResult {
 			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.coretime_cores = new;
+				config.scheduler_params.num_cores = new;
 			})
 		}
 	}
@@ -2983,7 +2941,7 @@ nav.side-bar {
 		<span class="kw">let </span>base_config_consistent = base_config.check_consistency().is_ok();
 
 		<span class="comment">// Now, we need to decide what the new configuration should be.
-		// We also move the `base_config` to `new_config` to empahsize that the base config was
+		// We also move the `base_config` to `new_config` to emphasize that the base config was
 		// destroyed by the `updater`.
 		</span>updater(<span class="kw-2">&amp;mut </span>base_config);
 		<span class="kw">let </span>new_config = base_config;

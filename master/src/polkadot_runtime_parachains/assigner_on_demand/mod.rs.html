@@ -740,6 +740,10 @@ nav.side-bar {
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -943,10 +947,10 @@ nav.side-bar {
 			</span><span class="kw">let </span>old_traffic = SpotTraffic::&lt;T&gt;::get();
 			<span class="kw">match </span><span class="self">Self</span>::calculate_spot_traffic(
 				old_traffic,
-				config.on_demand_queue_max_size,
+				config.scheduler_params.on_demand_queue_max_size,
 				<span class="self">Self</span>::queue_size(),
-				config.on_demand_target_queue_utilization,
-				config.on_demand_fee_variability,
+				config.scheduler_params.on_demand_target_queue_utilization,
+				config.scheduler_params.on_demand_fee_variability,
 			) {
 				<span class="prelude-val">Ok</span>(new_traffic) =&gt; {
 					<span class="comment">// Only update storage on change
@@ -1072,8 +1076,9 @@ nav.side-bar {
 		</span><span class="kw">let </span>traffic = SpotTraffic::&lt;T&gt;::get();
 
 		<span class="comment">// Calculate spot price
-		</span><span class="kw">let </span>spot_price: BalanceOf&lt;T&gt; =
-			traffic.saturating_mul_int(config.on_demand_base_fee.saturated_into::&lt;BalanceOf&lt;T&gt;&gt;());
+		</span><span class="kw">let </span>spot_price: BalanceOf&lt;T&gt; = traffic.saturating_mul_int(
+			config.scheduler_params.on_demand_base_fee.saturated_into::&lt;BalanceOf&lt;T&gt;&gt;(),
+		);
 
 		<span class="comment">// Is the current price higher than `max_amount`
 		</span><span class="macro">ensure!</span>(spot_price.le(<span class="kw-2">&amp;</span>max_amount), Error::&lt;T&gt;::SpotPriceHigherThanMaxAmount);
@@ -1192,7 +1197,10 @@ nav.side-bar {
 
 		OnDemandQueue::&lt;T&gt;::try_mutate(|queue| {
 			<span class="comment">// Abort transaction if queue is too large
-			</span><span class="macro">ensure!</span>(<span class="self">Self</span>::queue_size() &lt; config.on_demand_queue_max_size, Error::&lt;T&gt;::QueueFull);
+			</span><span class="macro">ensure!</span>(
+				<span class="self">Self</span>::queue_size() &lt; config.scheduler_params.on_demand_queue_max_size,
+				Error::&lt;T&gt;::QueueFull
+			);
 			<span class="kw">match </span>location {
 				QueuePushDirection::Back =&gt; queue.push_back(order),
 				QueuePushDirection::Front =&gt; queue.push_front(order),
@@ -1214,7 +1222,7 @@ nav.side-bar {
 					target: LOG_TARGET,
 					<span class="string">&quot;Failed to fetch the on demand queue size, returning the max size.&quot;
 				</span>);
-				<span class="kw">return </span>config.on_demand_queue_max_size
+				<span class="kw">return </span>config.scheduler_params.on_demand_queue_max_size
 			},
 		}
 	}

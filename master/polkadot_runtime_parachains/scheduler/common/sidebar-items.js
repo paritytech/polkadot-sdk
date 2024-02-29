@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Assignment"],"struct":["AssignmentProviderConfig"],"trait":["AssignmentProvider"]};
+window.SIDEBAR_ITEMS = {"enum":["Assignment"],"trait":["AssignmentProvider"]};
