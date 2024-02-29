@@ -982,6 +982,7 @@ pub mod pallet_prelude {
 /// * [`pallet::storage_prefix = "SomeName"`](#palletstorage_prefix--somename-optional)
 /// * [`pallet::unbounded`](#palletunbounded-optional)
 /// * [`pallet::whitelist_storage`](#palletwhitelist_storage-optional)
+/// * [`pallet::disable_try_decode_storage`](#palletdisable_try_decode_storage-optional)
 /// * [`cfg(..)`](#cfg-for-storage) (on storage items)
 /// * [`pallet::type_value`](#type-value-pallettype_value-optional)
 /// * [`pallet::genesis_config`](#genesis-config-palletgenesis_config-optional)
@@ -1177,7 +1178,7 @@ pub mod pallet_prelude {
 /// # `pallet::storage_version`
 ///
 /// Because the [`pallet::pallet`](#pallet-struct-placeholder-palletpallet-mandatory) macro
-/// implements [`traits::GetStorageVersion`], the current storage version needs to be
+/// implements [`traits::GetStorageVersion`], the in-code storage version needs to be
 /// communicated to the macro. This can be done by using the `pallet::storage_version`
 /// attribute:
 ///
@@ -1189,7 +1190,7 @@ pub mod pallet_prelude {
 /// pub struct Pallet<T>(_);
 /// ```
 ///
-/// If not present, the current storage version is set to the default value.
+/// If not present, the in-code storage version is set to the default value.
 ///
 /// Also see [`pallet::storage_version`](`frame_support::pallet_macros::storage_version`)
 ///
@@ -1496,6 +1497,15 @@ pub mod pallet_prelude {
 ///
 /// See
 /// [`pallet::whitelist_storage`](frame_support::pallet_macros::whitelist_storage)
+/// for more info.
+///
+/// ## `#[pallet::disable_try_decode_storage]` (optional)
+///
+/// The optional attribute `#[pallet::disable_try_decode_storage]` will declare the storage as
+/// whitelisted state decoding during try-runtime logic.
+///
+/// See
+/// [`pallet::disable_try_decode_storage`](frame_support::pallet_macros::disable_try_decode_storage)
 /// for more info.
 ///
 ///	## `#[cfg(..)]` (for storage)
@@ -2272,11 +2282,10 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		composite_enum, config, disable_frame_system_supertrait_check, error, event,
-		extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
-		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
-		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
-		whitelist_storage,
+		composite_enum, config, disable_frame_system_supertrait_check, disable_try_decode_storage,
+		error, event, extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
+		import_section, inherent, no_default, no_default_bounds, pallet_section, storage_prefix,
+		storage_version, type_value, unbounded, validate_unsigned, weight, whitelist_storage,
 	};
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
@@ -2699,6 +2708,8 @@ pub mod pallet_macros {
 	/// * [`macro@getter`]: Creates a custom getter function.
 	/// * [`macro@storage_prefix`]: Overrides the default prefix of the storage item.
 	/// * [`macro@unbounded`]: Declares the storage item as unbounded.
+	/// * [`macro@disable_try_decode_storage`]: Declares that try-runtime checks should not
+	///   attempt to decode the storage item.
 	///
 	/// #### Example
 	/// ```
@@ -2714,11 +2725,12 @@ pub mod pallet_macros {
 	/// 	#[pallet::getter(fn foo)]
 	/// 	#[pallet::storage_prefix = "OtherFoo"]
 	/// 	#[pallet::unbounded]
+	/// 	#[pallet::disable_try_decode_storage]
 	///     pub type Foo<T> = StorageValue<_, u32, ValueQuery>;
 	/// }
 	/// ```
 	pub use frame_support_procedural::storage;
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the conditions for a
 	/// given work item to be valid.
 	///
@@ -2726,21 +2738,21 @@ pub mod pallet_macros {
 	/// should have the same signature as the function it is attached to, except that it should
 	/// return a `bool` instead.
 	pub use frame_support_procedural::task_condition;
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the index of a given
 	/// work item.
 	///
 	/// It takes an integer literal as input, which is then used to define the index. This
 	/// index should be unique for each function in the `impl` block.
 	pub use frame_support_procedural::task_index;
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define an iterator over the
 	/// available work items for a task.
 	///
 	/// It takes an iterator as input that yields a tuple with same types as the function
 	/// arguments.
 	pub use frame_support_procedural::task_list;
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) define the weight of a given work
 	/// item.
 	///
@@ -2773,6 +2785,61 @@ pub mod pallet_macros {
 	/// Now, this can be executed as follows:
 	#[doc = docify::embed!("src/tests/tasks.rs", tasks_work)]
 	pub use frame_support_procedural::tasks_experimental;
+
+	/// Allows a pallet to declare a type as an origin.
+	///
+	/// If defined as such, this type will be amalgamated at the runtime level into
+	/// `RuntimeOrigin`, very similar to [`call`], [`error`] and [`event`]. See
+	/// [`composite_enum`] for similar cases.
+	///
+	/// Origin is a complex FRAME topics and is further explained in `polkadot_sdk_docs`.
+	///
+	/// ## Syntax Variants
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	///     # use frame_support::pallet_prelude::*;
+	///     # #[pallet::config]
+	///     # pub trait Config: frame_system::Config {}
+	///     # #[pallet::pallet]
+	///     # pub struct Pallet<T>(_);
+	/// 	/// On the spot declaration.
+	///     #[pallet::origin]
+	/// 	#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	/// 	pub enum Origin {
+	/// 		Foo,
+	/// 		Bar,
+	/// 	}
+	/// }
+	/// ```
+	///
+	/// Or, more commonly used:/
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	///     # use frame_support::pallet_prelude::*;
+	///     # #[pallet::config]
+	///     # pub trait Config: frame_system::Config {}
+	///     # #[pallet::pallet]
+	///     # pub struct Pallet<T>(_);
+	/// 	#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	/// 	pub enum RawOrigin {
+	/// 		Foo,
+	/// 		Bar,
+	/// 	}
+	///
+	/// 	#[pallet::origin]
+	/// 	pub type Origin = RawOrigin;
+	/// }
+	/// ```
+	///
+	/// ## Warning
+	///
+	/// Modifying any pallet's origin type will cause the runtime level origin type to also
+	/// change in encoding. If stored anywhere on-chain, this will require a data migration.
+	pub use frame_support_procedural::origin;
 }
 
 #[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]
