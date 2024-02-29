@@ -197,7 +197,7 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 			.unwrap_or_default()
 	}
 
-	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance {
+	fn delegator_balance(delegator: &Self::AccountId) -> Self::Balance {
 		Delegation::<T>::get(delegator).map(|d| d.amount).unwrap_or_default()
 	}
 

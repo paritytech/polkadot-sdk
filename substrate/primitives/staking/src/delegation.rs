@@ -75,7 +75,7 @@ pub trait DelegatedStakeInterface: StakingInterface {
 	fn delegatee_balance(delegatee: &Self::AccountId) -> Self::Balance;
 
 	/// Returns the total amount of funds delegated by a `delegator`.
-	fn delegated_balance(delegator: &Self::AccountId) -> Self::Balance;
+	fn delegator_balance(delegator: &Self::AccountId) -> Self::Balance;
 
 	/// Delegate funds to `delegatee`.
 	fn delegate(

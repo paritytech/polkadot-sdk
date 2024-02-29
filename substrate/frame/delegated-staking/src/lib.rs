@@ -25,7 +25,7 @@
 //!
 //! ## Goals
 //!
-//! The direct nominators on Staking pallet does not scale well. NominationPool was created to
+//! Direct nomination on the Staking pallet does not scale well. Nominations pools were created to
 //! address this by pooling delegator funds into one account and then staking it. This though had
 //! a very important limitation that the funds were moved from delegator account to pool account
 //! and hence the delegator lost control over their funds for using it for other purposes such as
@@ -44,7 +44,7 @@
 //! similar to `NominationPool`.
 //!
 //! ## Key Terminologies
-//! - *delegatee*: An account who accepts delegations from other accounts (called `Delegators`).
+//! - *Delegatee*: An account who accepts delegations from other accounts.
 //! - *Delegator*: An account who delegates their funds to a `delegatee`.
 //! - *DelegateeLedger*: A data structure that stores important information about the `delegatee`
 //! 	such as their total delegated stake.

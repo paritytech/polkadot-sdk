@@ -224,7 +224,7 @@ impl<
 	}
 
 	fn member_delegation_balance(member_account: &T::AccountId) -> Staking::Balance {
-		Staking::delegated_balance(member_account)
+		Staking::delegator_balance(member_account)
 	}
 
 	fn active_stake(pool: PoolId) -> BalanceOf<T> {

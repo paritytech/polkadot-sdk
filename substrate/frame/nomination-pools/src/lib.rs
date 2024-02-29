@@ -1633,7 +1633,7 @@ pub mod pallet {
 		/// The maximum length, in bytes, that a pools metadata maybe.
 		type MaxMetadataLen: Get<u32>;
 
-		/// An adapter to support delegated to direct staking.
+		/// Staking adapter to support different staking strategies.
 		type StakeAdapter: adapter::StakeStrategy<
 			AccountId = Self::AccountId,
 			Balance = BalanceOf<Self>,
