@@ -58,10 +58,10 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 	}
 
 	let state_col = &mut config.columns[columns::STATE as usize];
-	state_col.ref_counted = true;
 	state_col.preimage = true;
 	state_col.uniform = true;
 	state_col.append_only = archive;
+	state_col.ref_counted = true & !state_col.append_only;
 
 	if multi_tree {
 		state_col.multitree = true;
