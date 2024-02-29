@@ -35,7 +35,7 @@ use frame_support::{
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
 		ProcessMessageError, WithdrawReasons,
 	},
-	weights::{ConstantMultiplier, WeightMeter},
+	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureSigned};
@@ -102,9 +102,12 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
 	latest::{InteriorLocation, Junction, Junction::PalletInstance},
-	VersionedLocation,
+	IntoVersion, VersionedAssetId, VersionedLocation, VersionedXcm,
 };
 use xcm_builder::PayOverXcm;
+
+use xcm_executor::traits::WeightBounds;
+use xcm_payment_runtime_api::Error as XcmPaymentError;
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -2252,6 +2255,37 @@ sp_api::impl_runtime_apis! {
 		}
 		fn query_length_to_fee(length: u32) -> Balance {
 			TransactionPayment::length_to_fee(length)
+		}
+	}
+
+	impl xcm_payment_runtime_api::XcmPaymentApi<Block, RuntimeCall> for Runtime {
+		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentError> {
+			if !matches!(xcm_version, 3 | 4) {
+				return Err(XcmPaymentError::UnhandledXcmVersion);
+			}
+			Ok([VersionedAssetId::V4(xcm_config::TokenLocation::get().into())]
+				.into_iter()
+				.filter_map(|asset| asset.into_version(xcm_version).ok())
+				.collect())
+		}
+
+		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentError> {
+			let local_asset = VersionedAssetId::V4(xcm_config::TokenLocation::get().into());
+			let asset = asset
+				.into_version(4)
+				.map_err(|_| XcmPaymentError::VersionedConversionFailed)?;
+
+			if  asset != local_asset { return Err(XcmPaymentError::AssetNotFound); }
+
+			Ok(WeightToFee::weight_to_fee(&weight))
+		}
+
+		fn query_xcm_weight(message: VersionedXcm<RuntimeCall>) -> Result<Weight, XcmPaymentError> {
+			let mut message = message
+				.try_into()
+				.map_err(|_| XcmPaymentError::VersionedConversionFailed)?;
+			<xcm_config::XcmConfig as xcm_executor::Config>::Weigher::weight(&mut message)
+				.map_err(|_| XcmPaymentError::WeightNotComputable)
 		}
 	}
 

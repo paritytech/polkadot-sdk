@@ -22052,6 +22052,7 @@ dependencies = [
  "tiny-keccak",
  "tokio",
  "westend-runtime-constants",
+ "xcm-payment-runtime-api",
 ]
 
 [[package]]
