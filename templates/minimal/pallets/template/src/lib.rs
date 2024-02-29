@@ -1,6 +1,7 @@
 //! A shell pallet built with [`frame`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
+
 use frame::prelude::*;
 
 #[frame::pallet]

@@ -27,4 +27,4 @@ frame = { path = "../../../../substrate/frame", default-features = false }
 
 [features]
 default = ["std"]
-std = ["codec/std", "scale-info/std", "frame/std"]
+std = ["codec/std", "frame/std", "scale-info/std"]
