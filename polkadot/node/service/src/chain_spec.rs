@@ -122,7 +122,9 @@ pub fn wococo_config() -> Result<RococoChainSpec, String> {
 fn default_parachains_host_configuration(
 ) -> polkadot_runtime_parachains::configuration::HostConfiguration<polkadot_primitives::BlockNumber>
 {
-	use polkadot_primitives::{AsyncBackingParams, MAX_CODE_SIZE, MAX_POV_SIZE};
+	use polkadot_primitives::{
+		vstaging::node_features::FeatureIndex, AsyncBackingParams, MAX_CODE_SIZE, MAX_POV_SIZE,
+	};
 
 	polkadot_runtime_parachains::configuration::HostConfiguration {
 		validation_upgrade_cooldown: 2u32,
@@ -155,6 +157,9 @@ fn default_parachains_host_configuration(
 			max_candidate_depth: 3,
 			allowed_ancestry_len: 2,
 		},
+		node_features: bitvec::vec::BitVec::from_element(
+			1u8 << (FeatureIndex::ElasticScalingMVP as usize),
+		),
 		scheduler_params: SchedulerParams {
 			lookahead: 2,
 			group_rotation_frequency: 20,
