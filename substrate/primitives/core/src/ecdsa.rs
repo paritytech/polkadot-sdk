@@ -28,7 +28,9 @@ use crate::crypto::{
 };
 #[cfg(feature = "full_crypto")]
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
-use k256::ecdsa::{RecoveryId, SigningKey, VerifyingKey};
+use k256::ecdsa::{VerifyingKey};
+#[cfg(feature = "full_crypto")]
+use k256::ecdsa::{RecoveryId, SigningKey};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]

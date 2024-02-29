@@ -54,7 +54,7 @@ schnorrkel = { version = "0.11.4", features = ["preaudit_deprecated"], default-f
 merlin = { version = "3.0", default-features = false }
 sp-crypto-hashing = { path = "../crypto/hashing", default-features = false, optional = true }
 sp-runtime-interface = { path = "../runtime-interface", default-features = false }
-k256 = { version = "0.13.3", features = ["ecdsa"] }
+k256 = { version = "0.13.3", features = ["alloc", "ecdsa"], default-features = false }
 
 # bls crypto
 w3f-bls = { version = "0.1.3", default-features = false, optional = true }
@@ -94,6 +94,7 @@ std = [
 	"hash256-std-hasher/std",
 	"impl-serde/std",
 	"itertools",
+	"k256/std",
 	"libsecp256k1/std",
 	"log/std",
 	"merlin/std",
@@ -135,6 +136,7 @@ serde = [
 	"secrecy/alloc",
 	"sp-crypto-hashing",
 	"sp-storage/serde",
+	"k256/serde"
 ]
 
 # This feature enables all crypto primitives for `no_std` builds like microcontrollers
