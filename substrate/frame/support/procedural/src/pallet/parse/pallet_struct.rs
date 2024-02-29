@@ -35,8 +35,6 @@ pub struct PalletStructDef {
 	pub instances: Vec<helper::InstanceUsage>,
 	/// The keyword Pallet used (contains span).
 	pub pallet: keyword::Pallet,
-	/// Whether the trait `Store` must be generated.
-	pub store: Option<(syn::Visibility, keyword::Store, proc_macro2::Span)>,
 	/// The span of the pallet::pallet attribute.
 	pub attr_span: proc_macro2::Span,
 	/// Whether to specify the storages max encoded len when implementing `StorageInfoTrait`.
@@ -57,7 +55,6 @@ pub enum PalletStructAttr {
 impl PalletStructAttr {
 	fn span(&self) -> proc_macro2::Span {
 		match self {
-			Self::GenerateStore { span, .. } |
 			Self::WithoutStorageInfoTrait(span) |
 			Self::StorageVersion { span, .. } => *span,
 		}
@@ -103,16 +100,12 @@ impl PalletStructDef {
 			return Err(syn::Error::new(item.span(), msg))
 		};
 
-		let mut store = None;
 		let mut without_storage_info = None;
 		let mut storage_version_found = None;
 
 		let struct_attrs: Vec<PalletStructAttr> = helper::take_item_pallet_attrs(&mut item.attrs)?;
 		for attr in struct_attrs {
 			match attr {
-				PalletStructAttr::GenerateStore { vis, keyword, span } if store.is_none() => {
-					store = Some((vis, keyword, span));
-				},
 				PalletStructAttr::WithoutStorageInfoTrait(span)
 					if without_storage_info.is_none() =>
 				{
@@ -149,7 +142,6 @@ impl PalletStructDef {
 			index,
 			instances,
 			pallet,
-			store,
 			attr_span,
 			without_storage_info,
 			storage_version: storage_version_found,
