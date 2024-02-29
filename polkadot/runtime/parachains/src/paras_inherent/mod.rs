@@ -972,7 +972,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 
 	// Remove any candidates that were concluded invalid or who are descendants of concluded invalid
 	// candidates (along with their descendants).
-	filter_candidates::<T, _, _>(&mut candidates_per_para, |_, candidate| {
+	retain_candidates::<T, _, _>(&mut candidates_per_para, |_, candidate| {
 		let keep = !concluded_invalid_with_descendants.contains(&candidate.candidate().hash());
 
 		if !keep {
@@ -1097,7 +1097,7 @@ fn limit_and_sanitize_disputes<
 
 // Helper function for filtering candidates which don't pass the given predicate. When/if the first
 // candidate which failes the predicate is found, all the other candidates that follow are dropped.
-fn filter_candidates<
+fn retain_candidates<
 	T: inclusion::Config + paras::Config + inclusion::Config,
 	F: FnMut(ParaId, &mut C) -> bool,
 	C,
@@ -1153,7 +1153,7 @@ fn filter_backed_statements_from_disabled_validators<
 	// the validator group assigned to the parachain. To obtain this group we need:
 	// 1. Core index assigned to the parachain which has produced the candidate
 	// 2. The relay chain block number of the candidate
-	filter_candidates::<T, _, _>(backed_candidates_with_core, |para_id, (bc, core_idx)| {
+	retain_candidates::<T, _, _>(backed_candidates_with_core, |para_id, (bc, core_idx)| {
 		let (validator_indices, maybe_core_index) =
 			bc.validator_indices_and_core_index(core_index_enabled);
 		let mut validator_indices = BitVec::<_>::from(validator_indices);
@@ -1233,6 +1233,7 @@ fn filter_backed_statements_from_disabled_validators<
 
 // Check that candidates pertaining to the same para form a chain. Drop the ones that
 // don't, along with the rest of candidates which follow them in the input vector.
+// In the process, duplicated candidates will also be dropped (unless they form a valid cycle).
 fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion::Config>(
 	candidates: &mut BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
@@ -1250,7 +1251,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 		para_latest_head_data.insert(*para_id, latest_head_data);
 	}
 
-	filter_candidates::<T, _, _>(candidates, |para_id, candidate| {
+	retain_candidates::<T, _, _>(candidates, |para_id, candidate| {
 		let Some(latest_head_data) = para_latest_head_data.get(&para_id) else { return false };
 
 		let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
