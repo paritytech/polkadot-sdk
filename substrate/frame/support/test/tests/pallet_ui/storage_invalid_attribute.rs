@@ -30,7 +30,6 @@ mod pallet {
 	impl<T: Config> Pallet<T> {}
 
 	#[pallet::storage]
-	#[pallet::generate_store(pub trait Store)]
 	type Foo<T> = StorageValue<u8, u8>;
 }
 

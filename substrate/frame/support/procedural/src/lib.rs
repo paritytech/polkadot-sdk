@@ -222,9 +222,6 @@ pub fn construct_runtime(input: TokenStream) -> TokenStream {
 ///
 /// It implements `StorageInfoTrait` on `Pallet` which give information about all storages.
 ///
-/// If the attribute `generate_store` is set then the macro creates the trait `Store` and
-/// implements it on `Pallet`.
-///
 /// If the attribute `set_storage_max_encoded_len` is set then the macro calls
 /// `StorageInfoTrait` for each storage in the implementation of `StorageInfoTrait` for the
 /// pallet. Otherwise it implements `StorageInfoTrait` for the pallet using the
@@ -1058,27 +1055,6 @@ pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 /// want to write an alternative to the `frame_system` pallet.
 #[proc_macro_attribute]
 pub fn disable_frame_system_supertrait_check(_: TokenStream, _: TokenStream) -> TokenStream {
-	pallet_macro_stub()
-}
-
-/// To generate a `Store` trait associating all storages, annotate your `Pallet` struct with
-/// the attribute `#[pallet::generate_store($vis trait Store)]`, e.g.:
-///
-/// ```ignore
-/// #[pallet::pallet]
-/// #[pallet::generate_store(pub(super) trait Store)]
-/// pub struct Pallet<T>(_);
-/// ```
-/// More precisely, the `Store` trait contains an associated type for each storage. It is
-/// implemented for `Pallet` allowing access to the storage from pallet struct.
-///
-/// Thus when defining a storage named `Foo`, it can later be accessed from `Pallet` using
-/// `<Pallet as Store>::Foo`.
-///
-/// NOTE: this attribute is only valid when applied _directly_ to your `Pallet` struct
-/// definition.
-#[proc_macro_attribute]
-pub fn generate_store(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 

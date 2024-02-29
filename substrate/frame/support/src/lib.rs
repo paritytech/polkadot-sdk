@@ -965,7 +965,6 @@ pub mod pallet_prelude {
 /// * [`pallet::config`](#config-trait-palletconfig-mandatory)
 /// * [`pallet::constant`](#palletconstant)
 /// * [`pallet::disable_frame_system_supertrait_check`](#disable_supertrait_check)
-/// * [`pallet::generate_store($vis trait Store)`](#palletgenerate_storevis-trait-store)
 /// * [`pallet::storage_version`](#palletstorage_version)
 /// * [`pallet::hooks`](#hooks-pallethooks-optional)
 /// * [`pallet::call`](#call-palletcall-optional)
@@ -1078,9 +1077,6 @@ pub mod pallet_prelude {
 /// It implements [`StorageInfoTrait`](`traits::StorageInfoTrait`) on `Pallet` which give
 /// information about all storages.
 ///
-/// If the attribute `generate_store` is set then the macro creates the trait `Store` and
-/// implements it on `Pallet`.
-///
 /// If the attribute `set_storage_max_encoded_len` is set then the macro calls
 /// [`StorageInfoTrait`](`traits::StorageInfoTrait`) for each storage in the implementation of
 /// [`StorageInfoTrait`](`traits::StorageInfoTrait`) for the pallet. Otherwise it implements
@@ -1154,26 +1150,11 @@ pub mod pallet_prelude {
 /// The macro expands pallet constant metadata with the information given by
 /// `#[pallet::constant]`.
 ///
-/// # `pallet::generate_store($vis trait Store)`
-///
-/// To generate a `Store` trait associating all storages, annotate your `Pallet` struct with
-/// the attribute `#[pallet::generate_store($vis trait Store)]`, e.g.:
-///
-/// ```ignore
-/// #[pallet::pallet]
-/// #[pallet::generate_store(pub(super) trait Store)]
-/// pub struct Pallet<T>(_);
-/// ```
-/// More precisely, the `Store` trait contains an associated type for each storage. It is
-/// implemented for `Pallet` allowing access to the storage from pallet struct.
-///
 /// Thus when defining a storage named `Foo`, it can later be accessed from `Pallet` using
 /// `<Pallet as Store>::Foo`.
 ///
 /// NOTE: this attribute is only valid when applied _directly_ to your `Pallet` struct
 /// definition.
-///
-/// Also see [`pallet::generate_store`](`frame_support::pallet_macros::generate_store`).
 ///
 /// # `pallet::storage_version`
 ///
@@ -1782,7 +1763,6 @@ pub mod pallet_prelude {
 ///
 /// 	// Define the pallet struct placeholder, various pallet function are implemented on it.
 /// 	#[pallet::pallet]
-/// 	#[pallet::generate_store(pub(super) trait Store)]
 /// 	pub struct Pallet<T>(_);
 ///
 /// 	// Implement the pallet hooks.
@@ -1979,7 +1959,6 @@ pub mod pallet_prelude {
 /// 	}
 ///
 /// 	#[pallet::pallet]
-/// 	#[pallet::generate_store(pub(super) trait Store)]
 /// 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 ///
 /// 	#[pallet::hooks]
@@ -2122,9 +2101,6 @@ pub mod pallet_prelude {
 /// 		use super::*;
 ///
 /// 		#[pallet::pallet]
-/// 		#[pallet::generate_store($visibility_of_trait_store trait Store)]
-/// 		// NOTE: if the visibility of trait store is private but you want to make it available
-/// 		// in super, then use `pub(super)` or `pub(crate)` to make it available in crate.
 /// 		pub struct Pallet<T>(_);
 /// 		// pub struct Pallet<T, I = ()>(PhantomData<T>); // for instantiable pallet
 /// 	}
@@ -2283,7 +2259,7 @@ pub use frame_support_procedural::pallet;
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		composite_enum, config, disable_frame_system_supertrait_check, disable_try_decode_storage,
-		error, event, extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
+		error, event, extra_constants, feeless_if, generate_deposit, getter, hooks,
 		import_section, inherent, no_default, no_default_bounds, pallet_section, storage_prefix,
 		storage_version, type_value, unbounded, validate_unsigned, weight, whitelist_storage,
 	};
