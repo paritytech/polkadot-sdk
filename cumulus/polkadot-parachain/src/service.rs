@@ -1251,28 +1251,33 @@ where
 	<<AuraId as AppCrypto>::Pair as Pair>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
 {
-	let client2 = client.clone();
+	let verifier_client = client.clone();
 
 	let aura_verifier = move || {
-		let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client2).unwrap();
-
 		Box::new(cumulus_client_consensus_aura::build_verifier::<
 			<AuraId as AppCrypto>::Pair,
 			_,
 			_,
 			_,
 		>(cumulus_client_consensus_aura::BuildVerifierParams {
-			client: client2.clone(),
-			create_inherent_data_providers: move |_, _| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			client: verifier_client.clone(),
+			create_inherent_data_providers: move |parent_hash, _| {
+				let cidp_client = verifier_client.clone();
+				async move {
+					let slot_duration = cumulus_client_consensus_aura::slot_duration_at(
+						&*cidp_client,
+						parent_hash,
+					)?;
+					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-				let slot =
-							sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-								*timestamp,
-								slot_duration,
-							);
+					let slot =
+								sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+									*timestamp,
+									slot_duration,
+								);
 
-				Ok((slot, timestamp))
+					Ok((slot, timestamp))
+				}
 			},
 			telemetry: telemetry_handle,
 		})) as Box<_>
