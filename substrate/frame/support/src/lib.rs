@@ -1271,7 +1271,7 @@ pub mod pallet_macros {
 	///
 	/// 	#[pallet::config]
 	/// 	#[pallet::disable_frame_system_supertrait_check]
-	/// 	pub trait Config: frame_system::Config {}
+	/// 	pub trait Config: OtherTrait {}
 	/// }
 	/// ```
 	///
@@ -1531,7 +1531,7 @@ pub mod pallet_macros {
 	/// If not present, the current storage version is set to the default value.
 	pub use frame_support_procedural::storage_version;
 
-	/// The `#[pallet::hooks]` attribute allows you to specify a `Hooks` implementation for
+	/// The `#[pallet::hooks]` attribute allows you to specify a [`frame_support::traits::Hooks`] implementation for
 	/// `Pallet` that specifies pallet-specific logic.
 	///
 	/// The item the attribute attaches to must be defined as follows:
