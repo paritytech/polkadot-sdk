@@ -1,5 +1,5 @@
 [package]
-name = "parachain-runtime"
+name = "parachain-template-runtime"
 version = "0.0.0"
 description = "A parachain runtime template built with Substrate and Cumulus, part of Polkadot Sdk."
 authors.workspace = true

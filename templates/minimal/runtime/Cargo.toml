@@ -1,5 +1,5 @@
 [package]
-name = "minimal-runtime"
+name = "minimal-template-runtime"
 version = "0.0.0"
 description = "A solochain runtime template built with Substrate, part of Polkadot Sdk."
 authors.workspace = true
@@ -31,6 +31,9 @@ pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/
 
 # genesis builder that allows us to interacto with runtime genesis config
 sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
+
+# local pallet templates
+pallet-minimal-template = { path = "../pallets/template", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }

@@ -8169,7 +8169,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
-name = "minimal-node"
+name = "minimal-template-node"
 version = "0.0.0"
 dependencies = [
  "clap 4.5.1",
@@ -8177,7 +8177,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "jsonrpsee",
- "minimal-runtime",
+ "minimal-template-runtime",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
@@ -8204,11 +8204,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "minimal-runtime"
+name = "minimal-template-runtime"
 version = "0.0.0"
 dependencies = [
  "frame",
  "pallet-balances",
+ "pallet-minimal-template",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -11306,7 +11307,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "parachain-node"
+name = "parachain-template-node"
 version = "0.0.0"
 dependencies = [
  "clap 4.5.1",
@@ -11326,7 +11327,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "pallet-transaction-payment-rpc",
- "parachain-runtime",
+ "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-primitives",
@@ -11364,7 +11365,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "parachain-runtime"
+name = "parachain-template-runtime"
 version = "0.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
@@ -18270,7 +18271,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "solochain-node"
+name = "solochain-template-node"
 version = "4.0.0-dev"
 dependencies = [
  "clap 4.5.1",
@@ -18295,7 +18296,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "serde_json",
- "solochain-runtime",
+ "solochain-template-runtime",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -18313,7 +18314,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "solochain-runtime"
+name = "solochain-template-runtime"
 version = "0.0.0"
 dependencies = [
  "frame-benchmarking",

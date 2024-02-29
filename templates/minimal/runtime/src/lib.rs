@@ -38,8 +38,8 @@ use frame::{
 
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("minimal-runtime"),
-	impl_name: create_runtime_str!("minimal-runtime"),
+	spec_name: create_runtime_str!("minimal-template-runtime"),
+	impl_name: create_runtime_str!("minimal-template-runtime"),
 	authoring_version: 1,
 	spec_version: 0,
 	impl_version: 1,
@@ -73,6 +73,9 @@ construct_runtime!(
 		Balances: pallet_balances,
 		Sudo: pallet_sudo,
 		TransactionPayment: pallet_transaction_payment,
+
+		// our local pallet
+		Template: pallet_minimal_template,
 	}
 );
 
@@ -105,6 +108,8 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = NoFee<<Self as pallet_balances::Config>::Balance>;
 	type LengthToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 }
+
+impl pallet_minimal_template::Config for Runtime {}
 
 type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
 type Header = HeaderFor<Runtime>;

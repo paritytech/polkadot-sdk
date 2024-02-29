@@ -1,5 +1,5 @@
 [package]
-name = "solochain-runtime"
+name = "solochain-template-runtime"
 version = "0.0.0"
 description = "A solochain runtime template built with Substrate, part of Polkadot Sdk."
 authors.workspace = true

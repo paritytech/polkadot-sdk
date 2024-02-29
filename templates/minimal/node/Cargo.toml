@@ -1,5 +1,5 @@
 [package]
-name = "minimal-node"
+name = "minimal-template-node"
 description = "A miniaml Substrate-based Substrate node, ready for hacking."
 version = "0.0.0"
 authors.workspace = true
@@ -17,7 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [[bin]]
-name = "minimal-node"
+name = "minimal-template-node"
 
 [dependencies]
 clap = { version = "4.5.1", features = ["derive"] }
@@ -56,7 +56,7 @@ frame = { path = "../../../substrate/frame", features = [
 	"experimental",
 	"runtime",
 ] }
-runtime = { package = "minimal-runtime", path = "../runtime" }
+runtime = { package = "minimal-template-runtime", path = "../runtime" }
 
 [build-dependencies]
 substrate-build-script-utils = { path = "../../../substrate/utils/build-script-utils" }
