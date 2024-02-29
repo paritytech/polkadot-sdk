@@ -205,6 +205,7 @@ pub mod pallet {
 		type OnSystemEvent: OnSystemEvent;
 
 		/// Returns the parachain ID we are running with.
+		#[pallet::constant]
 		type SelfParaId: Get<ParaId>;
 
 		/// The place where outbound XCMP messages come from. This is queried in `finalize_block`.
