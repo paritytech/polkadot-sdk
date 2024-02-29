@@ -237,6 +237,57 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
+fetch_release_artifacts_from_s3() {
+  echo "Version    : $VERSION"
+  echo "Repo       : $REPO"
+  echo "Binary     : $BINARY"
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
+  echo "OUTPUT_DIR : $OUTPUT_DIR"
+
+  URL_BASE=$(get_s3_url_base $BINARY)
+  log_info "URL_BASE=$URL_BASE"
+
+  URL_BINARY=$URL_BASE/$VERSION/$BINARY
+  URL_SHA=$URL_BASE/$VERSION/$BINARY.sha256
+  URL_ASC=$URL_BASE/$VERSION/$BINARY.asc
+
+  # Fetch artifacts
+  mkdir -p "$OUTPUT_DIR"
+  pushd "$OUTPUT_DIR" > /dev/null
+
+  echo "Fetching artifacts..."
+  for URL in $URL_BINARY $URL_SHA $URL_ASC; do
+    log_info "Fetching %s" "$URL"
+    curl --progress-bar -LO "$URL" || echo "Missing $URL"
+  done
+
+  pwd
+  ls -al --color
+  popd > /dev/null
+
+}
+
+# Pass the name of the binary as input, it will
+# return the s3 base url
+function get_s3_url_base() {
+    name=$1
+    case $name in
+    polkadot | polkadot-execute-worker | polkadot-prepare-worker | staking-miner)
+        printf "https://releases.parity.io/polkadot"
+        ;;
+
+    polkadot-parachain)
+        printf "https://releases.parity.io/cumulus"
+        ;;
+
+    *)
+        log_error "UNSUPPORTED BINARY $name"
+        exit 1
+        ;;
+    esac
+}
+
+
 # Check the checksum for a given binary
 function check_sha256() {
     echo "Checking SHA256 for $1"
