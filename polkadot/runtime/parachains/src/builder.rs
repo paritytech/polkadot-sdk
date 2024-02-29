@@ -25,12 +25,13 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use primitives::{
-	collator_signature_payload, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
-	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CommittedCandidateReceipt,
-	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
-	Id as ParaId, IndexedVec, InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
-	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
-	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
+	collator_signature_payload, vstaging::node_features::FeatureIndex, AvailabilityBitfield,
+	BackedCandidate, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
+	CollatorSignature, CommittedCandidateReceipt, CompactStatement, CoreIndex, DisputeStatement,
+	DisputeStatementSet, GroupIndex, HeadData, Id as ParaId, IndexedVec,
+	InherentData as ParachainsInherentData, InvalidDisputeStatementKind, PersistedValidationData,
+	SessionIndex, SigningContext, UncheckedSigned, ValidDisputeStatementKind, ValidationCode,
+	ValidatorId, ValidatorIndex, ValidityAttestation,
 };
 use sp_core::{sr25519, H256};
 use sp_runtime::{
@@ -509,7 +510,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.iter()
 			.map(|(seed, num_votes)| {
 				assert!(*num_votes <= validators.len() as u32);
-				let (para_id, _core_idx, group_idx) = self.create_indexes(*seed);
+				let (para_id, core_idx, group_idx) = self.create_indexes(*seed);
 
 				// This generates a pair and adds it to the keystore, returning just the public.
 				let collator_public = CollatorId::generate_pair(None);
@@ -586,11 +587,18 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					})
 					.collect();
 
+				// Check if the elastic scaling bit is set, if so we need to supply the core index
+				// in the generated candidate.
+				let core_idx = configuration::Pallet::<T>::config()
+					.node_features
+					.get(FeatureIndex::ElasticScalingMVP as usize)
+					.map(|_the_bit| core_idx);
+
 				BackedCandidate::<T::Hash>::new(
 					candidate,
 					validity_votes,
 					bitvec::bitvec![u8, bitvec::order::Lsb0; 1; group_validators.len()],
-					None,
+					core_idx,
 				)
 			})
 			.collect()
