@@ -434,19 +434,6 @@ nav.side-bar {
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -567,13 +554,6 @@ nav.side-bar {
 		<span class="macro">debug_assert!</span>(<span class="self">self</span>.consumed.all_lte(<span class="self">self</span>.limit), <span class="string">&quot;Weight counter overflow&quot;</span>);
 	}
 
-	<span class="doccomment">/// Consume the given weight after checking that it can be consumed and return `true`. Otherwise
-	/// do nothing and return `false`.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;Use `try_consume` instead. Will be removed after December 2023.&quot;</span>)]
-	</span><span class="kw">pub fn </span>check_accrue(<span class="kw-2">&amp;mut </span><span class="self">self</span>, w: Weight) -&gt; bool {
-		<span class="self">self</span>.try_consume(w).is_ok()
-	}
-
 	<span class="doccomment">/// Consume the given weight after checking that it can be consumed.
 	///
 	/// Returns `Ok` if the weight can be consumed or otherwise an `Err`.
@@ -586,12 +566,6 @@ nav.side-bar {
 				<span class="prelude-val">Ok</span>(())
 			}
 		})
-	}
-
-	<span class="doccomment">/// Check if the given weight can be consumed.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;Use `can_consume` instead. Will be removed after December 2023.&quot;</span>)]
-	</span><span class="kw">pub fn </span>can_accrue(<span class="kw-2">&amp;</span><span class="self">self</span>, w: Weight) -&gt; bool {
-		<span class="self">self</span>.can_consume(w)
 	}
 
 	<span class="doccomment">/// Check if the given weight can be consumed.
@@ -614,80 +588,80 @@ nav.side-bar {
 	</span><span class="kw">fn </span>weight_meter_remaining_works() {
 		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::with_limit(Weight::from_parts(<span class="number">10</span>, <span class="number">20</span>));
 
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">5</span>, <span class="number">0</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">5</span>, <span class="number">0</span>)), <span class="prelude-val">Ok</span>(()));
 		<span class="macro">assert_eq!</span>(meter.consumed, Weight::from_parts(<span class="number">5</span>, <span class="number">0</span>));
 		<span class="macro">assert_eq!</span>(meter.remaining(), Weight::from_parts(<span class="number">5</span>, <span class="number">20</span>));
 
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">2</span>, <span class="number">10</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">2</span>, <span class="number">10</span>)), <span class="prelude-val">Ok</span>(()));
 		<span class="macro">assert_eq!</span>(meter.consumed, Weight::from_parts(<span class="number">7</span>, <span class="number">10</span>));
 		<span class="macro">assert_eq!</span>(meter.remaining(), Weight::from_parts(<span class="number">3</span>, <span class="number">10</span>));
 
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">3</span>, <span class="number">10</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">3</span>, <span class="number">10</span>)), <span class="prelude-val">Ok</span>(()));
 		<span class="macro">assert_eq!</span>(meter.consumed, Weight::from_parts(<span class="number">10</span>, <span class="number">20</span>));
 		<span class="macro">assert_eq!</span>(meter.remaining(), Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>));
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>weight_meter_can_accrue_works() {
+	</span><span class="kw">fn </span>weight_meter_can_consume_works() {
 		<span class="kw">let </span>meter = WeightMeter::with_limit(Weight::from_parts(<span class="number">1</span>, <span class="number">1</span>));
 
-		<span class="macro">assert!</span>(meter.can_accrue(Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>)));
-		<span class="macro">assert!</span>(meter.can_accrue(Weight::from_parts(<span class="number">1</span>, <span class="number">1</span>)));
-		<span class="macro">assert!</span>(!meter.can_accrue(Weight::from_parts(<span class="number">0</span>, <span class="number">2</span>)));
-		<span class="macro">assert!</span>(!meter.can_accrue(Weight::from_parts(<span class="number">2</span>, <span class="number">0</span>)));
-		<span class="macro">assert!</span>(!meter.can_accrue(Weight::from_parts(<span class="number">2</span>, <span class="number">2</span>)));
+		<span class="macro">assert!</span>(meter.can_consume(Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>)));
+		<span class="macro">assert!</span>(meter.can_consume(Weight::from_parts(<span class="number">1</span>, <span class="number">1</span>)));
+		<span class="macro">assert!</span>(!meter.can_consume(Weight::from_parts(<span class="number">0</span>, <span class="number">2</span>)));
+		<span class="macro">assert!</span>(!meter.can_consume(Weight::from_parts(<span class="number">2</span>, <span class="number">0</span>)));
+		<span class="macro">assert!</span>(!meter.can_consume(Weight::from_parts(<span class="number">2</span>, <span class="number">2</span>)));
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>weight_meter_check_accrue_works() {
+	</span><span class="kw">fn </span>weight_meter_try_consume_works() {
 		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::with_limit(Weight::from_parts(<span class="number">2</span>, <span class="number">2</span>));
 
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>)));
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">1</span>, <span class="number">1</span>)));
-		<span class="macro">assert!</span>(!meter.check_accrue(Weight::from_parts(<span class="number">0</span>, <span class="number">2</span>)));
-		<span class="macro">assert!</span>(!meter.check_accrue(Weight::from_parts(<span class="number">2</span>, <span class="number">0</span>)));
-		<span class="macro">assert!</span>(!meter.check_accrue(Weight::from_parts(<span class="number">2</span>, <span class="number">2</span>)));
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">0</span>, <span class="number">1</span>)));
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">1</span>, <span class="number">0</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>)), <span class="prelude-val">Ok</span>(()));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">1</span>, <span class="number">1</span>)), <span class="prelude-val">Ok</span>(()));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">0</span>, <span class="number">2</span>)), <span class="prelude-val">Err</span>(()));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">2</span>, <span class="number">0</span>)), <span class="prelude-val">Err</span>(()));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">2</span>, <span class="number">2</span>)), <span class="prelude-val">Err</span>(()));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">0</span>, <span class="number">1</span>)), <span class="prelude-val">Ok</span>(()));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">1</span>, <span class="number">0</span>)), <span class="prelude-val">Ok</span>(()));
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>weight_meter_check_and_can_accrue_works() {
+	</span><span class="kw">fn </span>weight_meter_check_and_can_consume_works() {
 		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::new();
 
-		<span class="macro">assert!</span>(meter.can_accrue(Weight::from_parts(u64::MAX, <span class="number">0</span>)));
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(u64::MAX, <span class="number">0</span>)));
+		<span class="macro">assert!</span>(meter.can_consume(Weight::from_parts(u64::MAX, <span class="number">0</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(u64::MAX, <span class="number">0</span>)), <span class="prelude-val">Ok</span>(()));
 
-		<span class="macro">assert!</span>(meter.can_accrue(Weight::from_parts(<span class="number">0</span>, u64::MAX)));
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">0</span>, u64::MAX)));
+		<span class="macro">assert!</span>(meter.can_consume(Weight::from_parts(<span class="number">0</span>, u64::MAX)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">0</span>, u64::MAX)), <span class="prelude-val">Ok</span>(()));
 
-		<span class="macro">assert!</span>(!meter.can_accrue(Weight::from_parts(<span class="number">0</span>, <span class="number">1</span>)));
-		<span class="macro">assert!</span>(!meter.check_accrue(Weight::from_parts(<span class="number">0</span>, <span class="number">1</span>)));
+		<span class="macro">assert!</span>(!meter.can_consume(Weight::from_parts(<span class="number">0</span>, <span class="number">1</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">0</span>, <span class="number">1</span>)), <span class="prelude-val">Err</span>(()));
 
-		<span class="macro">assert!</span>(!meter.can_accrue(Weight::from_parts(<span class="number">1</span>, <span class="number">0</span>)));
-		<span class="macro">assert!</span>(!meter.check_accrue(Weight::from_parts(<span class="number">1</span>, <span class="number">0</span>)));
+		<span class="macro">assert!</span>(!meter.can_consume(Weight::from_parts(<span class="number">1</span>, <span class="number">0</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">1</span>, <span class="number">0</span>)), <span class="prelude-val">Err</span>(()));
 
-		<span class="macro">assert!</span>(meter.can_accrue(Weight::zero()));
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::zero()));
+		<span class="macro">assert!</span>(meter.can_consume(Weight::zero()));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::zero()), <span class="prelude-val">Ok</span>(()));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>consumed_ratio_works() {
 		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::with_limit(Weight::from_parts(<span class="number">10</span>, <span class="number">20</span>));
 
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">5</span>, <span class="number">0</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">5</span>, <span class="number">0</span>)), <span class="prelude-val">Ok</span>(()));
 		<span class="macro">assert_eq!</span>(meter.consumed_ratio(), Perbill::from_percent(<span class="number">50</span>));
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">0</span>, <span class="number">12</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">0</span>, <span class="number">12</span>)), <span class="prelude-val">Ok</span>(()));
 		<span class="macro">assert_eq!</span>(meter.consumed_ratio(), Perbill::from_percent(<span class="number">60</span>));
 
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">2</span>, <span class="number">0</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">2</span>, <span class="number">0</span>)), <span class="prelude-val">Ok</span>(()));
 		<span class="macro">assert_eq!</span>(meter.consumed_ratio(), Perbill::from_percent(<span class="number">70</span>));
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">0</span>, <span class="number">4</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">0</span>, <span class="number">4</span>)), <span class="prelude-val">Ok</span>(()));
 		<span class="macro">assert_eq!</span>(meter.consumed_ratio(), Perbill::from_percent(<span class="number">80</span>));
 
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">3</span>, <span class="number">0</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">3</span>, <span class="number">0</span>)), <span class="prelude-val">Ok</span>(()));
 		<span class="macro">assert_eq!</span>(meter.consumed_ratio(), Perbill::from_percent(<span class="number">100</span>));
-		<span class="macro">assert!</span>(meter.check_accrue(Weight::from_parts(<span class="number">0</span>, <span class="number">4</span>)));
+		<span class="macro">assert_eq!</span>(meter.try_consume(Weight::from_parts(<span class="number">0</span>, <span class="number">4</span>)), <span class="prelude-val">Ok</span>(()));
 		<span class="macro">assert_eq!</span>(meter.consumed_ratio(), Perbill::from_percent(<span class="number">100</span>));
 	}
 

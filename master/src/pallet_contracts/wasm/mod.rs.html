@@ -3580,17 +3580,6 @@ nav.side-bar {
 <a href="#3438" id="3438">3438</a>
 <a href="#3439" id="3439">3439</a>
 <a href="#3440" id="3440">3440</a>
-<a href="#3441" id="3441">3441</a>
-<a href="#3442" id="3442">3442</a>
-<a href="#3443" id="3443">3443</a>
-<a href="#3444" id="3444">3444</a>
-<a href="#3445" id="3445">3445</a>
-<a href="#3446" id="3446">3446</a>
-<a href="#3447" id="3447">3447</a>
-<a href="#3448" id="3448">3448</a>
-<a href="#3449" id="3449">3449</a>
-<a href="#3450" id="3450">3450</a>
-<a href="#3451" id="3451">3451</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5412,17 +5401,6 @@ nav.side-bar {
 
 		<span class="macro">assert!</span>(weight_left.all_lt(gas_limit), <span class="string">&quot;gas_left must be less than initial&quot;</span>);
 		<span class="macro">assert!</span>(weight_left.all_gt(actual_left), <span class="string">&quot;gas_left must be greater than final&quot;</span>);
-	}
-
-	<span class="doccomment">/// Test that [`frame_support::weights::OldWeight`] en/decodes the same as our
-	/// [`crate::OldWeight`].
-	</span><span class="attr">#[test]
-	</span><span class="kw">fn </span>old_weight_decode() {
-		<span class="attr">#![allow(deprecated)]
-		</span><span class="kw">let </span>sp = frame_support::weights::OldWeight(<span class="number">42</span>).encode();
-		<span class="kw">let </span>our = <span class="kw">crate</span>::OldWeight::decode(<span class="kw-2">&amp;mut &amp;*</span>sp).unwrap();
-
-		<span class="macro">assert_eq!</span>(our, <span class="number">42</span>);
 	}
 
 	<span class="kw">const </span>CODE_VALUE_TRANSFERRED: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;

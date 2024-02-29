@@ -502,31 +502,6 @@ nav.side-bar {
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
 <a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
-<a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -547,9 +522,6 @@ nav.side-bar {
 </span><span class="doccomment">//! # Primitives for transaction weighting.
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
-</span><span class="comment">// TODO remove once `OldWeight` is gone. I dont know why this is needed, maybe by one of the macros
-// of `OldWeight`.
-</span><span class="attr">#![allow(deprecated)]
 
 </span><span class="kw">extern crate </span><span class="self">self </span><span class="kw">as </span>sp_weights;
 
@@ -557,7 +529,7 @@ nav.side-bar {
 <span class="kw">mod </span>weight_v2;
 
 <span class="kw">use </span>bounded_collections::Get;
-<span class="kw">use </span>codec::{CompactAs, Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -580,28 +552,6 @@ nav.side-bar {
 	<span class="kw">pub const </span>WEIGHT_PROOF_SIZE_PER_MB: u64 = <span class="number">1024 </span>* <span class="number">1024</span>;
 	<span class="kw">pub const </span>WEIGHT_PROOF_SIZE_PER_KB: u64 = <span class="number">1024</span>;
 }
-
-<span class="doccomment">/// The old weight type.
-///
-/// NOTE: This type exists purely for compatibility purposes! Use [`weight_v2::Weight`] in all other
-/// cases.
-</span><span class="attr">#[derive(
-	Decode,
-	Encode,
-	CompactAs,
-	PartialEq,
-	Eq,
-	Clone,
-	Copy,
-	RuntimeDebug,
-	Default,
-	MaxEncodedLen,
-	TypeInfo,
-)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, serde(transparent))]
-#[deprecated(note = <span class="string">&quot;Will be removed soon; use `Weight` instead.&quot;</span>)]
-</span><span class="kw">pub struct </span>OldWeight(<span class="kw">pub </span>u64);
 
 <span class="doccomment">/// The weight of database operations that the runtime can invoke.
 ///
