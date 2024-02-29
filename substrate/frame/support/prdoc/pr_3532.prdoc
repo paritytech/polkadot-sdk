@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove deprecated trait Store
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removes the deprecated trait Store feature from the codebase
+
+crates:
+  - name: frame-support
