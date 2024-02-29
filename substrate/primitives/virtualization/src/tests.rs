@@ -256,12 +256,7 @@ fn counter_in_subcall(program: &[u8]) {
 	let mut state = SharedState {
 		gas_left: GAS_MAX,
 		exit: false,
-		user: State {
-			counter: 0,
-			memory: Some(instance.memory()),
-			program: program.to_vec(),
-			..Default::default()
-		},
+		user: State { counter: 0, memory: Some(instance.memory()), program: program.to_vec() },
 	};
 	let ret = instance.execute("do_subcall", syscall_handler, &mut state);
 	assert_eq!(ret, Ok(()));
