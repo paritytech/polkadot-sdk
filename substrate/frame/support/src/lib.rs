@@ -1223,9 +1223,6 @@ pub mod pallet_macros {
 	///
 	/// Thus when defining a storage named `Foo`, it can later be accessed from `Pallet` using
 	/// `<Pallet as Store>::Foo`.
-	///
-	/// NOTE: this attribute is only valid when applied _directly_ to your `Pallet` struct
-	/// definition.
 	pub use frame_support_procedural::generate_store;
 
 	/// Allows you to define some extra constants to be added into constant metadata.
@@ -1462,8 +1459,8 @@ pub mod pallet_macros {
 	/// [`ValidateUnsigned`](frame_support::pallet_prelude::ValidateUnsigned) for
 	/// type `Pallet<T>`, and some optional where clause.
 	///
-	/// NOTE: There is also the `sp_runtime::traits::SignedExtension` trait that can be used to
-	/// add some specific logic for transaction validation.
+	/// NOTE: There is also the [`sp_runtime::traits::SignedExtension`] trait that can be used
+	/// to add some specific logic for transaction validation.
 	///
 	/// ## Macro expansion
 	///
@@ -2280,10 +2277,6 @@ pub mod pallet_macros {
 	/// 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
-	///
-	/// NOTE: As with all `pallet::*` attributes, this one _must_ be written as
-	/// `#[pallet::whitelist_storage]` and can only be placed inside a `pallet` module in order
-	/// for it to work properly.
 	pub use frame_support_procedural::whitelist_storage;
 
 	/// Each dispatchable needs to define a weight with the `#[pallet::weight($expr)]`
