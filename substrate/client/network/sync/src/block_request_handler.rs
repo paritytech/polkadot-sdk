@@ -41,6 +41,7 @@ use sc_network::{
 	types::ProtocolName,
 };
 use sc_network_common::sync::message::{BlockAttributes, BlockData, BlockRequest, FromBlock};
+use sc_telemetry::custom_telemetry::*;
 use schnellru::{ByLength, LruMap};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -189,6 +190,11 @@ where
 
 	/// Run [`BlockRequestHandler`].
 	async fn process_requests(&mut self) {
+		const DATA_COLLECTING_MAX_DURATION: u64 = 20_000; // in ms
+
+		let mut timer = std::time::SystemTime::now();
+		let mut requests_handled = 0u32;
+
 		while let Some(request) = self.request_receiver.next().await {
 			let IncomingRequest { peer, payload, pending_response } = request;
 
@@ -198,6 +204,20 @@ where
 					target: LOG_TARGET,
 					"Failed to handle block request from {}: {}", peer, e,
 				),
+			}
+
+			requests_handled += 1;
+			let elapsed_time = timer.elapsed().map_or(0u64, |d| d.as_millis() as u64);
+			if elapsed_time > DATA_COLLECTING_MAX_DURATION {
+				let detail = BlockRequestsDetail {
+					current_queue_size: self.request_receiver.len() as u32,
+					requests_handled,
+					time_frame: elapsed_time,
+				};
+				BlockMetrics::observe_block_request(detail);
+
+				timer = std::time::SystemTime::now();
+				requests_handled = 0;
 			}
 		}
 	}
@@ -349,7 +369,7 @@ where
 		let client_header_from_block_id =
 			|block_id: BlockId<B>| -> Result<Option<B::Header>, HandleRequestError> {
 				if let Some(hash) = self.client.block_hash_from_id(&block_id)? {
-					return self.client.header(hash).map_err(Into::into)
+					return self.client.header(hash).map_err(Into::into);
 				}
 				Ok(None)
 			};
@@ -389,11 +409,12 @@ where
 
 			let body = if get_body {
 				match self.client.block_body(hash)? {
-					Some(mut extrinsics) =>
-						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect(),
+					Some(mut extrinsics) => {
+						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect()
+					},
 					None => {
 						log::trace!(target: LOG_TARGET, "Missing data for block request.");
-						break
+						break;
 					},
 				}
 			} else {
@@ -430,13 +451,13 @@ where
 				indexed_body,
 			};
 
-			let new_total_size = total_size +
-				block_data.body.iter().map(|ex| ex.len()).sum::<usize>() +
-				block_data.indexed_body.iter().map(|ex| ex.len()).sum::<usize>();
+			let new_total_size = total_size
+				+ block_data.body.iter().map(|ex| ex.len()).sum::<usize>()
+				+ block_data.indexed_body.iter().map(|ex| ex.len()).sum::<usize>();
 
 			// Send at least one block, but make sure to not exceed the limit.
 			if !blocks.is_empty() && new_total_size > MAX_BODY_BYTES {
-				break
+				break;
 			}
 
 			total_size = new_total_size;
@@ -444,14 +465,14 @@ where
 			blocks.push(block_data);
 
 			if blocks.len() >= max_blocks as usize {
-				break
+				break;
 			}
 
 			match direction {
 				Direction::Ascending => block_id = BlockId::Number(number + One::one()),
 				Direction::Descending => {
 					if number.is_zero() {
-						break
+						break;
 					}
 					block_id = BlockId::Hash(parent_hash)
 				},

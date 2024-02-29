@@ -53,6 +53,8 @@ use std::{
 pub use log;
 pub use serde_json;
 
+///
+pub mod custom_telemetry;
 mod endpoints;
 mod error;
 mod node;
@@ -265,7 +267,7 @@ impl TelemetryWorker {
 										"Could not initialise transport: {}",
 										err,
 									);
-									continue
+									continue;
 								},
 							};
 							entry.insert(Node::new(transport, addr.clone(), Vec::new(), Vec::new()))
@@ -330,12 +332,12 @@ impl TelemetryWorker {
 						message,
 					)),
 			);
-			return
+			return;
 		};
 
 		for (node_max_verbosity, addr) in nodes {
 			if verbosity > *node_max_verbosity {
-				continue
+				continue;
 			}
 
 			if let Some(node) = node_pool.get_mut(addr) {

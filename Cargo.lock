@@ -15468,6 +15468,7 @@ dependencies = [
  "mockall",
  "parking_lot 0.12.1",
  "sc-client-api",
+ "sc-telemetry",
  "sc-utils",
  "serde",
  "sp-api",
@@ -16134,6 +16135,7 @@ dependencies = [
  "sc-consensus",
  "sc-network",
  "sc-network-common",
+ "sc-telemetry",
  "sc-utils",
  "schnellru",
  "smallvec",
@@ -16571,6 +16573,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
  "wasm-timer",
 ]
 
