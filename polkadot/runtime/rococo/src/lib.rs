@@ -2528,7 +2528,6 @@ sp_api::impl_runtime_apis! {
 			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
-
 }
 
 #[cfg(all(test, feature = "try-runtime"))]
@@ -2543,7 +2542,7 @@ mod remote_tests {
 	#[tokio::test]
 	async fn run_migrations() {
 		if var("RUN_MIGRATION_TESTS").is_err() {
-			return;
+			return
 		}
 
 		sp_tracing::try_init_simple();
