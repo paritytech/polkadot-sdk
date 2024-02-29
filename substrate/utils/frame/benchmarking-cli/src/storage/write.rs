@@ -182,11 +182,7 @@ fn measure_write<Block: BlockT>(
 	};
 
 	let mut tx = Transaction::<DbHash>::default();
-	sc_client_db::apply_tree_commit::<HashingFor<Block>>(
-		stx,
-		db.state_capabilities(),
-		&mut tx,
-	);
+	sc_client_db::apply_tree_commit::<HashingFor<Block>>(stx, db.state_capabilities(), &mut tx);
 
 	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
 	let result = (new_v.len(), start.elapsed());
