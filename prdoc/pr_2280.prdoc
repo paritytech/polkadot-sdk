@@ -1,7 +1,7 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: FRAME: Create `TransactionExtension` as a replacement for `SignedExtension`
+title: FRAME Create `TransactionExtension` as a replacement for `SignedExtension`
 
 doc:
   - audience: Runtime User
@@ -16,16 +16,16 @@ doc:
       Unsigned will be phased out as a type of transaction, and `Bare` will only be used for
       Inherents.
 
-      Types of extrinsic are now therefore:
+      Types of extrinsic are now therefore
         - Bare (no hardcoded signature, no Extra data; used to be known as "Unsigned")
-            - Bare transactions (deprecated): Gossiped, validated with `ValidateUnsigned`
+            - Bare transactions (deprecated) - Gossiped, validated with `ValidateUnsigned`
               (deprecated) and the `_bare_compat` bits of `TransactionExtension` (deprecated).
-            - Inherents: Not gossiped, validated with `ProvideInherent`.
-        - Extended (Extra data): Gossiped, validated via `TransactionExtension`.
+            - Inherents - Not gossiped, validated with `ProvideInherent`.
+        - Extended (Extra data) - Gossiped, validated via `TransactionExtension`.
             - Signed transactions (with a hardcoded signature).
             - General transactions (without a hardcoded signature).
 
-      Notable information on `TransactionExtension` and the differences from `SignedExtension`:
+      Notable information on `TransactionExtension` and the differences from `SignedExtension`
         - `AdditionalSigned`/`additional_signed` is renamed to `Implicit`/`implicit`. It is encoded
           for the entire transaction and passed in to each extension as a new argument to validate.
         - `pre_dispatch` is renamed to `prepare`.
