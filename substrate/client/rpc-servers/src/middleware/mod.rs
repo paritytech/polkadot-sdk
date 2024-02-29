@@ -129,10 +129,7 @@ where
 						break;
 					}
 
-					if attempts == 0 {
-						is_rate_limited = true;
-					}
-
+					is_rate_limited = true;
 					attempts += 1;
 				}
 			}
