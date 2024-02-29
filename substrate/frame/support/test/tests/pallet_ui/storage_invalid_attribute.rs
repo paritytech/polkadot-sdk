@@ -24,6 +24,7 @@ mod pallet {
 	pub trait Config: frame_system::Config {}
 
 	#[pallet::pallet]
+	#[pallet::generate_store(pub trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::call]
