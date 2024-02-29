@@ -770,6 +770,14 @@ fn _ensure_call_is_correctly_excluded_and_included(call: RuntimeCall) {
 	}
 }
 
+fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
+	if cfg!(feature = "no-metadata-docs") {
+		vec![]
+	} else {
+		doc
+	}
+}
+
 #[test]
 fn transactional_works() {
 	TestExternalities::default().execute_with(|| {
@@ -1368,8 +1376,11 @@ fn pallet_item_docs_in_metadata() {
 		_ => unreachable!(),
 	};
 
-	assert_eq!(call_variants[0].docs, vec!["call foo doc comment put in metadata"]);
-	assert_eq!(call_variants[1].docs, vec!["call foo_storage_layer doc comment put in metadata"]);
+	assert_eq!(call_variants[0].docs, maybe_docs(vec!["call foo doc comment put in metadata"]));
+	assert_eq!(
+		call_variants[1].docs,
+		maybe_docs(vec!["call foo_storage_layer doc comment put in metadata"])
+	);
 	assert!(call_variants[2].docs.is_empty());
 
 	// event
@@ -1378,7 +1389,7 @@ fn pallet_item_docs_in_metadata() {
 		_ => unreachable!(),
 	};
 
-	assert_eq!(event_variants[0].docs, vec!["event doc comment put in metadata"]);
+	assert_eq!(event_variants[0].docs, maybe_docs(vec!["event doc comment put in metadata"]));
 	assert!(event_variants[1].docs.is_empty());
 
 	// error
@@ -1387,7 +1398,7 @@ fn pallet_item_docs_in_metadata() {
 		_ => unreachable!(),
 	};
 
-	assert_eq!(error_variants[0].docs, vec!["error doc comment put in metadata"]);
+	assert_eq!(error_variants[0].docs, maybe_docs(vec!["error doc comment put in metadata"]));
 	assert!(error_variants[1].docs.is_empty());
 
 	// storage is already covered in the main `fn metadata` test.
@@ -1397,14 +1408,6 @@ fn pallet_item_docs_in_metadata() {
 fn metadata() {
 	use codec::Decode;
 	use frame_metadata::{v15::*, *};
-
-	fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
-		if cfg!(feature = "no-metadata-docs") {
-			vec![]
-		} else {
-			doc
-		}
-	}
 
 	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected_pallet_doc = vec![" Pallet documentation", readme, readme];
