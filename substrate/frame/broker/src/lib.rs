@@ -36,6 +36,8 @@ mod tick_impls;
 mod types;
 mod utility_impls;
 
+pub mod runtime_api;
+
 pub mod weights;
 pub use weights::WeightInfo;
 

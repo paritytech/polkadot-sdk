@@ -586,7 +586,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_broker_runtime_api::BrokerApi<Block, Balance> for Runtime {
+	impl pallet_broker::runtime_api::BrokerApi<Block, Balance> for Runtime {
 		fn sale_price() -> Option<Balance> {
 			Broker::api_sale_price()
 		}
