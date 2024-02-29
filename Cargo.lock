@@ -3083,6 +3083,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "rococo-emulated-chain",
+ "rococo-runtime-constants",
  "serde_json",
  "sp-core",
  "sp-runtime",

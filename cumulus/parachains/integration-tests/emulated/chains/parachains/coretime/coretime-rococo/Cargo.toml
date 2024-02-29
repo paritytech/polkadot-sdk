@@ -19,3 +19,4 @@ emulated-integration-tests-common = { path = "../../../../common", default-featu
 coretime-rococo-runtime = { path = "../../../../../../runtimes/coretime/coretime-rococo" }
 rococo-emulated-chain = { path = "../../../relays/rococo" }
 testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"] }
+rococo-runtime-constants = { path = "../../../../../../../../polkadot/runtime/rococo/constants", default-features = false }

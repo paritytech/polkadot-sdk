@@ -18,15 +18,19 @@ use sp_core::storage::Storage;
 
 // Cumulus
 use coretime_rococo_runtime::{
-	CollatorSelectionConfig, ParachainInfoConfig, PolkadotXcmConfig, RuntimeGenesisConfig,
-	SessionConfig, SessionKeys, SystemConfig, WASM_BINARY,
+	BalancesConfig, CollatorSelectionConfig, ParachainInfoConfig, PolkadotXcmConfig,
+	RuntimeGenesisConfig, SessionConfig, SessionKeys, SystemConfig, WASM_BINARY,
 };
 use cumulus_primitives_core::ParaId;
-use emulated_integration_tests_common::{build_genesis_storage, collators, SAFE_XCM_VERSION};
+use emulated_integration_tests_common::{
+	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
+};
 use parachains_common::Balance;
+use rococo_runtime_constants::currency::UNITS as ROC;
 
 pub const PARA_ID: u32 = 1005;
 pub const ED: Balance = testnet_parachains_constants::rococo::currency::EXISTENTIAL_DEPOSIT;
+const ENDOWMENT: u128 = 1_000_000 * ROC;
 
 pub fn genesis() -> Storage {
 	let genesis_config = RuntimeGenesisConfig {
@@ -39,6 +43,9 @@ pub fn genesis() -> Storage {
 			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
+		},
+		balances: BalancesConfig {
+			balances: accounts::init_balances().iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
 		},
 		session: SessionConfig {
 			keys: collators::invulnerables()
