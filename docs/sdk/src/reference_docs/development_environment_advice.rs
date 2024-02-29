@@ -39,8 +39,6 @@
 //!   // See the polkadot-sdk CI job that checks formatting for the current version used in
 //!   // polkadot-sdk.
 //!   "rust-analyzer.rustfmt.extraArgs": ["+nightly-2024-01-22"],
-//!   // useful when writing documentation
-//!   "rust-analyzer.semanticHighlighting.doc.comment.inject.enable": true,
 //! }
 //! ```
 //!
@@ -129,7 +127,6 @@
 //! 		"--message-format=json",
 //! 		"--all-targets",
 //! 		"--all-features",
-//! 		"--tests",
 //! 		"--target-dir=target/rust-analyzer"
 //! 	],
 //! 	"rust-analyzer.check.overrideCommand": [
@@ -143,8 +140,45 @@
 //! 		"--message-format=json",
 //! 		"--all-targets",
 //! 		"--all-features",
-//! 		"--tests",
 //! 		"--target-dir=target/rust-analyzer"
 //! 	],
 //! }
+//! ```
+//!
+//! //! and the same in Lua for `neovim/nvim-lspconfig`:
+//!
+//! ```lua
+//! ["rust-analyzer"] = {
+//!   cargo = {
+//!     buildScripts = {
+//!       overrideCommand = {
+//!         "cargo",
+//!         "remote",
+//!         "--build-env",
+//!         "SKIP_WASM_BUILD=1",
+//!         "--",
+//!         "check",
+//!         "--message-format=json",
+//!         "--all-targets",
+//!         "--all-features",
+//!         "--target-dir=target/rust-analyzer"
+//!       },
+//!     },
+//!     check = {
+//!       overrideCommand = {
+//!         "cargo",
+//!         "remote",
+//!         "--build-env",
+//!         "SKIP_WASM_BUILD=1",
+//!         "--",
+//!         "check",
+//!         "--workspace",
+//!         "--message-format=json",
+//!         "--all-targets",
+//!         "--all-features",
+//!         "--target-dir=target/rust-analyzer"
+//!       },
+//!     },
+//!   },
+//! },
 //! ```
