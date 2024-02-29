@@ -41,6 +41,7 @@ use polkadot_node_subsystem::{
 	jaeger,
 	messages::{
 		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, RuntimeApiMessage,
+		ParentHeadData,
 	},
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, PerLeafSpan,
 };
@@ -395,12 +396,11 @@ async fn distribute_collation<Context>(
 		return Ok(())
 	}
 
-	// Determine which core the para collated-on is assigned to.
+	// Determine which core(s) the para collated-on is assigned to.
 	// If it is not scheduled then ignore the message.
-	let (our_core, num_cores) =
-		match determine_core(ctx.sender(), id, candidate_relay_parent, relay_parent_mode).await? {
-			Some(core) => core,
-			None => {
+	let (our_core, num_cores, elastic_scaling) =
+		match determine_cores(ctx.sender(), id, candidate_relay_parent, relay_parent_mode).await? {
+			(cores, _num_cores) if cores.is_empty() => {
 				gum::warn!(
 					target: LOG_TARGET,
 					para_id = %id,
@@ -409,6 +409,16 @@ async fn distribute_collation<Context>(
 
 				return Ok(())
 			},
+			(cores, num_cores) if cores.len() > 1 => {
+				gum::debug!(
+					target: LOG_TARGET,
+					para_id = %id,
+					"{} is assigned to {} cores at {}", id, cores.len(), candidate_relay_parent,
+				);
+
+				(cores[0], num_cores, true)
+			},
+			(cores, num_cores) => (cores[0], num_cores, false),
 		};
 
 	// Determine the group on that core.
@@ -464,11 +474,19 @@ async fn distribute_collation<Context>(
 		state.collation_result_senders.insert(candidate_hash, result_sender);
 	}
 
+	let parent_head_data = if elastic_scaling {
+		ParentHeadData::WithData {
+			hash: parent_head_data_hash,
+			head_data: parent_head_data,
+		}
+	} else {
+		ParentHeadData::OnlyHash(parent_head_data_hash)
+	};
+
 	per_relay_parent.collations.insert(
 		candidate_hash,
 		Collation {
 			receipt,
-			parent_head_data_hash,
 			pov,
 			parent_head_data,
 			status: CollationStatus::Created,
@@ -513,15 +531,17 @@ async fn distribute_collation<Context>(
 	Ok(())
 }
 
-/// Get the Id of the Core that is assigned to the para being collated on if any
+/// Get the core indices that are assigned to the para being collated on if any
 /// and the total number of cores.
-async fn determine_core(
+async fn determine_cores(
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
 	para_id: ParaId,
 	relay_parent: Hash,
 	relay_parent_mode: ProspectiveParachainsMode,
-) -> Result<Option<(CoreIndex, usize)>> {
+) -> Result<(Vec<CoreIndex>, usize)> {
 	let cores = get_availability_cores(sender, relay_parent).await?;
+	let n_cores = cores.len();
+	let mut assigned_cores = Vec::new();
 
 	for (idx, core) in cores.iter().enumerate() {
 		let core_para_id = match core {
@@ -538,11 +558,11 @@ async fn determine_core(
 		};
 
 		if core_para_id == Some(para_id) {
-			return Ok(Some(((idx as u32).into(), cores.len())))
+			assigned_cores.push(CoreIndex::from(idx as u32));
 		}
 	}
 
-	Ok(None)
+	Ok((assigned_cores, n_cores))
 }
 
 /// Validators of a particular group index.
@@ -725,7 +745,7 @@ async fn advertise_collation<Context>(
 				let wire_message = protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					relay_parent,
 					candidate_hash: *candidate_hash,
-					parent_head_data_hash: collation.parent_head_data_hash,
+					parent_head_data_hash: collation.parent_head_data.hash(),
 				};
 				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 			},
@@ -849,7 +869,7 @@ async fn send_collation(
 	request: VersionedCollationRequest,
 	receipt: CandidateReceipt,
 	pov: PoV,
-	_parent_head_data: HeadData,
+	parent_head_data: ParentHeadData,
 ) {
 	let (tx, rx) = oneshot::channel();
 
@@ -857,20 +877,21 @@ async fn send_collation(
 	let peer_id = request.peer_id();
 	let candidate_hash = receipt.hash();
 
-	// The response payload is the same for v1 and v2 versions of protocol
-	// and doesn't have v2 alias for simplicity.
-	// For now, we don't send parent head data to the collation requester.
-	let result =
-	// 	if assigned_multiple_cores {
-	// 	Ok(request_v1::CollationFetchingResponse::CollationWithParentHeadData {
-	// 		receipt,
-	// 		pov,
-	// 		parent_head_data,
-	// 	})
-	// } else {
-		Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov))
-	// }
-	;
+	let result = match parent_head_data {
+		ParentHeadData::WithData {
+			head_data,
+			..
+		} => {
+			Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
+				receipt,
+				pov,
+				parent_head_data: head_data,
+			})
+		},
+		ParentHeadData::OnlyHash(_) => {
+			Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov))
+		}
+	};
 	let response =
 		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
 

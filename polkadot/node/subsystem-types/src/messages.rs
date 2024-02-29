@@ -1113,7 +1113,7 @@ pub struct ProspectiveValidationDataRequest {
 }
 
 /// The parent head-data hash with optional data itself.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParentHeadData {
 	/// Parent head-data hash.
 	OnlyHash(Hash),
@@ -1124,6 +1124,16 @@ pub enum ParentHeadData {
 		/// Parent head-data hash.
 		hash: Hash,
 	},
+}
+
+impl ParentHeadData {
+	/// Return the hash of the parent head-data.
+	pub fn hash(&self) -> Hash {
+		match self {
+			ParentHeadData::OnlyHash(hash) => *hash,
+			ParentHeadData::WithData { hash, .. } => *hash,
+		}
+	}
 }
 
 /// Indicates the relay-parents whose fragment tree a candidate
