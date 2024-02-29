@@ -2594,15 +2594,12 @@ pub mod pallet {
 		/// Under certain conditions, this call can be dispatched permissionlessly (i.e. by any
 		/// account).
 		///
-		/// # Conditions for a permissionless dispatch
-		///
+		/// # Conditions for a permissionless dispatch:
 		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise  pool members
 		///   are unable to unbond.
 		///
-		/// # Conditions for permissioned dispatch
-		///
+		/// # Conditions for permissioned dispatch:
 		/// * The caller has a nominator or root role of the pool.
-		///
 		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
 		/// account.
 		#[pallet::call_index(13)]
