@@ -18,12 +18,14 @@
 //! Proc macro of Support code for the runtime.
 
 #![recursion_limit = "512"]
+#![deny(rustdoc::broken_intra_doc_links)]
 
 mod benchmark;
 mod construct_runtime;
 mod crate_version;
 mod derive_impl;
 mod dummy_part_checker;
+mod dynamic_params;
 mod key_prefix;
 mod match_and_insert;
 mod no_bound;
@@ -319,10 +321,7 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 	if cfg!(any(feature = "std", feature = "try-runtime")) {
 		no_bound::debug::derive_debug_no_bound(input)
 	} else {
-		let input: syn::DeriveInput = match syn::parse(input) {
-			Ok(input) => input,
-			Err(e) => return e.to_compile_error().into(),
-		};
+		let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
 		let name = &input.ident;
 		let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -353,10 +352,7 @@ pub fn derive_partial_eq_no_bound(input: TokenStream) -> TokenStream {
 /// Docs at `frame_support::EqNoBound`.
 #[proc_macro_derive(EqNoBound)]
 pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
-	let input: syn::DeriveInput = match syn::parse(input) {
-		Ok(input) => input,
-		Err(e) => return e.to_compile_error().into(),
-	};
+	let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -367,6 +363,19 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 		};
 	)
 	.into()
+}
+
+/// Derive [`PartialOrd`] but do not bound any generic. Docs are at
+/// `frame_support::PartialOrdNoBound`.
+#[proc_macro_derive(PartialOrdNoBound)]
+pub fn derive_partial_ord_no_bound(input: TokenStream) -> TokenStream {
+	no_bound::partial_ord::derive_partial_ord_no_bound(input)
+}
+
+/// Derive [`Ord`] but do no bound any generic. Docs are at `frame_support::OrdNoBound`.
+#[proc_macro_derive(OrdNoBound)]
+pub fn derive_ord_no_bound(input: TokenStream) -> TokenStream {
+	no_bound::ord::derive_ord_no_bound(input)
 }
 
 /// derive `Default` but do no bound any generic. Docs are at `frame_support::DefaultNoBound`.
@@ -439,11 +448,42 @@ pub fn __create_tt_macro(input: TokenStream) -> TokenStream {
 	tt_macro::create_tt_return_macro(input)
 }
 
+/// Allows accessing on-chain pallet storage that is no longer accessible via the pallet.
 ///
-/// ---
+/// This is especially useful when writing storage migrations, when types of storage items are
+/// modified or outright removed, but the previous definition is required to perform the migration.
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::storage_alias`.
+/// ## Example
+///
+/// Imagine a pallet with the following storage definition:
+/// ```ignore
+/// #[pallet::storage]
+/// pub type Value<T: Config> = StorageValue<_, u32>;
+/// ```
+/// `Value` can be accessed by calling `Value::<T>::get()`.
+///
+/// Now imagine the definition of `Value` is updated to a `(u32, u32)`:
+/// ```ignore
+/// #[pallet::storage]
+/// pub type Value<T: Config> = StorageValue<_, (u32, u32)>;
+/// ```
+/// The on-chain value of `Value` is `u32`, but `Value::<T>::get()` expects it to be `(u32, u32)`.
+///
+/// In this instance the developer must write a storage migration to reading the old value of
+/// `Value` and writing it back to storage in the new format, so that the on-chain storage layout is
+/// consistent with what is defined in the pallet.
+///
+/// We can read the old v0 value of `Value` in the migration by creating a `storage_alias`:
+/// ```ignore
+/// pub(crate) mod v0 {
+/// 	use super::*;
+///
+/// 	#[storage_alias]
+/// 	pub type Value<T: crate::Config> = StorageValue<crate::Pallet<T>, u32>;
+/// }
+/// ```
+///
+/// The developer can now access the old value of `Value` by calling `v0::Value::<T>::get()`.
 #[proc_macro_attribute]
 pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream {
 	storage_alias::storage_alias(attributes.into(), input.into())
@@ -783,12 +823,13 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 		item.ident != "RuntimeOrigin" &&
 		item.ident != "RuntimeHoldReason" &&
 		item.ident != "RuntimeFreezeReason" &&
+		item.ident != "RuntimeParameters" &&
 		item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
 			item,
 			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, \
-			`RuntimeTask`, `RuntimeOrigin` or `PalletInfo`",
+			`RuntimeTask`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
 		)
 		.to_compile_error()
 		.into()
@@ -1019,6 +1060,38 @@ pub fn whitelist_storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+/// The optional attribute `#[pallet::disable_try_decode_storage]` will declare the
+/// storage as whitelisted from decoding during try-runtime checks. This should only be
+/// attached to transient storage which cannot be migrated during runtime upgrades.
+///
+/// ### Example
+/// ```ignore
+/// 	#[pallet::storage]
+/// 	#[pallet::disable_try_decode_storage]
+/// 	pub(super) type Events<T: Config> = StorageValue<_, Vec<Box<EventRecord<T::RuntimeEvent, T::Hash>>>, ValueQuery>;
+/// ```
+///
+/// NOTE: As with all `pallet::*` attributes, this one _must_ be written as
+/// `#[pallet::disable_try_decode_storage]` and can only be placed inside a `pallet` module in order
+/// for it to work properly.
+#[proc_macro_attribute]
+pub fn disable_try_decode_storage(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+/// The `#[pallet::type_value]` attribute lets you define a struct implementing the `Get` trait
+/// to ease the use of storage types. This attribute is meant to be used alongside
+/// [`#[pallet::storage]`](`macro@storage`) to define a storage's default value. This attribute
+/// can be used multiple times.
+///
+/// Item must be defined as:
+///
+/// ```ignore
+/// #[pallet::type_value]
+/// fn $MyDefaultName<$some_generic>() -> $default_type $optional_where_clause { $expr }
+/// ```
+///
+/// I.e.: a function definition with generics none or `T: Config` and a returned type.
 ///
 /// ---
 ///
@@ -1082,8 +1155,11 @@ pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::composite_enum`.
+/// For ease of usage, when no `#[derive]` attributes are found for the enum under
+/// `#[pallet::composite_enum]`, the aforementioned traits are automatically derived for it. The
+/// inverse is also true: if there are any `#[derive]` attributes found for the enum, then no traits
+/// will automatically be derived for it (this implies that you need to provide the
+/// `frame_support::traits::VariantCount` implementation).
 #[proc_macro_attribute]
 pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1205,4 +1281,53 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 		#internal_mod
 	}
 	.into()
+}
+
+/// Mark a module that contains dynamic parameters.
+///
+/// See the `pallet_parameters` for a full example.
+///
+/// # Arguments
+///
+/// The macro accepts two positional arguments, of which the second is optional.
+///
+/// ## Aggregated Enum Name
+///
+/// This sets the name that the aggregated Key-Value enum will be named after. Common names would be
+/// `RuntimeParameters`, akin to `RuntimeCall`, `RuntimeOrigin` etc. There is no default value for
+/// this argument.
+///
+/// ## Parameter Storage Backend
+///
+/// The second argument provides access to the storage of the parameters. It can either be set on
+/// on this attribute, or on the inner ones. If set on both, the inner one takes precedence.
+#[proc_macro_attribute]
+pub fn dynamic_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_params(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
+}
+
+/// Define a module inside a [`macro@dynamic_params`] module that contains dynamic parameters.
+///
+/// See the `pallet_parameters` for a full example.
+///
+/// # Argument
+///
+/// This attribute takes one optional argument. The argument can either be put here or on the
+/// surrounding `#[dynamic_params]` attribute. If set on both, the inner one takes precedence.
+#[proc_macro_attribute]
+pub fn dynamic_pallet_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_pallet_params(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
+}
+
+/// Used internally by [`dynamic_params`].
+#[doc(hidden)]
+#[proc_macro_attribute]
+pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_aggregated_params_internal(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
 }

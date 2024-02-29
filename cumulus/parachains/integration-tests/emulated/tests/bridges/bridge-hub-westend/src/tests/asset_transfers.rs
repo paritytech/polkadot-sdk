@@ -182,13 +182,13 @@ fn send_rocs_from_asset_hub_westend_to_asset_hub_rococo() {
 			vec![
 				// ROC is withdrawn from AHW's SA on AHR
 				RuntimeEvent::Balances(
-					pallet_balances::Event::Withdraw { who, amount }
+					pallet_balances::Event::Burned { who, amount }
 				) => {
 					who: *who == sov_ahw_on_ahr,
 					amount: *amount == amount_to_send,
 				},
 				// ROCs deposited to beneficiary
-				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 					who: *who == AssetHubRococoReceiver::get(),
 				},
 				// message processed successfully

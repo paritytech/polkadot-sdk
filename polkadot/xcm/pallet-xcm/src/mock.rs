@@ -30,15 +30,13 @@ use sp_core::H256;
 use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
 pub use sp_std::cell::RefCell;
 use xcm::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
 	ChildSystemParachainAsSuperuser, DescribeAllTerminal, FixedRateOfFungible, FixedWeightBounds,
-	FungiblesAdapter, HashedDescription, IsConcrete, MatchedConvertedConcreteId, NoChecking,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
+	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
+	MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},
@@ -139,12 +137,12 @@ pub mod pallet_test_notifier {
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		AssetsPallet: pallet_assets::{Pallet, Call, Storage, Config<T>, Event<T>},
-		ParasOrigin: origin::{Pallet, Origin},
-		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>},
-		TestNotifier: pallet_test_notifier::{Pallet, Call, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		AssetsPallet: pallet_assets,
+		ParasOrigin: origin,
+		XcmPallet: pallet_xcm,
+		TestNotifier: pallet_test_notifier,
 	}
 );
 
@@ -289,7 +287,6 @@ impl pallet_balances::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -425,9 +422,8 @@ pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
 	JustTry,
 >;
 
-#[allow(deprecated)]
 pub type AssetTransactors = (
-	XcmCurrencyAdapter<Balances, IsConcrete<RelayLocation>, SovereignAccountOf, AccountId, ()>,
+	FungibleAdapter<Balances, IsConcrete<RelayLocation>, SovereignAccountOf, AccountId, ()>,
 	FungiblesAdapter<
 		AssetsPallet,
 		ForeignAssetsConvertedConcreteId,
@@ -516,6 +512,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
@@ -567,7 +564,29 @@ impl pallet_test_notifier::Config for Test {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
+pub struct TestDeliveryHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl xcm_builder::EnsureDelivery for TestDeliveryHelper {
+	fn ensure_successful_delivery(
+		origin_ref: &Location,
+		_dest: &Location,
+		_fee_reason: xcm_executor::traits::FeeReason,
+	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
+		use xcm_executor::traits::ConvertLocation;
+		let account = SovereignAccountOf::convert_location(origin_ref).expect("Valid location");
+		// Give the existential deposit at least
+		let balance = ExistentialDeposit::get();
+		let _ = <Balances as frame_support::traits::Currency<_>>::make_free_balance_be(
+			&account, balance,
+		);
+		(None, None)
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
 impl super::benchmarking::Config for Test {
+	type DeliveryHelper = TestDeliveryHelper;
+
 	fn reachable_dest() -> Option<Location> {
 		Some(Parachain(1000).into())
 	}

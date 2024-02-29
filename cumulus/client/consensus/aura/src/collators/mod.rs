@@ -20,5 +20,60 @@
 //! included parachain block, as well as the [`lookahead`] collator, which prospectively
 //! builds on parachain blocks which have not yet been included in the relay chain.
 
+use cumulus_relay_chain_interface::RelayChainInterface;
+use polkadot_primitives::{
+	Hash as RHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
+};
+
 pub mod basic;
 pub mod lookahead;
+
+/// Check the `local_validation_code_hash` against the validation code hash in the relay chain
+/// state.
+///
+/// If the code hashes do not match, it prints a warning.
+async fn check_validation_code_or_log(
+	local_validation_code_hash: &ValidationCodeHash,
+	para_id: ParaId,
+	relay_client: &impl RelayChainInterface,
+	relay_parent: RHash,
+) {
+	let state_validation_code_hash = match relay_client
+		.validation_code_hash(relay_parent, para_id, OccupiedCoreAssumption::Included)
+		.await
+	{
+		Ok(hash) => hash,
+		Err(error) => {
+			tracing::debug!(
+				target: super::LOG_TARGET,
+				%error,
+				?relay_parent,
+				%para_id,
+				"Failed to fetch validation code hash",
+			);
+			return
+		},
+	};
+
+	match state_validation_code_hash {
+		Some(state) =>
+			if state != *local_validation_code_hash {
+				tracing::warn!(
+					target: super::LOG_TARGET,
+					%para_id,
+					?relay_parent,
+					?local_validation_code_hash,
+					relay_validation_code_hash = ?state,
+					"Parachain code doesn't match validation code stored in the relay chain state",
+				);
+			},
+		None => {
+			tracing::warn!(
+				target: super::LOG_TARGET,
+				%para_id,
+				?relay_parent,
+				"Could not find validation code for parachain in the relay chain state.",
+			);
+		},
+	}
+}
