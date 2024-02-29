@@ -223,7 +223,10 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"westend-runtime?/try-runtime",
 ]
-fast-runtime = ["rococo-runtime?/fast-runtime", "westend-runtime?/fast-runtime"]
+fast-runtime = [
+	"rococo-runtime?/fast-runtime",
+	"westend-runtime?/fast-runtime",
+]
 
 malus = ["full-node"]
 runtime-metrics = [
