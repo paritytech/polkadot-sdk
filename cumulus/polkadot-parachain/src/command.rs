@@ -413,7 +413,7 @@ macro_rules! construct_partials {
 			Runtime::People(_) => {
 				let $partials = new_partial::<RuntimeApi, _>(
 					&$config,
-					crate::service::build_aura_import_queue,
+					crate::service::build_relay_to_aura_import_queue::<_, AuraId>,
 				)?;
 				$code
 			},
@@ -424,14 +424,7 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
-			Runtime::ContractsRococo => {
-				let $partials = new_partial::<RuntimeApi, _>(
-					&$config,
-					crate::service::build_aura_import_queue,
-				)?;
-				$code
-			},
-			Runtime::Penpal(_) | Runtime::Default => {
+			Runtime::ContractsRococo | Runtime::Penpal(_) | Runtime::Default => {
 				let $partials = new_partial::<RuntimeApi, _>(
 					&$config,
 					crate::service::build_aura_import_queue,
@@ -486,17 +479,7 @@ macro_rules! construct_async_run {
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
 			}
-			Runtime::ContractsRococo => {
-				runner.async_run(|$config| {
-					let $components = new_partial::<RuntimeApi, _>(
-						&$config,
-						crate::service::build_aura_import_queue,
-					)?;
-					let task_manager = $components.task_manager;
-					{ $( $code )* }.map(|v| (v, task_manager))
-				})
-			},
-			Runtime::Penpal(_) | Runtime::Default => {
+			Runtime::ContractsRococo | Runtime::Penpal(_) | Runtime::Default => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<
 						RuntimeApi,
