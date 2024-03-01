@@ -1282,16 +1282,12 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 			candidate.candidate(),
 			latest_head_data.clone(),
 		) {
-			Ok(Err(err)) if err == PVDMismatch => {
+			Ok(Err(PVDMismatch)) => {
 				log::debug!(
 					target: LOG_TARGET,
 					"Found backed candidates which don't form a chain for paraid {:?}. The order may also be wrong. Dropping the candidates.",
 					para_id
 				);
-				false
-			},
-			Ok(Err(_)) => {
-				// Currently unreachable as the only error is PVDMismatch.
 				false
 			},
 			Ok(Ok(_)) => true,

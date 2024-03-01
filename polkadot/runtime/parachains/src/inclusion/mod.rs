@@ -741,12 +741,9 @@ impl<T: Config> Pallet<T> {
 
 	// Get the latest backed output head data of this para.
 	pub(crate) fn para_latest_head_data(para_id: &ParaId) -> Option<HeadData> {
-		match <PendingAvailability<T>>::get(para_id)
-			.map(|pending_candidates| {
-				pending_candidates.back().map(|x| x.commitments.head_data.clone())
-			})
-			.flatten()
-		{
+		match <PendingAvailability<T>>::get(para_id).and_then(|pending_candidates| {
+			pending_candidates.back().map(|x| x.commitments.head_data.clone())
+		}) {
 			Some(head_data) => Some(head_data),
 			None => <paras::Pallet<T>>::para_head(para_id),
 		}
@@ -1135,14 +1132,12 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn candidate_pending_availability(
 		para: ParaId,
 	) -> Option<CommittedCandidateReceipt<T::Hash>> {
-		<PendingAvailability<T>>::get(&para)
-			.map(|p| {
-				p.get(0).map(|p| CommittedCandidateReceipt {
-					descriptor: p.descriptor.clone(),
-					commitments: p.commitments.clone(),
-				})
+		<PendingAvailability<T>>::get(&para).and_then(|p| {
+			p.get(0).map(|p| CommittedCandidateReceipt {
+				descriptor: p.descriptor.clone(),
+				commitments: p.commitments.clone(),
 			})
-			.flatten()
+		})
 	}
 
 	/// Returns the metadata around the first candidate pending availability for the
@@ -1150,7 +1145,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn pending_availability(
 		para: ParaId,
 	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
-		<PendingAvailability<T>>::get(&para).map(|p| p.get(0).cloned()).flatten()
+		<PendingAvailability<T>>::get(&para).and_then(|p| p.get(0).cloned())
 	}
 }
 
