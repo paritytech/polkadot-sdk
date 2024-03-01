@@ -41,7 +41,6 @@ sp-test-primitives = { path = "../test-primitives" }
 default = ["std"]
 std = [
 	"codec/std",
-	"trie-db",
 	"log/std",
 	"scale-info/std",
 	"sp-api-proc-macro/std",
@@ -57,6 +56,7 @@ std = [
 	"sp-trie/std",
 	"sp-version/std",
 	"thiserror",
+	"trie-db",
 ]
 # Special feature to disable logging completely.
 #

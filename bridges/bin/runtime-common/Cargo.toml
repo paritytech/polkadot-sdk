@@ -67,7 +67,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"trie-db/std",
 	"log/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
@@ -82,6 +81,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
+	"trie-db/std",
 	"xcm-builder/std",
 	"xcm/std",
 ]

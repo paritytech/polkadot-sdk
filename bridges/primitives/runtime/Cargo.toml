@@ -38,7 +38,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"trie-db/std",
 	"log/std",
 	"num-traits/std",
 	"scale-info/std",
@@ -49,5 +48,6 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-trie/std",
+	"trie-db/std",
 	"trie-db/std",
 ]
