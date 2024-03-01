@@ -1496,16 +1496,13 @@ fn connect_to_buffered_groups() {
 			)
 			.await;
 
-			// Should be connected to both groups except for the validator that fetched advertised
-			// collation.
+			// Should be connected to both groups
 			assert_matches!(
 				overseer_recv(&mut virtual_overseer).await,
 				AllMessages::NetworkBridgeTx(
 					NetworkBridgeTxMessage::ConnectToValidators { validator_ids, .. }
 				) => {
-					assert!(!validator_ids.contains(&group_a[0]));
-
-					for validator in group_a[1..].iter().chain(&group_b) {
+					for validator in group_a.iter().chain(&group_b) {
 						assert!(validator_ids.contains(validator));
 					}
 				}

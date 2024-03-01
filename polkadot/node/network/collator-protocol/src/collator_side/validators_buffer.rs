@@ -90,20 +90,9 @@ impl ValidatorGroupsBuffer {
 		}
 	}
 
-	/// Returns discovery ids of validators we have at least one advertised-but-not-fetched
-	/// collation for.
+	/// Returns discovery ids of validators we are assigned to in this backing group window.
 	pub fn validators_to_connect(&self) -> Vec<AuthorityDiscoveryId> {
-		let validators_num = self.validators.len();
-		let bits = self
-			.should_be_connected
-			.values()
-			.fold(bitvec![0; validators_num], |acc, next| acc | next);
-
-		self.validators
-			.iter()
-			.enumerate()
-			.filter_map(|(idx, authority_id)| bits[idx].then_some(authority_id.clone()))
-			.collect()
+		self.validators.iter().map(|authority_id| authority_id.clone()).collect()
 	}
 
 	/// Note a new advertisement, marking that we want to be connected to validators
@@ -279,7 +268,7 @@ mod tests {
 		assert_eq!(buf.validators_to_connect(), validators[..2].to_vec());
 
 		buf.reset_validator_interest(hash_a, &validators[1]);
-		assert_eq!(buf.validators_to_connect(), vec![validators[0].clone()]);
+		assert_eq!(buf.validators_to_connect(), validators[0..2].to_vec());
 
 		buf.note_collation_advertised(hash_b, 0, GroupIndex(1), &validators[2..]);
 		assert_eq!(buf.validators_to_connect(), validators[2..].to_vec());
@@ -287,7 +276,7 @@ mod tests {
 		for validator in &validators[2..] {
 			buf.reset_validator_interest(hash_b, validator);
 		}
-		assert!(buf.validators_to_connect().is_empty());
+		assert_eq!(buf.validators_to_connect(), validators[2..].to_vec());
 	}
 
 	#[test]
@@ -320,10 +309,10 @@ mod tests {
 		}
 
 		buf.reset_validator_interest(hashes[1], &validators[0]);
-		assert_eq!(buf.validators_to_connect(), validators[..2].to_vec());
+		assert_eq!(buf.validators_to_connect(), validators[..4]);
 
 		buf.reset_validator_interest(hashes[0], &validators[0]);
-		assert_eq!(buf.validators_to_connect(), vec![validators[1].clone()]);
+		assert_eq!(buf.validators_to_connect(), validators[..4]);
 
 		buf.note_collation_advertised(hashes[3], 0, GroupIndex(1), &validators[2..4]);
 		buf.note_collation_advertised(
@@ -343,7 +332,12 @@ mod tests {
 
 		assert_eq!(
 			buf.validators_to_connect(),
-			vec![validators[3].clone(), validators[4].clone(), validators[0].clone()]
+			vec![
+				validators[2].clone(),
+				validators[3].clone(),
+				validators[4].clone(),
+				validators[0].clone()
+			]
 		);
 	}
 }
