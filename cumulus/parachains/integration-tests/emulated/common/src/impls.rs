@@ -630,38 +630,6 @@ macro_rules! impl_assets_helpers_for_system_parachain {
 					$crate::impls::xcm_transact_unpaid_execution(call, origin_kind)
 				}
 
-				// /// Mint assets making use of the assets pallet
-				// pub fn mint_asset(
-				// 	signed_origin: <Self as $crate::impls::Chain>::RuntimeOrigin,
-				// 	id: u32,
-				// 	beneficiary: $crate::impls::AccountId,
-				// 	amount_to_mint: u128,
-				// ) {
-				// 	<Self as $crate::impls::TestExt>::execute_with(|| {
-				// 		$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::Assets::mint(
-				// 			signed_origin,
-				// 			id.clone().into(),
-				// 			beneficiary.clone().into(),
-				// 			amount_to_mint
-				// 		));
-
-				// 		type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
-
-				// 		$crate::impls::assert_expected_events!(
-				// 			Self,
-				// 			vec![
-				// 				RuntimeEvent::<N>::Assets(
-				// 					$crate::impls::pallet_assets::Event::Issued { asset_id, owner, amount }
-				// 				) => {
-				// 					asset_id: *asset_id == id,
-				// 					owner: *owner == beneficiary.clone().into(),
-				// 					amount: *amount == amount_to_mint,
-				// 				},
-				// 			]
-				// 		);
-				// 	});
-				// }
-
 				/// Force create and mint assets making use of the assets pallet
 				pub fn force_create_and_mint_asset(
 					id: u32,

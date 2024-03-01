@@ -21,7 +21,7 @@ use asset_hub_westend_runtime::{
 	xcm_config,
 	xcm_config::{
 		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
-		ForeignCreatorsSovereignAccountOf,
+		ForeignCreatorsSovereignAccountOf, StakingPot,
 		LocationToAccountId, TrustBackedAssetsPalletLocation, TrustBackedAssetsPalletLocationV3,
 		WestendLocation, WestendLocationV3, XcmConfig,
 	},
