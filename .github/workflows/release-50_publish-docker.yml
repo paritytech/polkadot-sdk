@@ -102,7 +102,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION=(filter_version_from_input "${{ inputs.version }}")
+          VERSION=$(filter_version_from_input "${{ inputs.version }}")
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
           fetch_release_artifacts_from_s3
