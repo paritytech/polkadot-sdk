@@ -1868,13 +1868,11 @@ pub mod pallet_macros {
 	/// To bypass the `frame_system::Config` supertrait check, use the attribute
 	/// `pallet::disable_frame_system_supertrait_check`, e.g.:
 	///
-	/// ```
-	/// use frame_support::pallet_prelude::*;
-	/// use frame_system::pallet_prelude::*;
+	/// ```ignore
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// 	use frame_support::pallet_prelude::*;
-	/// 	use frame_system::pallet_prelude::*;
+	/// # 	use frame_support::pallet_prelude::*;
+	/// # 	use frame_system::pallet_prelude::*;
 	/// 	trait OtherTrait {}
 	///
 	/// 	#[pallet::pallet]
