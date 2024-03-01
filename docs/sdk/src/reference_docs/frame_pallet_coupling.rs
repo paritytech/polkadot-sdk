@@ -87,7 +87,7 @@
 //! And upon the creation of the runtime, the two pallets are linked together as such:
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", runtime_author_provider)]
 //!
-//! Crucially, in when using loose coupling, we gain the flexibility of providing different
+//! Crucially, when using loose coupling, we gain the flexibility of providing different
 //! implementations of `AuthorProvider`, such that different users of a `pallet-foo` can use
 //! different ones, without any code change being needed. For example, in the code snippets of this
 //! module, you can fund [`OtherAuthorProvider`] which is an alternative implementation of
