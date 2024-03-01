@@ -612,7 +612,7 @@ mod test {
 
 	/// Regression test for crash when starting already synced parachain node with `--sync=warp`.
 	/// We must remove this after setting of warp sync target block is moved to initialization of
-	/// `SyncingEngine`, and the channel for doing it is removed.
+	/// `SyncingEngine` (issue https://github.com/paritytech/polkadot-sdk/issues/3537).
 	#[test]
 	fn set_target_block_finished_warp_sync() {
 		// Populate database with finalized state.
