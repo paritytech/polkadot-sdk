@@ -18,6 +18,8 @@ test-linux-stable:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     RUST_LOG: "polkavm=trace"
+    POLKAVM_ALLOW_INSECURE: 1
+    POLKAVM_TRACE_EXECUTION: 1
   parallel: 3
   script:
     # Build all but only execute 'runtime' tests.
