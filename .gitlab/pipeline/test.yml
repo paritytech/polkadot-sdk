@@ -20,6 +20,7 @@ test-linux-stable:
     RUST_LOG: "polkavm=trace"
     POLKAVM_ALLOW_INSECURE: 1
     POLKAVM_TRACE_EXECUTION: 1
+    POLKAVM_SANDBOX: "generic"
   parallel: 3
   script:
     # Build all but only execute 'runtime' tests.
