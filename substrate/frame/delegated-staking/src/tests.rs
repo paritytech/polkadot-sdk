@@ -461,32 +461,6 @@ mod staking_integration {
 	}
 
 	#[test]
-	fn toggle_delegatee_status() {
-		ExtBuilder::default().build_and_execute(|| {
-			assert_ok!(DelegatedStaking::register_as_delegatee(RawOrigin::Signed(200).into(), 201));
-
-			// delegation works
-			fund(&300, 1000);
-			assert_ok!(DelegatedStaking::delegate_funds(RawOrigin::Signed(300).into(), 200, 100));
-
-			// delegate blocks delegation
-			assert_ok!(DelegatedStaking::toggle_delegatee_status(RawOrigin::Signed(200).into()));
-
-			// cannot delegate to it anymore
-			assert_noop!(
-				DelegatedStaking::delegate_funds(RawOrigin::Signed(300).into(), 200, 100),
-				Error::<T>::NotAcceptingDelegations
-			);
-
-			// delegate can unblock delegation
-			assert_ok!(DelegatedStaking::toggle_delegatee_status(RawOrigin::Signed(200).into()));
-
-			// delegation works again
-			assert_ok!(DelegatedStaking::delegate_funds(RawOrigin::Signed(300).into(), 200, 100));
-		});
-	}
-
-	#[test]
 	fn slash_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			setup_delegation_stake(200, 201, (210..250).collect(), 100, 0);

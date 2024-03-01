@@ -75,6 +75,8 @@
 //!   the funds are migrated, the `delegator` can use the funds for other purposes which allows
 //!   usage of held funds in an account, such as governance.
 //! - `delegate_funds`: Delegate funds to a `delegatee` account and update the bond to staking.
+//! - `apply_slash`: If there is a pending slash in `delegatee` ledger, the passed delegator's
+//!   balance is slashed by the amount and the slash is removed from the delegatee ledger.
 //!
 //! #### [Staking Interface](StakingInterface)
 //! This pallet reimplements the staking interface as a wrapper implementation over
@@ -244,8 +246,6 @@ pub mod pallet {
 		WithdrawFailed,
 		/// Operation not supported by this pallet.
 		NotSupported,
-		/// Account does not accept delegations.
-		NotAcceptingDelegations,
 	}
 
 	/// A reason for placing a hold on funds.
@@ -413,10 +413,7 @@ pub mod pallet {
 			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaking);
 
 			// ensure delegatee is sane.
-			ensure!(
-				DelegateeLedger::<T>::can_accept_delegation(&delegatee),
-				Error::<T>::NotAcceptingDelegations
-			);
+			ensure!(Self::is_delegatee(&delegatee), Error::<T>::NotDelegatee);
 
 			let delegator_balance =
 				T::Currency::reducible_balance(&who, Preservation::Preserve, Fortitude::Polite);
@@ -428,28 +425,12 @@ pub mod pallet {
 			Self::do_bond(&delegatee, amount)
 		}
 
-		/// Toggle delegatee status to start or stop accepting new delegations.
-		///
-		/// This can only be used by existing delegates. If not a delegatee yet, use
-		/// [Call::register_as_delegatee] first.
-		#[pallet::call_index(5)]
-		#[pallet::weight(Weight::default())]
-		pub fn toggle_delegatee_status(origin: OriginFor<T>) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			let delegatee = Delegatee::<T>::from(&who)?;
-			let should_block = !delegatee.ledger.blocked;
-			delegatee.update_status(should_block).save();
-
-			Ok(())
-		}
-
 		/// Apply slash to a delegator account.
 		///
 		/// `Delegatee` accounts with pending slash in their ledger can call this to apply slash to
 		/// one of its `delegator` account. Each slash to a delegator account needs to be posted
 		/// separately until all pending slash is cleared.
-		#[pallet::call_index(6)]
+		#[pallet::call_index(5)]
 		#[pallet::weight(Weight::default())]
 		pub fn apply_slash(
 			origin: OriginFor<T>,
@@ -571,7 +552,6 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		let mut ledger = DelegateeLedger::<T>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
-		debug_assert!(!ledger.blocked);
 
 		let new_delegation_amount =
 			if let Some(existing_delegation) = Delegation::<T>::get(delegator) {
