@@ -1014,6 +1014,72 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#867" id="867">867</a>
 <a href="#868" id="868">868</a>
 <a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1040,26 +1106,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	channel::oneshot, future::BoxFuture, prelude::<span class="kw-2">*</span>, stream::FuturesUnordered, FutureExt,
 };
 <span class="kw">use </span>futures_timer::Delay;
+<span class="kw">use </span>schnellru::{ByLength, LruMap};
 
 <span class="kw">use </span>polkadot_node_subsystem::{
 	jaeger,
 	messages::{
-		CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage, ProvisionableData,
-		ProvisionerInherentData, ProvisionerMessage, RuntimeApiRequest,
+		Ancestors, CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage,
+		ProvisionableData, ProvisionerInherentData, ProvisionerMessage, RuntimeApiRequest,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
 	SpawnedSubsystem, SubsystemError,
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::{
 	has_required_runtime, request_availability_cores, request_persisted_validation_data,
-	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
+	request_session_index_for_child,
+	runtime::{prospective_parachains_mode, request_node_features, ProspectiveParachainsMode},
 	TimeoutExt,
 };
 <span class="kw">use </span>polkadot_primitives::{
-	BackedCandidate, BlockNumber, CandidateHash, CandidateReceipt, CoreState, Hash, Id <span class="kw">as </span>ParaId,
-	OccupiedCoreAssumption, SignedAvailabilityBitfield, ValidatorIndex,
+	vstaging::{node_features::FeatureIndex, NodeFeatures},
+	BackedCandidate, BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, CoreState, Hash,
+	Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption, SessionIndex, SignedAvailabilityBitfield, ValidatorIndex,
 };
-<span class="kw">use </span>std::collections::{BTreeMap, HashMap};
+<span class="kw">use </span>std::collections::{BTreeMap, HashMap, HashSet};
 
 <span class="kw">mod </span>disputes;
 <span class="kw">mod </span>error;
@@ -1093,11 +1162,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="doccomment">/// Per-session info we need for the provisioner subsystem.
+</span><span class="kw">pub struct </span>PerSession {
+	prospective_parachains_mode: ProspectiveParachainsMode,
+	elastic_scaling_mvp: bool,
+}
+
 <span class="doccomment">/// A per-relay-parent state for the provisioning subsystem.
 </span><span class="kw">pub struct </span>PerRelayParent {
 	leaf: ActivatedLeaf,
 	backed_candidates: Vec&lt;CandidateReceipt&gt;,
 	prospective_parachains_mode: ProspectiveParachainsMode,
+	elastic_scaling_mvp: bool,
 	signed_bitfields: Vec&lt;SignedAvailabilityBitfield&gt;,
 	is_inherent_ready: bool,
 	awaiting_inherent: Vec&lt;oneshot::Sender&lt;ProvisionerInherentData&gt;&gt;,
@@ -1105,13 +1181,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PerRelayParent {
-	<span class="kw">fn </span>new(leaf: ActivatedLeaf, prospective_parachains_mode: ProspectiveParachainsMode) -&gt; <span class="self">Self </span>{
+	<span class="kw">fn </span>new(leaf: ActivatedLeaf, per_session: <span class="kw-2">&amp;</span>PerSession) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>span = PerLeafSpan::new(leaf.span.clone(), <span class="string">&quot;provisioner&quot;</span>);
 
 		<span class="self">Self </span>{
 			leaf,
 			backed_candidates: Vec::new(),
-			prospective_parachains_mode,
+			prospective_parachains_mode: per_session.prospective_parachains_mode,
+			elastic_scaling_mvp: per_session.elastic_scaling_mvp,
 			signed_bitfields: Vec::new(),
 			is_inherent_ready: <span class="bool-val">false</span>,
 			awaiting_inherent: Vec::new(),
@@ -1140,10 +1217,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">async fn </span>run&lt;Context&gt;(<span class="kw-2">mut </span>ctx: Context, metrics: Metrics) -&gt; FatalResult&lt;()&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>inherent_delays = InherentDelays::new();
 	<span class="kw">let </span><span class="kw-2">mut </span>per_relay_parent = HashMap::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>per_session = LruMap::new(ByLength::new(<span class="number">2</span>));
 
 	<span class="kw">loop </span>{
-		<span class="kw">let </span>result =
-			run_iteration(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>per_relay_parent, <span class="kw-2">&amp;mut </span>inherent_delays, <span class="kw-2">&amp;</span>metrics).<span class="kw">await</span>;
+		<span class="kw">let </span>result = run_iteration(
+			<span class="kw-2">&amp;mut </span>ctx,
+			<span class="kw-2">&amp;mut </span>per_relay_parent,
+			<span class="kw-2">&amp;mut </span>per_session,
+			<span class="kw-2">&amp;mut </span>inherent_delays,
+			<span class="kw-2">&amp;</span>metrics,
+		)
+		.<span class="kw">await</span>;
 
 		<span class="kw">match </span>result {
 			<span class="prelude-val">Ok</span>(()) =&gt; <span class="kw">break</span>,
@@ -1158,6 +1242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">async fn </span>run_iteration&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	per_relay_parent: <span class="kw-2">&amp;mut </span>HashMap&lt;Hash, PerRelayParent&gt;,
+	per_session: <span class="kw-2">&amp;mut </span>LruMap&lt;SessionIndex, PerSession&gt;,
 	inherent_delays: <span class="kw-2">&amp;mut </span>InherentDelays,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
@@ -1167,7 +1252,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Map the error to ensure that the subsystem exits when the overseer is gone.
 				</span><span class="kw">match </span>from_overseer.map_err(Error::OverseerExited)<span class="question-mark">? </span>{
 					FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) =&gt;
-						handle_active_leaves_update(ctx.sender(), update, per_relay_parent, inherent_delays).<span class="kw">await</span><span class="question-mark">?</span>,
+						handle_active_leaves_update(ctx.sender(), update, per_relay_parent, per_session, inherent_delays).<span class="kw">await</span><span class="question-mark">?</span>,
 					FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) =&gt; {},
 					FromOrchestra::Signal(OverseerSignal::Conclude) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
 					FromOrchestra::Communication { msg } =&gt; {
@@ -1199,6 +1284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::ProvisionerSenderTrait,
 	update: ActiveLeavesUpdate,
 	per_relay_parent: <span class="kw-2">&amp;mut </span>HashMap&lt;Hash, PerRelayParent&gt;,
+	per_session: <span class="kw-2">&amp;mut </span>LruMap&lt;SessionIndex, PerSession&gt;,
 	inherent_delays: <span class="kw-2">&amp;mut </span>InherentDelays,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Handle ActiveLeavesUpdate&quot;</span>);
@@ -1207,10 +1293,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = update.activated {
+		<span class="kw">let </span>session_index = request_session_index_for_child(leaf.hash, sender)
+			.<span class="kw">await
+			</span>.<span class="kw">await
+			</span>.map_err(Error::CanceledSessionIndex)<span class="question-mark">??</span>;
+		<span class="kw">if </span>per_session.get(<span class="kw-2">&amp;</span>session_index).is_none() {
+			<span class="kw">let </span>prospective_parachains_mode =
+				prospective_parachains_mode(sender, leaf.hash).<span class="kw">await</span><span class="question-mark">?</span>;
+			<span class="kw">let </span>elastic_scaling_mvp = request_node_features(leaf.hash, session_index, sender)
+				.<span class="kw">await</span><span class="question-mark">?
+				</span>.unwrap_or(NodeFeatures::EMPTY)
+				.get(FeatureIndex::ElasticScalingMVP <span class="kw">as </span>usize)
+				.map(|b| <span class="kw-2">*</span>b)
+				.unwrap_or(<span class="bool-val">false</span>);
+
+			per_session.insert(
+				session_index,
+				PerSession { prospective_parachains_mode, elastic_scaling_mvp },
+			);
+		}
+
+		<span class="kw">let </span>session_info = per_session.get(<span class="kw-2">&amp;</span>session_index).expect(<span class="string">&quot;Just inserted&quot;</span>);
+
 		<span class="macro">gum::trace!</span>(target: LOG_TARGET, leaf_hash=<span class="question-mark">?</span>leaf.hash, <span class="string">&quot;Adding delay&quot;</span>);
-		<span class="kw">let </span>prospective_parachains_mode = prospective_parachains_mode(sender, leaf.hash).<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="kw">let </span>delay_fut = Delay::new(PRE_PROPOSE_TIMEOUT).map(<span class="kw">move </span>|<span class="kw">_</span>| leaf.hash).boxed();
-		per_relay_parent.insert(leaf.hash, PerRelayParent::new(leaf, prospective_parachains_mode));
+		per_relay_parent.insert(leaf.hash, PerRelayParent::new(leaf, session_info));
 		inherent_delays.push(delay_fut);
 	}
 
@@ -1269,6 +1376,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>signed_bitfields = per_relay_parent.signed_bitfields.clone();
 	<span class="kw">let </span>backed_candidates = per_relay_parent.backed_candidates.clone();
 	<span class="kw">let </span>mode = per_relay_parent.prospective_parachains_mode;
+	<span class="kw">let </span>elastic_scaling_mvp = per_relay_parent.elastic_scaling_mvp;
 	<span class="kw">let </span>span = per_relay_parent.span.child(<span class="string">&quot;req-inherent-data&quot;</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>sender = ctx.sender().clone();
@@ -1288,6 +1396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>signed_bitfields,
 			<span class="kw-2">&amp;</span>backed_candidates,
 			mode,
+			elastic_scaling_mvp,
 			return_senders,
 			<span class="kw-2">&amp;mut </span>sender,
 			<span class="kw-2">&amp;</span>metrics,
@@ -1399,6 +1508,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	bitfields: <span class="kw-2">&amp;</span>[SignedAvailabilityBitfield],
 	candidates: <span class="kw-2">&amp;</span>[CandidateReceipt],
 	prospective_parachains_mode: ProspectiveParachainsMode,
+	elastic_scaling_mvp: bool,
 	return_senders: Vec&lt;oneshot::Sender&lt;ProvisionerInherentData&gt;&gt;,
 	from_job: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::ProvisionerSenderTrait,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
@@ -1450,6 +1560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span>bitfields,
 		candidates,
 		prospective_parachains_mode,
+		elastic_scaling_mvp,
 		leaf.hash,
 		from_job,
 	)
@@ -1574,6 +1685,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span><span class="kw-2">mut </span>selected_candidates =
 		Vec::with_capacity(candidates.len().min(availability_cores.len()));
+	<span class="kw">let </span><span class="kw-2">mut </span>selected_parachains =
+		HashSet::with_capacity(candidates.len().min(availability_cores.len()));
 
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
@@ -1606,6 +1719,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			CoreState::Free =&gt; <span class="kw">continue</span>,
 		};
+
+		<span class="kw">if </span>selected_parachains.contains(<span class="kw-2">&amp;</span>scheduled_core.para_id) {
+			<span class="comment">// We already picked a candidate for this parachain. Elastic scaling only works with
+			// prospective parachains mode.
+			</span><span class="kw">continue
+		</span>}
 
 		<span class="kw">let </span>validation_data = <span class="kw">match </span>request_persisted_validation_data(
 			relay_parent,
@@ -1640,6 +1759,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="string">&quot;Selected candidate receipt&quot;</span>,
 			);
 
+			selected_parachains.insert(candidate.descriptor.para_id);
 			selected_candidates.push((candidate_hash, candidate.descriptor.relay_parent));
 		}
 	}
@@ -1653,70 +1773,93 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Should be called when prospective parachains are enabled.
 </span><span class="kw">async fn </span>request_backable_candidates(
 	availability_cores: <span class="kw-2">&amp;</span>[CoreState],
+	elastic_scaling_mvp: bool,
 	bitfields: <span class="kw-2">&amp;</span>[SignedAvailabilityBitfield],
 	relay_parent: Hash,
 	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::ProvisionerSenderTrait,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(CandidateHash, Hash)&gt;, Error&gt; {
 	<span class="kw">let </span>block_number = get_block_number_under_construction(relay_parent, sender).<span class="kw">await</span><span class="question-mark">?</span>;
 
-	<span class="kw">let </span><span class="kw-2">mut </span>selected_candidates = Vec::with_capacity(availability_cores.len());
+	<span class="comment">// Record how many cores are scheduled for each paraid. Use a BTreeMap because
+	// we&#39;ll need to iterate through them.
+	</span><span class="kw">let </span><span class="kw-2">mut </span>scheduled_cores: BTreeMap&lt;ParaId, usize&gt; = BTreeMap::new();
+	<span class="comment">// The on-chain ancestors of a para present in availability-cores.
+	</span><span class="kw">let </span><span class="kw-2">mut </span>ancestors: HashMap&lt;ParaId, Ancestors&gt; =
+		HashMap::with_capacity(availability_cores.len());
 
 	<span class="kw">for </span>(core_idx, core) <span class="kw">in </span>availability_cores.iter().enumerate() {
-		<span class="kw">let </span>(para_id, required_path) = <span class="kw">match </span>core {
+		<span class="kw">let </span>core_idx = CoreIndex(core_idx <span class="kw">as </span>u32);
+		<span class="kw">match </span>core {
 			CoreState::Scheduled(scheduled_core) =&gt; {
-				<span class="comment">// The core is free, pick the first eligible candidate from
-				// the fragment tree.
-				</span>(scheduled_core.para_id, Vec::new())
+				<span class="kw-2">*</span>scheduled_cores.entry(scheduled_core.para_id).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
 			},
 			CoreState::Occupied(occupied_core) =&gt; {
-				<span class="kw">if </span>bitfields_indicate_availability(core_idx, bitfields, <span class="kw-2">&amp;</span>occupied_core.availability)
-				{
+				<span class="kw">let </span>is_available = bitfields_indicate_availability(
+					core_idx.<span class="number">0 </span><span class="kw">as </span>usize,
+					bitfields,
+					<span class="kw-2">&amp;</span>occupied_core.availability,
+				);
+
+				<span class="kw">if </span>is_available {
+					ancestors
+						.entry(occupied_core.para_id())
+						.or_default()
+						.insert(occupied_core.candidate_hash);
+
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>scheduled_core) = occupied_core.next_up_on_available {
-						<span class="comment">// The candidate occupying the core is available, choose its
-						// child in the fragment tree.
-						//
-						// TODO: doesn&#39;t work for on-demand parachains. We lean hard on the
-						// assumption that cores are fixed to specific parachains within a session.
-						// https://github.com/paritytech/polkadot/issues/5492
-						</span>(scheduled_core.para_id, <span class="macro">vec!</span>[occupied_core.candidate_hash])
-					} <span class="kw">else </span>{
-						<span class="kw">continue
-					</span>}
-				} <span class="kw">else </span>{
-					<span class="kw">if </span>occupied_core.time_out_at != block_number {
-						<span class="kw">continue
-					</span>}
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>scheduled_core) = occupied_core.next_up_on_time_out {
+						<span class="comment">// Request a new backable candidate for the newly scheduled para id.
+						</span><span class="kw-2">*</span>scheduled_cores.entry(scheduled_core.para_id).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
+					}
+				} <span class="kw">else if </span>occupied_core.time_out_at &lt;= block_number {
+					<span class="comment">// Timed out before being available.
+
+					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>scheduled_core) = occupied_core.next_up_on_time_out {
 						<span class="comment">// Candidate&#39;s availability timed out, practically same as scheduled.
-						</span>(scheduled_core.para_id, Vec::new())
-					} <span class="kw">else </span>{
-						<span class="kw">continue
-					</span>}
+						</span><span class="kw-2">*</span>scheduled_cores.entry(scheduled_core.para_id).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
+					}
+				} <span class="kw">else </span>{
+					<span class="comment">// Not timed out and not available.
+					</span>ancestors
+						.entry(occupied_core.para_id())
+						.or_default()
+						.insert(occupied_core.candidate_hash);
 				}
 			},
 			CoreState::Free =&gt; <span class="kw">continue</span>,
 		};
+	}
 
-		<span class="comment">// We should be calling this once per para rather than per core.
-		// TODO: Will be fixed in https://github.com/paritytech/polkadot-sdk/pull/3233.
-		// For now, at least make sure we don&#39;t supply the same candidate multiple times in case a
-		// para has multiple cores scheduled.
-		</span><span class="kw">let </span>response = get_backable_candidate(relay_parent, para_id, required_path, sender).<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="kw">match </span>response {
-			<span class="prelude-val">Some</span>((hash, relay_parent)) =&gt; {
-				<span class="kw">if </span>!selected_candidates.iter().any(|bc| <span class="kw-2">&amp;</span>(hash, relay_parent) == bc) {
-					selected_candidates.push((hash, relay_parent))
-				}
-			},
-			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">gum::debug!</span>(
-					target: LOG_TARGET,
-					leaf_hash = <span class="question-mark">?</span>relay_parent,
-					core = core_idx,
-					<span class="string">&quot;No backable candidate returned by prospective parachains&quot;</span>,
-				);
-			},
-		}
+	<span class="kw">let </span><span class="kw-2">mut </span>selected_candidates: Vec&lt;(CandidateHash, Hash)&gt; =
+		Vec::with_capacity(availability_cores.len());
+
+	<span class="kw">for </span>(para_id, core_count) <span class="kw">in </span>scheduled_cores {
+		<span class="kw">let </span>para_ancestors = ancestors.remove(<span class="kw-2">&amp;</span>para_id).unwrap_or_default();
+
+		<span class="comment">// If elastic scaling MVP is disabled, only allow one candidate per parachain.
+		</span><span class="kw">if </span>!elastic_scaling_mvp &amp;&amp; core_count &gt; <span class="number">1 </span>{
+			<span class="kw">continue
+		</span>}
+
+		<span class="kw">let </span>response = get_backable_candidates(
+			relay_parent,
+			para_id,
+			para_ancestors,
+			core_count <span class="kw">as </span>u32,
+			sender,
+		)
+		.<span class="kw">await</span><span class="question-mark">?</span>;
+
+		<span class="kw">if </span>response.is_empty() {
+			<span class="macro">gum::debug!</span>(
+				target: LOG_TARGET,
+				leaf_hash = <span class="question-mark">?</span>relay_parent,
+				<span class="question-mark">?</span>para_id,
+				<span class="string">&quot;No backable candidate returned by prospective parachains&quot;</span>,
+			);
+			<span class="kw">continue
+		</span>}
+
+		selected_candidates.extend(response.into_iter().take(core_count));
 	}
 
 	<span class="prelude-val">Ok</span>(selected_candidates)
@@ -1729,6 +1872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	bitfields: <span class="kw-2">&amp;</span>[SignedAvailabilityBitfield],
 	candidates: <span class="kw-2">&amp;</span>[CandidateReceipt],
 	prospective_parachains_mode: ProspectiveParachainsMode,
+	elastic_scaling_mvp: bool,
 	relay_parent: Hash,
 	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::ProvisionerSenderTrait,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BackedCandidate&gt;, Error&gt; {
@@ -1738,7 +1882,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>selected_candidates = <span class="kw">match </span>prospective_parachains_mode {
 		ProspectiveParachainsMode::Enabled { .. } =&gt;
-			request_backable_candidates(availability_cores, bitfields, relay_parent, sender).<span class="kw">await</span><span class="question-mark">?</span>,
+			request_backable_candidates(
+				availability_cores,
+				elastic_scaling_mvp,
+				bitfields,
+				relay_parent,
+				sender,
+			)
+			.<span class="kw">await</span><span class="question-mark">?</span>,
 		ProspectiveParachainsMode::Disabled =&gt;
 			select_candidate_hashes_from_tracked(
 				availability_cores,
@@ -1760,24 +1911,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>candidates = rx.<span class="kw">await</span>.map_err(|err| Error::CanceledBackedCandidates(err))<span class="question-mark">?</span>;
 	<span class="macro">gum::trace!</span>(target: LOG_TARGET, leaf_hash=<span class="question-mark">?</span>relay_parent,
 				<span class="string">&quot;Got {} backed candidates&quot;</span>, candidates.len());
-
-	<span class="comment">// `selected_candidates` is generated in ascending order by core index, and
-	// `GetBackedCandidates` _should_ preserve that property, but let&#39;s just make sure.
-	//
-	// We can&#39;t easily map from `BackedCandidate` to `core_idx`, but we know that every selected
-	// candidate maps to either 0 or 1 backed candidate, and the hashes correspond. Therefore, by
-	// checking them in order, we can ensure that the backed candidates are also in order.
-	</span><span class="kw">let </span><span class="kw-2">mut </span>backed_idx = <span class="number">0</span>;
-	<span class="kw">for </span>selected <span class="kw">in </span>selected_candidates {
-		<span class="kw">if </span>selected.<span class="number">0 </span>==
-			candidates.get(backed_idx).ok_or(Error::BackedCandidateOrderingProblem)<span class="question-mark">?</span>.hash()
-		{
-			backed_idx += <span class="number">1</span>;
-		}
-	}
-	<span class="kw">if </span>candidates.len() != backed_idx {
-		<span class="prelude-val">Err</span>(Error::BackedCandidateOrderingProblem)<span class="question-mark">?</span>;
-	}
 
 	<span class="comment">// keep only one candidate with validation code.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>with_validation_code = <span class="bool-val">false</span>;
@@ -1820,28 +1953,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Requests backable candidate from Prospective Parachains based on
-/// the given path in the fragment tree.
-</span><span class="kw">async fn </span>get_backable_candidate(
+<span class="doccomment">/// Requests backable candidates from Prospective Parachains based on
+/// the given ancestors in the fragment tree. The ancestors may not be ordered.
+</span><span class="kw">async fn </span>get_backable_candidates(
 	relay_parent: Hash,
 	para_id: ParaId,
-	required_path: Vec&lt;CandidateHash&gt;,
+	ancestors: Ancestors,
+	count: u32,
 	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::ProvisionerSenderTrait,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(CandidateHash, Hash)&gt;, Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(CandidateHash, Hash)&gt;, Error&gt; {
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 	sender
 		.send_message(ProspectiveParachainsMessage::GetBackableCandidates(
 			relay_parent,
 			para_id,
-			<span class="number">1</span>, <span class="comment">// core count hardcoded to 1, until elastic scaling is implemented and enabled.
-			</span>required_path,
+			count,
+			ancestors,
 			tx,
 		))
 		.<span class="kw">await</span>;
 
-	rx.<span class="kw">await
-		</span>.map_err(Error::CanceledBackableCandidate)
-		.map(|res| res.get(<span class="number">0</span>).copied())
+	rx.<span class="kw">await</span>.map_err(Error::CanceledBackableCandidates)
 }
 
 <span class="doccomment">/// The availability bitfield for a given core is the transpose

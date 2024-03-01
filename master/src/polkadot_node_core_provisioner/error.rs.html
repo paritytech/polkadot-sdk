@@ -265,8 +265,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -313,14 +311,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[error(<span class="string">&quot;failed to get block number&quot;</span>)]
 	</span>CanceledBlockNumber(<span class="attr">#[source] </span>oneshot::Canceled),
 
+	<span class="attr">#[error(<span class="string">&quot;failed to get session index&quot;</span>)]
+	</span>CanceledSessionIndex(<span class="attr">#[source] </span>oneshot::Canceled),
+
 	<span class="attr">#[error(<span class="string">&quot;failed to get backed candidates&quot;</span>)]
 	</span>CanceledBackedCandidates(<span class="attr">#[source] </span>oneshot::Canceled),
 
 	<span class="attr">#[error(<span class="string">&quot;failed to get votes on dispute&quot;</span>)]
 	</span>CanceledCandidateVotes(<span class="attr">#[source] </span>oneshot::Canceled),
 
-	<span class="attr">#[error(<span class="string">&quot;failed to get backable candidate from prospective parachains&quot;</span>)]
-	</span>CanceledBackableCandidate(<span class="attr">#[source] </span>oneshot::Canceled),
+	<span class="attr">#[error(<span class="string">&quot;failed to get backable candidates from prospective parachains&quot;</span>)]
+	</span>CanceledBackableCandidates(<span class="attr">#[source] </span>oneshot::Canceled),
 
 	<span class="attr">#[error(transparent)]
 	</span>ChainApi(<span class="attr">#[from] </span>ChainApiError),
@@ -339,11 +340,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[error(<span class="string">&quot;failed to send return message with Inherents&quot;</span>)]
 	</span>InherentDataReturnChannel,
-
-	<span class="attr">#[error(
-		<span class="string">&quot;backed candidate does not correspond to selected candidate; check logic in provisioner&quot;
-	</span>)]
-	</span>BackedCandidateOrderingProblem,
 
 	<span class="attr">#[fatal]
 	#[error(<span class="string">&quot;Failed to spawn background task&quot;</span>)]

@@ -1114,13 +1114,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#967" id="967">967</a>
 <a href="#968" id="968">968</a>
 <a href="#969" id="969">969</a>
-<a href="#970" id="970">970</a>
-<a href="#971" id="971">971</a>
-<a href="#972" id="972">972</a>
-<a href="#973" id="973">973</a>
-<a href="#974" id="974">974</a>
-<a href="#975" id="975">975</a>
-<a href="#976" id="976">976</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1158,7 +1151,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>polkadot_node_subsystem::{
 	messages::{
-		ChainApiMessage, FragmentTreeMembership, HypotheticalCandidate,
+		Ancestors, ChainApiMessage, FragmentTreeMembership, HypotheticalCandidate,
 		HypotheticalFrontierRequest, IntroduceCandidateRequest, ProspectiveParachainsMessage,
 		ProspectiveValidationDataRequest, RuntimeApiMessage, RuntimeApiRequest,
 	},
@@ -1273,16 +1266,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					relay_parent,
 					para,
 					count,
-					required_path,
+					ancestors,
 					tx,
-				) =&gt; answer_get_backable_candidates(
-					<span class="kw-2">&amp;</span>view,
-					relay_parent,
-					para,
-					count,
-					required_path,
-					tx,
-				),
+				) =&gt; answer_get_backable_candidates(<span class="kw-2">&amp;</span>view, relay_parent, para, count, ancestors, tx),
 				ProspectiveParachainsMessage::GetHypotheticalFrontier(request, tx) =&gt;
 					answer_hypothetical_frontier_request(<span class="kw-2">&amp;</span>view, request, tx),
 				ProspectiveParachainsMessage::GetTreeMembership(para, candidate, tx) =&gt;
@@ -1688,7 +1674,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	relay_parent: Hash,
 	para: ParaId,
 	count: u32,
-	required_path: Vec&lt;CandidateHash&gt;,
+	ancestors: Ancestors,
 	tx: oneshot::Sender&lt;Vec&lt;(CandidateHash, Hash)&gt;&gt;,
 ) {
 	<span class="kw">let </span>data = <span class="kw">match </span>view.active_leaves.get(<span class="kw-2">&amp;</span>relay_parent) {
@@ -1737,7 +1723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">let </span>backable_candidates: Vec&lt;<span class="kw">_</span>&gt; = tree
-		.select_children(<span class="kw-2">&amp;</span>required_path, count, |candidate| storage.is_backed(candidate))
+		.find_backable_chain(ancestors.clone(), count, |candidate| storage.is_backed(candidate))
 		.into_iter()
 		.filter_map(|child_hash| {
 			storage.relay_parent_by_candidate_hash(<span class="kw-2">&amp;</span>child_hash).map_or_else(
@@ -1758,7 +1744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if </span>backable_candidates.is_empty() {
 		<span class="macro">gum::trace!</span>(
 			target: LOG_TARGET,
-			<span class="question-mark">?</span>required_path,
+			<span class="question-mark">?</span>ancestors,
 			para_id = <span class="question-mark">?</span>para,
 			%relay_parent,
 			<span class="string">&quot;Could not find any backable candidate&quot;</span>,

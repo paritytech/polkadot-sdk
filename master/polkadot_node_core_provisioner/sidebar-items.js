@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Metrics","PerRelayParent","ProvisionerSubsystem"]};
+window.SIDEBAR_ITEMS = {"struct":["Metrics","PerRelayParent","PerSession","ProvisionerSubsystem"]};

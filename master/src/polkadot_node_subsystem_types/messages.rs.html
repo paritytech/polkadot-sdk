@@ -1319,6 +1319,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1172" id="1172">1172</a>
 <a href="#1173" id="1173">1173</a>
 <a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2433,6 +2439,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// is present in and the depths of that tree the candidate is present in.
 </span><span class="kw">pub type </span>FragmentTreeMembership = Vec&lt;(Hash, Vec&lt;usize&gt;)&gt;;
 
+<span class="doccomment">/// A collection of ancestor candidates of a parachain.
+</span><span class="kw">pub type </span>Ancestors = HashSet&lt;CandidateHash&gt;;
+
 <span class="doccomment">/// Messages sent to the Prospective Parachains subsystem.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>ProspectiveParachainsMessage {
@@ -2449,15 +2458,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// has been backed. This requires that the candidate was successfully introduced in
 	/// the past.
 	</span>CandidateBacked(ParaId, CandidateHash),
-	<span class="doccomment">/// Get N backable candidate hashes along with their relay parents for the given parachain,
-	/// under the given relay-parent hash, which is a descendant of the given candidate hashes.
+	<span class="doccomment">/// Try getting N backable candidate hashes along with their relay parents for the given
+	/// parachain, under the given relay-parent hash, which is a descendant of the given ancestors.
+	/// Timed out ancestors should not be included in the collection.
 	/// N should represent the number of scheduled cores of this ParaId.
-	/// Returns `None` on the channel if no such candidate exists.
+	/// A timed out ancestor frees the cores of all of its descendants, so if there&#39;s a hole in the
+	/// supplied ancestor path, we&#39;ll get candidates that backfill those timed out slots first. It
+	/// may also return less/no candidates, if there aren&#39;t enough backable candidates recorded.
 	</span>GetBackableCandidates(
 		Hash,
 		ParaId,
 		u32,
-		Vec&lt;CandidateHash&gt;,
+		Ancestors,
 		oneshot::Sender&lt;Vec&lt;(CandidateHash, Hash)&gt;&gt;,
 	),
 	<span class="doccomment">/// Get the hypothetical frontier membership of candidates with the given properties
