@@ -23,9 +23,15 @@
 //! would need to be forked (or extended with some plugin system).
 
 use clap::Parser;
-use frame_benchmarking_cli::PalletCmd;
+use frame_benchmarking_cli::BenchmarkCmd;
 use sc_cli::Result;
 use sp_runtime::traits::BlakeTwo256;
+
+#[derive(Parser, Debug)]
+pub struct Command {
+	#[command(subcommand)]
+	sub: BenchmarkCmd,
+}
 
 #[cfg(feature = "extended-host-functions")]
 type ExtendedHostFunctions = sp_statement_store::runtime_api::HostFunctions;
@@ -34,6 +40,14 @@ type ExtendedHostFunctions = ();
 
 fn main() -> Result<()> {
 	env_logger::init();
+	log::warn!(
+		"Experimental benchmark runner v{} - usage will change in the future.",
+		env!("CARGO_PKG_VERSION")
+	);
 
-	PalletCmd::parse().run_with_maybe_spec::<BlakeTwo256, ExtendedHostFunctions>(None)
+	match Command::parse().sub {
+		BenchmarkCmd::Pallet(pallet) =>
+			pallet.run_with_maybe_spec::<BlakeTwo256, ExtendedHostFunctions>(None),
+		_ => Err("Invalid subcommand. Only `pallet` is supported.".into()),
+	}
 }

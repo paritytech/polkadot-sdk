@@ -408,6 +408,7 @@ impl PalletCmd {
 			for (s, selected_components) in all_components.iter().enumerate() {
 				// First we run a verification
 				if !self.no_verify {
+					let mut changes = genesis_changes.clone();
 					let state = &state_without_tracking;
 					// Dont use these results since verification code will add overhead.
 					let _batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
