@@ -99,17 +99,26 @@ impl Memory {
 /// It is identical to [`SyscallHandler`] with the exception of the first parameter which
 /// is replaced by a pointer. It is safe to transmute between the two because `usize` and
 /// references are ABI compatible.
-type ErasedSyscallHandler = extern "C" fn(
-	// &mut SharedState<T>
-	state: usize,
-	syscall_no: u32,
-	a0: u32,
-	a1: u32,
-	a2: u32,
-	a3: u32,
-	a4: u32,
-	a5: u32,
-) -> u64;
+struct ErasedSyscallHandler(
+	extern "C" fn(
+		// &mut SharedState<T>
+		state: usize,
+		syscall_no: u32,
+		a0: u32,
+		a1: u32,
+		a2: u32,
+		a3: u32,
+		a4: u32,
+		a5: u32,
+	) -> u64,
+);
+
+impl<T> From<SyscallHandler<T>> for ErasedSyscallHandler {
+	fn from(from: SyscallHandler<T>) -> ErasedSyscallHandler {
+		// SAFETY: `SyscallHandler` and `ErasedSyscallHandler` are ABI compatible
+		unsafe { ErasedSyscallHandler(mem::transmute(from)) }
+	}
+}
 
 impl VirtT for Virt {
 	// We use a weak reference in order to be compatible to the forwarder implementation
@@ -248,8 +257,7 @@ impl Virt {
 		}
 
 		self.while_exec = Some(WhileExec {
-			// SAFETY: `SyscallHandler` and `ErasedSyscallHandler` are ABI compatible
-			syscall_handler: unsafe { mem::transmute(syscall_handler) },
+			syscall_handler: syscall_handler.into(),
 			state: state as *mut _ as usize,
 		});
 		let outcome =
@@ -308,7 +316,8 @@ fn on_ecall(caller: Caller<'_, Virt>, syscall_id: &[u8]) -> Result<(), Trap> {
 		.expect("Is set while executing. `on_ecall` is only called while executing; qed");
 
 	// delegate to our syscall handler
-	let result = (while_exec.syscall_handler)(while_exec.state, syscall_no, a0, a1, a2, a3, a4, a5);
+	let result =
+		(while_exec.syscall_handler.0)(while_exec.state, syscall_no, a0, a1, a2, a3, a4, a5);
 
 	let mut caller = mem::replace(&mut *virt.memory.borrow_mut(), instance).into_caller().expect(
 		"We just set this to a a caller before calling into the syscaller handler.
