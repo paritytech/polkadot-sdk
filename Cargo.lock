@@ -13528,6 +13528,7 @@ version = "7.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
+ "bitvec",
  "env_logger 0.9.3",
  "frame-benchmarking",
  "frame-benchmarking-cli",
