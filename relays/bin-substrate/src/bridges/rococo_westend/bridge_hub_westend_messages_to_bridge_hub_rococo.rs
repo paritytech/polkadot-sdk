@@ -42,8 +42,8 @@ substrate_relay_helper::generate_receive_message_proof_call_builder!(
 substrate_relay_helper::generate_receive_message_delivery_proof_call_builder!(
 	BridgeHubWestendMessagesToBridgeHubRococoMessageLane,
 	BridgeHubWestendMessagesToBridgeHubRococoMessageLaneReceiveMessagesDeliveryProofCallBuilder,
-	relay_bridge_hub_westend_client::runtime::Call::BridgeRococoMessages,
-	relay_bridge_hub_westend_client::runtime::BridgeRococoMessagesCall::receive_messages_delivery_proof
+	relay_bridge_hub_westend_client::RuntimeCall::BridgeRococoMessages,
+	relay_bridge_hub_westend_client::BridgeMessagesCall::receive_messages_delivery_proof
 );
 
 /// Description of BridgeHubWestend -> BridgeHubRococo messages bridge.

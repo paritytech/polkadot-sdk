@@ -35,8 +35,8 @@ impl MessagesCliBridge for BridgeHubRococoToBridgeHubWestendMessagesCliBridge {
 substrate_relay_helper::generate_receive_message_proof_call_builder!(
 	BridgeHubRococoMessagesToBridgeHubWestendMessageLane,
 	BridgeHubRococoMessagesToBridgeHubWestendMessageLaneReceiveMessagesProofCallBuilder,
-	relay_bridge_hub_westend_client::runtime::Call::BridgeRococoMessages,
-	relay_bridge_hub_westend_client::runtime::BridgeRococoMessagesCall::receive_messages_proof
+	relay_bridge_hub_westend_client::RuntimeCall::BridgeRococoMessages,
+	relay_bridge_hub_westend_client::BridgeMessagesCall::receive_messages_proof
 );
 
 substrate_relay_helper::generate_receive_message_delivery_proof_call_builder!(

@@ -31,11 +31,11 @@ use substrate_relay_helper::{
 #[derive(Clone, Debug)]
 pub struct RococoFinalityToBridgeHubWestend;
 
-substrate_relay_helper::generate_submit_finality_proof_call_builder!(
+substrate_relay_helper::generate_submit_finality_proof_ex_call_builder!(
 	RococoFinalityToBridgeHubWestend,
 	SubmitFinalityProofCallBuilder,
-	relay_bridge_hub_westend_client::runtime::Call::BridgeRococoGrandpa,
-	relay_bridge_hub_westend_client::runtime::BridgeRococoGrandpaCall::submit_finality_proof
+	relay_bridge_hub_westend_client::RuntimeCall::BridgeRococoGrandpa,
+	relay_bridge_hub_westend_client::BridgeGrandpaCall::submit_finality_proof_ex
 );
 
 substrate_relay_helper::generate_report_equivocation_call_builder!(
