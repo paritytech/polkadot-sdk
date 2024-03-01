@@ -84,8 +84,8 @@
 //! its Staking provider to support delegation based staking from pool accounts.
 //!
 //! #### [Delegatee Support](DelegateeSupport)
-//! Implements `DelegateeSupport` trait which another pallet such as [Config::CoreStaking] can use
-//! to back-support `Delegatees` in their staking implementation.
+//! Implements `DelegateeSupport` trait which an implementation of [StakingInterface] (such as
+//! pallet-staking) can use to back-support `delegatee` accounts.
 //!
 //! ## Lazy Slashing
 //! One of the reasons why direct nominators on staking pallet cannot scale well is because all

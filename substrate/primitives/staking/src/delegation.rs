@@ -21,11 +21,11 @@ use scale_info::TypeInfo;
 use sp_runtime::{DispatchResult, Saturating};
 use sp_std::ops::Sub;
 
-/// A trait that can be used as a plugin to support delegation based accounts, called `Delegatee`.
+/// Support plugin for `delegatee` accounts.
 ///
-/// For example, `pallet-staking` which implements `StakingInterface` but does not implement
-/// account delegations out of the box can be provided with a custom implementation of this trait to
-/// learn how to handle these special accounts.
+/// A `delegatee` account is an account that can receive delegations from other accounts. Their
+/// balance is made up of multiple child delegators. This trait allows a pallet such as
+/// `pallet-staking` to support these special accounts.
 pub trait DelegateeSupport {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
@@ -41,7 +41,9 @@ pub trait DelegateeSupport {
 	/// AccountId type used by the staking system.
 	type AccountId: Clone + sp_std::fmt::Debug;
 
-	/// Balance of `delegatee` which is available for stake.
+	/// Balance of `delegatee` which can be staked.
+	///
+	/// Similar to free balance for a normal account.
 	fn stakeable_balance(delegatee: &Self::AccountId) -> Self::Balance;
 
 	/// Returns true if `delegatee` is restricted to update which account they can receive their
