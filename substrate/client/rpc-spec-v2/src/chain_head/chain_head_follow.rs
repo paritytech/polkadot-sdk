@@ -41,7 +41,10 @@ use sp_api::CallApiAt;
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata, Info,
 };
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT, NumberFor},
+	SaturatedConversion, Saturating,
+};
 use std::{collections::HashSet, sync::Arc};
 
 use super::subscription::InsertedSubscriptionData;
@@ -177,6 +180,38 @@ where
 		}
 	}
 
+	/// Check the distance between the provided blocks does not exceed a
+	/// a reasonable range.
+	///
+	/// When the blocks are too far apart (potentially millions of blocks):
+	///  - Tree route is expensive to calculate.
+	///  - The RPC layer will not be able to generate the `NewBlock` events for all blocks.
+	///
+	/// This edge-case can happen for parachains where the relay chain syncs slower to
+	/// the head of the chain than the parachain node that is synched already.
+	fn distace_within_reason(
+		&self,
+		block: Block::Hash,
+		finalized: Block::Hash,
+	) -> Result<(), SubscriptionManagementError> {
+		let Some(block_num) = self.client.number(block)? else {
+			return Err(SubscriptionManagementError::BlockHashAbsent)
+		};
+		let Some(finalized_num) = self.client.number(finalized)? else {
+			return Err(SubscriptionManagementError::BlockHashAbsent)
+		};
+
+		// Note: u32 would be enough here.
+		let distance: u64 = block_num.saturating_sub(finalized_num).saturated_into();
+		if distance > 128 {
+			return Err(SubscriptionManagementError::Custom(
+				"Distance between the blocks is too large".into(),
+			));
+		}
+
+		Ok(())
+	}
+
 	/// Get the in-memory blocks of the client, starting from the provided finalized hash.
 	fn get_init_blocks_with_forks(
 		&self,
@@ -188,6 +223,13 @@ where
 		let mut pruned_forks = HashSet::new();
 		let mut finalized_block_descendants = Vec::new();
 		let mut unique_descendants = HashSet::new();
+
+		// Ensure all leaves are within a reasonable distance from the finalized block,
+		// before traversing the tree.
+		for leaf in &leaves {
+			self.distace_within_reason(*leaf, finalized)?;
+		}
+
 		for leaf in leaves {
 			let tree_route = sp_blockchain::tree_route(blockchain, finalized, leaf)?;
 
