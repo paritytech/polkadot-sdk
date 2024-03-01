@@ -24,6 +24,7 @@ scale-info = { version = "2.10.0", default-features = false, features = [
 ] }
 frame = { path = "../../../../substrate/frame", default-features = false, features = [
 	"experimental",
+	"runtime",
 ] }
 
 
