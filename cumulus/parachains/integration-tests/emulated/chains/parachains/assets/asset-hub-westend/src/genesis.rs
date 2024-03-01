@@ -14,14 +14,14 @@
 // limitations under the License.
 
 // Substrate
-use sp_core::{sr25519, storage::Storage};
 use frame_support::parameter_types;
+use sp_core::{sr25519, storage::Storage};
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
-	RESERVABLE_ASSET_ID, PenpalSiblingSovereigAccount, PenpalTeleportableAssetLocation,
-	get_account_id_from_seed
+	accounts, build_genesis_storage, collators, get_account_id_from_seed,
+	PenpalSiblingSovereigAccount, PenpalTeleportableAssetLocation, RESERVABLE_ASSET_ID,
+	SAFE_XCM_VERSION,
 };
 use parachains_common::{AccountId, Balance};
 
@@ -64,16 +64,19 @@ pub fn genesis() -> Storage {
 			..Default::default()
 		},
 		assets: asset_hub_westend_runtime::AssetsConfig {
-			assets: vec![
-				(RESERVABLE_ASSET_ID, AssetHubWestendAssetOwner::get(), true, ED),
-			],
-			.. Default::default()
+			assets: vec![(RESERVABLE_ASSET_ID, AssetHubWestendAssetOwner::get(), true, ED)],
+			..Default::default()
 		},
 		foreign_assets: asset_hub_westend_runtime::ForeignAssetsConfig {
 			assets: vec![
-					// Penpal's teleportable asset representation
-					(PenpalTeleportableAssetLocation::get(), PenpalSiblingSovereigAccount::get(), true, ED),
-				],
+				// Penpal's teleportable asset representation
+				(
+					PenpalTeleportableAssetLocation::get(),
+					PenpalSiblingSovereigAccount::get(),
+					true,
+					ED,
+				),
+			],
 			..Default::default()
 		},
 		..Default::default()

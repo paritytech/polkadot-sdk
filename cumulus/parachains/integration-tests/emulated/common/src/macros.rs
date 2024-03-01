@@ -16,28 +16,27 @@
 pub use paste;
 
 // Substrate
+pub use frame_support::{pallet_prelude::Weight, weights::WeightToFee};
+pub use pallet_assets;
 pub use pallet_balances;
 pub use pallet_message_queue;
 pub use pallet_xcm;
-pub use pallet_assets;
-pub use frame_support::{pallet_prelude::Weight, weights::WeightToFee};
 
 // Polkadot
 pub use xcm::{
-		v3::Location as V3Location,
-		prelude::{
-		OriginKind, AccountId32, WeightLimit, Asset, AssetId, Fungible,
-		Location, Here, VersionedXcm, Xcm, Unlimited, WithdrawAsset, BuyExecution,
-		Transact, ExpectTransactStatus, MaybeErrorCode, RefundSurplus, DepositAsset,
-		All
+	prelude::{
+		AccountId32, All, Asset, AssetId, BuyExecution, DepositAsset, ExpectTransactStatus,
+		Fungible, Here, Location, MaybeErrorCode, OriginKind, RefundSurplus, Transact, Unlimited,
+		VersionedXcm, WeightLimit, WithdrawAsset, Xcm,
 	},
+	v3::Location as V3Location,
 };
 
 // Cumulus
 pub use asset_test_utils;
 pub use cumulus_pallet_xcmp_queue;
-pub use xcm_emulator::Chain;
 pub use parachains_common::AccountId;
+pub use xcm_emulator::Chain;
 
 #[macro_export]
 macro_rules! test_parachain_is_trusted_teleporter {

@@ -33,8 +33,7 @@ mod imports {
 		impls::Inspect,
 		test_parachain_is_trusted_teleporter,
 		xcm_emulator::{
-			assert_expected_events, bx, Chain, Parachain as Para,
-			RelayChain as Relay, TestExt
+			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
 	};
 	pub use parachains_common::AccountId;
@@ -46,15 +45,16 @@ mod imports {
 			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_westend_emulated_chain::{
-			genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendParaPallet as BridgeHubWestendPallet,
+			genesis::ED as BRIDGE_HUB_WESTEND_ED,
+			BridgeHubWestendParaPallet as BridgeHubWestendPallet,
 		},
 		westend_emulated_chain::WestendRelayPallet as WestendPallet,
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 		AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
-		BridgeHubWestendPara as BridgeHubWestend, BridgeHubWestendParaSender as BridgeHubWestendSender,
-		WestendRelay as Westend,
+		BridgeHubWestendPara as BridgeHubWestend,
+		BridgeHubWestendParaSender as BridgeHubWestendSender, WestendRelay as Westend,
 	};
 
 	pub const ASSET_MIN_BALANCE: u128 = 1000;

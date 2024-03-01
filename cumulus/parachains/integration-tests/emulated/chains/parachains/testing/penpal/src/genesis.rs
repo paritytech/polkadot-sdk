@@ -14,14 +14,14 @@
 // limitations under the License.
 
 // Substrate
-use sp_core::{sr25519, storage::Storage};
 use frame_support::parameter_types;
+use sp_core::{sr25519, storage::Storage};
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
 };
-use parachains_common::{Balance, AccountId};
-use penpal_runtime::xcm_config::{RelayLocationV3, LocalReservableFromAssetHubV3};
+use parachains_common::{AccountId, Balance};
+use penpal_runtime::xcm_config::{LocalReservableFromAssetHubV3, RelayLocationV3};
 // Penpal
 pub const PARA_ID_A: u32 = 2000;
 pub const PARA_ID_B: u32 = 2001;
@@ -63,22 +63,23 @@ pub fn genesis(para_id: u32) -> Storage {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
 		},
-		sudo: penpal_runtime::SudoConfig {
-			key: Some(PenpalSudoAcccount::get()),
-		},
+		sudo: penpal_runtime::SudoConfig { key: Some(PenpalSudoAcccount::get()) },
 		assets: penpal_runtime::AssetsConfig {
-			assets: vec![
-				(penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID, PenpalAssetOwner::get(), false, ED),
-			],
-			.. Default::default()
+			assets: vec![(
+				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,
+				PenpalAssetOwner::get(),
+				false,
+				ED,
+			)],
+			..Default::default()
 		},
 		foreign_assets: penpal_runtime::ForeignAssetsConfig {
 			assets: vec![
-					// Relay Native asset representation
-					(RelayLocationV3::get(), PenpalAssetOwner::get(), true, ED),
-					// Sufficient AssetHub asset representation
-					(LocalReservableFromAssetHubV3::get(), PenpalAssetOwner::get(), true, ED),
-				],
+				// Relay Native asset representation
+				(RelayLocationV3::get(), PenpalAssetOwner::get(), true, ED),
+				// Sufficient AssetHub asset representation
+				(LocalReservableFromAssetHubV3::get(), PenpalAssetOwner::get(), true, ED),
+			],
 			..Default::default()
 		},
 		..Default::default()

@@ -23,10 +23,7 @@ mod imports {
 	pub use xcm::{
 		latest::ParentThen,
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v3::{
-			self,
-			NetworkId::Westend as WestendId,
-		},
+		v3::{self, NetworkId::Westend as WestendId},
 	};
 
 	// Cumulus
@@ -35,8 +32,7 @@ mod imports {
 		impls::Inspect,
 		test_parachain_is_trusted_teleporter,
 		xcm_emulator::{
-			assert_expected_events, bx, Chain, Parachain as Para,
-			RelayChain as Relay, TestExt,
+			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
 	};
 	pub use parachains_common::AccountId;
@@ -56,9 +52,10 @@ mod imports {
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 		AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
-		BridgeHubRococoParaSender as BridgeHubRococoSender, BridgeHubWestendPara as BridgeHubWestend,
-		PenpalAPara as PenpalA, PenpalAParaReceiver as PenpalAReceiver,
-		PenpalAParaSender as PenpalASender, RococoRelay as Rococo,
+		BridgeHubRococoParaSender as BridgeHubRococoSender,
+		BridgeHubWestendPara as BridgeHubWestend, PenpalAPara as PenpalA,
+		PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
+		RococoRelay as Rococo,
 	};
 
 	pub const ASSET_MIN_BALANCE: u128 = 1000;

@@ -36,41 +36,47 @@ mod imports {
 	pub use emulated_integration_tests_common::{
 		test_parachain_is_trusted_teleporter,
 		xcm_emulator::{
-			assert_expected_events, bx, Chain, Parachain as Para,
-			RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
+			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
+			TestArgs, TestContext, TestExt,
 		},
-		xcm_helpers::{xcm_transact_paid_execution, non_fee_asset},
-		XCM_V3, RESERVABLE_ASSET_ID, ASSETS_PALLET_ID
+		xcm_helpers::{non_fee_asset, xcm_transact_paid_execution},
+		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
 	};
-	pub use parachains_common::{Balance, AccountId};
+	pub use parachains_common::{AccountId, Balance};
 	pub use westend_system_emulated_network::{
 		asset_hub_westend_emulated_chain::{
-			genesis::{ED as ASSET_HUB_WESTEND_ED,  AssetHubWestendAssetOwner}, AssetHubWestendParaPallet as AssetHubWestendPallet,
+			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
+			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
-		collectives_westend_emulated_chain::{
-			CollectivesWestendParaPallet as CollectivesWestendPallet,
+		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
+		penpal_emulated_chain::{
+			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
+			PenpalBParaPallet as PenpalBPallet,
 		},
-		penpal_emulated_chain::{PenpalAParaPallet as PenpalAPallet, PenpalBParaPallet as PenpalBPallet, PenpalAssetOwner},
 		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
-		AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
-		AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
-		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver, PenpalAPara as PenpalA,
-		CollectivesWestendPara as CollectivesWestend,
+		AssetHubWestendPara as AssetHubWestend,
+		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
+		AssetHubWestendParaSender as AssetHubWestendSender,
+		BridgeHubWestendPara as BridgeHubWestend,
+		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
+		CollectivesWestendPara as CollectivesWestend, PenpalAPara as PenpalA,
 		PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
 		PenpalBPara as PenpalB, PenpalBParaReceiver as PenpalBReceiver, WestendRelay as Westend,
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
 	// Runtimes
-	pub use westend_runtime::xcm_config::{XcmConfig as WestendXcmConfig, UniversalLocation as WestendUniversalLocation};
 	pub use asset_hub_westend_runtime::xcm_config::{
-		XcmConfig as AssetHubWestendXcmConfig, UniversalLocation as AssetHubWestendUniversalLocation,
-		WestendLocationV3 as RelayLocationV3,
+		UniversalLocation as AssetHubWestendUniversalLocation,
+		WestendLocationV3 as RelayLocationV3, XcmConfig as AssetHubWestendXcmConfig,
 	};
 	pub use penpal_runtime::xcm_config::{
+		LocalReservableFromAssetHubV3 as PenpalLocalReservableFromAssetHubV3,
 		LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3,
 		UniversalLocation as PenpalUniversalLocation, XcmConfig as PenpalWestendXcmConfig,
-		LocalReservableFromAssetHubV3 as PenpalLocalReservableFromAssetHubV3,
+	};
+	pub use westend_runtime::xcm_config::{
+		UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
 	};
 
 	pub const ASSET_ID: u32 = 3;

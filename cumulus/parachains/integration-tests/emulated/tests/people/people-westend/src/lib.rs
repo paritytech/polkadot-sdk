@@ -29,19 +29,17 @@ mod imports {
 
 	// Cumulus
 	pub use asset_test_utils::xcm_helpers;
-	pub use emulated_integration_tests_common::
-		xcm_emulator::{
-			assert_expected_events, bx, Chain, Parachain as Para,
-			RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
-		};
+	pub use emulated_integration_tests_common::xcm_emulator::{
+		assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test, TestArgs,
+		TestContext, TestExt,
+	};
 	pub use parachains_common::Balance;
 	pub use westend_system_emulated_network::{
 		people_westend_emulated_chain::{
 			genesis::ED as PEOPLE_WESTEND_ED, PeopleWestendParaPallet as PeopleWestendPallet,
 		},
 		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
-		PeopleWestendPara as PeopleWestend,
-		PeopleWestendParaReceiver as PeopleWestendReceiver,
+		PeopleWestendPara as PeopleWestend, PeopleWestendParaReceiver as PeopleWestendReceiver,
 		PeopleWestendParaSender as PeopleWestendSender, WestendRelay as Westend,
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};

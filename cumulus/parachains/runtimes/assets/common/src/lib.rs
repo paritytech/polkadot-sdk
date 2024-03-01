@@ -23,10 +23,13 @@ pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
 
-use sp_runtime::traits::ConvertInto;
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use frame_support::traits::{Equals, EverythingBut};
-use parachains_common::{xcm_config::AssetFeeAsExistentialDepositMultiplier, AssetIdForTrustBackedAssets, CollectionId, ItemId};
+use parachains_common::{
+	xcm_config::AssetFeeAsExistentialDepositMultiplier, AssetIdForTrustBackedAssets, CollectionId,
+	ItemId,
+};
+use sp_runtime::traits::ConvertInto;
 use xcm_builder::{
 	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, V4V3LocationConverter,
 };
@@ -127,13 +130,17 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 	>;
 
 /// Multiplier used for dedicated `TakeFirstAssetTrader` with `ForeignAssets` instance.
-pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger<Runtime, WeightToFee, Balances, ForeignAssetsInstance> =
-	AssetFeeAsExistentialDepositMultiplier<
-		Runtime,
-		WeightToFee,
-		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>,
-		ForeignAssetsInstance,
-	>;
+pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger<
+	Runtime,
+	WeightToFee,
+	Balances,
+	ForeignAssetsInstance,
+> = AssetFeeAsExistentialDepositMultiplier<
+	Runtime,
+	WeightToFee,
+	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>,
+	ForeignAssetsInstance,
+>;
 
 #[cfg(test)]
 mod tests {

@@ -30,21 +30,19 @@ mod imports {
 
 	// Cumulus
 	pub use asset_test_utils::xcm_helpers;
-	pub use emulated_integration_tests_common::
-		xcm_emulator::{
-			assert_expected_events, bx, Chain, Parachain as Para,
-			RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
-		};
+	pub use emulated_integration_tests_common::xcm_emulator::{
+		assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test, TestArgs,
+		TestContext, TestExt,
+	};
 	pub use parachains_common::Balance;
 	pub use rococo_system_emulated_network::{
 		people_rococo_emulated_chain::{
 			genesis::ED as PEOPLE_ROCOCO_ED, PeopleRococoParaPallet as PeopleRococoPallet,
 		},
 		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
-		PeopleRococoPara as PeopleRococo,
-		PeopleRococoParaReceiver as PeopleRococoReceiver, PeopleRococoParaSender as PeopleRococoSender,
-		RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
-		RococoRelaySender as RococoSender,
+		PeopleRococoPara as PeopleRococo, PeopleRococoParaReceiver as PeopleRococoReceiver,
+		PeopleRococoParaSender as PeopleRococoSender, RococoRelay as Rococo,
+		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 	};
 
 	pub type RelayToSystemParaTest = Test<Rococo, PeopleRococo>;

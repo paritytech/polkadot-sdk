@@ -36,18 +36,22 @@ mod imports {
 	pub use emulated_integration_tests_common::{
 		test_parachain_is_trusted_teleporter,
 		xcm_emulator::{
-			assert_expected_events, bx, Chain, Parachain as Para,
-			RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
+			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
+			TestArgs, TestContext, TestExt,
 		},
-		xcm_helpers::{xcm_transact_paid_execution, non_fee_asset},
-		XCM_V3, RESERVABLE_ASSET_ID, ASSETS_PALLET_ID
+		xcm_helpers::{non_fee_asset, xcm_transact_paid_execution},
+		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
 	};
 	pub use parachains_common::Balance;
 	pub use rococo_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
-			genesis::{ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoAssetOwner}, AssetHubRococoParaPallet as AssetHubRococoPallet,
+			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
+			AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
-		penpal_emulated_chain::{ED as PENPAL_ED, PenpalAParaPallet as PenpalAPallet, PenpalBParaPallet as PenpalBPallet, PenpalAssetOwner},
+		penpal_emulated_chain::{
+			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
+			PenpalBParaPallet as PenpalBPallet, ED as PENPAL_ED,
+		},
 		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, BridgeHubRococoPara as BridgeHubRococo,
@@ -58,15 +62,17 @@ mod imports {
 	};
 
 	// Runtimes
-	pub use rococo_runtime::xcm_config::{XcmConfig as RococoXcmConfig, UniversalLocation as RococoUniversalLocation};
 	pub use asset_hub_rococo_runtime::xcm_config::{
-		XcmConfig as AssetHubRococoXcmConfig, UniversalLocation as AssetHubRococoUniversalLocation,
-		TokenLocationV3 as RelayLocationV3,
+		TokenLocationV3 as RelayLocationV3, UniversalLocation as AssetHubRococoUniversalLocation,
+		XcmConfig as AssetHubRococoXcmConfig,
 	};
 	pub use penpal_runtime::xcm_config::{
+		LocalReservableFromAssetHubV3 as PenpalLocalReservableFromAssetHubV3,
 		LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3,
 		UniversalLocation as PenpalUniversalLocation, XcmConfig as PenpalRococoXcmConfig,
-		LocalReservableFromAssetHubV3 as PenpalLocalReservableFromAssetHubV3,
+	};
+	pub use rococo_runtime::xcm_config::{
+		UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
 	};
 
 	pub const ASSET_ID: u32 = 3;

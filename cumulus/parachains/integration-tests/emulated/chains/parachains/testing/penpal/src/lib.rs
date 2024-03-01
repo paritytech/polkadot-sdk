@@ -14,15 +14,15 @@
 // limitations under the License.
 
 mod genesis;
-pub use genesis::{genesis, ED, PARA_ID_A, PARA_ID_B, PenpalSudoAcccount, PenpalAssetOwner};
+pub use genesis::{genesis, PenpalAssetOwner, PenpalSudoAcccount, ED, PARA_ID_A, PARA_ID_B};
 
 // Substrate
 use frame_support::traits::OnInitialize;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain, impl_assets_helpers_for_parachain,
-	impls::Parachain, xcm_emulator::decl_test_parachains,
+	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
+	impl_assets_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 
 // Penpal Parachain declaration

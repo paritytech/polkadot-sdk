@@ -23,16 +23,16 @@
 //! `ReserveAssetTransferDeposited` message but that will but the intension will be to support this
 //! soon.
 use super::{
-	AccountId, AllPalletsWithSystem, AssetId as AssetIdPalletAssets, Assets, Balance, Balances,
-	ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, WeightToFee, XcmpQueue, ForeignAssetsInstance, Authorship,
+	AccountId, AllPalletsWithSystem, AssetId as AssetIdPalletAssets, Assets, Authorship, Balance,
+	Balances, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
+	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
 	traits::{
 		fungibles::{self, Balanced, Credit},
-		ConstU32, Contains, ContainsPair, Everything, Get, Nothing, EverythingBut
+		ConstU32, Contains, ContainsPair, Everything, EverythingBut, Get, Nothing,
 	},
 	weights::Weight,
 };
@@ -46,14 +46,13 @@ use sp_runtime::traits::Zero;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, AllowKnownQueryResponses,
-	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
-	ConvertedConcreteId, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
+	AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex, ConvertedConcreteId, EnsureXcmOrigin,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, IsConcrete,
+	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -125,17 +124,16 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
-pub type ForeignAssetsConvertedConcreteId =
-	assets_common::LocationConvertedConcreteId<
-		EverythingBut<(
-			// Here we rely on fact that something like this works:
-			// assert!(Location::new(1,
-			// [Parachain(100)]).starts_with(&Location::parent()));
-			// assert!([Parachain(100)].into().starts_with(&Here));
-			StartsWith<assets_common::matching::LocalLocationPattern>,
-		)>,
-		Balance,
-	>;
+pub type ForeignAssetsConvertedConcreteId = assets_common::LocationConvertedConcreteId<
+	EverythingBut<(
+		// Here we rely on fact that something like this works:
+		// assert!(Location::new(1,
+		// [Parachain(100)]).starts_with(&Location::parent()));
+		// assert!([Parachain(100)].into().starts_with(&Here));
+		StartsWith<assets_common::matching::LocalLocationPattern>,
+	)>,
+	Balance,
+>;
 
 /// Means for transacting foreign assets from different global consensus.
 pub type ForeignFungiblesTransactor = FungiblesAdapter<
@@ -358,7 +356,12 @@ impl xcm_executor::Config for XcmConfig {
 		// `pallet_assets` instance - `ForeignAssets`.
 		cumulus_primitives_utility::TakeFirstAssetTrader<
 			AccountId,
-			assets_common::ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger<Runtime, WeightToFee, Balances, ForeignAssetsInstance>,
+			assets_common::ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger<
+				Runtime,
+				WeightToFee,
+				Balances,
+				ForeignAssetsInstance,
+			>,
 			ForeignAssetsConvertedConcreteId,
 			ForeignAssets,
 			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
