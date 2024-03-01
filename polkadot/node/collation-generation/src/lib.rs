@@ -38,21 +38,25 @@ use polkadot_node_primitives::{
 	SubmitCollationParams,
 };
 use polkadot_node_subsystem::{
-	messages::{CollationGenerationMessage, CollatorProtocolMessage},
+	messages::{CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiRequest},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	request_async_backing_params, request_availability_cores, request_persisted_validation_data,
-	request_validation_code, request_validation_code_hash, request_validators,
+	has_required_runtime, request_async_backing_params, request_availability_cores,
+	request_claim_queue, request_persisted_validation_data, request_validation_code,
+	request_validation_code_hash, request_validators,
 };
 use polkadot_primitives::{
-	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
-	CollatorPair, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
-	ValidationCodeHash,
+	collator_signature_payload, vstaging::ParasEntry, BlockNumber, CandidateCommitments,
+	CandidateDescriptor, CandidateReceipt, CollatorPair, CoreIndex, CoreState, Hash, Id as ParaId,
+	OccupiedCoreAssumption, PersistedValidationData, ScheduledCore, ValidationCodeHash,
 };
 use sp_core::crypto::Pair;
-use std::sync::Arc;
+use std::{
+	collections::{BTreeMap, VecDeque},
+	sync::Arc,
+};
 
 mod error;
 
@@ -223,6 +227,7 @@ async fn handle_new_activations<Context>(
 		let availability_cores = availability_cores??;
 		let n_validators = validators??.len();
 		let async_backing_params = async_backing_params?.ok();
+		let maybe_claim_queue = fetch_claim_queue(ctx.sender(), relay_parent).await?;
 
 		for (core_idx, core) in availability_cores.into_iter().enumerate() {
 			let _availability_core_timer = metrics.time_new_activations_availability_core();
@@ -239,10 +244,24 @@ async fn handle_new_activations<Context>(
 						// TODO [now]: this assumes that next up == current.
 						// in practice we should only set `OccupiedCoreAssumption::Included`
 						// when the candidate occupying the core is also of the same para.
-						if let Some(scheduled) = occupied_core.next_up_on_available {
-							(scheduled, OccupiedCoreAssumption::Included)
-						} else {
-							continue
+						let res = match maybe_claim_queue {
+							Some(ref claim_queue) => {
+								// read what's in the claim queue for this core
+								fetch_scheduled_para(claim_queue, CoreIndex(core_idx as u32))
+									.map(|sc| (sc, OccupiedCoreAssumption::Included))
+							},
+							None => {
+								// Runtime doesn't support claim queue runtime api. Fallback to
+								// `next_up_on_available`
+								occupied_core
+									.next_up_on_available
+									.map(|scheduled| (scheduled, OccupiedCoreAssumption::Included))
+							},
+						};
+
+						match res {
+							Some(res) => res,
+							None => continue,
 						}
 					},
 					_ => {
@@ -597,4 +616,40 @@ fn erasure_root(
 
 	let chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, &available_data)?;
 	Ok(polkadot_erasure_coding::branches(&chunks).root())
+}
+
+// Checks if the runtime supports `request_claim_queue` and executes it. Returns `Ok(None)`
+// otherwise. Any [`RuntimeApiError`]s are bubbled up to the caller.
+async fn fetch_claim_queue(
+	sender: &mut impl overseer::CollationGenerationSenderTrait,
+	relay_parent: Hash,
+) -> crate::error::Result<Option<BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>>> {
+	if has_required_runtime(
+		sender,
+		relay_parent,
+		RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+	)
+	.await
+	{
+		let res = request_claim_queue(relay_parent, sender).await.await??;
+		Ok(Some(res))
+	} else {
+		gum::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
+		Ok(None)
+	}
+}
+
+fn fetch_scheduled_para(
+	claim_queue: &BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>,
+	core_idx: CoreIndex,
+) -> Option<ScheduledCore> {
+	// TODO: In the future we will return more than one scheduled para_id hence the weird processing
+	// below
+	claim_queue
+		.get(&core_idx)?
+		.into_iter()
+		.map(|paras_entry| paras_entry.para_id())
+		.take(1)
+		.next()
+		.map(|para_id| ScheduledCore { para_id, collator: None })
 }

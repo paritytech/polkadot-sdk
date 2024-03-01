@@ -159,6 +159,12 @@ fn requests_availability_per_relay_parent() {
 				))) => {
 					tx.send(Err(RuntimeApiError::NotSupported { runtime_api_name: "doesnt_matter" })).unwrap();
 				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::Version(tx),
+				))) => {
+					tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)).unwrap();
+				},
 				Some(msg) => panic!("didn't expect any other overseer requests given no availability cores; got {:?}", msg),
 			}
 		}
@@ -241,6 +247,12 @@ fn requests_validation_data_for_scheduled_matches() {
 						runtime_api_name: "doesnt_matter",
 					}))
 					.unwrap();
+				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::Version(tx),
+				))) => {
+					tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)).unwrap();
 				},
 				Some(msg) => {
 					panic!("didn't expect any other overseer requests; got {:?}", msg)
@@ -338,6 +350,12 @@ fn sends_distribute_collation_message() {
 						runtime_api_name: "doesnt_matter",
 					}))
 					.unwrap();
+				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::Version(tx),
+				))) => {
+					tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)).unwrap();
 				},
 				Some(msg @ AllMessages::CollatorProtocol(_)) => {
 					inner_to_collator_protocol.lock().await.push(msg);
@@ -500,6 +518,12 @@ fn fallback_when_no_validation_code_hash_api() {
 						runtime_api_name: "doesnt_matter",
 					}))
 					.unwrap();
+				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::Version(tx),
+				))) => {
+					tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)).unwrap();
 				},
 				Some(msg @ AllMessages::CollatorProtocol(_)) => {
 					inner_to_collator_protocol.lock().await.push(msg);
