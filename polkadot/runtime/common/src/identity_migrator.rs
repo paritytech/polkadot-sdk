@@ -95,7 +95,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The identity and all sub accounts were reaped for `who`.
-		IdentityReaped { who: T::AccountId },
+		IdentityReaped { who_vec: Vec<T::AccountId> },
 		/// The deposits held for `who` were updated. `identity` is the new deposit held for
 		/// identity info, and `subs` is the new deposit held for the sub-accounts.
 		DepositUpdated { who: T::AccountId, identity: BalanceOf<T>, subs: BalanceOf<T> },
@@ -112,20 +112,31 @@ pub mod pallet {
 		))]
 		pub fn reap_identity(
 			origin: OriginFor<T>,
-			who: T::AccountId,
+			who_vec: Vec<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
 			T::Reaper::ensure_origin(origin)?;
 			// - number of registrars (required to calculate weight)
 			// - byte size of `IdentityInfo` (required to calculate remote deposit)
 			// - number of sub accounts (required to calculate both weight and remote deposit)
-			let (registrars, bytes, subs) = pallet_identity::Pallet::<T>::reap_identity(&who)?;
-			T::ReapIdentityHandler::on_reap_identity(&who, bytes, subs)?;
-			Self::deposit_event(Event::IdentityReaped { who });
+			let tuple_vec: Vec<(T::AccountId, u32, u32, u32)> =
+				pallet_identity::Pallet::<T>::reap_identity(who_vec.clone())?;
+
+			let mut total_registrars: u32 = 0;
+			let mut total_subs: u32 = 0;
+			for (who, registrars, bytes, subs) in tuple_vec {
+				T::ReapIdentityHandler::on_reap_identity(&who, bytes, subs)?;
+
+				total_registrars = total_registrars + registrars;
+				total_subs = total_subs + subs;
+			}
+
+			Self::deposit_event(Event::IdentityReaped { who_vec });
 			let post = PostDispatchInfo {
 				actual_weight: Some(<T as pallet::Config>::WeightInfo::reap_identity(
-					registrars, subs,
+					total_registrars,
+					total_subs,
 				)),
-				pays_fee: Pays::No,
+				pays_fee: Pays::Yes,
 			};
 			Ok(post)
 		}
@@ -251,9 +262,9 @@ mod benchmarks {
 		let origin = T::Reaper::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, target.clone());
+		_(origin as T::RuntimeOrigin, vec![target.clone()]);
 
-		assert_last_event::<T>(Event::<T>::IdentityReaped { who: target.clone() }.into());
+		assert_last_event::<T>(Event::<T>::IdentityReaped { who_vec: vec![target.clone()] }.into());
 
 		let fields = <T as pallet_identity::Config>::IdentityInformation::all_fields();
 		assert!(!Identity::<T>::has_identity(&target, fields));

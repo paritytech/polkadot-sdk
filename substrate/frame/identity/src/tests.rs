@@ -866,7 +866,7 @@ fn reap_identity_works() {
 		let subs_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - subs_deposit);
 		// reap
-		assert_ok!(Identity::reap_identity(vec![&ten]));
+		assert_ok!(Identity::reap_identity(vec![ten.clone()]));
 		// no identity or subs
 		assert!(Identity::identity(ten.clone()).is_none());
 		assert!(Identity::super_of(twenty).is_none());
