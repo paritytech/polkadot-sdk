@@ -262,7 +262,7 @@ impl<T: Config> WasmModule<T> {
 	/// `instantiate_with_code` for different sizes of wasm modules. The generated module maximizes
 	/// instrumentation runtime by nesting blocks as deeply as possible given the byte budget.
 	/// `code_location`: Whether to place the code into `deploy` or `call`.
-	pub fn sized(target_bytes: u32, code_location: Location) -> Self {
+	pub fn sized(target_bytes: u32, code_location: Location, use_float: bool) -> Self {
 		use self::elements::Instruction::{End, GetLocal, If, Return};
 		// Base size of a contract is 63 bytes and each expansion adds 6 bytes.
 		// We do one expansion less to account for the code section and function body
@@ -274,7 +274,7 @@ impl<T: Config> WasmModule<T> {
 		let mut module =
 			ModuleDefinition { memory: Some(ImportedMemory::max::<T>()), ..Default::default() };
 		let body = Some(body::repeated_with_locals(
-			&[Local::new(1, ValueType::I32)],
+			&[Local::new(1, if use_float { ValueType::F32 } else { ValueType::I32 })],
 			expansions,
 			&EXPANSION,
 		));

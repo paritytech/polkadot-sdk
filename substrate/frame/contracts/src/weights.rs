@@ -67,7 +67,8 @@ pub trait WeightInfo {
 	fn instantiate_with_code(c: u32, i: u32, s: u32, ) -> Weight;
 	fn instantiate(i: u32, s: u32, ) -> Weight;
 	fn call() -> Weight;
-	fn upload_code(c: u32, ) -> Weight;
+	fn upload_code_determinism_enforced(c: u32, ) -> Weight;
+	fn upload_code_determinism_relaxed(c: u32, ) -> Weight;
 	fn remove_code() -> Weight;
 	fn set_code() -> Weight;
 	fn seal_caller(r: u32, ) -> Weight;
@@ -457,7 +458,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Contracts::PristineCode` (r:0 w:1)
 	/// Proof: `Contracts::PristineCode` (`max_values`: None, `max_size`: Some(125988), added: 128463, mode: `Measured`)
 	/// The range of component `c` is `[0, 125952]`.
-	fn upload_code(c: u32, ) -> Weight {
+	fn upload_code_determinism_enforced(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `142`
+		//  Estimated: `3607`
+		// Minimum execution time: 254_800_000 picoseconds.
+		Weight::from_parts(285_603_050, 3607)
+			// Standard Error: 62
+			.saturating_add(Weight::from_parts(66_212, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+	}
+	fn upload_code_determinism_relaxed(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `142`
 		//  Estimated: `3607`
@@ -2353,7 +2365,29 @@ impl WeightInfo for () {
 	/// Storage: `Contracts::PristineCode` (r:0 w:1)
 	/// Proof: `Contracts::PristineCode` (`max_values`: None, `max_size`: Some(125988), added: 128463, mode: `Measured`)
 	/// The range of component `c` is `[0, 125952]`.
-	fn upload_code(c: u32, ) -> Weight {
+	fn upload_code_determinism_enforced(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `142`
+		//  Estimated: `3607`
+		// Minimum execution time: 254_800_000 picoseconds.
+		Weight::from_parts(285_603_050, 3607)
+			// Standard Error: 62
+			.saturating_add(Weight::from_parts(66_212, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+	/// Storage: `Contracts::MigrationInProgress` (r:1 w:0)
+	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
+	/// Storage: `Contracts::CodeInfoOf` (r:1 w:1)
+	/// Proof: `Contracts::CodeInfoOf` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(157), added: 2632, mode: `Measured`)
+	/// Storage: `System::EventTopics` (r:1 w:1)
+	/// Proof: `System::EventTopics` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Contracts::PristineCode` (r:0 w:1)
+	/// Proof: `Contracts::PristineCode` (`max_values`: None, `max_size`: Some(125988), added: 128463, mode: `Measured`)
+	/// The range of component `c` is `[0, 125952]`.
+	fn upload_code_determinism_relaxed(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `142`
 		//  Estimated: `3607`

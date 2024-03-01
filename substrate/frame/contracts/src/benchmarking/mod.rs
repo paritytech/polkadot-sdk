@@ -362,7 +362,7 @@ benchmarks! {
 	call_with_code_per_byte {
 		let c in 0 .. T::MaxCodeLen::get();
 		let instance = Contract::<T>::with_caller(
-			whitelisted_caller(), WasmModule::sized(c, Location::Deploy), vec![],
+			whitelisted_caller(), WasmModule::sized(c, Location::Deploy, false), vec![],
 		)?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
@@ -389,7 +389,7 @@ benchmarks! {
 		let value = Pallet::<T>::min_balance();
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call);
+		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, false);
 		let origin = RawOrigin::Signed(caller.clone());
 		let addr = Contracts::<T>::contract_address(&caller, &hash, &input, &salt);
 	}: _(origin, value, Weight::MAX, None, code, input, salt)
@@ -468,15 +468,28 @@ benchmarks! {
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
 	#[pov_mode = Measured]
-	upload_code {
+	upload_code_determinism_enforced {
 		let c in 0 .. T::MaxCodeLen::get();
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call);
+		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, false);
 		let origin = RawOrigin::Signed(caller.clone());
-	}: _(origin, code, None, Determinism::Enforced)
+	}: upload_code(origin, code, None, Determinism::Enforced)
 	verify {
 		// uploading the code reserves some balance in the callers account
+		assert!(T::Currency::total_balance_on_hold(&caller) > 0u32.into());
+		assert!(<Contract<T>>::code_exists(&hash));
+	}
+
+	#[pov_mode = Measured]
+	upload_code_determinism_relaxed {
+		let c in 0 .. T::MaxCodeLen::get();
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, true);
+		let origin = RawOrigin::Signed(caller.clone());
+	}: upload_code(origin, code, None, Determinism::Relaxed)
+	verify {
 		assert!(T::Currency::total_balance_on_hold(&caller) > 0u32.into());
 		assert!(<Contract<T>>::code_exists(&hash));
 	}
