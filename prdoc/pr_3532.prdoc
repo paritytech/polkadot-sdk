@@ -6,7 +6,7 @@ title: Remove deprecated trait Store
 doc:
   - audience: Runtime Dev
     description: |
-      Removes the deprecated trait Store feature from the codebase
+      The deprecated `trait Store` feature has been removed from the codebase.
 
 crates:
   - name: frame-support
