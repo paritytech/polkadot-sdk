@@ -7,12 +7,12 @@ const GAS_MAX: u64 = i64::MAX as u64;
 ///
 /// This is exported even without a test build in order to make it callable from the
 /// `sc-runtime-test`. This is necessary in order to compile these tests into a runtime so that
-/// the forwarder implementation is used. Otherwise only the native implemetation is tested through
+/// the forwarder implementation is used. Otherwise only the native implementation is tested through
 /// cargos test framework.
 ///
 /// The `program` needs to be set to `sp_virtualization_test_fixture::binary()`. It can't be
 /// hard coded because when this crate is compiled into a runtime the binary is not available.
-/// Instead, was pass it as an argument to the runtime exported function.
+/// Instead, we pass it as an argument to the runtime exported function.
 pub fn run(program: &[u8]) {
 	counter_start_at_0(program);
 	counter_start_at_7(program);

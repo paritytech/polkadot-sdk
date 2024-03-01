@@ -1793,7 +1793,7 @@ pub enum VirtDestroyError {
 	InvalidInstance = 1,
 }
 
-/// This is used to hold state between different syscall handler invocations of the same exection.
+/// This is used to hold state between different syscall handler invocations of the same execution.
 ///
 /// A reference to it is passed in by the user when executing an virtualization instance.
 /// The same reference is passed as first argument to the [`VirtSyscallHandler`].
@@ -1828,7 +1828,7 @@ pub struct VirtSharedState<T> {
 ///
 /// # Arguments
 ///
-/// * `state`: A reference to the state that was passed as an agument to execute.
+/// * `state`: A reference to the state that was passed as an argument to execute.
 /// * `syscall_no`: The 4 byte identifier of the syscall being called.
 /// * `a0-a5`: The values of said registers on entering the syscall.
 ///

@@ -16,13 +16,13 @@
 // limitations under the License.
 
 //! This crate is intended for use by runtime code (e.g pallet-contracts) to spawn PolkaVM instances
-//! and execute calls into them. Its purpose is to add one layer of abtraction to that it works
+//! and execute calls into them. Its purpose is to add one layer of abstraction to that it works
 //! transparently from the actual runtime but also from tests (which run natively). Additionally,
 //! this crate is also used to implement the host functions that are used by this crate. This allows
 //! us to encapsulate all the logic regarding PolkaVM setup in one place.
 //!
 //! Please keep in mind that the interface is kept simple because it has to match the interface
-//! of the host function so that the abtraction works. It will never expose the whole PolkaVM
+//! of the host function so that the abstraction works. It will never expose the whole PolkaVM
 //! interface.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -55,7 +55,7 @@ pub type Memory = <Virt as VirtT>::Memory;
 /// A virtualization instance that can be called into multiple times.
 ///
 /// There are only two implementations of this trait. One which is used within runtime builds.
-/// We call this the for `forwarder` since it only forwards the calls to host functions. The other
+/// We call this the `forwarder` since it only forwards the calls to host functions. The other
 /// one is the `native` implementation which is used to implement said host functions and is also
 /// used by the pallet's test code.
 ///
@@ -75,7 +75,7 @@ pub trait VirtT: Sized {
 	///
 	/// * `function`: The identifier of the PolkaVM export.
 	/// * `syscall_handler`: Will be called to handle imported functions.
-	/// * `state`: This reference will passed as first argument to the `syscall_handler`. Use to
+	/// * `state`: This reference will be passed as first argument to the `syscall_handler`. Use to
 	///   hold state.
 	fn execute<T>(
 		&mut self,

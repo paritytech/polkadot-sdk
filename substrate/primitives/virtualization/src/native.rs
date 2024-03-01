@@ -212,7 +212,7 @@ impl Virt {
 		//
 		// We transmute `&mut SharedState<T>` to `&mut SharedState<()>` here. This is safe because
 		// `SharedState` is using #[repr(C)] alignment where the change of the last field will
-		// not impact the alignment of the rest of the fields. Additionally, by chosing a ZST
+		// not impact the alignment of the rest of the fields. Additionally, by choosing a ZST
 		// for `T` we prevent any code that accesses this data from being generated. Hence
 		// no assumptions over `T` will be made.
 		&mut *(self
