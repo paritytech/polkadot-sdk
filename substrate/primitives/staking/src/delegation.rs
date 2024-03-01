@@ -102,8 +102,8 @@ pub trait DelegatedStakeInterface: StakingInterface {
 
 	/// Withdraw or revoke delegation to `delegatee`.
 	///
-	/// If there are `delegatee` funds upto `amount` available to withdraw, then those funds would be
-	/// released to the `delegator`
+	/// If there are `delegatee` funds upto `amount` available to withdraw, then those funds would
+	/// be released to the `delegator`
 	fn withdraw_delegation(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
