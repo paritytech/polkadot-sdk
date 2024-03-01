@@ -398,26 +398,22 @@ function find_runtimes() {
     echo $JSON
 }
 
-# Check if the version matches the pattern
+# Filter the version matches the particular pattern and return it.
 # input: version (v1.8.0 or v1.8.0-rc1)
 # output: none
-check_version_pattern() {
-    version=$1
+filter_version_from_input() {
+  local version=$1
+  local regex="(^v[0-9]+\.[0-9]+\.[0-9]+)$|(^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+)$"
 
-    case $version in
+  if [[ $version =~ $regex ]]; then
+      if [ -n "${BASH_REMATCH[1]}" ]; then
+          echo "${BASH_REMATCH[1]}"
+      elif [ -n "${BASH_REMATCH[2]}" ]; then
+          echo "${BASH_REMATCH[2]}"
+      fi
+  else
+      echo "Invalid version: $version"
+      exit 1
+  fi
 
-      v[0-9].[0-9].[0-9])
-        echo "Input $version matches pattern"
-        ;;
-
-      v[0-9].[0-9].[0-9]-rc[0-9])
-        echo "Input $version matches pattern"
-        ;;
-
-      *)
-        echo "Input $version does not match pattern"
-        exit 1
-        ;;
-
-  esac
 }

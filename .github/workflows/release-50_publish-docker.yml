@@ -102,7 +102,8 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          check_version_pattern "$VERSION"
+          VERSION=(filter_version_from_input "${{ inputs.version }}")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
           fetch_release_artifacts_from_s3
 
