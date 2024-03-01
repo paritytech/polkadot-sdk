@@ -45,6 +45,7 @@ use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
 	derive_impl,
 	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
+	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	storage::child,
 	traits::{
@@ -54,7 +55,7 @@ use frame_support::{
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
-use frame_system::{EnsureSigned, EventRecord, Phase};
+use frame_system::{EventRecord, Phase};
 use pallet_contracts_fixtures::compile_module;
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::ByteArray;
@@ -454,6 +455,48 @@ impl Contains<RuntimeCall> for TestFilter {
 }
 
 parameter_types! {
+	static UploadOrigin: <Test as frame_system::Config>::AccountId = ALICE;
+	static InstantiateOrigin: <Test as frame_system::Config>::AccountId = ALICE;
+	static RestrictedUpload: bool = false;
+	static RestrictedInstantiation: bool = false;
+}
+
+pub struct EnsureUploadOrigin<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureUploadOrigin<T>
+where
+	<T as frame_system::Config>::AccountId: From<AccountId32>,
+{
+	type Success = T::AccountId;
+
+	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
+		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o.clone())?;
+		if RestrictedUpload::get() && who != UploadOrigin::get().into() {
+			return Err(o)
+		}
+
+		Ok(who)
+	}
+}
+
+pub struct EnsureInstantiateOrigin<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin>
+	for EnsureInstantiateOrigin<T>
+where
+	<T as frame_system::Config>::AccountId: From<AccountId32>,
+{
+	type Success = T::AccountId;
+
+	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
+		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o.clone())?;
+		if RestrictedInstantiation::get() && who != InstantiateOrigin::get().into() {
+			return Err(o)
+		}
+
+		Ok(who)
+	}
+}
+
+parameter_types! {
 	pub static UnstableInterface: bool = true;
 }
 
@@ -477,8 +520,8 @@ impl Config for Test {
 	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
 	type MaxStorageKeyLen = ConstU32<128>;
 	type UnsafeUnstableInterface = UnstableInterface;
-	type UploadOrigin = EnsureSigned<Self::AccountId>;
-	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
+	type UploadOrigin = EnsureUploadOrigin<Self>;
+	type InstantiateOrigin = EnsureInstantiateOrigin<Self>;
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Migrations = crate::migration::codegen::BenchMigrations;
@@ -5952,9 +5995,10 @@ fn root_cannot_instantiate() {
 #[test]
 fn only_upload_origin_can_upload() {
 	let (wasm, _) = compile_module::<Test>("dummy").unwrap();
-
+	RestrictedUpload::set(true);
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
+		let _ = Balances::set_balance(&BOB, 1_000_000);
 
 		assert_err!(
 			Contracts::upload_code(
@@ -5966,12 +6010,84 @@ fn only_upload_origin_can_upload() {
 			DispatchError::BadOrigin
 		);
 
+		assert_err!(
+			Contracts::upload_code(
+				RuntimeOrigin::signed(BOB),
+				wasm.clone(),
+				None,
+				Determinism::Enforced,
+			),
+			DispatchError::BadOrigin
+		);
+
+		// Only alice is allowed to upload contract code.
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
 			wasm.clone(),
 			None,
 			Determinism::Enforced,
 		));
+	});
+}
+
+#[test]
+fn only_instantiation_origin_can_instantiate() {
+	let (code, code_hash) = compile_module::<Test>("dummy").unwrap();
+	RestrictedInstantiation::set(true);
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = Balances::set_balance(&ALICE, 1_000_000);
+		let _ = Balances::set_balance(&BOB, 1_000_000);
+
+		assert_err_ignore_postinfo!(
+			Contracts::instantiate_with_code(
+				RuntimeOrigin::root(),
+				0,
+				GAS_LIMIT,
+				None,
+				code.clone(),
+				vec![],
+				vec![],
+			),
+			DispatchError::BadOrigin
+		);
+
+		assert_err_ignore_postinfo!(
+			Contracts::instantiate_with_code(
+				RuntimeOrigin::signed(BOB),
+				0,
+				GAS_LIMIT,
+				None,
+				code.clone(),
+				vec![],
+				vec![],
+			),
+			DispatchError::BadOrigin
+		);
+
+		// Only Alice can instantiate
+		assert_ok!(Contracts::instantiate_with_code(
+			RuntimeOrigin::signed(ALICE),
+			0,
+			GAS_LIMIT,
+			None,
+			code,
+			vec![],
+			vec![],
+		),);
+
+		// Bob cannot instantiate with either `instantiate_with_code` or `instantiate`.
+		assert_err_ignore_postinfo!(
+			Contracts::instantiate(
+				RuntimeOrigin::signed(BOB),
+				0,
+				GAS_LIMIT,
+				None,
+				code_hash,
+				vec![],
+				vec![],
+			),
+			DispatchError::BadOrigin
+		);
 	});
 }
 
