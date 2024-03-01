@@ -47,9 +47,9 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 /// The byte length of signature
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 
-/// A secret seed (which is bytewise essentially equivalent to a SigningKey).
+/// The secret seed.
 ///
-/// We need it as a different type because `Seed` is expected to be AsRef<[u8]>.
+/// The raw secret seed, which can be used to create the `Pair`.
 #[cfg(feature = "full_crypto")]
 type Seed = [u8; 32];
 
