@@ -251,15 +251,15 @@ impl Virt {
 			syscall_handler: unsafe { mem::transmute(syscall_handler) },
 			state: state as *mut _ as usize,
 		});
-		let outcome = match self.instance.clone().call_typed(self, function, ()) {
-			Ok(()) => Ok(()),
-			Err(ExecutionError::Trap(_)) => Err(ExecError::Trap),
-			Err(ExecutionError::OutOfGas) => Err(ExecError::OutOfGas),
-			Err(ExecutionError::Error(err)) => {
-				log::error!("polkavm execution error: {}", err);
-				Err(ExecError::InvalidImage)
-			},
-		};
+		let outcome =
+			self.instance.clone().call_typed(self, function, ()).map_err(|err| match err {
+				ExecutionError::Trap(_) => ExecError::Trap,
+				ExecutionError::OutOfGas => ExecError::OutOfGas,
+				ExecutionError::Error(err) => {
+					log::error!("polkavm execution error: {}", err);
+					ExecError::InvalidImage
+				},
+			});
 
 		self.while_exec = None;
 		state.gas_left = self.instance.gas_remaining().expect("metering is enabled; qed").get();
