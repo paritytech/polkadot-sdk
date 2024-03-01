@@ -368,14 +368,20 @@ pub mod pallet {
 		type MaxDebugBufferLen: Get<u32>;
 
 		/// Origin allowed to upload code.
+		///
+		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
+		/// code.
 		type UploadOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Origin allowed to instantiate code.
 		///
 		/// # Note
 		///
-		/// This is not enforced when a contract instantiates another contract. The [`UploadOrigin`] should
-		/// make sure that no code is deployed that does unwanted instantiations.
+		/// This is not enforced when a contract instantiates another contract. The [`UploadOrigin`]
+		/// should make sure that no code is deployed that does unwanted instantiations.
+		///
+		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to instantiate
+		/// contract code.
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Overarching hold reason.
