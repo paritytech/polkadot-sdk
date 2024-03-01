@@ -17,6 +17,7 @@ test-linux-stable:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    RUST_LOG: "polkavm=trace"
   parallel: 3
   script:
     # Build all but only execute 'runtime' tests.
