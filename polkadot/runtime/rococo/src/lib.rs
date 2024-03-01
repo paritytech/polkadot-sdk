@@ -149,7 +149,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_007_000,
+	spec_version: 1_008_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -1658,6 +1658,7 @@ pub mod migrations {
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
 		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
 		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
+		parachains_configuration::migration::v12::MigrateToV12<Runtime>,
 
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
@@ -1768,7 +1769,7 @@ sp_api::impl_runtime_apis! {
 			Executive::execute_block(block);
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}
@@ -2334,6 +2335,13 @@ sp_api::impl_runtime_apis! {
 						native_location,
 						dest
 					)
+				}
+
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(Location::here()),
+						fun: Fungible(ExistentialDeposit::get()),
+					}
 				}
 			}
 			impl pallet_xcm_benchmarks::Config for Runtime {
