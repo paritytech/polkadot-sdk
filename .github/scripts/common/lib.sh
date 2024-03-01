@@ -422,12 +422,14 @@ filter_version_from_input() {
 # input: release_id
 # output: release_id or exit 1
 check_release_id() {
-  release_id=$1
+  input=$1
+
+  release_id=$(echo "$input" | sed 's/[^0-9]//g')
 
   if [[ $release_id =~ ^[0-9]+$ ]]; then
       echo "$release_id"
   else
-      echo "Invalid release_id: $release_id"
+      echo "Invalid release_id from input: $input"
       exit 1
   fi
 
