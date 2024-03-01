@@ -98,7 +98,7 @@ impl VersionChangeNotifier for () {
 }
 
 /// The possible state of an XCM query response.
-#[derive(Debug, PartialEq, Eq, Encode, Decode)]
+#[derive(Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
 pub enum QueryResponseStatus<BlockNumber> {
 	/// The response has arrived, and includes the inner Response and the block number it arrived
 	/// at.
