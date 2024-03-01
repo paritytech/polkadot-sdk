@@ -402,8 +402,8 @@ function find_runtimes() {
 # input: version (v1.8.0 or v1.8.0-rc1)
 # output: none
 filter_version_from_input() {
-  local version=$1
-  local regex="(^v[0-9]+\.[0-9]+\.[0-9]+)$|(^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+)$"
+  version=$1
+  regex="(^v[0-9]+\.[0-9]+\.[0-9]+)$|(^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+)$"
 
   if [[ $version =~ $regex ]]; then
       if [ -n "${BASH_REMATCH[1]}" ]; then
@@ -413,6 +413,21 @@ filter_version_from_input() {
       fi
   else
       echo "Invalid version: $version"
+      exit 1
+  fi
+
+}
+
+# Check if the release_id is valid number
+# input: release_id
+# output: release_id or exit 1
+check_release_id() {
+  release_id=$1
+
+  if [[ $release_id =~ ^[0-9]+$ ]]; then
+      echo "$release_id"
+  else
+      echo "Invalid release_id: $release_id"
       exit 1
   fi
 
