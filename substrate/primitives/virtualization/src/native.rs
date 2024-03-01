@@ -17,6 +17,7 @@
 
 use crate::{
 	ExecError, InstantiateError, MemoryError, MemoryT, SharedState, SyscallHandler, VirtT,
+	LOG_TARGET,
 };
 use polkavm::{
 	Caller, CallerRef, Config, Engine, ExecutionError, GasMeteringKind, Instance, Linker, Module,
@@ -121,19 +122,19 @@ impl VirtT for Virt {
 		let mut module_config = ModuleConfig::new();
 		module_config.set_gas_metering(Some(GasMeteringKind::Async));
 		let module = Module::new(&engine, &module_config, program).map_err(|err| {
-			log::error!("Failed to compile program: {}", err);
+			log::debug!(target: LOG_TARGET, "Failed to compile program: {}", err);
 			InstantiateError::InvalidImage
 		})?;
 
 		let mut linker = Linker::new(&engine);
 		linker.func_fallback(on_ecall);
 		let instance = linker.instantiate_pre(&module).map_err(|err| {
-			log::error!("Failed to link program: {err}");
+			log::debug!(target: LOG_TARGET, "Failed to link program: {err}");
 			InstantiateError::InvalidImage
 		})?;
 
 		let instance = instance.instantiate().map_err(|err| {
-			log::error!("Failed to instantiate program: {err}");
+			log::debug!(target: LOG_TARGET, "Failed to instantiate program: {err}");
 			InstantiateError::InvalidImage
 		})?;
 		let virt = Self {
@@ -233,7 +234,7 @@ impl Virt {
 	) -> Result<(), ExecError> {
 		let mut state_args = StateArgs::new();
 		state_args.reset_memory(false).set_gas(state.gas_left.try_into().map_err(|_| {
-			log::error!("{} is not a valid gas value", state.gas_left);
+			log::debug!(target: LOG_TARGET, "{} is not a valid gas value", state.gas_left);
 			ExecError::InvalidGasValue
 		})?);
 		self.instance
@@ -256,7 +257,7 @@ impl Virt {
 				ExecutionError::Trap(_) => ExecError::Trap,
 				ExecutionError::OutOfGas => ExecError::OutOfGas,
 				ExecutionError::Error(err) => {
-					log::error!("polkavm execution error: {}", err);
+					log::error!(target: LOG_TARGET, "polkavm execution error: {}", err);
 					ExecError::InvalidImage
 				},
 			});
@@ -272,7 +273,8 @@ fn on_ecall(caller: Caller<'_, Virt>, syscall_id: &[u8]) -> Result<(), Trap> {
 	let syscall_no = if syscall_id.len() == 4 {
 		u32::from_le_bytes([syscall_id[0], syscall_id[1], syscall_id[2], syscall_id[3]])
 	} else {
-		log::error!(
+		log::debug!(
+			target: LOG_TARGET,
 			"All syscall identifiers need to be exactly 4 bytes. Supplied id: {:?}",
 			syscall_id
 		);

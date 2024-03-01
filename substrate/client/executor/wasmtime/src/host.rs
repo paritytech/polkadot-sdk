@@ -390,7 +390,11 @@ extern "C" fn virt_syscall_handler(
 			outcome
 		},
 		Err(err) => {
-			log::error!("virtualization syscall handler failed: {}", err);
+			log::error!(
+				target: sp_virtualization::LOG_TARGET,
+				"virtualization syscall handler failed: {}",
+				err
+			);
 			// we trap the execution. return value is not used in this case.
 			state.exit = true;
 			u64::MAX

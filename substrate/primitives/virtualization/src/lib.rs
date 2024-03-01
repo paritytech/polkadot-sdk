@@ -52,6 +52,9 @@ pub use sp_io::{
 /// The concrete memory type used to access the memory of [`Virt`].
 pub type Memory = <Virt as VirtT>::Memory;
 
+/// The target we use for all logging.
+pub const LOG_TARGET: &str = "virtualization";
+
 /// A virtualization instance that can be called into multiple times.
 ///
 /// There are only two implementations of this trait. One which is used within runtime builds.
