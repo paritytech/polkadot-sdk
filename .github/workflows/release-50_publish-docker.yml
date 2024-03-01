@@ -102,6 +102,8 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
+          check_version_pattern "$VERSION"
+
           fetch_release_artifacts_from_s3
 
       - name: Cache the artifacts

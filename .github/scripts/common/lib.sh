@@ -237,6 +237,10 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
+# Fetch the release artifacts like binary and sigantures from S3. Assumes the ENV are set:
+# - RELEASE_ID
+# - GITHUB_TOKEN
+# - REPO in the form paritytech/polkadot
 fetch_release_artifacts_from_s3() {
   echo "Version    : $VERSION"
   echo "Repo       : $REPO"
@@ -299,13 +303,11 @@ function check_sha256() {
 function import_gpg_keys() {
   GPG_KEYSERVER=${GPG_KEYSERVER:-"keyserver.ubuntu.com"}
   SEC="9D4B2B6EB8F97156D19669A9FF0812D491B96798"
-  WILL="2835EAF92072BC01D188AF2C4A092B93E97CE1E2"
   EGOR="E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3"
-  MARA="533C920F40E73A21EEB7E9EBF27AEA7E7594C9CF"
   MORGAN="2E92A9D8B15D7891363D1AE8AF9E6C43F7F8C4CF"
 
   echo "Importing GPG keys from $GPG_KEYSERVER in parallel"
-  for key in $SEC $WILL $EGOR $MARA $MORGAN; do
+  for key in $SEC $EGOR $MORGAN; do
     (
       echo "Importing GPG key $key"
       gpg --no-tty --quiet --keyserver $GPG_KEYSERVER --recv-keys $key
@@ -394,4 +396,23 @@ function find_runtimes() {
         fi
     done
     echo $JSON
+}
+
+# Check if the version matches the pattern
+# input: version (v1.8.0 or v1.8.0-rc1)
+# output: none
+check_version_pattern() {
+    version=$1
+
+    version_pattern="v[0-9]+.[0-9]+.[0-9]+(-rc[0-9]+)?"
+
+    case $version in
+        $version_pattern)
+            echo "Input string '$version' matches the pattern."
+            ;;
+        *)
+            echo "Input string '$version' does not match the pattern. It should be like v1.8.0 or v1.8.0-rc1."
+            exit 1
+            ;;
+    esac
 }
