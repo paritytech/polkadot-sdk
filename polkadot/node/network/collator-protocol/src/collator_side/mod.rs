@@ -40,8 +40,8 @@ use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
 	jaeger,
 	messages::{
-		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, RuntimeApiMessage,
-		ParentHeadData,
+		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
+		RuntimeApiMessage,
 	},
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, PerLeafSpan,
 };
@@ -477,22 +477,14 @@ async fn distribute_collation<Context>(
 	}
 
 	let parent_head_data = if elastic_scaling {
-		ParentHeadData::WithData {
-			hash: parent_head_data_hash,
-			head_data: parent_head_data,
-		}
+		ParentHeadData::WithData { hash: parent_head_data_hash, head_data: parent_head_data }
 	} else {
 		ParentHeadData::OnlyHash(parent_head_data_hash)
 	};
 
 	per_relay_parent.collations.insert(
 		candidate_hash,
-		Collation {
-			receipt,
-			pov,
-			parent_head_data,
-			status: CollationStatus::Created,
-		},
+		Collation { receipt, pov, parent_head_data, status: CollationStatus::Created },
 	);
 
 	// If prospective parachains are disabled, a leaf should be known to peer.
@@ -880,19 +872,14 @@ async fn send_collation(
 	let candidate_hash = receipt.hash();
 
 	let result = match parent_head_data {
-		ParentHeadData::WithData {
-			head_data,
-			..
-		} => {
+		ParentHeadData::WithData { head_data, .. } =>
 			Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
 				receipt,
 				pov,
 				parent_head_data: head_data,
-			})
-		},
-		ParentHeadData::OnlyHash(_) => {
-			Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov))
-		}
+			}),
+		ParentHeadData::OnlyHash(_) =>
+			Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
 	};
 	let response =
 		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };

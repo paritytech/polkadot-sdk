@@ -26,8 +26,8 @@ use polkadot_node_network_protocol::{
 	},
 	PeerId,
 };
-use polkadot_node_subsystem::messages::ParentHeadData;
 use polkadot_node_primitives::PoV;
+use polkadot_node_subsystem::messages::ParentHeadData;
 use polkadot_primitives::{CandidateHash, CandidateReceipt, Hash, Id as ParaId};
 
 /// The status of a collation as seen from the collator.

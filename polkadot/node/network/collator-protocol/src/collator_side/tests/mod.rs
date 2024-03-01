@@ -147,8 +147,12 @@ impl TestState {
 	pub fn with_elastic_scaling() -> Self {
 		let mut state = Self::default();
 		let para_id = state.para_id;
-		state.availability_cores.push(CoreState::Scheduled(ScheduledCore { para_id, collator: None }));
-		state.availability_cores.push(CoreState::Scheduled(ScheduledCore { para_id, collator: None }));
+		state
+			.availability_cores
+			.push(CoreState::Scheduled(ScheduledCore { para_id, collator: None }));
+		state
+			.availability_cores
+			.push(CoreState::Scheduled(ScheduledCore { para_id, collator: None }));
 		state
 	}
 
