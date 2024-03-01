@@ -453,7 +453,7 @@ async fn distribute_collation<Context>(
 
 	let validators_at_relay_parent = &mut per_relay_parent.validator_group.validators;
 	if validators_at_relay_parent.is_empty() {
-		*validators_at_relay_parent = validators.clone();
+		*validators_at_relay_parent = validators;
 	}
 
 	// Update a set of connected validators if necessary.

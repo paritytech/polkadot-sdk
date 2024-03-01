@@ -305,17 +305,8 @@ where
 			Request::ApprovalVotingParams(session_index, sender) =>
 				query!(approval_voting_params(session_index), sender)
 					.map(|sender| Request::ApprovalVotingParams(session_index, sender)),
-			Request::DisabledValidators(sender) => {
-				let sender = sender;
-				if let Some(value) = self.requests_cache.disabled_validators(&relay_parent) {
-					let _ = sender.send(Ok(value.clone()));
-					self.metrics.on_cached_request();
-					None
-				} else {
-					Some(sender)
-				}
-			}
-			.map(|sender| Request::DisabledValidators(sender)),
+			Request::DisabledValidators(sender) => query!(disabled_validators(), sender)
+				.map(|sender| Request::DisabledValidators(sender)),
 			Request::ParaBackingState(para, sender) => query!(para_backing_state(para), sender)
 				.map(|sender| Request::ParaBackingState(para, sender)),
 			Request::AsyncBackingParams(sender) => query!(async_backing_params(), sender)
