@@ -1909,6 +1909,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1762" id="1762">1762</a>
 <a href="#1763" id="1763">1763</a>
 <a href="#1764" id="1764">1764</a>
+<a href="#1765" id="1765">1765</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2116,6 +2117,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>OnSystemEvent: OnSystemEvent;
 
 		<span class="doccomment">/// Returns the parachain ID we are running with.
+		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>SelfParaId: Get&lt;ParaId&gt;;
 
 		<span class="doccomment">/// The place where outbound XCMP messages come from. This is queried in `finalize_block`.
