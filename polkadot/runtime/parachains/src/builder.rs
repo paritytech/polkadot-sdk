@@ -38,7 +38,11 @@ use sp_runtime::{
 	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::Vec, vec};
+use sp_std::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	prelude::Vec,
+	vec,
+};
 
 fn mock_validation_code() -> ValidationCode {
 	ValidationCode(vec![1, 2, 3])
@@ -275,11 +279,13 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		core_idx: CoreIndex,
 		candidate_hash: CandidateHash,
 		availability_votes: BitVec<u8, BitOrderLsb0>,
+		commitments: CandidateCommitments,
 	) -> inclusion::CandidatePendingAvailability<T::Hash, BlockNumberFor<T>> {
 		inclusion::CandidatePendingAvailability::<T::Hash, BlockNumberFor<T>>::new(
 			core_idx,                          // core
 			candidate_hash,                    // hash
 			Self::candidate_descriptor_mock(), // candidate descriptor
+			commitments,                       // commitments
 			availability_votes,                // availability votes
 			Default::default(),                // backers
 			Zero::zero(),                      // relay parent
@@ -300,12 +306,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		availability_votes: BitVec<u8, BitOrderLsb0>,
 		candidate_hash: CandidateHash,
 	) {
-		let candidate_availability = Self::candidate_availability_mock(
-			group_idx,
-			core_idx,
-			candidate_hash,
-			availability_votes,
-		);
 		let commitments = CandidateCommitments::<u32> {
 			upward_messages: Default::default(),
 			horizontal_messages: Default::default(),
@@ -314,8 +314,17 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			processed_downward_messages: 0,
 			hrmp_watermark: 0u32.into(),
 		};
-		inclusion::PendingAvailability::<T>::insert(para_id, candidate_availability);
-		inclusion::PendingAvailabilityCommitments::<T>::insert(&para_id, commitments);
+		let candidate_availability = Self::candidate_availability_mock(
+			group_idx,
+			core_idx,
+			candidate_hash,
+			availability_votes,
+			commitments,
+		);
+		inclusion::PendingAvailability::<T>::insert(
+			para_id,
+			[candidate_availability].into_iter().collect::<VecDeque<_>>(),
+		);
 	}
 
 	/// Create an `AvailabilityBitfield` where `concluding` is a map where each key is a core index
@@ -668,8 +677,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		// Make sure relevant storage is cleared. This is just to get the asserts to work when
 		// running tests because it seems the storage is not cleared in between.
 		#[allow(deprecated)]
-		inclusion::PendingAvailabilityCommitments::<T>::remove_all(None);
-		#[allow(deprecated)]
 		inclusion::PendingAvailability::<T>::remove_all(None);
 
 		// We don't allow a core to have both disputes and be marked fully available at this block.
@@ -701,10 +708,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			builder.dispute_sessions.as_slice(),
 		);
 
-		assert_eq!(
-			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
-			used_cores as usize,
-		);
 		assert_eq!(inclusion::PendingAvailability::<T>::iter().count(), used_cores as usize,);
 
 		// Mark all the used cores as occupied. We expect that there are

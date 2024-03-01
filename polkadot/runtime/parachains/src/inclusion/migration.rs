@@ -1,3 +1,16 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Polkadot.
+
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
 pub use v1::MigrateToV1;
 
 mod v0 {
@@ -124,4 +137,102 @@ mod v1 {
 		Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+}
+
+#[cfg(test)]
+mod tests {
+	use super::{v1::VersionUncheckedMigrateToV1, *};
+	use crate::{
+		inclusion::{
+			CandidatePendingAvailability as V1CandidatePendingAvailability,
+			PendingAvailability as V1PendingAvailability, *,
+		},
+		mock::{new_test_ext, MockGenesisConfig, Test},
+	};
+	use frame_support::traits::OnRuntimeUpgrade;
+	use primitives::Id as ParaId;
+	use test_helpers::{dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash};
+
+	#[test]
+	fn migrate_to_v1() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// No data to migrate.
+			assert_eq!(
+				<VersionUncheckedMigrateToV1<Test> as OnRuntimeUpgrade>::on_runtime_upgrade(),
+				Weight::zero()
+			);
+			assert!(V1PendingAvailability::<Test>::iter().next().is_none());
+
+			let mut expected = vec![];
+
+			for i in 1..5 {
+				let descriptor = dummy_candidate_descriptor(dummy_hash());
+				v0::PendingAvailability::<Test>::insert(
+					ParaId::from(i),
+					v0::CandidatePendingAvailability {
+						core: CoreIndex(i),
+						descriptor: descriptor.clone(),
+						relay_parent_number: i,
+						hash: CandidateHash(dummy_hash()),
+						availability_votes: Default::default(),
+						backed_in_number: i,
+						backers: Default::default(),
+						backing_group: GroupIndex(i),
+					},
+				);
+				v0::PendingAvailabilityCommitments::<Test>::insert(
+					ParaId::from(i),
+					dummy_candidate_commitments(HeadData(vec![i as _])),
+				);
+
+				expected.push((
+					ParaId::from(i),
+					[V1CandidatePendingAvailability {
+						core: CoreIndex(i),
+						descriptor,
+						relay_parent_number: i,
+						hash: CandidateHash(dummy_hash()),
+						availability_votes: Default::default(),
+						backed_in_number: i,
+						backers: Default::default(),
+						backing_group: GroupIndex(i),
+						commitments: dummy_candidate_commitments(HeadData(vec![i as _])),
+					}]
+					.into_iter()
+					.collect::<VecDeque<_>>(),
+				));
+			}
+			// add some wrong data also, candidates without commitments or commitments without
+			// candidates.
+			v0::PendingAvailability::<Test>::insert(
+				ParaId::from(6),
+				v0::CandidatePendingAvailability {
+					core: CoreIndex(6),
+					descriptor: dummy_candidate_descriptor(dummy_hash()),
+					relay_parent_number: 6,
+					hash: CandidateHash(dummy_hash()),
+					availability_votes: Default::default(),
+					backed_in_number: 6,
+					backers: Default::default(),
+					backing_group: GroupIndex(6),
+				},
+			);
+			v0::PendingAvailabilityCommitments::<Test>::insert(
+				ParaId::from(7),
+				dummy_candidate_commitments(HeadData(vec![7 as _])),
+			);
+
+			// For tests, db weight is zero.
+			assert_eq!(
+				<VersionUncheckedMigrateToV1<Test> as OnRuntimeUpgrade>::on_runtime_upgrade(),
+				Weight::zero()
+			);
+
+			let mut actual = V1PendingAvailability::<Test>::iter().collect::<Vec<_>>();
+			actual.sort_by(|(id1, _), (id2, _)| id1.cmp(id2));
+			expected.sort_by(|(id1, _), (id2, _)| id1.cmp(id2));
+
+			assert_eq!(actual, expected);
+		});
+	}
 }
