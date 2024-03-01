@@ -3231,6 +3231,69 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3084" id="3084">3084</a>
 <a href="#3085" id="3085">3085</a>
 <a href="#3086" id="3086">3086</a>
+<a href="#3087" id="3087">3087</a>
+<a href="#3088" id="3088">3088</a>
+<a href="#3089" id="3089">3089</a>
+<a href="#3090" id="3090">3090</a>
+<a href="#3091" id="3091">3091</a>
+<a href="#3092" id="3092">3092</a>
+<a href="#3093" id="3093">3093</a>
+<a href="#3094" id="3094">3094</a>
+<a href="#3095" id="3095">3095</a>
+<a href="#3096" id="3096">3096</a>
+<a href="#3097" id="3097">3097</a>
+<a href="#3098" id="3098">3098</a>
+<a href="#3099" id="3099">3099</a>
+<a href="#3100" id="3100">3100</a>
+<a href="#3101" id="3101">3101</a>
+<a href="#3102" id="3102">3102</a>
+<a href="#3103" id="3103">3103</a>
+<a href="#3104" id="3104">3104</a>
+<a href="#3105" id="3105">3105</a>
+<a href="#3106" id="3106">3106</a>
+<a href="#3107" id="3107">3107</a>
+<a href="#3108" id="3108">3108</a>
+<a href="#3109" id="3109">3109</a>
+<a href="#3110" id="3110">3110</a>
+<a href="#3111" id="3111">3111</a>
+<a href="#3112" id="3112">3112</a>
+<a href="#3113" id="3113">3113</a>
+<a href="#3114" id="3114">3114</a>
+<a href="#3115" id="3115">3115</a>
+<a href="#3116" id="3116">3116</a>
+<a href="#3117" id="3117">3117</a>
+<a href="#3118" id="3118">3118</a>
+<a href="#3119" id="3119">3119</a>
+<a href="#3120" id="3120">3120</a>
+<a href="#3121" id="3121">3121</a>
+<a href="#3122" id="3122">3122</a>
+<a href="#3123" id="3123">3123</a>
+<a href="#3124" id="3124">3124</a>
+<a href="#3125" id="3125">3125</a>
+<a href="#3126" id="3126">3126</a>
+<a href="#3127" id="3127">3127</a>
+<a href="#3128" id="3128">3128</a>
+<a href="#3129" id="3129">3129</a>
+<a href="#3130" id="3130">3130</a>
+<a href="#3131" id="3131">3131</a>
+<a href="#3132" id="3132">3132</a>
+<a href="#3133" id="3133">3133</a>
+<a href="#3134" id="3134">3134</a>
+<a href="#3135" id="3135">3135</a>
+<a href="#3136" id="3136">3136</a>
+<a href="#3137" id="3137">3137</a>
+<a href="#3138" id="3138">3138</a>
+<a href="#3139" id="3139">3139</a>
+<a href="#3140" id="3140">3140</a>
+<a href="#3141" id="3141">3141</a>
+<a href="#3142" id="3142">3142</a>
+<a href="#3143" id="3143">3143</a>
+<a href="#3144" id="3144">3144</a>
+<a href="#3145" id="3145">3145</a>
+<a href="#3146" id="3146">3146</a>
+<a href="#3147" id="3147">3147</a>
+<a href="#3148" id="3148">3148</a>
+<a href="#3149" id="3149">3149</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3318,6 +3381,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>migrate_and_notify_old_targets() -&gt; Weight;
 	<span class="kw">fn </span>new_query() -&gt; Weight;
 	<span class="kw">fn </span>take_response() -&gt; Weight;
+	<span class="kw">fn </span>claim_assets() -&gt; Weight;
 }
 
 <span class="doccomment">/// fallback implementation
@@ -3396,6 +3460,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>take_response() -&gt; Weight {
+		Weight::from_parts(<span class="number">100_000_000</span>, <span class="number">0</span>)
+	}
+
+	<span class="kw">fn </span>claim_assets() -&gt; Weight {
 		Weight::from_parts(<span class="number">100_000_000</span>, <span class="number">0</span>)
 	}
 }
@@ -4618,6 +4686,64 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				fees,
 				weight_limit,
 			)
+		}
+
+		<span class="doccomment">/// Claims assets trapped on this pallet because of leftover assets during XCM execution.
+		///
+		/// - `origin`: Anyone can call this extrinsic.
+		/// - `assets`: The exact assets that were trapped. Use the version to specify what version
+		/// was the latest when they were trapped.
+		/// - `beneficiary`: The location/account where the claimed assets will be deposited.
+		</span><span class="attr">#[pallet::call_index(<span class="number">12</span>)]
+		#[pallet::weight({
+			<span class="kw">let </span>assets_version = assets.identify_version();
+			<span class="kw">let </span>maybe_assets: <span class="prelude-ty">Result</span>&lt;Assets, ()&gt; = (<span class="kw-2">*</span>assets.clone()).try_into();
+			<span class="kw">let </span>maybe_beneficiary: <span class="prelude-ty">Result</span>&lt;Location, ()&gt; = (<span class="kw-2">*</span>beneficiary.clone()).try_into();
+			<span class="kw">match </span>(maybe_assets, maybe_beneficiary) {
+				(<span class="prelude-val">Ok</span>(assets), <span class="prelude-val">Ok</span>(beneficiary)) =&gt; {
+					<span class="kw">let </span>ticket: Location = GeneralIndex(assets_version <span class="kw">as </span>u128).into();
+					<span class="kw">let </span><span class="kw-2">mut </span>message = Xcm(<span class="macro">vec!</span>[
+						ClaimAsset { assets: assets.clone(), ticket },
+						DepositAsset { assets: AllCounted(assets.len() <span class="kw">as </span>u32).into(), beneficiary },
+					]</span>);
+					T::Weigher::weight(<span class="kw-2">&amp;mut </span>message).map_or(Weight::MAX, |w| T::WeightInfo::claim_assets().saturating_add(w))
+				}
+				<span class="kw">_ </span>=&gt; Weight::MAX
+			}
+		})]
+		<span class="kw">pub fn </span>claim_assets(
+			origin: OriginFor&lt;T&gt;,
+			assets: Box&lt;VersionedAssets&gt;,
+			beneficiary: Box&lt;VersionedLocation&gt;,
+		) -&gt; DispatchResult {
+			<span class="kw">let </span>origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+			<span class="macro">log::debug!</span>(target: <span class="string">&quot;xcm::pallet_xcm::claim_assets&quot;</span>, <span class="string">&quot;origin: {:?}, assets: {:?}, beneficiary: {:?}&quot;</span>, origin_location, assets, beneficiary);
+			<span class="comment">// Extract version from `assets`.
+			</span><span class="kw">let </span>assets_version = assets.identify_version();
+			<span class="kw">let </span>assets: Assets = (<span class="kw-2">*</span>assets).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
+			<span class="kw">let </span>number_of_assets = assets.len() <span class="kw">as </span>u32;
+			<span class="kw">let </span>beneficiary: Location =
+				(<span class="kw-2">*</span>beneficiary).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
+			<span class="kw">let </span>ticket: Location = GeneralIndex(assets_version <span class="kw">as </span>u128).into();
+			<span class="kw">let </span><span class="kw-2">mut </span>message = Xcm(<span class="macro">vec!</span>[
+				ClaimAsset { assets, ticket },
+				DepositAsset { assets: AllCounted(number_of_assets).into(), beneficiary },
+			]);
+			<span class="kw">let </span>weight =
+				T::Weigher::weight(<span class="kw-2">&amp;mut </span>message).map_err(|()| Error::&lt;T&gt;::UnweighableMessage)<span class="question-mark">?</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>hash = message.using_encoded(sp_io::hashing::blake2_256);
+			<span class="kw">let </span>outcome = T::XcmExecutor::prepare_and_execute(
+				origin_location,
+				message,
+				<span class="kw-2">&amp;mut </span>hash,
+				weight,
+				weight,
+			);
+			outcome.ensure_complete().map_err(|error| {
+				<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::claim_assets&quot;</span>, <span class="string">&quot;XCM execution failed with error: {:?}&quot;</span>, error);
+				Error::&lt;T&gt;::LocalExecutionIncomplete
+			})<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(())
 		}
 	}
 }
