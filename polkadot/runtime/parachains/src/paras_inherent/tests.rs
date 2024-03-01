@@ -1252,9 +1252,11 @@ mod sanitizers {
 
 	mod candidates {
 		use crate::{
-			mock::set_disabled_validators,
+			mock::{set_disabled_validators, RuntimeOrigin},
 			scheduler::{common::Assignment, ParasEntry},
+			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
+		use primitives::ValidationCode;
 		use sp_std::collections::vec_deque::VecDeque;
 
 		use super::*;
@@ -1262,7 +1264,7 @@ mod sanitizers {
 		// Backed candidates and scheduled parachains used for `sanitize_backed_candidates` testing
 		struct TestData {
 			backed_candidates: Vec<BackedCandidate>,
-			all_backed_candidates_with_core: Vec<(BackedCandidate, CoreIndex)>,
+			all_backed_candidates_with_core: BTreeMap<ParaId, Vec<(BackedCandidate, CoreIndex)>>,
 			scheduled_paras: BTreeMap<primitives::Id, BTreeSet<CoreIndex>>,
 		}
 
@@ -1344,6 +1346,24 @@ mod sanitizers {
 				),
 			]));
 
+			// Set the on-chain included head data for paras.
+			paras::Pallet::<Test>::set_current_head(ParaId::from(1), HeadData(vec![1]));
+			paras::Pallet::<Test>::set_current_head(ParaId::from(2), HeadData(vec![2]));
+
+			// Set the current_code_hash
+			paras::Pallet::<Test>::force_set_current_code(
+				RuntimeOrigin::root(),
+				ParaId::from(1),
+				ValidationCode(vec![1]),
+			)
+			.unwrap();
+			paras::Pallet::<Test>::force_set_current_code(
+				RuntimeOrigin::root(),
+				ParaId::from(2),
+				ValidationCode(vec![2]),
+			)
+			.unwrap();
+
 			// Callback used for backing candidates
 			let group_validators = |group_index: GroupIndex| {
 				match group_index {
@@ -1363,8 +1383,15 @@ mod sanitizers {
 						para_id: ParaId::from(idx1),
 						relay_parent,
 						pov_hash: Hash::repeat_byte(idx1 as u8),
-						persisted_validation_data_hash: [42u8; 32].into(),
+						persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+							ParaId::from(idx1),
+							RELAY_PARENT_NUM,
+							Default::default(),
+						)
+						.unwrap()
+						.hash(),
 						hrmp_watermark: RELAY_PARENT_NUM,
+						validation_code: ValidationCode(vec![idx1 as u8]),
 						..Default::default()
 					}
 					.build();
@@ -1400,21 +1427,16 @@ mod sanitizers {
 				]
 			);
 
-			let all_backed_candidates_with_core = backed_candidates
-				.iter()
-				.map(|candidate| {
-					// Only one entry for this test data.
-					(
-						candidate.clone(),
-						scheduled
-							.get(&candidate.descriptor().para_id)
-							.unwrap()
-							.first()
-							.copied()
-							.unwrap(),
-					)
-				})
-				.collect();
+			let mut all_backed_candidates_with_core = BTreeMap::new();
+
+			for candidate in backed_candidates.iter() {
+				let para_id = candidate.descriptor().para_id;
+
+				all_backed_candidates_with_core.entry(para_id).or_insert(vec![]).push((
+					candidate.clone(),
+					scheduled.get(&para_id).unwrap().first().copied().unwrap(),
+				));
+			}
 
 			TestData {
 				backed_candidates,
@@ -1537,6 +1559,17 @@ mod sanitizers {
 				),
 			]));
 
+			// Set the on-chain included head data and current code hash.
+			for id in 1..=5u32 {
+				paras::Pallet::<Test>::set_current_head(ParaId::from(id), HeadData(vec![id as u8]));
+				paras::Pallet::<Test>::force_set_current_code(
+					RuntimeOrigin::root(),
+					ParaId::from(id),
+					ValidationCode(vec![id as u8]),
+				)
+				.unwrap();
+			}
+
 			// Callback used for backing candidates
 			let group_validators = |group_index: GroupIndex| {
 				match group_index {
@@ -1554,7 +1587,7 @@ mod sanitizers {
 			};
 
 			let mut backed_candidates = vec![];
-			let mut all_backed_candidates_with_core = vec![];
+			let mut all_backed_candidates_with_core = BTreeMap::new();
 
 			// Para 1
 			{
@@ -1562,14 +1595,22 @@ mod sanitizers {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(1 as u8),
-					persisted_validation_data_hash: [42u8; 32].into(),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(1),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![1]),
 					..Default::default()
 				}
 				.build();
 
 				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
+				let prev_candidate = candidate.clone();
 				let backed: BackedCandidate = back_candidate(
 					candidate,
 					&validators,
@@ -1581,15 +1622,26 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed.clone());
 				if core_index_enabled {
-					all_backed_candidates_with_core.push((backed, CoreIndex(0)));
+					all_backed_candidates_with_core
+						.entry(ParaId::from(1))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(0)));
 				}
 
 				let mut candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(2 as u8),
-					persisted_validation_data_hash: [42u8; 32].into(),
+					persisted_validation_data_hash: make_persisted_validation_data_with_parent::<
+						Test,
+					>(
+						RELAY_PARENT_NUM,
+						Default::default(),
+						prev_candidate.commitments.head_data,
+					)
+					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![1]),
 					..Default::default()
 				}
 				.build();
@@ -1607,7 +1659,10 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed.clone());
 				if core_index_enabled {
-					all_backed_candidates_with_core.push((backed, CoreIndex(1)));
+					all_backed_candidates_with_core
+						.entry(ParaId::from(1))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(1)));
 				}
 			}
 
@@ -1617,8 +1672,15 @@ mod sanitizers {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(3 as u8),
-					persisted_validation_data_hash: [42u8; 32].into(),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(2),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![2]),
 					..Default::default()
 				}
 				.build();
@@ -1636,7 +1698,10 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed.clone());
 				if core_index_enabled {
-					all_backed_candidates_with_core.push((backed, CoreIndex(2)));
+					all_backed_candidates_with_core
+						.entry(ParaId::from(2))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(2)));
 				}
 			}
 
@@ -1646,8 +1711,15 @@ mod sanitizers {
 					para_id: ParaId::from(3),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(4 as u8),
-					persisted_validation_data_hash: [42u8; 32].into(),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(3),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![3]),
 					..Default::default()
 				}
 				.build();
@@ -1664,7 +1736,10 @@ mod sanitizers {
 					core_index_enabled.then_some(CoreIndex(4 as u32)),
 				);
 				backed_candidates.push(backed.clone());
-				all_backed_candidates_with_core.push((backed, CoreIndex(4)));
+				all_backed_candidates_with_core
+					.entry(ParaId::from(3))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(4)));
 			}
 
 			// Para 4
@@ -1673,14 +1748,22 @@ mod sanitizers {
 					para_id: ParaId::from(4),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(5 as u8),
-					persisted_validation_data_hash: [42u8; 32].into(),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(4),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![4]),
 					..Default::default()
 				}
 				.build();
 
 				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
+				let prev_candidate = candidate.clone();
 				let backed = back_candidate(
 					candidate,
 					&validators,
@@ -1691,14 +1774,25 @@ mod sanitizers {
 					None,
 				);
 				backed_candidates.push(backed.clone());
-				all_backed_candidates_with_core.push((backed, CoreIndex(5)));
+				all_backed_candidates_with_core
+					.entry(ParaId::from(4))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(5)));
 
 				let mut candidate = TestCandidateBuilder {
 					para_id: ParaId::from(4),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(6 as u8),
-					persisted_validation_data_hash: [42u8; 32].into(),
+					persisted_validation_data_hash: make_persisted_validation_data_with_parent::<
+						Test,
+					>(
+						RELAY_PARENT_NUM,
+						Default::default(),
+						prev_candidate.commitments.head_data,
+					)
+					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![4]),
 					..Default::default()
 				}
 				.build();
@@ -1768,22 +1862,15 @@ mod sanitizers {
 					scheduled_paras: scheduled,
 				} = get_test_data(core_index_enabled);
 
-				let has_concluded_invalid =
-					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
-
 				assert_eq!(
-					sanitize_backed_candidates::<Test, _>(
+					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
 						&<shared::Pallet<Test>>::allowed_relay_parents(),
-						has_concluded_invalid,
+						BTreeSet::new(),
 						scheduled,
 						core_index_enabled
 					),
-					SanitizedBackedCandidates {
-						backed_candidates_with_core: all_backed_candidates_with_core,
-						votes_from_disabled_were_dropped: false,
-						dropped_unscheduled_candidates: false
-					}
+					all_backed_candidates_with_core,
 				);
 			});
 		}
@@ -1799,22 +1886,15 @@ mod sanitizers {
 					scheduled_paras: scheduled,
 				} = get_test_data_multiple_cores_per_para(core_index_enabled);
 
-				let has_concluded_invalid =
-					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
-
 				assert_eq!(
-					sanitize_backed_candidates::<Test, _>(
+					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
 						&<shared::Pallet<Test>>::allowed_relay_parents(),
-						has_concluded_invalid,
+						BTreeSet::new(),
 						scheduled,
 						core_index_enabled
 					),
-					SanitizedBackedCandidates {
-						backed_candidates_with_core: expected_all_backed_candidates_with_core,
-						votes_from_disabled_were_dropped: false,
-						dropped_unscheduled_candidates: true
-					}
+					expected_all_backed_candidates_with_core,
 				);
 			});
 		}
@@ -1836,24 +1916,16 @@ mod sanitizers {
 					get_test_data(core_index_enabled)
 				};
 				let scheduled = BTreeMap::new();
-				let has_concluded_invalid =
-					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
 
-				let SanitizedBackedCandidates {
-					backed_candidates_with_core: sanitized_backed_candidates,
-					votes_from_disabled_were_dropped,
-					dropped_unscheduled_candidates,
-				} = sanitize_backed_candidates::<Test, _>(
+				let sanitized_backed_candidates = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					has_concluded_invalid,
+					BTreeSet::new(),
 					scheduled,
 					core_index_enabled,
 				);
 
 				assert!(sanitized_backed_candidates.is_empty());
-				assert!(!votes_from_disabled_were_dropped);
-				assert!(dropped_unscheduled_candidates);
 			});
 		}
 
@@ -1868,7 +1940,7 @@ mod sanitizers {
 
 				// mark every second one as concluded invalid
 				let set = {
-					let mut set = std::collections::HashSet::new();
+					let mut set = std::collections::BTreeSet::new();
 					for (idx, backed_candidate) in backed_candidates.iter().enumerate() {
 						if idx & 0x01 == 0 {
 							set.insert(backed_candidate.hash());
@@ -1876,23 +1948,18 @@ mod sanitizers {
 					}
 					set
 				};
-				let has_concluded_invalid =
-					|_idx: usize, candidate: &BackedCandidate| set.contains(&candidate.hash());
-				let SanitizedBackedCandidates {
-					backed_candidates_with_core: sanitized_backed_candidates,
-					votes_from_disabled_were_dropped,
-					dropped_unscheduled_candidates,
-				} = sanitize_backed_candidates::<Test, _>(
+				let sanitized_backed_candidates: BTreeMap<
+					ParaId,
+					Vec<(BackedCandidate<_>, CoreIndex)>,
+				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					has_concluded_invalid,
+					set,
 					scheduled,
 					core_index_enabled,
 				);
 
 				assert_eq!(sanitized_backed_candidates.len(), backed_candidates.len() / 2);
-				assert!(!votes_from_disabled_were_dropped);
-				assert!(!dropped_unscheduled_candidates);
 			});
 		}
 
@@ -1911,14 +1978,15 @@ mod sanitizers {
 
 				// Eve is disabled but no backing statement is signed by it so nothing should be
 				// filtered
-				assert!(!filter_backed_statements_from_disabled_validators::<Test>(
+				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut all_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					core_index_enabled
-				));
+					core_index_enabled,
+				);
 				assert_eq!(all_backed_candidates_with_core, before);
 			});
 		}
+
 		#[rstest]
 		#[case(false)]
 		#[case(true)]
@@ -1941,11 +2009,22 @@ mod sanitizers {
 
 				// Verify the initial state is as expected
 				assert_eq!(
-					all_backed_candidates_with_core.get(0).unwrap().0.validity_votes().len(),
+					all_backed_candidates_with_core
+						.get(&ParaId::from(1))
+						.unwrap()
+						.iter()
+						.next()
+						.unwrap()
+						.0
+						.validity_votes()
+						.len(),
 					2
 				);
 				let (validator_indices, maybe_core_index) = all_backed_candidates_with_core
-					.get(0)
+					.get(&ParaId::from(1))
+					.unwrap()
+					.iter()
+					.next()
 					.unwrap()
 					.0
 					.validator_indices_and_core_index(core_index_enabled);
@@ -1957,16 +2036,28 @@ mod sanitizers {
 
 				assert_eq!(validator_indices.get(0).unwrap(), true);
 				assert_eq!(validator_indices.get(1).unwrap(), true);
-				let untouched = all_backed_candidates_with_core.get(1).unwrap().0.clone();
+				let untouched = all_backed_candidates_with_core
+					.get(&ParaId::from(2))
+					.unwrap()
+					.iter()
+					.next()
+					.unwrap()
+					.0
+					.clone();
 
-				assert!(filter_backed_statements_from_disabled_validators::<Test>(
+				let before = all_backed_candidates_with_core.clone();
+				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut all_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					core_index_enabled
-				));
+					core_index_enabled,
+				);
+				assert_eq!(before.len(), all_backed_candidates_with_core.len());
 
 				let (validator_indices, maybe_core_index) = all_backed_candidates_with_core
-					.get(0)
+					.get(&ParaId::from(1))
+					.unwrap()
+					.iter()
+					.next()
 					.unwrap()
 					.0
 					.validator_indices_and_core_index(core_index_enabled);
@@ -1980,14 +2071,31 @@ mod sanitizers {
 				assert_eq!(all_backed_candidates_with_core.len(), 2);
 				// but the first one should have only one validity vote
 				assert_eq!(
-					all_backed_candidates_with_core.get(0).unwrap().0.validity_votes().len(),
+					all_backed_candidates_with_core
+						.get(&ParaId::from(1))
+						.unwrap()
+						.iter()
+						.next()
+						.unwrap()
+						.0
+						.validity_votes()
+						.len(),
 					1
 				);
 				// Validator 0 vote should be dropped, validator 1 - retained
 				assert_eq!(validator_indices.get(0).unwrap(), false);
 				assert_eq!(validator_indices.get(1).unwrap(), true);
 				// the second candidate shouldn't be modified
-				assert_eq!(all_backed_candidates_with_core.get(1).unwrap().0, untouched);
+				assert_eq!(
+					all_backed_candidates_with_core
+						.get(&ParaId::from(2))
+						.unwrap()
+						.iter()
+						.next()
+						.unwrap()
+						.0,
+					untouched
+				);
 			});
 		}
 
@@ -2004,19 +2112,44 @@ mod sanitizers {
 
 				// Verify the initial state is as expected
 				assert_eq!(
-					all_backed_candidates_with_core.get(0).unwrap().0.validity_votes().len(),
+					all_backed_candidates_with_core
+						.get(&ParaId::from(1))
+						.unwrap()
+						.iter()
+						.next()
+						.unwrap()
+						.0
+						.validity_votes()
+						.len(),
 					2
 				);
-				let untouched = all_backed_candidates_with_core.get(1).unwrap().0.clone();
+				let untouched = all_backed_candidates_with_core
+					.get(&ParaId::from(2))
+					.unwrap()
+					.iter()
+					.next()
+					.unwrap()
+					.0
+					.clone();
 
-				assert!(filter_backed_statements_from_disabled_validators::<Test>(
+				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut all_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					core_index_enabled
-				));
+					core_index_enabled,
+				);
 
 				assert_eq!(all_backed_candidates_with_core.len(), 1);
-				assert_eq!(all_backed_candidates_with_core.get(0).unwrap().0, untouched);
+				assert_eq!(
+					all_backed_candidates_with_core
+						.get(&ParaId::from(2))
+						.unwrap()
+						.iter()
+						.next()
+						.unwrap()
+						.0,
+					untouched
+				);
+				assert_eq!(all_backed_candidates_with_core.get(&ParaId::from(1)), None);
 			});
 		}
 	}
