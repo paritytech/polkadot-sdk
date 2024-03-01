@@ -1027,11 +1027,14 @@ pub struct StorageDb<Block: BlockT> {
 
 impl<Block: BlockT> StorageDb<Block> {
 	fn contains_root(&self, root: &Block::Hash) -> bool {
-		if self.db.state_capabilities().needs_key_prefixing() {
-			let key = prefixed_key::<HashingFor<Block>>(root, Default::default());
-			self.db.get_node(columns::STATE, key.as_ref(), Default::default()).is_some()
-		} else {
-			self.db.get_node(columns::STATE, root.as_ref(), Default::default()).is_some()
+		match self.db.state_capabilities() {
+			StateCapabilities::TreeColumn =>
+				self.db.get_node(columns::STATE, root.as_ref(), Default::default()).is_some(),
+			StateCapabilities::RefCounted => self.db.get(columns::STATE, root.as_ref()).is_some(),
+			StateCapabilities::None => {
+				let key = prefixed_key::<HashingFor<Block>>(root, Default::default());
+				self.db.get(columns::STATE, key.as_ref()).is_some()
+			},
 		}
 	}
 
