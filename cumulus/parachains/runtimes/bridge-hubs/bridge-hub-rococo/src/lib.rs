@@ -1134,6 +1134,13 @@ impl_runtime_apis! {
 						dest
 					)
 				}
+
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(Location::parent()),
+						fun: Fungible(ExistentialDeposit::get()),
+					}
+				}
 			}
 
 			use xcm::latest::prelude::*;

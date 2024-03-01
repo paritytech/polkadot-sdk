@@ -750,6 +750,13 @@ impl_runtime_apis! {
 						dest
 					)
 				}
+
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(Location::parent()),
+						fun: Fungible(EXISTENTIAL_DEPOSIT),
+					}
+				}
 			}
 
 			let whitelist: Vec<TrackedStorageKey> = vec![
