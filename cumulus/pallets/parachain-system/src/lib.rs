@@ -205,6 +205,7 @@ pub mod pallet {
 		type OnSystemEvent: OnSystemEvent;
 
 		/// Returns the parachain ID we are running with.
+		#[pallet::constant]
 		type SelfParaId: Get<ParaId>;
 
 		/// The place where outbound XCMP messages come from. This is queried in `finalize_block`.
@@ -840,6 +841,7 @@ pub mod pallet {
 	///
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
+	#[pallet::disable_try_decode_storage]
 	#[pallet::getter(fn host_configuration)]
 	pub(super) type HostConfiguration<T: Config> = StorageValue<_, AbridgedHostConfiguration>;
 
