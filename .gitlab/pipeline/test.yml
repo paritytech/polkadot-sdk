@@ -31,7 +31,9 @@ test-linux-stable:
         --release \
         --no-fail-fast \
         --features try-runtime,experimental,riscv,ci-only-tests \
-        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
+        --retries 0\
+        -j 1\
+        test_virtualization
     # Upload tests results to Elasticsearch
     - echo "Upload test results to Elasticsearch"
     - cat target/nextest/default/junit.xml | xq . > target/nextest/default/junit.json
