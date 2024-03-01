@@ -694,6 +694,13 @@ impl_runtime_apis! {
 				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
 					None
 				}
+
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(Location::parent()),
+						fun: Fungible(ExistentialDeposit::get()),
+					}
+				}
 			}
 
 			use xcm::latest::prelude::*;

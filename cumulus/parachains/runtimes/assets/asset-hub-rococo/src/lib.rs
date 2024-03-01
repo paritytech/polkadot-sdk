@@ -1475,6 +1475,13 @@ impl_runtime_apis! {
 					});
 					Some((assets, fee_index as u32, dest, verify))
 				}
+
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(Location::parent()),
+						fun: Fungible(ExistentialDeposit::get()),
+					}
+				}
 			}
 
 			impl XcmBridgeHubRouterConfig<ToWestendXcmRouterInstance> for Runtime {
