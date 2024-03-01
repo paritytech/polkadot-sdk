@@ -5,7 +5,7 @@
 //! It is suggested to re-read [`crate::polkadot_sdk::frame_runtime`], notably the information
 //! around [`frame::pallet_macros::config`]. Recall that:
 //!
-//! > The configuration trait of a pallet. Mandatory. Allows a pallet to receive types at a later
+//! > Configuration trait of a pallet: It allows a pallet to receive types at a later
 //! > point from the runtime that wishes to contain it. It allows the pallet to be parameterized
 //! > over both types and values.
 //!
