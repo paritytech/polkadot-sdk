@@ -404,15 +404,20 @@ function find_runtimes() {
 check_version_pattern() {
     version=$1
 
-    version_pattern="v[0-9]+.[0-9]+.[0-9]+(-rc[0-9]+)?"
-
     case $version in
-        $version_pattern)
-            echo "Input string '$version' matches the pattern."
-            ;;
-        *)
-            echo "Input string '$version' does not match the pattern. It should be like v1.8.0 or v1.8.0-rc1."
-            exit 1
-            ;;
-    esac
+
+      v[0-9].[0-9].[0-9])
+        echo "Input $version matches pattern"
+        ;;
+
+      v[0-9].[0-9].[0-9]-rc[0-9])
+        echo "Input $version matches pattern"
+        ;;
+
+      *)
+        echo "Input $version does not match pattern"
+        exit 1
+        ;;
+
+  esac
 }
