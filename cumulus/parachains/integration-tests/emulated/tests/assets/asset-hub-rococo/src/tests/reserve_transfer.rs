@@ -1093,11 +1093,11 @@ fn reserve_transfer_native_asset_from_para_to_para_trough_relay() {
 	// Query initial balances
 	let sender_assets_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
+		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &sender)
 	});
 	let receiver_assets_before = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &receiver)
+		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &receiver)
 	});
 
 	// Set assertions and dispatchables
@@ -1117,11 +1117,11 @@ fn reserve_transfer_native_asset_from_para_to_para_trough_relay() {
 	// Query final balances
 	let sender_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
+		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &sender)
 	});
 	let receiver_assets_after = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &receiver)
+		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &receiver)
 	});
 
 	// Sender's balance is reduced
