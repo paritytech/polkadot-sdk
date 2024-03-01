@@ -13,15 +13,15 @@ workspace = true
 [dependencies]
 log = { workspace = true }
 polkavm = { workspace = true, optional = true }
-sp-io = { path = "../io", default-features =  false }
-sp-std = { path = "../std", default-features = false}
+sp-io = { path = "../io", default-features = false }
+sp-std = { path = "../std", default-features = false }
 
 [dev-dependencies]
 sp-tracing = { path = "../tracing" }
 sp-virtualization-test-fixture = { path = "./test-fixture" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"log/std",
 	"polkavm",
