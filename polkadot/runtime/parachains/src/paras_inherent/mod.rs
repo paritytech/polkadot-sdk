@@ -1277,7 +1277,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 		let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
 		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 
-		match check_ctx.verify_backed_candidate(
+		let res = match check_ctx.verify_backed_candidate(
 			&allowed_relay_parents,
 			candidate.candidate(),
 			latest_head_data.clone(),
@@ -1305,7 +1305,14 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 				);
 				false
 			},
+		};
+
+		if res {
+			para_latest_head_data
+				.insert(para_id, candidate.candidate().commitments.head_data.clone());
 		}
+
+		res
 	});
 }
 
