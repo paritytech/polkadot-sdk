@@ -1,0 +1,11 @@
+title: Allow parachain which acquires multiple coretime cores to make progress
+
+doc:
+  - audience: Node Operator
+    description: |
+      Adds the needed changes so that parachains which acquire multiple coretime cores can still make progress.
+      Only one of the cores will be able to be occupied at a time.
+      Only works if the ElasticScalingMVP node feature is enabled in the runtime and the block author validator is
+      updated to include this change.
+
+crates: [ ]
