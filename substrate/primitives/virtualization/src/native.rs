@@ -39,8 +39,8 @@ static ENGINE: OnceLock<Engine> = OnceLock::new();
 /// Engine wide configuration.
 fn engine() -> &'static Engine {
 	ENGINE.get_or_init(|| {
-		let config = Config::new();
-		Engine::new(&config).expect("Default config is always valid; qed")
+		let config = Config::from_env().expect("Invalid config.");
+		Engine::new(&config).expect("Failed to initialize PolkaVM.")
 	})
 }
 
