@@ -598,9 +598,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 		asset_amount_to_send,
 	);
 	// fund Parachain's check account to be able to teleport
-	PenpalA::fund_accounts(vec![
-		(penpal_check_account.clone().into(), ASSET_HUB_ROCOCO_ED * 1000),
-	]);
+	PenpalA::fund_accounts(vec![(penpal_check_account.clone().into(), ASSET_HUB_ROCOCO_ED * 1000)]);
 
 	// prefund SA of Penpal on AssetHub with enough native tokens to pay for fees
 	let penpal_as_seen_by_ah = AssetHubRococo::sibling_location_of(PenpalA::para_id());

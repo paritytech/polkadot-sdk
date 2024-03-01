@@ -875,10 +875,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	});
 	let receiver_foreign_assets_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
-			system_para_foreign_asset_location,
-			&receiver,
-		)
+		<ForeignAssets as Inspect<_>>::balance(system_para_foreign_asset_location, &receiver)
 	});
 
 	// Set assertions and dispatchables
@@ -899,10 +896,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	});
 	let receiver_foreign_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
-			system_para_foreign_asset_location,
-			&receiver,
-		)
+		<ForeignAssets as Inspect<_>>::balance(system_para_foreign_asset_location, &receiver)
 	});
 	// Sender's balance is reduced
 	assert!(sender_balance_after < sender_balance_before);
