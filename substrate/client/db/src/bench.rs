@@ -57,7 +57,6 @@ struct KeyTracker {
 
 /// State that manages the backend database reference. Allows runtime to control the database.
 pub struct BenchmarkingState<Hasher: Hash> {
-	root: Cell<Hasher::Output>,
 	genesis_root: Hasher::Output,
 	genesis: MemoryDB<Hasher>,
 	state: RefCell<Option<State<Hasher>>>,
@@ -124,7 +123,6 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 
 		let mut state = BenchmarkingState {
 			state: RefCell::new(None),
-			root: Cell::new(root),
 			genesis: Default::default(),
 			genesis_root: Default::default(),
 			key_tracker: Arc::new(Mutex::new(KeyTracker {
@@ -165,10 +163,9 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 
 	fn reopen(&self) -> Result<(), String> {
 		*self.state.borrow_mut() = None;
-		self.root.set(self.genesis_root);
 		let db = Box::new(self.genesis.clone());
 		*self.state.borrow_mut() = Some(
-			DbStateBuilder::<Hasher>::new(db, self.root.get())
+			DbStateBuilder::<Hasher>::new(db, self.genesis_root)
 				.with_optional_recorder(self.proof_recorder.clone())
 				.with_cache(self.shared_trie_cache.local_cache())
 				.build(),
@@ -457,13 +454,13 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		main_storage_changes: StorageCollection,
 		child_storage_changes: ChildStorageCollection,
 	) -> Result<(), Self::Error> {
-		if let Some(ref mut state) = *self.state.borrow_mut() {
+		if let Some(state) = &mut *self.state.borrow_mut() {
 			if let Some(mut db) = state.backend_storage_mut().as_mem_db_mut() {
 				let root = transaction.apply_to(&mut db);
-				self.root.set(root);
+				state.set_root(root);
 			} else if let Some(mut db) = state.backend_storage_mut().as_prefixed_mem_db_mut() {
 				let root = transaction.apply_to(&mut db);
-				self.root.set(root);
+				state.set_root(root);
 			} else {
 				unreachable!()
 			}
@@ -483,7 +480,6 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 
 	fn wipe(&self) -> Result<(), Self::Error> {
 		// Restore to genesis
-		self.root.set(self.genesis_root);
 		self.reopen()?;
 		self.wipe_tracker();
 		Ok(())
@@ -582,16 +578,22 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 				log::debug!(target: "benchmark", "Some proof size: {}", &proof_size);
 				proof_size
 			} else {
+				let root = if let Some(state) = self.state.borrow().as_ref().map(|s| *s.root()) {
+					state
+				} else {
+					self.genesis_root
+				};
+
 				if let Some(size) = proof.encoded_compact_size::<Hasher>(proof_recorder_root) {
 					size as u32
-				} else if proof_recorder_root == self.root.get() {
+				} else if proof_recorder_root == root {
 					log::debug!(target: "benchmark", "No changes - no proof");
 					0
 				} else {
 					panic!(
 						"proof rec root {:?}, root {:?}, genesis {:?}, rec_len {:?}",
 						self.proof_recorder_root.get(),
-						self.root.get(),
+						root,
 						self.genesis_root,
 						proof_size,
 					);
