@@ -29,10 +29,10 @@
 use crate::{ecdsa_crypto::AuthorityId, ConsensusLog, MmrRootHash, Vec, BEEFY_ENGINE_ID};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_runtime::{
-	generic::OpaqueDigestItemId,
-	traits::{Block, Header},
-};
+use sp_runtime::{generic::OpaqueDigestItemId, traits::Header};
+
+#[cfg(feature = "std")]
+use sp_runtime::traits::Block;
 
 /// A provider for extra data that gets added to the Mmr leaf
 pub trait BeefyDataProvider<ExtraData> {
