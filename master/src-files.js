@@ -312,6 +312,7 @@ var srcIndex = JSON.parse('{\
 "polkadot_service":["",[["parachains_db",[],["mod.rs","upgrade.rs"]]],["benchmarking.rs","chain_spec.rs","fake_runtime_api.rs","grandpa_support.rs","lib.rs","overseer.rs","relay_chain_selection.rs","workers.rs"]],\
 "polkadot_statement_distribution":["",[["legacy_v1",[],["mod.rs","requester.rs","responder.rs"]],["v2",[],["candidates.rs","cluster.rs","grid.rs","groups.rs","mod.rs","requests.rs","statement_store.rs"]]],["error.rs","lib.rs","metrics.rs"]],\
 "polkadot_statement_table":["",[],["generic.rs","lib.rs"]],\
+"polkadot_subsystem_bench":["",[["approval",[],["helpers.rs","message_generator.rs","mock_chain_selection.rs","mod.rs","test_message.rs"]],["availability",[],["av_store_helpers.rs","mod.rs"]],["mock",[],["av_store.rs","chain_api.rs","dummy.rs","mod.rs","network_bridge.rs","runtime_api.rs"]]],["configuration.rs","display.rs","environment.rs","keyring.rs","lib.rs","network.rs","usage.rs"]],\
 "polkadot_test_client":["",[],["block_builder.rs","lib.rs"]],\
 "polkadot_test_runtime":["",[],["lib.rs","xcm_config.rs"]],\
 "polkadot_test_service":["",[],["chain_spec.rs","lib.rs"]],\
