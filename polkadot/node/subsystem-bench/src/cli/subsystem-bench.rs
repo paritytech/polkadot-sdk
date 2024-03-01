@@ -14,54 +14,32 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A tool for running subsystem benchmark tests designed for development and
-//! CI regression testing.
+//! A tool for running subsystem benchmark tests
+//! designed for development and CI regression testing.
 
-use approval::{bench_approvals, ApprovalsOptions};
-use availability::{
-	cli::{DataAvailabilityReadOptions, NetworkEmulation},
-	prepare_test, TestState,
-};
 use clap::Parser;
-use clap_num::number_range;
 use color_eyre::eyre;
 use colored::Colorize;
-use core::{
-	configuration::TestConfiguration,
-	display::display_configuration,
-	environment::{TestEnvironment, GENESIS_HASH},
-};
+use polkadot_subsystem_bench::{approval, availability, configuration};
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-mod approval;
-mod availability;
-mod core;
 mod valgrind;
 
-const LOG_TARGET: &str = "subsystem-bench";
-
-fn le_100(s: &str) -> Result<usize, String> {
-	number_range(s, 0, 100)
-}
-
-fn le_5000(s: &str) -> Result<usize, String> {
-	number_range(s, 0, 5000)
-}
+const LOG_TARGET: &str = "subsystem-bench::cli";
 
 /// Supported test objectives
 #[derive(Debug, Clone, Parser, Serialize, Deserialize)]
 #[command(rename_all = "kebab-case")]
 pub enum TestObjective {
 	/// Benchmark availability recovery strategies.
-	DataAvailabilityRead(DataAvailabilityReadOptions),
+	DataAvailabilityRead(availability::DataAvailabilityReadOptions),
 	/// Benchmark availability and bitfield distribution.
 	DataAvailabilityWrite,
 	/// Benchmark the approval-voting and approval-distribution subsystems.
-	ApprovalVoting(ApprovalsOptions),
-	Unimplemented,
+	ApprovalVoting(approval::ApprovalsOptions),
 }
 
 impl std::fmt::Display for TestObjective {
@@ -73,39 +51,37 @@ impl std::fmt::Display for TestObjective {
 				Self::DataAvailabilityRead(_) => "DataAvailabilityRead",
 				Self::DataAvailabilityWrite => "DataAvailabilityWrite",
 				Self::ApprovalVoting(_) => "ApprovalVoting",
-				Self::Unimplemented => "Unimplemented",
 			}
 		)
+	}
+}
+
+/// The test input parameters
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct CliTestConfiguration {
+	/// Test Objective
+	pub objective: TestObjective,
+	/// Test Configuration
+	#[serde(flatten)]
+	pub test_config: configuration::TestConfiguration,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TestSequence {
+	#[serde(rename(serialize = "TestConfiguration", deserialize = "TestConfiguration"))]
+	test_configurations: Vec<CliTestConfiguration>,
+}
+
+impl TestSequence {
+	fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
+		let string = String::from_utf8(std::fs::read(path)?).expect("File is valid UTF8");
+		Ok(serde_yaml::from_str(&string).expect("File is valid test sequence YA"))
 	}
 }
 
 #[derive(Debug, Parser)]
 #[allow(missing_docs)]
 struct BenchCli {
-	#[arg(long, value_enum, ignore_case = true, default_value_t = NetworkEmulation::Ideal)]
-	/// The type of network to be emulated
-	pub network: NetworkEmulation,
-
-	#[clap(short, long)]
-	/// The bandwidth of emulated remote peers in KiB
-	pub peer_bandwidth: Option<usize>,
-
-	#[clap(short, long)]
-	/// The bandwidth of our node in KiB
-	pub bandwidth: Option<usize>,
-
-	#[clap(long, value_parser=le_100)]
-	/// Emulated peer connection ratio [0-100].
-	pub connectivity: Option<usize>,
-
-	#[clap(long, value_parser=le_5000)]
-	/// Mean remote peer latency in milliseconds [0-5000].
-	pub peer_mean_latency: Option<usize>,
-
-	#[clap(long, value_parser=le_5000)]
-	/// Remote peer latency standard deviation
-	pub peer_latency_std_dev: Option<f64>,
-
 	#[clap(long, default_value_t = false)]
 	/// Enable CPU Profiling with Pyroscope
 	pub profile: bool,
@@ -121,10 +97,6 @@ struct BenchCli {
 	#[clap(long, default_value_t = false)]
 	/// Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind must be in the PATH
 	pub cache_misses: bool,
-
-	#[clap(long, default_value_t = false)]
-	/// Shows the output in YAML format
-	pub yaml_output: bool,
 
 	#[arg(required = true)]
 	/// Path to the test sequence configuration file
@@ -148,21 +120,44 @@ impl BenchCli {
 			None
 		};
 
-		let test_sequence = core::configuration::TestSequence::new_from_file(Path::new(&self.path))
+		let test_sequence = TestSequence::new_from_file(Path::new(&self.path))
 			.expect("File exists")
-			.into_vec();
+			.test_configurations;
 		let num_steps = test_sequence.len();
 		gum::info!("{}", format!("Sequence contains {} step(s)", num_steps).bright_purple());
-		for (index, test_config) in test_sequence.into_iter().enumerate() {
-			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, test_config.objective);
-			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
-			display_configuration(&test_config);
 
-			let usage = match test_config.objective {
-				TestObjective::DataAvailabilityRead(ref _opts) => {
-					let mut state = TestState::new(&test_config);
-					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+		for (index, CliTestConfiguration { objective, mut test_config }) in
+			test_sequence.into_iter().enumerate()
+		{
+			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, objective);
+			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
+			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {:?}", objective).green(), test_config);
+			test_config.generate_pov_sizes();
+
+			let usage = match objective {
+				TestObjective::DataAvailabilityRead(opts) => {
+					let mut state = availability::TestState::new(&test_config);
+					let (mut env, _protocol_config) = availability::prepare_test(
+						test_config,
+						&mut state,
+						availability::TestDataAvailability::Read(opts),
+						true,
+					);
 					env.runtime().block_on(availability::benchmark_availability_read(
+						&benchmark_name,
+						&mut env,
+						state,
+					))
+				},
+				TestObjective::DataAvailabilityWrite => {
+					let mut state = availability::TestState::new(&test_config);
+					let (mut env, _protocol_config) = availability::prepare_test(
+						test_config,
+						&mut state,
+						availability::TestDataAvailability::Write,
+						true,
+					);
+					env.runtime().block_on(availability::benchmark_availability_write(
 						&benchmark_name,
 						&mut env,
 						state,
@@ -170,27 +165,15 @@ impl BenchCli {
 				},
 				TestObjective::ApprovalVoting(ref options) => {
 					let (mut env, state) =
-						approval::prepare_test(test_config.clone(), options.clone());
-					env.runtime().block_on(bench_approvals(&benchmark_name, &mut env, state))
-				},
-				TestObjective::DataAvailabilityWrite => {
-					let mut state = TestState::new(&test_config);
-					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
-					env.runtime().block_on(availability::benchmark_availability_write(
+						approval::prepare_test(test_config.clone(), options.clone(), true);
+					env.runtime().block_on(approval::bench_approvals(
 						&benchmark_name,
 						&mut env,
 						state,
 					))
 				},
-				TestObjective::Unimplemented => todo!(),
 			};
-
-			let output = if self.yaml_output {
-				serde_yaml::to_string(&vec![usage])?
-			} else {
-				usage.to_string()
-			};
-			println!("{}", output);
+			println!("{}", usage);
 		}
 
 		if let Some(agent_running) = agent_running {
