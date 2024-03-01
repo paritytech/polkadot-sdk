@@ -17,9 +17,7 @@ test-linux-stable:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-    RUST_LOG: "polkavm=trace"
-    POLKAVM_ALLOW_INSECURE: 1
-    POLKAVM_TRACE_EXECUTION: 1
+    # the linux sandbox does not seem to work on the CI
     POLKAVM_SANDBOX: "generic"
   parallel: 3
   script:
@@ -34,9 +32,7 @@ test-linux-stable:
         --release \
         --no-fail-fast \
         --features try-runtime,experimental,riscv,ci-only-tests \
-        --retries 0\
-        -j 1\
-        test_virtualization
+        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     # Upload tests results to Elasticsearch
     - echo "Upload test results to Elasticsearch"
     - cat target/nextest/default/junit.xml | xq . > target/nextest/default/junit.json
