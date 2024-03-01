@@ -50,7 +50,7 @@
 //!
 //! ### Tight Coupling Pallets
 //!
-//! To tightly couple `pallet-foo` and `pallet-author`, we use a Rust's super-trait system. When a
+//! To tightly couple `pallet-foo` and `pallet-author`, we use Rust's supertrait system. When a
 //! pallet makes its own `trait Config` be bounded by another pallet's `trait Config`, it is
 //! expressing two things:
 //!
