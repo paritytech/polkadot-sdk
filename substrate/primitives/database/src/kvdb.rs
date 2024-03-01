@@ -121,10 +121,10 @@ impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
 
 	fn get_node(
 		&self,
-		col: ColumnId,
-		key: &[u8],
+		_col: ColumnId,
+		_key: &[u8],
 		_location: DBLocation,
 	) -> Option<(Vec<u8>, Vec<DBLocation>)> {
-		handle_err(self.0.get(col, key)).map(|value| (value, Vec::new()))
+		unreachable!("kvdb do not support multi tree")
 	}
 }

@@ -1084,19 +1084,36 @@ impl<Block: BlockT> sp_state_machine::NodeDB<HashingFor<Block>, DBValue, DBLocat
 			})
 			.map(|value| (value, Default::default()))
 		} else {
-			if let Some((v, locs)) = self.db.get_node(columns::STATE, key.as_ref(), location) {
-				let hash = sp_core::blake2_256(&v);
-				assert_eq!(
-					key.as_ref(),
-					hash.as_slice(),
-					"Bad hash at location {location}, key={:?}, hash={:?}",
-					sp_core::hexdisplay::HexDisplay::from(&key.as_ref()),
-					sp_core::hexdisplay::HexDisplay::from(&hash),
-				);
-				Some((v, locs))
-			} else {
-				warn!("Missing loc {:?}", location);
-				None
+			// having state db does not always means multitree
+			// (eg benchmarks bypass it).
+			match self.db.state_capabilities() {
+				StateCapabilities::TreeColumn => {
+					if let Some((v, locs)) =
+						self.db.get_node(columns::STATE, key.as_ref(), location)
+					{
+						if cfg!(debug_assertions) {
+							let hash = sp_core::blake2_256(&v);
+							assert_eq!(
+								key.as_ref(),
+								hash.as_slice(),
+								"Bad hash at location {location}, key={:?}, hash={:?}",
+								sp_core::hexdisplay::HexDisplay::from(&key.as_ref()),
+								sp_core::hexdisplay::HexDisplay::from(&hash),
+							);
+						}
+						Some((v, locs))
+					} else {
+						warn!("Missing loc {:?}", location);
+						None
+					}
+				},
+
+				StateCapabilities::RefCounted =>
+					self.db.get(columns::STATE, key.as_ref()).map(|v| (v, Default::default())),
+				StateCapabilities::None => {
+					let key = prefixed_key::<HashingFor<Block>>(key, prefix);
+					self.db.get(columns::STATE, key.as_ref()).map(|v| (v, Default::default()))
+				},
 			}
 		}
 	}
