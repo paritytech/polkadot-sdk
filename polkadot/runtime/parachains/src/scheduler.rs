@@ -51,7 +51,7 @@ use sp_std::{
 
 pub mod common;
 
-use common::{Assignment, AssignmentProvider, AssignmentProviderConfig};
+use common::{Assignment, AssignmentProvider};
 
 pub use pallet::*;
 
@@ -222,7 +222,7 @@ impl<T: Config> Pallet<T> {
 
 		let n_cores = core::cmp::max(
 			T::AssignmentProvider::session_core_count(),
-			match config.max_validators_per_core {
+			match config.scheduler_params.max_validators_per_core {
 				Some(x) if x != 0 => validators.len() as u32 / x,
 				_ => 0,
 			},
@@ -350,6 +350,7 @@ impl<T: Config> Pallet<T> {
 	fn drop_expired_claims_from_claimqueue() {
 		let now = <frame_system::Pallet<T>>::block_number();
 		let availability_cores = AvailabilityCores::<T>::get();
+		let ttl = <configuration::Pallet<T>>::config().scheduler_params.ttl;
 
 		ClaimQueue::<T>::mutate(|cq| {
 			for (idx, _) in (0u32..).zip(availability_cores) {
@@ -382,8 +383,6 @@ impl<T: Config> Pallet<T> {
 						if let Some(assignment) =
 							T::AssignmentProvider::pop_assignment_for_core(core_idx)
 						{
-							let AssignmentProviderConfig { ttl, .. } =
-								T::AssignmentProvider::get_provider_config(core_idx);
 							core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
 						}
 					}
@@ -428,7 +427,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let rotations_since_session_start: BlockNumberFor<T> =
-			(at - session_start_block) / config.group_rotation_frequency;
+			(at - session_start_block) / config.scheduler_params.group_rotation_frequency;
 
 		let rotations_since_session_start =
 			<BlockNumberFor<T> as TryInto<u32>>::try_into(rotations_since_session_start)
@@ -460,9 +459,9 @@ impl<T: Config> Pallet<T> {
 				// Note: blocks backed in this rotation will never time out here as backed_in +
 				// config.paras_availability_period will always be > now for these blocks, as
 				// otherwise above condition would not be true.
-				pending_since + config.paras_availability_period
+				pending_since + config.scheduler_params.paras_availability_period
 			} else {
-				next_rotation + config.paras_availability_period
+				next_rotation + config.scheduler_params.paras_availability_period
 			};
 
 			AvailabilityTimeoutStatus { timed_out: time_out_at <= now, live_until: time_out_at }
@@ -478,7 +477,8 @@ impl<T: Config> Pallet<T> {
 		let now = <frame_system::Pallet<T>>::block_number() + One::one();
 		let rotation_info = Self::group_rotation_info(now);
 
-		let current_window = rotation_info.last_rotation_at() + config.paras_availability_period;
+		let current_window =
+			rotation_info.last_rotation_at() + config.scheduler_params.paras_availability_period;
 		now < current_window
 	}
 
@@ -488,7 +488,7 @@ impl<T: Config> Pallet<T> {
 	) -> GroupRotationInfo<BlockNumberFor<T>> {
 		let session_start_block = Self::session_start_block();
 		let group_rotation_frequency =
-			<configuration::Pallet<T>>::config().group_rotation_frequency;
+			<configuration::Pallet<T>>::config().scheduler_params.group_rotation_frequency;
 
 		GroupRotationInfo { session_start_block, now, group_rotation_frequency }
 	}
@@ -508,6 +508,8 @@ impl<T: Config> Pallet<T> {
 	/// Return the next thing that will be scheduled on this core assuming it is currently
 	/// occupied and the candidate occupying it times out.
 	pub(crate) fn next_up_on_time_out(core: CoreIndex) -> Option<ScheduledCore> {
+		let max_availability_timeouts =
+			<configuration::Pallet<T>>::config().scheduler_params.max_availability_timeouts;
 		Self::next_up_on_available(core).or_else(|| {
 			// Or, if none, the claim currently occupying the core,
 			// as it would be put back on the queue after timing out if number of retries is not at
@@ -515,16 +517,12 @@ impl<T: Config> Pallet<T> {
 			let cores = AvailabilityCores::<T>::get();
 			cores.get(core.0 as usize).and_then(|c| match c {
 				CoreOccupied::Free => None,
-				CoreOccupied::Paras(pe) => {
-					let AssignmentProviderConfig { max_availability_timeouts, .. } =
-						T::AssignmentProvider::get_provider_config(core);
-
+				CoreOccupied::Paras(pe) =>
 					if pe.availability_timeouts < max_availability_timeouts {
 						Some(Self::paras_entry_to_scheduled_core(pe))
 					} else {
 						None
-					}
-				},
+					},
 			})
 		})
 	}
@@ -566,7 +564,7 @@ impl<T: Config> Pallet<T> {
 	//  ClaimQueue related functions
 	//
 	fn claimqueue_lookahead() -> u32 {
-		<configuration::Pallet<T>>::config().scheduling_lookahead
+		<configuration::Pallet<T>>::config().scheduler_params.lookahead
 	}
 
 	/// Frees cores and fills the free claimqueue spots by popping from the `AssignmentProvider`.
@@ -585,15 +583,15 @@ impl<T: Config> Pallet<T> {
 		let n_lookahead = Self::claimqueue_lookahead().max(1);
 		let n_session_cores = T::AssignmentProvider::session_core_count();
 		let cq = ClaimQueue::<T>::get();
-		let ttl = <configuration::Pallet<T>>::config().on_demand_ttl;
+		let config = <configuration::Pallet<T>>::config();
+		let max_availability_timeouts = config.scheduler_params.max_availability_timeouts;
+		let ttl = config.scheduler_params.ttl;
 
 		for core_idx in 0..n_session_cores {
 			let core_idx = CoreIndex::from(core_idx);
 
 			// add previously timedout paras back into the queue
 			if let Some(mut entry) = timedout_paras.remove(&core_idx) {
-				let AssignmentProviderConfig { max_availability_timeouts, .. } =
-					T::AssignmentProvider::get_provider_config(core_idx);
 				if entry.availability_timeouts < max_availability_timeouts {
 					// Increment the timeout counter.
 					entry.availability_timeouts += 1;
@@ -666,13 +664,6 @@ impl<T: Config> Pallet<T> {
 		claimqueue
 			.into_iter()
 			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.assignment.para_id())))
-	}
-
-	#[cfg(any(feature = "runtime-benchmarks", test))]
-	pub(crate) fn assignment_provider_config(
-		core_idx: CoreIndex,
-	) -> AssignmentProviderConfig<BlockNumberFor<T>> {
-		T::AssignmentProvider::get_provider_config(core_idx)
 	}
 
 	#[cfg(any(feature = "try-runtime", test))]
