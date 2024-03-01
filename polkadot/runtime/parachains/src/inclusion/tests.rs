@@ -428,8 +428,8 @@ fn collect_timedout_cleans_up_pending() {
 
 		ParaInclusion::collect_timedout(Scheduler::availability_timeout_predicate());
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).is_none());
-		assert!(<PendingAvailability<Test>>::get(&chain_b).is_some());
+		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
+		assert!(!<PendingAvailability<Test>>::get(&chain_b).unwrap().is_empty());
 	});
 }
 
@@ -778,7 +778,7 @@ fn supermajority_bitfields_trigger_availability() {
 
 		// chain A had 4 signing off, which is >= threshold.
 		// chain B has 3 signing off, which is < threshold.
-		assert!(<PendingAvailability<Test>>::get(&chain_a).is_none());
+		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
 		assert_eq!(
 			<PendingAvailability<Test>>::get(&chain_b)
 				.unwrap()
@@ -944,21 +944,19 @@ fn candidate_checks() {
 				None,
 			);
 
-			// out-of-order manifests as unscheduled.
-			assert_noop!(
-				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
-					&vec![
-						(chain_b_assignment.0, vec![(backed_b, chain_b_assignment.1)]),
-						(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])
-					]
-					.into_iter()
-					.collect(),
-					&group_validators,
-					false
-				),
-				Error::<Test>::ScheduledOutOfOrder
-			);
+			// no longer needed to be sorted by core index.
+			assert!(ParaInclusion::process_candidates(
+				&allowed_relay_parents,
+				&vec![
+					(chain_b_assignment.0, vec![(backed_b, chain_b_assignment.1)]),
+					(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])
+				]
+				.into_iter()
+				.collect(),
+				&group_validators,
+				false
+			)
+			.is_ok());
 		}
 
 		// candidate not backed.
@@ -1650,11 +1648,17 @@ fn backing_works_with_elastic_scaling_mvp() {
 		.build();
 		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_b_1);
 
+		// Make candidate b2 a child of b1.
 		let mut candidate_b_2 = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(3),
-			persisted_validation_data_hash: make_vdata_hash(chain_b).unwrap(),
+			persisted_validation_data_hash: make_persisted_validation_data_with_parent::<Test>(
+				RELAY_PARENT_NUM,
+				Default::default(),
+				candidate_b_1.commitments.head_data.clone(),
+			)
+			.hash(),
 			hrmp_watermark: RELAY_PARENT_NUM,
 			..Default::default()
 		}
@@ -1691,13 +1695,10 @@ fn backing_works_with_elastic_scaling_mvp() {
 			Some(CoreIndex(2)),
 		);
 
-		let backed_candidates = vec![
-			(chain_a, vec![(backed_a, CoreIndex(0))]),
-			(chain_b, vec![(backed_b_1, CoreIndex(1))]),
-			(chain_b, vec![(backed_b_2, CoreIndex(2))]),
-		]
-		.into_iter()
-		.collect::<BTreeMap<_, _>>();
+		let mut backed_candidates = BTreeMap::new();
+		backed_candidates.insert(chain_a, vec![(backed_a, CoreIndex(0))]);
+		backed_candidates
+			.insert(chain_b, vec![(backed_b_1, CoreIndex(1)), (backed_b_2, CoreIndex(2))]);
 
 		let get_backing_group_idx = {
 			// the order defines the group implicitly for this test case
@@ -1705,9 +1706,14 @@ fn backing_works_with_elastic_scaling_mvp() {
 				.values()
 				.enumerate()
 				.map(|(idx, backed_candidates)| {
-					(backed_candidates.iter().next().unwrap().0.hash(), GroupIndex(idx as _))
+					backed_candidates
+						.iter()
+						.enumerate()
+						.map(|(i, c)| (c.0.hash(), GroupIndex((idx + i) as _)))
+						.collect()
 				})
-				.collect::<Vec<_>>();
+				.collect::<Vec<Vec<_>>>()
+				.concat();
 
 			move |candidate_hash_x: CandidateHash| -> Option<GroupIndex> {
 				backed_candidates_with_groups.iter().find_map(|(candidate_hash, grp)| {
@@ -1731,8 +1737,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 		)
 		.expect("candidates scheduled, in order, and backed");
 
-		// Both b candidates will be backed. However, only one will be recorded on-chain and proceed
-		// with being made available.
+		// Both b candidates will be backed.
 		assert_eq!(
 			occupied_cores,
 			vec![
@@ -1748,26 +1753,28 @@ fn backing_works_with_elastic_scaling_mvp() {
 			(CandidateReceipt, Vec<(ValidatorIndex, ValidityAttestation)>),
 		>::new();
 		backed_candidates.values().for_each(|backed_candidates| {
-			let backed_candidate = backed_candidates.iter().next().unwrap().0.clone();
-			let candidate_receipt_with_backers = expected
-				.entry(backed_candidate.hash())
-				.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
-			let (validator_indices, _maybe_core_index) =
-				backed_candidate.validator_indices_and_core_index(true);
-			assert_eq!(backed_candidate.validity_votes().len(), validator_indices.count_ones());
-			candidate_receipt_with_backers.1.extend(
-				validator_indices
-					.iter()
-					.enumerate()
-					.filter(|(_, signed)| **signed)
-					.zip(backed_candidate.validity_votes().iter().cloned())
-					.filter_map(|((validator_index_within_group, _), attestation)| {
-						let grp_idx = get_backing_group_idx(backed_candidate.hash()).unwrap();
-						group_validators(grp_idx).map(|validator_indices| {
-							(validator_indices[validator_index_within_group], attestation)
-						})
-					}),
-			);
+			for backed_candidate in backed_candidates {
+				let backed_candidate = backed_candidate.0.clone();
+				let candidate_receipt_with_backers = expected
+					.entry(backed_candidate.hash())
+					.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
+				let (validator_indices, _maybe_core_index) =
+					backed_candidate.validator_indices_and_core_index(true);
+				assert_eq!(backed_candidate.validity_votes().len(), validator_indices.count_ones());
+				candidate_receipt_with_backers.1.extend(
+					validator_indices
+						.iter()
+						.enumerate()
+						.filter(|(_, signed)| **signed)
+						.zip(backed_candidate.validity_votes().iter().cloned())
+						.filter_map(|((validator_index_within_group, _), attestation)| {
+							let grp_idx = get_backing_group_idx(backed_candidate.hash()).unwrap();
+							group_validators(grp_idx).map(|validator_indices| {
+								(validator_indices[validator_index_within_group], attestation)
+							})
+						}),
+				);
+			}
 		});
 
 		assert_eq!(
@@ -1804,21 +1811,34 @@ fn backing_works_with_elastic_scaling_mvp() {
 			)
 		);
 
-		// Only one candidate for b will be recorded on chain.
+		// Both candidates of b will be recorded on chain.
 		assert_eq!(
 			<PendingAvailability<Test>>::get(&chain_b),
 			Some(
-				[CandidatePendingAvailability {
-					core: CoreIndex::from(2),
-					hash: candidate_b_2.hash(),
-					descriptor: candidate_b_2.descriptor,
-					availability_votes: default_availability_votes(),
-					relay_parent_number: System::block_number() - 1,
-					backed_in_number: System::block_number(),
-					backers: backing_bitfield(&[4]),
-					backing_group: GroupIndex::from(2),
-					commitments: candidate_b_2.commitments
-				}]
+				[
+					CandidatePendingAvailability {
+						core: CoreIndex::from(1),
+						hash: candidate_b_1.hash(),
+						descriptor: candidate_b_1.descriptor,
+						availability_votes: default_availability_votes(),
+						relay_parent_number: System::block_number() - 1,
+						backed_in_number: System::block_number(),
+						backers: backing_bitfield(&[2, 3]),
+						backing_group: GroupIndex::from(1),
+						commitments: candidate_b_1.commitments
+					},
+					CandidatePendingAvailability {
+						core: CoreIndex::from(2),
+						hash: candidate_b_2.hash(),
+						descriptor: candidate_b_2.descriptor,
+						availability_votes: default_availability_votes(),
+						relay_parent_number: System::block_number() - 1,
+						backed_in_number: System::block_number(),
+						backers: backing_bitfield(&[4]),
+						backing_group: GroupIndex::from(2),
+						commitments: candidate_b_2.commitments
+					}
+				]
 				.into_iter()
 				.collect::<VecDeque<_>>()
 			)
@@ -2405,7 +2425,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let v = process_bitfields(checked_bitfields, core_lookup);
 		assert_eq!(vec![(CoreIndex(0), candidate_a.hash())], v);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).is_none());
+		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
 
 		let active_vote_state = paras::Pallet::<Test>::active_vote_state(&new_validation_code_hash)
 			.expect("prechecking must be initiated");

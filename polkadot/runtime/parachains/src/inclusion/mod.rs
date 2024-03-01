@@ -336,8 +336,6 @@ pub mod pallet {
 		UnscheduledCandidate,
 		/// Candidate scheduled despite pending candidate already existing for the para.
 		CandidateScheduledBeforeParaFree,
-		/// Scheduled cores out of order.
-		ScheduledOutOfOrder,
 		/// Head data exceeds the configured maximum.
 		HeadDataTooLarge,
 		/// Code upgrade prematurely.
