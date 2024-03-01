@@ -164,9 +164,6 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 				amount: *amount == expected_foreign_asset_amount,
 			},
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
-			// RuntimeEvent::MessageQueue(
-			// 	pallet_message_queue::Event::Processed { success: true, .. }
-			// ) => {},
 		]
 	);
 }
@@ -585,7 +582,6 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	let fee_asset_index = penpal_assets
 		.inner()
 		.iter()
-		// .position(|r| r == &((Parent, Parachain(ASSETHUB_PARA_ID)), fee_amount_to_send).into())
 		.position(|r| r == &(Parent, fee_amount_to_send).into())
 		.unwrap() as u32;
 
@@ -633,8 +629,6 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 		),
 	};
 	let mut penpal_to_ah = ParaToSystemParaTest::new(penpal_to_ah_test_args);
-
-	// let penpal_sender_balance_before = penpal_to_ah.sender.balance;
 	let penpal_sender_balance_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(system_para_native_asset_location, &PenpalASender::get())

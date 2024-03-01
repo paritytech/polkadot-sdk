@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// SubstratePenpal
+// Substrate
 use sp_core::{sr25519, storage::Storage};
 use frame_support::parameter_types;
 // Cumulus

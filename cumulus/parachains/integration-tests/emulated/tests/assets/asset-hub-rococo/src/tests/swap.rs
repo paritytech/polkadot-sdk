@@ -140,7 +140,6 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone().into()),
 			foreign_asset_at_asset_hub_rococo,
 			sov_penpal_on_ahr.clone().into(),
-			// 3_000_000_000_000,
 			ASSET_HUB_ROCOCO_ED * 3_000_000_000_000,
 		));
 

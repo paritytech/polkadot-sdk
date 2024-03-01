@@ -11678,7 +11678,6 @@ dependencies = [
  "parachains-common",
  "penpal-runtime",
  "sp-core",
- "staging-xcm",
 ]
 
 [[package]]
