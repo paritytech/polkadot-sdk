@@ -144,7 +144,7 @@ pub enum ExecError {
 	/// The execution trapped before it could finish.
 	///
 	/// This can either be caused by executing an `unimp` instruction or when a host function
-	/// set [`VirtSharedState::exit`] to true.
+	/// set [`SharedState::exit`] to true.
 	Trap = 5,
 }
 
@@ -169,7 +169,7 @@ pub enum DestroyError {
 /// This is used to hold state between different syscall handler invocations of the same execution.
 ///
 /// A reference to it is passed in by the user when executing an virtualization instance.
-/// The same reference is passed as first argument to the [`VirtSyscallHandler`].
+/// The same reference is passed as first argument to the [`SyscallHandler`].
 ///
 /// In addition to allow the user to pass custom data in using [`Self::user`] it is also used
 /// as a means to share data between the virtualization system and the syscall handler.
