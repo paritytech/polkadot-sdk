@@ -656,6 +656,8 @@ where
 					Some(event) => self.process_notification_event(event),
 					None => return,
 				},
+				// TODO: setting of warp sync target block should be moved to the initialization of
+				// `SyncingEngine`, see https://github.com/paritytech/polkadot-sdk/issues/3537.
 				warp_target_block_header = &mut self.warp_sync_target_block_header_rx_fused => {
 					if let Err(_) = self.pass_warp_sync_target_block_header(warp_target_block_header) {
 						error!(
