@@ -26,7 +26,7 @@ use sp_runtime::{
 };
 use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
-	IterArgs, StorageIterator, StorageKey, StorageValue, TrieBackend, TrieCommit,
+	BackendTransaction, IterArgs, StorageIterator, StorageKey, StorageValue, TrieBackend,
 };
 use sp_trie::{ChildChangeset, MerkleValue};
 use std::sync::Arc;
@@ -187,7 +187,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
 		state_version: StateVersion,
-	) -> TrieCommit<B::Hash> {
+	) -> BackendTransaction<B::Hash> {
 		self.state.storage_root(delta, state_version)
 	}
 
@@ -196,7 +196,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (TrieCommit<B::Hash>, bool) {
+	) -> (BackendTransaction<B::Hash>, bool) {
 		self.state.child_storage_root(child_info, delta, state_version)
 	}
 

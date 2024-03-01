@@ -29,7 +29,7 @@ use sp_runtime::{
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
-	backend::{AsTrieBackend, TrieCommit},
+	backend::{AsTrieBackend, BackendTransaction},
 	ChildStorageCollection, IndexOperation, IterArgs, OffchainChangesCollection, StorageCollection,
 	StorageIterator,
 };
@@ -175,7 +175,10 @@ pub trait BlockImportOperation<Block: BlockT> {
 	) -> sp_blockchain::Result<()>;
 
 	/// Inject storage data into the database.
-	fn update_db_storage(&mut self, update: TrieCommit<Block::Hash>) -> sp_blockchain::Result<()>;
+	fn update_db_storage(
+		&mut self,
+		update: BackendTransaction<Block::Hash>,
+	) -> sp_blockchain::Result<()>;
 
 	/// Set genesis state. If `commit` is `false` the state is saved in memory, but is not written
 	/// to the database.

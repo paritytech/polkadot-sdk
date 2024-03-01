@@ -28,8 +28,8 @@ use sp_core::{
 use sp_runtime::{traits::Hash, StateVersion, Storage};
 use sp_state_machine::{
 	backend::{Backend as StateBackend, DBLocation},
-	ChildStorageCollection, IterArgs, StorageCollection, StorageIterator, StorageKey, StorageValue,
-	TrieCommit,
+	BackendTransaction, ChildStorageCollection, IterArgs, StorageCollection, StorageIterator,
+	StorageKey, StorageValue,
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
@@ -412,11 +412,11 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<Hasher::Out>>)>,
 		state_version: StateVersion,
-	) -> TrieCommit<Hasher::Out> {
+	) -> BackendTransaction<Hasher::Out> {
 		self.state
 			.borrow()
 			.as_ref()
-			.map_or(TrieCommit::unchanged(self.genesis_root), |s| {
+			.map_or(BackendTransaction::unchanged(self.genesis_root), |s| {
 				s.storage_root(delta, state_version)
 			})
 	}
@@ -426,9 +426,9 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (TrieCommit<Hasher::Out>, bool) {
+	) -> (BackendTransaction<Hasher::Out>, bool) {
 		self.state.borrow().as_ref().map_or_else(
-			|| (TrieCommit::unchanged(self.genesis_root), true),
+			|| (BackendTransaction::unchanged(self.genesis_root), true),
 			|s| s.child_storage_root(child_info, delta, state_version),
 		)
 	}
@@ -450,7 +450,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 
 	fn commit(
 		&self,
-		transaction: TrieCommit<Hasher::Out>,
+		transaction: BackendTransaction<Hasher::Out>,
 		main_storage_changes: StorageCollection,
 		child_storage_changes: ChildStorageCollection,
 	) -> Result<(), Self::Error> {
@@ -613,7 +613,7 @@ impl<Hasher: Hash> std::fmt::Debug for BenchmarkingState<Hasher> {
 mod test {
 	use crate::bench::BenchmarkingState;
 	use sp_runtime::traits::HashingFor;
-	use sp_state_machine::{backend::Backend as _, TrieCommit};
+	use sp_state_machine::{backend::Backend as _, BackendTransaction};
 
 	fn hex(hex: &str) -> Vec<u8> {
 		array_bytes::hex2bytes(hex).unwrap()
@@ -663,7 +663,7 @@ mod test {
 
 			bench_state
 				.commit(
-					TrieCommit::unchanged(Default::default()),
+					BackendTransaction::unchanged(Default::default()),
 					vec![("foo".as_bytes().to_vec(), None)],
 					vec![("child1".as_bytes().to_vec(), vec![("foo".as_bytes().to_vec(), None)])],
 				)

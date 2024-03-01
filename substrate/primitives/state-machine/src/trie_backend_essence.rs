@@ -19,7 +19,7 @@
 //! from storage.
 
 use crate::{
-	backend::{IterArgs, StorageIterator, TrieCommit},
+	backend::{BackendTransaction, IterArgs, StorageIterator},
 	trie_backend::{AsDB, TrieCacheProvider},
 	warn, StorageKey, StorageValue,
 };
@@ -662,7 +662,7 @@ where
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
 		state_version: StateVersion,
-	) -> TrieCommit<H::Out> {
+	) -> BackendTransaction<H::Out> {
 		self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
 			let backend = self as &dyn NodeDB<H, Vec<u8>, DBLocation>;
 			let commit = match state_version {
@@ -690,7 +690,7 @@ where
 				Ok(commit) => (Some(commit.root_hash()), commit),
 				Err(e) => {
 					warn!(target: "trie", "Failed to write to trie: {}", e);
-					(None, TrieCommit::unchanged(self.root))
+					(None, BackendTransaction::unchanged(self.root))
 				},
 			}
 		})
@@ -703,7 +703,7 @@ where
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (TrieCommit<H::Out>, bool) {
+	) -> (BackendTransaction<H::Out>, bool) {
 		let default_root = match child_info.child_type() {
 			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H, DBLocation>>(),
 		};
@@ -744,7 +744,7 @@ where
 					Ok(commit) => (Some(commit.root_hash()), commit),
 					Err(e) => {
 						warn!(target: "trie", "Failed to write to trie: {}", e);
-						(None, TrieCommit::unchanged(self.root))
+						(None, BackendTransaction::unchanged(self.root))
 					},
 				}
 			});

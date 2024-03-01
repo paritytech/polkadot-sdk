@@ -84,9 +84,9 @@ use sp_runtime::{
 };
 use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
-	ChildStorageCollection, DBLocation, DBValue, IndexOperation, IterArgs, NodeDB,
-	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
-	StorageValue, TrieCommit, UsageInfo as StateUsageInfo,
+	BackendTransaction, ChildStorageCollection, DBLocation, DBValue, IndexOperation, IterArgs,
+	NodeDB, OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator,
+	StorageKey, StorageValue, UsageInfo as StateUsageInfo,
 };
 use sp_trie::{cache::SharedTrieCache, prefixed_key, ChildChangeset, MemoryDB, MerkleValue};
 use trie_db::node_db::Prefix;
@@ -255,7 +255,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
 		state_version: StateVersion,
-	) -> TrieCommit<B::Hash> {
+	) -> BackendTransaction<B::Hash> {
 		self.state.storage_root(delta, state_version)
 	}
 
@@ -264,7 +264,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (TrieCommit<B::Hash>, bool) {
+	) -> (BackendTransaction<B::Hash>, bool) {
 		self.state.child_storage_root(child_info, delta, state_version)
 	}
 
@@ -853,7 +853,7 @@ impl<Block: BlockT> HeaderMetadata<Block> for BlockchainDb<Block> {
 /// Database transaction
 pub struct BlockImportOperation<Block: BlockT> {
 	old_state: RecordStatsState<RefTrackingState<Block>, Block>,
-	db_updates: TrieCommit<Block::Hash>,
+	db_updates: BackendTransaction<Block::Hash>,
 	storage_updates: StorageCollection,
 	child_storage_updates: ChildStorageCollection,
 	offchain_storage_updates: OffchainChangesCollection,
@@ -943,7 +943,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(())
 	}
 
-	fn update_db_storage(&mut self, update: TrieCommit<Block::Hash>) -> ClientResult<()> {
+	fn update_db_storage(&mut self, update: BackendTransaction<Block::Hash>) -> ClientResult<()> {
 		self.db_updates = update;
 		Ok(())
 	}
@@ -1220,7 +1220,7 @@ impl<T: Clone> FrozenForDuration<T> {
 
 /// Apply trie commit to the database transaction.
 pub fn apply_tree_commit<H: Hash>(
-	commit: TrieCommit<H::Out>,
+	commit: BackendTransaction<H::Out>,
 	state_capabilities: StateCapabilities,
 	tx: &mut Transaction<DbHash>,
 ) {
@@ -2355,7 +2355,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		Ok(BlockImportOperation {
 			pending_block: None,
 			old_state: self.empty_state(),
-			db_updates: TrieCommit::unchanged(Default::default()),
+			db_updates: BackendTransaction::unchanged(Default::default()),
 			storage_updates: Default::default(),
 			child_storage_updates: Default::default(),
 			offchain_storage_updates: Default::default(),

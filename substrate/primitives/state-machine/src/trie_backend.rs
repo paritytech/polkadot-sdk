@@ -20,7 +20,7 @@
 #[cfg(feature = "std")]
 use crate::backend::AsTrieBackend;
 use crate::{
-	backend::{DBLocation, IterArgs, StorageIterator, TrieCommit},
+	backend::{BackendTransaction, DBLocation, IterArgs, StorageIterator},
 	trie_backend_essence::{RawIter, TrieBackendEssence},
 	Backend, StorageKey, StorageValue,
 };
@@ -617,7 +617,7 @@ where
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
 		state_version: StateVersion,
-	) -> TrieCommit<H::Out>
+	) -> BackendTransaction<H::Out>
 	where
 		H::Out: Ord,
 	{
@@ -629,7 +629,7 @@ where
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (TrieCommit<H::Out>, bool)
+	) -> (BackendTransaction<H::Out>, bool)
 	where
 		H::Out: Ord,
 	{

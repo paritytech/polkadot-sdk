@@ -172,8 +172,11 @@ where
 	}
 }
 
-/// Database changeset for the trie backend.
-pub type TrieCommit<H> = trie_db::Changeset<H, DBLocation>;
+/// The transaction type used by [`Backend`].
+///
+/// This transaction contains all the changes that need to be applied to the backend to create the
+/// state for a new block.
+pub type BackendTransaction<H> = trie_db::Changeset<H, DBLocation>;
 
 /// A state backend is used to read state data and can have changes committed
 /// to it.
@@ -247,7 +250,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
 		state_version: StateVersion,
-	) -> TrieCommit<H::Out>
+	) -> BackendTransaction<H::Out>
 	where
 		H::Out: Ord;
 
@@ -259,7 +262,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (TrieCommit<H::Out>, bool)
+	) -> (BackendTransaction<H::Out>, bool)
 	where
 		H::Out: Ord;
 
@@ -294,7 +297,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>),
 		>,
 		state_version: StateVersion,
-	) -> TrieCommit<H::Out>
+	) -> BackendTransaction<H::Out>
 	where
 		H::Out: Ord + Encode,
 	{
@@ -345,7 +348,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 	/// Commit given transaction to storage.
 	fn commit(
 		&self,
-		_: TrieCommit<H::Out>,
+		_: BackendTransaction<H::Out>,
 		_: StorageCollection,
 		_: ChildStorageCollection,
 	) -> Result<(), Self::Error> {

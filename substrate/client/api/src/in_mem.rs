@@ -29,7 +29,7 @@ use sp_runtime::{
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
-	backend::TrieCommit, Backend as StateBackend, ChildStorageCollection, InMemoryBackend,
+	backend::BackendTransaction, Backend as StateBackend, ChildStorageCollection, InMemoryBackend,
 	IndexOperation, StorageCollection,
 };
 use std::{
@@ -480,7 +480,7 @@ impl<Block: BlockT> backend::AuxStore for Blockchain<Block> {
 pub struct BlockImportOperation<Block: BlockT> {
 	pending_block: Option<PendingBlock<Block>>,
 	old_state: InMemoryBackend<HashingFor<Block>>,
-	trie_commit: Option<TrieCommit<Block::Hash>>,
+	trie_commit: Option<BackendTransaction<Block::Hash>>,
 	aux: Vec<(Vec<u8>, Option<Vec<u8>>)>,
 	finalized_blocks: Vec<(Block::Hash, Option<Justification>)>,
 	set_head: Option<Block::Hash>,
@@ -537,7 +537,10 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		Ok(())
 	}
 
-	fn update_db_storage(&mut self, update: TrieCommit<Block::Hash>) -> sp_blockchain::Result<()> {
+	fn update_db_storage(
+		&mut self,
+		update: BackendTransaction<Block::Hash>,
+	) -> sp_blockchain::Result<()> {
 		self.trie_commit = Some(update);
 		Ok(())
 	}

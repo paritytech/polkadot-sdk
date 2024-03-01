@@ -22,7 +22,7 @@ mod offchain;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{
-	backend::{Backend, TrieCommit},
+	backend::{Backend, BackendTransaction},
 	stats::StateMachineStats,
 	DefaultError,
 };
@@ -194,7 +194,7 @@ pub struct StorageChanges<H: Hasher> {
 	/// [`main_storage_changes`](StorageChanges::main_storage_changes) and from
 	/// [`child_storage_changes`](StorageChanges::child_storage_changes).
 	/// [`offchain_storage_changes`](StorageChanges::offchain_storage_changes).
-	pub transaction: TrieCommit<H::Out>,
+	pub transaction: BackendTransaction<H::Out>,
 	/// Changes to the transaction index,
 	#[cfg(feature = "std")]
 	pub transaction_index_changes: Vec<IndexOperation>,
@@ -209,7 +209,7 @@ impl<H: Hasher> StorageChanges<H> {
 		StorageCollection,
 		ChildStorageCollection,
 		OffchainChangesCollection,
-		TrieCommit<H::Out>,
+		BackendTransaction<H::Out>,
 		Vec<IndexOperation>,
 	) {
 		(
@@ -228,7 +228,7 @@ impl<H: Hasher> Default for StorageChanges<H> {
 			main_storage_changes: Default::default(),
 			child_storage_changes: Default::default(),
 			offchain_storage_changes: Default::default(),
-			transaction: TrieCommit::unchanged(Default::default()),
+			transaction: BackendTransaction::unchanged(Default::default()),
 			#[cfg(feature = "std")]
 			transaction_index_changes: Default::default(),
 		}
@@ -240,11 +240,11 @@ impl<H: Hasher> Default for StorageChanges<H> {
 /// storage. So, we cache them to not require a recomputation of those transactions.
 struct StorageTransactionCache<H: Hasher> {
 	/// Contains the changes for the main and the child storages as one transaction.
-	pub(crate) transaction: TrieCommit<H::Out>,
+	pub(crate) transaction: BackendTransaction<H::Out>,
 }
 
 impl<H: Hasher> StorageTransactionCache<H> {
-	fn into_inner(self) -> TrieCommit<H::Out> {
+	fn into_inner(self) -> BackendTransaction<H::Out> {
 		self.transaction
 	}
 }

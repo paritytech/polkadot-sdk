@@ -18,7 +18,7 @@
 //! State machine in memory backend.
 
 use crate::{
-	backend::{Backend, TrieCommit},
+	backend::{Backend, BackendTransaction},
 	trie_backend::TrieBackend,
 	StorageCollection, StorageKey, StorageValue, TrieBackendBuilder,
 };
@@ -77,7 +77,7 @@ where
 	}
 
 	/// Apply the given transaction to this backend and set the root to the given value.
-	pub fn apply_transaction(&mut self, transaction: TrieCommit<H::Out>) {
+	pub fn apply_transaction(&mut self, transaction: BackendTransaction<H::Out>) {
 		if let Some(mut mdb) = self.backend_storage_mut().as_mem_db_mut() {
 			let root = transaction.apply_to(&mut mdb);
 			self.set_root(root);
