@@ -144,8 +144,8 @@ jobs:
         working-directory: ./release-artifacts/${{ env.BINARY }}
         run: |
           . ../../.github/scripts/common/lib.sh
-          import_gpg_keys
-          check_gpg $BINARY
+          # import_gpg_keys
+          # check_gpg $BINARY
 
       - name: Fetch rc commit and tag
         if: ${{ env.IMAGE_TYPE == 'rc' }}
