@@ -28,13 +28,13 @@
 //! Declaring dispatchable still has the benefit of being transactable for unit tests as well as
 //! aligned with general direction of moving towards a permissionless pallet. For example, we could
 //! clearly signal who is the expected signer of any interaction with this pallet and take into
-//! security considerations already.
+//! account any security considerations associated with those interactions.
 //!
 //! ## Goals
 //!
 //! Direct nomination on the Staking pallet does not scale well. Nominations pools were created to
 //! address this by pooling delegator funds into one account and then staking it. This though had
-//! a very important limitation that the funds were moved from delegator account to pool account
+//! a very critical limitation that the funds were moved from delegator account to pool account
 //! and hence the delegator lost control over their funds for using it for other purposes such as
 //! governance. This pallet aims to solve this by extending the staking pallet to support a new
 //! primitive function: delegation of funds to an account for the intent of staking.
@@ -48,7 +48,7 @@
 //! delegators. Or part of the reward can go to a insurance fund that can be used to cover any
 //! potential future slashes. The goal is to eventually allow foreign MultiLocations
 //! (smart contracts or pallets on another chain) to build their own pooled staking solutions
-//! similar to `NominationPool`.
+//! similar to `NominationPools`.
 //!
 //! ## Key Terminologies
 //! - **Delegatee**: An account who accepts delegations from other accounts.
@@ -96,7 +96,7 @@
 //! pending slash never exceeds staked amount and would freeze further withdraws until pending
 //! slashes are applied.
 //!
-//! `NominationPool` can apply slash for all its members by calling
+//! The user of this pallet can apply slash using
 //! [StakingInterface::delegator_slash](sp_staking::StakingInterface::delegator_slash).
 //!
 //! ## Migration from Nominator to Delegatee
@@ -221,7 +221,7 @@ pub mod pallet {
 		/// The account cannot perform this operation.
 		NotAllowed,
 		/// An existing staker cannot perform this action.
-		AlreadyStaker,
+		AlreadyStaking,
 		/// Reward Destination cannot be `delegatee` account.
 		InvalidRewardDestination,
 		/// Delegation conditions are not met.
@@ -232,7 +232,7 @@ pub mod pallet {
 		InvalidDelegation,
 		/// The account does not have enough funds to perform the operation.
 		NotEnoughFunds,
-		/// Not an existing `delegatee` account.
+		/// Not an existing delegatee account.
 		NotDelegatee,
 		/// Not a Delegator account.
 		NotDelegator,
@@ -301,7 +301,7 @@ pub mod pallet {
 			ensure!(!Self::is_delegator(&who), Error::<T>::NotAllowed);
 
 			// They cannot be already a direct staker in the staking pallet.
-			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaker);
+			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaking);
 
 			// Reward account cannot be same as `delegatee` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
@@ -380,7 +380,7 @@ pub mod pallet {
 			// Ensure delegator is sane.
 			ensure!(!Self::is_delegatee(&delegator), Error::<T>::NotAllowed);
 			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
-			ensure!(Self::not_direct_staker(&delegator), Error::<T>::AlreadyStaker);
+			ensure!(Self::not_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
 			// ensure delegatee is sane.
 			ensure!(Self::is_delegatee(&delegatee), Error::<T>::NotDelegatee);
@@ -410,7 +410,7 @@ pub mod pallet {
 
 			// ensure delegator is sane.
 			ensure!(Delegation::<T>::can_delegate(&who, &delegatee), Error::<T>::InvalidDelegation);
-			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaker);
+			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaking);
 
 			// ensure delegatee is sane.
 			ensure!(

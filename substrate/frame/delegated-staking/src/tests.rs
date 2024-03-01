@@ -68,7 +68,7 @@ fn cannot_become_delegatee() {
 				RawOrigin::Signed(mock::GENESIS_VALIDATOR).into(),
 				100
 			),
-			Error::<T>::AlreadyStaker
+			Error::<T>::AlreadyStaking
 		);
 
 		// an existing nominator cannot become delegatee
@@ -77,14 +77,14 @@ fn cannot_become_delegatee() {
 				RawOrigin::Signed(mock::GENESIS_NOMINATOR_ONE).into(),
 				100
 			),
-			Error::<T>::AlreadyStaker
+			Error::<T>::AlreadyStaking
 		);
 		assert_noop!(
 			DelegatedStaking::register_as_delegatee(
 				RawOrigin::Signed(mock::GENESIS_NOMINATOR_TWO).into(),
 				100
 			),
-			Error::<T>::AlreadyStaker
+			Error::<T>::AlreadyStaking
 		);
 	});
 }
@@ -448,14 +448,14 @@ mod staking_integration {
 					RawOrigin::Signed(GENESIS_NOMINATOR_ONE).into(),
 					201
 				),
-				Error::<T>::AlreadyStaker
+				Error::<T>::AlreadyStaking
 			);
 			assert_noop!(
 				DelegatedStaking::register_as_delegatee(
 					RawOrigin::Signed(GENESIS_VALIDATOR).into(),
 					201
 				),
-				Error::<T>::AlreadyStaker
+				Error::<T>::AlreadyStaking
 			);
 		});
 	}

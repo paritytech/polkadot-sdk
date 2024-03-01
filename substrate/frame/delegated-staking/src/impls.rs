@@ -88,7 +88,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		payee: &Self::AccountId,
 	) -> DispatchResult {
 		// ensure who is not already staked
-		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::AlreadyStaker);
+		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::AlreadyStaking);
 		let delegatee = Delegatee::<T>::from(who)?;
 
 		ensure!(delegatee.available_to_bond() >= value, Error::<T>::NotEnoughFunds);
