@@ -90,7 +90,7 @@ pub mod pallet {
 	pub(crate) type ValidatorGroups<T> = StorageValue<_, Vec<Vec<ValidatorIndex>>, ValueQuery>;
 
 	/// One entry for each availability core. The i'th parachain belongs to the i'th core, with the
-	/// remaining cores all being parathread-multiplexers.
+	/// remaining cores all being on demand parachain multiplexers.
 	///
 	/// Bounded by the maximum of either of these two values:
 	///   * The number of parachains and parathread multiplexers
