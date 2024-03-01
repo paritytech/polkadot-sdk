@@ -19,6 +19,8 @@ test-linux-stable:
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     # the linux sandbox does not seem to work on the CI
     POLKAVM_SANDBOX: "generic"
+    # the generic sandbox is not secure yet
+    POLKAVM_ALLOW_INSECURE: 1
   parallel: 3
   script:
     # Build all but only execute 'runtime' tests.
