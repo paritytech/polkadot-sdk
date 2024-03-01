@@ -27,13 +27,14 @@ mod enter {
 		builder::{Bench, BenchBuilder},
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
 		scheduler::{
-			common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+			common::{Assignment, AssignmentProvider},
 			ParasEntry,
 		},
 	};
 	use assert_matches::assert_matches;
 	use frame_support::assert_ok;
 	use frame_system::limits;
+	use primitives::vstaging::SchedulerParams;
 	use sp_runtime::Perbill;
 	use sp_std::collections::btree_map::BTreeMap;
 
@@ -87,7 +88,7 @@ mod enter {
 	// `create_inherent` and will not cause `enter` to early.
 	fn include_backed_candidates() {
 		let config = MockGenesisConfig::default();
-		assert!(config.configuration.config.scheduling_lookahead > 0);
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 
 		new_test_ext(config).execute_with(|| {
 			let dispute_statements = BTreeMap::new();
@@ -625,7 +626,7 @@ mod enter {
 	#[test]
 	fn limit_candidates_over_weight_1() {
 		let config = MockGenesisConfig::default();
-		assert!(config.configuration.config.scheduling_lookahead > 0);
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 
 		new_test_ext(config).execute_with(|| {
 			// Create the inherent data for this block
@@ -706,8 +707,8 @@ mod enter {
 			let cores = (0..used_cores)
 				.into_iter()
 				.map(|i| {
-					let AssignmentProviderConfig { ttl, .. } =
-						scheduler::Pallet::<Test>::assignment_provider_config(CoreIndex(i));
+					let SchedulerParams { ttl, .. } =
+						<configuration::Pallet<Test>>::config().scheduler_params;
 					// Load an assignment into provider so that one is present to pop
 					let assignment =
 						<Test as scheduler::Config>::AssignmentProvider::get_mock_assignment(

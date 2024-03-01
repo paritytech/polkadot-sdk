@@ -1178,7 +1178,7 @@ pub mod pallet_prelude {
 /// # `pallet::storage_version`
 ///
 /// Because the [`pallet::pallet`](#pallet-struct-placeholder-palletpallet-mandatory) macro
-/// implements [`traits::GetStorageVersion`], the current storage version needs to be
+/// implements [`traits::GetStorageVersion`], the in-code storage version needs to be
 /// communicated to the macro. This can be done by using the `pallet::storage_version`
 /// attribute:
 ///
@@ -1190,7 +1190,7 @@ pub mod pallet_prelude {
 /// pub struct Pallet<T>(_);
 /// ```
 ///
-/// If not present, the current storage version is set to the default value.
+/// If not present, the in-code storage version is set to the default value.
 ///
 /// Also see [`pallet::storage_version`](`frame_support::pallet_macros::storage_version`)
 ///
