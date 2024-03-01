@@ -172,6 +172,11 @@ fn combine_impls(
 	final_impl
 }
 
+/// Computes the disambiguation path for the `derive_impl` attribute macro.
+///
+/// When specified explicitly using `as [disambiguation_path]` in the macro attr, the
+/// disambiguation is used as is. If not, we infer the disambiguation path from the
+/// `foreign_impl_path` and the computed scope.
 fn compute_disambiguation_path(
 	disambiguation_path: Option<Path>,
 	foreign_impl: ItemImpl,
@@ -179,9 +184,6 @@ fn compute_disambiguation_path(
 ) -> Result<Path> {
 	match (disambiguation_path, foreign_impl.clone().trait_) {
 		(Some(disambiguation_path), _) => Ok(disambiguation_path),
-		// In case `as [disambiguation_path]` is not specified in the macro attr, we try to
-		// infer the disambiguation path from the `foreign_impl_path` and the computed scope.
-		// Else, we default to the foreign_impl_path.
 		(None, Some((_, foreign_impl_path, _))) =>
 			if default_impl_path.segments.len() > 1 {
 				let scope = default_impl_path.segments.first();
