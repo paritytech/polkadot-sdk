@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix call enum's metadata regression
+
+doc:
+  - audience: Runtime Dev
+  - audience: Runtime User
+    description: |
+      This PR fixes an issue where in the metadata of all FRAME-based chains, the documentation for
+      all extrinsic/call/transactions has been replaced by a single line saying "see Pallet::name".
+
+      Many wallets display the metadata of transactions to the user before signing, and this bug
+      might have affected this process.
+
+crates:
+  - name: frame
+  - name: frame-support
