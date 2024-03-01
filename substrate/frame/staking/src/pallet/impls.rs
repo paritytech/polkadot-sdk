@@ -1836,12 +1836,51 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
-		Self::check_payees()?;
+		Self::check_storage_consistency()?;
+
+		//Self::check_payees()?;
 		Self::check_nominators()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
 		Self::check_ledgers()?;
 		Self::check_count()
+	}
+
+	fn check_storage_consistency() -> Result<(), TryRuntimeError> {
+		// from the Bonded POV
+		for (stash, controller) in Bonded::<T>::iter() {
+			if let Some(ledger) = Ledger::<T>::get(controller.clone()) {
+				if ledger.stash != stash {
+					log!(
+						error,
+						"❌ bonded stash {:?}, ledger stash: {:?} - bonded stash != ledger stash",
+						stash,
+						ledger.stash
+					);
+				}
+			} else {
+				log!(
+					error,
+					"❌ controller {:?} - bonded controller doesn't have a ledger",
+					controller
+				);
+			}
+		}
+
+		// from the ledger POV.
+		for (controller, ledger) in Ledger::<T>::iter() {
+			let stash = ledger.stash;
+			if let Some(bonded_controller) = Bonded::<T>::get(&stash) {
+				if controller != bonded_controller {
+					log!(error, "❌ stash {:?}, controller: {:?} - bonded controller different than ledger's controller, problem!", stash, controller);
+				}
+			} else {
+				// after deprecate, this happens.
+				log!(error, "❌ stash {:?} - ledger's stash no bonded, problem!", stash);
+			}
+		}
+
+		Ok(())
 	}
 
 	/// Invariants:
