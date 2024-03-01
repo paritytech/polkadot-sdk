@@ -129,7 +129,7 @@ impl VirtT for Virt {
 		let engine = engine();
 
 		let mut module_config = ModuleConfig::new();
-		module_config.set_gas_metering(Some(GasMeteringKind::Async));
+		module_config.set_gas_metering(Some(GasMeteringKind::Sync));
 		let module = Module::new(&engine, &module_config, program).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to compile program: {}", err);
 			InstantiateError::InvalidImage
