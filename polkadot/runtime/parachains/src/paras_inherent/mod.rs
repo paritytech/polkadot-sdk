@@ -1233,7 +1233,8 @@ fn filter_backed_statements_from_disabled_validators<
 
 // Check that candidates pertaining to the same para form a chain. Drop the ones that
 // don't, along with the rest of candidates which follow them in the input vector.
-// In the process, duplicated candidates will also be dropped (unless they form a valid cycle).
+// In the process, duplicated candidates will also be dropped (even if they form a valid cycle;
+// cycles are not allowed if they entail backing duplicated candidates).
 fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion::Config>(
 	candidates: &mut BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
@@ -1251,8 +1252,27 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 		para_latest_head_data.insert(*para_id, latest_head_data);
 	}
 
+	let mut para_visited_candidates: BTreeMap<ParaId, BTreeSet<CandidateHash>> = BTreeMap::new();
+
 	retain_candidates::<T, _, _>(candidates, |para_id, candidate| {
 		let Some(latest_head_data) = para_latest_head_data.get(&para_id) else { return false };
+		let candidate_hash = candidate.candidate().hash();
+
+		let visited_candidates =
+			para_visited_candidates.entry(para_id).or_insert_with(|| BTreeSet::new());
+		if visited_candidates.contains(&candidate_hash) {
+			log::debug!(
+				target: LOG_TARGET,
+				"Found duplicate candidates for paraid {:?}. Dropping the candidates with hash {:?}",
+				para_id,
+				candidate_hash
+			);
+
+			// If we got a duplicate candidate, stop.
+			return false
+		} else {
+			visited_candidates.insert(candidate_hash);
+		}
 
 		let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
 		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
@@ -1279,7 +1299,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 				log::debug!(
 					target: LOG_TARGET,
 					"Backed candidate verification for candidate {:?} of paraid {:?} failed with {:?}",
-					candidate.candidate().hash(),
+					candidate_hash,
 					para_id,
 					err
 				);
