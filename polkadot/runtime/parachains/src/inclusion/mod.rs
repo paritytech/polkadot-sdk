@@ -356,8 +356,6 @@ pub mod pallet {
 		InvalidBacking,
 		/// Collator did not sign PoV.
 		NotCollatorSigned,
-		/// The validation data hash does not match expected.
-		ValidationDataHashMismatch,
 		/// The downward message queue is not processed correctly.
 		IncorrectDownwardMessageHandling,
 		/// At least one upward message sent does not pass the acceptance criteria.
