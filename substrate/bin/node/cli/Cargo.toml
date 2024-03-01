@@ -67,6 +67,7 @@ sp-io = { path = "../../../primitives/io" }
 sp-mixnet = { path = "../../../primitives/mixnet" }
 sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
+sp-virtualization = { path = "../../../primitives/virtualization" }
 
 # client dependencies
 sc-client-api = { path = "../../../client/api" }

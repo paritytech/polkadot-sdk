@@ -42,14 +42,20 @@ use std::{path::Path, sync::Arc};
 
 /// Host functions required for kitchensink runtime and Substrate node.
 #[cfg(not(feature = "runtime-benchmarks"))]
-pub type HostFunctions =
-	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
+pub type HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	sp_statement_store::runtime_api::HostFunctions,
+	// Experimental: Don't activate in your production runtime.
+	sp_virtualization::host_fn::HostFunctions,
+);
 
 /// Host functions required for kitchensink runtime and Substrate node.
 #[cfg(feature = "runtime-benchmarks")]
 pub type HostFunctions = (
 	sp_io::SubstrateHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
+	// Experimental: Don't activate in your production runtime.
+	sp_virtualization::host_fn::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 

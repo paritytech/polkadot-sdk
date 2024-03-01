@@ -16,9 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	ExecError, InstantiateError, MemoryError, MemoryT, SharedState, SyscallHandler, VirtT,
+	host_fn, ExecError, InstantiateError, MemoryError, MemoryT, SharedState, SyscallHandler, VirtT,
 };
-use sp_io::virtualization as host_fn;
 
 /// The forwarder implementation of [`VirtT`].
 pub struct Virt {

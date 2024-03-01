@@ -11,9 +11,12 @@ description = "Spawn a new polkavm instance from within the runtime/pvf"
 workspace = true
 
 [dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["bytes"] }
 log = { workspace = true }
 polkavm = { workspace = true, optional = true }
-sp-io = { path = "../io", default-features = false }
+num_enum = { version = "0.7.1", default-features = false }
+
+sp-runtime-interface = { path = "../runtime-interface", default-features = false }
 sp-std = { path = "../std", default-features = false }
 
 [dev-dependencies]
@@ -23,8 +26,10 @@ sp-virtualization-test-fixture = { path = "./test-fixture" }
 [features]
 default = ["std"]
 std = [
+	"codec/std",
 	"log/std",
+	"num_enum/std",
 	"polkavm",
-	"sp-io/std",
+	"sp-runtime-interface/std",
 	"sp-std/std",
 ]

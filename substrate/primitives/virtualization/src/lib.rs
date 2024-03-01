@@ -17,9 +17,12 @@
 
 //! This crate is intended for use by runtime code (e.g pallet-contracts) to spawn PolkaVM instances
 //! and execute calls into them. Its purpose is to add one layer of abstraction to that it works
-//! transparently from the actual runtime but also from tests (which run natively). Additionally,
-//! this crate is also used to implement the host functions that are used by this crate. This allows
-//! us to encapsulate all the logic regarding PolkaVM setup in one place.
+//! transparently from the actual runtime (via the host functions defined in this crate) but also
+//! from tests (which run natively).
+//!
+//! Additionally, this crate is also used (by the executor) to implement the host functions that are
+//! defined in this crate. This allows us to encapsulate all the logic regarding PolkaVM setup in
+//! one place.
 //!
 //! Please keep in mind that the interface is kept simple because it has to match the interface
 //! of the host function so that the abstraction works. It will never expose the whole PolkaVM
@@ -39,15 +42,13 @@ mod native;
 #[cfg(feature = "std")]
 pub use native::Virt;
 
+mod host_functions;
 mod tests;
 
-pub use tests::run as run_tests;
+pub use crate::{host_functions::virtualization as host_fn, tests::run as run_tests};
 
-pub use sp_io::{
-	VirtDestroyError as DestroyError, VirtExecError as ExecError,
-	VirtInstantiateError as InstantiateError, VirtMemoryError as MemoryError,
-	VirtSharedState as SharedState, VirtSyscallHandler as SyscallHandler,
-};
+use codec::{Decode, Encode};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 /// The concrete memory type used to access the memory of [`Virt`].
 pub type Memory = <Virt as VirtT>::Memory;
@@ -116,3 +117,106 @@ pub trait MemoryT {
 	/// Write `src` into the instances memory at `offset`.
 	fn write(&mut self, offset: u32, src: &[u8]) -> Result<(), MemoryError>;
 }
+
+/// Errors that can be emitted when instantiating a new virtualization instance.
+#[derive(Encode, Decode, TryFromPrimitive, IntoPrimitive, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum InstantiateError {
+	/// The supplied code was invalid.
+	InvalidImage = 1,
+}
+
+/// Errors that can be emitted when executing a new virtualization instance.
+#[derive(Encode, Decode, TryFromPrimitive, IntoPrimitive, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ExecError {
+	/// The supplied `instance_id` was invalid or the instance was destroyed.
+	///
+	/// This error will also be returned if a recursive call into the same instance
+	/// is attempted.
+	InvalidInstance = 1,
+	/// The supplied code was invalid. Most likely caused by invalid entry points.
+	InvalidImage = 2,
+	/// The execution ran out of gas before it could finish.
+	OutOfGas = 3,
+	/// The gas value was not within the valid range.
+	InvalidGasValue = 4,
+	/// The execution trapped before it could finish.
+	///
+	/// This can either be caused by executing an `unimp` instruction or when a host function
+	/// set [`VirtSharedState::exit`] to true.
+	Trap = 5,
+}
+
+/// Errors that can be emitted when accessing a virtualization instance's memory.
+#[derive(Encode, Decode, TryFromPrimitive, IntoPrimitive, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum MemoryError {
+	/// The supplied `instance_id` was invalid or the instance was destroyed.
+	InvalidInstance = 1,
+	/// The memory region specified is not accessible.
+	OutOfBounds = 2,
+}
+
+/// Errors that can be emitted when destroying a virtualization instance.
+#[derive(Encode, Decode, TryFromPrimitive, IntoPrimitive, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum DestroyError {
+	/// The supplied `instance_id` was invalid or the instance was destroyed.
+	InvalidInstance = 1,
+}
+
+/// This is used to hold state between different syscall handler invocations of the same execution.
+///
+/// A reference to it is passed in by the user when executing an virtualization instance.
+/// The same reference is passed as first argument to the [`VirtSyscallHandler`].
+///
+/// In addition to allow the user to pass custom data in using [`Self::user`] it is also used
+/// as a means to share data between the virtualization system and the syscall handler.
+#[repr(C)]
+pub struct SharedState<T> {
+	/// How much gas is remaining for the current execution.
+	///
+	/// Needs to be set by the user before starting the execution. Will be updated by the
+	/// virtualization system before calling the syscall handler. Can be reduced by the syscall
+	/// handler in order to consume additional gas. Increments inside the syscall handler will
+	/// be discarded.
+	pub gas_left: u64,
+	/// Can be used by the syscall handler to signal that the execution should stop.
+	///
+	/// When this is set to true by the syscall handler it will make the execution trap upon
+	/// return from the syscall handler. Used to implement diverging host functions or to
+	/// implement fatal errors.
+	pub exit: bool,
+	/// User defined state for use by the syscall handler.
+	///
+	/// Never touched by the virtualization system.
+	pub user: T,
+}
+
+/// The syscall handler responsible for handling host functions.
+///
+/// This is called by the virtualization system for every host function that is called during
+/// execution.
+///
+/// # Arguments
+///
+/// * `state`: A reference to the state that was passed as an argument to execute.
+/// * `syscall_no`: The 4 byte identifier of the syscall being called.
+/// * `a0-a5`: The values of said registers on entering the syscall.
+///
+/// # Return
+///
+/// The returned u64 will be written into register `a0` and `a1` upon leaving the function. The
+/// least significant bits will be written in `a0` and the most significant bits will be written
+/// into `a1`.
+pub type SyscallHandler<T> = extern "C" fn(
+	state: &mut SharedState<T>,
+	syscall_no: u32,
+	a0: u32,
+	a1: u32,
+	a2: u32,
+	a3: u32,
+	a4: u32,
+	a5: u32,
+) -> u64;
