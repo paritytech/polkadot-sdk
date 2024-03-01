@@ -372,7 +372,10 @@ pub mod pallet {
 
 		/// Origin allowed to instantiate code.
 		///
-		/// NOTE: This is not enforced when a contract instantiates another contract.
+		/// # Note
+		///
+		/// This is not enforced when a contract instantiates another contract. The [`UploadOrigin`] should
+		/// make sure that no code is deployed that does unwanted instantiations.
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Overarching hold reason.
