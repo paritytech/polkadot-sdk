@@ -233,4 +233,8 @@ pub struct PalletCmd {
 	/// This exists only to restore legacy behaviour. It should never actually be needed.
 	#[arg(long)]
 	pub unsafe_overwrite_results: bool,
+
+	/// Do everything as usual but suppresses most prints.
+	#[arg(long)]
+	quiet: bool,
 }

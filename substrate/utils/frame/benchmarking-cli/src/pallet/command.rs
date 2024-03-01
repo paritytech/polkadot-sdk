@@ -34,7 +34,7 @@ use sp_core::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
-	traits::{CallContext, ReadRuntimeVersionExt, WrappedRuntimeCode},
+	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
 };
 use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
@@ -274,22 +274,20 @@ impl PalletCmd {
 			extensions
 		};
 
-		let result = StateMachine::new(
-			state,
-			&mut changes,
-			&executor,
-			"Benchmark_benchmark_metadata",
-			&(self.extra).encode(),
-			&mut extensions(),
-			&runtime_code,
-			CallContext::Offchain,
-		)
-		.execute()
-		.map_err(|e| format!("{}: {}", ERROR_METADATA_NOT_FOUND, e))?;
-
-		let (list, storage_info) =
-			<(Vec<BenchmarkList>, Vec<StorageInfo>) as Decode>::decode(&mut &result[..])
-				.map_err(|e| format!("Failed to decode benchmark metadata: {:?}", e))?;
+		let (list, storage_info): (Vec<BenchmarkList>, Vec<StorageInfo>) =
+			Self::exec_state_machine(
+				StateMachine::new(
+					state,
+					&mut changes,
+					&executor,
+					"Benchmark_benchmark_metadata",
+					&(self.extra).encode(),
+					&mut extensions(),
+					&runtime_code,
+					CallContext::Offchain,
+				),
+				ERROR_METADATA_NOT_FOUND,
+			)?;
 
 		// Use the benchmark list and the user input to determine the set of benchmarks to run.
 		let mut benchmarks_to_run = Vec::new();
@@ -351,13 +349,14 @@ impl PalletCmd {
 		// Maps (pallet, extrinsic) to its component ranges.
 		let mut component_ranges = HashMap::<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>::new();
 		let pov_modes = Self::parse_pov_modes(&benchmarks_to_run)?;
+		let mut failed = Vec::<(String, String)>::new();
 
 		'outer: for (i, (pallet, extrinsic, components, _, pallet_name, extrinsic_name)) in
 			benchmarks_to_run.clone().into_iter().enumerate()
 		{
 			log::info!(
 				target: LOG_TARGET,
-				"[{: >3} %] Starting benchmark: {pallet_name}::{extrinsic_name}",
+				"[{: >3} % ] Starting benchmark: {pallet_name}::{extrinsic_name}",
 				(i * 100) / benchmarks_to_run.len(),
 			);
 			let all_components = if components.is_empty() {
@@ -410,126 +409,126 @@ impl PalletCmd {
 				// First we run a verification
 				if !self.no_verify {
 					let state = &state_without_tracking;
-					let result = match StateMachine::new(
-						state,
-						&mut changes,
-						&executor,
-						"Benchmark_dispatch_benchmark",
-						&(
-							&pallet,
-							&extrinsic,
-							&selected_components.clone(),
-							true, // run verification code
-							1,    // no need to do internal repeats
-						)
-							.encode(),
-						&mut extensions(),
-						&runtime_code,
-						CallContext::Offchain,
-					)
-					.execute()
-					{
+					// Dont use these results since verification code will add overhead.
+					let _batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
+						std::result::Result<Vec<BenchmarkBatch>, String>,
+						_,
+						_,
+					>(
+						StateMachine::new(
+							state,
+							&mut changes,
+							&executor,
+							"Benchmark_dispatch_benchmark",
+							&(
+								&pallet,
+								&extrinsic,
+								&selected_components.clone(),
+								true, // run verification code
+								1,    // no need to do internal repeats
+							)
+								.encode(),
+							&mut extensions(),
+							&runtime_code,
+							CallContext::Offchain,
+						),
+						"dispatch a benchmark",
+					) {
 						Err(e) => {
 							log::error!("Error executing and verifying runtime benchmark: {}", e);
+							failed.push((pallet_name.clone(), extrinsic_name.clone()));
 							continue 'outer
 						},
-						Ok(r) => r,
+						Ok(Err(e)) => {
+							log::error!("Error executing and verifying runtime benchmark: {}", e);
+							failed.push((pallet_name.clone(), extrinsic_name.clone()));
+							continue 'outer
+						},
+						Ok(Ok(b)) => b,
 					};
-					// Dont use these results since verification code will add overhead.
-					let _batch =
-						match <std::result::Result<Vec<BenchmarkBatch>, String> as Decode>::decode(
-							&mut &result[..],
-						) {
-							Err(e) => {
-								log::error!("Failed to decode benchmark results: {:?}", e);
-								continue 'outer
-							},
-							Ok(Err(e)) => {
-								log::error!(
-									"Benchmark {pallet_name}::{extrinsic_name} failed: {e}",
-								);
-								continue 'outer
-							},
-							Ok(Ok(b)) => b,
-						};
 				}
 				// Do one loop of DB tracking.
 				{
+					let mut changes = genesis_changes.clone();
 					let state = &state_with_tracking;
-					let result = match StateMachine::new(
-						state, // todo remove tracking
-						&mut changes,
-						&executor,
-						"Benchmark_dispatch_benchmark",
-						&(
-							&pallet.clone(),
-							&extrinsic.clone(),
-							&selected_components.clone(),
-							false, // dont run verification code for final values
-							self.repeat,
-						)
-							.encode(),
-						&mut extensions(),
-						&runtime_code,
-						CallContext::Offchain,
-					)
-					.execute()
-					{
+					let batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
+						std::result::Result<Vec<BenchmarkBatch>, String>,
+						_,
+						_,
+					>(
+						StateMachine::new(
+							state, // todo remove tracking
+							&mut changes,
+							&executor,
+							"Benchmark_dispatch_benchmark",
+							&(
+								&pallet.clone(),
+								&extrinsic.clone(),
+								&selected_components.clone(),
+								false, // dont run verification code for final values
+								self.repeat,
+							)
+								.encode(),
+							&mut extensions(),
+							&runtime_code,
+							CallContext::Offchain,
+						),
+						"dispatch a benchmark",
+					) {
 						Err(e) => {
 							log::error!("Error executing runtime benchmark: {}", e);
+							failed.push((pallet_name.clone(), extrinsic_name.clone()));
 							continue 'outer
 						},
-						Ok(r) => r,
+						Ok(Err(e)) => {
+							log::error!("Benchmark {pallet_name}::{extrinsic_name} failed: {e}",);
+							failed.push((pallet_name.clone(), extrinsic_name.clone()));
+							continue 'outer
+						},
+						Ok(Ok(b)) => b,
 					};
 
-					let batch =
-						match <std::result::Result<Vec<BenchmarkBatch>, String> as Decode>::decode(
-							&mut &result[..],
-						) {
-							Err(e) => {
-								log::error!("Failed to decode benchmark results: {:?}", e);
-								continue 'outer
-							},
-							Ok(Err(e)) => {
-								log::error!(
-									"Benchmark {pallet_name}::{extrinsic_name} failed: {e}",
-								);
-								continue 'outer
-							},
-							Ok(Ok(b)) => b,
-						};
-
-					batches_db.extend(batch); // FAIL-CI check if missing and error
+					batches_db.extend(batch);
 				}
 				// Finally run a bunch of loops to get extrinsic timing information.
 				for r in 0..self.external_repeat {
+					let mut changes = genesis_changes.clone();
 					let state = &state_without_tracking;
-					let result = StateMachine::new(
-						state, // todo remove tracking
-						&mut changes,
-						&executor,
-						"Benchmark_dispatch_benchmark",
-						&(
-							&pallet.clone(),
-							&extrinsic.clone(),
-							&selected_components.clone(),
-							false, // dont run verification code for final values
-							self.repeat,
-						)
-							.encode(),
-						&mut extensions(),
-						&runtime_code,
-						CallContext::Offchain,
-					)
-					.execute()
-					// No continue here, any error should have been caught by the verification step.
-					.map_err(|e| format!("Error executing runtime benchmark: {}", e))?;
-
-					let batch =
-						<std::result::Result<Vec<BenchmarkBatch>, String> as Decode>::decode(
-							&mut &result[..],
-						)
-						.map_err(|e| format!("Failed to decode benchmark results: {:?}", e))??;
+					let batch = match Self::exec_state_machine::<
+						std::result::Result<Vec<BenchmarkBatch>, String>,
+						_,
+						_,
+					>(
+						StateMachine::new(
+							state, // todo remove tracking
+							&mut changes,
+							&executor,
+							"Benchmark_dispatch_benchmark",
+							&(
+								&pallet.clone(),
+								&extrinsic.clone(),
+								&selected_components.clone(),
+								false, // dont run verification code for final values
+								self.repeat,
+							)
+								.encode(),
+							&mut extensions(),
+							&runtime_code,
+							CallContext::Offchain,
+						),
+						"dispatch a benchmark",
+					) {
+						Err(e) => {
+							return Err(format!("Error executing runtime benchmark: {e}",).into());
+						},
+						Ok(Err(e)) => {
+							return Err(format!(
+								"Benchmark {pallet_name}::{extrinsic_name} failed: {e}",
+							)
+							.into());
+						},
+						Ok(Ok(b)) => b,
+					};
 
 					batches.extend(batch);
 
@@ -540,7 +539,7 @@ impl PalletCmd {
 
 							log::info!(
 								target: LOG_TARGET,
-								"[{: >3} %] Running  benchmark: {pallet_name}::{extrinsic_name}({} args) {}/{} {}/{}",
+								"[{: >3} % ] Running  benchmark: {pallet_name}::{extrinsic_name}({} args) {}/{} {}/{}",
 								(i * 100) / benchmarks_to_run.len(),
 								components.len(),
 								s + 1, // s starts at 0.
@@ -555,15 +554,15 @@ impl PalletCmd {
 		}
 
 		assert!(batches_db.len() == batches.len() / self.external_repeat as usize);
-		if let Some(failed) = benchmarks_to_run.len().checked_sub(batches.len()) {
-			log::error!(
-				target: LOG_TARGET,
-				"Some benchmarks failed, but the results where still written to disk."
+
+		if !failed.is_empty() {
+			failed.sort();
+			eprintln!(
+				"The following {} benchmarks failed:\n{}",
+				failed.len(),
+				failed.iter().map(|(p, e)| format!("- {p}::{e}")).collect::<Vec<_>>().join("\n")
 			);
-			return Err(format!(
-				"There were {failed} benchmarks that either returned an error or panicked."
-			)
-			.into());
+			return Err("Benchmarks failed - see log".into())
 		}
 
 		// Combine all of the benchmark results, so that benchmarks of the same pallet/function
@@ -571,7 +570,7 @@ impl PalletCmd {
 		let batches = combine_batches(batches, batches_db);
 		self.output(&batches, &storage_info, &component_ranges, pov_modes)
 	}
-
+	// 5:36
 	/// Produce a genesis storage and genesis changes.
 	///
 	/// It would be easier to only return one type, but there is no easy way to convert them.
@@ -622,21 +621,19 @@ impl PalletCmd {
 		let runtime_code = runtime.code()?;
 
 		// TODO register extensions
-		let genesis_json: Vec<u8> = StateMachine::new(
-			&state,
-			&mut Default::default(),
-			&executor,
-			"GenesisBuilder_create_default_config",
-			&[], // no args for this call
-			&mut Extensions::default(),
-			&runtime_code,
-			CallContext::Offchain,
-		)
-		.execute()
-		.map_err(|e| format!("Could not call GenesisBuilder Runtime API: {}", e))?;
-
-		let genesis_json: Vec<u8> = codec::Decode::decode(&mut &genesis_json[..])
-			.map_err(|e| format!("Failed to decode genesis config: {:?}", e))?;
+		let genesis_json: Vec<u8> = Self::exec_state_machine(
+			StateMachine::new(
+				&state,
+				&mut Default::default(),
+				&executor,
+				"GenesisBuilder_create_default_config",
+				&[], // no args for this call
+				&mut Extensions::default(),
+				&runtime_code,
+				CallContext::Offchain,
+			),
+			"build the genesis spec",
+		)?;
 
 		// Sanity check that it is JSON before we plug it into the next runtime call.
 		assert!(
@@ -645,24 +642,38 @@ impl PalletCmd {
 		);
 
 		let mut changes = Default::default();
-		let build_config_ret: Vec<u8> = StateMachine::new(
-			&state,
-			&mut changes,
-			&executor,
-			"GenesisBuilder_build_config",
-			&genesis_json.encode(),
-			&mut Extensions::default(),
-			&runtime_code,
-			CallContext::Offchain,
-		)
-		.execute()
-		.map_err(|e| format!("Could not call GenesisBuilder Runtime API: {}", e))?;
+		let build_config_ret: Vec<u8> = Self::exec_state_machine(
+			StateMachine::new(
+				&state,
+				&mut changes,
+				&executor,
+				"GenesisBuilder_build_config",
+				&genesis_json.encode(),
+				&mut Extensions::default(),
+				&runtime_code,
+				CallContext::Offchain,
+			),
+			"populate the genesis state",
+		)?;
 
-		if build_config_ret != vec![0u8] {
+		if !build_config_ret.is_empty() {
 			log::warn!("GenesisBuilder::build_config should not return any data - ignoring");
 		}
 
 		Ok(changes)
+	}
+
+	/// Execute a state machine and decode its return value as `R`.
+	fn exec_state_machine<R: Decode, H: Hash, Exec: CodeExecutor>(
+		mut machine: StateMachine<BenchmarkingState<H>, H, Exec>,
+		hint: &str,
+	) -> Result<R> {
+		let res = machine
+			.execute()
+			.map_err(|e| format!("Could not call runtime API to {hint}: {}", e))?;
+		let res = R::decode(&mut &res[..])
+			.map_err(|e| format!("Failed to decode runtime API result: {:?}", e))?;
+		Ok(res)
 	}
 
 	/// Get the runtime blob for this benchmark.
@@ -675,7 +686,7 @@ impl PalletCmd {
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
 		match (&self.runtime, &self.shared_params.chain) {
 			(Some(runtime), None) => {
-				log::info!("Loading WASM from file: {}", runtime.display());
+				log::info!("Loading WASM from {}", runtime.display());
 				let code = fs::read(runtime)?;
 				let hash = sp_core::blake2_256(&code).to_vec();
 				let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
@@ -706,7 +717,7 @@ impl PalletCmd {
 		pov_modes: PovModesMap,
 	) -> Result<()> {
 		// Jsonify the result and write it to a file or stdout if desired.
-		if !self.jsonify(&batches)? {
+		if !self.jsonify(&batches)? && !self.quiet {
 			// Print the summary only if `jsonify` did not write to stdout.
 			self.print_summary(&batches, &storage_info, pov_modes.clone())
 		}

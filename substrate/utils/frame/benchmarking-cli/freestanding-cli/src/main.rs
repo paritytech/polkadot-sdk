@@ -28,12 +28,12 @@ use sc_cli::Result;
 use sp_runtime::traits::BlakeTwo256;
 
 #[cfg(feature = "extended-host-functions")]
-type HostFunctions = sp_statement_store::runtime_api::HostFunctions;
+type ExtendedHostFunctions = sp_statement_store::runtime_api::HostFunctions;
 #[cfg(not(feature = "extended-host-functions"))]
-type HostFunctions = ();
+type ExtendedHostFunctions = ();
 
 fn main() -> Result<()> {
 	env_logger::init();
 
-	PalletCmd::parse().run_with_maybe_spec::<BlakeTwo256, HostFunctions>(None)
+	PalletCmd::parse().run_with_maybe_spec::<BlakeTwo256, ExtendedHostFunctions>(None)
 }
