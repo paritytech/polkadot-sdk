@@ -150,7 +150,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westend"),
 	impl_name: create_runtime_str!("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_007_001,
+	spec_version: 1_008_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -2419,6 +2419,13 @@ sp_api::impl_runtime_apis! {
 						native_location,
 						dest
 					)
+				}
+
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(Location::here()),
+						fun: Fungible(ExistentialDeposit::get()),
+					}
 				}
 			}
 			impl frame_system_benchmarking::Config for Runtime {}
