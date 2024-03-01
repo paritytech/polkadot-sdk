@@ -476,6 +476,11 @@ where
 
 		Ok(who)
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
+		Ok(T::RuntimeOrigin::from(frame_system::RawOrigin::Signed(UploadOrigin::get().into())))
+	}
 }
 
 pub struct EnsureInstantiateOrigin<T>(sp_std::marker::PhantomData<T>);
@@ -493,6 +498,11 @@ where
 		}
 
 		Ok(who)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
+		Ok(T::RuntimeOrigin::from(frame_system::RawOrigin::Signed(InstantiateOrigin::get().into())))
 	}
 }
 
