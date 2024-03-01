@@ -191,6 +191,46 @@ macro_rules! generate_submit_finality_proof_call_builder {
 	};
 }
 
+/// Macro that generates `SubmitFinalityProofCallBuilder` implementation for the case when
+/// you only have an access to the mocked version of target chain runtime. In this case you
+/// should provide "name" of the call variant for the bridge GRANDPA calls and the "name" of
+/// the variant for the `submit_finality_proof_ex` call within that first option.
+#[rustfmt::skip]
+#[macro_export]
+macro_rules! generate_submit_finality_proof_ex_call_builder {
+	($pipeline:ident, $mocked_builder:ident, $bridge_grandpa:path, $submit_finality_proof:path) => {
+		pub struct $mocked_builder;
+
+		impl $crate::finality::SubmitFinalityProofCallBuilder<$pipeline>
+			for $mocked_builder
+		{
+			fn build_submit_finality_proof_call(
+				header: relay_substrate_client::SyncHeader<
+					relay_substrate_client::HeaderOf<
+						<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::SourceChain
+					>
+				>,
+				proof: bp_header_chain::justification::GrandpaJustification<
+					relay_substrate_client::HeaderOf<
+						<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::SourceChain
+					>
+				>,
+				context: bp_header_chain::justification::JustificationVerificationContext,
+			) -> relay_substrate_client::CallOf<
+				<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::TargetChain
+			> {
+				bp_runtime::paste::item! {
+					$bridge_grandpa($submit_finality_proof {
+						finality_target: Box::new(header.into_inner()),
+						justification: proof,
+						current_set_id: context.authority_set_id
+					})
+				}
+			}
+		}
+	};
+}
+
 /// Run Substrate-to-Substrate finality sync loop.
 pub async fn run<P: SubstrateFinalitySyncPipeline>(
 	source_client: Client<P::SourceChain>,
