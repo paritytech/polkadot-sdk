@@ -702,7 +702,6 @@ mod tests {
 	use secp_utils::*;
 
 	use parity_scale_codec::Encode;
-	use sp_core::H256;
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	use crate::claims;
@@ -715,11 +714,8 @@ mod tests {
 	};
 	use pallet_balances;
 	use sp_runtime::{
-		traits::{BlakeTwo256, Identity, IdentityLookup},
-		transaction_validity::TransactionLongevity,
-		BuildStorage,
-		DispatchError::BadOrigin,
-		TokenError,
+		traits::Identity, transaction_validity::TransactionLongevity, BuildStorage,
+		DispatchError::BadOrigin, TokenError,
 	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
@@ -727,41 +723,20 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Vesting: pallet_vesting::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Claims: claims::{Pallet, Call, Storage, Config<T>, Event<T>, ValidateUnsigned},
+			System: frame_system,
+			Balances: pallet_balances,
+			Vesting: pallet_vesting,
+			Claims: claims,
 		}
 	);
 
-	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
-	}
-
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
-		type BaseCallFilter = frame_support::traits::Everything;
-		type BlockWeights = ();
-		type BlockLength = ();
-		type DbWeight = ();
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
-		type Nonce = u64;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<u64>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
-		type Version = ();
-		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type SS58Prefix = ();
-		type OnSetCode = ();
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
@@ -782,7 +757,6 @@ mod tests {
 		type RuntimeHoldReason = RuntimeHoldReason;
 		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 

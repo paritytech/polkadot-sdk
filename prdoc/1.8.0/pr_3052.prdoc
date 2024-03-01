@@ -1,0 +1,15 @@
+title: "Fixes a scenario where a nomination pool's `TotalValueLocked` is out of sync due to staking's implicit withdraw"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The nomination pools pallet `TotalValueLocked` may get out of sync if the staking pallet
+      does implicit withdrawal of unlocking chunks belonging to a bonded pool stash. This fix
+      is based on a new method on the `OnStakingUpdate` traits, `on_withdraw`, which allows the
+      nomination pools pallet to adjust the `TotalValueLocked` every time there is an implicit or
+      explicit withdrawal from a bonded pool's stash.
+
+crates: 
+  - name: "pallet-nomination-pools"
+  - name: "pallet-staking"
+  - name: "sp-staking"

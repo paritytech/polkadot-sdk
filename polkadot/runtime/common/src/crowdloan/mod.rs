@@ -180,7 +180,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
@@ -888,9 +888,9 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			Crowdloan: crowdloan,
 		}
 	);
 
@@ -944,7 +944,6 @@ mod tests {
 		type RuntimeHoldReason = RuntimeHoldReason;
 		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 

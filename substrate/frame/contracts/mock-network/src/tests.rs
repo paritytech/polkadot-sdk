@@ -21,7 +21,6 @@ use crate::{
 	primitives::{AccountId, CENTS},
 	relay_chain, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
 };
-use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_err,
@@ -31,10 +30,17 @@ use frame_support::{
 use pallet_balances::{BalanceLock, Reasons};
 use pallet_contracts::{Code, CollectEvents, DebugInfo, Determinism};
 use pallet_contracts_fixtures::compile_module;
-use xcm::{v3::prelude::*, VersionedMultiLocation, VersionedXcm};
+use pallet_contracts_uapi::ReturnErrorCode;
+use xcm::{v4::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_simulator::TestExt;
 
 type ParachainContracts = pallet_contracts::Pallet<parachain::Runtime>;
+
+macro_rules! assert_return_code {
+	( $x:expr , $y:expr $(,)? ) => {{
+		assert_eq!(u32::from_le_bytes($x.data[..].try_into().unwrap()), $y as u32);
+	}};
+}
 
 /// Instantiate the tests contract, and fund it with some balance and assets.
 fn instantiate_test_contract(name: &str) -> AccountId {
@@ -82,7 +88,7 @@ fn test_xcm_execute() {
 		let amount: u128 = 10 * CENTS;
 
 		// The XCM used to transfer funds to Bob.
-		let message: xcm_simulator::Xcm<()> = Xcm(vec![
+		let message: Xcm<()> = Xcm(vec![
 			WithdrawAsset(vec![(Here, amount).into()].into()),
 			DepositAsset {
 				assets: All.into(),
@@ -96,23 +102,61 @@ fn test_xcm_execute() {
 			0,
 			Weight::MAX,
 			None,
-			VersionedXcm::V3(message).encode(),
+			VersionedXcm::V4(message).encode(),
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		);
 
-		let mut data = &result.data[..];
-		let outcome = Outcome::decode(&mut data).expect("Failed to decode xcm_execute Outcome");
-		assert_matches!(outcome, Outcome::Complete(_));
+		assert_eq!(result.gas_consumed, result.gas_required);
+		assert_return_code!(&result.result.unwrap(), ReturnErrorCode::Success);
 
 		// Check if the funds are subtracted from the account of Alice and added to the account of
 		// Bob.
 		let initial = INITIAL_BALANCE;
-		assert_eq!(parachain::Assets::balance(0, contract_addr), initial);
 		assert_eq!(ParachainBalances::free_balance(BOB), initial + amount);
+		assert_eq!(ParachainBalances::free_balance(&contract_addr), initial - amount);
+	});
+}
+
+#[test]
+fn test_xcm_execute_incomplete() {
+	MockNet::reset();
+
+	let contract_addr = instantiate_test_contract("xcm_execute");
+	let amount = 10 * CENTS;
+
+	// Execute XCM instructions through the contract.
+	ParaA::execute_with(|| {
+		// The XCM used to transfer funds to Bob.
+		let message: Xcm<()> = Xcm(vec![
+			WithdrawAsset(vec![(Here, amount).into()].into()),
+			// This will fail as the contract does not have enough balance to complete both
+			// withdrawals.
+			WithdrawAsset(vec![(Here, INITIAL_BALANCE).into()].into()),
+			DepositAsset {
+				assets: All.into(),
+				beneficiary: AccountId32 { network: None, id: BOB.clone().into() }.into(),
+			},
+		]);
+
+		let result = ParachainContracts::bare_call(
+			ALICE,
+			contract_addr.clone(),
+			0,
+			Weight::MAX,
+			None,
+			VersionedXcm::V4(message).encode(),
+			DebugInfo::UnsafeDebug,
+			CollectEvents::UnsafeCollect,
+			Determinism::Enforced,
+		);
+
+		assert_eq!(result.gas_consumed, result.gas_required);
+		assert_return_code!(&result.result.unwrap(), ReturnErrorCode::XcmExecutionFailed);
+
+		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
+		assert_eq!(ParachainBalances::free_balance(&contract_addr), INITIAL_BALANCE - amount);
 	});
 }
 
@@ -137,7 +181,7 @@ fn test_xcm_execute_filtered_call() {
 			0,
 			Weight::MAX,
 			None,
-			VersionedXcm::V3(message).encode(),
+			VersionedXcm::V4(message).encode(),
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
@@ -178,17 +222,13 @@ fn test_xcm_execute_reentrant_call() {
 			0,
 			Weight::MAX,
 			None,
-			VersionedXcm::V3(message).encode(),
+			VersionedXcm::V4(message).encode(),
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		);
 
-		let mut data = &result.data[..];
-		let outcome = Outcome::decode(&mut data).expect("Failed to decode xcm_execute Outcome");
-		assert_matches!(outcome, Outcome::Incomplete(_, XcmError::ExpectationFalse));
+		assert_return_code!(&result.result.unwrap(), ReturnErrorCode::XcmExecutionFailed);
 
 		// Funds should not change hands as the XCM transact failed.
 		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
@@ -203,15 +243,15 @@ fn test_xcm_send() {
 
 	// Send XCM instructions through the contract, to lock some funds on the relay chain.
 	ParaA::execute_with(|| {
-		let dest = MultiLocation::from(Parent);
-		let dest = VersionedMultiLocation::V3(dest);
+		let dest = Location::from(Parent);
+		let dest = VersionedLocation::V4(dest);
 
-		let message: xcm_simulator::Xcm<()> = Xcm(vec![
+		let message: Xcm<()> = Xcm(vec![
 			WithdrawAsset((Here, fee).into()),
 			BuyExecution { fees: (Here, fee).into(), weight_limit: WeightLimit::Unlimited },
 			LockAsset { asset: (Here, 5 * CENTS).into(), unlocker: (Parachain(1)).into() },
 		]);
-		let message = VersionedXcm::V3(message);
+		let message = VersionedXcm::V4(message);
 		let exec = ParachainContracts::bare_call(
 			ALICE,
 			contract_addr.clone(),

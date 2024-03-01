@@ -19,12 +19,13 @@
 pub(crate) mod assets_transfer;
 
 use crate::{
-	mock::*, AssetTraps, CurrentMigration, Error, LatestVersionedMultiLocation, Queries,
-	QueryStatus, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,
-	VersionNotifyTargets,
+	mock::*, pallet::SupportedVersion, AssetTraps, Config, CurrentMigration, Error,
+	ExecuteControllerWeightInfo, LatestVersionedLocation, Pallet, Queries, QueryStatus,
+	VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers, VersionNotifyTargets,
+	WeightInfo,
 };
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	traits::{Currency, Hooks},
 	weights::Weight,
 };
@@ -49,9 +50,11 @@ fn report_outcome_notify_works() {
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
-	let sender: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
-	let mut message =
-		Xcm(vec![TransferAsset { assets: (Here, SEND_AMOUNT).into(), beneficiary: sender }]);
+	let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+	let mut message = Xcm(vec![TransferAsset {
+		assets: (Here, SEND_AMOUNT).into(),
+		beneficiary: sender.clone(),
+	}]);
 	let call = pallet_test_notifier::Call::notification_received {
 		query_id: 0,
 		response: Default::default(),
@@ -76,12 +79,12 @@ fn report_outcome_notify_works() {
 				TransferAsset { assets: (Here, SEND_AMOUNT).into(), beneficiary: sender },
 			])
 		);
-		let querier: MultiLocation = Here.into();
+		let querier: Location = Here.into();
 		let status = QueryStatus::Pending {
-			responder: MultiLocation::from(Parachain(OTHER_PARA_ID)).into(),
+			responder: Location::from(Parachain(OTHER_PARA_ID)).into(),
 			maybe_notify: Some((5, 2)),
 			timeout: 100,
-			maybe_match_querier: Some(querier.into()),
+			maybe_match_querier: Some(querier.clone().into()),
 		};
 		assert_eq!(crate::Queries::<Test>::iter().collect::<Vec<_>>(), vec![(0, status)]);
 
@@ -91,14 +94,15 @@ fn report_outcome_notify_works() {
 			max_weight: Weight::from_parts(1_000_000, 1_000_000),
 			querier: Some(querier),
 		}]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			Parachain(OTHER_PARA_ID),
 			message,
-			hash,
+			&mut hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
+			Weight::zero(),
 		);
-		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
+		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
 		assert_eq!(
 			last_events(2),
 			vec![
@@ -124,9 +128,11 @@ fn report_outcome_works() {
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
-	let sender: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
-	let mut message =
-		Xcm(vec![TransferAsset { assets: (Here, SEND_AMOUNT).into(), beneficiary: sender }]);
+	let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+	let mut message = Xcm(vec![TransferAsset {
+		assets: (Here, SEND_AMOUNT).into(),
+		beneficiary: sender.clone(),
+	}]);
 	new_test_ext_with_balances(balances).execute_with(|| {
 		XcmPallet::report_outcome(&mut message, Parachain(OTHER_PARA_ID).into_location(), 100)
 			.unwrap();
@@ -141,12 +147,12 @@ fn report_outcome_works() {
 				TransferAsset { assets: (Here, SEND_AMOUNT).into(), beneficiary: sender },
 			])
 		);
-		let querier: MultiLocation = Here.into();
+		let querier: Location = Here.into();
 		let status = QueryStatus::Pending {
-			responder: MultiLocation::from(Parachain(OTHER_PARA_ID)).into(),
+			responder: Location::from(Parachain(OTHER_PARA_ID)).into(),
 			maybe_notify: None,
 			timeout: 100,
-			maybe_match_querier: Some(querier.into()),
+			maybe_match_querier: Some(querier.clone().into()),
 		};
 		assert_eq!(crate::Queries::<Test>::iter().collect::<Vec<_>>(), vec![(0, status)]);
 
@@ -156,14 +162,15 @@ fn report_outcome_works() {
 			max_weight: Weight::zero(),
 			querier: Some(querier),
 		}]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			Parachain(OTHER_PARA_ID),
 			message,
-			hash,
+			&mut hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
+			Weight::zero(),
 		);
-		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
+		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
 		assert_eq!(
 			last_event(),
 			RuntimeEvent::XcmPallet(crate::Event::ResponseReady {
@@ -185,16 +192,15 @@ fn custom_querier_works() {
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let querier: MultiLocation =
-			(Parent, AccountId32 { network: None, id: ALICE.into() }).into();
+		let querier: Location = (Parent, AccountId32 { network: None, id: ALICE.into() }).into();
 
-		let r = TestNotifier::prepare_new_query(RuntimeOrigin::signed(ALICE), querier);
+		let r = TestNotifier::prepare_new_query(RuntimeOrigin::signed(ALICE), querier.clone());
 		assert_eq!(r, Ok(()));
 		let status = QueryStatus::Pending {
-			responder: MultiLocation::from(AccountId32 { network: None, id: ALICE.into() }).into(),
+			responder: Location::from(AccountId32 { network: None, id: ALICE.into() }).into(),
 			maybe_notify: None,
 			timeout: 100,
-			maybe_match_querier: Some(querier.into()),
+			maybe_match_querier: Some(querier.clone().into()),
 		};
 		assert_eq!(crate::Queries::<Test>::iter().collect::<Vec<_>>(), vec![(0, status)]);
 
@@ -205,21 +211,21 @@ fn custom_querier_works() {
 			max_weight: Weight::zero(),
 			querier: None,
 		}]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm_in_credit(
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			AccountId32 { network: None, id: ALICE.into() },
 			message,
-			hash,
+			&mut hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
 			Weight::from_parts(1_000, 1_000),
 		);
-		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
+		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
 		assert_eq!(
 			last_event(),
 			RuntimeEvent::XcmPallet(crate::Event::InvalidQuerier {
 				origin: AccountId32 { network: None, id: ALICE.into() }.into(),
 				query_id: 0,
-				expected_querier: querier,
+				expected_querier: querier.clone(),
 				maybe_actual_querier: None,
 			}),
 		);
@@ -229,24 +235,24 @@ fn custom_querier_works() {
 			query_id: 0,
 			response: Response::ExecutionResult(None),
 			max_weight: Weight::zero(),
-			querier: Some(MultiLocation::here()),
+			querier: Some(Location::here()),
 		}]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm_in_credit(
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			AccountId32 { network: None, id: ALICE.into() },
 			message,
-			hash,
+			&mut hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
 			Weight::from_parts(1_000, 1_000),
 		);
-		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
+		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
 		assert_eq!(
 			last_event(),
 			RuntimeEvent::XcmPallet(crate::Event::InvalidQuerier {
 				origin: AccountId32 { network: None, id: ALICE.into() }.into(),
 				query_id: 0,
-				expected_querier: querier,
-				maybe_actual_querier: Some(MultiLocation::here()),
+				expected_querier: querier.clone(),
+				maybe_actual_querier: Some(Location::here()),
 			}),
 		);
 
@@ -257,14 +263,15 @@ fn custom_querier_works() {
 			max_weight: Weight::zero(),
 			querier: Some(querier),
 		}]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			AccountId32 { network: None, id: ALICE.into() },
 			message,
-			hash,
+			&mut hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
+			Weight::zero(),
 		);
-		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
+		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
 		assert_eq!(
 			last_event(),
 			RuntimeEvent::XcmPallet(crate::Event::ResponseReady {
@@ -289,12 +296,12 @@ fn send_works() {
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let sender: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
+		let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
 		let message = Xcm(vec![
 			ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 			ClearOrigin,
 			buy_execution((Parent, SEND_AMOUNT)),
-			DepositAsset { assets: AllCounted(1).into(), beneficiary: sender },
+			DepositAsset { assets: AllCounted(1).into(), beneficiary: sender.clone() },
 		]);
 
 		let versioned_dest = Box::new(RelayLocation::get().into());
@@ -304,7 +311,7 @@ fn send_works() {
 			versioned_dest,
 			versioned_message
 		));
-		let sent_message = Xcm(Some(DescendOrigin(sender.try_into().unwrap()))
+		let sent_message = Xcm(Some(DescendOrigin(sender.clone().try_into().unwrap()))
 			.into_iter()
 			.chain(message.0.clone().into_iter())
 			.collect());
@@ -333,8 +340,7 @@ fn send_fails_when_xcm_router_blocks() {
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let sender: MultiLocation =
-			Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let sender: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 		let message = Xcm(vec![
 			ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 			buy_execution((Parent, SEND_AMOUNT)),
@@ -343,7 +349,7 @@ fn send_fails_when_xcm_router_blocks() {
 		assert_noop!(
 			XcmPallet::send(
 				RuntimeOrigin::signed(ALICE),
-				Box::new(MultiLocation::ancestor(8).into()),
+				Box::new(Location::ancestor(8).into()),
 				Box::new(VersionedXcm::from(message.clone())),
 			),
 			crate::Error::<Test>::SendFailure
@@ -363,7 +369,7 @@ fn execute_withdraw_to_deposit_works() {
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 3;
-		let dest: MultiLocation = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
@@ -378,7 +384,9 @@ fn execute_withdraw_to_deposit_works() {
 		assert_eq!(Balances::total_balance(&BOB), SEND_AMOUNT);
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+			RuntimeEvent::XcmPallet(crate::Event::Attempted {
+				outcome: Outcome::Complete { used: weight }
+			})
 		);
 	});
 }
@@ -389,7 +397,7 @@ fn trapped_assets_can_be_claimed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE)];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 6;
-		let dest: MultiLocation = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 
 		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
@@ -401,15 +409,14 @@ fn trapped_assets_can_be_claimed() {
 				// This will make an error.
 				Trap(0),
 				// This would succeed, but we never get to it.
-				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest.clone() },
 			]))),
 			weight
 		));
-		let source: MultiLocation =
-			Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let source: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 		let trapped = AssetTraps::<Test>::iter().collect::<Vec<_>>();
-		let vma = VersionedMultiAssets::from(MultiAssets::from((Here, SEND_AMOUNT)));
-		let hash = BlakeTwo256::hash_of(&(source, vma.clone()));
+		let vma = VersionedAssets::from(Assets::from((Here, SEND_AMOUNT)));
+		let hash = BlakeTwo256::hash_of(&(source.clone(), vma.clone()));
 		assert_eq!(
 			last_events(2),
 			vec![
@@ -419,7 +426,7 @@ fn trapped_assets_can_be_claimed() {
 					assets: vma
 				}),
 				RuntimeEvent::XcmPallet(crate::Event::Attempted {
-					outcome: Outcome::Complete(BaseXcmWeight::get() * 5)
+					outcome: Outcome::Complete { used: BaseXcmWeight::get() * 5 }
 				}),
 			]
 		);
@@ -435,7 +442,7 @@ fn trapped_assets_can_be_claimed() {
 			Box::new(VersionedXcm::from(Xcm(vec![
 				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
 				buy_execution((Here, SEND_AMOUNT)),
-				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest.clone() },
 			]))),
 			weight
 		));
@@ -444,18 +451,70 @@ fn trapped_assets_can_be_claimed() {
 		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE + SEND_AMOUNT);
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 
-		let weight = BaseXcmWeight::get() * 3;
-		assert_ok!(<XcmPallet as xcm_builder::ExecuteController<_, _>>::execute(
+		// Can't claim twice.
+		assert_err_ignore_postinfo!(
+			XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(Xcm(vec![
+					ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
+					buy_execution((Here, SEND_AMOUNT)),
+					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+				]))),
+				weight
+			),
+			Error::<Test>::LocalExecutionIncomplete
+		);
+	});
+}
+
+// Like `trapped_assets_can_be_claimed` but using the `claim_assets` extrinsic.
+#[test]
+fn claim_assets_works() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// First trap some assets.
+		let trapping_program =
+			Xcm::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT).into()).build();
+		// Even though assets are trapped, the extrinsic returns success.
+		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
-				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
-				buy_execution((Here, SEND_AMOUNT)),
-				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
-			]))),
-			weight
+			Box::new(VersionedXcm::V4(trapping_program)),
+			BaseXcmWeight::get() * 2,
 		));
-		let outcome = Outcome::Incomplete(BaseXcmWeight::get(), XcmError::UnknownClaim);
-		assert_eq!(last_event(), RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome }));
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
+
+		// Expected `AssetsTrapped` event info.
+		let source: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let versioned_assets = VersionedAssets::V4(Assets::from((Here, SEND_AMOUNT)));
+		let hash = BlakeTwo256::hash_of(&(source.clone(), versioned_assets.clone()));
+
+		// Assets were indeed trapped.
+		assert_eq!(
+			last_events(2),
+			vec![
+				RuntimeEvent::XcmPallet(crate::Event::AssetsTrapped {
+					hash,
+					origin: source,
+					assets: versioned_assets
+				}),
+				RuntimeEvent::XcmPallet(crate::Event::Attempted {
+					outcome: Outcome::Complete { used: BaseXcmWeight::get() * 1 }
+				})
+			],
+		);
+		let trapped = AssetTraps::<Test>::iter().collect::<Vec<_>>();
+		assert_eq!(trapped, vec![(hash, 1)]);
+
+		// Now claim them with the extrinsic.
+		assert_ok!(XcmPallet::claim_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedAssets::V4((Here, SEND_AMOUNT).into())),
+			Box::new(VersionedLocation::V4(
+				AccountId32 { network: None, id: ALICE.clone().into() }.into()
+			)),
+		));
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 	});
 }
 
@@ -468,10 +527,10 @@ fn incomplete_execute_reverts_side_effects() {
 	let balances = vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE)];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 4;
-		let dest: MultiLocation = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		let amount_to_send = INITIAL_BALANCE - ExistentialDeposit::get();
-		let assets: MultiAssets = (Here, amount_to_send).into();
+		let assets: Assets = (Here, amount_to_send).into();
 		let result = XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(VersionedXcm::from(Xcm(vec![
@@ -488,11 +547,14 @@ fn incomplete_execute_reverts_side_effects() {
 		// all effects are reverted and balances unchanged for either sender or receiver
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE);
+
 		assert_eq!(
 			result,
 			Err(sp_runtime::DispatchErrorWithPostInfo {
 				post_info: frame_support::dispatch::PostDispatchInfo {
-					actual_weight: None,
+					actual_weight: Some(
+						<Pallet<Test> as ExecuteControllerWeightInfo>::execute() + weight
+					),
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
 				error: sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
@@ -506,35 +568,38 @@ fn incomplete_execute_reverts_side_effects() {
 }
 
 #[test]
-fn fake_latest_versioned_multilocation_works() {
+fn fake_latest_versioned_location_works() {
 	use codec::Encode;
-	let remote: MultiLocation = Parachain(1000).into();
-	let versioned_remote = LatestVersionedMultiLocation(&remote);
+	let remote: Location = Parachain(1000).into();
+	let versioned_remote = LatestVersionedLocation(&remote);
 	assert_eq!(versioned_remote.encode(), remote.into_versioned().encode());
 }
 
 #[test]
 fn basic_subscription_works() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
-			Box::new(remote.into()),
+			Box::new(remote.clone().into()),
 		));
 
 		assert_eq!(
 			Queries::<Test>::iter().collect::<Vec<_>>(),
-			vec![(0, QueryStatus::VersionNotifier { origin: remote.into(), is_active: false })]
+			vec![(
+				0,
+				QueryStatus::VersionNotifier { origin: remote.clone().into(), is_active: false }
+			)]
 		);
 		assert_eq!(
 			VersionNotifiers::<Test>::iter().collect::<Vec<_>>(),
-			vec![(XCM_VERSION, remote.into(), 0)]
+			vec![(XCM_VERSION, remote.clone().into(), 0)]
 		);
 
 		assert_eq!(
 			take_sent_xcm(),
 			vec![(
-				remote,
+				remote.clone(),
 				Xcm(vec![SubscribeVersion { query_id: 0, max_response_weight: Weight::zero() }]),
 			),]
 		);
@@ -561,16 +626,16 @@ fn basic_subscription_works() {
 #[test]
 fn subscriptions_increment_id() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
-			Box::new(remote.into()),
+			Box::new(remote.clone().into()),
 		));
 
-		let remote2: MultiLocation = Parachain(1001).into();
+		let remote2: Location = Parachain(1001).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
-			Box::new(remote2.into()),
+			Box::new(remote2.clone().into()),
 		));
 
 		assert_eq!(
@@ -598,10 +663,10 @@ fn subscriptions_increment_id() {
 #[test]
 fn double_subscription_fails() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
-			Box::new(remote.into()),
+			Box::new(remote.clone().into()),
 		));
 		assert_noop!(
 			XcmPallet::force_subscribe_version_notify(
@@ -616,19 +681,19 @@ fn double_subscription_fails() {
 #[test]
 fn unsubscribe_works() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
-			Box::new(remote.into()),
+			Box::new(remote.clone().into()),
 		));
 		assert_ok!(XcmPallet::force_unsubscribe_version_notify(
 			RuntimeOrigin::root(),
-			Box::new(remote.into())
+			Box::new(remote.clone().into())
 		));
 		assert_noop!(
 			XcmPallet::force_unsubscribe_version_notify(
 				RuntimeOrigin::root(),
-				Box::new(remote.into())
+				Box::new(remote.clone().into())
 			),
 			Error::<Test>::NoSubscription,
 		);
@@ -637,13 +702,13 @@ fn unsubscribe_works() {
 			take_sent_xcm(),
 			vec![
 				(
-					remote,
+					remote.clone(),
 					Xcm(vec![SubscribeVersion {
 						query_id: 0,
 						max_response_weight: Weight::zero()
 					}]),
 				),
-				(remote, Xcm(vec![UnsubscribeVersion]),),
+				(remote.clone(), Xcm(vec![UnsubscribeVersion]),),
 			]
 		);
 	});
@@ -655,13 +720,19 @@ fn subscription_side_works() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
 		AdvertisedXcmVersion::set(1);
 
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		let weight = BaseXcmWeight::get();
 		let message =
 			Xcm(vec![SubscribeVersion { query_id: 0, max_response_weight: Weight::zero() }]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote, message, hash, weight);
-		assert_eq!(r, Outcome::Complete(weight));
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			remote.clone(),
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
+		);
+		assert_eq!(r, Outcome::Complete { used: weight });
 
 		let instr = QueryResponse {
 			query_id: 0,
@@ -669,7 +740,7 @@ fn subscription_side_works() {
 			response: Response::Version(1),
 			querier: None,
 		};
-		assert_eq!(take_sent_xcm(), vec![(remote, Xcm(vec![instr]))]);
+		assert_eq!(take_sent_xcm(), vec![(remote.clone(), Xcm(vec![instr]))]);
 
 		// A runtime upgrade which doesn't alter the version sends no notifications.
 		CurrentMigration::<Test>::put(VersionMigrationStage::default());
@@ -698,7 +769,7 @@ fn subscription_side_upgrades_work_with_notify() {
 		AdvertisedXcmVersion::set(1);
 
 		// An entry from a previous runtime with v2 XCM.
-		let v2_location = VersionedMultiLocation::V2(xcm::v2::Junction::Parachain(1001).into());
+		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1001).into());
 		VersionNotifyTargets::<Test>::insert(1, v2_location, (70, Weight::zero(), 2));
 		let v3_location = Parachain(1003).into_versioned();
 		VersionNotifyTargets::<Test>::insert(3, v3_location, (72, Weight::zero(), 2));
@@ -751,7 +822,7 @@ fn subscription_side_upgrades_work_with_notify() {
 fn subscription_side_upgrades_work_without_notify() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
 		// An entry from a previous runtime with v2 XCM.
-		let v2_location = VersionedMultiLocation::V2(xcm::v2::Junction::Parachain(1001).into());
+		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1001).into());
 		VersionNotifyTargets::<Test>::insert(1, v2_location, (70, Weight::zero(), 2));
 		let v3_location = Parachain(1003).into_versioned();
 		VersionNotifyTargets::<Test>::insert(3, v3_location, (72, Weight::zero(), 2));
@@ -765,8 +836,8 @@ fn subscription_side_upgrades_work_without_notify() {
 		assert_eq!(
 			contents,
 			vec![
-				(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 3)),
-				(XCM_VERSION, Parachain(1003).into_versioned(), (72, Weight::zero(), 3)),
+				(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 4)),
+				(XCM_VERSION, Parachain(1003).into_versioned(), (72, Weight::zero(), 4)),
 			]
 		);
 	});
@@ -775,10 +846,10 @@ fn subscription_side_upgrades_work_without_notify() {
 #[test]
 fn subscriber_side_subscription_works() {
 	new_test_ext_with_balances_and_xcm_version(vec![], Some(XCM_VERSION)).execute_with(|| {
-		let remote: MultiLocation = Parachain(1000).into();
+		let remote: Location = Parachain(1000).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
-			Box::new(remote.into()),
+			Box::new(remote.clone().into()),
 		));
 		assert_eq!(XcmPallet::get_version_for(&remote), None);
 		take_sent_xcm();
@@ -795,9 +866,15 @@ fn subscriber_side_subscription_works() {
 				querier: None,
 			},
 		]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote, message, hash, weight);
-		assert_eq!(r, Outcome::Complete(weight));
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			remote.clone(),
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
+		);
+		assert_eq!(r, Outcome::Complete { used: weight });
 		assert_eq!(take_sent_xcm(), vec![]);
 		assert_eq!(XcmPallet::get_version_for(&remote), Some(1));
 
@@ -814,9 +891,15 @@ fn subscriber_side_subscription_works() {
 				querier: None,
 			},
 		]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote, message, hash, weight);
-		assert_eq!(r, Outcome::Complete(weight));
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			remote.clone(),
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
+		);
+		assert_eq!(r, Outcome::Complete { used: weight });
 		assert_eq!(take_sent_xcm(), vec![]);
 		assert_eq!(XcmPallet::get_version_for(&remote), Some(2));
 
@@ -832,73 +915,79 @@ fn subscriber_side_subscription_works() {
 #[test]
 fn auto_subscription_works() {
 	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
-		let remote_v2: MultiLocation = Parachain(1000).into();
-		let remote_v3: MultiLocation = Parachain(1001).into();
+		let remote_v2: Location = Parachain(1000).into();
+		let remote_v4: Location = Parachain(1001).into();
 
 		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(2)));
 
 		// Wrapping a version for a destination we don't know elicits a subscription.
 		let msg_v2 = xcm::v2::Xcm::<()>(vec![xcm::v2::Instruction::Trap(0)]);
-		let msg_v3 = xcm::v3::Xcm::<()>(vec![xcm::v3::Instruction::ClearTopic]);
+		let msg_v4 = xcm::v4::Xcm::<()>(vec![xcm::v4::Instruction::ClearTopic]);
 		assert_eq!(
 			XcmPallet::wrap_version(&remote_v2, msg_v2.clone()),
 			Ok(VersionedXcm::from(msg_v2.clone())),
 		);
-		assert_eq!(XcmPallet::wrap_version(&remote_v2, msg_v3.clone()), Err(()));
+		assert_eq!(XcmPallet::wrap_version(&remote_v2, msg_v4.clone()), Err(()));
 
-		let expected = vec![(remote_v2.into(), 2)];
+		let expected = vec![(remote_v2.clone().into(), 2)];
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), expected);
 
 		assert_eq!(
-			XcmPallet::wrap_version(&remote_v3, msg_v2.clone()),
+			XcmPallet::wrap_version(&remote_v4, msg_v2.clone()),
 			Ok(VersionedXcm::from(msg_v2.clone())),
 		);
-		assert_eq!(XcmPallet::wrap_version(&remote_v3, msg_v3.clone()), Err(()));
+		assert_eq!(XcmPallet::wrap_version(&remote_v4, msg_v4.clone()), Err(()));
 
-		let expected = vec![(remote_v2.into(), 2), (remote_v3.into(), 2)];
+		let expected = vec![(remote_v2.clone().into(), 2), (remote_v4.clone().into(), 2)];
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), expected);
 
 		XcmPallet::on_initialize(1);
 		assert_eq!(
 			take_sent_xcm(),
 			vec![(
-				remote_v3,
+				remote_v4.clone(),
 				Xcm(vec![SubscribeVersion { query_id: 0, max_response_weight: Weight::zero() }]),
 			)]
 		);
 
-		// Assume remote_v3 is working ok and XCM version 3.
+		// Assume remote_v4 is working ok and XCM version 4.
 
 		let weight = BaseXcmWeight::get();
 		let message = Xcm(vec![
-			// Remote supports XCM v3
+			// Remote supports XCM v4
 			QueryResponse {
 				query_id: 0,
 				max_weight: Weight::zero(),
-				response: Response::Version(3),
+				response: Response::Version(4),
 				querier: None,
 			},
 		]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote_v3, message, hash, weight);
-		assert_eq!(r, Outcome::Complete(weight));
-
-		// V2 messages can be sent to remote_v3 under XCM v3.
-		assert_eq!(
-			XcmPallet::wrap_version(&remote_v3, msg_v2.clone()),
-			Ok(VersionedXcm::from(msg_v2.clone()).into_version(3).unwrap()),
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			remote_v4.clone(),
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
 		);
-		// This message can now be sent to remote_v3 as it's v3.
+		assert_eq!(r, Outcome::Complete { used: weight });
+
+		// V2 messages can be sent to remote_v4 under XCM v4.
 		assert_eq!(
-			XcmPallet::wrap_version(&remote_v3, msg_v3.clone()),
-			Ok(VersionedXcm::from(msg_v3.clone()))
+			XcmPallet::wrap_version(&remote_v4, msg_v2.clone()),
+			Ok(VersionedXcm::from(msg_v2.clone()).into_version(4).unwrap()),
+		);
+		// This message can now be sent to remote_v4 as it's v4.
+		assert_eq!(
+			XcmPallet::wrap_version(&remote_v4, msg_v4.clone()),
+			Ok(VersionedXcm::from(msg_v4.clone()))
 		);
 
 		XcmPallet::on_initialize(2);
 		assert_eq!(
 			take_sent_xcm(),
 			vec![(
-				remote_v2,
+				remote_v2.clone(),
 				Xcm(vec![SubscribeVersion { query_id: 1, max_response_weight: Weight::zero() }]),
 			)]
 		);
@@ -915,16 +1004,22 @@ fn auto_subscription_works() {
 				querier: None,
 			},
 		]);
-		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote_v2, message, hash, weight);
-		assert_eq!(r, Outcome::Complete(weight));
+		let mut hash = fake_message_hash(&message);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			remote_v2.clone(),
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
+		);
+		assert_eq!(r, Outcome::Complete { used: weight });
 
-		// v3 messages cannot be sent to remote_v2...
+		// v4 messages cannot be sent to remote_v2...
 		assert_eq!(
 			XcmPallet::wrap_version(&remote_v2, msg_v2.clone()),
 			Ok(VersionedXcm::V2(msg_v2))
 		);
-		assert_eq!(XcmPallet::wrap_version(&remote_v2, msg_v3.clone()), Err(()));
+		assert_eq!(XcmPallet::wrap_version(&remote_v2, msg_v4.clone()), Err(()));
 	})
 }
 
@@ -934,9 +1029,9 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 		AdvertisedXcmVersion::set(1);
 
 		// An entry from a previous runtime with v0 XCM.
-		let v2_location = VersionedMultiLocation::V2(xcm::v2::Junction::Parachain(1001).into());
+		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1001).into());
 		VersionNotifyTargets::<Test>::insert(1, v2_location, (70, Weight::zero(), 1));
-		let v2_location = VersionedMultiLocation::V2(xcm::v2::Junction::Parachain(1002).into());
+		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1002).into());
 		VersionNotifyTargets::<Test>::insert(2, v2_location, (71, Weight::zero(), 1));
 		let v3_location = Parachain(1003).into_versioned();
 		VersionNotifyTargets::<Test>::insert(3, v3_location, (72, Weight::zero(), 1));
@@ -1003,9 +1098,9 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 #[test]
 fn get_and_wrap_version_works() {
 	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
-		let remote_a: MultiLocation = Parachain(1000).into();
-		let remote_b: MultiLocation = Parachain(1001).into();
-		let remote_c: MultiLocation = Parachain(1002).into();
+		let remote_a: Location = Parachain(1000).into();
+		let remote_b: Location = Parachain(1001).into();
+		let remote_c: Location = Parachain(1002).into();
 
 		// no `safe_xcm_version` version at `GenesisConfig`
 		assert_eq!(XcmPallet::get_version_for(&remote_a), None);
@@ -1023,7 +1118,7 @@ fn get_and_wrap_version_works() {
 		// set XCM version only for `remote_a`
 		assert_ok!(XcmPallet::force_xcm_version(
 			RuntimeOrigin::root(),
-			Box::new(remote_a),
+			Box::new(remote_a.clone()),
 			XCM_VERSION
 		));
 		assert_eq!(XcmPallet::get_version_for(&remote_a), Some(XCM_VERSION));
@@ -1041,7 +1136,10 @@ fn get_and_wrap_version_works() {
 		// does not work because remote_b has unknown version and default is set to 1, and
 		// `XCM_VERSION` cannot be wrapped to the `1`
 		assert_eq!(XcmPallet::wrap_version(&remote_b, xcm.clone()), Err(()));
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 1)]);
+		assert_eq!(
+			VersionDiscoveryQueue::<Test>::get().into_inner(),
+			vec![(remote_b.clone().into(), 1)]
+		);
 
 		// set default to the `XCM_VERSION`
 		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(XCM_VERSION)));
@@ -1053,14 +1151,101 @@ fn get_and_wrap_version_works() {
 			XcmPallet::wrap_version(&remote_b, xcm.clone()),
 			Ok(VersionedXcm::from(xcm.clone()))
 		);
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 2)]);
+		assert_eq!(
+			VersionDiscoveryQueue::<Test>::get().into_inner(),
+			vec![(remote_b.clone().into(), 2)]
+		);
 
 		// change remote_c to `1`
-		assert_ok!(XcmPallet::force_xcm_version(RuntimeOrigin::root(), Box::new(remote_c), 1));
+		assert_ok!(XcmPallet::force_xcm_version(
+			RuntimeOrigin::root(),
+			Box::new(remote_c.clone()),
+			1
+		));
 
 		// does not work because remote_c has `1` and default is `XCM_VERSION` which cannot be
 		// wrapped to the `1`
 		assert_eq!(XcmPallet::wrap_version(&remote_c, xcm.clone()), Err(()));
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 2)]);
+	})
+}
+
+#[test]
+fn multistage_migration_works() {
+	new_test_ext_with_balances(vec![]).execute_with(|| {
+		// An entry from a previous runtime with v3 XCM.
+		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1001).into());
+		let v3_version = xcm::v3::VERSION;
+		SupportedVersion::<Test>::insert(v3_version, v3_location.clone(), v3_version);
+		VersionNotifiers::<Test>::insert(v3_version, v3_location.clone(), 1);
+		VersionNotifyTargets::<Test>::insert(
+			v3_version,
+			v3_location,
+			(70, Weight::zero(), v3_version),
+		);
+		// A version to advertise.
+		AdvertisedXcmVersion::set(4);
+
+		// check `try-state`
+		assert!(Pallet::<Test>::do_try_state().is_err());
+
+		// closure simulates a multistage migration process
+		let migrate = |expected_cycle_count| {
+			// A runtime upgrade which alters the version does send notifications.
+			CurrentMigration::<Test>::put(VersionMigrationStage::default());
+			let mut maybe_migration = CurrentMigration::<Test>::take();
+			let mut counter = 0;
+			let mut weight_used = Weight::zero();
+			while let Some(migration) = maybe_migration.take() {
+				counter += 1;
+				let (w, m) = XcmPallet::check_xcm_version_change(migration, Weight::zero());
+				maybe_migration = m;
+				weight_used.saturating_accrue(w);
+			}
+			assert_eq!(counter, expected_cycle_count);
+			weight_used
+		};
+
+		// run migration for the first time
+		let _ = migrate(4);
+
+		// check xcm sent
+		assert_eq!(
+			take_sent_xcm(),
+			vec![(
+				Parachain(1001).into(),
+				Xcm(vec![QueryResponse {
+					query_id: 70,
+					max_weight: Weight::zero(),
+					response: Response::Version(AdvertisedXcmVersion::get()),
+					querier: None,
+				}])
+			),]
+		);
+
+		// check migrated data
+		assert_eq!(
+			SupportedVersion::<Test>::iter().collect::<Vec<_>>(),
+			vec![(XCM_VERSION, Parachain(1001).into_versioned(), v3_version),]
+		);
+		assert_eq!(
+			VersionNotifiers::<Test>::iter().collect::<Vec<_>>(),
+			vec![(XCM_VERSION, Parachain(1001).into_versioned(), 1),]
+		);
+		assert_eq!(
+			VersionNotifyTargets::<Test>::iter().collect::<Vec<_>>(),
+			vec![(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 4)),]
+		);
+
+		// run migration again to check it can run multiple time without any harm or double sending
+		// messages.
+		let weight_used = migrate(1);
+		assert_eq!(weight_used, 1_u8 * <Test as Config>::WeightInfo::already_notified_target());
+
+		// check no xcm sent
+		assert_eq!(take_sent_xcm(), vec![]);
+
+		// check `try-state`
+		assert!(Pallet::<Test>::do_try_state().is_ok());
 	})
 }

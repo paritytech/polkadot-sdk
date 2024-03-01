@@ -16,16 +16,16 @@
 
 use polkadot_node_subsystem::HeadSupportsParachains;
 use polkadot_node_subsystem_types::Hash;
+use sp_consensus::SyncOracle;
 
 pub mod av_store;
+pub mod chain_api;
 pub mod dummy;
 pub mod network_bridge;
 pub mod runtime_api;
 
-pub use av_store::*;
-pub use runtime_api::*;
-
 pub struct AlwaysSupportsParachains {}
+
 #[async_trait::async_trait]
 impl HeadSupportsParachains for AlwaysSupportsParachains {
 	async fn head_supports_parachains(&self, _head: &Hash) -> bool {
@@ -35,8 +35,8 @@ impl HeadSupportsParachains for AlwaysSupportsParachains {
 
 // An orchestra with dummy subsystems
 macro_rules! dummy_builder {
-	($spawn_task_handle: ident) => {{
-		use super::core::mock::dummy::*;
+	($spawn_task_handle: ident, $metrics: ident) => {{
+		use $crate::core::mock::dummy::*;
 
 		// Initialize a mock overseer.
 		// All subsystem except approval_voting and approval_distribution are mock subsystems.
@@ -67,10 +67,22 @@ macro_rules! dummy_builder {
 			.activation_external_listeners(Default::default())
 			.span_per_active_leaf(Default::default())
 			.active_leaves(Default::default())
-			.metrics(Default::default())
+			.metrics($metrics)
 			.supports_parachains(AlwaysSupportsParachains {})
 			.spawner(SpawnGlue($spawn_task_handle))
 	}};
 }
-
 pub(crate) use dummy_builder;
+
+#[derive(Clone)]
+pub struct TestSyncOracle {}
+
+impl SyncOracle for TestSyncOracle {
+	fn is_major_syncing(&self) -> bool {
+		false
+	}
+
+	fn is_offline(&self) -> bool {
+		unimplemented!("not used by subsystem benchmarks")
+	}
+}

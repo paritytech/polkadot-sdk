@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add `availability-distribution` and `biftield-distribution` subsystem benchmark
+
+doc:
+  - audience: Node Dev
+    description: |
+      The new subsystem benchmark test objective (`DataAvailabilityWrite`) is designed to stress 
+      test the part of the pipeline that takes as input a backed candidate and then distributes 
+      it as erasure coded chunks to other validators. The test pulls in the `av-store`, 
+      `bitfield-distribution` and `availability-distribution` subsystems while the whole network and rest 
+      of the node subsystems are emulated.
+
+crates: [ ]

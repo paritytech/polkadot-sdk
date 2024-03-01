@@ -24,19 +24,19 @@ fn create_and_claim_treasury_spend() {
 	const ASSET_ID: u32 = 1984;
 	const SPEND_AMOUNT: u128 = 1_000_000;
 	// treasury location from a sibling parachain.
-	let treasury_location: MultiLocation = MultiLocation::new(1, PalletInstance(37));
+	let treasury_location: Location = Location::new(1, PalletInstance(37));
 	// treasury account on a sibling parachain.
 	let treasury_account =
 		asset_hub_westend_runtime::xcm_config::LocationToAccountId::convert_location(
 			&treasury_location,
 		)
 		.unwrap();
-	let asset_hub_location = MultiLocation::new(0, Parachain(AssetHubWestend::para_id().into()));
+	let asset_hub_location = Location::new(0, Parachain(AssetHubWestend::para_id().into()));
 	let root = <Westend as Chain>::RuntimeOrigin::root();
 	// asset kind to be spend from the treasury.
-	let asset_kind = VersionedLocatableAsset::V3 {
+	let asset_kind = VersionedLocatableAsset::V4 {
 		location: asset_hub_location,
-		asset_id: AssetId::Concrete((PalletInstance(50), GeneralIndex(ASSET_ID.into())).into()),
+		asset_id: AssetId([PalletInstance(50), GeneralIndex(ASSET_ID.into())].into()),
 	};
 	// treasury spend beneficiary.
 	let alice: AccountId = Westend::account_id_of(ALICE);
@@ -71,7 +71,7 @@ fn create_and_claim_treasury_spend() {
 			root,
 			Box::new(asset_kind),
 			SPEND_AMOUNT,
-			Box::new(MultiLocation::new(0, Into::<[u8; 32]>::into(alice.clone())).into()),
+			Box::new(Location::new(0, Into::<[u8; 32]>::into(alice.clone())).into()),
 			None,
 		));
 		// claim the spend.

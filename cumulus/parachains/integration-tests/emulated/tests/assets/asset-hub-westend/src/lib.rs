@@ -28,7 +28,7 @@ pub use frame_support::{
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Westend as WestendId},
+	v3::{self, Error, NetworkId::Westend as WestendId},
 };
 
 // Cumulus
@@ -56,7 +56,8 @@ pub use westend_system_emulated_network::{
 	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
 	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-	CollectivesWestendPara as CollectivesWestend, PenpalBPara as PenpalB,
+	CollectivesWestendPara as CollectivesWestend, PenpalAPara as PenpalA,
+	PenpalAParaReceiver as PenpalAReceiver, PenpalBPara as PenpalB,
 	PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
 	WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
 	WestendRelaySender as WestendSender,
@@ -72,6 +73,7 @@ pub type RelayToParaTest = Test<Westend, PenpalB>;
 pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
 pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalB>;
 pub type ParaToSystemParaTest = Test<PenpalB, AssetHubWestend>;
+pub type ParaToParaTest = Test<PenpalB, PenpalA, Westend>;
 
 #[cfg(test)]
 mod tests;
