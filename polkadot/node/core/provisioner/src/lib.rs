@@ -698,9 +698,9 @@ async fn request_backable_candidates(
 ) -> Result<Vec<(CandidateHash, Hash)>, Error> {
 	let block_number = get_block_number_under_construction(relay_parent, sender).await?;
 
-	// Record which cores are scheduled for each paraid. Use a BTreeMap because
+	// Record how many cores are scheduled for each paraid. Use a BTreeMap because
 	// we'll need to iterate through them.
-	let mut scheduled_cores: BTreeMap<ParaId, HashSet<CoreIndex>> = BTreeMap::new();
+	let mut scheduled_cores: BTreeMap<ParaId, usize> = BTreeMap::new();
 	// The on-chain ancestors of a para present in availability-cores.
 	let mut ancestors: HashMap<ParaId, Ancestors> =
 		HashMap::with_capacity(availability_cores.len());
@@ -709,10 +709,7 @@ async fn request_backable_candidates(
 		let core_idx = CoreIndex(core_idx as u32);
 		match core {
 			CoreState::Scheduled(scheduled_core) => {
-				scheduled_cores
-					.entry(scheduled_core.para_id)
-					.or_insert(HashSet::new())
-					.insert(core_idx);
+				*scheduled_cores.entry(scheduled_core.para_id).or_insert(0) += 1;
 			},
 			CoreState::Occupied(occupied_core) => {
 				let is_available = bitfields_indicate_availability(
@@ -729,20 +726,14 @@ async fn request_backable_candidates(
 
 					if let Some(ref scheduled_core) = occupied_core.next_up_on_available {
 						// Request a new backable candidate for the newly scheduled para id.
-						scheduled_cores
-							.entry(scheduled_core.para_id)
-							.or_insert(HashSet::new())
-							.insert(core_idx);
+						*scheduled_cores.entry(scheduled_core.para_id).or_insert(0) += 1;
 					}
 				} else if occupied_core.time_out_at <= block_number {
 					// Timed out before being available.
 
 					if let Some(ref scheduled_core) = occupied_core.next_up_on_time_out {
 						// Candidate's availability timed out, practically same as scheduled.
-						scheduled_cores
-							.entry(scheduled_core.para_id)
-							.or_insert(HashSet::new())
-							.insert(core_idx);
+						*scheduled_cores.entry(scheduled_core.para_id).or_insert(0) += 1;
 					}
 				} else {
 					// Not timed out and not available.
@@ -759,9 +750,8 @@ async fn request_backable_candidates(
 	let mut selected_candidates: Vec<(CandidateHash, Hash)> =
 		Vec::with_capacity(availability_cores.len());
 
-	for (para_id, cores) in scheduled_cores {
+	for (para_id, core_count) in scheduled_cores {
 		let para_ancestors = ancestors.remove(&para_id).unwrap_or_default();
-		let core_count = cores.len();
 
 		// If elastic scaling MVP is disabled, only allow one candidate per parachain.
 		if !elastic_scaling_mvp && core_count > 1 {
