@@ -206,7 +206,7 @@ where
 				sub_id.clone(),
 			);
 
-			chain_head_follow.generate_events(sink, sub_data).await;
+			let _result = chain_head_follow.generate_events(sink, sub_data).await;
 
 			subscriptions.remove_subscription(&sub_id);
 			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription removed", sub_id);

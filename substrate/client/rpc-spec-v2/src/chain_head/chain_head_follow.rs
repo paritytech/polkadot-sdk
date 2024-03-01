@@ -204,9 +204,7 @@ where
 		// Note: u32 would be enough here.
 		let distance: u64 = block_num.saturating_sub(finalized_num).saturated_into();
 		if distance > 128 {
-			return Err(SubscriptionManagementError::Custom(
-				"Distance between the blocks is too large".into(),
-			));
+			return Err(SubscriptionManagementError::BlockDistanceTooLarge);
 		}
 
 		Ok(())
@@ -547,7 +545,8 @@ where
 		mut to_ignore: HashSet<Block::Hash>,
 		sink: SubscriptionSink,
 		rx_stop: oneshot::Receiver<()>,
-	) where
+	) -> Result<(), SubscriptionManagementError>
+	where
 		EventStream: Stream<Item = NotificationType<Block>> + Unpin,
 	{
 		let mut stream_item = stream.next();
@@ -576,7 +575,7 @@ where
 					);
 					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 					let _ = sink.send(msg).await;
-					return
+					return Err(err)
 				},
 			};
 
@@ -591,7 +590,8 @@ where
 
 					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 					let _ = sink.send(msg).await;
-					return
+					// No need to propagate this error further, the client disconnected.
+					return Ok(())
 				}
 			}
 
@@ -603,6 +603,7 @@ where
 		// or the `Stop` receiver was triggered.
 		let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 		let _ = sink.send(msg).await;
+		Ok(())
 	}
 
 	/// Generate the block events for the `chainHead_follow` method.
@@ -610,7 +611,7 @@ where
 		&mut self,
 		sink: SubscriptionSink,
 		sub_data: InsertedSubscriptionData<Block>,
-	) {
+	) -> Result<(), SubscriptionManagementError> {
 		// Register for the new block and finalized notifications.
 		let stream_import = self
 			.client
@@ -638,7 +639,7 @@ where
 				);
 				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 				let _ = sink.send(msg).await;
-				return
+				return Err(err)
 			},
 		};
 
@@ -648,6 +649,6 @@ where
 		let stream = stream::once(futures::future::ready(initial)).chain(merged);
 
 		self.submit_events(&startup_point, stream.boxed(), pruned_forks, sink, sub_data.rx_stop)
-			.await;
+			.await
 	}
 }
