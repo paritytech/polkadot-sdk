@@ -398,7 +398,7 @@ async fn distribute_collation<Context>(
 
 	// Determine which core(s) the para collated-on is assigned to.
 	// If it is not scheduled then ignore the message.
-	let (our_core, num_cores, elastic_scaling) =
+	let (our_cores, num_cores) =
 		match determine_cores(ctx.sender(), id, candidate_relay_parent, relay_parent_mode).await? {
 			(cores, _num_cores) if cores.is_empty() => {
 				gum::warn!(
@@ -409,18 +409,20 @@ async fn distribute_collation<Context>(
 
 				return Ok(())
 			},
-			(cores, num_cores) if cores.len() > 1 => {
-				gum::debug!(
-					target: LOG_TARGET,
-					para_id = %id,
-					"{} is assigned to {} cores at {}", id, cores.len(), candidate_relay_parent,
-				);
-
-				(cores[0], num_cores, true)
-			},
-			(cores, num_cores) => (cores[0], num_cores, false),
+			(cores, num_cores) => (cores, num_cores),
 		};
 
+	let elastic_scaling = our_cores.len() > 1;
+	if elastic_scaling {
+		gum::debug!(
+			target: LOG_TARGET,
+			para_id = %id,
+			cores = ?our_cores,
+			"{} is assigned to {} cores at {}", id, our_cores.len(), candidate_relay_parent,
+		);
+	}
+
+	let our_core = our_cores[0];
 	// Determine the group on that core.
 	//
 	// When prospective parachains are disabled, candidate relay parent here is
