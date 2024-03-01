@@ -121,8 +121,8 @@
 //!
 //! ## Further References
 //!
-//! <https://www.youtube.com/watch?v=0eNGZpNkJk4>
-//! <https://substrate.stackexchange.com/questions/922/pallet-loose-couplingtight-coupling-and-missing-traits>
+//! - <https://www.youtube.com/watch?v=0eNGZpNkJk4>
+//! - <https://substrate.stackexchange.com/questions/922/pallet-loose-couplingtight-coupling-and-missing-traits>
 //!
 //! [`AuthorProvider`]: crate::reference_docs::frame_pallet_coupling::AuthorProvider
 //! [`OtherAuthorProvider`]: crate::reference_docs::frame_pallet_coupling::OtherAuthorProvider
