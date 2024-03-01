@@ -206,7 +206,7 @@ pub fn expand_outer_inherent(
 				use #scrate::inherent::ProvideInherent;
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 
-				let is_bare = #scrate::sp_runtime::traits::Extrinsic::is_bare(ext);
+				let is_bare = #scrate::sp_runtime::traits::ExtrinsicLike::is_bare(ext);
 				if !is_bare {
 					// Signed extrinsics are not inherents.
 					return false
