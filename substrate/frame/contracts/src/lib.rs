@@ -377,7 +377,7 @@ pub mod pallet {
 		///
 		/// # Note
 		///
-		/// This is not enforced when a contract instantiates another contract. The [`UploadOrigin`]
+		/// This is not enforced when a contract instantiates another contract. The [`Self::UploadOrigin`]
 		/// should make sure that no code is deployed that does unwanted instantiations.
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to instantiate
