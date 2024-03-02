@@ -455,8 +455,8 @@ impl Contains<RuntimeCall> for TestFilter {
 }
 
 parameter_types! {
-	static UploadOrigin: <Test as frame_system::Config>::AccountId = ALICE;
-	static InstantiateOrigin: <Test as frame_system::Config>::AccountId = ALICE;
+	static UploadAccount: <Test as frame_system::Config>::AccountId = ALICE;
+	static InstantiateAccount: <Test as frame_system::Config>::AccountId = ALICE;
 	static RestrictedUpload: bool = false;
 	static RestrictedInstantiation: bool = false;
 }
