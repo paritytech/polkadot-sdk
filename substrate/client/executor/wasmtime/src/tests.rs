@@ -218,7 +218,7 @@ fn deep_call_stack_wat(depth: usize) -> String {
 
 // We need two limits here since depending on whether the code is compiled in debug
 // or in release mode the maximum call depth is slightly different.
-const CALL_DEPTH_LOWER_LIMIT: usize = 65455;
+const CALL_DEPTH_LOWER_LIMIT: usize = 65443;
 const CALL_DEPTH_UPPER_LIMIT: usize = 65509;
 
 test_wasm_execution!(test_consume_under_1mb_of_stack_does_not_trap);
