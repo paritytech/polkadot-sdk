@@ -292,7 +292,7 @@ fn assert_reap_id_relay(total_deposit: Balance, id: &Identity) {
 
 		assert_ok!(RococoIdentityMigrator::reap_identity(
 			RococoOrigin::signed(RococoRelaySender::get()),
-			RococoRelaySender::get()
+			vec![RococoRelaySender::get()]
 		));
 
 		let remote_deposit = match id.subs {
@@ -311,9 +311,9 @@ fn assert_reap_id_relay(total_deposit: Balance, id: &Identity) {
 				},
 				RuntimeEvent::IdentityMigrator(
 					polkadot_runtime_common::identity_migrator::Event::IdentityReaped {
-						who,
+						who_vec,
 					}) => {
-					who: *who == PeopleRococoSender::get(),
+					who_vec: *who_vec == vec![PeopleRococoSender::get()],
 				},
 			]
 		);

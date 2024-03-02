@@ -292,7 +292,7 @@ fn assert_reap_id_relay(total_deposit: Balance, id: &Identity) {
 
 		assert_ok!(WestendIdentityMigrator::reap_identity(
 			WestendOrigin::signed(WestendRelaySender::get()),
-			WestendRelaySender::get()
+			vec![WestendRelaySender::get()]
 		));
 
 		let remote_deposit = match id.subs {
@@ -311,9 +311,9 @@ fn assert_reap_id_relay(total_deposit: Balance, id: &Identity) {
 				},
 				RuntimeEvent::IdentityMigrator(
 					polkadot_runtime_common::identity_migrator::Event::IdentityReaped {
-						who,
+						who_vec,
 					}) => {
-					who: *who == PeopleWestendSender::get(),
+					who_vec: *who_vec == vec![PeopleWestendSender::get()],
 				},
 			]
 		);
