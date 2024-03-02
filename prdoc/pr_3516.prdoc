@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Allow reap_identity to accept batch of accounts"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      reap_identity takes in a batch(vec) of account ids.
+
+crates:
+  - name: identity
+  - name: parachains-common
+  - name: people-rococo-integration-tests
+  - name: people-rococo-integration-tests
+  - name: people-westend-integration-tests"
+
