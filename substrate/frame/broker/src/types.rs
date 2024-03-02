@@ -84,7 +84,7 @@ pub struct RegionRecord<AccountId, Balance> {
 	/// The end of the Region.
 	pub end: Timeslice,
 	/// The owner of the Region.
-	pub owner: AccountId,
+	pub owner: Option<AccountId>,
 	/// The amount paid to Polkadot for this Region, or `None` if renewal is not allowed.
 	pub paid: Option<Balance>,
 }

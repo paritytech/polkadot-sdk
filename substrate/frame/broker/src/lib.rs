@@ -214,9 +214,9 @@ pub mod pallet {
 			/// The duration of the Region.
 			duration: Timeslice,
 			/// The old owner of the Region.
-			old_owner: T::AccountId,
+			old_owner: Option<T::AccountId>,
 			/// The new owner of the Region.
-			owner: T::AccountId,
+			owner: Option<T::AccountId>,
 		},
 		/// A Region has been split into two non-overlapping Regions.
 		Partitioned {

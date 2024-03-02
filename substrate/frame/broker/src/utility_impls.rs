@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
 		paid: Option<BalanceOf<T>>,
 	) -> RegionId {
 		let id = RegionId { begin, core, mask: CoreMask::complete() };
-		let record = RegionRecord { end, owner, paid };
+		let record = RegionRecord { end, owner: Some(owner), paid };
 		Regions::<T>::insert(&id, &record);
 		id
 	}
@@ -94,7 +94,7 @@ impl<T: Config> Pallet<T> {
 		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
-			ensure!(check_owner == region.owner, Error::<T>::NotOwner);
+			ensure!(Some(check_owner) == region.owner, Error::<T>::NotOwner);
 		}
 
 		Regions::<T>::remove(&region_id);
