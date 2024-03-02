@@ -9,9 +9,9 @@ doc:
       reap_identity takes in a batch(vec) of account ids.
 
 crates:
-  - name: identity
+  - name: pallet-identity
   - name: parachains-common
   - name: people-rococo-integration-tests
   - name: people-rococo-integration-tests
-  - name: people-westend-integration-tests"
+  - name: people-westend-integration-tests
 
