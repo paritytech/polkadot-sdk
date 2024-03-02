@@ -15,22 +15,18 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	core::{
-		configuration::TestConfiguration,
-		environment::{BenchmarkUsage, TestEnvironmentDependencies},
-		mock::{
-			av_store,
-			av_store::MockAvailabilityStore,
-			chain_api::{ChainApiState, MockChainApi},
-			dummy_builder,
-			network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
-			runtime_api,
-			runtime_api::MockRuntimeApi,
-			AlwaysSupportsParachains,
-		},
-		network::new_network,
+	configuration::TestConfiguration,
+	dummy_builder,
+	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
+	mock::{
+		av_store::{self, MockAvailabilityStore},
+		chain_api::{ChainApiState, MockChainApi},
+		network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
+		runtime_api::{self, MockRuntimeApi},
+		AlwaysSupportsParachains,
 	},
-	TestEnvironment, TestObjective, GENESIS_HASH,
+	network::new_network,
+	usage::BenchmarkUsage,
 };
 use av_store::NetworkAvailabilityState;
 use av_store_helpers::new_av_store;
@@ -73,13 +69,29 @@ use sc_network::{
 	PeerId,
 };
 use sc_service::SpawnTaskHandle;
+use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
 
 mod av_store_helpers;
-pub(crate) mod cli;
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
+
+#[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
+#[clap(rename_all = "kebab-case")]
+#[allow(missing_docs)]
+pub struct DataAvailabilityReadOptions {
+	#[clap(short, long, default_value_t = false)]
+	/// Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU as
+	/// we don't need to re-construct from chunks. Tipically this is only faster if nodes have
+	/// enough bandwidth.
+	pub fetch_from_backers: bool,
+}
+
+pub enum TestDataAvailability {
+	Read(DataAvailabilityReadOptions),
+	Write,
+}
 
 fn build_overseer_for_availability_read(
 	spawn_task_handle: SpawnTaskHandle,
@@ -141,14 +153,24 @@ fn build_overseer_for_availability_write(
 pub fn prepare_test(
 	config: TestConfiguration,
 	state: &mut TestState,
+	mode: TestDataAvailability,
+	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
-	prepare_test_inner(config, state, TestEnvironmentDependencies::default())
+	prepare_test_inner(
+		config,
+		state,
+		mode,
+		TestEnvironmentDependencies::default(),
+		with_prometheus_endpoint,
+	)
 }
 
 fn prepare_test_inner(
 	config: TestConfiguration,
 	state: &mut TestState,
+	mode: TestDataAvailability,
 	dependencies: TestEnvironmentDependencies,
+	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	// Generate test authorities.
 	let test_authorities = config.generate_authorities();
@@ -216,8 +238,8 @@ fn prepare_test_inner(
 	let network_bridge_rx =
 		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
 
-	let (overseer, overseer_handle) = match &state.config().objective {
-		TestObjective::DataAvailabilityRead(options) => {
+	let (overseer, overseer_handle) = match &mode {
+		TestDataAvailability::Read(options) => {
 			let use_fast_path = options.fetch_from_backers;
 
 			let subsystem = if use_fast_path {
@@ -247,7 +269,7 @@ fn prepare_test_inner(
 				&dependencies,
 			)
 		},
-		TestObjective::DataAvailabilityWrite => {
+		TestDataAvailability::Write => {
 			let availability_distribution = AvailabilityDistributionSubsystem::new(
 				test_authorities.keyring.keystore(),
 				IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
@@ -284,9 +306,6 @@ fn prepare_test_inner(
 				&dependencies,
 			)
 		},
-		_ => {
-			unimplemented!("Invalid test objective")
-		},
 	};
 
 	(
@@ -297,6 +316,7 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			test_authorities,
+			with_prometheus_endpoint,
 		),
 		req_cfgs,
 	)
@@ -326,10 +346,6 @@ pub struct TestState {
 }
 
 impl TestState {
-	fn config(&self) -> &TestConfiguration {
-		&self.config
-	}
-
 	pub fn next_candidate(&mut self) -> Option<CandidateReceipt> {
 		let candidate = self.candidates.next();
 		let candidate_hash = candidate.as_ref().unwrap().hash();
