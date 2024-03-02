@@ -14,24 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use serde::{Deserialize, Serialize};
+// The validator index that represent the node that is under test.
+pub const NODE_UNDER_TEST: u32 = 0;
 
-#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
-#[value(rename_all = "kebab-case")]
-#[non_exhaustive]
-pub enum NetworkEmulation {
-	Ideal,
-	Healthy,
-	Degraded,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
-#[clap(rename_all = "kebab-case")]
-#[allow(missing_docs)]
-pub struct DataAvailabilityReadOptions {
-	#[clap(short, long, default_value_t = false)]
-	/// Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU as
-	/// we don't need to re-construct from chunks. Tipically this is only faster if nodes have
-	/// enough bandwidth.
-	pub fetch_from_backers: bool,
-}
+pub mod approval;
+pub mod availability;
+pub mod configuration;
+pub(crate) mod display;
+pub(crate) mod environment;
+pub(crate) mod keyring;
+pub(crate) mod mock;
+pub(crate) mod network;
+pub mod usage;

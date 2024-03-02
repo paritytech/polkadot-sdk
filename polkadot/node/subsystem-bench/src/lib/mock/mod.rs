@@ -34,9 +34,10 @@ impl HeadSupportsParachains for AlwaysSupportsParachains {
 }
 
 // An orchestra with dummy subsystems
+#[macro_export]
 macro_rules! dummy_builder {
 	($spawn_task_handle: ident, $metrics: ident) => {{
-		use $crate::core::mock::dummy::*;
+		use $crate::mock::dummy::*;
 
 		// Initialize a mock overseer.
 		// All subsystem except approval_voting and approval_distribution are mock subsystems.
@@ -72,7 +73,6 @@ macro_rules! dummy_builder {
 			.spawner(SpawnGlue($spawn_task_handle))
 	}};
 }
-pub(crate) use dummy_builder;
 
 #[derive(Clone)]
 pub struct TestSyncOracle {}
