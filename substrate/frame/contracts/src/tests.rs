@@ -461,8 +461,8 @@ parameter_types! {
 	static RestrictedInstantiation: bool = false;
 }
 
-pub struct EnsureUploadOrigin<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureUploadOrigin<T>
+pub struct EnsureUploadAccount<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureUploadAccount<T>
 where
 	<T as frame_system::Config>::AccountId: From<AccountId32>,
 {
@@ -470,7 +470,7 @@ where
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
 		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o.clone())?;
-		if RestrictedUpload::get() && who != UploadOrigin::get().into() {
+		if RestrictedUpload::get() && who != UploadAccount::get().into() {
 			return Err(o)
 		}
 
@@ -479,13 +479,13 @@ where
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
-		Ok(T::RuntimeOrigin::from(frame_system::RawOrigin::Signed(UploadOrigin::get().into())))
+		Ok(T::RuntimeOrigin::from(frame_system::RawOrigin::Signed(UploadAccount::get().into())))
 	}
 }
 
-pub struct EnsureInstantiateOrigin<T>(sp_std::marker::PhantomData<T>);
+pub struct EnsureInstantiateAccount<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin>
-	for EnsureInstantiateOrigin<T>
+	for EnsureInstantiateAccount<T>
 where
 	<T as frame_system::Config>::AccountId: From<AccountId32>,
 {
@@ -493,7 +493,7 @@ where
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
 		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o.clone())?;
-		if RestrictedInstantiation::get() && who != InstantiateOrigin::get().into() {
+		if RestrictedInstantiation::get() && who != InstantiateAccount::get().into() {
 			return Err(o)
 		}
 
@@ -502,7 +502,9 @@ where
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
-		Ok(T::RuntimeOrigin::from(frame_system::RawOrigin::Signed(InstantiateOrigin::get().into())))
+		Ok(T::RuntimeOrigin::from(frame_system::RawOrigin::Signed(
+			InstantiateAccount::get().into(),
+		)))
 	}
 }
 
@@ -530,8 +532,8 @@ impl Config for Test {
 	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
 	type MaxStorageKeyLen = ConstU32<128>;
 	type UnsafeUnstableInterface = UnstableInterface;
-	type UploadOrigin = EnsureUploadOrigin<Self>;
-	type InstantiateOrigin = EnsureInstantiateOrigin<Self>;
+	type UploadOrigin = EnsureUploadAccount<Self>;
+	type InstantiateOrigin = EnsureInstantiateAccount<Self>;
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Migrations = crate::migration::codegen::BenchMigrations;
