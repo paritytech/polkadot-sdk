@@ -17,10 +17,8 @@ test-linux-stable:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-    # the linux sandbox does not seem to work on the CI
-    POLKAVM_SANDBOX: "generic"
-    # the generic sandbox is not secure yet
-    POLKAVM_ALLOW_INSECURE: 1
+    # the jit seems to not work on the CI machine
+    POLKAVM_BACKEND: "interpreter"
   parallel: 3
   script:
     # Build all but only execute 'runtime' tests.
