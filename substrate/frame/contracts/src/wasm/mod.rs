@@ -1821,17 +1821,6 @@ mod tests {
 		assert!(weight_left.all_gt(actual_left), "gas_left must be greater than final");
 	}
 
-	/// Test that [`frame_support::weights::OldWeight`] en/decodes the same as our
-	/// [`crate::OldWeight`].
-	#[test]
-	fn old_weight_decode() {
-		#![allow(deprecated)]
-		let sp = frame_support::weights::OldWeight(42).encode();
-		let our = crate::OldWeight::decode(&mut &*sp).unwrap();
-
-		assert_eq!(our, 42);
-	}
-
 	const CODE_VALUE_TRANSFERRED: &str = r#"
 (module
 	(import "seal0" "seal_value_transferred" (func $seal_value_transferred (param i32 i32)))

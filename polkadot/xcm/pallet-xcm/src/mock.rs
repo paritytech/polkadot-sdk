@@ -172,7 +172,7 @@ impl SendXcm for TestSendXcm {
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(Location, Xcm<()>)> {
 		if FAIL_SEND_XCM.with(|q| *q.borrow()) {
-			return Err(SendError::Transport("Intentional send failure used in tests"))
+			return Err(SendError::Transport("Intentional send failure used in tests"));
 		}
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
 		Ok((pair, Assets::new()))
@@ -564,7 +564,29 @@ impl pallet_test_notifier::Config for Test {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
+pub struct TestDeliveryHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl xcm_builder::EnsureDelivery for TestDeliveryHelper {
+	fn ensure_successful_delivery(
+		origin_ref: &Location,
+		_dest: &Location,
+		_fee_reason: xcm_executor::traits::FeeReason,
+	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
+		use xcm_executor::traits::ConvertLocation;
+		let account = SovereignAccountOf::convert_location(origin_ref).expect("Valid location");
+		// Give the existential deposit at least
+		let balance = ExistentialDeposit::get();
+		let _ = <Balances as frame_support::traits::Currency<_>>::make_free_balance_be(
+			&account, balance,
+		);
+		(None, None)
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
 impl super::benchmarking::Config for Test {
+	type DeliveryHelper = TestDeliveryHelper;
+
 	fn reachable_dest() -> Option<Location> {
 		Some(Parachain(1000).into())
 	}
@@ -631,6 +653,10 @@ impl super::benchmarking::Config for Test {
 			);
 		});
 		Some((assets, fee_index as u32, dest, verify))
+	}
+
+	fn get_asset() -> Asset {
+		Asset { id: AssetId(Location::here()), fun: Fungible(ExistentialDeposit::get()) }
 	}
 }
 
