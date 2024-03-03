@@ -18,7 +18,7 @@ pallet-message-queue = { path = "../../../../../../../substrate/frame/message-qu
 pallet-identity = { path = "../../../../../../../substrate/frame/identity", default-features = false, version = "29.0.0" }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
 rococo-runtime = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/rococo" }
 rococo-runtime-constants = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/rococo/constants" }

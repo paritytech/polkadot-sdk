@@ -47,7 +47,7 @@ frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-f
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.0" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 
-xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, version = "8.0.1" }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false, version = "8.0.1" }
 

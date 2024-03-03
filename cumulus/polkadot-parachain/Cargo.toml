@@ -90,7 +90,7 @@ substrate-state-trie-migration-rpc = { version = "28.0.0", path = "../../substra
 polkadot-cli = { path = "../../polkadot/cli", features = ["rococo-native"], version = "8.0.0" }
 polkadot-primitives = { version = "8.0.1", path = "../../polkadot/primitives" }
 polkadot-service = { version = "8.0.0", path = "../../polkadot/node/service" }
-xcm = { package = "staging-xcm", path = "../../polkadot/xcm", version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm", version = "8.0.1" }
 cumulus-client-cli = { version = "0.8.0", path = "../client/cli" }
 cumulus-client-collator = { version = "0.8.0", path = "../client/collator" }
 cumulus-client-consensus-aura = { version = "0.8.0", path = "../client/consensus/aura" }

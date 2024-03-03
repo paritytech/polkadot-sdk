@@ -56,7 +56,7 @@ libsecp256k1 = { version = "0.7.0", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false, version = "8.0.1" }
 
 slot-range-helper = { path = "slot_range_helper", default-features = false, version = "8.0.0" }
-xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, optional = true, version = "8.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "8.0.1" }
 

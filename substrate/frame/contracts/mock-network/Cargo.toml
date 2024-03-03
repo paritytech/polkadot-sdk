@@ -26,7 +26,7 @@ pallet-message-queue = { version = "32.0.0", path = "../../message-queue" }
 pallet-proxy = { version = "29.0.0", path = "../../proxy" }
 pallet-timestamp = { version = "28.0.0", path = "../../timestamp" }
 pallet-utility = { version = "29.0.0", path = "../../utility" }
-pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.1" }
+pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.2" }
 polkadot-parachain-primitives = { version = "7.0.0", path = "../../../../polkadot/parachain" }
 polkadot-primitives = { version = "8.0.1", path = "../../../../polkadot/primitives" }
 polkadot-runtime-parachains = { version = "8.0.1", path = "../../../../polkadot/runtime/parachains" }
@@ -38,7 +38,7 @@ sp-keystore = { version = "0.35.0", path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "32.0.0" }
 sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }
 sp-tracing = { version = "16.0.0", path = "../../../primitives/tracing" }
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
 xcm-simulator = { version = "8.0.0", path = "../../../../polkadot/xcm/xcm-simulator" }

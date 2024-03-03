@@ -14,7 +14,7 @@ sp-std = { path = "../../../../../substrate/primitives/std", default-features = 
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "29.0.0" }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "0.8.0" }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false, version = "32.0.0" }
 snowbridge-core = { path = "../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false, version = "0.1.0" }
 

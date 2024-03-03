@@ -32,10 +32,10 @@ parachain-info = { package = "staging-parachain-info", path = "../../../pallets/
 parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "8.0.0" }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.1" }
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.2" }
 
 # Bridges
 pallet-xcm-bridge-hub-router = { path = "../../../../../bridges/modules/xcm-bridge-hub-router", default-features = false, version = "0.6.0" }

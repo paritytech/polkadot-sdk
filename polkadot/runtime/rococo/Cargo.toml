@@ -87,7 +87,7 @@ pallet-treasury = { path = "../../../substrate/frame/treasury", default-features
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false, version = "29.0.0" }
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false, version = "29.0.0" }
 pallet-whitelist = { path = "../../../substrate/frame/whitelist", default-features = false, version = "28.0.0" }
-pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, version = "8.0.1" }
+pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, version = "8.0.2" }
 pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "8.0.2" }
 pallet-root-testing = { path = "../../../substrate/frame/root-testing", default-features = false, version = "5.0.0" }
 
@@ -101,7 +101,7 @@ runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parac
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false, version = "8.0.1" }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false, version = "7.0.0" }
 
-xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, version = "8.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "8.0.1" }
 

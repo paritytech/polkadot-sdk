@@ -56,7 +56,7 @@ substrate-prometheus-endpoint = { version = "0.17.0", path = "../../../substrate
 # Polkadot
 polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"], version = "8.0.0" }
 polkadot-primitives = { version = "8.0.1", path = "../../../polkadot/primitives" }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "8.0.1" }
 cumulus-client-cli = { version = "0.8.0", path = "../../client/cli" }
 cumulus-client-collator = { version = "0.8.0", path = "../../client/collator" }
 cumulus-client-consensus-aura = { version = "0.8.0", path = "../../client/consensus/aura" }

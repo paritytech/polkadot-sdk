@@ -35,7 +35,7 @@ sp-version = { path = "../../../../../substrate/primitives/version", default-fea
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false, version = "32.0.0" }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
 

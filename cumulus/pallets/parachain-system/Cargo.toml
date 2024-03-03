@@ -37,7 +37,7 @@ sp-version = { path = "../../../substrate/primitives/version", default-features 
 polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false, features = ["wasm-api"], version = "7.0.0" }
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false, version = "8.0.1" }
 polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false, version = "8.0.1", optional = true }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "8.0.1" }
 
 # Cumulus
 cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false, version = "0.6.0" }

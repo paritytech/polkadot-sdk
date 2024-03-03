@@ -51,7 +51,7 @@ sp-io = { path = "../../primitives/io", default-features = false, version = "31.
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "32.0.0" }
 sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
 
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "8.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.1" }
 
 [dev-dependencies]

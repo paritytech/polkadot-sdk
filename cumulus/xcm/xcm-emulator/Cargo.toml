@@ -34,7 +34,7 @@ cumulus-test-relay-sproof-builder = { version = "0.8.0", path = "../../test/rela
 parachains-common = { version = "8.0.0", path = "../../parachains/common" }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", version = "8.0.1" }
 polkadot-primitives = { version = "8.0.1", path = "../../../polkadot/primitives" }
 polkadot-parachain-primitives = { version = "7.0.0", path = "../../../polkadot/parachain" }

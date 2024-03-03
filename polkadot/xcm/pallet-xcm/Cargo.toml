@@ -1,6 +1,6 @@
 [package]
 name = "pallet-xcm"
-version = "8.0.1"
+version = "8.0.2"
 description = "A pallet for handling XCM programs."
 authors.workspace = true
 edition.workspace = true
@@ -23,7 +23,7 @@ sp-io = { path = "../../../substrate/primitives/io", default-features = false, v
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
-xcm = { package = "staging-xcm", path = "..", default-features = false, version = "8.0.0" }
+xcm = { package = "staging-xcm", path = "..", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false, version = "8.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false, version = "8.0.1" }
 
