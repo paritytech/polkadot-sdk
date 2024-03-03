@@ -588,16 +588,17 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 }
 
 /// Hook for checking fork equivocation proof.
-pub trait CheckForkEquivocationProof {
-	fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
+pub trait CheckForkEquivocationProof<H: Hash> {
+	// type NodeHash: HashOutput;
+	fn check_fork_equivocation_proof<Id, MsgHash, Header, Hasher>(
 		proof: &ForkEquivocationProof<
 			Header::Number,
 			Id,
 			<Id as RuntimeAppPublic>::Signature,
 			Header,
-			NodeHash,
+			H::Output,
 		>,
-		canonical_root: Hasher::Item,
+		canonical_root: H::Output,
 		mmr_size: u64,
 		canonical_header_hash: &Header::Hash,
 		first_mmr_block_num: Header::Number,
@@ -607,18 +608,18 @@ pub trait CheckForkEquivocationProof {
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: Hash,
 		Header: HeaderT,
-		NodeHash: sp_runtime::traits::HashOutput,
-		Hasher: mmr_lib::Merge<Item = NodeHash>;
+		Hasher: mmr_lib::Merge<Item = H::Output>;
 }
 
-impl CheckForkEquivocationProof for () {
-	fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
+impl<H: Hash> CheckForkEquivocationProof<H> for () {
+	// type NodeHash = H256;
+	fn check_fork_equivocation_proof<Id, MsgHash, Header, Hasher>(
 		_proof: &ForkEquivocationProof<
 			Header::Number,
 			Id,
 			<Id as RuntimeAppPublic>::Signature,
 			Header,
-			NodeHash,
+			H::Output,
 		>,
 		_canonical_root: Hasher::Item,
 		_mmr_size: u64,
@@ -630,8 +631,7 @@ impl CheckForkEquivocationProof for () {
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: Hash,
 		Header: HeaderT,
-		NodeHash: sp_runtime::traits::HashOutput,
-		Hasher: mmr_lib::Merge<Item = NodeHash>,
+		Hasher: mmr_lib::Merge<Item = H::Output>,
 	{
 		true
 	}

@@ -174,16 +174,23 @@ where
 	}
 }
 
-impl<T: pallet_mmr::Config> CheckForkEquivocationProof for Pallet<T> {
-	fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
+fn mmr_root_hash_wrapper<T: pallet_mmr::Config>(
+) -> <<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output {
+	<pallet_mmr::Pallet<T>>::mmr_root()
+}
+
+impl<T: pallet_mmr::Config> CheckForkEquivocationProof<<T as pallet_mmr::Config>::Hashing>
+	for Pallet<T>
+{
+	fn check_fork_equivocation_proof<Id, MsgHash, Header, Hasher>(
 		proof: &ForkEquivocationProof<
 			Header::Number,
 			Id,
 			<Id as sp_application_crypto::RuntimeAppPublic>::Signature,
 			Header,
-			NodeHash,
+			<<T as pallet_mmr::Config>::Hashing as Hash>::Output,
 		>,
-		canonical_root: NodeHash,
+		canonical_root: <<T as pallet_mmr::Config>::Hashing as Hash>::Output,
 		mmr_size: u64,
 		canonical_header_hash: &Header::Hash,
 		first_mmr_block_num: Header::Number,
@@ -193,9 +200,12 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof for Pallet<T> {
 		Id: sp_consensus_beefy::BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: sp_runtime::traits::Hash,
 		Header: sp_runtime::traits::Header,
-		NodeHash: sp_runtime::traits::HashOutput,
-		Hasher: sp_mmr_primitives::mmr_lib::Merge<Item = NodeHash>,
+		Hasher: sp_mmr_primitives::mmr_lib::Merge<
+			Item = <<T as pallet_mmr::Config>::Hashing as Hash>::Output,
+		>,
 	{
+		let canonical_root = mmr_root_hash_wrapper::<T>();
+		// let canonical_root = <pallet_mmr::Pallet<T>>::mmr_root();
 		sp_consensus_beefy::check_fork_equivocation_proof::<
 			_,
 			_,

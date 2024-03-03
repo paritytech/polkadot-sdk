@@ -100,7 +100,7 @@ pub mod pallet {
 		type OnNewValidatorSet: OnNewValidatorSet<<Self as Config>::BeefyId>;
 
 		/// Hook for checking fork equivocation proofs
-		type CheckForkEquivocationProof: sp_consensus_beefy::CheckForkEquivocationProof;
+		type CheckForkEquivocationProof<H: sp_runtime::traits::Hash>: sp_consensus_beefy::CheckForkEquivocationProof<H>;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
