@@ -50,7 +50,7 @@ use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
 use sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
 use sp_core::H256;
-use sp_runtime::traits::{Hash, Header as HeaderT, Keccak256, NumberFor};
+use sp_runtime::traits::{Hash, HashOutput, Header as HeaderT, Keccak256, NumberFor};
 use sp_std::prelude::*;
 
 /// Key type for BEEFY module.
@@ -449,7 +449,7 @@ fn check_ancestry_proof<Header, NodeHash, Hasher>(
 ) -> bool
 where
 	Header: HeaderT,
-	NodeHash: Clone + Debug + PartialEq + Encode + Decode,
+	NodeHash: HashOutput,
 	Hasher: mmr_lib::Merge<Item = NodeHash>,
 {
 	if let Some(ancestry_proof) = ancestry_proof {
@@ -538,7 +538,7 @@ where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
 	MsgHash: Hash,
 	Header: HeaderT,
-	NodeHash: Clone + Debug + PartialEq + Encode + Decode,
+	NodeHash: sp_runtime::traits::HashOutput,
 	Hasher: mmr_lib::Merge<Item = NodeHash>,
 {
 	let ForkEquivocationProof { commitment, signatories, canonical_header, ancestry_proof } = proof;

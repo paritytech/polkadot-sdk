@@ -42,6 +42,7 @@ use sp_consensus_beefy::{
 	ForkEquivocationProof, ValidatorSetId, VoteEquivocationProof, KEY_TYPE as BEEFY_KEY_TYPE,
 };
 use sp_runtime::{
+	traits::Hash,
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
@@ -139,7 +140,7 @@ pub enum EquivocationEvidenceFor<T: Config + pallet_mmr::Config> {
 			<T as Config>::BeefyId,
 			<<T as Config>::BeefyId as RuntimeAppPublic>::Signature,
 			HeaderFor<T>,
-			<<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output,
+			<<T as pallet_mmr::Config>::Hashing as Hash>::Output,
 		>,
 		Vec<<T as Config>::KeyOwnerProof>,
 	),
@@ -325,7 +326,7 @@ where
 					_,
 					_,
 					_,
-					<<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output,
+					<<T as pallet_mmr::Config>::Hashing as Hash>::Output,
 					sp_mmr_primitives::utils::AncestryHasher<<T as pallet_mmr::Config>::Hashing>,
 				>(
 					equivocation_proof,
