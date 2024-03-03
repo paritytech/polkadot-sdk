@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::core::{environment::TestEnvironmentDependencies, mock::TestSyncOracle};
+use crate::{environment::TestEnvironmentDependencies, mock::TestSyncOracle};
 use polkadot_node_core_av_store::{AvailabilityStoreSubsystem, Config};
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_subsystem_util::database::Database;
