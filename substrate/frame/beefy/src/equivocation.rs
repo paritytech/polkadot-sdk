@@ -39,7 +39,8 @@ use frame_support::traits::{Get, KeyOwnerProofSystem};
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log::{error, info};
 use sp_consensus_beefy::{
-	ForkEquivocationProof, ValidatorSetId, VoteEquivocationProof, KEY_TYPE as BEEFY_KEY_TYPE,
+	CheckForkEquivocationProof, ForkEquivocationProof, ValidatorSetId, VoteEquivocationProof,
+	KEY_TYPE as BEEFY_KEY_TYPE,
 };
 use sp_runtime::{
 	traits::Hash,
@@ -301,7 +302,9 @@ where
 				let mmr_size =
 					sp_mmr_primitives::utils::NodesUtils::new(<pallet_mmr::Pallet<T>>::mmr_size())
 						.size();
-				let expected_mmr_root = <pallet_mmr::Pallet<T>>::mmr_root();
+				// let expected_mmr_root = <pallet_mmr::Pallet<T>>::mmr_root();
+				let expected_mmr_root = mmr_root_hash_wrapper::<T>();
+				// let expected_mmr_root = sp_consensus_beefy::MmrRootHash::default();
 				let best_block_num = <frame_system::Pallet<T>>::block_number();
 				// if first_mmr_block_num is invalid, then presumably beefy is not active.
 				// TODO: should we slash in this case?
@@ -322,13 +325,7 @@ where
 				// beefy light client at least once every 4096 blocks. See
 				// https://github.com/paritytech/polkadot-sdk/issues/1441 for
 				// replacement solution.
-				if !sp_consensus_beefy::check_fork_equivocation_proof::<
-					_,
-					_,
-					_,
-					<<T as pallet_mmr::Config>::Hashing as Hash>::Output,
-					sp_mmr_primitives::utils::AncestryHasher<<T as pallet_mmr::Config>::Hashing>,
-				>(
+				if !<T::CheckForkEquivocationProof as CheckForkEquivocationProof>::check_fork_equivocation_proof::<_, _, _, _, sp_mmr_primitives::utils::AncestryHasher<<T as pallet_mmr::Config>::Hashing>>(
 					equivocation_proof,
 					expected_mmr_root,
 					mmr_size,
@@ -353,6 +350,11 @@ where
 
 		Ok(())
 	}
+}
+
+fn mmr_root_hash_wrapper<T: pallet_mmr::Config>(
+) -> <<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output {
+	<pallet_mmr::Pallet<T>>::mmr_root()
 }
 
 /// Methods for the `ValidateUnsigned` implementation:

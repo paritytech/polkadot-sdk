@@ -99,6 +99,9 @@ pub mod pallet {
 		/// weight MMR root over validators and make it available for Light Clients.
 		type OnNewValidatorSet: OnNewValidatorSet<<Self as Config>::BeefyId>;
 
+		/// Hook for checking fork equivocation proofs
+		type CheckForkEquivocationProof: sp_consensus_beefy::CheckForkEquivocationProof;
+
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
 

@@ -587,6 +587,56 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 	fn on_new_validator_set(_: &ValidatorSet<AuthorityId>, _: &ValidatorSet<AuthorityId>) {}
 }
 
+/// Hook for checking fork equivocation proof.
+pub trait CheckForkEquivocationProof {
+	fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
+		proof: &ForkEquivocationProof<
+			Header::Number,
+			Id,
+			<Id as RuntimeAppPublic>::Signature,
+			Header,
+			NodeHash,
+		>,
+		canonical_root: Hasher::Item,
+		mmr_size: u64,
+		canonical_header_hash: &Header::Hash,
+		first_mmr_block_num: Header::Number,
+		best_block_num: Header::Number,
+	) -> bool
+	where
+		Id: BeefyAuthorityId<MsgHash> + PartialEq,
+		MsgHash: Hash,
+		Header: HeaderT,
+		NodeHash: sp_runtime::traits::HashOutput,
+		Hasher: mmr_lib::Merge<Item = NodeHash>;
+}
+
+impl CheckForkEquivocationProof for () {
+	fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
+		_proof: &ForkEquivocationProof<
+			Header::Number,
+			Id,
+			<Id as RuntimeAppPublic>::Signature,
+			Header,
+			NodeHash,
+		>,
+		_canonical_root: Hasher::Item,
+		_mmr_size: u64,
+		_canonical_header_hash: &Header::Hash,
+		_first_mmr_block_num: Header::Number,
+		_best_block_num: Header::Number,
+	) -> bool
+	where
+		Id: BeefyAuthorityId<MsgHash> + PartialEq,
+		MsgHash: Hash,
+		Header: HeaderT,
+		NodeHash: sp_runtime::traits::HashOutput,
+		Hasher: mmr_lib::Merge<Item = NodeHash>,
+	{
+		true
+	}
+}
+
 /// An opaque type used to represent the key ownership proof at the runtime API
 /// boundary. The inner value is an encoded representation of the actual key
 /// ownership proof which will be parameterized when defining the runtime. At

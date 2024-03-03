@@ -1,4 +1,5 @@
 [package]
+
 name = "pallet-beefy-mmr"
 version = "28.0.0"
 authors.workspace = true
@@ -24,6 +25,8 @@ pallet-beefy = { path = "../beefy", default-features = false }
 pallet-mmr = { path = "../merkle-mountain-range", default-features = false }
 pallet-session = { path = "../session", default-features = false }
 sp-consensus-beefy = { path = "../../primitives/consensus/beefy", default-features = false }
+sp-mmr-primitives = { path = "../../primitives/merkle-mountain-range", default-features = false }
+sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }

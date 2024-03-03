@@ -33,14 +33,14 @@
 //!
 //! and thanks to versioning can be easily updated in the future.
 
-use sp_runtime::traits::{Convert, Member};
+use sp_runtime::traits::{Convert, Hash, Member};
 use sp_std::prelude::*;
 
 use codec::Decode;
-use pallet_mmr::{LeafDataProvider, ParentNumberAndHash};
+use pallet_mmr::{primitives::utils::AncestryHasher, LeafDataProvider, ParentNumberAndHash};
 use sp_consensus_beefy::{
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
-	ValidatorSet as BeefyValidatorSet,
+	CheckForkEquivocationProof, ForkEquivocationProof, ValidatorSet as BeefyValidatorSet,
 };
 
 use frame_support::{crypto::ecdsa::ECDSAExt, traits::Get};
@@ -171,6 +171,46 @@ where
 		// cache the result
 		BeefyAuthorities::<T>::put(&current);
 		BeefyNextAuthorities::<T>::put(&next);
+	}
+}
+
+impl<T: pallet_mmr::Config> CheckForkEquivocationProof for Pallet<T> {
+	fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
+		proof: &ForkEquivocationProof<
+			Header::Number,
+			Id,
+			<Id as sp_application_crypto::RuntimeAppPublic>::Signature,
+			Header,
+			NodeHash,
+		>,
+		canonical_root: NodeHash,
+		mmr_size: u64,
+		canonical_header_hash: &Header::Hash,
+		first_mmr_block_num: Header::Number,
+		best_block_num: Header::Number,
+	) -> bool
+	where
+		Id: sp_consensus_beefy::BeefyAuthorityId<MsgHash> + PartialEq,
+		MsgHash: sp_runtime::traits::Hash,
+		Header: sp_runtime::traits::Header,
+		NodeHash: sp_runtime::traits::HashOutput,
+		Hasher: sp_mmr_primitives::mmr_lib::Merge<Item = NodeHash>,
+	{
+		sp_consensus_beefy::check_fork_equivocation_proof::<
+			_,
+			_,
+			_,
+			_,
+			// AncestryHasher<<T as pallet_mmr::Config>::Hashing>,
+			Hasher,
+		>(
+			proof,
+			canonical_root,
+			mmr_size,
+			canonical_header_hash,
+			first_mmr_block_num,
+			best_block_num,
+		)
 	}
 }
 
