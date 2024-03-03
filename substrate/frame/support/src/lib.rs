@@ -1394,15 +1394,23 @@ pub mod pallet_macros {
 	#[rustfmt::skip]
 	/// Allows bypassing the `frame_system::Config` supertrait check.
 	///
-	/// To bypass the `frame_system::Config` supertrait check, use the attribute
-	/// `pallet::disable_frame_system_supertrait_check`, e.g.:
+	/// To bypass the syntactic `frame_system::Config` supertrait check, use the attribute
+	/// `pallet::disable_frame_system_supertrait_check`.
 	///
-	/// ```ignore
+	/// Note this bypass is purely syntactic, and does not actually remove the requirement that your
+	/// pallet implements `frame_system::Config`. When using this check, your config is still required to implement
+	/// `frame_system::Config` either via
+	/// - Implementing a trait that itself implements `frame_system::Config`
+	/// - Tightly coupling it with another pallet which itself implements `frame_system::Config`
+	///
+	/// e.g.
+	///
+	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
 	/// # 	use frame_support::pallet_prelude::*;
 	/// # 	use frame_system::pallet_prelude::*;
-	/// 	trait OtherTrait {}
+	/// 	trait OtherTrait: frame_system::Config {}
 	///
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
@@ -1412,9 +1420,6 @@ pub mod pallet_macros {
 	/// 	pub trait Config: OtherTrait {}
 	/// }
 	/// ```
-	///
-	/// Bypassing the `frame_system::Config` supertrait check is typically desirable when
-	/// you want to write an alternative to the `frame_system` pallet.
 	///
 	/// To learn more about supertraits, see the
 	/// [trait_based_programming](../../polkadot_sdk_docs/reference_docs/trait_based_programming/index.html)
