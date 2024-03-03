@@ -190,7 +190,6 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<<T as pallet_mmr::Config>
 			Header,
 			<<T as pallet_mmr::Config>::Hashing as Hash>::Output,
 		>,
-		canonical_root: <<T as pallet_mmr::Config>::Hashing as Hash>::Output,
 		mmr_size: u64,
 		canonical_header_hash: &Header::Hash,
 		first_mmr_block_num: Header::Number,

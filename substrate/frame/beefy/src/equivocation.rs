@@ -327,7 +327,6 @@ where
 				// replacement solution.
 				if !<T::CheckForkEquivocationProof<<T as pallet_mmr::Config>::Hashing> as CheckForkEquivocationProof<<T as pallet_mmr::Config>::Hashing>>::check_fork_equivocation_proof::<_, _,  _, sp_mmr_primitives::utils::AncestryHasher<<T as pallet_mmr::Config>::Hashing>>(
 					equivocation_proof,
-					expected_mmr_root,
 					mmr_size,
 					&expected_block_hash,
 					first_mmr_block_num,
