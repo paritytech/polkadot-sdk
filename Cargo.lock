@@ -5750,6 +5750,7 @@ dependencies = [
  "sp-staking",
  "sp-state-machine",
  "sp-std 14.0.0",
+ "sp-timestamp",
  "sp-tracing 16.0.0",
  "sp-weights",
  "static_assertions",
