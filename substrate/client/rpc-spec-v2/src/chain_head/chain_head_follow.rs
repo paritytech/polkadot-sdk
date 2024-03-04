@@ -226,7 +226,7 @@ where
 			return Err(SubscriptionManagementError::BlockHeaderAbsent);
 		};
 
-		// Report at most `MAX_FINALIZDED_BLOCKS`. Note: The node might not have that many blocks.
+		// Report at most `MAX_FINALIZED_BLOCKS`. Note: The node might not have that many blocks.
 		let mut finalized_block_hashes = VecDeque::with_capacity(MAX_FINALIZDED_BLOCKS);
 
 		// Pin the finalized block.
