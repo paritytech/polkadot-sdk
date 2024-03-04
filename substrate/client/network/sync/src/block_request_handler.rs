@@ -410,7 +410,7 @@ where
 			let body = if get_body {
 				match self.client.block_body(hash)? {
 					Some(mut extrinsics) =>
-						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect()
+						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect(),
 					None => {
 						log::trace!(target: LOG_TARGET, "Missing data for block request.");
 						break
@@ -450,8 +450,8 @@ where
 				indexed_body,
 			};
 
-			let new_total_size = total_size + 
-				block_data.body.iter().map(|ex| ex.len()).sum::<usize>() + 
+			let new_total_size = total_size +
+				block_data.body.iter().map(|ex| ex.len()).sum::<usize>() +
 				block_data.indexed_body.iter().map(|ex| ex.len()).sum::<usize>();
 
 			// Send at least one block, but make sure to not exceed the limit.
