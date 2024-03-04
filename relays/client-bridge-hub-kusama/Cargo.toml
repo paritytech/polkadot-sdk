@@ -11,19 +11,22 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-relay-substrate-client = { path = "../client-substrate" }
+#relay-substrate-client = { path = "../client-substrate" }
+subxt = { version = "0.32.1", default-features = false, features = ["native"] }
 
 # Bridge dependencies
 
 bp-bridge-hub-kusama = { path = "../../primitives/chain-bridge-hub-kusama" }
-bp-bridge-hub-polkadot = { path = "../../primitives/chain-bridge-hub-polkadot" }
 bp-header-chain = { path = "../../primitives/header-chain" }
+bp-messages = { path = "../../primitives/messages" }
 bp-parachains = { path = "../../primitives/parachains" }
 bp-polkadot = { path = "../../primitives/chain-polkadot" }
-
+bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 bridge-runtime-common = { path = "../../bin/runtime-common" }
+relay-substrate-client = { path = "../client-substrate" }
 
 # Substrate Dependencies
 
 sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-weights = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }

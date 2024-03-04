@@ -35,8 +35,9 @@ pub struct PolkadotBulletinFinalityToBridgeHubPolkadot;
 substrate_relay_helper::generate_submit_finality_proof_call_builder!(
 	PolkadotBulletinFinalityToBridgeHubPolkadot,
 	SubmitFinalityProofCallBuilder,
-	relay_bridge_hub_polkadot_client::runtime::Call::BridgePolkadotBulletinGrandpa,
-	relay_bridge_hub_polkadot_client::runtime::BridgePolkadotBulletinGrandpaCall::submit_finality_proof
+	// TODO: https://github.com/paritytech/parity-bridges-common/issues/2547 - use BridgePolkadotBulletinGrandpa
+	relay_bridge_hub_polkadot_client::RuntimeCall::BridgeKusamaGrandpa,
+	relay_bridge_hub_polkadot_client::BridgePolkadotBulletinGrandpaCall::submit_finality_proof
 );
 
 substrate_relay_helper::generate_report_equivocation_call_builder!(

@@ -16,21 +16,32 @@
 
 //! Types used to connect to the BridgeHub-Polkadot-Substrate parachain.
 
-use bp_bridge_hub_polkadot::AVERAGE_BLOCK_INTERVAL;
+pub mod codegen_runtime;
+
+use bp_bridge_hub_polkadot::{SignedExtension, AVERAGE_BLOCK_INTERVAL};
 use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 use codec::Encode;
 use relay_substrate_client::{
-	Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions, ChainWithUtilityPallet,
-	Error as SubstrateError, MockedRuntimeUtilityPallet, SignParam, UnderlyingChainProvider,
-	UnsignedTransaction,
+	calls::UtilityCall as MockUtilityCall, Chain, ChainWithBalances, ChainWithMessages,
+	ChainWithTransactions, ChainWithUtilityPallet, Error as SubstrateError,
+	MockedRuntimeUtilityPallet, SignParam, UnderlyingChainProvider, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
 use std::time::Duration;
 
-/// Re-export runtime wrapper
-pub mod runtime_wrapper;
-pub use runtime_wrapper as runtime;
+pub use codegen_runtime::api::runtime_types;
+
+pub type RuntimeCall = runtime_types::bridge_hub_polkadot_runtime::RuntimeCall;
+// TODO: https://github.com/paritytech/parity-bridges-common/issues/2547 - regenerate when ready
+pub type BridgePolkadotBulletinMessagesCall = runtime_types::pallet_bridge_messages::pallet::Call;
+pub type BridgeKusamaMessagesCall = runtime_types::pallet_bridge_messages::pallet::Call;
+// TODO: https://github.com/paritytech/parity-bridges-common/issues/2547 - regenerate when ready
+pub type BridgePolkadotBulletinGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call;
+pub type BridgeKusamaGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call;
+pub type BridgeParachainCall = runtime_types::pallet_bridge_parachains::pallet::Call;
+type UncheckedExtrinsic = bp_bridge_hub_polkadot::UncheckedExtrinsic<RuntimeCall, SignedExtension>;
+type UtilityCall = runtime_types::pallet_utility::pallet::Call;
 
 /// Polkadot chain definition
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,7 +58,7 @@ impl Chain for BridgeHubPolkadot {
 	const AVERAGE_BLOCK_INTERVAL: Duration = AVERAGE_BLOCK_INTERVAL;
 
 	type SignedBlock = bp_bridge_hub_polkadot::SignedBlock;
-	type Call = runtime::Call;
+	type Call = RuntimeCall;
 }
 
 impl ChainWithBalances for BridgeHubPolkadot {
@@ -56,13 +67,22 @@ impl ChainWithBalances for BridgeHubPolkadot {
 	}
 }
 
+impl From<MockUtilityCall<RuntimeCall>> for RuntimeCall {
+	fn from(value: MockUtilityCall<RuntimeCall>) -> RuntimeCall {
+		match value {
+			MockUtilityCall::batch_all(calls) =>
+				RuntimeCall::Utility(UtilityCall::batch_all { calls }),
+		}
+	}
+}
+
 impl ChainWithUtilityPallet for BridgeHubPolkadot {
-	type UtilityPallet = MockedRuntimeUtilityPallet<runtime::Call>;
+	type UtilityPallet = MockedRuntimeUtilityPallet<RuntimeCall>;
 }
 
 impl ChainWithTransactions for BridgeHubPolkadot {
 	type AccountKeyPair = sp_core::sr25519::Pair;
-	type SignedTransaction = runtime::UncheckedExtrinsic;
+	type SignedTransaction = UncheckedExtrinsic;
 
 	fn sign_transaction(
 		param: SignParam<Self>,
@@ -70,7 +90,7 @@ impl ChainWithTransactions for BridgeHubPolkadot {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			runtime::SignedExtension::from_params(
+			SignedExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,
@@ -85,7 +105,7 @@ impl ChainWithTransactions for BridgeHubPolkadot {
 		let signer: sp_runtime::MultiSigner = param.signer.public().into();
 		let (call, extra, _) = raw_payload.deconstruct();
 
-		Ok(runtime::UncheckedExtrinsic::new_signed(
+		Ok(UncheckedExtrinsic::new_signed(
 			call,
 			signer.into_account().into(),
 			signature.into(),
@@ -127,10 +147,12 @@ mod tests {
 	use super::*;
 	use relay_substrate_client::TransactionEra;
 
+	type SystemCall = runtime_types::frame_system::pallet::Call;
+
 	#[test]
 	fn parse_transaction_works() {
 		let unsigned = UnsignedTransaction {
-			call: runtime::Call::System(runtime::SystemCall::remark(b"Hello world!".to_vec()))
+			call: RuntimeCall::System(SystemCall::remark { remark: b"Hello world!".to_vec() })
 				.into(),
 			nonce: 777,
 			tip: 888,
