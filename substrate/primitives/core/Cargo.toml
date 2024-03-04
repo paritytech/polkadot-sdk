@@ -55,6 +55,7 @@ merlin = { version = "3.0", default-features = false }
 sp-crypto-hashing = { path = "../crypto/hashing", default-features = false, optional = true }
 sp-runtime-interface = { path = "../runtime-interface", default-features = false }
 k256 = { version = "0.13.3", features = ["alloc", "ecdsa"], default-features = false }
+secp256k1 = { version = "0.28.0", default-features = false, features = ["alloc", "recovery"], optional = true }
 
 # bls crypto
 w3f-bls = { version = "0.1.3", default-features = false, optional = true }
@@ -75,7 +76,15 @@ harness = false
 bench = false
 
 [features]
-default = ["std"]
+default = ["backend_secp256k1", "std"]
+
+# use secp256k1 crate, better performance, intended to be used on host side
+backend_secp256k1 = [
+	"secp256k1/global-context",
+	"secp256k1/std",
+]
+# use k256 crate, better portability, intended to be used in substrate-runtimes
+backend_k256 = []
 std = [
 	"array-bytes",
 	"bandersnatch_vrfs?/std",
