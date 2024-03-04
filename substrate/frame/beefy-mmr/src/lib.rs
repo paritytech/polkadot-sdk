@@ -33,7 +33,7 @@
 //!
 //! and thanks to versioning can be easily updated in the future.
 
-use sp_runtime::traits::{Convert, Hash, Header as HeaderT, Member};
+use sp_runtime::traits::{Convert, Hash, Member};
 use sp_std::prelude::*;
 
 use codec::Decode;
@@ -180,7 +180,7 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<pallet_beefy::Error<T>, H
 	type HashT = <T as pallet_mmr::Config>::Hashing;
 	fn check_fork_equivocation_proof<Id, MsgHash>(
 		proof: &ForkEquivocationProof<Id, HeaderFor<T>, <Self::HashT as Hash>::Output>,
-	) -> Result<bool, pallet_beefy::Error<T>>
+	) -> Result<(), pallet_beefy::Error<T>>
 	where
 		Id: sp_consensus_beefy::BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: sp_runtime::traits::Hash,
@@ -215,9 +215,9 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<pallet_beefy::Error<T>, H
 			first_mmr_block_num,
 			best_block_num,
 		) {
-			return Ok(false)
+			return Err(pallet_beefy::Error::<T>::InvalidForkEquivocationProof)
 		}
-		Ok(true)
+		Ok(())
 	}
 }
 

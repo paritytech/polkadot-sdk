@@ -579,7 +579,7 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 	fn on_new_validator_set(_: &ValidatorSet<AuthorityId>, _: &ValidatorSet<AuthorityId>) {}
 }
 
-/// Hook for checking fork equivocation proof.
+/// Hook for checking fork equivocation proof for validity.
 pub trait CheckForkEquivocationProof<Err, Header: HeaderT> {
 	/// Associated hash type for hashing ancestry proof.
 	type HashT: Hash;
@@ -593,7 +593,7 @@ pub trait CheckForkEquivocationProof<Err, Header: HeaderT> {
 	/// replacement solution.
 	fn check_fork_equivocation_proof<Id, MsgHash>(
 		proof: &ForkEquivocationProof<Id, Header, <Self::HashT as Hash>::Output>,
-	) -> Result<bool, Err>
+	) -> Result<(), Err>
 	where
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: Hash;
@@ -603,14 +603,12 @@ impl<Err, Header: HeaderT> CheckForkEquivocationProof<Err, Header> for () {
 	type HashT = Keccak256;
 	fn check_fork_equivocation_proof<Id, MsgHash>(
 		_proof: &ForkEquivocationProof<Id, Header, <Self::HashT as Hash>::Output>,
-		// _canonical_header_hash: &<Self::Header as HeaderT>::Hash,
-		// _best_block_num: <Self::Header as HeaderT>::Number,
-	) -> Result<bool, Err>
+	) -> Result<(), Err>
 	where
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: Hash,
 	{
-		Ok(true)
+		Ok(())
 	}
 }
 

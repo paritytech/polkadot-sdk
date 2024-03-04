@@ -297,14 +297,10 @@ where
 			EquivocationEvidenceFor::ForkEquivocationProof(equivocation_proof, _) => {
 				// Validate equivocation proof (check commitment is to unexpected payload and
 				// signatures are valid).
-				match <T::CheckForkEquivocationProof as CheckForkEquivocationProof<
+				<T::CheckForkEquivocationProof as CheckForkEquivocationProof<
 					Error<T>,
 					HeaderFor<T>,
-				>>::check_fork_equivocation_proof(equivocation_proof)
-				{
-					Ok(true) => {},
-					_ => return Err(Error::<T>::InvalidForkEquivocationProof.into()),
-				}
+				>>::check_fork_equivocation_proof(equivocation_proof)?
 			},
 		}
 
