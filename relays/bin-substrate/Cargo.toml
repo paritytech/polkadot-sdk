@@ -16,7 +16,7 @@ codec = { package = "parity-scale-codec", version = "3.1.5" }
 env_logger = "0.11"
 futures = "0.3.30"
 hex = "0.4"
-log = "0.4.20"
+log = "0.4.21"
 num-format = "0.4"
 num-traits = "0.2"
 rbtag = "0.3"
