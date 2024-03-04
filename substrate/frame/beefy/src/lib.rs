@@ -41,8 +41,8 @@ use sp_staking::{offence::OffenceReportSystem, SessionIndex};
 use sp_std::prelude::*;
 
 use sp_consensus_beefy::{
-	AuthorityIndex, BeefyAuthorityId, ConsensusLog, OnNewValidatorSet, ValidatorSet,
-	VoteEquivocationProof, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+	AuthorityIndex, BeefyAuthorityId, CheckForkEquivocationProof, ConsensusLog, OnNewValidatorSet,
+	ValidatorSet, VoteEquivocationProof, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 
 mod default_weights;
@@ -100,9 +100,7 @@ pub mod pallet {
 		type OnNewValidatorSet: OnNewValidatorSet<<Self as Config>::BeefyId>;
 
 		/// Hook for checking fork equivocation proofs
-		type CheckForkEquivocationProof: sp_consensus_beefy::CheckForkEquivocationProof<
-			<Self as pallet_mmr::Config>::Hashing,
-		>;
+		type CheckForkEquivocationProof: sp_consensus_beefy::CheckForkEquivocationProof;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
@@ -319,7 +317,7 @@ pub mod pallet {
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
-					<<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output,
+					<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof>::HashT as sp_runtime::traits::Hash>::Output,
 				>,
 			>,
 			key_owner_proofs: Vec<T::KeyOwnerProof>,
@@ -356,7 +354,7 @@ pub mod pallet {
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
-					<<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output,
+					<<<T as Config>::CheckForkEquivocationProof as sp_consensus_beefy::CheckForkEquivocationProof>::HashT as sp_runtime::traits::Hash>::Output,
 				>,
 			>,
 			key_owner_proofs: Vec<T::KeyOwnerProof>,
@@ -427,7 +425,7 @@ impl<T: Config> Pallet<T> {
 			T::BeefyId,
 			<T::BeefyId as RuntimeAppPublic>::Signature,
 			HeaderFor<T>,
-			<<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output,
+			<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof>::HashT as sp_runtime::traits::Hash>::Output,
 		>,
 		key_owner_proofs: Vec<T::KeyOwnerProof>,
 	) -> Option<()> {

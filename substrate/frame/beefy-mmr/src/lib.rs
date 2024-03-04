@@ -174,21 +174,15 @@ where
 	}
 }
 
-fn mmr_root_hash_wrapper<T: pallet_mmr::Config>(
-) -> <<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output {
-	<pallet_mmr::Pallet<T>>::mmr_root()
-}
-
-impl<T: pallet_mmr::Config> CheckForkEquivocationProof<<T as pallet_mmr::Config>::Hashing>
-	for Pallet<T>
-{
+impl<T: pallet_mmr::Config> CheckForkEquivocationProof for Pallet<T> {
+	type HashT = <T as pallet_mmr::Config>::Hashing;
 	fn check_fork_equivocation_proof<Id, MsgHash, Header>(
 		proof: &ForkEquivocationProof<
 			Header::Number,
 			Id,
 			<Id as sp_application_crypto::RuntimeAppPublic>::Signature,
 			Header,
-			<<T as pallet_mmr::Config>::Hashing as Hash>::Output,
+			<Self::HashT as Hash>::Output,
 		>,
 		mmr_size: u64,
 		canonical_header_hash: &Header::Hash,
@@ -200,16 +194,8 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<<T as pallet_mmr::Config>
 		MsgHash: sp_runtime::traits::Hash,
 		Header: sp_runtime::traits::Header,
 	{
-		let canonical_root = mmr_root_hash_wrapper::<T>();
-		// let canonical_root = <pallet_mmr::Pallet<T>>::mmr_root();
-		sp_consensus_beefy::check_fork_equivocation_proof::<
-			_,
-			_,
-			_,
-			_,
-			AncestryHasher<<T as pallet_mmr::Config>::Hashing>,
-			// Hasher,
-		>(
+		let canonical_root = <pallet_mmr::Pallet<T>>::mmr_root();
+		sp_consensus_beefy::check_fork_equivocation_proof::<_, _, _, _, AncestryHasher<Self::HashT>>(
 			proof,
 			canonical_root,
 			mmr_size,

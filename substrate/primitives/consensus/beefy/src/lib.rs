@@ -588,7 +588,8 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 }
 
 /// Hook for checking fork equivocation proof.
-pub trait CheckForkEquivocationProof<H: Hash> {
+pub trait CheckForkEquivocationProof {
+	type HashT: Hash;
 	// type NodeHash: HashOutput;
 	fn check_fork_equivocation_proof<Id, MsgHash, Header>(
 		proof: &ForkEquivocationProof<
@@ -596,7 +597,7 @@ pub trait CheckForkEquivocationProof<H: Hash> {
 			Id,
 			<Id as RuntimeAppPublic>::Signature,
 			Header,
-			H::Output,
+			<Self::HashT as Hash>::Output,
 		>,
 		mmr_size: u64,
 		canonical_header_hash: &Header::Hash,
@@ -609,15 +610,16 @@ pub trait CheckForkEquivocationProof<H: Hash> {
 		Header: HeaderT;
 }
 
-impl<H: Hash> CheckForkEquivocationProof<H> for () {
+impl CheckForkEquivocationProof for () {
 	// type NodeHash = H256;
+	type HashT = Keccak256;
 	fn check_fork_equivocation_proof<Id, MsgHash, Header>(
 		_proof: &ForkEquivocationProof<
 			Header::Number,
 			Id,
 			<Id as RuntimeAppPublic>::Signature,
 			Header,
-			H::Output,
+			<Self::HashT as Hash>::Output,
 		>,
 		_mmr_size: u64,
 		_canonical_header_hash: &Header::Hash,

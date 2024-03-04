@@ -141,7 +141,7 @@ pub enum EquivocationEvidenceFor<T: Config + pallet_mmr::Config> {
 			<T as Config>::BeefyId,
 			<<T as Config>::BeefyId as RuntimeAppPublic>::Signature,
 			HeaderFor<T>,
-			<<T as pallet_mmr::Config>::Hashing as Hash>::Output,
+			<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof>::HashT as Hash>::Output,
 		>,
 		Vec<<T as Config>::KeyOwnerProof>,
 	),
@@ -325,9 +325,7 @@ where
 				// beefy light client at least once every 4096 blocks. See
 				// https://github.com/paritytech/polkadot-sdk/issues/1441 for
 				// replacement solution.
-				if !<T::CheckForkEquivocationProof as CheckForkEquivocationProof<
-					<T as pallet_mmr::Config>::Hashing,
-				>>::check_fork_equivocation_proof::<_, _, _>(
+				if !<T::CheckForkEquivocationProof as CheckForkEquivocationProof>::check_fork_equivocation_proof(
 					equivocation_proof,
 					mmr_size,
 					&expected_block_hash,
