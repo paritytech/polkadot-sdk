@@ -905,6 +905,30 @@ mod tests {
 		(backend, client)
 	}
 
+	fn produce_blocks(
+		mut client: Arc<Client<sc_client_api::in_mem::Backend<Block>>>,
+		num_blocks: usize,
+	) -> Vec<<Block as BlockT>::Hash> {
+		let mut blocks = Vec::with_capacity(num_blocks);
+		let mut parent_hash = client.chain_info().genesis_hash;
+
+		for i in 0..num_blocks {
+			let block = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(parent_hash)
+				.with_parent_block_number(i as u64)
+				.build()
+				.unwrap()
+				.build()
+				.unwrap()
+				.block;
+			parent_hash = block.header.hash();
+			futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+			blocks.push(block.header.hash());
+		}
+
+		blocks
+	}
+
 	#[test]
 	fn block_state_machine_register_unpin() {
 		let mut state = BlockStateMachine::new();
@@ -1030,37 +1054,10 @@ mod tests {
 
 	#[test]
 	fn unpin_duplicate_hashes() {
-		let (backend, mut client) = init_backend();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_1 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_1)
-			.with_parent_block_number(1)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_2 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_2)
-			.with_parent_block_number(2)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_3 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let (backend, client) = init_backend();
+
+		let hashes = produce_blocks(client, 3);
+		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
 		let mut subs = SubscriptionsInner::new(
 			10,
@@ -1139,18 +1136,10 @@ mod tests {
 
 	#[test]
 	fn subscription_check_block() {
-		let (backend, mut client) = init_backend();
+		let (backend, client) = init_backend();
 
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash = block.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let hashes = produce_blocks(client, 1);
+		let hash = hashes[0];
 
 		let mut subs = SubscriptionsInner::new(
 			10,
@@ -1182,17 +1171,10 @@ mod tests {
 
 	#[test]
 	fn subscription_ref_count() {
-		let (backend, mut client) = init_backend();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let (backend, client) = init_backend();
+
+		let hashes = produce_blocks(client, 1);
+		let hash = hashes[0];
 
 		let mut subs = SubscriptionsInner::new(
 			10,
@@ -1237,37 +1219,10 @@ mod tests {
 
 	#[test]
 	fn subscription_remove_subscription() {
-		let (backend, mut client) = init_backend();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_1 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_1)
-			.with_parent_block_number(1)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_2 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_2)
-			.with_parent_block_number(2)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_3 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let (backend, client) = init_backend();
+
+		let hashes = produce_blocks(client, 3);
+		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
 		let mut subs = SubscriptionsInner::new(
 			10,
@@ -1308,37 +1263,10 @@ mod tests {
 
 	#[test]
 	fn subscription_check_limits() {
-		let (backend, mut client) = init_backend();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_1 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_1)
-			.with_parent_block_number(1)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_2 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_2)
-			.with_parent_block_number(2)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_3 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let (backend, client) = init_backend();
+
+		let hashes = produce_blocks(client, 3);
+		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
 		// Maximum number of pinned blocks is 2.
 		let mut subs = SubscriptionsInner::new(
@@ -1385,37 +1313,10 @@ mod tests {
 
 	#[test]
 	fn subscription_check_limits_with_duration() {
-		let (backend, mut client) = init_backend();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_1 = block.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_1)
-			.with_parent_block_number(1)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_2 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_2)
-			.with_parent_block_number(2)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_3 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let (backend, client) = init_backend();
+
+		let hashes = produce_blocks(client, 3);
+		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
 		// Maximum number of pinned blocks is 2 and maximum pin duration is 5 second.
 		let mut subs = SubscriptionsInner::new(
@@ -1525,38 +1426,10 @@ mod tests {
 
 	#[test]
 	fn suspend_subscriptions() {
-		let (backend, mut client) = init_backend();
+		let (backend, client) = init_backend();
 
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_1 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_1)
-			.with_parent_block_number(1)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_2 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_2)
-			.with_parent_block_number(2)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_3 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let hashes = produce_blocks(client, 3);
+		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
 		let mut subs = SubscriptionsInner::new(
 			10,
