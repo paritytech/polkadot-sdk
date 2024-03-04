@@ -234,7 +234,7 @@ where
 		finalized_block_hashes.push_front(current_block);
 		current_block = *header.parent_hash();
 
-		for _ in 0..MAX_FINALIZDED_BLOCKS - 1 {
+		for _ in 0..MAX_FINALIZED_BLOCKS - 1 {
 			let Ok(Some(header)) = blockchain.header(current_block) else { break };
 			// Block cannot be reported if pinning fails.
 			if self.sub_handle.pin_block(&self.sub_id, current_block).is_err() {
