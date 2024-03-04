@@ -29,7 +29,6 @@ use crate::{
 		error::Error as ChainHeadRpcError,
 		event::{FollowEvent, MethodResponse, OperationError},
 		subscription::{SubscriptionManagement, SubscriptionManagementError},
-		suspend_subscriptions::SuspendSubscriptions,
 	},
 	common::events::StorageQuery,
 	hex_string, SubscriptionTaskExecutor,
@@ -111,10 +110,6 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	operation_max_storage_items: usize,
-	/// The distance between the leaves and the finalized block is too large.
-	///
-	/// Suspends the subscriptions for a given amount of time.
-	suspend_subscriptions: SuspendSubscriptions,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
 }
@@ -135,10 +130,10 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				config.global_max_pinned_blocks,
 				config.subscription_max_pinned_duration,
 				config.subscription_max_ongoing_operations,
+				Duration::from_secs(30),
 				backend,
 			)),
 			operation_max_storage_items: config.operation_max_storage_items,
-			suspend_subscriptions: SuspendSubscriptions::new(Duration::from_secs(30)),
 			_phantom: PhantomData,
 		}
 	}
@@ -186,26 +181,18 @@ where
 		let subscriptions = self.subscriptions.clone();
 		let backend = self.backend.clone();
 		let client = self.client.clone();
-		let suspend_subscriptions = self.suspend_subscriptions.clone();
 
 		let fut = async move {
 			let Ok(sink) = pending.accept().await else { return };
 
 			let sub_id = read_subscription_id_as_string(&sink);
 
-			if suspend_subscriptions.is_suspended() {
-				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription suspended", sub_id);
-				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-				let _ = sink.send(msg).await;
-				return
-			}
-
 			// Keep track of the subscription.
 			let Some(sub_data) = subscriptions.insert_subscription(sub_id.clone(), with_runtime)
 			else {
-				// Inserting the subscription can only fail if the JsonRPSee
-				// generated a duplicate subscription ID.
-				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted", sub_id);
+				// Inserting the subscription can only fail if the JsonRPSee generated a duplicate
+				// subscription ID; or subscriptions are suspended.
+				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted or suspended", sub_id);
 				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 				let _ = sink.send(msg).await;
 				return
@@ -222,8 +209,8 @@ where
 			let result = chain_head_follow.generate_events(sink, sub_data).await;
 
 			if let Err(SubscriptionManagementError::BlockDistanceTooLarge) = result {
-				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription suspended", sub_id);
-				suspend_subscriptions.suspend_subscriptions();
+				debug!(target: LOG_TARGET, "[follow][id={:?}] All subscriptions are suspended", sub_id);
+				subscriptions.suspend_subscriptions();
 			}
 
 			subscriptions.remove_subscription(&sub_id);

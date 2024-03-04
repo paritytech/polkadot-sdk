@@ -19,25 +19,15 @@
 //! Temporarily ban subscriptions if the distance between the leaves
 //! and the current finalized block is too large.
 
-use std::{
-	sync::Arc,
-	time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
-use parking_lot::Mutex;
-
+/// Suspend the subscriptions for a given amount of time.
 #[derive(Debug)]
-struct SuspendSubscriptionsInner {
+pub struct SuspendSubscriptions {
 	/// The time at which the subscriptions where banned.
 	instant: Option<Instant>,
 	/// The amount of time the subscriptions are banned for.
 	duration: Duration,
-}
-
-/// Suspend the subscriptions for a given amount of time.
-#[derive(Debug, Clone)]
-pub struct SuspendSubscriptions {
-	inner: Arc<Mutex<SuspendSubscriptionsInner>>,
 }
 
 impl SuspendSubscriptions {
@@ -45,24 +35,20 @@ impl SuspendSubscriptions {
 	///
 	/// The given parameter is the duration for which the subscriptions are banned for.
 	pub fn new(duration: Duration) -> Self {
-		Self { inner: Arc::new(Mutex::new(SuspendSubscriptionsInner { instant: None, duration })) }
+		Self { instant: None, duration }
 	}
 
 	/// Suspend all subscriptions for the given duration.
-	pub fn suspend_subscriptions(&self) {
-		let mut inner = self.inner.lock();
-
-		inner.instant = Some(Instant::now());
+	pub fn suspend_subscriptions(&mut self) {
+		self.instant = Some(Instant::now());
 	}
 
 	/// Check if the subscriptions are banned.
-	pub fn is_suspended(&self) -> bool {
-		let mut inner = self.inner.lock();
-
-		match inner.instant {
+	pub fn is_suspended(&mut self) -> bool {
+		match self.instant {
 			Some(time) => {
-				if time.elapsed() > inner.duration {
-					inner.instant = None;
+				if time.elapsed() > self.duration {
+					self.instant = None;
 					return false
 				}
 				true

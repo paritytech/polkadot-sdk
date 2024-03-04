@@ -27,7 +27,11 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use crate::chain_head::{subscription::SubscriptionManagementError, FollowEvent};
+use crate::chain_head::{
+	chain_head::LOG_TARGET,
+	subscription::{suspend::SuspendSubscriptions, SubscriptionManagementError},
+	FollowEvent,
+};
 
 /// The queue size after which the `sc_utils::mpsc::tracing_unbounded` would produce warnings.
 const QUEUE_SIZE_WARNING: usize = 512;
@@ -560,6 +564,9 @@ pub struct SubscriptionsInner<Block: BlockT, BE: Backend<Block>> {
 	max_ongoing_operations: usize,
 	/// Map the subscription ID to internal details of the subscription.
 	subs: HashMap<String, SubscriptionState<Block>>,
+	/// Suspend subscriptions for a given amount of time.
+	suspend: SuspendSubscriptions,
+
 	/// Backend pinning / unpinning blocks.
 	///
 	/// The `Arc` is handled one level-above, but substrate exposes the backend as Arc<T>.
@@ -572,6 +579,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		global_max_pinned_blocks: usize,
 		local_max_pin_duration: Duration,
 		max_ongoing_operations: usize,
+		suspend_duration: Duration,
 		backend: Arc<BE>,
 	) -> Self {
 		SubscriptionsInner {
@@ -580,6 +588,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 			local_max_pin_duration,
 			max_ongoing_operations,
 			subs: Default::default(),
+			suspend: SuspendSubscriptions::new(suspend_duration),
 			backend,
 		}
 	}
@@ -590,6 +599,11 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		sub_id: String,
 		with_runtime: bool,
 	) -> Option<InsertedSubscriptionData<Block>> {
+		if self.suspend.is_suspended() {
+			log::trace!(target: LOG_TARGET, "[id={:?}] Subscription already suspended", sub_id);
+			return None
+		}
+
 		if let Entry::Vacant(entry) = self.subs.entry(sub_id) {
 			let (tx_stop, rx_stop) = oneshot::channel();
 			let (response_sender, response_receiver) =
@@ -620,6 +634,19 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 			if !state.state_machine.was_unpinned() {
 				self.global_unregister_block(*hash);
 			}
+		}
+	}
+
+	/// Suspends all subscriptions for the given duration.
+	///
+	/// All active subscriptions are removed.
+	pub fn suspend_subscriptions(&mut self) {
+		self.suspend.suspend_subscriptions();
+
+		let to_remove: Vec<_> = self.subs.keys().map(|sub_id| sub_id.clone()).collect();
+
+		for sub_id in to_remove {
+			self.remove_subscription(&sub_id);
 		}
 	}
 
