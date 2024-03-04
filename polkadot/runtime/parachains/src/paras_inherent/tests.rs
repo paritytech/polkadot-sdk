@@ -22,7 +22,7 @@ use super::*;
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod enter {
 
-	use super::*;
+	use super::{inclusion::tests::TestCandidateBuilder, *};
 	use crate::{
 		builder::{Bench, BenchBuilder},
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
@@ -922,6 +922,128 @@ mod enter {
 			assert_eq!(limit_inherent_data.backed_candidates.len(), 1);
 			// * 0 disputes.
 			assert_eq!(limit_inherent_data.disputes.len(), 0);
+		});
+	}
+
+	// Ensure that overweight parachain inherents are always rejected by the runtime.
+	// Runtime should panic and return `InherentOverweight` error.
+	#[test]
+	fn test_backed_candidates_apply_weight_works_for_elastic_scaling() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			let seed = [
+				1, 0, 52, 0, 0, 0, 0, 0, 1, 0, 10, 0, 22, 32, 0, 0, 2, 0, 55, 49, 0, 11, 0, 0, 3,
+				0, 0, 0, 0, 0, 2, 92,
+			];
+			let mut rng = rand_chacha::ChaChaRng::from_seed(seed);
+
+			// Create an overweight inherent and oversized block
+			let mut backed_and_concluding = BTreeMap::new();
+
+			for i in 0..30 {
+				backed_and_concluding.insert(i, i);
+			}
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: Default::default(),
+				dispute_sessions: vec![], // 3 cores with disputes
+				backed_and_concluding,
+				num_validators_per_core: 5,
+				code_upgrade: None,
+				fill_claimqueue: false,
+			});
+
+			let mut para_inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (5 validators per core, 30 backed candidates, 0 disputes
+			//   => 5*30 = 150)
+			assert_eq!(para_inherent_data.bitfields.len(), 150);
+			// * 30 backed candidates
+			assert_eq!(para_inherent_data.backed_candidates.len(), 30);
+
+			let mut builder = TestCandidateBuilder::default();
+			builder.para_id = ParaId::from(1000);
+
+			// Craft a chain of 3 dummy backed candidates for para_id 1000.
+			let candidate_1 = builder.build();
+			let mut candidate_2 = candidate_1.clone();
+			candidate_2.commitments.new_validation_code = Some(vec![1, 2, 3, 4].into());
+			let mut candidate_3 = candidate_1.clone();
+
+			// Make candidate unique
+			candidate_3.commitments.processed_downward_messages = 123;
+
+			let backed_candidate_1 = BackedCandidate::new(
+				candidate_1.into(),
+				Default::default(),
+				Default::default(),
+				Some(CoreIndex(0)),
+			);
+
+			let backed_candidate_2 = BackedCandidate::new(
+				candidate_2.into(),
+				Default::default(),
+				Default::default(),
+				Some(CoreIndex(1)),
+			);
+
+			let backed_candidate_3 = BackedCandidate::new(
+				candidate_3.into(),
+				Default::default(),
+				Default::default(),
+				Some(CoreIndex(2)),
+			);
+
+			let mut input_candidates =
+				vec![backed_candidate_1, backed_candidate_2, backed_candidate_3];
+			let chained_candidates_weight = backed_candidates_weight::<Test>(&input_candidates);
+
+			input_candidates.append(&mut para_inherent_data.backed_candidates);
+			let input_bitfields = para_inherent_data.bitfields;
+
+			// Test if weight insufficient even for 1 candidate (which doesn't contain a code
+			// upgrade).
+			let max_weight = backed_candidate_weight::<Test>(&input_candidates[0]) +
+				signed_bitfields_weight::<Test>(&input_bitfields);
+			let mut backed_candidates = input_candidates.clone();
+			let mut bitfields = input_bitfields.clone();
+			apply_weight_limit::<Test>(
+				&mut backed_candidates,
+				&mut bitfields,
+				max_weight,
+				&mut rng,
+			);
+
+			// The chained candidates are not picked, instead a single other candidate is picked
+			assert_eq!(backed_candidates.len(), 1);
+			assert_ne!(backed_candidates[0].descriptor().para_id, ParaId::from(1000));
+
+			// All bitfields are kept.
+			assert_eq!(bitfields.len(), 150);
+
+			// Test if para_id 1000 chained candidates make it if there is enough room for its 3
+			// candidates.
+			let max_weight =
+				chained_candidates_weight + signed_bitfields_weight::<Test>(&input_bitfields);
+			let mut backed_candidates = input_candidates.clone();
+			let mut bitfields = input_bitfields.clone();
+			apply_weight_limit::<Test>(
+				&mut backed_candidates,
+				&mut bitfields,
+				max_weight,
+				&mut rng,
+			);
+
+			println!("\nBACKED CANDIDATES {:?}", backed_candidates);
+			// The chained candidates should be there.
+			assert_eq!(backed_candidates.len(), 3);
+			// Check the actual candidates
+			assert_eq!(backed_candidates[0].descriptor().para_id, ParaId::from(1000));
+			assert_eq!(backed_candidates[1].descriptor().para_id, ParaId::from(1000));
+			assert_eq!(backed_candidates[2].descriptor().para_id, ParaId::from(1000));
+
+			// All bitfields are kept.
+			assert_eq!(bitfields.len(), 150);
 		});
 	}
 
