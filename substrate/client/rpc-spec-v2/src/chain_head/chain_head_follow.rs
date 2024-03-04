@@ -208,14 +208,17 @@ where
 				// Ensure a `NewBlock` event is generated for all children of the
 				// finalized block. Describe the tree route as (child_node, parent_node)
 				// Note: the order of elements matters here.
-				let parents = std::iter::once(finalized).chain(blocks.clone());
+				let mut parent = finalized;
+				for child in blocks {
+					let pair = (child, parent);
 
-				for pair in blocks.zip(parents) {
 					if unique_descendants.insert(pair) {
 						// The finalized block is pinned below.
-						self.sub_handle.pin_block(&self.sub_id, pair.0)?;
+						self.sub_handle.pin_block(&self.sub_id, child)?;
 						finalized_block_descendants.push(pair);
 					}
+
+					parent = child;
 				}
 			}
 		}
