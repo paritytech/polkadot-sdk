@@ -201,7 +201,6 @@ where
 			return Err(SubscriptionManagementError::BlockHashAbsent)
 		};
 
-		// Note: u32 would be enough here.
 		let distance: u64 = block_num.saturating_sub(finalized_num).saturated_into();
 		if distance > 128 {
 			return Err(SubscriptionManagementError::BlockDistanceTooLarge);

@@ -62,6 +62,11 @@ pub struct ChainHeadConfig {
 	pub subscription_max_pinned_duration: Duration,
 	/// The maximum number of ongoing operations per subscription.
 	pub subscription_max_ongoing_operations: usize,
+	/// The amount of time for which the subscriptions are suspended.
+	///
+	/// Subscriptions are suspended when the distance between any leaf
+	/// and the finalized block is too large.
+	pub suspended_duration: Duration,
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	pub operation_max_storage_items: usize,
@@ -86,12 +91,19 @@ const MAX_ONGOING_OPERATIONS: usize = 16;
 /// before paginations is required.
 const MAX_STORAGE_ITER_ITEMS: usize = 5;
 
+/// The amount of time for which the subscriptions are suspended.
+///
+/// Subscriptions are suspended when the distance between any leaf
+/// and the finalized block is too large.
+const SUSPENDED_DURATION: Duration = Duration::from_secs(30);
+
 impl Default for ChainHeadConfig {
 	fn default() -> Self {
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: MAX_PINNED_DURATION,
 			subscription_max_ongoing_operations: MAX_ONGOING_OPERATIONS,
+			suspended_duration: SUSPENDED_DURATION,
 			operation_max_storage_items: MAX_STORAGE_ITER_ITEMS,
 		}
 	}
@@ -130,7 +142,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				config.global_max_pinned_blocks,
 				config.subscription_max_pinned_duration,
 				config.subscription_max_ongoing_operations,
-				Duration::from_secs(30),
+				config.suspended_duration,
 				backend,
 			)),
 			operation_max_storage_items: config.operation_max_storage_items,
