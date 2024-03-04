@@ -43,16 +43,16 @@ pub mod extrinsic_encoding;
 // TODO: @jsdw https://github.com/paritytech/polkadot-sdk-docs/issues/42
 pub mod signed_extensions;
 
-/// Learn about *"Origin"* A topic in FRAME that enables complex account abstractions to be built.
-// TODO: @shawntabrizi https://github.com/paritytech/polkadot-sdk-docs/issues/43
+/// Learn about *Origins*, a topic in FRAME that enables complex account abstractions to be built.
 pub mod frame_origin;
 
 /// Learn about how to write safe and defensive code in your FRAME runtime.
 // TODO: @CrackTheCode016 https://github.com/paritytech/polkadot-sdk-docs/issues/44
 pub mod safe_defensive_programming;
 
-/// Learn about composite enums in FRAME-based runtimes, such as "RuntimeEvent" and "RuntimeCall".
-pub mod frame_composite_enums;
+/// Learn about composite enums and other runtime level types, such as "RuntimeEvent" and
+/// "RuntimeCall".
+pub mod frame_runtime_types;
 
 /// Learn about how to make a pallet/runtime that is fee-less and instead uses another mechanism to
 /// control usage and sybil attacks.
@@ -92,11 +92,14 @@ pub mod cli;
 // TODO: @JoshOrndorff @kianenigma https://github.com/paritytech/polkadot-sdk-docs/issues/54
 pub mod consensus_swapping;
 
-/// Learn about all the advance ways to test your coordinate a rutnime upgrade and data migration.
-// TODO: @liamaharon https://github.com/paritytech/polkadot-sdk-docs/issues/55
-pub mod frame_runtime_migration;
+/// Learn about Runtime Upgrades and best practices for writing Migrations.
+pub mod frame_runtime_upgrades_and_migrations;
 
 /// Learn about light nodes, how they function, and how Substrate-based chains come
 /// light-node-first out of the box.
 // TODO: @jsdw @josepot https://github.com/paritytech/polkadot-sdk-docs/issues/68
 pub mod light_nodes;
+
+/// Learn about the offchain workers, how they function, and how to use them, as provided by the
+/// [`frame`] APIs.
+pub mod frame_offchain_workers;
