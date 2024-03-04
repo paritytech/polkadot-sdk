@@ -590,7 +590,7 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 /// Hook for checking fork equivocation proof.
 pub trait CheckForkEquivocationProof<H: Hash> {
 	// type NodeHash: HashOutput;
-	fn check_fork_equivocation_proof<Id, MsgHash, Header, Hasher>(
+	fn check_fork_equivocation_proof<Id, MsgHash, Header>(
 		proof: &ForkEquivocationProof<
 			Header::Number,
 			Id,
@@ -606,13 +606,12 @@ pub trait CheckForkEquivocationProof<H: Hash> {
 	where
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: Hash,
-		Header: HeaderT,
-		Hasher: mmr_lib::Merge<Item = H::Output>;
+		Header: HeaderT;
 }
 
 impl<H: Hash> CheckForkEquivocationProof<H> for () {
 	// type NodeHash = H256;
-	fn check_fork_equivocation_proof<Id, MsgHash, Header, Hasher>(
+	fn check_fork_equivocation_proof<Id, MsgHash, Header>(
 		_proof: &ForkEquivocationProof<
 			Header::Number,
 			Id,
@@ -629,7 +628,6 @@ impl<H: Hash> CheckForkEquivocationProof<H> for () {
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: Hash,
 		Header: HeaderT,
-		Hasher: mmr_lib::Merge<Item = H::Output>,
 	{
 		true
 	}

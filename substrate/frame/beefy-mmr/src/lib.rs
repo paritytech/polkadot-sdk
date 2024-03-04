@@ -182,7 +182,7 @@ fn mmr_root_hash_wrapper<T: pallet_mmr::Config>(
 impl<T: pallet_mmr::Config> CheckForkEquivocationProof<<T as pallet_mmr::Config>::Hashing>
 	for Pallet<T>
 {
-	fn check_fork_equivocation_proof<Id, MsgHash, Header, Hasher>(
+	fn check_fork_equivocation_proof<Id, MsgHash, Header>(
 		proof: &ForkEquivocationProof<
 			Header::Number,
 			Id,
@@ -199,9 +199,6 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<<T as pallet_mmr::Config>
 		Id: sp_consensus_beefy::BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: sp_runtime::traits::Hash,
 		Header: sp_runtime::traits::Header,
-		Hasher: sp_mmr_primitives::mmr_lib::Merge<
-			Item = <<T as pallet_mmr::Config>::Hashing as Hash>::Output,
-		>,
 	{
 		let canonical_root = mmr_root_hash_wrapper::<T>();
 		// let canonical_root = <pallet_mmr::Pallet<T>>::mmr_root();
@@ -210,8 +207,8 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<<T as pallet_mmr::Config>
 			_,
 			_,
 			_,
-			// AncestryHasher<<T as pallet_mmr::Config>::Hashing>,
-			Hasher,
+			AncestryHasher<<T as pallet_mmr::Config>::Hashing>,
+			// Hasher,
 		>(
 			proof,
 			canonical_root,

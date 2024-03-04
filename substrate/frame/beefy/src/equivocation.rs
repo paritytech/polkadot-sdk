@@ -303,7 +303,7 @@ where
 					sp_mmr_primitives::utils::NodesUtils::new(<pallet_mmr::Pallet<T>>::mmr_size())
 						.size();
 				// let expected_mmr_root = <pallet_mmr::Pallet<T>>::mmr_root();
-				let expected_mmr_root = mmr_root_hash_wrapper::<T>();
+				// let expected_mmr_root = mmr_root_hash_wrapper::<T>();
 				// let expected_mmr_root = sp_consensus_beefy::MmrRootHash::default();
 				let best_block_num = <frame_system::Pallet<T>>::block_number();
 				// if first_mmr_block_num is invalid, then presumably beefy is not active.
@@ -327,12 +327,7 @@ where
 				// replacement solution.
 				if !<T::CheckForkEquivocationProof as CheckForkEquivocationProof<
 					<T as pallet_mmr::Config>::Hashing,
-				>>::check_fork_equivocation_proof::<
-					_,
-					_,
-					_,
-					sp_mmr_primitives::utils::AncestryHasher<<T as pallet_mmr::Config>::Hashing>,
-				>(
+				>>::check_fork_equivocation_proof::<_, _, _>(
 					equivocation_proof,
 					mmr_size,
 					&expected_block_hash,
