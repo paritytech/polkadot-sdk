@@ -360,11 +360,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::mmr_root_hash()
 	}
 
-	/// Return the on-chain MMR root hash.
-	pub fn mmr_size() -> NodeIndex {
-		Self::mmr_leaves()
-	}
-
 	/// Verify MMR proof for given `leaves`.
 	///
 	/// This method is safe to use within the runtime code.

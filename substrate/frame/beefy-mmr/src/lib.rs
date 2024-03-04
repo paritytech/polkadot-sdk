@@ -187,14 +187,14 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<pallet_beefy::Error<T>, H
 	{
 		let canonical_root = <pallet_mmr::Pallet<T>>::mmr_root();
 		let mmr_size =
-			sp_mmr_primitives::utils::NodesUtils::new(<pallet_mmr::Pallet<T>>::mmr_size()).size();
+			sp_mmr_primitives::utils::NodesUtils::new(<pallet_mmr::Pallet<T>>::mmr_leaves()).size();
 		// if first_mmr_block_num is invalid, then presumably beefy is not active.
 		// TODO: should we slash in this case?
 		let block_number = proof.commitment.block_number;
 		let canonical_header_hash = <frame_system::Pallet<T>>::block_hash(block_number);
 		let best_block_num = <frame_system::Pallet<T>>::block_number();
 		let first_mmr_block_num = {
-			let mmr_leaf_count = <pallet_mmr::Pallet<T>>::mmr_size();
+			let mmr_leaf_count = <pallet_mmr::Pallet<T>>::mmr_leaves();
 			sp_mmr_primitives::utils::first_mmr_block_num::<HeaderFor<T>>(
 				best_block_num,
 				mmr_leaf_count,
