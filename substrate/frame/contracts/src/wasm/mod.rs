@@ -313,6 +313,7 @@ impl<T: Config> CodeInfo<T> {
 		}
 	}
 
+	/// Returns the determinism of the module.
 	pub fn determinism(&self) -> Determinism {
 		self.determinism
 	}
