@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: removed `pallet::getter` from example pallets
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes all the `pallet::getter` usages from the template pallets found in the Substrate and Cumulus template nodes, and from the Substrate example pallets.  
+      The purpose is to discourage developers to use this macro, that is currently being removed and soon will be deprecated.
+
+crates: 
+  - name: pallet-template
+  - name: pallet-parachain-template
+  - name: pallet-example-basic
+  - name: pallet-example-kitchensink
+  - name: pallet-example-offchain-worker
+  - name: pallet-example-split
+

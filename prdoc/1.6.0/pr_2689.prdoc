@@ -1,7 +1,7 @@
 # Schema: Parity PR Documentation Schema (prdoc)
 # See doc at https://github.com/paritytech/prdoc
 
-title: BEEFY: Support compatibility with Warp Sync - Allow Warp Sync for Validators
+title: "BEEFY: Support compatibility with Warp Sync - Allow Warp Sync for Validators"
 
 doc:
   - audience: Node Operator

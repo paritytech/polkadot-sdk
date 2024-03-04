@@ -18,13 +18,24 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 array-bytes = { version = "6.1", default-features = false }
 serde = { features = ["alloc", "derive"], workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-frame-metadata = { version = "16.0.0", default-features = false, features = ["current"] }
-sp-api = { path = "../../primitives/api", default-features = false, features = ["frame-metadata"] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+	"derive",
+	"max-encoded-len",
+] }
+scale-info = { version = "2.10.0", default-features = false, features = [
+	"derive",
+] }
+frame-metadata = { version = "16.0.0", default-features = false, features = [
+	"current",
+] }
+sp-api = { path = "../../primitives/api", default-features = false, features = [
+	"frame-metadata",
+] }
 sp-std = { path = "../../primitives/std", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = [
+	"serde",
+] }
 sp-tracing = { path = "../../primitives/tracing", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
@@ -55,6 +66,7 @@ aquamarine = { version = "0.5.0" }
 [dev-dependencies]
 assert_matches = "1.3.0"
 pretty_assertions = "1.2.1"
+sp-timestamp = { path = "../../primitives/timestamp", default-features = false }
 frame-system = { path = "../system" }
 sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 
@@ -85,6 +97,7 @@ std = [
 	"sp-std/std",
 	"sp-tracing/std",
 	"sp-weights/std",
+	"sp-timestamp/std"
 ]
 runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
