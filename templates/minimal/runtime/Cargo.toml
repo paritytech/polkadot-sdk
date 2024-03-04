@@ -41,14 +41,19 @@ substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optio
 [features]
 default = ["std"]
 std = [
+	"parity-scale-codec/std",
+	"scale-info/std",
+
 	"frame/std",
+
 	"pallet-balances/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
-	"parity-scale-codec/std",
-	"scale-info/std",
+
+	"pallet-minimal-template/std",
+
 	"sp-genesis-builder/std",
 	"substrate-wasm-builder",
 ]
