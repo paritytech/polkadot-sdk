@@ -36,8 +36,9 @@ impl MessagesCliBridge for PolkadotBulletinToBridgeHubPolkadotMessagesCliBridge 
 substrate_relay_helper::generate_receive_message_proof_call_builder!(
 	PolkadotBulletinMessagesToBridgeHubPolkadotMessageLane,
 	PolkadotBulletinMessagesToBridgeHubPolkadotMessageLaneReceiveMessagesProofCallBuilder,
-	relay_bridge_hub_polkadot_client::runtime::Call::BridgePolkadotBulletinMessages,
-	relay_bridge_hub_polkadot_client::runtime::BridgePolkadotBulletinMessagesCall::receive_messages_proof
+	// TODO: https://github.com/paritytech/parity-bridges-common/issues/2547 - use BridgePolkadotBulletinMessages
+	relay_bridge_hub_polkadot_client::RuntimeCall::BridgeKusamaMessages,
+	relay_bridge_hub_polkadot_client::BridgePolkadotBulletinMessagesCall::receive_messages_proof
 );
 
 substrate_relay_helper::generate_receive_message_delivery_proof_call_builder!(

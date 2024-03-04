@@ -75,7 +75,9 @@ macro_rules! declare_chain_runtime_version_params_cli_schema {
 						},
 						RuntimeVersionType::Bundle => match bundle_runtime_version {
 							Some(runtime_version) => ChainRuntimeVersion::Custom(runtime_version),
-							None => ChainRuntimeVersion::Auto
+							None => {
+								return Err(anyhow::format_err!("Cannot use bundled runtime version of {}: it is not known to the relay", stringify!($chain_prefix)));
+							}
 						},
 					})
 				}

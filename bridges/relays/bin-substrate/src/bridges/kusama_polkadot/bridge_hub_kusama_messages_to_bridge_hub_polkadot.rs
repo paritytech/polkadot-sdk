@@ -36,15 +36,15 @@ impl MessagesCliBridge for BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge {
 substrate_relay_helper::generate_receive_message_proof_call_builder!(
 	BridgeHubKusamaMessagesToBridgeHubPolkadotMessageLane,
 	BridgeHubKusamaMessagesToBridgeHubPolkadotMessageLaneReceiveMessagesProofCallBuilder,
-	relay_bridge_hub_polkadot_client::runtime::Call::BridgeKusamaMessages,
-	relay_bridge_hub_polkadot_client::runtime::BridgeKusamaMessagesCall::receive_messages_proof
+	relay_bridge_hub_polkadot_client::RuntimeCall::BridgeKusamaMessages,
+	relay_bridge_hub_polkadot_client::BridgeKusamaMessagesCall::receive_messages_proof
 );
 
 substrate_relay_helper::generate_receive_message_delivery_proof_call_builder!(
 	BridgeHubKusamaMessagesToBridgeHubPolkadotMessageLane,
 	BridgeHubKusamaMessagesToBridgeHubPolkadotMessageLaneReceiveMessagesDeliveryProofCallBuilder,
-	relay_bridge_hub_kusama_client::runtime::Call::BridgePolkadotMessages,
-	relay_bridge_hub_kusama_client::runtime::BridgePolkadotMessagesCall::receive_messages_delivery_proof
+	relay_bridge_hub_kusama_client::RuntimeCall::BridgePolkadotMessages,
+	relay_bridge_hub_kusama_client::BridgeMessagesCall::receive_messages_delivery_proof
 );
 
 /// BridgeHubKusama-to-BridgeHubPolkadot messages lane.

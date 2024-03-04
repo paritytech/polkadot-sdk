@@ -22,10 +22,11 @@ use relay_rococo_client::Rococo;
 use relay_substrate_client::SimpleRuntimeVersion;
 
 impl CliChain for Rococo {
-	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> = None;
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion { spec_version: 1_008_000, transaction_version: 24 });
 }
 
 impl CliChain for BridgeHubRococo {
 	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
-		Some(SimpleRuntimeVersion { spec_version: 1_003_000, transaction_version: 3 });
+		Some(SimpleRuntimeVersion { spec_version: 1_008_000, transaction_version: 4 });
 }
