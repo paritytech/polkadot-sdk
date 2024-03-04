@@ -6,7 +6,9 @@ title: Remove deprecated `trait Store`
 doc:
   - audience: Runtime Dev
     description: |
-      The deprecated `trait Store` feature has been removed from the codebase.
+      The deprecated `trait Store` feature has been removed from the codebase. Please remove usages of `generate_store`
+       macro from your pallets and access the storage through generics. For example,
+       `<Self as Store>::StoredRange::mutate` will need to be updated to `StoredRange::<T>::mutate`.
 
 crates:
   - name: frame-support
