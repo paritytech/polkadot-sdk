@@ -17,7 +17,7 @@
 //! Mocked `network-bridge` subsystems that uses a `NetworkInterface` to access
 //! the emulated network.
 
-use crate::core::{
+use crate::{
 	configuration::TestAuthorities,
 	network::{NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage, RequestExt},
 };

@@ -24,25 +24,21 @@ use crate::{
 		mock_chain_selection::MockChainSelection,
 		test_message::{MessagesBundle, TestMessageInfo},
 	},
-	core::{
-		configuration::TestAuthorities,
-		environment::{
-			BenchmarkUsage, TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT,
-		},
-		mock::{
-			chain_api::{ChainApiState, MockChainApi},
-			dummy_builder,
-			network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
-			runtime_api::MockRuntimeApi,
-			AlwaysSupportsParachains, TestSyncOracle,
-		},
-		network::{
-			new_network, HandleNetworkMessage, NetworkEmulatorHandle, NetworkInterface,
-			NetworkInterfaceReceiver,
-		},
-		NODE_UNDER_TEST,
+	configuration::{TestAuthorities, TestConfiguration},
+	dummy_builder,
+	environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
+	mock::{
+		chain_api::{ChainApiState, MockChainApi},
+		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
+		runtime_api::MockRuntimeApi,
+		AlwaysSupportsParachains, TestSyncOracle,
 	},
-	TestConfiguration,
+	network::{
+		new_network, HandleNetworkMessage, NetworkEmulatorHandle, NetworkInterface,
+		NetworkInterfaceReceiver,
+	},
+	usage::BenchmarkUsage,
+	NODE_UNDER_TEST,
 };
 use colored::Colorize;
 use futures::channel::oneshot;
@@ -472,11 +468,9 @@ impl ApprovalTestState {
 impl HandleNetworkMessage for ApprovalTestState {
 	fn handle(
 		&self,
-		_message: crate::core::network::NetworkMessage,
-		_node_sender: &mut futures::channel::mpsc::UnboundedSender<
-			crate::core::network::NetworkMessage,
-		>,
-	) -> Option<crate::core::network::NetworkMessage> {
+		_message: crate::network::NetworkMessage,
+		_node_sender: &mut futures::channel::mpsc::UnboundedSender<crate::network::NetworkMessage>,
+	) -> Option<crate::network::NetworkMessage> {
 		self.total_sent_messages_from_node
 			.as_ref()
 			.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -841,8 +835,14 @@ fn build_overseer(
 pub fn prepare_test(
 	config: TestConfiguration,
 	options: ApprovalsOptions,
+	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, ApprovalTestState) {
-	prepare_test_inner(config, TestEnvironmentDependencies::default(), options)
+	prepare_test_inner(
+		config,
+		TestEnvironmentDependencies::default(),
+		options,
+		with_prometheus_endpoint,
+	)
 }
 
 /// Build the test environment for an Approval benchmark.
@@ -850,6 +850,7 @@ fn prepare_test_inner(
 	config: TestConfiguration,
 	dependencies: TestEnvironmentDependencies,
 	options: ApprovalsOptions,
+	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, ApprovalTestState) {
 	gum::info!("Prepare test state");
 	let state = ApprovalTestState::new(&config, options, &dependencies);
@@ -878,6 +879,7 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			state.test_authorities.clone(),
+			with_prometheus_endpoint,
 		),
 		state,
 	)
