@@ -588,44 +588,47 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 }
 
 /// Hook for checking fork equivocation proof.
-pub trait CheckForkEquivocationProof<Err> {
+pub trait CheckForkEquivocationProof<Err, Header: HeaderT> {
+	/// Associated hash type for hashing ancestry proof.
 	type HashT: Hash;
-	// type NodeHash: HashOutput;
-	fn check_fork_equivocation_proof<Id, MsgHash, Header>(
+	/// Validate equivocation proof (check commitment is to unexpected payload and
+	/// signatures are valid).
+	/// NOTE: Fork equivocation proof currently only prevents attacks
+	/// assuming 2/3rds of validators honestly participate in BEEFY
+	/// finalization and at least one honest relayer can update the
+	/// beefy light client at least once every 4096 blocks. See
+	/// https://github.com/paritytech/polkadot-sdk/issues/1441 for
+	/// replacement solution.
+	fn check_fork_equivocation_proof<Id, MsgHash>(
 		proof: &ForkEquivocationProof<
-			Header::Number,
+			<Header as HeaderT>::Number,
 			Id,
 			<Id as RuntimeAppPublic>::Signature,
 			Header,
 			<Self::HashT as Hash>::Output,
 		>,
-		canonical_header_hash: &Header::Hash,
-		best_block_num: Header::Number,
 	) -> Result<bool, Err>
 	where
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
-		MsgHash: Hash,
-		Header: HeaderT;
+		MsgHash: Hash;
 }
 
-impl<Err> CheckForkEquivocationProof<Err> for () {
-	// type NodeHash = H256;
+impl<Err, Header: HeaderT> CheckForkEquivocationProof<Err, Header> for () {
 	type HashT = Keccak256;
-	fn check_fork_equivocation_proof<Id, MsgHash, Header>(
+	fn check_fork_equivocation_proof<Id, MsgHash>(
 		_proof: &ForkEquivocationProof<
-			Header::Number,
+			<Header as HeaderT>::Number,
 			Id,
 			<Id as RuntimeAppPublic>::Signature,
 			Header,
 			<Self::HashT as Hash>::Output,
 		>,
-		_canonical_header_hash: &Header::Hash,
-		_best_block_num: Header::Number,
+		// _canonical_header_hash: &<Self::Header as HeaderT>::Hash,
+		// _best_block_num: <Self::Header as HeaderT>::Number,
 	) -> Result<bool, Err>
 	where
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: Hash,
-		Header: HeaderT,
 	{
 		Ok(true)
 	}

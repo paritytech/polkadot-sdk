@@ -137,14 +137,16 @@ pub enum EquivocationEvidenceFor<T: Config> {
 	),
 	ForkEquivocationProof(
 		ForkEquivocationProof<
-				BlockNumberFor<T>,
-				<T as Config>::BeefyId,
-				<<T as Config>::BeefyId as RuntimeAppPublic>::Signature,
+			BlockNumberFor<T>,
+			<T as Config>::BeefyId,
+			<<T as Config>::BeefyId as RuntimeAppPublic>::Signature,
+			// <<T as frame_system::Config>::Block as Block>::Header,
+			HeaderFor<T>,
+			<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
+				Error<T>,
 				HeaderFor<T>,
-				<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
-					Error<T>,
-				>>::HashT as Hash>::Output,
-			>,
+			>>::HashT as Hash>::Output,
+		>,
 		Vec<<T as Config>::KeyOwnerProof>,
 	),
 }
@@ -296,27 +298,15 @@ where
 				}
 			},
 			EquivocationEvidenceFor::ForkEquivocationProof(equivocation_proof, _) => {
-				let block_number = equivocation_proof.commitment.block_number;
-				let expected_block_hash = <frame_system::Pallet<T>>::block_hash(block_number);
-				// let expected_mmr_root = mmr_root_hash_wrapper::<T>();
-				// let expected_mmr_root = sp_consensus_beefy::MmrRootHash::default();
-				let best_block_num = <frame_system::Pallet<T>>::block_number();
-
 				// Validate equivocation proof (check commitment is to unexpected payload and
 				// signatures are valid).
-				// NOTE: Fork equivocation proof currently only prevents attacks
-				// assuming 2/3rds of validators honestly participate in BEEFY
-				// finalization and at least one honest relayer can update the
-				// beefy light client at least once every 4096 blocks. See
-				// https://github.com/paritytech/polkadot-sdk/issues/1441 for
-				// replacement solution.
-				match <T::CheckForkEquivocationProof as CheckForkEquivocationProof<Error<T>>>::check_fork_equivocation_proof(
-					equivocation_proof,
-					&expected_block_hash,
-					best_block_num,
-				) {
+				match <T::CheckForkEquivocationProof as CheckForkEquivocationProof<
+					Error<T>,
+					HeaderFor<T>,
+				>>::check_fork_equivocation_proof(equivocation_proof)
+				{
 					Ok(true) => {},
-					_ => return Err(Error::<T>::InvalidForkEquivocationProof.into())
+					_ => return Err(Error::<T>::InvalidForkEquivocationProof.into()),
 				}
 			},
 		}

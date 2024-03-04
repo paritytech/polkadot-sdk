@@ -102,6 +102,7 @@ pub mod pallet {
 		/// Hook for checking fork equivocation proofs
 		type CheckForkEquivocationProof: sp_consensus_beefy::CheckForkEquivocationProof<
 			pallet::Error<Self>,
+			HeaderFor<Self>,
 		>;
 
 		/// Weights for this pallet.
@@ -321,6 +322,7 @@ pub mod pallet {
 					HeaderFor<T>,
 					<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
 						Error<T>,
+						HeaderFor<T>,
 					>>::HashT as Hash>::Output,
 				>,
 			>,
@@ -358,7 +360,7 @@ pub mod pallet {
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
-					<<<T as Config>::CheckForkEquivocationProof as sp_consensus_beefy::CheckForkEquivocationProof<Error<T>>>::HashT as sp_runtime::traits::Hash>::Output,
+					<<<T as Config>::CheckForkEquivocationProof as sp_consensus_beefy::CheckForkEquivocationProof<Error<T>, HeaderFor<T>>>::HashT as sp_runtime::traits::Hash>::Output,
 				>,
 			>,
 			key_owner_proofs: Vec<T::KeyOwnerProof>,
@@ -431,6 +433,7 @@ impl<T: Config> Pallet<T> {
 			HeaderFor<T>,
 			<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
 				pallet::Error<T>,
+				HeaderFor<T>,
 			>>::HashT as Hash>::Output,
 		>,
 		key_owner_proofs: Vec<T::KeyOwnerProof>,
