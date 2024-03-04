@@ -33,7 +33,7 @@ use frame_system::{
 use log;
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{IsMember, Member, One},
+	traits::{Hash, IsMember, Member, One},
 	RuntimeAppPublic,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
@@ -66,7 +66,7 @@ pub mod pallet {
 	use sp_consensus_beefy::ForkEquivocationProof;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_mmr::Config {
+	pub trait Config: frame_system::Config {
 		/// Authority identifier type
 		type BeefyId: Member
 			+ Parameter
@@ -100,7 +100,9 @@ pub mod pallet {
 		type OnNewValidatorSet: OnNewValidatorSet<<Self as Config>::BeefyId>;
 
 		/// Hook for checking fork equivocation proofs
-		type CheckForkEquivocationProof: sp_consensus_beefy::CheckForkEquivocationProof;
+		type CheckForkEquivocationProof: sp_consensus_beefy::CheckForkEquivocationProof<
+			pallet::Error<Self>,
+		>;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
@@ -317,7 +319,9 @@ pub mod pallet {
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
-					<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof>::HashT as sp_runtime::traits::Hash>::Output,
+					<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
+						Error<T>,
+					>>::HashT as Hash>::Output,
 				>,
 			>,
 			key_owner_proofs: Vec<T::KeyOwnerProof>,
@@ -354,7 +358,7 @@ pub mod pallet {
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
-					<<<T as Config>::CheckForkEquivocationProof as sp_consensus_beefy::CheckForkEquivocationProof>::HashT as sp_runtime::traits::Hash>::Output,
+					<<<T as Config>::CheckForkEquivocationProof as sp_consensus_beefy::CheckForkEquivocationProof<Error<T>>>::HashT as sp_runtime::traits::Hash>::Output,
 				>,
 			>,
 			key_owner_proofs: Vec<T::KeyOwnerProof>,
@@ -425,7 +429,9 @@ impl<T: Config> Pallet<T> {
 			T::BeefyId,
 			<T::BeefyId as RuntimeAppPublic>::Signature,
 			HeaderFor<T>,
-			<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof>::HashT as sp_runtime::traits::Hash>::Output,
+			<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
+				pallet::Error<T>,
+			>>::HashT as Hash>::Output,
 		>,
 		key_owner_proofs: Vec<T::KeyOwnerProof>,
 	) -> Option<()> {

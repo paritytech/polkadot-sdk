@@ -174,7 +174,7 @@ where
 	}
 }
 
-impl<T: pallet_mmr::Config> CheckForkEquivocationProof for Pallet<T> {
+impl<T: pallet_mmr::Config> CheckForkEquivocationProof<pallet_beefy::Error<T>> for Pallet<T> {
 	type HashT = <T as pallet_mmr::Config>::Hashing;
 	fn check_fork_equivocation_proof<Id, MsgHash, Header>(
 		proof: &ForkEquivocationProof<
@@ -184,25 +184,41 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof for Pallet<T> {
 			Header,
 			<Self::HashT as Hash>::Output,
 		>,
-		mmr_size: u64,
 		canonical_header_hash: &Header::Hash,
-		first_mmr_block_num: Header::Number,
 		best_block_num: Header::Number,
-	) -> bool
+	) -> Result<bool, pallet_beefy::Error<T>>
 	where
 		Id: sp_consensus_beefy::BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: sp_runtime::traits::Hash,
 		Header: sp_runtime::traits::Header,
 	{
 		let canonical_root = <pallet_mmr::Pallet<T>>::mmr_root();
-		sp_consensus_beefy::check_fork_equivocation_proof::<_, _, _, _, AncestryHasher<Self::HashT>>(
+		let mmr_size =
+			sp_mmr_primitives::utils::NodesUtils::new(<pallet_mmr::Pallet<T>>::mmr_size()).size();
+		// if first_mmr_block_num is invalid, then presumably beefy is not active.
+		// TODO: should we slash in this case?
+		let first_mmr_block_num = {
+			let mmr_leaf_count = <pallet_mmr::Pallet<T>>::mmr_size();
+			sp_mmr_primitives::utils::first_mmr_block_num::<Header>(best_block_num, mmr_leaf_count)
+				.map_err(|_| pallet_beefy::Error::<T>::InvalidForkEquivocationProof)?
+		};
+		if !sp_consensus_beefy::check_fork_equivocation_proof::<
+			_,
+			_,
+			_,
+			_,
+			AncestryHasher<Self::HashT>,
+		>(
 			proof,
 			canonical_root,
 			mmr_size,
 			canonical_header_hash,
 			first_mmr_block_num,
 			best_block_num,
-		)
+		) {
+			return Ok(false)
+		}
+		Ok(true)
 	}
 }
 
