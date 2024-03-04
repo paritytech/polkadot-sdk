@@ -16,7 +16,7 @@
 
 //! A generic runtime api subsystem mockup suitable to be used in benchmarks.
 
-use crate::core::configuration::{TestAuthorities, TestConfiguration};
+use crate::configuration::{TestAuthorities, TestConfiguration};
 use bitvec::prelude::BitVec;
 use futures::FutureExt;
 use itertools::Itertools;
