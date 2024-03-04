@@ -212,6 +212,7 @@ pub enum CollatorProtocolMessage {
 		/// The receipt of the candidate.
 		candidate_receipt: CandidateReceipt,
 		/// The hash of the parent head-data.
+		/// Here to avoid computing the hash of the parent head data twice.
 		parent_head_data_hash: Hash,
 		/// Proof of validity.
 		pov: PoV,
