@@ -227,7 +227,7 @@ where
 		};
 
 		// Report at most `MAX_FINALIZED_BLOCKS`. Note: The node might not have that many blocks.
-		let mut finalized_block_hashes = VecDeque::with_capacity(MAX_FINALIZDED_BLOCKS);
+		let mut finalized_block_hashes = VecDeque::with_capacity(MAX_FINALIZED_BLOCKS);
 
 		// Pin the finalized block.
 		self.sub_handle.pin_block(&self.sub_id, current_block)?;
