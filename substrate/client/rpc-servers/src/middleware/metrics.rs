@@ -190,7 +190,7 @@ impl RpcMetrics {
 	}
 }
 
-/// Metrics layer.
+/// Metrics with transport label.
 #[derive(Clone, Debug)]
 pub struct Metrics {
 	pub(crate) inner: RpcMetrics,
@@ -198,7 +198,7 @@ pub struct Metrics {
 }
 
 impl Metrics {
-	/// Create a new [`MetricsLayer`].
+	/// Create a new [`Metrics`].
 	pub fn new(metrics: RpcMetrics, transport_label: &'static str) -> Self {
 		Self { inner: metrics, transport_label }
 	}
