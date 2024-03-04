@@ -64,7 +64,7 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchResult, RuntimeDebug,
 };
-use sp_staking::{delegation::DelegateeSupport, offence::DisableStrategy, EraIndex};
+use sp_staking::{offence::DisableStrategy, EraIndex};
 use sp_std::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
@@ -608,7 +608,7 @@ pub fn do_slash<T: Config>(
 			Err(_) => return, // nothing to do.
 		};
 
-	let lazy_slash = T::DelegateeSupport::is_delegatee(stash);
+	let lazy_slash = !ledger.locked_locally;
 	let value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
 
 	if value.is_zero() {
@@ -618,7 +618,9 @@ pub fn do_slash<T: Config>(
 
 	if lazy_slash {
 		// If delegated staking, report slash and move on.
-		T::DelegateeSupport::report_slash(stash, value);
+		// emit event through `OnStakingUpdate::on_slash()` where the delegatee can listen to the
+		// event and apply the slash locally; TBD with #1933
+		todo!("T::DelegateeSupport::report_slash(stash, value)");
 	} else {
 		let (imbalance, missing) = T::Currency::slash(stash, value);
 		slashed_imbalance.subsume(imbalance);

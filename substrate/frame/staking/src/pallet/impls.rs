@@ -1106,33 +1106,11 @@ impl<T: Config> Pallet<T> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
 
-	pub(crate) fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
-		if T::DelegateeSupport::is_delegatee(who) {
-			return T::DelegateeSupport::stakeable_balance(who);
-		}
-
-		T::Currency::free_balance(who)
-	}
-
-	pub(crate) fn restrict_reward_destination(
-		who: &T::AccountId,
-		reward_destination: Option<T::AccountId>,
-	) -> bool {
-		if T::DelegateeSupport::is_delegatee(who) {
-			return T::DelegateeSupport::restrict_reward_destination(who, reward_destination);
-		}
-
-		false
-	}
-
 	pub(crate) fn update_hold(
 		who: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> sp_runtime::DispatchResult {
-		// only apply lock if it is not a delegatee. delegatee accounts are already locked/held.
-		if !T::DelegateeSupport::is_delegatee(who) {
-			T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
-		}
+		T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
 
 		Ok(())
 	}
@@ -1872,21 +1850,21 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
-/// Standard implementation of `DelegateeSupport` that supports only direct staking and no
-/// delegated staking.
-pub struct NoDelegation<T>(PhantomData<T>);
-impl<T: Config> DelegateeSupport for NoDelegation<T> {
-	type Balance = BalanceOf<T>;
-	type AccountId = T::AccountId;
-	fn stakeable_balance(_who: &Self::AccountId) -> Self::Balance {
-		defensive!("stakeable balance should not have been called for NoDelegation");
-		BalanceOf::<T>::zero()
+impl<T: Config> DelegateeSupport for Pallet<T> {
+	fn delegated_bond(
+		who: &Self::AccountId,
+		value: Self::Balance,
+		payee: &Self::AccountId,
+	) -> DispatchResult {
+		Self::delegated_bond(
+			RawOrigin::Signed(who.clone()).into(),
+			value,
+			RewardDestination::Account(payee.clone()),
+		)
 	}
-	fn is_delegatee(_who: &Self::AccountId) -> bool {
-		false
-	}
-	fn report_slash(_who: &Self::AccountId, _slash: Self::Balance) {
-		defensive!("delegation report_slash should not be have been called for NoDelegation");
+
+	fn is_delegatee(who: &Self::AccountId) -> bool {
+		Self::ledger(Stash(who.clone())).map(|l| !l.locked_locally).unwrap_or(false)
 	}
 }
 

@@ -63,6 +63,7 @@ impl<T: Config> StakingLedger<T> {
 			total: stake,
 			unlocking: Default::default(),
 			legacy_claimed_rewards: Default::default(),
+			locked_locally: true,
 			// controllers are deprecated and mapped 1-1 to stashes.
 			controller: Some(stash),
 		}
@@ -157,7 +158,9 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		Pallet::<T>::update_hold(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
+		if self.locked_locally {
+			Pallet::<T>::update_hold(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
+		}
 
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
@@ -178,23 +181,26 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::AlreadyBonded);
 		}
 
-		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
-			return Err(Error::<T>::RewardDestinationRestricted);
-		}
-
 		<Payee<T>>::insert(&self.stash, payee);
 		<Bonded<T>>::insert(&self.stash, &self.stash);
 		self.update()
+	}
+
+	/// Registers a bond on a ledger where the locked funds are not held locally.
+	///
+	/// It sets the reward preferences for the bonded stash.
+	pub(crate) fn register_as_bonded(
+		mut self,
+		payee: RewardDestination<T::AccountId>,
+	) -> Result<(), Error<T>> {
+		self.locked_locally = false;
+		self.bond(payee)
 	}
 
 	/// Sets the ledger Payee.
 	pub(crate) fn set_payee(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
 			return Err(Error::<T>::NotStash);
-		}
-
-		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
-			return Err(Error::<T>::RewardDestinationRestricted);
 		}
 
 		<Payee<T>>::insert(&self.stash, payee);

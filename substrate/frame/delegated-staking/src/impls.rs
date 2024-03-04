@@ -190,6 +190,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 }
 
 impl<T: Config> DelegatedStakeInterface for Pallet<T> {
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
+
 	/// Effective balance of the delegatee account.
 	fn delegatee_balance(who: &Self::AccountId) -> Self::Balance {
 		Delegatee::<T>::from(who)
@@ -266,54 +269,5 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		maybe_reporter: Option<Self::AccountId>,
 	) -> sp_runtime::DispatchResult {
 		Pallet::<T>::do_slash(delegatee.clone(), delegator.clone(), value, maybe_reporter)
-	}
-}
-
-impl<T: Config> DelegateeSupport for Pallet<T> {
-	type Balance = BalanceOf<T>;
-	type AccountId = T::AccountId;
-
-	/// this balance is total delegator that can be staked, and importantly not extra balance that
-	/// is delegated but not bonded yet.
-	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
-		Delegatee::<T>::from(who)
-			.map(|delegatee| delegatee.ledger.stakeable_balance())
-			.unwrap_or_default()
-	}
-
-	fn restrict_reward_destination(
-		who: &Self::AccountId,
-		reward_destination: Option<Self::AccountId>,
-	) -> bool {
-		let maybe_register = <Delegatees<T>>::get(who);
-
-		if maybe_register.is_none() {
-			// no restrictions for non delegates.
-			return false;
-		}
-
-		// restrict if reward destination is not set
-		if reward_destination.is_none() {
-			return true;
-		}
-
-		let register = maybe_register.expect("checked above; qed");
-		let reward_acc = reward_destination.expect("checked above; qed");
-
-		// restrict if reward account is not what delegate registered.
-		register.payee != reward_acc
-	}
-
-	fn is_delegatee(who: &Self::AccountId) -> bool {
-		Self::is_delegatee(who)
-	}
-
-	fn report_slash(who: &Self::AccountId, slash: Self::Balance) {
-		<Delegatees<T>>::mutate(who, |maybe_register| match maybe_register {
-			Some(register) => register.pending_slash.saturating_accrue(slash),
-			None => {
-				defensive!("should not be called on non-delegate");
-			},
-		});
 	}
 }
