@@ -61,12 +61,16 @@ use runtime_common::{
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedLocationConverter,
 	},
-	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BalanceToU256, BlockHashCount,
-	BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate, U256ToBalance,
+	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
+	traits::Leaser,
+	BalanceToU256, BlockHashCount, BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate,
+	U256ToBalance,
 };
 use runtime_parachains::{
+	assigner_coretime as parachains_assigner_coretime,
+	assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
-	configuration as parachains_configuration, disputes as parachains_disputes,
+	configuration as parachains_configuration, coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
@@ -147,7 +151,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westend"),
 	impl_name: create_runtime_str!("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_006_001,
+	spec_version: 1_007_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -304,7 +308,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type MaxHolds = ConstU32<1>;
 }
 
 parameter_types! {
@@ -1144,7 +1147,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
-	type AssignCoretime = ();
+	type AssignCoretime = CoretimeAssignmentProvider;
 }
 
 parameter_types! {
@@ -1213,20 +1216,42 @@ impl parachains_paras_inherent::Config for Runtime {
 impl parachains_scheduler::Config for Runtime {
 	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
 	// otherwise provide a migration.
-	type AssignmentProvider = ParachainsAssignmentProvider;
+	type AssignmentProvider = CoretimeAssignmentProvider;
 }
 
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
 }
 
+impl coretime::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BrokerId = BrokerId;
+	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
+	type SendXcm = crate::xcm_config::XcmRouter;
+}
+
+parameter_types! {
+	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
+}
+
+impl parachains_assigner_on_demand::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
+	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
+}
+
 impl parachains_assigner_parachains::Config for Runtime {}
+
+impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::runtime_parachains_initializer::WeightInfo<Runtime>;
-	type CoretimeOnNewSession = ();
+	type CoretimeOnNewSession = Coretime;
 }
 
 impl paras_sudo_wrapper::Config for Runtime {}
@@ -1413,13 +1438,6 @@ construct_runtime! {
 		Offences: pallet_offences = 7,
 		Historical: session_historical = 27,
 
-		// BEEFY Bridges support.
-		Beefy: pallet_beefy = 200,
-		// MMR leaf construction must be before session in order to have leaf contents refer to
-		// block<N-1> consistently. see substrate issue #11797 for details.
-		Mmr: pallet_mmr = 201,
-		BeefyMmrLeaf: pallet_beefy_mmr = 202,
-
 		Session: pallet_session = 8,
 		Grandpa: pallet_grandpa = 10,
 		AuthorityDiscovery: pallet_authority_discovery = 12,
@@ -1488,6 +1506,8 @@ construct_runtime! {
 		ParasDisputes: parachains_disputes = 53,
 		ParasSlashing: parachains_slashing = 54,
 		ParachainsAssignmentProvider: parachains_assigner_parachains = 55,
+		OnDemandAssignmentProvider: parachains_assigner_on_demand = 56,
+		CoretimeAssignmentProvider: parachains_assigner_coretime = 57,
 
 		// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 		Registrar: paras_registrar = 60,
@@ -1496,6 +1516,7 @@ construct_runtime! {
 		Auctions: auctions = 63,
 		Crowdloan: crowdloan = 64,
 		AssignedSlots: assigned_slots = 65,
+		Coretime: coretime = 66,
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm = 99,
@@ -1508,6 +1529,13 @@ construct_runtime! {
 
 		// Root testing pallet.
 		RootTesting: pallet_root_testing = 102,
+
+		// BEEFY Bridges support.
+		Beefy: pallet_beefy = 200,
+		// MMR leaf construction must be after session in order to have a leaf's next_auth_set
+		// refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
+		Mmr: pallet_mmr = 201,
+		BeefyMmrLeaf: pallet_beefy_mmr = 202,
 
 		// Pallet for migrating Identity to a parachain. To be removed post-migration.
 		IdentityMigrator: identity_migrator = 248,
@@ -1555,6 +1583,24 @@ pub mod migrations {
 	use super::*;
 	#[cfg(feature = "try-runtime")]
 	use sp_core::crypto::ByteArray;
+
+	pub struct GetLegacyLeaseImpl;
+	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
+		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
+			let now = frame_system::Pallet::<Runtime>::block_number();
+			let lease = slots::Pallet::<Runtime>::lease(para);
+			if lease.is_empty() {
+				return None
+			}
+			// Lease not yet started, ignore:
+			if lease.iter().any(Option::is_none) {
+				return None
+			}
+			let (index, _) =
+				<slots::Pallet<Runtime> as Leaser<BlockNumber>>::lease_period_index(now)?;
+			Some(index.saturating_add(lease.len() as u32).saturating_mul(LeasePeriod::get()))
+		}
+	}
 
 	parameter_types! {
 		pub const ImOnlinePalletName: &'static str = "ImOnline";
@@ -1648,7 +1694,7 @@ pub mod migrations {
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
-		pallet_nomination_pools::migration::versioned::V7ToV8<Runtime>,
+		pallet_nomination_pools::migration::unversioned::TotalValueLockedSync<Runtime>,
 		UpgradeSessionKeys,
 		frame_support::migrations::RemovePallet<
 			ImOnlinePalletName,
@@ -1657,6 +1703,14 @@ pub mod migrations {
 		// Migrate Identity pallet for Usernames
 		pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
+		// permanent
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+		// Migrate from legacy lease to coretime. Needs to run after configuration v11
+		coretime::migration::MigrateToCoretime<
+			Runtime,
+			crate::xcm_config::XcmRouter,
+			GetLegacyLeaseImpl,
+		>,
 	);
 }
 
@@ -1695,6 +1749,8 @@ mod benches {
 		[runtime_parachains::initializer, Initializer]
 		[runtime_parachains::paras, Paras]
 		[runtime_parachains::paras_inherent, ParaInherent]
+		[runtime_parachains::assigner_on_demand, OnDemandAssignmentProvider]
+		[runtime_parachains::coretime, Coretime]
 		// Substrate
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
@@ -1793,6 +1849,12 @@ sp_api::impl_runtime_apis! {
 
 	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
+			use sp_runtime::{traits::Header, DigestItem};
+
+			if header.digest().logs().iter().any(|di| di == &DigestItem::RuntimeEnvironmentUpdated) {
+				pallet_im_online::migration::clear_offchain_storage(Session::validators().len() as u32);
+			}
+
 			Executive::offchain_worker(header)
 		}
 	}

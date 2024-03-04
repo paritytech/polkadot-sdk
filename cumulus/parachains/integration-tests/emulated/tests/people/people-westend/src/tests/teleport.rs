@@ -25,12 +25,12 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 		Westend,
 		vec![
 			// Amount to teleport is withdrawn from Sender
-			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
 				who: *who == t.sender.account_id,
 				amount: *amount == t.args.amount,
 			},
 			// Amount to teleport is deposited in Relay's `CheckAccount`
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount }) => {
 				who: *who == <Westend as WestendPallet>::XcmPallet::check_account(),
 				amount:  *amount == t.args.amount,
 			},
@@ -51,12 +51,12 @@ fn relay_dest_assertions(t: SystemParaToRelayTest) {
 		Westend,
 		vec![
 			// Amount is withdrawn from Relay Chain's `CheckAccount`
-			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
 				who: *who == <Westend as WestendPallet>::XcmPallet::check_account(),
 				amount: *amount == t.args.amount,
 			},
 			// Amount minus fees are deposited in Receiver's account
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
 		]
@@ -85,7 +85,7 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 		PeopleWestend,
 		vec![
 			// Amount is withdrawn from Sender's account
-			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
 				who: *who == t.sender.account_id,
 				amount: *amount == t.args.amount,
 			},
@@ -102,7 +102,7 @@ fn para_dest_assertions(t: RelayToSystemParaTest) {
 		PeopleWestend,
 		vec![
 			// Amount minus fees are deposited in Receiver's account
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
 		]

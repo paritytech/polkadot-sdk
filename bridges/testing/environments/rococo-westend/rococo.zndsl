@@ -1,0 +1,7 @@
+Description: User is able to transfer WND from Westend Asset Hub to Rococo Asset Hub and back
+Network: ./bridge_hub_rococo_local_network.toml
+Creds: config
+
+# relay is already started - let's wait until with-Westend GRANPDA pallet is initialized at Rococo
+bridge-hub-rococo-collator1: js-script ../../js-helpers/best-finalized-header-at-bridged-chain.js with "Westend,0" within 400 seconds
+

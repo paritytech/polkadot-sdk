@@ -29,13 +29,11 @@ use sp_runtime::traits::IdentityLookup;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::{configuration, origin, shared};
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, ChildParachainAsNative, ChildParachainConvertsVia,
 	ChildSystemParachainAsSuperuser, DescribeAllTerminal, DescribeFamily, FixedRateOfFungible,
-	FixedWeightBounds, FrameTransactionalProcessor, HashedDescription, IsConcrete,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{Config, XcmExecutor};
@@ -93,7 +91,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
@@ -120,9 +117,8 @@ pub type SovereignAccountOf = (
 	ChildParachainConvertsVia<ParaId, AccountId>,
 );
 
-#[allow(deprecated)]
 pub type LocalBalancesTransactor =
-	XcmCurrencyAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
+	FungibleAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
 
 pub type AssetTransactors = LocalBalancesTransactor;
 

@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 ansi_term = "0.12.1"
 futures = "0.3.21"
 futures-timer = "3.0.1"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 sc-client-api = { path = "../api" }
 sc-network-common = { path = "../network/common" }
 sc-network-sync = { path = "../network/sync" }

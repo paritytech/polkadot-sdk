@@ -106,14 +106,14 @@ pub mod rococo {
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
 		SAFE_XCM_VERSION,
 	};
-	use parachains_common::{rococo::currency::EXISTENTIAL_DEPOSIT, AccountId, AuraId};
+	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
 	pub(crate) const PEOPLE_ROCOCO: &str = "people-rococo";
 	pub(crate) const PEOPLE_ROCOCO_LOCAL: &str = "people-rococo-local";
-	pub(crate) const PEOPLE_ROCOCO_DEVELOPMENT: &str = "people-rococo-development";
-	const PEOPLE_ROCOCO_ED: PeopleBalance = EXISTENTIAL_DEPOSIT;
+	pub(crate) const PEOPLE_ROCOCO_DEVELOPMENT: &str = "people-rococo-dev";
+	const PEOPLE_ROCOCO_ED: PeopleBalance = people_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
 		id: &str,
@@ -216,14 +216,14 @@ pub mod westend {
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
 		SAFE_XCM_VERSION,
 	};
-	use parachains_common::{westend::currency::EXISTENTIAL_DEPOSIT, AccountId, AuraId};
+	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
 	pub(crate) const PEOPLE_WESTEND: &str = "people-westend";
 	pub(crate) const PEOPLE_WESTEND_LOCAL: &str = "people-westend-local";
-	pub(crate) const PEOPLE_WESTEND_DEVELOPMENT: &str = "people-westend-development";
-	const PEOPLE_WESTEND_ED: PeopleBalance = EXISTENTIAL_DEPOSIT;
+	pub(crate) const PEOPLE_WESTEND_DEVELOPMENT: &str = "people-westend-dev";
+	const PEOPLE_WESTEND_ED: PeopleBalance = people_westend_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
 		id: &str,

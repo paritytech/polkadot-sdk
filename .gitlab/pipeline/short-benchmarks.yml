@@ -84,6 +84,16 @@ short-benchmark-coretime-westend:
   variables:
     RUNTIME_CHAIN: coretime-westend-dev
 
+short-benchmark-people-rococo:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: people-rococo-dev
+
+short-benchmark-people-westend:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: people-westend-dev
+
 short-benchmark-glutton-westend:
   <<: *short-bench-cumulus
   variables:

@@ -126,7 +126,7 @@ pub fn dummy_candidate_descriptor<H: AsRef<[u8]>>(relay_parent: H) -> CandidateD
 
 /// Create meaningless validation code.
 pub fn dummy_validation_code() -> ValidationCode {
-	ValidationCode(vec![1, 2, 3])
+	ValidationCode(vec![1, 2, 3, 4, 5, 6, 7, 8, 9])
 }
 
 /// Create meaningless head data.

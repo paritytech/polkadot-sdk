@@ -150,7 +150,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_006_002,
+	spec_version: 1_007_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -309,12 +309,11 @@ impl pallet_balances::Config for Runtime {
 	type MaxLocks = MaxLocks;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
-	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_balances_balances::WeightInfo<Runtime>;
 	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<3>;
+	type MaxFreezes = ConstU32<1>;
 }
 
 parameter_types! {
@@ -1167,7 +1166,6 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<3>;
 	type MaxFreezes = ConstU32<1>;
 }
 
@@ -1331,13 +1329,6 @@ construct_runtime! {
 		Offences: pallet_offences = 7,
 		Historical: session_historical = 34,
 
-		// BEEFY Bridges support.
-		Beefy: pallet_beefy = 240,
-		// MMR leaf construction must be before session in order to have leaf contents
-		// refer to block<N-1> consistently. see substrate issue #11797 for details.
-		Mmr: pallet_mmr = 241,
-		MmrLeaf: pallet_beefy_mmr = 242,
-
 		Session: pallet_session = 8,
 		Grandpa: pallet_grandpa = 10,
 		AuthorityDiscovery: pallet_authority_discovery = 12,
@@ -1422,6 +1413,13 @@ construct_runtime! {
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm = 99,
+
+		// BEEFY Bridges support.
+		Beefy: pallet_beefy = 240,
+		// MMR leaf construction must be after session in order to have a leaf's next_auth_set
+		// refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
+		Mmr: pallet_mmr = 241,
+		MmrLeaf: pallet_beefy_mmr = 242,
 
 		// Pallet for migrating Identity to a parachain. To be removed post-migration.
 		IdentityMigrator: identity_migrator = 248,
@@ -1665,6 +1663,9 @@ pub mod migrations {
 		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
 		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
 		parachains_assigner_on_demand::migration::MigrateV0ToV1<Runtime>,
+
+		// permanent
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
 }
 
@@ -1824,6 +1825,12 @@ sp_api::impl_runtime_apis! {
 
 	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
+			use sp_runtime::{traits::Header, DigestItem};
+
+			if header.digest().logs().iter().any(|di| di == &DigestItem::RuntimeEnvironmentUpdated) {
+				pallet_im_online::migration::clear_offchain_storage(Session::validators().len() as u32);
+			}
+
 			Executive::offchain_worker(header)
 		}
 	}
