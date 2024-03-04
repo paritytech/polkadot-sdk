@@ -163,6 +163,12 @@ pub mod runtime {
 			ConstU32, ConstU64, ConstU8,
 		};
 
+		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
+		pub use frame_system::{
+			EnsureNever, EnsureNone, EnsureRoot, EnsureRootWithSuccess, EnsureSigned,
+			EnsureSignedBy,
+		};
+
 		/// Types to define your runtime version.
 		pub use sp_version::{create_runtime_str, runtime_version, RuntimeVersion};
 
@@ -191,7 +197,7 @@ pub mod runtime {
 		// Types often used in the runtime APIs.
 		pub use sp_core::OpaqueMetadata;
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_runtime::ApplyExtrinsicResult;
+		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 
 		pub use frame_system_rpc_runtime_api::*;
 		pub use sp_api::{self, *};

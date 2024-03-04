@@ -234,7 +234,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::Perbill;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(15);
 
 	#[pallet::pallet]

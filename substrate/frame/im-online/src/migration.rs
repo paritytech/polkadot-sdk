@@ -72,7 +72,7 @@ pub mod v1 {
 			if StorageVersion::get::<Pallet<T>>() != 0 {
 				log::warn!(
 					target: TARGET,
-					"Skipping migration because current storage version is not 0"
+					"Skipping migration because in-code storage version is not 0"
 				);
 				return weight
 			}
