@@ -18,6 +18,7 @@
 
 use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::{AccountId, RuntimeGenesisConfig, Signature};
+use parachains_common::AuraId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
@@ -105,21 +106,77 @@ pub fn testnet_genesis_with_default_endowed(
 		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 	];
 	endowed.append(&mut extra_endowed_accounts);
+	let invulnerables = vec![
+		(
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_collator_keys_from_seed::<AuraId>("Alice"),
+		),
+		(
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_collator_keys_from_seed::<AuraId>("Bob"),
+		),
+		(
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_collator_keys_from_seed::<AuraId>("Charlie"),
+		),
+		(
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_collator_keys_from_seed::<AuraId>("Dave"),
+		),
+		(
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_collator_keys_from_seed::<AuraId>("Eve"),
+		),
+		(
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_collator_keys_from_seed::<AuraId>("Ferdie"),
+		),
+	];
+	testnet_genesis(
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		invulnerables,
+		endowed,
+		self_para_id,
+	)
+}
 
-	testnet_genesis(get_account_id_from_seed::<sr25519::Public>("Alice"), endowed, self_para_id)
+/// Generate collator keys from seed.
+///
+/// This function's return type must always match the session keys of the chain in tuple format.
+pub fn get_collator_keys_from_seed<AuraId: Public>(seed: &str) -> <AuraId::Pair as Pair>::Public {
+	get_from_seed::<AuraId>(seed)
 }
 
 /// Creates a local testnet genesis with endowed accounts.
 pub fn testnet_genesis(
 	root_key: AccountId,
+	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	self_para_id: Option<ParaId>,
 ) -> serde_json::Value {
+	let self_para_id = self_para_id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into());
 	serde_json::json!({
 		"balances": cumulus_test_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		"sudo": cumulus_test_runtime::SudoConfig { key: Some(root_key) },
-		"testPallet": cumulus_test_runtime::TestPalletConfig { self_para_id, ..Default::default() }
+		"testPallet": cumulus_test_runtime::TestPalletConfig { self_para_id: Some(self_para_id), ..Default::default() },
+		"collatorSelection": cumulus_test_runtime::CollatorSelectionConfig {
+			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+			candidacy_bond: 100_000,
+			..Default::default()
+		},
+		"session": cumulus_test_runtime::SessionConfig {
+			keys: invulnerables
+				.into_iter()
+				.map(|(acc, aura)| {
+					(
+						acc.clone(),                         // account id
+						acc,                                 // validator id
+						cumulus_test_runtime::SessionKeys{ aura }, // session keys
+					)
+				})
+				.collect(),
+		},
 	})
 }
