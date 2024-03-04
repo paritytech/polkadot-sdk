@@ -18,9 +18,9 @@ doc:
 
 # the following crates are removed and renamed, although none are released.
 crates:
-  - name: minimal-runtime            # now called minimal-template-runtime
-  - name: minimal-node               # now called minimal-template-node
-  - name: node-template              # now called solochain-template-node
-  - name: node-template-runtime      # now called solochain-template-runtime
-  - name: parachain-runtime          # now called parachain-template-runtime
-  - name: parachain-node             # now called parachain-template-node
+  - name: minimal-template-runtime             # formerly called minimal-runtime
+  - name: minimal-template-node                # formerly called minimal-node
+  - name: solochain-template-node              # formerly called node-template
+  - name: solochain-template-runtime           # formerly called node-template-runtime
+  - name: parachain-template-runtime           # formerly called parachain-runtime
+  - name: parachain-template-runtime           # formerly called parachain-node
