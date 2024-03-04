@@ -49,7 +49,7 @@ use std::{
 
 /// The maximum number of finalized blocks provided by the
 /// `Initialized` event.
-const MAX_FINALIZDED_BLOCKS: usize = 16;
+const MAX_FINALIZED_BLOCKS: usize = 16;
 
 use super::subscription::InsertedSubscriptionData;
 
