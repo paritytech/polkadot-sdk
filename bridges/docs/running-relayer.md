@@ -247,15 +247,14 @@ need to set value of the `bridgedChainId` to `bhks`.
 
 ### Starting your Rococo <> Westend Relayer
 
-We are using the following docker image to run our own Rococo <> Westend relayer:
+You may find the relayer image reference in the
+[Releases](https://github.com/paritytech/parity-bridges-common/releases)
+of this repository. Make sure to check supported (bundled) versions
+of release there. For Rococo <> Westend bridge, normally you may use the
+latest published release. The release notes always contain the docker
+image reference and source files, required to build relayer manually.
 
-[paritytech/bridges-common-relay:v2024-02-16-rococo-westend-relayer](https://hub.docker.com/layers/paritytech/bridges-common-relay/v2024-02-16-rococo-westend-relayer/images/sha256-5ba4260d6bc2ac9e97c2e05d875f6dc44ee9265011311f268b66b8a5a672ada3?context=explore)
-
-You can grab the sources and build it manually:
-
-[v2024-02-16-rococo-westend-relayer](https://github.com/paritytech/parity-bridges-common/releases/tag/v2024-02-16-rococo-westend-relayer)
-
-Once you have the docker, update variables and run the following script:
+Once you have the docker image, update variables and run the following script:
 ```sh
 export DOCKER_IMAGE=<image-of-substrate-relay>
 
