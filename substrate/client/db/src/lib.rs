@@ -310,6 +310,8 @@ pub struct DatabaseSettings {
 	///
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: BlocksPruning,
+	/// Whether to disable the limit of 32 blocks with the same block number.
+	pub disable_block_limit_per_level: bool,
 }
 
 /// Block pruning settings.
@@ -1186,6 +1188,7 @@ impl<Block: BlockT> Backend<Block> {
 			state_pruning: Some(state_pruning),
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
+			disable_block_limit_per_level: true,
 		};
 
 		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
@@ -1225,6 +1228,7 @@ impl<Block: BlockT> Backend<Block> {
 			requested_state_pruning,
 			!db.supports_ref_counting(),
 			should_init,
+			config.disable_block_limit_per_level,
 		)
 		.map_err(map_e)?;
 
@@ -2708,6 +2712,7 @@ pub(crate) mod tests {
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,
+				disable_block_limit_per_level: true,
 			},
 			0,
 		)

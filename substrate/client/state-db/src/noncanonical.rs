@@ -45,6 +45,7 @@ pub struct NonCanonicalOverlay<BlockHash: Hash, Key: Hash> {
 	pinned: HashMap<BlockHash, u32>,
 	pinned_insertions: HashMap<BlockHash, (Vec<Key>, u32)>,
 	pinned_canonincalized: Vec<BlockHash>,
+	disable_block_limit_per_level: bool,
 }
 
 #[cfg_attr(test, derive(PartialEq, Debug))]
@@ -180,7 +181,10 @@ fn discard_descendants<BlockHash: Hash, Key: Hash>(
 
 impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 	/// Creates a new instance. Does not expect any metadata to be present in the DB.
-	pub fn new<D: MetaDb>(db: &D) -> Result<NonCanonicalOverlay<BlockHash, Key>, Error<D::Error>> {
+	pub fn new<D: MetaDb>(
+		db: &D,
+		disable_block_limit_per_level: bool
+	) -> Result<NonCanonicalOverlay<BlockHash, Key>, Error<D::Error>> {
 		let last_canonicalized =
 			db.get_meta(&to_meta_key(LAST_CANONICAL, &())).map_err(Error::Db)?;
 		let last_canonicalized = last_canonicalized
@@ -206,11 +210,15 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 					.map(|data| Decode::decode(&mut data.as_slice()))
 					.transpose()?;
 				// Since we don't update the overlay level span on block removal,
-				// we have to restore it there
+				// we have to restore its exact value there
 				let mut level = OverlayLevel::new_with_span(level_span.unwrap_or(0));
 				for index in 0..level_span.unwrap_or(OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN) {
 					let journal_key = to_journal_key(block, index);
 					if let Some(record) = db.get_meta(&journal_key).map_err(Error::Db)? {
+						if !disable_block_limit_per_level && index >= OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN {
+							panic!("Block limit per level has been enabled, but previously it wasn't and was exceeded. \
+							Please disable that parameter, or purge the db if you know what you're doing.");
+						}
 						let record: JournalRecord<BlockHash, Key> =
 							Decode::decode(&mut record.as_slice())?;
 						let inserted = record.inserted.iter().map(|(k, _)| k.clone()).collect();
@@ -256,6 +264,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 			pinned_insertions: Default::default(),
 			values,
 			pinned_canonincalized: Default::default(),
+			disable_block_limit_per_level,
 		})
 	}
 
@@ -313,6 +322,11 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 				.expect("number is [front_block_number .. front_block_number + levels.len()) is asserted in precondition; qed")
 		};
 
+		if !self.disable_block_limit_per_level
+			&& level.blocks.len() as u64 >= OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN
+		{
+			return Err(StateDbError::TooManySiblingBlocks { number })
+		}
 		if level.blocks.iter().any(|b| b.hash == *hash) {
 			return Err(StateDbError::BlockAlreadyExists)
 		}

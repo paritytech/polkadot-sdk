@@ -134,6 +134,8 @@ pub enum StateDbError {
 	InvalidParent,
 	/// Invalid pruning mode specified. Contains expected mode.
 	IncompatiblePruningModes { stored: PruningMode, requested: PruningMode },
+	/// Too many unfinalized sibling blocks inserted.
+	TooManySiblingBlocks { number: u64 },
 	/// Trying to insert existing block.
 	BlockAlreadyExists,
 	/// Invalid metadata
@@ -184,6 +186,9 @@ impl fmt::Debug for StateDbError {
 				"Incompatible pruning modes [stored: {:?}; requested: {:?}]",
 				stored, requested
 			),
+			Self::TooManySiblingBlocks { number } => {
+				write!(f, "Too many sibling blocks at #{number} inserted")
+			},
 			Self::BlockAlreadyExists => write!(f, "Block already exists"),
 			Self::Metadata(message) => write!(f, "Invalid metadata: {}", message),
 			Self::BlockUnavailable => {
@@ -299,6 +304,7 @@ pub struct StateDbSync<BlockHash: Hash, Key: Hash, D: MetaDb> {
 	pruning: Option<RefWindow<BlockHash, Key, D>>,
 	pinned: HashMap<BlockHash, u32>,
 	ref_counting: bool,
+	disable_block_limit_per_level: bool
 }
 
 impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
@@ -306,17 +312,26 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 		mode: PruningMode,
 		ref_counting: bool,
 		db: D,
+		disable_block_limit_per_level: bool,
 	) -> Result<StateDbSync<BlockHash, Key, D>, Error<D::Error>> {
 		trace!(target: LOG_TARGET, "StateDb settings: {:?}. Ref-counting: {}", mode, ref_counting);
 
-		let non_canonical: NonCanonicalOverlay<BlockHash, Key> = NonCanonicalOverlay::new(&db)?;
+		let non_canonical: NonCanonicalOverlay<BlockHash, Key> =
+			NonCanonicalOverlay::new(&db, disable_block_limit_per_level)?;
 		let pruning: Option<RefWindow<BlockHash, Key, D>> = match mode {
 			PruningMode::Constrained(Constraints { max_blocks }) =>
 				Some(RefWindow::new(db, max_blocks.unwrap_or(0), ref_counting)?),
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical => None,
 		};
 
-		Ok(StateDbSync { mode, non_canonical, pruning, pinned: Default::default(), ref_counting })
+		Ok(StateDbSync {
+			mode,
+			non_canonical,
+			pruning,
+			pinned: Default::default(),
+			ref_counting,
+			disable_block_limit_per_level,
+		})
 	}
 
 	fn insert_block(
@@ -530,6 +545,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 		requested_mode: Option<PruningMode>,
 		ref_counting: bool,
 		should_init: bool,
+		disable_block_limit_per_level: bool,
 	) -> Result<(CommitSet<Key>, StateDb<BlockHash, Key, D>), Error<D::Error>> {
 		let stored_mode = fetch_stored_pruning_mode(&db)?;
 
@@ -563,8 +579,14 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 			Default::default()
 		};
 
-		let state_db =
-			StateDb { db: RwLock::new(StateDbSync::new(selected_mode, ref_counting, db)?) };
+		let state_db = StateDb {
+			db: RwLock::new(StateDbSync::new(
+				selected_mode,
+				ref_counting,
+				db,
+				disable_block_limit_per_level,
+			)?),
+		};
 
 		Ok((db_init_commit_set, state_db))
 	}
@@ -649,7 +671,12 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 	/// Reset in-memory changes to the last disk-backed state.
 	pub fn reset(&self, db: D) -> Result<(), Error<D::Error>> {
 		let mut state_db = self.db.write();
-		*state_db = StateDbSync::new(state_db.mode.clone(), state_db.ref_counting, db)?;
+		*state_db = StateDbSync::new(
+			state_db.mode.clone(),
+			state_db.ref_counting,
+			db,
+			state_db.disable_block_limit_per_level,
+		)?;
 		Ok(())
 	}
 }

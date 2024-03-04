@@ -68,6 +68,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
+		disable_block_limit_per_level: true,
 		chain_spec: spec,
 		wasm_method: Default::default(),
 		rpc_addr: None,
