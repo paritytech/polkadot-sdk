@@ -364,7 +364,7 @@ where
 					error!(
 						"❌️ Mandatory inherent extrinsic returned error. Block cannot be produced."
 					);
-					return Err(ApplyExtrinsicFailed(Validity(e)));
+					return Err(ApplyExtrinsicFailed(Validity(e)))
 				},
 				Err(e) => {
 					warn!(
@@ -426,7 +426,7 @@ where
 					"No more transactions, proceeding with proposing."
 				);
 
-				break EndProposingReason::NoMoreTransactions;
+				break EndProposingReason::NoMoreTransactions
 			};
 
 			let now = (self.now)();
@@ -436,7 +436,7 @@ where
 					"Consensus deadline reached when pushing block transactions, \
 				proceeding with proposing."
 				);
-				break EndProposingReason::HitDeadline;
+				break EndProposingReason::HitDeadline
 			}
 
 			let pending_tx_data = pending_tx.data().clone();
@@ -454,7 +454,7 @@ where
 					 but will try {} more transactions before quitting.",
 						MAX_SKIPPED_TRANSACTIONS - skipped,
 					);
-					continue;
+					continue
 				} else if now < soft_deadline {
 					debug!(
 						target: LOG_TARGET,
@@ -462,13 +462,13 @@ where
 					 but we still have time before the soft deadline, so \
 					 we will try a bit more."
 					);
-					continue;
+					continue
 				} else {
 					debug!(
 						target: LOG_TARGET,
 						"Reached block size limit, proceeding with proposing."
 					);
-					break EndProposingReason::HitBlockSizeLimit;
+					break EndProposingReason::HitBlockSizeLimit
 				}
 			}
 
@@ -496,7 +496,7 @@ where
 							target: LOG_TARGET,
 							"Reached block weight limit, proceeding with proposing."
 						);
-						break EndProposingReason::HitBlockWeightLimit;
+						break EndProposingReason::HitBlockWeightLimit
 					}
 				},
 				Err(e) => {
@@ -651,7 +651,7 @@ mod tests {
 				let mut value = cell.lock();
 				if !value.0 {
 					value.0 = true;
-					return value.1;
+					return value.1
 				}
 				let old = value.1;
 				let new = old + time::Duration::from_secs(1);
@@ -695,7 +695,7 @@ mod tests {
 				let mut value = cell.lock();
 				if !value.0 {
 					value.0 = true;
-					return value.1;
+					return value.1
 				}
 				let new = value.1 + time::Duration::from_secs(160);
 				*value = (true, new);
@@ -901,13 +901,13 @@ mod tests {
 		.chain((1..extrinsics_num as u64).map(extrinsic))
 		.collect::<Vec<_>>();
 
-		let block_limit = genesis_header.encoded_size()
-			+ extrinsics
+		let block_limit = genesis_header.encoded_size() +
+			extrinsics
 				.iter()
 				.take(extrinsics_num - 1)
 				.map(Encode::encoded_size)
-				.sum::<usize>()
-			+ Vec::<Extrinsic>::new().encoded_size();
+				.sum::<usize>() +
+			Vec::<Extrinsic>::new().encoded_size();
 
 		block_on(txpool.submit_at(genesis_hash, SOURCE, extrinsics.clone())).unwrap();
 
