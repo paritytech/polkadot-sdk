@@ -29,7 +29,6 @@ use crate::crypto::{
 #[cfg(feature = "full_crypto")]
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 
-//note: "not" is required to satisfy clippy --all-features.
 #[cfg(all(not(feature = "std"), feature = "full_crypto"))]
 use k256::ecdsa::SigningKey as SecretKey;
 #[cfg(not(feature = "std"))]
@@ -368,10 +367,7 @@ impl Signature {
 			let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
 			let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
 
-			#[cfg(feature = "std")]
 			let context = SECP256K1;
-			#[cfg(not(feature = "std"))]
-			let context = Secp256k1::verification_only();
 
 			context.recover_ecdsa(&message, &sig).ok().map(Public::from)
 		}
@@ -438,10 +434,7 @@ impl TraitPair for Pair {
 			let secret = SecretKey::from_slice(seed_slice)
 				.map_err(|_| SecretStringError::InvalidSeedLength)?;
 
-			#[cfg(feature = "std")]
 			let context = SECP256K1;
-			#[cfg(not(feature = "std"))]
-			let context = Secp256k1::signing_only();
 
 			let public = PublicKey::from_secret_key(&context, &secret).into();
 			Ok(Pair { public, secret })
@@ -524,10 +517,7 @@ impl Pair {
 		{
 			let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
 
-			#[cfg(feature = "std")]
 			let context = SECP256K1;
-			#[cfg(not(feature = "std"))]
-			let context = Secp256k1::signing_only();
 
 			context.sign_ecdsa_recoverable(&message, &self.secret).into()
 		}
