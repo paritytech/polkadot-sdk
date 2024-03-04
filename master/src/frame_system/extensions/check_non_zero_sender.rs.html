@@ -255,6 +255,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -274,13 +291,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Config;
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>frame_support::{dispatch::DispatchInfo, DefaultNoBound};
+<span class="kw">use </span>frame_support::{traits::OriginTrait, DefaultNoBound};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, SignedExtension},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+	impl_tx_ext_default,
+	traits::{
+		transaction_extension::TransactionExtensionBase, DispatchInfoOf, TransactionExtension,
 	},
+	transaction_validity::InvalidTransaction,
 };
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 
@@ -302,66 +320,82 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; CheckNonZeroSender&lt;T&gt; {
-	<span class="doccomment">/// Create new `SignedExtension` to check runtime version.
+	<span class="doccomment">/// Create new `TransactionExtension` to check runtime version.
 	</span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(sp_std::marker::PhantomData)
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; SignedExtension <span class="kw">for </span>CheckNonZeroSender&lt;T&gt;
-<span class="kw">where
-	</span>T::RuntimeCall: Dispatchable&lt;Info = DispatchInfo&gt;,
-{
-	<span class="kw">type </span>AccountId = T::AccountId;
-	<span class="kw">type </span>Call = T::RuntimeCall;
-	<span class="kw">type </span>AdditionalSigned = ();
-	<span class="kw">type </span>Pre = ();
+<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; TransactionExtensionBase <span class="kw">for </span>CheckNonZeroSender&lt;T&gt; {
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;CheckNonZeroSender&quot;</span>;
-
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
+	<span class="kw">type </span>Implicit = ();
+	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_weights::Weight {
+		&lt;T::ExtensionsWeightInfo <span class="kw">as </span><span class="kw">super</span>::WeightInfo&gt;::check_non_zero_sender()
 	}
-
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="self">self</span>.validate(who, call, info, len).map(|<span class="kw">_</span>| ())
-	}
-
+}
+<span class="kw">impl</span>&lt;T: Config + Send + Sync, Context&gt; TransactionExtension&lt;T::RuntimeCall, Context&gt;
+	<span class="kw">for </span>CheckNonZeroSender&lt;T&gt;
+{
+	<span class="kw">type </span>Val = ();
+	<span class="kw">type </span>Pre = ();
 	<span class="kw">fn </span>validate(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		origin: &lt;T <span class="kw">as </span>Config&gt;::RuntimeOrigin,
+		_call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
 		_len: usize,
-	) -&gt; TransactionValidity {
-		<span class="kw">if </span>who.using_encoded(|d| d.iter().all(|x| <span class="kw-2">*</span>x == <span class="number">0</span>)) {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
+		_context: <span class="kw-2">&amp;mut </span>Context,
+		_self_implicit: <span class="self">Self</span>::Implicit,
+		_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; sp_runtime::traits::ValidateResult&lt;<span class="self">Self</span>::Val, T::RuntimeCall&gt; {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(who) = origin.as_system_signer() {
+			<span class="kw">if </span>who.using_encoded(|d| d.iter().all(|x| <span class="kw-2">*</span>x == <span class="number">0</span>)) {
+				<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::BadSigner.into())
+			}
 		}
-		<span class="prelude-val">Ok</span>(ValidTransaction::default())
+		<span class="prelude-val">Ok</span>((Default::default(), (), origin))
 	}
+	<span class="macro">impl_tx_ext_default!</span>(T::RuntimeCall; Context; prepare);
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::mock::{new_test_ext, Test, CALL};
-	<span class="kw">use </span>frame_support::{assert_noop, assert_ok};
+	<span class="kw">use </span>frame_support::{assert_ok, dispatch::DispatchInfo};
+	<span class="kw">use </span>sp_runtime::{traits::DispatchTransaction, TransactionValidityError};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>zero_account_ban_works() {
 		new_test_ext().execute_with(|| {
 			<span class="kw">let </span>info = DispatchInfo::default();
 			<span class="kw">let </span>len = <span class="number">0_usize</span>;
-			<span class="macro">assert_noop!</span>(
-				CheckNonZeroSender::&lt;Test&gt;::new().validate(<span class="kw-2">&amp;</span><span class="number">0</span>, CALL, <span class="kw-2">&amp;</span>info, len),
-				InvalidTransaction::BadSigner
+			<span class="macro">assert_eq!</span>(
+				CheckNonZeroSender::&lt;Test&gt;::new()
+					.validate_only(<span class="prelude-val">Some</span>(<span class="number">0</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len)
+					.unwrap_err(),
+				TransactionValidityError::from(InvalidTransaction::BadSigner)
 			);
-			<span class="macro">assert_ok!</span>(CheckNonZeroSender::&lt;Test&gt;::new().validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len));
+			<span class="macro">assert_ok!</span>(CheckNonZeroSender::&lt;Test&gt;::new().validate_only(
+				<span class="prelude-val">Some</span>(<span class="number">1</span>).into(),
+				CALL,
+				<span class="kw-2">&amp;</span>info,
+				len
+			));
+		})
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>unsigned_origin_works() {
+		new_test_ext().execute_with(|| {
+			<span class="kw">let </span>info = DispatchInfo::default();
+			<span class="kw">let </span>len = <span class="number">0_usize</span>;
+			<span class="macro">assert_ok!</span>(CheckNonZeroSender::&lt;Test&gt;::new().validate_only(
+				<span class="prelude-val">None</span>.into(),
+				CALL,
+				<span class="kw-2">&amp;</span>info,
+				len
+			));
 		})
 	}
 }

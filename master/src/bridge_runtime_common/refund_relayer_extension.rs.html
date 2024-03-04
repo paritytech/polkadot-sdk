@@ -2730,6 +2730,54 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2583" id="2583">2583</a>
 <a href="#2584" id="2584">2584</a>
 <a href="#2585" id="2585">2585</a>
+<a href="#2586" id="2586">2586</a>
+<a href="#2587" id="2587">2587</a>
+<a href="#2588" id="2588">2588</a>
+<a href="#2589" id="2589">2589</a>
+<a href="#2590" id="2590">2590</a>
+<a href="#2591" id="2591">2591</a>
+<a href="#2592" id="2592">2592</a>
+<a href="#2593" id="2593">2593</a>
+<a href="#2594" id="2594">2594</a>
+<a href="#2595" id="2595">2595</a>
+<a href="#2596" id="2596">2596</a>
+<a href="#2597" id="2597">2597</a>
+<a href="#2598" id="2598">2598</a>
+<a href="#2599" id="2599">2599</a>
+<a href="#2600" id="2600">2600</a>
+<a href="#2601" id="2601">2601</a>
+<a href="#2602" id="2602">2602</a>
+<a href="#2603" id="2603">2603</a>
+<a href="#2604" id="2604">2604</a>
+<a href="#2605" id="2605">2605</a>
+<a href="#2606" id="2606">2606</a>
+<a href="#2607" id="2607">2607</a>
+<a href="#2608" id="2608">2608</a>
+<a href="#2609" id="2609">2609</a>
+<a href="#2610" id="2610">2610</a>
+<a href="#2611" id="2611">2611</a>
+<a href="#2612" id="2612">2612</a>
+<a href="#2613" id="2613">2613</a>
+<a href="#2614" id="2614">2614</a>
+<a href="#2615" id="2615">2615</a>
+<a href="#2616" id="2616">2616</a>
+<a href="#2617" id="2617">2617</a>
+<a href="#2618" id="2618">2618</a>
+<a href="#2619" id="2619">2619</a>
+<a href="#2620" id="2620">2620</a>
+<a href="#2621" id="2621">2621</a>
+<a href="#2622" id="2622">2622</a>
+<a href="#2623" id="2623">2623</a>
+<a href="#2624" id="2624">2624</a>
+<a href="#2625" id="2625">2625</a>
+<a href="#2626" id="2626">2626</a>
+<a href="#2627" id="2627">2627</a>
+<a href="#2628" id="2628">2628</a>
+<a href="#2629" id="2629">2629</a>
+<a href="#2630" id="2630">2630</a>
+<a href="#2631" id="2631">2631</a>
+<a href="#2632" id="2632">2632</a>
+<a href="#2633" id="2633">2633</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -2780,9 +2828,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>pallet_utility::{Call <span class="kw">as </span>UtilityCall, Config <span class="kw">as </span>UtilityConfig, Pallet <span class="kw">as </span>UtilityPallet};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf, SignedExtension, Zero},
+	traits::{
+		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf,
+		TransactionExtension, TransactionExtensionBase, ValidateResult, Zero,
+	},
 	transaction_validity::{
-		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransactionBuilder,
+		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransactionBuilder,
 	},
 	DispatchResult, FixedPointOperand, RuntimeDebug,
 };
@@ -2971,8 +3022,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Slash(AccountId, RewardsAccountParams),
 }
 
-<span class="doccomment">/// Everything common among our refund signed extensions.
-</span><span class="kw">pub trait </span>RefundSignedExtension:
+<span class="doccomment">/// Everything common among our refund transaction extensions.
+</span><span class="kw">pub trait </span>RefundTransactionExtension:
 	<span class="lifetime">&#39;static </span>+ Clone + Codec + sp_std::fmt::Debug + Default + Eq + PartialEq + Send + Sync + TypeInfo
 <span class="kw">where
 	</span>&lt;<span class="self">Self</span>::Runtime <span class="kw">as </span>GrandpaConfig&lt;<span class="self">Self</span>::GrandpaInstance&gt;&gt;::BridgedChain:
@@ -3188,8 +3239,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Adapter that allow implementing `sp_runtime::traits::SignedExtension` for any
-/// `RefundSignedExtension`.
+<span class="doccomment">/// Adapter that allow implementing `sp_runtime::traits::TransactionExtension` for any
+/// `RefundTransactionExtension`.
 </span><span class="attr">#[derive(
 	DefaultNoBound,
 	CloneNoBound,
@@ -3200,12 +3251,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	RuntimeDebugNoBound,
 	TypeInfo,
 )]
-</span><span class="kw">pub struct </span>RefundSignedExtensionAdapter&lt;T: RefundSignedExtension&gt;(T)
+</span><span class="kw">pub struct </span>RefundTransactionExtensionAdapter&lt;T: RefundTransactionExtension&gt;(T)
 <span class="kw">where
 	</span>&lt;T::Runtime <span class="kw">as </span>GrandpaConfig&lt;T::GrandpaInstance&gt;&gt;::BridgedChain:
 		Chain&lt;BlockNumber = RelayBlockNumber&gt;;
 
-<span class="kw">impl</span>&lt;T: RefundSignedExtension&gt; SignedExtension <span class="kw">for </span>RefundSignedExtensionAdapter&lt;T&gt;
+<span class="kw">impl</span>&lt;T: RefundTransactionExtension&gt; TransactionExtensionBase
+	<span class="kw">for </span>RefundTransactionExtensionAdapter&lt;T&gt;
 <span class="kw">where
 	</span>&lt;T::Runtime <span class="kw">as </span>GrandpaConfig&lt;T::GrandpaInstance&gt;&gt;::BridgedChain:
 		Chain&lt;BlockNumber = RelayBlockNumber&gt;,
@@ -3215,22 +3267,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ MessagesCallSubType&lt;T::Runtime, &lt;T::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Instance&gt;,
 {
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = T::Id::STR;
-	<span class="kw">type </span>AccountId = AccountIdOf&lt;T::Runtime&gt;;
-	<span class="kw">type </span>Call = CallOf&lt;T::Runtime&gt;;
-	<span class="kw">type </span>AdditionalSigned = ();
-	<span class="kw">type </span>Pre = <span class="prelude-ty">Option</span>&lt;PreDispatchData&lt;AccountIdOf&lt;T::Runtime&gt;&gt;&gt;;
+	<span class="kw">type </span>Implicit = ();
+}
 
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
-	}
+<span class="kw">impl</span>&lt;T: RefundTransactionExtension, Context&gt; TransactionExtension&lt;CallOf&lt;T::Runtime&gt;, Context&gt;
+	<span class="kw">for </span>RefundTransactionExtensionAdapter&lt;T&gt;
+<span class="kw">where
+	</span>&lt;T::Runtime <span class="kw">as </span>GrandpaConfig&lt;T::GrandpaInstance&gt;&gt;::BridgedChain:
+		Chain&lt;BlockNumber = RelayBlockNumber&gt;,
+	CallOf&lt;T::Runtime&gt;: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;
+		+ IsSubType&lt;CallableCallFor&lt;UtilityPallet&lt;T::Runtime&gt;, T::Runtime&gt;&gt;
+		+ GrandpaCallSubType&lt;T::Runtime, T::GrandpaInstance&gt;
+		+ MessagesCallSubType&lt;T::Runtime, &lt;T::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Instance&gt;,
+	&lt;CallOf&lt;T::Runtime&gt; <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin:
+		AsSystemOriginSigner&lt;AccountIdOf&lt;T::Runtime&gt;&gt; + Clone,
+{
+	<span class="kw">type </span>Pre = <span class="prelude-ty">Option</span>&lt;PreDispatchData&lt;AccountIdOf&lt;T::Runtime&gt;&gt;&gt;;
+	<span class="kw">type </span>Val = <span class="prelude-ty">Option</span>&lt;CallInfo&gt;;
 
 	<span class="kw">fn </span>validate(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		origin: &lt;CallOf&lt;T::Runtime&gt; <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin,
+		call: <span class="kw-2">&amp;</span>CallOf&lt;T::Runtime&gt;,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;CallOf&lt;T::Runtime&gt;&gt;,
 		_len: usize,
-	) -&gt; TransactionValidity {
+		_context: <span class="kw-2">&amp;mut </span>Context,
+		_self_implicit: <span class="self">Self</span>::Implicit,
+		_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; ValidateResult&lt;<span class="self">Self</span>::Val, CallOf&lt;T::Runtime&gt;&gt; {
+		<span class="kw">let </span>who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)<span class="question-mark">?</span>;
 		<span class="comment">// this is the only relevant line of code for the `pre_dispatch`
 		//
 		// we&#39;re not calling `validate` from `pre_dispatch` directly because of performance
@@ -3243,12 +3308,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// we only boost priority of presumably correct message delivery transactions
 		</span><span class="kw">let </span>bundled_messages = <span class="kw">match </span>T::bundled_messages_for_priority_boost(parsed_call.as_ref()) {
 			<span class="prelude-val">Some</span>(bundled_messages) =&gt; bundled_messages,
-			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Default::default()),
+			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>((Default::default(), parsed_call, origin)),
 		};
 
 		<span class="comment">// we only boost priority if relayer has staked required balance
 		</span><span class="kw">if </span>!RelayersPallet::&lt;T::Runtime&gt;::is_registration_active(who) {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(Default::default())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>((Default::default(), parsed_call, origin))
 		}
 
 		<span class="comment">// compute priority boost
@@ -3267,20 +3332,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			priority_boost,
 		);
 
-		valid_transaction.build()
+		<span class="kw">let </span>validity = valid_transaction.build()<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>((validity, parsed_call, origin))
 	}
 
-	<span class="kw">fn </span>pre_dispatch(
+	<span class="kw">fn </span>prepare(
 		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		val: <span class="self">Self</span>::Val,
+		origin: <span class="kw-2">&amp;</span>&lt;CallOf&lt;T::Runtime&gt; <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin,
+		_call: <span class="kw-2">&amp;</span>CallOf&lt;T::Runtime&gt;,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;CallOf&lt;T::Runtime&gt;&gt;,
 		_len: usize,
+		_context: <span class="kw-2">&amp;</span>Context,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="comment">// this is a relevant piece of `validate` that we need here (in `pre_dispatch`)
-		</span><span class="kw">let </span>parsed_call = T::parse_and_check_for_obsolete_call(call)<span class="question-mark">?</span>;
-
-		<span class="prelude-val">Ok</span>(parsed_call.map(|call_info| {
+		<span class="kw">let </span>who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(val.map(|call_info| {
 			<span class="macro">log::trace!</span>(
 				target: <span class="string">&quot;runtime::bridge&quot;</span>,
 				<span class="string">&quot;{} via {:?} parsed bridge transaction in pre-dispatch: {:?}&quot;</span>,
@@ -3293,13 +3359,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>post_dispatch(
-		pre: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Pre&gt;,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		pre: <span class="self">Self</span>::Pre,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;CallOf&lt;T::Runtime&gt;&gt;,
+		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;CallOf&lt;T::Runtime&gt;&gt;,
 		len: usize,
 		result: <span class="kw-2">&amp;</span>DispatchResult,
+		_context: <span class="kw-2">&amp;</span>Context,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
-		<span class="kw">let </span>call_result = T::analyze_call_result(pre, info, post_info, len, result);
+		<span class="kw">let </span>call_result = T::analyze_call_result(<span class="prelude-val">Some</span>(pre), info, post_info, len, result);
 
 		<span class="kw">match </span>call_result {
 			RelayerAccountAction::None =&gt; (),
@@ -3327,7 +3394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Signed extension that refunds a relayer for new messages coming from a parachain.
+<span class="doccomment">/// Transaction extension that refunds a relayer for new messages coming from a parachain.
 ///
 /// Also refunds relayer for successful finality delivery if it comes in batch (`utility.batchAll`)
 /// with message delivery transaction. Batch may deliver either both relay chain header and
@@ -3368,7 +3435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)&gt;,
 );
 
-<span class="kw">impl</span>&lt;Runtime, Para, Msgs, Refund, Priority, Id&gt; RefundSignedExtension
+<span class="kw">impl</span>&lt;Runtime, Para, Msgs, Refund, Priority, Id&gt; RefundTransactionExtension
 	<span class="kw">for </span>RefundBridgedParachainMessages&lt;Runtime, Para, Msgs, Refund, Priority, Id&gt;
 <span class="kw">where
 	</span><span class="self">Self</span>: <span class="lifetime">&#39;static </span>+ Send + Sync,
@@ -3462,13 +3529,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 }
 
-<span class="doccomment">/// Signed extension that refunds a relayer for new messages coming from a standalone (GRANDPA)
+<span class="doccomment">/// Transaction extension that refunds a relayer for new messages coming from a standalone (GRANDPA)
 /// chain.
 ///
 /// Also refunds relayer for successful finality delivery if it comes in batch (`utility.batchAll`)
 /// with message delivery transaction. Batch may deliver either both relay chain header and
-/// parachain head, or just parachain head. Corresponding headers must be used in messages
-/// proof verification.
+/// parachain head, or just parachain head. Corresponding headers must be used in messages proof
+/// verification.
 ///
 /// Extension does not refund transaction tip due to security reasons.
 </span><span class="attr">#[derive(
@@ -3503,7 +3570,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)&gt;,
 );
 
-<span class="kw">impl</span>&lt;Runtime, GrandpaInstance, Msgs, Refund, Priority, Id&gt; RefundSignedExtension
+<span class="kw">impl</span>&lt;Runtime, GrandpaInstance, Msgs, Refund, Priority, Id&gt; RefundTransactionExtension
 	<span class="kw">for </span>RefundBridgedGrandpaMessages&lt;Runtime, GrandpaInstance, Msgs, Refund, Priority, Id&gt;
 <span class="kw">where
 	</span><span class="self">Self</span>: <span class="lifetime">&#39;static </span>+ Send + Sync,
@@ -3601,8 +3668,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Call <span class="kw">as </span>ParachainsCall, Pallet <span class="kw">as </span>ParachainsPallet, RelayBlockHash,
 	};
 	<span class="kw">use </span>sp_runtime::{
-		traits::{ConstU64, Header <span class="kw">as </span>HeaderT},
-		transaction_validity::{InvalidTransaction, ValidTransaction},
+		traits::{ConstU64, DispatchTransaction, Header <span class="kw">as </span>HeaderT},
+		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 		DispatchError,
 	};
 
@@ -3631,7 +3698,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ConstU64&lt;<span class="number">1</span>&gt;,
 		StrTestExtension,
 	&gt;;
-	<span class="kw">type </span>TestGrandpaExtension = RefundSignedExtensionAdapter&lt;TestGrandpaExtensionProvider&gt;;
+	<span class="kw">type </span>TestGrandpaExtension = RefundTransactionExtensionAdapter&lt;TestGrandpaExtensionProvider&gt;;
 	<span class="kw">type </span>TestExtensionProvider = RefundBridgedParachainMessages&lt;
 		TestRuntime,
 		DefaultRefundableParachainId&lt;(), TestParachain&gt;,
@@ -3640,7 +3707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ConstU64&lt;<span class="number">1</span>&gt;,
 		StrTestExtension,
 	&gt;;
-	<span class="kw">type </span>TestExtension = RefundSignedExtensionAdapter&lt;TestExtensionProvider&gt;;
+	<span class="kw">type </span>TestExtension = RefundTransactionExtensionAdapter&lt;TestExtensionProvider&gt;;
 
 	<span class="kw">fn </span>initial_balance_of_relayer_account_at_this_chain() -&gt; ThisChainBalance {
 		<span class="kw">let </span>test_stake: ThisChainBalance = TestStake::get();
@@ -4139,14 +4206,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>run_validate(call: RuntimeCall) -&gt; TransactionValidity {
 		<span class="kw">let </span>extension: TestExtension =
-			RefundSignedExtensionAdapter(RefundBridgedParachainMessages(PhantomData));
-		extension.validate(<span class="kw-2">&amp;</span>relayer_account_at_this_chain(), <span class="kw-2">&amp;</span>call, <span class="kw-2">&amp;</span>DispatchInfo::default(), <span class="number">0</span>)
+			RefundTransactionExtensionAdapter(RefundBridgedParachainMessages(PhantomData));
+		extension
+			.validate_only(
+				<span class="prelude-val">Some</span>(relayer_account_at_this_chain()).into(),
+				<span class="kw-2">&amp;</span>call,
+				<span class="kw-2">&amp;</span>DispatchInfo::default(),
+				<span class="number">0</span>,
+			)
+			.map(|res| res.<span class="number">0</span>)
 	}
 
 	<span class="kw">fn </span>run_grandpa_validate(call: RuntimeCall) -&gt; TransactionValidity {
 		<span class="kw">let </span>extension: TestGrandpaExtension =
-			RefundSignedExtensionAdapter(RefundBridgedGrandpaMessages(PhantomData));
-		extension.validate(<span class="kw-2">&amp;</span>relayer_account_at_this_chain(), <span class="kw-2">&amp;</span>call, <span class="kw-2">&amp;</span>DispatchInfo::default(), <span class="number">0</span>)
+			RefundTransactionExtensionAdapter(RefundBridgedGrandpaMessages(PhantomData));
+		extension
+			.validate_only(
+				<span class="prelude-val">Some</span>(relayer_account_at_this_chain()).into(),
+				<span class="kw-2">&amp;</span>call,
+				<span class="kw-2">&amp;</span>DispatchInfo::default(),
+				<span class="number">0</span>,
+			)
+			.map(|res| res.<span class="number">0</span>)
 	}
 
 	<span class="kw">fn </span>run_validate_ignore_priority(call: RuntimeCall) -&gt; TransactionValidity {
@@ -4160,16 +4241,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		call: RuntimeCall,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;PreDispatchData&lt;ThisChainAccountId&gt;&gt;, TransactionValidityError&gt; {
 		<span class="kw">let </span>extension: TestExtension =
-			RefundSignedExtensionAdapter(RefundBridgedParachainMessages(PhantomData));
-		extension.pre_dispatch(<span class="kw-2">&amp;</span>relayer_account_at_this_chain(), <span class="kw-2">&amp;</span>call, <span class="kw-2">&amp;</span>DispatchInfo::default(), <span class="number">0</span>)
+			RefundTransactionExtensionAdapter(RefundBridgedParachainMessages(PhantomData));
+		extension
+			.validate_and_prepare(
+				<span class="prelude-val">Some</span>(relayer_account_at_this_chain()).into(),
+				<span class="kw-2">&amp;</span>call,
+				<span class="kw-2">&amp;</span>DispatchInfo::default(),
+				<span class="number">0</span>,
+			)
+			.map(|(pre, <span class="kw">_</span>)| pre)
 	}
 
 	<span class="kw">fn </span>run_grandpa_pre_dispatch(
 		call: RuntimeCall,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;PreDispatchData&lt;ThisChainAccountId&gt;&gt;, TransactionValidityError&gt; {
 		<span class="kw">let </span>extension: TestGrandpaExtension =
-			RefundSignedExtensionAdapter(RefundBridgedGrandpaMessages(PhantomData));
-		extension.pre_dispatch(<span class="kw-2">&amp;</span>relayer_account_at_this_chain(), <span class="kw-2">&amp;</span>call, <span class="kw-2">&amp;</span>DispatchInfo::default(), <span class="number">0</span>)
+			RefundTransactionExtensionAdapter(RefundBridgedGrandpaMessages(PhantomData));
+		extension
+			.validate_and_prepare(
+				<span class="prelude-val">Some</span>(relayer_account_at_this_chain()).into(),
+				<span class="kw-2">&amp;</span>call,
+				<span class="kw-2">&amp;</span>DispatchInfo::default(),
+				<span class="number">0</span>,
+			)
+			.map(|(pre, <span class="kw">_</span>)| pre)
 	}
 
 	<span class="kw">fn </span>dispatch_info() -&gt; DispatchInfo {
@@ -4192,11 +4287,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		dispatch_result: DispatchResult,
 	) {
 		<span class="kw">let </span>post_dispatch_result = TestExtension::post_dispatch(
-			<span class="prelude-val">Some</span>(pre_dispatch_data),
+			pre_dispatch_data,
 			<span class="kw-2">&amp;</span>dispatch_info(),
 			<span class="kw-2">&amp;</span>post_dispatch_info(),
 			<span class="number">1024</span>,
 			<span class="kw-2">&amp;</span>dispatch_result,
+			<span class="kw-2">&amp;</span>(),
 		);
 		<span class="macro">assert_eq!</span>(post_dispatch_result, <span class="prelude-val">Ok</span>(()));
 	}

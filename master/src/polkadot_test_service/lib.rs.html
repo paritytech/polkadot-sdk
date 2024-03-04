@@ -577,6 +577,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -611,7 +612,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Error, FullClient, IsParachainNode, NewFull, OverseerGen, PrometheusConfig,
 };
 <span class="kw">use </span>polkadot_test_runtime::{
-	ParasCall, ParasSudoWrapperCall, Runtime, SignedExtra, SignedPayload, SudoCall,
+	ParasCall, ParasSudoWrapperCall, Runtime, SignedPayload, SudoCall, TxExtension,
 	UncheckedExtrinsic, VERSION,
 };
 
@@ -961,7 +962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>period =
 		BlockHashCount::get().checked_next_power_of_two().map(|c| c / <span class="number">2</span>).unwrap_or(<span class="number">2</span>) <span class="kw">as </span>u64;
 	<span class="kw">let </span>tip = <span class="number">0</span>;
-	<span class="kw">let </span>extra: SignedExtra = (
+	<span class="kw">let </span>tx_ext: TxExtension = (
 		frame_system::CheckNonZeroSender::&lt;Runtime&gt;::new(),
 		frame_system::CheckSpecVersion::&lt;Runtime&gt;::new(),
 		frame_system::CheckTxVersion::&lt;Runtime&gt;::new(),
@@ -970,10 +971,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		frame_system::CheckNonce::&lt;Runtime&gt;::from(nonce),
 		frame_system::CheckWeight::&lt;Runtime&gt;::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::&lt;Runtime&gt;::from(tip),
-	);
+	)
+		.into();
 	<span class="kw">let </span>raw_payload = SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		(
 			(),
 			VERSION.spec_version,
@@ -990,7 +992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		function.clone(),
 		polkadot_test_runtime::Address::Id(caller.public().into()),
 		polkadot_primitives::Signature::Sr25519(signature.clone()),
-		extra.clone(),
+		tx_ext.clone(),
 	)
 }
 

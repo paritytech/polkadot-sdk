@@ -795,8 +795,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>SignedBlock = generic::SignedBlock&lt;Block&gt;;
 <span class="doccomment">/// BlockId type as expected by this runtime.
 </span><span class="kw">pub type </span>BlockId = generic::BlockId&lt;Block&gt;;
-<span class="doccomment">/// The SignedExtension to the basic transaction logic.
-</span><span class="kw">pub type </span>SignedExtra = (
+<span class="doccomment">/// The extension to the basic transaction logic.
+</span><span class="kw">pub type </span>TxExtension = (
 	frame_system::CheckSpecVersion&lt;Runtime&gt;,
 	frame_system::CheckTxVersion&lt;Runtime&gt;,
 	frame_system::CheckGenesis&lt;Runtime&gt;,
@@ -806,7 +806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 );
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
-	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
+	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, TxExtension&gt;;
 
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
 </span><span class="kw">pub type </span>Executive = frame_executive::Executive&lt;

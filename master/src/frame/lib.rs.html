@@ -759,8 +759,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// The block type, which should be fed into [`frame_system::Config`].
 		///
-		/// Should be parameterized with `T: frame_system::Config` and a tuple of `SignedExtension`.
-		/// When in doubt, use [`SystemSignedExtensionsOf`].
+		/// Should be parameterized with `T: frame_system::Config` and a tuple of
+		/// `TransactionExtension`. When in doubt, use [`SystemTransactionExtensionsOf`].
 		</span><span class="comment">// Note that this cannot be dependent on `T` for block-number because it would lead to a
 		// circular dependency (self-referential generics).
 		</span><span class="kw">pub type </span>BlockOf&lt;T, Extra = ()&gt; = generic::Block&lt;HeaderInner, ExtrinsicInner&lt;T, Extra&gt;&gt;;
@@ -774,7 +774,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Default set of signed extensions exposed from the `frame_system`.
 		///
 		/// crucially, this does NOT contain any tx-payment extension.
-		</span><span class="kw">pub type </span>SystemSignedExtensionsOf&lt;T&gt; = (
+		</span><span class="kw">pub type </span>SystemTransactionExtensionsOf&lt;T&gt; = (
 			frame_system::CheckNonZeroSender&lt;T&gt;,
 			frame_system::CheckSpecVersion&lt;T&gt;,
 			frame_system::CheckTxVersion&lt;T&gt;,

@@ -592,6 +592,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#445" id="445">445</a>
 <a href="#446" id="446">446</a>
 <a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -628,15 +634,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 <span class="kw">use </span>cumulus_primitives_core::AggregateMessageOrigin;
-<span class="kw">use </span>frame_support::unsigned::TransactionValidityError;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
 <span class="kw">pub use </span>sp_consensus_aura::sr25519::AuthorityId <span class="kw">as </span>AuraId;
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block <span class="kw">as </span>BlockT, DispatchInfoOf},
-	transaction_validity::{TransactionSource, TransactionValidity},
+	traits::{
+		AccountIdLookup, BlakeTwo256, Block <span class="kw">as </span>BlockT, DispatchInfoOf, OriginOf,
+		TransactionExtension, TransactionExtensionBase, ValidateResult,
+	},
+	transaction_validity::{
+		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
+	},
 	ApplyExtrinsicResult,
 };
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
@@ -869,35 +879,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Simple implementation which fails any transaction which is signed.
 </span><span class="attr">#[derive(Eq, PartialEq, Clone, Default, sp_core::RuntimeDebug, Encode, Decode, TypeInfo)]
 </span><span class="kw">pub struct </span>DisallowSigned;
-<span class="kw">impl </span>sp_runtime::traits::SignedExtension <span class="kw">for </span>DisallowSigned {
+
+<span class="kw">impl </span>TransactionExtensionBase <span class="kw">for </span>DisallowSigned {
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;DisallowSigned&quot;</span>;
-	<span class="kw">type </span>AccountId = AccountId;
-	<span class="kw">type </span>Call = RuntimeCall;
-	<span class="kw">type </span>AdditionalSigned = ();
+	<span class="kw">type </span>Implicit = ();
+}
+
+<span class="kw">impl</span>&lt;C&gt; TransactionExtension&lt;RuntimeCall, C&gt; <span class="kw">for </span>DisallowSigned {
+	<span class="kw">type </span>Val = ();
 	<span class="kw">type </span>Pre = ();
-	<span class="kw">fn </span>additional_signed(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-	) -&gt; sp_std::result::Result&lt;(), sp_runtime::transaction_validity::TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
-	}
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="self">self</span>.validate(who, call, info, len).map(|<span class="kw">_</span>| ())
-	}
 	<span class="kw">fn </span>validate(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>sp_runtime::traits::DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		_origin: OriginOf&lt;RuntimeCall&gt;,
+		_call: <span class="kw-2">&amp;</span>RuntimeCall,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;RuntimeCall&gt;,
 		_len: usize,
-	) -&gt; TransactionValidity {
-		<span class="kw">let </span>i = sp_runtime::transaction_validity::InvalidTransaction::BadProof;
-		<span class="prelude-val">Err</span>(sp_runtime::transaction_validity::TransactionValidityError::Invalid(i))
+		_context: <span class="kw-2">&amp;mut </span>C,
+		_self_implicit: <span class="self">Self</span>::Implicit,
+		_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; ValidateResult&lt;<span class="self">Self</span>::Val, RuntimeCall&gt; {
+		<span class="prelude-val">Err</span>(InvalidTransaction::BadProof.into())
+	}
+	<span class="kw">fn </span>prepare(
+		<span class="self">self</span>,
+		_val: <span class="self">Self</span>::Val,
+		_origin: <span class="kw-2">&amp;</span>OriginOf&lt;RuntimeCall&gt;,
+		_call: <span class="kw-2">&amp;</span>RuntimeCall,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;RuntimeCall&gt;,
+		_len: usize,
+		_context: <span class="kw-2">&amp;</span>C,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
+		<span class="prelude-val">Err</span>(InvalidTransaction::BadProof.into())
 	}
 }
 
@@ -917,11 +929,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>SignedBlock = generic::SignedBlock&lt;Block&gt;;
 <span class="doccomment">/// BlockId type as expected by this runtime.
 </span><span class="kw">pub type </span>BlockId = generic::BlockId&lt;Block&gt;;
-<span class="doccomment">/// The SignedExtension to the basic transaction logic.
-</span><span class="kw">pub type </span>SignedExtra = DisallowSigned;
+<span class="doccomment">/// The extension to the basic transaction logic.
+</span><span class="kw">pub type </span>TxExtension = DisallowSigned;
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
-	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
+	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, TxExtension&gt;;
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
 </span><span class="kw">pub type </span>Executive = frame_executive::Executive&lt;
 	Runtime,

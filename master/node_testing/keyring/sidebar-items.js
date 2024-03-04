@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["alice","bob","charlie","dave","eve","ferdie","session_keys_from_seed","sign","signed_extra"]};
+window.SIDEBAR_ITEMS = {"fn":["alice","bob","charlie","dave","eve","ferdie","session_keys_from_seed","sign","tx_ext"]};

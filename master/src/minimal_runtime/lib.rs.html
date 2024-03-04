@@ -442,7 +442,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-<span class="kw">type </span>SignedExtra = (
+<span class="kw">type </span>TxExtension = (
 	frame_system::CheckNonZeroSender&lt;Runtime&gt;,
 	frame_system::CheckSpecVersion&lt;Runtime&gt;,
 	frame_system::CheckTxVersion&lt;Runtime&gt;,
@@ -494,7 +494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>LengthToFee = FixedFee&lt;<span class="number">1</span>, &lt;<span class="self">Self </span><span class="kw">as </span>pallet_balances::Config&gt;::Balance&gt;;
 }
 
-<span class="kw">type </span>Block = frame::runtime::types_common::BlockOf&lt;Runtime, SignedExtra&gt;;
+<span class="kw">type </span>Block = frame::runtime::types_common::BlockOf&lt;Runtime, TxExtension&gt;;
 <span class="kw">type </span>Header = HeaderFor&lt;Runtime&gt;;
 
 <span class="kw">type </span>RuntimeExecutive =

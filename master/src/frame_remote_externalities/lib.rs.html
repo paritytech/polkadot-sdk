@@ -1722,6 +1722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1575" id="1575">1575</a>
 <a href="#1576" id="1576">1576</a>
 <a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2928,8 +2929,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test_prelude {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>sp_runtime::testing::{Block <span class="kw">as </span>RawBlock, ExtrinsicWrapper, H256 <span class="kw">as </span>Hash};
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Block = RawBlock&lt;ExtrinsicWrapper&lt;Hash&gt;&gt;;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>sp_runtime::testing::{Block <span class="kw">as </span>RawBlock, MockCallU64};
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>UncheckedXt = sp_runtime::generic::UncheckedExtrinsic&lt;u64, MockCallU64, (), ()&gt;;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Block = RawBlock&lt;UncheckedXt&gt;;
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>init_logger() {
 		sp_tracing::try_init_simple();

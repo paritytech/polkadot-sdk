@@ -1629,17 +1629,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1482" id="1482">1482</a>
 <a href="#1483" id="1483">1483</a>
 <a href="#1484" id="1484">1484</a>
-<a href="#1485" id="1485">1485</a>
-<a href="#1486" id="1486">1486</a>
-<a href="#1487" id="1487">1487</a>
-<a href="#1488" id="1488">1488</a>
-<a href="#1489" id="1489">1489</a>
-<a href="#1490" id="1490">1490</a>
-<a href="#1491" id="1491">1491</a>
-<a href="#1492" id="1492">1492</a>
-<a href="#1493" id="1493">1493</a>
-<a href="#1494" id="1494">1494</a>
-<a href="#1495" id="1495">1495</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2561,24 +2550,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>call(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Call;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;Call, Extra&gt; ExtrinsicCall <span class="kw">for </span>sp_runtime::testing::TestXt&lt;Call, Extra&gt;
-<span class="kw">where
-	</span>Call: codec::Codec + Sync + Send + TypeInfo,
-	Extra: TypeInfo,
-{
-	<span class="kw">fn </span>call(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Call {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.call
-	}
-}
-
 <span class="kw">impl</span>&lt;Address, Call, Signature, Extra&gt; ExtrinsicCall
 	<span class="kw">for </span>sp_runtime::generic::UncheckedExtrinsic&lt;Address, Call, Signature, Extra&gt;
 <span class="kw">where
 	</span>Address: TypeInfo,
 	Call: TypeInfo,
 	Signature: TypeInfo,
-	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
+	Extra: TypeInfo,
 {
 	<span class="kw">fn </span>call(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Call {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.function

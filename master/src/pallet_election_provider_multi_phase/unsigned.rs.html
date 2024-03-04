@@ -3973,7 +3973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			</span><span class="kw">let </span>encoded = pool.read().transactions[<span class="number">0</span>].clone();
 			<span class="kw">let </span>extrinsic: Extrinsic = codec::Decode::decode(<span class="kw-2">&amp;mut &amp;*</span>encoded).unwrap();
-			<span class="kw">let </span>call = extrinsic.call;
+			<span class="kw">let </span>call = extrinsic.function;
 			<span class="macro">assert!</span>(<span class="macro">matches!</span>(call, RuntimeCall::MultiPhase(Call::submit_unsigned { .. })));
 		})
 	}
@@ -3990,7 +3990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>encoded = pool.read().transactions[<span class="number">0</span>].clone();
 			<span class="kw">let </span>extrinsic = Extrinsic::decode(<span class="kw-2">&amp;mut &amp;*</span>encoded).unwrap();
-			<span class="kw">let </span>call = <span class="kw">match </span>extrinsic.call {
+			<span class="kw">let </span>call = <span class="kw">match </span>extrinsic.function {
 				RuntimeCall::MultiPhase(call @ Call::submit_unsigned { .. }) =&gt; call,
 				<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;bad call: unexpected submission&quot;</span>),
 			};

@@ -157,7 +157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Create signed transaction.</p>
 <p>This trait is meant to be implemented by the runtime and is responsible for constructing
 a payload to be signed and contained within the extrinsic.
-This will most likely include creation of <code>SignedExtra</code> (a set of <code>SignedExtensions</code>).
+This will most likely include creation of <code>TxExtension</code> (a tuple of <code>TransactionExtension</code>s).
 Note that the result can be altered by inspecting the <code>Call</code> (for instance adjusting
 fees, or mortality depending on the <code>pallet</code> being called).</p>
 </div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.create_transaction" class="method"><h4 class="code-header">fn <a href="#tymethod.create_transaction" class="fn">create_transaction</a>&lt;C&gt;(

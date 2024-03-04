@@ -993,6 +993,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#846" id="846">846</a>
 <a href="#847" id="847">847</a>
 <a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1262,6 +1263,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>LengthToFee = ConstantMultiplier&lt;Balance, TransactionByteFee&gt;;
 	<span class="kw">type </span>FeeMultiplierUpdate = ();
 	<span class="kw">type </span>OperationalFeeMultiplier = ConstU8&lt;<span class="number">5</span>&gt;;
+	<span class="kw">type </span>WeightInfo = ();
 }
 
 <span class="kw">impl </span>pallet_sudo::Config <span class="kw">for </span>Runtime {
@@ -1639,8 +1641,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>SignedBlock = generic::SignedBlock&lt;Block&gt;;
 <span class="doccomment">/// BlockId type as expected by this runtime.
 </span><span class="kw">pub type </span>BlockId = generic::BlockId&lt;Block&gt;;
-<span class="doccomment">/// The SignedExtension to the basic transaction logic.
-</span><span class="kw">pub type </span>SignedExtra = (
+<span class="doccomment">/// The extension to the basic transaction logic.
+</span><span class="kw">pub type </span>TxExtension = (
 	frame_system::CheckNonZeroSender&lt;Runtime&gt;,
 	frame_system::CheckSpecVersion&lt;Runtime&gt;,
 	frame_system::CheckTxVersion&lt;Runtime&gt;,
@@ -1652,7 +1654,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 );
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
-	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
+	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, TxExtension&gt;;
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
 </span><span class="kw">pub type </span>Executive = frame_executive::Executive&lt;
 	Runtime,

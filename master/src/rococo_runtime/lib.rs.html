@@ -2655,6 +2655,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2508" id="2508">2508</a>
 <a href="#2509" id="2509">2509</a>
 <a href="#2510" id="2510">2510</a>
+<a href="#2511" id="2511">2511</a>
+<a href="#2512" id="2512">2512</a>
+<a href="#2513" id="2513">2513</a>
+<a href="#2514" id="2514">2514</a>
+<a href="#2515" id="2515">2515</a>
+<a href="#2516" id="2516">2516</a>
+<a href="#2517" id="2517">2517</a>
+<a href="#2518" id="2518">2518</a>
+<a href="#2519" id="2519">2519</a>
+<a href="#2520" id="2520">2520</a>
+<a href="#2521" id="2521">2521</a>
+<a href="#2522" id="2522">2522</a>
+<a href="#2523" id="2523">2523</a>
+<a href="#2524" id="2524">2524</a>
+<a href="#2525" id="2525">2525</a>
+<a href="#2526" id="2526">2526</a>
+<a href="#2527" id="2527">2527</a>
+<a href="#2528" id="2528">2528</a>
+<a href="#2529" id="2529">2529</a>
+<a href="#2530" id="2530">2530</a>
+<a href="#2531" id="2531">2531</a>
+<a href="#2532" id="2532">2532</a>
+<a href="#2533" id="2533">2533</a>
+<a href="#2534" id="2534">2534</a>
+<a href="#2535" id="2535">2535</a>
+<a href="#2536" id="2536">2536</a>
+<a href="#2537" id="2537">2537</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2856,6 +2883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Version = Version;
 	<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;Balance&gt;;
 	<span class="kw">type </span>SystemWeightInfo = weights::frame_system::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>ExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>SS58Prefix = SS58Prefix;
 	<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">16</span>&gt;;
 }
@@ -2986,6 +3014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightToFee = WeightToFee;
 	<span class="kw">type </span>LengthToFee = ConstantMultiplier&lt;Balance, TransactionByteFee&gt;;
 	<span class="kw">type </span>FeeMultiplierUpdate = SlowAdjustingFeeUpdate&lt;<span class="self">Self</span>&gt;;
+	<span class="kw">type </span>WeightInfo = weights::pallet_transaction_payment::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -3248,7 +3277,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// so the actual block number is `n`.
 			</span>.saturating_sub(<span class="number">1</span>);
 		<span class="kw">let </span>tip = <span class="number">0</span>;
-		<span class="kw">let </span>extra: SignedExtra = (
+		<span class="kw">let </span>tx_ext: TxExtension = (
 			frame_system::CheckNonZeroSender::&lt;Runtime&gt;::new(),
 			frame_system::CheckSpecVersion::&lt;Runtime&gt;::new(),
 			frame_system::CheckTxVersion::&lt;Runtime&gt;::new(),
@@ -3260,16 +3289,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			frame_system::CheckNonce::&lt;Runtime&gt;::from(nonce),
 			frame_system::CheckWeight::&lt;Runtime&gt;::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::&lt;Runtime&gt;::from(tip),
-		);
-		<span class="kw">let </span>raw_payload = SignedPayload::new(call, extra)
+		)
+			.into();
+		<span class="kw">let </span>raw_payload = SignedPayload::new(call, tx_ext)
 			.map_err(|e| {
 				<span class="macro">log::warn!</span>(<span class="string">&quot;Unable to create signed payload: {:?}&quot;</span>, e);
 			})
 			.ok()<span class="question-mark">?</span>;
 		<span class="kw">let </span>signature = raw_payload.using_encoded(|payload| C::sign(payload, public))<span class="question-mark">?</span>;
-		<span class="kw">let </span>(call, extra, <span class="kw">_</span>) = raw_payload.deconstruct();
+		<span class="kw">let </span>(call, tx_ext, <span class="kw">_</span>) = raw_payload.deconstruct();
 		<span class="kw">let </span>address = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Lookup::unlookup(account);
-		<span class="prelude-val">Some</span>((call, (address, signature, extra)))
+		<span class="prelude-val">Some</span>((call, (address, signature, tx_ext)))
 	}
 }
 
@@ -3290,12 +3320,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>Prefix: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] = <span class="string">b&quot;Pay ROCs to the Rococo account:&quot;</span>;
 }
 
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">pub struct </span>ClaimsHelper;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">use </span>frame_support::dispatch::DispatchInfo;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">impl </span>claims::BenchmarkHelperTrait&lt;RuntimeCall, DispatchInfo&gt; <span class="kw">for </span>ClaimsHelper {
+	<span class="kw">fn </span>default_call_and_info() -&gt; (RuntimeCall, DispatchInfo) {
+		<span class="kw">use </span>frame_support::dispatch::GetDispatchInfo;
+		<span class="kw">let </span>call = RuntimeCall::Claims(claims::Call::attest {
+			statement: claims::StatementKind::Regular.to_text().to_vec(),
+		});
+		<span class="kw">let </span>info = call.get_dispatch_info();
+		(call, info)
+	}
+}
+
 <span class="kw">impl </span>claims::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>VestingSchedule = Vesting;
 	<span class="kw">type </span>Prefix = Prefix;
 	<span class="kw">type </span>MoveClaimOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>WeightInfo = weights::runtime_common_claims::WeightInfo&lt;Runtime&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>BenchmarkHelper = ClaimsHelper;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -4104,8 +4154,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>SignedBlock = generic::SignedBlock&lt;Block&gt;;
 <span class="doccomment">/// `BlockId` type as expected by this runtime.
 </span><span class="kw">pub type </span>BlockId = generic::BlockId&lt;Block&gt;;
-<span class="doccomment">/// The `SignedExtension` to the basic transaction logic.
-</span><span class="kw">pub type </span>SignedExtra = (
+<span class="doccomment">/// The extension to the basic transaction logic.
+</span><span class="kw">pub type </span>TxExtension = (
 	frame_system::CheckNonZeroSender&lt;Runtime&gt;,
 	frame_system::CheckSpecVersion&lt;Runtime&gt;,
 	frame_system::CheckTxVersion&lt;Runtime&gt;,
@@ -4118,7 +4168,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
-	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
+	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, TxExtension&gt;;
 
 <span class="doccomment">/// All migrations that will run on the next runtime upgrade.
 ///
@@ -4332,7 +4382,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Migrations,
 &gt;;
 <span class="doccomment">/// The payload being signed in transactions.
-</span><span class="kw">pub type </span>SignedPayload = generic::SignedPayload&lt;RuntimeCall, SignedExtra&gt;;
+</span><span class="kw">pub type </span>SignedPayload = generic::SignedPayload&lt;RuntimeCall, TxExtension&gt;;
 
 <span class="macro">parameter_types! </span>{
 	<span class="comment">// The deposit configuration for the singed migration. Specially if you want to allow any signed account to do the migration (see `SignedFilter`, these deposits should be high)
@@ -4403,7 +4453,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		[pallet_scheduler, Scheduler]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::&lt;Runtime&gt;]
+		[frame_system_extensions, SystemExtensionsBench::&lt;Runtime&gt;]
 		[pallet_timestamp, Timestamp]
+		[pallet_transaction_payment, TransactionPayment]
 		[pallet_treasury, Treasury]
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
@@ -4897,6 +4949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">use </span>frame_support::traits::StorageInfoTrait;
 
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
+			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
 			<span class="kw">use </span>frame_benchmarking::baseline::Pallet <span class="kw">as </span>Baseline;
 
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
@@ -4917,6 +4970,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">use </span>frame_support::traits::WhitelistedStorageKeys;
 			<span class="kw">use </span>frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
+			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
 			<span class="kw">use </span>frame_benchmarking::baseline::Pallet <span class="kw">as </span>Baseline;
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">use </span>sp_storage::TrackedStorageKey;

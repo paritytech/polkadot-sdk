@@ -1088,6 +1088,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#941" id="941">941</a>
 <a href="#942" id="942">942</a>
 <a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1973,7 +1974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map(|c| c / <span class="number">2</span>)
 		.unwrap_or(<span class="number">2</span>) <span class="kw">as </span>u64;
 	<span class="kw">let </span>tip = <span class="number">0</span>;
-	<span class="kw">let </span>extra: runtime::SignedExtra = (
+	<span class="kw">let </span>tx_ext: runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::&lt;runtime::Runtime&gt;::new(),
 		frame_system::CheckSpecVersion::&lt;runtime::Runtime&gt;::new(),
 		frame_system::CheckGenesis::&lt;runtime::Runtime&gt;::new(),
@@ -1985,10 +1986,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		frame_system::CheckWeight::&lt;runtime::Runtime&gt;::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::&lt;runtime::Runtime&gt;::from(tip),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::&lt;runtime::Runtime&gt;::new(),
-	);
+	)
+		.into();
 	<span class="kw">let </span>raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	<span class="kw">let </span>signature = raw_payload.using_encoded(|e| caller.sign(e));
@@ -1996,7 +1998,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		function,
 		caller.public().into(),
 		runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 

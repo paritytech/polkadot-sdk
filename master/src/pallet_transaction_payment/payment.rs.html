@@ -301,6 +301,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -323,7 +377,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>sp_runtime::{
-	traits::{DispatchInfoOf, PostDispatchInfoOf, Saturating, Zero},
+	traits::{CheckedSub, DispatchInfoOf, PostDispatchInfoOf, Saturating, Zero},
 	transaction_validity::InvalidTransaction,
 };
 
@@ -354,6 +408,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tip: <span class="self">Self</span>::Balance,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::LiquidityInfo, TransactionValidityError&gt;;
 
+	<span class="doccomment">/// Check if the predicted fee from the transaction origin can be withdrawn.
+	///
+	/// Note: The `fee` already includes the `tip`.
+	</span><span class="kw">fn </span>can_withdraw_fee(
+		who: <span class="kw-2">&amp;</span>T::AccountId,
+		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		dispatch_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		fee: <span class="self">Self</span>::Balance,
+		tip: <span class="self">Self</span>::Balance,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt;;
+
 	<span class="doccomment">/// After the transaction was executed the actual fee can be calculated.
 	/// This function should refund any overpaid fees and optionally deposit
 	/// the corrected amount.
@@ -367,6 +432,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tip: <span class="self">Self</span>::Balance,
 		already_withdrawn: <span class="self">Self</span>::LiquidityInfo,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt;;
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>endow_account(who: <span class="kw-2">&amp;</span>T::AccountId, amount: <span class="self">Self</span>::Balance);
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>minimum_balance() -&gt; <span class="self">Self</span>::Balance;
 }
 
 <span class="doccomment">/// Implements the transaction payment for a pallet implementing the `Currency`
@@ -424,6 +495,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
+	<span class="doccomment">/// Check if the predicted fee from the transaction origin can be withdrawn.
+	///
+	/// Note: The `fee` already includes the `tip`.
+	</span><span class="kw">fn </span>can_withdraw_fee(
+		who: <span class="kw-2">&amp;</span>T::AccountId,
+		_call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		fee: <span class="self">Self</span>::Balance,
+		tip: <span class="self">Self</span>::Balance,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
+		<span class="kw">if </span>fee.is_zero() {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="kw">let </span>withdraw_reason = <span class="kw">if </span>tip.is_zero() {
+			WithdrawReasons::TRANSACTION_PAYMENT
+		} <span class="kw">else </span>{
+			WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
+		};
+
+		<span class="kw">let </span>new_balance =
+			C::free_balance(who).checked_sub(<span class="kw-2">&amp;</span>fee).ok_or(InvalidTransaction::Payment)<span class="question-mark">?</span>;
+		C::ensure_can_withdraw(who, fee, withdraw_reason, new_balance)
+			.map(|<span class="kw">_</span>| ())
+			.map_err(|<span class="kw">_</span>| InvalidTransaction::Payment.into())
+	}
+
 	<span class="doccomment">/// Hand the fee and the tip over to the `[OnUnbalanced]` implementation.
 	/// Since the predicted fee might have been too high, parts of the fee may
 	/// be refunded.
@@ -455,6 +553,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			OU::on_unbalanceds(<span class="prelude-val">Some</span>(fee).into_iter().chain(<span class="prelude-val">Some</span>(tip)));
 		}
 		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>endow_account(who: <span class="kw-2">&amp;</span>T::AccountId, amount: <span class="self">Self</span>::Balance) {
+		<span class="kw">let _ </span>= C::deposit_creating(who, amount);
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>minimum_balance() -&gt; <span class="self">Self</span>::Balance {
+		C::minimum_balance()
 	}
 }
 </code></pre></div></section></main></body></html>

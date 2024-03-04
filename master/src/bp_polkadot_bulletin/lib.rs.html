@@ -372,6 +372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -399,7 +400,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis,
 	extensions::{
 		CheckEra, CheckGenesis, CheckNonZeroSender, CheckNonce, CheckSpecVersion, CheckTxVersion,
-		CheckWeight, GenericSignedExtension, GenericSignedExtensionSchema,
+		CheckWeight, GenericTransactionExtension, GenericTransactionExtensionSchema,
 	},
 	Chain, ChainId, TransactionEra,
 };
@@ -411,7 +412,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::limits;
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_runtime::{traits::DispatchInfoOf, transaction_validity::TransactionValidityError, Perbill};
+<span class="kw">use </span>sp_runtime::{
+	impl_tx_ext_default,
+	traits::{Dispatchable, TransactionExtensionBase},
+	transaction_validity::TransactionValidityError,
+	Perbill,
+};
 
 <span class="comment">// This chain reuses most of Polkadot primitives.
 </span><span class="kw">pub use </span>bp_polkadot_core::{
@@ -445,10 +451,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = <span class="number">4096</span>;
 
 <span class="doccomment">/// This signed extension is used to ensure that the chain transactions are signed by proper
-</span><span class="kw">pub type </span>ValidateSigned = GenericSignedExtensionSchema&lt;(), ()&gt;;
+</span><span class="kw">pub type </span>ValidateSigned = GenericTransactionExtensionSchema&lt;(), ()&gt;;
 
 <span class="doccomment">/// Signed extension schema, used by Polkadot Bulletin.
-</span><span class="kw">pub type </span>SignedExtensionSchema = GenericSignedExtension&lt;(
+</span><span class="kw">pub type </span>TransactionExtensionSchema = GenericTransactionExtension&lt;(
 	(
 		CheckNonZeroSender,
 		CheckSpecVersion,
@@ -461,34 +467,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ValidateSigned,
 )&gt;;
 
-<span class="doccomment">/// Signed extension, used by Polkadot Bulletin.
+<span class="doccomment">/// Transaction extension, used by Polkadot Bulletin.
 </span><span class="attr">#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-</span><span class="kw">pub struct </span>SignedExtension(SignedExtensionSchema);
+</span><span class="kw">pub struct </span>TransactionExtension(TransactionExtensionSchema);
 
-<span class="kw">impl </span>sp_runtime::traits::SignedExtension <span class="kw">for </span>SignedExtension {
+<span class="kw">impl </span>TransactionExtensionBase <span class="kw">for </span>TransactionExtension {
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Not needed.&quot;</span>;
-	<span class="kw">type </span>AccountId = ();
-	<span class="kw">type </span>Call = ();
-	<span class="kw">type </span>AdditionalSigned =
-		&lt;SignedExtensionSchema <span class="kw">as </span>sp_runtime::traits::SignedExtension&gt;::AdditionalSigned;
-	<span class="kw">type </span>Pre = ();
+	<span class="kw">type </span>Implicit = &lt;TransactionExtensionSchema <span class="kw">as </span>TransactionExtensionBase&gt;::Implicit;
 
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
-		<span class="self">self</span>.<span class="number">0</span>.additional_signed()
-	}
-
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		_len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
+	<span class="kw">fn </span>implicit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Implicit, TransactionValidityError&gt; {
+		&lt;TransactionExtensionSchema <span class="kw">as </span>TransactionExtensionBase&gt;::implicit(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
 	}
 }
 
-<span class="kw">impl </span>SignedExtension {
+<span class="kw">impl</span>&lt;C, Context&gt; sp_runtime::traits::TransactionExtension&lt;C, Context&gt; <span class="kw">for </span>TransactionExtension
+<span class="kw">where
+	</span>C: Dispatchable,
+{
+	<span class="kw">type </span>Pre = ();
+	<span class="kw">type </span>Val = ();
+
+	<span class="macro">impl_tx_ext_default!</span>(C; Context; validate prepare);
+}
+
+<span class="kw">impl </span>TransactionExtension {
 	<span class="doccomment">/// Create signed extension from its components.
 	</span><span class="kw">pub fn </span>from_params(
 		spec_version: u32,
@@ -497,7 +499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		genesis_hash: Hash,
 		nonce: Nonce,
 	) -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>(GenericSignedExtension::new(
+		<span class="self">Self</span>(GenericTransactionExtension::new(
 			(
 				(
 					(),              <span class="comment">// non-zero sender

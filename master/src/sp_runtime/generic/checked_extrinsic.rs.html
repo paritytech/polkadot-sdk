@@ -243,6 +243,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -263,82 +297,116 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Generic implementation of an extrinsic that has passed the verification
 //! stage.
 
-</span><span class="kw">use crate</span>::{
+</span><span class="kw">use </span>codec::Encode;
+
+<span class="kw">use crate</span>::{
 	traits::{
-		<span class="self">self</span>, DispatchInfoOf, Dispatchable, MaybeDisplay, Member, PostDispatchInfoOf,
-		SignedExtension, ValidateUnsigned,
+		<span class="self">self</span>, transaction_extension::TransactionExtension, DispatchInfoOf, DispatchTransaction,
+		Dispatchable, MaybeDisplay, Member, PostDispatchInfoOf, ValidateUnsigned,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 
-<span class="doccomment">/// Definition of something that the external world might want to say; its existence implies that it
+<span class="doccomment">/// The kind of extrinsic this is, including any fields required of that kind. This is basically
+/// the full extrinsic except the `Call`.
+</span><span class="attr">#[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
+</span><span class="kw">pub enum </span>ExtrinsicFormat&lt;AccountId, Extension&gt; {
+	<span class="doccomment">/// Extrinsic is bare; it must pass either the bare forms of `TransactionExtension` or
+	/// `ValidateUnsigned`, both deprecated, or alternatively a `ProvideInherent`.
+	</span>Bare,
+	<span class="doccomment">/// Extrinsic has a default `Origin` of `Signed(AccountId)` and must pass all
+	/// `TransactionExtension`s regular checks and includes all extension data.
+	</span>Signed(AccountId, Extension),
+	<span class="doccomment">/// Extrinsic has a default `Origin` of `None` and must pass all `TransactionExtension`s.
+	/// regular checks and includes all extension data.
+	</span>General(Extension),
+}
+
+<span class="comment">// TODO: Rename ValidateUnsigned to ValidateInherent
+// TODO: Consider changing ValidateInherent API to avoid need for duplicating validate
+//   code into pre_dispatch (rename that to `prepare`).
+// TODO: New extrinsic type corresponding to `ExtrinsicFormat::General`, which is
+//   unsigned but includes extension data.
+// TODO: Move usage of `signed` to `format`:
+// - Inherent instead of None.
+// - Signed(id, extension) instead of Some((id, extra)).
+// - Introduce General(extension) for one without a signature.
+
+</span><span class="doccomment">/// Definition of something that the external world might want to say; its existence implies that it
 /// has been checked and is good, particularly with regards to the signature.
 ///
 /// This is typically passed into [`traits::Applyable::apply`], which should execute
 /// [`CheckedExtrinsic::function`], alongside all other bits and bobs.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
-</span><span class="kw">pub struct </span>CheckedExtrinsic&lt;AccountId, Call, Extra&gt; {
+</span><span class="kw">pub struct </span>CheckedExtrinsic&lt;AccountId, Call, Extension&gt; {
 	<span class="doccomment">/// Who this purports to be from and the number of extrinsics have come before
 	/// from the same signer, if anyone (note this is not a signature).
-	</span><span class="kw">pub </span>signed: <span class="prelude-ty">Option</span>&lt;(AccountId, Extra)&gt;,
+	</span><span class="kw">pub </span>format: ExtrinsicFormat&lt;AccountId, Extension&gt;,
 
 	<span class="doccomment">/// The function that should be called.
 	</span><span class="kw">pub </span>function: Call,
 }
 
-<span class="kw">impl</span>&lt;AccountId, Call, Extra, RuntimeOrigin&gt; traits::Applyable
-	<span class="kw">for </span>CheckedExtrinsic&lt;AccountId, Call, Extra&gt;
+<span class="kw">impl</span>&lt;AccountId, Call, Extension, RuntimeOrigin&gt; traits::Applyable
+	<span class="kw">for </span>CheckedExtrinsic&lt;AccountId, Call, Extension&gt;
 <span class="kw">where
 	</span>AccountId: Member + MaybeDisplay,
-	Call: Member + Dispatchable&lt;RuntimeOrigin = RuntimeOrigin&gt;,
-	Extra: SignedExtension&lt;AccountId = AccountId, Call = Call&gt;,
+	Call: Member + Dispatchable&lt;RuntimeOrigin = RuntimeOrigin&gt; + Encode,
+	Extension: TransactionExtension&lt;Call, ()&gt;,
 	RuntimeOrigin: From&lt;<span class="prelude-ty">Option</span>&lt;AccountId&gt;&gt;,
 {
 	<span class="kw">type </span>Call = Call;
 
-	<span class="kw">fn </span>validate&lt;U: ValidateUnsigned&lt;Call = <span class="self">Self</span>::Call&gt;&gt;(
+	<span class="kw">fn </span>validate&lt;I: ValidateUnsigned&lt;Call = <span class="self">Self</span>::Call&gt;&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		<span class="comment">// TODO [#5006;ToDr] should source be passed to `SignedExtension`s?
-		// Perhaps a change for 2.0 to avoid breaking too much APIs?
-		</span>source: TransactionSource,
+		source: TransactionSource,
 		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
 		len: usize,
 	) -&gt; TransactionValidity {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">ref </span>id, <span class="kw-2">ref </span>extra)) = <span class="self">self</span>.signed {
-			Extra::validate(extra, id, <span class="kw-2">&amp;</span><span class="self">self</span>.function, info, len)
-		} <span class="kw">else </span>{
-			<span class="kw">let </span>valid = Extra::validate_unsigned(<span class="kw-2">&amp;</span><span class="self">self</span>.function, info, len)<span class="question-mark">?</span>;
-			<span class="kw">let </span>unsigned_validation = U::validate_unsigned(source, <span class="kw-2">&amp;</span><span class="self">self</span>.function)<span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(valid.combine_with(unsigned_validation))
+		<span class="kw">match </span><span class="self">self</span>.format {
+			ExtrinsicFormat::Bare =&gt; {
+				<span class="kw">let </span>inherent_validation = I::validate_unsigned(source, <span class="kw-2">&amp;</span><span class="self">self</span>.function)<span class="question-mark">?</span>;
+				<span class="attr">#[allow(deprecated)]
+				</span><span class="kw">let </span>legacy_validation = Extension::validate_bare_compat(<span class="kw-2">&amp;</span><span class="self">self</span>.function, info, len)<span class="question-mark">?</span>;
+				<span class="prelude-val">Ok</span>(legacy_validation.combine_with(inherent_validation))
+			},
+			ExtrinsicFormat::Signed(<span class="kw-2">ref </span>signer, <span class="kw-2">ref </span>extension) =&gt; {
+				<span class="kw">let </span>origin = <span class="prelude-val">Some</span>(signer.clone()).into();
+				extension.validate_only(origin, <span class="kw-2">&amp;</span><span class="self">self</span>.function, info, len).map(|x| x.<span class="number">0</span>)
+			},
+			ExtrinsicFormat::General(<span class="kw-2">ref </span>extension) =&gt;
+				extension.validate_only(<span class="prelude-val">None</span>.into(), <span class="kw-2">&amp;</span><span class="self">self</span>.function, info, len).map(|x| x.<span class="number">0</span>),
 		}
 	}
 
-	<span class="kw">fn </span>apply&lt;U: ValidateUnsigned&lt;Call = <span class="self">Self</span>::Call&gt;&gt;(
+	<span class="kw">fn </span>apply&lt;I: ValidateUnsigned&lt;Call = <span class="self">Self</span>::Call&gt;&gt;(
 		<span class="self">self</span>,
 		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
 		len: usize,
 	) -&gt; <span class="kw">crate</span>::ApplyExtrinsicResultWithInfo&lt;PostDispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;&gt; {
-		<span class="kw">let </span>(maybe_who, maybe_pre) = <span class="kw">if let </span><span class="prelude-val">Some</span>((id, extra)) = <span class="self">self</span>.signed {
-			<span class="kw">let </span>pre = Extra::pre_dispatch(extra, <span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span><span class="self">self</span>.function, info, len)<span class="question-mark">?</span>;
-			(<span class="prelude-val">Some</span>(id), <span class="prelude-val">Some</span>(pre))
-		} <span class="kw">else </span>{
-			Extra::pre_dispatch_unsigned(<span class="kw-2">&amp;</span><span class="self">self</span>.function, info, len)<span class="question-mark">?</span>;
-			U::pre_dispatch(<span class="kw-2">&amp;</span><span class="self">self</span>.function)<span class="question-mark">?</span>;
-			(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
-		};
-		<span class="kw">let </span>res = <span class="self">self</span>.function.dispatch(RuntimeOrigin::from(maybe_who));
-		<span class="kw">let </span>post_info = <span class="kw">match </span>res {
-			<span class="prelude-val">Ok</span>(info) =&gt; info,
-			<span class="prelude-val">Err</span>(err) =&gt; err.post_info,
-		};
-		Extra::post_dispatch(
-			maybe_pre,
-			info,
-			<span class="kw-2">&amp;</span>post_info,
-			len,
-			<span class="kw-2">&amp;</span>res.map(|<span class="kw">_</span>| ()).map_err(|e| e.error),
-		)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(res)
+		<span class="kw">match </span><span class="self">self</span>.format {
+			ExtrinsicFormat::Bare =&gt; {
+				I::pre_dispatch(<span class="kw-2">&amp;</span><span class="self">self</span>.function)<span class="question-mark">?</span>;
+				<span class="comment">// TODO: Remove below once `pre_dispatch_unsigned` is removed from `LegacyExtension`
+				//   or `LegacyExtension` is removed.
+				</span><span class="attr">#[allow(deprecated)]
+				</span>Extension::validate_bare_compat(<span class="kw-2">&amp;</span><span class="self">self</span>.function, info, len)<span class="question-mark">?</span>;
+				<span class="attr">#[allow(deprecated)]
+				</span>Extension::pre_dispatch_bare_compat(<span class="kw-2">&amp;</span><span class="self">self</span>.function, info, len)<span class="question-mark">?</span>;
+				<span class="kw">let </span>res = <span class="self">self</span>.function.dispatch(<span class="prelude-val">None</span>.into());
+				<span class="kw">let </span>post_info = res.unwrap_or_else(|err| err.post_info);
+				<span class="kw">let </span>pd_res = res.map(|<span class="kw">_</span>| ()).map_err(|e| e.error);
+				<span class="comment">// TODO: Remove below once `pre_dispatch_unsigned` is removed from `LegacyExtension`
+				//   or `LegacyExtension` is removed.
+				</span><span class="attr">#[allow(deprecated)]
+				</span>Extension::post_dispatch_bare_compat(info, <span class="kw-2">&amp;</span>post_info, len, <span class="kw-2">&amp;</span>pd_res)<span class="question-mark">?</span>;
+				<span class="prelude-val">Ok</span>(res)
+			},
+			ExtrinsicFormat::Signed(signer, extension) =&gt;
+				extension.dispatch_transaction(<span class="prelude-val">Some</span>(signer).into(), <span class="self">self</span>.function, info, len),
+			ExtrinsicFormat::General(extension) =&gt;
+				extension.dispatch_transaction(<span class="prelude-val">None</span>.into(), <span class="self">self</span>.function, info, len),
+		}
 	}
 }
 </code></pre></div></section></main></body></html>

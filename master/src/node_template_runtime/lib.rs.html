@@ -709,6 +709,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#562" id="562">562</a>
 <a href="#563" id="563">563</a>
 <a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
@@ -952,6 +956,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightToFee = IdentityFee&lt;Balance&gt;;
 	<span class="kw">type </span>LengthToFee = IdentityFee&lt;Balance&gt;;
 	<span class="kw">type </span>FeeMultiplierUpdate = ConstFeeMultiplier&lt;FeeMultiplier&gt;;
+	<span class="kw">type </span>WeightInfo = pallet_transaction_payment::weights::SubstrateWeight&lt;Runtime&gt;;
 }
 
 <span class="kw">impl </span>pallet_sudo::Config <span class="kw">for </span>Runtime {
@@ -987,8 +992,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>Header = generic::Header&lt;BlockNumber, BlakeTwo256&gt;;
 <span class="doccomment">/// Block type as expected by this runtime.
 </span><span class="kw">pub type </span>Block = generic::Block&lt;Header, UncheckedExtrinsic&gt;;
-<span class="doccomment">/// The SignedExtension to the basic transaction logic.
-</span><span class="kw">pub type </span>SignedExtra = (
+<span class="doccomment">/// The extension to the basic transaction logic.
+</span><span class="kw">pub type </span>TxExtension = (
 	frame_system::CheckNonZeroSender&lt;Runtime&gt;,
 	frame_system::CheckSpecVersion&lt;Runtime&gt;,
 	frame_system::CheckTxVersion&lt;Runtime&gt;,
@@ -1007,9 +1012,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
-	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
+	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, TxExtension&gt;;
 <span class="doccomment">/// The payload being signed in transactions.
-</span><span class="kw">pub type </span>SignedPayload = generic::SignedPayload&lt;RuntimeCall, SignedExtra&gt;;
+</span><span class="kw">pub type </span>SignedPayload = generic::SignedPayload&lt;RuntimeCall, TxExtension&gt;;
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
 </span><span class="kw">pub type </span>Executive = frame_executive::Executive&lt;
 	Runtime,
@@ -1025,6 +1030,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">frame_benchmarking::define_benchmarks!</span>(
 		[frame_benchmarking, BaselineBench::&lt;Runtime&gt;]
 		[frame_system, SystemBench::&lt;Runtime&gt;]
+		[frame_system_extensions, SystemExtensionsBench::&lt;Runtime&gt;]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_sudo, Sudo]
@@ -1209,6 +1215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">use </span>frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
 			<span class="kw">use </span>frame_support::traits::StorageInfoTrait;
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
+			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
 			<span class="kw">use </span>baseline::Pallet <span class="kw">as </span>BaselineBench;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>list = Vec::&lt;BenchmarkList&gt;::new();
@@ -1225,6 +1232,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">use </span>frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
 			<span class="kw">use </span>sp_storage::TrackedStorageKey;
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
+			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
 			<span class="kw">use </span>baseline::Pallet <span class="kw">as </span>BaselineBench;
 
 			<span class="kw">impl </span>frame_system_benchmarking::Config <span class="kw">for </span>Runtime {}

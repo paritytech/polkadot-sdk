@@ -368,6 +368,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -475,43 +485,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(<span class="macro-nonterminal">$call</span>:ty, <span class="macro-nonterminal">$account_id</span>:ty, $(<span class="macro-nonterminal">$filter_call</span>:ty),<span class="kw-2">*</span>) =&gt; {
 		<span class="attr">#[derive(Clone, codec::Decode, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 		</span><span class="kw">pub struct </span>BridgeRejectObsoleteHeadersAndMessages;
-		<span class="kw">impl </span>sp_runtime::traits::SignedExtension <span class="kw">for </span>BridgeRejectObsoleteHeadersAndMessages {
+		<span class="kw">impl </span>sp_runtime::traits::TransactionExtensionBase <span class="kw">for </span>BridgeRejectObsoleteHeadersAndMessages {
 			<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;BridgeRejectObsoleteHeadersAndMessages&quot;</span>;
-			<span class="kw">type </span>AccountId = <span class="macro-nonterminal">$account_id</span>;
-			<span class="kw">type </span>Call = <span class="macro-nonterminal">$call</span>;
-			<span class="kw">type </span>AdditionalSigned = ();
+			<span class="kw">type </span>Implicit = ();
+		}
+		<span class="kw">impl</span>&lt;Context&gt; sp_runtime::traits::TransactionExtension&lt;<span class="macro-nonterminal">$call</span>, Context&gt; <span class="kw">for </span>BridgeRejectObsoleteHeadersAndMessages {
 			<span class="kw">type </span>Pre = ();
-
-			<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;
-				(),
-				sp_runtime::transaction_validity::TransactionValidityError,
-			&gt; {
-				<span class="prelude-val">Ok</span>(())
-			}
+			<span class="kw">type </span>Val = ();
 
 			<span class="kw">fn </span>validate(
 				<span class="kw-2">&amp;</span><span class="self">self</span>,
-				_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-				call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-				_info: <span class="kw-2">&amp;</span>sp_runtime::traits::DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+				origin: &lt;<span class="macro-nonterminal">$call </span><span class="kw">as </span>sp_runtime::traits::Dispatchable&gt;::RuntimeOrigin,
+				call: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$call</span>,
+				_info: <span class="kw-2">&amp;</span>sp_runtime::traits::DispatchInfoOf&lt;<span class="macro-nonterminal">$call</span>&gt;,
 				_len: usize,
-			) -&gt; sp_runtime::transaction_validity::TransactionValidity {
-				<span class="kw">let </span>valid = sp_runtime::transaction_validity::ValidTransaction::default();
+				_context: <span class="kw-2">&amp;mut </span>Context,
+				_self_implicit: <span class="self">Self</span>::Implicit,
+				_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>codec::Encode,
+			) -&gt; <span class="prelude-ty">Result</span>&lt;
+				(
+					sp_runtime::transaction_validity::ValidTransaction,
+					<span class="self">Self</span>::Val,
+					&lt;<span class="macro-nonterminal">$call </span><span class="kw">as </span>sp_runtime::traits::Dispatchable&gt;::RuntimeOrigin,
+				), sp_runtime::transaction_validity::TransactionValidityError
+			&gt; {
+				<span class="kw">let </span>tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
 				$(
-					<span class="kw">let </span>valid = valid
-						.combine_with(&lt;<span class="macro-nonterminal">$filter_call </span><span class="kw">as </span><span class="macro-nonterminal">$crate::BridgeRuntimeFilterCall</span>&lt;<span class="macro-nonterminal">$call</span>&gt;&gt;::validate(call)<span class="question-mark">?</span>);
+					<span class="kw">let </span>call_filter_validity = &lt;<span class="macro-nonterminal">$filter_call </span><span class="kw">as </span><span class="macro-nonterminal">$crate::BridgeRuntimeFilterCall</span>&lt;<span class="macro-nonterminal">$call</span>&gt;&gt;::validate(call)<span class="question-mark">?</span>;
+					<span class="kw">let </span>tx_validity = tx_validity.combine_with(call_filter_validity);
 				)*
-				<span class="prelude-val">Ok</span>(valid)
+				<span class="prelude-val">Ok</span>((tx_validity, (), origin))
 			}
 
-			<span class="kw">fn </span>pre_dispatch(
+			<span class="kw">fn </span>prepare(
 				<span class="self">self</span>,
-				who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-				call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-				info: <span class="kw-2">&amp;</span>sp_runtime::traits::DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-				len: usize,
+				_val: <span class="self">Self</span>::Val,
+				_origin: <span class="kw-2">&amp;</span>&lt;<span class="macro-nonterminal">$call </span><span class="kw">as </span>sp_runtime::traits::Dispatchable&gt;::RuntimeOrigin,
+				_call: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$call</span>,
+				_info: <span class="kw-2">&amp;</span>sp_runtime::traits::DispatchInfoOf&lt;<span class="macro-nonterminal">$call</span>&gt;,
+				_len: usize,
+				_context: <span class="kw-2">&amp;</span>Context,
 			) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, sp_runtime::transaction_validity::TransactionValidityError&gt; {
-				<span class="self">self</span>.validate(who, call, info, len).map(drop)
+				<span class="prelude-val">Ok</span>(())
 			}
 		}
 	};
@@ -520,13 +535,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use </span><span class="kw">crate</span>::BridgeRuntimeFilterCall;
-	<span class="kw">use </span>frame_support::{assert_err, assert_ok};
+	<span class="kw">use </span>codec::Encode;
+	<span class="kw">use </span>frame_support::assert_err;
 	<span class="kw">use </span>sp_runtime::{
-		traits::SignedExtension,
+		traits::DispatchTransaction,
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	};
 
-	<span class="kw">pub struct </span>MockCall {
+	<span class="attr">#[derive(Encode)]
+	</span><span class="kw">pub struct </span>MockCall {
 		data: u32,
 	}
 
@@ -576,17 +593,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="macro">assert_err!</span>(
-			BridgeRejectObsoleteHeadersAndMessages.validate(<span class="kw-2">&amp;</span>(), <span class="kw-2">&amp;</span>MockCall { data: <span class="number">1 </span>}, <span class="kw-2">&amp;</span>(), <span class="number">0</span>),
+			BridgeRejectObsoleteHeadersAndMessages.validate_only((), <span class="kw-2">&amp;</span>MockCall { data: <span class="number">1 </span>}, <span class="kw-2">&amp;</span>(), <span class="number">0</span>),
 			InvalidTransaction::Custom(<span class="number">1</span>)
 		);
 
 		<span class="macro">assert_err!</span>(
-			BridgeRejectObsoleteHeadersAndMessages.validate(<span class="kw-2">&amp;</span>(), <span class="kw-2">&amp;</span>MockCall { data: <span class="number">2 </span>}, <span class="kw-2">&amp;</span>(), <span class="number">0</span>),
+			BridgeRejectObsoleteHeadersAndMessages.validate_only((), <span class="kw-2">&amp;</span>MockCall { data: <span class="number">2 </span>}, <span class="kw-2">&amp;</span>(), <span class="number">0</span>),
 			InvalidTransaction::Custom(<span class="number">2</span>)
 		);
 
-		<span class="macro">assert_ok!</span>(
-			BridgeRejectObsoleteHeadersAndMessages.validate(<span class="kw-2">&amp;</span>(), <span class="kw-2">&amp;</span>MockCall { data: <span class="number">3 </span>}, <span class="kw-2">&amp;</span>(), <span class="number">0</span>),
+		<span class="macro">assert_eq!</span>(
+			BridgeRejectObsoleteHeadersAndMessages
+				.validate_only((), <span class="kw-2">&amp;</span>MockCall { data: <span class="number">3 </span>}, <span class="kw-2">&amp;</span>(), <span class="number">0</span>)
+				.unwrap()
+				.<span class="number">0</span>,
 			ValidTransaction { priority: <span class="number">3</span>, ..Default::default() }
 		)
 	}

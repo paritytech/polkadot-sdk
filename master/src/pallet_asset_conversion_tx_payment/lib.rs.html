@@ -493,6 +493,65 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -515,8 +574,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ## Overview
 //!
-//! This pallet provides a `SignedExtension` with an optional `AssetId` that specifies the asset
-//! to be used for payment (defaulting to the native token on `None`). It expects an
+//! This pallet provides a `TransactionExtension` with an optional `AssetId` that specifies the
+//! asset to be used for payment (defaulting to the native token on `None`). It expects an
 //! [`OnChargeAssetTransaction`] implementation analogous to [`pallet-transaction-payment`]. The
 //! included [`AssetConversionAdapter`] (implementing [`OnChargeAssetTransaction`]) determines the
 //! fee amount by converting the fee calculated by [`pallet-transaction-payment`] in the native
@@ -526,7 +585,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! This pallet does not have any dispatchable calls or storage. It wraps FRAME&#39;s Transaction
 //! Payment pallet and functions as a replacement. This means you should include both pallets in
-//! your `construct_runtime` macro, but only include this pallet&#39;s [`SignedExtension`]
+//! your `construct_runtime` macro, but only include this pallet&#39;s [`TransactionExtension`]
 //! ([`ChargeAssetTxPayment`]).
 //!
 //! ## Terminology
@@ -548,23 +607,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	DefaultNoBound,
 };
-<span class="kw">use </span>pallet_transaction_payment::OnChargeTransaction;
+<span class="kw">use </span>pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, Zero},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+	traits::{
+		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf,
+		TransactionExtension, TransactionExtensionBase, ValidateResult, Zero,
 	},
+	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
+<span class="kw">pub mod </span>weights;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">mod </span>benchmarking;
 
 <span class="kw">mod </span>payment;
-<span class="kw">use </span>frame_support::traits::tokens::AssetId;
+<span class="kw">use </span>frame_support::{pallet_prelude::Weight, traits::tokens::AssetId};
 <span class="kw">pub use </span>payment::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="doccomment">/// Type aliases used for interaction with `OnChargeTransaction`.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>OnChargeTransactionOf&lt;T&gt; =
@@ -620,10 +685,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>Fungibles: Balanced&lt;<span class="self">Self</span>::AccountId&gt;;
 		<span class="doccomment">/// The actual transaction charging logic that charges the fees.
 		</span><span class="kw">type </span>OnChargeAssetTransaction: OnChargeAssetTransaction&lt;<span class="self">Self</span>&gt;;
+		<span class="doccomment">/// The weight information of this pallet.
+		</span><span class="kw">type </span>WeightInfo: WeightInfo;
+		<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		</span><span class="doccomment">/// Benchmark helper
+		</span><span class="kw">type </span>BenchmarkHelper: BenchmarkHelperTrait&lt;
+			<span class="self">Self</span>::AccountId,
+			&lt;&lt;<span class="self">Self </span><span class="kw">as </span>Config&gt;::Fungibles <span class="kw">as </span>Inspect&lt;<span class="self">Self</span>::AccountId&gt;&gt;::AssetId,
+			&lt;&lt;<span class="self">Self </span><span class="kw">as </span>Config&gt;::OnChargeAssetTransaction <span class="kw">as </span>OnChargeAssetTransaction&lt;<span class="self">Self</span>&gt;&gt;::AssetId,
+		&gt;;
 	}
 
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="doccomment">/// Helper trait to benchmark the `ChargeAssetTxPayment` transaction extension.
+	</span><span class="kw">pub trait </span>BenchmarkHelperTrait&lt;AccountId, FunAssetIdParameter, AssetIdParameter&gt; {
+		<span class="doccomment">/// Returns the `AssetId` to be used in the liquidity pool by the benchmarking code.
+		</span><span class="kw">fn </span>create_asset_id_parameter(id: u32) -&gt; (FunAssetIdParameter, AssetIdParameter);
+		<span class="doccomment">/// Create a liquidity pool for a given asset and sufficiently endow accounts to benchmark
+		/// the extension.
+		</span><span class="kw">fn </span>setup_balances_and_pool(asset_id: FunAssetIdParameter, account: AccountId);
+	}
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
@@ -674,9 +758,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		who: <span class="kw-2">&amp;</span>T::AccountId,
 		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
 		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
-		len: usize,
+		fee: BalanceOf&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(BalanceOf&lt;T&gt;, InitialPayment&lt;T&gt;), TransactionValidityError&gt; {
-		<span class="kw">let </span>fee = pallet_transaction_payment::Pallet::&lt;T&gt;::compute_fee(len <span class="kw">as </span>u32, info, <span class="self">self</span>.tip);
 		<span class="macro">debug_assert!</span>(<span class="self">self</span>.tip &lt;= fee, <span class="string">&quot;tip should be included in the computed fee&quot;</span>);
 		<span class="kw">if </span>fee.is_zero() {
 			<span class="prelude-val">Ok</span>((fee, InitialPayment::Nothing))
@@ -720,7 +803,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; SignedExtension <span class="kw">for </span>ChargeAssetTxPayment&lt;T&gt;
+<span class="kw">impl</span>&lt;T: Config&gt; TransactionExtensionBase <span class="kw">for </span>ChargeAssetTxPayment&lt;T&gt;
+<span class="kw">where
+	</span>AssetBalanceOf&lt;T&gt;: Send + Sync,
+	BalanceOf&lt;T&gt;: Send
+		+ Sync
+		+ From&lt;u64&gt;
+		+ Into&lt;ChargeAssetBalanceOf&lt;T&gt;&gt;
+		+ Into&lt;ChargeAssetLiquidityOf&lt;T&gt;&gt;
+		+ From&lt;ChargeAssetLiquidityOf&lt;T&gt;&gt;,
+	ChargeAssetIdOf&lt;T&gt;: Send + Sync,
+{
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;ChargeAssetTxPayment&quot;</span>;
+	<span class="kw">type </span>Implicit = ();
+
+	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Weight {
+		<span class="kw">if </span><span class="self">self</span>.asset_id.is_some() {
+			&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::charge_asset_tx_payment_asset()
+		} <span class="kw">else </span>{
+			&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::charge_asset_tx_payment_native()
+		}
+	}
+}
+
+<span class="kw">impl</span>&lt;T: Config, Context&gt; TransactionExtension&lt;T::RuntimeCall, Context&gt; <span class="kw">for </span>ChargeAssetTxPayment&lt;T&gt;
 <span class="kw">where
 	</span>T::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
 	AssetBalanceOf&lt;T&gt;: Send + Sync,
@@ -731,111 +837,123 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ Into&lt;ChargeAssetLiquidityOf&lt;T&gt;&gt;
 		+ From&lt;ChargeAssetLiquidityOf&lt;T&gt;&gt;,
 	ChargeAssetIdOf&lt;T&gt;: Send + Sync,
+	&lt;T::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin: AsSystemOriginSigner&lt;T::AccountId&gt; + Clone,
 {
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;ChargeAssetTxPayment&quot;</span>;
-	<span class="kw">type </span>AccountId = T::AccountId;
-	<span class="kw">type </span>Call = T::RuntimeCall;
-	<span class="kw">type </span>AdditionalSigned = ();
+	<span class="kw">type </span>Val = (
+		<span class="comment">// tip
+		</span>BalanceOf&lt;T&gt;,
+		<span class="comment">// who paid the fee
+		</span>T::AccountId,
+		<span class="comment">// transaction fee
+		</span>BalanceOf&lt;T&gt;,
+	);
 	<span class="kw">type </span>Pre = (
 		<span class="comment">// tip
 		</span>BalanceOf&lt;T&gt;,
 		<span class="comment">// who paid the fee
-		</span><span class="self">Self</span>::AccountId,
+		</span>T::AccountId,
 		<span class="comment">// imbalance resulting from withdrawing the fee
 		</span>InitialPayment&lt;T&gt;,
 		<span class="comment">// asset_id for the transaction payment
 		</span><span class="prelude-ty">Option</span>&lt;ChargeAssetIdOf&lt;T&gt;&gt;,
 	);
 
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
-	}
-
 	<span class="kw">fn </span>validate(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		origin: &lt;T::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin,
+		_call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
 		len: usize,
-	) -&gt; TransactionValidity {
-		<span class="kw">use </span>pallet_transaction_payment::ChargeTransactionPayment;
-		<span class="kw">let </span>(fee, <span class="kw">_</span>) = <span class="self">self</span>.withdraw_fee(who, call, info, len)<span class="question-mark">?</span>;
+		_context: <span class="kw-2">&amp;mut </span>Context,
+		_self_implicit: <span class="self">Self</span>::Implicit,
+		_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; ValidateResult&lt;<span class="self">Self</span>::Val, T::RuntimeCall&gt; {
+		<span class="kw">let </span>who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)<span class="question-mark">?</span>;
+		<span class="comment">// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
+		</span><span class="kw">let </span>fee = pallet_transaction_payment::Pallet::&lt;T&gt;::compute_fee(len <span class="kw">as </span>u32, info, <span class="self">self</span>.tip);
 		<span class="kw">let </span>priority = ChargeTransactionPayment::&lt;T&gt;::get_priority(info, len, <span class="self">self</span>.tip, fee);
-		<span class="prelude-val">Ok</span>(ValidTransaction { priority, ..Default::default() })
+		<span class="kw">let </span>validity = ValidTransaction { priority, ..Default::default() };
+		<span class="kw">let </span>val = (<span class="self">self</span>.tip, who.clone(), fee);
+		<span class="prelude-val">Ok</span>((validity, val, origin))
 	}
 
-	<span class="kw">fn </span>pre_dispatch(
+	<span class="kw">fn </span>prepare(
 		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
+		val: <span class="self">Self</span>::Val,
+		_origin: <span class="kw-2">&amp;</span>&lt;T::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin,
+		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		_len: usize,
+		_context: <span class="kw-2">&amp;</span>Context,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="kw">let </span>(_fee, initial_payment) = <span class="self">self</span>.withdraw_fee(who, call, info, len)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>((<span class="self">self</span>.tip, who.clone(), initial_payment, <span class="self">self</span>.asset_id))
+		<span class="kw">let </span>(tip, who, fee) = val;
+		<span class="comment">// Mutating call of `withdraw_fee` to actually charge for the transaction.
+		</span><span class="kw">let </span>(_fee, initial_payment) = <span class="self">self</span>.withdraw_fee(<span class="kw-2">&amp;</span>who, call, info, fee)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>((tip, who, initial_payment, <span class="self">self</span>.asset_id.clone()))
 	}
 
 	<span class="kw">fn </span>post_dispatch(
-		pre: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Pre&gt;,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		pre: <span class="self">Self</span>::Pre,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;T::RuntimeCall&gt;,
 		len: usize,
 		result: <span class="kw-2">&amp;</span>DispatchResult,
+		_context: <span class="kw-2">&amp;</span>Context,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((tip, who, initial_payment, asset_id)) = pre {
-			<span class="kw">match </span>initial_payment {
-				InitialPayment::Native(already_withdrawn) =&gt; {
-					<span class="macro">debug_assert!</span>(
-						asset_id.is_none(),
-						<span class="string">&quot;For that payment type the `asset_id` should be None&quot;
-					</span>);
-					pallet_transaction_payment::ChargeTransactionPayment::&lt;T&gt;::post_dispatch(
-						<span class="prelude-val">Some</span>((tip, who, already_withdrawn)),
+		<span class="kw">let </span>(tip, who, initial_payment, asset_id) = pre;
+		<span class="kw">match </span>initial_payment {
+			InitialPayment::Native(already_withdrawn) =&gt; {
+				<span class="macro">debug_assert!</span>(
+					asset_id.is_none(),
+					<span class="string">&quot;For that payment type the `asset_id` should be None&quot;
+				</span>);
+				pallet_transaction_payment::ChargeTransactionPayment::&lt;T&gt;::post_dispatch(
+					(tip, who, already_withdrawn),
+					info,
+					post_info,
+					len,
+					result,
+					<span class="kw-2">&amp;</span>(),
+				)<span class="question-mark">?</span>;
+			},
+			InitialPayment::Asset(already_withdrawn) =&gt; {
+				<span class="macro">debug_assert!</span>(
+					asset_id.is_some(),
+					<span class="string">&quot;For that payment type the `asset_id` should be set&quot;
+				</span>);
+				<span class="kw">let </span>actual_fee = pallet_transaction_payment::Pallet::&lt;T&gt;::compute_actual_fee(
+					len <span class="kw">as </span>u32, info, post_info, tip,
+				);
+
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(asset_id) = asset_id {
+					<span class="kw">let </span>(used_for_fee, received_exchanged, asset_consumed) = already_withdrawn;
+					<span class="kw">let </span>converted_fee = T::OnChargeAssetTransaction::correct_and_deposit_fee(
+						<span class="kw-2">&amp;</span>who,
 						info,
 						post_info,
-						len,
-						result,
+						actual_fee.into(),
+						tip.into(),
+						used_for_fee.into(),
+						received_exchanged.into(),
+						asset_id.clone(),
+						asset_consumed.into(),
 					)<span class="question-mark">?</span>;
-				},
-				InitialPayment::Asset(already_withdrawn) =&gt; {
-					<span class="macro">debug_assert!</span>(
-						asset_id.is_some(),
-						<span class="string">&quot;For that payment type the `asset_id` should be set&quot;
-					</span>);
-					<span class="kw">let </span>actual_fee = pallet_transaction_payment::Pallet::&lt;T&gt;::compute_actual_fee(
-						len <span class="kw">as </span>u32, info, post_info, tip,
-					);
 
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(asset_id) = asset_id {
-						<span class="kw">let </span>(used_for_fee, received_exchanged, asset_consumed) = already_withdrawn;
-						<span class="kw">let </span>converted_fee = T::OnChargeAssetTransaction::correct_and_deposit_fee(
-							<span class="kw-2">&amp;</span>who,
-							info,
-							post_info,
-							actual_fee.into(),
-							tip.into(),
-							used_for_fee.into(),
-							received_exchanged.into(),
-							asset_id.clone(),
-							asset_consumed.into(),
-						)<span class="question-mark">?</span>;
-
-						Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::AssetTxFeePaid {
-							who,
-							actual_fee: converted_fee,
-							tip,
-							asset_id,
-						});
-					}
-				},
-				InitialPayment::Nothing =&gt; {
-					<span class="comment">// `actual_fee` should be zero here for any signed extrinsic. It would be
-					// non-zero here in case of unsigned extrinsics as they don&#39;t pay fees but
-					// `compute_actual_fee` is not aware of them. In both cases it&#39;s fine to just
-					// move ahead without adjusting the fee, though, so we do nothing.
-					</span><span class="macro">debug_assert!</span>(tip.is_zero(), <span class="string">&quot;tip should be zero if initial fee was zero.&quot;</span>);
-				},
-			}
+					Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::AssetTxFeePaid {
+						who,
+						actual_fee: converted_fee,
+						tip,
+						asset_id,
+					});
+				}
+			},
+			InitialPayment::Nothing =&gt; {
+				<span class="comment">// `actual_fee` should be zero here for any signed extrinsic. It would be
+				// non-zero here in case of unsigned extrinsics as they don&#39;t pay fees but
+				// `compute_actual_fee` is not aware of them. In both cases it&#39;s fine to just
+				// move ahead without adjusting the fee, though, so we do nothing.
+				</span><span class="macro">debug_assert!</span>(tip.is_zero(), <span class="string">&quot;tip should be zero if initial fee was zero.&quot;</span>);
+			},
 		}
 
 		<span class="prelude-val">Ok</span>(())

@@ -1307,6 +1307,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1160" id="1160">1160</a>
 <a href="#1161" id="1161">1161</a>
 <a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1432,6 +1441,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::SaturatedConversion, ArithmeticError, FixedI128, FixedI64, FixedPointNumber,
 	FixedPointOperand, FixedU128, FixedU64, InnerOf, PerThing, PerU16, Perbill, Percent, Permill,
 	Perquintill, Rational128, Rounding, UpperOf,
+};
+
+<span class="kw">pub use </span>transaction_validity::{
+	InvalidTransaction, TransactionSource, TransactionValidityError, UnknownTransaction,
+	ValidTransaction,
 };
 
 <span class="kw">pub use </span>either::Either;
@@ -1752,21 +1766,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Verify <span class="kw">for </span>MultiSignature {
 	<span class="kw">type </span>Signer = MultiSigner;
 	<span class="kw">fn </span>verify&lt;L: Lazy&lt;[u8]&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>msg: L, signer: <span class="kw-2">&amp;</span>AccountId32) -&gt; bool {
-		<span class="kw">match </span>(<span class="self">self</span>, signer) {
-			(<span class="self">Self</span>::Ed25519(<span class="kw-2">ref </span>sig), who) =&gt; <span class="kw">match </span>ed25519::Public::from_slice(who.as_ref()) {
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="self">Self</span>::Ed25519(<span class="kw-2">ref </span>sig) =&gt; <span class="kw">match </span>ed25519::Public::from_slice(signer.as_ref()) {
 				<span class="prelude-val">Ok</span>(signer) =&gt; sig.verify(msg, <span class="kw-2">&amp;</span>signer),
 				<span class="prelude-val">Err</span>(()) =&gt; <span class="bool-val">false</span>,
 			},
-			(<span class="self">Self</span>::Sr25519(<span class="kw-2">ref </span>sig), who) =&gt; <span class="kw">match </span>sr25519::Public::from_slice(who.as_ref()) {
+			<span class="self">Self</span>::Sr25519(<span class="kw-2">ref </span>sig) =&gt; <span class="kw">match </span>sr25519::Public::from_slice(signer.as_ref()) {
 				<span class="prelude-val">Ok</span>(signer) =&gt; sig.verify(msg, <span class="kw-2">&amp;</span>signer),
 				<span class="prelude-val">Err</span>(()) =&gt; <span class="bool-val">false</span>,
 			},
-			(<span class="self">Self</span>::Ecdsa(<span class="kw-2">ref </span>sig), who) =&gt; {
+			<span class="self">Self</span>::Ecdsa(<span class="kw-2">ref </span>sig) =&gt; {
 				<span class="kw">let </span>m = sp_io::hashing::blake2_256(msg.get());
 				<span class="kw">match </span>sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), <span class="kw-2">&amp;</span>m) {
 					<span class="prelude-val">Ok</span>(pubkey) =&gt;
 						<span class="kw-2">&amp;</span>sp_io::hashing::blake2_256(pubkey.as_ref()) ==
-							&lt;<span class="kw">dyn </span>AsRef&lt;[u8; <span class="number">32</span>]&gt;&gt;::as_ref(who),
+							&lt;<span class="kw">dyn </span>AsRef&lt;[u8; <span class="number">32</span>]&gt;&gt;::as_ref(signer),
 					<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 				}
 			},
@@ -2253,9 +2267,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>traits::Extrinsic <span class="kw">for </span>OpaqueExtrinsic {
+<span class="comment">// TODO: OpaqueExtrinsics cannot act like regular extrinsics, right?!
+</span><span class="kw">impl </span>traits::Extrinsic <span class="kw">for </span>OpaqueExtrinsic {
 	<span class="kw">type </span>Call = ();
 	<span class="kw">type </span>SignaturePayload = ();
+	<span class="kw">fn </span>is_bare(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="bool-val">false
+	</span>}
 }
 
 <span class="doccomment">/// Print something that implements `Printable` from the runtime.

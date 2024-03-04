@@ -751,10 +751,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! and production.
 //!
 //! ```
-//! # use sp_runtime::testing::ExtrinsicWrapper;
+//! # use sp_runtime::{generic::UncheckedExtrinsic, testing::MockCallU64};
 //! # use sp_inherents::{InherentIdentifier, InherentData};
 //! # use futures::FutureExt;
-//! # type Block = sp_runtime::testing::Block&lt;ExtrinsicWrapper&lt;()&gt;&gt;;
+//! # type Block = sp_runtime::testing::Block&lt;UncheckedExtrinsic&lt;u64, MockCallU64, (), ()&gt;&gt;;
 //! # const INHERENT_IDENTIFIER: InherentIdentifier = *b&quot;testinh0&quot;;
 //! # struct InherentDataProvider;
 //! # #[async_trait::async_trait]

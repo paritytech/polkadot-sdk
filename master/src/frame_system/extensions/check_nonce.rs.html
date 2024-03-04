@@ -362,6 +362,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -379,16 +421,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::Config;
+</span><span class="kw">use crate</span>::{AccountInfo, Config};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::dispatch::DispatchInfo;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension, Zero},
-	transaction_validity::{
-		InvalidTransaction, TransactionLongevity, TransactionValidity, TransactionValidityError,
-		ValidTransaction,
+	traits::{
+		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, One, TransactionExtension,
+		TransactionExtensionBase, ValidateResult, Zero,
 	},
+	transaction_validity::{
+		InvalidTransaction, TransactionLongevity, TransactionValidityError, ValidTransaction,
+	},
+	Saturating,
 };
 <span class="kw">use </span>sp_std::vec;
 
@@ -422,75 +467,78 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; SignedExtension <span class="kw">for </span>CheckNonce&lt;T&gt;
+<span class="kw">impl</span>&lt;T: Config&gt; TransactionExtensionBase <span class="kw">for </span>CheckNonce&lt;T&gt; {
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;CheckNonce&quot;</span>;
+	<span class="kw">type </span>Implicit = ();
+	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_weights::Weight {
+		&lt;T::ExtensionsWeightInfo <span class="kw">as </span><span class="kw">super</span>::WeightInfo&gt;::check_nonce()
+	}
+}
+<span class="kw">impl</span>&lt;T: Config, Context&gt; TransactionExtension&lt;T::RuntimeCall, Context&gt; <span class="kw">for </span>CheckNonce&lt;T&gt;
 <span class="kw">where
 	</span>T::RuntimeCall: Dispatchable&lt;Info = DispatchInfo&gt;,
+	&lt;T::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin: AsSystemOriginSigner&lt;T::AccountId&gt; + Clone,
 {
-	<span class="kw">type </span>AccountId = T::AccountId;
-	<span class="kw">type </span>Call = T::RuntimeCall;
-	<span class="kw">type </span>AdditionalSigned = ();
+	<span class="kw">type </span>Val = <span class="prelude-ty">Option</span>&lt;(T::AccountId, AccountInfo&lt;T::Nonce, T::AccountData&gt;)&gt;;
 	<span class="kw">type </span>Pre = ();
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;CheckNonce&quot;</span>;
 
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
-	}
-
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+	<span class="kw">fn </span>validate(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		origin: &lt;T <span class="kw">as </span>Config&gt;::RuntimeOrigin,
+		_call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
 		_len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>account = <span class="kw">crate</span>::Account::&lt;T&gt;::get(who);
+		_context: <span class="kw-2">&amp;mut </span>Context,
+		_self_implicit: <span class="self">Self</span>::Implicit,
+		_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; ValidateResult&lt;<span class="self">Self</span>::Val, T::RuntimeCall&gt; {
+		<span class="kw">let </span><span class="prelude-val">Some</span>(who) = origin.as_system_origin_signer() <span class="kw">else </span>{
+			<span class="kw">return </span><span class="prelude-val">Ok</span>((Default::default(), <span class="prelude-val">None</span>, origin))
+		};
+		<span class="kw">let </span>account = <span class="kw">crate</span>::Account::&lt;T&gt;::get(who);
 		<span class="kw">if </span>account.providers.is_zero() &amp;&amp; account.sufficients.is_zero() {
 			<span class="comment">// Nonce storage not paid for
 			</span><span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::Payment.into())
 		}
-		<span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>!= account.nonce {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>&lt; account.nonce {
-				InvalidTransaction::Stale
-			} <span class="kw">else </span>{
-				InvalidTransaction::Future
-			}
-			.into())
-		}
-		account.nonce += T::Nonce::one();
-		<span class="kw">crate</span>::Account::&lt;T&gt;::insert(who, account);
-		<span class="prelude-val">Ok</span>(())
-	}
-
-	<span class="kw">fn </span>validate(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		_len: usize,
-	) -&gt; TransactionValidity {
-		<span class="kw">let </span>account = <span class="kw">crate</span>::Account::&lt;T&gt;::get(who);
-		<span class="kw">if </span>account.providers.is_zero() &amp;&amp; account.sufficients.is_zero() {
-			<span class="comment">// Nonce storage not paid for
-			</span><span class="kw">return </span>InvalidTransaction::Payment.into()
-		}
 		<span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>&lt; account.nonce {
-			<span class="kw">return </span>InvalidTransaction::Stale.into()
+			<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::Stale.into())
 		}
 
-		<span class="kw">let </span>provides = <span class="macro">vec!</span>[Encode::encode(<span class="kw-2">&amp;</span>(who, <span class="self">self</span>.<span class="number">0</span>))];
+		<span class="kw">let </span>provides = <span class="macro">vec!</span>[Encode::encode(<span class="kw-2">&amp;</span>(who.clone(), <span class="self">self</span>.<span class="number">0</span>))];
 		<span class="kw">let </span>requires = <span class="kw">if </span>account.nonce &lt; <span class="self">self</span>.<span class="number">0 </span>{
-			<span class="macro">vec!</span>[Encode::encode(<span class="kw-2">&amp;</span>(who, <span class="self">self</span>.<span class="number">0 </span>- One::one()))]
+			<span class="macro">vec!</span>[Encode::encode(<span class="kw-2">&amp;</span>(who.clone(), <span class="self">self</span>.<span class="number">0</span>.saturating_sub(One::one())))]
 		} <span class="kw">else </span>{
 			<span class="macro">vec!</span>[]
 		};
 
-		<span class="prelude-val">Ok</span>(ValidTransaction {
+		<span class="kw">let </span>validity = ValidTransaction {
 			priority: <span class="number">0</span>,
 			requires,
 			provides,
 			longevity: TransactionLongevity::max_value(),
 			propagate: <span class="bool-val">true</span>,
-		})
+		};
+
+		<span class="prelude-val">Ok</span>((validity, <span class="prelude-val">Some</span>((who.clone(), account)), origin))
+	}
+
+	<span class="kw">fn </span>prepare(
+		<span class="self">self</span>,
+		val: <span class="self">Self</span>::Val,
+		_origin: <span class="kw-2">&amp;</span>T::RuntimeOrigin,
+		_call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		_len: usize,
+		_context: <span class="kw-2">&amp;</span>Context,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
+		<span class="kw">let </span><span class="prelude-val">Some</span>((who, <span class="kw-2">mut </span>account)) = val <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>(()) };
+		<span class="comment">// `self.0 &lt; account.nonce` already checked in `validate`.
+		</span><span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>&gt; account.nonce {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::Future.into())
+		}
+		account.nonce.saturating_inc();
+		<span class="kw">crate</span>::Account::&lt;T&gt;::insert(who, account);
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 
@@ -498,7 +546,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::mock::{new_test_ext, Test, CALL};
-	<span class="kw">use </span>frame_support::{assert_noop, assert_ok};
+	<span class="kw">use </span>frame_support::assert_ok;
+	<span class="kw">use </span>sp_runtime::traits::DispatchTransaction;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>signed_ext_check_nonce_works() {
@@ -516,22 +565,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>info = DispatchInfo::default();
 			<span class="kw">let </span>len = <span class="number">0_usize</span>;
 			<span class="comment">// stale
-			</span><span class="macro">assert_noop!</span>(
-				CheckNonce::&lt;Test&gt;(<span class="number">0</span>).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
-				InvalidTransaction::Stale
+			</span><span class="macro">assert_eq!</span>(
+				CheckNonce::&lt;Test&gt;(<span class="number">0</span>)
+					.validate_only(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len,)
+					.unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Stale)
 			);
-			<span class="macro">assert_noop!</span>(
-				CheckNonce::&lt;Test&gt;(<span class="number">0</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
-				InvalidTransaction::Stale
+			<span class="macro">assert_eq!</span>(
+				CheckNonce::&lt;Test&gt;(<span class="number">0</span>)
+					.validate_and_prepare(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len)
+					.unwrap_err(),
+				InvalidTransaction::Stale.into()
 			);
 			<span class="comment">// correct
-			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len));
-			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len));
+			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate_only(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len));
+			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate_and_prepare(
+				<span class="prelude-val">Some</span>(<span class="number">1</span>).into(),
+				CALL,
+				<span class="kw-2">&amp;</span>info,
+				len
+			));
 			<span class="comment">// future
-			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">5</span>).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len));
-			<span class="macro">assert_noop!</span>(
-				CheckNonce::&lt;Test&gt;(<span class="number">5</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
-				InvalidTransaction::Future
+			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">5</span>).validate_only(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len));
+			<span class="macro">assert_eq!</span>(
+				CheckNonce::&lt;Test&gt;(<span class="number">5</span>)
+					.validate_and_prepare(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len)
+					.unwrap_err(),
+				InvalidTransaction::Future.into()
 			);
 		})
 	}
@@ -562,20 +622,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>info = DispatchInfo::default();
 			<span class="kw">let </span>len = <span class="number">0_usize</span>;
 			<span class="comment">// Both providers and sufficients zero
-			</span><span class="macro">assert_noop!</span>(
-				CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
-				InvalidTransaction::Payment
+			</span><span class="macro">assert_eq!</span>(
+				CheckNonce::&lt;Test&gt;(<span class="number">1</span>)
+					.validate_only(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len)
+					.unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Payment)
 			);
-			<span class="macro">assert_noop!</span>(
-				CheckNonce::&lt;Test&gt;(<span class="number">1</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
-				InvalidTransaction::Payment
+			<span class="macro">assert_eq!</span>(
+				CheckNonce::&lt;Test&gt;(<span class="number">1</span>)
+					.validate_and_prepare(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len)
+					.unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Payment)
 			);
 			<span class="comment">// Non-zero providers
-			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate(<span class="kw-2">&amp;</span><span class="number">2</span>, CALL, <span class="kw-2">&amp;</span>info, len));
-			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">2</span>, CALL, <span class="kw-2">&amp;</span>info, len));
+			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate_only(<span class="prelude-val">Some</span>(<span class="number">2</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len));
+			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate_and_prepare(
+				<span class="prelude-val">Some</span>(<span class="number">2</span>).into(),
+				CALL,
+				<span class="kw-2">&amp;</span>info,
+				len
+			));
 			<span class="comment">// Non-zero sufficients
-			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate(<span class="kw-2">&amp;</span><span class="number">3</span>, CALL, <span class="kw-2">&amp;</span>info, len));
-			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">3</span>, CALL, <span class="kw-2">&amp;</span>info, len));
+			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate_only(<span class="prelude-val">Some</span>(<span class="number">3</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len));
+			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate_and_prepare(
+				<span class="prelude-val">Some</span>(<span class="number">3</span>).into(),
+				CALL,
+				<span class="kw-2">&amp;</span>info,
+				len
+			));
+		})
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>unsigned_check_nonce_works() {
+		new_test_ext().execute_with(|| {
+			<span class="kw">let </span>info = DispatchInfo::default();
+			<span class="kw">let </span>len = <span class="number">0_usize</span>;
+			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate_only(<span class="prelude-val">None</span>.into(), CALL, <span class="kw-2">&amp;</span>info, len));
+			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate_and_prepare(<span class="prelude-val">None</span>.into(), CALL, <span class="kw-2">&amp;</span>info, len));
 		})
 	}
 }

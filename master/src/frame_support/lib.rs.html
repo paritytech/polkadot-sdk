@@ -2739,6 +2739,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2592" id="2592">2592</a>
 <a href="#2593" id="2593">2593</a>
 <a href="#2594" id="2594">2594</a>
+<a href="#2595" id="2595">2595</a>
+<a href="#2596" id="2596">2596</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2795,7 +2797,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">pub use </span>sp_runtime::{bounded_btree_map, bounded_vec};
 	<span class="kw">pub use </span>sp_runtime::{
-		traits::Dispatchable, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
+		traits::{AsSystemOriginSigner, Dispatchable},
+		DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
 	};
 	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">pub use </span>sp_state_machine::BasicExternalities;
@@ -2816,6 +2819,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 <span class="kw">pub mod </span>traits;
+<span class="kw">pub mod </span>transaction_extensions;
 <span class="kw">pub mod </span>weights;
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub mod </span>unsigned {
@@ -4343,8 +4347,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// [`ValidateUnsigned`](frame_support::pallet_prelude::ValidateUnsigned) for
 	/// type `Pallet&lt;T&gt;`, and some optional where clause.
 	///
-	/// NOTE: There is also the [`sp_runtime::traits::SignedExtension`] trait that can be used
-	/// to add some specific logic for transaction validation.
+	/// NOTE: There is also the [`sp_runtime::traits::TransactionExtension`] trait that can be
+	/// used to add some specific logic for transaction validation.
 	///
 	/// ## Macro expansion
 	///

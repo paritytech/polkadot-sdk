@@ -226,7 +226,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -244,24 +243,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
-//! DATE: 2023-06-16 (Y/M/D)
-//! HOSTNAME: `runner-e8ezs4ez-project-145-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+</span><span class="doccomment">//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
+//! DATE: 2024-03-01 (Y/M/D)
+//! HOSTNAME: `runner-bn-ce5rx-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
 //! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Development`
 //! WARMUPS: `10`, REPEAT: `100`
-//! WEIGHT-PATH: `./frame/support/src/weights/`
+//! WEIGHT-PATH: `./substrate/frame/support/src/weights/`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 
 </span><span class="comment">// Executed Command:
-//   ./target/production/substrate
+//   ./target/production/substrate-node
 //   benchmark
 //   overhead
 //   --chain=dev
-//   --execution=wasm
 //   --wasm-execution=compiled
-//   --weight-path=./frame/support/src/weights/
-//   --header=./HEADER-APACHE2
+//   --weight-path=./substrate/frame/support/src/weights/
+//   --header=./substrate/HEADER-APACHE2
 //   --warmup=10
 //   --repeat=100
 
@@ -273,17 +271,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 376_949, 622_462
-	///   Average:  390_584
-	///   Median:   386_322
-	///   Std-Dev:  24792.0
+	///   Min, Max: 424_332, 493_017
+	///   Average:  437_118
+	///   Median:   434_920
+	///   Std-Dev:  8798.01
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 433_299
-	///   95th: 402_688
-	///   75th: 391_645
+	///   99th: 460_074
+	///   95th: 451_580
+	///   75th: 440_307
 	</span><span class="kw">pub const </span>BlockExecutionWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(<span class="number">390_584</span>), <span class="number">0</span>);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(<span class="number">437_118</span>), <span class="number">0</span>);
 }
 
 <span class="attr">#[cfg(test)]

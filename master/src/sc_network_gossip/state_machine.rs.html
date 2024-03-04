@@ -1086,6 +1086,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#939" id="939">939</a>
 <a href="#940" id="940">940</a>
 <a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1638,7 +1639,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		NotificationSenderError, NotificationSenderT <span class="kw">as </span>NotificationSender, ReputationChange,
 	};
 	<span class="kw">use </span>sp_runtime::{
-		testing::{Block <span class="kw">as </span>RawBlock, ExtrinsicWrapper, H256},
+		generic::UncheckedExtrinsic,
+		testing::{Block <span class="kw">as </span>RawBlock, MockCallU64, H256},
 		traits::NumberFor,
 	};
 	<span class="kw">use </span>std::{
@@ -1647,7 +1649,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sync::{Arc, Mutex},
 	};
 
-	<span class="kw">type </span>Block = RawBlock&lt;ExtrinsicWrapper&lt;u64&gt;&gt;;
+	<span class="kw">type </span>Block = RawBlock&lt;UncheckedExtrinsic&lt;u64, MockCallU64, (), ()&gt;&gt;;
 
 	<span class="macro">macro_rules! </span>push_msg {
 		(<span class="macro-nonterminal">$consensus</span>:expr, <span class="macro-nonterminal">$topic</span>:expr, <span class="macro-nonterminal">$hash</span>: expr, <span class="macro-nonterminal">$m</span>:expr) =&gt; {

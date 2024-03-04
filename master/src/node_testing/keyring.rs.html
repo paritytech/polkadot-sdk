@@ -262,6 +262,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -283,13 +297,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Test accounts.
 
 </span><span class="kw">use </span>codec::Encode;
-<span class="kw">use </span>kitchensink_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
+<span class="kw">use </span>kitchensink_runtime::{CheckedExtrinsic, SessionKeys, TxExtension, UncheckedExtrinsic};
 <span class="kw">use </span>node_cli::chain_spec::get_from_seed;
 <span class="kw">use </span>node_primitives::{AccountId, Balance, Nonce};
 <span class="kw">use </span>sp_core::{ecdsa, ed25519, sr25519};
 <span class="kw">use </span>sp_crypto_hashing::blake2_256;
 <span class="kw">use </span>sp_keyring::AccountKeyring;
-<span class="kw">use </span>sp_runtime::generic::Era;
+<span class="kw">use </span>sp_runtime::generic::{Era, ExtrinsicFormat};
 
 <span class="doccomment">/// Alice&#39;s account id.
 </span><span class="kw">pub fn </span>alice() -&gt; AccountId {
@@ -334,15 +348,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Returns transaction extra.
-</span><span class="kw">pub fn </span>signed_extra(nonce: Nonce, extra_fee: Balance) -&gt; SignedExtra {
+</span><span class="kw">pub fn </span>tx_ext(nonce: Nonce, extra_fee: Balance) -&gt; TxExtension {
 	(
-		frame_system::CheckNonZeroSender::new(),
-		frame_system::CheckSpecVersion::new(),
-		frame_system::CheckTxVersion::new(),
-		frame_system::CheckGenesis::new(),
-		frame_system::CheckEra::from(Era::mortal(<span class="number">256</span>, <span class="number">0</span>)),
-		frame_system::CheckNonce::from(nonce),
-		frame_system::CheckWeight::new(),
+		(
+			frame_system::CheckNonZeroSender::new(),
+			frame_system::CheckSpecVersion::new(),
+			frame_system::CheckTxVersion::new(),
+			frame_system::CheckGenesis::new(),
+			frame_system::CheckEra::from(Era::mortal(<span class="number">256</span>, <span class="number">0</span>)),
+			frame_system::CheckNonce::from(nonce),
+			frame_system::CheckWeight::new(),
+		)
+			.into(),
 		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, <span class="prelude-val">None</span>),
 		),
@@ -356,10 +373,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	tx_version: u32,
 	genesis_hash: [u8; <span class="number">32</span>],
 ) -&gt; UncheckedExtrinsic {
-	<span class="kw">match </span>xt.signed {
-		<span class="prelude-val">Some</span>((signed, extra)) =&gt; {
+	<span class="kw">match </span>xt.format {
+		ExtrinsicFormat::Signed(signed, tx_ext) =&gt; {
 			<span class="kw">let </span>payload =
-				(xt.function, extra.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
+				(xt.function, tx_ext.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
 			<span class="kw">let </span>key = AccountKeyring::from_account_id(<span class="kw-2">&amp;</span>signed).unwrap();
 			<span class="kw">let </span>signature =
 				payload
@@ -372,11 +389,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					})
 					.into();
 			UncheckedExtrinsic {
-				signature: <span class="prelude-val">Some</span>((sp_runtime::MultiAddress::Id(signed), signature, extra)),
+				preamble: sp_runtime::generic::Preamble::Signed(
+					sp_runtime::MultiAddress::Id(signed),
+					signature,
+					tx_ext,
+				),
 				function: payload.<span class="number">0</span>,
 			}
 		},
-		<span class="prelude-val">None </span>=&gt; UncheckedExtrinsic { signature: <span class="prelude-val">None</span>, function: xt.function },
+		ExtrinsicFormat::Bare =&gt; UncheckedExtrinsic {
+			preamble: sp_runtime::generic::Preamble::Bare,
+			function: xt.function,
+		},
+		ExtrinsicFormat::General(tx_ext) =&gt; UncheckedExtrinsic {
+			preamble: sp_runtime::generic::Preamble::General(tx_ext),
+			function: xt.function,
+		},
 	}
 }
 </code></pre></div></section></main></body></html>

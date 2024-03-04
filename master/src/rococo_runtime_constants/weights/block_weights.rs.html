@@ -225,7 +225,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -242,13 +241,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
-//! DATE: 2023-05-26 (Y/M/D)
-//! HOSTNAME: `bm5`, CPU: `Intel(R) Core(TM) i7-7700K CPU @ 4.20GHz`
+</span><span class="doccomment">//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
+//! DATE: 2024-02-29 (Y/M/D)
+//! HOSTNAME: `runner-bn-ce5rx-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
 //! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Development`
 //! WARMUPS: `10`, REPEAT: `100`
-//! WEIGHT-PATH: `runtime/rococo/constants/src/weights/`
+//! WEIGHT-PATH: `./polkadot/runtime/rococo/constants/src/weights/`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 
 </span><span class="comment">// Executed Command:
@@ -256,12 +255,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //   benchmark
 //   overhead
 //   --chain=rococo-dev
-//   --execution=wasm
 //   --wasm-execution=compiled
-//   --weight-path=runtime/rococo/constants/src/weights/
+//   --weight-path=./polkadot/runtime/rococo/constants/src/weights/
 //   --warmup=10
 //   --repeat=100
-//   --header=./file_header.txt
+//   --header=./polkadot/file_header.txt
 
 </span><span class="kw">use </span>sp_core::parameter_types;
 <span class="kw">use </span>sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
@@ -271,17 +269,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 408_659, 450_716
-	///   Average:  417_412
-	///   Median:   411_177
-	///   Std-Dev:  12242.31
+	///   Min, Max: 440_142, 476_907
+	///   Average:  450_240
+	///   Median:   448_633
+	///   Std-Dev:  7301.18
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 445_142
-	///   95th: 442_275
-	///   75th: 414_217
+	///   99th: 470_733
+	///   95th: 465_082
+	///   75th: 452_536
 	</span><span class="kw">pub const </span>BlockExecutionWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(<span class="number">417_412</span>), <span class="number">0</span>);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(<span class="number">450_240</span>), <span class="number">0</span>);
 }
 
 <span class="attr">#[cfg(test)]

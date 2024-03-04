@@ -1186,6 +1186,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1039" id="1039">1039</a>
 <a href="#1040" id="1040">1040</a>
 <a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1295,18 +1306,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map(|c| c / <span class="number">2</span>)
 		.unwrap_or(<span class="number">2</span>) <span class="kw">as </span>u64;
 	<span class="kw">let </span>tip = <span class="number">0</span>;
-	<span class="kw">let </span>extra: kitchensink_runtime::SignedExtra =
+	<span class="kw">let </span>tx_ext: kitchensink_runtime::TxExtension =
 		(
-			frame_system::CheckNonZeroSender::&lt;kitchensink_runtime::Runtime&gt;::new(),
-			frame_system::CheckSpecVersion::&lt;kitchensink_runtime::Runtime&gt;::new(),
-			frame_system::CheckTxVersion::&lt;kitchensink_runtime::Runtime&gt;::new(),
-			frame_system::CheckGenesis::&lt;kitchensink_runtime::Runtime&gt;::new(),
-			frame_system::CheckEra::&lt;kitchensink_runtime::Runtime&gt;::from(generic::Era::mortal(
-				period,
-				best_block.saturated_into(),
-			)),
-			frame_system::CheckNonce::&lt;kitchensink_runtime::Runtime&gt;::from(nonce),
-			frame_system::CheckWeight::&lt;kitchensink_runtime::Runtime&gt;::new(),
+			(
+				frame_system::CheckNonZeroSender::&lt;kitchensink_runtime::Runtime&gt;::new(),
+				frame_system::CheckSpecVersion::&lt;kitchensink_runtime::Runtime&gt;::new(),
+				frame_system::CheckTxVersion::&lt;kitchensink_runtime::Runtime&gt;::new(),
+				frame_system::CheckGenesis::&lt;kitchensink_runtime::Runtime&gt;::new(),
+				frame_system::CheckEra::&lt;kitchensink_runtime::Runtime&gt;::from(generic::Era::mortal(
+					period,
+					best_block.saturated_into(),
+				)),
+				frame_system::CheckNonce::&lt;kitchensink_runtime::Runtime&gt;::from(nonce),
+				frame_system::CheckWeight::&lt;kitchensink_runtime::Runtime&gt;::new(),
+			)
+				.into(),
 			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::&lt;
 					kitchensink_runtime::Runtime,
@@ -1316,15 +1330,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>raw_payload = kitchensink_runtime::SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		(
-			(),
-			kitchensink_runtime::VERSION.spec_version,
-			kitchensink_runtime::VERSION.transaction_version,
-			genesis_hash,
-			best_hash,
-			(),
-			(),
+			(
+				(),
+				kitchensink_runtime::VERSION.spec_version,
+				kitchensink_runtime::VERSION.transaction_version,
+				genesis_hash,
+				best_hash,
+				(),
+				(),
+			),
 			(),
 		),
 	);
@@ -1334,7 +1350,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		function,
 		sp_runtime::AccountId32::from(sender.public()).into(),
 		kitchensink_runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 
@@ -1979,7 +1995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>kitchensink_runtime::{
 		constants::{currency::CENTS, time::SLOT_DURATION},
-		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
+		Address, BalancesCall, RuntimeCall, TxExtension, UncheckedExtrinsic,
 	};
 	<span class="kw">use </span>node_primitives::{Block, DigestItem, Signature};
 	<span class="kw">use </span>sc_client_api::BlockBackend;
@@ -2181,25 +2197,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(<span class="number">0</span>, <span class="prelude-val">None</span>),
 				);
-				<span class="kw">let </span>extra = (
-					check_non_zero_sender,
-					check_spec_version,
-					check_tx_version,
-					check_genesis,
-					check_era,
-					check_nonce,
-					check_weight,
+				<span class="kw">let </span>tx_ext: TxExtension = (
+					(
+						check_non_zero_sender,
+						check_spec_version,
+						check_tx_version,
+						check_genesis,
+						check_era,
+						check_nonce,
+						check_weight,
+					)
+						.into(),
 					tx_payment,
 				);
 				<span class="kw">let </span>raw_payload = SignedPayload::from_raw(
 					function,
-					extra,
-					((), spec_version, transaction_version, genesis_hash, genesis_hash, (), (), ()),
+					tx_ext,
+					(
+						((), spec_version, transaction_version, genesis_hash, genesis_hash, (), ()),
+						(),
+					),
 				);
 				<span class="kw">let </span>signature = raw_payload.using_encoded(|payload| signer.sign(payload));
-				<span class="kw">let </span>(function, extra, <span class="kw">_</span>) = raw_payload.deconstruct();
+				<span class="kw">let </span>(function, tx_ext, <span class="kw">_</span>) = raw_payload.deconstruct();
 				index += <span class="number">1</span>;
-				UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), extra)
+				UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), tx_ext)
 					.into()
 			},
 		);

@@ -598,6 +598,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#451" id="451">451</a>
 <a href="#452" id="452">452</a>
 <a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -766,10 +767,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>call_ty: T::Type,
 	<span class="doccomment">/// The type of the extrinsic&#39;s signature.
 	</span><span class="kw">pub </span>signature_ty: T::Type,
-	<span class="doccomment">/// The type of the outermost Extra enum.
+	<span class="doccomment">/// The type of the outermost Extra/Extensions enum.
+	</span><span class="comment">// TODO: metadata-v16: rename this to `extension_ty`.
 	</span><span class="kw">pub </span>extra_ty: T::Type,
-	<span class="doccomment">/// The signed extensions in the order they appear in the extrinsic.
-	</span><span class="kw">pub </span>signed_extensions: Vec&lt;SignedExtensionMetadataIR&lt;T&gt;&gt;,
+	<span class="doccomment">/// The transaction extensions in the order they appear in the extrinsic.
+	</span><span class="kw">pub </span>extensions: Vec&lt;TransactionExtensionMetadataIR&lt;T&gt;&gt;,
 }
 
 <span class="kw">impl </span>IntoPortable <span class="kw">for </span>ExtrinsicMetadataIR {
@@ -783,27 +785,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			call_ty: registry.register_type(<span class="kw-2">&amp;</span><span class="self">self</span>.call_ty),
 			signature_ty: registry.register_type(<span class="kw-2">&amp;</span><span class="self">self</span>.signature_ty),
 			extra_ty: registry.register_type(<span class="kw-2">&amp;</span><span class="self">self</span>.extra_ty),
-			signed_extensions: registry.map_into_portable(<span class="self">self</span>.signed_extensions),
+			extensions: registry.map_into_portable(<span class="self">self</span>.extensions),
 		}
 	}
 }
 
 <span class="doccomment">/// Metadata of an extrinsic&#39;s signed extension.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, Encode, Debug)]
-</span><span class="kw">pub struct </span>SignedExtensionMetadataIR&lt;T: Form = MetaForm&gt; {
+</span><span class="kw">pub struct </span>TransactionExtensionMetadataIR&lt;T: Form = MetaForm&gt; {
 	<span class="doccomment">/// The unique signed extension identifier, which may be different from the type name.
 	</span><span class="kw">pub </span>identifier: T::String,
 	<span class="doccomment">/// The type of the signed extension, with the data to be included in the extrinsic.
 	</span><span class="kw">pub </span>ty: T::Type,
-	<span class="doccomment">/// The type of the additional signed data, with the data to be included in the signed payload
+	<span class="doccomment">/// The type of the additional signed data, with the data to be included in the signed payload.
 	</span><span class="kw">pub </span>additional_signed: T::Type,
 }
 
-<span class="kw">impl </span>IntoPortable <span class="kw">for </span>SignedExtensionMetadataIR {
-	<span class="kw">type </span>Output = SignedExtensionMetadataIR&lt;PortableForm&gt;;
+<span class="kw">impl </span>IntoPortable <span class="kw">for </span>TransactionExtensionMetadataIR {
+	<span class="kw">type </span>Output = TransactionExtensionMetadataIR&lt;PortableForm&gt;;
 
 	<span class="kw">fn </span>into_portable(<span class="self">self</span>, registry: <span class="kw-2">&amp;mut </span>Registry) -&gt; <span class="self">Self</span>::Output {
-		SignedExtensionMetadataIR {
+		TransactionExtensionMetadataIR {
 			identifier: <span class="self">self</span>.identifier.into_portable(registry),
 			ty: registry.register_type(<span class="kw-2">&amp;</span><span class="self">self</span>.ty),
 			additional_signed: registry.register_type(<span class="kw-2">&amp;</span><span class="self">self</span>.additional_signed),

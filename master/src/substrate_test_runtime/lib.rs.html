@@ -1610,6 +1610,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1463" id="1463">1463</a>
 <a href="#1464" id="1464">1464</a>
 <a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1670,9 +1671,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>sp_core::hash::H256;
 <span class="kw">use </span>sp_inherents::{CheckInherentsResult, InherentData};
 <span class="kw">use </span>sp_runtime::{
-	create_runtime_str, impl_opaque_keys,
-	traits::{BlakeTwo256, Block <span class="kw">as </span>BlockT, DispatchInfoOf, NumberFor, Verify},
-	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
+	create_runtime_str, impl_opaque_keys, impl_tx_ext_default,
+	traits::{BlakeTwo256, Block <span class="kw">as </span>BlockT, DispatchInfoOf, Dispatchable, NumberFor, Verify},
+	transaction_validity::{
+		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
+	},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
@@ -1754,13 +1757,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub type </span>Pair = sp_core::sr25519::Pair;
 
-<span class="doccomment">/// The SignedExtension to the basic transaction logic.
-</span><span class="kw">pub type </span>SignedExtra = (CheckNonce&lt;Runtime&gt;, CheckWeight&lt;Runtime&gt;, CheckSubstrateCall);
+<span class="comment">// TODO: Remove after the Checks are migrated to TxExtension.
+</span><span class="doccomment">/// The extension to the basic transaction logic.
+</span><span class="kw">pub type </span>TxExtension = ((CheckNonce&lt;Runtime&gt;, CheckWeight&lt;Runtime&gt;), CheckSubstrateCall);
 <span class="doccomment">/// The payload being signed in transactions.
-</span><span class="kw">pub type </span>SignedPayload = sp_runtime::generic::SignedPayload&lt;RuntimeCall, SignedExtra&gt;;
+</span><span class="kw">pub type </span>SignedPayload = sp_runtime::generic::SignedPayload&lt;RuntimeCall, TxExtension&gt;;
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>Extrinsic =
-	sp_runtime::generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
+	sp_runtime::generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, TxExtension&gt;;
 
 <span class="doccomment">/// An identifier for an account on this system.
 </span><span class="kw">pub type </span>AccountId = &lt;Signature <span class="kw">as </span>Verify&gt;::Signer;
@@ -1855,7 +1859,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>sp_runtime::traits::Dispatchable <span class="kw">for </span>CheckSubstrateCall {
-	<span class="kw">type </span>RuntimeOrigin = CheckSubstrateCall;
+	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 	<span class="kw">type </span>Config = CheckSubstrateCall;
 	<span class="kw">type </span>Info = CheckSubstrateCall;
 	<span class="kw">type </span>PostInfo = CheckSubstrateCall;
@@ -1868,42 +1872,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_runtime::traits::SignedExtension <span class="kw">for </span>CheckSubstrateCall {
-	<span class="kw">type </span>AccountId = AccountId;
-	<span class="kw">type </span>Call = RuntimeCall;
-	<span class="kw">type </span>AdditionalSigned = ();
-	<span class="kw">type </span>Pre = ();
+<span class="kw">impl </span>sp_runtime::traits::TransactionExtensionBase <span class="kw">for </span>CheckSubstrateCall {
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;CheckSubstrateCall&quot;</span>;
-
-	<span class="kw">fn </span>additional_signed(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-	) -&gt; sp_std::result::Result&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
-	}
+	<span class="kw">type </span>Implicit = ();
+}
+<span class="kw">impl</span>&lt;Context&gt; sp_runtime::traits::TransactionExtension&lt;RuntimeCall, Context&gt;
+	<span class="kw">for </span>CheckSubstrateCall
+{
+	<span class="kw">type </span>Pre = ();
+	<span class="kw">type </span>Val = ();
+	<span class="macro">impl_tx_ext_default!</span>(RuntimeCall; Context; prepare);
 
 	<span class="kw">fn </span>validate(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		origin: &lt;RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin,
+		call: <span class="kw-2">&amp;</span>RuntimeCall,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;RuntimeCall&gt;,
 		_len: usize,
-	) -&gt; TransactionValidity {
+		_context: <span class="kw-2">&amp;mut </span>Context,
+		_self_implicit: <span class="self">Self</span>::Implicit,
+		_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;
+		(ValidTransaction, <span class="self">Self</span>::Val, &lt;RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin),
+		TransactionValidityError,
+	&gt; {
 		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;validate&quot;</span>);
-		<span class="kw">match </span>call {
+		<span class="kw">let </span>v = <span class="kw">match </span>call {
 			RuntimeCall::SubstrateTest(<span class="kw-2">ref </span>substrate_test_call) =&gt;
-				substrate_test_pallet::validate_runtime_call(substrate_test_call),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(Default::default()),
-		}
-	}
-
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>sp_runtime::traits::DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="self">self</span>.validate(who, call, info, len).map(drop)
+				substrate_test_pallet::validate_runtime_call(substrate_test_call)<span class="question-mark">?</span>,
+			<span class="kw">_ </span>=&gt; Default::default(),
+		};
+		<span class="prelude-val">Ok</span>((v, (), origin))
 	}
 }
 
@@ -1976,6 +1975,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>OnNewAccount = ();
 	<span class="kw">type </span>OnKilledAccount = ();
 	<span class="kw">type </span>SystemWeightInfo = ();
+	<span class="kw">type </span>ExtensionsWeightInfo = ();
 	<span class="kw">type </span>SS58Prefix = ();
 	<span class="kw">type </span>OnSetCode = ();
 	<span class="kw">type </span>MaxConsumers = ConstU32&lt;<span class="number">16</span>&gt;;
@@ -2284,7 +2284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>sp_offchain::OffchainWorkerApi&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>offchain_worker(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) {
-			<span class="kw">let </span>ext = Extrinsic::new_unsigned(
+			<span class="kw">let </span>ext = Extrinsic::new_bare(
 				substrate_test_pallet::pallet::Call::storage_change{
 					key:<span class="string">b&quot;some_key&quot;</span>.encode(),
 					value:<span class="prelude-val">Some</span>(header.number.encode())
@@ -2637,7 +2637,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	<span class="kw">use </span>sp_keyring::AccountKeyring;
 	<span class="kw">use </span>sp_runtime::{
-		traits::{Hash <span class="kw">as _</span>, SignedExtension},
+		traits::{DispatchTransaction, Hash <span class="kw">as _</span>},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
 	};
 	<span class="kw">use </span>substrate_test_runtime_client::{
@@ -2786,32 +2786,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>check_substrate_check_signed_extension_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
-			<span class="kw">let </span>x = sp_keyring::AccountKeyring::Alice.into();
+			<span class="kw">let </span>x: AccountId = sp_keyring::AccountKeyring::Alice.into();
 			<span class="kw">let </span>info = DispatchInfo::default();
 			<span class="kw">let </span>len = <span class="number">0_usize</span>;
 			<span class="macro">assert_eq!</span>(
 				CheckSubstrateCall {}
-					.validate(
-						<span class="kw-2">&amp;</span>x,
+					.validate_only(
+						<span class="prelude-val">Some</span>(x).into(),
 						<span class="kw-2">&amp;</span>ExtrinsicBuilder::new_call_with_priority(<span class="number">16</span>).build().function,
 						<span class="kw-2">&amp;</span>info,
-						len
+						len,
 					)
 					.unwrap()
-					.priority,
+					.<span class="number">0
+					</span>.priority,
 				<span class="number">16
 			</span>);
 
 			<span class="macro">assert_eq!</span>(
 				CheckSubstrateCall {}
-					.validate(
-						<span class="kw-2">&amp;</span>x,
+					.validate_only(
+						<span class="prelude-val">Some</span>(x).into(),
 						<span class="kw-2">&amp;</span>ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						<span class="kw-2">&amp;</span>info,
-						len
+						len,
 					)
 					.unwrap()
-					.propagate,
+					.<span class="number">0
+					</span>.propagate,
 				<span class="bool-val">false
 			</span>);
 		})

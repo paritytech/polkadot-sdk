@@ -620,6 +620,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#473" id="473">473</a>
 <a href="#474" id="474">474</a>
 <a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -704,6 +708,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>MandatoryValidation,
 	<span class="doccomment">/// The sending address is disabled or known to be invalid.
 	</span>BadSigner,
+	<span class="doccomment">/// The implicit data was unable to be calculated.
+	</span>IndeterminateImplicit,
 }
 
 <span class="kw">impl </span>InvalidTransaction {
@@ -735,6 +741,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="string">&quot;Transaction dispatch is mandatory; transactions must not be validated.&quot;</span>,
 			InvalidTransaction::Custom(<span class="kw">_</span>) =&gt; <span class="string">&quot;InvalidTransaction custom error&quot;</span>,
 			InvalidTransaction::BadSigner =&gt; <span class="string">&quot;Invalid signing address&quot;</span>,
+			InvalidTransaction::IndeterminateImplicit =&gt;
+				<span class="string">&quot;The implicit data was unable to be calculated&quot;</span>,
 		}
 	}
 }
@@ -960,7 +968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>ValidTransactionBuilder {
 	<span class="doccomment">/// Set the priority of a transaction.
 	///
-	/// Note that the final priority for `FRAME` is combined from all `SignedExtension`s.
+	/// Note that the final priority for `FRAME` is combined from all `TransactionExtension`s.
 	/// Most likely for unsigned transactions you want the priority to be higher
 	/// than for regular transactions. We recommend exposing a base priority for unsigned
 	/// transactions as a runtime module parameter, so that the runtime can tune inter-module

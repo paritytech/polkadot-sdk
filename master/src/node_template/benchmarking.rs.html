@@ -306,6 +306,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Setup code for [`super::command`] which would otherwise bloat that module.
 //!
 //! Should only be used for benchmarking as it may break in other contexts.
@@ -417,7 +418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.checked_next_power_of_two()
 		.map(|c| c / <span class="number">2</span>)
 		.unwrap_or(<span class="number">2</span>) <span class="kw">as </span>u64;
-	<span class="kw">let </span>extra: runtime::SignedExtra = (
+	<span class="kw">let </span>tx_ext: runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::&lt;runtime::Runtime&gt;::new(),
 		frame_system::CheckSpecVersion::&lt;runtime::Runtime&gt;::new(),
 		frame_system::CheckTxVersion::&lt;runtime::Runtime&gt;::new(),
@@ -429,11 +430,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		frame_system::CheckNonce::&lt;runtime::Runtime&gt;::from(nonce),
 		frame_system::CheckWeight::&lt;runtime::Runtime&gt;::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::&lt;runtime::Runtime&gt;::from(<span class="number">0</span>),
-	);
+	)
+		.into();
 
 	<span class="kw">let </span>raw_payload = runtime::SignedPayload::from_raw(
 		call.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		(
 			(),
 			runtime::VERSION.spec_version,
@@ -451,7 +453,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		call,
 		sp_runtime::AccountId32::from(sender.public()).into(),
 		runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 

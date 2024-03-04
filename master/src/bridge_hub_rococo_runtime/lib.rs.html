@@ -1670,6 +1670,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1523" id="1523">1523</a>
 <a href="#1524" id="1524">1524</a>
 <a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1787,8 +1794,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// BlockId type as expected by this runtime.
 </span><span class="kw">pub type </span>BlockId = generic::BlockId&lt;Block&gt;;
 
-<span class="doccomment">/// The SignedExtension to the basic transaction logic.
-</span><span class="kw">pub type </span>SignedExtra = (
+<span class="doccomment">/// The TransactionExtension to the basic transaction logic.
+</span><span class="kw">pub type </span>TxExtension = (
 	frame_system::CheckNonZeroSender&lt;Runtime&gt;,
 	frame_system::CheckSpecVersion&lt;Runtime&gt;,
 	frame_system::CheckTxVersion&lt;Runtime&gt;,
@@ -1806,7 +1813,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
-	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
+	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, TxExtension&gt;;
 
 <span class="doccomment">/// Migrations to apply on runtime upgrade.
 </span><span class="kw">pub type </span>Migrations = (
@@ -1934,6 +1941,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>DbWeight = RocksDbWeight;
 	<span class="doccomment">/// Weight information for the extrinsics of this pallet.
 	</span><span class="kw">type </span>SystemWeightInfo = weights::frame_system::WeightInfo&lt;Runtime&gt;;
+	<span class="doccomment">/// Weight information for the extensions of this pallet.
+	</span><span class="kw">type </span>ExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo&lt;Runtime&gt;;
 	<span class="doccomment">/// Block &amp; extrinsics weights: base values and limits.
 	</span><span class="kw">type </span>BlockWeights = RuntimeBlockWeights;
 	<span class="doccomment">/// The maximum length of a block (in bytes).
@@ -1996,6 +2005,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightToFee = WeightToFee;
 	<span class="kw">type </span>LengthToFee = ConstantMultiplier&lt;Balance, TransactionByteFee&gt;;
 	<span class="kw">type </span>FeeMultiplierUpdate = SlowAdjustingFeeUpdate&lt;<span class="self">Self</span>&gt;;
+	<span class="kw">type </span>WeightInfo = weights::pallet_transaction_payment::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2431,12 +2441,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>benches {
 	<span class="macro">frame_benchmarking::define_benchmarks!</span>(
 		[frame_system, SystemBench::&lt;Runtime&gt;]
+		[frame_system_extensions, SystemExtensionsBench::&lt;Runtime&gt;]
 		[pallet_balances, Balances]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_session, SessionBench::&lt;Runtime&gt;]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
+		[pallet_transaction_payment, TransactionPayment]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
@@ -2737,6 +2749,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">use </span>frame_benchmarking::{Benchmarking, BenchmarkList};
 			<span class="kw">use </span>frame_support::traits::StorageInfoTrait;
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
+			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
 			<span class="kw">use </span>cumulus_pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 
@@ -2767,6 +2780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">use </span>sp_storage::TrackedStorageKey;
 
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
+			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
 			<span class="kw">impl </span>frame_system_benchmarking::Config <span class="kw">for </span>Runtime {
 				<span class="kw">fn </span>setup_set_code_requirements(code: <span class="kw-2">&amp;</span>sp_std::vec::Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 					ParachainSystem::initialize_for_set_code_benchmark(code.len() <span class="kw">as </span>u32);
@@ -3150,16 +3164,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>sp_runtime::{
 		generic::Era,
-		traits::{SignedExtension, Zero},
+		traits::{TransactionExtensionBase, Zero},
 	};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ensure_signed_extension_definition_is_compatible_with_relay() {
-		<span class="kw">use </span>bp_polkadot_core::SuffixedCommonSignedExtensionExt;
+		<span class="kw">use </span>bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 
 		sp_io::TestExternalities::default().execute_with(|| {
 			frame_system::BlockHash::&lt;Runtime&gt;::insert(BlockNumber::zero(), Hash::default());
-			<span class="kw">let </span>payload: SignedExtra = (
+			<span class="kw">let </span>payload: TxExtension = (
 				frame_system::CheckNonZeroSender::new(),
 				frame_system::CheckSpecVersion::new(),
 				frame_system::CheckTxVersion::new(),
@@ -3173,11 +3187,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 				)
-			);
+			).into();
 
 			<span class="comment">// for BridgeHubRococo
 			</span>{
-				<span class="kw">let </span>bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+				<span class="kw">let </span>bhr_indirect_payload = bp_bridge_hub_rococo::TransactionExtension::from_params(
 					VERSION.spec_version,
 					VERSION.transaction_version,
 					bp_runtime::TransactionEra::Immortal,
@@ -3188,8 +3202,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 				<span class="macro">assert_eq!</span>(payload.encode(), bhr_indirect_payload.encode());
 				<span class="macro">assert_eq!</span>(
-					payload.additional_signed().unwrap().encode(),
-					bhr_indirect_payload.additional_signed().unwrap().encode()
+					payload.implicit().unwrap().encode(),
+					bhr_indirect_payload.implicit().unwrap().encode()
 				)
 			}
 		});

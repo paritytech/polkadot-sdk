@@ -549,13 +549,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>xcm_executor::{Config, XcmExecutor};
 
-<span class="kw">pub type </span>SignedExtra = (frame_system::CheckNonZeroSender&lt;Runtime&gt;,);
+<span class="kw">pub type </span>TxExtension = (frame_system::CheckNonZeroSender&lt;Runtime&gt;,);
 
 <span class="kw">pub type </span>BlockNumber = u64;
 <span class="kw">pub type </span>Address = MultiAddress&lt;AccountId, ()&gt;;
 <span class="kw">pub type </span>Header = generic::Header&lt;BlockNumber, BlakeTwo256&gt;;
 <span class="kw">pub type </span>UncheckedExtrinsic =
-	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
+	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, TxExtension&gt;;
 <span class="kw">pub type </span>Block = generic::Block&lt;Header, UncheckedExtrinsic&gt;;
 
 <span class="kw">pub type </span>Signature = MultiSignature;

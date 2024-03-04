@@ -347,6 +347,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -518,12 +521,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// nodes to the proof (x0.5 because we expect some nodes to be reused)
 		</span><span class="kw">let </span>estimated_message_size = <span class="number">512</span>;
 		<span class="comment">// let&#39;s say all our messages have the same dispatch weight
-		</span><span class="kw">let </span>estimated_message_dispatch_weight =
-			Runtime::WeightInfo::message_dispatch_weight(estimated_message_size);
+		</span><span class="kw">let </span>estimated_message_dispatch_weight = &lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;
+			MessagesInstance,
+		&gt;&gt;::WeightInfo::message_dispatch_weight(
+			estimated_message_size
+		);
 		<span class="comment">// messages proof argument size is (for every message) messages size + some additional
 		// trie nodes. Some of them are reused by different messages, so let&#39;s take 2/3 of default
 		// &quot;overhead&quot; constant
-		</span><span class="kw">let </span>messages_proof_size = Runtime::WeightInfo::expected_extra_storage_proof_size()
+		</span><span class="kw">let </span>messages_proof_size = &lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MessagesInstance&gt;&gt;::WeightInfo::expected_extra_storage_proof_size()
 			.saturating_mul(<span class="number">2</span>)
 			.saturating_div(<span class="number">3</span>)
 			.saturating_add(estimated_message_size)
@@ -531,7 +537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// finally we are able to estimate transaction size and weight
 		</span><span class="kw">let </span>transaction_size = base_tx_size.saturating_add(messages_proof_size);
-		<span class="kw">let </span>transaction_weight = Runtime::WeightInfo::receive_messages_proof_weight(
+		<span class="kw">let </span>transaction_weight = &lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MessagesInstance&gt;&gt;::WeightInfo::receive_messages_proof_weight(
 			<span class="kw-2">&amp;</span>PreComputedSize(transaction_size <span class="kw">as _</span>),
 			messages <span class="kw">as _</span>,
 			estimated_message_dispatch_weight.saturating_mul(messages),

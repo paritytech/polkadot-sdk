@@ -903,6 +903,54 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#756" id="756">756</a>
 <a href="#757" id="757">757</a>
 <a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -928,9 +976,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
-	transaction_validity::{InvalidTransaction, TransactionValidity, TransactionValidityError},
-	DispatchResult,
+	traits::{
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+		TransactionExtensionBase, ValidateResult,
+	},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+	DispatchResult, ValidTransaction,
 };
 <span class="kw">use </span>sp_weights::Weight;
 
@@ -1005,39 +1056,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Creates new `SignedExtension` to check weight of the extrinsic.
+	<span class="doccomment">/// Creates new `TransactionExtension` to check weight of the extrinsic.
 	</span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(Default::default())
-	}
-
-	<span class="doccomment">/// Do the pre-dispatch checks. This can be applied to both signed and unsigned.
-	///
-	/// It checks and notes the new weight and length.
-	</span><span class="kw">pub fn </span>do_pre_dispatch(
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
-		len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
-		<span class="kw">let </span>next_len = <span class="self">Self</span>::check_block_length(info, len)<span class="question-mark">?</span>;
-		<span class="kw">let </span>next_weight = <span class="self">Self</span>::check_block_weight(info)<span class="question-mark">?</span>;
-		<span class="self">Self</span>::check_extrinsic_weight(info)<span class="question-mark">?</span>;
-
-		<span class="kw">crate</span>::AllExtrinsicsLen::&lt;T&gt;::put(next_len);
-		<span class="kw">crate</span>::BlockWeight::&lt;T&gt;::put(next_weight);
-		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Do the validate checks. This can be applied to both signed and unsigned.
 	///
 	/// It only checks that the block weight and length limit will not exceed.
-	</span><span class="kw">pub fn </span>do_validate(info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;, len: usize) -&gt; TransactionValidity {
+	///
+	/// Returns the transaction validity and the next block length, to be used in `prepare`.
+	</span><span class="kw">pub fn </span>do_validate(
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		len: usize,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(ValidTransaction, u32), TransactionValidityError&gt; {
 		<span class="comment">// ignore the next length. If they return `Ok`, then it is below the limit.
-		</span><span class="kw">let _ </span>= <span class="self">Self</span>::check_block_length(info, len)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>next_len = <span class="self">Self</span>::check_block_length(info, len)<span class="question-mark">?</span>;
 		<span class="comment">// during validation we skip block limit check. Since the `validate_transaction`
 		// call runs on an empty block anyway, by this we prevent `on_initialize` weight
 		// consumption from causing false negatives.
 		</span><span class="self">Self</span>::check_extrinsic_weight(info)<span class="question-mark">?</span>;
 
-		<span class="prelude-val">Ok</span>(Default::default())
+		<span class="prelude-val">Ok</span>((Default::default(), next_len))
+	}
+
+	<span class="doccomment">/// Do the pre-dispatch checks. This can be applied to both signed and unsigned.
+	///
+	/// It checks and notes the new weight and length.
+	</span><span class="kw">pub fn </span>do_prepare(
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		next_len: u32,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
+		<span class="kw">let </span>next_weight = <span class="self">Self</span>::check_block_weight(info)<span class="question-mark">?</span>;
+		<span class="comment">// Extrinsic weight already checked in `validate`.
+
+		</span><span class="kw">crate</span>::AllExtrinsicsLen::&lt;T&gt;::put(next_len);
+		<span class="kw">crate</span>::BlockWeight::&lt;T&gt;::put(next_weight);
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 
@@ -1106,62 +1161,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(all_weight)
 }
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; SignedExtension <span class="kw">for </span>CheckWeight&lt;T&gt;
+<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; TransactionExtensionBase <span class="kw">for </span>CheckWeight&lt;T&gt; {
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;CheckWeight&quot;</span>;
+	<span class="kw">type </span>Implicit = ();
+
+	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Weight {
+		&lt;T::ExtensionsWeightInfo <span class="kw">as </span><span class="kw">super</span>::WeightInfo&gt;::check_weight()
+	}
+}
+<span class="kw">impl</span>&lt;T: Config + Send + Sync, Context&gt; TransactionExtension&lt;T::RuntimeCall, Context&gt;
+	<span class="kw">for </span>CheckWeight&lt;T&gt;
 <span class="kw">where
 	</span>T::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
 {
-	<span class="kw">type </span>AccountId = T::AccountId;
-	<span class="kw">type </span>Call = T::RuntimeCall;
-	<span class="kw">type </span>AdditionalSigned = ();
 	<span class="kw">type </span>Pre = ();
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;CheckWeight&quot;</span>;
+	<span class="kw">type </span>Val = u32; <span class="comment">/* next block length */
 
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
-	}
-
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
-		<span class="self">Self</span>::do_pre_dispatch(info, len)
-	}
-
-	<span class="kw">fn </span>validate(
+	</span><span class="kw">fn </span>validate(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		origin: T::RuntimeOrigin,
+		_call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
 		len: usize,
-	) -&gt; TransactionValidity {
-		<span class="self">Self</span>::do_validate(info, len)
+		_context: <span class="kw-2">&amp;mut </span>Context,
+		_self_implicit: <span class="self">Self</span>::Implicit,
+		_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; ValidateResult&lt;<span class="self">Self</span>::Val, T::RuntimeCall&gt; {
+		<span class="kw">let </span>(validity, next_len) = <span class="self">Self</span>::do_validate(info, len)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>((validity, next_len, origin))
 	}
 
-	<span class="kw">fn </span>pre_dispatch_unsigned(
-		_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
-		<span class="self">Self</span>::do_pre_dispatch(info, len)
-	}
-
-	<span class="kw">fn </span>validate_unsigned(
-		_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
-	) -&gt; TransactionValidity {
-		<span class="self">Self</span>::do_validate(info, len)
+	<span class="kw">fn </span>prepare(
+		<span class="self">self</span>,
+		val: <span class="self">Self</span>::Val,
+		_origin: <span class="kw-2">&amp;</span>T::RuntimeOrigin,
+		_call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		_len: usize,
+		_context: <span class="kw-2">&amp;</span>Context,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
+		<span class="self">Self</span>::do_prepare(info, val)
 	}
 
 	<span class="kw">fn </span>post_dispatch(
-		_pre: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Pre&gt;,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		_pre: <span class="self">Self</span>::Pre,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;T::RuntimeCall&gt;,
 		_len: usize,
 		_result: <span class="kw-2">&amp;</span>DispatchResult,
+		_context: <span class="kw-2">&amp;</span>Context,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
 		<span class="kw">let </span>unspent = post_info.calc_unspent(info);
 		<span class="kw">if </span>unspent.any_gt(Weight::zero()) {
@@ -1206,6 +1254,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		AllExtrinsicsLen, BlockWeight, DispatchClass,
 	};
 	<span class="kw">use </span>frame_support::{assert_err, assert_ok, dispatch::Pays, weights::Weight};
+	<span class="kw">use </span>sp_runtime::traits::DispatchTransaction;
 	<span class="kw">use </span>sp_std::marker::PhantomData;
 
 	<span class="kw">fn </span>block_weights() -&gt; <span class="kw">crate</span>::limits::BlockWeights {
@@ -1243,7 +1292,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		check(|max, len| {
-			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(max, len));
+			<span class="kw">let </span>next_len = CheckWeight::&lt;Test&gt;::check_block_length(max, len).unwrap();
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_prepare(max, next_len));
 			<span class="macro">assert_eq!</span>(System::block_weight().total(), Weight::MAX);
 			<span class="macro">assert!</span>(System::block_weight().total().ref_time() &gt; block_weight_limit().ref_time());
 		});
@@ -1324,9 +1374,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>len = <span class="number">0_usize</span>;
 
-			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>max_normal, len));
+			<span class="kw">let </span>next_len = CheckWeight::&lt;Test&gt;::check_block_length(<span class="kw-2">&amp;</span>max_normal, len).unwrap();
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_prepare(<span class="kw-2">&amp;</span>max_normal, next_len));
 			<span class="macro">assert_eq!</span>(System::block_weight().total(), Weight::from_parts(<span class="number">768</span>, <span class="number">0</span>));
-			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>rest_operational, len));
+			<span class="kw">let </span>next_len = CheckWeight::&lt;Test&gt;::check_block_length(<span class="kw-2">&amp;</span>rest_operational, len).unwrap();
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_prepare(<span class="kw-2">&amp;</span>rest_operational, next_len));
 			<span class="macro">assert_eq!</span>(block_weight_limit(), Weight::from_parts(<span class="number">1024</span>, u64::MAX));
 			<span class="macro">assert_eq!</span>(System::block_weight().total(), block_weight_limit().set_proof_size(<span class="number">0</span>));
 			<span class="comment">// Checking single extrinsic should not take current block weight into account.
@@ -1348,10 +1400,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>len = <span class="number">0_usize</span>;
 
-			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>rest_operational, len));
+			<span class="kw">let </span>next_len = CheckWeight::&lt;Test&gt;::check_block_length(<span class="kw-2">&amp;</span>rest_operational, len).unwrap();
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_prepare(<span class="kw-2">&amp;</span>rest_operational, next_len));
 			<span class="comment">// Extra 20 here from block execution + base extrinsic weight
 			</span><span class="macro">assert_eq!</span>(System::block_weight().total(), Weight::from_parts(<span class="number">266</span>, <span class="number">0</span>));
-			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>max_normal, len));
+			<span class="kw">let </span>next_len = CheckWeight::&lt;Test&gt;::check_block_length(<span class="kw-2">&amp;</span>max_normal, len).unwrap();
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_prepare(<span class="kw-2">&amp;</span>max_normal, next_len));
 			<span class="macro">assert_eq!</span>(block_weight_limit(), Weight::from_parts(<span class="number">1024</span>, u64::MAX));
 			<span class="macro">assert_eq!</span>(System::block_weight().total(), block_weight_limit().set_proof_size(<span class="number">0</span>));
 		});
@@ -1374,16 +1428,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 			<span class="kw">let </span>len = <span class="number">0_usize</span>;
 
+			<span class="kw">let </span>next_len = CheckWeight::&lt;Test&gt;::check_block_length(<span class="kw-2">&amp;</span>dispatch_normal, len).unwrap();
 			<span class="macro">assert_err!</span>(
-				CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>dispatch_normal, len),
+				CheckWeight::&lt;Test&gt;::do_prepare(<span class="kw-2">&amp;</span>dispatch_normal, next_len),
 				InvalidTransaction::ExhaustsResources
 			);
+			<span class="kw">let </span>next_len =
+				CheckWeight::&lt;Test&gt;::check_block_length(<span class="kw-2">&amp;</span>dispatch_operational, len).unwrap();
 			<span class="comment">// Thank goodness we can still do an operational transaction to possibly save the
 			// blockchain.
-			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>dispatch_operational, len));
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_prepare(<span class="kw-2">&amp;</span>dispatch_operational, next_len));
 			<span class="comment">// Not too much though
 			</span><span class="macro">assert_err!</span>(
-				CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>dispatch_operational, len),
+				CheckWeight::&lt;Test&gt;::do_prepare(<span class="kw-2">&amp;</span>dispatch_operational, next_len),
 				InvalidTransaction::ExhaustsResources
 			);
 			<span class="comment">// Even with full block, validity of single transaction should be correct.
@@ -1408,21 +1465,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				current_weight.set(normal_limit, DispatchClass::Normal)
 			});
 			<span class="comment">// will not fit.
-			</span><span class="macro">assert_err!</span>(
-				CheckWeight::&lt;Test&gt;(PhantomData).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>normal, len),
-				InvalidTransaction::ExhaustsResources
+			</span><span class="macro">assert_eq!</span>(
+				CheckWeight::&lt;Test&gt;(PhantomData)
+					.validate_and_prepare(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>normal, len)
+					.unwrap_err(),
+				InvalidTransaction::ExhaustsResources.into()
 			);
 			<span class="comment">// will fit.
-			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;(PhantomData).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>op, len));
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;(PhantomData).validate_and_prepare(
+				<span class="prelude-val">Some</span>(<span class="number">1</span>).into(),
+				CALL,
+				<span class="kw-2">&amp;</span>op,
+				len
+			));
 
 			<span class="comment">// likewise for length limit.
 			</span><span class="kw">let </span>len = <span class="number">100_usize</span>;
 			AllExtrinsicsLen::&lt;Test&gt;::put(normal_length_limit());
-			<span class="macro">assert_err!</span>(
-				CheckWeight::&lt;Test&gt;(PhantomData).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>normal, len),
-				InvalidTransaction::ExhaustsResources
+			<span class="macro">assert_eq!</span>(
+				CheckWeight::&lt;Test&gt;(PhantomData)
+					.validate_and_prepare(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>normal, len)
+					.unwrap_err(),
+				InvalidTransaction::ExhaustsResources.into()
 			);
-			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;(PhantomData).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>op, len));
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;(PhantomData).validate_and_prepare(
+				<span class="prelude-val">Some</span>(<span class="number">1</span>).into(),
+				CALL,
+				<span class="kw-2">&amp;</span>op,
+				len
+			));
 		})
 	}
 
@@ -1433,7 +1504,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>normal_limit = normal_weight_limit().ref_time() <span class="kw">as </span>usize;
 			<span class="kw">let </span>reset_check_weight = |tx, s, f| {
 				AllExtrinsicsLen::&lt;Test&gt;::put(<span class="number">0</span>);
-				<span class="kw">let </span>r = CheckWeight::&lt;Test&gt;(PhantomData).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, tx, s);
+				<span class="kw">let </span>r = CheckWeight::&lt;Test&gt;(PhantomData).validate_and_prepare(
+					<span class="prelude-val">Some</span>(<span class="number">1</span>).into(),
+					CALL,
+					tx,
+					s,
+				);
 				<span class="kw">if </span>f {
 					<span class="macro">assert!</span>(r.is_err())
 				} <span class="kw">else </span>{
@@ -1476,7 +1552,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				BlockWeight::&lt;Test&gt;::mutate(|current_weight| {
 					current_weight.set(s, DispatchClass::Normal)
 				});
-				<span class="kw">let </span>r = CheckWeight::&lt;Test&gt;(PhantomData).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, i, len);
+				<span class="kw">let </span>r = CheckWeight::&lt;Test&gt;(PhantomData).validate_and_prepare(
+					<span class="prelude-val">Some</span>(<span class="number">1</span>).into(),
+					CALL,
+					i,
+					len,
+				);
 				<span class="kw">if </span>f {
 					<span class="macro">assert!</span>(r.is_err())
 				} <span class="kw">else </span>{
@@ -1509,18 +1590,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.set(Weight::from_parts(<span class="number">256</span>, <span class="number">0</span>) - base_extrinsic, DispatchClass::Normal);
 			});
 
-			<span class="kw">let </span>pre = CheckWeight::&lt;Test&gt;(PhantomData).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len).unwrap();
+			<span class="kw">let </span>pre = CheckWeight::&lt;Test&gt;(PhantomData)
+				.validate_and_prepare(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len)
+				.unwrap()
+				.<span class="number">0</span>;
 			<span class="macro">assert_eq!</span>(
 				BlockWeight::&lt;Test&gt;::get().total(),
 				info.weight + Weight::from_parts(<span class="number">256</span>, <span class="number">0</span>)
 			);
 
 			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(
-				<span class="prelude-val">Some</span>(pre),
+				pre,
 				<span class="kw-2">&amp;</span>info,
 				<span class="kw-2">&amp;</span>post_info,
 				len,
-				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
+				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(()),
+				<span class="kw-2">&amp;</span>()
 			));
 			<span class="macro">assert_eq!</span>(
 				BlockWeight::&lt;Test&gt;::get().total(),
@@ -1544,7 +1629,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				current_weight.set(Weight::from_parts(<span class="number">128</span>, <span class="number">0</span>), DispatchClass::Normal);
 			});
 
-			<span class="kw">let </span>pre = CheckWeight::&lt;Test&gt;(PhantomData).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len).unwrap();
+			<span class="kw">let </span>pre = CheckWeight::&lt;Test&gt;(PhantomData)
+				.validate_and_prepare(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>info, len)
+				.unwrap()
+				.<span class="number">0</span>;
 			<span class="macro">assert_eq!</span>(
 				BlockWeight::&lt;Test&gt;::get().total(),
 				info.weight +
@@ -1553,11 +1641,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(
-				<span class="prelude-val">Some</span>(pre),
+				pre,
 				<span class="kw-2">&amp;</span>info,
 				<span class="kw-2">&amp;</span>post_info,
 				len,
-				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
+				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(()),
+				<span class="kw-2">&amp;</span>()
 			));
 			<span class="macro">assert_eq!</span>(
 				BlockWeight::&lt;Test&gt;::get().total(),
@@ -1577,7 +1666,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Initial weight from `weights.base_block`
 			</span><span class="macro">assert_eq!</span>(System::block_weight().total(), weights.base_block);
-			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;(PhantomData).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>free, len));
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;(PhantomData).validate_and_prepare(
+				<span class="prelude-val">Some</span>(<span class="number">1</span>).into(),
+				CALL,
+				<span class="kw-2">&amp;</span>free,
+				len
+			));
 			<span class="macro">assert_eq!</span>(
 				System::block_weight().total(),
 				weights.get(DispatchClass::Normal).base_extrinsic + weights.base_block
@@ -1601,9 +1695,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>len = <span class="number">0_usize</span>;
 
-			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>max_normal, len));
+			<span class="kw">let </span>next_len = CheckWeight::&lt;Test&gt;::check_block_length(<span class="kw-2">&amp;</span>max_normal, len).unwrap();
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_prepare(<span class="kw-2">&amp;</span>max_normal, next_len));
 			<span class="macro">assert_eq!</span>(System::block_weight().total(), Weight::from_parts(<span class="number">768</span>, <span class="number">0</span>));
-			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>mandatory, len));
+			<span class="kw">let </span>next_len = CheckWeight::&lt;Test&gt;::check_block_length(<span class="kw-2">&amp;</span>mandatory, len).unwrap();
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_prepare(<span class="kw-2">&amp;</span>mandatory, next_len));
 			<span class="macro">assert_eq!</span>(block_weight_limit(), Weight::from_parts(<span class="number">1024</span>, u64::MAX));
 			<span class="macro">assert_eq!</span>(System::block_weight().total(), Weight::from_parts(<span class="number">1024 </span>+ <span class="number">768</span>, <span class="number">0</span>));
 			<span class="macro">assert_eq!</span>(CheckWeight::&lt;Test&gt;::check_extrinsic_weight(<span class="kw-2">&amp;</span>mandatory), <span class="prelude-val">Ok</span>(()));

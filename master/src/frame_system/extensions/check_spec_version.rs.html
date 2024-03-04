@@ -217,9 +217,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -241,7 +238,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
-	traits::{DispatchInfoOf, SignedExtension},
+	impl_tx_ext_default,
+	traits::{transaction_extension::TransactionExtensionBase, TransactionExtension},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -268,31 +266,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; CheckSpecVersion&lt;T&gt; {
-	<span class="doccomment">/// Create new `SignedExtension` to check runtime version.
+	<span class="doccomment">/// Create new `TransactionExtension` to check runtime version.
 	</span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(sp_std::marker::PhantomData)
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; SignedExtension <span class="kw">for </span>CheckSpecVersion&lt;T&gt; {
-	<span class="kw">type </span>AccountId = T::AccountId;
-	<span class="kw">type </span>Call = &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall;
-	<span class="kw">type </span>AdditionalSigned = u32;
-	<span class="kw">type </span>Pre = ();
+<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; TransactionExtensionBase <span class="kw">for </span>CheckSpecVersion&lt;T&gt; {
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;CheckSpecVersion&quot;</span>;
-
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
+	<span class="kw">type </span>Implicit = u32;
+	<span class="kw">fn </span>implicit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Implicit, TransactionValidityError&gt; {
 		<span class="prelude-val">Ok</span>(&lt;Pallet&lt;T&gt;&gt;::runtime_version().spec_version)
 	}
-
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="self">self</span>.validate(who, call, info, len).map(|<span class="kw">_</span>| ())
+	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_weights::Weight {
+		&lt;T::ExtensionsWeightInfo <span class="kw">as </span><span class="kw">super</span>::WeightInfo&gt;::check_spec_version()
 	}
+}
+<span class="kw">impl</span>&lt;T: Config + Send + Sync, Context&gt; TransactionExtension&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall, Context&gt;
+	<span class="kw">for </span>CheckSpecVersion&lt;T&gt;
+{
+	<span class="kw">type </span>Val = ();
+	<span class="kw">type </span>Pre = ();
+	<span class="macro">impl_tx_ext_default!</span>(&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall; Context; validate prepare);
 }
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["BlockId","DigestItem","DigestItemRef","Era","OpaqueDigestItemId"],"struct":["Block","CheckedExtrinsic","Digest","Header","SignedBlock","SignedPayload","UncheckedExtrinsic"],"type":["Phase"]};
+window.SIDEBAR_ITEMS = {"enum":["BlockId","DigestItem","DigestItemRef","Era","ExtrinsicFormat","OpaqueDigestItemId","Preamble"],"struct":["Block","CheckedExtrinsic","Digest","Header","SignedBlock","SignedPayload","UncheckedExtrinsic"],"type":["Phase"]};

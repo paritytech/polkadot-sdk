@@ -1040,6 +1040,56 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#893" id="893">893</a>
 <a href="#894" id="894">894</a>
 <a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1104,23 +1154,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::{
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, SignedExtension, Zero,
+		Saturating, TransactionExtension, TransactionExtensionBase, Zero,
 	},
 	transaction_validity::{
-		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction,
+		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransaction,
 	},
 	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
+<span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">mod </span>benchmarking;
+
 <span class="kw">mod </span>payment;
 <span class="kw">mod </span>types;
+<span class="kw">pub mod </span>weights;
 
 <span class="doccomment">/// Fee multiplier.
 </span><span class="kw">pub type </span>Multiplier = FixedU128;
@@ -1377,6 +1432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">type </span>RuntimeEvent = ();
 			<span class="kw">type </span>FeeMultiplierUpdate = ();
 			<span class="kw">type </span>OperationalFeeMultiplier = ();
+			<span class="kw">type </span>WeightInfo = ();
 		}
 	}
 
@@ -1429,6 +1485,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// transactions.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>OperationalFeeMultiplier: Get&lt;u8&gt;;
+
+		<span class="doccomment">/// The weight information of this pallet.
+		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 	}
 
 	<span class="attr">#[pallet::type_value]
@@ -1549,11 +1608,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// a very very little potential gain in the future.
 		</span><span class="kw">let </span>dispatch_info = &lt;Extrinsic <span class="kw">as </span>GetDispatchInfo&gt;::get_dispatch_info(<span class="kw-2">&amp;</span>unchecked_extrinsic);
 
-		<span class="kw">let </span>partial_fee = <span class="kw">if </span>unchecked_extrinsic.is_signed().unwrap_or(<span class="bool-val">false</span>) {
-			<span class="self">Self</span>::compute_fee(len, <span class="kw-2">&amp;</span>dispatch_info, <span class="number">0u32</span>.into())
-		} <span class="kw">else </span>{
-			<span class="comment">// Unsigned extrinsics have no partial fee.
+		<span class="kw">let </span>partial_fee = <span class="kw">if </span>unchecked_extrinsic.is_bare() {
+			<span class="comment">// Bare extrinsics have no partial fee.
 			</span><span class="number">0u32</span>.into()
+		} <span class="kw">else </span>{
+			<span class="self">Self</span>::compute_fee(len, <span class="kw-2">&amp;</span>dispatch_info, <span class="number">0u32</span>.into())
 		};
 
 		<span class="kw">let </span>DispatchInfo { weight, class, .. } = dispatch_info;
@@ -1573,11 +1632,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>tip = <span class="number">0u32</span>.into();
 
-		<span class="kw">if </span>unchecked_extrinsic.is_signed().unwrap_or(<span class="bool-val">false</span>) {
-			<span class="self">Self</span>::compute_fee_details(len, <span class="kw-2">&amp;</span>dispatch_info, tip)
-		} <span class="kw">else </span>{
-			<span class="comment">// Unsigned extrinsics have no inclusion fee.
+		<span class="kw">if </span>unchecked_extrinsic.is_bare() {
+			<span class="comment">// Bare extrinsics have no inclusion fee.
 			</span>FeeDetails { inclusion_fee: <span class="prelude-val">None</span>, tip }
+		} <span class="kw">else </span>{
+			<span class="self">Self</span>::compute_fee_details(len, <span class="kw-2">&amp;</span>dispatch_info, tip)
 		}
 	}
 
@@ -1756,7 +1815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		who: <span class="kw-2">&amp;</span>T::AccountId,
 		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
 		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
-		len: usize,
+		fee: BalanceOf&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;
 		(
 			BalanceOf&lt;T&gt;,
@@ -1765,12 +1824,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		TransactionValidityError,
 	&gt; {
 		<span class="kw">let </span>tip = <span class="self">self</span>.<span class="number">0</span>;
-		<span class="kw">let </span>fee = Pallet::&lt;T&gt;::compute_fee(len <span class="kw">as </span>u32, info, tip);
 
 		&lt;&lt;T <span class="kw">as </span>Config&gt;::OnChargeTransaction <span class="kw">as </span>OnChargeTransaction&lt;T&gt;&gt;::withdraw_fee(
 			who, call, info, fee, tip,
 		)
 		.map(|i| (fee, i))
+	}
+
+	<span class="kw">fn </span>can_withdraw_fee(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		who: <span class="kw-2">&amp;</span>T::AccountId,
+		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		len: usize,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, TransactionValidityError&gt; {
+		<span class="kw">let </span>tip = <span class="self">self</span>.<span class="number">0</span>;
+		<span class="kw">let </span>fee = Pallet::&lt;T&gt;::compute_fee(len <span class="kw">as </span>u32, info, tip);
+
+		&lt;&lt;T <span class="kw">as </span>Config&gt;::OnChargeTransaction <span class="kw">as </span>OnChargeTransaction&lt;T&gt;&gt;::can_withdraw_fee(
+			who, call, info, fee, tip,
+		)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(fee)
 	}
 
 	<span class="doccomment">/// Get an appropriate priority for a transaction with the given `DispatchInfo`, encoded length
@@ -1859,67 +1933,93 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; SignedExtension <span class="kw">for </span>ChargeTransactionPayment&lt;T&gt;
+<span class="kw">impl</span>&lt;T: Config&gt; TransactionExtensionBase <span class="kw">for </span>ChargeTransactionPayment&lt;T&gt; {
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;ChargeTransactionPayment&quot;</span>;
+	<span class="kw">type </span>Implicit = ();
+
+	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Weight {
+		T::WeightInfo::charge_transaction_payment()
+	}
+}
+
+<span class="kw">impl</span>&lt;T: Config, Context&gt; TransactionExtension&lt;T::RuntimeCall, Context&gt;
+	<span class="kw">for </span>ChargeTransactionPayment&lt;T&gt;
 <span class="kw">where
 	</span>BalanceOf&lt;T&gt;: Send + Sync + From&lt;u64&gt;,
 	T::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
 {
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;ChargeTransactionPayment&quot;</span>;
-	<span class="kw">type </span>AccountId = T::AccountId;
-	<span class="kw">type </span>Call = T::RuntimeCall;
-	<span class="kw">type </span>AdditionalSigned = ();
+	<span class="kw">type </span>Val = (
+		<span class="comment">// tip
+		</span>BalanceOf&lt;T&gt;,
+		<span class="comment">// who paid the fee
+		</span>T::AccountId,
+		<span class="comment">// computed fee
+		</span>BalanceOf&lt;T&gt;,
+	);
 	<span class="kw">type </span>Pre = (
 		<span class="comment">// tip
 		</span>BalanceOf&lt;T&gt;,
-		<span class="comment">// who paid the fee - this is an option to allow for a Default impl.
-		</span><span class="self">Self</span>::AccountId,
+		<span class="comment">// who paid the fee
+		</span>T::AccountId,
 		<span class="comment">// imbalance resulting from withdrawing the fee
 		</span>&lt;&lt;T <span class="kw">as </span>Config&gt;::OnChargeTransaction <span class="kw">as </span>OnChargeTransaction&lt;T&gt;&gt;::LiquidityInfo,
 	);
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
-	}
 
 	<span class="kw">fn </span>validate(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		origin: &lt;T::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin,
+		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
 		len: usize,
-	) -&gt; TransactionValidity {
-		<span class="kw">let </span>(final_fee, <span class="kw">_</span>) = <span class="self">self</span>.withdraw_fee(who, call, info, len)<span class="question-mark">?</span>;
+		_context: <span class="kw-2">&amp;mut </span>Context,
+		<span class="kw">_</span>: (),
+		_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;
+		(ValidTransaction, <span class="self">Self</span>::Val, &lt;T::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin),
+		TransactionValidityError,
+	&gt; {
+		<span class="kw">let </span>who = frame_system::ensure_signed(origin.clone())
+			.map_err(|<span class="kw">_</span>| InvalidTransaction::BadSigner)<span class="question-mark">?</span>;
+		<span class="kw">let </span>final_fee = <span class="self">self</span>.can_withdraw_fee(<span class="kw-2">&amp;</span>who, call, info, len)<span class="question-mark">?</span>;
 		<span class="kw">let </span>tip = <span class="self">self</span>.<span class="number">0</span>;
-		<span class="prelude-val">Ok</span>(ValidTransaction {
-			priority: <span class="self">Self</span>::get_priority(info, len, tip, final_fee),
-			..Default::default()
-		})
+		<span class="prelude-val">Ok</span>((
+			ValidTransaction {
+				priority: <span class="self">Self</span>::get_priority(info, len, tip, final_fee),
+				..Default::default()
+			},
+			(<span class="self">self</span>.<span class="number">0</span>, who, final_fee),
+			origin,
+		))
 	}
 
-	<span class="kw">fn </span>pre_dispatch(
+	<span class="kw">fn </span>prepare(
 		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
+		val: <span class="self">Self</span>::Val,
+		_origin: <span class="kw-2">&amp;</span>&lt;T::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin,
+		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		_len: usize,
+		_context: <span class="kw-2">&amp;</span>Context,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="kw">let </span>(_fee, imbalance) = <span class="self">self</span>.withdraw_fee(who, call, info, len)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>((<span class="self">self</span>.<span class="number">0</span>, who.clone(), imbalance))
+		<span class="kw">let </span>(tip, who, fee) = val;
+		<span class="comment">// Mutating call to `withdraw_fee` to actually charge for the transaction.
+		</span><span class="kw">let </span>(_final_fee, imbalance) = <span class="self">self</span>.withdraw_fee(<span class="kw-2">&amp;</span>who, call, info, fee)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>((tip, who, imbalance))
 	}
 
 	<span class="kw">fn </span>post_dispatch(
-		maybe_pre: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Pre&gt;,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		(tip, who, imbalance): <span class="self">Self</span>::Pre,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;T::RuntimeCall&gt;,
 		len: usize,
 		_result: <span class="kw-2">&amp;</span>DispatchResult,
+		_context: <span class="kw-2">&amp;</span>Context,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((tip, who, imbalance)) = maybe_pre {
-			<span class="kw">let </span>actual_fee = Pallet::&lt;T&gt;::compute_actual_fee(len <span class="kw">as </span>u32, info, post_info, tip);
-			T::OnChargeTransaction::correct_and_deposit_fee(
-				<span class="kw-2">&amp;</span>who, info, post_info, actual_fee, tip, imbalance,
-			)<span class="question-mark">?</span>;
-			Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::TransactionFeePaid { who, actual_fee, tip });
-		}
+		<span class="kw">let </span>actual_fee = Pallet::&lt;T&gt;::compute_actual_fee(len <span class="kw">as </span>u32, info, post_info, tip);
+		T::OnChargeTransaction::correct_and_deposit_fee(
+			<span class="kw-2">&amp;</span>who, info, post_info, actual_fee, tip, imbalance,
+		)<span class="question-mark">?</span>;
+		Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::TransactionFeePaid { who, actual_fee, tip });
 		<span class="prelude-val">Ok</span>(())
 	}
 }

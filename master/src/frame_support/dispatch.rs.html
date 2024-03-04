@@ -1239,21 +1239,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1092" id="1092">1092</a>
 <a href="#1093" id="1093">1093</a>
 <a href="#1094" id="1094">1094</a>
-<a href="#1095" id="1095">1095</a>
-<a href="#1096" id="1096">1096</a>
-<a href="#1097" id="1097">1097</a>
-<a href="#1098" id="1098">1098</a>
-<a href="#1099" id="1099">1099</a>
-<a href="#1100" id="1100">1100</a>
-<a href="#1101" id="1101">1101</a>
-<a href="#1102" id="1102">1102</a>
-<a href="#1103" id="1103">1103</a>
-<a href="#1104" id="1104">1104</a>
-<a href="#1105" id="1105">1105</a>
-<a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1281,7 +1266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
-	traits::SignedExtension,
+	traits::Dispatchable,
 	DispatchError, RuntimeDebug,
 };
 <span class="kw">use </span>sp_std::fmt;
@@ -1524,7 +1509,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	.calc_actual_weight(info)
 }
 
-<span class="doccomment">/// Extract the actual pays_fee from a dispatch result if any or fall back to the default weight.
+<span class="doccomment">/// Extract the actual pays_fee from a dispatch result if any or fall back to the default
+/// weight.
 </span><span class="kw">pub fn </span>extract_actual_pays_fee(result: <span class="kw-2">&amp;</span>DispatchResultWithPostInfo, info: <span class="kw-2">&amp;</span>DispatchInfo) -&gt; Pays {
 	<span class="kw">match </span>result {
 		<span class="prelude-val">Ok</span>(post_info) =&gt; post_info,
@@ -1624,11 +1610,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Implementation for unchecked extrinsic.
-</span><span class="kw">impl</span>&lt;Address, Call, Signature, Extra&gt; GetDispatchInfo
-	<span class="kw">for </span>UncheckedExtrinsic&lt;Address, Call, Signature, Extra&gt;
+</span><span class="kw">impl</span>&lt;Address, Call, Signature, Extension&gt; GetDispatchInfo
+	<span class="kw">for </span>UncheckedExtrinsic&lt;Address, Call, Signature, Extension&gt;
 <span class="kw">where
-	</span>Call: GetDispatchInfo,
-	Extra: SignedExtension,
+	</span>Call: GetDispatchInfo + Dispatchable,
 {
 	<span class="kw">fn </span>get_dispatch_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DispatchInfo {
 		<span class="self">self</span>.function.get_dispatch_info()
@@ -1636,27 +1621,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Implementation for checked extrinsic.
-</span><span class="kw">impl</span>&lt;AccountId, Call, Extra&gt; GetDispatchInfo <span class="kw">for </span>CheckedExtrinsic&lt;AccountId, Call, Extra&gt;
+</span><span class="kw">impl</span>&lt;AccountId, Call, Extension&gt; GetDispatchInfo <span class="kw">for </span>CheckedExtrinsic&lt;AccountId, Call, Extension&gt;
 <span class="kw">where
 	</span>Call: GetDispatchInfo,
 {
 	<span class="kw">fn </span>get_dispatch_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DispatchInfo {
 		<span class="self">self</span>.function.get_dispatch_info()
-	}
-}
-
-<span class="doccomment">/// Implementation for test extrinsic.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;Call: Encode + GetDispatchInfo, Extra: Encode&gt; GetDispatchInfo
-	<span class="kw">for </span>sp_runtime::testing::TestXt&lt;Call, Extra&gt;
-{
-	<span class="kw">fn </span>get_dispatch_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DispatchInfo {
-		<span class="comment">// for testing: weight == size.
-		</span>DispatchInfo {
-			weight: Weight::from_parts(<span class="self">self</span>.encode().len() <span class="kw">as _</span>, <span class="number">0</span>),
-			pays_fee: Pays::Yes,
-			class: <span class="self">self</span>.call.get_dispatch_info().class,
-		}
 	}
 }
 

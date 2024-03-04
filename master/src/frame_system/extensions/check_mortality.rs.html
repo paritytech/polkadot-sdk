@@ -293,6 +293,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -315,10 +322,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
 	generic::Era,
-	traits::{DispatchInfoOf, SaturatedConversion, SignedExtension},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+	impl_tx_ext_default,
+	traits::{
+		DispatchInfoOf, SaturatedConversion, TransactionExtension, TransactionExtensionBase,
+		ValidateResult,
 	},
+	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
 
 <span class="doccomment">/// Check for transaction mortality.
@@ -349,29 +358,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; SignedExtension <span class="kw">for </span>CheckMortality&lt;T&gt; {
-	<span class="kw">type </span>AccountId = T::AccountId;
-	<span class="kw">type </span>Call = T::RuntimeCall;
-	<span class="kw">type </span>AdditionalSigned = T::Hash;
-	<span class="kw">type </span>Pre = ();
+<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; TransactionExtensionBase <span class="kw">for </span>CheckMortality&lt;T&gt; {
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;CheckMortality&quot;</span>;
+	<span class="kw">type </span>Implicit = T::Hash;
 
-	<span class="kw">fn </span>validate(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		_len: usize,
-	) -&gt; TransactionValidity {
-		<span class="kw">let </span>current_u64 = &lt;Pallet&lt;T&gt;&gt;::block_number().saturated_into::&lt;u64&gt;();
-		<span class="kw">let </span>valid_till = <span class="self">self</span>.<span class="number">0</span>.death(current_u64);
-		<span class="prelude-val">Ok</span>(ValidTransaction {
-			longevity: valid_till.saturating_sub(current_u64),
-			..Default::default()
-		})
-	}
-
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
+	<span class="kw">fn </span>implicit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Implicit, TransactionValidityError&gt; {
 		<span class="kw">let </span>current_u64 = &lt;Pallet&lt;T&gt;&gt;::block_number().saturated_into::&lt;u64&gt;();
 		<span class="kw">let </span>n = <span class="self">self</span>.<span class="number">0</span>.birth(current_u64).saturated_into::&lt;BlockNumberFor&lt;T&gt;&gt;();
 		<span class="kw">if </span>!&lt;BlockHash&lt;T&gt;&gt;::contains_key(n) {
@@ -380,16 +371,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(&lt;Pallet&lt;T&gt;&gt;::block_hash(n))
 		}
 	}
-
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="self">self</span>.validate(who, call, info, len).map(|<span class="kw">_</span>| ())
+	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_weights::Weight {
+		&lt;T::ExtensionsWeightInfo <span class="kw">as </span><span class="kw">super</span>::WeightInfo&gt;::check_mortality()
 	}
+}
+<span class="kw">impl</span>&lt;T: Config + Send + Sync, Context&gt; TransactionExtension&lt;T::RuntimeCall, Context&gt;
+	<span class="kw">for </span>CheckMortality&lt;T&gt;
+{
+	<span class="kw">type </span>Pre = ();
+	<span class="kw">type </span>Val = ();
+
+	<span class="kw">fn </span>validate(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		origin: &lt;T <span class="kw">as </span>Config&gt;::RuntimeOrigin,
+		_call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		_len: usize,
+		_context: <span class="kw-2">&amp;mut </span>Context,
+		_self_implicit: <span class="self">Self</span>::Implicit,
+		_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; ValidateResult&lt;<span class="self">Self</span>::Val, T::RuntimeCall&gt; {
+		<span class="kw">let </span>current_u64 = &lt;Pallet&lt;T&gt;&gt;::block_number().saturated_into::&lt;u64&gt;();
+		<span class="kw">let </span>valid_till = <span class="self">self</span>.<span class="number">0</span>.death(current_u64);
+		<span class="prelude-val">Ok</span>((
+			ValidTransaction {
+				longevity: valid_till.saturating_sub(current_u64),
+				..Default::default()
+			},
+			(),
+			origin,
+		))
+	}
+	<span class="macro">impl_tx_ext_default!</span>(T::RuntimeCall; Context; prepare);
 }
 
 <span class="attr">#[cfg(test)]
@@ -401,23 +414,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		weights::Weight,
 	};
 	<span class="kw">use </span>sp_core::H256;
+	<span class="kw">use </span>sp_runtime::traits::DispatchTransaction;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>signed_ext_check_era_should_work() {
 		new_test_ext().execute_with(|| {
 			<span class="comment">// future
 			</span><span class="macro">assert_eq!</span>(
-				CheckMortality::&lt;Test&gt;::from(Era::mortal(<span class="number">4</span>, <span class="number">2</span>))
-					.additional_signed()
-					.err()
-					.unwrap(),
+				CheckMortality::&lt;Test&gt;::from(Era::mortal(<span class="number">4</span>, <span class="number">2</span>)).implicit().err().unwrap(),
 				InvalidTransaction::AncientBirthBlock.into(),
 			);
 
 			<span class="comment">// correct
 			</span>System::set_block_number(<span class="number">13</span>);
 			&lt;BlockHash&lt;Test&gt;&gt;::insert(<span class="number">12</span>, H256::repeat_byte(<span class="number">1</span>));
-			<span class="macro">assert!</span>(CheckMortality::&lt;Test&gt;::from(Era::mortal(<span class="number">4</span>, <span class="number">12</span>)).additional_signed().is_ok());
+			<span class="macro">assert!</span>(CheckMortality::&lt;Test&gt;::from(Era::mortal(<span class="number">4</span>, <span class="number">12</span>)).implicit().is_ok());
 		})
 	}
 
@@ -437,7 +448,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			System::set_block_number(<span class="number">17</span>);
 			&lt;BlockHash&lt;Test&gt;&gt;::insert(<span class="number">16</span>, H256::repeat_byte(<span class="number">1</span>));
 
-			<span class="macro">assert_eq!</span>(ext.validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>normal, len).unwrap().longevity, <span class="number">15</span>);
+			<span class="macro">assert_eq!</span>(
+				ext.validate_only(<span class="prelude-val">Some</span>(<span class="number">1</span>).into(), CALL, <span class="kw-2">&amp;</span>normal, len).unwrap().<span class="number">0</span>.longevity,
+				<span class="number">15
+			</span>);
 		})
 	}
 }

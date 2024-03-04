@@ -768,6 +768,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
 <a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1252,7 +1271,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>Call;
 
 	<span class="doccomment">/// The caller origin, overarching type of all pallets origins.
-	</span><span class="kw">type </span>PalletsOrigin: Into&lt;<span class="self">Self</span>&gt; + CallerTrait&lt;<span class="self">Self</span>::AccountId&gt; + MaxEncodedLen;
+	</span><span class="kw">type </span>PalletsOrigin: Send + Sync + Into&lt;<span class="self">Self</span>&gt; + CallerTrait&lt;<span class="self">Self</span>::AccountId&gt; + MaxEncodedLen;
 
 	<span class="doccomment">/// The AccountId used across the system.
 	</span><span class="kw">type </span>AccountId;
@@ -1265,6 +1284,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Replace the caller with caller from the other origin
 	</span><span class="kw">fn </span>set_caller_from(<span class="kw-2">&amp;mut </span><span class="self">self</span>, other: <span class="kw">impl </span>Into&lt;<span class="self">Self</span>&gt;);
+
+	<span class="doccomment">/// Replace the caller with caller from the other origin
+	</span><span class="kw">fn </span>set_caller(<span class="kw-2">&amp;mut </span><span class="self">self</span>, caller: <span class="self">Self</span>::PalletsOrigin);
+
+	<span class="doccomment">/// Replace the caller with caller from the other origin
+	</span><span class="kw">fn </span>set_caller_from_signed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, caller_account: <span class="self">Self</span>::AccountId) {
+		<span class="self">self</span>.set_caller(<span class="self">Self</span>::PalletsOrigin::from(RawOrigin::Signed(caller_account)))
+	}
 
 	<span class="doccomment">/// Filter the call if caller is not root, if false is returned then the call must be filtered
 	/// out.
@@ -1313,6 +1340,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Extract a reference to the sytsem origin, if that&#39;s what the caller is.
 	</span><span class="kw">fn </span>as_system_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>RawOrigin&lt;<span class="self">Self</span>::AccountId&gt;&gt; {
 		<span class="self">self</span>.caller().as_system_ref()
+	}
+
+	<span class="doccomment">/// Extract a reference to the sytsem signer, if that&#39;s what the caller is.
+	</span><span class="kw">fn </span>as_system_signer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId&gt; {
+		<span class="self">self</span>.caller().as_system_ref().and_then(|s| {
+			<span class="kw">if let </span>RawOrigin::Signed(<span class="kw-2">ref </span>who) = s {
+				<span class="prelude-val">Some</span>(who)
+			} <span class="kw">else </span>{
+				<span class="prelude-val">None
+			</span>}
+		})
 	}
 }
 

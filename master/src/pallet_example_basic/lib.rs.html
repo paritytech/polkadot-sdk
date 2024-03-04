@@ -676,10 +676,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -728,9 +724,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   use the [`Config::WeightInfo`] trait to calculate call weights. This can also be overridden,
 //!   as demonstrated by [`Call::set_dummy`].
 //! - A private function that performs a storage update.
-//! - A simple signed extension implementation (see: [`sp_runtime::traits::SignedExtension`]) which
-//!   increases the priority of the [`Call::set_dummy`] if it&#39;s present and drops any transaction
-//!   with an encoded length higher than 200 bytes.
+//! - A simple transaction extension implementation (see:
+//!   [`sp_runtime::traits::TransactionExtension`]) which increases the priority of the
+//!   [`Call::set_dummy`] if it&#39;s present and drops any transaction with an encoded length higher
+//!   than 200 bytes.
 
 </span><span class="comment">// Ensure we&#39;re `no_std` when compiling for Wasm.
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
@@ -746,10 +743,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>log::info;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
-	traits::{Bounded, DispatchInfoOf, SaturatedConversion, Saturating, SignedExtension},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+	impl_tx_ext_default,
+	traits::{
+		Bounded, DispatchInfoOf, OriginOf, SaturatedConversion, Saturating, TransactionExtension,
+		TransactionExtensionBase, ValidateResult,
 	},
+	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
 <span class="kw">use </span>sp_std::vec::Vec;
 
@@ -1122,8 +1121,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Similar to other FRAME pallets, your pallet can also define a signed extension and perform some
 // checks and [pre/post]processing [before/after] the transaction. A signed extension can be any
-// decodable type that implements `SignedExtension`. See the trait definition for the full list of
-// bounds. As a convention, you can follow this approach to create an extension for your pallet:
+// decodable type that implements `TransactionExtension`. See the trait definition for the full list
+// of bounds. As a convention, you can follow this approach to create an extension for your pallet:
 //   - If the extension does not carry any data, then use a tuple struct with just a `marker`
 //     (needed for the compiler to accept `T: Config`) will suffice.
 //   - Otherwise, create a tuple struct which contains the external data. Of course, for the entire
@@ -1137,18 +1136,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //
 // Using the extension, you can add some hooks to the life cycle of each transaction. Note that by
 // default, an extension is applied to all `Call` functions (i.e. all transactions). the `Call` enum
-// variant is given to each function of `SignedExtension`. Hence, you can filter based on pallet or
-// a particular call if needed.
+// variant is given to each function of `TransactionExtension`. Hence, you can filter based on
+// pallet or a particular call if needed.
 //
 // Some extra information, such as encoded length, some static dispatch info like weight and the
 // sender of the transaction (if signed) are also provided.
 //
 // The full list of hooks that can be added to a signed extension can be found
-// [here](https://paritytech.github.io/polkadot-sdk/master/sp_runtime/traits/trait.SignedExtension.html).
+// [here](https://paritytech.github.io/polkadot-sdk/master/sp_runtime/traits/trait.TransactionExtension.html).
 //
 // The signed extensions are aggregated in the runtime file of a substrate chain. All extensions
 // should be aggregated in a tuple and passed to the `CheckedExtrinsic` and `UncheckedExtrinsic`
-// types defined in the runtime. Lookup `pub type SignedExtra = (...)` in `node/runtime` and
+// types defined in the runtime. Lookup `pub type TxExtension = (...)` in `node/runtime` and
 // `node-template` for an example of this.
 
 </span><span class="doccomment">/// A simple signed extension that checks for the `set_dummy` call. In that case, it increases the
@@ -1166,53 +1165,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; SignedExtension <span class="kw">for </span>WatchDummy&lt;T&gt;
+<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; TransactionExtensionBase <span class="kw">for </span>WatchDummy&lt;T&gt; {
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;WatchDummy&quot;</span>;
+	<span class="kw">type </span>Implicit = ();
+}
+<span class="kw">impl</span>&lt;T: Config + Send + Sync, Context&gt;
+	TransactionExtension&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall, Context&gt; <span class="kw">for </span>WatchDummy&lt;T&gt;
 <span class="kw">where
 	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: IsSubType&lt;Call&lt;T&gt;&gt;,
 {
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;WatchDummy&quot;</span>;
-	<span class="kw">type </span>AccountId = T::AccountId;
-	<span class="kw">type </span>Call = &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall;
-	<span class="kw">type </span>AdditionalSigned = ();
 	<span class="kw">type </span>Pre = ();
-
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::result::Result&lt;(), TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
-	}
-
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="self">self</span>.validate(who, call, info, len).map(|<span class="kw">_</span>| ())
-	}
+	<span class="kw">type </span>Val = ();
 
 	<span class="kw">fn </span>validate(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		origin: OriginOf&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall&gt;,
+		call: <span class="kw-2">&amp;</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall&gt;,
 		len: usize,
-	) -&gt; TransactionValidity {
+		_context: <span class="kw-2">&amp;mut </span>Context,
+		_self_implicit: <span class="self">Self</span>::Implicit,
+		_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; ValidateResult&lt;<span class="self">Self</span>::Val, &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall&gt; {
 		<span class="comment">// if the transaction is too big, just drop it.
 		</span><span class="kw">if </span>len &gt; <span class="number">200 </span>{
-			<span class="kw">return </span>InvalidTransaction::ExhaustsResources.into()
+			<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into())
 		}
 
 		<span class="comment">// check for `set_dummy`
-		</span><span class="kw">match </span>call.is_sub_type() {
+		</span><span class="kw">let </span>validity = <span class="kw">match </span>call.is_sub_type() {
 			<span class="prelude-val">Some</span>(Call::set_dummy { .. }) =&gt; {
 				sp_runtime::print(<span class="string">&quot;set_dummy was received.&quot;</span>);
 
 				<span class="kw">let </span>valid_tx =
 					ValidTransaction { priority: Bounded::max_value(), ..Default::default() };
-				<span class="prelude-val">Ok</span>(valid_tx)
+				valid_tx
 			},
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(Default::default()),
-		}
+			<span class="kw">_ </span>=&gt; Default::default(),
+		};
+		<span class="prelude-val">Ok</span>((validity, (), origin))
 	}
+	<span class="macro">impl_tx_ext_default!</span>(&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall; Context; prepare);
 }
 </code></pre></div></section></main></body></html>

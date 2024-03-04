@@ -476,7 +476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundSignedExtensionAdapter,
+		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundTransactionExtensionAdapter,
 		RefundableMessagesLane,
 	},
 };
@@ -604,7 +604,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Signed extension that refunds relayers that are delivering messages from the Rococo Bulletin
 /// chain.
-</span><span class="kw">pub type </span>OnBridgeHubRococoRefundRococoBulletinMessages = RefundSignedExtensionAdapter&lt;
+</span><span class="kw">pub type </span>OnBridgeHubRococoRefundRococoBulletinMessages = RefundTransactionExtensionAdapter&lt;
 	RefundBridgedGrandpaMessages&lt;
 		Runtime,
 		BridgeGrandpaRococoBulletinInstance,

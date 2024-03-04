@@ -415,6 +415,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -616,11 +620,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>sp_runtime::testing::{Block <span class="kw">as </span>TBlock, ExtrinsicWrapper, Header, H256};
+	<span class="kw">use </span>sp_runtime::{
+		generic::UncheckedExtrinsic,
+		testing::{Block <span class="kw">as </span>TBlock, Header, MockCallU64, H256},
+	};
 	<span class="kw">use </span>std::sync::Arc;
 	<span class="kw">use </span>tokio::sync::Mutex;
 
-	<span class="kw">type </span>Block = TBlock&lt;ExtrinsicWrapper&lt;()&gt;&gt;;
+	<span class="kw">type </span>UncheckedXt = UncheckedExtrinsic&lt;u64, MockCallU64, (), ()&gt;;
+	<span class="kw">type </span>Block = TBlock&lt;UncheckedXt&gt;;
 	<span class="kw">type </span>BlockNumber = u64;
 	<span class="kw">type </span>Hash = H256;
 

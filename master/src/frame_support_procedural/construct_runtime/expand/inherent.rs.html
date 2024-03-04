@@ -397,8 +397,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -474,11 +472,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				#(
 					#pallet_attrs
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(inherent) = #pallet_names::create_inherent(<span class="self">self</span>) {
-						<span class="kw">let </span>inherent = &lt;#unchecked_extrinsic <span class="kw">as </span>#scrate::sp_runtime::traits::Extrinsic&gt;::new(
+						<span class="kw">let </span>inherent = &lt;#unchecked_extrinsic <span class="kw">as </span>#scrate::sp_runtime::traits::Extrinsic&gt;::new_inherent(
 							inherent.into(),
-							<span class="prelude-val">None</span>,
-						).expect(<span class="string">&quot;Runtime UncheckedExtrinsic is not Opaque, so it has to return \
-							`Some`; qed&quot;</span>);
+						);
 
 						inherents.push(inherent);
 					}
@@ -524,7 +520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">for </span>xt <span class="kw">in </span>block.extrinsics() {
 					<span class="comment">// Inherents are before any other extrinsics.
 					// And signed extrinsics are not inherents.
-					</span><span class="kw">if </span>#scrate::sp_runtime::traits::Extrinsic::is_signed(xt).unwrap_or(<span class="bool-val">false</span>) {
+					</span><span class="kw">if </span>!(#scrate::sp_runtime::traits::Extrinsic::is_bare(xt)) {
 						<span class="kw">break
 					</span>}
 
@@ -562,10 +558,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">match </span>#pallet_names::is_inherent_required(<span class="self">self</span>) {
 						<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(e)) =&gt; {
 							<span class="kw">let </span>found = block.extrinsics().iter().any(|xt| {
-								<span class="kw">let </span>is_signed = #scrate::sp_runtime::traits::Extrinsic::is_signed(xt)
-									.unwrap_or(<span class="bool-val">false</span>);
+								<span class="kw">let </span>is_bare = #scrate::sp_runtime::traits::Extrinsic::is_bare(xt);
 
-								<span class="kw">if </span>!is_signed {
+								<span class="kw">if </span>is_bare {
 									<span class="kw">let </span>call = &lt;
 										#unchecked_extrinsic <span class="kw">as </span>ExtrinsicCall
 									&gt;::call(xt);
@@ -610,8 +605,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">use </span>#scrate::inherent::ProvideInherent;
 				<span class="kw">use </span>#scrate::traits::{IsSubType, ExtrinsicCall};
 
-				<span class="kw">if </span>#scrate::sp_runtime::traits::Extrinsic::is_signed(ext).unwrap_or(<span class="bool-val">false</span>) {
-					<span class="comment">// Signed extrinsics are never inherents.
+				<span class="kw">let </span>is_bare = #scrate::sp_runtime::traits::Extrinsic::is_bare(ext);
+				<span class="kw">if </span>!is_bare {
+					<span class="comment">// Signed extrinsics are not inherents.
 					</span><span class="kw">return </span><span class="bool-val">false
 				</span>}
 

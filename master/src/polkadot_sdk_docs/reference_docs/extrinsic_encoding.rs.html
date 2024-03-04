@@ -422,6 +422,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
 <a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Constructing and Signing Extrinsics
 //!
 //! Extrinsics are payloads that are stored in blocks which are responsible for altering the state
@@ -480,7 +497,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!     version_and_signed,
 //!     from_address,
 //!     signature,
-//!     signed_extensions_extra,
+//!     transaction_extensions_extra,
 //! )
 //! ```
 //!
@@ -514,31 +531,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! The signature type used on the Polkadot relay chain is [`sp_runtime::MultiSignature`]; the
 //! variants there are the types of signature that can be provided.
 //!
-//! ### signed_extensions_extra
+//! ### transaction_extensions_extra
 //!
 //! This is the concatenation of the [SCALE encoded][frame::deps::codec] bytes representing each of
-//! the [_signed extensions_][sp_runtime::traits::SignedExtension], and are configured by the
-//! fourth generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`]. Learn more about
-//! signed extensions [here][crate::reference_docs::signed_extensions].
+//! the [_transaction extensions_][sp_runtime::traits::TransactionExtension], and are configured by
+//! the fourth generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`]. Learn more about
+//! transaction extensions [here][crate::reference_docs::transaction_extensions].
 //!
-//! When it comes to constructing an extrinsic, each signed extension has two things that we are
-//! interested in here:
+//! When it comes to constructing an extrinsic, each transaction extension has two things that we
+//! are interested in here:
 //!
-//! - The actual SCALE encoding of the signed extension type itself; this is what will form our
-//!   `signed_extensions_extra` bytes.
-//! - An `AdditionalSigned` type. This is SCALE encoded into the `signed_extensions_additional` data
-//!   of the _signed payload_ (see below).
+//! - The actual SCALE encoding of the transaction extension type itself; this is what will form our
+//!   `transaction_extensions_extra` bytes.
+//! - An `Implicit` type. This is SCALE encoded into the `transaction_extensions_implicit` data of
+//!   the _signed payload_ (see below).
 //!
 //! Either (or both) of these can encode to zero bytes.
 //!
-//! Each chain configures the set of signed extensions that it uses in its runtime configuration.
-//! At the time of writing, Polkadot configures them
+//! Each chain configures the set of transaction extensions that it uses in its runtime
+//! configuration. At the time of writing, Polkadot configures them
 //! [here](https://github.com/polkadot-fellows/runtimes/blob/1dc04eb954eadf8aadb5d83990b89662dbb5a074/relay/polkadot/src/lib.rs#L1432C25-L1432C25).
-//! Some of the common signed extensions are defined
-//! [here][frame::deps::frame_system#signed-extensions].
+//! Some of the common transaction extensions are defined
+//! [here][frame::deps::frame_system#transaction-extensions].
 //!
-//! Information about exactly which signed extensions are present on a chain and in what order is
-//! also a part of the metadata for the chain. For V15 metadata, it can be
+//! Information about exactly which transaction extensions are present on a chain and in what order
+//! is also a part of the metadata for the chain. For V15 metadata, it can be
 //! [found here][frame::deps::frame_support::__private::metadata::v15::ExtrinsicMetadata].
 //!
 //! ## call_data
@@ -587,8 +604,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ```text
 //! signed_payload = concat(
 //!     call_data,
-//!     signed_extensions_extra,
-//!     signed_extensions_additional,
+//!     transaction_extensions_extra,
+//!     transaction_extensions_implicit,
 //! )
 //!
 //! if length(signed_payload) &gt; 256 {
@@ -596,16 +613,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! }
 //! ```
 //!
-//! The bytes representing `call_data` and `signed_extensions_extra` can be obtained as described
-//! above. `signed_extensions_additional` is constructed by SCALE encoding the
-//! [&quot;additional signed&quot; data][sp_runtime::traits::SignedExtension::AdditionalSigned] for each
-//! signed extension that the chain is using, in order.
+//! The bytes representing `call_data` and `transaction_extensions_extra` can be obtained as
+//! descibed above. `transaction_extensions_implicit` is constructed by SCALE encoding the
+//! [&quot;implicit&quot; data][sp_runtime::traits::TransactionExtensionBase::Implicit] for each
+//! transaction extension that the chain is using, in order.
 //!
 //! Once we&#39;ve concatenated those together, we hash the result if it&#39;s greater than 256 bytes in
 //! length using a Blake2 256bit hasher.
 //!
 //! The [`sp_runtime::generic::SignedPayload`] type takes care of assembling the correct payload
-//! for us, given `call_data` and a tuple of signed extensions.
+//! for us, given `call_data` and a tuple of transaction extensions.
 //!
 //! # Example Encoding
 //!
@@ -616,11 +633,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[docify::export]
 </span><span class="kw">pub mod </span>call_data {
 	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+	<span class="kw">use </span>sp_runtime::{traits::Dispatchable, DispatchResultWithInfo};
 
 	<span class="comment">// The outer enum composes calls within
 	// different pallets together. We have two
 	// pallets, &quot;PalletA&quot; and &quot;PalletB&quot;.
-	</span><span class="attr">#[derive(Encode, Decode)]
+	</span><span class="attr">#[derive(Encode, Decode, Clone)]
 	</span><span class="kw">pub enum </span>Call {
 		<span class="attr">#[codec(index = <span class="number">0</span>)]
 		</span>PalletA(PalletACall),
@@ -631,23 +649,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// An inner enum represents the calls within
 	// a specific pallet. &quot;PalletA&quot; has one call,
 	// &quot;Foo&quot;.
-	</span><span class="attr">#[derive(Encode, Decode)]
+	</span><span class="attr">#[derive(Encode, Decode, Clone)]
 	</span><span class="kw">pub enum </span>PalletACall {
 		<span class="attr">#[codec(index = <span class="number">0</span>)]
 		</span>Foo(String),
 	}
 
-	<span class="attr">#[derive(Encode, Decode)]
+	<span class="attr">#[derive(Encode, Decode, Clone)]
 	</span><span class="kw">pub enum </span>PalletBCall {
 		<span class="attr">#[codec(index = <span class="number">0</span>)]
 		</span>Bar(String),
+	}
+
+	<span class="kw">impl </span>Dispatchable <span class="kw">for </span>Call {
+		<span class="kw">type </span>RuntimeOrigin = ();
+		<span class="kw">type </span>Config = ();
+		<span class="kw">type </span>Info = ();
+		<span class="kw">type </span>PostInfo = ();
+		<span class="kw">fn </span>dispatch(<span class="self">self</span>, _origin: <span class="self">Self</span>::RuntimeOrigin) -&gt; DispatchResultWithInfo&lt;<span class="self">Self</span>::PostInfo&gt; {
+			<span class="prelude-val">Ok</span>(())
+		}
 	}
 }
 
 <span class="attr">#[docify::export]
 </span><span class="kw">pub mod </span>encoding_example {
 	<span class="kw">use </span><span class="kw">super</span>::call_data::{Call, PalletACall};
-	<span class="kw">use </span><span class="kw">crate</span>::reference_docs::signed_extensions::signed_extensions_example;
+	<span class="kw">use </span><span class="kw">crate</span>::reference_docs::transaction_extensions::transaction_extensions_example;
 	<span class="kw">use </span>parity_scale_codec::Encode;
 	<span class="kw">use </span>sp_core::crypto::AccountId32;
 	<span class="kw">use </span>sp_keyring::sr25519::Keyring;
@@ -656,34 +684,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		MultiAddress, MultiSignature,
 	};
 
-	<span class="comment">// Define some signed extensions to use. We&#39;ll use a couple of examples
-	// from the signed extensions reference doc.
-	</span><span class="kw">type </span>SignedExtensions =
-		(signed_extensions_example::AddToPayload, signed_extensions_example::AddToSignaturePayload);
+	<span class="comment">// Define some transaction extensions to use. We&#39;ll use a couple of examples
+	// from the transaction extensions reference doc.
+	</span><span class="kw">type </span>TransactionExtensions = (
+		transaction_extensions_example::AddToPayload,
+		transaction_extensions_example::AddToSignaturePayload,
+	);
 
 	<span class="comment">// We&#39;ll use `UncheckedExtrinsic` to encode our extrinsic for us. We set
 	// the address and signature type to those used on Polkadot, use our custom
-	// `Call` type, and use our custom set of `SignedExtensions`.
-	</span><span class="kw">type </span>Extrinsic =
-		UncheckedExtrinsic&lt;MultiAddress&lt;AccountId32, ()&gt;, Call, MultiSignature, SignedExtensions&gt;;
+	// `Call` type, and use our custom set of `TransactionExtensions`.
+	</span><span class="kw">type </span>Extrinsic = UncheckedExtrinsic&lt;
+		MultiAddress&lt;AccountId32, ()&gt;,
+		Call,
+		MultiSignature,
+		TransactionExtensions,
+	&gt;;
 
 	<span class="kw">pub fn </span>encode_demo_extrinsic() -&gt; Vec&lt;u8&gt; {
 		<span class="comment">// The &quot;from&quot; address will be our Alice dev account.
 		</span><span class="kw">let </span>from_address = MultiAddress::&lt;AccountId32, ()&gt;::Id(Keyring::Alice.to_account_id());
 
-		<span class="comment">// We provide some values for our expected signed extensions.
-		</span><span class="kw">let </span>signed_extensions = (
-			signed_extensions_example::AddToPayload(<span class="number">1</span>),
-			signed_extensions_example::AddToSignaturePayload,
+		<span class="comment">// We provide some values for our expected transaction extensions.
+		</span><span class="kw">let </span>transaction_extensions = (
+			transaction_extensions_example::AddToPayload(<span class="number">1</span>),
+			transaction_extensions_example::AddToSignaturePayload,
 		);
 
 		<span class="comment">// Construct our call data:
 		</span><span class="kw">let </span>call_data = Call::PalletA(PalletACall::Foo(<span class="string">&quot;Hello&quot;</span>.to_string()));
 
 		<span class="comment">// The signed payload. This takes care of encoding the call_data,
-		// signed_extensions_extra and signed_extensions_additional, and hashing
+		// transaction_extensions_extra and transaction_extensions_implicit, and hashing
 		// the result if it&#39;s &gt; 256 bytes:
-		</span><span class="kw">let </span>signed_payload = SignedPayload::new(<span class="kw-2">&amp;</span>call_data, signed_extensions.clone());
+		</span><span class="kw">let </span>signed_payload = SignedPayload::new(call_data.clone(), transaction_extensions.clone());
 
 		<span class="comment">// Sign the signed payload with our Alice dev account&#39;s private key,
 		// and wrap the signature into the expected type:
@@ -693,7 +727,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="comment">// Now, we can build and encode our extrinsic:
-		</span><span class="kw">let </span>ext = Extrinsic::new_signed(call_data, from_address, signature, signed_extensions);
+		</span><span class="kw">let </span>ext = Extrinsic::new_signed(call_data, from_address, signature, transaction_extensions);
 
 		<span class="kw">let </span>encoded_ext = ext.encode();
 		encoded_ext

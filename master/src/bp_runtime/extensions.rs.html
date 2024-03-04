@@ -299,6 +299,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -321,136 +324,139 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>impl_trait_for_tuples::impl_for_tuples;
 <span class="kw">use </span>scale_info::{StaticTypeInfo, TypeInfo};
 <span class="kw">use </span>sp_runtime::{
-	traits::{DispatchInfoOf, SignedExtension},
+	impl_tx_ext_default,
+	traits::{Dispatchable, TransactionExtension, TransactionExtensionBase},
 	transaction_validity::TransactionValidityError,
 };
 <span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData};
 
-<span class="doccomment">/// Trait that describes some properties of a `SignedExtension` that are needed in order to send a
-/// transaction to the chain.
-</span><span class="kw">pub trait </span>SignedExtensionSchema: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo {
+<span class="doccomment">/// Trait that describes some properties of a `TransactionExtension` that are needed in order to
+/// send a transaction to the chain.
+</span><span class="kw">pub trait </span>TransactionExtensionSchema:
+	Encode + Decode + Debug + Eq + Clone + StaticTypeInfo
+{
 	<span class="doccomment">/// A type of the data encoded as part of the transaction.
 	</span><span class="kw">type </span>Payload: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
 	<span class="doccomment">/// Parameters which are part of the payload used to produce transaction signature,
 	/// but don&#39;t end up in the transaction itself (i.e. inherent part of the runtime).
-	</span><span class="kw">type </span>AdditionalSigned: Encode + Debug + Eq + Clone + StaticTypeInfo;
+	</span><span class="kw">type </span>Implicit: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
 }
 
-<span class="kw">impl </span>SignedExtensionSchema <span class="kw">for </span>() {
+<span class="kw">impl </span>TransactionExtensionSchema <span class="kw">for </span>() {
 	<span class="kw">type </span>Payload = ();
-	<span class="kw">type </span>AdditionalSigned = ();
+	<span class="kw">type </span>Implicit = ();
 }
 
-<span class="doccomment">/// An implementation of `SignedExtensionSchema` using generic params.
+<span class="doccomment">/// An implementation of `TransactionExtensionSchema` using generic params.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo)]
-</span><span class="kw">pub struct </span>GenericSignedExtensionSchema&lt;P, S&gt;(PhantomData&lt;(P, S)&gt;);
+</span><span class="kw">pub struct </span>GenericTransactionExtensionSchema&lt;P, S&gt;(PhantomData&lt;(P, S)&gt;);
 
-<span class="kw">impl</span>&lt;P, S&gt; SignedExtensionSchema <span class="kw">for </span>GenericSignedExtensionSchema&lt;P, S&gt;
+<span class="kw">impl</span>&lt;P, S&gt; TransactionExtensionSchema <span class="kw">for </span>GenericTransactionExtensionSchema&lt;P, S&gt;
 <span class="kw">where
 	</span>P: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo,
-	S: Encode + Debug + Eq + Clone + StaticTypeInfo,
+	S: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo,
 {
 	<span class="kw">type </span>Payload = P;
-	<span class="kw">type </span>AdditionalSigned = S;
+	<span class="kw">type </span>Implicit = S;
 }
 
-<span class="doccomment">/// The `SignedExtensionSchema` for `frame_system::CheckNonZeroSender`.
-</span><span class="kw">pub type </span>CheckNonZeroSender = GenericSignedExtensionSchema&lt;(), ()&gt;;
+<span class="doccomment">/// The `TransactionExtensionSchema` for `frame_system::CheckNonZeroSender`.
+</span><span class="kw">pub type </span>CheckNonZeroSender = GenericTransactionExtensionSchema&lt;(), ()&gt;;
 
-<span class="doccomment">/// The `SignedExtensionSchema` for `frame_system::CheckSpecVersion`.
-</span><span class="kw">pub type </span>CheckSpecVersion = GenericSignedExtensionSchema&lt;(), u32&gt;;
+<span class="doccomment">/// The `TransactionExtensionSchema` for `frame_system::CheckSpecVersion`.
+</span><span class="kw">pub type </span>CheckSpecVersion = GenericTransactionExtensionSchema&lt;(), u32&gt;;
 
-<span class="doccomment">/// The `SignedExtensionSchema` for `frame_system::CheckTxVersion`.
-</span><span class="kw">pub type </span>CheckTxVersion = GenericSignedExtensionSchema&lt;(), u32&gt;;
+<span class="doccomment">/// The `TransactionExtensionSchema` for `frame_system::CheckTxVersion`.
+</span><span class="kw">pub type </span>CheckTxVersion = GenericTransactionExtensionSchema&lt;(), u32&gt;;
 
-<span class="doccomment">/// The `SignedExtensionSchema` for `frame_system::CheckGenesis`.
-</span><span class="kw">pub type </span>CheckGenesis&lt;Hash&gt; = GenericSignedExtensionSchema&lt;(), Hash&gt;;
+<span class="doccomment">/// The `TransactionExtensionSchema` for `frame_system::CheckGenesis`.
+</span><span class="kw">pub type </span>CheckGenesis&lt;Hash&gt; = GenericTransactionExtensionSchema&lt;(), Hash&gt;;
 
-<span class="doccomment">/// The `SignedExtensionSchema` for `frame_system::CheckEra`.
-</span><span class="kw">pub type </span>CheckEra&lt;Hash&gt; = GenericSignedExtensionSchema&lt;sp_runtime::generic::Era, Hash&gt;;
+<span class="doccomment">/// The `TransactionExtensionSchema` for `frame_system::CheckEra`.
+</span><span class="kw">pub type </span>CheckEra&lt;Hash&gt; = GenericTransactionExtensionSchema&lt;sp_runtime::generic::Era, Hash&gt;;
 
-<span class="doccomment">/// The `SignedExtensionSchema` for `frame_system::CheckNonce`.
-</span><span class="kw">pub type </span>CheckNonce&lt;TxNonce&gt; = GenericSignedExtensionSchema&lt;Compact&lt;TxNonce&gt;, ()&gt;;
+<span class="doccomment">/// The `TransactionExtensionSchema` for `frame_system::CheckNonce`.
+</span><span class="kw">pub type </span>CheckNonce&lt;TxNonce&gt; = GenericTransactionExtensionSchema&lt;Compact&lt;TxNonce&gt;, ()&gt;;
 
-<span class="doccomment">/// The `SignedExtensionSchema` for `frame_system::CheckWeight`.
-</span><span class="kw">pub type </span>CheckWeight = GenericSignedExtensionSchema&lt;(), ()&gt;;
+<span class="doccomment">/// The `TransactionExtensionSchema` for `frame_system::CheckWeight`.
+</span><span class="kw">pub type </span>CheckWeight = GenericTransactionExtensionSchema&lt;(), ()&gt;;
 
-<span class="doccomment">/// The `SignedExtensionSchema` for `pallet_transaction_payment::ChargeTransactionPayment`.
-</span><span class="kw">pub type </span>ChargeTransactionPayment&lt;Balance&gt; = GenericSignedExtensionSchema&lt;Compact&lt;Balance&gt;, ()&gt;;
+<span class="doccomment">/// The `TransactionExtensionSchema` for `pallet_transaction_payment::ChargeTransactionPayment`.
+</span><span class="kw">pub type </span>ChargeTransactionPayment&lt;Balance&gt; =
+	GenericTransactionExtensionSchema&lt;Compact&lt;Balance&gt;, ()&gt;;
 
-<span class="doccomment">/// The `SignedExtensionSchema` for `polkadot-runtime-common::PrevalidateAttests`.
-</span><span class="kw">pub type </span>PrevalidateAttests = GenericSignedExtensionSchema&lt;(), ()&gt;;
+<span class="doccomment">/// The `TransactionExtensionSchema` for `polkadot-runtime-common::PrevalidateAttests`.
+</span><span class="kw">pub type </span>PrevalidateAttests = GenericTransactionExtensionSchema&lt;(), ()&gt;;
 
-<span class="doccomment">/// The `SignedExtensionSchema` for `BridgeRejectObsoleteHeadersAndMessages`.
-</span><span class="kw">pub type </span>BridgeRejectObsoleteHeadersAndMessages = GenericSignedExtensionSchema&lt;(), ()&gt;;
+<span class="doccomment">/// The `TransactionExtensionSchema` for `BridgeRejectObsoleteHeadersAndMessages`.
+</span><span class="kw">pub type </span>BridgeRejectObsoleteHeadersAndMessages = GenericTransactionExtensionSchema&lt;(), ()&gt;;
 
-<span class="doccomment">/// The `SignedExtensionSchema` for `RefundBridgedParachainMessages`.
+<span class="doccomment">/// The `TransactionExtensionSchema` for `RefundBridgedParachainMessages`.
 /// This schema is dedicated for `RefundBridgedParachainMessages` signed extension as
 /// wildcard/placeholder, which relies on the scale encoding for `()` or `((), ())`, or `((), (),
 /// ())` is the same. So runtime can contains any kind of tuple:
 /// `(BridgeRefundBridgeHubRococoMessages)`
 /// `(BridgeRefundBridgeHubRococoMessages, BridgeRefundBridgeHubWestendMessages)`
 /// `(BridgeRefundParachainMessages1, ..., BridgeRefundParachainMessagesN)`
-</span><span class="kw">pub type </span>RefundBridgedParachainMessagesSchema = GenericSignedExtensionSchema&lt;(), ()&gt;;
+</span><span class="kw">pub type </span>RefundBridgedParachainMessagesSchema = GenericTransactionExtensionSchema&lt;(), ()&gt;;
 
 <span class="attr">#[impl_for_tuples(<span class="number">1</span>, <span class="number">12</span>)]
-</span><span class="kw">impl </span>SignedExtensionSchema <span class="kw">for </span>Tuple {
+</span><span class="kw">impl </span>TransactionExtensionSchema <span class="kw">for </span>Tuple {
 	<span class="macro">for_tuples!</span>( <span class="kw">type </span>Payload = ( #( Tuple::Payload ),* ); );
-	<span class="macro">for_tuples!</span>( <span class="kw">type </span>AdditionalSigned = ( #( Tuple::AdditionalSigned ),* ); );
+	<span class="macro">for_tuples!</span>( <span class="kw">type </span>Implicit = ( #( Tuple::Implicit ),* ); );
 }
 
 <span class="doccomment">/// A simplified version of signed extensions meant for producing signed transactions
 /// and signed payloads in the client code.
 </span><span class="attr">#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-</span><span class="kw">pub struct </span>GenericSignedExtension&lt;S: SignedExtensionSchema&gt; {
+</span><span class="kw">pub struct </span>GenericTransactionExtension&lt;S: TransactionExtensionSchema&gt; {
 	<span class="doccomment">/// A payload that is included in the transaction.
 	</span><span class="kw">pub </span>payload: S::Payload,
 	<span class="attr">#[codec(skip)]
 	</span><span class="comment">// It may be set to `None` if extensions are decoded. We are never reconstructing transactions
-	// (and it makes no sense to do that) =&gt; decoded version of `SignedExtensions` is only used to
-	// read fields of the `payload`. And when resigning transaction, we&#39;re reconstructing
-	// `SignedExtensions` from scratch.
-	</span>additional_signed: <span class="prelude-ty">Option</span>&lt;S::AdditionalSigned&gt;,
+	// (and it makes no sense to do that) =&gt; decoded version of `TransactionExtensions` is only
+	// used to read fields of the `payload`. And when resigning transaction, we&#39;re reconstructing
+	// `TransactionExtensions` from scratch.
+	</span>implicit: <span class="prelude-ty">Option</span>&lt;S::Implicit&gt;,
 }
 
-<span class="kw">impl</span>&lt;S: SignedExtensionSchema&gt; GenericSignedExtension&lt;S&gt; {
-	<span class="doccomment">/// Create new `GenericSignedExtension` object.
-	</span><span class="kw">pub fn </span>new(payload: S::Payload, additional_signed: <span class="prelude-ty">Option</span>&lt;S::AdditionalSigned&gt;) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ payload, additional_signed }
+<span class="kw">impl</span>&lt;S: TransactionExtensionSchema&gt; GenericTransactionExtension&lt;S&gt; {
+	<span class="doccomment">/// Create new `GenericTransactionExtension` object.
+	</span><span class="kw">pub fn </span>new(payload: S::Payload, implicit: <span class="prelude-ty">Option</span>&lt;S::Implicit&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ payload, implicit }
 	}
 }
 
-<span class="kw">impl</span>&lt;S&gt; SignedExtension <span class="kw">for </span>GenericSignedExtension&lt;S&gt;
+<span class="kw">impl</span>&lt;S&gt; TransactionExtensionBase <span class="kw">for </span>GenericTransactionExtension&lt;S&gt;
 <span class="kw">where
-	</span>S: SignedExtensionSchema,
+	</span>S: TransactionExtensionSchema,
 	S::Payload: Send + Sync,
-	S::AdditionalSigned: Send + Sync,
+	S::Implicit: Send + Sync,
 {
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Not needed.&quot;</span>;
-	<span class="kw">type </span>AccountId = ();
-	<span class="kw">type </span>Call = ();
-	<span class="kw">type </span>AdditionalSigned = S::AdditionalSigned;
-	<span class="kw">type </span>Pre = ();
+	<span class="kw">type </span>Implicit = S::Implicit;
 
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
+	<span class="kw">fn </span>implicit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Implicit, TransactionValidityError&gt; {
 		<span class="comment">// we shall not ever see this error in relay, because we are never signing decoded
 		// transactions. Instead we&#39;re constructing and signing new transactions. So the error code
 		// is kinda random here
-		</span><span class="self">self</span>.additional_signed.clone().ok_or(
-			frame_support::unsigned::TransactionValidityError::Unknown(
+		</span><span class="self">self</span>.implicit
+			.clone()
+			.ok_or(frame_support::unsigned::TransactionValidityError::Unknown(
 				frame_support::unsigned::UnknownTransaction::Custom(<span class="number">0xFF</span>),
-			),
-		)
+			))
 	}
+}
+<span class="kw">impl</span>&lt;S, C, Context&gt; TransactionExtension&lt;C, Context&gt; <span class="kw">for </span>GenericTransactionExtension&lt;S&gt;
+<span class="kw">where
+	</span>C: Dispatchable,
+	S: TransactionExtensionSchema,
+	S::Payload: Send + Sync,
+	S::Implicit: Send + Sync,
+{
+	<span class="kw">type </span>Pre = ();
+	<span class="kw">type </span>Val = ();
 
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		_len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
-	}
+	<span class="macro">impl_tx_ext_default!</span>(C; Context; validate prepare);
 }
 </code></pre></div></section></main></body></html>

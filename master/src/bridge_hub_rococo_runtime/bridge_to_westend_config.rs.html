@@ -520,7 +520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundTransactionExtensionAdapter,
 		RefundableMessagesLane, RefundableParachain,
 	},
 };
@@ -654,7 +654,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>messages::BridgedChainWithMessages <span class="kw">for </span>BridgeHubWestend {}
 
 <span class="doccomment">/// Signed extension that refunds relayers that are delivering messages from the Westend parachain.
-</span><span class="kw">pub type </span>OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtensionAdapter&lt;
+</span><span class="kw">pub type </span>OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundTransactionExtensionAdapter&lt;
 	RefundBridgedParachainMessages&lt;
 		Runtime,
 		RefundableParachain&lt;

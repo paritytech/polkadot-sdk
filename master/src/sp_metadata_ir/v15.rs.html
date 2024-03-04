@@ -289,7 +289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="kw">super</span>::types::{
 	ExtrinsicMetadataIR, MetadataIR, PalletMetadataIR, RuntimeApiMetadataIR,
-	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, SignedExtensionMetadataIR,
+	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, TransactionExtensionMetadataIR,
 };
 
 <span class="kw">use </span>frame_metadata::v15::{
@@ -355,8 +355,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>From&lt;SignedExtensionMetadataIR&gt; <span class="kw">for </span>SignedExtensionMetadata {
-	<span class="kw">fn </span>from(ir: SignedExtensionMetadataIR) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;TransactionExtensionMetadataIR&gt; <span class="kw">for </span>SignedExtensionMetadata {
+	<span class="kw">fn </span>from(ir: TransactionExtensionMetadataIR) -&gt; <span class="self">Self </span>{
 		SignedExtensionMetadata {
 			identifier: ir.identifier,
 			ty: ir.ty,
@@ -373,7 +373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			call_ty: ir.call_ty,
 			signature_ty: ir.signature_ty,
 			extra_ty: ir.extra_ty,
-			signed_extensions: ir.signed_extensions.into_iter().map(Into::into).collect(),
+			signed_extensions: ir.extensions.into_iter().map(Into::into).collect(),
 		}
 	}
 }

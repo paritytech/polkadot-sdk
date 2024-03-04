@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["pallet"],"struct":["SkipCheckIfFeeless"]};
+window.SIDEBAR_ITEMS = {"enum":["Intermediate"],"mod":["pallet"],"struct":["SkipCheckIfFeeless"]};

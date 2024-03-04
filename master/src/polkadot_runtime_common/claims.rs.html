@@ -1819,6 +1819,84 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1672" id="1672">1672</a>
 <a href="#1673" id="1673">1673</a>
 <a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
+<a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
+<a href="#1693" id="1693">1693</a>
+<a href="#1694" id="1694">1694</a>
+<a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
+<a href="#1699" id="1699">1699</a>
+<a href="#1700" id="1700">1700</a>
+<a href="#1701" id="1701">1701</a>
+<a href="#1702" id="1702">1702</a>
+<a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+<a href="#1705" id="1705">1705</a>
+<a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
+<a href="#1708" id="1708">1708</a>
+<a href="#1709" id="1709">1709</a>
+<a href="#1710" id="1710">1710</a>
+<a href="#1711" id="1711">1711</a>
+<a href="#1712" id="1712">1712</a>
+<a href="#1713" id="1713">1713</a>
+<a href="#1714" id="1714">1714</a>
+<a href="#1715" id="1715">1715</a>
+<a href="#1716" id="1716">1716</a>
+<a href="#1717" id="1717">1717</a>
+<a href="#1718" id="1718">1718</a>
+<a href="#1719" id="1719">1719</a>
+<a href="#1720" id="1720">1720</a>
+<a href="#1721" id="1721">1721</a>
+<a href="#1722" id="1722">1722</a>
+<a href="#1723" id="1723">1723</a>
+<a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a>
+<a href="#1734" id="1734">1734</a>
+<a href="#1735" id="1735">1735</a>
+<a href="#1736" id="1736">1736</a>
+<a href="#1737" id="1737">1737</a>
+<a href="#1738" id="1738">1738</a>
+<a href="#1739" id="1739">1739</a>
+<a href="#1740" id="1740">1740</a>
+<a href="#1741" id="1741">1741</a>
+<a href="#1742" id="1742">1742</a>
+<a href="#1743" id="1743">1743</a>
+<a href="#1744" id="1744">1744</a>
+<a href="#1745" id="1745">1745</a>
+<a href="#1746" id="1746">1746</a>
+<a href="#1747" id="1747">1747</a>
+<a href="#1748" id="1748">1748</a>
+<a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1850,7 +1928,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>serde::{<span class="self">self</span>, Deserialize, Deserializer, Serialize, Serializer};
 <span class="kw">use </span>sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 <span class="kw">use </span>sp_runtime::{
-	traits::{CheckedSub, DispatchInfoOf, SignedExtension, Zero},
+	impl_tx_ext_default,
+	traits::{
+		AsSystemOriginSigner, CheckedSub, DispatchInfoOf, Dispatchable, TransactionExtension,
+		TransactionExtensionBase, Zero,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -1871,6 +1953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>claim_attest() -&gt; Weight;
 	<span class="kw">fn </span>attest() -&gt; Weight;
 	<span class="kw">fn </span>move_claim() -&gt; Weight;
+	<span class="kw">fn </span>prevalidate_attests() -&gt; Weight;
 }
 
 <span class="kw">pub struct </span>TestWeightInfo;
@@ -1890,6 +1973,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>move_claim() -&gt; Weight {
 		Weight::zero()
 	}
+	<span class="kw">fn </span>prevalidate_attests() -&gt; Weight {
+		Weight::zero()
+	}
 }
 
 <span class="doccomment">/// The kind of statement an account needs to make for a claim to be valid.
@@ -1905,7 +1991,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>StatementKind {
 	<span class="doccomment">/// Convert this to the (English) statement it represents.
-	</span><span class="kw">fn </span>to_text(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+	</span><span class="kw">pub fn </span>to_text(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 		<span class="kw">match </span><span class="self">self </span>{
 			StatementKind::Regular =&gt;
 				<span class="kw-2">&amp;</span><span class="string">b&quot;I hereby agree to the terms of the statement whose SHA-256 multihash is \
@@ -1987,6 +2073,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[pallet::without_storage_info]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="doccomment">/// Helper trait to benchmark the `PrevalidateAttests` transaction extension.
+	</span><span class="kw">pub trait </span>BenchmarkHelperTrait&lt;RuntimeCall, DispatchInfo&gt; {
+		<span class="doccomment">/// `Call` to be used when benchmarking the transaction extension.
+		</span><span class="kw">fn </span>default_call_and_info() -&gt; (RuntimeCall, DispatchInfo);
+	}
+
 	<span class="doccomment">/// Configuration trait.
 	</span><span class="attr">#[pallet::config]
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
@@ -1997,6 +2090,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>Prefix: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8]&gt;;
 		<span class="kw">type </span>MoveClaimOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 		<span class="kw">type </span>WeightInfo: WeightInfo;
+		<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		</span><span class="doccomment">/// Benchmark helper
+		</span><span class="kw">type </span>BenchmarkHelper: BenchmarkHelperTrait&lt;
+			<span class="self">Self</span>::RuntimeCall,
+			DispatchInfoOf&lt;<span class="self">Self</span>::RuntimeCall&gt;,
+		&gt;;
 	}
 
 	<span class="attr">#[pallet::event]
@@ -2223,7 +2322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Attest to a statement, needed to finalize the claims process.
 		///
 		/// WARNING: Insecure unless your chain includes `PrevalidateAttests` as a
-		/// `SignedExtension`.
+		/// `TransactionExtension`.
 		///
 		/// Unsigned Validation:
 		/// A call to attest is deemed valid if the sender has a `Preclaim` registered
@@ -2433,46 +2532,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: IsSubType&lt;Call&lt;T&gt;&gt;,
 {
-	<span class="doccomment">/// Create new `SignedExtension` to check runtime version.
+	<span class="doccomment">/// Create new `TransactionExtension` to check runtime version.
 	</span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(sp_std::marker::PhantomData)
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; SignedExtension <span class="kw">for </span>PrevalidateAttests&lt;T&gt;
+<span class="kw">impl</span>&lt;T: Config&gt; TransactionExtensionBase <span class="kw">for </span>PrevalidateAttests&lt;T&gt;
 <span class="kw">where
 	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: IsSubType&lt;Call&lt;T&gt;&gt;,
 {
-	<span class="kw">type </span>AccountId = T::AccountId;
-	<span class="kw">type </span>Call = &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall;
-	<span class="kw">type </span>AdditionalSigned = ();
-	<span class="kw">type </span>Pre = ();
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;PrevalidateAttests&quot;</span>;
+	<span class="kw">type </span>Implicit = ();
+}
 
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
-		<span class="prelude-val">Ok</span>(())
-	}
-
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="self">self</span>.validate(who, call, info, len).map(|<span class="kw">_</span>| ())
-	}
+<span class="kw">impl</span>&lt;T: Config, Context&gt; TransactionExtension&lt;T::RuntimeCall, Context&gt; <span class="kw">for </span>PrevalidateAttests&lt;T&gt;
+<span class="kw">where
+	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: IsSubType&lt;Call&lt;T&gt;&gt;,
+	&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin:
+		AsSystemOriginSigner&lt;T::AccountId&gt; + Clone,
+{
+	<span class="kw">type </span>Pre = ();
+	<span class="kw">type </span>Val = ();
 
 	<span class="comment">// &lt;weight&gt;
 	// The weight of this logic is included in the `attest` dispatchable.
 	// &lt;/weight&gt;
 	</span><span class="kw">fn </span>validate(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		origin: &lt;T::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin,
+		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
 		_len: usize,
-	) -&gt; TransactionValidity {
+		_context: <span class="kw-2">&amp;mut </span>Context,
+		_self_implicit: <span class="self">Self</span>::Implicit,
+		_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;
+		(ValidTransaction, <span class="self">Self</span>::Val, &lt;T::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin),
+		TransactionValidityError,
+	&gt; {
+		<span class="kw">let </span>who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)<span class="question-mark">?</span>;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(local_call) = call.is_sub_type() {
 			<span class="kw">if let </span>Call::attest { statement: attested_statement } = local_call {
 				<span class="kw">let </span>signer = Preclaims::&lt;T&gt;::get(who)
@@ -2483,8 +2582,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 		}
-		<span class="prelude-val">Ok</span>(ValidTransaction::default())
+		<span class="prelude-val">Ok</span>((ValidTransaction::default(), (), origin))
 	}
+	<span class="macro">impl_tx_ext_default!</span>(T::RuntimeCall; Context; prepare);
 }
 
 <span class="attr">#[cfg(any(test, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
@@ -2517,7 +2617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests {
+</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>hex_literal::hex;
 	<span class="kw">use </span>secp_utils::<span class="kw-2">*</span>;
@@ -2535,8 +2635,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>pallet_balances;
 	<span class="kw">use </span>sp_runtime::{
-		traits::Identity, transaction_validity::TransactionLongevity, BuildStorage,
-		DispatchError::BadOrigin, TokenError,
+		traits::{DispatchTransaction, Identity},
+		transaction_validity::TransactionLongevity,
+		BuildStorage,
+		DispatchError::BadOrigin,
+		TokenError,
 	};
 
 	<span class="kw">type </span>Block = frame_system::mocking::MockBlock&lt;Test&gt;;
@@ -2611,6 +2714,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>Prefix = Prefix;
 		<span class="kw">type </span>MoveClaimOrigin = frame_system::EnsureSignedBy&lt;Six, u64&gt;;
 		<span class="kw">type </span>WeightInfo = TestWeightInfo;
+		<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		</span><span class="kw">type </span>BenchmarkHelper = ();
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">impl </span>BenchmarkHelperTrait&lt;RuntimeCall, DispatchInfoOf&lt;RuntimeCall&gt;&gt; <span class="kw">for </span>() {
+		<span class="kw">fn </span>default_call_and_info() -&gt; (RuntimeCall, DispatchInfoOf&lt;RuntimeCall&gt;) {
+			<span class="kw">let </span>call = RuntimeCall::Claims(<span class="kw">crate</span>::claims::Call::attest {
+				statement: StatementKind::Regular.to_text().to_vec(),
+			});
+			<span class="kw">let </span>info = call.get_dispatch_info();
+			(call, info)
+		}
 	}
 
 	<span class="kw">fn </span>alice() -&gt; libsecp256k1::SecretKey {
@@ -2892,8 +3008,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 			<span class="kw">let </span>di = c.get_dispatch_info();
 			<span class="macro">assert_eq!</span>(di.pays_fee, Pays::No);
-			<span class="kw">let </span>r = p.validate(<span class="kw-2">&amp;</span><span class="number">42</span>, <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>di, <span class="number">20</span>);
-			<span class="macro">assert_eq!</span>(r, TransactionValidity::Ok(ValidTransaction::default()));
+			<span class="kw">let </span>r = p.validate_only(<span class="prelude-val">Some</span>(<span class="number">42</span>).into(), <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>di, <span class="number">20</span>);
+			<span class="macro">assert_eq!</span>(r.unwrap().<span class="number">0</span>, ValidTransaction::default());
 		});
 	}
 
@@ -2905,13 +3021,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				statement: StatementKind::Regular.to_text().to_vec(),
 			});
 			<span class="kw">let </span>di = c.get_dispatch_info();
-			<span class="kw">let </span>r = p.validate(<span class="kw-2">&amp;</span><span class="number">42</span>, <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>di, <span class="number">20</span>);
+			<span class="kw">let </span>r = p.validate_only(<span class="prelude-val">Some</span>(<span class="number">42</span>).into(), <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>di, <span class="number">20</span>);
 			<span class="macro">assert!</span>(r.is_err());
 			<span class="kw">let </span>c = RuntimeCall::Claims(ClaimsCall::attest {
 				statement: StatementKind::Saft.to_text().to_vec(),
 			});
 			<span class="kw">let </span>di = c.get_dispatch_info();
-			<span class="kw">let </span>r = p.validate(<span class="kw-2">&amp;</span><span class="number">69</span>, <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>di, <span class="number">20</span>);
+			<span class="kw">let </span>r = p.validate_only(<span class="prelude-val">Some</span>(<span class="number">69</span>).into(), <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>di, <span class="number">20</span>);
 			<span class="macro">assert!</span>(r.is_err());
 		});
 	}
@@ -3265,14 +3381,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">mod </span>benchmarking {
+</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">mod </span>benchmarking {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::claims::Call;
 	<span class="kw">use </span>frame_benchmarking::{account, benchmarks};
 	<span class="kw">use </span>frame_support::traits::UnfilteredDispatchable;
 	<span class="kw">use </span>frame_system::RawOrigin;
 	<span class="kw">use </span>secp_utils::<span class="kw-2">*</span>;
-	<span class="kw">use </span>sp_runtime::{traits::ValidateUnsigned, DispatchResult};
+	<span class="kw">use </span>sp_runtime::{
+		traits::{DispatchTransaction, ValidateUnsigned},
+		DispatchResult,
+	};
 
 	<span class="kw">const </span>SEED: u32 = <span class="number">0</span>;
 
@@ -3308,6 +3427,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="macro">benchmarks! </span>{
+		where_clause { <span class="kw">where </span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: IsSubType&lt;Call&lt;T&gt;&gt;,
+			&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin: AsSystemOriginSigner&lt;T::AccountId&gt; + Clone,
+			&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::PostInfo: Default,
+		}
+
 		<span class="comment">// Benchmark `claim` including `validate_unsigned` logic.
 		</span>claim {
 			<span class="kw">let </span>c = MAX_CLAIMS;
@@ -3484,6 +3608,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">for _ in </span><span class="number">0 </span>.. i {
 				<span class="macro">assert!</span>(<span class="kw">super</span>::Pallet::&lt;T&gt;::eth_recover(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>data, extra).is_some());
 			}
+		}
+
+		prevalidate_attests {
+			<span class="kw">let </span>c = MAX_CLAIMS;
+
+			<span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. c / <span class="number">2 </span>{
+				create_claim::&lt;T&gt;(c)<span class="question-mark">?</span>;
+				create_claim_attest::&lt;T&gt;(u32::MAX - c)<span class="question-mark">?</span>;
+			}
+
+			<span class="kw">let </span>ext = PrevalidateAttests::&lt;T&gt;::new();
+			<span class="kw">let </span>(call, info) = T::BenchmarkHelper::default_call_and_info();
+			<span class="kw">let </span>attest_c = u32::MAX - c;
+			<span class="kw">let </span>secret_key = libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="kw-2">&amp;</span>attest_c.encode())).unwrap();
+			<span class="kw">let </span>eth_address = eth(<span class="kw-2">&amp;</span>secret_key);
+			<span class="kw">let </span>account: T::AccountId = account(<span class="string">&quot;user&quot;</span>, c, SEED);
+			<span class="kw">let </span>vesting = <span class="prelude-val">Some</span>((<span class="number">100_000u32</span>.into(), <span class="number">1_000u32</span>.into(), <span class="number">100u32</span>.into()));
+			<span class="kw">let </span>statement = StatementKind::Regular;
+			<span class="kw">let </span>signature = sig::&lt;T&gt;(<span class="kw-2">&amp;</span>secret_key, <span class="kw-2">&amp;</span>account.encode(), statement.to_text());
+			<span class="kw">super</span>::Pallet::&lt;T&gt;::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, <span class="prelude-val">Some</span>(statement))<span class="question-mark">?</span>;
+			Preclaims::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>account, eth_address);
+			<span class="macro">assert_eq!</span>(Claims::&lt;T&gt;::get(eth_address), <span class="prelude-val">Some</span>(VALUE.into()));
+		}: {
+			<span class="macro">assert!</span>(ext.test_run(
+				RawOrigin::Signed(account).into(),
+				<span class="kw-2">&amp;</span>call,
+				<span class="kw-2">&amp;</span>info,
+				<span class="number">0</span>,
+				|<span class="kw">_</span>| {
+					<span class="prelude-val">Ok</span>(Default::default())
+				}
+			).unwrap().is_ok());
 		}
 
 		<span class="macro">impl_benchmark_test_suite!</span>(

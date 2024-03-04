@@ -300,6 +300,53 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -323,7 +370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ## Overview
 //!
-//! It does this by wrapping an existing [`SignedExtension`] implementation (e.g.
+//! It does this by wrapping an existing [`TransactionExtension`] implementation (e.g.
 //! [`pallet-transaction-payment`]) and checking if the dispatchable is feeless before applying the
 //! wrapped extension. If the dispatchable is indeed feeless, the extension is skipped and a custom
 //! event is emitted instead. Otherwise, the extension is applied as usual.
@@ -333,7 +380,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! This pallet wraps an existing transaction payment pallet. This means you should both pallets
 //! in your `construct_runtime` macro and include this pallet&#39;s
-//! [`SignedExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an argument.
+//! [`TransactionExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an
+//! argument.
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
@@ -344,7 +392,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>scale_info::{StaticTypeInfo, TypeInfo};
 <span class="kw">use </span>sp_runtime::{
-	traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
+	traits::{
+		DispatchInfoOf, OriginOf, PostDispatchInfoOf, TransactionExtension,
+		TransactionExtensionBase, ValidateResult,
+	},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -372,11 +423,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
 		<span class="doccomment">/// A transaction fee was skipped.
-		</span>FeeSkipped { who: T::AccountId },
+		</span>FeeSkipped { origin: &lt;T::RuntimeOrigin <span class="kw">as </span>OriginTrait&gt;::PalletsOrigin },
 	}
 }
 
-<span class="doccomment">/// A [`SignedExtension`] that skips the wrapped extension if the dispatchable is feeless.
+<span class="doccomment">/// A [`TransactionExtension`] that skips the wrapped extension if the dispatchable is feeless.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>SkipCheckIfFeeless&lt;T, S&gt;(<span class="kw">pub </span>S, sp_std::marker::PhantomData&lt;T&gt;);
 
@@ -405,54 +456,97 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync, S: SignedExtension&lt;AccountId = T::AccountId&gt;&gt; SignedExtension
+<span class="kw">pub enum </span>Intermediate&lt;T, O&gt; {
+	<span class="doccomment">/// The wrapped extension should be applied.
+	</span>Apply(T),
+	<span class="doccomment">/// The wrapped extension should be skipped.
+	</span>Skip(O),
+}
+<span class="kw">use </span>Intermediate::<span class="kw-2">*</span>;
+
+<span class="kw">impl</span>&lt;T: Config + Send + Sync, S: TransactionExtensionBase&gt; TransactionExtensionBase
 	<span class="kw">for </span>SkipCheckIfFeeless&lt;T, S&gt;
-<span class="kw">where
-	</span>S::Call: CheckIfFeeless&lt;Origin = frame_system::pallet_prelude::OriginFor&lt;T&gt;&gt;,
 {
-	<span class="kw">type </span>AccountId = T::AccountId;
-	<span class="kw">type </span>Call = S::Call;
-	<span class="kw">type </span>AdditionalSigned = S::AdditionalSigned;
-	<span class="kw">type </span>Pre = (<span class="self">Self</span>::AccountId, <span class="prelude-ty">Option</span>&lt;&lt;S <span class="kw">as </span>SignedExtension&gt;::Pre&gt;);
 	<span class="comment">// From the outside this extension should be &quot;invisible&quot;, because it just extends the wrapped
 	// extension with an extra check in `pre_dispatch` and `post_dispatch`. Thus, we should forward
 	// the identifier of the wrapped extension to let wallets see this extension as it would only be
 	// the wrapped extension itself.
 	</span><span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = S::IDENTIFIER;
+	<span class="kw">type </span>Implicit = S::Implicit;
 
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
-		<span class="self">self</span>.<span class="number">0</span>.additional_signed()
+	<span class="kw">fn </span>implicit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Implicit, TransactionValidityError&gt; {
+		<span class="self">self</span>.<span class="number">0</span>.implicit()
 	}
 
-	<span class="kw">fn </span>pre_dispatch(
-		<span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; frame_support::weights::Weight {
+		<span class="self">self</span>.<span class="number">0</span>.weight()
+	}
+}
+
+<span class="kw">impl</span>&lt;T: Config + Send + Sync, Context, S: TransactionExtension&lt;T::RuntimeCall, Context&gt;&gt;
+	TransactionExtension&lt;T::RuntimeCall, Context&gt; <span class="kw">for </span>SkipCheckIfFeeless&lt;T, S&gt;
+<span class="kw">where
+	</span>T::RuntimeCall: CheckIfFeeless&lt;Origin = frame_system::pallet_prelude::OriginFor&lt;T&gt;&gt;,
+{
+	<span class="kw">type </span>Val = Intermediate&lt;S::Val, &lt;OriginOf&lt;T::RuntimeCall&gt; <span class="kw">as </span>OriginTrait&gt;::PalletsOrigin&gt;;
+	<span class="kw">type </span>Pre = Intermediate&lt;S::Pre, &lt;OriginOf&lt;T::RuntimeCall&gt; <span class="kw">as </span>OriginTrait&gt;::PalletsOrigin&gt;;
+
+	<span class="kw">fn </span>validate(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		origin: OriginOf&lt;T::RuntimeCall&gt;,
+		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
 		len: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
-		<span class="kw">if </span>call.is_feeless(<span class="kw-2">&amp;</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin::signed(who.clone())) {
-			<span class="prelude-val">Ok</span>((who.clone(), <span class="prelude-val">None</span>))
+		context: <span class="kw-2">&amp;mut </span>Context,
+		self_implicit: S::Implicit,
+		inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Encode,
+	) -&gt; ValidateResult&lt;<span class="self">Self</span>::Val, T::RuntimeCall&gt; {
+		<span class="kw">if </span>call.is_feeless(<span class="kw-2">&amp;</span>origin) {
+			<span class="prelude-val">Ok</span>((Default::default(), Skip(origin.caller().clone()), origin))
 		} <span class="kw">else </span>{
-			<span class="prelude-val">Ok</span>((who.clone(), <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="number">0</span>.pre_dispatch(who, call, info, len)<span class="question-mark">?</span>)))
+			<span class="kw">let </span>(x, y, z) = <span class="self">self</span>.<span class="number">0</span>.validate(
+				origin,
+				call,
+				info,
+				len,
+				context,
+				self_implicit,
+				inherited_implication,
+			)<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>((x, Apply(y), z))
+		}
+	}
+
+	<span class="kw">fn </span>prepare(
+		<span class="self">self</span>,
+		val: <span class="self">Self</span>::Val,
+		origin: <span class="kw-2">&amp;</span>OriginOf&lt;T::RuntimeCall&gt;,
+		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		len: usize,
+		context: <span class="kw-2">&amp;</span>Context,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
+		<span class="kw">match </span>val {
+			Apply(val) =&gt; <span class="self">self</span>.<span class="number">0</span>.prepare(val, origin, call, info, len, context).map(Apply),
+			Skip(origin) =&gt; <span class="prelude-val">Ok</span>(Skip(origin)),
 		}
 	}
 
 	<span class="kw">fn </span>post_dispatch(
-		pre: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Pre&gt;,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
-		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		pre: <span class="self">Self</span>::Pre,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;T::RuntimeCall&gt;,
 		len: usize,
 		result: <span class="kw-2">&amp;</span>DispatchResult,
+		context: <span class="kw-2">&amp;</span>Context,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(pre) = pre {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(pre) = pre.<span class="number">1 </span>{
-				S::post_dispatch(<span class="prelude-val">Some</span>(pre), info, post_info, len, result)<span class="question-mark">?</span>;
-			} <span class="kw">else </span>{
-				Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::FeeSkipped { who: pre.<span class="number">0 </span>});
-			}
+		<span class="kw">match </span>pre {
+			Apply(pre) =&gt; S::post_dispatch(pre, info, post_info, len, result, context),
+			Skip(origin) =&gt; {
+				Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::FeeSkipped { origin });
+				<span class="prelude-val">Ok</span>(())
+			},
 		}
-		<span class="prelude-val">Ok</span>(())
 	}
 }
 </code></pre></div></section></main></body></html>

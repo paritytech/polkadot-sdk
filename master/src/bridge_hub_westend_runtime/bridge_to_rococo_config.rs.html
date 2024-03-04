@@ -551,7 +551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundTransactionExtensionAdapter,
 		RefundableMessagesLane, RefundableParachain,
 	},
 };
@@ -705,7 +705,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Signed extension that refunds relayers that are delivering messages from the Rococo parachain.
-</span><span class="kw">pub type </span>OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundSignedExtensionAdapter&lt;
+</span><span class="kw">pub type </span>OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundTransactionExtensionAdapter&lt;
 	RefundBridgedParachainMessages&lt;
 		Runtime,
 		RefundableParachain&lt;BridgeParachainRococoInstance, bp_bridge_hub_rococo::BridgeHubRococo&gt;,

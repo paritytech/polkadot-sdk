@@ -325,8 +325,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">super</span>::types::{
 	ExtrinsicMetadataIR, MetadataIR, PalletCallMetadataIR, PalletConstantMetadataIR,
 	PalletErrorMetadataIR, PalletEventMetadataIR, PalletMetadataIR, PalletStorageMetadataIR,
-	SignedExtensionMetadataIR, StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR,
-	StorageHasherIR,
+	StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR,
+	TransactionExtensionMetadataIR,
 };
 
 <span class="kw">use </span>frame_metadata::v14::{
@@ -442,8 +442,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>From&lt;SignedExtensionMetadataIR&gt; <span class="kw">for </span>SignedExtensionMetadata {
-	<span class="kw">fn </span>from(ir: SignedExtensionMetadataIR) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;TransactionExtensionMetadataIR&gt; <span class="kw">for </span>SignedExtensionMetadata {
+	<span class="kw">fn </span>from(ir: TransactionExtensionMetadataIR) -&gt; <span class="self">Self </span>{
 		SignedExtensionMetadata {
 			identifier: ir.identifier,
 			ty: ir.ty,
@@ -457,7 +457,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ExtrinsicMetadata {
 			ty: ir.ty,
 			version: ir.version,
-			signed_extensions: ir.signed_extensions.into_iter().map(Into::into).collect(),
+			signed_extensions: ir.extensions.into_iter().map(Into::into).collect(),
 		}
 	}
 }

@@ -4875,7 +4875,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub type </span>Block = sp_runtime::generic::Block&lt;Header, UncheckedExtrinsic&gt;;
 	<span class="kw">pub type </span>UncheckedExtrinsic =
-		sp_runtime::generic::UncheckedExtrinsic&lt;u32, u64, RuntimeCall, ()&gt;;
+		sp_runtime::generic::UncheckedExtrinsic&lt;u32, RuntimeCall, u64, ()&gt;;
 
 	<span class="macro">frame_support::construct_runtime!</span>(
 		<span class="kw">pub enum </span>Test

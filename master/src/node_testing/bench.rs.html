@@ -818,6 +818,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -871,6 +881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_crypto_hashing::blake2_256;
 <span class="kw">use </span>sp_inherents::InherentData;
 <span class="kw">use </span>sp_runtime::{
+	generic::{ExtrinsicFormat, Preamble},
 	traits::{Block <span class="kw">as </span>BlockT, IdentifyAccount, Verify},
 	OpaqueExtrinsic,
 };
@@ -1115,10 +1126,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>signed = <span class="self">self</span>.keyring.sign(
 			CheckedExtrinsic {
-				signed: <span class="prelude-val">Some</span>((
+				format: ExtrinsicFormat::Signed(
 					sender,
-					signed_extra(<span class="number">0</span>, kitchensink_runtime::ExistentialDeposit::get() + <span class="number">1</span>),
-				)),
+					tx_ext(<span class="number">0</span>, kitchensink_runtime::ExistentialDeposit::get() + <span class="number">1</span>),
+				),
 				function: <span class="kw">match </span><span class="self">self</span>.content.block_type {
 					BlockType::RandomTransfersKeepAlive =&gt;
 						RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
@@ -1382,11 +1393,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tx_version: u32,
 		genesis_hash: [u8; <span class="number">32</span>],
 	) -&gt; UncheckedExtrinsic {
-		<span class="kw">match </span>xt.signed {
-			<span class="prelude-val">Some</span>((signed, extra)) =&gt; {
+		<span class="kw">match </span>xt.format {
+			ExtrinsicFormat::Signed(signed, tx_ext) =&gt; {
 				<span class="kw">let </span>payload = (
 					xt.function,
-					extra.clone(),
+					tx_ext.clone(),
 					spec_version,
 					tx_version,
 					genesis_hash,
@@ -1401,11 +1412,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				});
 				UncheckedExtrinsic {
-					signature: <span class="prelude-val">Some</span>((sp_runtime::MultiAddress::Id(signed), signature, extra)),
+					preamble: Preamble::Signed(
+						sp_runtime::MultiAddress::Id(signed),
+						signature,
+						tx_ext,
+					),
 					function: payload.<span class="number">0</span>,
 				}
 			},
-			<span class="prelude-val">None </span>=&gt; UncheckedExtrinsic { signature: <span class="prelude-val">None</span>, function: xt.function },
+			ExtrinsicFormat::Bare =&gt;
+				UncheckedExtrinsic { preamble: Preamble::Bare, function: xt.function },
+			ExtrinsicFormat::General(tx_ext) =&gt; UncheckedExtrinsic {
+				preamble: sp_runtime::generic::Preamble::General(tx_ext),
+				function: xt.function,
+			},
 		}
 	}
 

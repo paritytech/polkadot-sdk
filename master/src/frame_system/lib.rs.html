@@ -2400,6 +2400,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2253" id="2253">2253</a>
 <a href="#2254" id="2254">2254</a>
 <a href="#2255" id="2255">2255</a>
+<a href="#2256" id="2256">2256</a>
+<a href="#2257" id="2257">2257</a>
+<a href="#2258" id="2258">2258</a>
+<a href="#2259" id="2259">2259</a>
+<a href="#2260" id="2260">2260</a>
+<a href="#2261" id="2261">2261</a>
+<a href="#2262" id="2262">2262</a>
+<a href="#2263" id="2263">2263</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2568,7 +2576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight,
+	check_weight::CheckWeight, WeightInfo <span class="kw">as </span>ExtensionsWeightInfo,
 };
 <span class="comment">// Backward compatible re-export.
 </span><span class="kw">pub use </span>extensions::check_mortality::CheckMortality <span class="kw">as </span>CheckEra;
@@ -2686,6 +2694,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">type </span>OnNewAccount = ();
 			<span class="kw">type </span>OnKilledAccount = ();
 			<span class="kw">type </span>SystemWeightInfo = ();
+			<span class="kw">type </span>ExtensionsWeightInfo = ();
 			<span class="kw">type </span>SS58Prefix = ();
 			<span class="kw">type </span>Version = ();
 			<span class="kw">type </span>BlockWeights = ();
@@ -2757,6 +2766,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="doccomment">/// Weight information for the extrinsics of this pallet.
 			</span><span class="kw">type </span>SystemWeightInfo = ();
+
+			<span class="doccomment">/// Weight information for the extensions of this pallet.
+			</span><span class="kw">type </span>ExtensionsWeightInfo = ();
 
 			<span class="doccomment">/// This is used as an identifier of the chain.
 			</span><span class="kw">type </span>SS58Prefix = ();
@@ -2965,7 +2977,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// All resources should be cleaned up associated with the given account.
 		</span><span class="kw">type </span>OnKilledAccount: OnKilledAccount&lt;<span class="self">Self</span>::AccountId&gt;;
 
-		<span class="kw">type </span>SystemWeightInfo: WeightInfo;
+		<span class="doccomment">/// Weight information for the extrinsics of this pallet.
+		</span><span class="kw">type </span>SystemWeightInfo: WeightInfo;
+
+		<span class="doccomment">/// Weight information for the transaction extensions of this pallet.
+		</span><span class="kw">type </span>ExtensionsWeightInfo: extensions::WeightInfo;
 
 		<span class="doccomment">/// The designated SS58 prefix of this chain.
 		///

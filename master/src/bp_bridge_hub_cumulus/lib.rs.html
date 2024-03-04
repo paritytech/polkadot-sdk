@@ -343,7 +343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>bp_messages::<span class="kw-2">*</span>;
-<span class="kw">use </span>bp_polkadot_core::SuffixedCommonSignedExtension;
+<span class="kw">use </span>bp_polkadot_core::SuffixedCommonTransactionExtension;
 <span class="kw">use </span>bp_runtime::extensions::{
 	BridgeRejectObsoleteHeadersAndMessages, RefundBridgedParachainMessagesSchema,
 };
@@ -481,7 +481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = <span class="number">4096</span>;
 
 <span class="doccomment">/// Signed extension that is used by all bridge hubs.
-</span><span class="kw">pub type </span>SignedExtension = SuffixedCommonSignedExtension&lt;(
+</span><span class="kw">pub type </span>TransactionExtension = SuffixedCommonTransactionExtension&lt;(
 	BridgeRejectObsoleteHeadersAndMessages,
 	RefundBridgedParachainMessagesSchema,
 )&gt;;

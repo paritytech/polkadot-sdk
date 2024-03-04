@@ -2787,6 +2787,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2640" id="2640">2640</a>
 <a href="#2641" id="2641">2641</a>
 <a href="#2642" id="2642">2642</a>
+<a href="#2643" id="2643">2643</a>
+<a href="#2644" id="2644">2644</a>
+<a href="#2645" id="2645">2645</a>
+<a href="#2646" id="2646">2646</a>
+<a href="#2647" id="2647">2647</a>
+<a href="#2648" id="2648">2648</a>
+<a href="#2649" id="2649">2649</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2989,6 +2996,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Version = Version;
 	<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;Balance&gt;;
 	<span class="kw">type </span>SystemWeightInfo = weights::frame_system::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>ExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>SS58Prefix = SS58Prefix;
 	<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">16</span>&gt;;
 }
@@ -3174,6 +3182,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightToFee = WeightToFee;
 	<span class="kw">type </span>LengthToFee = ConstantMultiplier&lt;Balance, TransactionByteFee&gt;;
 	<span class="kw">type </span>FeeMultiplierUpdate = SlowAdjustingFeeUpdate&lt;<span class="self">Self</span>&gt;;
+	<span class="kw">type </span>WeightInfo = weights::pallet_transaction_payment::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -3609,7 +3618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// so the actual block number is `n`.
 			</span>.saturating_sub(<span class="number">1</span>);
 		<span class="kw">let </span>tip = <span class="number">0</span>;
-		<span class="kw">let </span>extra: SignedExtra = (
+		<span class="kw">let </span>tx_ext: TxExtension = (
 			frame_system::CheckNonZeroSender::&lt;Runtime&gt;::new(),
 			frame_system::CheckSpecVersion::&lt;Runtime&gt;::new(),
 			frame_system::CheckTxVersion::&lt;Runtime&gt;::new(),
@@ -3621,16 +3630,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			frame_system::CheckNonce::&lt;Runtime&gt;::from(nonce),
 			frame_system::CheckWeight::&lt;Runtime&gt;::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::&lt;Runtime&gt;::from(tip),
-		);
-		<span class="kw">let </span>raw_payload = SignedPayload::new(call, extra)
+		)
+			.into();
+		<span class="kw">let </span>raw_payload = SignedPayload::new(call, tx_ext)
 			.map_err(|e| {
 				<span class="macro">log::warn!</span>(<span class="string">&quot;Unable to create signed payload: {:?}&quot;</span>, e);
 			})
 			.ok()<span class="question-mark">?</span>;
 		<span class="kw">let </span>signature = raw_payload.using_encoded(|payload| C::sign(payload, public))<span class="question-mark">?</span>;
-		<span class="kw">let </span>(call, extra, <span class="kw">_</span>) = raw_payload.deconstruct();
+		<span class="kw">let </span>(call, tx_ext, <span class="kw">_</span>) = raw_payload.deconstruct();
 		<span class="kw">let </span>address = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Lookup::unlookup(account);
-		<span class="prelude-val">Some</span>((call, (address, signature, extra)))
+		<span class="prelude-val">Some</span>((call, (address, signature, tx_ext)))
 	}
 }
 
@@ -4337,8 +4347,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>SignedBlock = generic::SignedBlock&lt;Block&gt;;
 <span class="doccomment">/// `BlockId` type as expected by this runtime.
 </span><span class="kw">pub type </span>BlockId = generic::BlockId&lt;Block&gt;;
-<span class="doccomment">/// The `SignedExtension` to the basic transaction logic.
-</span><span class="kw">pub type </span>SignedExtra = (
+<span class="doccomment">/// The extension to the basic transaction logic.
+</span><span class="kw">pub type </span>TxExtension = (
 	frame_system::CheckNonZeroSender&lt;Runtime&gt;,
 	frame_system::CheckSpecVersion&lt;Runtime&gt;,
 	frame_system::CheckTxVersion&lt;Runtime&gt;,
@@ -4502,7 +4512,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
-	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
+	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, TxExtension&gt;;
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
 </span><span class="kw">pub type </span>Executive = frame_executive::Executive&lt;
 	Runtime,
@@ -4513,7 +4523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Migrations,
 &gt;;
 <span class="doccomment">/// The payload being signed in transactions.
-</span><span class="kw">pub type </span>SignedPayload = generic::SignedPayload&lt;RuntimeCall, SignedExtra&gt;;
+</span><span class="kw">pub type </span>SignedPayload = generic::SignedPayload&lt;RuntimeCall, TxExtension&gt;;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">mod </span>benches {
@@ -4559,7 +4569,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		[pallet_staking, Staking]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::&lt;Runtime&gt;]
+		[frame_system_extensions, SystemExtensionsBench::&lt;Runtime&gt;]
 		[pallet_timestamp, Timestamp]
+		[pallet_transaction_payment, TransactionPayment]
 		[pallet_treasury, Treasury]
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
@@ -5101,6 +5113,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">use </span>pallet_election_provider_support_benchmarking::Pallet <span class="kw">as </span>ElectionProviderBench;
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
+			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
 			<span class="kw">use </span>pallet_nomination_pools_benchmarking::Pallet <span class="kw">as </span>NominationPoolsBench;
 
 			<span class="kw">type </span>XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::&lt;Runtime&gt;;
@@ -5129,6 +5142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">use </span>pallet_election_provider_support_benchmarking::Pallet <span class="kw">as </span>ElectionProviderBench;
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
+			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
 			<span class="kw">use </span>pallet_nomination_pools_benchmarking::Pallet <span class="kw">as </span>NominationPoolsBench;
 
 			<span class="kw">impl </span>pallet_session_benchmarking::Config <span class="kw">for </span>Runtime {}
