@@ -22,10 +22,11 @@ use relay_kusama_client::Kusama;
 use relay_substrate_client::SimpleRuntimeVersion;
 
 impl CliChain for Kusama {
-	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> = None;
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion { spec_version: 1_001_002, transaction_version: 25 });
 }
 
 impl CliChain for BridgeHubKusama {
 	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
-		Some(SimpleRuntimeVersion { spec_version: 9410, transaction_version: 21 });
+		Some(SimpleRuntimeVersion { spec_version: 1_001_000, transaction_version: 4 });
 }
