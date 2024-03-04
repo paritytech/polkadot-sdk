@@ -1522,4 +1522,89 @@ mod tests {
 		let permit_three = ops.reserve_at_most(1).unwrap();
 		assert_eq!(permit_three.num_ops, 1);
 	}
+
+	#[test]
+	fn suspend_subscriptions() {
+		let (backend, mut client) = init_backend();
+
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash_1 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_1)
+			.with_parent_block_number(1)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash_2 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_2)
+			.with_parent_block_number(2)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash_3 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+
+		let mut subs = SubscriptionsInner::new(
+			10,
+			Duration::from_secs(10),
+			MAX_OPERATIONS_PER_SUB,
+			Duration::from_secs(3),
+			backend,
+		);
+		let id_1 = "abc".to_string();
+		let id_2 = "abcd".to_string();
+		let id_3 = "abcde".to_string();
+
+		// Pin all blocks for the first subscription.
+		let _stop = subs.insert_subscription(id_1.clone(), true).unwrap();
+		assert_eq!(subs.pin_block(&id_1, hash_1).unwrap(), true);
+		assert_eq!(subs.pin_block(&id_1, hash_2).unwrap(), true);
+		assert_eq!(subs.pin_block(&id_1, hash_3).unwrap(), true);
+
+		// Pin only block 2 for the second subscription.
+		let _stop = subs.insert_subscription(id_2.clone(), true).unwrap();
+		assert_eq!(subs.pin_block(&id_2, hash_2).unwrap(), true);
+
+		// Check reference count.
+		assert_eq!(*subs.global_blocks.get(&hash_1).unwrap(), 1);
+		assert_eq!(*subs.global_blocks.get(&hash_2).unwrap(), 2);
+		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
+		assert_eq!(subs.global_blocks.len(), 3);
+
+		// Suspend all subscriptions.
+		assert!(!subs.suspend.is_suspended());
+		subs.suspend_subscriptions();
+		assert!(subs.suspend.is_suspended());
+
+		// A new subscription cannot be inserted while suspended.
+		let result = subs.insert_subscription(id_3.clone(), true);
+		assert!(result.is_none());
+
+		// Check reference count.
+		assert_eq!(subs.global_blocks.len(), 0);
+
+		// Sleep 5 seconds.
+		std::thread::sleep(std::time::Duration::from_secs(5));
+
+		assert!(!subs.suspend.is_suspended());
+
+		// Subscriptions can be inserted again.
+		let _stop = subs.insert_subscription(id_1.clone(), true).unwrap();
+		let _stop = subs.insert_subscription(id_2.clone(), true).unwrap();
+		let _stop = subs.insert_subscription(id_3.clone(), true).unwrap();
+	}
 }
