@@ -111,7 +111,7 @@ where
 		Ok(ext.into_storages())
 	}
 
-	/// Creates the genesis state by patching the default `RuntimeGenesisConfig` and applying it.
+	/// Creates the genesis state by patching the default `RuntimeGenesisConfig`.
 	///
 	/// This function generates the `RuntimeGenesisConfig` for the runtime by applying a provided JSON
 	/// patch. The patch modifies the default `RuntimeGenesisConfig` allowing customization of the specific
