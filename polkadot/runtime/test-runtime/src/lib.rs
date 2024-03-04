@@ -981,7 +981,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_fork_equivocation_unsigned_extrinsic(
-			_fork_equivocation_proof: beefy_primitives::ForkEquivocationProof<BeefyId, BeefySignature, Header, Hash>,
+			_fork_equivocation_proof: beefy_primitives::ForkEquivocationProof<BeefyId, Header, Hash>,
 			_key_owner_proofs: Vec<beefy_primitives::OpaqueKeyOwnershipProof>,
 		) -> Option<()> {
 			None

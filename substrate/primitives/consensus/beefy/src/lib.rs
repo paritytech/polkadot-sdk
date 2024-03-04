@@ -331,19 +331,19 @@ impl<Number, Id, Signature> VoteEquivocationProof<Number, Id, Signature> {
 /// This proof shows commitment signed on a different fork.
 /// See [check_fork_equivocation_proof] for proof validity conditions.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
-pub struct ForkEquivocationProof<Id, Signature, Header: HeaderT, Hash> {
+pub struct ForkEquivocationProof<Id: RuntimeAppPublic, Header: HeaderT, Hash> {
 	/// Commitment for a block on a different fork than one at the same height in
 	/// the chain where this proof is submitted.
 	pub commitment: Commitment<Header::Number>,
 	/// Signatures on this block
-	pub signatories: Vec<(Id, Signature)>,
+	pub signatories: Vec<(Id, Id::Signature)>,
 	/// Canonical header at the same height as `commitment.block_number`.
 	pub canonical_header: Option<Header>,
 	/// Ancestry proof showing mmr root
 	pub ancestry_proof: Option<AncestryProof<Hash>>,
 }
 
-impl<Id, Signature, H: HeaderT, Hash> ForkEquivocationProof<Id, Signature, H, Hash> {
+impl<Id: RuntimeAppPublic, H: HeaderT, Hash> ForkEquivocationProof<Id, H, Hash> {
 	/// Returns the authority ids of the misbehaving voters.
 	pub fn offender_ids(&self) -> Vec<&Id> {
 		self.signatories.iter().map(|(id, _)| id).collect()
@@ -519,7 +519,7 @@ where
 /// incorrect block implies validators will only sign blocks they *know* will be finalized by
 /// GRANDPA.
 pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
-	proof: &ForkEquivocationProof<Id, <Id as RuntimeAppPublic>::Signature, Header, NodeHash>,
+	proof: &ForkEquivocationProof<Id, Header, NodeHash>,
 	canonical_root: Hasher::Item,
 	mmr_size: u64,
 	canonical_header_hash: &Header::Hash,
@@ -592,12 +592,7 @@ pub trait CheckForkEquivocationProof<Err, Header: HeaderT> {
 	/// https://github.com/paritytech/polkadot-sdk/issues/1441 for
 	/// replacement solution.
 	fn check_fork_equivocation_proof<Id, MsgHash>(
-		proof: &ForkEquivocationProof<
-			Id,
-			<Id as RuntimeAppPublic>::Signature,
-			Header,
-			<Self::HashT as Hash>::Output,
-		>,
+		proof: &ForkEquivocationProof<Id, Header, <Self::HashT as Hash>::Output>,
 	) -> Result<bool, Err>
 	where
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
@@ -607,12 +602,7 @@ pub trait CheckForkEquivocationProof<Err, Header: HeaderT> {
 impl<Err, Header: HeaderT> CheckForkEquivocationProof<Err, Header> for () {
 	type HashT = Keccak256;
 	fn check_fork_equivocation_proof<Id, MsgHash>(
-		_proof: &ForkEquivocationProof<
-			Id,
-			<Id as RuntimeAppPublic>::Signature,
-			Header,
-			<Self::HashT as Hash>::Output,
-		>,
+		_proof: &ForkEquivocationProof<Id, Header, <Self::HashT as Hash>::Output>,
 		// _canonical_header_hash: &<Self::Header as HeaderT>::Hash,
 		// _best_block_num: <Self::Header as HeaderT>::Number,
 	) -> Result<bool, Err>
@@ -684,7 +674,7 @@ sp_api::decl_runtime_apis! {
 		/// hardcoded to return `None`). Only useful in an offchain context.
 		fn submit_report_fork_equivocation_unsigned_extrinsic(
 			fork_equivocation_proof:
-				ForkEquivocationProof<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature, Block::Header, Hash>,
+				ForkEquivocationProof<AuthorityId, Block::Header, Hash>,
 			key_owner_proofs: Vec<OpaqueKeyOwnershipProof>,
 		) -> Option<()>;
 

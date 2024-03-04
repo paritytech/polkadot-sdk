@@ -317,7 +317,6 @@ pub mod pallet {
 			equivocation_proof: Box<
 				ForkEquivocationProof<
 					T::BeefyId,
-					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
 					<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
 						Error<T>,
@@ -356,7 +355,6 @@ pub mod pallet {
 			equivocation_proof: Box<
 				ForkEquivocationProof<
 					T::BeefyId,
-					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
 					<<<T as Config>::CheckForkEquivocationProof as sp_consensus_beefy::CheckForkEquivocationProof<Error<T>, HeaderFor<T>>>::HashT as sp_runtime::traits::Hash>::Output,
 				>,
@@ -426,7 +424,6 @@ impl<T: Config> Pallet<T> {
 	pub fn submit_unsigned_fork_equivocation_report(
 		fork_equivocation_proof: sp_consensus_beefy::ForkEquivocationProof<
 			T::BeefyId,
-			<T::BeefyId as RuntimeAppPublic>::Signature,
 			HeaderFor<T>,
 			<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
 				pallet::Error<T>,

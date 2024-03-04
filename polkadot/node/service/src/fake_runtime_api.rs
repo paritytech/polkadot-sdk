@@ -252,7 +252,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_fork_equivocation_unsigned_extrinsic(
-			_: beefy_primitives::ForkEquivocationProof<BeefyId, BeefySignature, <Block as BlockT>::Header, Hash>,
+			_: beefy_primitives::ForkEquivocationProof<BeefyId, <Block as BlockT>::Header, Hash>,
 			_: Vec<beefy_primitives::OpaqueKeyOwnershipProof>,
 		) -> Option<()> {
 			unimplemented!()

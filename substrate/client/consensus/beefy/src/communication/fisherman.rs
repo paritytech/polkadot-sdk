@@ -97,7 +97,7 @@ where
 
 	pub(crate) fn report_fork_equivocation(
 		&self,
-		proof: ForkEquivocationProof<AuthorityId, Signature, B::Header, MmrRootHash>,
+		proof: ForkEquivocationProof<AuthorityId, B::Header, MmrRootHash>,
 	) -> Result<bool, Error> {
 		let best_block_number = self.backend.blockchain().info().best_number;
 		let best_block_hash = self.backend.blockchain().info().best_hash;
