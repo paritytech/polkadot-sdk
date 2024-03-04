@@ -12,7 +12,7 @@ workspace = true
 async-std = "1.6.5"
 async-trait = "0.1"
 futures = "0.3.30"
-log = "0.4.20"
+log = "0.4.21"
 relay-utils = { path = "../utils" }
 
 # Bridge dependencies
