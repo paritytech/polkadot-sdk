@@ -22,10 +22,11 @@ use relay_polkadot_client::Polkadot;
 use relay_substrate_client::SimpleRuntimeVersion;
 
 impl CliChain for Polkadot {
-	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> = None;
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion { spec_version: 1_001_002, transaction_version: 25 });
 }
 
 impl CliChain for BridgeHubPolkadot {
 	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
-		Some(SimpleRuntimeVersion { spec_version: 9410, transaction_version: 22 });
+		Some(SimpleRuntimeVersion { spec_version: 1_001_000, transaction_version: 3 });
 }

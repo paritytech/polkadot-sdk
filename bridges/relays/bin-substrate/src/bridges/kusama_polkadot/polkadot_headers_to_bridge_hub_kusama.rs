@@ -34,8 +34,8 @@ pub struct PolkadotFinalityToBridgeHubKusama;
 substrate_relay_helper::generate_submit_finality_proof_call_builder!(
 	PolkadotFinalityToBridgeHubKusama,
 	SubmitFinalityProofCallBuilder,
-	relay_bridge_hub_kusama_client::runtime::Call::BridgePolkadotGrandpa,
-	relay_bridge_hub_kusama_client::runtime::BridgePolkadotGrandpaCall::submit_finality_proof
+	relay_bridge_hub_kusama_client::RuntimeCall::BridgePolkadotGrandpa,
+	relay_bridge_hub_kusama_client::BridgeGrandpaCall::submit_finality_proof
 );
 
 substrate_relay_helper::generate_report_equivocation_call_builder!(

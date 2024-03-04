@@ -44,8 +44,8 @@ impl SubmitParachainHeadsCallBuilder<BridgeHubPolkadotToBridgeHubKusama>
 		parachains: Vec<(ParaId, ParaHash)>,
 		parachain_heads_proof: ParaHeadsProof,
 	) -> CallOf<relay_bridge_hub_kusama_client::BridgeHubKusama> {
-		relay_bridge_hub_kusama_client::runtime::Call::BridgePolkadotParachain(
-			bp_parachains::BridgeParachainCall::submit_parachain_heads {
+		relay_bridge_hub_kusama_client::RuntimeCall::BridgePolkadotParachains(
+			relay_bridge_hub_kusama_client::BridgeParachainCall::submit_parachain_heads {
 				at_relay_block: (at_relay_block.0, at_relay_block.1),
 				parachains,
 				parachain_heads_proof,
