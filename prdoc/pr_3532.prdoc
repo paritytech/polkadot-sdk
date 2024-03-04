@@ -10,3 +10,4 @@ doc:
 
 crates:
   - name: frame-support
+  - name: frame
