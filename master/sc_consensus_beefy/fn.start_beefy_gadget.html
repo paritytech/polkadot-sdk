@@ -154,7 +154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     P: PayloadProvider&lt;B&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,
     R: ProvideRuntimeApi&lt;B&gt;,
     R::Api: BeefyApi&lt;B, AuthorityId&gt; + MmrApi&lt;B, MmrRootHash, <a class="type" href="../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;B&gt;&gt;,
-    N: GossipNetwork&lt;B&gt; + <a class="trait" href="../sc_network/service/traits/trait.NetworkRequest.html" title="trait sc_network::service::traits::NetworkRequest">NetworkRequest</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
+    N: GossipNetwork&lt;B&gt; + NetworkRequest + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     S: GossipSyncing&lt;B&gt; + SyncOracle + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Start the BEEFY gadget.</p>
 <p>This is a thin shim around running and awaiting a BEEFY worker.</p>
 </div></details></section></div></main></body></html>
