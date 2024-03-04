@@ -32,6 +32,7 @@ pub mod chain_head;
 pub mod error;
 pub mod event;
 
+mod suspend_subscriptions;
 mod chain_head_follow;
 mod chain_head_storage;
 mod subscription;
