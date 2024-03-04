@@ -1,0 +1,67 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use super::*;
+use crate::types::RegionRecord;
+use codec::{Decode, Encode};
+use core::marker::PhantomData;
+use frame_support::traits::{Get, OnRuntimeUpgrade};
+use sp_runtime::Saturating;
+
+#[derive(Encode, Decode)]
+pub struct RegionRecordV0<AccountId, Balance> {
+	/// The end of the Region.
+	pub end: Timeslice,
+	/// The owner of the Region.
+	pub owner: AccountId,
+	/// The amount paid to Polkadot for this Region, or `None` if renewal is not allowed.
+	pub paid: Option<Balance>,
+}
+
+mod v1 {
+	use super::*;
+
+	pub struct MigrateToV1Impl<T>(PhantomData<T>);
+
+	impl<T: Config> OnRuntimeUpgrade for MigrateToV1Impl<T> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			let mut count: u64 = 0;
+
+			<Regions<T>>::translate::<RegionRecordV0<T::AccountId, BalanceOf<T>>, _>(|_, v0| {
+				count.saturating_inc();
+				Some(RegionRecord { end: v0.end, owner: Some(v0.owner), paid: v0.paid })
+			});
+
+			log::info!(
+				target: LOG_TARGET,
+				"Storage migration v1 for pallet-broker finished.",
+			);
+
+			// calculate and return migration weights
+			T::DbWeight::get().reads_writes(count as u64 + 1, count as u64 + 1)
+		}
+	}
+}
+
+/// Migrate the pallet storage from `0` to `1`.
+pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
+	0,
+	1,
+	v1::MigrateToV1Impl<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;

@@ -86,6 +86,8 @@ impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
 		}
 
 		record.owner = None;
+		Regions::<T>::insert(region_id, record);
+
 		Ok(())
 	}
 }

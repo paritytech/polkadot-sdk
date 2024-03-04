@@ -36,6 +36,7 @@ mod tick_impls;
 mod types;
 mod utility_impls;
 
+pub mod migration;
 pub mod weights;
 pub use weights::WeightInfo;
 
@@ -43,6 +44,9 @@ pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
 pub use types::*;
+
+/// The log target for this pallet.
+const LOG_TARGET: &str = "runtime::broker";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -59,7 +63,10 @@ pub mod pallet {
 	use sp_runtime::traits::{Convert, ConvertBack};
 	use sp_std::vec::Vec;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
