@@ -146,10 +146,8 @@ impl BridgeInitializer for KusamaToBridgeHubPolkadotCliBridge {
 	fn encode_init_bridge(
 		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
 	) -> <Self::Target as Chain>::Call {
-		relay_bridge_hub_polkadot_client::runtime::Call::BridgeKusamaGrandpa(
-			relay_bridge_hub_polkadot_client::runtime::BridgeKusamaGrandpaCall::initialize {
-				init_data,
-			},
+		relay_bridge_hub_polkadot_client::RuntimeCall::BridgeKusamaGrandpa(
+			relay_bridge_hub_polkadot_client::BridgeKusamaGrandpaCall::initialize { init_data },
 		)
 	}
 }
@@ -160,10 +158,8 @@ impl BridgeInitializer for PolkadotToBridgeHubKusamaCliBridge {
 	fn encode_init_bridge(
 		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
 	) -> <Self::Target as Chain>::Call {
-		relay_bridge_hub_kusama_client::runtime::Call::BridgePolkadotGrandpa(
-			relay_bridge_hub_kusama_client::runtime::BridgePolkadotGrandpaCall::initialize {
-				init_data,
-			},
+		relay_bridge_hub_kusama_client::RuntimeCall::BridgePolkadotGrandpa(
+			relay_bridge_hub_kusama_client::BridgeGrandpaCall::initialize { init_data },
 		)
 	}
 }
@@ -191,8 +187,9 @@ impl BridgeInitializer for PolkadotBulletinToBridgeHubPolkadotCliBridge {
 	fn encode_init_bridge(
 		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
 	) -> <Self::Target as Chain>::Call {
-		relay_bridge_hub_polkadot_client::runtime::Call::BridgePolkadotBulletinGrandpa(
-			relay_bridge_hub_polkadot_client::runtime::BridgePolkadotBulletinGrandpaCall::initialize {
+		// TODO: https://github.com/paritytech/parity-bridges-common/issues/2547 - use BridgePolkadotBulletinGrandpa
+		relay_bridge_hub_polkadot_client::RuntimeCall::BridgeKusamaGrandpa(
+			relay_bridge_hub_polkadot_client::BridgePolkadotBulletinGrandpaCall::initialize {
 				init_data,
 			},
 		)

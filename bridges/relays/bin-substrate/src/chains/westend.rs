@@ -22,10 +22,11 @@ use relay_substrate_client::SimpleRuntimeVersion;
 use relay_westend_client::Westend;
 
 impl CliChain for Westend {
-	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> = None;
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion { spec_version: 1_008_000, transaction_version: 24 });
 }
 
 impl CliChain for BridgeHubWestend {
 	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
-		Some(SimpleRuntimeVersion { spec_version: 1_003_000, transaction_version: 3 });
+		Some(SimpleRuntimeVersion { spec_version: 1_008_000, transaction_version: 4 });
 }
