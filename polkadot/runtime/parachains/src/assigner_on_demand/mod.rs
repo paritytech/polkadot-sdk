@@ -32,6 +32,7 @@
 //! intent can be made explicit.
 
 mod benchmarking;
+pub mod migration;
 mod mock_helpers;
 
 extern crate alloc;

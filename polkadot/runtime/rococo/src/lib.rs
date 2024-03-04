@@ -1664,6 +1664,7 @@ pub mod migrations {
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
 		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
 		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
+		parachains_assigner_on_demand::migration::MigrateV0ToV1<Runtime>,
 	);
 }
 
