@@ -81,7 +81,7 @@ where
 			.0
 	}
 
-	/// Returns the default `RuntimeGenesisConfig` provided by the `runtime`.
+	/// Returns a json representation of the default `RuntimeGenesisConfig` provided by the `runtime`.
 	///
 	/// Calls [`GenesisBuilder::create_default_config`](sp_genesis_builder::GenesisBuilder::create_default_config) in the `runtime`.
 	pub fn get_default_config(&self) -> core::result::Result<Value, String> {
