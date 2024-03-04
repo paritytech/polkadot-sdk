@@ -94,7 +94,7 @@ where
 		Ok(from_slice(&default_config[..]).expect("returned value is json. qed."))
 	}
 
-	/// Build the given `RuntimeGenesisConfig` and returns the genesis state.
+	/// Builds `RuntimeGenesisConfig` from given json blob and returns the genesis state.
 	///
 	/// Calls [`GenesisBuilder::build_config`](sp_genesis_builder::GenesisBuilder::build_config)
 	/// provided by the `runtime`.
