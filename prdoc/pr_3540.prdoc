@@ -1,4 +1,4 @@
-title: "[pallet-contracts] Only allow non-determinist code to be uploaded with Determinism::Relaxed"
+title: "[pallet-contracts] Only allow non-deterministic code to be uploaded with Determinism::Relaxed"
 
 doc:
   - audience: Runtime Dev
