@@ -18,15 +18,12 @@ use crate::{
 	approval::{
 		helpers::{generate_babe_epoch, generate_topology},
 		test_message::{MessagesBundle, TestMessageInfo},
-		ApprovalTestState, BlockTestData, GeneratedState, BUFFER_FOR_GENERATION_MILLIS, LOG_TARGET,
-		SLOT_DURATION_MILLIS,
+		ApprovalTestState, ApprovalsOptions, BlockTestData, GeneratedState,
+		BUFFER_FOR_GENERATION_MILLIS, LOG_TARGET, SLOT_DURATION_MILLIS,
 	},
-	core::{
-		configuration::{TestAuthorities, TestConfiguration},
-		mock::runtime_api::session_info_for_peers,
-		NODE_UNDER_TEST,
-	},
-	ApprovalsOptions, TestObjective,
+	configuration::{TestAuthorities, TestConfiguration},
+	mock::runtime_api::session_info_for_peers,
+	NODE_UNDER_TEST,
 };
 use futures::SinkExt;
 use itertools::Itertools;
@@ -132,11 +129,7 @@ impl PeerMessagesGenerator {
 		options: &ApprovalsOptions,
 	) -> String {
 		let mut fingerprint = options.fingerprint();
-		let mut exclude_objective = configuration.clone();
-		// The objective contains the full content of `ApprovalOptions`, we don't want to put all of
-		// that in fingerprint, so execlute it because we add it manually see above.
-		exclude_objective.objective = TestObjective::Unimplemented;
-		let configuration_bytes = bincode::serialize(&exclude_objective).unwrap();
+		let configuration_bytes = bincode::serialize(&configuration).unwrap();
 		fingerprint.extend(configuration_bytes);
 		let mut sha1 = sha1::Sha1::new();
 		sha1.update(fingerprint);
