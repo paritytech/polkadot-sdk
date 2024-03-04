@@ -63,6 +63,9 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	sub_id: String,
 	/// The best reported block by this subscription.
 	best_block_cache: Option<Block::Hash>,
+	/// Suspend the subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	suspend_on_lagging_distance: usize,
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Client> {
@@ -73,8 +76,17 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 		sub_handle: Arc<SubscriptionManagement<Block, BE>>,
 		with_runtime: bool,
 		sub_id: String,
+		suspend_on_lagging_distance: usize,
 	) -> Self {
-		Self { client, backend, sub_handle, with_runtime, sub_id, best_block_cache: None }
+		Self {
+			client,
+			backend,
+			sub_handle,
+			with_runtime,
+			sub_id,
+			best_block_cache: None,
+			suspend_on_lagging_distance,
+		}
 	}
 }
 
@@ -201,8 +213,8 @@ where
 			return Err(SubscriptionManagementError::BlockHashAbsent)
 		};
 
-		let distance: u64 = block_num.saturating_sub(finalized_num).saturated_into();
-		if distance > 128 {
+		let distance: usize = block_num.saturating_sub(finalized_num).saturated_into();
+		if distance > self.suspend_on_lagging_distance {
 			return Err(SubscriptionManagementError::BlockDistanceTooLarge);
 		}
 

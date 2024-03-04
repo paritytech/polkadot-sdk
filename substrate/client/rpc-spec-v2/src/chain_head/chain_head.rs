@@ -62,6 +62,11 @@ pub struct ChainHeadConfig {
 	pub subscription_max_pinned_duration: Duration,
 	/// The maximum number of ongoing operations per subscription.
 	pub subscription_max_ongoing_operations: usize,
+	/// Suspend the subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	///
+	/// Subscriptions are suspended for the `suspended_duration`.
+	pub suspend_on_lagging_distance: usize,
 	/// The amount of time for which the subscriptions are suspended.
 	///
 	/// Subscriptions are suspended when the distance between any leaf
@@ -91,6 +96,12 @@ const MAX_ONGOING_OPERATIONS: usize = 16;
 /// before paginations is required.
 const MAX_STORAGE_ITER_ITEMS: usize = 5;
 
+/// Suspend the subscriptions if the distance between the leaves and the current finalized
+/// block is larger than this value.
+///
+/// Subscriptions are suspended for the `suspended_duration`.
+const SUSPEND_ON_LAGGING_DISTANCE: usize = 128;
+
 /// The amount of time for which the subscriptions are suspended.
 ///
 /// Subscriptions are suspended when the distance between any leaf
@@ -104,6 +115,7 @@ impl Default for ChainHeadConfig {
 			subscription_max_pinned_duration: MAX_PINNED_DURATION,
 			subscription_max_ongoing_operations: MAX_ONGOING_OPERATIONS,
 			suspended_duration: SUSPENDED_DURATION,
+			suspend_on_lagging_distance: SUSPEND_ON_LAGGING_DISTANCE,
 			operation_max_storage_items: MAX_STORAGE_ITER_ITEMS,
 		}
 	}
@@ -122,6 +134,9 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	operation_max_storage_items: usize,
+	/// Suspend the subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	suspend_on_lagging_distance: usize,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
 }
@@ -146,6 +161,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				backend,
 			)),
 			operation_max_storage_items: config.operation_max_storage_items,
+			suspend_on_lagging_distance: config.suspend_on_lagging_distance,
 			_phantom: PhantomData,
 		}
 	}
@@ -193,6 +209,7 @@ where
 		let subscriptions = self.subscriptions.clone();
 		let backend = self.backend.clone();
 		let client = self.client.clone();
+		let suspend_on_lagging_distance = self.suspend_on_lagging_distance;
 
 		let fut = async move {
 			let Ok(sink) = pending.accept().await else { return };
@@ -217,6 +234,7 @@ where
 				subscriptions.clone(),
 				with_runtime,
 				sub_id.clone(),
+				suspend_on_lagging_distance,
 			);
 			let result = chain_head_follow.generate_events(sink, sub_data).await;
 
