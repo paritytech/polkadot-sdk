@@ -30,10 +30,14 @@ use std::collections::{hash_map::Entry, BTreeSet, HashMap, VecDeque};
 const NON_CANONICAL_JOURNAL: &[u8] = b"noncanonical_journal";
 pub(crate) const LAST_CANONICAL: &[u8] = b"last_canonical";
 const OVERLAY_LEVEL_SPAN: &[u8] = b"noncanonical_overlay_span";
+
+/// If enabled, the maximum number of blocks per overlay level.
+const MAX_BLOCKS_PER_LEVEL_IF_ENABLED: u64 = 32;
+
 /// Threshold for storing overlay level span in db.
 /// To decrease the number of database operations, the span of some overlay
 /// level will be committed to the database iff span > `OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN`
-const OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN: u64 = 32;
+const OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN: u64 = MAX_BLOCKS_PER_LEVEL_IF_ENABLED;
 
 /// See module documentation.
 pub struct NonCanonicalOverlay<BlockHash: Hash, Key: Hash> {
@@ -215,7 +219,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 				for index in 0..level_span.unwrap_or(OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN) {
 					let journal_key = to_journal_key(block, index);
 					if let Some(record) = db.get_meta(&journal_key).map_err(Error::Db)? {
-						if !disable_block_limit_per_level && index >= OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN {
+						if !disable_block_limit_per_level && index >= MAX_BLOCKS_PER_LEVEL_IF_ENABLED {
 							panic!("Block limit per level has been enabled, but previously it wasn't and was exceeded. \
 							Please disable that parameter, or purge the db if you know what you're doing.");
 						}
@@ -323,7 +327,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 		};
 
 		if !self.disable_block_limit_per_level
-			&& level.blocks.len() as u64 >= OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN
+			&& level.blocks.len() as u64 >= MAX_BLOCKS_PER_LEVEL_IF_ENABLED
 		{
 			return Err(StateDbError::TooManySiblingBlocks { number })
 		}
