@@ -734,7 +734,7 @@ mod tests {
 	fn make_test_db(settings: PruningMode) -> (TestDb, StateDb<H256, H256, TestDb>) {
 		let mut db = make_db(&[91, 921, 922, 93, 94]);
 		let (state_db_init, state_db) =
-			StateDb::open(db.clone(), Some(settings), false, true).unwrap();
+			StateDb::open(db.clone(), Some(settings), false, true, true).unwrap();
 		db.commit(&state_db_init);
 
 		db.commit(
@@ -872,7 +872,7 @@ mod tests {
 	fn detects_incompatible_mode() {
 		let mut db = make_db(&[]);
 		let (state_db_init, state_db) =
-			StateDb::open(db.clone(), Some(PruningMode::ArchiveAll), false, true).unwrap();
+			StateDb::open(db.clone(), Some(PruningMode::ArchiveAll), false, true, true).unwrap();
 		db.commit(&state_db_init);
 		db.commit(
 			&state_db
@@ -886,7 +886,7 @@ mod tests {
 		);
 		let new_mode = PruningMode::Constrained(Constraints { max_blocks: Some(2) });
 		let state_db_open_result: Result<(_, StateDb<H256, H256, TestDb>), _> =
-			StateDb::open(db.clone(), Some(new_mode), false, false);
+			StateDb::open(db.clone(), Some(new_mode), false, false, true);
 		assert!(state_db_open_result.is_err());
 	}
 
@@ -897,13 +897,13 @@ mod tests {
 	) {
 		let mut db = make_db(&[]);
 		let (state_db_init, state_db) =
-			StateDb::<H256, H256, TestDb>::open(db.clone(), mode_when_created, false, true)
+			StateDb::<H256, H256, TestDb>::open(db.clone(), mode_when_created, false, true, true)
 				.unwrap();
 		db.commit(&state_db_init);
 		std::mem::drop(state_db);
 
 		let state_db_reopen_result =
-			StateDb::<H256, H256, TestDb>::open(db.clone(), mode_when_reopened, false, false);
+			StateDb::<H256, H256, TestDb>::open(db.clone(), mode_when_reopened, false, false, true);
 		if let Ok(expected_mode) = expected_effective_mode_when_reopenned {
 			let (state_db_init, state_db_reopened) = state_db_reopen_result.unwrap();
 			db.commit(&state_db_init);

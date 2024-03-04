@@ -2312,3 +2312,95 @@ fn finalize_after_best_block_updates_best() {
 	assert_eq!(client.chain_info().finalized_hash, a3.hash());
 	assert_eq!(client.chain_info().best_hash, a3.hash());
 }
+
+#[test]
+fn import_long_chain() {
+	const LENGTH: u64 = 5050;
+	let mut client = TestClientBuilder::new().build();
+	let mut last_block_on_this_chain = client.chain_info().genesis_hash;
+	for number in 1..LENGTH + 1 {
+		let mut block = BlockBuilderBuilder::new(&client)
+			.on_parent_block(last_block_on_this_chain)
+			.with_parent_block_number(number - 1)
+			.build()
+			.unwrap();
+		block
+			.push_transfer(Transfer {
+				from: AccountKeyring::Alice.into(),
+				to: AccountKeyring::Ferdie.into(),
+				amount: 1,
+				nonce: number - 1,
+			})
+			.unwrap();
+		let block = block.build().unwrap().block;
+		block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		last_block_on_this_chain = block.hash();
+	}
+	ClientExt::finalize_block(&client, client.chain_info().best_hash, None).unwrap();
+	assert_eq!(client.chain_info().finalized_number, LENGTH);
+}
+
+#[test]
+fn import_many_leaves() {
+	const LEVELS: u64 = 5;
+	const BLOCKS_PER_LEVEL: u64 = 5050/LEVELS;
+	let mut client = TestClientBuilder::new().build();
+
+	for block_number in 0..LEVELS {
+		let mut blocks = vec![];
+		for block_id in 0..BLOCKS_PER_LEVEL {
+			let mut block = BlockBuilderBuilder::new(&client)
+				.on_parent_block(client.chain_info().finalized_hash)
+				.with_parent_block_number(client.chain_info().finalized_number)
+				.build()
+				.unwrap();
+			block
+				.push_transfer(Transfer {
+					from: AccountKeyring::Alice.into(),
+					to: AccountKeyring::Ferdie.into(),
+					amount: block_id,
+					nonce: client.chain_info().finalized_number,
+				})
+				.unwrap();
+			let block = block.build().unwrap().block;
+			block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+			blocks.push(block);
+		}
+		let finalized_id = (blocks.len()-1) * block_number as usize / LEVELS as usize;
+		let finalized_hash = blocks[finalized_id].hash();
+		ClientExt::finalize_block(&client, finalized_hash, None).unwrap();
+		assert_eq!(client.chain_info().finalized_hash, finalized_hash);
+		assert_eq!(client.chain_info().best_hash, finalized_hash);
+	}
+}
+
+#[test]
+fn import_many_branches() {
+	const WIDTH: u64 = 100;
+	let mut client = TestClientBuilder::new().build();
+
+	for branch in 1..WIDTH + 1 {
+		let mut last_block_on_this_chain = client.chain_info().genesis_hash;
+		for number in 1..=branch {
+			let mut block = BlockBuilderBuilder::new(&client)
+				.on_parent_block(last_block_on_this_chain)
+				.with_parent_block_number(number - 1)
+				.build()
+				.unwrap();
+			block
+				.push_transfer(Transfer {
+					from: AccountKeyring::Alice.into(),
+					to: AccountKeyring::Ferdie.into(),
+					amount: branch, // to make hash unique
+					nonce: number - 1,
+				})
+				.unwrap();
+			let block = block.build().unwrap().block;
+			block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+			last_block_on_this_chain = block.hash();
+		}
+		assert_eq!(client.chain_info().best_hash, last_block_on_this_chain);
+	}
+	ClientExt::finalize_block(&client, client.chain_info().best_hash, None).unwrap();
+	assert_eq!(client.chain_info().finalized_number, WIDTH);
+}
