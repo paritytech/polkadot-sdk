@@ -22,6 +22,9 @@ use core::marker::PhantomData;
 use frame_support::traits::{Get, OnRuntimeUpgrade};
 use sp_runtime::Saturating;
 
+#[cfg(feature = "try-runtime")]
+use frame_support::ensure;
+
 #[derive(Encode, Decode)]
 pub struct RegionRecordV0<AccountId, Balance> {
 	/// The end of the Region.
@@ -53,6 +56,20 @@ mod v1 {
 
 			// calculate and return migration weights
 			T::DbWeight::get().reads_writes(count as u64 + 1, count as u64 + 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			Ok((Regions::<T>::iter_keys().count() as u32).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let old_count = u32::decode(&mut &state[..]).expect("Known good");
+			let new_count = Regions::<T>::iter_values().count() as u32;
+
+			ensure!(old_count == new_count, "Regions count should not change");
+			Ok(())
 		}
 	}
 }
