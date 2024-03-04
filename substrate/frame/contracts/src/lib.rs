@@ -627,6 +627,10 @@ pub mod pallet {
 		/// To avoid this situation a constructor could employ access control so that it can
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
+		///
+		/// Use [`Determinism::Relaxed`] exclusively for non-deterministic code. If the uploaded
+		/// code is deterministic, specifying [`Determinism::Relaxed`] will be disregarded and
+		/// result in higher gas costs.
 		#[pallet::call_index(3)]
 		#[pallet::weight(
 			match determinism {

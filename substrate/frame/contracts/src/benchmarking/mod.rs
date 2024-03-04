@@ -481,6 +481,8 @@ benchmarks! {
 		assert!(<Contract<T>>::code_exists(&hash));
 	}
 
+	/// Uploading code with [`Determinism::Relaxed`] should be more expensive than uploading code with [`Determinism::Enforced`],
+	/// as we always try to save the code with [`Determinism::Enforced`] first.
 	#[pov_mode = Measured]
 	upload_code_determinism_relaxed {
 		let c in 0 .. T::MaxCodeLen::get();
@@ -492,6 +494,8 @@ benchmarks! {
 	verify {
 		assert!(T::Currency::total_balance_on_hold(&caller) > 0u32.into());
 		assert!(<Contract<T>>::code_exists(&hash));
+		// Ensure that the benchmark follows the most expensive path, i.e., the code is saved with [`Determinism::Relaxed`] after trying to save it with [`Determinism::Enforced`].
+		assert_eq!(CodeInfoOf::<T>::get(&hash).unwrap().determinism(), Determinism::Relaxed);
 	}
 
 	// Removing code does not depend on the size of the contract because all the information

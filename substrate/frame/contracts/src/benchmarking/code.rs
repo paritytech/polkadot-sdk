@@ -26,7 +26,7 @@
 
 use crate::Config;
 use frame_support::traits::Get;
-use sp_runtime::traits::Hash;
+use sp_runtime::{traits::Hash, Saturating};
 use sp_std::{borrow::ToOwned, prelude::*};
 use wasm_instrument::parity_wasm::{
 	builder,
@@ -269,15 +269,16 @@ impl<T: Config> WasmModule<T> {
 		// size fields inside the binary wasm module representation which are leb128 encoded
 		// and therefore grow in size when the contract grows. We are not allowed to overshoot
 		// because of the maximum code size that is enforced by `instantiate_with_code`.
-		let expansions = (target_bytes.saturating_sub(63) / 6).saturating_sub(1);
+		let mut expansions = (target_bytes.saturating_sub(63) / 6).saturating_sub(1);
 		const EXPANSION: [Instruction; 4] = [GetLocal(0), If(BlockType::NoResult), Return, End];
+		let mut locals = vec![Local::new(1, ValueType::I32)];
+		if use_float {
+			locals.push(Local::new(1, ValueType::F32));
+			expansions.saturating_dec();
+		}
 		let mut module =
 			ModuleDefinition { memory: Some(ImportedMemory::max::<T>()), ..Default::default() };
-		let body = Some(body::repeated_with_locals(
-			&[Local::new(1, if use_float { ValueType::F32 } else { ValueType::I32 })],
-			expansions,
-			&EXPANSION,
-		));
+		let body = Some(body::repeated_with_locals(&locals, expansions, &EXPANSION));
 		match code_location {
 			Location::Call => module.call_body = body,
 			Location::Deploy => module.deploy_body = body,
