@@ -98,7 +98,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_system_assets_works() {
 				},
 				// Foreign Asset created
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { asset_id, creator, owner }) => {
-					asset_id: *asset_id == foreign_asset_at_asset_hub.clone(),
+					asset_id: *asset_id == foreign_asset_at_asset_hub,
 					creator: *creator == para_sovereign_account.clone(),
 					owner: *owner == para_sovereign_account,
 				},
