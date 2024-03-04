@@ -54,7 +54,7 @@ use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
 use sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
 use sp_core::H256;
-use sp_runtime::traits::{Hash, Header as HeaderT, Keccak256, NumberFor};
+use sp_runtime::traits::{Hash as HashT, Header as HeaderT, Keccak256, NumberFor};
 use sp_std::prelude::*;
 
 /// Key type for BEEFY module.
@@ -63,7 +63,7 @@ pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_type
 /// Trait representing BEEFY authority id, including custom signature verification.
 ///
 /// Accepts custom hashing fn for the message and custom convertor fn for the signer.
-pub trait BeefyAuthorityId<MsgHash: Hash>: RuntimeAppPublic {
+pub trait BeefyAuthorityId<MsgHash: HashT>: RuntimeAppPublic {
 	/// Verify a signature.
 	///
 	/// Return `true` if signature over `msg` is valid for this id.
@@ -100,7 +100,7 @@ pub trait AuthorityIdBound:
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
 pub mod ecdsa_crypto {
-	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	use super::{AuthorityIdBound, BeefyAuthorityId, HashT, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, ecdsa};
 	use sp_core::crypto::Wraps;
 
@@ -112,12 +112,12 @@ pub mod ecdsa_crypto {
 	/// Signature for a BEEFY authority using ECDSA as its crypto.
 	pub type AuthoritySignature = Signature;
 
-	impl<MsgHash: Hash> BeefyAuthorityId<MsgHash> for AuthorityId
+	impl<MsgHash: HashT> BeefyAuthorityId<MsgHash> for AuthorityId
 	where
-		<MsgHash as Hash>::Output: Into<[u8; 32]>,
+		<MsgHash as HashT>::Output: Into<[u8; 32]>,
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
-			let msg_hash = <MsgHash as Hash>::hash(msg).into();
+			let msg_hash = <MsgHash as HashT>::hash(msg).into();
 			match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
 				signature.as_inner_ref().as_ref(),
 				&msg_hash,
@@ -143,7 +143,7 @@ pub mod ecdsa_crypto {
 
 #[cfg(feature = "bls-experimental")]
 pub mod bls_crypto {
-	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	use super::{AuthorityIdBound, BeefyAuthorityId, HashT, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, bls377};
 	use sp_core::{bls377::Pair as BlsPair, crypto::Wraps, Pair as _};
 
@@ -155,9 +155,9 @@ pub mod bls_crypto {
 	/// Signature for a BEEFY authority using BLS as its crypto.
 	pub type AuthoritySignature = Signature;
 
-	impl<MsgHash: Hash> BeefyAuthorityId<MsgHash> for AuthorityId
+	impl<MsgHash: HashT> BeefyAuthorityId<MsgHash> for AuthorityId
 	where
-		<MsgHash as Hash>::Output: Into<[u8; 32]>,
+		<MsgHash as HashT>::Output: Into<[u8; 32]>,
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// `w3f-bls` library uses IETF hashing standard and as such does not expose
@@ -183,7 +183,7 @@ pub mod bls_crypto {
 /// functionality.
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls_crypto {
-	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	use super::{AuthorityIdBound, BeefyAuthorityId, HashT, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, ecdsa_bls377};
 	use sp_core::{crypto::Wraps, ecdsa_bls377::Pair as EcdsaBlsPair};
 
@@ -197,7 +197,7 @@ pub mod ecdsa_bls_crypto {
 
 	impl<H> BeefyAuthorityId<H> for AuthorityId
 	where
-		H: Hash,
+		H: HashT,
 		H::Output: Into<[u8; 32]>,
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
@@ -372,7 +372,7 @@ pub fn check_commitment_signature<Number, Id, MsgHash>(
 where
 	Id: BeefyAuthorityId<MsgHash>,
 	Number: Clone + Encode + PartialEq,
-	MsgHash: Hash,
+	MsgHash: HashT,
 {
 	let encoded_commitment = commitment.encode();
 	BeefyAuthorityId::<MsgHash>::verify(authority_id, signature, &encoded_commitment)
@@ -386,7 +386,7 @@ pub fn check_vote_equivocation_proof<Number, Id, MsgHash>(
 where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
 	Number: Clone + Encode + PartialEq,
-	MsgHash: Hash,
+	MsgHash: HashT,
 {
 	let first = &report.first;
 	let second = &report.second;
@@ -451,7 +451,7 @@ fn check_ancestry_proof<Header, NodeHash>(
 ) -> bool
 where
 	Header: HeaderT,
-	NodeHash: Hash,
+	NodeHash: HashT,
 {
 	if let Some(ancestry_proof) = ancestry_proof {
 		let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<Header>(
@@ -532,9 +532,9 @@ pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash>(
 ) -> bool
 where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
-	MsgHash: Hash,
+	MsgHash: HashT,
 	Header: HeaderT,
-	NodeHash: Hash,
+	NodeHash: HashT,
 {
 	let ForkEquivocationProof { commitment, signatories, canonical_header, ancestry_proof } = proof;
 
@@ -585,7 +585,7 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 /// Hook for checking fork equivocation proof for validity.
 pub trait CheckForkEquivocationProof<Err, Header: HeaderT> {
 	/// Associated hash type for hashing ancestry proof.
-	type HashT: Hash;
+	type Hash: HashT;
 	/// Validate equivocation proof (check commitment is to unexpected payload and
 	/// signatures are valid).
 	/// NOTE: Fork equivocation proof currently only prevents attacks
@@ -595,21 +595,21 @@ pub trait CheckForkEquivocationProof<Err, Header: HeaderT> {
 	/// https://github.com/paritytech/polkadot-sdk/issues/1441 for
 	/// replacement solution.
 	fn check_fork_equivocation_proof<Id, MsgHash>(
-		proof: &ForkEquivocationProof<Id, Header, <Self::HashT as Hash>::Output>,
+		proof: &ForkEquivocationProof<Id, Header, <Self::Hash as HashT>::Output>,
 	) -> Result<(), Err>
 	where
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
-		MsgHash: Hash;
+		MsgHash: HashT;
 }
 
 impl<Err, Header: HeaderT> CheckForkEquivocationProof<Err, Header> for () {
-	type HashT = Keccak256;
+	type Hash = Keccak256;
 	fn check_fork_equivocation_proof<Id, MsgHash>(
-		_proof: &ForkEquivocationProof<Id, Header, <Self::HashT as Hash>::Output>,
+		_proof: &ForkEquivocationProof<Id, Header, <Self::Hash as HashT>::Output>,
 	) -> Result<(), Err>
 	where
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
-		MsgHash: Hash,
+		MsgHash: HashT,
 	{
 		Ok(())
 	}

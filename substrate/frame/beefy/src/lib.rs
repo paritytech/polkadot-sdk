@@ -33,7 +33,7 @@ use frame_system::{
 use log;
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{Hash, IsMember, Member, One},
+	traits::{Hash as HashT, IsMember, Member, One},
 	RuntimeAppPublic,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
@@ -321,7 +321,7 @@ pub mod pallet {
 					<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
 						Error<T>,
 						HeaderFor<T>,
-					>>::HashT as Hash>::Output,
+					>>::Hash as HashT>::Output,
 				>,
 			>,
 			key_owner_proofs: Vec<T::KeyOwnerProof>,
@@ -356,7 +356,7 @@ pub mod pallet {
 				ForkEquivocationProof<
 					T::BeefyId,
 					HeaderFor<T>,
-					<<<T as Config>::CheckForkEquivocationProof as sp_consensus_beefy::CheckForkEquivocationProof<Error<T>, HeaderFor<T>>>::HashT as sp_runtime::traits::Hash>::Output,
+					<<<T as Config>::CheckForkEquivocationProof as sp_consensus_beefy::CheckForkEquivocationProof<Error<T>, HeaderFor<T>>>::Hash as HashT>::Output,
 				>,
 			>,
 			key_owner_proofs: Vec<T::KeyOwnerProof>,
@@ -428,7 +428,7 @@ impl<T: Config> Pallet<T> {
 			<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
 				pallet::Error<T>,
 				HeaderFor<T>,
-			>>::HashT as Hash>::Output,
+			>>::Hash as HashT>::Output,
 		>,
 		key_owner_proofs: Vec<T::KeyOwnerProof>,
 	) -> Option<()> {

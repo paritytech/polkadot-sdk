@@ -177,9 +177,9 @@ where
 impl<T: pallet_mmr::Config> CheckForkEquivocationProof<pallet_beefy::Error<T>, HeaderFor<T>>
 	for Pallet<T>
 {
-	type HashT = <T as pallet_mmr::Config>::Hashing;
+	type Hash = <T as pallet_mmr::Config>::Hashing;
 	fn check_fork_equivocation_proof<Id, MsgHash>(
-		proof: &ForkEquivocationProof<Id, HeaderFor<T>, <Self::HashT as Hash>::Output>,
+		proof: &ForkEquivocationProof<Id, HeaderFor<T>, <Self::Hash as Hash>::Output>,
 	) -> Result<(), pallet_beefy::Error<T>>
 	where
 		Id: sp_consensus_beefy::BeefyAuthorityId<MsgHash> + PartialEq,
@@ -201,7 +201,7 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<pallet_beefy::Error<T>, H
 			)
 			.map_err(|_| pallet_beefy::Error::<T>::InvalidForkEquivocationProof)?
 		};
-		if !sp_consensus_beefy::check_fork_equivocation_proof::<_, _, HeaderFor<T>, Self::HashT>(
+		if !sp_consensus_beefy::check_fork_equivocation_proof::<_, _, HeaderFor<T>, Self::Hash>(
 			proof,
 			canonical_root,
 			mmr_size,

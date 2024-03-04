@@ -43,7 +43,7 @@ use sp_consensus_beefy::{
 	KEY_TYPE as BEEFY_KEY_TYPE,
 };
 use sp_runtime::{
-	traits::Hash,
+	traits::Hash as HashT,
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
@@ -142,7 +142,7 @@ pub enum EquivocationEvidenceFor<T: Config> {
 			<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
 				Error<T>,
 				HeaderFor<T>,
-			>>::HashT as Hash>::Output,
+			>>::Hash as HashT>::Output,
 		>,
 		Vec<<T as Config>::KeyOwnerProof>,
 	),
