@@ -15163,7 +15163,6 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-keyring",
- "sp-keystore",
  "sp-mmr-primitives",
  "sp-offchain",
  "sp-runtime",

@@ -654,7 +654,7 @@ pub fn benchmarks(
 				}
 			}
 
-			#[cfg(any(feature = "std", test))]
+			#[cfg(test)]
 			impl<#type_impl_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
 				/// Test a particular benchmark by name.
 				///
@@ -666,7 +666,7 @@ pub fn benchmarks(
 				/// by the `impl_benchmark_test_suite` macro. However, it is not an error if a pallet
 				/// author chooses not to implement benchmarks.
 				#[allow(unused)]
-				pub fn test_bench_by_name(name: &[u8]) -> Result<(), #krate::BenchmarkError> {
+				fn test_bench_by_name(name: &[u8]) -> Result<(), #krate::BenchmarkError> {
 					let name = #krate::__private::str::from_utf8(name)
 						.map_err(|_| -> #krate::BenchmarkError { "`name` is not a valid utf8 string!".into() })?;
 					match name {
@@ -936,7 +936,7 @@ fn expand_benchmark(
 			}
 		}
 
-		#[cfg(any(feature = "std", test))]
+		#[cfg(test)]
 		impl<#type_impl_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
 			#[allow(unused)]
 			fn #test_ident() -> Result<(), #krate::BenchmarkError> {

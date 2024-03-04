@@ -49,14 +49,16 @@ It currently only supports pallet benchmarking, since the other commands still r
 
 ## Installation
 
-Can be installed via cargo from GitHub:
-```sh
-cargo install --locked --git https://github.com/paritytech/polkadot-sdk.git --bin frame-benchmarking-cli --profile=production
-```
-or when you have the code locally checked out:
+Installing from local source repository is faster than waiting for a re-clone:
 
 ```sh
 cargo install --locked --path substrate/utils/frame/benchmarking-cli --profile=production
+```
+
+Otherwise from the git repository:
+
+```sh
+cargo install --locked --git https://github.com/paritytech/polkadot-sdk.git --bin frame-benchmarking-cli --profile=production
 ```
 
 ## Usage
