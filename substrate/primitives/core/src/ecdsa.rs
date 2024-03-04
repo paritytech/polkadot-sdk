@@ -366,10 +366,7 @@ impl Signature {
 			let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
 			let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
 			let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
-
-			let context = SECP256K1;
-
-			context.recover_ecdsa(&message, &sig).ok().map(Public::from)
+			SECP256K1.recover_ecdsa(&message, &sig).ok().map(Public::from)
 		}
 
 		#[cfg(not(feature = "std"))]
@@ -433,10 +430,7 @@ impl TraitPair for Pair {
 		{
 			let secret = SecretKey::from_slice(seed_slice)
 				.map_err(|_| SecretStringError::InvalidSeedLength)?;
-
-			let context = SECP256K1;
-
-			let public = PublicKey::from_secret_key(&context, &secret).into();
+			let public = PublicKey::from_secret_key(&SECP256K1, &secret).into();
 			Ok(Pair { public, secret })
 		}
 
@@ -516,10 +510,7 @@ impl Pair {
 		#[cfg(feature = "std")]
 		{
 			let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
-
-			let context = SECP256K1;
-
-			context.sign_ecdsa_recoverable(&message, &self.secret).into()
+			SECP256K1.sign_ecdsa_recoverable(&message, &self.secret).into()
 		}
 
 		#[cfg(not(feature = "std"))]
