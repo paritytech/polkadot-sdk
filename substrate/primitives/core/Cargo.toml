@@ -54,7 +54,7 @@ schnorrkel = { version = "0.11.4", features = ["preaudit_deprecated"], default-f
 merlin = { version = "3.0", default-features = false }
 sp-crypto-hashing = { path = "../crypto/hashing", default-features = false, optional = true }
 sp-runtime-interface = { path = "../runtime-interface", default-features = false }
-k256 = { version = "0.13.3", features = ["alloc", "ecdsa"], default-features = false }
+k256 = { version = "0.13.3", features = ["alloc", "ecdsa"], default-features = false, optional = true }
 secp256k1 = { version = "0.28.0", default-features = false, features = ["alloc", "recovery"], optional = true }
 
 # bls crypto
@@ -84,7 +84,7 @@ backend_secp256k1 = [
 	"secp256k1/std",
 ]
 # use k256 crate, better portability, intended to be used in substrate-runtimes
-backend_k256 = []
+backend_k256 = ["k256"]
 std = [
 	"array-bytes",
 	"bandersnatch_vrfs?/std",
