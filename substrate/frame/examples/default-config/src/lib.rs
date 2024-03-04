@@ -149,7 +149,7 @@ pub mod tests {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		// these items are defined by frame-system as `no_default`, so we must specify them here.
 		type Block = Block;
