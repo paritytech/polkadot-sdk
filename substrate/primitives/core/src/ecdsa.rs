@@ -30,19 +30,13 @@ use crate::crypto::{
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 
 //note: "not" is required to satisfy clippy --all-features.
-#[cfg(all(
-	feature = "backend_k256",
-	not(feature = "backend_secp256k1"),
-	feature = "full_crypto"
-))]
+#[cfg(all(not(feature = "std"), feature = "full_crypto"))]
 use k256::ecdsa::SigningKey as SecretKey;
-#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
+#[cfg(not(feature = "std"))]
 use k256::ecdsa::VerifyingKey;
-#[cfg(all(feature = "backend_secp256k1", feature = "full_crypto", not(feature = "std")))]
-use secp256k1::Secp256k1;
-#[cfg(all(feature = "backend_secp256k1", feature = "std"))]
+#[cfg(all(feature = "std"))]
 use secp256k1::SECP256K1;
-#[cfg(all(feature = "backend_secp256k1", feature = "full_crypto"))]
+#[cfg(all(feature = "std", feature = "full_crypto"))]
 use secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
 	Message, PublicKey, SecretKey,
@@ -106,7 +100,6 @@ impl Public {
 	/// Create a new instance from the given full public key.
 	///
 	/// This will convert the full public key into the compressed format.
-	#[cfg(feature = "std")]
 	pub fn from_full(full: &[u8]) -> Result<Self, ()> {
 		let mut tagged_full = [0u8; 65];
 		let full = if full.len() == 64 {
@@ -118,11 +111,11 @@ impl Public {
 			full
 		};
 		let pubkey = {
-			#[cfg(feature = "backend_secp256k1")]
+			#[cfg(feature = "std")]
 			{
 				secp256k1::PublicKey::from_slice(&full)
 			}
-			#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
+			#[cfg(not(feature = "std"))]
 			{
 				VerifyingKey::from_sec1_bytes(&full)
 			}
@@ -151,14 +144,14 @@ impl AsMut<[u8]> for Public {
 	}
 }
 
-#[cfg(feature = "backend_secp256k1")]
+#[cfg(feature = "std")]
 impl From<secp256k1::PublicKey> for Public {
 	fn from(pubkey: secp256k1::PublicKey) -> Self {
 		Self(pubkey.serialize())
 	}
 }
 
-#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
+#[cfg(not(feature = "std"))]
 impl From<VerifyingKey> for Public {
 	fn from(pubkey: VerifyingKey) -> Self {
 		Self::unchecked_from(
@@ -369,7 +362,7 @@ impl Signature {
 	/// Recover the public key from this signature and a pre-hashed message.
 	#[cfg(feature = "full_crypto")]
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
-		#[cfg(feature = "backend_secp256k1")]
+		#[cfg(feature = "std")]
 		{
 			let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
 			let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
@@ -380,23 +373,20 @@ impl Signature {
 			#[cfg(not(feature = "std"))]
 			let context = Secp256k1::verification_only();
 
-			context
-				.recover_ecdsa(&message, &sig)
-				.ok()
-				.map(|pubkey| Public(pubkey.serialize()))
+			context.recover_ecdsa(&message, &sig).ok().map(Public::from)
 		}
 
-		#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
+		#[cfg(not(feature = "std"))]
 		{
 			let rid = k256::ecdsa::RecoveryId::from_byte(self.0[64])?;
 			let sig = k256::ecdsa::Signature::from_bytes((&self.0[..64]).into()).ok()?;
 
-			VerifyingKey::recover_from_prehash(message, &sig, rid).map(|p| p.into()).ok()
+			VerifyingKey::recover_from_prehash(message, &sig, rid).map(Public::from).ok()
 		}
 	}
 }
 
-#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1"), feature = "full_crypto"))]
+#[cfg(not(feature = "std"))]
 impl From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for Signature {
 	fn from(recsig: (k256::ecdsa::Signature, k256::ecdsa::RecoveryId)) -> Signature {
 		let mut r = Self::default();
@@ -406,7 +396,7 @@ impl From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for Signature {
 	}
 }
 
-#[cfg(all(feature = "backend_secp256k1", feature = "full_crypto"))]
+#[cfg(all(feature = "std", feature = "full_crypto"))]
 impl From<RecoverableSignature> for Signature {
 	fn from(recsig: RecoverableSignature) -> Signature {
 		let mut r = Self::default();
@@ -443,7 +433,7 @@ impl TraitPair for Pair {
 	///
 	/// You should never need to use this; generate(), generate_with_phrase
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Pair, SecretStringError> {
-		#[cfg(feature = "backend_secp256k1")]
+		#[cfg(feature = "std")]
 		{
 			let secret = SecretKey::from_slice(seed_slice)
 				.map_err(|_| SecretStringError::InvalidSeedLength)?;
@@ -453,12 +443,11 @@ impl TraitPair for Pair {
 			#[cfg(not(feature = "std"))]
 			let context = Secp256k1::signing_only();
 
-			let public = PublicKey::from_secret_key(&context, &secret);
-			let public = Public(public.serialize());
+			let public = PublicKey::from_secret_key(&context, &secret).into();
 			Ok(Pair { public, secret })
 		}
 
-		#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
+		#[cfg(not(feature = "std"))]
 		{
 			let secret = SecretKey::from_slice(seed_slice)
 				.map_err(|_| SecretStringError::InvalidSeedLength)?;
@@ -507,11 +496,11 @@ impl TraitPair for Pair {
 impl Pair {
 	/// Get the seed for this key.
 	pub fn seed(&self) -> Seed {
-		#[cfg(feature = "backend_secp256k1")]
+		#[cfg(feature = "std")]
 		{
 			self.secret.secret_bytes()
 		}
-		#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
+		#[cfg(not(feature = "std"))]
 		{
 			self.secret.to_bytes().into()
 		}
@@ -531,7 +520,7 @@ impl Pair {
 
 	/// Sign a pre-hashed message
 	pub fn sign_prehashed(&self, message: &[u8; 32]) -> Signature {
-		#[cfg(feature = "backend_secp256k1")]
+		#[cfg(feature = "std")]
 		{
 			let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
 
@@ -543,7 +532,7 @@ impl Pair {
 			context.sign_ecdsa_recoverable(&message, &self.secret).into()
 		}
 
-		#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
+		#[cfg(not(feature = "std"))]
 		{
 			self.secret
 				.sign_prehash_recoverable(message)
@@ -590,7 +579,7 @@ impl Pair {
 // NOTE: this solution is not effective when `Pair` is moved around memory.
 // The very same problem affects other cryptographic backends that are just using
 // `zeroize`for their secrets.
-#[cfg(all(feature = "backend_secp256k1", feature = "full_crypto"))]
+#[cfg(all(feature = "std", feature = "full_crypto"))]
 impl Drop for Pair {
 	fn drop(&mut self) {
 		self.secret.non_secure_erase()
@@ -857,12 +846,12 @@ mod test {
 		let msg = [0u8; 32];
 		let sig1 = pair.sign_prehashed(&msg);
 		let sig2: Signature = {
-			#[cfg(feature = "backend_secp256k1")]
+			#[cfg(feature = "std")]
 			{
 				let message = Message::from_digest_slice(&msg).unwrap();
 				SECP256K1.sign_ecdsa_recoverable(&message, &pair.secret).into()
 			}
-			#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
+			#[cfg(not(feature = "std"))]
 			{
 				pair.secret
 					.sign_prehash_recoverable(&msg)

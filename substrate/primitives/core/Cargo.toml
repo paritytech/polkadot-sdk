@@ -54,7 +54,9 @@ schnorrkel = { version = "0.11.4", features = ["preaudit_deprecated"], default-f
 merlin = { version = "3.0", default-features = false }
 sp-crypto-hashing = { path = "../crypto/hashing", default-features = false, optional = true }
 sp-runtime-interface = { path = "../runtime-interface", default-features = false }
-k256 = { version = "0.13.3", features = ["alloc", "ecdsa"], default-features = false, optional = true }
+# k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
+k256 = { version = "0.13.3", features = ["alloc", "ecdsa"], default-features = false }
+# secp256k1 crate, better performance, intended to be used on host side (std)
 secp256k1 = { version = "0.28.0", default-features = false, features = ["alloc", "recovery"], optional = true }
 
 # bls crypto
@@ -76,15 +78,8 @@ harness = false
 bench = false
 
 [features]
-default = ["backend_secp256k1", "std"]
+default = ["std"]
 
-# use secp256k1 crate, better performance, intended to be used on host side
-backend_secp256k1 = [
-	"secp256k1/global-context",
-	"secp256k1/std",
-]
-# use k256 crate, better portability, intended to be used in substrate-runtimes
-backend_k256 = ["k256"]
 std = [
 	"array-bytes",
 	"bandersnatch_vrfs?/std",
@@ -115,6 +110,8 @@ std = [
 	"rand",
 	"scale-info/std",
 	"schnorrkel/std",
+	"secp256k1/global-context",
+	"secp256k1/std",
 	"secrecy/alloc",
 	"serde/std",
 	"sp-crypto-hashing/std",
