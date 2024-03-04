@@ -51,6 +51,8 @@ benchmarks! {
 
 	set_node_feature{}: set_node_feature(RawOrigin::Root, 255, true)
 
+	set_config_with_scheduler_params {} : set_scheduler_params(RawOrigin::Root, SchedulerParams::default())
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext(Default::default()),
