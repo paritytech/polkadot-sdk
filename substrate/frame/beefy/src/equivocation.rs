@@ -137,10 +137,8 @@ pub enum EquivocationEvidenceFor<T: Config> {
 	),
 	ForkEquivocationProof(
 		ForkEquivocationProof<
-			BlockNumberFor<T>,
 			<T as Config>::BeefyId,
 			<<T as Config>::BeefyId as RuntimeAppPublic>::Signature,
-			// <<T as frame_system::Config>::Block as Block>::Header,
 			HeaderFor<T>,
 			<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
 				Error<T>,

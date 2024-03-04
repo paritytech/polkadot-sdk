@@ -23,7 +23,7 @@ use crate::{
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
-use sp_runtime::traits::Hash;
+use sp_runtime::traits::{BlockNumber, Hash, Header as HeaderT};
 
 use codec::Encode;
 use sp_mmr_primitives::AncestryProof;
@@ -140,12 +140,12 @@ impl From<Keyring<ecdsa_crypto::AuthorityId>> for ecdsa_crypto::Public {
 }
 
 /// Create a new `VoteMessage` from commitment primitives and keyring
-fn signed_vote(
-	block_number: u64,
+fn signed_vote<Number: BlockNumber>(
+	block_number: Number,
 	payload: Payload,
 	validator_set_id: ValidatorSetId,
 	keyring: &Keyring<ecdsa_crypto::AuthorityId>,
-) -> VoteMessage<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature> {
+) -> VoteMessage<Number, ecdsa_crypto::Public, ecdsa_crypto::Signature> {
 	let commitment = Commitment { validator_set_id, block_number, payload };
 	let signature = keyring.sign(&commitment.encode());
 	VoteMessage { commitment, id: keyring.public(), signature }
@@ -162,12 +162,12 @@ pub fn generate_vote_equivocation_proof(
 }
 
 /// Create a new `ForkEquivocationProof` based on vote & canonical header.
-pub fn generate_fork_equivocation_proof_vote<Header, Hash>(
-	vote: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
+pub fn generate_fork_equivocation_proof_vote<Header: HeaderT, Hash>(
+	vote: (Header::Number, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
 	canonical_header: Option<Header>,
 	ancestry_proof: Option<AncestryProof<Hash>>,
-) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {
-	let signed_vote = signed_vote(vote.0, vote.1, vote.2, vote.3);
+) -> ForkEquivocationProof<ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {
+	let signed_vote = signed_vote::<Header::Number>(vote.0, vote.1, vote.2, vote.3);
 	let signatories = vec![(signed_vote.id, signed_vote.signature)];
 	ForkEquivocationProof {
 		commitment: signed_vote.commitment,
@@ -178,12 +178,12 @@ pub fn generate_fork_equivocation_proof_vote<Header, Hash>(
 }
 
 /// Create a new `ForkEquivocationProof` based on signed commitment & canonical header.
-pub fn generate_fork_equivocation_proof_sc<Header, Hash>(
-	commitment: Commitment<u64>,
+pub fn generate_fork_equivocation_proof_sc<Header: HeaderT, Hash>(
+	commitment: Commitment<Header::Number>,
 	keyrings: Vec<Keyring<ecdsa_crypto::AuthorityId>>,
 	canonical_header: Option<Header>,
 	ancestry_proof: Option<AncestryProof<Hash>>,
-) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {
+) -> ForkEquivocationProof<ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {
 	let signatories = keyrings
 		.into_iter()
 		.map(|k| (k.public(), k.sign(&commitment.encode())))

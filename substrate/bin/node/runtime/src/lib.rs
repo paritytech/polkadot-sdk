@@ -2812,7 +2812,7 @@ impl_runtime_apis! {
 		}
 
 		fn submit_report_fork_equivocation_unsigned_extrinsic(
-			fork_equivocation_proof: sp_consensus_beefy::ForkEquivocationProof<BlockNumber, BeefyId, BeefySignature, Header, Hash>,
+			fork_equivocation_proof: sp_consensus_beefy::ForkEquivocationProof<BeefyId, BeefySignature, Header, Hash>,
 			key_owner_proofs: Vec<sp_consensus_beefy::OpaqueKeyOwnershipProof>,
 		) -> Option<()> {
 			let key_owner_proofs = key_owner_proofs.iter().cloned().map(|p| p.decode()).collect::<Option<Vec<_>>>()?;

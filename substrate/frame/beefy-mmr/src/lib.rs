@@ -180,7 +180,6 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<pallet_beefy::Error<T>, H
 	type HashT = <T as pallet_mmr::Config>::Hashing;
 	fn check_fork_equivocation_proof<Id, MsgHash>(
 		proof: &ForkEquivocationProof<
-			<HeaderFor<T> as HeaderT>::Number,
 			Id,
 			<Id as sp_application_crypto::RuntimeAppPublic>::Signature,
 			HeaderFor<T>,

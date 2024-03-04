@@ -257,21 +257,8 @@ pub(crate) struct TestApi {
 	pub mmr_root_hash: MmrRootHash,
 	pub reported_vote_equivocations:
 		Option<Arc<Mutex<Vec<VoteEquivocationProof<NumberFor<Block>, AuthorityId, Signature>>>>>,
-	pub reported_fork_equivocations: Option<
-		Arc<
-			Mutex<
-				Vec<
-					ForkEquivocationProof<
-						NumberFor<Block>,
-						AuthorityId,
-						Signature,
-						Header,
-						MmrRootHash,
-					>,
-				>,
-			>,
-		>,
-	>,
+	pub reported_fork_equivocations:
+		Option<Arc<Mutex<Vec<ForkEquivocationProof<AuthorityId, Signature, Header, MmrRootHash>>>>>,
 }
 
 impl TestApi {
@@ -340,7 +327,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn submit_report_fork_equivocation_unsigned_extrinsic(
-			proof: ForkEquivocationProof<NumberFor<Block>, AuthorityId, Signature, Header, MmrRootHash>,
+			proof: ForkEquivocationProof<AuthorityId, Signature, Header, MmrRootHash>,
 			_dummy: Vec<OpaqueKeyOwnershipProof>,
 		) -> Option<()> {
 			if let Some(equivocations_buf) = self.inner.reported_fork_equivocations.as_ref() {

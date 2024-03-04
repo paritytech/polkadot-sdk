@@ -316,7 +316,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			equivocation_proof: Box<
 				ForkEquivocationProof<
-					BlockNumberFor<T>,
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
@@ -356,7 +355,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			equivocation_proof: Box<
 				ForkEquivocationProof<
-					BlockNumberFor<T>,
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
@@ -427,7 +425,6 @@ impl<T: Config> Pallet<T> {
 	/// to the pool. Only useful in an offchain context.
 	pub fn submit_unsigned_fork_equivocation_report(
 		fork_equivocation_proof: sp_consensus_beefy::ForkEquivocationProof<
-			BlockNumberFor<T>,
 			T::BeefyId,
 			<T::BeefyId as RuntimeAppPublic>::Signature,
 			HeaderFor<T>,
