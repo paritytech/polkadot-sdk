@@ -325,7 +325,14 @@ where
 				// beefy light client at least once every 4096 blocks. See
 				// https://github.com/paritytech/polkadot-sdk/issues/1441 for
 				// replacement solution.
-				if !<T::CheckForkEquivocationProof<<T as pallet_mmr::Config>::Hashing> as CheckForkEquivocationProof<<T as pallet_mmr::Config>::Hashing>>::check_fork_equivocation_proof::<_, _,  _, sp_mmr_primitives::utils::AncestryHasher<<T as pallet_mmr::Config>::Hashing>>(
+				if !<T::CheckForkEquivocationProof as CheckForkEquivocationProof<
+					<T as pallet_mmr::Config>::Hashing,
+				>>::check_fork_equivocation_proof::<
+					_,
+					_,
+					_,
+					sp_mmr_primitives::utils::AncestryHasher<<T as pallet_mmr::Config>::Hashing>,
+				>(
 					equivocation_proof,
 					mmr_size,
 					&expected_block_hash,
