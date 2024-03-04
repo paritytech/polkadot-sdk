@@ -29,7 +29,6 @@ use futures::{
 };
 use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
-use sc_telemetry::custom_telemetry::*;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
 use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
@@ -310,7 +309,6 @@ where
 		deadline: time::Instant,
 		block_size_limit: Option<usize>,
 	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
-		let start_timestamp = BlockMetrics::get_current_timestamp_in_ms_or_default();
 		let block_timer = time::Instant::now();
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(self.parent_hash)
@@ -333,17 +331,6 @@ where
 			PR::into_proof(proof).map_err(|e| sp_blockchain::Error::Application(Box::new(e)))?;
 
 		self.print_summary(&block, end_reason, block_took, block_timer.elapsed());
-		let end_timestamp = BlockMetrics::get_current_timestamp_in_ms_or_default();
-
-		let interval = IntervalWithBlockInformation {
-			kind: IntervalKind::Proposal,
-			block_number: block.header().number().clone().try_into().unwrap_or_default(),
-			block_hash: std::format!("{}", block.hash()),
-			start_timestamp,
-			end_timestamp,
-		};
-		BlockMetrics::observe_interval(interval);
-
 		Ok(Proposal { block, proof, storage_changes })
 	}
 

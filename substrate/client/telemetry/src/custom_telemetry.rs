@@ -9,9 +9,9 @@ use wasm_timer::{SystemTime, UNIX_EPOCH};
 use crate::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
 
 /// Maximum amount of intervals that we will keep in our storage.
-pub const MAXIMUM_INTERVALS_LENGTH: usize = 150;
+pub const MAXIMUM_INTERVALS_LENGTH: usize = 50;
 /// Maximum amount of block requests info that we will keep in our storage.
-pub const MAXIMUM_BLOCK_REQUESTS_LENGTH: usize = 150;
+pub const MAXIMUM_BLOCK_REQUESTS_LENGTH: usize = 15;
 
 ///
 #[repr(u8)]
@@ -100,43 +100,39 @@ impl BlockMetrics {
 			return;
 		};
 
+		if is_start {
+			if lock.partial_intervals.len() >= MAXIMUM_INTERVALS_LENGTH {
+				lock.partial_intervals.remove(0);
+			}
+
+			let value = IntervalWithBlockInformation {
+				kind,
+				block_number,
+				block_hash,
+				start_timestamp: timestamp,
+				end_timestamp: 0,
+			};
+
+			lock.partial_intervals.push(value);
+			return;
+		}
+
 		let existing_entry_pos = lock.partial_intervals.iter_mut().position(|v| {
 			v.block_hash == block_hash && v.block_number == block_number && v.kind == kind
 		});
 
-		let existing_entry =
-			existing_entry_pos.map(|pos| lock.partial_intervals.get_mut(pos)).flatten();
-		if let Some(entry) = existing_entry {
-			if is_start {
-				entry.start_timestamp = timestamp;
-			} else {
-				entry.end_timestamp = timestamp;
-			}
-
-			if entry.start_timestamp != 0 && entry.end_timestamp != 0 {
-				Self::observe_interval(entry.clone());
-				lock.partial_intervals.remove(existing_entry_pos.unwrap_or_default());
-			}
-
+		let Some(pos) = existing_entry_pos else {
 			return;
-		}
+		};
+
+		let mut entry = lock.partial_intervals.remove(pos);
+		entry.end_timestamp = timestamp;
 
 		if lock.partial_intervals.len() >= MAXIMUM_INTERVALS_LENGTH {
 			lock.partial_intervals.remove(0);
 		}
 
-		let (start_timestamp, end_timestamp) =
-			if is_start { (timestamp, 0) } else { (0, timestamp) };
-
-		let value = IntervalWithBlockInformation {
-			kind,
-			block_number,
-			block_hash,
-			start_timestamp,
-			end_timestamp,
-		};
-
-		lock.partial_intervals.push(value);
+		lock.intervals.push(entry);
 	}
 
 	///
@@ -173,6 +169,69 @@ impl BlockMetrics {
 	}
 }
 
+/// This will be send to the telemetry
+mod external {
+	use super::*;
+
+	#[derive(Debug, Serialize, Clone)]
+	pub struct IntervalFromNode {
+		///
+		pub kind: IntervalKind,
+		///
+		pub start_timestamp: u64,
+		///
+		pub end_timestamp: u64,
+	}
+
+	#[derive(Debug, Default, Serialize, Clone)]
+	pub struct BlockIntervalFromNode {
+		///
+		pub block_number: u64,
+		///
+		pub block_hash: String,
+		///
+		pub intervals: Vec<IntervalFromNode>,
+	}
+
+	pub fn prepare_data(
+		mut value: Vec<IntervalWithBlockInformation>,
+	) -> Vec<BlockIntervalFromNode> {
+		let mut output = Vec::with_capacity(value.len() / 2);
+		value.sort_by(|l, r| {
+			if l.block_number == r.block_number {
+				l.block_hash.cmp(&r.block_hash)
+			} else {
+				l.block_number.cmp(&r.block_number)
+			}
+		});
+
+		let mut block = BlockIntervalFromNode::default();
+		for v in value {
+			let interval = IntervalFromNode {
+				kind: v.kind,
+				start_timestamp: v.start_timestamp,
+				end_timestamp: v.end_timestamp,
+			};
+
+			if (v.block_number != block.block_number || v.block_hash != block.block_hash)
+				&& block.block_number != u64::default()
+			{
+				output.push(std::mem::take(&mut block));
+			}
+
+			block.block_number = v.block_number;
+			block.block_hash = v.block_hash;
+			block.intervals.push(interval);
+		}
+
+		if block.block_number != u64::default() {
+			output.push(block);
+		}
+
+		output
+	}
+}
+
 ///
 pub struct CustomTelemetryWorker {
 	///
@@ -183,23 +242,23 @@ impl CustomTelemetryWorker {
 	///
 	pub async fn run(self) {
 		const SLEEP_DURATION: Duration = Duration::from_millis(250);
-		const MAX_SLEEP_DURATION: u128 = 20_000;
+		const MAX_SLEEP_DURATION: u128 = 60_000;
 
 		let mut start = std::time::Instant::now();
 		loop {
 			if start.elapsed().as_millis() >= MAX_SLEEP_DURATION {
 				let metrics = BlockMetrics::take_metrics().unwrap_or_default();
+				let block_intervals = external::prepare_data(metrics.intervals);
 
 				telemetry!(
 					self.handle;
 					SUBSTRATE_INFO;
 					"block.metrics";
-					"intervals" => metrics.intervals,
+					"block_intervals" => block_intervals,
 					"block_requests" => metrics.block_requests,
 				);
 
 				start = std::time::Instant::now();
-				log::info!("Hello My World");
 			}
 
 			tokio::time::sleep(SLEEP_DURATION).await;

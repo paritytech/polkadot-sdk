@@ -36,7 +36,10 @@ use futures::{future::Either, Future, TryFutureExt};
 use futures_timer::Delay;
 use log::{debug, info, warn};
 use sc_consensus::{BlockImport, JustificationSyncLink};
-use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO, CONSENSUS_WARN};
+use sc_telemetry::{
+	custom_telemetry::{BlockMetrics, IntervalKind, IntervalWithBlockInformation},
+	telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO, CONSENSUS_WARN,
+};
 use sp_arithmetic::traits::BaseArithmetic;
 use sp_consensus::{Proposal, Proposer, SelectChain, SyncOracle};
 use sp_consensus_slots::{Slot, SlotDuration};
@@ -358,6 +361,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 
 		telemetry!(telemetry; CONSENSUS_DEBUG; "slots.starting_authorship"; "slot_num" => slot);
 
+		let start_proposal_timestamp = BlockMetrics::get_current_timestamp_in_ms_or_default();
 		let proposer = match self.proposer(&slot_info.chain_head).await {
 			Ok(p) => p,
 			Err(err) => {
@@ -418,7 +422,10 @@ pub trait SimpleSlotWorker<B: BlockT> {
 			"hash_now" => ?block_import_params.post_hash(),
 			"hash_previously" => ?header_hash,
 		);
+		let end_proposal_timestamp = BlockMetrics::get_current_timestamp_in_ms_or_default();
 
+		let post_header_hash = block_import_params.post_hash();
+		let start_import_timestamp = BlockMetrics::get_current_timestamp_in_ms_or_default();
 		let header = block_import_params.post_header();
 		match self.block_import().import_block(block_import_params).await {
 			Ok(res) => {
@@ -443,6 +450,24 @@ pub trait SimpleSlotWorker<B: BlockT> {
 				);
 			},
 		}
+		let end_import_timestamp = BlockMetrics::get_current_timestamp_in_ms_or_default();
+
+		// Metrics
+		let proposal_interval = IntervalWithBlockInformation {
+			kind: IntervalKind::Proposal,
+			block_number: header_num.try_into().unwrap_or_default(),
+			block_hash: std::format!("{}", post_header_hash),
+			start_timestamp: start_proposal_timestamp,
+			end_timestamp: end_proposal_timestamp,
+		};
+		let import_interval = IntervalWithBlockInformation {
+			start_timestamp: start_import_timestamp,
+			end_timestamp: end_import_timestamp,
+			kind: IntervalKind::Import,
+			..proposal_interval.clone()
+		};
+		BlockMetrics::observe_interval(proposal_interval);
+		BlockMetrics::observe_interval(import_interval);
 
 		Some(SlotResult { block: B::new(header, body), storage_proof })
 	}
