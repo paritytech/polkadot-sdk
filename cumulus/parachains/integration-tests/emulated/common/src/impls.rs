@@ -843,6 +843,46 @@ macro_rules! impl_assets_helpers_for_parachain {
 						);
 					});
 				}
+
+				/// Returns the encoded call for `create` from the assets pallet
+				pub fn create_asset_call(
+					asset_id: u32,
+					min_balance: $crate::impls::Balance,
+					admin: $crate::impls::AccountId,
+				) -> $crate::impls::DoubleEncoded<()> {
+					use $crate::impls::{Chain, Encode};
+
+					<Self as Chain>::RuntimeCall::Assets($crate::impls::pallet_assets::Call::<
+						<Self as Chain>::Runtime,
+						$crate::impls::pallet_assets::Instance1,
+					>::create {
+						id: asset_id.into(),
+						min_balance,
+						admin: admin.into(),
+					})
+					.encode()
+					.into()
+				}
+
+				/// Returns the encoded call for `create` from the foreign assets pallet
+				pub fn create_foreign_asset_call(
+					asset_id: $crate::impls::v3::Location,
+					min_balance: $crate::impls::Balance,
+					admin: $crate::impls::AccountId,
+				) -> $crate::impls::DoubleEncoded<()> {
+					use $crate::impls::{Chain, Encode};
+
+					<Self as Chain>::RuntimeCall::ForeignAssets($crate::impls::pallet_assets::Call::<
+						<Self as Chain>::Runtime,
+						$crate::impls::pallet_assets::Instance2,
+					>::create {
+						id: asset_id.into(),
+						min_balance,
+						admin: admin.into(),
+					})
+					.encode()
+					.into()
+				}
 			}
 		}
 	};

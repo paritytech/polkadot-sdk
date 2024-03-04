@@ -591,6 +591,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 		sender.clone(),
 		fee_amount_to_send,
 	);
+	// No need to create the asset (only mint) as it exists in genesis.
 	PenpalA::mint_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
 		asset_id_on_penpal,

@@ -128,6 +128,8 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	]);
 
 	AssetHubWestend::execute_with(|| {
+		// 0: No need to create foreign asset as it exists in genesis.
+		//
 		// 1: Mint foreign asset on asset_hub_westend:
 		//
 		// (While it might be nice to use batch,
