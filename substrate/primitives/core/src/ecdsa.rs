@@ -29,10 +29,15 @@ use crate::crypto::{
 #[cfg(feature = "full_crypto")]
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 
-#[cfg(feature = "backend_k256")]
+//note: "not" is required to satisfy clippy --all-features.
+#[cfg(all(
+	feature = "backend_k256",
+	not(feature = "backend_secp256k1"),
+	feature = "full_crypto"
+))]
+use k256::ecdsa::SigningKey as SecretKey;
+#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
 use k256::ecdsa::VerifyingKey;
-#[cfg(all(feature = "backend_k256", feature = "full_crypto"))]
-use k256::ecdsa::{RecoveryId, SigningKey};
 #[cfg(all(feature = "backend_secp256k1", feature = "full_crypto", not(feature = "std")))]
 use secp256k1::Secp256k1;
 #[cfg(all(feature = "backend_secp256k1", feature = "std"))]
@@ -117,7 +122,7 @@ impl Public {
 			{
 				secp256k1::PublicKey::from_slice(&full)
 			}
-			#[cfg(feature = "backend_k256")]
+			#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
 			{
 				VerifyingKey::from_sec1_bytes(&full)
 			}
@@ -153,7 +158,7 @@ impl From<secp256k1::PublicKey> for Public {
 	}
 }
 
-#[cfg(feature = "backend_k256")]
+#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
 impl From<VerifyingKey> for Public {
 	fn from(pubkey: VerifyingKey) -> Self {
 		Self::unchecked_from(
@@ -381,9 +386,9 @@ impl Signature {
 				.map(|pubkey| Public(pubkey.serialize()))
 		}
 
-		#[cfg(feature = "backend_k256")]
+		#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
 		{
-			let rid = RecoveryId::from_byte(self.0[64])?;
+			let rid = k256::ecdsa::RecoveryId::from_byte(self.0[64])?;
 			let sig = k256::ecdsa::Signature::from_bytes((&self.0[..64]).into()).ok()?;
 
 			VerifyingKey::recover_from_prehash(message, &sig, rid).map(|p| p.into()).ok()
@@ -391,9 +396,9 @@ impl Signature {
 	}
 }
 
-#[cfg(all(feature = "backend_k256", feature = "full_crypto"))]
-impl From<(k256::ecdsa::Signature, RecoveryId)> for Signature {
-	fn from(recsig: (k256::ecdsa::Signature, RecoveryId)) -> Signature {
+#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1"), feature = "full_crypto"))]
+impl From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for Signature {
+	fn from(recsig: (k256::ecdsa::Signature, k256::ecdsa::RecoveryId)) -> Signature {
 		let mut r = Self::default();
 		r.0[..64].copy_from_slice(&recsig.0.to_bytes());
 		r.0[64] = recsig.1.to_byte();
@@ -424,10 +429,7 @@ fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
 #[derive(Clone)]
 pub struct Pair {
 	public: Public,
-	#[cfg(feature = "backend_secp256k1")]
 	secret: SecretKey,
-	#[cfg(feature = "backend_k256")]
-	secret: SigningKey,
 }
 
 #[cfg(feature = "full_crypto")]
@@ -456,9 +458,9 @@ impl TraitPair for Pair {
 			Ok(Pair { public, secret })
 		}
 
-		#[cfg(feature = "backend_k256")]
+		#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
 		{
-			let secret = SigningKey::from_slice(seed_slice)
+			let secret = SecretKey::from_slice(seed_slice)
 				.map_err(|_| SecretStringError::InvalidSeedLength)?;
 			Ok(Pair { public: VerifyingKey::from(&secret).into(), secret })
 		}
@@ -509,7 +511,7 @@ impl Pair {
 		{
 			self.secret.secret_bytes()
 		}
-		#[cfg(feature = "backend_k256")]
+		#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
 		{
 			self.secret.to_bytes().into()
 		}
@@ -541,7 +543,7 @@ impl Pair {
 			context.sign_ecdsa_recoverable(&message, &self.secret).into()
 		}
 
-		#[cfg(feature = "backend_k256")]
+		#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
 		{
 			self.secret
 				.sign_prehash_recoverable(message)
@@ -860,7 +862,7 @@ mod test {
 				let message = Message::from_digest_slice(&msg).unwrap();
 				SECP256K1.sign_ecdsa_recoverable(&message, &pair.secret).into()
 			}
-			#[cfg(feature = "backend_k256")]
+			#[cfg(all(feature = "backend_k256", not(feature = "backend_secp256k1")))]
 			{
 				pair.secret
 					.sign_prehash_recoverable(&msg)
