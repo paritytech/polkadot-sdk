@@ -22,7 +22,7 @@ use bridge_hub_rococo_runtime::{
 	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, EthereumGatewayAddress,
 	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
+	RuntimeEvent, RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension, UncheckedExtrinsic,
 };
 use bridge_hub_test_utils::SlotDurations;
 use codec::{Decode, Encode};
@@ -48,7 +48,7 @@ fn construct_extrinsic(
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
-	let extra: SignedExtra = (
+	let tx_ext: TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -64,14 +64,15 @@ fn construct_extrinsic(
 			bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 			bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 		),
-	);
-	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
+	)
+		.into();
+	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
 	UncheckedExtrinsic::new_signed(
 		call,
 		account_id.into(),
 		Signature::Sr25519(signature.clone()),
-		extra,
+		tx_ext,
 	)
 }
 
