@@ -33,7 +33,7 @@
 //               |
 //     Subsystems under test
 
-use crate::core::{
+use crate::{
 	configuration::{random_latency, TestAuthorities, TestConfiguration},
 	environment::TestEnvironmentDependencies,
 	NODE_UNDER_TEST,

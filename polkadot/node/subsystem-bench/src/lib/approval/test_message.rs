@@ -15,9 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	approval::{BlockTestData, CandidateTestData},
-	core::configuration::TestAuthorities,
-	ApprovalsOptions,
+	approval::{ApprovalsOptions, BlockTestData, CandidateTestData},
+	configuration::TestAuthorities,
 };
 use itertools::Itertools;
 use parity_scale_codec::{Decode, Encode};
