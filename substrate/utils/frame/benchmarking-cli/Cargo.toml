@@ -12,6 +12,10 @@ readme = "README.md"
 [lints]
 workspace = true
 
+[[bin]]
+name = "frame-benchmarking-cli"
+path = "src/bin/freestanding-cli.rs"
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -55,8 +59,11 @@ sp-state-machine = { path = "../../../primitives/state-machine" }
 sp-storage = { path = "../../../primitives/storage" }
 sp-trie = { path = "../../../primitives/trie" }
 sp-io = { path = "../../../primitives/io" }
+sp-statement-store = { path = "../../../primitives/statement-store" }
 sp-wasm-interface = { path = "../../../primitives/wasm-interface" }
 gethostname = "0.2.3"
+env_logger = "0.11.2"
+cumulus-primitives-proof-size-hostfunction = { path = "../../../../cumulus/primitives/proof-size-hostfunction" }
 
 [features]
 default = ["rocksdb"]

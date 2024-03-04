@@ -171,6 +171,10 @@ pub struct PalletCmd {
 	#[arg(long, conflicts_with = "chain")]
 	pub runtime: Option<PathBuf>,
 
+	/// Do not fail if there are unknown but also unused host functions in the runtime.
+	#[arg(long)]
+	pub allow_missing_host_functions: bool,
+
 	/// How to construct the genesis state.
 	///
 	/// Uses `GenesisBuilder::Spec` by default and  `GenesisConstructor::Runtime` if `runtime` is

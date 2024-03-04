@@ -5535,6 +5535,8 @@ dependencies = [
  "chrono",
  "clap 4.5.1",
  "comfy-table",
+ "cumulus-primitives-proof-size-hostfunction",
+ "env_logger 0.11.2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5566,24 +5568,12 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-state-machine",
+ "sp-statement-store",
  "sp-storage 19.0.0",
  "sp-trie",
  "sp-wasm-interface 20.0.0",
  "thiserror",
  "thousands",
-]
-
-[[package]]
-name = "frame-benchmarking-freestanding-cli"
-version = "0.1.0"
-dependencies = [
- "clap 4.5.1",
- "env_logger 0.11.2",
- "frame-benchmarking-cli",
- "log",
- "sc-cli",
- "sp-runtime",
- "sp-statement-store",
 ]
 
 [[package]]
@@ -15173,6 +15163,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-keyring",
+ "sp-keystore",
  "sp-mmr-primitives",
  "sp-offchain",
  "sp-runtime",

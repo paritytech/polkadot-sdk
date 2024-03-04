@@ -27,7 +27,6 @@ use linked_hash_map::LinkedHashMap;
 use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_service::Configuration;
 use serde::Serialize;
 use sp_core::{
 	offchain::{
@@ -40,6 +39,7 @@ use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
 use sp_state_machine::{OverlayedChanges, StateMachine};
+use sp_wasm_interface::HostFunctions;
 use std::{
 	borrow::Cow,
 	collections::{BTreeMap, BTreeSet, HashMap},
@@ -154,22 +154,15 @@ This warning may become a hard error after December 2024.";
 
 impl PalletCmd {
 	/// Runs the command and benchmarks a pallet.
-	pub fn run<Hasher, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
-	where
-		Hasher: Hash,
-		ExtraHostFunctions: sp_wasm_interface::HostFunctions,
-	{
-		self.run_with_maybe_spec::<Hasher, ExtraHostFunctions>(Some(config.chain_spec))
-	}
-
-	pub fn run_with_maybe_spec<Hasher, ExtraHostFunctions>(
+	pub fn run<Hasher, ExtraHostFunctions>(
 		&self,
 		chain_spec: Option<Box<dyn ChainSpec>>,
 	) -> Result<()>
 	where
 		Hasher: Hash,
-		ExtraHostFunctions: sp_wasm_interface::HostFunctions,
+		ExtraHostFunctions: HostFunctions,
 	{
+		self.check_args()?;
 		let _d = self.execution.as_ref().map(|exec| {
 			// We print the error at the end, since there is often A LOT of output.
 			sp_core::defer::DeferGuard::new(move || {
@@ -179,24 +172,6 @@ impl PalletCmd {
 				)
 			})
 		});
-
-		if let Some(output_path) = &self.output {
-			if !output_path.is_dir() && output_path.file_name().is_none() {
-				return Err("Output file or path is invalid!".into())
-			}
-		}
-
-		if let Some(header_file) = &self.header {
-			if !header_file.is_file() {
-				return Err("Header file is invalid!".into())
-			};
-		}
-
-		if let Some(handlebars_template_file) = &self.template {
-			if !handlebars_template_file.is_file() {
-				return Err("Handlebars template file is invalid!".into())
-			};
-		}
 
 		if let Some(json_input) = &self.json_input {
 			let raw_data = match std::fs::read(json_input) {
@@ -219,7 +194,8 @@ impl PalletCmd {
 		let extrinsic_split: Vec<&str> = extrinsic.split(',').collect();
 		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
 
-		let (genesis_storage, genesis_changes) = self.genesis_storage::<Hasher>(&chain_spec)?;
+		let (genesis_storage, genesis_changes) =
+			self.genesis_storage::<Hasher, ExtraHostFunctions>(&chain_spec)?;
 		let mut changes = genesis_changes.clone();
 
 		let cache_size = Some(self.database_cache_size as usize);
@@ -255,6 +231,7 @@ impl PalletCmd {
 			ExtraHostFunctions,
 		)>::builder()
 		.with_execution_method(method)
+		.with_allow_missing_host_functions(self.allow_missing_host_functions)
 		.with_onchain_heap_alloc_strategy(alloc_strategy)
 		.with_offchain_heap_alloc_strategy(alloc_strategy)
 		.with_max_runtime_instances(2)
@@ -578,7 +555,7 @@ impl PalletCmd {
 	// TODO: Re-write `BenchmarkingState` to not be such a clusterfuck and only accept
 	// `OverlayedChanges` instead of a mix between `OverlayedChanges` and `State`. But this can only
 	// be done once we deprecated and removed the legacy interface :(
-	fn genesis_storage<H: Hash>(
+	fn genesis_storage<H: Hash, F: HostFunctions>(
 		&self,
 		chain_spec: &Option<Box<dyn ChainSpec>>,
 	) -> Result<(sp_storage::Storage, OverlayedChanges<H>)> {
@@ -595,12 +572,12 @@ impl PalletCmd {
 				(storage, Default::default())
 			},
 			(Some(GenesisBuilder::Runtime), _) | (None, true) =>
-				(Default::default(), self.genesis_from_runtime::<H>()?),
+				(Default::default(), self.genesis_from_runtime::<H, F>()?),
 		})
 	}
 
 	/// Generate the genesis changeset by the runtime API.
-	fn genesis_from_runtime<H: Hash>(&self) -> Result<OverlayedChanges<H>> {
+	fn genesis_from_runtime<H: Hash, F: HostFunctions>(&self) -> Result<OverlayedChanges<H>> {
 		let state = BenchmarkingState::<H>::new(
 			Default::default(),
 			Some(self.database_cache_size as usize),
@@ -612,10 +589,9 @@ impl PalletCmd {
 		let executor = WasmExecutor::<(
 			sp_io::SubstrateHostFunctions,
 			frame_benchmarking::benchmarking::HostFunctions,
-			(),
+			F,
 		)>::builder()
-		// TODO add extra host functions
-		.with_allow_missing_host_functions(true)
+		.with_allow_missing_host_functions(self.allow_missing_host_functions)
 		.build();
 
 		let runtime = self.runtime_blob(&state)?;
@@ -938,6 +914,33 @@ impl PalletCmd {
 			}
 		}
 		Ok(parsed)
+	}
+
+	/// Sanity check the CLI arguments.
+	fn check_args(&self) -> Result<()> {
+		if self.runtime.is_some() && self.shared_params.chain.is_some() {
+			unreachable!("Clap should not allow both `--runtime` and `--chain` to be specified")
+		}
+
+		if let Some(output_path) = &self.output {
+			if !output_path.is_dir() && output_path.file_name().is_none() {
+				return Err("Output file or path is invalid!".into())
+			}
+		}
+
+		if let Some(header_file) = &self.header {
+			if !header_file.is_file() {
+				return Err("Header file is invalid!".into())
+			};
+		}
+
+		if let Some(handlebars_template_file) = &self.template {
+			if !handlebars_template_file.is_file() {
+				return Err("Handlebars template file is invalid!".into())
+			};
+		}
+
+		Ok(())
 	}
 }
 

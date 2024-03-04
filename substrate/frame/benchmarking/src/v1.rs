@@ -487,7 +487,7 @@ macro_rules! benchmarks_iter {
 			$postcode
 		}
 
-		#[cfg(test)]
+		#[cfg(any(feature = "std", test))]
 		$crate::impl_benchmark_test!(
 			{ $( $where_clause )* }
 			{ $( $instance: $instance_bound )? }
@@ -1169,7 +1169,7 @@ macro_rules! impl_benchmark {
 			}
 		}
 
-		#[cfg(test)]
+		#[cfg(any(feature = "std", test))]
 		impl<T: Config $(<$instance>, $instance: $instance_bound )? >
 			Pallet<T $(, $instance)? >
 		where T: frame_system::Config, $( $where_clause )*
@@ -1184,7 +1184,7 @@ macro_rules! impl_benchmark {
 			/// by the `impl_benchmark_test_suite` macro. However, it is not an error if a pallet
 			/// author chooses not to implement benchmarks.
 			#[allow(unused)]
-			fn test_bench_by_name(name: &[u8]) -> Result<(), $crate::BenchmarkError> {
+			pub fn test_bench_by_name(name: &[u8]) -> Result<(), $crate::BenchmarkError> {
 				let name = $crate::__private::str::from_utf8(name)
 					.map_err(|_| -> $crate::BenchmarkError { "`name` is not a valid utf8 string!".into() })?;
 				match name {
@@ -1212,7 +1212,7 @@ macro_rules! impl_benchmark_test {
 		$name:ident
 	) => {
 		$crate::__private::paste::item! {
-			#[cfg(test)]
+			#[cfg(any(feature = "std", test))]
 			impl<T: Config $(<$instance>, $instance: $instance_bound )? >
 				Pallet<T $(, $instance)? >
 			where T: frame_system::Config, $( $where_clause )*
@@ -1311,7 +1311,7 @@ macro_rules! impl_benchmark_test {
 /// It expands to the equivalent of:
 ///
 /// ```rust,ignore
-/// #[cfg(test)]
+/// #[cfg(any(feature = "std", test))]
 /// mod tests {
 /// 	use super::*;
 /// 	use crate::tests::{new_test_ext, Test};
@@ -1341,7 +1341,7 @@ macro_rules! impl_benchmark_test {
 /// It expands to the equivalent of:
 ///
 /// ```rust,ignore
-/// #[cfg(test)]
+/// #[cfg(any(feature = "std", test))]
 /// mod benchmarking {
 /// 	use super::*;
 /// 	use crate::tests::{new_test_ext, Test};
@@ -1665,7 +1665,7 @@ macro_rules! impl_test_function {
 		@user:
 			$(,)?
 	) => {
-		#[cfg(test)]
+		#[cfg(any(feature = "std", test))]
 		mod benchmark_tests {
 			use super::$bench_module;
 
