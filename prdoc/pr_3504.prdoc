@@ -7,7 +7,7 @@ doc:
   - audience: Node Operator
     description: |
       This PR adds a label "is_rate_limited" to the prometheus metrics "substrate_rpc_calls_time" and "substrate_rpc_calls_finished"
-      which may be used to distinguish rate-limited RPC calls from other RPC calls. Because rate-limited RPC calls may take
+      than can be used to distinguish rate-limited RPC calls from other RPC calls. Because rate-limited RPC calls may take
       tens of seconds.
 
 crates: [ ]
