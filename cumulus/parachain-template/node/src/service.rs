@@ -40,7 +40,10 @@ use substrate_prometheus_endpoint::Registry;
 pub struct ParachainNativeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for ParachainNativeExecutor {
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	type ExtendHostFunctions = (
+		cumulus_client_service::storage_proof_size::HostFunctions,
+		frame_benchmarking::benchmarking::HostFunctions,
+	);
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 		parachain_template_runtime::api::dispatch(method, data)
@@ -100,10 +103,11 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 	let executor = ParachainExecutor::new_with_wasm_executor(wasm);
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(
+		sc_service::new_full_parts_record_import::<Block, RuntimeApi, _>(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
+			true,
 		)?;
 	let client = Arc::new(client);
 

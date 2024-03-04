@@ -23,6 +23,7 @@ use crate::{
 	},
 	service::{new_partial, Block, Hash},
 };
+use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
@@ -583,7 +584,7 @@ pub fn run() -> Result<()> {
 			match cmd {
 				BenchmarkCmd::Pallet(cmd) =>
 					if cfg!(feature = "runtime-benchmarks") {
-						runner.sync_run(|config| cmd.run::<sp_runtime::traits::HashingFor<Block>, ()>(config))
+						runner.sync_run(|config| cmd.run::<sp_runtime::traits::HashingFor<Block>, ReclaimHostFunctions>(config))
 					} else {
 						Err("Benchmarking wasn't enabled when building the node. \
 				You can enable it with `--features runtime-benchmarks`."
@@ -790,7 +791,8 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 		.map_err(Into::into),
 
 		Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot =>
+			chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
+			chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal =>
 				crate::service::start_generic_aura_node::<RuntimeApi, AuraId, Network>(
 					config,
 					polkadot_config,
@@ -800,7 +802,8 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 				)
 				.await
 				.map(|r| r.0),
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama =>
+			chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
+			chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal =>
 				crate::service::start_generic_aura_node::<RuntimeApi, AuraId, Network>(
 					config,
 					polkadot_config,
@@ -841,6 +844,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			chain_spec::coretime::CoretimeRuntimeType::Rococo |
 			chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
 			chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
+			chain_spec::coretime::CoretimeRuntimeType::Westend |
 			chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
 			chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment =>
 				crate::service::start_generic_aura_lookahead_node::<RuntimeApi, AuraId, Network>(
