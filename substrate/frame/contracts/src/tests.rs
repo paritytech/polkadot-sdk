@@ -505,8 +505,8 @@ impl Config for Test {
 	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
 	type MaxStorageKeyLen = ConstU32<128>;
 	type UnsafeUnstableInterface = UnstableInterface;
-	type UploadOrigin = EnsureUploadAccount<Self>;
-	type InstantiateOrigin = EnsureInstantiateAccount<Self>;
+	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
+	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Migrations = crate::migration::codegen::BenchMigrations;
@@ -5980,7 +5980,7 @@ fn root_cannot_instantiate() {
 #[test]
 fn only_upload_origin_can_upload() {
 	let (wasm, _) = compile_module::<Test>("dummy").unwrap();
-	RestrictedUpload::set(true);
+	UploadAccount::set(Some(ALICE));
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
 		let _ = Balances::set_balance(&BOB, 1_000_000);
@@ -6018,7 +6018,7 @@ fn only_upload_origin_can_upload() {
 #[test]
 fn only_instantiation_origin_can_instantiate() {
 	let (code, code_hash) = compile_module::<Test>("dummy").unwrap();
-	RestrictedInstantiation::set(true);
+	InstantiateAccount::set(Some(ALICE));
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
 		let _ = Balances::set_balance(&BOB, 1_000_000);
