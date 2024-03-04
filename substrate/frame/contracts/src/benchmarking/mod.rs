@@ -481,8 +481,8 @@ benchmarks! {
 		assert!(<Contract<T>>::code_exists(&hash));
 	}
 
-	/// Uploading code with [`Determinism::Relaxed`] should be more expensive than uploading code with [`Determinism::Enforced`],
-	/// as we always try to save the code with [`Determinism::Enforced`] first.
+	// Uploading code with [`Determinism::Relaxed`] should be more expensive than uploading code with [`Determinism::Enforced`],
+	// as we always try to save the code with [`Determinism::Enforced`] first.
 	#[pov_mode = Measured]
 	upload_code_determinism_relaxed {
 		let c in 0 .. T::MaxCodeLen::get();
