@@ -16,6 +16,6 @@ bp-header-chain = { path = "../../primitives/header-chain" }
 finality-relay = { path = "../finality" }
 frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 futures = "0.3.30"
-log = "0.4.20"
+log = "0.4.21"
 num-traits = "0.2"
 relay-utils = { path = "../utils" }
