@@ -37,7 +37,7 @@ use sp_runtime::traits::{Convert, Hash, Member};
 use sp_std::prelude::*;
 
 use codec::Decode;
-use pallet_mmr::{primitives::utils::AncestryHasher, LeafDataProvider, ParentNumberAndHash};
+use pallet_mmr::{LeafDataProvider, ParentNumberAndHash};
 use sp_consensus_beefy::{
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
 	CheckForkEquivocationProof, ForkEquivocationProof, ValidatorSet as BeefyValidatorSet,
@@ -201,13 +201,7 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<pallet_beefy::Error<T>, H
 			)
 			.map_err(|_| pallet_beefy::Error::<T>::InvalidForkEquivocationProof)?
 		};
-		if !sp_consensus_beefy::check_fork_equivocation_proof::<
-			_,
-			_,
-			HeaderFor<T>,
-			_,
-			AncestryHasher<Self::HashT>,
-		>(
+		if !sp_consensus_beefy::check_fork_equivocation_proof::<_, _, HeaderFor<T>, Self::HashT>(
 			proof,
 			canonical_root,
 			mmr_size,

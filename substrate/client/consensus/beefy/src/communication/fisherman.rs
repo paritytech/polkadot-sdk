@@ -143,8 +143,7 @@ where
 				AuthorityId,
 				BeefySignatureHasher,
 				B::Header,
-				MmrRootHash,
-				sp_mmr_primitives::utils::AncestryHasher<MmrHashing>,
+				MmrHashing,
 			>(
 				&proof,
 				best_mmr_root,

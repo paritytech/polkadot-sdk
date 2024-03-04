@@ -43,14 +43,18 @@ pub mod test_utils;
 
 pub use commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
 pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
-use sp_mmr_primitives::{mmr_lib, AncestryProof};
+use sp_mmr_primitives::{
+	mmr_lib,
+	utils::{self, AncestryHasher},
+	AncestryProof,
+};
 
 use codec::{Codec, Decode, Encode};
 use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
 use sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
 use sp_core::H256;
-use sp_runtime::traits::{Hash, HashOutput, Header as HeaderT, Keccak256, NumberFor};
+use sp_runtime::traits::{Hash, Header as HeaderT, Keccak256, NumberFor};
 use sp_std::prelude::*;
 
 /// Key type for BEEFY module.
@@ -438,17 +442,16 @@ where
 
 /// Checks whether an ancestry proof has the correct size and its calculated root differs from the
 /// commitment's payload's.
-fn check_ancestry_proof<Header, NodeHash, Hasher>(
+fn check_ancestry_proof<Header, NodeHash>(
 	commitment: &Commitment<Header::Number>,
-	ancestry_proof: &Option<AncestryProof<Hasher::Item>>,
+	ancestry_proof: &Option<AncestryProof<NodeHash::Output>>,
 	first_mmr_block_num: Header::Number,
-	canonical_root: Hasher::Item,
+	canonical_root: NodeHash::Output,
 	mmr_size: u64,
 ) -> bool
 where
 	Header: HeaderT,
-	NodeHash: HashOutput,
-	Hasher: mmr_lib::Merge<Item = NodeHash>,
+	NodeHash: Hash,
 {
 	if let Some(ancestry_proof) = ancestry_proof {
 		let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<Header>(
@@ -471,11 +474,11 @@ where
 			if expected_mmr_size != ancestry_proof.prev_size {
 				return false
 			}
-			if sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
-				canonical_root,
-				mmr_size,
-				ancestry_proof.clone(),
-			) != Ok(true)
+			if sp_mmr_primitives::utils::verify_ancestry_proof::<
+				NodeHash::Output,
+				utils::AncestryHasher<NodeHash>,
+			>(canonical_root, mmr_size, ancestry_proof.clone()) !=
+				Ok(true)
 			{
 				return false
 			}
@@ -489,13 +492,14 @@ where
 
 		// once the ancestry proof is verified, calculate the prev_root to compare it
 		// with the commitment's prev_root
-		let ancestry_prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<NodeHash, Hasher>(
-			ancestry_proof.prev_peaks.clone(),
-		);
+		let ancestry_prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<
+			NodeHash::Output,
+			AncestryHasher<NodeHash>,
+		>(ancestry_proof.prev_peaks.clone());
 		// if the commitment payload does not commit to an MMR root, then this
 		// commitment may have another purpose and should not be slashed
 		let commitment_prev_root =
-			commitment.payload.get_decoded::<NodeHash>(&known_payloads::MMR_ROOT_ID);
+			commitment.payload.get_decoded::<NodeHash::Output>(&known_payloads::MMR_ROOT_ID);
 		return commitment_prev_root != ancestry_prev_root.ok()
 	}
 	// if no ancestry proof provided, the proof is also not correct
@@ -518,9 +522,9 @@ where
 /// being finalized by GRANDPA. This is fine too, since the slashing risk of committing to an
 /// incorrect block implies validators will only sign blocks they *know* will be finalized by
 /// GRANDPA.
-pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
-	proof: &ForkEquivocationProof<Id, Header, NodeHash>,
-	canonical_root: Hasher::Item,
+pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash>(
+	proof: &ForkEquivocationProof<Id, Header, NodeHash::Output>,
+	canonical_root: NodeHash::Output,
 	mmr_size: u64,
 	canonical_header_hash: &Header::Hash,
 	first_mmr_block_num: Header::Number,
@@ -530,8 +534,7 @@ where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
 	MsgHash: Hash,
 	Header: HeaderT,
-	NodeHash: sp_runtime::traits::HashOutput,
-	Hasher: mmr_lib::Merge<Item = NodeHash>,
+	NodeHash: Hash,
 {
 	let ForkEquivocationProof { commitment, signatories, canonical_header, ancestry_proof } = proof;
 
@@ -546,7 +549,7 @@ where
 		// if neither the ancestry proof nor the header proof is correct, the proof is invalid
 		// avoid verifying the ancestry proof if a valid header proof has been provided
 		if !check_header_proof(commitment, canonical_header, canonical_header_hash) &&
-			!check_ancestry_proof::<Header, NodeHash, Hasher>(
+			!check_ancestry_proof::<Header, NodeHash>(
 				commitment,
 				ancestry_proof,
 				first_mmr_block_num,
