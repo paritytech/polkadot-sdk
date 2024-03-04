@@ -187,7 +187,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 	/// Creates a new instance. Does not expect any metadata to be present in the DB.
 	pub fn new<D: MetaDb>(
 		db: &D,
-		disable_block_limit_per_level: bool
+		disable_block_limit_per_level: bool,
 	) -> Result<NonCanonicalOverlay<BlockHash, Key>, Error<D::Error>> {
 		let last_canonicalized =
 			db.get_meta(&to_meta_key(LAST_CANONICAL, &())).map_err(Error::Db)?;
@@ -219,7 +219,9 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 				for index in 0..level_span.unwrap_or(OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN) {
 					let journal_key = to_journal_key(block, index);
 					if let Some(record) = db.get_meta(&journal_key).map_err(Error::Db)? {
-						if !disable_block_limit_per_level && index >= MAX_BLOCKS_PER_LEVEL_IF_ENABLED {
+						if !disable_block_limit_per_level &&
+							index >= MAX_BLOCKS_PER_LEVEL_IF_ENABLED
+						{
 							panic!("Block limit per level has been enabled, but previously it wasn't and was exceeded. \
 							Please disable that parameter, or purge the db if you know what you're doing.");
 						}
@@ -326,8 +328,8 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 				.expect("number is [front_block_number .. front_block_number + levels.len()) is asserted in precondition; qed")
 		};
 
-		if !self.disable_block_limit_per_level
-			&& level.blocks.len() as u64 >= MAX_BLOCKS_PER_LEVEL_IF_ENABLED
+		if !self.disable_block_limit_per_level &&
+			level.blocks.len() as u64 >= MAX_BLOCKS_PER_LEVEL_IF_ENABLED
 		{
 			return Err(StateDbError::TooManySiblingBlocks { number })
 		}
@@ -621,10 +623,8 @@ mod tests {
 	use super::{to_journal_key, NonCanonicalOverlay};
 	use crate::{
 		noncanonical::{
-			LAST_CANONICAL,
-			OVERLAY_LEVEL_SPAN,
-			MAX_BLOCKS_PER_LEVEL_IF_ENABLED,
-			OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN
+			LAST_CANONICAL, MAX_BLOCKS_PER_LEVEL_IF_ENABLED, OVERLAY_LEVEL_SPAN,
+			OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN,
 		},
 		test::{make_changeset, make_db},
 		to_meta_key, ChangeSet, CommitSet, MetaDb, StateDbError,
@@ -1287,7 +1287,7 @@ mod tests {
 			let insertion = overlay.insert(&(1, i), 1, &(0, 0), changeset);
 			match insertion {
 				Ok(insertion) => db.commit(&insertion),
-				Err(StateDbError::TooManySiblingBlocks { number: _ } ) =>
+				Err(StateDbError::TooManySiblingBlocks { number: _ }) =>
 					assert_eq!(i, MAX_BLOCKS_PER_LEVEL_IF_ENABLED),
 				Err(e) => panic!("Unexpected error: {:?}", e),
 			}

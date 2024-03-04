@@ -2343,7 +2343,7 @@ fn import_long_chain() {
 #[test]
 fn import_many_leaves() {
 	const LEVELS: u64 = 5;
-	const BLOCKS_PER_LEVEL: u64 = 5050/LEVELS;
+	const BLOCKS_PER_LEVEL: u64 = 5050 / LEVELS;
 	let mut client = TestClientBuilder::new().build();
 
 	for block_number in 0..LEVELS {
@@ -2366,7 +2366,7 @@ fn import_many_leaves() {
 			block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 			blocks.push(block);
 		}
-		let finalized_id = (blocks.len()-1) * block_number as usize / LEVELS as usize;
+		let finalized_id = (blocks.len() - 1) * block_number as usize / LEVELS as usize;
 		let finalized_hash = blocks[finalized_id].hash();
 		ClientExt::finalize_block(&client, finalized_hash, None).unwrap();
 		assert_eq!(client.chain_info().finalized_hash, finalized_hash);

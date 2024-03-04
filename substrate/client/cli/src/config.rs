@@ -269,7 +269,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	/// block number is disabled.
 	///
 	/// By default this is `false`.
-   fn disable_block_limit_per_level(&self) -> Result<bool> {
+	fn disable_block_limit_per_level(&self) -> Result<bool> {
 		Ok(Default::default())
 	}
 

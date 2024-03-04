@@ -304,7 +304,7 @@ pub struct StateDbSync<BlockHash: Hash, Key: Hash, D: MetaDb> {
 	pruning: Option<RefWindow<BlockHash, Key, D>>,
 	pinned: HashMap<BlockHash, u32>,
 	ref_counting: bool,
-	disable_block_limit_per_level: bool
+	disable_block_limit_per_level: bool,
 }
 
 impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
