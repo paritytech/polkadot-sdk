@@ -274,6 +274,8 @@ impl<T: Config> WasmModule<T> {
 		let mut locals = vec![Local::new(1, ValueType::I32)];
 		if use_float {
 			locals.push(Local::new(1, ValueType::F32));
+			locals.push(Local::new(2, ValueType::F32));
+			locals.push(Local::new(3, ValueType::F32));
 			expansions.saturating_dec();
 		}
 		let mut module =
