@@ -18685,6 +18685,7 @@ dependencies = [
  "regex",
  "scale-info",
  "schnorrkel 0.11.4",
+ "secp256k1",
  "secrecy",
  "serde",
  "serde_json",
