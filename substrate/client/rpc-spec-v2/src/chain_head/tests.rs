@@ -3327,3 +3327,90 @@ async fn storage_closest_merkle_value() {
 		merkle_values_rhs.get(&hex_string(b":AAAA")).unwrap()
 	);
 }
+
+#[tokio::test]
+async fn chain_head_suspend_subscriptions() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let mut client = Arc::new(builder.build());
+
+	// Configure the chainHead to suspend subscriptions for 5 seconds
+	// and to suspend on lagging distance of 5 blocks.
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+			suspended_duration: Duration::from_secs(5),
+			suspend_on_lagging_distance: 5,
+		},
+	)
+	.into_rpc();
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	// Ensure the imported block is propagated and pinned for this subscription.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::Initialized(_)
+	);
+
+	// Import 6 blocks in total to trigger the suspension distance.
+	let mut parent_hash = client.chain_info().genesis_hash;
+	for i in 0..6 {
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(parent_hash)
+			.with_parent_block_number(i)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+
+		let hash = block.hash();
+		parent_hash = hash;
+		client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+		assert_matches!(
+			get_next_event::<FollowEvent<String>>(&mut sub).await,
+			FollowEvent::NewBlock(_)
+		);
+		assert_matches!(
+			get_next_event::<FollowEvent<String>>(&mut sub).await,
+			FollowEvent::BestBlockChanged(_)
+		);
+	}
+
+	let mut second_sub =
+		api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	// Lagging detected, the stop event is delivered immediately.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut second_sub).await,
+		FollowEvent::Stop
+	);
+
+	// Ensure that all subscriptions are stopped.
+	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
+
+	// Other subscriptions cannot be started until the suspension period is over.
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	// Should receive the stop event immediately.
+	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
+
+	// Wait for the suspension period to be over.
+	tokio::time::sleep(tokio::time::Duration::from_secs(6)).await;
+
+	// For the next subscription:
+	// - duration must be over
+	// - lagging distance must be smaller.
+	client.finalize_block(parent_hash, None).unwrap();
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::Initialized(_)
+	);
+}
