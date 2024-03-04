@@ -29,8 +29,7 @@ fn send_transact_as_superuser_from_relay_to_system_para_works() {
 }
 
 /// We tests two things here:
-/// - Parachain should be able to send XCM paying its fee with system asset
-///   in the System Parachain
+/// - Parachain should be able to send XCM paying its fee with system asset in the System Parachain
 /// - Parachain should be able to create a new Foreign Asset in the System Parachain
 #[test]
 fn send_xcm_from_para_to_system_para_paying_fee_with_system_assets_works() {
@@ -39,7 +38,10 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_system_assets_works() {
 	);
 	let asset_location_on_penpal = v3::Location::new(
 		0,
-		[v3::Junction::PalletInstance(ASSETS_PALLET_ID), v3::Junction::GeneralIndex(ASSET_ID.into())]
+		[
+			v3::Junction::PalletInstance(ASSETS_PALLET_ID),
+			v3::Junction::GeneralIndex(ASSET_ID.into()),
+		],
 	);
 	let foreign_asset_at_asset_hub =
 		v3::Location::new(1, [v3::Junction::Parachain(PenpalA::para_id().into())])
@@ -55,8 +57,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_system_assets_works() {
 
 	let origin_kind = OriginKind::Xcm;
 	let fee_amount = ASSET_HUB_ROCOCO_ED * 1000000;
-	let system_asset =
-		(Parent, fee_amount).into();
+	let system_asset = (Parent, fee_amount).into();
 
 	let root_origin = <PenpalA as Chain>::RuntimeOrigin::root();
 	let system_para_destination = PenpalA::sibling_location_of(AssetHubRococo::para_id()).into();
@@ -68,7 +69,10 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_system_assets_works() {
 	);
 
 	// SA-of-Penpal-on-AHR needs to have balance to pay for fees and asset creation deposit
-	AssetHubRococo::fund_accounts(vec![(para_sovereign_account.clone().into(), ASSET_HUB_ROCOCO_ED * 10000000000)]);
+	AssetHubRococo::fund_accounts(vec![(
+		para_sovereign_account.clone().into(),
+		ASSET_HUB_ROCOCO_ED * 10000000000,
+	)]);
 
 	PenpalA::execute_with(|| {
 		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
@@ -111,8 +115,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_system_assets_works() {
 }
 
 /// We tests two things here:
-/// - Parachain should be able to send XCM paying its fee with system assets
-///   in the System Parachain
+/// - Parachain should be able to send XCM paying its fee with system assets in the System Parachain
 /// - Parachain should be able to create a new Asset in the System Parachain
 #[test]
 fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
@@ -147,15 +150,13 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 
 	let root_origin = <PenpalA as Chain>::RuntimeOrigin::root();
 	let system_para_destination = PenpalA::sibling_location_of(AssetHubRococo::para_id()).into();
-	let xcm = xcm_transact_paid_execution(
-		call,
-		origin_kind,
-		asset,
-		para_sovereign_account.clone(),
-	);
+	let xcm = xcm_transact_paid_execution(call, origin_kind, asset, para_sovereign_account.clone());
 
 	// SA-of-Penpal-on-AHR needs to have balance to pay for asset creation deposit
-	AssetHubRococo::fund_accounts(vec![(para_sovereign_account.clone().into(), ASSET_HUB_ROCOCO_ED * 10000000000)]);
+	AssetHubRococo::fund_accounts(vec![(
+		para_sovereign_account.clone().into(),
+		ASSET_HUB_ROCOCO_ED * 10000000000,
+	)]);
 
 	PenpalA::execute_with(|| {
 		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
