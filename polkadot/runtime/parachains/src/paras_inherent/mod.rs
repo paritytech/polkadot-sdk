@@ -826,8 +826,8 @@ pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 	}
 
 	// Elastic scaling: we prefer chains that have a code upgrade among it's candidates.
-	// Candidates with code upgrades (they tend to be large and hence stand no chance
-	// to be picked late while maintaining the weight bounds)
+	// asthey tend to be large and hence stand no chance to be picked late while maintaining the
+	// weight bounds.
 	//
 	// Limitations: For simplicity if total weight of a chain of candidates is larger than
 	// the remaining weight, the chain will still not be included while it could still be possible

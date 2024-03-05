@@ -949,7 +949,7 @@ mod enter {
 
 				ccr.commitments.processed_downward_messages = idx as u32;
 				let core_index = start_core_index + idx;
-				
+
 				BackedCandidate::new(
 					ccr.into(),
 					Default::default(),
@@ -1036,7 +1036,6 @@ mod enter {
 				&mut rng,
 			);
 
-			println!("\nBACKED CANDIDATES {:?}", backed_candidates);
 			// Only the chained candidates should pass filter.
 			assert_eq!(backed_candidates.len(), 3);
 			// Check the actual candidates
