@@ -503,6 +503,7 @@ members = [
 	"substrate/utils/frame/rpc/system",
 	"substrate/utils/frame/try-runtime/cli",
 	"substrate/utils/prometheus",
+	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
 ]
 default-members = ["polkadot", "substrate/bin/node/cli"]

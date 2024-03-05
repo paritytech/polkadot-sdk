@@ -1,11 +1,12 @@
-// Copyright 2019-2020 Parity Technologies (UK) Ltd.
-//
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,7 +28,7 @@ use zeroize::Zeroize;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Error {
-    InvalidEntropy,
+	InvalidEntropy,
 }
 
 /// `entropy` should be a byte array from a correctly recovered and checksumed BIP39.
@@ -44,43 +45,43 @@ pub enum Error {
 ///
 /// `password` is analog to BIP39 seed generation itself, with an empty string being defalt.
 pub fn mini_secret_from_entropy(entropy: &[u8], password: &str) -> Result<MiniSecretKey, Error> {
-    let seed = seed_from_entropy(entropy, password)?;
-    Ok(MiniSecretKey::from_bytes(&seed[..32]).expect("Length is always correct; qed"))
+	let seed = seed_from_entropy(entropy, password)?;
+	Ok(MiniSecretKey::from_bytes(&seed[..32]).expect("Length is always correct; qed"))
 }
 
 /// Similar to `mini_secret_from_entropy`, except that it provides the 64-byte seed directly.
 pub fn seed_from_entropy(entropy: &[u8], password: &str) -> Result<[u8; 64], Error> {
-    if entropy.len() < 16 || entropy.len() > 32 || entropy.len() % 4 != 0 {
-        return Err(Error::InvalidEntropy);
-    }
+	if entropy.len() < 16 || entropy.len() > 32 || entropy.len() % 4 != 0 {
+		return Err(Error::InvalidEntropy);
+	}
 
-    let mut salt = String::with_capacity(8 + password.len());
-    salt.push_str("mnemonic");
-    salt.push_str(password);
+	let mut salt = String::with_capacity(8 + password.len());
+	salt.push_str("mnemonic");
+	salt.push_str(password);
 
-    let mut seed = [0u8; 64];
+	let mut seed = [0u8; 64];
 
-    pbkdf2::<Hmac<Sha512>>(entropy, salt.as_bytes(), 2048, &mut seed);
+	pbkdf2::<Hmac<Sha512>>(entropy, salt.as_bytes(), 2048, &mut seed);
 
-    salt.zeroize();
+	salt.zeroize();
 
-    Ok(seed)
+	Ok(seed)
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
+	use super::*;
 
-    #[cfg(not(feature = "std"))]
-    use alloc::vec::Vec;
+	#[cfg(not(feature = "std"))]
+	use alloc::vec::Vec;
 
-    use bip39::{Language, Mnemonic};
-    use rustc_hex::FromHex;
+	use bip39::{Language, Mnemonic};
+	use rustc_hex::FromHex;
 
-    // phrase, entropy, seed, expanded secret_key
-    //
-    // ALL SEEDS GENERATED USING "Substrate" PASSWORD!
-    static VECTORS: &[[&str; 3]] = &[
+	// phrase, entropy, seed, expanded secret_key
+	//
+	// ALL SEEDS GENERATED USING "Substrate" PASSWORD!
+	static VECTORS: &[[&str; 3]] = &[
         [
             "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
             "00000000000000000000000000000000",
@@ -203,38 +204,27 @@ mod test {
         ]
     ];
 
-    #[test]
-    fn vectors_are_correct() {
-        for vector in VECTORS {
-            let phrase = vector[0];
+	#[test]
+	fn vectors_are_correct() {
+		for vector in VECTORS {
+			let phrase = vector[0];
 
-            let expected_entropy: Vec<u8> = vector[1].from_hex().unwrap();
-            let expected_seed: Vec<u8> = vector[2].from_hex().unwrap();
+			let expected_entropy: Vec<u8> = vector[1].from_hex().unwrap();
+			let expected_seed: Vec<u8> = vector[2].from_hex().unwrap();
 
-            let mnemonic = Mnemonic::from_phrase(phrase, Language::English).unwrap();
-            let seed = seed_from_entropy(mnemonic.entropy(), "Substrate").unwrap();
-            let secret = mini_secret_from_entropy(mnemonic.entropy(), "Substrate")
-                .unwrap()
-                .to_bytes();
+			let mnemonic = Mnemonic::from_phrase(phrase, Language::English).unwrap();
+			let seed = seed_from_entropy(mnemonic.entropy(), "Substrate").unwrap();
+			let secret =
+				mini_secret_from_entropy(mnemonic.entropy(), "Substrate").unwrap().to_bytes();
 
-            assert_eq!(
-                mnemonic.entropy(),
-                &expected_entropy[..],
-                "Entropy is incorrect for {}",
-                phrase
-            );
-            assert_eq!(
-                &seed[..],
-                &expected_seed[..],
-                "Seed is incorrect for {}",
-                phrase
-            );
-            assert_eq!(
-                &secret[..],
-                &expected_seed[..32],
-                "Secret is incorrect for {}",
-                phrase
-            );
-        }
-    }
+			assert_eq!(
+				mnemonic.entropy(),
+				&expected_entropy[..],
+				"Entropy is incorrect for {}",
+				phrase
+			);
+			assert_eq!(&seed[..], &expected_seed[..], "Seed is incorrect for {}", phrase);
+			assert_eq!(&secret[..], &expected_seed[..32], "Secret is incorrect for {}", phrase);
+		}
+	}
 }
