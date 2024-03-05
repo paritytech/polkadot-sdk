@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["client-core", "macros", "server"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/release-0.22.2", features = ["client-core", "macros", "server"] }
 # Internal chain structures for "chain_spec".
 sc-chain-spec = { path = "../chain-spec" }
 # Pool for submitting extrinsics required by "transaction"
@@ -44,7 +44,7 @@ futures-util = { version = "0.3.30", default-features = false }
 rand = "0.8.5"
 
 [dev-dependencies]
-jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["client-core", "macros", "client", "server"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/release-0.22.2", features = ["client-core", "macros", "client", "server"] }
 serde_json = { workspace = true, default-features = true }
 tokio = { version = "1.22.0", features = ["macros"] }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }

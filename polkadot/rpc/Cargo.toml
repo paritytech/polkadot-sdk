@@ -10,7 +10,7 @@ description = "Polkadot specific RPC functionality."
 workspace = true
 
 [dependencies]
-jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["server"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/release-0.22.2", features = ["server"] }
 polkadot-primitives = { path = "../primitives" }
 sc-client-api = { path = "../../substrate/client/api" }
 sp-blockchain = { path = "../../substrate/primitives/blockchain" }

@@ -33,7 +33,7 @@ tokio-util = { version = "0.7.8", features = ["compat"] }
 futures = "0.3.28"
 futures-timer = "3.0.2"
 parity-scale-codec = "3.6.4"
-jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["ws-client"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/release-0.22.2", features = ["ws-client"] }
 tracing = "0.1.37"
 async-trait = "0.1.74"
 url = "2.4.0"

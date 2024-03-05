@@ -28,7 +28,7 @@ runtime-benchmarks = [
 ]
 
 [dependencies]
-jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/low-level-context-api-v2", features = ["server"] }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee.git", branch = "lexnv/release-0.22.2", features = ["server"] }
 thiserror = { workspace = true }
 futures = "0.3.21"
 rand = "0.8.5"
