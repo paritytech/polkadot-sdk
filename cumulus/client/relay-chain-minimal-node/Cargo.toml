@@ -24,6 +24,7 @@ polkadot-node-collation-generation = { path = "../../../polkadot/node/collation-
 polkadot-node-core-runtime-api = { path = "../../../polkadot/node/core/runtime-api" }
 polkadot-node-core-chain-api = { path = "../../../polkadot/node/core/chain-api" }
 polkadot-node-core-prospective-parachains = { path = "../../../polkadot/node/core/prospective-parachains" }
+polkadot-service = { path = "../../../polkadot/node/service" }
 
 # substrate deps
 sc-authority-discovery = { path = "../../../substrate/client/authority-discovery" }

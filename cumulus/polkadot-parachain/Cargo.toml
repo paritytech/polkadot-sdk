@@ -21,8 +21,8 @@ codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 log = { workspace = true, default-features = true }
-serde = { version = "1.0.196", features = ["derive"] }
-serde_json = "1.0.113"
+serde = { features = ["derive"], workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
@@ -136,6 +136,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"glutton-westend-runtime/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
 	"people-rococo-runtime/runtime-benchmarks",
