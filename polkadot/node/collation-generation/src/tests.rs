@@ -31,6 +31,7 @@ use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
 	CollatorPair, HeadData, Id as ParaId, PersistedValidationData, ScheduledCore, ValidationCode,
 };
+use rstest::rstest;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use std::pin::Pin;
 use test_helpers::{dummy_hash, dummy_head_data, dummy_validator};
@@ -132,8 +133,10 @@ fn scheduled_core_for<Id: Into<ParaId>>(para_id: Id) -> ScheduledCore {
 	ScheduledCore { para_id: para_id.into(), collator: None }
 }
 
-#[test]
-fn requests_availability_per_relay_parent() {
+#[rstest]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn requests_availability_per_relay_parent(#[case] runtime_version: u32) {
 	let activated_hashes: Vec<Hash> =
 		vec![[1; 32].into(), [4; 32].into(), [9; 32].into(), [16; 32].into()];
 
@@ -163,7 +166,13 @@ fn requests_availability_per_relay_parent() {
 					_hash,
 					RuntimeApiRequest::Version(tx),
 				))) => {
-					tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)).unwrap();
+					tx.send(Ok(runtime_version)).unwrap();
+				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::ClaimQueue(tx),
+				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
+					tx.send(Ok(BTreeMap::new())).unwrap();
 				},
 				Some(msg) => panic!("didn't expect any other overseer requests given no availability cores; got {:?}", msg),
 			}
@@ -190,8 +199,10 @@ fn requests_availability_per_relay_parent() {
 	assert_eq!(requested_availability_cores, activated_hashes);
 }
 
-#[test]
-fn requests_validation_data_for_scheduled_matches() {
+#[rstest]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn requests_validation_data_for_scheduled_matches(#[case] runtime_version: u32) {
 	let activated_hashes: Vec<Hash> = vec![
 		Hash::repeat_byte(1),
 		Hash::repeat_byte(4),
@@ -252,7 +263,13 @@ fn requests_validation_data_for_scheduled_matches() {
 					_hash,
 					RuntimeApiRequest::Version(tx),
 				))) => {
-					tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)).unwrap();
+					tx.send(Ok(runtime_version)).unwrap();
+				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::ClaimQueue(tx),
+				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
+					tx.send(Ok(BTreeMap::new())).unwrap();
 				},
 				Some(msg) => {
 					panic!("didn't expect any other overseer requests; got {:?}", msg)
@@ -283,8 +300,10 @@ fn requests_validation_data_for_scheduled_matches() {
 	assert_eq!(requested_validation_data, vec![[4; 32].into()]);
 }
 
-#[test]
-fn sends_distribute_collation_message() {
+#[rstest]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 	let activated_hashes: Vec<Hash> = vec![
 		Hash::repeat_byte(1),
 		Hash::repeat_byte(4),
@@ -355,7 +374,13 @@ fn sends_distribute_collation_message() {
 					_hash,
 					RuntimeApiRequest::Version(tx),
 				))) => {
-					tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)).unwrap();
+					tx.send(Ok(runtime_version)).unwrap();
+				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::ClaimQueue(tx),
+				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
+					tx.send(Ok(BTreeMap::new())).unwrap();
 				},
 				Some(msg @ AllMessages::CollatorProtocol(_)) => {
 					inner_to_collator_protocol.lock().await.push(msg);
@@ -441,8 +466,10 @@ fn sends_distribute_collation_message() {
 	}
 }
 
-#[test]
-fn fallback_when_no_validation_code_hash_api() {
+#[rstest]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn fallback_when_no_validation_code_hash_api(#[case] runtime_version: u32) {
 	// This is a variant of the above test, but with the validation code hash API disabled.
 
 	let activated_hashes: Vec<Hash> = vec![
@@ -523,10 +550,17 @@ fn fallback_when_no_validation_code_hash_api() {
 					_hash,
 					RuntimeApiRequest::Version(tx),
 				))) => {
-					tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)).unwrap();
+					tx.send(Ok(runtime_version)).unwrap();
 				},
 				Some(msg @ AllMessages::CollatorProtocol(_)) => {
 					inner_to_collator_protocol.lock().await.push(msg);
+				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::ClaimQueue(tx),
+				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
+					let res = BTreeMap::<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>::new();
+					tx.send(Ok(res)).unwrap();
 				},
 				Some(msg) => {
 					panic!("didn't expect any other overseer requests; got {:?}", msg)
