@@ -1398,12 +1398,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1251" id="1251">1251</a>
 <a href="#1252" id="1252">1252</a>
 <a href="#1253" id="1253">1253</a>
-<a href="#1254" id="1254">1254</a>
-<a href="#1255" id="1255">1255</a>
-<a href="#1256" id="1256">1256</a>
-<a href="#1257" id="1257">1257</a>
-<a href="#1258" id="1258">1258</a>
-<a href="#1259" id="1259">1259</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1667,36 +1661,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The hashes of the active proposals.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>proposals)]
 	</span><span class="kw">pub type </span>Proposals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;T::Hash, T::MaxProposals&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Actual proposal for a given hash, if it&#39;s current.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>proposal_of)]
 	</span><span class="kw">pub type </span>ProposalOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Identity, T::Hash, &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Proposal, OptionQuery&gt;;
 
 	<span class="doccomment">/// Votes on a given proposal, if it is ongoing.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>voting)]
 	</span><span class="kw">pub type </span>Voting&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Identity, T::Hash, Votes&lt;T::AccountId, BlockNumberFor&lt;T&gt;&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// Proposals so far.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>proposal_count)]
 	</span><span class="kw">pub type </span>ProposalCount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// The current members of the collective. This is stored sorted (just by value).
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>members)]
 	</span><span class="kw">pub type </span>Members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, Vec&lt;T::AccountId&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The prime member that helps determine the default vote behavior in case of absentations.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>prime)]
 	</span><span class="kw">pub type </span>Prime&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, T::AccountId, OptionQuery&gt;;
 
 	<span class="attr">#[pallet::event]
@@ -1865,7 +1853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[pallet::compact] </span>length_bound: u32,
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>members = <span class="self">Self</span>::members();
+			<span class="kw">let </span>members = Members::&lt;T, I&gt;::get();
 			<span class="macro">ensure!</span>(members.contains(<span class="kw-2">&amp;</span>who), Error::&lt;T, I&gt;::NotMember);
 			<span class="kw">let </span>proposal_len = proposal.encoded_size();
 			<span class="macro">ensure!</span>(proposal_len &lt;= length_bound <span class="kw">as </span>usize, Error::&lt;T, I&gt;::WrongProposalLength);
@@ -1925,7 +1913,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[pallet::compact] </span>length_bound: u32,
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>members = <span class="self">Self</span>::members();
+			<span class="kw">let </span>members = Members::&lt;T, I&gt;::get();
 			<span class="macro">ensure!</span>(members.contains(<span class="kw-2">&amp;</span>who), Error::&lt;T, I&gt;::NotMember);
 
 			<span class="kw">if </span>threshold &lt; <span class="number">2 </span>{
@@ -1971,7 +1959,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			approve: bool,
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>members = <span class="self">Self</span>::members();
+			<span class="kw">let </span>members = Members::&lt;T, I&gt;::get();
 			<span class="macro">ensure!</span>(members.contains(<span class="kw-2">&amp;</span>who), Error::&lt;T, I&gt;::NotMember);
 
 			<span class="comment">// Detects first vote of the member in the motion
@@ -2075,7 +2063,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>is_member(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 		<span class="comment">// Note: The dispatchables *do not* use this to check membership so make sure
 		// to update those if this is changed.
-		</span><span class="self">Self</span>::members().contains(who)
+		</span>Members::&lt;T, I&gt;::get().contains(who)
 	}
 
 	<span class="doccomment">/// Execute immediately when adding a new proposal.
@@ -2094,7 +2082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>proposal_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>proposal);
 		<span class="macro">ensure!</span>(!&lt;ProposalOf&lt;T, I&gt;&gt;::contains_key(proposal_hash), Error::&lt;T, I&gt;::DuplicateProposal);
 
-		<span class="kw">let </span>seats = <span class="self">Self</span>::members().len() <span class="kw">as </span>MemberCount;
+		<span class="kw">let </span>seats = Members::&lt;T, I&gt;::get().len() <span class="kw">as </span>MemberCount;
 		<span class="kw">let </span>result = proposal.dispatch(RawOrigin::Members(<span class="number">1</span>, seats).into());
 		<span class="self">Self</span>::deposit_event(Event::Executed {
 			proposal_hash,
@@ -2127,7 +2115,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(proposals.len())
 			})<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>index = <span class="self">Self</span>::proposal_count();
+		<span class="kw">let </span>index = ProposalCount::&lt;T, I&gt;::get();
 		&lt;ProposalCount&lt;T, I&gt;&gt;::mutate(|i| <span class="kw-2">*</span>i += <span class="number">1</span>);
 		&lt;ProposalOf&lt;T, I&gt;&gt;::insert(proposal_hash, proposal);
 		<span class="kw">let </span>votes = {
@@ -2153,7 +2141,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		index: ProposalIndex,
 		approve: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, DispatchError&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>voting = <span class="self">Self</span>::voting(<span class="kw-2">&amp;</span>proposal).ok_or(Error::&lt;T, I&gt;::ProposalMissing)<span class="question-mark">?</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>voting = Voting::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>proposal).ok_or(Error::&lt;T, I&gt;::ProposalMissing)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(voting.index == index, Error::&lt;T, I&gt;::WrongIndex);
 
 		<span class="kw">let </span>position_yes = voting.ayes.iter().position(|a| a == <span class="kw-2">&amp;</span>who);
@@ -2204,12 +2192,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		proposal_weight_bound: Weight,
 		length_bound: u32,
 	) -&gt; DispatchResultWithPostInfo {
-		<span class="kw">let </span>voting = <span class="self">Self</span>::voting(<span class="kw-2">&amp;</span>proposal_hash).ok_or(Error::&lt;T, I&gt;::ProposalMissing)<span class="question-mark">?</span>;
+		<span class="kw">let </span>voting = Voting::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>proposal_hash).ok_or(Error::&lt;T, I&gt;::ProposalMissing)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(voting.index == index, Error::&lt;T, I&gt;::WrongIndex);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>no_votes = voting.nays.len() <span class="kw">as </span>MemberCount;
 		<span class="kw">let </span><span class="kw-2">mut </span>yes_votes = voting.ayes.len() <span class="kw">as </span>MemberCount;
-		<span class="kw">let </span>seats = <span class="self">Self</span>::members().len() <span class="kw">as </span>MemberCount;
+		<span class="kw">let </span>seats = Members::&lt;T, I&gt;::get().len() <span class="kw">as </span>MemberCount;
 		<span class="kw">let </span>approved = yes_votes &gt;= voting.threshold;
 		<span class="kw">let </span>disapproved = seats.saturating_sub(no_votes) &lt; voting.threshold;
 		<span class="comment">// Allow (dis-)approving the proposal as soon as there are enough votes.
@@ -2243,7 +2231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Only allow actual closing of the proposal after the voting period has ended.
 		</span><span class="macro">ensure!</span>(frame_system::Pallet::&lt;T&gt;::block_number() &gt;= voting.end, Error::&lt;T, I&gt;::TooEarly);
 
-		<span class="kw">let </span>prime_vote = <span class="self">Self</span>::prime().map(|who| voting.ayes.iter().any(|a| a == <span class="kw-2">&amp;</span>who));
+		<span class="kw">let </span>prime_vote = Prime::&lt;T, I&gt;::get().map(|who| voting.ayes.iter().any(|a| a == <span class="kw-2">&amp;</span>who));
 
 		<span class="comment">// default voting strategy.
 		</span><span class="kw">let </span>default = T::DefaultVote::default_vote(prime_vote, yes_votes, no_votes, seats);
@@ -2384,29 +2372,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// * The prime account must be a member of the collective.
 	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
 	</span><span class="kw">fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-		<span class="self">Self</span>::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+		Proposals::&lt;T, I&gt;::get().into_iter().try_for_each(
+			|proposal| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 				<span class="macro">ensure!</span>(
-					<span class="self">Self</span>::proposal_of(proposal).is_some(),
+					ProposalOf::&lt;T, I&gt;::get(proposal).is_some(),
 					<span class="string">&quot;Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping.&quot;
 				</span>);
 				<span class="prelude-val">Ok</span>(())
-			})<span class="question-mark">?</span>;
+			},
+		)<span class="question-mark">?</span>;
 
 		<span class="macro">ensure!</span>(
-			<span class="self">Self</span>::proposals().into_iter().count() &lt;= <span class="self">Self</span>::proposal_count() <span class="kw">as </span>usize,
+			Proposals::&lt;T, I&gt;::get().into_iter().count() &lt;= ProposalCount::&lt;T, I&gt;::get() <span class="kw">as </span>usize,
 			<span class="string">&quot;The actual number of proposals is greater than `ProposalCount`&quot;
 		</span>);
 		<span class="macro">ensure!</span>(
-			<span class="self">Self</span>::proposals().into_iter().count() == &lt;ProposalOf&lt;T, I&gt;&gt;::iter_keys().count(),
+			Proposals::&lt;T, I&gt;::get().into_iter().count() == &lt;ProposalOf&lt;T, I&gt;&gt;::iter_keys().count(),
 			<span class="string">&quot;Proposal count inside `Proposals` is not equal to the proposal count in `ProposalOf`&quot;
 		</span>);
 
-		<span class="self">Self</span>::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(votes) = <span class="self">Self</span>::voting(proposal) {
+		Proposals::&lt;T, I&gt;::get().into_iter().try_for_each(
+			|proposal| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(votes) = Voting::&lt;T, I&gt;::get(proposal) {
 					<span class="kw">let </span>ayes = votes.ayes.len();
 					<span class="kw">let </span>nays = votes.nays.len();
 
@@ -2416,13 +2403,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>);
 				}
 				<span class="prelude-val">Ok</span>(())
-			})<span class="question-mark">?</span>;
+			},
+		)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>proposal_indices = <span class="macro">vec!</span>[];
-		<span class="self">Self</span>::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(votes) = <span class="self">Self</span>::voting(proposal) {
+		Proposals::&lt;T, I&gt;::get().into_iter().try_for_each(
+			|proposal| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(votes) = Voting::&lt;T, I&gt;::get(proposal) {
 					<span class="kw">let </span>proposal_index = votes.index;
 					<span class="macro">ensure!</span>(
 						!proposal_indices.contains(<span class="kw-2">&amp;</span>proposal_index),
@@ -2431,12 +2418,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					proposal_indices.push(proposal_index);
 				}
 				<span class="prelude-val">Ok</span>(())
-			})<span class="question-mark">?</span>;
+			},
+		)<span class="question-mark">?</span>;
 
 		&lt;Voting&lt;T, I&gt;&gt;::iter_keys().try_for_each(
 			|proposal_hash| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 				<span class="macro">ensure!</span>(
-					<span class="self">Self</span>::proposals().contains(<span class="kw-2">&amp;</span>proposal_hash),
+					Proposals::&lt;T, I&gt;::get().contains(<span class="kw-2">&amp;</span>proposal_hash),
 					<span class="string">&quot;`Proposals` doesn&#39;t contain the proposal hash from the `Voting` storage map.&quot;
 				</span>);
 				<span class="prelude-val">Ok</span>(())
@@ -2444,17 +2432,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)<span class="question-mark">?</span>;
 
 		<span class="macro">ensure!</span>(
-			<span class="self">Self</span>::members().len() &lt;= T::MaxMembers::get() <span class="kw">as </span>usize,
+			Members::&lt;T, I&gt;::get().len() &lt;= T::MaxMembers::get() <span class="kw">as </span>usize,
 			<span class="string">&quot;The member count is greater than `MaxMembers`.&quot;
 		</span>);
 
 		<span class="macro">ensure!</span>(
-			<span class="self">Self</span>::members().windows(<span class="number">2</span>).all(|members| members[<span class="number">0</span>] &lt;= members[<span class="number">1</span>]),
+			Members::&lt;T, I&gt;::get().windows(<span class="number">2</span>).all(|members| members[<span class="number">0</span>] &lt;= members[<span class="number">1</span>]),
 			<span class="string">&quot;The members are not sorted by value.&quot;
 		</span>);
 
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(prime) = <span class="self">Self</span>::prime() {
-			<span class="macro">ensure!</span>(<span class="self">Self</span>::members().contains(<span class="kw-2">&amp;</span>prime), <span class="string">&quot;Prime account is not a member.&quot;</span>);
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(prime) = Prime::&lt;T, I&gt;::get() {
+			<span class="macro">ensure!</span>(Members::&lt;T, I&gt;::get().contains(<span class="kw-2">&amp;</span>prime), <span class="string">&quot;Prime account is not a member.&quot;</span>);
 		}
 
 		<span class="prelude-val">Ok</span>(())
@@ -2488,7 +2476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// remove accounts from all current voting in motions.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>outgoing = outgoing.to_vec();
 		outgoing.sort();
-		<span class="kw">for </span>h <span class="kw">in </span><span class="self">Self</span>::proposals().into_iter() {
+		<span class="kw">for </span>h <span class="kw">in </span>Proposals::&lt;T, I&gt;::get().into_iter() {
 			&lt;Voting&lt;T, I&gt;&gt;::mutate(h, |v| {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>votes) = v.take() {
 					votes.ayes = votes

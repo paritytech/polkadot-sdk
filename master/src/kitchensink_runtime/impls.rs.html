@@ -667,8 +667,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
-	AccountId, AllianceMotion, Assets, Authorship, Balances, Hash, NegativeImbalance, Runtime,
-	RuntimeCall,
+	AccountId, AllianceCollective, AllianceMotion, Assets, Authorship, Balances, Hash,
+	NegativeImbalance, Runtime, RuntimeCall,
 };
 
 <span class="kw">pub struct </span>Author;
@@ -744,7 +744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>proposal_of(proposal_hash: Hash) -&gt; <span class="prelude-ty">Option</span>&lt;RuntimeCall&gt; {
-		AllianceMotion::proposal_of(proposal_hash)
+		pallet_collective::ProposalOf::&lt;Runtime, AllianceCollective&gt;::get(proposal_hash)
 	}
 }
 
@@ -913,8 +913,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>next = runtime_multiplier_update(fm);
 				fm = next;
 				<span class="kw">if </span>fm == min_multiplier() {
-					<span class="kw">break
-				</span>}
+					<span class="kw">break</span>;
+				}
 				iterations += <span class="number">1</span>;
 			}
 			<span class="macro">assert!</span>(iterations &gt; <span class="number">533_333</span>);

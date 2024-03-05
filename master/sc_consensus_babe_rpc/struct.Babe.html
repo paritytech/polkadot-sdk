@@ -149,7 +149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><h2 id="implementations" class="small-section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Babe%3CB,+C,+SC%3E" class="impl"><a class="src rightside" href="../src/sc_consensus_babe_rpc/lib.rs.html#68-79">source</a><a href="#impl-Babe%3CB,+C,+SC%3E" class="anchor">§</a><h3 class="code-header">impl&lt;B: BlockT, C, SC&gt; <a class="struct" href="struct.Babe.html" title="struct sc_consensus_babe_rpc::Babe">Babe</a>&lt;B, C, SC&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="src rightside" href="../src/sc_consensus_babe_rpc/lib.rs.html#70-78">source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>(
     client: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;C&gt;,
     babe_worker_handle: BabeWorkerHandle&lt;B&gt;,
-    keystore: <a class="type" href="../sp_keystore/type.KeystorePtr.html" title="type sp_keystore::KeystorePtr">KeystorePtr</a>,
+    keystore: KeystorePtr,
     select_chain: SC,
     deny_unsafe: DenyUnsafe
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Creates a new instance of the Babe Rpc handler.</p>

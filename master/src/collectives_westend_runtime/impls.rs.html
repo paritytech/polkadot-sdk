@@ -410,7 +410,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>proposal_of(proposal_hash: HashOf&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ProposalOf&lt;T, I&gt;&gt; {
-		pallet_collective::Pallet::&lt;T, I&gt;::proposal_of(proposal_hash)
+		pallet_collective::ProposalOf::&lt;T, I&gt;::get(proposal_hash)
 	}
 }
 
