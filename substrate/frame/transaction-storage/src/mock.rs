@@ -23,11 +23,11 @@ use crate::{
 };
 use frame_support::{
 	derive_impl,
-	traits::{ConstU32, ConstU64, OnFinalize, OnInitialize},
+	traits::{ConstU32, OnFinalize, OnInitialize},
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
-pub type Block = frame_system::mocking::MockBlock<Test>;
+pub type Block = frame_system::mocking::MockBlockU32<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -44,7 +44,7 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 	type AccountId = u64;
-	type BlockHashCount = ConstU64<250>;
+	type BlockHashCount = ConstU32<250>;
 	type Lookup = IdentityLookup<Self::AccountId>;
 }
 
@@ -81,7 +81,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
-pub fn run_to_block(n: u64, f: impl Fn() -> Option<TransactionStorageProof>) {
+pub fn run_to_block(n: u32, f: impl Fn() -> Option<TransactionStorageProof>) {
 	while System::block_number() < n {
 		if let Some(proof) = f() {
 			TransactionStorage::check_proof(RuntimeOrigin::none(), proof).unwrap();
