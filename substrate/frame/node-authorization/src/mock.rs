@@ -24,7 +24,7 @@ use frame_support::{derive_impl, ord_parameter_types, traits::ConstU32};
 use frame_system::EnsureSignedBy;
 use sp_runtime::BuildStorage;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -37,6 +37,7 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 ord_parameter_types! {
