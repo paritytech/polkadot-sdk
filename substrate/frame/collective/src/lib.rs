@@ -716,7 +716,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		);
 
 		let proposal_hash = T::Hashing::hash_of(&proposal);
-		ensure!(!<Voting<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
+		ensure!(!Voting::<T, I>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
 		let seats = Members::<T, I>::get().len() as MemberCount;
 		let result = proposal.dispatch(RawOrigin::Members(1, seats).into());
@@ -743,17 +743,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		);
 
 		let proposal_hash = T::Preimages::note(proposal.encode().into())?;
-		ensure!(!<Voting<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
+		ensure!(!Voting::<T, I>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
-		ensure!(<Voting<T, I>>::count() < T::MaxProposals::get(), Error::<T, I>::TooManyProposals);
+		ensure!(Voting::<T, I>::count() < T::MaxProposals::get(), Error::<T, I>::TooManyProposals);
 
 		let index = ProposalCount::<T, I>::get();
-		<ProposalCount<T, I>>::mutate(|i| *i += 1);
+		ProposalCount::<T, I>::mutate(|i| *i += 1);
 		let votes = {
 			let end = frame_system::Pallet::<T>::block_number() + T::MotionDuration::get();
 			Votes { index, threshold, ayes: Default::default(), nays: Default::default(), end }
 		};
-		<Voting<T, I>>::insert(proposal_hash, votes);
+		Voting::<T, I>::insert(proposal_hash, votes);
 
 		Self::deposit_event(Event::Proposed {
 			account: who,
@@ -761,7 +761,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			proposal_hash,
 			threshold,
 		});
-		Ok((proposal_len as u32, <Voting<T, I>>::count()))
+		Ok((proposal_len as u32, Voting::<T, I>::count()))
 	}
 
 	/// Add an aye or nay vote for the member to the given proposal, returns true if it's the first
@@ -1051,7 +1051,7 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
 		// remove accounts from all current voting in motions.
 		let mut outgoing = outgoing.to_vec();
 		outgoing.sort();
-		<Voting<T, I>>::translate_values(
+		Voting::<T, I>::translate_values(
 			|mut votes: Votes<
 				T::AccountId,
 				frame_system::pallet_prelude::BlockNumberFor<T>,
@@ -1093,10 +1093,10 @@ impl<T: Config<I>, I: 'static> InitializeMembers<T::AccountId> for Pallet<T, I> 
 	/// or if the number of members is greater than `MaxMembers`.
 	fn initialize_members(members: &[T::AccountId]) {
 		if !members.is_empty() {
-			assert!(<Members<T, I>>::get().is_empty(), "Members are already initialized!");
+			assert!(Members::<T, I>::get().is_empty(), "Members are already initialized!");
 			let mut members = members.to_vec();
 			members.sort();
-			<Members<T, I>>::put(BoundedVec::try_from(members).expect("Too many members!"));
+			Members::<T, I>::put(BoundedVec::try_from(members).expect("Too many members!"));
 		}
 	}
 }
