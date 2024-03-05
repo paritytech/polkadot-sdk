@@ -292,10 +292,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -373,10 +369,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub struct </span>RuntimeGenesisConfig {
 			#fields
 		}
-
-		<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
-		#[deprecated(note = <span class="string">&quot;GenesisConfig is planned to be removed in December 2023. Use `RuntimeGenesisConfig` instead.&quot;</span>)]
-		</span><span class="kw">pub type </span>GenesisConfig = RuntimeGenesisConfig;
 
 		<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
 		</span><span class="kw">impl </span>#scrate::sp_runtime::BuildStorage <span class="kw">for </span>RuntimeGenesisConfig {
