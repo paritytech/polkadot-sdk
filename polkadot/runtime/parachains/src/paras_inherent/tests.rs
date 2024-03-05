@@ -925,6 +925,41 @@ mod enter {
 		});
 	}
 
+	// Helper fn that builds chained dummy candidates for elastic scaling tests
+	fn build_backed_candidate_chain(
+		para_id: ParaId,
+		len: usize,
+		start_core_index: usize,
+		code_upgrade_index: Option<usize>,
+	) -> Vec<BackedCandidate> {
+		if let Some(code_upgrade_index) = code_upgrade_index {
+			assert!(code_upgrade_index < len, "Code upgrade index out of bounds");
+		}
+
+		(0..len)
+			.into_iter()
+			.map(|idx| {
+				let mut builder = TestCandidateBuilder::default();
+				builder.para_id = para_id;
+				let mut ccr = builder.build();
+
+				if Some(idx) == code_upgrade_index {
+					ccr.commitments.new_validation_code = Some(vec![1, 2, 3, 4].into());
+				}
+
+				ccr.commitments.processed_downward_messages = idx as u32;
+				let core_index = start_core_index + idx;
+				
+				BackedCandidate::new(
+					ccr.into(),
+					Default::default(),
+					Default::default(),
+					Some(CoreIndex(core_index as u32)),
+				)
+			})
+			.collect::<Vec<_>>()
+	}
+
 	// Ensure that overweight parachain inherents are always rejected by the runtime.
 	// Runtime should panic and return `InherentOverweight` error.
 	#[test]
@@ -961,41 +996,8 @@ mod enter {
 			// * 30 backed candidates
 			assert_eq!(para_inherent_data.backed_candidates.len(), 30);
 
-			let mut builder = TestCandidateBuilder::default();
-			builder.para_id = ParaId::from(1000);
-
-			// Craft a chain of 3 dummy backed candidates for para_id 1000.
-			let candidate_1 = builder.build();
-			let mut candidate_2 = candidate_1.clone();
-			candidate_2.commitments.new_validation_code = Some(vec![1, 2, 3, 4].into());
-			let mut candidate_3 = candidate_1.clone();
-
-			// Make candidate unique
-			candidate_3.commitments.processed_downward_messages = 123;
-
-			let backed_candidate_1 = BackedCandidate::new(
-				candidate_1.into(),
-				Default::default(),
-				Default::default(),
-				Some(CoreIndex(0)),
-			);
-
-			let backed_candidate_2 = BackedCandidate::new(
-				candidate_2.into(),
-				Default::default(),
-				Default::default(),
-				Some(CoreIndex(1)),
-			);
-
-			let backed_candidate_3 = BackedCandidate::new(
-				candidate_3.into(),
-				Default::default(),
-				Default::default(),
-				Some(CoreIndex(2)),
-			);
-
 			let mut input_candidates =
-				vec![backed_candidate_1, backed_candidate_2, backed_candidate_3];
+				build_backed_candidate_chain(ParaId::from(1000), 3, 0, Some(1));
 			let chained_candidates_weight = backed_candidates_weight::<Test>(&input_candidates);
 
 			input_candidates.append(&mut para_inherent_data.backed_candidates);
@@ -1035,7 +1037,7 @@ mod enter {
 			);
 
 			println!("\nBACKED CANDIDATES {:?}", backed_candidates);
-			// The chained candidates should be there.
+			// Only the chained candidates should pass filter.
 			assert_eq!(backed_candidates.len(), 3);
 			// Check the actual candidates
 			assert_eq!(backed_candidates[0].descriptor().para_id, ParaId::from(1000));
