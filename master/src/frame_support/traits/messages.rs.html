@@ -400,6 +400,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -525,6 +527,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>QueueFootprint {
 	<span class="doccomment">/// The number of pages in the queue (including overweight pages).
 	</span><span class="kw">pub </span>pages: u32,
+	<span class="doccomment">/// The number of pages that are ready (not yet processed and also not overweight).
+	</span><span class="kw">pub </span>ready_pages: u32,
 	<span class="doccomment">/// The storage footprint of the queue (including overweight messages).
 	</span><span class="kw">pub </span>storage: Footprint,
 }

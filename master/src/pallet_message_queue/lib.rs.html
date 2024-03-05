@@ -1783,6 +1783,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1636" id="1636">1636</a>
 <a href="#1637" id="1637">1637</a>
 <a href="#1638" id="1638">1638</a>
+<a href="#1639" id="1639">1639</a>
+<a href="#1640" id="1640">1640</a>
+<a href="#1641" id="1641">1641</a>
+<a href="#1642" id="1642">1642</a>
+<a href="#1643" id="1643">1643</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1993,8 +1998,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	defensive,
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{
-		Defensive, DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint,
-		ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
+		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
+		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
+		QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -2227,6 +2233,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>from(book: BookState&lt;MessageOrigin&gt;) -&gt; <span class="self">Self </span>{
 		QueueFootprint {
 			pages: book.count,
+			ready_pages: book.end.defensive_saturating_sub(book.begin),
 			storage: Footprint { count: book.message_count, size: book.size },
 		}
 	}
@@ -3066,6 +3073,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">ensure!</span>(book.message_count &lt; <span class="number">1 </span>&lt;&lt; <span class="number">30</span>, <span class="string">&quot;Likely overflow or corruption&quot;</span>);
 			<span class="macro">ensure!</span>(book.size &lt; <span class="number">1 </span>&lt;&lt; <span class="number">30</span>, <span class="string">&quot;Likely overflow or corruption&quot;</span>);
 			<span class="macro">ensure!</span>(book.count &lt; <span class="number">1 </span>&lt;&lt; <span class="number">30</span>, <span class="string">&quot;Likely overflow or corruption&quot;</span>);
+
+			<span class="kw">let </span>fp: QueueFootprint = book.into();
+			<span class="macro">ensure!</span>(fp.ready_pages &lt;= fp.pages, <span class="string">&quot;There cannot be more ready than total pages&quot;</span>);
 		}
 
 		<span class="comment">//loop around this origin

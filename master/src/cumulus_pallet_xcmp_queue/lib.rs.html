@@ -1729,7 +1729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>QueueConfigData { drop_threshold, .. } = &lt;QueueConfig&lt;T&gt;&gt;::get();
 		<span class="kw">let </span>fp = T::XcmpQueue::footprint(sender);
 		<span class="comment">// Assume that it will not fit into the current page:
-		</span><span class="kw">let </span>new_pages = fp.pages.saturating_add(<span class="number">1</span>);
+		</span><span class="kw">let </span>new_pages = fp.ready_pages.saturating_add(<span class="number">1</span>);
 		<span class="kw">if </span>new_pages &gt; drop_threshold {
 			<span class="comment">// This should not happen since the channel should have been suspended in
 			// [`on_queue_changed`].
@@ -1792,12 +1792,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>suspended_channels = &lt;InboundXcmpSuspended&lt;T&gt;&gt;::get();
 		<span class="kw">let </span>suspended = suspended_channels.contains(<span class="kw-2">&amp;</span>para);
 
-		<span class="kw">if </span>suspended &amp;&amp; fp.pages &lt;= resume_threshold {
+		<span class="kw">if </span>suspended &amp;&amp; fp.ready_pages &lt;= resume_threshold {
 			<span class="self">Self</span>::send_signal(para, ChannelSignal::Resume);
 
 			suspended_channels.remove(<span class="kw-2">&amp;</span>para);
 			&lt;InboundXcmpSuspended&lt;T&gt;&gt;::put(suspended_channels);
-		} <span class="kw">else if </span>!suspended &amp;&amp; fp.pages &gt;= suspend_threshold {
+		} <span class="kw">else if </span>!suspended &amp;&amp; fp.ready_pages &gt;= suspend_threshold {
 			<span class="macro">log::warn!</span>(<span class="string">&quot;XCMP queue for sibling {:?} is full; suspending channel.&quot;</span>, para);
 			<span class="self">Self</span>::send_signal(para, ChannelSignal::Suspend);
 
