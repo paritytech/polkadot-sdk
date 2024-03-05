@@ -290,6 +290,9 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
+	// In a production environment, it would be something like
+	// EnsureXcm<Equals<xcm_config::some_delegated_staking_location::Location>>
+	type DelegateOrigin = EnsureRoot<AccountId>;
 	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();

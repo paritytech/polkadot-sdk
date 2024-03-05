@@ -279,6 +279,9 @@ pub mod pallet {
 		/// WARNING: this only reports slashing and withdraw events for the time being.
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
+		/// Origin that can call into the delegated staking functionality.
+		type DelegateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Some parameters of the benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
 
@@ -665,6 +668,12 @@ pub mod pallet {
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
+
+	/// Set(? TBD) of all delegatee accounts which have their bond held somewhere else. Maybe we
+	/// have their bond as value and cache the get results to do fewer db reads, but this is just an
+	/// implementation detail right now.
+	#[pallet::storage]
+	pub type Delegatees<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, ()>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -1985,44 +1994,20 @@ pub mod pallet {
 		}
 
 		/// TODO: docs
-		/// Basically another call for `bond`, but it's implied that the funds are already locked
-		/// and `pallet-staking` doesn't need to lock them here.
+		/// Wrapper extrinsic for `do_delegated_bond`, but accessible from outside the current
+		/// context, guarded by `DelegateOrigin`.
 		#[pallet::call_index(29)]
 		#[pallet::weight(T::WeightInfo::bond())]
 		pub fn delegated_bond(
 			origin: OriginFor<T>,
+			stash: T::AccountId,
 			#[pallet::compact] value: BalanceOf<T>,
 			payee: RewardDestination<T::AccountId>,
 		) -> DispatchResult {
-			// To make this truely decoupled, we would need a `EnsureDelegatorOrigin` type on
-			// `pallet_staking::Config` which would be used here to prevent unauhtorized parties
-			// from accessing this privileged extrinsic. In our particular case, only the derived
-			// account ID of `pallet-delegated-stake` would be allowed and `stash` would be a
-			// separate argument.
-			//
-			// Alternatively, until we get to the problem of pallets calling into this function in
-			// `pallet-staking` from different parachains, we could just move this to the regular
-			// `impl Pallet` so that it's not an extrinsic. Leaving this as is for this POC.
-			let stash = ensure_signed(origin)?;
-
-			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
-				return Err(Error::<T>::AlreadyBonded.into())
-			}
-
-			// Reject a bond which is considered to be _dust_.
-			if value < T::Currency::minimum_balance() {
-				return Err(Error::<T>::InsufficientBond.into())
-			}
-
-			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
-			let stash_balance = T::Currency::free_balance(&stash);
-			let value = value.min(stash_balance);
-			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
-			let ledger = StakingLedger::<T>::new(stash.clone(), value);
-
-			ledger.register_as_bonded(payee)?;
-
-			Ok(())
+			// `DelegateOrigin` type lets approved pallets on different parachains to call into this
+			// privileged extrinsic.
+			T::DelegateOrigin::ensure_origin(origin)?;
+			Self::do_delegated_bond(stash, value, payee)
 		}
 	}
 }

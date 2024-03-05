@@ -1084,6 +1084,35 @@ impl<T: Config> Pallet<T> {
 		outcome
 	}
 
+	/// TODO: docs
+	/// Basically another call for `bond`, but it's implied that the funds are already locked
+	/// and `pallet-staking` doesn't need to lock them here.
+	pub fn do_delegated_bond(
+		stash: T::AccountId,
+		value: BalanceOf<T>,
+		payee: RewardDestination<T::AccountId>,
+	) -> DispatchResult {
+		if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
+			return Err(Error::<T>::AlreadyBonded.into())
+		}
+
+		// Reject a bond which is considered to be _dust_.
+		if value < T::Currency::minimum_balance() {
+			return Err(Error::<T>::InsufficientBond.into())
+		}
+
+		frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
+		let stash_balance = T::Currency::free_balance(&stash);
+		let value = value.min(stash_balance);
+		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
+		Delegatees::<T>::insert(stash.clone(), ());
+		let ledger = StakingLedger::<T>::new(stash.clone(), value);
+
+		ledger.bond(payee)?;
+
+		Ok(())
+	}
+
 	/// Register some amount of weight directly with the system pallet.
 	///
 	/// This is always mandatory weight.
@@ -1856,15 +1885,11 @@ impl<T: Config> DelegateeSupport for Pallet<T> {
 		value: Self::Balance,
 		payee: &Self::AccountId,
 	) -> DispatchResult {
-		Self::delegated_bond(
-			RawOrigin::Signed(who.clone()).into(),
-			value,
-			RewardDestination::Account(payee.clone()),
-		)
+		Self::do_delegated_bond(who.clone(), value, RewardDestination::Account(payee.clone()))
 	}
 
 	fn is_delegatee(who: &Self::AccountId) -> bool {
-		Self::ledger(Stash(who.clone())).map(|l| !l.locked_locally).unwrap_or(false)
+		Delegatees::<T>::contains_key(who)
 	}
 }
 

@@ -483,9 +483,6 @@ pub struct StakingLedger<T: Config> {
 	/// Refer to issue <https://github.com/paritytech/polkadot-sdk/issues/433>
 	pub legacy_claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
 
-	/// TODO: docs
-	pub locked_locally: bool,
-
 	/// The controller associated with this ledger's stash.
 	///
 	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
@@ -548,7 +545,6 @@ impl<T: Config> StakingLedger<T> {
 			active: self.active,
 			unlocking,
 			legacy_claimed_rewards: self.legacy_claimed_rewards,
-			locked_locally: self.locked_locally,
 			controller: self.controller,
 		}
 	}

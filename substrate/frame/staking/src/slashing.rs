@@ -50,7 +50,7 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, NominatorSlashInEra,
+	BalanceOf, Config, Delegatees, Error, Exposure, NegativeImbalanceOf, NominatorSlashInEra,
 	OffendingValidators, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
 	ValidatorSlashInEra,
 };
@@ -608,7 +608,7 @@ pub fn do_slash<T: Config>(
 			Err(_) => return, // nothing to do.
 		};
 
-	let lazy_slash = !ledger.locked_locally;
+	let lazy_slash = Delegatees::<T>::contains_key(stash);
 	let value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
 
 	if value.is_zero() {

@@ -36,7 +36,8 @@ use sp_staking::{StakingAccount, StakingInterface};
 use sp_std::prelude::*;
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
+	BalanceOf, Bonded, Config, Delegatees, Error, Ledger, Pallet, Payee, RewardDestination,
+	StakingLedger,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -63,7 +64,6 @@ impl<T: Config> StakingLedger<T> {
 			total: stake,
 			unlocking: Default::default(),
 			legacy_claimed_rewards: Default::default(),
-			locked_locally: true,
 			// controllers are deprecated and mapped 1-1 to stashes.
 			controller: Some(stash),
 		}
@@ -158,7 +158,10 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		if self.locked_locally {
+		// We could just pass `locked_locally` in as a parameter to optimize things, this is just
+		// for the POC
+		let locked_locally = !<Delegatees<T>>::contains_key(&self.stash);
+		if locked_locally {
 			Pallet::<T>::update_hold(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
 		}
 
@@ -184,17 +187,6 @@ impl<T: Config> StakingLedger<T> {
 		<Payee<T>>::insert(&self.stash, payee);
 		<Bonded<T>>::insert(&self.stash, &self.stash);
 		self.update()
-	}
-
-	/// Registers a bond on a ledger where the locked funds are not held locally.
-	///
-	/// It sets the reward preferences for the bonded stash.
-	pub(crate) fn register_as_bonded(
-		mut self,
-		payee: RewardDestination<T::AccountId>,
-	) -> Result<(), Error<T>> {
-		self.locked_locally = false;
-		self.bond(payee)
 	}
 
 	/// Sets the ledger Payee.
