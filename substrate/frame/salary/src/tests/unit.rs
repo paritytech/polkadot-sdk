@@ -24,14 +24,14 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{tokens::ConvertRank, ConstU64},
+	traits::{tokens::ConvertRank, ConstU32},
 };
 use sp_runtime::{traits::Identity, BuildStorage, DispatchResult};
 
 use crate as pallet_salary;
 use crate::*;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -49,6 +49,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockHashCount = ConstU32<10>;
 }
 
 thread_local! {
@@ -151,8 +152,8 @@ impl Config for Test {
 	type Paymaster = TestPay;
 	type Members = TestClub;
 	type Salary = ConvertRank<Identity>;
-	type RegistrationPeriod = ConstU64<2>;
-	type PayoutPeriod = ConstU64<2>;
+	type RegistrationPeriod = ConstU32<2>;
+	type PayoutPeriod = ConstU32<2>;
 	type Budget = Budget;
 }
 
@@ -168,7 +169,7 @@ fn next_block() {
 }
 
 #[allow(dead_code)]
-fn run_to(n: u64) {
+fn run_to(n: u32) {
 	while System::block_number() < n {
 		next_block();
 	}
