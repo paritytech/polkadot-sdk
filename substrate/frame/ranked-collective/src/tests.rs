@@ -34,7 +34,7 @@ use sp_runtime::{
 use super::*;
 use crate as pallet_ranked_collective;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 type Class = Rank;
 
 frame_support::construct_runtime!(
@@ -48,6 +48,7 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -69,7 +70,7 @@ pub struct TestPolls;
 impl Polling<TallyOf<Test>> for TestPolls {
 	type Index = u8;
 	type Votes = Votes;
-	type Moment = u64;
+	type Moment = u32;
 	type Class = Class;
 	fn classes() -> Vec<Self::Class> {
 		vec![0, 1, 2]
@@ -92,7 +93,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let r = match entry {
 			Some(Ongoing(ref mut tally_mut_ref, class)) =>
 				f(PollStatus::Ongoing(tally_mut_ref, *class)),
-			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
+			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when as u32, *succeeded)),
 			None => f(PollStatus::None),
 		};
 		Polls::set(polls);
@@ -109,7 +110,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let r = match entry {
 			Some(Ongoing(ref mut tally_mut_ref, class)) =>
 				f(PollStatus::Ongoing(tally_mut_ref, *class)),
-			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
+			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when as u32, *succeeded)),
 			None => f(PollStatus::None),
 		}?;
 		Polls::set(polls);
@@ -216,7 +217,7 @@ fn member_count(r: Rank) -> MemberIndex {
 }
 
 #[allow(dead_code)]
-fn run_to(n: u64) {
+fn run_to(n: u32) {
 	while System::block_number() < n {
 		next_block();
 	}
