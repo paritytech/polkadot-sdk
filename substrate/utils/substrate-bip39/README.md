@@ -1,4 +1,4 @@
-# substrate-bip39
+# Substrate BIP39
 
 This is a crate for deriving secret keys for Ristretto compressed Ed25519 (should be compatible with Ed25519 at this
 time) from BIP39 phrases.
