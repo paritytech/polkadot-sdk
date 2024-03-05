@@ -27,7 +27,7 @@ use frame_support::{
 use sp_core::Pair;
 use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 pub const MIN_ALLOWED_STATEMENTS: u32 = 4;
 pub const MAX_ALLOWED_STATEMENTS: u32 = 10;
@@ -49,6 +49,7 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl pallet_balances::Config for Test {
