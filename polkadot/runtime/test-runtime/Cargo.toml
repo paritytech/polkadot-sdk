@@ -67,7 +67,7 @@ pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, version 
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false, version = "8.0.0" }
 polkadot-runtime-parachains = { path = "../parachains", default-features = false, version = "9.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "9.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, version = "9.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, version = "9.0.1" }
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "9.0.0" }
 
 [dev-dependencies]

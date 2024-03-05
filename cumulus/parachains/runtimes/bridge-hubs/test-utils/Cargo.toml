@@ -35,7 +35,7 @@ parachains-runtimes-test-utils = { path = "../../test-utils", default-features =
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "9.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "9.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.1" }
 
 # Bridges
 bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false, version = "0.9.0" }

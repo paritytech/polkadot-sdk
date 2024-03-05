@@ -31,7 +31,7 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 
 xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "9.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false, version = "9.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.1" }
 
 ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
 snowbridge-core = { path = "../../primitives/core", default-features = false, version = "0.2.0" }

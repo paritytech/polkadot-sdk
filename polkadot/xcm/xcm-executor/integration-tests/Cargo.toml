@@ -25,7 +25,7 @@ sp-keyring = { version = "33.0.0", path = "../../../../substrate/primitives/keyr
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "33.0.0" }
 sp-state-machine = { version = "0.37.0", path = "../../../../substrate/primitives/state-machine" }
 xcm = { package = "staging-xcm", path = "../..", default-features = false, version = "9.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "..", version = "9.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "..", version = "9.0.1" }
 sp-tracing = { version = "16.0.0", path = "../../../../substrate/primitives/tracing" }
 
 [features]

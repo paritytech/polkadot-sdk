@@ -35,7 +35,7 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false,
 pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false, version = "9.0.0" }
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "9.0.0" }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "9.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.1" }
 
 # Cumulus
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false, version = "11.0.0" }

@@ -40,7 +40,7 @@ sp-std = { path = "../../../primitives/std", default-features = false, version =
 sp-tracing = { version = "16.0.0", path = "../../../primitives/tracing" }
 xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "9.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", version = "9.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.1" }
 xcm-simulator = { version = "9.0.0", path = "../../../../polkadot/xcm/xcm-simulator" }
 
 [dev-dependencies]

@@ -19,7 +19,7 @@ pallet-identity = { path = "../../../../../../../substrate/frame/identity", defa
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "9.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.1" }
 rococo-runtime = { version = "9.0.0", path = "../../../../../../../polkadot/runtime/rococo" }
 rococo-runtime-constants = { version = "9.0.0", path = "../../../../../../../polkadot/runtime/rococo/constants" }
 polkadot-runtime-common = { version = "9.0.0", path = "../../../../../../../polkadot/runtime/common" }
