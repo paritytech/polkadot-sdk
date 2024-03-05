@@ -5694,6 +5694,7 @@ dependencies = [
 name = "frame-remote-externalities"
 version = "0.35.0"
 dependencies = [
+ "async-stream",
  "futures",
  "indicatif",
  "jsonrpsee",

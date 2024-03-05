@@ -21,6 +21,7 @@
 //! based chain, or a local state snapshot file.
 
 use codec::{Compact, Decode, Encode};
+use futures::Stream;
 use indicatif::{ProgressBar, ProgressStyle};
 use jsonrpsee::{
 	core::params::ArrayParams,
@@ -482,6 +483,124 @@ where
 			.collect::<Vec<StorageKey>>();
 
 		Ok(keys)
+	}
+
+	async fn rpc_get_keys_and_values_parallel<'a>(
+		&'a self,
+		prefix: &'a StorageKey,
+		block: B::Hash,
+		parallel: usize,
+	) -> impl Stream<Item = Vec<KeyValue>> + 'a {
+		/// Divide the workload and return the start key of each chunks. Guaranteed to return a
+		/// non-empty list.
+		fn gen_start_keys(prefix: &StorageKey) -> Vec<StorageKey> {
+			let mut prefix = prefix.as_ref().to_vec();
+			let scale = 32usize.saturating_sub(prefix.len());
+
+			// no need to divide workload
+			if scale < 9 {
+				prefix.extend(vec![0; scale]);
+				return vec![StorageKey(prefix)];
+			}
+
+			let chunks = 16;
+			let step = 0x10000 / chunks;
+			let ext = scale - 2;
+
+			(0..chunks)
+				.map(|i| {
+					let mut key = prefix.clone();
+					let start = i * step;
+					key.extend(vec![(start >> 8) as u8, (start & 0xff) as u8]);
+					key.extend(vec![0; ext]);
+					StorageKey(key)
+				})
+				.collect()
+		}
+
+		async_stream::stream! {
+			let start_keys = gen_start_keys(&prefix);
+			let binding = start_keys.clone();
+
+			let start_keys: Vec<Option<&StorageKey>> = binding.iter().map(Some).collect();
+			let start_keys = start_keys.clone();
+			let mut end_keys: Vec<Option<&StorageKey>> = start_keys[1..].to_vec();
+			end_keys.push(None);
+
+			let builder = Arc::new(self.clone());
+
+
+			let builder = builder.clone();
+			let prefix = prefix.clone();
+			let end_keys = end_keys.clone();
+			for (start_key, end_key) in start_keys.into_iter().zip(end_keys.clone()) {
+
+				let start_key = start_key.cloned();
+				let end_key = end_key.cloned();
+
+				let res = builder
+					.rpc_get_keys_in_range(&prefix, block, start_key.as_ref(), end_key.as_ref())
+					.await;
+
+				let keys = res.unwrap();
+
+				let client = self.as_online().rpc_client();
+				let payloads = keys
+							.iter()
+							.map(|key| ("state_getStorage".to_string(), rpc_params!(key, block)))
+							.collect::<Vec<_>>();
+
+						let bar = ProgressBar::new(payloads.len() as u64);
+						bar.enable_steady_tick(Duration::from_secs(1));
+						bar.set_message("Downloading key values".to_string());
+						bar.set_style(
+							ProgressStyle::with_template(
+								"[{elapsed_precise}] {msg} {per_sec} [{wide_bar}] {pos}/{len} ({eta})",
+							)
+							.unwrap()
+							.progress_chars("=>-"),
+						);
+						let payloads_chunked =
+							payloads.chunks((payloads.len() / Self::PARALLEL_REQUESTS).max(1));
+						let requests = payloads_chunked.map(|payload_chunk| {
+
+					Self::get_storage_data_dynamic_batch_size(client, payload_chunk.to_vec(), &bar)
+						});
+						// Execute the requests and move the Result outside.
+						let storage_data_result: Result<Vec<_>, _> =
+							futures::future::join_all(requests).await.into_iter().collect();
+						let storage_data = storage_data_result.unwrap().clone().into_iter().flatten().collect::<Vec<_>>();
+						// Handle the Result.
+						/*let storage_data = match storage_data_result.clone() {
+							Ok(storage_data) => storage_data.clone().into_iter().flatten().collect::<Vec<_>>(),
+							Err(e) => {
+								log::error!(target: LOG_TARGET, "Error while getting storage data: {}", e);
+								return vec![]
+								//return Err("Error while getting storage data")
+							},
+						};*/
+						bar.finish_with_message("✅ Downloaded key values");
+						println!();
+
+						// Check if we got responses for all submitted requests.
+						assert_eq!(keys.len(), storage_data.len());
+
+						let mut key_values = keys.clone()
+							.iter()
+							.zip(storage_data)
+							.map(|(key, maybe_value)| match maybe_value.clone() {
+								Some(data) => (key.clone(), data),
+								None => {
+									log::warn!(target: LOG_TARGET, "key {:?} had none corresponding value.", &key);
+									let data = StorageData(vec![]);
+									(key.clone(), data)
+								},
+							})
+							.collect::<Vec<_>>();
+
+						yield key_values;
+					}
+		}
 	}
 
 	/// Get all keys with `prefix` within the given range at `block`.
