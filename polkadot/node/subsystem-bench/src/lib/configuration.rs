@@ -113,8 +113,8 @@ pub struct TestConfiguration {
 	/// Optional peer emulation latency (round trip time) wrt node under test
 	#[serde(default)]
 	pub latency: Option<PeerLatency>,
-	/// Connectivity ratio, the percentage of peers we are not connected to, but ar part of
-	/// the topology.
+	/// Connectivity ratio, the percentage of peers we are connected to, but as part of the
+	/// topology.
 	#[serde(default = "default_connectivity")]
 	pub connectivity: usize,
 	/// Number of blocks to run the test for
