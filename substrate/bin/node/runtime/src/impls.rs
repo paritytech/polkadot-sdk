@@ -30,8 +30,8 @@ use pallet_identity::legacy::IdentityField;
 use sp_std::prelude::*;
 
 use crate::{
-	AccountId, AllianceMotion, Assets, Authorship, Balances, Hash,
-	NegativeImbalance, Runtime, RuntimeCall,
+	AccountId, AllianceMotion, Assets, Authorship, Balances, Hash, NegativeImbalance, Runtime,
+	RuntimeCall,
 };
 
 pub struct Author;

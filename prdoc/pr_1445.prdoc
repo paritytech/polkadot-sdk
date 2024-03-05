@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: removed `without_storage_info` from `pallet-collective`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      1. Voting storage is now a CountedStorageMap 
+      2. Members storage is now bounded, avoiding runtime checks
+      3. Proposal storage has been removed, to check if a proposal exists `Voting::<T, I>::contains_key(&hash)` should be used instead
+      4. Pallet Preimage has been introduced as a dependency for Collective to store proposal preimages
+      5. ProposalOf storage has been removed in favour of Preimage, while the function `Collective::proposal_of` was introduced facilitate proposal retrieval and decoding
+
+
+crates: 
+  - name: pallet-collective
+  - name: collectives-westend-runtime
+  - name: kitchensink-runtime
