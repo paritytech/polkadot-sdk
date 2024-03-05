@@ -531,7 +531,7 @@ mod tests {
 	};
 	use frame_system::EnsureSignedBy;
 
-	type Block = frame_system::mocking::MockBlock<Test>;
+	type Block = frame_system::mocking::MockBlockU32<Test>;
 
 	frame_support::construct_runtime!(
 		pub enum Test
@@ -549,6 +549,7 @@ mod tests {
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
+		type BlockHashCount = frame_support::traits::ConstU32<10>;
 	}
 	ord_parameter_types! {
 		pub const One: u64 = 1;
