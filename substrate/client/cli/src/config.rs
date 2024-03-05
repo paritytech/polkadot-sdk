@@ -470,16 +470,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let net_config_dir = config_dir.join(DEFAULT_NETWORK_CONFIG_PATH);
 		let client_id = C::client_id();
 		let database_cache_size = self.database_cache_size()?.unwrap_or(1024);
-		let database = self.database()?.unwrap_or(
-			#[cfg(feature = "rocksdb")]
-			{
-				Database::RocksDb
-			},
-			#[cfg(not(feature = "rocksdb"))]
-			{
-				Database::ParityDb
-			},
-		);
+		let database = self.database()?.unwrap_or(Database::ParityDb);
 		let node_key = self.node_key(&net_config_dir)?;
 		let role = self.role(is_dev)?;
 		let max_runtime_instances = self.max_runtime_instances()?.unwrap_or(8);
