@@ -1,0 +1,164 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `solochain_template_runtime` crate."><title>solochain_template_runtime - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="solochain_template_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../solochain_template_runtime/index.html">solochain_template_runtime</a><span class="version">0.0.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li><li><a href="#attributes">Attribute Macros</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">solochain_template_runtime</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/solochain_template_runtime/lib.rs.html#1-565">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><h2 id="reexports" class="small-section-header"><a href="#reexports">Re-exports</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.pallet_template"><code>pub use <a class="mod" href="../pallet_template/index.html" title="mod pallet_template">pallet_template</a>;</code></div></li></ul><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="api/index.html" title="mod solochain_template_runtime::api">api</a></div></li><li><div class="item-name"><a class="mod" href="opaque/index.html" title="mod solochain_template_runtime::opaque">opaque</a></div><div class="desc docblock-short">Opaque types. These are used by the CLI to instantiate machinery that don’t need to know
+the specifics of the runtime. They can then be made to be agnostic over specific formats
+of data like extrinsics, allowing for them to continue syncing the network through upgrades
+to even the core data structures.</div></li></ul><h2 id="macros" class="small-section-header"><a href="#macros">Macros</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.construct_runtime.html" title="macro solochain_template_runtime::construct_runtime">construct_runtime</a></div><div class="desc docblock-short">Construct a runtime, with the given name and the given pallets.</div></li><li><div class="item-name"><a class="macro" href="macro.parameter_types.html" title="macro solochain_template_runtime::parameter_types">parameter_types</a></div><div class="desc docblock-short">Create new implementations of the <a href="crate::traits::Get"><code>Get</code></a> trait.</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.BlockExecutionWeight.html" title="struct solochain_template_runtime::BlockExecutionWeight">BlockExecutionWeight</a></div><div class="desc docblock-short">Time to execute an empty block.
+Calculated by multiplying the <em>Average</em> with <code>1.0</code> and adding <code>0</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.BlockHashCount.html" title="struct solochain_template_runtime::BlockHashCount">BlockHashCount</a></div></li><li><div class="item-name"><a class="struct" href="struct.BlockLength.html" title="struct solochain_template_runtime::BlockLength">BlockLength</a></div></li><li><div class="item-name"><a class="struct" href="struct.BlockWeights.html" title="struct solochain_template_runtime::BlockWeights">BlockWeights</a></div><div class="desc docblock-short">We allow for 2 seconds of compute with a 6 second average block time.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstBool.html" title="struct solochain_template_runtime::ConstBool">ConstBool</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU8.html" title="struct solochain_template_runtime::ConstU8">ConstU8</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU32.html" title="struct solochain_template_runtime::ConstU32">ConstU32</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU64.html" title="struct solochain_template_runtime::ConstU64">ConstU64</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU128.html" title="struct solochain_template_runtime::ConstU128">ConstU128</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ExtrinsicBaseWeight.html" title="struct solochain_template_runtime::ExtrinsicBaseWeight">ExtrinsicBaseWeight</a></div><div class="desc docblock-short">Time to execute a NO-OP extrinsic, for example <code>System::remark</code>.
+Calculated by multiplying the <em>Average</em> with <code>1.0</code> and adding <code>0</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.FeeMultiplier.html" title="struct solochain_template_runtime::FeeMultiplier">FeeMultiplier</a></div></li><li><div class="item-name"><a class="struct" href="struct.IdentityFee.html" title="struct solochain_template_runtime::IdentityFee">IdentityFee</a></div><div class="desc docblock-short">Implementor of <code>WeightToFee</code> that maps one unit of weight to one unit of fee.</div></li><li><div class="item-name"><a class="struct" href="struct.PalletInfo.html" title="struct solochain_template_runtime::PalletInfo">PalletInfo</a></div><div class="desc docblock-short">Provides an implementation of <code>PalletInfo</code> to provide information
+about the pallet setup in the runtime.</div></li><li><div class="item-name"><a class="struct" href="struct.Perbill.html" title="struct solochain_template_runtime::Perbill">Perbill</a></div><div class="desc docblock-short">A fixed point representation of a number in the range [0, 1].</div></li><li><div class="item-name"><a class="struct" href="struct.Permill.html" title="struct solochain_template_runtime::Permill">Permill</a></div><div class="desc docblock-short">A fixed point representation of a number in the range [0, 1].</div></li><li><div class="item-name"><a class="struct" href="struct.RocksDbWeight.html" title="struct solochain_template_runtime::RocksDbWeight">RocksDbWeight</a></div><div class="desc docblock-short">By default, Substrate uses RocksDB, so this will be the weight used throughout
+the runtime.</div></li><li><div class="item-name"><a class="struct" href="struct.Runtime.html" title="struct solochain_template_runtime::Runtime">Runtime</a></div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeApi.html" title="struct solochain_template_runtime::RuntimeApi">RuntimeApi</a></div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeApiImpl.html" title="struct solochain_template_runtime::RuntimeApiImpl">RuntimeApiImpl</a></div><div class="desc docblock-short">Implements all runtime apis for the client side.</div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeGenesisConfig.html" title="struct solochain_template_runtime::RuntimeGenesisConfig">RuntimeGenesisConfig</a></div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeOrigin.html" title="struct solochain_template_runtime::RuntimeOrigin">RuntimeOrigin</a></div><div class="desc docblock-short">The runtime origin type representing the origin of a call.</div></li><li><div class="item-name"><a class="struct" href="struct.SS58Prefix.html" title="struct solochain_template_runtime::SS58Prefix">SS58Prefix</a></div></li><li><div class="item-name"><a class="struct" href="struct.StorageInfo.html" title="struct solochain_template_runtime::StorageInfo">StorageInfo</a></div><div class="desc docblock-short">Metadata about storage from the runtime.</div></li><li><div class="item-name"><a class="struct" href="struct.Version.html" title="struct solochain_template_runtime::Version">Version</a></div></li><li><div class="item-name"><a class="struct" href="struct.Weight.html" title="struct solochain_template_runtime::Weight">Weight</a></div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.BalancesCall.html" title="enum solochain_template_runtime::BalancesCall">BalancesCall</a></div><div class="desc docblock-short">Contains a variant per dispatchable extrinsic that this pallet has.</div></li><li><div class="item-name"><a class="enum" href="enum.OriginCaller.html" title="enum solochain_template_runtime::OriginCaller">OriginCaller</a></div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeCall.html" title="enum solochain_template_runtime::RuntimeCall">RuntimeCall</a></div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeError.html" title="enum solochain_template_runtime::RuntimeError">RuntimeError</a></div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeEvent.html" title="enum solochain_template_runtime::RuntimeEvent">RuntimeEvent</a></div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeFreezeReason.html" title="enum solochain_template_runtime::RuntimeFreezeReason">RuntimeFreezeReason</a></div><div class="desc docblock-short">A reason for placing a freeze on funds.</div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeHoldReason.html" title="enum solochain_template_runtime::RuntimeHoldReason">RuntimeHoldReason</a></div><div class="desc docblock-short">A reason for placing a hold on funds.</div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeLockId.html" title="enum solochain_template_runtime::RuntimeLockId">RuntimeLockId</a></div><div class="desc docblock-short">An identifier for each lock placed on funds.</div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeSlashReason.html" title="enum solochain_template_runtime::RuntimeSlashReason">RuntimeSlashReason</a></div><div class="desc docblock-short">A reason for slashing funds.</div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeTask.html" title="enum solochain_template_runtime::RuntimeTask">RuntimeTask</a></div><div class="desc docblock-short">An aggregation of all <code>Task</code> enums across all pallets included in the current runtime.</div></li><li><div class="item-name"><a class="enum" href="enum.SystemCall.html" title="enum solochain_template_runtime::SystemCall">SystemCall</a></div><div class="desc docblock-short">Contains a variant per dispatchable extrinsic that this pallet has.</div></li><li><div class="item-name"><a class="enum" href="enum.TimestampCall.html" title="enum solochain_template_runtime::TimestampCall">TimestampCall</a></div><div class="desc docblock-short">Contains a variant per dispatchable extrinsic that this pallet has.</div></li></ul><h2 id="constants" class="small-section-header"><a href="#constants">Constants</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.DAYS.html" title="constant solochain_template_runtime::DAYS">DAYS</a></div></li><li><div class="item-name"><a class="constant" href="constant.EXISTENTIAL_DEPOSIT.html" title="constant solochain_template_runtime::EXISTENTIAL_DEPOSIT">EXISTENTIAL_DEPOSIT</a></div><div class="desc docblock-short">Existential deposit.</div></li><li><div class="item-name"><a class="constant" href="constant.HOURS.html" title="constant solochain_template_runtime::HOURS">HOURS</a></div></li><li><div class="item-name"><a class="constant" href="constant.MILLISECS_PER_BLOCK.html" title="constant solochain_template_runtime::MILLISECS_PER_BLOCK">MILLISECS_PER_BLOCK</a></div><div class="desc docblock-short">This determines the average expected block time that we are targeting.
+Blocks will be produced at a minimum duration defined by <code>SLOT_DURATION</code>.
+<code>SLOT_DURATION</code> is picked up by <code>pallet_timestamp</code> which is in turn picked
+up by <code>pallet_aura</code> to implement <code>fn slot_duration()</code>.</div></li><li><div class="item-name"><a class="constant" href="constant.MINUTES.html" title="constant solochain_template_runtime::MINUTES">MINUTES</a></div></li><li><div class="item-name"><a class="constant" href="constant.SLOT_DURATION.html" title="constant solochain_template_runtime::SLOT_DURATION">SLOT_DURATION</a></div></li><li><div class="item-name"><a class="constant" href="constant.VERSION.html" title="constant solochain_template_runtime::VERSION">VERSION</a></div></li><li><div class="item-name"><a class="constant" href="constant.WASM_BINARY.html" title="constant solochain_template_runtime::WASM_BINARY">WASM_BINARY</a></div></li><li><div class="item-name"><a class="constant" href="constant.WASM_BINARY_BLOATY.html" title="constant solochain_template_runtime::WASM_BINARY_BLOATY">WASM_BINARY_BLOATY</a></div></li><li><div class="item-name"><a class="constant" href="constant.WEIGHT_REF_TIME_PER_SECOND.html" title="constant solochain_template_runtime::WEIGHT_REF_TIME_PER_SECOND">WEIGHT_REF_TIME_PER_SECOND</a></div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.BuildStorage.html" title="trait solochain_template_runtime::BuildStorage">BuildStorage</a></div><div class="desc docblock-short">Complex storage builder stuff.</div></li><li><div class="item-name"><a class="trait" href="trait.KeyOwnerProofSystem.html" title="trait solochain_template_runtime::KeyOwnerProofSystem">KeyOwnerProofSystem</a></div><div class="desc docblock-short">Something which can compute and check proofs of
+a historical key owner and return full identification data of that
+key owner.</div></li><li><div class="item-name"><a class="trait" href="trait.Randomness.html" title="trait solochain_template_runtime::Randomness">Randomness</a></div><div class="desc docblock-short">A trait that is able to provide randomness.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageValue.html" title="trait solochain_template_runtime::StorageValue">StorageValue</a></div><div class="desc docblock-short">A trait for working with macro-generated storage values under the substrate storage API.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.native_version.html" title="fn solochain_template_runtime::native_version">native_version</a></div><div class="desc docblock-short">The version information used to identify this runtime when compiled natively.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AccountId.html" title="type solochain_template_runtime::AccountId">AccountId</a></div><div class="desc docblock-short">Some way of identifying an account on the chain. We intentionally make it equivalent
+to the public key of our transaction signing scheme.</div></li><li><div class="item-name"><a class="type" href="type.Address.html" title="type solochain_template_runtime::Address">Address</a></div><div class="desc docblock-short">The address format for describing accounts.</div></li><li><div class="item-name"><a class="type" href="type.AllPalletsWithSystem.html" title="type solochain_template_runtime::AllPalletsWithSystem">AllPalletsWithSystem</a></div><div class="desc docblock-short">All pallets included in the runtime as a nested tuple of types.</div></li><li><div class="item-name"><a class="type" href="type.AllPalletsWithoutSystem.html" title="type solochain_template_runtime::AllPalletsWithoutSystem">AllPalletsWithoutSystem</a></div><div class="desc docblock-short">All pallets included in the runtime as a nested tuple of types.
+Excludes the System pallet.</div></li><li><div class="item-name"><a class="type" href="type.Aura.html" title="type solochain_template_runtime::Aura">Aura</a></div></li><li><div class="item-name"><a class="type" href="type.AuraConfig.html" title="type solochain_template_runtime::AuraConfig">AuraConfig</a></div></li><li><div class="item-name"><a class="type" href="type.Balance.html" title="type solochain_template_runtime::Balance">Balance</a></div><div class="desc docblock-short">Balance of an account.</div></li><li><div class="item-name"><a class="type" href="type.Balances.html" title="type solochain_template_runtime::Balances">Balances</a></div></li><li><div class="item-name"><a class="type" href="type.BalancesConfig.html" title="type solochain_template_runtime::BalancesConfig">BalancesConfig</a></div></li><li><div class="item-name"><a class="type" href="type.Block.html" title="type solochain_template_runtime::Block">Block</a></div><div class="desc docblock-short">Block type as expected by this runtime.</div></li><li><div class="item-name"><a class="type" href="type.BlockNumber.html" title="type solochain_template_runtime::BlockNumber">BlockNumber</a></div><div class="desc docblock-short">An index to a block.</div></li><li><div class="item-name"><a class="type" href="type.Executive.html" title="type solochain_template_runtime::Executive">Executive</a></div><div class="desc docblock-short">Executive: handles dispatch to the various modules.</div></li><li><div class="item-name"><a class="type" href="type.GenesisConfig.html" title="type solochain_template_runtime::GenesisConfig">GenesisConfig</a><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><a class="type" href="type.Grandpa.html" title="type solochain_template_runtime::Grandpa">Grandpa</a></div></li><li><div class="item-name"><a class="type" href="type.GrandpaConfig.html" title="type solochain_template_runtime::GrandpaConfig">GrandpaConfig</a></div></li><li><div class="item-name"><a class="type" href="type.Hash.html" title="type solochain_template_runtime::Hash">Hash</a></div><div class="desc docblock-short">A hash of some data used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.Header.html" title="type solochain_template_runtime::Header">Header</a></div><div class="desc docblock-short">Block header type as expected by this runtime.</div></li><li><div class="item-name"><a class="type" href="type.Nonce.html" title="type solochain_template_runtime::Nonce">Nonce</a></div><div class="desc docblock-short">Index of a transaction in the chain.</div></li><li><div class="item-name"><a class="type" href="type.Signature.html" title="type solochain_template_runtime::Signature">Signature</a></div><div class="desc docblock-short">Alias to 512-bit hash when used in the context of a transaction signature on the chain.</div></li><li><div class="item-name"><a class="type" href="type.SignedPayload.html" title="type solochain_template_runtime::SignedPayload">SignedPayload</a></div><div class="desc docblock-short">The payload being signed in transactions.</div></li><li><div class="item-name"><a class="type" href="type.Sudo.html" title="type solochain_template_runtime::Sudo">Sudo</a></div></li><li><div class="item-name"><a class="type" href="type.SudoConfig.html" title="type solochain_template_runtime::SudoConfig">SudoConfig</a></div></li><li><div class="item-name"><a class="type" href="type.System.html" title="type solochain_template_runtime::System">System</a></div></li><li><div class="item-name"><a class="type" href="type.SystemConfig.html" title="type solochain_template_runtime::SystemConfig">SystemConfig</a></div></li><li><div class="item-name"><a class="type" href="type.TemplateModule.html" title="type solochain_template_runtime::TemplateModule">TemplateModule</a></div></li><li><div class="item-name"><a class="type" href="type.Timestamp.html" title="type solochain_template_runtime::Timestamp">Timestamp</a></div></li><li><div class="item-name"><a class="type" href="type.TransactionPayment.html" title="type solochain_template_runtime::TransactionPayment">TransactionPayment</a></div></li><li><div class="item-name"><a class="type" href="type.TransactionPaymentConfig.html" title="type solochain_template_runtime::TransactionPaymentConfig">TransactionPaymentConfig</a></div></li><li><div class="item-name"><a class="type" href="type.TxExtension.html" title="type solochain_template_runtime::TxExtension">TxExtension</a></div><div class="desc docblock-short">The extension to the basic transaction logic.</div></li><li><div class="item-name"><a class="type" href="type.UncheckedExtrinsic.html" title="type solochain_template_runtime::UncheckedExtrinsic">UncheckedExtrinsic</a></div><div class="desc docblock-short">Unchecked extrinsic type as expected by this runtime.</div></li></ul><h2 id="attributes" class="small-section-header"><a href="#attributes">Attribute Macros</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.derive_impl.html" title="attr solochain_template_runtime::derive_impl">derive_impl</a></div><div class="desc docblock-short">This attribute can be used to derive a full implementation of a trait based on a local partial
+impl and an external impl containing defaults that can be overriden in the local impl.</div></li></ul></section></div></main></body></html>

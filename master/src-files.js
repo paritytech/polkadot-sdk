@@ -110,8 +110,8 @@ var srcIndex = JSON.parse('{\
 "glutton_westend_runtime":["",[["weights",[],["cumulus_pallet_parachain_system.rs","mod.rs","pallet_glutton.rs","pallet_message_queue.rs","pallet_timestamp.rs"]]],["lib.rs","xcm_config.rs"]],\
 "kitchensink_runtime":["",[],["assets_api.rs","constants.rs","impls.rs","lib.rs","voter_bags.rs"]],\
 "malus":["",[["variants",[],["back_garbage_candidate.rs","common.rs","dispute_finalized_candidates.rs","dispute_valid_candidates.rs","mod.rs","suggest_garbage_candidate.rs","support_disabled.rs"]]],["interceptor.rs","malus.rs","shared.rs"]],\
-"minimal_node":["",[],["chain_spec.rs","cli.rs","lib.rs","rpc.rs","service.rs"]],\
-"minimal_runtime":["",[],["lib.rs"]],\
+"minimal_template_node":["",[],["chain_spec.rs","cli.rs","lib.rs","rpc.rs","service.rs"]],\
+"minimal_template_runtime":["",[],["lib.rs"]],\
 "mmr_gadget":["",[],["aux_schema.rs","lib.rs","offchain_mmr.rs"]],\
 "mmr_rpc":["",[],["lib.rs"]],\
 "multiply_by_rational_with_rounding":["",[],["multiply_by_rational_with_rounding.rs"]],\
@@ -119,9 +119,7 @@ var srcIndex = JSON.parse('{\
 "node_primitives":["",[],["lib.rs"]],\
 "node_rpc":["",[],["lib.rs"]],\
 "node_runtime_generate_bags":["",[],["main.rs"]],\
-"node_template":["",[],["benchmarking.rs","chain_spec.rs","cli.rs","command.rs","main.rs","rpc.rs","service.rs"]],\
 "node_template_release":["",[],["main.rs"]],\
-"node_template_runtime":["",[],["lib.rs"]],\
 "node_testing":["",[],["bench.rs","client.rs","genesis.rs","keyring.rs","lib.rs"]],\
 "normalize":["",[],["normalize.rs"]],\
 "pallet_alliance":["",[],["lib.rs","migration.rs","types.rs","weights.rs"]],\
@@ -183,6 +181,7 @@ var srcIndex = JSON.parse('{\
 "pallet_membership":["",[["migrations",[],["mod.rs","v4.rs"]]],["lib.rs","weights.rs"]],\
 "pallet_message_queue":["",[],["lib.rs","mock_helpers.rs","weights.rs"]],\
 "pallet_migrations":["",[],["lib.rs","mock_helpers.rs","weights.rs"]],\
+"pallet_minimal_template":["",[],["lib.rs"]],\
 "pallet_mixnet":["",[],["lib.rs"]],\
 "pallet_mmr":["",[["mmr",[],["mmr.rs","mod.rs","storage.rs"]]],["default_weights.rs","lib.rs"]],\
 "pallet_multisig":["",[],["lib.rs","migrations.rs","weights.rs"]],\
@@ -199,7 +198,7 @@ var srcIndex = JSON.parse('{\
 "pallet_offences_benchmarking":["",[],["lib.rs"]],\
 "pallet_paged_list":["",[],["lib.rs","mock.rs","paged_list.rs"]],\
 "pallet_paged_list_fuzzer":["",[],["paged_list.rs"]],\
-"pallet_parachain_template":["",[],["lib.rs"]],\
+"pallet_parachain_template":["",[],["lib.rs","weights.rs"]],\
 "pallet_parameters":["",[],["lib.rs","weights.rs"]],\
 "pallet_preimage":["",[],["lib.rs","migration.rs","weights.rs"]],\
 "pallet_proxy":["",[],["lib.rs","weights.rs"]],\
@@ -401,6 +400,8 @@ var srcIndex = JSON.parse('{\
 "snowbridge_runtime_common":["",[],["lib.rs"]],\
 "snowbridge_runtime_test_common":["",[],["lib.rs"]],\
 "snowbridge_system_runtime_api":["",[],["lib.rs"]],\
+"solochain_template_node":["",[],["benchmarking.rs","chain_spec.rs","cli.rs","command.rs","main.rs","rpc.rs","service.rs"]],\
+"solochain_template_runtime":["",[],["lib.rs"]],\
 "sp_api":["",[],["lib.rs"]],\
 "sp_api_proc_macro":["",[],["common.rs","decl_runtime_apis.rs","impl_runtime_apis.rs","lib.rs","mock_impl_runtime_apis.rs","runtime_metadata.rs","utils.rs"]],\
 "sp_application_crypto":["",[],["bandersnatch.rs","ecdsa.rs","ed25519.rs","lib.rs","sr25519.rs","traits.rs"]],\
