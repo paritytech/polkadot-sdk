@@ -1,0 +1,82 @@
+name: bridge
+
+on:
+  push:
+    paths:
+      - "bridges/snowbridge/**"
+      - "!bridges/snowbridge/README.md"
+      - "!bridges/snowbridge/LICENSE"
+    branches:
+      - snowbridge
+  workflow_dispatch:
+
+jobs:
+  smoketests:
+    runs-on: snowbridge-runner
+    env:
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+      RUSTFLAGS: -C debuginfo=1
+    outputs:
+      success: ${{ steps.run_e2e_stack.outcome == 'success' }}
+    steps:
+      - name: Set build directory environment variable
+        run: echo "OUTPUT_DIR=${GITHUB_WORKSPACE}/tmp" >> $GITHUB_ENV
+      - name: Set log directory environment variable
+        run: echo "LOG_DIR=${GITHUB_WORKSPACE}/log-tmp" >> $GITHUB_ENV
+      - name: Create directories
+        run: mkdir -p $OUTPUT_DIR &&  mkdir -p $LOG_DIR
+      - uses: actions/checkout@v2
+        with:
+          repository: snowfork/snowbridge
+          ref: smoketests-ci
+          path: snowbridge
+          submodules: "true"
+      - run: rm -f snowbridge/polkadot-sdk
+      - uses: actions/checkout@v2
+        with:
+          repository: snowfork/polkadot-sdk
+          ref: main
+          path: snowbridge/polkadot-sdk
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache@v1
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - uses: cachix/install-nix-action@v22
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: run E2E stack
+        id: run_e2e_stack
+        run: |
+          cd snowbridge
+          nix develop -c sh -c '
+          ./scripts/init.sh &&
+          cd web/packages/test &&
+          (./scripts/start-services.sh > "${{ env.LOG_DIR }}/start-services.log" 2>&1 &) &&
+          sleep 10 &&
+          ./scripts/check-relayer.sh &&
+          ./scripts/run-smoketests.sh'
+        continue-on-error: true
+      - name: Save start-services log file
+        uses: actions/upload-artifact@v3
+        with:
+          name: start-services.log
+          path: "${{ env.LOG_DIR }}/start-services.log"
+      - name: Save beacon-relay log file
+        uses: actions/upload-artifact@v3
+        with:
+          name: beacon-relay.log
+          path: "${{ env.OUTPUT_DIR }}/beacon-relay.log"
+      - run: ls
+      - name: check E2E test outcome
+        if: ${{ steps.run_e2e_stack.outcome != 'success' }}
+        run: |
+          echo "E2E tests failed"
+          exit 1
