@@ -34,7 +34,7 @@ use frame_support::{
 	traits::{ConstU64, OnInitialize},
 };
 
-fn initialize_block(block: u64) {
+fn initialize_block(block: u32) {
 	SessionChanged::mutate(|l| *l = false);
 	System::set_block_number(block);
 	Session::on_initialize(block);

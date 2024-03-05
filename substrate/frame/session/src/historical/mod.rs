@@ -444,8 +444,8 @@ pub(crate) mod tests {
 				set_next_validators(vec![i]);
 				force_new_session();
 
-				System::set_block_number(i);
-				Session::on_initialize(i);
+				System::set_block_number(i as u32);
+				Session::on_initialize(i as u32);
 			}
 
 			assert_eq!(<StoredRange<Test>>::get(), Some((0, 100)));
@@ -474,8 +474,8 @@ pub(crate) mod tests {
 				set_next_validators(vec![i]);
 				force_new_session();
 
-				System::set_block_number(i);
-				Session::on_initialize(i);
+				System::set_block_number(i as u32);
+				Session::on_initialize(i as u32);
 			}
 
 			assert_eq!(<StoredRange<Test>>::get(), Some((100, 200)));

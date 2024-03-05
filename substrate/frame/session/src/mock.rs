@@ -29,7 +29,13 @@ use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, BuildStorage};
 use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
-use frame_support::{derive_impl, parameter_types, traits::ConstU64};
+use frame_support::{
+	derive_impl, 
+	parameter_types, 
+	traits::{
+		ConstU64,
+		ConstU32,
+	}};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -68,7 +74,7 @@ impl OpaqueKeys for PreUpgradeMockSessionKeys {
 	}
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 #[cfg(feature = "historical")]
 frame_support::construct_runtime!(
@@ -105,10 +111,10 @@ parameter_types! {
 }
 
 pub struct TestShouldEndSession;
-impl ShouldEndSession<u64> for TestShouldEndSession {
-	fn should_end_session(now: u64) -> bool {
+impl ShouldEndSession<u32> for TestShouldEndSession {
+	fn should_end_session(now: u32) -> bool {
 		let l = SessionLength::get();
-		now % l == 0 ||
+		now % l as u32 == 0 ||
 			ForceSessionEnd::mutate(|l| {
 				let r = *l;
 				*l = false;
@@ -227,6 +233,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockHashCount = ConstU32<10>;
 }
 
 impl pallet_timestamp::Config for Test {
