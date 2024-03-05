@@ -39,14 +39,14 @@ fn main() -> Result<(), String> {
 	// TODO: Adjust the test configurations to Kusama values
 	let mut config = TestConfiguration::default();
 	config.latency = Some(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 });
-	config.n_validators = 1000;
-	config.n_cores = 200;
-	config.max_validators_per_core = 5;
-	config.min_pov_size = 5120;
-	config.max_pov_size = 5120;
-	config.peer_bandwidth = 52428800;
-	config.bandwidth = 52428800;
-	config.connectivity = 75;
+	config.n_validators = 300; // max number of validators
+	config.n_cores = 50; // 42 paras producing blocks
+	config.max_validators_per_core = 3; // from config
+	config.min_pov_size = 5120; // https://grafana.teleport.parity.io/goto/Kr34vOASR?orgId=1
+	config.max_pov_size = 5120; // https://grafana.teleport.parity.io/goto/Kr34vOASR?orgId=1
+	config.peer_bandwidth = 52428800; // need to find out
+	config.bandwidth = 52428800; // need to find out
+	config.connectivity = 75; // we need to be connected to 90-95% of peers
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
 
