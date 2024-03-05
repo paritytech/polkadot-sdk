@@ -62,7 +62,7 @@ where
 	pub fn new(code: &'a [u8]) -> Self {
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
-			code_hash: sp_core::blake2_256(code).to_vec(),
+			code_hash: sp_crypto_hashing::blake2_256(code).to_vec(),
 			executor: WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
 				.with_allow_missing_host_functions(true)
 				.build(),
@@ -149,7 +149,7 @@ mod tests {
 			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
 				.get_default_config()
 				.unwrap();
-		let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":null},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+		let expected = r#"{"babe": {"authorities": [], "epochConfig": {"allowed_slots": "PrimaryAndSecondaryVRFSlots", "c": [1, 4]}}, "balances": {"balances": []}, "substrateTest": {"authorities": []}, "system": {}}"#;
 		assert_eq!(from_str::<Value>(expected).unwrap(), config);
 	}
 

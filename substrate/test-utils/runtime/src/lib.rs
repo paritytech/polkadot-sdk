@@ -58,10 +58,12 @@ use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_core::hash::H256;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-	create_runtime_str, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, NumberFor, Verify},
-	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
-	ApplyExtrinsicResult, Perbill,
+	create_runtime_str, impl_opaque_keys, impl_tx_ext_default,
+	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor, Verify},
+	transaction_validity::{
+		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
+	},
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
@@ -142,13 +144,14 @@ pub type Signature = sr25519::Signature;
 #[cfg(feature = "std")]
 pub type Pair = sp_core::sr25519::Pair;
 
-/// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (CheckNonce<Runtime>, CheckWeight<Runtime>, CheckSubstrateCall);
+// TODO: Remove after the Checks are migrated to TxExtension.
+/// The extension to the basic transaction logic.
+pub type TxExtension = ((CheckNonce<Runtime>, CheckWeight<Runtime>), CheckSubstrateCall);
 /// The payload being signed in transactions.
-pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, SignedExtra>;
+pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, TxExtension>;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type Extrinsic =
-	sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// An identifier for an account on this system.
 pub type AccountId = <Signature as Verify>::Signer;
@@ -243,7 +246,7 @@ impl sp_runtime::traits::Printable for CheckSubstrateCall {
 }
 
 impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
-	type RuntimeOrigin = CheckSubstrateCall;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Config = CheckSubstrateCall;
 	type Info = CheckSubstrateCall;
 	type PostInfo = CheckSubstrateCall;
@@ -256,42 +259,37 @@ impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
 	}
 }
 
-impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
-	type AccountId = AccountId;
-	type Call = RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = ();
+impl sp_runtime::traits::TransactionExtensionBase for CheckSubstrateCall {
 	const IDENTIFIER: &'static str = "CheckSubstrateCall";
-
-	fn additional_signed(
-		&self,
-	) -> sp_std::result::Result<Self::AdditionalSigned, TransactionValidityError> {
-		Ok(())
-	}
+	type Implicit = ();
+}
+impl<Context> sp_runtime::traits::TransactionExtension<RuntimeCall, Context>
+	for CheckSubstrateCall
+{
+	type Pre = ();
+	type Val = ();
+	impl_tx_ext_default!(RuntimeCall; Context; prepare);
 
 	fn validate(
 		&self,
-		_who: &Self::AccountId,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: <RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &RuntimeCall,
+		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-	) -> TransactionValidity {
+		_context: &mut Context,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> Result<
+		(ValidTransaction, Self::Val, <RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
 		log::trace!(target: LOG_TARGET, "validate");
-		match call {
+		let v = match call {
 			RuntimeCall::SubstrateTest(ref substrate_test_call) =>
-				substrate_test_pallet::validate_runtime_call(substrate_test_call),
-			_ => Ok(Default::default()),
-		}
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(drop)
+				substrate_test_pallet::validate_runtime_call(substrate_test_call)?,
+			_ => Default::default(),
+		};
+		Ok((v, (), origin))
 	}
 }
 
@@ -364,6 +362,7 @@ impl frame_system::pallet::Config for Runtime {
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
@@ -398,7 +397,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<1>;
 }
 
 impl substrate_test_pallet::Config for Runtime {}
@@ -481,9 +479,9 @@ impl_runtime_apis! {
 			Executive::execute_block(block);
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
 			log::trace!(target: LOG_TARGET, "initialize_block: {header:#?}");
-			Executive::initialize_block(header);
+			Executive::initialize_block(header)
 		}
 	}
 
@@ -673,7 +671,7 @@ impl_runtime_apis! {
 
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
-			let ext = Extrinsic::new_unsigned(
+			let ext = Extrinsic::new_bare(
 				substrate_test_pallet::pallet::Call::storage_change{
 					key:b"some_key".encode(),
 					value:Some(header.number.encode())
@@ -845,11 +843,11 @@ pub mod storage_key_generator {
 	}
 
 	fn concat_hashes(input: &Vec<&[u8]>) -> String {
-		input.iter().map(|s| sp_core::hashing::twox_128(s)).map(hex).collect()
+		input.iter().map(|s| sp_crypto_hashing::twox_128(s)).map(hex).collect()
 	}
 
 	fn twox_64_concat(x: &[u8]) -> Vec<u8> {
-		sp_core::hashing::twox_64(x).iter().chain(x.iter()).cloned().collect::<Vec<_>>()
+		sp_crypto_hashing::twox_64(x).iter().chain(x.iter()).cloned().collect()
 	}
 
 	/// Generate the hashed storage keys from the raw literals. These keys are expected to be be in
@@ -890,7 +888,7 @@ pub mod storage_key_generator {
 				AccountKeyring::Charlie.public().to_vec(),
 			])
 			.map(|pubkey| {
-				sp_core::hashing::blake2_128(&pubkey)
+				sp_crypto_hashing::blake2_128(&pubkey)
 					.iter()
 					.chain(pubkey.iter())
 					.cloned()
@@ -1026,7 +1024,7 @@ mod tests {
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_keyring::AccountKeyring;
 	use sp_runtime::{
-		traits::{Hash as _, SignedExtension},
+		traits::{DispatchTransaction, Hash as _},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{
@@ -1175,31 +1173,33 @@ mod tests {
 	fn check_substrate_check_signed_extension_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
-			let x = sp_keyring::AccountKeyring::Alice.into();
+			let x: AccountId = sp_keyring::AccountKeyring::Alice.into();
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			assert_eq!(
 				CheckSubstrateCall {}
-					.validate(
-						&x,
+					.validate_only(
+						Some(x).into(),
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
-						len
+						len,
 					)
 					.unwrap()
+					.0
 					.priority,
 				16
 			);
 
 			assert_eq!(
 				CheckSubstrateCall {}
-					.validate(
-						&x,
+					.validate_only(
+						Some(x).into(),
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
-						len
+						len,
 					)
 					.unwrap()
+					.0
 					.propagate,
 				false
 			);
@@ -1292,7 +1292,7 @@ mod tests {
 			let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
 			let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
 
-			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":null},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c":[1,4],"allowed_slots":"PrimaryAndSecondaryVRFSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
 			assert_eq!(expected.to_string(), json);
 		}
 
@@ -1410,7 +1410,7 @@ mod tests {
 				}
 			});
 
-			json_patch::merge(&mut default_config, &patch);
+			sc_chain_spec::json_merge(&mut default_config, patch);
 
 			// Build genesis config using custom json:
 			let mut t = BasicExternalities::new_empty();

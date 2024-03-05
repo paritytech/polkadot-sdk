@@ -17,13 +17,13 @@
 
 //! Test utilities
 
+use core::convert::{TryFrom, TryInto};
 pub use sp_core::H256;
 use sp_runtime::traits::Hash;
 pub use sp_runtime::{
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Lazy, Verify},
-	BuildStorage, MultiSignature,
+	traits::{BlakeTwo256, IdentifyAccount, Lazy, Verify},
+	BuildStorage,
 };
-use sp_std::convert::{TryFrom, TryInto};
 
 pub use frame_support::{
 	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
@@ -51,7 +51,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-	type AccountData = pallet_balances::AccountData<AccountId>;
+	type AccountData = pallet_balances::AccountData<u64>;
 }
 
 parameter_types! {
@@ -72,7 +72,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 const MOTION_DURATION_IN_BLOCKS: BlockNumber = 3;
@@ -209,7 +208,7 @@ impl ProposalProvider<AccountId, H256, RuntimeCall> for AllianceProposalProvider
 	}
 
 	fn proposal_of(proposal_hash: H256) -> Option<RuntimeCall> {
-		AllianceMotion::proposal_of(proposal_hash)
+		pallet_collective::ProposalOf::<Test, Instance1>::get(proposal_hash)
 	}
 }
 
@@ -388,7 +387,7 @@ pub fn new_bench_ext() -> sp_io::TestExternalities {
 }
 
 pub fn test_cid() -> Cid {
-	let result = sp_core_hashing::sha2_256(b"hello world");
+	let result = sp_crypto_hashing::sha2_256(b"hello world");
 	Cid::new_v0(result)
 }
 

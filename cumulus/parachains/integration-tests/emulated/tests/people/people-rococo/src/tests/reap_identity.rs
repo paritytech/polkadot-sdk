@@ -291,7 +291,7 @@ fn assert_reap_id_relay(total_deposit: Balance, id: &Identity) {
 		assert_eq!(reserved_balance, total_deposit);
 
 		assert_ok!(RococoIdentityMigrator::reap_identity(
-			RococoOrigin::root(),
+			RococoOrigin::signed(RococoRelaySender::get()),
 			RococoRelaySender::get()
 		));
 
@@ -366,7 +366,7 @@ fn assert_reap_events(id_deposit: Balance, id: &Identity) {
 				PeopleRococo,
 				vec![
 					// Deposit and Endowed from teleport
-					RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
+					RuntimeEvent::Balances(BalancesEvent::Minted { .. }) => {},
 					RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
 					// Amount reserved for identity info
 					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
@@ -392,7 +392,7 @@ fn assert_reap_events(id_deposit: Balance, id: &Identity) {
 				PeopleRococo,
 				vec![
 					// Deposit and Endowed from teleport
-					RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
+					RuntimeEvent::Balances(BalancesEvent::Minted { .. }) => {},
 					RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
 					// Amount reserved for identity info
 					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {

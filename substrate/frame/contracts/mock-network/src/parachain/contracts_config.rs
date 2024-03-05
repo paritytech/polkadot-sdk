@@ -94,5 +94,6 @@ impl pallet_contracts::Config for Runtime {
 	type WeightPrice = Self;
 	type Debug = ();
 	type Environment = ();
+	type ApiVersion = ();
 	type Xcm = pallet_xcm::Pallet<Self>;
 }

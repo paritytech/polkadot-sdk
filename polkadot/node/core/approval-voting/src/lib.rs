@@ -92,11 +92,11 @@ use time::{slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClo
 mod approval_checking;
 pub mod approval_db;
 mod backend;
-mod criteria;
+pub mod criteria;
 mod import;
 mod ops;
 mod persisted_entries;
-mod time;
+pub mod time;
 
 use crate::{
 	approval_checking::{Check, TranchesToApproveResult},
@@ -159,6 +159,7 @@ pub struct ApprovalVotingSubsystem {
 	db: Arc<dyn Database>,
 	mode: Mode,
 	metrics: Metrics,
+	clock: Box<dyn Clock + Send + Sync>,
 }
 
 #[derive(Clone)]
@@ -445,6 +446,25 @@ impl ApprovalVotingSubsystem {
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
 	) -> Self {
+		ApprovalVotingSubsystem::with_config_and_clock(
+			config,
+			db,
+			keystore,
+			sync_oracle,
+			metrics,
+			Box::new(SystemClock {}),
+		)
+	}
+
+	/// Create a new approval voting subsystem with the given keystore, config, and database.
+	pub fn with_config_and_clock(
+		config: Config,
+		db: Arc<dyn Database>,
+		keystore: Arc<LocalKeystore>,
+		sync_oracle: Box<dyn SyncOracle + Send>,
+		metrics: Metrics,
+		clock: Box<dyn Clock + Send + Sync>,
+	) -> Self {
 		ApprovalVotingSubsystem {
 			keystore,
 			slot_duration_millis: config.slot_duration_millis,
@@ -452,6 +472,7 @@ impl ApprovalVotingSubsystem {
 			db_config: DatabaseConfig { col_approval_data: config.col_approval_data },
 			mode: Mode::Syncing(sync_oracle),
 			metrics,
+			clock,
 		}
 	}
 
@@ -493,15 +514,10 @@ fn db_sanity_check(db: Arc<dyn Database>, config: DatabaseConfig) -> SubsystemRe
 impl<Context: Send> ApprovalVotingSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let backend = DbBackend::new(self.db.clone(), self.db_config);
-		let future = run::<DbBackend, Context>(
-			ctx,
-			self,
-			Box::new(SystemClock),
-			Box::new(RealAssignmentCriteria),
-			backend,
-		)
-		.map_err(|e| SubsystemError::with_origin("approval-voting", e))
-		.boxed();
+		let future =
+			run::<DbBackend, Context>(ctx, self, Box::new(RealAssignmentCriteria), backend)
+				.map_err(|e| SubsystemError::with_origin("approval-voting", e))
+				.boxed();
 
 		SpawnedSubsystem { name: "approval-voting-subsystem", future }
 	}
@@ -909,7 +925,6 @@ enum Action {
 async fn run<B, Context>(
 	mut ctx: Context,
 	mut subsystem: ApprovalVotingSubsystem,
-	clock: Box<dyn Clock + Send + Sync>,
 	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
 	mut backend: B,
 ) -> SubsystemResult<()>
@@ -923,7 +938,7 @@ where
 	let mut state = State {
 		keystore: subsystem.keystore,
 		slot_duration_millis: subsystem.slot_duration_millis,
-		clock,
+		clock: subsystem.clock,
 		assignment_criteria,
 		spans: HashMap::new(),
 	};
@@ -1238,13 +1253,20 @@ async fn handle_actions<Context>(
 			Action::BecomeActive => {
 				*mode = Mode::Active;
 
-				let messages = distribution_messages_for_activation(
+				let (messages, next_actions) = distribution_messages_for_activation(
+					ctx,
 					overlayed_db,
 					state,
 					delayed_approvals_timers,
-				)?;
+					session_info_provider,
+				)
+				.await?;
 
 				ctx.send_messages(messages.into_iter()).await;
+				let next_actions: Vec<Action> =
+					next_actions.into_iter().map(|v| v.clone()).chain(actions_iter).collect();
+
+				actions_iter = next_actions.into_iter();
 			},
 			Action::Conclude => {
 				conclude = true;
@@ -1298,15 +1320,19 @@ fn get_assignment_core_indices(
 	}
 }
 
-fn distribution_messages_for_activation(
+#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
+async fn distribution_messages_for_activation<Context>(
+	ctx: &mut Context,
 	db: &OverlayedBackend<'_, impl Backend>,
 	state: &State,
 	delayed_approvals_timers: &mut DelayedApprovalTimer,
-) -> SubsystemResult<Vec<ApprovalDistributionMessage>> {
+	session_info_provider: &mut RuntimeInfo,
+) -> SubsystemResult<(Vec<ApprovalDistributionMessage>, Vec<Action>)> {
 	let all_blocks: Vec<Hash> = db.load_all_blocks()?;
 
 	let mut approval_meta = Vec::with_capacity(all_blocks.len());
 	let mut messages = Vec::new();
+	let mut actions = Vec::new();
 
 	messages.push(ApprovalDistributionMessage::NewBlocks(Vec::new())); // dummy value.
 
@@ -1381,16 +1407,60 @@ fn distribution_messages_for_activation(
 									&claimed_core_indices,
 									&block_entry,
 								) {
-									Ok(bitfield) => messages.push(
-										ApprovalDistributionMessage::DistributeAssignment(
-											IndirectAssignmentCertV2 {
-												block_hash,
-												validator: assignment.validator_index(),
-												cert: assignment.cert().clone(),
-											},
-											bitfield,
-										),
-									),
+									Ok(bitfield) => {
+										gum::debug!(
+											target: LOG_TARGET,
+											candidate_hash = ?candidate_entry.candidate_receipt().hash(),
+											?block_hash,
+											"Discovered, triggered assignment, not approved yet",
+										);
+
+										let indirect_cert = IndirectAssignmentCertV2 {
+											block_hash,
+											validator: assignment.validator_index(),
+											cert: assignment.cert().clone(),
+										};
+										messages.push(
+											ApprovalDistributionMessage::DistributeAssignment(
+												indirect_cert.clone(),
+												bitfield.clone(),
+											),
+										);
+
+										if !block_entry
+											.candidate_is_pending_signature(*candidate_hash)
+										{
+											let ExtendedSessionInfo { ref executor_params, .. } =
+												match get_extended_session_info(
+													session_info_provider,
+													ctx.sender(),
+													block_entry.block_hash(),
+													block_entry.session(),
+												)
+												.await
+												{
+													Some(i) => i,
+													None => continue,
+												};
+
+											actions.push(Action::LaunchApproval {
+												claimed_candidate_indices: bitfield,
+												candidate_hash: candidate_entry
+													.candidate_receipt()
+													.hash(),
+												indirect_cert,
+												assignment_tranche: assignment.tranche(),
+												relay_block_hash: block_hash,
+												session: block_entry.session(),
+												executor_params: executor_params.clone(),
+												candidate: candidate_entry
+													.candidate_receipt()
+													.clone(),
+												backing_group: approval_entry.backing_group(),
+												distribute_assignment: false,
+											});
+										}
+									},
 									Err(err) => {
 										// Should never happen. If we fail here it means the
 										// assignment is null (no cores claimed).
@@ -1481,7 +1551,7 @@ fn distribution_messages_for_activation(
 	}
 
 	messages[0] = ApprovalDistributionMessage::NewBlocks(approval_meta);
-	Ok(messages)
+	Ok((messages, actions))
 }
 
 // Handle an incoming signal from the overseer. Returns true if execution should conclude.
@@ -2583,7 +2653,7 @@ where
 			_ => {},
 		}
 
-		gum::debug!(
+		gum::trace!(
 			target: LOG_TARGET,
 			validator_index = approval.validator.0,
 			candidate_hash = ?approved_candidate_hash,
@@ -2700,7 +2770,7 @@ where
 		let is_approved = check.is_approved(tick_now.saturating_sub(APPROVAL_DELAY));
 		if status.last_no_shows != 0 {
 			metrics.on_observed_no_shows(status.last_no_shows);
-			gum::debug!(
+			gum::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?block_hash,
@@ -3343,7 +3413,7 @@ async fn issue_approval<Context>(
 		);
 	}
 
-	gum::info!(
+	gum::debug!(
 		target: LOG_TARGET,
 		?candidate_hash,
 		?block_hash,

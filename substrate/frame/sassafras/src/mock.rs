@@ -34,7 +34,8 @@ use sp_core::{
 	H256, U256,
 };
 use sp_runtime::{
-	testing::{Digest, DigestItem, Header, TestXt},
+	generic::UncheckedExtrinsic,
+	testing::{Digest, DigestItem, Header},
 	BuildStorage,
 };
 
@@ -53,7 +54,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type OverarchingCall = RuntimeCall;
-	type Extrinsic = TestXt<RuntimeCall, ()>;
+	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 }
 
 impl pallet_sassafras::Config for Test {
@@ -99,7 +100,7 @@ pub fn new_test_ext_with_pairs(
 	pallet_sassafras::GenesisConfig::<Test> {
 		authorities: authorities.clone(),
 		epoch_config: TEST_EPOCH_CONFIGURATION,
-		_phantom: sp_std::marker::PhantomData,
+		_phantom: core::marker::PhantomData,
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
@@ -209,7 +210,7 @@ pub fn make_ticket_body(attempt_idx: u32, pair: &AuthorityPair) -> (TicketId, Ti
 }
 
 pub fn make_dummy_ticket_body(attempt_idx: u32) -> (TicketId, TicketBody) {
-	let hash = sp_core::hashing::blake2_256(&attempt_idx.to_le_bytes());
+	let hash = sp_crypto_hashing::blake2_256(&attempt_idx.to_le_bytes());
 
 	let erased_public = EphemeralPublic::unchecked_from(hash);
 	let revealed_public = erased_public;

@@ -47,37 +47,18 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Identity: pallet_identity,
 	}
 );
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -94,7 +75,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 parameter_types! {
@@ -949,6 +929,57 @@ fn poke_deposit_works() {
 		);
 		// new subs deposit is 10           vvvvvvvvvvvv
 		assert_eq!(Identity::subs_of(ten), (subs_deposit, vec![twenty].try_into().unwrap()));
+	});
+}
+
+#[test]
+fn poke_deposit_does_not_insert_new_subs_storage() {
+	new_test_ext().execute_with(|| {
+		let [_, _, _, _, ten, _, _, _] = accounts();
+		let ten_info = infoof_ten();
+		// Set a custom registration with 0 deposit
+		IdentityOf::<Test>::insert::<
+			_,
+			(
+				Registration<u64, MaxRegistrars, IdentityInfo<MaxAdditionalFields>>,
+				Option<Username<Test>>,
+			),
+		>(
+			&ten,
+			(
+				Registration {
+					judgements: Default::default(),
+					deposit: Zero::zero(),
+					info: ten_info.clone(),
+				},
+				None::<Username<Test>>,
+			),
+		);
+		assert!(Identity::identity(ten.clone()).is_some());
+
+		// Balance is free
+		assert_eq!(Balances::free_balance(ten.clone()), 1000);
+
+		// poke
+		assert_ok!(Identity::poke_deposit(&ten));
+
+		// free balance reduced correctly
+		let id_deposit = id_deposit(&ten_info);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
+		// new registration deposit is 10
+		assert_eq!(
+			Identity::identity(&ten),
+			Some((
+				Registration {
+					judgements: Default::default(),
+					deposit: id_deposit,
+					info: infoof_ten()
+				},
+				None
+			))
+		);
+		// No new subs storage item.
+		assert!(!SubsOf::<Test>::contains_key(&ten));
 	});
 }
 

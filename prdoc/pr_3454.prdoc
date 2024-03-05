@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Introduce storage attr macro #[disable_try_decode_storage] and set it on System::Events and ParachainSystem::HostConfiguration"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Allows marking storage items with \#[disable_try_decode_storage], which disables that storage item from being decoded
+      during try_decode_entire_state calls.
+
+      Applied the attribute to System::Events to close https://github.com/paritytech/polkadot-sdk/issues/2560.
+      Applied the attribute to ParachainSystem::HostConfiguration to resolve periodic issues with it.
+
+crates:
+  - name: frame-support-procedural
+  - name: frame-system
+  - name: cumulus-pallet-parachain-system
+

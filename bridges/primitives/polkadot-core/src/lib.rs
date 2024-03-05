@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Primitives of the Polkadot-like chains.
+
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_messages::MessageNonce;
@@ -21,10 +24,10 @@ use bp_runtime::{
 	self,
 	extensions::{
 		ChargeTransactionPayment, CheckEra, CheckGenesis, CheckNonZeroSender, CheckNonce,
-		CheckSpecVersion, CheckTxVersion, CheckWeight, GenericSignedExtension,
-		SignedExtensionSchema,
+		CheckSpecVersion, CheckTxVersion, CheckWeight, GenericTransactionExtension,
+		TransactionExtensionSchema,
 	},
-	Chain, EncodedOrDecodedCall, StorageMapKeyProvider, TransactionEra,
+	EncodedOrDecodedCall, StorageMapKeyProvider, TransactionEra,
 };
 use frame_support::{
 	dispatch::DispatchClass,
@@ -40,7 +43,7 @@ use sp_core::{storage::StorageKey, Hasher as HasherT};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiAddress, MultiSignature, OpaqueExtrinsic, RuntimeDebug,
+	MultiAddress, MultiSignature, OpaqueExtrinsic,
 };
 use sp_std::prelude::Vec;
 
@@ -173,11 +176,16 @@ pub use time_units::*;
 pub mod time_units {
 	use super::BlockNumber;
 
+	/// Milliseconds between Polkadot-like chain blocks.
 	pub const MILLISECS_PER_BLOCK: u64 = 6000;
+	/// Slot duration in Polkadot-like chain consensus algorithms.
 	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
+	/// A minute, expressed in Polkadot-like chain blocks.
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+	/// A hour, expressed in Polkadot-like chain blocks.
 	pub const HOURS: BlockNumber = MINUTES * 60;
+	/// A day, expressed in Polkadot-like chain blocks.
 	pub const DAYS: BlockNumber = HOURS * 24;
 }
 
@@ -221,37 +229,27 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type Balance = u128;
 
 /// Unchecked Extrinsic type.
-pub type UncheckedExtrinsic<Call, SignedExt> =
-	generic::UncheckedExtrinsic<AccountAddress, EncodedOrDecodedCall<Call>, Signature, SignedExt>;
+pub type UncheckedExtrinsic<Call, TransactionExt> = generic::UncheckedExtrinsic<
+	AccountAddress,
+	EncodedOrDecodedCall<Call>,
+	Signature,
+	TransactionExt,
+>;
 
 /// Account address, used by the Polkadot-like chain.
 pub type Address = MultiAddress<AccountId, ()>;
 
-/// Polkadot-like chain.
-#[derive(RuntimeDebug)]
-pub struct PolkadotLike;
+/// Returns maximal extrinsic size on all Polkadot-like chains.
+pub fn max_extrinsic_size() -> u32 {
+	*BlockLength::get().max.get(DispatchClass::Normal)
+}
 
-impl Chain for PolkadotLike {
-	type BlockNumber = BlockNumber;
-	type Hash = Hash;
-	type Hasher = Hasher;
-	type Header = Header;
-
-	type AccountId = AccountId;
-	type Balance = Balance;
-	type Nonce = Nonce;
-	type Signature = Signature;
-
-	fn max_extrinsic_size() -> u32 {
-		*BlockLength::get().max.get(DispatchClass::Normal)
-	}
-
-	fn max_extrinsic_weight() -> Weight {
-		BlockWeights::get()
-			.get(DispatchClass::Normal)
-			.max_extrinsic
-			.unwrap_or(Weight::MAX)
-	}
+/// Returns maximal extrinsic weight on all Polkadot-like chains.
+pub fn max_extrinsic_weight() -> Weight {
+	BlockWeights::get()
+		.get(DispatchClass::Normal)
+		.max_extrinsic
+		.unwrap_or(Weight::MAX)
 }
 
 /// Provides a storage key for account data.
@@ -271,15 +269,17 @@ impl StorageMapKeyProvider for AccountInfoStorageMapKeyProvider {
 }
 
 impl AccountInfoStorageMapKeyProvider {
+	/// Name of the system pallet.
 	const PALLET_NAME: &'static str = "System";
 
+	/// Return storage key for given account data.
 	pub fn final_key(id: &AccountId) -> StorageKey {
 		<Self as StorageMapKeyProvider>::final_key(Self::PALLET_NAME, id)
 	}
 }
 
 /// Extra signed extension data that is used by most chains.
-pub type CommonSignedExtra = (
+pub type CommonTransactionExtra = (
 	CheckNonZeroSender,
 	CheckSpecVersion,
 	CheckTxVersion,
@@ -290,12 +290,12 @@ pub type CommonSignedExtra = (
 	ChargeTransactionPayment<Balance>,
 );
 
-/// Extra signed extension data that starts with `CommonSignedExtra`.
-pub type SuffixedCommonSignedExtension<Suffix> =
-	GenericSignedExtension<(CommonSignedExtra, Suffix)>;
+/// Extra transaction extension data that starts with `CommonTransactionExtra`.
+pub type SuffixedCommonTransactionExtension<Suffix> =
+	GenericTransactionExtension<(CommonTransactionExtra, Suffix)>;
 
-/// Helper trait to define some extra methods on `SuffixedCommonSignedExtension`.
-pub trait SuffixedCommonSignedExtensionExt<Suffix: SignedExtensionSchema> {
+/// Helper trait to define some extra methods on `SuffixedCommonTransactionExtension`.
+pub trait SuffixedCommonTransactionExtensionExt<Suffix: TransactionExtensionSchema> {
 	/// Create signed extension from its components.
 	fn from_params(
 		spec_version: u32,
@@ -304,7 +304,7 @@ pub trait SuffixedCommonSignedExtensionExt<Suffix: SignedExtensionSchema> {
 		genesis_hash: Hash,
 		nonce: Nonce,
 		tip: Balance,
-		extra: (Suffix::Payload, Suffix::AdditionalSigned),
+		extra: (Suffix::Payload, Suffix::Implicit),
 	) -> Self;
 
 	/// Return transaction nonce.
@@ -314,9 +314,10 @@ pub trait SuffixedCommonSignedExtensionExt<Suffix: SignedExtensionSchema> {
 	fn tip(&self) -> Balance;
 }
 
-impl<Suffix> SuffixedCommonSignedExtensionExt<Suffix> for SuffixedCommonSignedExtension<Suffix>
+impl<Suffix> SuffixedCommonTransactionExtensionExt<Suffix>
+	for SuffixedCommonTransactionExtension<Suffix>
 where
-	Suffix: SignedExtensionSchema,
+	Suffix: TransactionExtensionSchema,
 {
 	fn from_params(
 		spec_version: u32,
@@ -325,9 +326,9 @@ where
 		genesis_hash: Hash,
 		nonce: Nonce,
 		tip: Balance,
-		extra: (Suffix::Payload, Suffix::AdditionalSigned),
+		extra: (Suffix::Payload, Suffix::Implicit),
 	) -> Self {
-		GenericSignedExtension::new(
+		GenericTransactionExtension::new(
 			(
 				(
 					(),              // non-zero sender
@@ -369,7 +370,7 @@ where
 }
 
 /// Signed extension that is used by most chains.
-pub type CommonSignedExtension = SuffixedCommonSignedExtension<()>;
+pub type CommonTransactionExtension = SuffixedCommonTransactionExtension<()>;
 
 #[cfg(test)]
 mod tests {

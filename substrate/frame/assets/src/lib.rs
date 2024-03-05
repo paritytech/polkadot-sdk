@@ -208,7 +208,7 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -259,11 +259,7 @@ pub mod pallet {
 		/// This type includes the `From<Self::AssetId>` bound, since tightly coupled pallets may
 		/// want to convert an `AssetId` into a parameter for calling dispatchable functions
 		/// directly.
-		type AssetIdParameter: Parameter
-			+ Copy
-			+ From<Self::AssetId>
-			+ Into<Self::AssetId>
-			+ MaxEncodedLen;
+		type AssetIdParameter: Parameter + From<Self::AssetId> + Into<Self::AssetId> + MaxEncodedLen;
 
 		/// The currency mechanism.
 		type Currency: ReservableCurrency<Self::AccountId>;
