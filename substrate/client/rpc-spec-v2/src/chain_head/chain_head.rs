@@ -36,7 +36,7 @@ use crate::{
 use codec::Encode;
 use futures::{channel::oneshot, future::FutureExt};
 use jsonrpsee::{
-	core::async_trait, server::ResponsePayload, types::SubscriptionId, ConnectionId,
+	core::async_trait, server::ResponsePayload, types::SubscriptionId, ConnectionDetails,
 	MethodResponseFuture, PendingSubscriptionSink, SubscriptionSink,
 };
 use log::debug;
@@ -224,11 +224,14 @@ where
 
 	async fn chain_head_unstable_body(
 		&self,
-		connection_id: ConnectionId,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		hash: Block::Hash,
 	) -> ResponsePayload<'static, MethodResponse> {
-		if !self.rpc_connections.contains_token(connection_id, &follow_subscription) {
+		if !self
+			.rpc_connections
+			.contains_token(connection_details.id(), &follow_subscription)
+		{
 			return ResponsePayload::success(MethodResponse::LimitReached);
 		}
 
@@ -304,11 +307,14 @@ where
 
 	async fn chain_head_unstable_header(
 		&self,
-		connection_id: ConnectionId,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		hash: Block::Hash,
 	) -> Result<Option<String>, ChainHeadRpcError> {
-		if !self.rpc_connections.contains_token(connection_id, &follow_subscription) {
+		if !self
+			.rpc_connections
+			.contains_token(connection_details.id(), &follow_subscription)
+		{
 			return Ok(None);
 		}
 
@@ -337,13 +343,16 @@ where
 
 	async fn chain_head_unstable_storage(
 		&self,
-		connection_id: ConnectionId,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		hash: Block::Hash,
 		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
 	) -> ResponsePayload<'static, MethodResponse> {
-		if !self.rpc_connections.contains_token(connection_id, &follow_subscription) {
+		if !self
+			.rpc_connections
+			.contains_token(connection_details.id(), &follow_subscription)
+		{
 			return ResponsePayload::success(MethodResponse::LimitReached);
 		}
 
@@ -414,7 +423,7 @@ where
 
 	async fn chain_head_unstable_call(
 		&self,
-		connection_id: ConnectionId,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		hash: Block::Hash,
 		function: String,
@@ -425,7 +434,10 @@ where
 			Err(err) => return ResponsePayload::error(err),
 		};
 
-		if !self.rpc_connections.contains_token(connection_id, &follow_subscription) {
+		if !self
+			.rpc_connections
+			.contains_token(connection_details.id(), &follow_subscription)
+		{
 			return ResponsePayload::success(MethodResponse::LimitReached);
 		}
 
@@ -487,11 +499,14 @@ where
 
 	async fn chain_head_unstable_unpin(
 		&self,
-		connection_id: ConnectionId,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		hash_or_hashes: ListOrValue<Block::Hash>,
 	) -> Result<(), ChainHeadRpcError> {
-		if !self.rpc_connections.contains_token(connection_id, &follow_subscription) {
+		if !self
+			.rpc_connections
+			.contains_token(connection_details.id(), &follow_subscription)
+		{
 			return Ok(());
 		}
 
@@ -520,11 +535,14 @@ where
 
 	async fn chain_head_unstable_continue(
 		&self,
-		connection_id: ConnectionId,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		operation_id: String,
 	) -> Result<(), ChainHeadRpcError> {
-		if !self.rpc_connections.contains_token(connection_id, &follow_subscription) {
+		if !self
+			.rpc_connections
+			.contains_token(connection_details.id(), &follow_subscription)
+		{
 			return Ok(())
 		}
 
@@ -543,11 +561,14 @@ where
 
 	async fn chain_head_unstable_stop_operation(
 		&self,
-		connection_id: ConnectionId,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		operation_id: String,
 	) -> Result<(), ChainHeadRpcError> {
-		if !self.rpc_connections.contains_token(connection_id, &follow_subscription) {
+		if !self
+			.rpc_connections
+			.contains_token(connection_details.id(), &follow_subscription)
+		{
 			return Ok(())
 		}
 
