@@ -208,8 +208,9 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-DefensiveSaturating, Defensive, DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint,
-		ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
+		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
+		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
+		QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
