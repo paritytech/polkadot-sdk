@@ -24,11 +24,12 @@
 //! - put the RuntimeGenesisConfig struct into the storage. Internally this operation calls
 //!   `GenesisBuild::build` function for all runtime pallets, which is typically provided by
 //!   pallet's author.
-//! - deserialize the `RuntimeGenesisConfig` from given json blob and put `RuntimeGenesisConfig` into the state
-//!   storage. Allows to build customized configuration.
+//! - deserialize the `RuntimeGenesisConfig` from given json blob and put `RuntimeGenesisConfig`
+//!   into the state storage. Allows to build customized configuration.
 //!
-//! Providing externalities with empty storage and putting `RuntimeGenesisConfig` into storage allows to
-//! catch and build the raw storage of `RuntimeGenesisConfig` which is the foundation for genesis block.
+//! Providing externalities with empty storage and putting `RuntimeGenesisConfig` into storage
+//! allows to catch and build the raw storage of `RuntimeGenesisConfig` which is the foundation for
+//! genesis block.
 
 /// The result type alias, used in build methods. `Err` contains formatted error message.
 pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;

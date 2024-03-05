@@ -81,7 +81,8 @@ where
 			.0
 	}
 
-	/// Returns a json representation of the default `RuntimeGenesisConfig` provided by the `runtime`.
+	/// Returns a json representation of the default `RuntimeGenesisConfig` provided by the
+	/// `runtime`.
 	///
 	/// Calls [`GenesisBuilder::create_default_config`](sp_genesis_builder::GenesisBuilder::create_default_config) in the `runtime`.
 	pub fn get_default_config(&self) -> core::result::Result<Value, String> {
@@ -113,15 +114,16 @@ where
 
 	/// Creates the genesis state by patching the default `RuntimeGenesisConfig`.
 	///
-	/// This function generates the `RuntimeGenesisConfig` for the runtime by applying a provided JSON
-	/// patch. The patch modifies the default `RuntimeGenesisConfig` allowing customization of the specific
-	/// keys. The resulting `RuntimeGenesisConfig` is then deserialized from the patched JSON
-	/// representation and stored in the storage.
+	/// This function generates the `RuntimeGenesisConfig` for the runtime by applying a provided
+	/// JSON patch. The patch modifies the default `RuntimeGenesisConfig` allowing customization of
+	/// the specific keys. The resulting `RuntimeGenesisConfig` is then deserialized from the
+	/// patched JSON representation and stored in the storage.
 	///
 	/// If the provided JSON patch is incorrect or the deserialization fails the error will be
 	/// returned.
 	///
-	/// The patching process modifies the default `RuntimeGenesisConfig` according to the following rules:
+	/// The patching process modifies the default `RuntimeGenesisConfig` according to the following
+	/// rules:
 	/// 1. Existing keys in the default configuration will be overridden by the corresponding values
 	///    in the patch.
 	/// 2. If a key exists in the patch but not in the default configuration, it will be added to
