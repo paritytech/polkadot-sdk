@@ -18,7 +18,10 @@
 
 use super::*;
 
-use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper, H256 as Hash};
+use sp_runtime::{
+	generic::UncheckedExtrinsic,
+	testing::{Block as RawBlock, H256 as Hash},
+};
 use std::iter::{empty, Empty};
 
 type TestChangeSet = (
@@ -50,7 +53,7 @@ impl PartialEq for StorageChangeSet {
 	}
 }
 
-type Block = RawBlock<ExtrinsicWrapper<Hash>>;
+type Block = RawBlock<UncheckedExtrinsic<u64, substrate_test_runtime::RuntimeCall, (), ()>>;
 
 #[test]
 fn triggering_change_should_notify_wildcard_listeners() {
