@@ -130,11 +130,13 @@ use frame_support::{
 		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	migrations::MultiStepMigrator,
 	pallet_prelude::Pays,
 	storage::{self, StorageStreamIter},
 	traits::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
-		OnKilledAccount, OnNewAccount, OriginTrait, PalletInfo, SortedMembers, StoredMap, TypedGet,
+		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
+		StoredMap, TypedGet,
 	},
 	Parameter,
 };
@@ -164,11 +166,12 @@ pub use extensions::{
 	check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight,
+	check_weight::CheckWeight, WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
+use frame_support::traits::{PostInherents, PostTransactions, PreInherents};
 pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::system";
@@ -281,6 +284,7 @@ pub mod pallet {
 			type OnNewAccount = ();
 			type OnKilledAccount = ();
 			type SystemWeightInfo = ();
+			type ExtensionsWeightInfo = ();
 			type SS58Prefix = ();
 			type Version = ();
 			type BlockWeights = ();
@@ -299,6 +303,11 @@ pub mod pallet {
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = frame_support::traits::ConstU64<10>;
 			type OnSetCode = ();
+			type SingleBlockMigrations = ();
+			type MultiBlockMigrator = ();
+			type PreInherents = ();
+			type PostInherents = ();
+			type PostTransactions = ();
 		}
 
 		/// Default configurations of this pallet in a solo-chain environment.
@@ -348,6 +357,9 @@ pub mod pallet {
 			/// Weight information for the extrinsics of this pallet.
 			type SystemWeightInfo = ();
 
+			/// Weight information for the extensions of this pallet.
+			type ExtensionsWeightInfo = ();
+
 			/// This is used as an identifier of the chain.
 			type SS58Prefix = ();
 
@@ -393,6 +405,11 @@ pub mod pallet {
 
 			/// The set code logic, just the default since we're not a parachain.
 			type OnSetCode = ();
+			type SingleBlockMigrations = ();
+			type MultiBlockMigrator = ();
+			type PreInherents = ();
+			type PostInherents = ();
+			type PostTransactions = ();
 		}
 
 		/// Default configurations of this pallet in a relay-chain environment.
@@ -550,7 +567,11 @@ pub mod pallet {
 		/// All resources should be cleaned up associated with the given account.
 		type OnKilledAccount: OnKilledAccount<Self::AccountId>;
 
+		/// Weight information for the extrinsics of this pallet.
 		type SystemWeightInfo: WeightInfo;
+
+		/// Weight information for the transaction extensions of this pallet.
+		type ExtensionsWeightInfo: extensions::WeightInfo;
 
 		/// The designated SS58 prefix of this chain.
 		///
@@ -572,6 +593,35 @@ pub mod pallet {
 
 		/// The maximum number of consumers allowed on a single account.
 		type MaxConsumers: ConsumerLimits;
+
+		/// All migrations that should run in the next runtime upgrade.
+		///
+		/// These used to be formerly configured in `Executive`. Parachains need to ensure that
+		/// running all these migrations in one block will not overflow the weight limit of a block.
+		/// The migrations are run *before* the pallet `on_runtime_upgrade` hooks, just like the
+		/// `OnRuntimeUpgrade` migrations.
+		type SingleBlockMigrations: OnRuntimeUpgrade;
+
+		/// The migrator that is used to run Multi-Block-Migrations.
+		///
+		/// Can be set to [`pallet-migrations`] or an alternative implementation of the interface.
+		/// The diagram in `frame_executive::block_flowchart` explains when it runs.
+		type MultiBlockMigrator: MultiStepMigrator;
+
+		/// A callback that executes in *every block* directly before all inherents were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		type PreInherents: PreInherents;
+
+		/// A callback that executes in *every block* directly after all inherents were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		type PostInherents: PostInherents;
+
+		/// A callback that executes in *every block* directly after all transactions were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		type PostTransactions: PostTransactions;
 	}
 
 	#[pallet::pallet]
@@ -619,6 +669,9 @@ pub mod pallet {
 		}
 
 		/// Set the new runtime code without doing any checks of the given `code`.
+		///
+		/// Note that runtime upgrades will not run if this is called with a not-increasing spec
+		/// version!
 		#[pallet::call_index(3)]
 		#[pallet::weight((T::SystemWeightInfo::set_code(), DispatchClass::Operational))]
 		pub fn set_code_without_checks(
@@ -814,6 +867,8 @@ pub mod pallet {
 		NonZeroRefCount,
 		/// The origin filter prevent the call to be dispatched.
 		CallFiltered,
+		/// A multi-block migration is ongoing and prevents the current code from being replaced.
+		MultiBlockMigrationsOngoing,
 		#[cfg(feature = "experimental")]
 		/// The specified [`Task`] is not valid.
 		InvalidTask,
@@ -844,6 +899,10 @@ pub mod pallet {
 	/// Total extrinsics count for the current block.
 	#[pallet::storage]
 	pub(super) type ExtrinsicCount<T: Config> = StorageValue<_, u32>;
+
+	/// Whether all inherents have been applied.
+	#[pallet::storage]
+	pub type InherentsApplied<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The current weight for the block.
 	#[pallet::storage]
@@ -1373,6 +1432,19 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::CodeUpdated);
 	}
 
+	/// Whether all inherents have been applied.
+	pub fn inherents_applied() -> bool {
+		InherentsApplied::<T>::get()
+	}
+
+	/// Note that all inherents have been applied.
+	///
+	/// Should be called immediately after all inherents have been applied. Must be called at least
+	/// once per block.
+	pub fn note_inherents_applied() {
+		InherentsApplied::<T>::put(true);
+	}
+
 	/// Increment the reference counter on an account.
 	#[deprecated = "Use `inc_consumers` instead"]
 	pub fn inc_ref(who: &T::AccountId) {
@@ -1692,6 +1764,7 @@ impl<T: Config> Pallet<T> {
 		<Digest<T>>::put(digest);
 		<ParentHash<T>>::put(parent_hash);
 		<BlockHash<T>>::insert(*number - One::one(), parent_hash);
+		<InherentsApplied<T>>::kill();
 
 		// Remove previous block data from storage
 		BlockWeight::<T>::kill();
@@ -1738,6 +1811,7 @@ impl<T: Config> Pallet<T> {
 		ExecutionPhase::<T>::kill();
 		AllExtrinsicsLen::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
+		InherentsApplied::<T>::kill();
 
 		// The following fields
 		//
@@ -1981,10 +2055,14 @@ impl<T: Config> Pallet<T> {
 
 	/// Determine whether or not it is possible to update the code.
 	///
-	/// Checks the given code if it is a valid runtime wasm blob by instantianting
+	/// Checks the given code if it is a valid runtime wasm blob by instantiating
 	/// it and extracting the runtime version of it. It checks that the runtime version
 	/// of the old and new runtime has the same spec name and that the spec version is increasing.
 	pub fn can_set_code(code: &[u8]) -> Result<(), sp_runtime::DispatchError> {
+		if T::MultiBlockMigrator::ongoing() {
+			return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+		}
+
 		let current_version = T::Version::get();
 		let new_version = sp_io::misc::runtime_version(code)
 			.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())

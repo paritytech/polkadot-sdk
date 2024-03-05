@@ -209,7 +209,7 @@ pub mod pallet {
 	where
 		T::AccountId: From<SomeType1> + From<SomeType3> + SomeAssociation1,
 	{
-		/// Doc comment put in metadata
+		/// call foo doc comment put in metadata
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		pub fn foo(
@@ -225,7 +225,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Doc comment put in metadata
+		/// call foo_storage_layer doc comment put in metadata
 		#[pallet::call_index(1)]
 		#[pallet::weight({1})]
 		pub fn foo_storage_layer(
@@ -270,7 +270,7 @@ pub mod pallet {
 	#[pallet::error]
 	#[derive(PartialEq, Eq)]
 	pub enum Error<T> {
-		/// doc comment put into metadata
+		/// error doc comment put in metadata
 		InsufficientProposersBalance,
 		NonExistentStorageValue,
 		Code(u8),
@@ -287,9 +287,8 @@ pub mod pallet {
 	where
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
 	{
-		/// doc comment put in metadata
+		/// event doc comment put in metadata
 		Proposed(<T as frame_system::Config>::AccountId),
-		/// doc
 		Spending(BalanceOf<T>),
 		Something(u32),
 		SomethingElse(<T::AccountId as SomeAssociation1>::_1),
@@ -744,14 +743,43 @@ impl pallet5::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 }
 
+#[derive(Clone, Debug, codec::Encode, codec::Decode, PartialEq, Eq, scale_info::TypeInfo)]
+pub struct AccountU64(u64);
+impl sp_runtime::traits::IdentifyAccount for AccountU64 {
+	type AccountId = u64;
+	fn into_account(self) -> u64 {
+		self.0
+	}
+}
+
+impl sp_runtime::traits::Verify for AccountU64 {
+	type Signer = AccountU64;
+	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(
+		&self,
+		_msg: L,
+		_signer: &<Self::Signer as sp_runtime::traits::IdentifyAccount>::AccountId,
+	) -> bool {
+		true
+	}
+}
+
+impl From<u64> for AccountU64 {
+	fn from(value: u64) -> Self {
+		Self(value)
+	}
+}
+
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic =
-	sp_runtime::testing::TestXt<RuntimeCall, frame_system::CheckNonZeroSender<Runtime>>;
+pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	AccountU64,
+	frame_system::CheckNonZeroSender<Runtime>,
+>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
+	pub struct Runtime {
 		// Exclude part `Storage` in order not to check its metadata in tests.
 		System: frame_system exclude_parts { Pallet, Storage },
 		Example: pallet,
@@ -769,6 +797,14 @@ frame_support::construct_runtime!(
 fn _ensure_call_is_correctly_excluded_and_included(call: RuntimeCall) {
 	match call {
 		RuntimeCall::System(_) | RuntimeCall::Example(_) | RuntimeCall::Example4(_) => (),
+	}
+}
+
+fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
+	if cfg!(feature = "no-metadata-docs") {
+		vec![]
+	} else {
+		doc
 	}
 }
 
@@ -890,10 +926,8 @@ fn inherent_expand() {
 
 	let inherents = InherentData::new().create_extrinsics();
 
-	let expected = vec![UncheckedExtrinsic {
-		call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-		signature: None,
-	}];
+	let expected =
+		vec![UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {}))];
 	assert_eq!(expected, inherents);
 
 	let block = Block::new(
@@ -905,14 +939,11 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 1,
+				bar: 0,
+			})),
 		],
 	);
 
@@ -927,14 +958,11 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 0, bar: 0 }),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 0,
+				bar: 0,
+			})),
 		],
 	);
 
@@ -948,10 +976,9 @@ fn inherent_expand() {
 			BlakeTwo256::hash(b"test"),
 			Digest::default(),
 		),
-		vec![UncheckedExtrinsic {
-			call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
-			signature: None,
-		}],
+		vec![UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
+			foo: 0,
+		}))],
 	);
 
 	let mut inherent = InherentData::new();
@@ -966,10 +993,12 @@ fn inherent_expand() {
 			BlakeTwo256::hash(b"test"),
 			Digest::default(),
 		),
-		vec![UncheckedExtrinsic {
-			call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-			signature: Some((1, Default::default())),
-		}],
+		vec![UncheckedExtrinsic::new_signed(
+			RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
+			1,
+			1.into(),
+			Default::default(),
+		)],
 	);
 
 	let mut inherent = InherentData::new();
@@ -985,14 +1014,13 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 1,
+				bar: 1,
+			})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
+				foo: 0,
+			})),
 		],
 	);
 
@@ -1007,18 +1035,14 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 1,
+				bar: 1,
+			})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
+				foo: 0,
+			})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
 		],
 	);
 
@@ -1033,18 +1057,17 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
-				signature: Some((1, Default::default())),
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 1,
+				bar: 1,
+			})),
+			UncheckedExtrinsic::new_signed(
+				RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
+				1,
+				1.into(),
+				Default::default(),
+			),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
 		],
 	);
 
@@ -1363,17 +1386,45 @@ fn migrate_from_pallet_version_to_storage_version() {
 }
 
 #[test]
+fn pallet_item_docs_in_metadata() {
+	// call
+	let call_variants = match meta_type::<pallet::Call<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(call_variants[0].docs, maybe_docs(vec!["call foo doc comment put in metadata"]));
+	assert_eq!(
+		call_variants[1].docs,
+		maybe_docs(vec!["call foo_storage_layer doc comment put in metadata"])
+	);
+	assert!(call_variants[2].docs.is_empty());
+
+	// event
+	let event_variants = match meta_type::<pallet::Event<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(event_variants[0].docs, maybe_docs(vec!["event doc comment put in metadata"]));
+	assert!(event_variants[1].docs.is_empty());
+
+	// error
+	let error_variants = match meta_type::<pallet::Error<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(error_variants[0].docs, maybe_docs(vec!["error doc comment put in metadata"]));
+	assert!(error_variants[1].docs.is_empty());
+
+	// storage is already covered in the main `fn metadata` test.
+}
+
+#[test]
 fn metadata() {
 	use codec::Decode;
 	use frame_metadata::{v15::*, *};
-
-	fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
-		if cfg!(feature = "no-metadata-docs") {
-			vec![]
-		} else {
-			doc
-		}
-	}
 
 	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected_pallet_doc = vec![" Pallet documentation", readme, readme];
@@ -1899,7 +1950,7 @@ fn extrinsic_metadata_ir_types() {
 		>(),
 		ir.signature_ty
 	);
-	assert_eq!(meta_type::<()>(), ir.signature_ty);
+	assert_eq!(meta_type::<AccountU64>(), ir.signature_ty);
 
 	assert_eq!(meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(), ir.extra_ty);
 	assert_eq!(meta_type::<frame_system::CheckNonZeroSender<Runtime>>(), ir.extra_ty);
