@@ -910,7 +910,7 @@ benchmarks! {
 					value: code_hashes_bytes,
 				},
 			],
-			deploy_body: Some(body::repeated_dyn(code_hash_len as _, vec![
+			deploy_body: Some(body::repeated_dyn(T::MaxDelegateDependencies::get(), vec![
 				Counter(beneficiary_len as u32, code_hash_len as u32), // code_hash_ptr
 				Regular(Instruction::Call(1)),
 			])),
