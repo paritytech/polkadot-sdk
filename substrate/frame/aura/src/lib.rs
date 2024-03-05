@@ -175,7 +175,7 @@ pub mod pallet {
 	///
 	/// This will be set in `on_initialize`.
 	#[pallet::storage]
-	pub(super) type CurrentSlot<T: Config> = StorageValue<_, Slot, ValueQuery>;
+	pub type CurrentSlot<T: Config> = StorageValue<_, Slot, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
