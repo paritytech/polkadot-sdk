@@ -98,8 +98,6 @@ use parachains_common::{
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 
-use polkadot_runtime_common::prod_or_fast;
-
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
 #[cfg(not(feature = "runtime-benchmarks"))]
@@ -642,7 +640,7 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const MaxExecutionHeadersToKeep: u32 = prod_or_fast!(8192 * 2, 1000);
+	pub const MaxExecutionHeadersToKeep: u32 = 8192 * 20;
 }
 
 impl snowbridge_pallet_ethereum_client::Config for Runtime {
