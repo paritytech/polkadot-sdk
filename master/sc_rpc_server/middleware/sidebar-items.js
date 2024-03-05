@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["metrics","rate_limit"]};
+window.SIDEBAR_ITEMS = {"struct":["Metrics","Middleware","MiddlewareLayer","RateLimit","RpcMetrics"]};

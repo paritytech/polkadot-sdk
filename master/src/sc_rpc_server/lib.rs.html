@@ -419,6 +419,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -470,7 +479,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
-<span class="kw">pub use </span>middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
+<span class="kw">pub use </span>middleware::{Metrics, MiddlewareLayer, RpcMetrics};
 
 <span class="kw">const </span>MEGABYTE: u32 = <span class="number">1024 </span>* <span class="number">1024</span>;
 
@@ -594,13 +603,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>is_websocket = ws::is_upgrade_request(<span class="kw-2">&amp;</span>req);
 				<span class="kw">let </span>transport_label = <span class="kw">if </span>is_websocket { <span class="string">&quot;ws&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;http&quot; </span>};
 
-				<span class="kw">let </span>metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
-				<span class="kw">let </span>rate_limit = rate_limit.map(|r| RateLimitLayer::per_minute(r));
+				<span class="kw">let </span>middleware_layer = <span class="kw">match </span>(metrics, rate_limit) {
+					(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">None</span>,
+					(<span class="prelude-val">Some</span>(metrics), <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Some</span>(
+						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
+					),
+					(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(rate_limit)) =&gt;
+						<span class="prelude-val">Some</span>(MiddlewareLayer::new().with_rate_limit_per_minute(rate_limit)),
+					(<span class="prelude-val">Some</span>(metrics), <span class="prelude-val">Some</span>(rate_limit)) =&gt; <span class="prelude-val">Some</span>(
+						MiddlewareLayer::new()
+							.with_metrics(Metrics::new(metrics, transport_label))
+							.with_rate_limit_per_minute(rate_limit),
+					),
+				};
 
-				<span class="comment">// NOTE: The metrics needs to run first to include rate-limited calls in the
-				// metrics.
-				</span><span class="kw">let </span>rpc_middleware =
-					RpcServiceBuilder::new().option_layer(metrics.clone()).option_layer(rate_limit);
+				<span class="kw">let </span>rpc_middleware =
+					RpcServiceBuilder::new().option_layer(middleware_layer.clone());
 
 				<span class="kw">let </span><span class="kw-2">mut </span>svc =
 					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
@@ -612,9 +630,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="comment">// Spawn a task to handle when the connection is closed.
 						</span>tokio_handle.spawn(<span class="kw">async move </span>{
 							<span class="kw">let </span>now = std::time::Instant::now();
-							metrics.as_ref().map(|m| m.ws_connect());
+							middleware_layer.as_ref().map(|m| m.ws_connect());
 							on_disconnect.<span class="kw">await</span>;
-							metrics.as_ref().map(|m| m.ws_disconnect(now));
+							middleware_layer.as_ref().map(|m| m.ws_disconnect(now));
 						});
 					}
 

@@ -372,60 +372,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -446,15 +392,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! RPC middleware to collect prometheus metrics on RPC calls.
 
-</span><span class="kw">use </span>std::{
-	future::Future,
-	pin::Pin,
-	task::{Context, Poll},
-	time::Instant,
-};
+</span><span class="kw">use </span>std::time::Instant;
 
-<span class="kw">use </span>jsonrpsee::{server::middleware::rpc::RpcServiceT, types::Request, MethodResponse};
-<span class="kw">use </span>pin_project::pin_project;
+<span class="kw">use </span>jsonrpsee::{types::Request, MethodResponse};
 <span class="kw">use </span>prometheus_endpoint::{
 	register, Counter, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry,
 	U64,
@@ -505,7 +445,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="string">&quot;Total time [μs] of processed RPC calls&quot;</span>,
 						)
 						.buckets(HISTOGRAM_BUCKETS.to_vec()),
-						<span class="kw-2">&amp;</span>[<span class="string">&quot;protocol&quot;</span>, <span class="string">&quot;method&quot;</span>],
+						<span class="kw-2">&amp;</span>[<span class="string">&quot;protocol&quot;</span>, <span class="string">&quot;method&quot;</span>, <span class="string">&quot;is_rate_limited&quot;</span>],
 					)<span class="question-mark">?</span>,
 					metrics_registry,
 				)<span class="question-mark">?</span>,
@@ -525,7 +465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="string">&quot;substrate_rpc_calls_finished&quot;</span>,
 							<span class="string">&quot;Number of processed RPC calls (unique un-batched requests)&quot;</span>,
 						),
-						<span class="kw-2">&amp;</span>[<span class="string">&quot;protocol&quot;</span>, <span class="string">&quot;method&quot;</span>, <span class="string">&quot;is_error&quot;</span>],
+						<span class="kw-2">&amp;</span>[<span class="string">&quot;protocol&quot;</span>, <span class="string">&quot;method&quot;</span>, <span class="string">&quot;is_error&quot;</span>, <span class="string">&quot;is_rate_limited&quot;</span>],
 					)<span class="question-mark">?</span>,
 					metrics_registry,
 				)<span class="question-mark">?</span>,
@@ -572,17 +512,67 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.ws_sessions_closed.as_ref().map(|counter| counter.inc());
 		<span class="self">self</span>.ws_sessions_time.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;ws&quot;</span>]).observe(micros <span class="kw">as _</span>);
 	}
+
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_call(<span class="kw-2">&amp;</span><span class="self">self</span>, req: <span class="kw-2">&amp;</span>Request, transport_label: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {
+		<span class="macro">log::trace!</span>(
+			target: <span class="string">&quot;rpc_metrics&quot;</span>,
+			<span class="string">&quot;[{transport_label}] on_call name={} params={:?}&quot;</span>,
+			req.method_name(),
+			req.params(),
+		);
+
+		<span class="self">self</span>.calls_started
+			.with_label_values(<span class="kw-2">&amp;</span>[transport_label, req.method_name()])
+			.inc();
+	}
+
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_response(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		req: <span class="kw-2">&amp;</span>Request,
+		rp: <span class="kw-2">&amp;</span>MethodResponse,
+		is_rate_limited: bool,
+		transport_label: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		now: Instant,
+	) {
+		<span class="macro">log::trace!</span>(target: <span class="string">&quot;rpc_metrics&quot;</span>, <span class="string">&quot;[{transport_label}] on_response started_at={:?}&quot;</span>, now);
+		<span class="macro">log::trace!</span>(target: <span class="string">&quot;rpc_metrics::extra&quot;</span>, <span class="string">&quot;[{transport_label}] result={}&quot;</span>, rp.as_result());
+
+		<span class="kw">let </span>micros = now.elapsed().as_micros();
+		<span class="macro">log::debug!</span>(
+			target: <span class="string">&quot;rpc_metrics&quot;</span>,
+			<span class="string">&quot;[{transport_label}] {} call took {} μs&quot;</span>,
+			req.method_name(),
+			micros,
+		);
+		<span class="self">self</span>.calls_time
+			.with_label_values(<span class="kw-2">&amp;</span>[
+				transport_label,
+				req.method_name(),
+				<span class="kw">if </span>is_rate_limited { <span class="string">&quot;true&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;false&quot; </span>},
+			])
+			.observe(micros <span class="kw">as _</span>);
+		<span class="self">self</span>.calls_finished
+			.with_label_values(<span class="kw-2">&amp;</span>[
+				transport_label,
+				req.method_name(),
+				<span class="comment">// the label &quot;is_error&quot;, so `success` should be regarded as false
+				// and vice-versa to be registrered correctly.
+				</span><span class="kw">if </span>rp.is_success() { <span class="string">&quot;false&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;true&quot; </span>},
+				<span class="kw">if </span>is_rate_limited { <span class="string">&quot;true&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;false&quot; </span>},
+			])
+			.inc();
+	}
 }
 
-<span class="doccomment">/// Metrics layer.
-</span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>MetricsLayer {
-	inner: RpcMetrics,
-	transport_label: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+<span class="doccomment">/// Metrics with transport label.
+</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>Metrics {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) inner: RpcMetrics,
+	<span class="kw">pub</span>(<span class="kw">crate</span>) transport_label: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
 }
 
-<span class="kw">impl </span>MetricsLayer {
-	<span class="doccomment">/// Create a new [`MetricsLayer`].
+<span class="kw">impl </span>Metrics {
+	<span class="doccomment">/// Create a new [`Metrics`].
 	</span><span class="kw">pub fn </span>new(metrics: RpcMetrics, transport_label: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ inner: metrics, transport_label }
 	}
@@ -594,117 +584,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ws_disconnect(<span class="kw-2">&amp;</span><span class="self">self</span>, now: Instant) {
 		<span class="self">self</span>.inner.ws_disconnect(now)
 	}
-}
 
-<span class="kw">impl</span>&lt;S&gt; tower::Layer&lt;S&gt; <span class="kw">for </span>MetricsLayer {
-	<span class="kw">type </span>Service = Metrics&lt;S&gt;;
-
-	<span class="kw">fn </span>layer(<span class="kw-2">&amp;</span><span class="self">self</span>, inner: S) -&gt; <span class="self">Self</span>::Service {
-		Metrics::new(inner, <span class="self">self</span>.inner.clone(), <span class="self">self</span>.transport_label)
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_call(<span class="kw-2">&amp;</span><span class="self">self</span>, req: <span class="kw-2">&amp;</span>Request) {
+		<span class="self">self</span>.inner.on_call(req, <span class="self">self</span>.transport_label)
 	}
-}
 
-<span class="doccomment">/// Metrics middleware.
-</span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>Metrics&lt;S&gt; {
-	service: S,
-	metrics: RpcMetrics,
-	transport_label: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-}
-
-<span class="kw">impl</span>&lt;S&gt; Metrics&lt;S&gt; {
-	<span class="doccomment">/// Create a new metrics middleware.
-	</span><span class="kw">pub fn </span>new(service: S, metrics: RpcMetrics, transport_label: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Metrics&lt;S&gt; {
-		Metrics { service, metrics, transport_label }
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, S&gt; RpcServiceT&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>Metrics&lt;S&gt;
-<span class="kw">where
-	</span>S: Send + Sync + RpcServiceT&lt;<span class="lifetime">&#39;a</span>&gt;,
-{
-	<span class="kw">type </span>Future = ResponseFuture&lt;<span class="lifetime">&#39;a</span>, S::Future&gt;;
-
-	<span class="kw">fn </span>call(<span class="kw-2">&amp;</span><span class="self">self</span>, req: Request&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; <span class="self">Self</span>::Future {
-		<span class="kw">let </span>now = Instant::now();
-
-		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;rpc_metrics&quot;</span>,
-			<span class="string">&quot;[{}] on_call name={} params={:?}&quot;</span>,
-			<span class="self">self</span>.transport_label,
-			req.method_name(),
-			req.params(),
-		);
-		<span class="self">self</span>.metrics
-			.calls_started
-			.with_label_values(<span class="kw-2">&amp;</span>[<span class="self">self</span>.transport_label, req.method_name()])
-			.inc();
-
-		ResponseFuture {
-			fut: <span class="self">self</span>.service.call(req.clone()),
-			metrics: <span class="self">self</span>.metrics.clone(),
-			req,
-			now,
-			transport_label: <span class="self">self</span>.transport_label,
-		}
-	}
-}
-
-<span class="doccomment">/// Response future for metrics.
-</span><span class="attr">#[pin_project]
-</span><span class="kw">pub struct </span>ResponseFuture&lt;<span class="lifetime">&#39;a</span>, F&gt; {
-	<span class="attr">#[pin]
-	</span>fut: F,
-	metrics: RpcMetrics,
-	req: Request&lt;<span class="lifetime">&#39;a</span>&gt;,
-	now: Instant,
-	transport_label: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F&gt; std::fmt::Debug <span class="kw">for </span>ResponseFuture&lt;<span class="lifetime">&#39;a</span>, F&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-		f.write_str(<span class="string">&quot;ResponseFuture&quot;</span>)
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: Future&lt;Output = MethodResponse&gt;&gt; Future <span class="kw">for </span>ResponseFuture&lt;<span class="lifetime">&#39;a</span>, F&gt; {
-	<span class="kw">type </span>Output = F::Output;
-
-	<span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
-		<span class="kw">let </span>this = <span class="self">self</span>.project();
-
-		<span class="kw">let </span>res = this.fut.poll(cx);
-		<span class="kw">if let </span>Poll::Ready(rp) = <span class="kw-2">&amp;</span>res {
-			<span class="kw">let </span>method_name = this.req.method_name();
-			<span class="kw">let </span>transport_label = <span class="kw-2">&amp;</span>this.transport_label;
-			<span class="kw">let </span>now = this.now;
-			<span class="kw">let </span>metrics = <span class="kw-2">&amp;</span>this.metrics;
-
-			<span class="macro">log::trace!</span>(target: <span class="string">&quot;rpc_metrics&quot;</span>, <span class="string">&quot;[{transport_label}] on_response started_at={:?}&quot;</span>, now);
-			<span class="macro">log::trace!</span>(target: <span class="string">&quot;rpc_metrics::extra&quot;</span>, <span class="string">&quot;[{transport_label}] result={:?}&quot;</span>, rp);
-
-			<span class="kw">let </span>micros = now.elapsed().as_micros();
-			<span class="macro">log::debug!</span>(
-				target: <span class="string">&quot;rpc_metrics&quot;</span>,
-				<span class="string">&quot;[{transport_label}] {method_name} call took {} μs&quot;</span>,
-				micros,
-			);
-			metrics
-				.calls_time
-				.with_label_values(<span class="kw-2">&amp;</span>[transport_label, method_name])
-				.observe(micros <span class="kw">as _</span>);
-			metrics
-				.calls_finished
-				.with_label_values(<span class="kw-2">&amp;</span>[
-					transport_label,
-					method_name,
-					<span class="comment">// the label &quot;is_error&quot;, so `success` should be regarded as false
-					// and vice-versa to be registrered correctly.
-					</span><span class="kw">if </span>rp.is_success() { <span class="string">&quot;false&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;true&quot; </span>},
-				])
-				.inc();
-		}
-		res
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_response(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		req: <span class="kw-2">&amp;</span>Request,
+		rp: <span class="kw-2">&amp;</span>MethodResponse,
+		is_rate_limited: bool,
+		now: Instant,
+	) {
+		<span class="self">self</span>.inner.on_response(req, rp, is_rate_limited, <span class="self">self</span>.transport_label, now)
 	}
 }
 </code></pre></div></section></main></body></html>
