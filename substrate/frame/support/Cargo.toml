@@ -95,9 +95,9 @@ std = [
 	"sp-staking/std",
 	"sp-state-machine/std",
 	"sp-std/std",
+	"sp-timestamp/std",
 	"sp-tracing/std",
 	"sp-weights/std",
-	"sp-timestamp/std"
 ]
 runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
