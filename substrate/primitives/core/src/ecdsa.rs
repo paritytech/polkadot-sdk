@@ -33,12 +33,10 @@ use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretString
 use k256::ecdsa::SigningKey as SecretKey;
 #[cfg(not(feature = "std"))]
 use k256::ecdsa::VerifyingKey;
-#[cfg(all(feature = "std"))]
-use secp256k1::SECP256K1;
 #[cfg(all(feature = "std", feature = "full_crypto"))]
 use secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
-	Message, PublicKey, SecretKey,
+	Message, PublicKey, SecretKey, SECP256K1,
 };
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -112,7 +110,7 @@ impl Public {
 		let pubkey = {
 			#[cfg(feature = "std")]
 			{
-				secp256k1::PublicKey::from_slice(&full)
+				PublicKey::from_slice(&full)
 			}
 			#[cfg(not(feature = "std"))]
 			{
@@ -144,8 +142,8 @@ impl AsMut<[u8]> for Public {
 }
 
 #[cfg(feature = "std")]
-impl From<secp256k1::PublicKey> for Public {
-	fn from(pubkey: secp256k1::PublicKey) -> Self {
+impl From<PublicKey> for Public {
+	fn from(pubkey: PublicKey) -> Self {
 		Self(pubkey.serialize())
 	}
 }
@@ -373,7 +371,6 @@ impl Signature {
 		{
 			let rid = k256::ecdsa::RecoveryId::from_byte(self.0[64])?;
 			let sig = k256::ecdsa::Signature::from_bytes((&self.0[..64]).into()).ok()?;
-
 			VerifyingKey::recover_from_prehash(message, &sig, rid).map(Public::from).ok()
 		}
 	}
@@ -430,8 +427,7 @@ impl TraitPair for Pair {
 		{
 			let secret = SecretKey::from_slice(seed_slice)
 				.map_err(|_| SecretStringError::InvalidSeedLength)?;
-			let public = PublicKey::from_secret_key(&SECP256K1, &secret).into();
-			Ok(Pair { public, secret })
+			Ok(Pair { public: PublicKey::from_secret_key(&SECP256K1, &secret).into(), secret })
 		}
 
 		#[cfg(not(feature = "std"))]
