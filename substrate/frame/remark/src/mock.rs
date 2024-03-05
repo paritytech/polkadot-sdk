@@ -21,7 +21,7 @@ use crate as pallet_remark;
 use frame_support::derive_impl;
 use sp_runtime::BuildStorage;
 
-pub type Block = frame_system::mocking::MockBlock<Test>;
+pub type Block = frame_system::mocking::MockBlockU32<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -35,6 +35,7 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl pallet_remark::Config for Test {
