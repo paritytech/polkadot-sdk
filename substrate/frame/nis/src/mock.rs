@@ -29,7 +29,7 @@ use pallet_balances::{Instance1, Instance2};
 use sp_core::ConstU128;
 use sp_runtime::BuildStorage;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 pub type Balance = u64;
 
@@ -48,6 +48,7 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl pallet_balances::Config<Instance1> for Test {
@@ -91,7 +92,7 @@ parameter_types! {
 	pub const NisPalletId: PalletId = PalletId(*b"py/nis  ");
 	pub static Target: Perquintill = Perquintill::zero();
 	pub const MinReceipt: Perquintill = Perquintill::from_percent(1);
-	pub const ThawThrottle: (Perquintill, u64) = (Perquintill::from_percent(25), 5);
+	pub const ThawThrottle: (Perquintill, u32) = (Perquintill::from_percent(25), 5);
 	pub static MaxIntakeWeight: Weight = Weight::from_parts(2_000_000_000_000, 0);
 }
 
@@ -114,9 +115,9 @@ impl pallet_nis::Config for Test {
 	type QueueCount = ConstU32<3>;
 	type MaxQueueLen = ConstU32<3>;
 	type FifoQueueLen = ConstU32<1>;
-	type BasePeriod = ConstU64<3>;
+	type BasePeriod = ConstU32<3>;
 	type MinBid = ConstU64<2>;
-	type IntakePeriod = ConstU64<2>;
+	type IntakePeriod = ConstU32<2>;
 	type MaxIntakeWeight = MaxIntakeWeight;
 	type MinReceipt = MinReceipt;
 	type ThawThrottle = ThawThrottle;
@@ -142,7 +143,7 @@ pub fn new_test_ext_empty() -> sp_io::TestExternalities {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
 
-pub fn run_to_block(n: u64) {
+pub fn run_to_block(n: u32) {
 	while System::block_number() < n {
 		Nis::on_finalize(System::block_number());
 		Balances::on_finalize(System::block_number());
