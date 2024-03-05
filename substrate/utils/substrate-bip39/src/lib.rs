@@ -61,7 +61,8 @@ pub fn seed_from_entropy(entropy: &[u8], password: &str) -> Result<[u8; 64], Err
 
 	let mut seed = [0u8; 64];
 
-	pbkdf2::<Hmac<Sha512>>(entropy, salt.as_bytes(), 2048, &mut seed);
+	pbkdf2::<Hmac<Sha512>>(entropy, salt.as_bytes(), 2048, &mut seed)
+		.map_err(|_| Error::InvalidEntropy)?;
 
 	salt.zeroize();
 
@@ -212,13 +213,14 @@ mod test {
 			let expected_entropy: Vec<u8> = vector[1].from_hex().unwrap();
 			let expected_seed: Vec<u8> = vector[2].from_hex().unwrap();
 
-			let mnemonic = Mnemonic::from_phrase(phrase, Language::English).unwrap();
-			let seed = seed_from_entropy(mnemonic.entropy(), "Substrate").unwrap();
-			let secret =
-				mini_secret_from_entropy(mnemonic.entropy(), "Substrate").unwrap().to_bytes();
+			let mnemonic = Mnemonic::parse_in(Language::English, phrase).unwrap();
+			let seed = seed_from_entropy(&mnemonic.to_entropy(), "Substrate").unwrap();
+			let secret = mini_secret_from_entropy(&mnemonic.to_entropy(), "Substrate")
+				.unwrap()
+				.to_bytes();
 
 			assert_eq!(
-				mnemonic.entropy(),
+				mnemonic.to_entropy(),
 				&expected_entropy[..],
 				"Entropy is incorrect for {}",
 				phrase
