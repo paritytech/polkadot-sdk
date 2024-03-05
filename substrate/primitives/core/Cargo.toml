@@ -116,7 +116,7 @@ std = [
 	"sp-std/std",
 	"sp-storage/std",
 	"ss58-registry/std",
-	"substrate-bip39",
+	"substrate-bip39/std",
 	"thiserror",
 	"tracing",
 	"w3f-bls?/std",
