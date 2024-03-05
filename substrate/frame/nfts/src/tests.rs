@@ -93,7 +93,7 @@ fn attributes(
 	s
 }
 
-fn approvals(collection_id: u32, item_id: u32) -> Vec<(AccountIdOf<Test>, Option<u64>)> {
+fn approvals(collection_id: u32, item_id: u32) -> Vec<(AccountIdOf<Test>, Option<u32>)> {
 	let item = Item::<Test>::get(collection_id, item_id).unwrap();
 	let s: Vec<_> = item.approvals.into_iter().collect();
 	s
@@ -2732,7 +2732,7 @@ fn create_cancel_swap_should_work() {
 			Error::<Test>::UnknownCollection
 		);
 
-		let max_duration: u64 = <Test as Config>::MaxDeadlineDuration::get();
+		let max_duration: u32 = <Test as Config>::MaxDeadlineDuration::get();
 		assert_noop!(
 			Nfts::create_swap(
 				RuntimeOrigin::signed(user_id.clone()),

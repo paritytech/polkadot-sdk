@@ -30,7 +30,7 @@ use sp_runtime::{
 	BuildStorage, MultiSignature,
 };
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 construct_runtime!(
 	pub enum Test
@@ -51,6 +51,7 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl pallet_balances::Config for Test {
@@ -92,7 +93,7 @@ impl Config for Test {
 	type ApprovalsLimit = ConstU32<10>;
 	type ItemAttributesApprovalsLimit = ConstU32<2>;
 	type MaxTips = ConstU32<10>;
-	type MaxDeadlineDuration = ConstU64<10000>;
+	type MaxDeadlineDuration = ConstU32<10000>;
 	type MaxAttributesPerCall = ConstU32<2>;
 	type Features = Features;
 	/// Off-chain = signature On-chain - therefore no conversion needed.
