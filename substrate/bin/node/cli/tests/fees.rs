@@ -54,11 +54,11 @@ fn fee_multiplier_increases_and_decreases_on_big_weight() {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time1 }),
 			},
 			CheckedExtrinsic {
-				signed: Some((charlie(), signed_extra(0, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(0, 0)),
 				function: RuntimeCall::Sudo(pallet_sudo::Call::sudo {
 					call: Box::new(RuntimeCall::RootTesting(
 						pallet_root_testing::Call::fill_block { ratio: Perbill::from_percent(60) },
@@ -77,11 +77,11 @@ fn fee_multiplier_increases_and_decreases_on_big_weight() {
 		block1.1,
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time2 }),
 			},
 			CheckedExtrinsic {
-				signed: Some((charlie(), signed_extra(1, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(1, 0)),
 				function: RuntimeCall::System(frame_system::Call::remark { remark: vec![0; 1] }),
 			},
 		],
@@ -147,7 +147,7 @@ fn transaction_fee_is_correct() {
 
 	let tip = 1_000_000;
 	let xt = sign(CheckedExtrinsic {
-		signed: Some((alice(), signed_extra(0, tip))),
+		format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, tip)),
 		function: RuntimeCall::Balances(default_transfer_call()),
 	});
 
@@ -211,7 +211,10 @@ fn block_weight_capacity_report() {
 		let num_transfers = block_number * factor;
 		let mut xts = (0..num_transfers)
 			.map(|i| CheckedExtrinsic {
-				signed: Some((charlie(), signed_extra(nonce + i as Nonce, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(
+					charlie(),
+					tx_ext(nonce + i as Nonce, 0),
+				),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 0,
@@ -222,7 +225,7 @@ fn block_weight_capacity_report() {
 		xts.insert(
 			0,
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time * 1000 }),
 			},
 		);
@@ -285,13 +288,16 @@ fn block_length_capacity_report() {
 			previous_hash,
 			vec![
 				CheckedExtrinsic {
-					signed: None,
+					format: sp_runtime::generic::ExtrinsicFormat::Bare,
 					function: RuntimeCall::Timestamp(pallet_timestamp::Call::set {
 						now: time * 1000,
 					}),
 				},
 				CheckedExtrinsic {
-					signed: Some((charlie(), signed_extra(nonce, 0))),
+					format: sp_runtime::generic::ExtrinsicFormat::Signed(
+						charlie(),
+						tx_ext(nonce, 0),
+					),
 					function: RuntimeCall::System(frame_system::Call::remark {
 						remark: vec![0u8; (block_number * factor) as usize],
 					}),
