@@ -30,7 +30,7 @@ use frame_support::{
 use sp_core::H256;
 use sp_runtime::{traits::BlakeTwo256, BuildStorage, DispatchError, RuntimeDebug};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -47,6 +47,7 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type BaseCallFilter = BaseFilter;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
