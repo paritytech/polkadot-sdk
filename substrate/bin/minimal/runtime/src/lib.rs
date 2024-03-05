@@ -52,7 +52,7 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-type SignedExtra = (
+type TxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -104,7 +104,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 }
 
-type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
+type Block = frame::runtime::types_common::BlockOf<Runtime, TxExtension>;
 type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =
