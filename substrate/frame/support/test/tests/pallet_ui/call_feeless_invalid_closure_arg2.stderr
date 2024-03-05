@@ -1,0 +1,5 @@
+error: Invalid type: expected `&OriginFor<T>`
+  --> tests/pallet_ui/call_feeless_invalid_closure_arg2.rs:31:28
+   |
+31 |         #[pallet::feeless_if(|_: bool| -> bool { true })]
+   |                                  ^^^^

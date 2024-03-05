@@ -62,10 +62,10 @@ pub struct TicketClaim {
 	pub erased_signature: EphemeralSignature,
 }
 
-/// Computes ticket-id maximum allowed value for a given epoch.
+/// Computes a boundary for [`TicketId`] maximum allowed value for a given epoch.
 ///
-/// Only ticket identifiers below this threshold should be considered for slot
-/// assignment.
+/// Only ticket identifiers below this threshold should be considered as candidates
+/// for slot assignment.
 ///
 /// The value is computed as `TicketId::MAX*(redundancy*slots)/(attempts*validators)`
 ///
@@ -76,16 +76,51 @@ pub struct TicketClaim {
 /// - `validators`: number of validators in epoch.
 ///
 /// If `attempts * validators = 0` then we return 0.
+///
+/// For details about the formula and implications refer to
+/// [*probabilities an parameters*](https://research.web3.foundation/Polkadot/protocols/block-production/SASSAFRAS#probabilities-and-parameters)
+/// paragraph of the w3f introduction to the protocol.
+// TODO: replace with [RFC-26](https://github.com/polkadot-fellows/RFCs/pull/26)
+// "Tickets Threshold" paragraph once is merged
 pub fn ticket_id_threshold(
 	redundancy: u32,
 	slots: u32,
 	attempts: u32,
 	validators: u32,
 ) -> TicketId {
-	let den = attempts as u64 * validators as u64;
 	let num = redundancy as u64 * slots as u64;
+	let den = attempts as u64 * validators as u64;
 	TicketId::max_value()
 		.checked_div(den.into())
 		.unwrap_or_default()
 		.saturating_mul(num.into())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	// This is a trivial example/check which just better explain explains the rationale
+	// behind the threshold.
+	//
+	// After this reading the formula should become obvious.
+	#[test]
+	fn ticket_id_threshold_trivial_check() {
+		// For an epoch with `s` slots we want to accept a number of tickets equal to ~s·r
+		let redundancy = 2;
+		let slots = 1000;
+		let attempts = 100;
+		let validators = 500;
+
+		let threshold = ticket_id_threshold(redundancy, slots, attempts, validators);
+		let threshold = threshold as f64 / TicketId::MAX as f64;
+
+		// We expect that the total number of tickets allowed to be submited
+		// is slots*redundancy
+		let avt = ((attempts * validators) as f64 * threshold) as u32;
+		assert_eq!(avt, slots * redundancy);
+
+		println!("threshold: {}", threshold);
+		println!("avt = {}", avt);
+	}
 }

@@ -1,0 +1,11 @@
+error: Invalid feeless_if attribute: expected a closure
+  --> tests/pallet_ui/call_feeless_invalid_type.rs:31:24
+   |
+31 |         #[pallet::feeless_if(0)]
+   |                              ^
+
+error: expected `|`
+  --> tests/pallet_ui/call_feeless_invalid_type.rs:31:24
+   |
+31 |         #[pallet::feeless_if(0)]
+   |                              ^

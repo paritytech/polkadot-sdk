@@ -191,7 +191,7 @@ fn propose_works() {
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		assert_eq!(*AllianceMotion::proposals(), vec![hash]);
+		assert!(pallet_collective::Voting::<Test, Instance1>::contains_key(hash));
 		assert_eq!(AllianceMotion::proposal_of(&hash), Some(proposal));
 		System::assert_has_event(mock::RuntimeEvent::AllianceMotion(
 			AllianceMotionEvent::Proposed {

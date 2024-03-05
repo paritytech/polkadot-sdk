@@ -37,8 +37,9 @@ use sp_core::{
 use sp_io;
 use sp_runtime::{
 	curve::PiecewiseLinear,
+	generic::UncheckedExtrinsic,
 	impl_opaque_keys,
-	testing::{Digest, DigestItem, Header, TestXt},
+	testing::{Digest, DigestItem, Header},
 	traits::{Header as _, OpaqueKeys},
 	BuildStorage, Perbill,
 };
@@ -74,7 +75,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type OverarchingCall = RuntimeCall;
-	type Extrinsic = TestXt<RuntimeCall, ()>;
+	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 }
 
 impl_opaque_keys! {
@@ -126,7 +127,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 pallet_staking_reward_curve::build! {
@@ -183,6 +183,7 @@ impl pallet_staking::Config for Test {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type NominationsQuota = FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = ConstU32<84>;
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;

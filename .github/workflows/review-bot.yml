@@ -23,7 +23,7 @@ jobs:
           app_id: ${{ secrets.REVIEW_APP_ID }}
           private_key: ${{ secrets.REVIEW_APP_KEY }}
       - name: "Evaluates PR reviews and assigns reviewers"
-        uses: paritytech/review-bot@v2.2.0
+        uses: paritytech/review-bot@v2.4.0
         with:
           repo-token: ${{ steps.app_token.outputs.token }}
           team-token: ${{ steps.app_token.outputs.token }}

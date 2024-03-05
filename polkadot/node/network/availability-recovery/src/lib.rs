@@ -65,7 +65,7 @@ mod error;
 mod futures_undead;
 mod metrics;
 mod task;
-use metrics::Metrics;
+pub use metrics::Metrics;
 
 #[cfg(test)]
 mod tests;
@@ -105,6 +105,17 @@ pub struct AvailabilityRecoverySubsystem {
 	req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 	/// Metrics for this subsystem.
 	metrics: Metrics,
+	/// The type of check to perform after available data was recovered.
+	post_recovery_check: PostRecoveryCheck,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+/// The type of check to perform after available data was recovered.
+pub enum PostRecoveryCheck {
+	/// Reencode the data and check erasure root. For validators.
+	Reencode,
+	/// Only check the pov hash. For collators only.
+	PovHash,
 }
 
 /// Expensive erasure coding computations that we want to run on a blocking thread.
@@ -344,6 +355,7 @@ async fn launch_recovery_task<Context>(
 	metrics: &Metrics,
 	recovery_strategies: VecDeque<Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>>,
 	bypass_availability_store: bool,
+	post_recovery_check: PostRecoveryCheck,
 ) -> error::Result<()> {
 	let candidate_hash = receipt.hash();
 	let params = RecoveryParams {
@@ -354,6 +366,8 @@ async fn launch_recovery_task<Context>(
 		erasure_root: receipt.descriptor.erasure_root,
 		metrics: metrics.clone(),
 		bypass_availability_store,
+		post_recovery_check,
+		pov_hash: receipt.descriptor.pov_hash,
 	};
 
 	let recovery_task = RecoveryTask::new(ctx.sender().clone(), params, recovery_strategies);
@@ -390,6 +404,7 @@ async fn handle_recover<Context>(
 	erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 	recovery_strategy_kind: RecoveryStrategyKind,
 	bypass_availability_store: bool,
+	post_recovery_check: PostRecoveryCheck,
 ) -> error::Result<()> {
 	let candidate_hash = receipt.hash();
 
@@ -486,6 +501,7 @@ async fn handle_recover<Context>(
 				metrics,
 				recovery_strategies,
 				bypass_availability_store,
+				post_recovery_check,
 			)
 			.await
 		},
@@ -527,15 +543,17 @@ async fn query_chunk_size<Context>(
 
 #[overseer::contextbounds(AvailabilityRecovery, prefix = self::overseer)]
 impl AvailabilityRecoverySubsystem {
-	/// Create a new instance of `AvailabilityRecoverySubsystem` which never requests the
-	/// `AvailabilityStoreSubsystem` subsystem.
-	pub fn with_availability_store_skip(
+	/// Create a new instance of `AvailabilityRecoverySubsystem` suitable for collator nodes,
+	/// which never requests the `AvailabilityStoreSubsystem` subsystem and only checks the POV hash
+	/// instead of reencoding the available data.
+	pub fn for_collator(
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 		metrics: Metrics,
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
 			bypass_availability_store: true,
+			post_recovery_check: PostRecoveryCheck::PovHash,
 			req_receiver,
 			metrics,
 		}
@@ -550,6 +568,7 @@ impl AvailabilityRecoverySubsystem {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstAlways,
 			bypass_availability_store: false,
+			post_recovery_check: PostRecoveryCheck::Reencode,
 			req_receiver,
 			metrics,
 		}
@@ -563,6 +582,7 @@ impl AvailabilityRecoverySubsystem {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::ChunksAlways,
 			bypass_availability_store: false,
+			post_recovery_check: PostRecoveryCheck::Reencode,
 			req_receiver,
 			metrics,
 		}
@@ -577,15 +597,22 @@ impl AvailabilityRecoverySubsystem {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
 			bypass_availability_store: false,
+			post_recovery_check: PostRecoveryCheck::Reencode,
 			req_receiver,
 			metrics,
 		}
 	}
 
-	async fn run<Context>(self, mut ctx: Context) -> SubsystemResult<()> {
+	/// Starts the inner subsystem loop.
+	pub async fn run<Context>(self, mut ctx: Context) -> SubsystemResult<()> {
 		let mut state = State::default();
-		let Self { mut req_receiver, metrics, recovery_strategy_kind, bypass_availability_store } =
-			self;
+		let Self {
+			mut req_receiver,
+			metrics,
+			recovery_strategy_kind,
+			bypass_availability_store,
+			post_recovery_check,
+		} = self;
 
 		let (erasure_task_tx, erasure_task_rx) = futures::channel::mpsc::channel(16);
 		let mut erasure_task_rx = erasure_task_rx.fuse();
@@ -655,6 +682,7 @@ impl AvailabilityRecoverySubsystem {
 							&mut state,
 							signal,
 						).await? {
+							gum::debug!(target: LOG_TARGET, "subsystem concluded");
 							return Ok(());
 						}
 						FromOrchestra::Communication { msg } => {
@@ -675,7 +703,8 @@ impl AvailabilityRecoverySubsystem {
 										&metrics,
 										erasure_task_tx.clone(),
 										recovery_strategy_kind.clone(),
-										bypass_availability_store
+										bypass_availability_store,
+										post_recovery_check.clone()
 									).await {
 										gum::warn!(
 											target: LOG_TARGET,
@@ -818,12 +847,17 @@ async fn erasure_task_thread(
 				let _ = sender.send(maybe_data);
 			},
 			None => {
-				gum::debug!(
+				gum::trace!(
 					target: LOG_TARGET,
 					"Erasure task channel closed. Node shutting down ?",
 				);
 				break
 			},
 		}
+
+		// In benchmarks this is a very hot loop not yielding at all.
+		// To update CPU metrics for the task we need to yield.
+		#[cfg(feature = "subsystem-benchmarks")]
+		tokio::task::yield_now().await;
 	}
 }

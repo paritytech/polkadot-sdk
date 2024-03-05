@@ -1,6 +1,6 @@
 [package]
 name = "sp-session"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,21 +9,24 @@ repository.workspace = true
 description = "Primitives for sessions"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-sp-api = { path = "../api", default-features = false}
-sp-core = { path = "../core", default-features = false}
-sp-runtime = { path = "../runtime", optional = true}
-sp-staking = { path = "../staking", default-features = false}
-sp-std = { path = "../std", default-features = false}
+sp-api = { path = "../api", default-features = false }
+sp-core = { path = "../core", default-features = false }
+sp-runtime = { path = "../runtime", optional = true }
+sp-staking = { path = "../staking", default-features = false }
+sp-std = { path = "../std", default-features = false }
 sp-keystore = { path = "../keystore", optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",

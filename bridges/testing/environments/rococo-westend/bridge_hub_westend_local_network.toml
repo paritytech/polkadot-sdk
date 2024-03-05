@@ -1,0 +1,88 @@
+[settings]
+node_spawn_timeout = 240
+
+[relaychain]
+default_command = "{{POLKADOT_BINARY}}"
+default_args = [ "-lparachain=debug,xcm=trace" ]
+chain = "westend-local"
+
+	[[relaychain.nodes]]
+	name = "alice-westend-validator"
+	validator = true
+	rpc_port = 9935
+	ws_port = 9945
+	balance = 2000000000000
+
+	[[relaychain.nodes]]
+	name = "bob-westend-validator"
+	validator = true
+	rpc_port = 9936
+	ws_port = 9946
+	balance = 2000000000000
+
+	[[relaychain.nodes]]
+	name = "charlie-westend-validator"
+	validator = true
+	rpc_port = 9937
+	ws_port = 9947
+	balance = 2000000000000
+
+[[parachains]]
+id = 1002
+chain = "bridge-hub-westend-local"
+cumulus_based = true
+
+	# run alice as parachain collator
+	[[parachains.collators]]
+	name = "bridge-hub-westend-collator1"
+	validator = true
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
+	rpc_port = 8935
+	ws_port = 8945
+	args = [
+		"-lparachain=debug,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace"
+	]
+
+	# run bob as parachain collator
+	[[parachains.collators]]
+	name = "bridge-hub-westend-collator2"
+	validator = true
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
+	rpc_port = 8936
+	ws_port = 8946
+	args = [
+		"-lparachain=trace,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace"
+	]
+
+[[parachains]]
+id = 1000
+chain = "asset-hub-westend-local"
+cumulus_based = true
+
+	[[parachains.collators]]
+	name = "asset-hub-westend-collator1"
+	rpc_port = 9011
+	ws_port = 9010
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
+	args = [
+		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
+	]
+
+	[[parachains.collators]]
+	name = "asset-hub-westend-collator2"
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
+	args = [
+		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
+	]
+
+#[[hrmp_channels]]
+#sender = 1000
+#recipient = 1002
+#max_capacity = 4
+#max_message_size = 524288
+#
+#[[hrmp_channels]]
+#sender = 1002
+#recipient = 1000
+#max_capacity = 4
+#max_message_size = 524288

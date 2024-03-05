@@ -18,23 +18,20 @@ use crate::{
 	configuration, inclusion, initializer, paras,
 	paras::ParaKind,
 	paras_inherent,
-	scheduler::{
-		self,
-		common::{Assignment, AssignmentProviderConfig},
-		CoreOccupied, ParasEntry,
-	},
+	scheduler::{self, common::AssignmentProvider, CoreOccupied, ParasEntry},
 	session_info, shared,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use primitives::{
-	collator_signature_payload, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
-	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CommittedCandidateReceipt,
-	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
-	Id as ParaId, IndexedVec, InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
-	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
-	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
+	collator_signature_payload, vstaging::node_features::FeatureIndex, AvailabilityBitfield,
+	BackedCandidate, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
+	CollatorSignature, CommittedCandidateReceipt, CompactStatement, CoreIndex, DisputeStatement,
+	DisputeStatementSet, GroupIndex, HeadData, Id as ParaId, IndexedVec,
+	InherentData as ParachainsInherentData, InvalidDisputeStatementKind, PersistedValidationData,
+	SessionIndex, SigningContext, UncheckedSigned, ValidDisputeStatementKind, ValidationCode,
+	ValidatorId, ValidatorIndex, ValidityAttestation,
 };
 use sp_core::{sr25519, H256};
 use sp_runtime::{
@@ -96,6 +93,8 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	/// Make every candidate include a code upgrade by setting this to `Some` where the interior
 	/// value is the byte length of the new code.
 	code_upgrade: Option<u32>,
+	/// Specifies whether the claimqueue should be filled.
+	fill_claimqueue: bool,
 	_phantom: sp_std::marker::PhantomData<T>,
 }
 
@@ -122,6 +121,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			dispute_sessions: Default::default(),
 			backed_and_concluding_cores: Default::default(),
 			code_upgrade: None,
+			fill_claimqueue: true,
 			_phantom: sp_std::marker::PhantomData::<T>,
 		}
 	}
@@ -194,7 +194,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Maximum number of validators per core (a.k.a. max validators per group). This value is used
 	/// if none is explicitly set on the builder.
 	pub(crate) fn fallback_max_validators_per_core() -> u32 {
-		configuration::Pallet::<T>::config().max_validators_per_core.unwrap_or(5)
+		configuration::Pallet::<T>::config()
+			.scheduler_params
+			.max_validators_per_core
+			.unwrap_or(5)
 	}
 
 	/// Specify a mapping of core index/ para id to the number of dispute statements for the
@@ -223,6 +226,13 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Get the maximum number of cores we expect from this configuration.
 	pub(crate) fn max_cores(&self) -> u32 {
 		self.max_validators() / self.max_validators_per_core()
+	}
+
+	/// Set whether the claim queue should be filled.
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	pub(crate) fn set_fill_claimqueue(mut self, f: bool) -> Self {
+		self.fill_claimqueue = f;
+		self
 	}
 
 	/// Get the minimum number of validity votes in order for a backed candidate to be included.
@@ -500,7 +510,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.iter()
 			.map(|(seed, num_votes)| {
 				assert!(*num_votes <= validators.len() as u32);
-				let (para_id, _core_idx, group_idx) = self.create_indexes(*seed);
+				let (para_id, core_idx, group_idx) = self.create_indexes(*seed);
 
 				// This generates a pair and adds it to the keystore, returning just the public.
 				let collator_public = CollatorId::generate_pair(None);
@@ -577,11 +587,19 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					})
 					.collect();
 
-				BackedCandidate::<T::Hash> {
+				// Check if the elastic scaling bit is set, if so we need to supply the core index
+				// in the generated candidate.
+				let core_idx = configuration::Pallet::<T>::config()
+					.node_features
+					.get(FeatureIndex::ElasticScalingMVP as usize)
+					.map(|_the_bit| core_idx);
+
+				BackedCandidate::<T::Hash>::new(
 					candidate,
 					validity_votes,
-					validator_indices: bitvec::bitvec![u8, bitvec::order::Lsb0; 1; group_validators.len()],
-				}
+					bitvec::bitvec![u8, bitvec::order::Lsb0; 1; group_validators.len()],
+					core_idx,
+				)
 			})
 			.collect()
 	}
@@ -636,14 +654,14 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 						} else {
 							DisputeStatement::Valid(ValidDisputeStatementKind::Explicit)
 						};
-						let data = dispute_statement.payload_data(candidate_hash, session);
+						let data = dispute_statement.payload_data(candidate_hash, session).unwrap();
 						let statement_sig = validator_public.sign(&data).unwrap();
 
 						(dispute_statement, ValidatorIndex(validator_index), statement_sig)
 					})
 					.collect();
 
-				DisputeStatementSet { candidate_hash: candidate_hash, session, statements }
+				DisputeStatementSet { candidate_hash, session, statements }
 			})
 			.collect()
 	}
@@ -663,14 +681,18 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		inclusion::PendingAvailability::<T>::remove_all(None);
 
 		// We don't allow a core to have both disputes and be marked fully available at this block.
-		let cores = self.max_cores();
+		let max_cores = self.max_cores();
 		let used_cores =
 			(self.dispute_sessions.len() + self.backed_and_concluding_cores.len()) as u32;
-		assert!(used_cores <= cores);
+		assert!(used_cores <= max_cores);
+		let fill_claimqueue = self.fill_claimqueue;
 
 		// NOTE: there is an n+2 session delay for these actions to take effect.
 		// We are currently in Session 0, so these changes will take effect in Session 2.
 		Self::setup_para_ids(used_cores);
+		configuration::ActiveConfig::<T>::mutate(|c| {
+			c.scheduler_params.num_cores = used_cores;
+		});
 
 		let validator_ids = Self::generate_validator_pairs(self.max_validators());
 		let target_session = SessionIndex::from(self.target_session);
@@ -700,15 +722,33 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let cores = (0..used_cores)
 			.into_iter()
 			.map(|i| {
-				let AssignmentProviderConfig { ttl, .. } =
-					scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
-				CoreOccupied::Paras(ParasEntry::new(
-					Assignment::new(ParaId::from(i as u32)),
-					now + ttl,
-				))
+				let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
+				// Load an assignment into provider so that one is present to pop
+				let assignment = <T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
+					CoreIndex(i),
+					ParaId::from(i),
+				);
+				CoreOccupied::Paras(ParasEntry::new(assignment, now + ttl))
 			})
 			.collect();
 		scheduler::AvailabilityCores::<T>::set(cores);
+		if fill_claimqueue {
+			// Add items to claim queue as well:
+			let cores = (0..used_cores)
+				.into_iter()
+				.map(|i| {
+					let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
+					// Load an assignment into provider so that one is present to pop
+					let assignment =
+						<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
+							CoreIndex(i),
+							ParaId::from(i),
+						);
+					(CoreIndex(i), [ParasEntry::new(assignment, now + ttl)].into())
+				})
+				.collect();
+			scheduler::ClaimQueue::<T>::set(cores);
+		}
 
 		Bench::<T> {
 			data: ParachainsInherentData {

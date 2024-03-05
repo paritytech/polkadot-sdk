@@ -25,8 +25,6 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use itertools::Itertools;
 #[cfg(feature = "std")]
 use rand::{rngs::OsRng, RngCore};
-#[cfg(feature = "std")]
-use regex::Regex;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 pub use secrecy::{ExposeSecret, SecretString};
@@ -42,6 +40,11 @@ use sp_std::{hash::Hash, str, vec::Vec};
 pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
+
+#[cfg(feature = "std")]
+pub use crate::address_uri::AddressUri;
+#[cfg(any(feature = "std", feature = "full_crypto"))]
+pub use crate::address_uri::Error as AddressUriError;
 
 /// The root phrase for our publicly known keys.
 pub const DEV_PHRASE: &str =
@@ -82,8 +85,8 @@ impl<S, T: UncheckedFrom<S>> UncheckedInto<T> for S {
 #[cfg(feature = "full_crypto")]
 pub enum SecretStringError {
 	/// The overall format was invalid (e.g. the seed phrase contained symbols).
-	#[cfg_attr(feature = "std", error("Invalid format"))]
-	InvalidFormat,
+	#[cfg_attr(feature = "std", error("Invalid format {0}"))]
+	InvalidFormat(AddressUriError),
 	/// The seed phrase provided is not a valid BIP39 phrase.
 	#[cfg_attr(feature = "std", error("Invalid phrase"))]
 	InvalidPhrase,
@@ -99,6 +102,13 @@ pub enum SecretStringError {
 	/// The derivation path was invalid (e.g. contains soft junctions when they are not supported).
 	#[cfg_attr(feature = "std", error("Invalid path"))]
 	InvalidPath,
+}
+
+#[cfg(any(feature = "std", feature = "full_crypto"))]
+impl From<AddressUriError> for SecretStringError {
+	fn from(e: AddressUriError) -> Self {
+		Self::InvalidFormat(e)
+	}
 }
 
 /// An error when deriving a key.
@@ -142,7 +152,7 @@ impl DeriveJunction {
 		let mut cc: [u8; JUNCTION_ID_LEN] = Default::default();
 		index.using_encoded(|data| {
 			if data.len() > JUNCTION_ID_LEN {
-				cc.copy_from_slice(&sp_core_hashing::blake2_256(data));
+				cc.copy_from_slice(&sp_crypto_hashing::blake2_256(data));
 			} else {
 				cc[0..data.len()].copy_from_slice(data);
 			}
@@ -208,7 +218,7 @@ impl<T: AsRef<str>> From<T> for DeriveJunction {
 /// An error type for SS58 decoding.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[cfg_attr(not(feature = "std"), derive(Debug))]
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 #[allow(missing_docs)]
 #[cfg(any(feature = "full_crypto", feature = "serde"))]
 pub enum PublicError {
@@ -235,6 +245,11 @@ pub enum PublicError {
 	InvalidPath,
 	#[cfg_attr(feature = "std", error("Disallowed SS58 Address Format for this datatype."))]
 	FormatNotAllowed,
+	#[cfg_attr(feature = "std", error("Password not allowed."))]
+	PasswordNotAllowed,
+	#[cfg(feature = "std")]
+	#[cfg_attr(feature = "std", error("Incorrect URI syntax {0}."))]
+	MalformedUri(#[from] AddressUriError),
 }
 
 #[cfg(feature = "std")]
@@ -415,46 +430,39 @@ pub fn set_default_ss58_version(new_default: Ss58AddressFormat) {
 }
 
 #[cfg(feature = "std")]
-lazy_static::lazy_static! {
-	static ref SS58_REGEX: Regex = Regex::new(r"^(?P<ss58>[\w\d ]+)?(?P<path>(//?[^/]+)*)$")
-		.expect("constructed from known-good static value; qed");
-	static ref SECRET_PHRASE_REGEX: Regex = Regex::new(r"^(?P<phrase>[\d\w ]+)?(?P<path>(//?[^/]+)*)(///(?P<password>.*))?$")
-		.expect("constructed from known-good static value; qed");
-	static ref JUNCTION_REGEX: Regex = Regex::new(r"/(/?[^/]+)")
-		.expect("constructed from known-good static value; qed");
-}
-
-#[cfg(feature = "std")]
 impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
-		let cap = SS58_REGEX.captures(s).ok_or(PublicError::InvalidFormat)?;
-		let s = cap.name("ss58").map(|r| r.as_str()).unwrap_or(DEV_ADDRESS);
+		let cap = AddressUri::parse(s)?;
+		if cap.pass.is_some() {
+			return Err(PublicError::PasswordNotAllowed)
+		}
+		let s = cap.phrase.unwrap_or(DEV_ADDRESS);
 		let addr = if let Some(stripped) = s.strip_prefix("0x") {
 			let d = array_bytes::hex2bytes(stripped).map_err(|_| PublicError::InvalidFormat)?;
 			Self::from_slice(&d).map_err(|()| PublicError::BadLength)?
 		} else {
 			Self::from_ss58check(s)?
 		};
-		if cap["path"].is_empty() {
+		if cap.paths.is_empty() {
 			Ok(addr)
 		} else {
-			let path =
-				JUNCTION_REGEX.captures_iter(&cap["path"]).map(|f| DeriveJunction::from(&f[1]));
-			addr.derive(path).ok_or(PublicError::InvalidPath)
+			addr.derive(cap.paths.iter().map(DeriveJunction::from))
+				.ok_or(PublicError::InvalidPath)
 		}
 	}
 
 	fn from_string_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
-		let cap = SS58_REGEX.captures(s).ok_or(PublicError::InvalidFormat)?;
-		let (addr, v) = Self::from_ss58check_with_version(
-			cap.name("ss58").map(|r| r.as_str()).unwrap_or(DEV_ADDRESS),
-		)?;
-		if cap["path"].is_empty() {
+		let cap = AddressUri::parse(s)?;
+		if cap.pass.is_some() {
+			return Err(PublicError::PasswordNotAllowed)
+		}
+		let (addr, v) = Self::from_ss58check_with_version(cap.phrase.unwrap_or(DEV_ADDRESS))?;
+		if cap.paths.is_empty() {
 			Ok((addr, v))
 		} else {
-			let path =
-				JUNCTION_REGEX.captures_iter(&cap["path"]).map(|f| DeriveJunction::from(&f[1]));
-			addr.derive(path).ok_or(PublicError::InvalidPath).map(|a| (a, v))
+			addr.derive(cap.paths.iter().map(DeriveJunction::from))
+				.ok_or(PublicError::InvalidPath)
+				.map(|a| (a, v))
 		}
 	}
 }
@@ -585,14 +593,16 @@ impl std::fmt::Display for AccountId32 {
 }
 
 impl sp_std::fmt::Debug for AccountId32 {
-	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
-	}
+		#[cfg(feature = "serde")]
+		{
+			let s = self.to_ss58check();
+			write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])?;
+		}
 
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		#[cfg(not(feature = "serde"))]
+		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))?;
+
 		Ok(())
 	}
 }
@@ -763,6 +773,8 @@ mod dummy {
 /// Similarly an empty password (ending the `SURI` with `///`) is perfectly valid and will
 /// generally be equivalent to no password at all.
 ///
+/// The `password` is used as salt when generating the seed from the BIP-39 key phrase.
+///
 /// # Example
 ///
 /// Parse [`DEV_PHRASE`] secret uri with junction:
@@ -817,22 +829,15 @@ impl sp_std::str::FromStr for SecretUri {
 	type Err = SecretStringError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let cap = SECRET_PHRASE_REGEX.captures(s).ok_or(SecretStringError::InvalidFormat)?;
-
-		let junctions = JUNCTION_REGEX
-			.captures_iter(&cap["path"])
-			.map(|f| DeriveJunction::from(&f[1]))
-			.collect::<Vec<_>>();
-
-		let phrase = cap.name("phrase").map(|r| r.as_str()).unwrap_or(DEV_PHRASE);
-		let password = cap.name("password");
+		let cap = AddressUri::parse(s)?;
+		let phrase = cap.phrase.unwrap_or(DEV_PHRASE);
 
 		Ok(Self {
 			phrase: SecretString::from_str(phrase).expect("Returns infallible error; qed"),
-			password: password.map(|v| {
-				SecretString::from_str(v.as_str()).expect("Returns infallible error; qed")
-			}),
-			junctions,
+			password: cap
+				.pass
+				.map(|v| SecretString::from_str(v).expect("Returns infallible error; qed")),
+			junctions: cap.paths.iter().map(DeriveJunction::from).collect::<Vec<_>>(),
 		})
 	}
 }
@@ -1108,8 +1113,8 @@ impl<'a> TryFrom<&'a str> for KeyTypeId {
 pub trait VrfCrypto {
 	/// VRF input.
 	type VrfInput;
-	/// VRF output.
-	type VrfOutput;
+	/// VRF pre-output.
+	type VrfPreOutput;
 	/// VRF signing data.
 	type VrfSignData;
 	/// VRF signature.
@@ -1118,8 +1123,8 @@ pub trait VrfCrypto {
 
 /// VRF Secret Key.
 pub trait VrfSecret: VrfCrypto {
-	/// Get VRF-specific output .
-	fn vrf_output(&self, data: &Self::VrfInput) -> Self::VrfOutput;
+	/// Get VRF-specific pre-output.
+	fn vrf_pre_output(&self, data: &Self::VrfInput) -> Self::VrfPreOutput;
 
 	/// Sign VRF-specific data.
 	fn vrf_sign(&self, input: &Self::VrfSignData) -> Self::VrfSignature;

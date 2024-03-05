@@ -17,37 +17,39 @@
 
 //! Expose the auto generated weight files.
 
+use ::pallet_bridge_messages::WeightInfoExt as MessagesWeightInfoExt;
+use ::pallet_bridge_parachains::WeightInfoExt as ParachainsWeightInfoExt;
+
 pub mod block_weights;
-pub mod cumulus_pallet_dmp_queue;
 pub mod cumulus_pallet_parachain_system;
 pub mod cumulus_pallet_xcmp_queue;
 pub mod extrinsic_weights;
 pub mod frame_system;
+pub mod frame_system_extensions;
 pub mod pallet_balances;
-pub mod pallet_bridge_grandpa_rococo_finality;
-pub mod pallet_bridge_grandpa_westend_finality;
-pub mod pallet_bridge_grandpa_wococo_finality;
+pub mod pallet_bridge_grandpa;
+pub mod pallet_bridge_messages_rococo_to_rococo_bulletin;
 pub mod pallet_bridge_messages_rococo_to_westend;
-pub mod pallet_bridge_messages_rococo_to_wococo;
-pub mod pallet_bridge_messages_wococo_to_rococo;
-pub mod pallet_bridge_parachains_within_rococo;
-pub mod pallet_bridge_parachains_within_westend;
-pub mod pallet_bridge_parachains_within_wococo;
+pub mod pallet_bridge_parachains;
 pub mod pallet_bridge_relayers;
 pub mod pallet_collator_selection;
 pub mod pallet_message_queue;
 pub mod pallet_multisig;
 pub mod pallet_session;
 pub mod pallet_timestamp;
+pub mod pallet_transaction_payment;
 pub mod pallet_utility;
 pub mod pallet_xcm;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
+pub mod snowbridge_pallet_ethereum_client;
+pub mod snowbridge_pallet_inbound_queue;
+pub mod snowbridge_pallet_outbound_queue;
+pub mod snowbridge_pallet_system;
 pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
-pub use paritydb_weights::constants::ParityDbWeight;
 pub use rocksdb_weights::constants::RocksDbWeight;
 
 use crate::Runtime;
@@ -56,11 +58,11 @@ use frame_support::weights::Weight;
 // import trait from dependency module
 use ::pallet_bridge_relayers::WeightInfoExt as _;
 
-impl pallet_bridge_messages::WeightInfoExt
-	for pallet_bridge_messages_wococo_to_rococo::WeightInfo<crate::Runtime>
+impl MessagesWeightInfoExt
+	for pallet_bridge_messages_rococo_to_rococo_bulletin::WeightInfo<crate::Runtime>
 {
 	fn expected_extra_storage_proof_size() -> u32 {
-		bp_bridge_hub_rococo::EXTRA_STORAGE_PROOF_SIZE
+		bp_polkadot_bulletin::EXTRA_STORAGE_PROOF_SIZE
 	}
 
 	fn receive_messages_proof_overhead_from_runtime() -> Weight {
@@ -73,24 +75,7 @@ impl pallet_bridge_messages::WeightInfoExt
 	}
 }
 
-impl pallet_bridge_messages::WeightInfoExt
-	for pallet_bridge_messages_rococo_to_wococo::WeightInfo<crate::Runtime>
-{
-	fn expected_extra_storage_proof_size() -> u32 {
-		bp_bridge_hub_wococo::EXTRA_STORAGE_PROOF_SIZE
-	}
-
-	fn receive_messages_proof_overhead_from_runtime() -> Weight {
-		pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_proof_overhead_from_runtime(
-		)
-	}
-
-	fn receive_messages_delivery_proof_overhead_from_runtime() -> Weight {
-		pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_delivery_proof_overhead_from_runtime()
-	}
-}
-
-impl pallet_bridge_messages::WeightInfoExt
+impl MessagesWeightInfoExt
 	for pallet_bridge_messages_rococo_to_westend::WeightInfo<crate::Runtime>
 {
 	fn expected_extra_storage_proof_size() -> u32 {
@@ -107,26 +92,8 @@ impl pallet_bridge_messages::WeightInfoExt
 	}
 }
 
-impl pallet_bridge_parachains::WeightInfoExt
-	for pallet_bridge_parachains_within_rococo::WeightInfo<crate::Runtime>
-{
-	fn expected_extra_storage_proof_size() -> u32 {
-		bp_bridge_hub_rococo::EXTRA_STORAGE_PROOF_SIZE
-	}
-}
-
-impl pallet_bridge_parachains::WeightInfoExt
-	for pallet_bridge_parachains_within_westend::WeightInfo<crate::Runtime>
-{
+impl ParachainsWeightInfoExt for pallet_bridge_parachains::WeightInfo<crate::Runtime> {
 	fn expected_extra_storage_proof_size() -> u32 {
 		bp_bridge_hub_westend::EXTRA_STORAGE_PROOF_SIZE
-	}
-}
-
-impl pallet_bridge_parachains::WeightInfoExt
-	for pallet_bridge_parachains_within_wococo::WeightInfo<crate::Runtime>
-{
-	fn expected_extra_storage_proof_size() -> u32 {
-		bp_bridge_hub_wococo::EXTRA_STORAGE_PROOF_SIZE
 	}
 }

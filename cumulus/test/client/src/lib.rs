@@ -19,7 +19,7 @@
 mod block_builder;
 use codec::{Decode, Encode};
 use runtime::{
-	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedExtra, SignedPayload,
+	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedPayload, TxExtension,
 	UncheckedExtrinsic, VERSION,
 };
 use sc_executor::HeapAllocStrategy;
@@ -44,7 +44,8 @@ mod local_executor {
 	pub struct LocalExecutor;
 
 	impl sc_executor::NativeExecutionDispatch for LocalExecutor {
-		type ExtendHostFunctions = ();
+		type ExtendHostFunctions =
+			cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions;
 
 		fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 			cumulus_test_runtime::api::dispatch(method, data)
@@ -124,7 +125,7 @@ impl DefaultTestClientBuilderExt for TestClientBuilder {
 
 /// Create an unsigned extrinsic from a runtime call.
 pub fn generate_unsigned(function: impl Into<RuntimeCall>) -> UncheckedExtrinsic {
-	UncheckedExtrinsic::new_unsigned(function.into())
+	UncheckedExtrinsic::new_bare(function.into())
 }
 
 /// Create a signed extrinsic from a runtime call and sign
@@ -142,7 +143,7 @@ pub fn generate_extrinsic_with_pair(
 	let period =
 		BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: SignedExtra = (
+	let tx_ext: TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckGenesis::<Runtime>::new(),
@@ -150,14 +151,16 @@ pub fn generate_extrinsic_with_pair(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-	);
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<Runtime>::new(),
+	)
+		.into();
 
 	let function = function.into();
 
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
-		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		tx_ext.clone(),
+		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
 
@@ -165,7 +168,7 @@ pub fn generate_extrinsic_with_pair(
 		function,
 		origin.public().into(),
 		Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 
@@ -202,13 +205,16 @@ pub fn validate_block(
 	let mut ext_ext = ext.ext();
 
 	let heap_pages = HeapAllocStrategy::Static { extra_pages: 1024 };
-	let executor = WasmExecutor::<sp_io::SubstrateHostFunctions>::builder()
-		.with_execution_method(WasmExecutionMethod::default())
-		.with_max_runtime_instances(1)
-		.with_runtime_cache_size(2)
-		.with_onchain_heap_alloc_strategy(heap_pages)
-		.with_offchain_heap_alloc_strategy(heap_pages)
-		.build();
+	let executor = WasmExecutor::<(
+		sp_io::SubstrateHostFunctions,
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	)>::builder()
+	.with_execution_method(WasmExecutionMethod::default())
+	.with_max_runtime_instances(1)
+	.with_runtime_cache_size(2)
+	.with_onchain_heap_alloc_strategy(heap_pages)
+	.with_offchain_heap_alloc_strategy(heap_pages)
+	.build();
 
 	executor
 		.uncached_call(

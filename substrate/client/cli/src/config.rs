@@ -27,13 +27,14 @@ use names::{Generator, Name};
 use sc_service::{
 	config::{
 		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
-		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role, RpcMethods,
-		TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod,
+		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
+		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
+		WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 use sc_tracing::logging::LoggerBuilder;
-use std::{net::SocketAddr, path::PathBuf};
+use std::{net::SocketAddr, num::NonZeroU32, path::PathBuf};
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -52,8 +53,11 @@ pub const RPC_DEFAULT_MAX_SUBS_PER_CONN: u32 = 1024;
 pub const RPC_DEFAULT_MAX_REQUEST_SIZE_MB: u32 = 15;
 /// The default max response size in MB.
 pub const RPC_DEFAULT_MAX_RESPONSE_SIZE_MB: u32 = 15;
-/// The default number of connection..
+/// The default concurrent connection limit.
 pub const RPC_DEFAULT_MAX_CONNECTIONS: u32 = 100;
+/// The default number of messages the RPC server
+/// is allowed to keep in memory per connection.
+pub const RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN: u32 = 64;
 
 /// Default configuration values used by Substrate
 ///
@@ -330,6 +334,21 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(RPC_DEFAULT_MAX_SUBS_PER_CONN)
 	}
 
+	/// The number of messages the RPC server is allowed to keep in memory per connection.
+	fn rpc_buffer_capacity_per_connection(&self) -> Result<u32> {
+		Ok(RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)
+	}
+
+	/// RPC server batch request configuration.
+	fn rpc_batch_config(&self) -> Result<RpcBatchRequestConfig> {
+		Ok(RpcBatchRequestConfig::Unlimited)
+	}
+
+	/// RPC rate limit configuration.
+	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
+		Ok(None)
+	}
+
 	/// Get the prometheus configuration (`None` if disabled)
 	///
 	/// By default this is `None`.
@@ -501,6 +520,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			rpc_id_provider: None,
 			rpc_max_subs_per_conn: self.rpc_max_subscriptions_per_connection()?,
 			rpc_port: DCV::rpc_listen_port(),
+			rpc_message_buffer_capacity: self.rpc_buffer_capacity_per_connection()?,
+			rpc_batch_config: self.rpc_batch_config()?,
+			rpc_rate_limit: self.rpc_rate_limit()?,
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
 			telemetry_endpoints,
@@ -516,7 +538,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			announce_block: self.announce_block()?,
 			role,
 			base_path,
-			informant_output_format: Default::default(),
+			informant_output_format: OutputFormat { enable_color: !self.disable_log_color()? },
 			runtime_cache_size,
 		})
 	}
@@ -605,14 +627,25 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 
 		logger.init()?;
 
-		if let Some(new_limit) = fdlimit::raise_fd_limit() {
-			if new_limit < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
+		match fdlimit::raise_fd_limit() {
+			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>
+				if to < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
+					warn!(
+						"Low open file descriptor limit configured for the process. \
+						Current value: {:?}, recommended value: {:?}.",
+						to, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
+					);
+				},
+			Ok(fdlimit::Outcome::Unsupported) => {
+				// Unsupported platform (non-Linux)
+			},
+			Err(error) => {
 				warn!(
-					"Low open file descriptor limit configured for the process. \
-					Current value: {:?}, recommended value: {:?}.",
-					new_limit, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
+					"Failed to configure file descriptor limit for the process: \
+					{}, recommended value: {:?}.",
+					error, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
 				);
-			}
+			},
 		}
 
 		Ok(())

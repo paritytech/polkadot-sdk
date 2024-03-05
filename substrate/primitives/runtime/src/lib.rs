@@ -125,6 +125,11 @@ pub use sp_arithmetic::{
 	Perquintill, Rational128, Rounding, UpperOf,
 };
 
+pub use transaction_validity::{
+	InvalidTransaction, TransactionSource, TransactionValidityError, UnknownTransaction,
+	ValidTransaction,
+};
+
 pub use either::Either;
 
 /// The number of bytes of the module-specific `error` field defined in [`ModuleError`].
@@ -443,21 +448,21 @@ impl std::fmt::Display for MultiSigner {
 impl Verify for MultiSignature {
 	type Signer = MultiSigner;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId32) -> bool {
-		match (self, signer) {
-			(Self::Ed25519(ref sig), who) => match ed25519::Public::from_slice(who.as_ref()) {
+		match self {
+			Self::Ed25519(ref sig) => match ed25519::Public::from_slice(signer.as_ref()) {
 				Ok(signer) => sig.verify(msg, &signer),
 				Err(()) => false,
 			},
-			(Self::Sr25519(ref sig), who) => match sr25519::Public::from_slice(who.as_ref()) {
+			Self::Sr25519(ref sig) => match sr25519::Public::from_slice(signer.as_ref()) {
 				Ok(signer) => sig.verify(msg, &signer),
 				Err(()) => false,
 			},
-			(Self::Ecdsa(ref sig), who) => {
+			Self::Ecdsa(ref sig) => {
 				let m = sp_io::hashing::blake2_256(msg.get());
 				match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m) {
 					Ok(pubkey) =>
 						&sp_io::hashing::blake2_256(pubkey.as_ref()) ==
-							<dyn AsRef<[u8; 32]>>::as_ref(who),
+							<dyn AsRef<[u8; 32]>>::as_ref(signer),
 					_ => false,
 				}
 			},
@@ -944,14 +949,44 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	}
 }
 
+// TODO: OpaqueExtrinsics cannot act like regular extrinsics, right?!
 impl traits::Extrinsic for OpaqueExtrinsic {
 	type Call = ();
 	type SignaturePayload = ();
+	fn is_bare(&self) -> bool {
+		false
+	}
 }
 
 /// Print something that implements `Printable` from the runtime.
 pub fn print(print: impl traits::Printable) {
 	print.print();
+}
+
+/// Utility function to declare string literals backed by an array of length N.
+///
+/// The input can be shorter than N, in that case the end of the array is padded with zeros.
+///
+/// [`str_array`] is useful when converting strings that end up in the storage as fixed size arrays
+/// or in const contexts where static data types have strings that could also end up in the storage.
+///
+/// # Example
+///
+/// ```rust
+/// # use sp_runtime::str_array;
+/// const MY_STR: [u8; 6] = str_array("data");
+/// assert_eq!(MY_STR, *b"data\0\0");
+/// ```
+pub const fn str_array<const N: usize>(s: &str) -> [u8; N] {
+	debug_assert!(s.len() <= N, "String literal doesn't fit in array");
+	let mut i = 0;
+	let mut arr = [0; N];
+	let s = s.as_bytes();
+	while i < s.len() {
+		arr[i] = s[i];
+		i += 1;
+	}
+	arr
 }
 
 /// Describes on what should happen with a storage transaction.
@@ -970,6 +1005,16 @@ impl<R> TransactionOutcome<R> {
 			Self::Rollback(r) => r,
 		}
 	}
+}
+
+/// Confines the kind of extrinsics that can be included in a block.
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo)]
+pub enum ExtrinsicInclusionMode {
+	/// All extrinsics are allowed to be included in this block.
+	#[default]
+	AllExtrinsics,
+	/// Inherents are allowed to be included.
+	OnlyInherents,
 }
 
 #[cfg(test)]

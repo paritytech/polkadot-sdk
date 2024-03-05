@@ -29,7 +29,6 @@
 //! wasm engine used, instance cache.
 
 #![warn(missing_docs)]
-#![recursion_limit = "128"]
 
 #[macro_use]
 mod executor;
@@ -58,7 +57,7 @@ pub use sc_executor_wasmtime::InstantiationStrategy as WasmtimeInstantiationStra
 
 /// Extracts the runtime version of a given runtime code.
 pub trait RuntimeVersionOf {
-	/// Extract [`RuntimeVersion`](sp_version::RuntimeVersion) of the given `runtime_code`.
+	/// Extract [`RuntimeVersion`] of the given `runtime_code`.
 	fn runtime_version(
 		&self,
 		ext: &mut dyn Externalities,

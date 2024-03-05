@@ -27,6 +27,7 @@ use frame_support::traits::Get;
 use sp_runtime::transaction_validity::TransactionPriority;
 
 // reexport everything from `integrity_tests` module
+#[allow(unused_imports)]
 pub use integrity_tests::*;
 
 /// Compute priority boost for message delivery transaction that delivers
@@ -168,12 +169,15 @@ mod integrity_tests {
 		// nodes to the proof (x0.5 because we expect some nodes to be reused)
 		let estimated_message_size = 512;
 		// let's say all our messages have the same dispatch weight
-		let estimated_message_dispatch_weight =
-			Runtime::WeightInfo::message_dispatch_weight(estimated_message_size);
+		let estimated_message_dispatch_weight = <Runtime as pallet_bridge_messages::Config<
+			MessagesInstance,
+		>>::WeightInfo::message_dispatch_weight(
+			estimated_message_size
+		);
 		// messages proof argument size is (for every message) messages size + some additional
 		// trie nodes. Some of them are reused by different messages, so let's take 2/3 of default
 		// "overhead" constant
-		let messages_proof_size = Runtime::WeightInfo::expected_extra_storage_proof_size()
+		let messages_proof_size = <Runtime as pallet_bridge_messages::Config<MessagesInstance>>::WeightInfo::expected_extra_storage_proof_size()
 			.saturating_mul(2)
 			.saturating_div(3)
 			.saturating_add(estimated_message_size)
@@ -181,7 +185,7 @@ mod integrity_tests {
 
 		// finally we are able to estimate transaction size and weight
 		let transaction_size = base_tx_size.saturating_add(messages_proof_size);
-		let transaction_weight = Runtime::WeightInfo::receive_messages_proof_weight(
+		let transaction_weight = <Runtime as pallet_bridge_messages::Config<MessagesInstance>>::WeightInfo::receive_messages_proof_weight(
 			&PreComputedSize(transaction_size as _),
 			messages as _,
 			estimated_message_dispatch_weight.saturating_mul(messages),

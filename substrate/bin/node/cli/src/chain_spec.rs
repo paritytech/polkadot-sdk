@@ -18,6 +18,7 @@
 
 //! Substrate chain configurations.
 
+use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa_primitives::AuthorityId as GrandpaId;
 use kitchensink_runtime::{
 	constants::currency::*, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
@@ -73,23 +74,37 @@ fn session_keys(
 	im_online: ImOnlineId,
 	authority_discovery: AuthorityDiscoveryId,
 	mixnet: MixnetId,
+	beefy: BeefyId,
 ) -> SessionKeys {
-	SessionKeys { grandpa, babe, im_online, authority_discovery, mixnet }
+	SessionKeys { grandpa, babe, im_online, authority_discovery, mixnet, beefy }
 }
 
 fn configure_accounts_for_staging_testnet() -> (
-	Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId)>,
+	Vec<(
+		AccountId,
+		AccountId,
+		GrandpaId,
+		BabeId,
+		ImOnlineId,
+		AuthorityDiscoveryId,
+		MixnetId,
+		BeefyId,
+	)>,
 	AccountId,
 	Vec<AccountId>,
 ) {
 	#[rustfmt::skip]
-	// stash, controller, session-key
+	// stash, controller, session-key, beefy id
 	// generated with secret:
 	// for i in 1 2 3 4 ; do for j in stash controller; do subkey inspect "$secret"/fir/$j/$i; done; done
 	//
 	// and
 	//
-	// for i in 1 2 3 4 ; do for j in session; do subkey --ed25519 inspect "$secret"//fir//$j//$i; done; done
+	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme ed25519 "$secret"//fir//$j//$i; done; done
+	//
+	// and
+	//
+	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme ecdsa "$secret"//fir//$j//$i; done; done
 
 	let initial_authorities: Vec<(
 		AccountId,
@@ -99,6 +114,7 @@ fn configure_accounts_for_staging_testnet() -> (
 		ImOnlineId,
 		AuthorityDiscoveryId,
 		MixnetId,
+		BeefyId,
 	)> = vec![
 		(
 			// 5Fbsd6WXDGiLTxunqeK5BATNiocfCqu9bS1yArVjCgeBLkVy
@@ -119,6 +135,9 @@ fn configure_accounts_for_staging_testnet() -> (
 				.unchecked_into(),
 			// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
 			array_bytes::hex2array_unchecked("6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106")
+				.unchecked_into(),
+			// 5DMLFcDdLLQbw696YfHaWBpQR99HwR456ycSCfr6L7KXGYK8
+			array_bytes::hex2array_unchecked("035560fafa241739869360aa4b32bc98953172ceb41a19c6cc1a27962fb3d1ecec")
 				.unchecked_into(),
 		),
 		(
@@ -141,6 +160,9 @@ fn configure_accounts_for_staging_testnet() -> (
 			// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
 			array_bytes::hex2array_unchecked("482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e")
 				.unchecked_into(),
+			// 5FYk11kNtB4178wLKJ2RNoUzzcjgRUciFe3SJDVZXhqX4dzG
+			array_bytes::hex2array_unchecked("02da1ab255ed888ee3e19b73d335fc13160b3eb10456c2d17c6a8ea7de403d2445")
+				.unchecked_into(),
 		),
 		(
 			// 5DyVtKWPidondEu8iHZgi6Ffv9yrJJ1NDNLom3X9cTDi98qp
@@ -162,6 +184,9 @@ fn configure_accounts_for_staging_testnet() -> (
 			// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
 			array_bytes::hex2array_unchecked("482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a")
 				.unchecked_into(),
+			// 5GQx4FToRBPqfani6o7owFJE1UstiviqbPP7HPWyvtXWWukn
+			array_bytes::hex2array_unchecked("036a818b3f59579c5fbbe4fede64f49dbf090ba883eb2a175d5ca90e5adb5f0b3e")
+				.unchecked_into(),
 		),
 		(
 			// 5HYZnKWe5FVZQ33ZRJK1rG3WaLMztxWrrNDb1JRwaHHVWyP9
@@ -182,6 +207,9 @@ fn configure_accounts_for_staging_testnet() -> (
 				.unchecked_into(),
 			// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
 			array_bytes::hex2array_unchecked("00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378")
+				.unchecked_into(),
+			// 5FCu2pY928VVHPgnNVJssvxFJZECyNe1CyH3WTG79Wisx58B
+			array_bytes::hex2array_unchecked("020ce02b963548f9f8ade8765f7a4a06638c17819c78422a1cc35b647873583eef")
 				.unchecked_into(),
 		),
 	];
@@ -234,7 +262,8 @@ where
 /// Helper function to generate stash, controller and session key from seed.
 pub fn authority_keys_from_seed(
 	seed: &str,
-) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId) {
+) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId, BeefyId)
+{
 	(
 		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
 		get_account_id_from_seed::<sr25519::Public>(seed),
@@ -243,6 +272,7 @@ pub fn authority_keys_from_seed(
 		get_from_seed::<ImOnlineId>(seed),
 		get_from_seed::<AuthorityDiscoveryId>(seed),
 		get_from_seed::<MixnetId>(seed),
+		get_from_seed::<BeefyId>(seed),
 	)
 }
 
@@ -255,12 +285,22 @@ fn configure_accounts(
 		ImOnlineId,
 		AuthorityDiscoveryId,
 		MixnetId,
+		BeefyId,
 	)>,
 	initial_nominators: Vec<AccountId>,
 	endowed_accounts: Option<Vec<AccountId>>,
 	stash: Balance,
 ) -> (
-	Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId)>,
+	Vec<(
+		AccountId,
+		AccountId,
+		GrandpaId,
+		BabeId,
+		ImOnlineId,
+		AuthorityDiscoveryId,
+		MixnetId,
+		BeefyId,
+	)>,
 	Vec<AccountId>,
 	usize,
 	Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
@@ -326,6 +366,7 @@ pub fn testnet_genesis(
 		ImOnlineId,
 		AuthorityDiscoveryId,
 		MixnetId,
+		BeefyId,
 	)>,
 	initial_nominators: Vec<AccountId>,
 	root_key: AccountId,
@@ -351,6 +392,7 @@ pub fn testnet_genesis(
 							x.4.clone(),
 							x.5.clone(),
 							x.6.clone(),
+							x.7.clone(),
 						),
 					)
 				})

@@ -1,0 +1,17 @@
+{
+    "pallets": {
+      "1": {
+        "constants": {
+          "EpochDuration": {
+            "value": [ 88, 2, 0, 0, 0, 0, 0, 0 ]}
+        }
+      },
+
+      "2": {
+        "constants": {
+          "MinimumPeriod": {
+            "value": [ 184, 11, 0, 0, 0, 0, 0, 0 ]}
+        }
+      }
+    }
+  }

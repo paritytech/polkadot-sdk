@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
-	traits::SignedExtension,
+	traits::Dispatchable,
 	DispatchError, RuntimeDebug,
 };
 use sp_std::fmt;
@@ -36,7 +36,8 @@ use sp_weights::Weight;
 /// returned from a dispatch.
 pub type DispatchResultWithPostInfo = sp_runtime::DispatchResultWithInfo<PostDispatchInfo>;
 
-/// Unaugmented version of `DispatchResultWithPostInfo` that can be returned from
+#[docify::export]
+/// Un-augmented version of `DispatchResultWithPostInfo` that can be returned from
 /// dispatchable functions and is automatically converted to the augmented type. Should be
 /// used whenever the `PostDispatchInfo` does not need to be overwritten. As this should
 /// be the common case it is the implicit return type when none is specified.
@@ -53,6 +54,20 @@ pub trait Callable<T> {
 // dirty hack to work around serde_derive issue
 // https://github.com/rust-lang/rust/issues/51331
 pub type CallableCallFor<A, R> = <A as Callable<R>>::RuntimeCall;
+
+/// Means to checks if the dispatchable is feeless.
+///
+/// This is automatically implemented for all dispatchables during pallet expansion.
+/// If a call is marked by [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
+/// attribute, the corresponding closure is checked.
+pub trait CheckIfFeeless {
+	/// The Origin type of the runtime.
+	type Origin;
+
+	/// Checks if the dispatchable satisfies the feeless condition as defined by
+	/// [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
+	fn is_feeless(&self, origin: &Self::Origin) -> bool;
+}
 
 /// Origin for the System pallet.
 #[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
@@ -253,7 +268,8 @@ pub fn extract_actual_weight(result: &DispatchResultWithPostInfo, info: &Dispatc
 	.calc_actual_weight(info)
 }
 
-/// Extract the actual pays_fee from a dispatch result if any or fall back to the default weight.
+/// Extract the actual pays_fee from a dispatch result if any or fall back to the default
+/// weight.
 pub fn extract_actual_pays_fee(result: &DispatchResultWithPostInfo, info: &DispatchInfo) -> Pays {
 	match result {
 		Ok(post_info) => post_info,
@@ -353,11 +369,10 @@ where
 }
 
 /// Implementation for unchecked extrinsic.
-impl<Address, Call, Signature, Extra> GetDispatchInfo
-	for UncheckedExtrinsic<Address, Call, Signature, Extra>
+impl<Address, Call, Signature, Extension> GetDispatchInfo
+	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
-	Call: GetDispatchInfo,
-	Extra: SignedExtension,
+	Call: GetDispatchInfo + Dispatchable,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		self.function.get_dispatch_info()
@@ -365,27 +380,12 @@ where
 }
 
 /// Implementation for checked extrinsic.
-impl<AccountId, Call, Extra> GetDispatchInfo for CheckedExtrinsic<AccountId, Call, Extra>
+impl<AccountId, Call, Extension> GetDispatchInfo for CheckedExtrinsic<AccountId, Call, Extension>
 where
 	Call: GetDispatchInfo,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		self.function.get_dispatch_info()
-	}
-}
-
-/// Implementation for test extrinsic.
-#[cfg(feature = "std")]
-impl<Call: Encode + GetDispatchInfo, Extra: Encode> GetDispatchInfo
-	for sp_runtime::testing::TestXt<Call, Extra>
-{
-	fn get_dispatch_info(&self) -> DispatchInfo {
-		// for testing: weight == size.
-		DispatchInfo {
-			weight: Weight::from_parts(self.encode().len() as _, 0),
-			pays_fee: Pays::Yes,
-			class: self.call.get_dispatch_info().class,
-		}
 	}
 }
 
@@ -649,7 +649,7 @@ mod weight_tests {
 	use sp_runtime::{generic, traits::BlakeTwo256};
 	use sp_weights::RuntimeDbWeight;
 
-	pub use self::frame_system::{Call, Config, Pallet};
+	pub use self::frame_system::{Call, Config};
 
 	fn from_actual_ref_time(ref_time: Option<u64>) -> PostDispatchInfo {
 		PostDispatchInfo {
@@ -680,6 +680,7 @@ mod weight_tests {
 			type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall>;
 			type RuntimeOrigin;
 			type RuntimeCall;
+			type RuntimeTask;
 			type PalletInfo: crate::traits::PalletInfo;
 			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
 		}
@@ -776,6 +777,7 @@ mod weight_tests {
 		type BaseCallFilter = crate::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
+		type RuntimeTask = RuntimeTask;
 		type DbWeight = DbWeight;
 		type PalletInfo = PalletInfo;
 	}

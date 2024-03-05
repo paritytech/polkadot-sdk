@@ -1,0 +1,31 @@
+[package]
+name = "pallet-contracts-uapi"
+version = "5.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository.workspace = true
+description = "Exposes all the host functions that a contract can import."
+
+[lints]
+workspace = true
+
+[dependencies]
+paste = { version = "1.0", default-features = false }
+bitflags = "1.0"
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"], optional = true }
+scale = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+	"derive",
+	"max-encoded-len",
+], optional = true }
+
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+polkavm-derive = '0.5.0'
+
+[package.metadata.docs.rs]
+default-target = ["wasm32-unknown-unknown"]
+
+[features]
+default = ["scale"]
+scale = ["dep:scale", "scale-info"]

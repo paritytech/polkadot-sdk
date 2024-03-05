@@ -82,6 +82,7 @@ pub use traits::{Error, ExecuteXcm, GetWeight, Outcome, Result, SendError, SendR
 /// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum OriginKind {
 	/// Origin should just be the native dispatch origin representation for the sender in the
 	/// local runtime framework. For Cumulus/Frame chains this is the `Parachain` or `Relay` origin
@@ -1133,7 +1134,10 @@ impl<RuntimeCall> TryFrom<NewInstruction<RuntimeCall>> for Instruction<RuntimeCa
 				max_response_weight: max_response_weight.ref_time(),
 			},
 			UnsubscribeVersion => Self::UnsubscribeVersion,
-			_ => return Err(()),
+			i => {
+				log::debug!(target: "xcm::v3tov2", "`{i:?}` not supported by v2");
+				return Err(());
+			},
 		})
 	}
 }

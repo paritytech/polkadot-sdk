@@ -33,7 +33,7 @@ use sp_std::vec::Vec;
 use crate::digests::{NextConfigDescriptor, NextEpochDescriptor};
 
 pub use sp_core::sr25519::vrf::{
-	VrfInput, VrfOutput, VrfProof, VrfSignData, VrfSignature, VrfTranscript,
+	VrfInput, VrfPreOutput, VrfProof, VrfSignData, VrfSignature, VrfTranscript,
 };
 
 /// Key type for BABE module.
@@ -254,6 +254,12 @@ pub struct BabeEpochConfiguration {
 	/// Whether this chain should run with secondary slots, which are assigned
 	/// in round-robin manner.
 	pub allowed_slots: AllowedSlots,
+}
+
+impl Default for BabeEpochConfiguration {
+	fn default() -> Self {
+		Self { c: (1, 4), allowed_slots: AllowedSlots::PrimaryAndSecondaryVRFSlots }
+	}
 }
 
 /// Verifies the equivocation proof by making sure that: both headers have

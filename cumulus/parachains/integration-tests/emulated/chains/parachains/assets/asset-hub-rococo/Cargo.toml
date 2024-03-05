@@ -7,19 +7,19 @@ license = "Apache-2.0"
 description = "Asset Hub Rococo emulated chain"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
-serde_json = "1.0.104"
 
 # Substrate
 sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../../../../../substrate/primitives/runtime", default-features = false }
 frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
 
-# Polakadot
-parachains-common = { path = "../../../../../../../parachains/common" }
-
 # Cumulus
+parachains-common = { path = "../../../../../../../parachains/common" }
 cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 asset-hub-rococo-runtime = { path = "../../../../../../runtimes/assets/asset-hub-rococo" }
 rococo-emulated-chain = { path = "../../../relays/rococo" }
+testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"] }
