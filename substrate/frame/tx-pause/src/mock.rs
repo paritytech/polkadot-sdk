@@ -34,7 +34,7 @@ use sp_runtime::{
 };
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
+	pub const BlockHashCount: u32 = 250;
 }
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
@@ -179,7 +179,7 @@ impl Config for Test {
 	type WeightInfo = ();
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -223,7 +223,7 @@ pub fn next_block() {
 	TxPause::on_initialize(System::block_number());
 }
 
-pub fn run_to(n: u64) {
+pub fn run_to(n: u32) {
 	while System::block_number() < n {
 		next_block();
 	}
