@@ -107,7 +107,7 @@ pub fn run() -> Result<()> {
 							)
 						}
 
-						cmd.run::<HashingFor<Block>, sp_statement_store::runtime_api::HostFunctions>(config)
+						cmd.run_with_spec::<HashingFor<Block>, sp_statement_store::runtime_api::HostFunctions>(Some(config.chain_spec))
 					},
 					BenchmarkCmd::Block(cmd) => {
 						// ensure that we keep the task manager alive

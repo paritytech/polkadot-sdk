@@ -148,13 +148,27 @@ This could mean that you either did not build the node correctly with the \
 not created by a node that was compiled with the flag";
 
 /// Warn when using the chain spec to generate the genesis state.
-const WARN_SPEC_GENESIS_CTOR: &'static str = "Using the chain spec instead of the runtime to generate the genesis state is deprecated.
-Please remove the `--chain`/`--dev`/`--local` argument, point `--runtime` to your runtime blob and set `--genesis-builder=runtime`.
-This warning may become a hard error after December 2024.";
+const WARN_SPEC_GENESIS_CTOR: &'static str = "Using the chain spec instead of the runtime to \
+generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`--local` argument, \
+point `--runtime` to your runtime blob and set `--genesis-builder=runtime`. This warning may \
+become a hard error any time after December 2024.";
 
 impl PalletCmd {
 	/// Runs the command and benchmarks a pallet.
-	pub fn run<Hasher, ExtraHostFunctions>(
+	#[deprecated(
+		note = "`run` will be removed after December 2024. Use `run_with_spec` instead or \
+	completely remove the code and use the `frame-benchmarking-cli` instead."
+	)]
+	pub fn run<Hasher, ExtraHostFunctions>(&self, config: sc_service::Configuration) -> Result<()>
+	where
+		Hasher: Hash,
+		ExtraHostFunctions: HostFunctions,
+	{
+		self.run_with_spec::<Hasher, ExtraHostFunctions>(Some(config.chain_spec))
+	}
+
+	/// Runs the pallet benchmarking command.
+	pub fn run_with_spec<Hasher, ExtraHostFunctions>(
 		&self,
 		chain_spec: Option<Box<dyn ChainSpec>>,
 	) -> Result<()>
@@ -567,7 +581,14 @@ impl PalletCmd {
 					return Err("No chain spec specified to generate the genesis state".into());
 				};
 
-				let storage = chain_spec.build_storage().map_err(|e| format!("The runtime returned an error when trying to build the genesis storage. Please ensure that all pallets define a genesis config that can be built. For more info, see: https://github.com/paritytech/polkadot-sdk/pull/3412\nError: {e}"))?;
+				let storage = chain_spec.build_storage().map_err(|e| {
+					format!(
+						"The runtime returned \
+				an error when trying to build the genesis storage. Please ensure that all pallets \
+				define a genesis config that can be built. For more info, see: \
+				https://github.com/paritytech/polkadot-sdk/pull/3412\nError: {e}"
+					)
+				})?;
 
 				(storage, Default::default())
 			},

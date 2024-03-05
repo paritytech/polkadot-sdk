@@ -58,7 +58,7 @@ fn main() -> Result<()> {
 
 	match Command::parse().sub {
 		SubCommand::V1(V1Command { sub: BenchmarkCmd::Pallet(pallet) }) =>
-			pallet.run::<BlakeTwo256, HostFunctions>(None),
+			pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None),
 		_ => Err("Invalid subcommand. Only `v1 pallet` is supported.".into()),
 	}
 }
