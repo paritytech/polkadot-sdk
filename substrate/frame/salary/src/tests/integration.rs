@@ -21,7 +21,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{ConstU64, EitherOf, MapSuccess, PollStatus, Polling},
+	traits::{ConstU32, EitherOf, MapSuccess, PollStatus, Polling},
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric, TallyOf, Votes};
 use sp_core::{ConstU16, Get};
@@ -34,7 +34,7 @@ use crate as pallet_salary;
 use crate::*;
 
 type Rank = u16;
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -53,13 +53,14 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockHashCount = ConstU32<10>;
 }
 
 pub struct TestPolls;
 impl Polling<TallyOf<Test>> for TestPolls {
 	type Index = u8;
 	type Votes = Votes;
-	type Moment = u64;
+	type Moment = u32;
 	type Class = Rank;
 
 	fn classes() -> Vec<Self::Class> {
@@ -137,8 +138,8 @@ impl Config for Test {
 	type Paymaster = TestPay;
 	type Members = Club;
 	type Salary = FixedSalary;
-	type RegistrationPeriod = ConstU64<2>;
-	type PayoutPeriod = ConstU64<2>;
+	type RegistrationPeriod = ConstU32<2>;
+	type PayoutPeriod = ConstU32<2>;
 	type Budget = Budget;
 }
 
