@@ -6985,9 +6985,9 @@ checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
 
 [[package]]
 name = "jsonrpsee"
-version = "0.22.1"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16fcc9dd231e72d22993f1643d5f7f0db785737dbe3c3d7ca222916ab4280795"
+checksum = "87f3ae45a64cfc0882934f963be9431b2a165d667f53140358181f262aca0702"
 dependencies = [
  "jsonrpsee-core",
  "jsonrpsee-http-client",
@@ -7001,9 +7001,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-client-transport"
-version = "0.22.1"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0476c96eb741b40d39dcb39d0124e3b9be9840ec77653c42a0996563ae2a53f7"
+checksum = "455fc882e56f58228df2aee36b88a1340eafd707c76af2fa68cf94b37d461131"
 dependencies = [
  "futures-util",
  "http",
@@ -7022,9 +7022,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-core"
-version = "0.22.1"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b974d8f6139efbe8425f32cb33302aba6d5e049556b5bfc067874e7a0da54a2e"
+checksum = "b75568f4f9696e3a47426e1985b548e1a9fcb13372a5e320372acaf04aca30d1"
 dependencies = [
  "anyhow",
  "async-lock 3.3.0",
@@ -7048,9 +7048,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-http-client"
-version = "0.22.1"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19dc795a277cff37f27173b3ca790d042afcc0372c34a7ca068d2e76de2cb6d1"
+checksum = "9e7a95e346f55df84fb167b7e06470e196e7d5b9488a21d69c5d9732043ba7ba"
 dependencies = [
  "async-trait",
  "hyper",
@@ -7068,22 +7068,22 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-proc-macros"
-version = "0.22.1"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68e79a7109506831bf0cbeaad08729cdf0e592300c00f626bccd6d479974221e"
+checksum = "30ca066e73dd70294aebc5c2675d8ffae43be944af027c857ce0d4c51785f014"
 dependencies = [
  "heck",
  "proc-macro-crate 3.1.0",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.52",
 ]
 
 [[package]]
 name = "jsonrpsee-server"
-version = "0.22.1"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "344440ccd8492c1ca65f1391c5aa03f91189db38d602d189b9266a1a5c6a4d22"
+checksum = "0e29c1bd1f9bba83c864977c73404e505f74f730fa0db89dd490ec174e36d7f0"
 dependencies = [
  "futures-util",
  "http",
@@ -7105,9 +7105,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-types"
-version = "0.22.1"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b13dac43c1a9fc2648b37f306b0a5b0e29b2a6e1c36a33b95c1948da2494e9c5"
+checksum = "3467fd35feeee179f71ab294516bdf3a81139e7aeebdd860e46897c12e1a3368"
 dependencies = [
  "anyhow",
  "beef",
@@ -7118,9 +7118,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-ws-client"
-version = "0.22.1"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1bbaaf4ce912654081d997ade417c3155727db106c617c0612e85f504c2f744"
+checksum = "68ca71e74983f624c0cb67828e480a981586074da8ad3a2f214c6a3f884edab9"
 dependencies = [
  "http",
  "jsonrpsee-client-transport",
@@ -7977,7 +7977,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.2.0"
-source = "git+https://github.com/altonen/litep2p?branch=debug-2944#e9c84f6b52d082bd4a057f3c5da223994ae577f4"
+source = "git+https://github.com/altonen/litep2p?branch=debug-2944#4e399cceb8ced4896a9c70121fbc0526f724d935"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
@@ -12246,18 +12246,18 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.1.4"
+version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0302c4a0442c456bd56f841aee5c3bfd17967563f6fadc9ceb9f9c23cf3807e0"
+checksum = "b6bf43b791c5b9e34c3d182969b4abb522f9343702850a2e57f460d00d09b4b3"
 dependencies = [
  "pin-project-internal",
 ]
 
 [[package]]
 name = "pin-project-internal"
-version = "1.1.4"
+version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "266c042b60c9c76b8d53061e52b2e0d1116abc57cefc8c5cd671619a56ac3690"
+checksum = "2f38a4412a78282e09a2cf38d195ea5420d15ba0602cb375210efbc877243965"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -18983,7 +18983,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.10.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#b0741d4f78ebc424c7544e1d2d5db7968132e577"
+source = "git+https://github.com/paritytech/polkadot-sdk#329c07723614836a05b1d9158e1a8fdea6fb6508"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -19044,7 +19044,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#b0741d4f78ebc424c7544e1d2d5db7968132e577"
+source = "git+https://github.com/paritytech/polkadot-sdk#329c07723614836a05b1d9158e1a8fdea6fb6508"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -19064,7 +19064,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.25.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#b0741d4f78ebc424c7544e1d2d5db7968132e577"
+source = "git+https://github.com/paritytech/polkadot-sdk#329c07723614836a05b1d9158e1a8fdea6fb6508"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -19298,7 +19298,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "24.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#b0741d4f78ebc424c7544e1d2d5db7968132e577"
+source = "git+https://github.com/paritytech/polkadot-sdk#329c07723614836a05b1d9158e1a8fdea6fb6508"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -19329,7 +19329,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#b0741d4f78ebc424c7544e1d2d5db7968132e577"
+source = "git+https://github.com/paritytech/polkadot-sdk#329c07723614836a05b1d9158e1a8fdea6fb6508"
 dependencies = [
  "Inflector",
  "expander 2.1.0",
@@ -19459,7 +19459,7 @@ version = "14.0.0"
 [[package]]
 name = "sp-std"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#b0741d4f78ebc424c7544e1d2d5db7968132e577"
+source = "git+https://github.com/paritytech/polkadot-sdk#329c07723614836a05b1d9158e1a8fdea6fb6508"
 
 [[package]]
 name = "sp-storage"
@@ -19476,7 +19476,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "19.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#b0741d4f78ebc424c7544e1d2d5db7968132e577"
+source = "git+https://github.com/paritytech/polkadot-sdk#329c07723614836a05b1d9158e1a8fdea6fb6508"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -19525,7 +19525,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "16.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#b0741d4f78ebc424c7544e1d2d5db7968132e577"
+source = "git+https://github.com/paritytech/polkadot-sdk#329c07723614836a05b1d9158e1a8fdea6fb6508"
 dependencies = [
  "parity-scale-codec",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
@@ -19626,7 +19626,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "20.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#b0741d4f78ebc424c7544e1d2d5db7968132e577"
+source = "git+https://github.com/paritytech/polkadot-sdk#329c07723614836a05b1d9158e1a8fdea6fb6508"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
@@ -20082,13 +20082,13 @@ dependencies = [
 
 [[package]]
 name = "substrate-bip39"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e620c7098893ba667438b47169c00aacdd9e7c10e042250ce2b60b087ec97328"
+checksum = "6a7590dc041b9bc2825e52ce5af8416c73dbe9d0654402bfd4b4941938b94d8f"
 dependencies = [
  "hmac 0.11.0",
  "pbkdf2 0.8.0",
- "schnorrkel 0.9.1",
+ "schnorrkel 0.11.4",
  "sha2 0.9.9",
  "zeroize",
 ]
