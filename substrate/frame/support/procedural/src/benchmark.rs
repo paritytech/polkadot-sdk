@@ -441,6 +441,29 @@ pub fn benchmarks(
 		benchmarks_by_name_mappings.push(quote!(#name_str => Self::#test_ident()))
 	}
 
+	let impl_test_function = if let Some(item) = content.iter_mut().find(|item| matches!(item, Item::Macro(_))) {
+		let Item::Macro(item_macro) = item else {
+			return Err(syn::Error::new(item.span(), "Expected an item macro, as found such item"));
+		};
+
+		if item_macro
+			.mac
+			.path
+			.segments
+			.iter()
+			.any(|s| s.ident == "impl_benchmark_test_suite")
+		{
+			let tokens = item_macro.mac.tokens.clone();
+			*item = Item::Verbatim(quote! {});
+
+			quote! { impl_test_function!((#( {} #benchmark_names )*)()()#tokens); }
+		} else {
+			quote! {}
+		}
+	} else {
+		quote! {}
+	};
+
 	// emit final quoted tokens
 	let res = quote! {
 		#(#mod_attrs)
@@ -676,6 +699,8 @@ pub fn benchmarks(
 					}
 				}
 			}
+
+			#impl_test_function
 		}
 		#mod_vis use #mod_name::*;
 	};

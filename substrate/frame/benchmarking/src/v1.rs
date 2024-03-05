@@ -861,7 +861,7 @@ macro_rules! impl_bench_name_tests {
 					// Same per-case logic as when all cases are run in the
 					// same function.
 					match std::panic::catch_unwind(|| {
-						$module::<$test>::[< test_benchmark_ $name >] ()
+						$module::<$test>::test_bench_by_name(stringify!($name).as_bytes())
 					}) {
 						Err(err) => {
 							panic!("{}: {:?}", stringify!($name), err);
