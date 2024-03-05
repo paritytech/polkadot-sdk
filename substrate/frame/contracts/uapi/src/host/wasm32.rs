@@ -301,6 +301,7 @@ macro_rules! impl_wrapper_for {
 				unsafe {
 					$( $mod )::*::$name(output.as_mut_ptr(), &mut output_len);
 				}
+				extract_from_slice(output, output_len as usize)
 			}
 		}
 	};
