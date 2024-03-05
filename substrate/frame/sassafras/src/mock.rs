@@ -34,18 +34,22 @@ use sp_core::{
 	H256, U256,
 };
 use sp_runtime::{
-	testing::{Digest, DigestItem, Header, TestXt},
+	generic,
+	testing::{Digest, DigestItem, TestXt},
 	BuildStorage,
+	traits::BlakeTwo256,
 };
 
 const LOG_TARGET: &str = "sassafras::tests";
+type Header = generic::Header<u32, BlakeTwo256>;
 
 const EPOCH_LENGTH: u32 = 10;
 const MAX_AUTHORITIES: u32 = 100;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type Block = frame_system::mocking::MockBlock<Test>;
+	type Block = frame_system::mocking::MockBlockU32<Test>;
+	type BlockHashCount = ConstU32<10>;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -298,7 +302,7 @@ pub fn make_digest(authority_idx: AuthorityIndex, slot: Slot, pair: &AuthorityPa
 }
 
 pub fn initialize_block(
-	number: u64,
+	number: u32,
 	slot: Slot,
 	parent_hash: H256,
 	pair: &AuthorityPair,
@@ -310,13 +314,13 @@ pub fn initialize_block(
 	digest
 }
 
-pub fn finalize_block(number: u64) -> Header {
+pub fn finalize_block(number: u32) -> Header {
 	Sassafras::on_finalize(number);
 	System::finalize()
 }
 
 /// Progress the pallet state up to the given block `number` and `slot`.
-pub fn go_to_block(number: u64, slot: Slot, pair: &AuthorityPair) -> Digest {
+pub fn go_to_block(number: u32, slot: Slot, pair: &AuthorityPair) -> Digest {
 	Sassafras::on_finalize(System::block_number());
 	let parent_hash = System::finalize().hash();
 
@@ -331,7 +335,7 @@ pub fn go_to_block(number: u64, slot: Slot, pair: &AuthorityPair) -> Digest {
 
 /// Progress the pallet state up to the given block `number`.
 /// Slots will grow linearly accordingly to blocks.
-pub fn progress_to_block(number: u64, pair: &AuthorityPair) -> Option<Digest> {
+pub fn progress_to_block(number: u32, pair: &AuthorityPair) -> Option<Digest> {
 	let mut slot = Sassafras::current_slot() + 1;
 	let mut digest = None;
 	for i in System::block_number() + 1..=number {

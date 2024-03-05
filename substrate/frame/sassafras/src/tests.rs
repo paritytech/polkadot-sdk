@@ -311,7 +311,7 @@ fn on_normal_block() {
 
 		// We don't want to trigger an epoch change in this test.
 		let epoch_length = Sassafras::epoch_length() as u64;
-		assert!(epoch_length > end_block);
+		assert!(epoch_length as u32 > end_block);
 
 		// Progress to block 2
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
@@ -370,7 +370,7 @@ fn produce_epoch_change_digest_no_config() {
 
 		// We want to trigger an epoch change in this test.
 		let epoch_length = Sassafras::epoch_length() as u64;
-		let end_block = start_block + epoch_length;
+		let end_block = start_block + epoch_length as u32;
 
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
 
@@ -451,7 +451,7 @@ fn produce_epoch_change_digest_with_config() {
 
 		// We want to trigger an epoch change in this test.
 		let epoch_length = Sassafras::epoch_length() as u64;
-		let end_block = start_block + epoch_length;
+		let end_block = start_block + epoch_length as u32;
 
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
 
@@ -495,7 +495,7 @@ fn segments_incremental_sort_works() {
 		persist_next_epoch_tickets_as_segments(&tickets);
 
 		// Proceed to half of the epoch (sortition should not have been started yet)
-		let half_epoch_block = start_block + epoch_length / 2;
+		let half_epoch_block = start_block + epoch_length as u32 / 2;
 		progress_to_block(half_epoch_block, pair);
 
 		let mut unsorted_tickets_count = submitted_tickets_count;
@@ -595,7 +595,7 @@ fn tickets_fetch_works_after_epoch_change() {
 		assert_eq!(meta.tickets_count, [0, 0]);
 
 		// Progress up to the last epoch slot (do not enact epoch change)
-		progress_to_block(epoch_length, &pairs[0]).unwrap();
+		progress_to_block(epoch_length as u32, &pairs[0]).unwrap();
 
 		// At this point next epoch tickets should have been sorted and ready to be used
 		let meta = TicketsMeta::<Test>::get();
@@ -621,7 +621,7 @@ fn tickets_fetch_works_after_epoch_change() {
 
 		// Enact epoch change by progressing one more block
 
-		progress_to_block(epoch_length + 1, &pairs[0]).unwrap();
+		progress_to_block(epoch_length as u32 + 1, &pairs[0]).unwrap();
 
 		let meta = TicketsMeta::<Test>::get();
 		assert_eq!(meta.unsorted_tickets_count, 0);
@@ -640,7 +640,7 @@ fn tickets_fetch_works_after_epoch_change() {
 		assert!(Sassafras::slot_ticket_id(slot + 10).is_none());
 
 		// Enact another epoch change, for which we don't have any ticket
-		progress_to_block(2 * epoch_length + 1, &pairs[0]).unwrap();
+		progress_to_block(2 * epoch_length as u32 + 1, &pairs[0]).unwrap();
 		let meta = TicketsMeta::<Test>::get();
 		assert_eq!(meta.unsorted_tickets_count, 0);
 		assert_eq!(meta.tickets_count, [0, 0]);
@@ -666,7 +666,7 @@ fn block_allowed_to_skip_epochs() {
 
 		// We want to skip 3 epochs in this test.
 		let offset = 4 * epoch_length;
-		go_to_block(start_block + offset, start_slot + offset, &pairs[0]);
+		go_to_block(start_block + offset as u32, start_slot + offset, &pairs[0]);
 
 		// Post-initialization status
 
@@ -715,7 +715,7 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 		});
 
 		// Advance one epoch to enact the tickets
-		go_to_block(start_block + epoch_length, start_slot + epoch_length, pair);
+		go_to_block(start_block + epoch_length as u32, start_slot + epoch_length, pair);
 		assert_eq!(TicketsMeta::<Test>::get().tickets_count, [0, 4]);
 
 		// Persist some tickets for next epoch (N+1)
@@ -736,7 +736,7 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 
 		// Advance to epoch 2 and check for cleanup
 
-		go_to_block(start_block + 2 * epoch_length, start_slot + 2 * epoch_length, pair);
+		go_to_block(start_block + 2 * epoch_length as u32, start_slot + 2 * epoch_length, pair);
 		assert_eq!(TicketsMeta::<Test>::get().tickets_count, [6, 0]);
 
 		(0..epoch1_tickets.len()).into_iter().for_each(|i| {
