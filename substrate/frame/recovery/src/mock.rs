@@ -26,7 +26,7 @@ use frame_support::{
 };
 use sp_runtime::BuildStorage;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -41,6 +41,7 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u128>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 parameter_types! {
@@ -96,7 +97,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 /// Run until a particular block.
-pub fn run_to_block(n: u64) {
+pub fn run_to_block(n: u32) {
 	while System::block_number() < n {
 		if System::block_number() > 1 {
 			System::on_finalize(System::block_number());
