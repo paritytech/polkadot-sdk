@@ -32,8 +32,8 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, ChildParachainAsNative, ChildParachainConvertsVia,
-	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, DescribeAllTerminal,
-	DescribeFamily, FixedRateOfFungible, FixedWeightBounds, HashedDescription, IsConcrete,
+	ChildSystemParachainAsSuperuser, DescribeAllTerminal, DescribeFamily, FixedRateOfFungible,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{Config, XcmExecutor};
@@ -91,13 +91,14 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-impl shared::Config for Runtime {}
+impl shared::Config for Runtime {
+	type DisabledValidators = ();
+}
 
 impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;
@@ -105,8 +106,8 @@ impl configuration::Config for Runtime {
 
 parameter_types! {
 	pub RelayNetwork: NetworkId = ByGenesis([0; 32]);
-	pub const TokenLocation: MultiLocation = Here.into_location();
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub const TokenLocation: Location = Here.into_location();
+	pub UniversalLocation: InteriorLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
 }
 
@@ -117,7 +118,7 @@ pub type SovereignAccountOf = (
 );
 
 pub type LocalBalancesTransactor =
-	XcmCurrencyAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
+	FungibleAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
 
 pub type AssetTransactors = LocalBalancesTransactor;
 
@@ -131,15 +132,15 @@ type LocalOriginConverter = (
 parameter_types! {
 	pub const XcmInstructionWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub TokensPerSecondPerMegabyte: (AssetId, u128, u128) =
-		(Concrete(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
+		(AssetId(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
 pub struct ChildrenParachains;
-impl Contains<MultiLocation> for ChildrenParachains {
-	fn contains(location: &MultiLocation) -> bool {
-		matches!(location, MultiLocation { parents: 0, interior: X1(Parachain(_)) })
+impl Contains<Location> for ChildrenParachains {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Parachain(_)]))
 	}
 }
 
@@ -180,6 +181,7 @@ impl Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
@@ -228,10 +230,10 @@ impl pallet_message_queue::Config for Runtime {
 
 construct_runtime!(
 	pub enum Runtime {
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		ParasOrigin: origin::{Pallet, Origin},
-		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin},
-		MessageQueue: pallet_message_queue::{Pallet, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		ParasOrigin: origin,
+		XcmPallet: pallet_xcm,
+		MessageQueue: pallet_message_queue,
 	}
 );

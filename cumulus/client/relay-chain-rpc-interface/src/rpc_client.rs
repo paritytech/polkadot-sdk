@@ -19,7 +19,7 @@ use futures::channel::{
 	oneshot::Sender as OneshotSender,
 };
 use jsonrpsee::{
-	core::{params::ArrayParams, Error as JsonRpseeError},
+	core::{params::ArrayParams, ClientError as JsonRpseeError},
 	rpc_params,
 };
 use serde::de::DeserializeOwned;
@@ -32,7 +32,7 @@ use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState},
 		slashing,
-		vstaging::NodeFeatures,
+		vstaging::{ApprovalVotingParams, NodeFeatures},
 		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
@@ -625,6 +625,19 @@ impl RelayChainRpcClient {
 	}
 
 	#[allow(missing_docs)]
+	pub async fn parachain_host_staging_approval_voting_params(
+		&self,
+		at: RelayHash,
+		_session_index: SessionIndex,
+	) -> Result<ApprovalVotingParams, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_staging_approval_voting_params",
+			at,
+			None::<()>,
+		)
+		.await
+	}
+
 	pub async fn parachain_host_para_backing_state(
 		&self,
 		at: RelayHash,
@@ -632,6 +645,20 @@ impl RelayChainRpcClient {
 	) -> Result<Option<BackingState>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_para_backing_state", at, Some(para_id))
 			.await
+	}
+
+	pub async fn validation_code_hash(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> Result<Option<ValidationCodeHash>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_validation_code_hash",
+			at,
+			Some((para_id, occupied_core_assumption)),
+		)
+		.await
 	}
 
 	fn send_register_message_to_worker(

@@ -16,6 +16,7 @@
 
 //! Interface to the Substrate Executor
 
+use crate::error::ExecuteError;
 use polkadot_primitives::{
 	executor_params::{DEFAULT_LOGICAL_STACK_MAX, DEFAULT_NATIVE_STACK_MAX},
 	ExecutorParam, ExecutorParams,
@@ -109,7 +110,7 @@ pub unsafe fn execute_artifact(
 	compiled_artifact_blob: &[u8],
 	executor_params: &ExecutorParams,
 	params: &[u8],
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, ExecuteError> {
 	let mut extensions = sp_externalities::Extensions::new();
 
 	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
@@ -123,7 +124,6 @@ pub unsafe fn execute_artifact(
 		Ok(Ok(ok)) => Ok(ok),
 		Ok(Err(err)) | Err(err) => Err(err),
 	}
-	.map_err(|err| format!("execute error: {:?}", err))
 }
 
 /// Constructs the runtime for the given PVF, given the artifact bytes.
@@ -140,7 +140,7 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 	executor_params: &ExecutorParams,
 ) -> Result<WasmtimeRuntime, WasmError> {
 	let mut config = DEFAULT_CONFIG.clone();
-	config.semantics = params_to_wasmtime_semantics(executor_params);
+	config.semantics = params_to_wasmtime_semantics(executor_params).0;
 
 	sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctions>(
 		compiled_artifact_blob,
@@ -148,7 +148,10 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 	)
 }
 
-pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Semantics {
+/// Takes the default config and overwrites any settings with existing executor parameters.
+///
+/// Returns the semantics as well as the stack limit (since we are guaranteed to have it).
+pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> (Semantics, DeterministicStackLimit) {
 	let mut sem = DEFAULT_CONFIG.semantics.clone();
 	let mut stack_limit = sem
 		.deterministic_stack_limit
@@ -169,8 +172,8 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Semantics {
 			ExecutorParam::PvfExecTimeout(_, _) => (), /* Not used here */
 		}
 	}
-	sem.deterministic_stack_limit = Some(stack_limit);
-	sem
+	sem.deterministic_stack_limit = Some(stack_limit.clone());
+	(sem, stack_limit)
 }
 
 /// Runs the prevalidation on the given code. Returns a [`RuntimeBlob`] if it succeeds.
@@ -187,7 +190,7 @@ pub fn prepare(
 	blob: RuntimeBlob,
 	executor_params: &ExecutorParams,
 ) -> Result<Vec<u8>, sc_executor_common::error::WasmError> {
-	let semantics = params_to_wasmtime_semantics(executor_params);
+	let (semantics, _) = params_to_wasmtime_semantics(executor_params);
 	sc_executor_wasmtime::prepare_runtime_artifact(blob, &semantics)
 }
 

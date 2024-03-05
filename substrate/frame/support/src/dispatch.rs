@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
-	traits::SignedExtension,
+	traits::Dispatchable,
 	DispatchError, RuntimeDebug,
 };
 use sp_std::fmt;
@@ -268,7 +268,8 @@ pub fn extract_actual_weight(result: &DispatchResultWithPostInfo, info: &Dispatc
 	.calc_actual_weight(info)
 }
 
-/// Extract the actual pays_fee from a dispatch result if any or fall back to the default weight.
+/// Extract the actual pays_fee from a dispatch result if any or fall back to the default
+/// weight.
 pub fn extract_actual_pays_fee(result: &DispatchResultWithPostInfo, info: &DispatchInfo) -> Pays {
 	match result {
 		Ok(post_info) => post_info,
@@ -368,11 +369,10 @@ where
 }
 
 /// Implementation for unchecked extrinsic.
-impl<Address, Call, Signature, Extra> GetDispatchInfo
-	for UncheckedExtrinsic<Address, Call, Signature, Extra>
+impl<Address, Call, Signature, Extension> GetDispatchInfo
+	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
-	Call: GetDispatchInfo,
-	Extra: SignedExtension,
+	Call: GetDispatchInfo + Dispatchable,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		self.function.get_dispatch_info()
@@ -380,27 +380,12 @@ where
 }
 
 /// Implementation for checked extrinsic.
-impl<AccountId, Call, Extra> GetDispatchInfo for CheckedExtrinsic<AccountId, Call, Extra>
+impl<AccountId, Call, Extension> GetDispatchInfo for CheckedExtrinsic<AccountId, Call, Extension>
 where
 	Call: GetDispatchInfo,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		self.function.get_dispatch_info()
-	}
-}
-
-/// Implementation for test extrinsic.
-#[cfg(feature = "std")]
-impl<Call: Encode + GetDispatchInfo, Extra: Encode> GetDispatchInfo
-	for sp_runtime::testing::TestXt<Call, Extra>
-{
-	fn get_dispatch_info(&self) -> DispatchInfo {
-		// for testing: weight == size.
-		DispatchInfo {
-			weight: Weight::from_parts(self.encode().len() as _, 0),
-			pays_fee: Pays::Yes,
-			class: self.call.get_dispatch_info().class,
-		}
 	}
 }
 
@@ -664,7 +649,7 @@ mod weight_tests {
 	use sp_runtime::{generic, traits::BlakeTwo256};
 	use sp_weights::RuntimeDbWeight;
 
-	pub use self::frame_system::{Call, Config, Pallet};
+	pub use self::frame_system::{Call, Config};
 
 	fn from_actual_ref_time(ref_time: Option<u64>) -> PostDispatchInfo {
 		PostDispatchInfo {
@@ -695,6 +680,7 @@ mod weight_tests {
 			type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall>;
 			type RuntimeOrigin;
 			type RuntimeCall;
+			type RuntimeTask;
 			type PalletInfo: crate::traits::PalletInfo;
 			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
 		}
@@ -791,6 +777,7 @@ mod weight_tests {
 		type BaseCallFilter = crate::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
+		type RuntimeTask = RuntimeTask;
 		type DbWeight = DbWeight;
 		type PalletInfo = PalletInfo;
 	}

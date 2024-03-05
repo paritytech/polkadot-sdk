@@ -24,10 +24,11 @@ use frame_support::{
 };
 
 use frame_system::EnsureRoot;
-use sp_core::{ConstU32, H256};
+use sp_core::ConstU32;
 use sp_runtime::{
-	traits::{Hash, IdentityLookup},
-	AccountId32,
+	generic,
+	traits::{AccountIdLookup, BlakeTwo256, Hash, IdentifyAccount, Verify},
+	MultiAddress, MultiSignature,
 };
 use sp_std::prelude::*;
 
@@ -38,45 +39,36 @@ use polkadot_parachain_primitives::primitives::{
 };
 use xcm::{latest::prelude::*, VersionedXcm};
 use xcm_builder::{
-	AccountId32Aliases, AllowUnpaidExecutionFrom, CurrencyAdapter as XcmCurrencyAdapter,
-	EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, IsConcrete, NativeAsset,
+	AccountId32Aliases, AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedRateOfFungible,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset,
 	ParentIsPreset, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation,
 };
 use xcm_executor::{Config, XcmExecutor};
 
-pub type AccountId = AccountId32;
+pub type TxExtension = (frame_system::CheckNonZeroSender<Runtime>,);
+
+pub type BlockNumber = u64;
+pub type Address = MultiAddress<AccountId, ()>;
+pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+pub type UncheckedExtrinsic =
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+
+pub type Signature = MultiSignature;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Balance = u128;
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
+	pub const BlockHashCount: u32 = 250;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
+	type Lookup = AccountIdLookup<AccountId, ()>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
@@ -98,7 +90,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -108,9 +99,9 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const KsmLocation: MultiLocation = MultiLocation::parent();
+	pub const KsmLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorMultiLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
 }
 
 pub type LocationToAccountId = (
@@ -127,13 +118,13 @@ pub type XcmOriginToCallOrigin = (
 
 parameter_types! {
 	pub const UnitWeightCost: Weight = Weight::from_parts(1, 1);
-	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (Concrete(Parent.into()), 1, 1);
+	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(Parent.into()), 1, 1);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
 pub type LocalAssetTransactor =
-	XcmCurrencyAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>;
+	FungibleAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>;
 
 pub type XcmRouter = super::ParachainXcmRouter<MsgQueue>;
 pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
@@ -164,6 +155,7 @@ impl Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 #[frame_support::pallet]
@@ -235,16 +227,23 @@ pub mod mock_msg_queue {
 			max_weight: Weight,
 		) -> Result<Weight, XcmError> {
 			let hash = Encode::using_encoded(&xcm, T::Hashing::hash);
-			let message_hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			let mut message_hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 			let (result, event) = match Xcm::<T::RuntimeCall>::try_from(xcm) {
 				Ok(xcm) => {
-					let location = MultiLocation::new(1, X1(Parachain(sender.into())));
-					match T::XcmExecutor::execute_xcm(location, xcm, message_hash, max_weight) {
-						Outcome::Error(e) => (Err(e), Event::Fail(Some(hash), e)),
-						Outcome::Complete(w) => (Ok(w), Event::Success(Some(hash))),
+					let location = Location::new(1, [Parachain(sender.into())]);
+					match T::XcmExecutor::prepare_and_execute(
+						location,
+						xcm,
+						&mut message_hash,
+						max_weight,
+						Weight::zero(),
+					) {
+						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
+						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete(w, e) => (Ok(w), Event::Fail(Some(hash), e)),
+						Outcome::Incomplete { used, error } =>
+							(Ok(used), Event::Fail(Some(hash), error)),
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
@@ -285,7 +284,7 @@ pub mod mock_msg_queue {
 			limit: Weight,
 		) -> Weight {
 			for (_i, (_sent_at, data)) in iter.enumerate() {
-				let id = sp_io::hashing::blake2_256(&data[..]);
+				let mut id = sp_io::hashing::blake2_256(&data[..]);
 				let maybe_msg = VersionedXcm::<T::RuntimeCall>::decode(&mut &data[..])
 					.map(Xcm::<T::RuntimeCall>::try_from);
 				match maybe_msg {
@@ -296,7 +295,13 @@ pub mod mock_msg_queue {
 						Self::deposit_event(Event::UnsupportedVersion(id));
 					},
 					Ok(Ok(x)) => {
-						let outcome = T::XcmExecutor::execute_xcm(Parent, x.clone(), id, limit);
+						let outcome = T::XcmExecutor::prepare_and_execute(
+							Parent,
+							x.clone(),
+							&mut id,
+							limit,
+							Weight::zero(),
+						);
 						<ReceivedDmp<T>>::append(x);
 						Self::deposit_event(Event::ExecutedDownward(id, outcome));
 					},
@@ -340,14 +345,12 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
-type Block = frame_system::mocking::MockBlock<Runtime>;
-
 construct_runtime!(
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		MsgQueue: mock_msg_queue::{Pallet, Storage, Event<T>},
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin},
+		System: frame_system,
+		Balances: pallet_balances,
+		MsgQueue: mock_msg_queue,
+		PolkadotXcm: pallet_xcm,
 	}
 );

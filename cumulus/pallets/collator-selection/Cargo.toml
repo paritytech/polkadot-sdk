@@ -7,13 +7,16 @@ license = "Apache-2.0"
 name = "pallet-collator-selection"
 readme = "README.md"
 repository.workspace = true
-version = "3.0.0"
+version = "9.0.0"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 codec = { default-features = false, features = ["derive"], package = "parity-scale-codec", version = "3.0.0" }
 rand = { version = "0.8.5", features = ["std_rng"], default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }

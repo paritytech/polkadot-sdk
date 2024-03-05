@@ -85,8 +85,8 @@
 //! meant to be used by constructing runtime calls from outside the runtime.
 //! </pre></div>
 //!
-//! This pallet also defines a [`SignedExtension`](sp_runtime::traits::SignedExtension) called
-//! [`CheckOnlySudoAccount`] to ensure that only signed transactions by the sudo account are
+//! This pallet also defines a [`TransactionExtension`](sp_runtime::traits::TransactionExtension)
+//! called [`CheckOnlySudoAccount`] to ensure that only signed transactions by the sudo account are
 //! accepted by the transaction pool. The intended use of this signed extension is to prevent other
 //! accounts from spamming the transaction pool for the initial phase of a chain, during which
 //! developers may only want a sudo account to be able to make transactions.
@@ -329,7 +329,6 @@ pub mod pallet {
 
 	/// The `AccountId` of the sudo key.
 	#[pallet::storage]
-	#[pallet::getter(fn key)]
 	pub(super) type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::genesis_config]
@@ -349,12 +348,16 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Ensure that the caller is the sudo key.
 		pub(crate) fn ensure_sudo(origin: OriginFor<T>) -> DispatchResult {
-			let sender = ensure_signed(origin)?;
+			let sender = ensure_signed_or_root(origin)?;
 
-			if Self::key().map_or(false, |k| k == sender) {
-				Ok(())
+			if let Some(sender) = sender {
+				if Key::<T>::get().map_or(false, |k| k == sender) {
+					Ok(())
+				} else {
+					Err(Error::<T>::RequireSudo.into())
+				}
 			} else {
-				Err(Error::<T>::RequireSudo.into())
+				Ok(())
 			}
 		}
 	}

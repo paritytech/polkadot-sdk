@@ -21,13 +21,14 @@ use parity_scale_codec::Encode as _;
 #[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
 use polkadot_node_core_pvf::SecurityStatus;
 use polkadot_node_core_pvf::{
-	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics, PrepareError,
-	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics,
+	PossiblyInvalidError, PrepareError, PrepareJobKind, PvfPrepData, ValidationError,
+	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::{ExecutorParam, ExecutorParams};
 
-use std::time::Duration;
+use std::{io::Write, time::Duration};
 use tokio::sync::Mutex;
 
 mod adder;
@@ -352,10 +353,99 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		)
 		.await;
 
-	match result {
-		Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)) => {},
-		r => panic!("{:?}", r),
+	assert_matches!(result, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)));
+}
+
+// Test that corruption of a prepared artifact does not lead to a dispute when we try to execute it.
+#[tokio::test]
+async fn corrupted_prepared_artifact_does_not_dispute() {
+	let host = TestHost::new().await;
+	let cache_dir = host.cache_dir.path();
+
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+
+	// Manually corrupting the prepared artifact from disk. The in-memory artifacts table won't
+	// change.
+	let artifact_path = {
+		// Get the artifact path (asserting it exists).
+		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
+		// Should contain the artifact and the worker dir.
+		assert_eq!(cache_dir.len(), 2);
+		let mut artifact_path = cache_dir.pop().unwrap().unwrap();
+		if artifact_path.path().is_dir() {
+			artifact_path = cache_dir.pop().unwrap().unwrap();
+		}
+
+		// Corrupt the artifact.
+		let mut f = std::fs::OpenOptions::new()
+			.write(true)
+			.truncate(true)
+			.open(artifact_path.path())
+			.unwrap();
+		f.write_all(b"corrupted wasm").unwrap();
+		f.flush().unwrap();
+		artifact_path
+	};
+
+	assert!(artifact_path.path().exists());
+
+	// Try to validate, artifact should get removed because of the corruption.
+	let result = host
+		.validate_candidate(
+			halt::wasm_binary_unwrap(),
+			ValidationParams {
+				block_data: BlockData(Vec::new()),
+				parent_head: Default::default(),
+				relay_parent_number: 1,
+				relay_parent_storage_root: Default::default(),
+			},
+			Default::default(),
+		)
+		.await;
+
+	assert_matches!(
+		result,
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(_)))
+	);
+
+	// because of RuntimeConstruction we may retry
+	host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+
+	// The actual artifact removal is done concurrently
+	// with sending of the result of the execution
+	// it is not a problem for further re-preparation as
+	// artifact filenames are random
+	for _ in 1..5 {
+		if !artifact_path.path().exists() {
+			break;
+		}
+		tokio::time::sleep(Duration::from_secs(1)).await;
 	}
+
+	assert!(
+		!artifact_path.path().exists(),
+		"the corrupted artifact ({}) should be deleted by the host",
+		artifact_path.path().display()
+	);
+}
+
+#[tokio::test]
+async fn cache_cleared_on_startup() {
+	// Don't drop this host, it owns the `TempDir` which gets cleared on drop.
+	let host = TestHost::new().await;
+
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+
+	// The cache dir should contain one artifact and one worker dir.
+	let cache_dir = host.cache_dir.path().to_owned();
+	assert_eq!(std::fs::read_dir(&cache_dir).unwrap().count(), 2);
+
+	// Start a new host, previous artifact should be cleared.
+	let _host = TestHost::new_with_config(|cfg| {
+		cfg.cache_path = cache_dir.clone();
+	})
+	.await;
+	assert_eq!(std::fs::read_dir(&cache_dir).unwrap().count(), 0);
 }
 
 // This test checks if the adder parachain runtime can be prepared with 10Mb preparation memory
@@ -438,10 +528,31 @@ async fn all_security_features_work() {
 	assert_eq!(
 		host.security_status().await,
 		SecurityStatus {
+			// Disabled in tests to not enforce the presence of security features. This CI-only test
+			// is the only one that tests them.
 			secure_validator_mode: false,
 			can_enable_landlock,
 			can_enable_seccomp: true,
 			can_unshare_user_namespace_and_change_root: true,
+			can_do_secure_clone: true,
 		}
 	);
+}
+
+// Regression test to make sure the unshare-pivot-root capability does not depend on the PVF
+// artifacts cache existing.
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+#[tokio::test]
+async fn nonexistant_cache_dir() {
+	let host = TestHost::new_with_config(|cfg| {
+		cfg.cache_path = cfg.cache_path.join("nonexistant_cache_dir");
+	})
+	.await;
+
+	assert!(host.security_status().await.can_unshare_user_namespace_and_change_root);
+
+	let _stats = host
+		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
 }

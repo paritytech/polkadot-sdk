@@ -1,10 +1,13 @@
 [package]
 authors.workspace = true
 name = "cumulus-relay-chain-minimal-node"
-version = "0.1.0"
+version = "0.7.0"
 edition.workspace = true
 description = "Minimal node implementation to be used in tandem with RPC or light-client mode."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 # polkadot deps
@@ -21,6 +24,7 @@ polkadot-node-collation-generation = { path = "../../../polkadot/node/collation-
 polkadot-node-core-runtime-api = { path = "../../../polkadot/node/core/runtime-api" }
 polkadot-node-core-chain-api = { path = "../../../polkadot/node/core/chain-api" }
 polkadot-node-core-prospective-parachains = { path = "../../../polkadot/node/core/prospective-parachains" }
+polkadot-service = { path = "../../../polkadot/node/service" }
 
 # substrate deps
 sc-authority-discovery = { path = "../../../substrate/client/authority-discovery" }
@@ -45,6 +49,6 @@ cumulus-primitives-core = { path = "../../primitives/core" }
 
 array-bytes = "6.1"
 tracing = "0.1.37"
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 futures = "0.3.28"
 parking_lot = "0.12.1"

@@ -59,7 +59,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
-use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
+use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -95,8 +95,6 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
 	pub para_id: ParaId,
 	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
 	pub overseer_handle: OverseerHandle,
-	/// The length of slots in this chain.
-	pub slot_duration: SlotDuration,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
 	/// The underlying block proposer this should call into.
@@ -105,6 +103,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
 	pub collator_service: CS,
 	/// The amount of time to spend authoring each block.
 	pub authoring_duration: Duration,
+	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
+	pub reinitialize: bool,
 }
 
 /// Run async-backing-friendly Aura.
@@ -149,6 +149,7 @@ where
 			&mut params.overseer_handle,
 			params.collator_key,
 			params.para_id,
+			params.reinitialize,
 		)
 		.await;
 
@@ -211,26 +212,6 @@ where
 				},
 			};
 
-			let (slot_now, timestamp) = match consensus_common::relay_slot_and_timestamp(
-				&relay_parent_header,
-				params.relay_chain_slot_duration,
-			) {
-				None => continue,
-				Some((r_s, t)) => {
-					let our_slot = Slot::from_timestamp(t, params.slot_duration);
-					tracing::debug!(
-						target: crate::LOG_TARGET,
-						relay_slot = ?r_s,
-						para_slot = ?our_slot,
-						timestamp = ?t,
-						slot_duration = ?params.slot_duration,
-						relay_chain_slot_duration = ?params.relay_chain_slot_duration,
-						"Adjusted relay-chain slot to parachain slot"
-					);
-					(our_slot, t)
-				},
-			};
-
 			let parent_search_params = ParentSearchParams {
 				relay_parent,
 				para_id: params.para_id,
@@ -269,14 +250,39 @@ where
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
 			let can_build_upon = |block_hash| {
-				can_build_upon::<_, _, P>(
+				let slot_duration = match sc_consensus_aura::standalone::slot_duration_at(
+					&*params.para_client,
+					block_hash,
+				) {
+					Ok(sd) => sd,
+					Err(err) => {
+						tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
+						return None
+					},
+				};
+				tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
+				let (relay_slot, timestamp) = consensus_common::relay_slot_and_timestamp(
+					&relay_parent_header,
+					params.relay_chain_slot_duration,
+				)?;
+				let slot_now = Slot::from_timestamp(timestamp, slot_duration);
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					?relay_slot,
+					para_slot = ?slot_now,
+					?timestamp,
+					?slot_duration,
+					relay_chain_slot_duration = ?params.relay_chain_slot_duration,
+					"Adjusted relay-chain slot to parachain slot"
+				);
+				Some(can_build_upon::<_, _, P>(
 					slot_now,
 					timestamp,
 					block_hash,
 					included_block,
 					para_client,
 					&keystore,
-				)
+				))
 			};
 
 			// Sort by depth, ascending, to choose the longest chain.
@@ -284,10 +290,7 @@ where
 			// If the longest chain has space, build upon that. Otherwise, don't
 			// build at all.
 			potential_parents.sort_by_key(|a| a.depth);
-			let initial_parent = match potential_parents.pop() {
-				None => continue,
-				Some(p) => p,
-			};
+			let Some(initial_parent) = potential_parents.pop() else { continue };
 
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
@@ -295,12 +298,19 @@ where
 			let mut parent_header = initial_parent.header;
 			let overseer_handle = &mut params.overseer_handle;
 
+			// We mainly call this to inform users at genesis if there is a mismatch with the
+			// on-chain data.
+			collator.collator_service().check_block_status(parent_hash, &parent_header);
+
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2 {
-				let slot_claim = match can_build_upon(parent_hash).await {
+				let slot_claim = match can_build_upon(parent_hash) {
+					Some(fut) => match fut.await {
+						None => break,
+						Some(c) => c,
+					},
 					None => break,
-					Some(c) => c,
 				};
 
 				tracing::debug!(
@@ -344,6 +354,14 @@ where
 					Some(v) => v,
 				};
 
+				super::check_validation_code_or_log(
+					&validation_code_hash,
+					params.para_id,
+					&params.relay_client,
+					relay_parent,
+				)
+				.await;
+
 				match collator
 					.collate(
 						&parent_header,
@@ -359,7 +377,7 @@ where
 					)
 					.await
 				{
-					Ok((collation, block_data, new_block_hash)) => {
+					Ok(Some((collation, block_data, new_block_hash))) => {
 						// Here we are assuming that the import logic protects against equivocations
 						// and provides sybil-resistance, as it should.
 						collator.collator_service().announce_block(new_block_hash, None);
@@ -386,6 +404,10 @@ where
 
 						parent_hash = new_block_hash;
 						parent_header = block_data.into_header();
+					},
+					Ok(None) => {
+						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
+						break
 					},
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);

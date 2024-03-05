@@ -10,6 +10,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -22,8 +25,8 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 ] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
 static_assertions = "1.1.0"
-log = { version = "0.4.17", default-features = false }
-serde_json = { version = "1.0.108", default-features = false, features = ["alloc", "arbitrary_precision"] }
+log = { workspace = true }
+serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 
 # pallet-asset-conversion: turn on "num-traits" feature
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "num-traits", "scale-info"] }
@@ -31,6 +34,7 @@ primitive-types = { version = "0.12.0", default-features = false, features = ["c
 # primitives
 sp-authority-discovery = { path = "../../../primitives/authority-discovery", default-features = false, features = ["serde"] }
 sp-consensus-babe = { path = "../../../primitives/consensus/babe", default-features = false, features = ["serde"] }
+sp-consensus-beefy = { path = "../../../primitives/consensus/beefy", default-features = false }
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false, features = ["serde"] }
 sp-block-builder = { path = "../../../primitives/block-builder", default-features = false }
 sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
@@ -69,6 +73,8 @@ pallet-authorship = { path = "../../../frame/authorship", default-features = fal
 pallet-babe = { path = "../../../frame/babe", default-features = false }
 pallet-bags-list = { path = "../../../frame/bags-list", default-features = false }
 pallet-balances = { path = "../../../frame/balances", default-features = false }
+pallet-beefy = { path = "../../../frame/beefy", default-features = false }
+pallet-beefy-mmr = { path = "../../../frame/beefy-mmr", default-features = false }
 pallet-bounties = { path = "../../../frame/bounties", default-features = false }
 pallet-broker = { path = "../../../frame/broker", default-features = false }
 pallet-child-bounties = { path = "../../../frame/child-bounties", default-features = false }
@@ -80,7 +86,9 @@ pallet-democracy = { path = "../../../frame/democracy", default-features = false
 pallet-election-provider-multi-phase = { path = "../../../frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "../../../frame/election-provider-support/benchmarking", default-features = false, optional = true }
 pallet-elections-phragmen = { path = "../../../frame/elections-phragmen", default-features = false }
+pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
 pallet-fast-unstake = { path = "../../../frame/fast-unstake", default-features = false }
+pallet-migrations = { path = "../../../frame/migrations", default-features = false }
 pallet-nis = { path = "../../../frame/nis", default-features = false }
 pallet-grandpa = { path = "../../../frame/grandpa", default-features = false }
 pallet-im-online = { path = "../../../frame/im-online", default-features = false }
@@ -135,6 +143,7 @@ pallet-vesting = { path = "../../../frame/vesting", default-features = false }
 pallet-whitelist = { path = "../../../frame/whitelist", default-features = false }
 pallet-tx-pause = { path = "../../../frame/tx-pause", default-features = false }
 pallet-safe-mode = { path = "../../../frame/safe-mode", default-features = false }
+pallet-parameters = { path = "../../../frame/parameters", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
@@ -166,6 +175,8 @@ std = [
 	"pallet-babe/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
+	"pallet-beefy-mmr/std",
+	"pallet-beefy/std",
 	"pallet-bounties/std",
 	"pallet-broker/std",
 	"pallet-child-bounties/std",
@@ -177,6 +188,7 @@ std = [
 	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen/std",
+	"pallet-example-tasks/std",
 	"pallet-fast-unstake/std",
 	"pallet-glutton/std",
 	"pallet-grandpa/std",
@@ -187,6 +199,7 @@ std = [
 	"pallet-lottery/std",
 	"pallet-membership/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-mixnet/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
@@ -199,6 +212,7 @@ std = [
 	"pallet-nomination-pools/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences/std",
+	"pallet-parameters/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-ranked-collective/std",
@@ -236,6 +250,7 @@ std = [
 	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-babe/std",
+	"sp-consensus-beefy/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
@@ -261,6 +276,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-alliance/runtime-benchmarks",
+	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-asset-tx-payment/runtime-benchmarks",
@@ -279,6 +295,7 @@ runtime-benchmarks = [
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
+	"pallet-example-tasks/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-glutton/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
@@ -288,6 +305,7 @@ runtime-benchmarks = [
 	"pallet-lottery/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-mixnet/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -298,6 +316,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-offences-benchmarking/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
+	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-ranked-collective/runtime-benchmarks",
@@ -315,6 +334,7 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-tips/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-transaction-storage/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-tx-pause/runtime-benchmarks",
@@ -343,6 +363,8 @@ try-runtime = [
 	"pallet-babe/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-beefy-mmr/try-runtime",
+	"pallet-beefy/try-runtime",
 	"pallet-bounties/try-runtime",
 	"pallet-broker/try-runtime",
 	"pallet-child-bounties/try-runtime",
@@ -353,6 +375,7 @@ try-runtime = [
 	"pallet-democracy/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
+	"pallet-example-tasks/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-glutton/try-runtime",
 	"pallet-grandpa/try-runtime",
@@ -363,6 +386,7 @@ try-runtime = [
 	"pallet-lottery/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-mixnet/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",
@@ -371,6 +395,7 @@ try-runtime = [
 	"pallet-nis/try-runtime",
 	"pallet-nomination-pools/try-runtime",
 	"pallet-offences/try-runtime",
+	"pallet-parameters/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-ranked-collective/try-runtime",
@@ -399,4 +424,9 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"sp-runtime/try-runtime",
+]
+experimental = [
+	"frame-support/experimental",
+	"frame-system/experimental",
+	"pallet-example-tasks/experimental",
 ]

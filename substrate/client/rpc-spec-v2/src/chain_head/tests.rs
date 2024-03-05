@@ -16,9 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::chain_head::{
-	event::{MethodResponse, StorageQuery, StorageQueryType, StorageResultType},
-	test_utils::ChainHeadMockClient,
+use crate::{
+	chain_head::{event::MethodResponse, test_utils::ChainHeadMockClient},
+	common::events::{StorageQuery, StorageQueryType, StorageResultType},
+	hex_string,
 };
 
 use super::*;
@@ -26,10 +27,7 @@ use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use futures::Future;
 use jsonrpsee::{
-	core::{error::Error, server::rpc_module::Subscription as RpcSubscription},
-	rpc_params,
-	types::error::CallError,
-	RpcModule,
+	core::server::Subscription as RpcSubscription, rpc_params, MethodsError as Error, RpcModule,
 };
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
@@ -119,7 +117,7 @@ async fn setup_api() -> (
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -170,7 +168,7 @@ async fn follow_subscription_produces_blocks() {
 	.into_rpc();
 
 	let finalized_hash = client.info().finalized_hash;
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -238,18 +236,18 @@ async fn follow_with_runtime() {
 	.into_rpc();
 
 	let finalized_hash = client.info().finalized_hash;
-	let mut sub = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 
 	// it is basically json-encoded substrate_test_runtime_client::runtime::VERSION
-	let runtime_str = "{\"specName\":\"test\",\"implName\":\"parity-test\",\"authoringVersion\":0,\
-		\"specVersion\":2,\"implVersion\":2,\"apis\":[[\"0xdf6acb689907609b\",4],\
+	let runtime_str = "{\"specName\":\"test\",\"implName\":\"parity-test\",\"authoringVersion\":1,\
+		\"specVersion\":2,\"implVersion\":2,\"apis\":[[\"0xdf6acb689907609b\",5],\
 		[\"0x37e397fc7c91f5e4\",2],[\"0xd2bc9897eed08f15\",3],[\"0x40fe3ad401f8959a\",6],\
 		[\"0xbc9d89904f5b923f\",1],[\"0xc6e9a76309f39b09\",2],[\"0xdd718d5cc53262d4\",1],\
 		[\"0xcbca25e39f142387\",2],[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",1],\
-		[\"0xed99c5acb25eedf5\",3],[\"0xfbc577b9d747efd6\",1]],\"transactionVersion\":1,\"stateVersion\":0}";
+		[\"0xed99c5acb25eedf5\",3],[\"0xfbc577b9d747efd6\",1]],\"transactionVersion\":1,\"stateVersion\":1}";
 
 	let runtime: RuntimeVersion = serde_json::from_str(runtime_str).unwrap();
 
@@ -360,7 +358,7 @@ async fn get_header() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Obtain the valid header.
@@ -389,7 +387,7 @@ async fn get_body() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call.
@@ -474,7 +472,7 @@ async fn call_runtime() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Pass an invalid parameters that cannot be decode.
@@ -487,7 +485,7 @@ async fn call_runtime() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message().contains("Invalid parameter")
+		Error::JsonRpc(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message().contains("Invalid parameter")
 	);
 
 	// Valid call.
@@ -549,7 +547,7 @@ async fn call_runtime_without_flag() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -590,7 +588,7 @@ async fn call_runtime_without_flag() {
 		.unwrap_err();
 
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_RUNTIME_CALL && err.message().contains("subscription was started with `withRuntime` set to `false`")
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_RUNTIME_CALL && err.message().contains("subscription was started with `withRuntime` set to `false`")
 	);
 }
 
@@ -628,7 +626,7 @@ async fn get_storage_hash() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call without storage at the key.
@@ -896,7 +894,7 @@ async fn get_storage_value() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call without storage at the key.
@@ -1208,11 +1206,12 @@ async fn separate_operation_ids_for_subscriptions() {
 	.into_rpc();
 
 	// Create two separate subscriptions.
-	let mut sub_first = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub_first = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id_first = sub_first.subscription_id();
 	let sub_id_first = serde_json::to_string(&sub_id_first).unwrap();
 
-	let mut sub_second = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub_second =
+		api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id_second = sub_second.subscription_id();
 	let sub_id_second = serde_json::to_string(&sub_id_second).unwrap();
 
@@ -1340,7 +1339,7 @@ async fn follow_generates_initial_blocks() {
 	let block_2_f_hash = block_2_f.header.hash();
 	client.import(BlockOrigin::Own, block_2_f.clone()).await.unwrap();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -1449,7 +1448,7 @@ async fn follow_exceeding_pinned_blocks() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	let block = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -1525,7 +1524,7 @@ async fn follow_with_unpin() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -1571,7 +1570,7 @@ async fn follow_with_unpin() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// To not exceed the number of pinned blocks, we need to unpin before the next import.
@@ -1618,6 +1617,108 @@ async fn follow_with_unpin() {
 }
 
 #[tokio::test]
+async fn unpin_duplicate_hashes() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let mut client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: 3,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+		},
+	)
+	.into_rpc();
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let sub_id = sub.subscription_id();
+	let sub_id = serde_json::to_string(&sub_id).unwrap();
+
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Ensure the imported block is propagated and pinned for this subscription.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	// Try to unpin duplicate hashes.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, vec![&block_hash, &block_hash]],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::JsonRpc(err) if err.code() == super::error::rpc_spec_v2::INVALID_DUPLICATE_HASHES && err.message() == "Received duplicate hashes for the `chainHead_unpin` method"
+	);
+
+	// Block tree:
+	//   finalized_block -> block -> block2
+	let block2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_hash_2 = format!("{:?}", block2.header.hash());
+	client.import(BlockOrigin::Own, block2.clone()).await.unwrap();
+
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	// Try to unpin duplicate hashes.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, vec![&block_hash, &block_hash_2, &block_hash]],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::JsonRpc(err) if err.code() == super::error::rpc_spec_v2::INVALID_DUPLICATE_HASHES && err.message() == "Received duplicate hashes for the `chainHead_unpin` method"
+	);
+
+	// Can unpin blocks.
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, vec![&block_hash, &block_hash_2]])
+		.await
+		.unwrap();
+}
+
+#[tokio::test]
 async fn follow_with_multiple_unpin_hashes() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
@@ -1636,7 +1737,7 @@ async fn follow_with_multiple_unpin_hashes() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -1720,7 +1821,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	let _res: () = api
@@ -1737,7 +1838,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Unpin multiple blocks.
@@ -1755,7 +1856,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	let err = api
@@ -1766,7 +1867,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::JsonRpc(ref err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 }
 
@@ -1790,7 +1891,7 @@ async fn follow_prune_best_block() {
 	.into_rpc();
 
 	let finalized_hash = client.info().finalized_hash;
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -2050,7 +2151,7 @@ async fn follow_forks_pruned_block() {
 	// Block 2_f and 3_f are not pruned, pruning happens at height (N - 1).
 	client.finalize_block(block_3_hash, None).unwrap();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -2204,7 +2305,7 @@ async fn follow_report_multiple_pruned_block() {
 	let block_3_f = block_builder.build().unwrap().block;
 	let block_3_f_hash = block_3_f.hash();
 	client.import(BlockOrigin::Own, block_3_f.clone()).await.unwrap();
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -2387,7 +2488,7 @@ async fn pin_block_references() {
 		}
 	}
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -2519,7 +2620,7 @@ async fn follow_finalized_before_new_block() {
 	let block_1_hash = block_1.header.hash();
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Trigger the `FinalizedNotification` for block 1 before the `BlockImportNotification`, and
 	// expect for the `chainHead` to generate `NewBlock`, `BestBlock` and `Finalized` events.
@@ -2621,7 +2722,7 @@ async fn ensure_operation_limits_works() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -2725,7 +2826,7 @@ async fn check_continue_operation() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -2907,7 +3008,7 @@ async fn stop_storage_operation() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 

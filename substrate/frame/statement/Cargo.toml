@@ -1,12 +1,15 @@
 [package]
 name = "pallet-statement"
-version = "4.0.0-dev"
+version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME pallet for statement store"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -22,7 +25,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }

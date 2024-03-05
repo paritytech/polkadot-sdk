@@ -11,6 +11,7 @@ error: use of deprecated constant `pallet::warnings::ImplicitCallIndex_0::_w`:
    |                ^^^^^^^
    |
    = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
 
 error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
                It is deprecated to use hard-coded constant as call weight.
@@ -26,8 +27,15 @@ error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
 error[E0277]: the trait bound `Vec<u8>: MaxEncodedLen` is not satisfied
   --> tests/pallet_ui/dev_mode_without_arg_max_encoded_len.rs:28:12
    |
-28 |     #[pallet::pallet]
-   |               ^^^^^^ the trait `MaxEncodedLen` is not implemented for `Vec<u8>`
+28 |       #[pallet::pallet]
+   |  _______________^
+29 | |     pub struct Pallet<T>(_);
+30 | |
+31 | |     // Your Pallet's configuration trait, representing custom external types and interfaces.
+...  |
+35 | |     #[pallet::storage]
+36 | |     type MyStorage<T: Config> = StorageValue<_, Vec<u8>>;
+   | |__________________^ the trait `MaxEncodedLen` is not implemented for `Vec<u8>`
    |
    = help: the following other types implement trait `MaxEncodedLen`:
              bool

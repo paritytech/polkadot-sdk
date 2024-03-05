@@ -66,7 +66,7 @@ pub mod pallet {
 
 	use super::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(14);
 
 	#[pallet::pallet]
@@ -269,10 +269,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxUnlockingChunks: Get<u32>;
 
+		/// The maximum amount of controller accounts that can be deprecated in one call.
+		type MaxControllersInDeprecationBatch: Get<u32>;
+
 		/// Something that listens to staking updates and performs actions based on the data it
 		/// receives.
 		///
-		/// WARNING: this only reports slashing events for the time being.
+		/// WARNING: this only reports slashing and withdraw events for the time being.
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
 		/// Some parameters of the benchmarking.
@@ -336,7 +339,7 @@ pub mod pallet {
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
 	pub type Payee<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, ValueQuery>;
+		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, OptionQuery>;
 
 	/// The map from (wannabe) validator stash key to the preferences of that validator.
 	///
@@ -560,6 +563,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn force_era)]
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
+
+	/// Maximum staked rewards, i.e. the percentage of the era inflation that
+	/// is used for stake rewards.
+	/// See [Era payout](./index.html#era-payout).
+	#[pallet::storage]
+	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
 
 	/// The percentage of the slash that is distributed to reporters.
 	///
@@ -1323,7 +1332,7 @@ pub mod pallet {
 		pub fn set_controller(origin: OriginFor<T>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			// the bonded map and ledger are mutated directly as this extrinsic is related to a
+			// The bonded map and ledger are mutated directly as this extrinsic is related to a
 			// (temporary) passive migration.
 			Self::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
 				let controller = ledger.controller()
@@ -1331,10 +1340,9 @@ pub mod pallet {
                     .ok_or(Error::<T>::NotController)?;
 
 				if controller == stash {
-					// stash is already its own controller.
+					// Stash is already its own controller.
 					return Err(Error::<T>::AlreadyPaired.into())
 				}
-				// update bond and ledger.
 				<Ledger<T>>::remove(controller);
 				<Bonded<T>>::insert(&stash, &stash);
 				<Ledger<T>>::insert(&stash, ledger);
@@ -1715,6 +1723,7 @@ pub mod pallet {
 			max_validator_count: ConfigOp<u32>,
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
+			max_staked_rewards: ConfigOp<Percent>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -1734,6 +1743,7 @@ pub mod pallet {
 			config_op_exp!(MaxValidatorsCount<T>, max_validator_count);
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
+			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
@@ -1909,7 +1919,7 @@ pub mod pallet {
 			ensure!(
 				(Payee::<T>::get(&ledger.stash) == {
 					#[allow(deprecated)]
-					RewardDestination::Controller
+					Some(RewardDestination::Controller)
 				}),
 				Error::<T>::NotController
 			);
@@ -1919,6 +1929,54 @@ pub mod pallet {
 				.defensive_proof("ledger should have been previously retrieved from storage.")?;
 
 			Ok(Pays::No.into())
+		}
+
+		/// Updates a batch of controller accounts to their corresponding stash account if they are
+		/// not the same. Ignores any controller accounts that do not exist, and does not operate if
+		/// the stash and controller are already the same.
+		///
+		/// Effects will be felt instantly (as soon as this function is completed successfully).
+		///
+		/// The dispatch origin must be `T::AdminOrigin`.
+		#[pallet::call_index(28)]
+		#[pallet::weight(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32))]
+		pub fn deprecate_controller_batch(
+			origin: OriginFor<T>,
+			controllers: BoundedVec<T::AccountId, T::MaxControllersInDeprecationBatch>,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			// Ignore controllers that do not exist or are already the same as stash.
+			let filtered_batch_with_ledger: Vec<_> = controllers
+				.iter()
+				.filter_map(|controller| {
+					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
+					ledger.ok().map_or(None, |ledger| {
+						// If the controller `RewardDestination` is still the deprecated
+						// `Controller` variant, skip deprecating this account.
+						let payee_deprecated = Payee::<T>::get(&ledger.stash) == {
+							#[allow(deprecated)]
+							Some(RewardDestination::Controller)
+						};
+
+						if ledger.stash != *controller && !payee_deprecated {
+							Some((controller.clone(), ledger))
+						} else {
+							None
+						}
+					})
+				})
+				.collect();
+
+			// Update unique pairs.
+			for (controller, ledger) in filtered_batch_with_ledger {
+				let stash = ledger.stash.clone();
+
+				<Bonded<T>>::insert(&stash, &stash);
+				<Ledger<T>>::remove(controller);
+				<Ledger<T>>::insert(stash, ledger);
+			}
+			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
 		}
 	}
 }

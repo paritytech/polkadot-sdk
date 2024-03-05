@@ -94,7 +94,7 @@ impl<Balance: AtLeast32BitUnsigned + Copy> FeeDetails<Balance> {
 /// Information related to a dispatchable's class, weight, and fee that can be queried from the
 /// runtime.
 #[derive(Eq, PartialEq, Encode, Decode, Default, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize, Clone))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 #[cfg_attr(
 	feature = "std",
@@ -112,7 +112,7 @@ pub struct RuntimeDispatchInfo<Balance, Weight = frame_support::weights::Weight>
 	/// The inclusion fee of this dispatch.
 	///
 	/// This does not include a tip or anything else that
-	/// depends on the signature (i.e. depends on a `SignedExtension`).
+	/// depends on the signature (i.e. depends on a `TransactionExtension`).
 	#[cfg_attr(feature = "std", serde(with = "serde_balance"))]
 	pub partial_fee: Balance,
 }

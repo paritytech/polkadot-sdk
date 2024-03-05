@@ -16,20 +16,23 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing, runtime_api::ParachainHost, slashing, vstaging, Block, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState,
-	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
-	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing,
+	runtime_api::ParachainHost,
+	slashing,
+	vstaging::{self, ApprovalVotingParams},
+	Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
+	Header, Id, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
-use sc_client_api::HeaderBackend;
+use sc_client_api::{AuxStore, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
 use sp_authority_discovery::AuthorityDiscoveryApi;
-use sp_blockchain::Info;
+use sp_blockchain::{BlockStatus, Info};
 use sp_consensus_babe::{BabeApi, Epoch};
-use sp_runtime::traits::{Header as HeaderT, NumberFor};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 use std::{collections::BTreeMap, sync::Arc};
 
 /// Offers header utilities.
@@ -316,9 +319,16 @@ pub trait RuntimeApiSubsystemClient {
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError>;
 
 	// === v9 ===
-
 	/// Get the node features.
 	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError>;
+
+	// == v10: Approval voting params ==
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(
+		&self,
+		at: Hash,
+		session_index: SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -574,5 +584,72 @@ where
 
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
 		self.client.runtime_api().disabled_validators(at)
+	}
+
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(
+		&self,
+		at: Hash,
+		_session_index: SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError> {
+		self.client.runtime_api().approval_voting_params(at)
+	}
+}
+
+impl<Client, Block> HeaderBackend<Block> for DefaultSubsystemClient<Client>
+where
+	Client: HeaderBackend<Block>,
+	Block: sp_runtime::traits::Block,
+{
+	fn header(
+		&self,
+		hash: Block::Hash,
+	) -> sc_client_api::blockchain::Result<Option<Block::Header>> {
+		self.client.header(hash)
+	}
+
+	fn info(&self) -> Info<Block> {
+		self.client.info()
+	}
+
+	fn status(&self, hash: Block::Hash) -> sc_client_api::blockchain::Result<BlockStatus> {
+		self.client.status(hash)
+	}
+
+	fn number(
+		&self,
+		hash: Block::Hash,
+	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>> {
+		self.client.number(hash)
+	}
+
+	fn hash(
+		&self,
+		number: NumberFor<Block>,
+	) -> sc_client_api::blockchain::Result<Option<Block::Hash>> {
+		self.client.hash(number)
+	}
+}
+
+impl<Client> AuxStore for DefaultSubsystemClient<Client>
+where
+	Client: AuxStore,
+{
+	fn insert_aux<
+		'a,
+		'b: 'a,
+		'c: 'a,
+		I: IntoIterator<Item = &'a (&'c [u8], &'c [u8])>,
+		D: IntoIterator<Item = &'a &'b [u8]>,
+	>(
+		&self,
+		insert: I,
+		delete: D,
+	) -> sp_blockchain::Result<()> {
+		self.client.insert_aux(insert, delete)
+	}
+
+	fn get_aux(&self, key: &[u8]) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		self.client.get_aux(key)
 	}
 }

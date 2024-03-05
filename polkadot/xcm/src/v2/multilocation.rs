@@ -75,8 +75,8 @@ impl MultiLocation {
 		MultiLocation { parents, interior: junctions }
 	}
 
-	/// Consume `self` and return the equivalent `VersionedMultiLocation` value.
-	pub fn versioned(self) -> crate::VersionedMultiLocation {
+	/// Consume `self` and return the equivalent `VersionedLocation` value.
+	pub fn versioned(self) -> crate::VersionedLocation {
 		self.into()
 	}
 
@@ -240,9 +240,9 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
-	/// let mut m = MultiLocation::new(1, X2(PalletInstance(3), OnlyChild));
+	/// let mut m = MultiLocation::new(1, [PalletInstance(3), OnlyChild].into());
 	/// assert_eq!(
-	///     m.match_and_split(&MultiLocation::new(1, X1(PalletInstance(3)))),
+	///     m.match_and_split(&MultiLocation::new(1, [PalletInstance(3)].into())),
 	///     Some(&OnlyChild),
 	/// );
 	/// assert_eq!(m.match_and_split(&MultiLocation::new(1, Here)), None);
@@ -260,10 +260,10 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
-	/// let m = MultiLocation::new(1, X3(PalletInstance(3), OnlyChild, OnlyChild));
-	/// assert!(m.starts_with(&MultiLocation::new(1, X1(PalletInstance(3)))));
-	/// assert!(!m.starts_with(&MultiLocation::new(1, X1(GeneralIndex(99)))));
-	/// assert!(!m.starts_with(&MultiLocation::new(0, X1(PalletInstance(3)))));
+	/// let m = MultiLocation::new(1, [PalletInstance(3), OnlyChild, OnlyChild].into());
+	/// assert!(m.starts_with(&MultiLocation::new(1, [PalletInstance(3)].into())));
+	/// assert!(!m.starts_with(&MultiLocation::new(1, [GeneralIndex(99)].into())));
+	/// assert!(!m.starts_with(&MultiLocation::new(0, [PalletInstance(3)].into())));
 	/// ```
 	pub fn starts_with(&self, prefix: &MultiLocation) -> bool {
 		if self.parents != prefix.parents {
@@ -279,9 +279,9 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
-	/// let mut m = MultiLocation::new(1, X1(Parachain(21)));
-	/// assert_eq!(m.append_with(X1(PalletInstance(3))), Ok(()));
-	/// assert_eq!(m, MultiLocation::new(1, X2(Parachain(21), PalletInstance(3))));
+	/// let mut m = MultiLocation::new(1, [Parachain(21)].into());
+	/// assert_eq!(m.append_with([PalletInstance(3)].into()), Ok(()));
+	/// assert_eq!(m, MultiLocation::new(1, [Parachain(21), PalletInstance(3)].into()));
 	/// ```
 	pub fn append_with(&mut self, suffix: Junctions) -> Result<(), Junctions> {
 		if self.interior.len().saturating_add(suffix.len()) > MAX_JUNCTIONS {
@@ -300,9 +300,9 @@ impl MultiLocation {
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
-	/// let mut m = MultiLocation::new(2, X1(PalletInstance(3)));
-	/// assert_eq!(m.prepend_with(MultiLocation::new(1, X2(Parachain(21), OnlyChild))), Ok(()));
-	/// assert_eq!(m, MultiLocation::new(1, X1(PalletInstance(3))));
+	/// let mut m = MultiLocation::new(2, [PalletInstance(3)].into());
+	/// assert_eq!(m.prepend_with(MultiLocation::new(1, [Parachain(21), OnlyChild].into())), Ok(()));
+	/// assert_eq!(m, MultiLocation::new(1, [PalletInstance(3)].into()));
 	/// ```
 	pub fn prepend_with(&mut self, mut prefix: MultiLocation) -> Result<(), MultiLocation> {
 		//     prefix     self (suffix)
@@ -455,6 +455,7 @@ impl<Interior: Into<Junctions>> From<AncestorThen<Interior>> for MultiLocation {
 }
 
 xcm_procedural::impl_conversion_functions_for_multilocation_v2!();
+xcm_procedural::impl_conversion_functions_for_junctions_v2!();
 
 /// Maximum number of `Junction`s that a `Junctions` can contain.
 const MAX_JUNCTIONS: usize = 8;

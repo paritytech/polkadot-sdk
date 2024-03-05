@@ -23,7 +23,9 @@
     "/dns/westmint-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWDoq4PVdWm5nzRSvEz3DSSKjVgRhWVUaKyi5JMKwJKYbk",
     "/dns/wmint14.rotko.net/tcp/33534/p2p/12D3KooWE4UDXqgtTcMCyUQ8S4uvaT8VMzzTBA6NWmKuYwTacWuN",
     "/dns/wmint14.rotko.net/tcp/34534/ws/p2p/12D3KooWE4UDXqgtTcMCyUQ8S4uvaT8VMzzTBA6NWmKuYwTacWuN",
-    "/dns/wmint14.rotko.net/tcp/35534/wss/p2p/12D3KooWE4UDXqgtTcMCyUQ8S4uvaT8VMzzTBA6NWmKuYwTacWuN"
+    "/dns/wmint14.rotko.net/tcp/35534/wss/p2p/12D3KooWE4UDXqgtTcMCyUQ8S4uvaT8VMzzTBA6NWmKuYwTacWuN",
+    "/dns/asset-hub-westend.bootnodes.polkadotters.com/tcp/30514/p2p/12D3KooWNFYysCqmojxqjjaTfD2VkWBNngfyUKWjcR4WFixfHNTk",
+    "/dns/asset-hub-westend.bootnodes.polkadotters.com/tcp/30516/wss/p2p/12D3KooWNFYysCqmojxqjjaTfD2VkWBNngfyUKWjcR4WFixfHNTk"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

@@ -152,3 +152,9 @@ We use [zepter](https://github.com/ggwpez/zepter) to enforce features are propag
 If you're member of **paritytech** org - you can use command-bot to run various of common commands in CI:
 
 Start with comment in PR: `bot help` to see the list of available commands.
+
+
+## Deprecating code
+
+When deprecating and removing code you need to be mindful of how this could impact downstream developers. In order to
+mitigate this impact, it is recommended to adhere to the steps outlined in the [Deprecation Checklist](./DEPRECATION_CHECKLIST.md).

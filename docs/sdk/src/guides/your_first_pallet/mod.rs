@@ -12,12 +12,11 @@
 //! > This guide will build a currency pallet from scratch using only the lowest primitives of
 //! > FRAME, and is mainly intended for education, not *applicability*. For example, almost all
 //! > FRAME-based runtimes use various techniques to re-use a currency pallet instead of writing
-//! > one. Further advance FRAME related topics are discussed in [`crate::reference_docs`].
+//! > one. Further advanced FRAME related topics are discussed in [`crate::reference_docs`].
 //!
 //! ## Topics Covered
 //!
-//! The following FRAME topics are covered in this guide. See the documentation of the
-//! associated items to know more.
+//! The following FRAME topics are covered in this guide:
 //!
 //! - [Storage](frame::pallet_macros::storage)
 //! - [Call](frame::pallet_macros::call)
@@ -50,8 +49,10 @@
 //!
 //! One should be a mapping from account-ids to a balance type, and one value that is the total
 //! issuance.
-//
-// For the rest of this guide, we will opt for a balance type of u128.
+//!
+//! > For the rest of this guide, we will opt for a balance type of `u128`. For the sake of
+//! > simplicity, we are hardcoding this type. In a real pallet is best practice to define it as a
+//! > generic bounded type in the `Config` trait, and then specify it in the implementation.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Balance)]
 //!
 //! The definition of these two storage items, based on [`frame::pallet_macros::storage`] details,
@@ -127,8 +128,8 @@
 //!
 //! Recall that within our pallet, (almost) all blocks of code are generic over `<T: Config>`. And,
 //! because `trait Config: frame_system::Config`, we can get access to all items in `Config` (or
-//! `frame_system::Config`) using `T::NameOfItem`. This is all within the boundaries of how Rust
-//! traits and generics work. If unfamiliar with this pattern, read
+//! `frame_system::Config`) using `T::NameOfItem`. This is all within the boundaries of how
+//! Rust traits and generics work. If unfamiliar with this pattern, read
 //! [`crate::reference_docs::trait_based_programming`] before going further.
 //!
 //! Crucially, a typical FRAME runtime contains a `struct Runtime`. The main role of this `struct`
@@ -160,13 +161,12 @@
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", first_test)]
 //!
 //! In the first test, we simply assert that there is no total issuance, and no balance associated
-//! with account `1`. Then, we mint some balance into `1`, and re-check.
+//! with Alice's account. Then, we mint some balance into Alice's, and re-check.
 //!
 //! As noted above, the `T::AccountId` is now `u64`. Moreover, `Runtime` is replacing `<T: Config>`.
 //! This is why for example you see `Balances::<Runtime>::get(..)`. Finally, notice that the
 //! dispatchables are simply functions that can be called on top of the `Pallet` struct.
-//!
-//! TODO: hard to explain exactly `RuntimeOrigin::signed(1)` at this point.
+// TODO: hard to explain exactly `RuntimeOrigin::signed(ALICE)` at this point.
 //!
 //! Congratulations! You have written your first pallet and tested it! Next, we learn a few optional
 //! steps to improve our pallet.
@@ -186,8 +186,8 @@
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", StateBuilder)]
 //!
 //! This struct is meant to contain the same list of accounts and balances that we want to have at
-//! the beginning of each block. We hardcoded this to `let accounts = vec![(1, 100), (2, 100)];` so
-//! far. Then, if desired, we attach a default value for this struct.
+//! the beginning of each block. We hardcoded this to `let accounts = vec![(ALICE, 100), (2, 100)];`
+//! so far. Then, if desired, we attach a default value for this struct.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", default_state_builder)]
 //!
 //! Like any other builder pattern, we attach functions to the type to mutate its internal
@@ -222,7 +222,7 @@
 //! "success path" of a dispatchable, and one test for each "failure path", such as:
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_from_non_existent_fails)]
 //!
-//! We leave it up to you to write a test that triggers to `InsufficientBalance` error.
+//! We leave it up to you to write a test that triggers the `InsufficientBalance` error.
 //!
 //! ### Event and Error
 //!
@@ -230,31 +230,36 @@
 //! Errors. First, let's understand what each is.
 //!
 //! - **Error**: The static string-based error scheme we used so far is good for readability, but it
-//!   has a few drawbacks. These string literals will bloat the final wasm blob, and are relatively
-//!   heavy to transmit and encode/decode. Moreover, it is easy to mistype them by one character.
-//!   FRAME errors are exactly a solution to maintain readability, whilst fixing the drawbacks
-//!   mentioned. In short, we use an enum to represent different variants of our error. These
-//!   variants are then mapped in an efficient way (using only `u8` indices) to
-//!   [`sp_runtime::DispatchError::Module`] Read more about this in [`frame::pallet_macros::error`].
+//!   has a few drawbacks. The biggest problem with strings are that they are not type safe, e.g. a
+//!   match statement cannot be exhaustive. These string literals will bloat the final wasm blob,
+//!   and are relatively heavy to transmit and encode/decode. Moreover, it is easy to mistype them
+//!   by one character. FRAME errors are exactly a solution to maintain readability, whilst fixing
+//!   the drawbacks mentioned. In short, we use an enum to represent different variants of our
+//!   error. These variants are then mapped in an efficient way (using only `u8` indices) to
+//!   [`sp_runtime::DispatchError::Module`]. Read more about this in
+//!   [`frame::pallet_macros::error`].
 //!
-//! - **Event**: Events are akin to the return type of dispatchables. They should represent what
-//!   happened at the end of a dispatch operation. Therefore, the convention is to use passive tense
-//!   for event names (eg. `SomethingHappened`). This allows other sub-systems or external parties
-//!   (eg. a light-node, a DApp) to listen to particular events happening, without needing to
-//!   re-execute the whole state transition function.
-//!
-//! TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation
-//! of event is probably not the best.
+//! - **Event**: Events are akin to the return type of dispatchables. They are mostly data blobs
+//!   emitted by the runtime to let outside world know what is happening inside the pallet. Since
+//!   otherwise, the outside world does not have an easy access to the state changes. They should
+//!   represent what happened at the end of a dispatch operation. Therefore, the convention is to
+//!   use passive tense for event names (eg. `SomethingHappened`). This allows other sub-systems or
+//!   external parties (eg. a light-node, a DApp) to listen to particular events happening, without
+//!   needing to re-execute the whole state transition function.
+// TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation
+// of event is probably not the best.
 //!
 //! With the explanation out of the way, let's see how these components can be added. Both follow a
-//! fairly familiar syntax: normal Rust enums, with an extra `#[frame::event/error]` attribute
-//! attached.
+//! fairly familiar syntax: normal Rust enums, with extra
+//! [`#[frame::event]`](frame::pallet_macros::event) and
+//! [`#[frame::error]`](frame::pallet_macros::error) attributes attached.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Event)]
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Error)]
 //!
-//! One slightly custom part of this is the `#[pallet::generate_deposit(pub(super) fn
-//! deposit_event)]` part. Without going into too much detail, in order for a pallet to emit events
-//! to the rest of the system, it needs to do two things:
+//! One slightly custom part of this is the [`#[pallet::generate_deposit(pub(super) fn
+//! deposit_event)]`](frame::pallet_macros::generate_deposit) part. Without going into too
+//! much detail, in order for a pallet to emit events to the rest of the system, it needs to do two
+//! things:
 //!
 //! 1. Declare a type in its `Config` that refers to the overarching event type of the runtime. In
 //! short, by doing this, the pallet is expressing an important bound: `type RuntimeEvent:
@@ -263,11 +268,12 @@
 //! store it where needed.
 //!
 //! 2. But, doing this conversion and storing is too much to expect each pallet to define. FRAME
-//! provides a default way of storing events, and this is what `pallet::generate_deposit` is doing.
+//! provides a default way of storing events, and this is what
+//! [`pallet::generate_deposit`](frame::pallet_macros::generate_deposit) is doing.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", config_v2)]
 //!
 //! > These `Runtime*` types are better explained in
-//! > [`crate::reference_docs::frame_composite_enums`].
+//! > [`crate::reference_docs::frame_runtime_types`].
 //!
 //! Then, we can rewrite the `transfer` dispatchable as such:
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_v2)]
@@ -277,10 +283,10 @@
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", runtime_v2)]
 //!
 //! In this snippet, the actual `RuntimeEvent` type (right hand side of `type RuntimeEvent =
-//! RuntimeEvent`) is generated by `construct_runtime`. An interesting way to inspect this type is
-//! to see its definition in rust-docs:
+//! RuntimeEvent`) is generated by
+//! [`construct_runtime`](frame::runtime::prelude::construct_runtime). An interesting way to inspect
+//! this type is to see its definition in rust-docs:
 //! [`crate::guides::your_first_pallet::pallet_v2::tests::runtime_v2::RuntimeEvent`].
-//!
 //!
 //!
 //! ## What Next?
@@ -290,7 +296,7 @@
 //!
 //! - [`crate::reference_docs::safe_defensive_programming`].
 //! - [`crate::reference_docs::frame_origin`].
-//! - [`crate::reference_docs::frame_composite_enums`].
+//! - [`crate::reference_docs::frame_runtime_types`].
 //! - The pallet we wrote in this guide was using `dev_mode`, learn more in
 //!   [`frame::pallet_macros::config`].
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
@@ -413,6 +419,9 @@ pub mod pallet {
 	pub(crate) mod tests {
 		use crate::guides::your_first_pallet::pallet::*;
 		use frame::testing_prelude::*;
+		const ALICE: u64 = 1;
+		const BOB: u64 = 2;
+		const CHARLIE: u64 = 3;
 
 		#[docify::export]
 		mod runtime {
@@ -422,8 +431,8 @@ pub mod pallet {
 			use crate::guides::your_first_pallet::pallet as pallet_currency;
 
 			construct_runtime!(
-				pub struct Runtime {
-					// ---^^^^^^ This is where `struct Runtime` is defined.
+				pub enum Runtime {
+					// ---^^^^^^ This is where `enum Runtime` is defined.
 					System: frame_system,
 					Currency: pallet_currency,
 				}
@@ -447,7 +456,7 @@ pub mod pallet {
 		#[docify::export]
 		fn new_test_state_basic() -> TestState {
 			let mut state = TestState::new_empty();
-			let accounts = vec![(1, 100), (2, 100)];
+			let accounts = vec![(ALICE, 100), (BOB, 100)];
 			state.execute_with(|| {
 				for (who, amount) in &accounts {
 					Balances::<Runtime>::insert(who, amount);
@@ -466,7 +475,7 @@ pub mod pallet {
 		#[docify::export(default_state_builder)]
 		impl Default for StateBuilder {
 			fn default() -> Self {
-				Self { balances: vec![(1, 100), (2, 100)] }
+				Self { balances: vec![(ALICE, 100), (BOB, 100)] }
 			}
 		}
 
@@ -509,15 +518,19 @@ pub mod pallet {
 		#[test]
 		fn first_test() {
 			TestState::new_empty().execute_with(|| {
-				// We expect account 1 to have no funds.
-				assert_eq!(Balances::<Runtime>::get(&1), None);
+				// We expect Alice's account to have no funds.
+				assert_eq!(Balances::<Runtime>::get(&ALICE), None);
 				assert_eq!(TotalIssuance::<Runtime>::get(), None);
 
-				// mint some funds into 1
-				assert_ok!(Pallet::<Runtime>::mint_unsafe(RuntimeOrigin::signed(1), 1, 100));
+				// mint some funds into Alice's account.
+				assert_ok!(Pallet::<Runtime>::mint_unsafe(
+					RuntimeOrigin::signed(ALICE),
+					ALICE,
+					100
+				));
 
 				// re-check the above
-				assert_eq!(Balances::<Runtime>::get(&1), Some(100));
+				assert_eq!(Balances::<Runtime>::get(&ALICE), Some(100));
 				assert_eq!(TotalIssuance::<Runtime>::get(), Some(100));
 			})
 		}
@@ -526,9 +539,9 @@ pub mod pallet {
 		#[test]
 		fn state_builder_works() {
 			StateBuilder::default().build_and_execute(|| {
-				assert_eq!(Balances::<Runtime>::get(&1), Some(100));
-				assert_eq!(Balances::<Runtime>::get(&2), Some(100));
-				assert_eq!(Balances::<Runtime>::get(&3), None);
+				assert_eq!(Balances::<Runtime>::get(&ALICE), Some(100));
+				assert_eq!(Balances::<Runtime>::get(&BOB), Some(100));
+				assert_eq!(Balances::<Runtime>::get(&CHARLIE), None);
 				assert_eq!(TotalIssuance::<Runtime>::get(), Some(200));
 			});
 		}
@@ -536,8 +549,8 @@ pub mod pallet {
 		#[docify::export]
 		#[test]
 		fn state_builder_add_balance() {
-			StateBuilder::default().add_balance(3, 42).build_and_execute(|| {
-				assert_eq!(Balances::<Runtime>::get(&3), Some(42));
+			StateBuilder::default().add_balance(CHARLIE, 42).build_and_execute(|| {
+				assert_eq!(Balances::<Runtime>::get(&CHARLIE), Some(42));
 				assert_eq!(TotalIssuance::<Runtime>::get(), Some(242));
 			})
 		}
@@ -546,10 +559,10 @@ pub mod pallet {
 		#[should_panic]
 		fn state_builder_duplicate_genesis_fails() {
 			StateBuilder::default()
-				.add_balance(3, 42)
-				.add_balance(3, 43)
+				.add_balance(CHARLIE, 42)
+				.add_balance(CHARLIE, 43)
 				.build_and_execute(|| {
-					assert_eq!(Balances::<Runtime>::get(&3), None);
+					assert_eq!(Balances::<Runtime>::get(&CHARLIE), None);
 					assert_eq!(TotalIssuance::<Runtime>::get(), Some(242));
 				})
 		}
@@ -559,17 +572,21 @@ pub mod pallet {
 		fn mint_works() {
 			StateBuilder::default().build_and_execute(|| {
 				// given the initial state, when:
-				assert_ok!(Pallet::<Runtime>::mint_unsafe(RuntimeOrigin::signed(1), 2, 100));
+				assert_ok!(Pallet::<Runtime>::mint_unsafe(RuntimeOrigin::signed(ALICE), BOB, 100));
 
 				// then:
-				assert_eq!(Balances::<Runtime>::get(&2), Some(200));
+				assert_eq!(Balances::<Runtime>::get(&BOB), Some(200));
 				assert_eq!(TotalIssuance::<Runtime>::get(), Some(300));
 
 				// given:
-				assert_ok!(Pallet::<Runtime>::mint_unsafe(RuntimeOrigin::signed(1), 3, 100));
+				assert_ok!(Pallet::<Runtime>::mint_unsafe(
+					RuntimeOrigin::signed(ALICE),
+					CHARLIE,
+					100
+				));
 
 				// then:
-				assert_eq!(Balances::<Runtime>::get(&3), Some(100));
+				assert_eq!(Balances::<Runtime>::get(&CHARLIE), Some(100));
 				assert_eq!(TotalIssuance::<Runtime>::get(), Some(400));
 			});
 		}
@@ -579,19 +596,19 @@ pub mod pallet {
 		fn transfer_works() {
 			StateBuilder::default().build_and_execute(|| {
 				// given the the initial state, when:
-				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(1), 2, 50));
+				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(ALICE), BOB, 50));
 
 				// then:
-				assert_eq!(Balances::<Runtime>::get(&1), Some(50));
-				assert_eq!(Balances::<Runtime>::get(&2), Some(150));
+				assert_eq!(Balances::<Runtime>::get(&ALICE), Some(50));
+				assert_eq!(Balances::<Runtime>::get(&BOB), Some(150));
 				assert_eq!(TotalIssuance::<Runtime>::get(), Some(200));
 
 				// when:
-				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(2), 1, 50));
+				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(BOB), ALICE, 50));
 
 				// then:
-				assert_eq!(Balances::<Runtime>::get(&1), Some(100));
-				assert_eq!(Balances::<Runtime>::get(&2), Some(100));
+				assert_eq!(Balances::<Runtime>::get(&ALICE), Some(100));
+				assert_eq!(Balances::<Runtime>::get(&BOB), Some(100));
 				assert_eq!(TotalIssuance::<Runtime>::get(), Some(200));
 			});
 		}
@@ -602,14 +619,14 @@ pub mod pallet {
 			StateBuilder::default().build_and_execute(|| {
 				// given the the initial state, when:
 				assert_err!(
-					Pallet::<Runtime>::transfer(RuntimeOrigin::signed(3), 1, 10),
+					Pallet::<Runtime>::transfer(RuntimeOrigin::signed(CHARLIE), ALICE, 10),
 					"NonExistentAccount"
 				);
 
 				// then nothing has changed.
-				assert_eq!(Balances::<Runtime>::get(&1), Some(100));
-				assert_eq!(Balances::<Runtime>::get(&2), Some(100));
-				assert_eq!(Balances::<Runtime>::get(&3), None);
+				assert_eq!(Balances::<Runtime>::get(&ALICE), Some(100));
+				assert_eq!(Balances::<Runtime>::get(&BOB), Some(100));
+				assert_eq!(Balances::<Runtime>::get(&CHARLIE), None);
 				assert_eq!(TotalIssuance::<Runtime>::get(), Some(200));
 			});
 		}
@@ -685,6 +702,8 @@ pub mod pallet_v2 {
 	pub mod tests {
 		use super::{super::pallet::tests::StateBuilder, *};
 		use frame::testing_prelude::*;
+		const ALICE: u64 = 1;
+		const BOB: u64 = 2;
 
 		#[docify::export]
 		pub mod runtime_v2 {
@@ -692,7 +711,7 @@ pub mod pallet_v2 {
 			use crate::guides::your_first_pallet::pallet_v2 as pallet_currency;
 
 			construct_runtime!(
-				pub struct Runtime {
+				pub enum Runtime {
 					System: frame_system,
 					Currency: pallet_currency,
 				}
@@ -717,20 +736,20 @@ pub mod pallet_v2 {
 			StateBuilder::default().build_and_execute(|| {
 				// skip the genesis block, as events are not deposited there and we need them for
 				// the final assertion.
-				System::set_block_number(1);
+				System::set_block_number(ALICE);
 
 				// given the the initial state, when:
-				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(1), 2, 50));
+				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(ALICE), BOB, 50));
 
 				// then:
-				assert_eq!(Balances::<Runtime>::get(&1), Some(50));
-				assert_eq!(Balances::<Runtime>::get(&2), Some(150));
+				assert_eq!(Balances::<Runtime>::get(&ALICE), Some(50));
+				assert_eq!(Balances::<Runtime>::get(&BOB), Some(150));
 				assert_eq!(TotalIssuance::<Runtime>::get(), Some(200));
 
 				// now we can also check that an event has been deposited:
 				assert_eq!(
 					System::read_events_for_pallet::<Event<Runtime>>(),
-					vec![Event::Transferred { from: 1, to: 2, amount: 50 }]
+					vec![Event::Transferred { from: ALICE, to: BOB, amount: 50 }]
 				);
 			});
 		}

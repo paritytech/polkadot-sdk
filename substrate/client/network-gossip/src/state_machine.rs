@@ -550,7 +550,8 @@ mod tests {
 		NotificationSenderError, NotificationSenderT as NotificationSender, ReputationChange,
 	};
 	use sp_runtime::{
-		testing::{Block as RawBlock, ExtrinsicWrapper, H256},
+		generic::UncheckedExtrinsic,
+		testing::{Block as RawBlock, MockCallU64, H256},
 		traits::NumberFor,
 	};
 	use std::{
@@ -559,7 +560,7 @@ mod tests {
 		sync::{Arc, Mutex},
 	};
 
-	type Block = RawBlock<ExtrinsicWrapper<u64>>;
+	type Block = RawBlock<UncheckedExtrinsic<u64, MockCallU64, (), ()>>;
 
 	macro_rules! push_msg {
 		($consensus:expr, $topic:expr, $hash: expr, $m:expr) => {
@@ -621,11 +622,15 @@ mod tests {
 			unimplemented!();
 		}
 
-		fn report_peer(&self, who: PeerId, cost_benefit: ReputationChange) {
-			self.inner.lock().unwrap().peer_reports.push((who, cost_benefit));
+		fn report_peer(&self, peer_id: PeerId, cost_benefit: ReputationChange) {
+			self.inner.lock().unwrap().peer_reports.push((peer_id, cost_benefit));
 		}
 
-		fn disconnect_peer(&self, _who: PeerId, _protocol: ProtocolName) {
+		fn peer_reputation(&self, _peer_id: &PeerId) -> i32 {
+			unimplemented!()
+		}
+
+		fn disconnect_peer(&self, _peer_id: PeerId, _protocol: ProtocolName) {
 			unimplemented!();
 		}
 

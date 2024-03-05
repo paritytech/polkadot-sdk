@@ -16,7 +16,6 @@
 use super::*;
 use crate as pallet_asset_conversion_tx_payment;
 
-use codec;
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
@@ -24,13 +23,19 @@ use frame_support::{
 	ord_parameter_types,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced},
+	traits::{
+		tokens::{
+			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
+			imbalance::ResolveAssetTo,
+		},
+		AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced,
+	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 	PalletId,
 };
 use frame_system as system;
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
+use pallet_asset_conversion::{Ascending, Chain, WithFirstAsset};
 use pallet_transaction_payment::CurrencyAdapter;
 use sp_core::H256;
 use sp_runtime::{
@@ -124,7 +129,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -164,12 +168,12 @@ impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for DealWithFees 
 	}
 }
 
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig as pallet_transaction_payment::DefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
-	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = ConstU8<5>;
 }
 
@@ -225,10 +229,9 @@ impl pallet_assets::Config<Instance2> for Runtime {
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
-	pub storage AllowMultiAssetPools: bool = false;
-	// should be non-zero if AllowMultiAssetPools is true, otherwise can be zero
 	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 	pub const MaxSwapPathLength: u32 = 4;
+	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }
 
 ord_parameter_types! {
@@ -237,28 +240,26 @@ ord_parameter_types! {
 
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type AssetBalance = <Self as pallet_balances::Config>::Balance;
-	type AssetId = u32;
+	type Balance = Balance;
+	type HigherPrecisionBalance = u128;
+	type AssetKind = NativeOrWithId<u32>;
+	type Assets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+	type PoolId = (Self::AssetKind, Self::AssetKind);
+	type PoolLocator = Chain<
+		WithFirstAsset<Native, AccountId, NativeOrWithId<u32>>,
+		Ascending<AccountId, NativeOrWithId<u32>>,
+	>;
 	type PoolAssetId = u32;
-	type Assets = Assets;
 	type PoolAssets = PoolAssets;
-	type PalletId = AssetConversionPalletId;
-	type WeightInfo = ();
-	type LPFee = ConstU32<3>; // means 0.3%
 	type PoolSetupFee = ConstU64<100>; // should be more or equal to the existential deposit
-	type PoolSetupFeeReceiver = AssetConversionOrigin;
+	type PoolSetupFeeAsset = Native;
+	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
+	type PalletId = AssetConversionPalletId;
+	type LPFee = ConstU32<3>; // means 0.3%
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = MaxSwapPathLength;
 	type MintMinLiquidity = ConstU64<100>; // 100 is good enough when the main currency has 12 decimals.
-
-	type Balance = u64;
-	type HigherPrecisionBalance = u128;
-
-	type MultiAssetId = NativeOrAssetId<u32>;
-	type MultiAssetIdConverter = NativeOrAssetIdConverter<u32>;
-
+	type WeightInfo = ();
 	pallet_asset_conversion::runtime_benchmarks_enabled! {
 		type BenchmarkHelper = ();
 	}
@@ -267,5 +268,73 @@ impl pallet_asset_conversion::Config for Runtime {
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = Assets;
-	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion>;
+	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion, Native>;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = Helper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let base_weight = 5;
+	let balance_factor = 100;
+	crate::tests::ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct Helper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelperTrait<u64, u32, u32> for Helper {
+	fn create_asset_id_parameter(id: u32) -> (u32, u32) {
+		(id, id)
+	}
+
+	fn setup_balances_and_pool(asset_id: u32, account: u64) {
+		use frame_support::{assert_ok, traits::fungibles::Mutate};
+		use sp_runtime::traits::StaticLookup;
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			asset_id.into(),
+			42,   /* owner */
+			true, /* is_sufficient */
+			1,
+		));
+
+		let lp_provider = 12;
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), lp_provider, u64::MAX / 2));
+		let lp_provider_account = <Runtime as system::Config>::Lookup::unlookup(lp_provider);
+		assert_ok!(Assets::mint_into(asset_id.into(), &lp_provider_account, u64::MAX / 2));
+
+		let token_1 = Box::new(NativeOrWithId::Native);
+		let token_2 = Box::new(NativeOrWithId::WithId(asset_id));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(lp_provider),
+			token_1.clone(),
+			token_2.clone()
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(lp_provider),
+			token_1,
+			token_2,
+			(u32::MAX / 8).into(), // 1 desired
+			u32::MAX.into(),       // 2 desired
+			1,                     // 1 min
+			1,                     // 2 min
+			lp_provider_account,
+		));
+
+		use frame_support::traits::Currency;
+		let _ = Balances::deposit_creating(&account, u32::MAX.into());
+
+		let beneficiary = <Runtime as system::Config>::Lookup::unlookup(account);
+		let balance = 1000;
+
+		assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
+		assert_eq!(Assets::balance(asset_id, account), balance);
+	}
 }

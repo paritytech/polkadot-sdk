@@ -22,7 +22,6 @@
 pub mod bench_utils;
 
 pub mod chain_spec;
-mod genesis;
 
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
@@ -68,7 +67,7 @@ use sc_network::{
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
-		OffchainWorkerConfig, PruningMode, WasmExecutionMethod,
+		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, WasmExecutionMethod,
 	},
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
@@ -86,7 +85,6 @@ use substrate_test_client::{
 
 pub use chain_spec::*;
 pub use cumulus_test_runtime as runtime;
-pub use genesis::*;
 pub use sp_keyring::Sr25519Keyring as Keyring;
 
 const LOG_TARGET: &str = "cumulus-test-service";
@@ -114,7 +112,7 @@ pub type AnnounceBlockFn = Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>;
 pub struct RuntimeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for RuntimeExecutor {
-	type ExtendHostFunctions = ();
+	type ExtendHostFunctions = cumulus_client_service::storage_proof_size::HostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 		cumulus_test_runtime::api::dispatch(method, data)
@@ -181,6 +179,16 @@ impl RecoveryHandle for FailingRecoveryHandle {
 	}
 }
 
+/// Assembly of PartialComponents (enough to run chain ops subcommands)
+pub type Service = PartialComponents<
+	Client,
+	Backend,
+	(),
+	sc_consensus::import_queue::BasicQueue<Block>,
+	sc_transaction_pool::FullPool<Block, Client>,
+	ParachainBlockImport,
+>;
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
@@ -188,17 +196,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 pub fn new_partial(
 	config: &mut Configuration,
 	enable_import_proof_record: bool,
-) -> Result<
-	PartialComponents<
-		Client,
-		Backend,
-		(),
-		sc_consensus::import_queue::BasicQueue<Block>,
-		sc_transaction_pool::FullPool<Block, Client>,
-		ParachainBlockImport,
-	>,
-	sc_service::Error,
-> {
+) -> Result<Service, sc_service::Error> {
 	let heap_pages = config
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
@@ -273,6 +271,7 @@ async fn build_relay_chain_interface(
 				polkadot_service::IsParachainNode::Collator(CollatorPair::generate().0)
 			},
 			None,
+			polkadot_service::CollatorOverseerGen,
 		)
 		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
@@ -445,7 +444,7 @@ where
 						let relay_chain_interface = relay_chain_interface_for_closure.clone();
 						async move {
 							let parachain_inherent =
-							cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
+							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
 								relay_parent,
 								&relay_chain_interface,
 								&validation_data,
@@ -801,6 +800,9 @@ pub fn node_config(
 		rpc_id_provider: None,
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9945,
+		rpc_message_buffer_capacity: Default::default(),
+		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
+		rpc_rate_limit: None,
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -881,7 +883,7 @@ pub fn construct_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: runtime::SignedExtra = (
+	let tx_ext: runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckGenesis::<runtime::Runtime>::new(),
@@ -892,18 +894,20 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
-	);
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<runtime::Runtime>::new(),
+	)
+		.into();
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
-		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		tx_ext.clone(),
+		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(
 		function,
 		caller.public().into(),
 		runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 
@@ -920,7 +924,7 @@ pub fn run_relay_chain_validator_node(
 ) -> polkadot_test_service::PolkadotTestNode {
 	let mut config = polkadot_test_service::node_config(
 		storage_update_func,
-		tokio_handle,
+		tokio_handle.clone(),
 		key,
 		boot_nodes,
 		true,
@@ -934,5 +938,7 @@ pub fn run_relay_chain_validator_node(
 	workers_path.pop();
 	workers_path.pop();
 
-	polkadot_test_service::run_validator_node(config, Some(workers_path))
+	tokio_handle.block_on(async move {
+		polkadot_test_service::run_validator_node(config, Some(workers_path))
+	})
 }
