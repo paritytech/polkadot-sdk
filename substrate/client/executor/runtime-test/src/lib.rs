@@ -369,6 +369,7 @@ sp_core::wasm_export_functions! {
 	}
 
 	fn test_virtualization(test_fixture: Vec<u8>) {
+		#[cfg(feature = "riscv")]
 		sp_virtualization::run_tests(test_fixture.as_ref());
 	}
 }

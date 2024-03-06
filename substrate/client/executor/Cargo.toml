@@ -79,3 +79,5 @@ std = [
 	"substrate-test-runtime/std",
 ]
 wasm-extern-trace = []
+# this enables running the riscv tests which require a custom toolchain to build
+riscv = ["sp-virtualization-test-fixture/riscv", "sp-virtualization/riscv"]
