@@ -25,6 +25,9 @@
 //!   write useful applications. Pallets often need to work with each other, communicate and use
 //!   each other's functionalities.
 //!
+//! The broad principle that allows pallets to be linked together is the same way through which a
+//! pallet uses its `Config` trait to receive types and values from the runtime that contains it.
+//!
 //! There are generally two ways to achieve this:
 //!
 //! 1. Tight coupling pallets
@@ -36,10 +39,27 @@
 //! When tightly coupling pallets, `A` can only exist in a runtime if `B` is also present in the
 //! same runtime. That is, `A` is expressing that can only work if `B` is present.
 //!
+//! This translates to the following Rust code:
+//!
+//! ```
+//! trait Pallet_B_Config {}
+//! trait Pallet_A_Config: Pallet_B_Config {}
+//! ```
+//!
 //! Contrary, when pallets are loosely coupled, `A` expresses that some functionality, expressed via
 //! a trait `F`, needs to be fulfilled. This trait is then implemented by `B`, and the two pallets
 //! are linked together at the runtime level. This means that `A` only relies on the implementation
 //! of `F`, which may be `B`, or another implementation of `F`.
+//!
+//! This translates to the following Rust code:
+//!
+//! ```
+//! trait F {}
+//! trait Pallet_A_Config {
+//!    type F: F;
+//! }
+//! // Pallet_B will implement and fulfill `F`.
+//! ```
 //!
 //! ## Example
 //!
@@ -94,12 +114,18 @@
 //! [`AuthorProvider`].
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", other_author_provider)]
 //!
+//! A common pattern in polkadot-sdk is to provide an implementation of such glu traits for the unit
+//! type as a "default/test behavior".
+#![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", unit_author_provider)]
+//!
 //! ## Frame System
 //!
-//! With the above information in context, we can conclude that `frame_system` is a special pallet
-//! that is tightly coupled with every other pallet. This is because it provides the fundamental
-//! system functionality that every pallet needs, such as some types like `AccountId`, `Hash`, and
-//! some functionality such as block number, etc.
+//! With the above information in context, we can conclude that **`frame_system` is a special pallet
+//! that is tightly coupled with every other pallet**. This is because it provides the fundamental
+//! system functionality that every pallet needs, such as some types like
+//! [`frame::prelude::frame_system::Config::AccountId`],
+//! [`frame::prelude::frame_system::Config::Hash`], and some functionality such as block number,
+//! etc.
 //!
 //! ## Recap
 //!
@@ -181,8 +207,9 @@ pub mod pallet_foo_tight {
 
 	#[docify::export(tight_usage)]
 	impl<T: Config> Pallet<T> {
+		// anywhere in `pallet-foo`, we can call into `pallet-author` directly, namely because
+		// `T: pallet_author::Config`
 		fn do_stuff_with_author() {
-			// this works now, because `T: pallet_author::Config`.
 			let _ = pallet_author::Pallet::<T>::author();
 		}
 	}
@@ -228,6 +255,13 @@ pub struct OtherAuthorProvider;
 
 #[docify::export(other_author_provider)]
 impl<AccountId> AuthorProvider<AccountId> for OtherAuthorProvider {
+	fn author() -> AccountId {
+		todo!("somehow get the block author here")
+	}
+}
+
+#[docify::export(unit_author_provider)]
+impl<AccountId> AuthorProvider<AccountId> for () {
 	fn author() -> AccountId {
 		todo!("somehow get the block author here")
 	}
