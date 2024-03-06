@@ -1271,6 +1271,80 @@ fn fap_watcher_two_finalized_in_different_block() {
 }
 
 #[test]
+fn fap_fresh_pool_watcher_two_finalized_in_different_block() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Bob, 200);
+	let xt3 = uxt(Dave, 200);
+
+	let submissions = vec![
+		pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone()),
+		pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone()),
+		pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone()),
+	];
+	let mut submissions = block_on(futures::future::join_all(submissions));
+	let xt2_watcher = submissions.remove(2).unwrap();
+	let xt1_watcher = submissions.remove(1).unwrap();
+	let xt0_watcher = submissions.remove(0).unwrap();
+
+	let header02 = api.push_block(2, vec![xt3.clone(), xt2.clone(), xt0.clone()], true);
+	api.set_nonce(header02.hash(), Alice.into(), 201);
+	api.set_nonce(header02.hash(), Bob.into(), 201);
+	api.set_nonce(header02.hash(), Dave.into(), 201);
+	//note: no maintain for block02 (!)
+
+	let header03 = api.push_block(3, vec![xt1.clone()], true);
+	api.set_nonce(header03.hash(), Alice.into(), 202);
+	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header03.hash())));
+
+	assert_pool_status!(header03.hash(), &pool, 0, 0);
+
+	let xt1_status = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
+
+	log::info!("xt1_status: {:#?}", xt1_status);
+
+	assert_eq!(
+		xt1_status,
+		vec![
+			TransactionStatus::InBlock((header03.hash(), 0)),
+			TransactionStatus::Finalized((header03.hash(), 0))
+		]
+	);
+
+	let xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
+
+	log::info!("xt0_status: {:#?}", xt0_status);
+
+	assert_eq!(
+		xt0_status,
+		vec![
+			TransactionStatus::InBlock((header02.hash(), 2)),
+			TransactionStatus::Finalized((header02.hash(), 2))
+		]
+	);
+
+	let xt2_status = futures::executor::block_on_stream(xt2_watcher).collect::<Vec<_>>();
+	log::info!("xt2_status: {:#?}", xt2_status);
+
+	assert_eq!(
+		xt2_status,
+		vec![
+			TransactionStatus::InBlock((header02.hash(), 1)),
+			TransactionStatus::Finalized((header02.hash(), 1))
+		]
+	);
+}
+
+#[test]
 fn fap_watcher_in_block_across_many_blocks() {
 	sp_tracing::try_init_simple();
 

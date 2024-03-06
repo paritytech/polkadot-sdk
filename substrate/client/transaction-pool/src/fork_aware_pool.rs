@@ -46,6 +46,8 @@ use futures::{
 	prelude::*,
 };
 use parking_lot::{Mutex, RwLock};
+use sc_transaction_pool_api::error::{Error, IntoPoolError};
+use sp_runtime::transaction_validity::InvalidTransaction;
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
@@ -823,11 +825,6 @@ where
 	}
 }
 
-// async fn prune_known_txs_for_block_in_view<Block: BlockT, Api: graph::ChainApi<Block = Block>>(
-// 	view: &View<PoolApi>,
-// ) -> Vec<ExtrinsicHash<Api>> {
-// }
-
 impl<PoolApi, Block> ForkAwareTxPool<PoolApi, Block>
 where
 	Block: BlockT,
@@ -952,21 +949,40 @@ where
 					let view = view.clone();
 					let t = t.clone();
 					async move {
+						let tx_hash = self.hash_of(&t);
 						let result = view.pool.submit_and_watch(&view.at, source, t.clone()).await;
-						if let Ok(watcher) = result {
+						let watcher = result.map_or_else(
+							|error| {
+								let error = error.into_pool_error();
+								match error {
+									//we need listener for stale xt
+									Ok(Error::InvalidTransaction(InvalidTransaction::Stale)) =>
+										Some(view.pool.validated_pool().create_watcher(tx_hash)),
+									//ignore
+									Ok(Error::TemporarilyBanned | Error::AlreadyImported(_)) =>
+										None,
+									//todo: panic while testing
+									_ => {
+										panic!(
+											"txpool: update_view: somehing went wrong: {error:?}"
+										);
+									},
+								}
+							},
+							Into::into,
+						);
+
+						if let Some(watcher) = watcher {
 							self.views
 								.listener
 								.add_view_watcher_for_tx(
-									self.hash_of(&t),
+									tx_hash,
 									view.at.hash,
 									watcher.into_stream().boxed(),
 								)
 								.await;
-							Ok(())
-						} else {
-							// panic!("xx {:#?}", result);
-							Err(result.unwrap_err())
 						}
+						()
 					}
 				})
 				.collect::<Vec<_>>();
