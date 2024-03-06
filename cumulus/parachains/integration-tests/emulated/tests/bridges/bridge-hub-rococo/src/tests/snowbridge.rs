@@ -18,7 +18,7 @@ use codec::{Decode, Encode};
 use emulated_integration_tests_common::xcm_emulator::ConvertLocation;
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
-use penpal_runtime::xcm_config::CustomizableAssetFromSystemAssetHub;
+use penpal_emulated_chain::CustomizableAssetFromSystemAssetHub;
 use rococo_westend_system_emulated_network::BridgeHubRococoParaSender as BridgeHubRococoSender;
 use snowbridge_core::outbound::OperatingMode;
 use snowbridge_pallet_inbound_queue_fixtures::{
@@ -255,14 +255,13 @@ fn send_token_from_ethereum_to_penpal() {
 	]);
 
 	PenpalA::execute_with(|| {
-		<PenpalA as Chain>::System::set_storage(
+		assert_ok!(<PenpalA as Chain>::System::set_storage(
 			<PenpalA as Chain>::RuntimeOrigin::root(),
 			vec![(
 				CustomizableAssetFromSystemAssetHub::key().to_vec(),
 				Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode(),
 			)],
-		)
-		.unwrap();
+		));
 	});
 
 	// The Weth asset location, identified by the contract address on Ethereum

@@ -42,7 +42,7 @@ emulated-integration-tests-common = { path = "../../../common", default-features
 rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }
 rococo-system-emulated-network = { path = "../../../networks/rococo-system" }
 asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo", default-features = false }
-penpal-runtime = { path = "../../../../../runtimes/testing/penpal", default-features = false }
+penpal-emulated-chain = { path = "../../../chains/parachains/testing/penpal", default-features = false }
 
 # Snowbridge
 snowbridge-core = { path = "../../../../../../../bridges/snowbridge/primitives/core", default-features = false }
