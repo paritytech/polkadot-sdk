@@ -244,6 +244,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -271,7 +273,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{ConstBool, ConstU32, Contains, Randomness},
 	weights::Weight,
 };
-<span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
+<span class="kw">use </span>frame_system::{pallet_prelude::BlockNumberFor, EnsureSigned};
 <span class="kw">use </span>pallet_xcm::BalanceOf;
 <span class="kw">use </span>sp_runtime::{traits::Convert, Perbill};
 
@@ -336,6 +338,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Schedule = Schedule;
 	<span class="kw">type </span>Time = <span class="kw">super</span>::Timestamp;
 	<span class="kw">type </span>UnsafeUnstableInterface = ConstBool&lt;<span class="bool-val">true</span>&gt;;
+	<span class="kw">type </span>UploadOrigin = EnsureSigned&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>InstantiateOrigin = EnsureSigned&lt;<span class="self">Self</span>::AccountId&gt;;
 	<span class="kw">type </span>WeightInfo = ();
 	<span class="kw">type </span>WeightPrice = <span class="self">Self</span>;
 	<span class="kw">type </span>Debug = ();

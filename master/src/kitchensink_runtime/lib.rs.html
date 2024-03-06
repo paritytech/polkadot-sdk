@@ -3328,6 +3328,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3181" id="3181">3181</a>
 <a href="#3182" id="3182">3182</a>
 <a href="#3183" id="3183">3183</a>
+<a href="#3184" id="3184">3184</a>
+<a href="#3185" id="3185">3185</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4695,6 +4697,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxCodeLen = ConstU32&lt;{ <span class="number">123 </span>* <span class="number">1024 </span>}&gt;;
 	<span class="kw">type </span>MaxStorageKeyLen = ConstU32&lt;<span class="number">128</span>&gt;;
 	<span class="kw">type </span>UnsafeUnstableInterface = ConstBool&lt;<span class="bool-val">false</span>&gt;;
+	<span class="kw">type </span>UploadOrigin = EnsureSigned&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>InstantiateOrigin = EnsureSigned&lt;<span class="self">Self</span>::AccountId&gt;;
 	<span class="kw">type </span>MaxDebugBufferLen = ConstU32&lt;{ <span class="number">2 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>}&gt;;
 	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]

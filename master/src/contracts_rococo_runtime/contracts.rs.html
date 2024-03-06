@@ -222,6 +222,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -245,6 +248,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	parameter_types,
 	traits::{ConstBool, ConstU32, Nothing},
 };
+<span class="kw">use </span>frame_system::EnsureSigned;
 <span class="kw">use </span>pallet_contracts::{
 	weights::SubstrateWeight, Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
 };
@@ -289,6 +293,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxCodeLen = ConstU32&lt;{ <span class="number">123 </span>* <span class="number">1024 </span>}&gt;;
 	<span class="kw">type </span>MaxStorageKeyLen = ConstU32&lt;<span class="number">128</span>&gt;;
 	<span class="kw">type </span>UnsafeUnstableInterface = ConstBool&lt;<span class="bool-val">true</span>&gt;;
+	<span class="kw">type </span>UploadOrigin = EnsureSigned&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>InstantiateOrigin = EnsureSigned&lt;<span class="self">Self</span>::AccountId&gt;;
 	<span class="kw">type </span>MaxDebugBufferLen = ConstU32&lt;{ <span class="number">2 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>}&gt;;
 	<span class="kw">type </span>MaxDelegateDependencies = ConstU32&lt;<span class="number">32</span>&gt;;
 	<span class="kw">type </span>CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;

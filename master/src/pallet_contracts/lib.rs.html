@@ -1891,6 +1891,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1744" id="1744">1744</a>
 <a href="#1745" id="1745">1745</a>
 <a href="#1746" id="1746">1746</a>
+<a href="#1747" id="1747">1747</a>
+<a href="#1748" id="1748">1748</a>
+<a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
+<a href="#1753" id="1753">1753</a>
+<a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
+<a href="#1759" id="1759">1759</a>
+<a href="#1760" id="1760">1760</a>
+<a href="#1761" id="1761">1761</a>
+<a href="#1762" id="1762">1762</a>
+<a href="#1763" id="1763">1763</a>
+<a href="#1764" id="1764">1764</a>
+<a href="#1765" id="1765">1765</a>
+<a href="#1766" id="1766">1766</a>
+<a href="#1767" id="1767">1767</a>
+<a href="#1768" id="1768">1768</a>
+<a href="#1769" id="1769">1769</a>
+<a href="#1770" id="1770">1770</a>
+<a href="#1771" id="1771">1771</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2272,6 +2297,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxDebugBufferLen: Get&lt;u32&gt;;
 
+		<span class="doccomment">/// Origin allowed to upload code.
+		///
+		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
+		/// code.
+		</span><span class="kw">type </span>UploadOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin, Success = <span class="self">Self</span>::AccountId&gt;;
+
+		<span class="doccomment">/// Origin allowed to instantiate code.
+		///
+		/// # Note
+		///
+		/// This is not enforced when a contract instantiates another contract. The
+		/// [`Self::UploadOrigin`] should make sure that no code is deployed that does unwanted
+		/// instantiations.
+		///
+		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to instantiate
+		/// contract code.
+		</span><span class="kw">type </span>InstantiateOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin, Success = <span class="self">Self</span>::AccountId&gt;;
+
 		<span class="doccomment">/// Overarching hold reason.
 		</span><span class="kw">type </span>RuntimeHoldReason: From&lt;HoldReason&gt;;
 
@@ -2529,7 +2572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			determinism: Determinism,
 		) -&gt; DispatchResult {
 			Migration::&lt;T&gt;::ensure_migrated()<span class="question-mark">?</span>;
-			<span class="kw">let </span>origin = ensure_signed(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>origin = T::UploadOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::bare_upload_code(origin, code, storage_deposit_limit.map(Into::into), determinism)
 				.map(|<span class="kw">_</span>| ())
 		}
@@ -2678,11 +2721,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			salt: Vec&lt;u8&gt;,
 		) -&gt; DispatchResultWithPostInfo {
 			Migration::&lt;T&gt;::ensure_migrated()<span class="question-mark">?</span>;
-			<span class="kw">let </span>origin = ensure_signed(origin)<span class="question-mark">?</span>;
+
+			<span class="comment">// These two origins will usually be the same; however, we treat them as separate since
+			// it is possible for the `Success` value of `UploadOrigin` and `InstantiateOrigin` to
+			// differ.
+			</span><span class="kw">let </span>upload_origin = T::UploadOrigin::ensure_origin(origin.clone())<span class="question-mark">?</span>;
+			<span class="kw">let </span>instantiate_origin = T::InstantiateOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+
 			<span class="kw">let </span>code_len = code.len() <span class="kw">as </span>u32;
 
 			<span class="kw">let </span>(module, upload_deposit) = <span class="self">Self</span>::try_upload_code(
-				origin.clone(),
+				upload_origin,
 				code,
 				storage_deposit_limit.clone().map(Into::into),
 				Determinism::Enforced,
@@ -2696,7 +2745,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>data_len = data.len() <span class="kw">as </span>u32;
 			<span class="kw">let </span>salt_len = salt.len() <span class="kw">as </span>u32;
 			<span class="kw">let </span>common = CommonInput {
-				origin: Origin::from_account_id(origin),
+				origin: Origin::from_account_id(instantiate_origin),
 				value,
 				data,
 				gas_limit,
@@ -2737,10 +2786,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			salt: Vec&lt;u8&gt;,
 		) -&gt; DispatchResultWithPostInfo {
 			Migration::&lt;T&gt;::ensure_migrated()<span class="question-mark">?</span>;
+			<span class="kw">let </span>origin = T::InstantiateOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>data_len = data.len() <span class="kw">as </span>u32;
 			<span class="kw">let </span>salt_len = salt.len() <span class="kw">as </span>u32;
 			<span class="kw">let </span>common = CommonInput {
-				origin: Origin::from_runtime_origin(origin)<span class="question-mark">?</span>,
+				origin: Origin::from_account_id(origin),
 				value,
 				data,
 				gas_limit,
