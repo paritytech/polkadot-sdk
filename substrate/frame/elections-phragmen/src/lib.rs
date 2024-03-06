@@ -188,7 +188,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
@@ -1422,7 +1422,7 @@ mod tests {
 
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 	pub type UncheckedExtrinsic =
-		sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
+		sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
 
 	frame_support::construct_runtime!(
 		pub enum Test

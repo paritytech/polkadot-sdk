@@ -69,6 +69,7 @@ sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 thousands = "0.2.0"
 assert_matches = "1"
+rstest = "0.18.2"
 serde_json = { workspace = true, default-features = true }
 
 [features]

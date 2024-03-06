@@ -29,7 +29,7 @@ use sp_runtime::TryRuntimeError;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound};
 use sp_std::{marker::PhantomData, prelude::*};
-mod old {
+mod v10 {
 	use super::*;
 
 	#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
@@ -51,11 +51,11 @@ pub struct DeletionQueueManager<T: Config> {
 
 #[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime"))]
 pub fn fill_old_queue<T: Config>(len: usize) {
-	let queue: Vec<old::DeletedContract> =
-		core::iter::repeat_with(|| old::DeletedContract { trie_id: Default::default() })
+	let queue: Vec<v10::DeletedContract> =
+		core::iter::repeat_with(|| v10::DeletedContract { trie_id: Default::default() })
 			.take(len)
 			.collect();
-	old::DeletionQueue::<T>::set(Some(queue));
+	v10::DeletionQueue::<T>::set(Some(queue));
 }
 
 #[storage_alias]
@@ -80,7 +80,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 	}
 
 	fn step(&mut self) -> (IsFinished, Weight) {
-		let Some(old_queue) = old::DeletionQueue::<T>::take() else {
+		let Some(old_queue) = v10::DeletionQueue::<T>::take() else {
 			return (IsFinished::Yes, Weight::zero())
 		};
 		let len = old_queue.len();
@@ -106,7 +106,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade_step() -> Result<Vec<u8>, TryRuntimeError> {
-		let old_queue = old::DeletionQueue::<T>::take().unwrap_or_default();
+		let old_queue = v10::DeletionQueue::<T>::take().unwrap_or_default();
 
 		if old_queue.is_empty() {
 			let len = 10u32;
