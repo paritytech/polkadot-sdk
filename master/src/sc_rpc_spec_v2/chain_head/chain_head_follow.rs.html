@@ -756,6 +756,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#609" id="609">609</a>
 <a href="#610" id="610">610</a>
 <a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -800,7 +837,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Backend <span class="kw">as </span>BlockChainBackend, Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata, Info,
 };
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor};
-<span class="kw">use </span>std::{collections::HashSet, sync::Arc};
+<span class="kw">use </span>std::{
+	collections::{HashSet, VecDeque},
+	sync::Arc,
+};
+
+<span class="doccomment">/// The maximum number of finalized blocks provided by the
+/// `Initialized` event.
+</span><span class="kw">const </span>MAX_FINALIZED_BLOCKS: usize = <span class="number">16</span>;
 
 <span class="kw">use </span><span class="kw">super</span>::subscription::InsertedSubscriptionData;
 
@@ -853,6 +897,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// It is a tuple of (block hash, parent hash).
 	</span>finalized_block_descendants: Vec&lt;(Block::Hash, Block::Hash)&gt;,
+	<span class="doccomment">/// Hashes of the last finalized blocks
+	</span>finalized_block_hashes: VecDeque&lt;Block::Hash&gt;,
 	<span class="doccomment">/// Blocks that should not be reported as pruned by the `Finalized` event.
 	///
 	/// Substrate database will perform the pruning of height N at
@@ -936,13 +982,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get the in-memory blocks of the client, starting from the provided finalized hash.
+	///
+	/// The reported blocks are pinned by this function.
 	</span><span class="kw">fn </span>get_init_blocks_with_forks(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		startup_point: <span class="kw-2">&amp;</span>StartupPoint&lt;Block&gt;,
+		finalized: Block::Hash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;InitialBlocks&lt;Block&gt;, SubscriptionManagementError&gt; {
 		<span class="kw">let </span>blockchain = <span class="self">self</span>.backend.blockchain();
 		<span class="kw">let </span>leaves = blockchain.leaves()<span class="question-mark">?</span>;
-		<span class="kw">let </span>finalized = startup_point.finalized_hash;
 		<span class="kw">let </span><span class="kw-2">mut </span>pruned_forks = HashSet::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>finalized_block_descendants = Vec::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>unique_descendants = HashSet::new();
@@ -956,17 +1003,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Ensure a `NewBlock` event is generated for all children of the
 				// finalized block. Describe the tree route as (child_node, parent_node)
 				// Note: the order of elements matters here.
-				</span><span class="kw">let </span>parents = std::iter::once(finalized).chain(blocks.clone());
+				</span><span class="kw">let </span><span class="kw-2">mut </span>parent = finalized;
+				<span class="kw">for </span>child <span class="kw">in </span>blocks {
+					<span class="kw">let </span>pair = (child, parent);
 
-				<span class="kw">for </span>pair <span class="kw">in </span>blocks.zip(parents) {
 					<span class="kw">if </span>unique_descendants.insert(pair) {
+						<span class="comment">// The finalized block is pinned below.
+						</span><span class="self">self</span>.sub_handle.pin_block(<span class="kw-2">&amp;</span><span class="self">self</span>.sub_id, child)<span class="question-mark">?</span>;
 						finalized_block_descendants.push(pair);
 					}
+
+					parent = child;
 				}
 			}
 		}
 
-		<span class="prelude-val">Ok</span>(InitialBlocks { finalized_block_descendants, pruned_forks })
+		<span class="kw">let </span><span class="kw-2">mut </span>current_block = finalized;
+		<span class="comment">// The header of the finalized block must not be pruned.
+		</span><span class="kw">let </span><span class="prelude-val">Some</span>(header) = blockchain.header(current_block)<span class="question-mark">? </span><span class="kw">else </span>{
+			<span class="kw">return </span><span class="prelude-val">Err</span>(SubscriptionManagementError::BlockHeaderAbsent);
+		};
+
+		<span class="comment">// Report at most `MAX_FINALIZED_BLOCKS`. Note: The node might not have that many blocks.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>finalized_block_hashes = VecDeque::with_capacity(MAX_FINALIZED_BLOCKS);
+
+		<span class="comment">// Pin the finalized block.
+		</span><span class="self">self</span>.sub_handle.pin_block(<span class="kw-2">&amp;</span><span class="self">self</span>.sub_id, current_block)<span class="question-mark">?</span>;
+		finalized_block_hashes.push_front(current_block);
+		current_block = <span class="kw-2">*</span>header.parent_hash();
+
+		<span class="kw">for _ in </span><span class="number">0</span>..MAX_FINALIZED_BLOCKS - <span class="number">1 </span>{
+			<span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(header)) = blockchain.header(current_block) <span class="kw">else </span>{ <span class="kw">break </span>};
+			<span class="comment">// Block cannot be reported if pinning fails.
+			</span><span class="kw">if </span><span class="self">self</span>.sub_handle.pin_block(<span class="kw-2">&amp;</span><span class="self">self</span>.sub_id, current_block).is_err() {
+				<span class="kw">break
+			</span>};
+
+			finalized_block_hashes.push_front(current_block);
+			current_block = <span class="kw-2">*</span>header.parent_hash();
+		}
+
+		<span class="prelude-val">Ok</span>(InitialBlocks { finalized_block_descendants, finalized_block_hashes, pruned_forks })
 	}
 
 	<span class="doccomment">/// Generate the initial events reported by the RPC `follow` method.
@@ -978,18 +1055,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		startup_point: <span class="kw-2">&amp;</span>StartupPoint&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;FollowEvent&lt;Block::Hash&gt;&gt;, HashSet&lt;Block::Hash&gt;), SubscriptionManagementError&gt;
 	{
-		<span class="kw">let </span>init = <span class="self">self</span>.get_init_blocks_with_forks(startup_point)<span class="question-mark">?</span>;
-
-		<span class="kw">let </span>initial_blocks = init.finalized_block_descendants;
+		<span class="kw">let </span>init = <span class="self">self</span>.get_init_blocks_with_forks(startup_point.finalized_hash)<span class="question-mark">?</span>;
 
 		<span class="comment">// The initialized event is the first one sent.
-		</span><span class="kw">let </span>finalized_block_hash = startup_point.finalized_hash;
-		<span class="self">self</span>.sub_handle.pin_block(<span class="kw-2">&amp;</span><span class="self">self</span>.sub_id, finalized_block_hash)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>initial_blocks = init.finalized_block_descendants;
+		<span class="kw">let </span>finalized_block_hashes = init.finalized_block_hashes;
 
+		<span class="kw">let </span>finalized_block_hash = startup_point.finalized_hash;
 		<span class="kw">let </span>finalized_block_runtime = <span class="self">self</span>.generate_runtime_event(finalized_block_hash, <span class="prelude-val">None</span>);
 
 		<span class="kw">let </span>initialized_event = FollowEvent::Initialized(Initialized {
-			finalized_block_hash,
+			finalized_block_hashes: finalized_block_hashes.into(),
 			finalized_block_runtime,
 			with_runtime: <span class="self">self</span>.with_runtime,
 		});
@@ -998,8 +1074,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		finalized_block_descendants.push(initialized_event);
 		<span class="kw">for </span>(child, parent) <span class="kw">in </span>initial_blocks.into_iter() {
-			<span class="self">self</span>.sub_handle.pin_block(<span class="kw-2">&amp;</span><span class="self">self</span>.sub_id, child)<span class="question-mark">?</span>;
-
 			<span class="kw">let </span>new_runtime = <span class="self">self</span>.generate_runtime_event(child, <span class="prelude-val">Some</span>(parent));
 
 			<span class="kw">let </span>event = FollowEvent::NewBlock(NewBlock {

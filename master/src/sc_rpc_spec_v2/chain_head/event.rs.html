@@ -912,8 +912,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 </span><span class="kw">pub struct </span>Initialized&lt;Hash&gt; {
-	<span class="doccomment">/// The hash of the latest finalized block.
-	</span><span class="kw">pub </span>finalized_block_hash: Hash,
+	<span class="doccomment">/// The hash of the lastest finalized blocks.
+	</span><span class="kw">pub </span>finalized_block_hashes: Vec&lt;Hash&gt;,
 	<span class="doccomment">/// The runtime version of the finalized block.
 	///
 	/// # Note
@@ -936,12 +936,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		<span class="kw">if </span><span class="self">self</span>.with_runtime {
 			<span class="kw">let </span><span class="kw-2">mut </span>state = serializer.serialize_struct(<span class="string">&quot;Initialized&quot;</span>, <span class="number">2</span>)<span class="question-mark">?</span>;
-			state.serialize_field(<span class="string">&quot;finalizedBlockHash&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.finalized_block_hash)<span class="question-mark">?</span>;
+			state.serialize_field(<span class="string">&quot;finalizedBlockHashes&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.finalized_block_hashes)<span class="question-mark">?</span>;
 			state.serialize_field(<span class="string">&quot;finalizedBlockRuntime&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.finalized_block_runtime)<span class="question-mark">?</span>;
 			state.end()
 		} <span class="kw">else </span>{
 			<span class="kw">let </span><span class="kw-2">mut </span>state = serializer.serialize_struct(<span class="string">&quot;Initialized&quot;</span>, <span class="number">1</span>)<span class="question-mark">?</span>;
-			state.serialize_field(<span class="string">&quot;finalizedBlockHash&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.finalized_block_hash)<span class="question-mark">?</span>;
+			state.serialize_field(<span class="string">&quot;finalizedBlockHashes&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.finalized_block_hashes)<span class="question-mark">?</span>;
 			state.end()
 		}
 	}
@@ -1149,13 +1149,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>follow_initialized_event_no_updates() {
 		<span class="comment">// Runtime flag is false.
 		</span><span class="kw">let </span>event: FollowEvent&lt;String&gt; = FollowEvent::Initialized(Initialized {
-			finalized_block_hash: <span class="string">&quot;0x1&quot;</span>.into(),
+			finalized_block_hashes: <span class="macro">vec!</span>[<span class="string">&quot;0x1&quot;</span>.into()],
 			finalized_block_runtime: <span class="prelude-val">None</span>,
 			with_runtime: <span class="bool-val">false</span>,
 		});
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;initialized&quot;,&quot;finalizedBlockHash&quot;:&quot;0x1&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;initialized&quot;,&quot;finalizedBlockHashes&quot;:[&quot;0x1&quot;]}&quot;#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1174,7 +1174,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.into() });
 		<span class="kw">let </span><span class="kw-2">mut </span>initialized = Initialized {
-			finalized_block_hash: <span class="string">&quot;0x1&quot;</span>.into(),
+			finalized_block_hashes: <span class="macro">vec!</span>[<span class="string">&quot;0x1&quot;</span>.into()],
 			finalized_block_runtime: <span class="prelude-val">Some</span>(runtime_event),
 			with_runtime: <span class="bool-val">true</span>,
 		};
@@ -1182,7 +1182,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 		<span class="kw">let </span>exp = <span class="macro">concat!</span>(
-			<span class="string">r#&quot;{&quot;event&quot;:&quot;initialized&quot;,&quot;finalizedBlockHash&quot;:&quot;0x1&quot;,&quot;#</span>,
+			<span class="string">r#&quot;{&quot;event&quot;:&quot;initialized&quot;,&quot;finalizedBlockHashes&quot;:[&quot;0x1&quot;],&quot;#</span>,
 			<span class="string">r#&quot;&quot;finalizedBlockRuntime&quot;:{&quot;type&quot;:&quot;valid&quot;,&quot;spec&quot;:{&quot;specName&quot;:&quot;ABC&quot;,&quot;implName&quot;:&quot;Impl&quot;,&quot;#</span>,
 			<span class="string">r#&quot;&quot;specVersion&quot;:1,&quot;implVersion&quot;:0,&quot;apis&quot;:{},&quot;transactionVersion&quot;:0}}}&quot;#</span>,
 		);
