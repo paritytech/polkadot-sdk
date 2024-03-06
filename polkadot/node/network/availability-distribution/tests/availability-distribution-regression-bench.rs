@@ -25,7 +25,7 @@
 
 use polkadot_subsystem_bench::{
 	availability::{benchmark_availability_write, prepare_test, TestDataAvailability, TestState},
-	configuration::{PeerLatency, TestConfiguration},
+	configuration::TestConfiguration,
 	usage::BenchmarkUsage,
 };
 
