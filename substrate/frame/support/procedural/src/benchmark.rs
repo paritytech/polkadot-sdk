@@ -434,7 +434,7 @@ pub fn benchmarks(
 	let mut benchmarks_by_name_mappings: Vec<TokenStream2> = Vec::new();
 	let test_idents: Vec<Ident> = benchmark_names_str
 		.iter()
-		.map(|n| Ident::new(format!("test_{}", n).as_str(), Span::call_site()))
+		.map(|n| Ident::new(format!("test_benchmark_{}", n).as_str(), Span::call_site()))
 		.collect();
 	for i in 0..benchmark_names.len() {
 		let name_ident = &benchmark_names[i];
@@ -444,30 +444,36 @@ pub fn benchmarks(
 		benchmarks_by_name_mappings.push(quote!(#name_str => Self::#test_ident()))
 	}
 
-	let impl_test_function = if let Some(item) =
-		content.iter_mut().find(|item| matches!(item, Item::Macro(_)))
-	{
-		let Item::Macro(item_macro) = item else {
-			return Err(syn::Error::new(item.span(), "Expected an item macro, as found such item"));
-		};
+	let impl_test_function = content
+		.iter_mut()
+		.find_map(|item| {
+			let Item::Macro(item_macro) = item else {
+				return None;
+			};
 
-		if item_macro
-			.mac
-			.path
-			.segments
-			.iter()
-			.any(|s| s.ident == "impl_benchmark_test_suite")
-		{
+			if !item_macro
+				.mac
+				.path
+				.segments
+				.iter()
+				.any(|s| s.ident == "impl_benchmark_test_suite")
+			{
+				return None;
+			}
+
 			let tokens = item_macro.mac.tokens.clone();
 			*item = Item::Verbatim(quote! {});
 
-			quote! { impl_test_function!((#( {} #benchmark_names )*)(#( #extra_benchmark_names )*)(#( #skip_meta_benchmark_names )*)#tokens); }
-		} else {
-			quote! {}
-		}
-	} else {
-		quote! {}
-	};
+			Some(quote! {
+				impl_test_function!(
+					(#( {} #benchmark_names )*)
+					(#( #extra_benchmark_names )*)
+					(#( #skip_meta_benchmark_names )*)
+					#tokens
+				);
+			})
+		})
+		.unwrap_or(quote! {});
 
 	// emit final quoted tokens
 	let res = quote! {
@@ -763,7 +769,8 @@ fn expand_benchmark(
 	let setup_stmts = benchmark_def.setup_stmts;
 	let verify_stmts = benchmark_def.verify_stmts;
 	let last_stmt = benchmark_def.last_stmt;
-	let test_ident = Ident::new(format!("test_{}", name.to_string()).as_str(), Span::call_site());
+	let test_ident =
+		Ident::new(format!("test_benchmark_{}", name.to_string()).as_str(), Span::call_site());
 
 	// unroll params (prepare for quoting)
 	let unrolled = UnrolledParams::from(&benchmark_def.params);

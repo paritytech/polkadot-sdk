@@ -861,7 +861,7 @@ macro_rules! impl_bench_name_tests {
 					// Same per-case logic as when all cases are run in the
 					// same function.
 					match std::panic::catch_unwind(|| {
-						$module::<$test>::test_bench_by_name(stringify!($name).as_bytes())
+						$module::<$test>::[< test_benchmark_ $name >] ()
 					}) {
 						Err(err) => {
 							panic!("{}: {:?}", stringify!($name), err);
@@ -920,7 +920,7 @@ macro_rules! impl_bench_name_tests {
 // Every variant must implement [`BenchmarkingSetup`].
 //
 // ```nocompile
-// 
+//
 // struct Transfer;
 // impl BenchmarkingSetup for Transfer { ... }
 //
@@ -1866,7 +1866,7 @@ macro_rules! add_benchmark {
 						verify,
 						e,
 					);
-					return Err(e.into())
+					return Err(e.into());
 				},
 				Err($crate::BenchmarkError::Skip) => {
 					$crate::__private::log::error!(
