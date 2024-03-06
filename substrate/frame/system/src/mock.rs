@@ -86,6 +86,22 @@ impl Config for Test {
 	type Version = Version;
 	type AccountData = u32;
 	type OnKilledAccount = RecordKilled;
+	type MultiBlockMigrator = MockedMigrator;
+}
+
+parameter_types! {
+	pub static Ongoing: bool = false;
+}
+
+pub struct MockedMigrator;
+impl frame_support::migrations::MultiStepMigrator for MockedMigrator {
+	fn ongoing() -> bool {
+		Ongoing::get()
+	}
+
+	fn step() -> Weight {
+		Weight::zero()
+	}
 }
 
 pub type SysEvent = frame_system::Event<Test>;
