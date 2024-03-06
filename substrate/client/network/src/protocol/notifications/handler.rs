@@ -427,6 +427,11 @@ impl NotificationsSink {
 			let result = tx.try_send(NotificationsSinkMessage::Notification { message });
 
 			if result.is_err() {
+				log::warn!(
+					target: "sub-libp2p",
+					"close connection for {peer:?}, notification channel clogged",
+				);
+
 				// Cloning the `mpsc::Sender` guarantees the allocation of an extra spot in the
 				// buffer, and therefore `try_send` will succeed.
 				let _result2 = tx.clone().try_send(NotificationsSinkMessage::ForceClose);
