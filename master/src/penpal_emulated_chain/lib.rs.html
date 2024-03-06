@@ -226,6 +226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -244,7 +245,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>genesis;
 <span class="kw">pub use </span>genesis::{genesis, ED, PARA_ID_A, PARA_ID_B};
 <span class="kw">pub use </span>penpal_runtime::xcm_config::{
-	LocalTeleportableToAssetHub, LocalTeleportableToAssetHubV3, XcmConfig,
+	CustomizableAssetFromSystemAssetHub, LocalTeleportableToAssetHub,
+	LocalTeleportableToAssetHubV3, XcmConfig,
 };
 
 <span class="comment">// Substrate
