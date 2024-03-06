@@ -5,7 +5,7 @@
 //! It is suggested to re-read [`crate::polkadot_sdk::frame_runtime`], notably the information
 //! around [`frame::pallet_macros::config`]. Recall that:
 //!
-//! > The configuration trait of a pallet. Mandatory. Allows a pallet to receive types at a later
+//! > Configuration trait of a pallet: It allows a pallet to receive types at a later
 //! > point from the runtime that wishes to contain it. It allows the pallet to be parameterized
 //! > over both types and values.
 //!
@@ -50,7 +50,7 @@
 //!
 //! ### Tight Coupling Pallets
 //!
-//! To tightly couple `pallet-foo` and `pallet-author`, we use a Rust's super-trait system. When a
+//! To tightly couple `pallet-foo` and `pallet-author`, we use Rust's supertrait system. When a
 //! pallet makes its own `trait Config` be bounded by another pallet's `trait Config`, it is
 //! expressing two things:
 //!
@@ -87,7 +87,7 @@
 //! And upon the creation of the runtime, the two pallets are linked together as such:
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", runtime_author_provider)]
 //!
-//! Crucially, in when using loose coupling, we gain the flexibility of providing different
+//! Crucially, when using loose coupling, we gain the flexibility of providing different
 //! implementations of `AuthorProvider`, such that different users of a `pallet-foo` can use
 //! different ones, without any code change being needed. For example, in the code snippets of this
 //! module, you can fund [`OtherAuthorProvider`] which is an alternative implementation of
@@ -121,8 +121,8 @@
 //!
 //! ## Further References
 //!
-//! <https://www.youtube.com/watch?v=0eNGZpNkJk4>
-//! <https://substrate.stackexchange.com/questions/922/pallet-loose-couplingtight-coupling-and-missing-traits>
+//! - <https://www.youtube.com/watch?v=0eNGZpNkJk4>
+//! - <https://substrate.stackexchange.com/questions/922/pallet-loose-couplingtight-coupling-and-missing-traits>
 //!
 //! [`AuthorProvider`]: crate::reference_docs::frame_pallet_coupling::AuthorProvider
 //! [`OtherAuthorProvider`]: crate::reference_docs::frame_pallet_coupling::OtherAuthorProvider
