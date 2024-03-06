@@ -429,7 +429,8 @@ impl NotificationsSink {
 			if result.is_err() {
 				log::warn!(
 					target: "sub-libp2p",
-					"close connection for {peer:?}, notification channel clogged",
+					"close connection for {:?}, notification channel clogged",
+					self.inner.peer_id,
 				);
 
 				// Cloning the `mpsc::Sender` guarantees the allocation of an extra spot in the
