@@ -1502,7 +1502,9 @@ fn connect_to_buffered_groups() {
 				AllMessages::NetworkBridgeTx(
 					NetworkBridgeTxMessage::ConnectToValidators { validator_ids, .. }
 				) => {
-					for validator in group_a.iter().chain(&group_b) {
+					assert!(!validator_ids.contains(&group_a[0]));
+
+					for validator in group_a[1..].iter().chain(&group_b) {
 						assert!(validator_ids.contains(validator));
 					}
 				}

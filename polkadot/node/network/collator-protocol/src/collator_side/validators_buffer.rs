@@ -30,7 +30,7 @@
 //! The bitwise OR over known advertisements gives us validators indices for connection request.
 
 use std::{
-	collections::{HashMap, HashSet, VecDeque},
+	collections::{HashMap, VecDeque},
 	future::Future,
 	num::NonZeroUsize,
 	ops::Range,
@@ -98,7 +98,7 @@ impl ValidatorGroupsBuffer {
 			.values()
 			.fold(bitvec![0; validators_num], |acc, next| acc | next);
 
-		let mut should_be_connected: HashSet<AuthorityDiscoveryId> = self
+		let mut should_be_connected: Vec<AuthorityDiscoveryId> = self
 			.validators
 			.iter()
 			.enumerate()
@@ -107,10 +107,13 @@ impl ValidatorGroupsBuffer {
 
 		if let Some(last_group) = self.group_infos.iter().last() {
 			for validator in self.validators.iter().rev().take(last_group.len) {
-				should_be_connected.insert(validator.clone());
+				if !should_be_connected.contains(validator) {
+					should_be_connected.push(validator.clone());
+				}
 			}
 		}
-		should_be_connected.into_iter().collect()
+
+		should_be_connected
 	}
 
 	/// Note a new advertisement, marking that we want to be connected to validators
@@ -294,7 +297,7 @@ mod tests {
 		for validator in &validators[2..] {
 			buf.reset_validator_interest(hash_b, validator);
 		}
-		assert_eq!(buf.validators_to_connect(), validators[2..].to_vec());
+		assert_eq!(buf.validators_to_connect().sort(), validators[2..].to_vec().sort());
 	}
 
 	#[test]
@@ -327,10 +330,12 @@ mod tests {
 		}
 
 		buf.reset_validator_interest(hashes[1], &validators[0]);
-		assert_eq!(buf.validators_to_connect(), validators[..4]);
+		let mut expected: Vec<_> = validators[..4].iter().collect();
+		assert_eq!(buf.validators_to_connect().sort(), expected.sort());
 
 		buf.reset_validator_interest(hashes[0], &validators[0]);
-		assert_eq!(buf.validators_to_connect(), validators[..4]);
+
+		assert_eq!(buf.validators_to_connect().sort(), expected.sort());
 
 		buf.note_collation_advertised(hashes[3], 0, GroupIndex(1), &validators[2..4]);
 		buf.note_collation_advertised(
@@ -350,12 +355,7 @@ mod tests {
 
 		assert_eq!(
 			buf.validators_to_connect(),
-			vec![
-				validators[2].clone(),
-				validators[3].clone(),
-				validators[4].clone(),
-				validators[0].clone()
-			]
+			vec![validators[3].clone(), validators[4].clone(), validators[0].clone()]
 		);
 	}
 }
