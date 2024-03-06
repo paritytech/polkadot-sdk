@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This fixture calls itself as many times as passed as argument.
+//! This fixture calls caller_is_origin `n` times.
 
 #![no_std]
 #![no_main]
