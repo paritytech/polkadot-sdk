@@ -806,7 +806,7 @@ pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 	}
 
 	// Invariant: block author provides candidate in the order in which they form a chain
-	// wrt elastic scaling. If the invariant is broken, we'd fail later when filtering candidates:
+	// wrt elastic scaling. If the invariant is broken, we'd fail later when filtering candidates
 	// which are unchained.
 
 	let mut chained_candidates: Vec<Vec<_>> = Vec::new();
@@ -817,17 +817,17 @@ pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 		if Some(candidate_para_id) == current_para_id {
 			let chain = chained_candidates
 				.last_mut()
-				.expect("Vec is not empty, we added at least once above.");
+				.expect("if the current_para_id is Some, then vec is not empty; qed");
 			chain.push(candidate);
 		} else {
-			current_para_id = Some(candidate.descriptor().para_id);
+			current_para_id = Some(candidate_para_id);
 			chained_candidates.push(vec![candidate]);
 		}
 	}
 
-	// Elastic scaling: we prefer chains that have a code upgrade among it's candidates.
-	// asthey tend to be large and hence stand no chance to be picked late while maintaining the
-	// weight bounds.
+	// Elastic scaling: we prefer chains that have a code upgrade among the candidates,
+	// as the candidates containing the upgrade tend to be large and hence stand no chance to 
+	// be picked late while maintaining the weight bounds.
 	//
 	// Limitations: For simplicity if total weight of a chain of candidates is larger than
 	// the remaining weight, the chain will still not be included while it could still be possible
