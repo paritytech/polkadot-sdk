@@ -30,7 +30,7 @@
 //! The bitwise OR over known advertisements gives us validators indices for connection request.
 
 use std::{
-	collections::{HashMap, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	future::Future,
 	num::NonZeroUsize,
 	ops::Range,
@@ -92,7 +92,25 @@ impl ValidatorGroupsBuffer {
 
 	/// Returns discovery ids of validators we are assigned to in this backing group window.
 	pub fn validators_to_connect(&self) -> Vec<AuthorityDiscoveryId> {
-		self.validators.iter().map(|authority_id| authority_id.clone()).collect()
+		let validators_num = self.validators.len();
+		let bits = self
+			.should_be_connected
+			.values()
+			.fold(bitvec![0; validators_num], |acc, next| acc | next);
+
+		let mut should_be_connected: HashSet<AuthorityDiscoveryId> = self
+			.validators
+			.iter()
+			.enumerate()
+			.filter_map(|(idx, authority_id)| bits[idx].then_some(authority_id.clone()))
+			.collect();
+
+		if let Some(last_group) = self.group_infos.iter().last() {
+			for validator in self.validators.iter().rev().take(last_group.len) {
+				should_be_connected.insert(validator.clone());
+			}
+		}
+		should_be_connected.into_iter().collect()
 	}
 
 	/// Note a new advertisement, marking that we want to be connected to validators
