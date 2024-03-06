@@ -1097,7 +1097,7 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 		bridging_configuration,
 		WeightLimit::Unlimited,
 		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
-		Some(xcm_config::TreasuryAccount::get()),
+		Some(xcm_config::RelayTreasuryPalletAccount::get()),
 	)
 }
 
@@ -1467,5 +1467,14 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 				old_value.checked_sub(1).unwrap()
 			}
 		},
+	)
+}
+
+#[test]
+fn treasury_pallet_account_not_none() {
+	use xcm_executor::traits::ConvertLocation;
+	assert_eq!(
+		xcm_config::RelayTreasuryPalletAccount::get(),
+		LocationToAccountId::convert_location(&xcm_config::RelayTreasuryLocation::get()).unwrap()
 	)
 }

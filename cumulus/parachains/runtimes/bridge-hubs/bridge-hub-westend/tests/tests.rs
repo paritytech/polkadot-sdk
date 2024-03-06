@@ -20,7 +20,7 @@ use bp_polkadot_core::Signature;
 use bridge_common_config::{DeliveryRewardInBalance, RequiredStakeForStakeAndSlash};
 use bridge_hub_test_utils::{test_cases::from_parachain, SlotDurations};
 use bridge_hub_westend_runtime::{
-	bridge_common_config, bridge_to_rococo_config,
+	bridge_common_config, bridge_to_rococo_config, xcm_config,
 	xcm_config::{RelayNetwork, WestendLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
@@ -348,5 +348,14 @@ pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
 			"Estimate fee for `single message confirmation` for runtime: {:?}",
 			<Runtime as frame_system::Config>::Version::get()
 		),
+	)
+}
+
+#[test]
+fn treasury_pallet_account_not_none() {
+	use xcm_executor::traits::ConvertLocation;
+	assert_eq!(
+		xcm_config::RelayTreasuryPalletAccount::get(),
+		xcm_config::LocationToAccountId::convert_location(&xcm_config::RelayTreasuryLocation::get()).unwrap()
 	)
 }

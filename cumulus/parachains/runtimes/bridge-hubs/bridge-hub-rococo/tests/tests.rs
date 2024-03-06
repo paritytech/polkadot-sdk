@@ -18,7 +18,7 @@
 
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
-	bridge_common_config, bridge_to_bulletin_config, bridge_to_westend_config,
+	bridge_common_config, bridge_to_bulletin_config, bridge_to_westend_config, xcm_config,
 	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, EthereumGatewayAddress,
 	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
@@ -640,4 +640,13 @@ mod bridge_hub_bulletin_tests {
 			),
 		)
 	}
+}
+
+#[test]
+fn treasury_pallet_account_not_none() {
+	use xcm_executor::traits::ConvertLocation;
+	assert_eq!(
+		xcm_config::RelayTreasuryPalletAccount::get(),
+		xcm_config::LocationToAccountId::convert_location(&xcm_config::RelayTreasuryLocation::get()).unwrap()
+	)
 }

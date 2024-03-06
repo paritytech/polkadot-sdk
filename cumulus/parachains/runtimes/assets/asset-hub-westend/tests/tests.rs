@@ -1114,7 +1114,7 @@ fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() 
 		bridging_to_asset_hub_rococo,
 		WeightLimit::Unlimited,
 		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
-		Some(xcm_config::TreasuryAccount::get()),
+		Some(xcm_config::RelayTreasuryPalletAccount::get()),
 	)
 }
 
@@ -1416,4 +1416,13 @@ fn reserve_transfer_native_asset_to_non_teleport_para_works() {
 		}),
 		WeightLimit::Unlimited,
 	);
+}
+
+#[test]
+fn treasury_pallet_account_not_none() {
+	use xcm_executor::traits::ConvertLocation;
+	assert_eq!(
+		xcm_config::RelayTreasuryPalletAccount::get(),
+		LocationToAccountId::convert_location(&xcm_config::RelayTreasuryLocation::get()).unwrap()
+	)
 }

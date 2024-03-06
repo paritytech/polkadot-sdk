@@ -82,7 +82,7 @@ use pallet_xcm::EnsureXcm;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm::VersionedLocation;
-use xcm_config::{TreasuryAccount, XcmOriginToTransactDispatchOrigin, XcmRouter};
+use xcm_config::{RelayTreasuryPalletAccount, XcmOriginToTransactDispatchOrigin, XcmRouter};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -662,7 +662,7 @@ impl snowbridge_pallet_system::Config for Runtime {
 	type OutboundQueue = EthereumOutboundQueue;
 	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
 	type AgentIdOf = snowbridge_core::AgentIdOf;
-	type TreasuryAccount = TreasuryAccount;
+	type TreasuryAccount = RelayTreasuryPalletAccount;
 	type Token = Balances;
 	type WeightInfo = weights::snowbridge_pallet_system::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
