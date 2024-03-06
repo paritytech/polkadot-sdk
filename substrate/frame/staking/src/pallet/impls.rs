@@ -1836,9 +1836,8 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
-		Self::check_storage_consistency()?;
-
-		//Self::check_payees()?;
+		Self::check_bonded_consistency()?;
+		Self::check_payees()?;
 		Self::check_nominators()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
@@ -1846,39 +1845,39 @@ impl<T: Config> Pallet<T> {
 		Self::check_count()
 	}
 
-	fn check_storage_consistency() -> Result<(), TryRuntimeError> {
-		// from the Bonded POV
-		for (stash, controller) in Bonded::<T>::iter() {
-			if let Some(ledger) = Ledger::<T>::get(controller.clone()) {
-				if ledger.stash != stash {
-					log!(
-						error,
-						"❌ bonded stash {:?}, ledger stash: {:?} - bonded stash != ledger stash",
-						stash,
-						ledger.stash
-					);
-				}
-			} else {
-				log!(
-					error,
-					"❌ controller {:?} - bonded controller doesn't have a ledger",
-					controller
-				);
-			}
+	/// Invariants:
+	/// * A bonded (stash, controller) pair should have only one associated ledger. I.e. if the
+	///   ledger is bonded by stash, the controller account must not bond a different ledger.
+	/// * A bonded (stash, controller) pair must have an associated ledger.
+	fn check_bonded_consistency() -> Result<(), TryRuntimeError> {
+		let mut count_double = 0;
+		let mut count_none = 0;
+
+		for (stash, controller) in <Bonded<T>>::iter() {
+			match (<Ledger<T>>::get(&stash), <Ledger<T>>::get(&controller)) {
+				(Some(_), Some(_)) =>
+				// if stash == controller, it means that the ledger has migrated to
+				// post-controller. If no migration happened, we expect that the (stash,
+				// controller) pair has only one associated ledger.
+					if stash != controller {
+						count_double += 1;
+					},
+				(None, None) => {
+					count_none += 1;
+				},
+				_ => {},
+			};
 		}
 
-		// from the ledger POV.
-		for (controller, ledger) in Ledger::<T>::iter() {
-			let stash = ledger.stash;
-			if let Some(bonded_controller) = Bonded::<T>::get(&stash) {
-				if controller != bonded_controller {
-					log!(error, "❌ stash {:?}, controller: {:?} - bonded controller different than ledger's controller, problem!", stash, controller);
-				}
-			} else {
-				// after deprecate, this happens.
-				log!(error, "❌ stash {:?} - ledger's stash no bonded, problem!", stash);
-			}
-		}
+		ensure!(
+			count_double == 0,
+			"inconsistent bonded state: (stash, controller) pair bond more than one ledger",
+		);
+
+		ensure!(
+			count_none == 0,
+			"inconsistent bonded state: (stash, controller) pair missing associated ledger",
+		);
 
 		Ok(())
 	}
