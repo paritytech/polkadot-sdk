@@ -956,50 +956,15 @@ fn run_out_of_fuel_host() {
 
 #[test]
 fn gas_syncs_work() {
-	let (wasm0, _code_hash) = compile_module::<Test>("seal_input_noop").unwrap();
-	let (wasm1, _code_hash) = compile_module::<Test>("seal_input_once").unwrap();
-	let (wasm2, _code_hash) = compile_module::<Test>("seal_input_twice").unwrap();
+	let (code, _code_hash) = compile_module::<Test>("caller_is_origin_n").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		// Instantiate noop contract.
-		let addr0 = Contracts::bare_instantiate(
+		let addr = Contracts::bare_instantiate(
 			ALICE,
 			0,
 			GAS_LIMIT,
 			None,
-			Code::Upload(wasm0),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
-
-		// Instantiate 1st contract.
-		let addr1 = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm1),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
-
-		// Instantiate 2nd contract.
-		let addr2 = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm2),
+			Code::Upload(code),
 			vec![],
 			vec![],
 			DebugInfo::Skip,
@@ -1011,11 +976,11 @@ fn gas_syncs_work() {
 
 		let result = Contracts::bare_call(
 			ALICE,
-			addr0,
+			addr.clone(),
 			0,
 			GAS_LIMIT,
 			None,
-			1u8.to_le_bytes().to_vec(),
+			0u32.encode(),
 			DebugInfo::Skip,
 			CollectEvents::Skip,
 			Determinism::Enforced,
@@ -1025,27 +990,28 @@ fn gas_syncs_work() {
 
 		let result = Contracts::bare_call(
 			ALICE,
-			addr1,
+			addr.clone(),
 			0,
 			GAS_LIMIT,
 			None,
-			1u8.to_le_bytes().to_vec(),
+			1u32.encode(),
 			DebugInfo::Skip,
 			CollectEvents::Skip,
 			Determinism::Enforced,
 		);
 		assert_ok!(result.result);
 		let gas_consumed_once = result.gas_consumed.ref_time();
-		let host_consumed_once = <Test as Config>::Schedule::get().host_fn_weights.input.ref_time();
+		let host_consumed_once =
+			<Test as Config>::Schedule::get().host_fn_weights.caller_is_origin.ref_time();
 		let engine_consumed_once = gas_consumed_once - host_consumed_once - engine_consumed_noop;
 
 		let result = Contracts::bare_call(
 			ALICE,
-			addr2,
+			addr,
 			0,
 			GAS_LIMIT,
 			None,
-			1u8.to_le_bytes().to_vec(),
+			2u32.encode(),
 			DebugInfo::Skip,
 			CollectEvents::Skip,
 			Determinism::Enforced,
