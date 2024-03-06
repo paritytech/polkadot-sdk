@@ -27,7 +27,7 @@ use polkadot_overseer::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, BackingState},
 	slashing,
-	vstaging::{ApprovalVotingParams, NodeFeatures, ParasEntry},
+	vstaging::{ApprovalVotingParams, NodeFeatures},
 	CoreIndex,
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
@@ -450,7 +450,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn claim_queue(
 		&self,
 		at: Hash,
-	) -> Result<BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>, ApiError> {
+	) -> Result<BTreeMap<CoreIndex, VecDeque<cumulus_primitives_core::ParaId>>, ApiError> {
 		Ok(self.rpc_client.parachain_host_claim_queue(at).await?)
 	}
 }

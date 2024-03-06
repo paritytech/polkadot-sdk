@@ -21,7 +21,7 @@ use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
 	async_backing, slashing,
-	vstaging::{self, ApprovalVotingParams, ParasEntry},
+	vstaging::{self, ApprovalVotingParams},
 	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
 	GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
@@ -71,7 +71,7 @@ pub(crate) struct RequestResultCache {
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
 	node_features: LruMap<SessionIndex, vstaging::NodeFeatures>,
 	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
-	claim_queue: LruMap<Hash, BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>>,
+	claim_queue: LruMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 }
 
 impl Default for RequestResultCache {
@@ -532,14 +532,14 @@ impl RequestResultCache {
 	pub(crate) fn claim_queue(
 		&mut self,
 		relay_parent: &Hash,
-	) -> Option<&BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>> {
+	) -> Option<&BTreeMap<CoreIndex, VecDeque<ParaId>>> {
 		self.claim_queue.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_claim_queue(
 		&mut self,
 		relay_parent: Hash,
-		value: BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>,
+		value: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	) {
 		self.claim_queue.insert(relay_parent, value);
 	}
@@ -595,5 +595,5 @@ pub(crate) enum RequestResult {
 	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 	NodeFeatures(SessionIndex, vstaging::NodeFeatures),
-	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>),
+	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),
 }

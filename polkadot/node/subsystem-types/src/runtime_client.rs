@@ -19,7 +19,7 @@ use polkadot_primitives::{
 	async_backing,
 	runtime_api::ParachainHost,
 	slashing,
-	vstaging::{self, ApprovalVotingParams, ParasEntry},
+	vstaging::{self, ApprovalVotingParams},
 	Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
 	GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage, InboundHrmpMessage,
@@ -336,10 +336,7 @@ pub trait RuntimeApiSubsystemClient {
 
 	// == v11: Claim queue ==
 	/// Fetch the [`ClaimQueue`] from scheduler pallet
-	async fn claim_queue(
-		&self,
-		at: Hash,
-	) -> Result<BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>, ApiError>;
+	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -606,10 +603,7 @@ where
 		self.client.runtime_api().approval_voting_params(at)
 	}
 
-	async fn claim_queue(
-		&self,
-		at: Hash,
-	) -> Result<BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>, ApiError> {
+	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError> {
 		self.client.runtime_api().claim_queue(at)
 	}
 }

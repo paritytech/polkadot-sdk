@@ -289,6 +289,6 @@ sp_api::decl_runtime_apis! {
 		/***** Added in v11 *****/
 		/// Claim queue
 		#[api_version(11)]
-		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<vstaging::ParasEntry<BlockNumber>>>;
+		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ppp::Id>>;
 	}
 }

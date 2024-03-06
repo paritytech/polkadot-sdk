@@ -33,7 +33,7 @@ use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState},
 		slashing,
-		vstaging::{ApprovalVotingParams, NodeFeatures, ParasEntry},
+		vstaging::{ApprovalVotingParams, NodeFeatures},
 		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
 		GroupRotationInfo, Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage,
@@ -651,7 +651,7 @@ impl RelayChainRpcClient {
 	pub async fn parachain_host_claim_queue(
 		&self,
 		at: RelayHash,
-	) -> Result<BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>, RelayChainError> {
+	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_claim_queue", at, None::<()>)
 			.await
 	}

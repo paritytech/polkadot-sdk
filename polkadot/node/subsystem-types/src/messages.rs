@@ -43,7 +43,7 @@ use polkadot_node_primitives::{
 };
 use polkadot_primitives::{
 	async_backing, slashing,
-	vstaging::{ApprovalVotingParams, NodeFeatures, ParasEntry},
+	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
 	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState,
 	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Header as BlockHeader,
@@ -726,7 +726,7 @@ pub enum RuntimeApiRequest {
 	ApprovalVotingParams(SessionIndex, RuntimeApiSender<ApprovalVotingParams>),
 	/// Fetch the [`ClaimQueue`] from scheduler pallet
 	/// `V11`
-	ClaimQueue(RuntimeApiSender<BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>>),
+	ClaimQueue(RuntimeApiSender<BTreeMap<CoreIndex, VecDeque<ParaId>>>),
 }
 
 impl RuntimeApiRequest {

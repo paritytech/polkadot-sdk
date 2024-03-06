@@ -559,7 +559,7 @@ fn fallback_when_no_validation_code_hash_api(#[case] runtime_version: u32) {
 					_hash,
 					RuntimeApiRequest::ClaimQueue(tx),
 				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
-					let res = BTreeMap::<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>::new();
+					let res = BTreeMap::<CoreIndex, VecDeque<ParaId>>::new();
 					tx.send(Ok(res)).unwrap();
 				},
 				Some(msg) => {

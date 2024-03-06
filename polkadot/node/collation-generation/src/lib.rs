@@ -48,9 +48,9 @@ use polkadot_node_subsystem_util::{
 	request_validation_code_hash, request_validators,
 };
 use polkadot_primitives::{
-	collator_signature_payload, vstaging::ParasEntry, BlockNumber, CandidateCommitments,
-	CandidateDescriptor, CandidateReceipt, CollatorPair, CoreIndex, CoreState, Hash, Id as ParaId,
-	OccupiedCoreAssumption, PersistedValidationData, ScheduledCore, ValidationCodeHash,
+	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
+	CollatorPair, CoreIndex, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, ScheduledCore, ValidationCodeHash,
 };
 use sp_core::crypto::Pair;
 use std::{
@@ -623,7 +623,7 @@ fn erasure_root(
 async fn fetch_claim_queue(
 	sender: &mut impl overseer::CollationGenerationSenderTrait,
 	relay_parent: Hash,
-) -> crate::error::Result<Option<BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>>> {
+) -> crate::error::Result<Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>> {
 	if has_required_runtime(
 		sender,
 		relay_parent,
@@ -640,16 +640,14 @@ async fn fetch_claim_queue(
 }
 
 fn fetch_scheduled_para(
-	claim_queue: &BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>,
+	claim_queue: &BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	core_idx: CoreIndex,
 ) -> Option<ScheduledCore> {
 	// TODO: In the future we will return more than one scheduled para_id hence the weird processing
 	// below
 	claim_queue
 		.get(&core_idx)?
-		.into_iter()
-		.map(|paras_entry| paras_entry.para_id())
-		.take(1)
-		.next()
+		.front()
+		.cloned()
 		.map(|para_id| ScheduledCore { para_id, collator: None })
 }

@@ -21,7 +21,7 @@ use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
 	async_backing, slashing,
-	vstaging::{ApprovalVotingParams, NodeFeatures, ParasEntry},
+	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
 	GroupRotationInfo, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
@@ -291,7 +291,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn claim_queue(
 		&self,
 		_: Hash,
-	) -> Result<BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumber>>>, ApiError> {
+	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, ApiError> {
 		todo!("Not required for tests")
 	}
 }
