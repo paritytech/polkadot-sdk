@@ -1977,6 +1977,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "penpal-emulated-chain",
  "rococo-system-emulated-network",
  "rococo-westend-system-emulated-network",
  "scale-info",
