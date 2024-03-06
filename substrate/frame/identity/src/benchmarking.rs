@@ -24,7 +24,7 @@ use super::*;
 use crate::Pallet as Identity;
 use codec::Encode;
 use frame_benchmarking::{
-	account, impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError,
+	account, v2::*, whitelisted_caller, BenchmarkError,
 };
 use frame_support::{
 	assert_ok, ensure,
