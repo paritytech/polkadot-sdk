@@ -920,7 +920,7 @@ macro_rules! impl_bench_name_tests {
 // Every variant must implement [`BenchmarkingSetup`].
 //
 // ```nocompile
-//
+// 
 // struct Transfer;
 // impl BenchmarkingSetup for Transfer { ... }
 //
@@ -1866,7 +1866,7 @@ macro_rules! add_benchmark {
 						verify,
 						e,
 					);
-					return Err(e.into());
+					return Err(e.into())
 				},
 				Err($crate::BenchmarkError::Skip) => {
 					$crate::__private::log::error!(
