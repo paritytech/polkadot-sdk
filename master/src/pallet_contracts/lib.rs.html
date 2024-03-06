@@ -1916,6 +1916,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1769" id="1769">1769</a>
 <a href="#1770" id="1770">1770</a>
 <a href="#1771" id="1771">1771</a>
+<a href="#1772" id="1772">1772</a>
+<a href="#1773" id="1773">1773</a>
+<a href="#1774" id="1774">1774</a>
+<a href="#1775" id="1775">1775</a>
+<a href="#1776" id="1776">1776</a>
+<a href="#1777" id="1777">1777</a>
+<a href="#1778" id="1778">1778</a>
+<a href="#1779" id="1779">1779</a>
+<a href="#1780" id="1780">1780</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2563,8 +2572,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// To avoid this situation a constructor could employ access control so that it can
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
+		///
+		/// Use [`Determinism::Relaxed`] exclusively for non-deterministic code. If the uploaded
+		/// code is deterministic, specifying [`Determinism::Relaxed`] will be disregarded and
+		/// result in higher gas costs.
 		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
-		#[pallet::weight(T::WeightInfo::upload_code(code.len() <span class="kw">as </span>u32))]
+		#[pallet::weight(
+			<span class="kw">match </span>determinism {
+				Determinism::Enforced =&gt; T::WeightInfo::upload_code_determinism_enforced(code.len() <span class="kw">as </span>u32),
+				Determinism::Relaxed =&gt; T::WeightInfo::upload_code_determinism_relaxed(code.len() <span class="kw">as </span>u32),
+			}
+		)]
 		</span><span class="kw">pub fn </span>upload_code(
 			origin: OriginFor&lt;T&gt;,
 			code: Vec&lt;u8&gt;,

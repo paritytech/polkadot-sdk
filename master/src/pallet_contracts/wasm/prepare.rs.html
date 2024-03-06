@@ -963,6 +963,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#816" id="816">816</a>
 <a href="#817" id="817">817</a>
 <a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1044,7 +1057,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>engine = Engine::new(<span class="kw-2">&amp;</span>config);
-		<span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, code).map_err(|<span class="kw">_</span>| <span class="string">&quot;Can&#39;t load the module into wasmi!&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, code).map_err(|err| {
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Module creation failed: {:?}&quot;</span>, err);
+			<span class="string">&quot;Can&#39;t load the module into wasmi!&quot;
+		</span>})<span class="question-mark">?</span>;
 
 		<span class="comment">// Return a `LoadedModule` instance with
 		// __valid__ module.
@@ -1185,7 +1201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>validate&lt;E, T&gt;(
 	code: <span class="kw-2">&amp;</span>[u8],
 	schedule: <span class="kw-2">&amp;</span>Schedule&lt;T&gt;,
-	determinism: Determinism,
+	determinism: <span class="kw-2">&amp;mut </span>Determinism,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), (DispatchError, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str)&gt;
 <span class="kw">where
 	</span>E: Environment&lt;()&gt;,
@@ -1194,7 +1210,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(|| {
 		<span class="comment">// We check that the module is generally valid,
 		// and does not have restricted WebAssembly features, here.
-		</span><span class="kw">let </span>contract_module = LoadedModule::new::&lt;T&gt;(code, determinism, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>contract_module = <span class="kw">match </span><span class="kw-2">*</span>determinism {
+			Determinism::Relaxed =&gt;
+				<span class="kw">if let </span><span class="prelude-val">Ok</span>(module) = LoadedModule::new::&lt;T&gt;(code, Determinism::Enforced, <span class="prelude-val">None</span>) {
+					<span class="kw-2">*</span>determinism = Determinism::Enforced;
+					module
+				} <span class="kw">else </span>{
+					LoadedModule::new::&lt;T&gt;(code, Determinism::Relaxed, <span class="prelude-val">None</span>)<span class="question-mark">?
+				</span>},
+			Determinism::Enforced =&gt; LoadedModule::new::&lt;T&gt;(code, Determinism::Enforced, <span class="prelude-val">None</span>)<span class="question-mark">?</span>,
+		};
+
 		<span class="comment">// The we check that module satisfies constraints the pallet puts on contracts.
 		</span>contract_module.scan_exports()<span class="question-mark">?</span>;
 		contract_module.scan_imports::&lt;T&gt;(schedule)<span class="question-mark">?</span>;
@@ -1217,7 +1243,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span>code,
 		(),
 		schedule,
-		determinism,
+		<span class="kw-2">*</span>determinism,
 		stack_limits,
 		AllowDeprecatedInterface::No,
 	)
@@ -1241,13 +1267,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	code: CodeVec&lt;T&gt;,
 	schedule: <span class="kw-2">&amp;</span>Schedule&lt;T&gt;,
 	owner: AccountIdOf&lt;T&gt;,
-	determinism: Determinism,
+	<span class="kw-2">mut </span>determinism: Determinism,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;WasmBlob&lt;T&gt;, (DispatchError, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str)&gt;
 <span class="kw">where
 	</span>E: Environment&lt;()&gt;,
 	T: Config,
 {
-	validate::&lt;E, T&gt;(code.as_ref(), schedule, determinism)<span class="question-mark">?</span>;
+	validate::&lt;E, T&gt;(code.as_ref(), schedule, <span class="kw-2">&amp;mut </span>determinism)<span class="question-mark">?</span>;
 
 	<span class="comment">// Calculate deposit for storing contract code and `code_info` in two different storage items.
 	</span><span class="kw">let </span>code_len = code.len() <span class="kw">as </span>u32;

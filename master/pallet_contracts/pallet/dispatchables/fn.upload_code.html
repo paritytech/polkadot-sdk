@@ -166,6 +166,9 @@ Set to <a href="../../enum.Determinism.html#variant.Enforced" title="variant pal
 To avoid this situation a constructor could employ access control so that it can
 only be instantiated by permissioned entities. The same is true when uploading
 through [<code>Self::instantiate_with_code</code>].</p>
+<p>Use <a href="../../enum.Determinism.html#variant.Relaxed" title="variant pallet_contracts::Determinism::Relaxed"><code>Determinism::Relaxed</code></a> exclusively for non-deterministic code. If the uploaded
+code is deterministic, specifying <a href="../../enum.Determinism.html#variant.Relaxed" title="variant pallet_contracts::Determinism::Relaxed"><code>Determinism::Relaxed</code></a> will be disregarded and
+result in higher gas costs.</p>
 <h2 id="warning-doc-only"><a href="#warning-doc-only">Warning: Doc-Only</a></h2>
 <p>This function is an automatically generated, and is doc-only, uncallable
 stub. See the real version in
