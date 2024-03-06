@@ -32,7 +32,7 @@ mod mock_helpers;
 #[cfg(test)]
 mod tests;
 
-use crate::{configuration, paras};
+use crate::{configuration, paras, scheduler::common::Assignment};
 
 use frame_support::{
 	pallet_prelude::*,
@@ -43,7 +43,7 @@ use frame_support::{
 	},
 };
 use frame_system::pallet_prelude::*;
-use primitives::{vstaging::Assignment, CoreIndex, Id as ParaId};
+use primitives::{CoreIndex, Id as ParaId};
 use sp_runtime::{
 	traits::{One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,

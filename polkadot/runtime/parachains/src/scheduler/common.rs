@@ -17,9 +17,36 @@
 //! Common traits and types used by the scheduler and assignment providers.
 
 use scale_info::TypeInfo;
-use sp_runtime::codec::{Decode, Encode};
+use sp_runtime::{
+	codec::{Decode, Encode},
+	RuntimeDebug,
+};
 
-use primitives::{vstaging::Assignment, CoreIndex};
+use primitives::{CoreIndex, Id as ParaId};
+
+/// Assignment (ParaId -> CoreIndex).
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
+pub enum Assignment {
+	/// A pool assignment.
+	Pool {
+		/// The assigned para id.
+		para_id: ParaId,
+		/// The core index the para got assigned to.
+		core_index: CoreIndex,
+	},
+	/// A bulk assignment.
+	Bulk(ParaId),
+}
+
+impl Assignment {
+	/// Returns the [`ParaId`] this assignment is associated to.
+	pub fn para_id(&self) -> ParaId {
+		match self {
+			Self::Pool { para_id, .. } => *para_id,
+			Self::Bulk(para_id) => *para_id,
+		}
+	}
+}
 
 #[derive(Encode, Decode, TypeInfo)]
 /// A set of variables required by the scheduler in order to operate.
@@ -63,7 +90,7 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// Useful for benchmarks and testing. The returned assignment is "valid" and can if need be
 	/// passed into `report_processed` for example.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn get_mock_assignment(core_idx: CoreIndex, para_id: primitives::Id) -> Assignment;
+	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Assignment;
 
 	/// How many cores are allocated to this provider.
 	///

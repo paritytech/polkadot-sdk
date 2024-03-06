@@ -17,10 +17,9 @@
 //! Put implementations of functions from staging APIs here.
 
 use crate::{configuration, initializer, scheduler, shared};
-use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
-	vstaging::{ApprovalVotingParams, NodeFeatures, ParasEntry},
-	CoreIndex, ValidatorIndex,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
+	CoreIndex, Id as ParaId, ValidatorIndex,
 };
 use sp_std::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
@@ -49,7 +48,11 @@ pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams 
 }
 
 /// Returns the claimqueue from the scheduler
-pub fn claim_queue<T: scheduler::Config>(
-) -> BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumberFor<T>>>> {
+pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 	<scheduler::Pallet<T>>::claimqueue()
+		.into_iter()
+		.map(|(core_index, entries)| {
+			(core_index, entries.into_iter().map(|e| e.para_id()).collect())
+		})
+		.collect()
 }

@@ -443,7 +443,7 @@ impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 /// have no direct effect on scheduler state, AssignmentProvider functions such as
 /// `push_back_assignment` can be left empty.
 pub mod mock_assigner {
-	use primitives::vstaging::Assignment;
+	use crate::scheduler::common::Assignment;
 
 	use super::*;
 	pub use pallet::*;

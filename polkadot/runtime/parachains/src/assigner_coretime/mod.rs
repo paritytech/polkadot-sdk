@@ -30,14 +30,14 @@ mod tests;
 use crate::{
 	assigner_on_demand, configuration,
 	paras::AssignCoretime,
-	scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
 	ParaId,
 };
 
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
-use primitives::{vstaging::Assignment, CoreIndex};
+use primitives::CoreIndex;
 use sp_runtime::traits::{One, Saturating};
 
 use sp_std::prelude::*;
