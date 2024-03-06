@@ -297,7 +297,11 @@ mod tests {
 		for validator in &validators[2..] {
 			buf.reset_validator_interest(hash_b, validator);
 		}
-		assert_eq!(buf.validators_to_connect().sort(), validators[2..].to_vec().sort());
+		let mut expected = validators[2..].to_vec();
+		expected.sort();
+		let mut result = buf.validators_to_connect();
+		result.sort();
+		assert_eq!(result, expected);
 	}
 
 	#[test]
@@ -330,12 +334,18 @@ mod tests {
 		}
 
 		buf.reset_validator_interest(hashes[1], &validators[0]);
-		let mut expected: Vec<_> = validators[..4].iter().collect();
-		assert_eq!(buf.validators_to_connect().sort(), expected.sort());
+		let mut expected: Vec<_> = validators[..4].iter().cloned().collect();
+		let mut result = buf.validators_to_connect();
+		expected.sort();
+		result.sort();
+		assert_eq!(result, expected);
 
 		buf.reset_validator_interest(hashes[0], &validators[0]);
-
-		assert_eq!(buf.validators_to_connect().sort(), expected.sort());
+		let mut expected: Vec<_> = validators[1..4].iter().cloned().collect();
+		expected.sort();
+		let mut result = buf.validators_to_connect();
+		result.sort();
+		assert_eq!(result, expected);
 
 		buf.note_collation_advertised(hashes[3], 0, GroupIndex(1), &validators[2..4]);
 		buf.note_collation_advertised(
