@@ -184,8 +184,8 @@ pub fn run() -> sc_cli::Result<()> {
 				match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p => service::new_full::<
 						sc_network::NetworkWorker<
-							Block,
-							<Block as sp_runtime::traits::Block>::Hash,
+							solochain_template_runtime::opaque::Block,
+							<solochain_template_runtime::opaque::Block as sp_runtime::traits::Block>::Hash,
 						>,
 					>(config)
 					.map_err(sc_cli::Error::Service),
