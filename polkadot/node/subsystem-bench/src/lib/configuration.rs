@@ -45,9 +45,9 @@ fn default_n_cores() -> usize {
 	50
 }
 
-// PoV size, KiB. Based on empirical data from Kusama
+// Default PoV size in KiB.
 fn default_pov_size() -> usize {
-	2 * 1024
+	5 * 1024
 }
 
 // Default bandwidth in bytes, based stats from Kusama validators
@@ -65,9 +65,9 @@ fn default_connectivity() -> usize {
 	90
 }
 
-// Based on Kusama `max_validators_per_core`
+// Default backing group size
 fn default_backing_group_size() -> usize {
-	3
+	5
 }
 
 // Default needed approvals

@@ -16,7 +16,7 @@
 
 //! availability-write regression tests
 //!
-//! Simulated process of availability writing on Kusama
+//! Availability write benchmark based on Kusama parameters and scale.
 //!
 //! Subsystems involved:
 //! - availability-recovery

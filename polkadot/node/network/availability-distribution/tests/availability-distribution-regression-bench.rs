@@ -16,7 +16,7 @@
 
 //! availability-read regression tests
 //!
-//! Simulated process of availability reading on Kusama
+//! Availability read benchmark based on Kusama parameters and scale.
 //!
 //! Subsystems involved:
 //! - availability-distribution
