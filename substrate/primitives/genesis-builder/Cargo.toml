@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Substrate GenesisConfig builder API"
+description = "Substrate RuntimeGenesisConfig builder API"
 readme = "README.md"
 
 [lints]
