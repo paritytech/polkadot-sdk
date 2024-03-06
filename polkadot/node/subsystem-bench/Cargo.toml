@@ -8,9 +8,13 @@ license.workspace = true
 readme = "README.md"
 publish = false
 
+[lib]
+name = "polkadot_subsystem_bench"
+path = "src/lib/lib.rs"
+
 [[bin]]
 name = "subsystem-bench"
-path = "src/subsystem-bench.rs"
+path = "src/cli/subsystem-bench.rs"
 
 # Prevent rustdoc error. Already documented from top-level Cargo.toml.
 doc = false

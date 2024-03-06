@@ -1343,7 +1343,7 @@ pub mod pallet {
 	#[pallet::getter(fn minimum_untrusted_score)]
 	pub type MinimumUntrustedScore<T: Config> = StorageValue<_, ElectionScore>;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	///
 	/// v1: https://github.com/paritytech/substrate/pull/12237/
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
