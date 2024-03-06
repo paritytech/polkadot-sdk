@@ -234,7 +234,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::Perbill;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(15);
 
 	#[pallet::pallet]
@@ -378,6 +378,24 @@ pub mod pallet {
 		/// The maximum length of the debug buffer in bytes.
 		#[pallet::constant]
 		type MaxDebugBufferLen: Get<u32>;
+
+		/// Origin allowed to upload code.
+		///
+		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
+		/// code.
+		type UploadOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
+
+		/// Origin allowed to instantiate code.
+		///
+		/// # Note
+		///
+		/// This is not enforced when a contract instantiates another contract. The
+		/// [`Self::UploadOrigin`] should make sure that no code is deployed that does unwanted
+		/// instantiations.
+		///
+		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to instantiate
+		/// contract code.
+		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
@@ -636,7 +654,7 @@ pub mod pallet {
 			determinism: Determinism,
 		) -> DispatchResult {
 			Migration::<T>::ensure_migrated()?;
-			let origin = ensure_signed(origin)?;
+			let origin = T::UploadOrigin::ensure_origin(origin)?;
 			Self::bare_upload_code(origin, code, storage_deposit_limit.map(Into::into), determinism)
 				.map(|_| ())
 		}
@@ -785,11 +803,17 @@ pub mod pallet {
 			salt: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
-			let origin = ensure_signed(origin)?;
+
+			// These two origins will usually be the same; however, we treat them as separate since
+			// it is possible for the `Success` value of `UploadOrigin` and `InstantiateOrigin` to
+			// differ.
+			let upload_origin = T::UploadOrigin::ensure_origin(origin.clone())?;
+			let instantiate_origin = T::InstantiateOrigin::ensure_origin(origin)?;
+
 			let code_len = code.len() as u32;
 
 			let (module, upload_deposit) = Self::try_upload_code(
-				origin.clone(),
+				upload_origin,
 				code,
 				storage_deposit_limit.clone().map(Into::into),
 				Determinism::Enforced,
@@ -803,7 +827,7 @@ pub mod pallet {
 			let data_len = data.len() as u32;
 			let salt_len = salt.len() as u32;
 			let common = CommonInput {
-				origin: Origin::from_account_id(origin),
+				origin: Origin::from_account_id(instantiate_origin),
 				value,
 				data,
 				gas_limit,
@@ -844,10 +868,11 @@ pub mod pallet {
 			salt: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
+			let origin = T::InstantiateOrigin::ensure_origin(origin)?;
 			let data_len = data.len() as u32;
 			let salt_len = salt.len() as u32;
 			let common = CommonInput {
-				origin: Origin::from_runtime_origin(origin)?,
+				origin: Origin::from_account_id(origin),
 				value,
 				data,
 				gas_limit,
