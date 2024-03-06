@@ -313,6 +313,11 @@ impl<T: Config> CodeInfo<T> {
 		}
 	}
 
+	/// Returns the determinism of the module.
+	pub fn determinism(&self) -> Determinism {
+		self.determinism
+	}
+
 	/// Returns reference count of the module.
 	pub fn refcount(&self) -> u64 {
 		self.refcount

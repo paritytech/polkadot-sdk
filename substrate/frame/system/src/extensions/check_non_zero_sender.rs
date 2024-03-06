@@ -17,13 +17,14 @@
 
 use crate::Config;
 use codec::{Decode, Encode};
-use frame_support::{dispatch::DispatchInfo, DefaultNoBound};
+use frame_support::{traits::OriginTrait, DefaultNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, SignedExtension},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+	impl_tx_ext_default,
+	traits::{
+		transaction_extension::TransactionExtensionBase, DispatchInfoOf, TransactionExtension,
 	},
+	transaction_validity::InvalidTransaction,
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -45,66 +46,82 @@ impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckNonZeroSender<T> {
 }
 
 impl<T: Config + Send + Sync> CheckNonZeroSender<T> {
-	/// Create new `SignedExtension` to check runtime version.
+	/// Create new `TransactionExtension` to check runtime version.
 	pub fn new() -> Self {
 		Self(sp_std::marker::PhantomData)
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for CheckNonZeroSender<T>
-where
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
-{
-	type AccountId = T::AccountId;
-	type Call = T::RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = ();
+impl<T: Config + Send + Sync> TransactionExtensionBase for CheckNonZeroSender<T> {
 	const IDENTIFIER: &'static str = "CheckNonZeroSender";
-
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-		Ok(())
+	type Implicit = ();
+	fn weight(&self) -> sp_weights::Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_non_zero_sender()
 	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
-	}
-
+}
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for CheckNonZeroSender<T>
+{
+	type Val = ();
+	type Pre = ();
 	fn validate(
 		&self,
-		who: &Self::AccountId,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: <T as Config>::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-	) -> TransactionValidity {
-		if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
+		_context: &mut Context,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> sp_runtime::traits::ValidateResult<Self::Val, T::RuntimeCall> {
+		if let Some(who) = origin.as_system_signer() {
+			if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
+				return Err(InvalidTransaction::BadSigner.into())
+			}
 		}
-		Ok(ValidTransaction::default())
+		Ok((Default::default(), (), origin))
 	}
+	impl_tx_ext_default!(T::RuntimeCall; Context; prepare);
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test, CALL};
-	use frame_support::{assert_noop, assert_ok};
+	use frame_support::{assert_ok, dispatch::DispatchInfo};
+	use sp_runtime::{traits::DispatchTransaction, TransactionValidityError};
 
 	#[test]
 	fn zero_account_ban_works() {
 		new_test_ext().execute_with(|| {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
-			assert_noop!(
-				CheckNonZeroSender::<Test>::new().validate(&0, CALL, &info, len),
-				InvalidTransaction::BadSigner
+			assert_eq!(
+				CheckNonZeroSender::<Test>::new()
+					.validate_only(Some(0).into(), CALL, &info, len)
+					.unwrap_err(),
+				TransactionValidityError::from(InvalidTransaction::BadSigner)
 			);
-			assert_ok!(CheckNonZeroSender::<Test>::new().validate(&1, CALL, &info, len));
+			assert_ok!(CheckNonZeroSender::<Test>::new().validate_only(
+				Some(1).into(),
+				CALL,
+				&info,
+				len
+			));
+		})
+	}
+
+	#[test]
+	fn unsigned_origin_works() {
+		new_test_ext().execute_with(|| {
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			assert_ok!(CheckNonZeroSender::<Test>::new().validate_only(
+				None.into(),
+				CALL,
+				&info,
+				len
+			));
 		})
 	}
 }
