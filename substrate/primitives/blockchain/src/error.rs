@@ -168,13 +168,11 @@ pub enum Error {
 	#[error(transparent)]
 	Application(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
 
-	// Should be removed/improved once
-	// the storage `fn`s returns typed errors.
+	// Should be removed/improved once the storage `fn`s returns typed errors.
 	#[error("Runtime code error: {0}")]
 	RuntimeCode(&'static str),
 
-	// Should be removed/improved once
-	// the storage `fn`s returns typed errors.
+	// Should be removed/improved once the storage `fn`s returns typed errors.
 	#[error("Storage error: {0}")]
 	Storage(String),
 }

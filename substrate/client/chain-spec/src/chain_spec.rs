@@ -280,6 +280,19 @@ enum Genesis<G> {
 	RuntimeGenesis(RuntimeGenesisInner),
 }
 
+// impl debug for Genesis where we just print the variant name and drop inner value, for simplicity
+impl<G> std::fmt::Debug for Genesis<G> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Genesis::Runtime(_) => write!(f, "Runtime"),
+			Genesis::RuntimeAndCode(_) => write!(f, "RuntimeAndCode"),
+			Genesis::Raw(_) => write!(f, "Raw"),
+			Genesis::StateRootHash(_) => write!(f, "StateRootHash"),
+			Genesis::RuntimeGenesis(_) => write!(f, "RuntimeGenesis"),
+		}
+	}
+}
+
 /// A configuration of a client. Does not include runtime storage initialization.
 /// Note: `genesis` field is ignored due to way how the chain specification is serialized into
 /// JSON file. Refer to [`ChainSpecJsonContainer`], which flattens [`ClientSpec`] and denies uknown

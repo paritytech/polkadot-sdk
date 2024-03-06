@@ -17,9 +17,16 @@
 
 use sc_cli::RunCmd;
 
+/// The consensus algorithm to use.
 #[derive(Debug, Clone)]
 pub enum Consensus {
+	/// Manual seal, with the block time in milliseconds.
+	///
+	/// Should be provided as `manual-seal-3000` for a 3 seconds block time.
 	ManualSeal(u64),
+	/// Instant seal.
+	///
+	/// Authors a new block as soon as a transaction is received.
 	InstantSeal,
 }
 
@@ -42,8 +49,13 @@ pub struct Cli {
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
 
+	/// The block authoring (aka. consensus) engine to use.
 	#[clap(long, default_value = "manual-seal-3000")]
 	pub consensus: Consensus,
+
+	/// The runtime blob to use.
+	#[clap(long)]
+	pub runtime: String,
 
 	#[clap(flatten)]
 	pub run: RunCmd,

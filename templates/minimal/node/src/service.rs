@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::{impl_fake_runtime_apis::RuntimeApi, types::OpaqueBlock};
 use futures::FutureExt;
-use runtime::{self, interface::OpaqueBlock as Block, RuntimeApi};
 use sc_client_api::backend::Backend;
 use sc_executor::WasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
@@ -34,17 +34,17 @@ type HostFunctions =
 type HostFunctions = sp_io::SubstrateHostFunctions;
 
 pub(crate) type FullClient =
-	sc_service::TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
-type FullBackend = sc_service::TFullBackend<Block>;
-type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
+	sc_service::TFullClient<OpaqueBlock, RuntimeApi, WasmExecutor<HostFunctions>>;
+type FullBackend = sc_service::TFullBackend<OpaqueBlock>;
+type FullSelectChain = sc_consensus::LongestChain<FullBackend, OpaqueBlock>;
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
 pub type Service = sc_service::PartialComponents<
 	FullClient,
 	FullBackend,
 	FullSelectChain,
-	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::FullPool<Block, FullClient>,
+	sc_consensus::DefaultImportQueue<OpaqueBlock>,
+	sc_transaction_pool::FullPool<OpaqueBlock, FullClient>,
 	Option<Telemetry>,
 >;
 
@@ -63,7 +63,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 	let executor = sc_service::new_wasm_executor(&config);
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(
+		sc_service::new_full_parts::<OpaqueBlock, RuntimeApi, _>(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
