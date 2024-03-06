@@ -16,7 +16,7 @@
 
 //! availability-read regression tests
 //!
-//! TODO: Explain the test case after configuration adjusted to Kusama
+//! Simulated process of availability reading on Kusama
 //!
 //! Subsystems involved:
 //! - availability-distribution
@@ -35,18 +35,7 @@ const WARM_UP_PRECISION: f64 = 0.01;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
-
-	// TODO: Adjust the test configurations to Kusama values
 	let mut config = TestConfiguration::default();
-	config.latency = Some(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 });
-	config.n_validators = 300; // max number of validators
-	config.n_cores = 50; // 42 paras producing blocks
-	config.max_validators_per_core = 3; // from config
-	config.min_pov_size = 5120; // https://grafana.teleport.parity.io/goto/Kr34vOASR?orgId=1
-	config.max_pov_size = 5120; // https://grafana.teleport.parity.io/goto/Kr34vOASR?orgId=1
-	config.peer_bandwidth = 52428800; // need to find out
-	config.bandwidth = 52428800; // need to find out
-	config.connectivity = 75; // we need to be connected to 90-95% of peers
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
 

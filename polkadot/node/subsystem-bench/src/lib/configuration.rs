@@ -35,24 +35,39 @@ pub struct PeerLatency {
 	pub std_dev: f64,
 }
 
-// Default PoV size in KiB.
-fn default_pov_size() -> usize {
-	5120
+// Based on Kusama `max_validators`
+fn default_n_validators() -> usize {
+	300
 }
 
-// Default bandwidth in bytes
+// Based on number of kusama validators producing blocks
+fn default_n_cores() -> usize {
+	50
+}
+
+// PoV size, KiB. Based on empirical data from Kusama
+fn default_pov_size() -> usize {
+	2 * 1024
+}
+
+// Default bandwidth in bytes, based stats from Kusama validators
 fn default_bandwidth() -> usize {
-	52428800
+	42 * 1024 * 1024
+}
+
+// Default peer latency
+fn default_peer_latency() -> Option<PeerLatency> {
+	Some(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 })
 }
 
 // Default connectivity percentage
 fn default_connectivity() -> usize {
-	100
+	90
 }
 
-// Default backing group size
+// Based on Kusama `max_validators_per_core`
 fn default_backing_group_size() -> usize {
-	5
+	3
 }
 
 // Default needed approvals
@@ -63,6 +78,7 @@ fn default_needed_approvals() -> usize {
 fn default_zeroth_delay_tranche_width() -> usize {
 	0
 }
+
 fn default_relay_vrf_modulo_samples() -> usize {
 	6
 }
@@ -78,8 +94,10 @@ fn default_no_show_slots() -> usize {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestConfiguration {
 	/// Number of validators
+	#[serde(default = "default_n_validators")]
 	pub n_validators: usize,
 	/// Number of cores
+	#[serde(default = "default_n_cores")]
 	pub n_cores: usize,
 	/// The number of needed votes to approve a candidate.
 	#[serde(default = "default_needed_approvals")]
@@ -111,7 +129,7 @@ pub struct TestConfiguration {
 	#[serde(default = "default_bandwidth")]
 	pub bandwidth: usize,
 	/// Optional peer emulation latency (round trip time) wrt node under test
-	#[serde(default)]
+	#[serde(default = "default_peer_latency")]
 	pub latency: Option<PeerLatency>,
 	/// Connectivity ratio, the percentage of peers we are connected to, but as part of the
 	/// topology.
@@ -124,8 +142,8 @@ pub struct TestConfiguration {
 impl Default for TestConfiguration {
 	fn default() -> Self {
 		Self {
-			n_validators: Default::default(),
-			n_cores: Default::default(),
+			n_validators: default_n_validators(),
+			n_cores: default_n_cores(),
 			needed_approvals: default_needed_approvals(),
 			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
 			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
@@ -137,7 +155,7 @@ impl Default for TestConfiguration {
 			pov_sizes: Default::default(),
 			peer_bandwidth: default_bandwidth(),
 			bandwidth: default_bandwidth(),
-			latency: Default::default(),
+			latency: default_peer_latency(),
 			connectivity: default_connectivity(),
 			num_blocks: Default::default(),
 		}
