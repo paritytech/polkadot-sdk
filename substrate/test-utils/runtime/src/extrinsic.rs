@@ -25,7 +25,7 @@ use codec::Encode;
 use frame_system::{CheckNonce, CheckWeight};
 use sp_core::crypto::Pair as TraitPair;
 use sp_keyring::AccountKeyring;
-use sp_runtime::{transaction_validity::TransactionPriority, Perbill};
+use sp_runtime::{generic::Preamble, transaction_validity::TransactionPriority, Perbill};
 use sp_std::prelude::*;
 
 /// Transfer used in test substrate pallet. Extrinsic is created and signed using this data.
@@ -66,11 +66,11 @@ impl TryFrom<&Extrinsic> for TransferData {
 		match uxt {
 			Extrinsic {
 				function: RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value }),
-				signature: Some((from, _, (CheckNonce(nonce), ..))),
+				preamble: Preamble::Signed(from, _, ((CheckNonce(nonce), ..), ..)),
 			} => Ok(TransferData { from: *from, to: *dest, amount: *value, nonce: *nonce }),
 			Extrinsic {
 				function: RuntimeCall::SubstrateTest(PalletCall::bench_call { transfer }),
-				signature: None,
+				preamble: Preamble::Bare,
 			} => Ok(transfer.clone()),
 			_ => Err(()),
 		}
@@ -190,18 +190,17 @@ impl ExtrinsicBuilder {
 	/// Build `Extrinsic` using embedded parameters
 	pub fn build(self) -> Extrinsic {
 		if let Some(signer) = self.signer {
-			let extra = (
-				CheckNonce::from(self.nonce.unwrap_or(0)),
-				CheckWeight::new(),
+			let tx_ext = (
+				(CheckNonce::from(self.nonce.unwrap_or(0)), CheckWeight::new()),
 				CheckSubstrateCall {},
 			);
 			let raw_payload =
-				SignedPayload::from_raw(self.function.clone(), extra.clone(), ((), (), ()));
+				SignedPayload::from_raw(self.function.clone(), tx_ext.clone(), (((), ()), ()));
 			let signature = raw_payload.using_encoded(|e| signer.sign(e));
 
-			Extrinsic::new_signed(self.function, signer.public(), signature, extra)
+			Extrinsic::new_signed(self.function, signer.public(), signature, tx_ext)
 		} else {
-			Extrinsic::new_unsigned(self.function)
+			Extrinsic::new_bare(self.function)
 		}
 	}
 }

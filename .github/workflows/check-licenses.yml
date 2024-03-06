@@ -42,5 +42,4 @@ jobs:
           shopt -s globstar
           npx @paritytech/license-scanner scan \
             --ensure-licenses ${{ env.LICENSES }} \
-            --exclude ./substrate/bin/node-template \
             -- ./substrate/**/*.rs
