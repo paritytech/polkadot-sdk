@@ -60,7 +60,7 @@ use frame_support::{
 	pallet_prelude::{DispatchResult, Weight},
 	storage::{child, ChildTriePrefixIterator},
 	traits::{
-		Currency,
+		Currency, Defensive,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
 		Get, ReservableCurrency,
 	},
@@ -332,6 +332,15 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(not(feature = "insecure_zero_ed"))]
+		fn integrity_test() {
+			assert!(
+				!CurrencyOf::<T>::minimum_balance().is_zero(),
+				"The Crowdloan pallet is possibly not usable with \
+			zero ED. You can silence this warning at your own risk by enabling feature `insecure_zero_ed`"
+			);
+		}
+
 		fn on_initialize(num: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			if let Some((sample, sub_sample)) = T::Auctioneer::auction_status(num).is_ending() {
 				// This is the very first block in the ending period
@@ -563,6 +572,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			let fund = Self::funds(index).ok_or(Error::<T>::InvalidParaId)?;
+			let pot = Self::fund_account_id(fund.fund_index);
 			let now = frame_system::Pallet::<T>::block_number();
 
 			// Only allow dissolution when the raised funds goes to zero,
@@ -576,7 +586,19 @@ pub mod pallet {
 			// can take care of that.
 			debug_assert!(Self::contribution_iterator(fund.fund_index).count().is_zero());
 
-			frame_system::Pallet::<T>::dec_providers(&Self::fund_account_id(fund.fund_index))?;
+			// There should be one ref that we added in `Self::crate`, but there may or may not be a
+			// second provider ref - depending on whether this account was created before or after
+			// the currency migration. We only want to remove our ref if it was not assumed by the
+			// balances pallet to be their ref.
+			if frame_system::Pallet::<T>::providers(&pot) > 1 {
+				let _ = frame_system::Pallet::<T>::dec_providers(&pot).defensive();
+
+				defensive_assert!(
+					frame_system::Pallet::<T>::providers(&pot) == 1,
+					"Expecting exactly one provider ref"
+				);
+			}
+
 			CurrencyOf::<T>::unreserve(&fund.depositor, fund.deposit);
 			Funds::<T>::remove(index);
 			Self::deposit_event(Event::<T>::Dissolved { para_id: index });
@@ -1733,6 +1755,41 @@ mod tests {
 
 			// Now that `fund.raised` is zero, it can be dissolved.
 			assert_ok!(Crowdloan::dissolve(RuntimeOrigin::signed(1), para));
+			assert_eq!(Balances::free_balance(1), 1000);
+			assert_eq!(Balances::free_balance(2), 2000);
+			assert_eq!(Balances::free_balance(3), 3000);
+			assert_eq!(Balances::total_issuance(), issuance);
+		});
+	}
+
+	// Regression test to check that a pot account with just one provider can be dissolved.
+	#[test]
+	fn dissolve_provider_refs_ti_works() {
+		new_test_ext().execute_with(|| {
+			let para = new_para();
+			let issuance = Balances::total_issuance();
+
+			// Set up a crowdloan
+			assert_ok!(Crowdloan::create(RuntimeOrigin::signed(1), para, 1000, 1, 1, 9, None));
+			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para, 100, None));
+			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(3), para, 50, None));
+
+			run_to_block(10);
+
+			// We test the historic case where crowdloan accounts only have one provider:
+			{
+				let fund = Crowdloan::funds(para).unwrap();
+				let pot = Crowdloan::fund_account_id(fund.fund_index);
+				System::dec_providers(&pot).unwrap();
+				assert_eq!(System::providers(&pot), 1);
+			}
+
+			// All funds are refunded
+			assert_ok!(Crowdloan::refund(RuntimeOrigin::signed(2), para));
+
+			// Now that `fund.raised` is zero, it can be dissolved.
+			assert_ok!(Crowdloan::dissolve(RuntimeOrigin::signed(1), para));
+
 			assert_eq!(Balances::free_balance(1), 1000);
 			assert_eq!(Balances::free_balance(2), 2000);
 			assert_eq!(Balances::free_balance(3), 3000);

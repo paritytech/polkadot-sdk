@@ -164,3 +164,5 @@ try-runtime = [
 	"runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+# Enable support for setting the existential deposit to zero.
+insecure_zero_ed = []
