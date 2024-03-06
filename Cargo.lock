@@ -8172,15 +8172,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
-name = "minimal-node"
-version = "4.0.0-dev"
+name = "minimal-template-node"
+version = "0.0.0"
 dependencies = [
  "clap 4.5.1",
  "frame",
  "futures",
  "futures-timer",
  "jsonrpsee",
- "minimal-runtime",
+ "minimal-template-runtime",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
@@ -8207,12 +8207,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "minimal-runtime"
-version = "0.1.0"
+name = "minimal-template-runtime"
+version = "0.0.0"
 dependencies = [
  "frame",
- "frame-support",
  "pallet-balances",
+ "pallet-minimal-template",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -8234,9 +8234,9 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "0.8.8"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "927a765cd3fc26206e66b296465fa9d3e5ab003e651c1b3c060e7956d96b19d2"
+checksum = "a4a650543ca06a924e8b371db273b2756685faae30f8487da1b56505a8f78b0c"
 dependencies = [
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
@@ -8727,50 +8727,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "node-template"
-version = "4.0.0-dev"
-dependencies = [
- "clap 4.5.1",
- "frame-benchmarking",
- "frame-benchmarking-cli",
- "frame-system",
- "futures",
- "jsonrpsee",
- "node-template-runtime",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc",
- "sc-basic-authorship",
- "sc-cli",
- "sc-client-api",
- "sc-consensus",
- "sc-consensus-aura",
- "sc-consensus-grandpa",
- "sc-executor",
- "sc-network",
- "sc-offchain",
- "sc-rpc-api",
- "sc-service",
- "sc-telemetry",
- "sc-transaction-pool",
- "sc-transaction-pool-api",
- "serde_json",
- "sp-api",
- "sp-block-builder",
- "sp-blockchain",
- "sp-consensus-aura",
- "sp-consensus-grandpa",
- "sp-core",
- "sp-inherents",
- "sp-io",
- "sp-keyring",
- "sp-runtime",
- "sp-timestamp",
- "substrate-build-script-utils",
- "substrate-frame-rpc-system",
- "try-runtime-cli",
-]
-
-[[package]]
 name = "node-template-release"
 version = "3.0.0"
 dependencies = [
@@ -8782,45 +8738,6 @@ dependencies = [
  "tar",
  "tempfile",
  "toml_edit 0.19.15",
-]
-
-[[package]]
-name = "node-template-runtime"
-version = "4.0.0-dev"
-dependencies = [
- "frame-benchmarking",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
- "frame-system-rpc-runtime-api",
- "frame-try-runtime",
- "pallet-aura",
- "pallet-balances",
- "pallet-grandpa",
- "pallet-sudo",
- "pallet-template",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "parity-scale-codec",
- "scale-info",
- "serde_json",
- "sp-api",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-consensus-grandpa",
- "sp-core",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-std 14.0.0",
- "sp-storage 19.0.0",
- "sp-transaction-pool",
- "sp-version",
- "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -10303,6 +10220,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-minimal-template"
+version = "0.0.0"
+dependencies = [
+ "frame",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-mixnet"
 version = "0.4.0"
 dependencies = [
@@ -10603,14 +10529,13 @@ dependencies = [
 
 [[package]]
 name = "pallet-parachain-template"
-version = "0.7.0"
+version = "0.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -11065,7 +10990,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-template"
-version = "4.0.0-dev"
+version = "0.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11075,7 +11000,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -11389,7 +11313,7 @@ dependencies = [
 
 [[package]]
 name = "parachain-template-node"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "clap 4.5.1",
  "color-print",
@@ -11447,7 +11371,7 @@ dependencies = [
 
 [[package]]
 name = "parachain-template-runtime"
-version = "0.7.0"
+version = "0.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -16745,7 +16669,6 @@ dependencies = [
  "hyper",
  "jsonrpsee",
  "log",
- "pin-project",
  "serde_json",
  "substrate-prometheus-endpoint",
  "tokio",
@@ -18355,6 +18278,87 @@ dependencies = [
  "log",
  "rand",
  "sha-1 0.9.8",
+]
+
+[[package]]
+name = "solochain-template-node"
+version = "0.0.0"
+dependencies = [
+ "clap 4.5.1",
+ "frame-benchmarking-cli",
+ "frame-system",
+ "futures",
+ "jsonrpsee",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc",
+ "sc-basic-authorship",
+ "sc-cli",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-consensus-aura",
+ "sc-consensus-grandpa",
+ "sc-executor",
+ "sc-network",
+ "sc-offchain",
+ "sc-rpc-api",
+ "sc-service",
+ "sc-telemetry",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
+ "serde_json",
+ "solochain-template-runtime",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus-aura",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-timestamp",
+ "substrate-build-script-utils",
+ "substrate-frame-rpc-system",
+ "try-runtime-cli",
+]
+
+[[package]]
+name = "solochain-template-runtime"
+version = "0.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "pallet-aura",
+ "pallet-balances",
+ "pallet-grandpa",
+ "pallet-sudo",
+ "pallet-template",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std 14.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool",
+ "sp-version",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
