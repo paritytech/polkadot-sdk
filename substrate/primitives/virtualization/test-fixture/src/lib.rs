@@ -16,6 +16,7 @@
 // limitations under the License.
 
 #![cfg_attr(substrate_runtime, no_std, no_main)]
+#![cfg(feature = "riscv")]
 
 #[cfg(substrate_runtime)]
 mod fixture;

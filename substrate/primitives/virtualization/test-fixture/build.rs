@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(not(substrate_runtime))]
+#[cfg(all(not(substrate_runtime), feature = "riscv"))]
 fn main() {
 	std::env::set_var("SUBSTRATE_RUNTIME_TARGET", "riscv");
 	substrate_wasm_builder::WasmBuilder::new().with_current_project().build()
 }
 
-#[cfg(substrate_runtime)]
+#[cfg(not(all(not(substrate_runtime), feature = "riscv")))]
 fn main() {}

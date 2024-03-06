@@ -25,6 +25,7 @@ sp-virtualization-test-fixture = { path = "./test-fixture" }
 
 [features]
 default = ["std"]
+riscv = ["sp-virtualization-test-fixture/riscv"]
 std = [
 	"codec/std",
 	"log/std",

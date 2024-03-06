@@ -12,3 +12,6 @@ substrate-wasm-builder = { path = "../../../utils/wasm-builder" }
 
 [target.'cfg(substrate_runtime)'.dependencies]
 polkavm-derive = { workspace = true }
+
+[features]
+riscv = []

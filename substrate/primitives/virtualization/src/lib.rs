@@ -43,9 +43,13 @@ mod native;
 pub use native::Virt;
 
 mod host_functions;
+#[cfg(feature = "riscv")]
 mod tests;
 
-pub use crate::{host_functions::virtualization as host_fn, tests::run as run_tests};
+#[cfg(feature = "riscv")]
+pub use crate::tests::run as run_tests;
+
+pub use crate::host_functions::virtualization as host_fn;
 
 use codec::{Decode, Encode};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
