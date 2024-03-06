@@ -5186,6 +5186,26 @@ fn deposit_limit_honors_min_leftover() {
 }
 
 #[test]
+fn upload_should_enforce_deterministic_mode_when_possible() {
+	let upload = |fixture, determinism| {
+		let (wasm, code_hash) = compile_module::<Test>(fixture).unwrap();
+		ExtBuilder::default()
+			.build()
+			.execute_with(|| -> Result<Determinism, DispatchError> {
+				let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+				Contracts::bare_upload_code(ALICE, wasm, None, determinism)?;
+				let info = CodeInfoOf::<Test>::get(code_hash).unwrap();
+				Ok(info.determinism())
+			})
+	};
+
+	assert_eq!(upload("dummy", Determinism::Enforced), Ok(Determinism::Enforced));
+	assert_eq!(upload("dummy", Determinism::Relaxed), Ok(Determinism::Enforced));
+	assert_eq!(upload("float_instruction", Determinism::Relaxed), Ok(Determinism::Relaxed));
+	assert!(upload("float_instruction", Determinism::Enforced).is_err());
+}
+
+#[test]
 fn cannot_instantiate_indeterministic_code() {
 	let (wasm, code_hash) = compile_module::<Test>("float_instruction").unwrap();
 	let (caller_wasm, _) = compile_module::<Test>("instantiate_return_code").unwrap();
