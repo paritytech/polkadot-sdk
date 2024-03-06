@@ -586,18 +586,9 @@ pub mod pallet {
 			// can take care of that.
 			debug_assert!(Self::contribution_iterator(fund.fund_index).count().is_zero());
 
-			// There should be one ref that we added in `Self::crate`, but there may or may not be a
-			// second provider ref - depending on whether this account was created before or after
-			// the currency migration. We only want to remove our ref if it was not assumed by the
-			// balances pallet to be their ref.
-			if frame_system::Pallet::<T>::providers(&pot) > 1 {
-				let _ = frame_system::Pallet::<T>::dec_providers(&pot).defensive();
-
-				defensive_assert!(
-					frame_system::Pallet::<T>::providers(&pot) == 1,
-					"Expecting exactly one provider ref"
-				);
-			}
+			// Crowdloan over, burn all funds.
+			let _imba = CurrencyOf::<T>::make_free_balance_be(&pot, Zero::zero());
+			let _ = frame_system::Pallet::<T>::dec_providers(&pot).defensive();
 
 			CurrencyOf::<T>::unreserve(&fund.depositor, fund.deposit);
 			Funds::<T>::remove(index);
@@ -1631,6 +1622,7 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let para = new_para();
 			let index = NextFundIndex::<Test>::get();
+			let issuance = Balances::total_issuance();
 
 			// Set up a crowdloan
 			assert_ok!(Crowdloan::create(RuntimeOrigin::signed(1), para, 1000, 1, 1, 9, None));
@@ -1651,9 +1643,10 @@ mod tests {
 
 			// Some funds are left over
 			assert_eq!(Balances::free_balance(&account_id), 10);
-			// They wil be left in the account at the end
+			// Remaining funds will be burned
 			assert_ok!(Crowdloan::dissolve(RuntimeOrigin::signed(1), para));
-			assert_eq!(Balances::free_balance(&account_id), 10);
+			assert_eq!(Balances::free_balance(&account_id), 0);
+			assert_eq!(Balances::total_issuance(), issuance - 10);
 		});
 	}
 
