@@ -619,8 +619,8 @@ where
 	}
 }
 
-/// Build the import queue for parachain runtimes
-/// that started with relay chain consensus and switched to aura.
+/// Build the import queue for parachain runtimes that started with relay chain consensus and
+/// switched to aura.
 pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId: AppCrypto>(
 	client: Arc<ParachainClient<RuntimeApi>>,
 	block_import: ParachainBlockImport<RuntimeApi>,
@@ -1080,9 +1080,8 @@ where
 	.await
 }
 
-/// Start relay-chain consensus that is free for all.
-/// Everyone can submit a block, the relay-chain decides
-/// what is backed and included.
+/// Start relay-chain consensus that is free for all. Everyone can submit a block, the relay-chain
+/// decides what is backed and included.
 fn start_relay_chain_consensus(
 	client: Arc<ParachainClient<FakeRuntimeApi>>,
 	block_import: ParachainBlockImport<FakeRuntimeApi>,
@@ -1237,7 +1236,7 @@ pub async fn start_basic_lookahead_node(
 	.await
 }
 
-/// Start a parachain node.
+/// Start a parachain node for Rococo Contracts.
 pub async fn start_contracts_rococo_node(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
