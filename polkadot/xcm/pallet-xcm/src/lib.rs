@@ -29,7 +29,7 @@ pub mod migration;
 
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use frame_support::{
-	dispatch::GetDispatchInfo,
+	dispatch::{DispatchErrorWithPostInfo, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
 	traits::{
 		Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Get, LockableCurrency,
@@ -62,6 +62,9 @@ use xcm_executor::{
 	AssetsInHolding,
 };
 
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::TryRuntimeError;
+
 pub trait WeightInfo {
 	fn send() -> Weight;
 	fn teleport_assets() -> Weight;
@@ -82,6 +85,7 @@ pub trait WeightInfo {
 	fn migrate_and_notify_old_targets() -> Weight;
 	fn new_query() -> Weight;
 	fn take_response() -> Weight;
+	fn claim_assets() -> Weight;
 }
 
 /// fallback implementation
@@ -160,6 +164,10 @@ impl WeightInfo for TestWeightInfo {
 	}
 
 	fn take_response() -> Weight {
+		Weight::from_parts(100_000_000, 0)
+	}
+
+	fn claim_assets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
 }
@@ -288,22 +296,38 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
-		) -> Result<Outcome, DispatchError> {
-			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
-			let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			let value = (origin_location, message);
-			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
-			let (origin_location, message) = value;
-			let outcome = T::XcmExecutor::prepare_and_execute(
-				origin_location,
-				message,
-				&mut hash,
-				max_weight,
-				max_weight,
-			);
+		) -> Result<Weight, DispatchErrorWithPostInfo> {
+			log::trace!(target: "xcm::pallet_xcm::execute", "message {:?}, max_weight {:?}", message, max_weight);
+			let outcome = (|| {
+				let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+				let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
+				let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
+				let value = (origin_location, message);
+				ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
+				let (origin_location, message) = value;
+				Ok(T::XcmExecutor::prepare_and_execute(
+					origin_location,
+					message,
+					&mut hash,
+					max_weight,
+					max_weight,
+				))
+			})()
+			.map_err(|e: DispatchError| {
+				e.with_weight(<Self::WeightInfo as ExecuteControllerWeightInfo>::execute())
+			})?;
+
 			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
-			Ok(outcome)
+			let weight_used = outcome.weight_used();
+			outcome.ensure_complete().map_err(|error| {
+				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
+				Error::<T>::LocalExecutionIncomplete.with_weight(
+					weight_used.saturating_add(
+						<Self::WeightInfo as ExecuteControllerWeightInfo>::execute(),
+					),
+				)
+			})?;
+			Ok(weight_used)
 		}
 	}
 
@@ -464,6 +488,8 @@ pub mod pallet {
 		FeesPaid { paying: Location, fees: Assets },
 		/// Some assets have been claimed from an asset trap
 		AssetsClaimed { hash: H256, origin: Location, assets: VersionedAssets },
+		/// A XCM version migration finished.
+		VersionMigrationFinished { version: XcmVersion },
 	}
 
 	#[pallet::origin]
@@ -765,6 +791,9 @@ pub mod pallet {
 				// Consume 10% of block at most
 				let max_weight = T::BlockWeights::get().max_block / 10;
 				let (w, maybe_migration) = Self::check_xcm_version_change(migration, max_weight);
+				if maybe_migration.is_none() {
+					Self::deposit_event(Event::VersionMigrationFinished { version: XCM_VERSION });
+				}
 				CurrentMigration::<T>::set(maybe_migration);
 				weight_used.saturating_accrue(w);
 			}
@@ -790,6 +819,11 @@ pub mod pallet {
 				VersionDiscoveryQueue::<T>::put(q);
 			}
 			weight_used
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 
@@ -996,9 +1030,6 @@ pub mod pallet {
 		/// No more than `max_weight` will be used in its attempted execution. If this is less than
 		/// the maximum amount of weight that the message could take to be executed, then no
 		/// execution attempt will be made.
-		///
-		/// NOTE: A successful return to this does *not* imply that the `msg` was executed
-		/// successfully to completion; only that it was attempted.
 		#[pallet::call_index(3)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(
@@ -1006,13 +1037,8 @@ pub mod pallet {
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
-			log::trace!(target: "xcm::pallet_xcm::execute", "message {:?}, max_weight {:?}", message, max_weight);
-			let outcome = <Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
-			let weight_used = outcome.weight_used();
-			outcome.ensure_complete().map_err(|error| {
-				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
-				Error::<T>::LocalExecutionIncomplete
-			})?;
+			let weight_used =
+				<Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
@@ -1364,6 +1390,64 @@ pub mod pallet {
 				fees,
 				weight_limit,
 			)
+		}
+
+		/// Claims assets trapped on this pallet because of leftover assets during XCM execution.
+		///
+		/// - `origin`: Anyone can call this extrinsic.
+		/// - `assets`: The exact assets that were trapped. Use the version to specify what version
+		/// was the latest when they were trapped.
+		/// - `beneficiary`: The location/account where the claimed assets will be deposited.
+		#[pallet::call_index(12)]
+		#[pallet::weight({
+			let assets_version = assets.identify_version();
+			let maybe_assets: Result<Assets, ()> = (*assets.clone()).try_into();
+			let maybe_beneficiary: Result<Location, ()> = (*beneficiary.clone()).try_into();
+			match (maybe_assets, maybe_beneficiary) {
+				(Ok(assets), Ok(beneficiary)) => {
+					let ticket: Location = GeneralIndex(assets_version as u128).into();
+					let mut message = Xcm(vec![
+						ClaimAsset { assets: assets.clone(), ticket },
+						DepositAsset { assets: AllCounted(assets.len() as u32).into(), beneficiary },
+					]);
+					T::Weigher::weight(&mut message).map_or(Weight::MAX, |w| T::WeightInfo::claim_assets().saturating_add(w))
+				}
+				_ => Weight::MAX
+			}
+		})]
+		pub fn claim_assets(
+			origin: OriginFor<T>,
+			assets: Box<VersionedAssets>,
+			beneficiary: Box<VersionedLocation>,
+		) -> DispatchResult {
+			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			log::debug!(target: "xcm::pallet_xcm::claim_assets", "origin: {:?}, assets: {:?}, beneficiary: {:?}", origin_location, assets, beneficiary);
+			// Extract version from `assets`.
+			let assets_version = assets.identify_version();
+			let assets: Assets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let number_of_assets = assets.len() as u32;
+			let beneficiary: Location =
+				(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let ticket: Location = GeneralIndex(assets_version as u128).into();
+			let mut message = Xcm(vec![
+				ClaimAsset { assets, ticket },
+				DepositAsset { assets: AllCounted(number_of_assets).into(), beneficiary },
+			]);
+			let weight =
+				T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
+			let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
+			let outcome = T::XcmExecutor::prepare_and_execute(
+				origin_location,
+				message,
+				&mut hash,
+				weight,
+				weight,
+			);
+			outcome.ensure_complete().map_err(|error| {
+				log::error!(target: "xcm::pallet_xcm::claim_assets", "XCM execution failed with error: {:?}", error);
+				Error::<T>::LocalExecutionIncomplete
+			})?;
+			Ok(())
 		}
 	}
 }
@@ -2385,6 +2469,48 @@ impl<T: Config> Pallet<T> {
 		T::XcmExecutor::charge_fees(location.clone(), assets.clone())
 			.map_err(|_| Error::<T>::FeesNotMet)?;
 		Self::deposit_event(Event::FeesPaid { paying: location, fees: assets });
+		Ok(())
+	}
+
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before and after each state transition of this pallet.
+	///
+	/// ## Invariants
+	///
+	/// All entries stored in the `SupportedVersion` / `VersionNotifiers` / `VersionNotifyTargets`
+	/// need to be migrated to the `XCM_VERSION`. If they are not, then `CurrentMigration` has to be
+	/// set.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		// if migration has been already scheduled, everything is ok and data will be eventually
+		// migrated
+		if CurrentMigration::<T>::exists() {
+			return Ok(())
+		}
+
+		// if migration has NOT been scheduled yet, we need to check all operational data
+		for v in 0..XCM_VERSION {
+			ensure!(
+				SupportedVersion::<T>::iter_prefix(v).next().is_none(),
+				TryRuntimeError::Other(
+					"`SupportedVersion` data should be migrated to the `XCM_VERSION`!`"
+				)
+			);
+			ensure!(
+				VersionNotifiers::<T>::iter_prefix(v).next().is_none(),
+				TryRuntimeError::Other(
+					"`VersionNotifiers` data should be migrated to the `XCM_VERSION`!`"
+				)
+			);
+			ensure!(
+				VersionNotifyTargets::<T>::iter_prefix(v).next().is_none(),
+				TryRuntimeError::Other(
+					"`VersionNotifyTargets` data should be migrated to the `XCM_VERSION`!`"
+				)
+			);
+		}
+
 		Ok(())
 	}
 }

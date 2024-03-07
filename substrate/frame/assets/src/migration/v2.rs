@@ -89,7 +89,7 @@ pub struct VersionUncheckedMigrateToV2<
 	T: Config<I>,
 	I: 'static,
 	A: Get<Vec<(T::AssetId, T::AccountId)>>,
->(sp_std::marker::PhantomData<(T, I, A)>);
+>(core::marker::PhantomData<(T, I, A)>);
 
 impl<T: Config<I>, I: 'static, A: Get<Vec<(T::AssetId, T::AccountId)>>> OnRuntimeUpgrade
 	for VersionUncheckedMigrateToV2<T, I, A>

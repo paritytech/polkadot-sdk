@@ -59,11 +59,12 @@ done
 if [ "$skip_build" != true ]
 then
   echo "[+] Compiling Substrate benchmarks..."
-  cargo build --profile=production --locked --features=runtime-benchmarks --bin substrate
+  cargo build --profile=production --locked --features=runtime-benchmarks --bin substrate-node
 fi
 
 # The executable to use.
-SUBSTRATE=./target/production/substrate
+# Parent directory because of the monorepo structure.
+SUBSTRATE=../target/production/substrate-node
 
 # Manually exclude some pallets.
 EXCLUDED_PALLETS=(
@@ -80,11 +81,7 @@ EXCLUDED_PALLETS=(
 
 # Load all pallet names in an array.
 ALL_PALLETS=($(
-  $SUBSTRATE benchmark pallet --list --chain=dev |\
-    tail -n+2 |\
-    cut -d',' -f1 |\
-    sort |\
-    uniq
+  $SUBSTRATE benchmark pallet --list=pallets --no-csv-header --chain=dev
 ))
 
 # Filter out the excluded pallets by concatenating the arrays and discarding duplicates.
@@ -110,6 +107,19 @@ for PALLET in "${PALLETS[@]}"; do
 
   FOLDER="$(echo "${PALLET#*_}" | tr '_' '-')";
   WEIGHT_FILE="./frame/${FOLDER}/src/weights.rs"
+
+  # Special handling of custom weight paths.
+  if [ "$PALLET" == "frame_system_extensions" ] || [ "$PALLET" == "frame-system-extensions" ]
+  then
+    WEIGHT_FILE="./frame/system/src/extensions/weights.rs"
+  elif [ "$PALLET" == "pallet_asset_conversion_tx_payment" ] || [ "$PALLET" == "pallet-asset-conversion-tx-payment" ]
+  then
+    WEIGHT_FILE="./frame/transaction-payment/asset-conversion-tx-payment/src/weights.rs"
+  elif [ "$PALLET" == "pallet_asset_tx_payment" ] || [ "$PALLET" == "pallet-asset-tx-payment" ]
+  then
+    WEIGHT_FILE="./frame/transaction-payment/asset-tx-payment/src/weights.rs"
+  fi
+
   echo "[+] Benchmarking $PALLET with weight file $WEIGHT_FILE";
 
   OUTPUT=$(

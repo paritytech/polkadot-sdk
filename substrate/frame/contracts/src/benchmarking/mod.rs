@@ -29,7 +29,7 @@ use self::{
 	sandbox::Sandbox,
 };
 use crate::{
-	exec::{AccountIdOf, Key},
+	exec::Key,
 	migration::{
 		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, MigrationStep,
 	},
@@ -182,24 +182,6 @@ fn caller_funding<T: Config>() -> BalanceOf<T> {
 	// Minting can overflow, so we can't abuse of the funding. This value happens to be big enough,
 	// but not too big to make the total supply overflow.
 	BalanceOf::<T>::max_value() / 10_000u32.into()
-}
-
-/// Load the specified contract file from disk by including it into the runtime.
-///
-/// We need to load a different version of ink! contracts when the benchmark is run as
-/// a test. This is because ink! contracts depend on the sizes of types that are defined
-/// differently in the test environment. Solang is more lax in that regard.
-macro_rules! load_benchmark {
-	($name:expr) => {{
-		#[cfg(not(test))]
-		{
-			include_bytes!(concat!("../../benchmarks/", $name, ".wasm"))
-		}
-		#[cfg(test)]
-		{
-			include_bytes!(concat!("../../benchmarks/", $name, "_test.wasm"))
-		}
-	}};
 }
 
 benchmarks! {
@@ -380,7 +362,7 @@ benchmarks! {
 	call_with_code_per_byte {
 		let c in 0 .. T::MaxCodeLen::get();
 		let instance = Contract::<T>::with_caller(
-			whitelisted_caller(), WasmModule::sized(c, Location::Deploy), vec![],
+			whitelisted_caller(), WasmModule::sized(c, Location::Deploy, false), vec![],
 		)?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
@@ -407,7 +389,7 @@ benchmarks! {
 		let value = Pallet::<T>::min_balance();
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call);
+		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, false);
 		let origin = RawOrigin::Signed(caller.clone());
 		let addr = Contracts::<T>::contract_address(&caller, &hash, &input, &salt);
 	}: _(origin, value, Weight::MAX, None, code, input, salt)
@@ -486,17 +468,34 @@ benchmarks! {
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
 	#[pov_mode = Measured]
-	upload_code {
+	upload_code_determinism_enforced {
 		let c in 0 .. T::MaxCodeLen::get();
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call);
+		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, false);
 		let origin = RawOrigin::Signed(caller.clone());
-	}: _(origin, code, None, Determinism::Enforced)
+	}: upload_code(origin, code, None, Determinism::Enforced)
 	verify {
 		// uploading the code reserves some balance in the callers account
 		assert!(T::Currency::total_balance_on_hold(&caller) > 0u32.into());
 		assert!(<Contract<T>>::code_exists(&hash));
+	}
+
+	// Uploading code with [`Determinism::Relaxed`] should be more expensive than uploading code with [`Determinism::Enforced`],
+	// as we always try to save the code with [`Determinism::Enforced`] first.
+	#[pov_mode = Measured]
+	upload_code_determinism_relaxed {
+		let c in 0 .. T::MaxCodeLen::get();
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, true);
+		let origin = RawOrigin::Signed(caller.clone());
+	}: upload_code(origin, code, None, Determinism::Relaxed)
+	verify {
+		assert!(T::Currency::total_balance_on_hold(&caller) > 0u32.into());
+		assert!(<Contract<T>>::code_exists(&hash));
+		// Ensure that the benchmark follows the most expensive path, i.e., the code is saved with [`Determinism::Relaxed`] after trying to save it with [`Determinism::Enforced`].
+		assert_eq!(CodeInfoOf::<T>::get(&hash).unwrap().determinism(), Determinism::Relaxed);
 	}
 
 	// Removing code does not depend on the size of the contract because all the information
@@ -913,7 +912,7 @@ benchmarks! {
 				},
 				ImportedFunction {
 					module: "seal0",
-					name: "add_delegate_dependency",
+					name: "lock_delegate_dependency",
 					params: vec![ValueType::I32],
 					return_type: None,
 				}
@@ -2420,7 +2419,7 @@ benchmarks! {
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
 	#[pov_mode = Measured]
-	add_delegate_dependency {
+	lock_delegate_dependency {
 		let r in 0 .. T::MaxDelegateDependencies::get();
 		let code_hashes = (0..r)
 			.map(|i| {
@@ -2438,7 +2437,7 @@ benchmarks! {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
 				module: "seal0",
-				name: "add_delegate_dependency",
+				name: "lock_delegate_dependency",
 				params: vec![ValueType::I32],
 				return_type: None,
 			}],
@@ -2458,7 +2457,7 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	remove_delegate_dependency {
+	unlock_delegate_dependency {
 		let r in 0 .. T::MaxDelegateDependencies::get();
 		let code_hashes = (0..r)
 			.map(|i| {
@@ -2477,12 +2476,12 @@ benchmarks! {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
 				module: "seal0",
-				name: "remove_delegate_dependency",
+				name: "unlock_delegate_dependency",
 				params: vec![ValueType::I32],
 				return_type: None,
 			}, ImportedFunction {
 				module: "seal0",
-				name: "add_delegate_dependency",
+				name: "lock_delegate_dependency",
 				params: vec![ValueType::I32],
 				return_type: None
 			}],
@@ -2642,86 +2641,6 @@ benchmarks! {
 		Lazy deletion keys per block: {key_budget}
 		");
 	}: {}
-
-	// Execute one erc20 transfer using the ink! erc20 example contract.
-	#[extra]
-	#[pov_mode = Measured]
-	ink_erc20_transfer {
-		let code = load_benchmark!("ink_erc20");
-		let data = {
-			let new: ([u8; 4], BalanceOf<T>) = ([0x9b, 0xae, 0x9d, 0x5e], 1000u32.into());
-			new.encode()
-		};
-		let instance = Contract::<T>::new(
-			WasmModule::from_code(code), data,
-		)?;
-		let data = {
-			let transfer: ([u8; 4], AccountIdOf<T>, BalanceOf<T>) = (
-				[0x84, 0xa1, 0x5d, 0xa1],
-				account::<T::AccountId>("receiver", 0, 0),
-				1u32.into(),
-			);
-			transfer.encode()
-		};
-	}: {
-		<Contracts<T>>::bare_call(
-			instance.caller,
-			instance.account_id,
-			0u32.into(),
-			Weight::MAX,
-			None,
-			data,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result?;
-	}
-
-	// Execute one erc20 transfer using the open zeppelin erc20 contract compiled with solang.
-	#[extra]
-	#[pov_mode = Measured]
-	solang_erc20_transfer {
-		let code = include_bytes!("../../benchmarks/solang_erc20.wasm");
-		let caller = account::<T::AccountId>("instantiator", 0, 0);
-		let mut balance = [0u8; 32];
-		balance[0] = 100;
-		let data = {
-			let new: ([u8; 4], &str, &str, [u8; 32], AccountIdOf<T>) = (
-				[0xa6, 0xf1, 0xf5, 0xe1],
-				"KSM",
-				"K",
-				balance,
-				caller.clone(),
-			);
-			new.encode()
-		};
-		let instance = Contract::<T>::with_caller(
-			caller, WasmModule::from_code(code), data,
-		)?;
-		balance[0] = 1;
-		let data = {
-			let transfer: ([u8; 4], AccountIdOf<T>, [u8; 32]) = (
-				[0x6a, 0x46, 0x73, 0x94],
-				account::<T::AccountId>("receiver", 0, 0),
-				balance,
-			);
-			transfer.encode()
-		};
-	}: {
-		<Contracts<T>>::bare_call(
-			instance.caller,
-			instance.account_id,
-			0u32.into(),
-			Weight::MAX,
-			None,
-			data,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result?;
-	}
 
 	impl_benchmark_test_suite!(
 		Contracts,

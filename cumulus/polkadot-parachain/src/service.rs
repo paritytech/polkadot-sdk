@@ -68,11 +68,15 @@ use substrate_prometheus_endpoint::Registry;
 use polkadot_primitives::CollatorPair;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
-type HostFunctions = sp_io::SubstrateHostFunctions;
+type HostFunctions =
+	(sp_io::SubstrateHostFunctions, cumulus_client_service::storage_proof_size::HostFunctions);
 
 #[cfg(feature = "runtime-benchmarks")]
-type HostFunctions =
-	(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions);
+type HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	cumulus_client_service::storage_proof_size::HostFunctions,
+	frame_benchmarking::benchmarking::HostFunctions,
+);
 
 type ParachainClient<RuntimeApi> = TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
 
@@ -274,10 +278,11 @@ where
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(
+		sc_service::new_full_parts_record_import::<Block, RuntimeApi, _>(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
+			true,
 		)?;
 	let client = Arc::new(client);
 
@@ -939,8 +944,6 @@ pub async fn start_rococo_parachain_node(
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -971,7 +974,6 @@ pub async fn start_rococo_parachain_node(
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
@@ -1249,28 +1251,33 @@ where
 	<<AuraId as AppCrypto>::Pair as Pair>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
 {
-	let client2 = client.clone();
+	let verifier_client = client.clone();
 
 	let aura_verifier = move || {
-		let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client2).unwrap();
-
 		Box::new(cumulus_client_consensus_aura::build_verifier::<
 			<AuraId as AppCrypto>::Pair,
 			_,
 			_,
 			_,
 		>(cumulus_client_consensus_aura::BuildVerifierParams {
-			client: client2.clone(),
-			create_inherent_data_providers: move |_, _| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			client: verifier_client.clone(),
+			create_inherent_data_providers: move |parent_hash, _| {
+				let cidp_client = verifier_client.clone();
+				async move {
+					let slot_duration = cumulus_client_consensus_aura::slot_duration_at(
+						&*cidp_client,
+						parent_hash,
+					)?;
+					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-				let slot =
-							sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-								*timestamp,
-								slot_duration,
-							);
+					let slot =
+								sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+									*timestamp,
+									slot_duration,
+								);
 
-				Ok((slot, timestamp))
+					Ok((slot, timestamp))
+				}
 			},
 			telemetry: telemetry_handle,
 		})) as Box<_>
@@ -1435,8 +1442,6 @@ where
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -1467,7 +1472,6 @@ where
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
@@ -1737,14 +1741,6 @@ where
 				}
 
 				// Move to Aura consensus.
-				let slot_duration = match cumulus_client_consensus_aura::slot_duration(&*client) {
-					Ok(d) => d,
-					Err(e) => {
-						log::error!("Could not get Aura slot duration: {e}");
-						return
-					},
-				};
-
 				let proposer = Proposer::new(proposer_factory);
 
 				let params = AuraParams {
@@ -1761,7 +1757,6 @@ where
 					collator_key,
 					para_id,
 					overseer_handle,
-					slot_duration,
 					relay_chain_slot_duration,
 					proposer,
 					collator_service,
@@ -1832,8 +1827,6 @@ where
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -1864,7 +1857,6 @@ where
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
@@ -2141,8 +2133,6 @@ pub async fn start_contracts_rococo_node(
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -2173,7 +2163,6 @@ pub async fn start_contracts_rococo_node(
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,

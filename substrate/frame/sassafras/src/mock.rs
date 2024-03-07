@@ -34,7 +34,8 @@ use sp_core::{
 	H256, U256,
 };
 use sp_runtime::{
-	testing::{Digest, DigestItem, Header, TestXt},
+	generic::UncheckedExtrinsic,
+	testing::{Digest, DigestItem, Header},
 	BuildStorage,
 };
 
@@ -53,7 +54,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type OverarchingCall = RuntimeCall;
-	type Extrinsic = TestXt<RuntimeCall, ()>;
+	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 }
 
 impl pallet_sassafras::Config for Test {
@@ -99,7 +100,7 @@ pub fn new_test_ext_with_pairs(
 	pallet_sassafras::GenesisConfig::<Test> {
 		authorities: authorities.clone(),
 		epoch_config: TEST_EPOCH_CONFIGURATION,
-		_phantom: sp_std::marker::PhantomData,
+		_phantom: core::marker::PhantomData,
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();

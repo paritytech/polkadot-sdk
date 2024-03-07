@@ -98,11 +98,12 @@ pub(crate) struct AssetDetails<Balance, AccountId, DepositBalance> {
 	pub status: AssetStatus,
 }
 
-pub struct MigrateToV1<T, I>(sp_std::marker::PhantomData<(T, I)>);
+pub struct MigrateToV1<T, I>(core::marker::PhantomData<(T, I)>);
 impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateToV1<T, I> {
 	fn on_runtime_upgrade() -> Weight {
-		let onchain_version = Pallet::<T, I>::on_chain_storage_version();
-		if onchain_version == 0 {
+		let in_code_version = Pallet::<T, I>::in_code_storage_version();
+		let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+		if on_chain_version == 0 && in_code_version == 1 {
 			let mut translated = 0u64;
 			Asset::<T, I>::translate::<
 				old::AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
@@ -111,11 +112,12 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateToV1<T, I> {
 				translated.saturating_inc();
 				Some(old_value.migrate_to_v1())
 			});
-			StorageVersion::new(1).put::<Pallet<T, I>>();
+			in_code_version.put::<Pallet<T, I>>();
 			log::info!(
 				target: LOG_TARGET,
-				"Upgraded {} pools, storage to version 1",
+				"Upgraded {} pools, storage to version {:?}",
 				translated,
+				in_code_version
 			);
 			translated.saturating_inc();
 
@@ -149,11 +151,13 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateToV1<T, I> {
 			"the asset count before and after the migration should be the same"
 		);
 
-		let onchain_version = Pallet::<T, I>::on_chain_storage_version();
+		let in_code_version = Pallet::<T>::in_code_storage_version();
+		let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
 
+		frame_support::ensure!(in_code_version == 1, "must_upgrade");
 		frame_support::ensure!(
-			onchain_version == 1,
-			"on chain storage version for assets should be 1 after migration"
+			in_code_version == on_chain_version,
+			"after migration, the in_code_version and on_chain_version should be the same"
 		);
 
 		Asset::<T, I>::iter().try_for_each(|(_id, asset)| -> Result<(), TryRuntimeError> {
