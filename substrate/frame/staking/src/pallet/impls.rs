@@ -1102,8 +1102,6 @@ impl<T: Config> Pallet<T> {
 		}
 
 		frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
-		let stash_balance = T::Currency::free_balance(&stash);
-		let value = value.min(stash_balance);
 		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 		Delegatees::<T>::insert(stash.clone(), ());
 		let ledger = StakingLedger::<T>::new(stash.clone(), value);
