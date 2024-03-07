@@ -149,7 +149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     pub relay_parent: Hash,
     pub candidate_hash: CandidateHash,
     pub group_index: GroupIndex,
-    pub para_id: Id,
+    pub para_id: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">Id</a>,
     pub parent_head_data_hash: Hash,
     pub statement_knowledge: <a class="struct" href="struct.StatementFilter.html" title="struct polkadot_node_network_protocol::v2::StatementFilter">StatementFilter</a>,
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A manifest of a known backed candidate, along with a description
@@ -157,7 +157,7 @@ of the statements backing it.</p>
 </div></details><h2 id="fields" class="fields small-section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.relay_parent" class="structfield small-section-header"><a href="#structfield.relay_parent" class="anchor field">§</a><code>relay_parent: Hash</code></span><div class="docblock"><p>The relay-parent of the candidate.</p>
 </div><span id="structfield.candidate_hash" class="structfield small-section-header"><a href="#structfield.candidate_hash" class="anchor field">§</a><code>candidate_hash: CandidateHash</code></span><div class="docblock"><p>The hash of the candidate.</p>
 </div><span id="structfield.group_index" class="structfield small-section-header"><a href="#structfield.group_index" class="anchor field">§</a><code>group_index: GroupIndex</code></span><div class="docblock"><p>The group index backing the candidate at the relay-parent.</p>
-</div><span id="structfield.para_id" class="structfield small-section-header"><a href="#structfield.para_id" class="anchor field">§</a><code>para_id: Id</code></span><div class="docblock"><p>The para ID of the candidate. It is illegal for this to
+</div><span id="structfield.para_id" class="structfield small-section-header"><a href="#structfield.para_id" class="anchor field">§</a><code>para_id: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">Id</a></code></span><div class="docblock"><p>The para ID of the candidate. It is illegal for this to
 be a para ID which is not assigned to the group indicated
 in this manifest.</p>
 </div><span id="structfield.parent_head_data_hash" class="structfield small-section-header"><a href="#structfield.parent_head_data_hash" class="anchor field">§</a><code>parent_head_data_hash: Hash</code></span><div class="docblock"><p>The head-data corresponding to the candidate.</p>

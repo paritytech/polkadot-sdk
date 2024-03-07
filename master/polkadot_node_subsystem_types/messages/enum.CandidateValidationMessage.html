@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     },
     ValidateFromExhaustive {
         validation_data: PersistedValidationData,
-        validation_code: ValidationCode,
+        validation_code: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.ValidationCode.html" title="struct polkadot_parachain_primitives::primitives::ValidationCode">ValidationCode</a>,
         candidate_receipt: CandidateReceipt,
         pov: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;PoV&gt;,
         executor_params: ExecutorParams,
@@ -164,7 +164,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     },
     PreCheck {
         relay_parent: <a class="type" href="../type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
-        validation_code_hash: ValidationCodeHash,
+        validation_code_hash: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.ValidationCodeHash.html" title="struct polkadot_parachain_primitives::primitives::ValidationCodeHash">ValidationCodeHash</a>,
         response_sender: Sender&lt;<a class="enum" href="enum.PreCheckOutcome.html" title="enum polkadot_node_subsystem_types::messages::PreCheckOutcome">PreCheckOutcome</a>&gt;,
     },
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Messages received by the Validation subsystem.</p>
@@ -185,7 +185,7 @@ of the <code>CandidateReceipt</code>.</p>
 <p>If there is no state available which can provide this data or the core for
 the para is not free at the relay-parent, an error is returned.</p>
 </div><section id="variant.ValidateFromExhaustive" class="variant"><a href="#variant.ValidateFromExhaustive" class="anchor">§</a><h3 class="code-header">ValidateFromExhaustive</h3></section><div class="sub-variant" id="variant.ValidateFromExhaustive.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ValidateFromExhaustive.field.validation_data" class="small-section-header"><a href="#variant.ValidateFromExhaustive.field.validation_data" class="anchor field">§</a><code>validation_data: PersistedValidationData</code></span><div class="docblock"><p>Persisted validation data</p>
-</div></div><div class="sub-variant-field"><span id="variant.ValidateFromExhaustive.field.validation_code" class="small-section-header"><a href="#variant.ValidateFromExhaustive.field.validation_code" class="anchor field">§</a><code>validation_code: ValidationCode</code></span><div class="docblock"><p>Validation code</p>
+</div></div><div class="sub-variant-field"><span id="variant.ValidateFromExhaustive.field.validation_code" class="small-section-header"><a href="#variant.ValidateFromExhaustive.field.validation_code" class="anchor field">§</a><code>validation_code: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.ValidationCode.html" title="struct polkadot_parachain_primitives::primitives::ValidationCode">ValidationCode</a></code></span><div class="docblock"><p>Validation code</p>
 </div></div><div class="sub-variant-field"><span id="variant.ValidateFromExhaustive.field.candidate_receipt" class="small-section-header"><a href="#variant.ValidateFromExhaustive.field.candidate_receipt" class="anchor field">§</a><code>candidate_receipt: CandidateReceipt</code></span><div class="docblock"><p>The candidate receipt</p>
 </div></div><div class="sub-variant-field"><span id="variant.ValidateFromExhaustive.field.pov" class="small-section-header"><a href="#variant.ValidateFromExhaustive.field.pov" class="anchor field">§</a><code>pov: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;PoV&gt;</code></span><div class="docblock"><p>The proof-of-validity</p>
 </div></div><div class="sub-variant-field"><span id="variant.ValidateFromExhaustive.field.executor_params" class="small-section-header"><a href="#variant.ValidateFromExhaustive.field.executor_params" class="anchor field">§</a><code>executor_params: ExecutorParams</code></span><div class="docblock"><p>Session’s executor parameters</p>
@@ -199,7 +199,7 @@ cases where the validity of the candidate is established. This is the case for t
 use-case: secondary checkers would use this request relying on the full prior checks
 performed by the relay-chain.</p>
 </div><section id="variant.PreCheck" class="variant"><a href="#variant.PreCheck" class="anchor">§</a><h3 class="code-header">PreCheck</h3></section><div class="sub-variant" id="variant.PreCheck.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.PreCheck.field.relay_parent" class="small-section-header"><a href="#variant.PreCheck.field.relay_parent" class="anchor field">§</a><code>relay_parent: <a class="type" href="../type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a></code></span><div class="docblock"><p>Relay-parent</p>
-</div></div><div class="sub-variant-field"><span id="variant.PreCheck.field.validation_code_hash" class="small-section-header"><a href="#variant.PreCheck.field.validation_code_hash" class="anchor field">§</a><code>validation_code_hash: ValidationCodeHash</code></span><div class="docblock"><p>Validation code hash</p>
+</div></div><div class="sub-variant-field"><span id="variant.PreCheck.field.validation_code_hash" class="small-section-header"><a href="#variant.PreCheck.field.validation_code_hash" class="anchor field">§</a><code>validation_code_hash: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.ValidationCodeHash.html" title="struct polkadot_parachain_primitives::primitives::ValidationCodeHash">ValidationCodeHash</a></code></span><div class="docblock"><p>Validation code hash</p>
 </div></div><div class="sub-variant-field"><span id="variant.PreCheck.field.response_sender" class="small-section-header"><a href="#variant.PreCheck.field.response_sender" class="anchor field">§</a><code>response_sender: Sender&lt;<a class="enum" href="enum.PreCheckOutcome.html" title="enum polkadot_node_subsystem_types::messages::PreCheckOutcome">PreCheckOutcome</a>&gt;</code></span><div class="docblock"><p>The sending side of the response channel</p>
 </div></div></div><div class="docblock"><p>Try to compile the given validation code and send back
 the outcome.</p>

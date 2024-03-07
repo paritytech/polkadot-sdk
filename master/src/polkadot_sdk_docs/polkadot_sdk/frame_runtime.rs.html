@@ -320,10 +320,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # FRAME
 //!
 //! ```no_compile
@@ -413,94 +409,90 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
 //! * writing a runtime in AssemblyScript,as explored in [this project](https://github.com/LimeChain/subsembly).
 
-</span><span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests {
-	<span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
+</span><span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
 
-	<span class="doccomment">/// A FRAME based pallet. This `mod` is the entry point for everything else. All
-	/// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
-	/// experimental feature to break these parts into different `mod`s. See [`pallet_examples`] for
-	/// more.
-	</span><span class="attr">#[docify::export]
-	#[frame::pallet(dev_mode)]
-	</span><span class="kw">pub mod </span>pallet {
-		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="doccomment">/// A FRAME based pallet. This `mod` is the entry point for everything else. All
+/// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
+/// experimental feature to break these parts into different `mod`s. See [`pallet_examples`] for
+/// more.
+</span><span class="attr">#[docify::export]
+#[frame::pallet(dev_mode)]
+</span><span class="kw">pub mod </span>pallet {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-		<span class="doccomment">/// The configuration trait of a pallet. Mandatory. Allows a pallet to receive types at a
-		/// later point from the runtime that wishes to contain it. It allows the pallet to be
-		/// parameterized over both types and values.
-		</span><span class="attr">#[pallet::config]
-		</span><span class="kw">pub trait </span>Config: frame_system::Config {
-			<span class="doccomment">/// A type that is not known now, but the runtime that will contain this pallet will
-			/// know it later, therefore we define it here as an associated type.
-			</span><span class="kw">type </span>RuntimeEvent: IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;
-				+ From&lt;Event&lt;<span class="self">Self</span>&gt;&gt;;
+	<span class="doccomment">/// The configuration trait of a pallet. Mandatory. Allows a pallet to receive types at a
+	/// later point from the runtime that wishes to contain it. It allows the pallet to be
+	/// parameterized over both types and values.
+	</span><span class="attr">#[pallet::config]
+	</span><span class="kw">pub trait </span>Config: frame_system::Config {
+		<span class="doccomment">/// A type that is not known now, but the runtime that will contain this pallet will
+		/// know it later, therefore we define it here as an associated type.
+		</span><span class="kw">type </span>RuntimeEvent: IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt; + From&lt;Event&lt;<span class="self">Self</span>&gt;&gt;;
 
-			<span class="doccomment">/// A parameterize-able value that we receive later via the `Get&lt;_&gt;` trait.
-			</span><span class="kw">type </span>ValueParameter: Get&lt;u32&gt;;
+		<span class="doccomment">/// A parameterize-able value that we receive later via the `Get&lt;_&gt;` trait.
+		</span><span class="kw">type </span>ValueParameter: Get&lt;u32&gt;;
 
-			<span class="doccomment">/// Similar to [`Config::ValueParameter`], but using `const`. Both are functionally
-			/// equal, but offer different tradeoffs.
-			</span><span class="kw">const </span>ANOTHER_VALUE_PARAMETER: u32;
-		}
-
-		<span class="doccomment">/// A mandatory struct in each pallet. All functions callable by external users (aka.
-		/// transactions) must be attached to this type (see [`frame::pallet_macros::call`]). For
-		/// convenience, internal (private) functions can also be attached to this type.
-		</span><span class="attr">#[pallet::pallet]
-		</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(PhantomData&lt;T&gt;);
-
-		<span class="doccomment">/// The events tha this pallet can emit.
-		</span><span class="attr">#[pallet::event]
-		</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {}
-
-		<span class="doccomment">/// A storage item that this pallet contains. This will be part of the state root trie/root
-		/// of the blockchain.
-		</span><span class="attr">#[pallet::storage]
-		</span><span class="kw">pub type </span>Value&lt;T&gt; = StorageValue&lt;Value = u32&gt;;
-
-		<span class="doccomment">/// All *dispatchable* call functions (aka. transactions) are attached to `Pallet` in a
-		/// `impl` block.
-		</span><span class="attr">#[pallet::call]
-		</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-			<span class="doccomment">/// This will be callable by external users, and has two u32s as a parameter.
-			</span><span class="kw">pub fn </span>some_dispatchable(
-				_origin: OriginFor&lt;T&gt;,
-				_param: u32,
-				_other_para: u32,
-			) -&gt; DispatchResult {
-				<span class="prelude-val">Ok</span>(())
-			}
-		}
+		<span class="doccomment">/// Similar to [`Config::ValueParameter`], but using `const`. Both are functionally
+		/// equal, but offer different tradeoffs.
+		</span><span class="kw">const </span>ANOTHER_VALUE_PARAMETER: u32;
 	}
 
-	<span class="doccomment">/// A simple runtime that contains the above pallet and `frame_system`, the mandatory pallet of
-	/// all runtimes. This runtime is for testing, but it shares a lot of similarities with a *real*
-	/// runtime.
-	</span><span class="attr">#[docify::export]
-	</span><span class="kw">pub mod </span>runtime {
-		<span class="kw">use </span><span class="kw">super</span>::pallet <span class="kw">as </span>pallet_example;
-		<span class="kw">use </span>frame::{prelude::<span class="kw-2">*</span>, testing_prelude::<span class="kw-2">*</span>};
+	<span class="doccomment">/// A mandatory struct in each pallet. All functions callable by external users (aka.
+	/// transactions) must be attached to this type (see [`frame::pallet_macros::call`]). For
+	/// convenience, internal (private) functions can also be attached to this type.
+	</span><span class="attr">#[pallet::pallet]
+	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(PhantomData&lt;T&gt;);
 
-		<span class="comment">// The major macro that amalgamates pallets into `enum Runtime`
-		</span><span class="macro">construct_runtime!</span>(
-			<span class="kw">pub enum </span>Runtime {
-				System: frame_system,
-				Example: pallet_example,
-			}
-		);
+	<span class="doccomment">/// The events tha this pallet can emit.
+	</span><span class="attr">#[pallet::event]
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {}
 
-		<span class="comment">// These `impl` blocks specify the parameters of each pallet&#39;s `trait Config`.
-		</span><span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
-		</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-			<span class="kw">type </span>Block = MockBlock&lt;<span class="self">Self</span>&gt;;
+	<span class="doccomment">/// A storage item that this pallet contains. This will be part of the state root trie/root
+	/// of the blockchain.
+	</span><span class="attr">#[pallet::storage]
+	</span><span class="kw">pub type </span>Value&lt;T&gt; = StorageValue&lt;Value = u32&gt;;
+
+	<span class="doccomment">/// All *dispatchable* call functions (aka. transactions) are attached to `Pallet` in a
+	/// `impl` block.
+	</span><span class="attr">#[pallet::call]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="doccomment">/// This will be callable by external users, and has two u32s as a parameter.
+		</span><span class="kw">pub fn </span>some_dispatchable(
+			_origin: OriginFor&lt;T&gt;,
+			_param: u32,
+			_other_para: u32,
+		) -&gt; DispatchResult {
+			<span class="prelude-val">Ok</span>(())
 		}
+	}
+}
 
-		<span class="kw">impl </span>pallet_example::Config <span class="kw">for </span>Runtime {
-			<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-			<span class="kw">type </span>ValueParameter = ConstU32&lt;<span class="number">42</span>&gt;;
-			<span class="kw">const </span>ANOTHER_VALUE_PARAMETER: u32 = <span class="number">42</span>;
+<span class="doccomment">/// A simple runtime that contains the above pallet and `frame_system`, the mandatory pallet of
+/// all runtimes. This runtime is for testing, but it shares a lot of similarities with a *real*
+/// runtime.
+</span><span class="attr">#[docify::export]
+</span><span class="kw">pub mod </span>runtime {
+	<span class="kw">use </span><span class="kw">super</span>::pallet <span class="kw">as </span>pallet_example;
+	<span class="kw">use </span>frame::{prelude::<span class="kw-2">*</span>, testing_prelude::<span class="kw-2">*</span>};
+
+	<span class="comment">// The major macro that amalgamates pallets into `enum Runtime`
+	</span><span class="macro">construct_runtime!</span>(
+		<span class="kw">pub enum </span>Runtime {
+			System: frame_system,
+			Example: pallet_example,
 		}
+	);
+
+	<span class="comment">// These `impl` blocks specify the parameters of each pallet&#39;s `trait Config`.
+	</span><span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>Block = MockBlock&lt;<span class="self">Self</span>&gt;;
+	}
+
+	<span class="kw">impl </span>pallet_example::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+		<span class="kw">type </span>ValueParameter = ConstU32&lt;<span class="number">42</span>&gt;;
+		<span class="kw">const </span>ANOTHER_VALUE_PARAMETER: u32 = <span class="number">42</span>;
 	}
 }
 </code></pre></div></section></main></body></html>
