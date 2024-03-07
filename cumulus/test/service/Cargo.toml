@@ -104,10 +104,12 @@ substrate-test-utils = { path = "../../../substrate/test-utils" }
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-primitives-storage-weight-reclaim/runtime-benchmarks",
 	"cumulus-test-client/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
