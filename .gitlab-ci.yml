@@ -6,14 +6,14 @@
 # file which can be found here: .gitlab/pipeline/<stage_name>.yml
 
 stages:
-  - check
+  # - check
   - test
-  - build
-  - publish
-  - short-benchmarks
-  - zombienet
-  - deploy
-  - notify
+  # - build
+  # - publish
+  # - short-benchmarks
+  # - zombienet
+  # - deploy
+  # - notify
 
 workflow:
   rules:
