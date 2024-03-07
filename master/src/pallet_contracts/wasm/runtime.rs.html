@@ -2468,8 +2468,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2321" id="2321">2321</a>
 <a href="#2322" id="2322">2322</a>
 <a href="#2323" id="2323">2323</a>
-<a href="#2324" id="2324">2324</a>
-<a href="#2325" id="2325">2325</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4777,7 +4775,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Adds a new delegate dependency to the contract.
 	/// See [`pallet_contracts_uapi::HostFn::lock_delegate_dependency`].
-	</span><span class="attr">#[unstable]
 	</span><span class="kw">fn </span>lock_delegate_dependency(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>, code_hash_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		ctx.charge_gas(RuntimeCosts::LockDelegateDependency)<span class="question-mark">?</span>;
 		<span class="kw">let </span>code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)<span class="question-mark">?</span>;
@@ -4787,7 +4784,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Removes the delegate dependency from the contract.
 	/// see [`pallet_contracts_uapi::HostFn::unlock_delegate_dependency`].
-	</span><span class="attr">#[unstable]
 	</span><span class="kw">fn </span>unlock_delegate_dependency(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>, code_hash_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		ctx.charge_gas(RuntimeCosts::UnlockDelegateDependency)<span class="question-mark">?</span>;
 		<span class="kw">let </span>code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)<span class="question-mark">?</span>;

@@ -156,7 +156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     keystore: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;KeystorePtr&gt;,
     notification_service: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn NotificationService&gt;
 )<span class="where fmt-newline">where
-    B: Block,
+    B: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>,
     C: BlockchainEvents&lt;B&gt; + ProvideRuntimeApi&lt;B&gt; + HeaderBackend&lt;B&gt;,
     C::Api: MixnetApi&lt;B&gt;,
     S: SyncOracle,
