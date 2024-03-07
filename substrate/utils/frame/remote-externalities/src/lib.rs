@@ -452,7 +452,6 @@ where
 			let prefix = prefix.clone();
 			let end_keys = end_keys.clone();
 			for (start_key, end_key) in start_keys.into_iter().zip(end_keys.clone()) {
-
 				let start_key = start_key.cloned();
 				let end_key = end_key.cloned();
 
@@ -725,8 +724,6 @@ where
 		at: B::Hash,
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<Vec<KeyValue>, &'static str> {
-		let start = Instant::now();
-		let mut sp = Spinner::with_timer(Spinners::Dots, "Scraping keys...".into());
 		let mut vec_keys_values = vec![];
 		// TODO We could start downloading when having collected the first batch of keys
 		// https://github.com/paritytech/polkadot-sdk/issues/2494
@@ -734,7 +731,7 @@ where
 
 		pin_mut!(keys_values_stream);
 
-		while let Some(mut keys_values) = keys_values_stream.next().await {
+		while let Some(keys_values) = keys_values_stream.next().await {
 			pending_ext.batch_insert(keys_values.clone().into_iter().filter_map(|(k, v)| {
 				// Don't insert the child keys here, they need to be inserted seperately with all
 				// their data in the load_child_remote function.
