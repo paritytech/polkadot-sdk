@@ -9634,7 +9634,6 @@ dependencies = [
  "tempfile",
  "toml 0.8.8",
  "twox-hash",
- "wat",
 ]
 
 [[package]]
@@ -11754,7 +11753,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "testnet-parachains-constants",
 ]
 
 [[package]]
