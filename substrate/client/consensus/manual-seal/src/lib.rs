@@ -469,6 +469,10 @@ mod tests {
 
 	#[tokio::test]
 	async fn instant_seal_delayed_finalize() {
+		async fn timeout<T>(future: impl Future<Output = T>, msg: &str) -> T {
+			tokio::time::timeout(Duration::from_secs(30), future).await.expect(msg)
+		}
+
 		let builder = TestClientBuilder::new();
 		let (client, select_chain) = builder.build_with_longest_chain();
 		let client = Arc::new(client);
@@ -527,12 +531,23 @@ mod tests {
 		}));
 
 		let mut finality_stream = client.finality_notification_stream();
+
 		// submit a transaction to pool.
-		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
+		let result = timeout(
+			pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)),
+			"timed out submitting to tx pool",
+		)
+		.await;
+
 		// assert that it was successfully imported
 		assert!(result.is_ok());
+
 		// assert that the background task returns ok
-		let created_block = receiver.await.unwrap().unwrap();
+		let created_block = timeout(receiver, "timed out waiting for result of create block")
+			.await
+			.unwrap()
+			.unwrap();
+
 		assert_eq!(
 			created_block,
 			CreatedBlock {
@@ -553,7 +568,12 @@ mod tests {
 
 		assert_eq!(client.info().finalized_hash, client.info().genesis_hash);
 
-		let finalized = finality_stream.select_next_some().await;
+		let finalized = timeout(
+			finality_stream.select_next_some(),
+			"timed out waiting for block to be finalized",
+		)
+		.await;
+
 		assert_eq!(finalized.hash, created_block.hash);
 	}
 
