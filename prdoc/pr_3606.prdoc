@@ -1,6 +1,3 @@
-# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
-# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
-
 title: "[pallet_contracts] mark lock/unlock_delegate_dependency as stable"
 
 doc:
@@ -9,4 +6,4 @@ doc:
       Lock and unlock delegate dependency are stable now, so we can mark them as such.
 
 crates:
-  - name: pallet_contracts 
+  - name: pallet-contracts
