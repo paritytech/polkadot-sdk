@@ -1068,5 +1068,5 @@ pub async fn bench_approvals_run(
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
-	env.collect_resource_usage(benchmark_name, &["approval-distribution", "approval-voting"])
+	env.collect_resource_usage( &["approval-distribution", "approval-voting"])
 }
