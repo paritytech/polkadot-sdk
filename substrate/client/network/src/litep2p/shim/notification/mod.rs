@@ -38,7 +38,7 @@ use tokio::sync::oneshot;
 
 use sc_network_types::PeerId;
 
-use std::{collections::HashSet, fmt};
+use std::{collections::HashSet, fmt, time::Instant};
 
 pub mod config;
 pub mod peerset;
@@ -142,6 +142,8 @@ pub struct NotificationProtocol {
 
 	/// Notification metrics.
 	metrics: NotificationMetrics,
+
+	test: Instant,
 }
 
 impl fmt::Debug for NotificationProtocol {
@@ -162,6 +164,7 @@ impl NotificationProtocol {
 		metrics: NotificationMetrics,
 	) -> Self {
 		Self {
+			test: Instant::now(),
 			protocol,
 			handle,
 			peerset,
@@ -266,6 +269,11 @@ impl NotificationService for NotificationProtocol {
 	/// Get next event from the `Notifications` event stream.
 	async fn next_event(&mut self) -> Option<SubstrateNotificationEvent> {
 		loop {
+			if self.test.elapsed().as_secs() > 5 * 60 {
+				self.handle.force_close();
+				self.test = Instant::now();
+			}
+
 			tokio::select! {
 				biased;
 
