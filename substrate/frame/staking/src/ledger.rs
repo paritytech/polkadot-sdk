@@ -36,7 +36,8 @@ use sp_staking::{StakingAccount, StakingInterface};
 use sp_std::prelude::*;
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
+	BalanceOf, Bonded, Config, Delegatees, Error, Ledger, Pallet, Payee, RewardDestination,
+	StakingLedger,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -157,7 +158,12 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		Pallet::<T>::update_hold(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
+		// We could just pass `locked_locally` in as a parameter to optimize things, this is just
+		// for the POC
+		let locked_locally = !<Delegatees<T>>::contains_key(&self.stash);
+		if locked_locally {
+			Pallet::<T>::update_hold(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
+		}
 
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
@@ -178,10 +184,6 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::AlreadyBonded);
 		}
 
-		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
-			return Err(Error::<T>::RewardDestinationRestricted);
-		}
-
 		<Payee<T>>::insert(&self.stash, payee);
 		<Bonded<T>>::insert(&self.stash, &self.stash);
 		self.update()
@@ -191,10 +193,6 @@ impl<T: Config> StakingLedger<T> {
 	pub(crate) fn set_payee(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
 			return Err(Error::<T>::NotStash);
-		}
-
-		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
-			return Err(Error::<T>::RewardDestinationRestricted);
 		}
 
 		<Payee<T>>::insert(&self.stash, payee);

@@ -215,7 +215,7 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Core staking implementation.
-		type CoreStaking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
+		type CoreStaking: DelegateeSupport<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -542,7 +542,7 @@ impl<T: Config> Pallet<T> {
 		if delegatee.is_bonded() {
 			T::CoreStaking::bond_extra(&delegatee.key, amount)
 		} else {
-			T::CoreStaking::bond(&delegatee.key, amount, &delegatee.reward_account())
+			T::CoreStaking::delegated_bond(&delegatee.key, amount, &delegatee.reward_account())
 		}
 	}
 

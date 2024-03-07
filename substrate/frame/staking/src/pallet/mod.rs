@@ -37,7 +37,6 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	delegation::DelegateeSupport,
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 };
@@ -104,12 +103,6 @@ pub mod pallet {
 			+ From<u64>
 			+ TypeInfo
 			+ MaxEncodedLen;
-
-		/// Something that provides delegation support to staking pallet.
-		type DelegateeSupport: DelegateeSupport<
-			Balance = Self::CurrencyBalance,
-			AccountId = Self::AccountId,
-		>;
 
 		/// Time used for computing era duration.
 		///
@@ -285,6 +278,9 @@ pub mod pallet {
 		///
 		/// WARNING: this only reports slashing and withdraw events for the time being.
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
+
+		/// Origin that can call into the delegated staking functionality.
+		type DelegateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Some parameters of the benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -673,6 +669,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
+	/// Set(? TBD) of all delegatee accounts which have their bond held somewhere else. Maybe we
+	/// have their bond as value and cache the get results to do fewer db reads, but this is just an
+	/// implementation detail right now.
+	#[pallet::storage]
+	pub type Delegatees<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, ()>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -717,7 +719,7 @@ pub mod pallet {
 					status
 				);
 				assert!(
-					Pallet::<T>::stakeable_balance(stash) >= balance,
+					T::Currency::free_balance(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
@@ -953,7 +955,7 @@ pub mod pallet {
 			}
 
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
-			let stash_balance = Self::stakeable_balance(&stash);
+			let stash_balance = T::Currency::free_balance(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 			let ledger = StakingLedger::<T>::new(stash.clone(), value);
@@ -989,7 +991,7 @@ pub mod pallet {
 
 			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
-			let stash_balance = Self::stakeable_balance(&stash);
+			let stash_balance = T::Currency::free_balance(&stash);
 			if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
 				let extra = extra.min(max_additional);
 				ledger.total += extra;
@@ -1989,6 +1991,23 @@ pub mod pallet {
 				<Ledger<T>>::insert(stash, ledger);
 			}
 			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
+		}
+
+		/// TODO: docs
+		/// Wrapper extrinsic for `do_delegated_bond`, but accessible from outside the current
+		/// context, guarded by `DelegateOrigin`.
+		#[pallet::call_index(29)]
+		#[pallet::weight(T::WeightInfo::bond())]
+		pub fn delegated_bond(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			#[pallet::compact] value: BalanceOf<T>,
+			payee: RewardDestination<T::AccountId>,
+		) -> DispatchResult {
+			// `DelegateOrigin` type lets approved pallets on different parachains to call into this
+			// privileged extrinsic.
+			T::DelegateOrigin::ensure_origin(origin)?;
+			Self::do_delegated_bond(stash, value, payee)
 		}
 	}
 }

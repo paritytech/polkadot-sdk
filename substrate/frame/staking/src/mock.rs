@@ -266,7 +266,6 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
-	type DelegateeSupport = pallet_staking::NoDelegation<Self>;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = ();
 	type RewardRemainder = RewardRemainderMock;
@@ -291,6 +290,9 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
+	// In a production environment, it would be something like
+	// EnsureXcm<Equals<xcm_config::some_delegated_staking_location::Location>>
+	type DelegateOrigin = EnsureRoot<AccountId>;
 	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();

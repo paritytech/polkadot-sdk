@@ -1084,6 +1084,33 @@ impl<T: Config> Pallet<T> {
 		outcome
 	}
 
+	/// TODO: docs
+	/// Basically another call for `bond`, but it's implied that the funds are already locked
+	/// and `pallet-staking` doesn't need to lock them here.
+	pub fn do_delegated_bond(
+		stash: T::AccountId,
+		value: BalanceOf<T>,
+		payee: RewardDestination<T::AccountId>,
+	) -> DispatchResult {
+		if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
+			return Err(Error::<T>::AlreadyBonded.into())
+		}
+
+		// Reject a bond which is considered to be _dust_.
+		if value < T::Currency::minimum_balance() {
+			return Err(Error::<T>::InsufficientBond.into())
+		}
+
+		frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
+		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
+		Delegatees::<T>::insert(stash.clone(), ());
+		let ledger = StakingLedger::<T>::new(stash.clone(), value);
+
+		ledger.bond(payee)?;
+
+		Ok(())
+	}
+
 	/// Register some amount of weight directly with the system pallet.
 	///
 	/// This is always mandatory weight.
@@ -1106,33 +1133,11 @@ impl<T: Config> Pallet<T> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
 
-	pub(crate) fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
-		if T::DelegateeSupport::is_delegatee(who) {
-			return T::DelegateeSupport::stakeable_balance(who);
-		}
-
-		T::Currency::free_balance(who)
-	}
-
-	pub(crate) fn restrict_reward_destination(
-		who: &T::AccountId,
-		reward_destination: Option<T::AccountId>,
-	) -> bool {
-		if T::DelegateeSupport::is_delegatee(who) {
-			return T::DelegateeSupport::restrict_reward_destination(who, reward_destination);
-		}
-
-		false
-	}
-
 	pub(crate) fn update_hold(
 		who: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> sp_runtime::DispatchResult {
-		// only apply lock if it is not a delegatee. delegatee accounts are already locked/held.
-		if !T::DelegateeSupport::is_delegatee(who) {
-			T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
-		}
+		T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
 
 		Ok(())
 	}
@@ -1872,21 +1877,17 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
-/// Standard implementation of `DelegateeSupport` that supports only direct staking and no
-/// delegated staking.
-pub struct NoDelegation<T>(PhantomData<T>);
-impl<T: Config> DelegateeSupport for NoDelegation<T> {
-	type Balance = BalanceOf<T>;
-	type AccountId = T::AccountId;
-	fn stakeable_balance(_who: &Self::AccountId) -> Self::Balance {
-		defensive!("stakeable balance should not have been called for NoDelegation");
-		BalanceOf::<T>::zero()
+impl<T: Config> DelegateeSupport for Pallet<T> {
+	fn delegated_bond(
+		who: &Self::AccountId,
+		value: Self::Balance,
+		payee: &Self::AccountId,
+	) -> DispatchResult {
+		Self::do_delegated_bond(who.clone(), value, RewardDestination::Account(payee.clone()))
 	}
-	fn is_delegatee(_who: &Self::AccountId) -> bool {
-		false
-	}
-	fn report_slash(_who: &Self::AccountId, _slash: Self::Balance) {
-		defensive!("delegation report_slash should not be have been called for NoDelegation");
+
+	fn is_delegatee(who: &Self::AccountId) -> bool {
+		Delegatees::<T>::contains_key(who)
 	}
 }
 
