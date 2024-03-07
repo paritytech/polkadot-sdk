@@ -44,7 +44,7 @@ pub struct HostState {
 	///
 	/// Within a runtime call multiple instances can be spawned and in existence at the same time.
 	/// We assign non recycled ids to them so the runtime can reference them. Please note that the
-	/// ids are per runtime call so there is no potential for non determinism as long as we assing
+	/// ids are per runtime call so there is no potential for non determinism as long as we assign
 	/// them deterministically.
 	virt_instances: HashMap<u64, VirtOrMem>,
 	/// A incrementing counter used to generate new ids for [`Self::virt_instances`].
@@ -297,7 +297,7 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 ///
 /// While executing we don't need to keep the instance itself in the `HashMap` because no recursive
 /// calls into the same instance are valid. However, we still need to provide access to memory.
-/// This is why we replace the instance itselfwith its memory object while executing.
+/// This is why we replace the instance itself with its memory object while executing.
 enum VirtOrMem {
 	/// The instance itself used for executing code.
 	///
