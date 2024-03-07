@@ -161,10 +161,10 @@ fn spend_and_swap() {
 	let treasury_location: MultiLocation = X1(PalletInstance(37)).into();
 	let asset_hub_location: MultiLocation = X1(Parachain(1000)).into();
 
-	let asset_hub_treasury_location: MultiLocation =
+	let treasury_location_on_asset_hub: MultiLocation =
 		treasury_location.prepended_with(v3::Parent).unwrap();
-	let asset_hub_treasury_account = AssetHubLocationToAccountId::convert_location(
-		&asset_hub_treasury_location.try_into().unwrap(),
+	let treasury_account_on_asset_hub = AssetHubLocationToAccountId::convert_location(
+		&treasury_location_on_asset_hub.try_into().unwrap(),
 	)
 	.unwrap();
 
@@ -195,6 +195,8 @@ fn spend_and_swap() {
 		let root = <AssetHubWestend as Chain>::RuntimeOrigin::root();
 		let native_asset = native_asset.prepended_with(v3::Parent).unwrap();
 		let usdt_asset: MultiLocation = (PalletInstance(50), GeneralIndex(USDT_ID.into())).into();
+		// Multiply by `100_000` to get more liquidity in the pool and resulting price close to the
+		// desired rate.
 		let usdt_liquidity = total_swap_amount_out * 100_000;
 		let native_liquidity = (usdt_liquidity / USDT_UNITS) / usdt_to_native_rate * UNITS;
 		let usdt_min_balance = 1 * USDT_UNITS;
@@ -272,7 +274,7 @@ fn spend_and_swap() {
 			as_origin: bx!(OriginCaller::system(RawOrigin::Signed(treasury_account))),
 			call: bx!(RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::teleport_assets {
 				dest: bx!(VersionedLocation::V3(asset_hub_location)),
-				beneficiary: bx!(VersionedLocation::V3(asset_hub_treasury_location)),
+				beneficiary: bx!(VersionedLocation::V3(treasury_location_on_asset_hub)),
 				assets: bx!(VersionedAssets::V3(
 					MultiAsset { id: native_asset.into(), fun: teleport_amount.into() }.into()
 				)),
@@ -318,10 +320,10 @@ fn spend_and_swap() {
 		// The call should be commanded by the `Treasury` origin to allow using the public
 		// referendum's corresponding track.
 		//
-		// The beneficiary of the treasury spend call is the `Treasury` origin's sovereign account.
+		// The beneficiary of the treasury spend call is the `Treasurer` origin's sovereign account.
 		// This allows us to command the subsequent swap calls with the same origin. The beneficiary
 		// of the swapped USDT coins is the treasury pallet. This corresponds to our treasury setup
-		// on the relay chain and allows spending those assets with the spend call.
+		// on the relay chain and allows spending those assets with later spend calls.
 
 		let native_asset = native_asset.prepended_with(v3::Parent).unwrap();
 		let usdt_asset: MultiLocation = (PalletInstance(50), GeneralIndex(USDT_ID.into())).into();
@@ -338,19 +340,13 @@ fn spend_and_swap() {
 			1.into()
 		));
 
-		// The beneficiary is the `Treasury` origin.
-		// It is possible to append an interior `GeneralIndex(referendum_id)` to derive different
-		// accounts for different referendums, but this will require a new location to account type
-		// impl.
-		let beneficiary = treasury_plurality_location;
-
 		let swap_call = AssetHubRuntimeCall::AssetConversion(pallet_asset_conversion::Call::<
 			AssetHubRuntime,
 		>::swap_tokens_for_exact_tokens {
 			path: vec![bx!(native_asset), bx!(usdt_asset)],
 			amount_out: total_swap_amount_out / <u32 as Into<Balance>>::into(swaps_number),
 			amount_in_max: total_swap_amount_in / <u32 as Into<Balance>>::into(swaps_number),
-			send_to: asset_hub_treasury_account.clone(),
+			send_to: treasury_account_on_asset_hub.clone(),
 			keep_alive: false,
 		});
 
@@ -387,7 +383,7 @@ fn spend_and_swap() {
 							asset_id: native_asset.into(),
 						}),
 						amount: total_swap_amount_in,
-						beneficiary: bx!(VersionedLocation::V3(beneficiary)),
+						beneficiary: bx!(VersionedLocation::V3(treasury_plurality_location)),
 						valid_from: None,
 					}),
 					// While it's not possible to confirm the success of the `payout` in one call,
@@ -460,7 +456,7 @@ fn spend_and_swap() {
 	AssetHubWestend::execute_with(|| {
 		// Treasury's pallet account initially has no usdt coins.
 		assert_eq!(
-			<AssetHubAssets as Inspect<_>>::balance(USDT_ID, &asset_hub_treasury_account),
+			<AssetHubAssets as Inspect<_>>::balance(USDT_ID, &treasury_account_on_asset_hub),
 			0
 		);
 	});
@@ -476,10 +472,10 @@ fn spend_and_swap() {
 			<AssetHubWestend as Chain>::System::block_number(),
 		);
 
-		// First swap was successful.
+		// First swap is successful.
 
 		assert_eq!(
-			<AssetHubAssets as Inspect<_>>::balance(USDT_ID, &asset_hub_treasury_account),
+			<AssetHubAssets as Inspect<_>>::balance(USDT_ID, &treasury_account_on_asset_hub),
 			total_swap_amount_out / <u32 as Into<Balance>>::into(swaps_number)
 		);
 
@@ -526,7 +522,7 @@ fn spend_and_swap() {
 		// Second swap fails.
 
 		assert_eq!(
-			<AssetHubAssets as Inspect<_>>::balance(USDT_ID, &asset_hub_treasury_account),
+			<AssetHubAssets as Inspect<_>>::balance(USDT_ID, &treasury_account_on_asset_hub),
 			total_swap_amount_out / <u32 as Into<Balance>>::into(swaps_number)
 		);
 
@@ -573,7 +569,7 @@ fn spend_and_swap() {
 		// Retry of the second swap succeeds.
 
 		assert_eq!(
-			<AssetHubAssets as Inspect<_>>::balance(USDT_ID, &asset_hub_treasury_account),
+			<AssetHubAssets as Inspect<_>>::balance(USDT_ID, &treasury_account_on_asset_hub),
 			total_swap_amount_out
 		);
 

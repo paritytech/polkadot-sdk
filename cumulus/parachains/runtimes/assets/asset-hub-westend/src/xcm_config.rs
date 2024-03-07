@@ -499,9 +499,10 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 			) | RuntimeCall::ToRococoXcmRouter(
 				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
 			) |
-				// TODO: blocker for now.
-				// `Utility` dep can be dropped if we send two `Transact` instructions.
-				// `Scheduler`'s calls are permissioned.
+				// TODO: this cannot be included into the production safe filter in a current way.
+				// The safe filter will be entirely dropped or inner call arguments of `batch` and 
+				// `schedule` calls has to be filtered.
+				// Alternatively the `batch` call can be replaced by multiple `Transact`s.
 				RuntimeCall::Utility(..) |
 				RuntimeCall::Scheduler(..)
 		)
