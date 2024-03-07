@@ -21,7 +21,7 @@ use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::traits::{Get, OnRuntimeUpgrade};
 use sp_runtime::Saturating;
-use sp_std::prelude::vec::Vec;
+use sp_std::vec::Vec;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
