@@ -429,7 +429,9 @@ mod tests {
 					sender,
 				}
 			});
-		let future = run_manual_seal(ManualSealParams {
+
+		// spawn the background authorship task
+		tokio::spawn(run_manual_seal(ManualSealParams {
 			block_import: client.clone(),
 			env,
 			client: client.clone(),
@@ -438,12 +440,8 @@ mod tests {
 			select_chain,
 			create_inherent_data_providers: |_, _| async { Ok(()) },
 			consensus_data_provider: None,
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			// spawn the background authorship task
-			rt.block_on(future);
-		});
+		}));
+
 		// submit a transaction to pool.
 		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
 		// assert that it was successfully imported
@@ -507,7 +505,8 @@ mod tests {
 				}
 			});
 
-		let future_instant_seal = run_manual_seal(ManualSealParams {
+		// spawn the background authorship task
+		tokio::spawn(run_manual_seal(ManualSealParams {
 			block_import: client.clone(),
 			commands_stream,
 			env,
@@ -516,24 +515,16 @@ mod tests {
 			select_chain,
 			create_inherent_data_providers: |_, _| async { Ok(()) },
 			consensus_data_provider: None,
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			// spawn the background authorship task
-			rt.block_on(future_instant_seal);
-		});
+		}));
 
 		let delay_sec = 5;
-		let future_delayed_finalize = run_delayed_finalize(DelayedFinalizeParams {
+
+		// spawn the background finality task
+		tokio::spawn(run_delayed_finalize(DelayedFinalizeParams {
 			client: client.clone(),
 			delay_sec,
 			spawn_handle: spawner,
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			// spawn the background authorship task
-			rt.block_on(future_delayed_finalize);
-		});
+		}));
 
 		let mut finality_stream = client.finality_notification_stream();
 		// submit a transaction to pool.
@@ -589,7 +580,9 @@ mod tests {
 		// this test checks that blocks are created as soon as an engine command is sent over the
 		// stream.
 		let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
-		let future = run_manual_seal(ManualSealParams {
+
+		// spawn the background authorship task
+		tokio::spawn(run_manual_seal(ManualSealParams {
 			block_import: client.clone(),
 			env,
 			client: client.clone(),
@@ -598,12 +591,8 @@ mod tests {
 			select_chain,
 			consensus_data_provider: None,
 			create_inherent_data_providers: |_, _| async { Ok(()) },
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			// spawn the background authorship task
-			rt.block_on(future);
-		});
+		}));
+
 		// submit a transaction to pool.
 		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
 		// assert that it was successfully imported
@@ -675,7 +664,9 @@ mod tests {
 		// this test checks that blocks are created as soon as an engine command is sent over the
 		// stream.
 		let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
-		let future = run_manual_seal(ManualSealParams {
+
+		// spawn the background authorship task
+		tokio::spawn(run_manual_seal(ManualSealParams {
 			block_import: client.clone(),
 			env,
 			client: client.clone(),
@@ -684,12 +675,8 @@ mod tests {
 			select_chain,
 			consensus_data_provider: None,
 			create_inherent_data_providers: |_, _| async { Ok(()) },
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			// spawn the background authorship task
-			rt.block_on(future);
-		});
+		}));
+
 		// submit a transaction to pool.
 		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
 		// assert that it was successfully imported
@@ -781,7 +768,9 @@ mod tests {
 		let env = ProposerFactory::new(spawner.clone(), client.clone(), pool.clone(), None, None);
 
 		let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
-		let future = run_manual_seal(ManualSealParams {
+
+		// spawn the background authorship task
+		tokio::spawn(run_manual_seal(ManualSealParams {
 			block_import: client.clone(),
 			env,
 			client: client.clone(),
@@ -791,11 +780,8 @@ mod tests {
 			// use a provider that pushes some post digest data
 			consensus_data_provider: Some(Box::new(TestDigestProvider { _client: client.clone() })),
 			create_inherent_data_providers: |_, _| async { Ok(()) },
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			rt.block_on(future);
-		});
+		}));
+
 		let (tx, rx) = futures::channel::oneshot::channel();
 		sink.send(EngineCommand::SealNewBlock {
 			parent_hash: None,
