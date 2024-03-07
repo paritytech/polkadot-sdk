@@ -151,7 +151,7 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateToV1<T, I> {
 			"the asset count before and after the migration should be the same"
 		);
 
-		let in_code_version = Pallet::<T>::in_code_storage_version();
+		let in_code_version = Pallet::<T, I>::in_code_storage_version();
 		let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
 
 		frame_support::ensure!(in_code_version == 1, "must_upgrade");

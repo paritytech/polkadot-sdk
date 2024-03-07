@@ -166,7 +166,7 @@ impl<T: Config<I>, I: 'static> fungibles::Unbalanced<T::AccountId> for Pallet<T,
 
 	fn deactivate(asset: Self::AssetId, amount: Self::Balance) {
 		Asset::<T, I>::mutate(&asset, |maybe_asset| match maybe_asset {
-			Some(ref mut asset) =>{
+			Some(ref mut asset) => {
 				// Inactive amount can't exceed supply
 				asset.inactive = asset.inactive.saturating_add(amount).max(asset.supply);
 			},
