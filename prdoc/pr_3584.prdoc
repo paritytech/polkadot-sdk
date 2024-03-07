@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remote Externalities: Download KeyValues in remote externalities early
+
+doc:
+  - audience: Runtime Dev
+  - audience: Runtime User
+    description: |
+      This PR allows for downloading of Key Values early, as the Keys and Values are being fetched from a stream
+      they get inserted into the DB
+
+crates:
+  - name: frame-remote-externalities

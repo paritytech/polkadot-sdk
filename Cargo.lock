@@ -5696,6 +5696,8 @@ version = "0.35.0"
 dependencies = [
  "async-stream",
  "futures",
+ "futures-core",
+ "futures-util",
  "indicatif",
  "jsonrpsee",
  "log",
