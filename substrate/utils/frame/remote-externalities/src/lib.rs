@@ -21,7 +21,7 @@
 //! based chain, or a local state snapshot file.
 
 use codec::{Compact, Decode, Encode};
-use futures_util::{pin_mut, Stream, StreamExt};
+use futures::{pin_mut, Stream, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
 use jsonrpsee::{
 	core::params::ArrayParams,
