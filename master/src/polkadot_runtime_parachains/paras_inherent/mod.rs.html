@@ -1453,6 +1453,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1306" id="1306">1306</a>
 <a href="#1307" id="1307">1307</a>
 <a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2243,7 +2279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Assumes disputes are already filtered by the time this is called.
 ///
 /// Returns the total weight consumed by `bitfields` and `candidates`.
-</span><span class="kw">fn </span>apply_weight_limit&lt;T: Config + inclusion::Config&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>apply_weight_limit&lt;T: Config + inclusion::Config&gt;(
 	candidates: <span class="kw-2">&amp;mut </span>Vec&lt;BackedCandidate&lt;&lt;T&gt;::Hash&gt;&gt;,
 	bitfields: <span class="kw-2">&amp;mut </span>UncheckedSignedAvailabilityBitfields,
 	max_consumable_weight: Weight,
@@ -2260,34 +2296,70 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span>total
 	}
 
-	<span class="comment">// Prefer code upgrades, they tend to be large and hence stand no chance to be picked
-	// late while maintaining the weight bounds.
-	</span><span class="kw">let </span>preferred_indices = candidates
+	<span class="comment">// Invariant: block author provides candidate in the order in which they form a chain
+	// wrt elastic scaling. If the invariant is broken, we&#39;d fail later when filtering candidates
+	// which are unchained.
+
+	</span><span class="kw">let </span><span class="kw-2">mut </span>chained_candidates: Vec&lt;Vec&lt;<span class="kw">_</span>&gt;&gt; = Vec::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>current_para_id = <span class="prelude-val">None</span>;
+
+	<span class="kw">for </span>candidate <span class="kw">in </span>sp_std::mem::take(candidates).into_iter() {
+		<span class="kw">let </span>candidate_para_id = candidate.descriptor().para_id;
+		<span class="kw">if </span><span class="prelude-val">Some</span>(candidate_para_id) == current_para_id {
+			<span class="kw">let </span>chain = chained_candidates
+				.last_mut()
+				.expect(<span class="string">&quot;if the current_para_id is Some, then vec is not empty; qed&quot;</span>);
+			chain.push(candidate);
+		} <span class="kw">else </span>{
+			current_para_id = <span class="prelude-val">Some</span>(candidate_para_id);
+			chained_candidates.push(<span class="macro">vec!</span>[candidate]);
+		}
+	}
+
+	<span class="comment">// Elastic scaling: we prefer chains that have a code upgrade among the candidates,
+	// as the candidates containing the upgrade tend to be large and hence stand no chance to
+	// be picked late while maintaining the weight bounds.
+	//
+	// Limitations: For simplicity if total weight of a chain of candidates is larger than
+	// the remaining weight, the chain will still not be included while it could still be possible
+	// to include part of that chain.
+	</span><span class="kw">let </span>preferred_chain_indices = chained_candidates
 		.iter()
 		.enumerate()
-		.filter_map(|(idx, candidate)| {
-			candidate.candidate().commitments.new_validation_code.as_ref().map(|_code| idx)
+		.filter_map(|(idx, candidates)| {
+			<span class="comment">// Check if any of the candidate in chain contains a code upgrade.
+			</span><span class="kw">if </span>candidates
+				.iter()
+				.any(|candidate| candidate.candidate().commitments.new_validation_code.is_some())
+			{
+				<span class="prelude-val">Some</span>(idx)
+			} <span class="kw">else </span>{
+				<span class="prelude-val">None
+			</span>}
 		})
 		.collect::&lt;Vec&lt;usize&gt;&gt;();
 
-	<span class="comment">// There is weight remaining to be consumed by a subset of candidates
+	<span class="comment">// There is weight remaining to be consumed by a subset of chained candidates
 	// which are going to be picked now.
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(max_consumable_by_candidates) =
 		max_consumable_weight.checked_sub(<span class="kw-2">&amp;</span>total_bitfields_weight)
 	{
-		<span class="kw">let </span>(acc_candidate_weight, indices) =
-			random_sel::&lt;BackedCandidate&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash&gt;, <span class="kw">_</span>&gt;(
+		<span class="kw">let </span>(acc_candidate_weight, chained_indices) =
+			random_sel::&lt;Vec&lt;BackedCandidate&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash&gt;&gt;, <span class="kw">_</span>&gt;(
 				rng,
-				<span class="kw-2">&amp;</span>candidates,
-				preferred_indices,
-				|c| backed_candidate_weight::&lt;T&gt;(c),
+				<span class="kw-2">&amp;</span>chained_candidates,
+				preferred_chain_indices,
+				|candidates| backed_candidates_weight::&lt;T&gt;(<span class="kw-2">&amp;</span>candidates),
 				max_consumable_by_candidates,
 			);
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Indices Candidates: {:?}, size: {}&quot;</span>, indices, candidates.len());
-		candidates.indexed_retain(|idx, _backed_candidate| indices.binary_search(<span class="kw-2">&amp;</span>idx).is_ok());
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Indices Candidates: {:?}, size: {}&quot;</span>, chained_indices, candidates.len());
+		chained_candidates
+			.indexed_retain(|idx, _backed_candidates| chained_indices.binary_search(<span class="kw-2">&amp;</span>idx).is_ok());
 		<span class="comment">// pick all bitfields, and
 		// fill the remaining space with candidates
 		</span><span class="kw">let </span>total_consumed = acc_candidate_weight.saturating_add(total_bitfields_weight);
+
+		<span class="kw-2">*</span>candidates = chained_candidates.into_iter().flatten().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="kw">return </span>total_consumed
 	}
