@@ -15,6 +15,54 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! For use cases which operate within the range of `[0, 1]` types that implement
+//! [`PerThing`](PerThing) are used:
+//! - **[`Perbill`](Perbill), parts of a billion**
+#![doc = docify::embed!("./src/lib.rs", perbill_example)]
+//! - **[`Percent`](Percent), parts of a hundred**
+#![doc = docify::embed!("./src/lib.rs", percent_example)]
+//!
+//! Note that `190 / 400 = 0.475`, and that `Percent` represents it as a _rounded down_, fixed point
+//! number (`47`). Unlike primitive types, types that implement
+//! [`PerThing`](PerThing) will also not overflow, and are therefore safe to use.
+//! They adopt the same behavior that a saturated calculation would provide, meaning that if one is
+//! to go over "100%", it wouldn't overflow, but simply stop at the upper or lower bound.
+//!
+//! For use cases which require precision beyond the range of `[0, 1]`, there are fixed-point types which can be used.
+//!
+//! Let's now explore these types in practice, and how they may be used with pallets to perform
+//! safer calculations in the runtime.
+//!
+//! ### 'PerThing' In Practice
+//!
+//! A notable trait called, called [`PerThing`](PerThing), allowing a
+//! custom type to be implemented specifically for fixed point arithmetic. While a number of
+//! fixed-point types are introduced, let's focus on a few specific examples that implement
+//! [`PerThing`](PerThing):
+//!
+//! - [`Percent`](Percent) - parts of one hundred.
+//! - [`Permill`](Permill) - parts of a million.
+//! - [`Perbill`](Perbill) - parts of a billion.
+//!
+//! Each of these can be used to construct and represent ratios within our runtime.
+//! You will find types like [`Perbill`](Perbill) being used often in pallet
+//! development.  pallet_referenda is a good example of a pallet which makes good use of fixed
+//! point arithmetic.
+//!
+//! Let's examine the usage of `Perbill` and how exactly we can use it as an alternative to floating
+//! point numbers in development with Substrate. For this scenario, let's say we are demonstrating a
+//! _voting_ system which depends on reaching a certain threshold, or percentage, before it can be
+//! deemed valid.
+//!
+//! For most applications, `Perbill` gives us a reasonable amount of precision, which
+//! is why we're using it here.
+//!
+//! #### Fixed Point Arithmetic with [`PerThing`](PerThing)
+//!
+//! As stated, one can also perform mathematics using these types directly. For example, finding the
+//! percentage of a particular item:
+#![doc = docify::embed!("./src/lib.rs", percent_mult)]
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

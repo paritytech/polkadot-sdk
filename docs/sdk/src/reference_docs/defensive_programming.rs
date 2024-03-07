@@ -27,8 +27,8 @@
 //! running despite unexpected behavior, input or events which may arise in runtime. Normally,
 //! unforeseen circumstances may cause the program to stop or, in the Rust context, `panic!`.
 //! Defensive practices allow for these circumstances to be accounted for ahead of time and for them
-//! to be handled in a graceful manner, which is in the line of the intended, fault-tolerant and deterministic
-//! behavior of blockchains.
+//! to be handled in a graceful manner, which is in the line of the intended, fault-tolerant and
+//! deterministic behavior of blockchains.
 //!
 //! The Polkadot SDK is built to reflect these principles and to facilitate their usage
 //! accordingly.
@@ -43,16 +43,18 @@
 //! > refers to the core business logic of a Substrate-based chain, whereas the node refers to the
 //! > outer client which deals with telemetry and gossip from other nodes. For more information,
 //! > read about Substrate's architecture.
-//! > It's also important to note that the criticality of the **node** is slightly lesser than that of the
-//! > **runtime**, which is why in a few places of the node's code repository, you may see `unwrap()` or other "non-defensive"
+//! > It's also important to note that the criticality of the **node** is slightly lesser than that
+//! > of the
+//! > **runtime**, which is why in a few places of the node's code repository, you may see
+//! > `unwrap()` or other "non-defensive"
 //! > code instances.
 //!
 //!  General guidelines:
 //!
 //! - Avoid writing functions that could explicitly panic. Directly using `unwrap()` on a
-//!   [`Result`], or  accessing an out-of-bounds index on a collection, should
-//!   be avoided. Safer methods to access collection types, i.e., `get()` which allow
-//!   defensive handling of the resulting [`Option`] are recommended to be used.
+//!   [`Result`], or  accessing an out-of-bounds index on a collection, should be avoided. Safer
+//!   methods to access collection types, i.e., `get()` which allow defensive handling of the
+//!   resulting [`Option`] are recommended to be used.
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
 //!   performed a check beforehand) that a value won't panic upon unwrapping.  Even this is
 //!   discouraged, however, as future changes to that function could then cause that statement to
@@ -139,8 +141,8 @@
 //! made obvious, especially in the context of blockchain development, where unsafe arithmetic could
 //! produce unexpected consequences like a user balance over or underflowing.
 //!
-//! Fortunately, there are ways to both represent and handle these scenarios depending on our specific
-//! use case natively built into Rust, as well as libraries like [`sp_arithmetic`].
+//! Fortunately, there are ways to both represent and handle these scenarios depending on our
+//! specific use case natively built into Rust, as well as libraries like [`sp_arithmetic`].
 //!
 //! ## Infallible Arithmetic
 //!
@@ -154,8 +156,8 @@
 //! as a single non-deterministic result could cause chaos for blockchain consensus along with the
 //! aforementioned issues. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
 //!
-//! The following methods demonstrate different ways one can handle numbers natively in Rust in a safe manner,
-//! without fear of panic or unexpected behavior from wrapping.
+//! The following methods demonstrate different ways one can handle numbers natively in Rust in a
+//! safe manner, without fear of panic or unexpected behavior from wrapping.
 //!
 //! ### Checked Arithmetic
 //!
@@ -237,7 +239,6 @@
 //! 2. **Saturating** operations - limited to the lower and upper bounds of a number type
 //! 3. **Wrapped** operations (the default) - wrap around to above or below the bounds of a type
 //!
-//!
 //! Known scenarios that could be fallible should be avoided: i.e., avoiding the possibility of
 //! dividing/modulo by zero at any point should be mitigated. One should be opting for a
 //! `checked_*` method to introduce safe arithmetic in their code.
@@ -313,94 +314,6 @@
 //!
 //! ### Decision Chart: When to use which?
 #![doc = simple_mermaid::mermaid!("../../../mermaid/integer_operation_decision.mmd")]
-//! ## Fixed Point Arithmetic
-//!
-//! The following code uses types from [`sp_arithmetic`].
-//!
-//! Fixed point arithmetic solves the aforementioned problems of dealing with the uncertain
-//! nature of floating point numbers. Rather than use a radix point (`0.80`), a type which
-//! _represents_ a floating point number in base 10, i.e., a **fixed point number**, can be used
-//! instead.
-//!
-//! For use cases which operate within the range of `[0, 1]` types that implement
-//! [`PerThing`](sp_arithmetic::PerThing) are used:
-//! - **[`Perbill`](sp_arithmetic::Perbill), parts of a billion**
-#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", perbill_example)]
-//! - **[`Percent`](sp_arithmetic::Percent), parts of a hundred**
-#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", percent_example)]
-//!
-//! Note that `190 / 400 = 0.475`, and that `Percent` represents it as a _rounded down_, fixed point
-//! number (`47`). Unlike primitive types, types that implement
-//! [`PerThing`](sp_arithmetic::PerThing) will also not overflow, and are therefore safe to use.
-//! They adopt the same behavior that a saturated calculation would provide, meaning that if one is
-//! to go over "100%", it wouldn't overflow, but simply stop at the upper or lower bound.
-//!
-//! For use cases which require precision beyond the range of `[0, 1]`, there are a number of other
-//! fixed-point types to use:
-//!
-//! - [`FixedU64`](sp_arithmetic::FixedU64) and [`FixedI64`](sp_arithmetic::FixedI64)
-//! - [`FixedI128`](sp_arithmetic::FixedU128) and [`FixedU128`](sp_arithmetic::FixedI128)
-//!
-//! Similar to types that implement [`PerThing`](sp_arithmetic::PerThing), these are also
-//! fixed-point types, however, they are able to represent larger fractions:
-#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", fixed_u64)]
-//!
-//! Let's now explore these types in practice, and how they may be used with pallets to perform
-//! safer calculations in the runtime.
-//!
-//! ### 'PerThing' In Practice
-//!
-//! [`sp_arithmetic`] contains a trait called [`PerThing`](sp_arithmetic::PerThing), allowing a
-//! custom type to be implemented specifically for fixed point arithmetic. While a number of
-//! fixed-point types are introduced, let's focus on a few specific examples that implement
-//! [`PerThing`](sp_arithmetic::PerThing):
-//!
-//! - [`Percent`](sp_arithmetic::Percent) - parts of one hundred.
-//! - [`Permill`](sp_arithmetic::Permill) - parts of a million.
-//! - [`Perbill`](sp_arithmetic::Perbill) - parts of a billion.
-//!
-//! Each of these can be used to construct and represent ratios within our runtime.
-//! You will find types like [`Perbill`](sp_arithmetic::Perbill) being used often in pallet
-//! development.  [`pallet_referenda`] is a good example of a pallet which makes good use of fixed
-//! point arithmetic.
-//!
-//! Let's examine the usage of `Perbill` and how exactly we can use it as an alternative to floating
-//! point numbers in development with Substrate. For this scenario, let's say we are demonstrating a
-//! _voting_ system which depends on reaching a certain threshold, or percentage, before it can be
-//! deemed valid.
-//!
-//! For most applications, `Perbill` gives us a reasonable amount of precision, which
-//! is why we're using it here.
-//!
-//! #### Fixed Point Arithmetic with [`PerThing`](sp_arithmetic::PerThing)
-//!
-//! As stated, one can also perform mathematics using these types directly. For example, finding the
-//! percentage of a particular item:
-#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", percent_mult)]
-//!
-//! ### Fixed Point Types in Practice
-//!
-//! As said earlier, if one needs to exceed the value of one, then
-//! [`FixedU64`](sp_arithmetic::FixedU64) (and its signed and `u128` counterparts) can be utilized.
-//! Take for example this very rudimentary pricing mechanism, where we wish to calculate the demand
-//! / supply to get a price for some on-chain compute:
-#![doc = docify::embed!(
-    "./src/reference_docs/defensive_programming.rs",
-    fixed_u64_block_computation_example
-)]
-//!
-//! For a much more comprehensive example, be sure to look at the source for [`pallet_broker`].
-//!
-//! #### Fixed Point Types in Practice
-//!
-//! Just as with [`PerThing`](sp_arithmetic::PerThing), you can also perform regular mathematical
-//! expressions:
-#![doc = docify::embed!(
-    "./src/reference_docs/defensive_programming.rs",
-    fixed_u64_operation_example
-)]
-//!
-//!
 //! ## Other Resources
 //!
 //! - [PBA Book - FRAME Tips & Tricks](https://polkadot-blockchain-academy.github.io/pba-book/substrate/tips-tricks/page.html?highlight=perthing#substrate-and-frame-tips-and-tricks)
@@ -492,116 +405,6 @@ mod tests {
 		// to the numeric bound of that type if it overflows.
 		let add = u32::MAX.saturating_add(10);
 		assert_eq!(add, u32::MAX)
-	}
-	#[docify::export]
-	#[test]
-	fn percent_mult() {
-		let percent = Percent::from_rational(5u32, 100u32); // aka, 5%
-		let five_percent_of_100 = percent * 100u32; // 5% of 100 is 5.
-		assert_eq!(five_percent_of_100, 5)
-	}
-	#[docify::export]
-	#[test]
-	fn perbill_example() {
-		let p = Perbill::from_percent(80);
-		// 800000000 bil, or a representative of 0.800000000.
-		// Precision is in the billions place.
-		assert_eq!(p.deconstruct(), 800000000);
-	}
-
-	#[docify::export]
-	#[test]
-	fn percent_example() {
-		let percent = Percent::from_rational(190u32, 400u32);
-		assert_eq!(percent.deconstruct(), 47);
-	}
-
-	#[docify::export]
-	#[test]
-	fn fixed_u64_block_computation_example() {
-		// Calculate a very rudimentary on-chain price from supply / demand
-		// Supply: Cores available per block
-		// Demand: Cores being ordered per block
-		let price = FixedU64::from_rational(5u128, 10u128);
-
-		// 0.5 DOT per core
-		assert_eq!(price, FixedU64::from_float(0.5));
-
-		// Now, the story has changed - lots of demand means we buy as many cores as there
-		// available.  This also means that price goes up! For the sake of simplicity, we don't care
-		// about who gets a core - just about our very simple price model
-
-		// Calculate a very rudimentary on-chain price from supply / demand
-		// Supply: Cores available per block
-		// Demand: Cores being ordered per block
-		let price = FixedU64::from_rational(10u32, 19u32);
-
-		// 1.9 DOT per core
-		assert_eq!(price, FixedU64::from_float(1.9));
-	}
-
-	#[docify::export]
-	#[test]
-	fn fixed_u64() {
-		// The difference between this and perthings is perthings operates within the relam of [0,
-		// 1] In cases where we need > 1, we can used fixed types such as FixedU64
-
-		let rational_1 = FixedU64::from_rational(10, 5); //" 200%" aka 2.
-		let rational_2 =
-			FixedU64::from_rational_with_rounding(5, 10, sp_arithmetic::Rounding::Down); // "50%" aka 0.50...
-
-		assert_eq!(rational_1, (2u64).into());
-		assert_eq!(rational_2.into_perbill(), Perbill::from_float(0.5));
-	}
-
-	#[docify::export]
-	#[test]
-	fn fixed_u64_operation_example() {
-		let rational_1 = FixedU64::from_rational(10, 5); // "200%" aka 2.
-		let rational_2 = FixedU64::from_rational(8, 5); // "160%" aka 1.6.
-
-		let addition = rational_1 + rational_2;
-		let multiplication = rational_1 * rational_2;
-		let division = rational_1 / rational_2;
-		let subtraction = rational_1 - rational_2;
-
-		assert_eq!(addition, FixedU64::from_float(3.6));
-		assert_eq!(multiplication, FixedU64::from_float(3.2));
-		assert_eq!(division, FixedU64::from_float(1.25));
-		assert_eq!(subtraction, FixedU64::from_float(0.4));
-	}
-
-	#[docify::export]
-	#[test]
-	fn bad_unwrap() {
-		let some_result: Result<u32, &str> = Ok(10);
-		assert_eq!(some_result.unwrap(), 10);
-	}
-
-	#[docify::export]
-	#[test]
-	fn good_unwrap() {
-		let some_result: Result<u32, &str> = Err("Error");
-		assert_eq!(some_result.unwrap_or_default(), 0);
-		assert_eq!(some_result.unwrap_or(10), 10);
-	}
-
-	#[docify::export]
-	#[test]
-	#[should_panic]
-	fn bad_collection_retrieval() {
-		let my_list = vec![1, 2, 3, 4, 5];
-		// THIS PANICS!
-		// Indexing on heap allocated values, i.e., vec, can be unsafe!
-		assert_eq!(my_list[5], 6)
-	}
-
-	#[docify::export]
-	#[test]
-	fn good_collection_retrieval() {
-		let my_list = vec![1, 2, 3, 4, 5];
-		// Rust includes `.get`, returning Option<T> - so lets use that:
-		assert_eq!(my_list.get(5), None)
 	}
 
 	#[docify::export]
