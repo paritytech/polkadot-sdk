@@ -7,7 +7,7 @@ doc:
      of the dispatched call minus the actual weight returned by executing it. This means that if the xcm-message contained
      a very large `require_weight_at_most` then this would be non-refunded.
 
-     This PR refunds the differencebetween `require_weight_at_most` and `actual_weight` instead
+     This PR refunds the difference between `require_weight_at_most` and `actual_weight` instead
 
 crates:
   - name: xcm-executor
