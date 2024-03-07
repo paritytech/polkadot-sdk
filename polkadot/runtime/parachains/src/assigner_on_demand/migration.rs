@@ -96,7 +96,6 @@ mod v1 {
 				"Number of orders waiting in the queue before: {n}",
 			);
 
-			let n: u32 = 0;
 			Ok(n.encode())
 		}
 
