@@ -9634,7 +9634,6 @@ dependencies = [
  "tempfile",
  "toml 0.8.8",
  "twox-hash",
- "wat",
 ]
 
 [[package]]
