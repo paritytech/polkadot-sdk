@@ -752,8 +752,7 @@ where
 			vec_keys_values.push(keys_values);
 		}
 
-		let result: Vec<KeyValue> =
-			vec_keys_values.into_iter().flat_map(|key_value| key_value).collect();
+		let result: Vec<KeyValue> = vec_keys_values.into_iter().flatten().collect();
 		Ok(result)
 	}
 
