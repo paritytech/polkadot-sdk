@@ -150,6 +150,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 root role.</p>
 <p>This directly forward the call to the staking pallet, on behalf of the pool bonded
 account.</p>
+<h2 id="note"><a href="#note">Note</a></h2>
+<p>In addition to a <code>root</code> or <code>nominator</code> role of <code>origin</code>, pool’s depositor needs to have
+at least <code>depositor_min_bond</code> in the pool to start nominating.</p>
 <h2 id="warning-doc-only"><a href="#warning-doc-only">Warning: Doc-Only</a></h2>
 <p>This function is an automatically generated, and is doc-only, uncallable
 stub. See the real version in

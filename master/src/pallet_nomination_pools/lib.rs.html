@@ -3766,6 +3766,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3619" id="3619">3619</a>
 <a href="#3620" id="3620">3620</a>
 <a href="#3621" id="3621">3621</a>
+<a href="#3622" id="3622">3622</a>
+<a href="#3623" id="3623">3623</a>
+<a href="#3624" id="3624">3624</a>
+<a href="#3625" id="3625">3625</a>
+<a href="#3626" id="3626">3626</a>
+<a href="#3627" id="3627">3627</a>
+<a href="#3628" id="3628">3628</a>
+<a href="#3629" id="3629">3629</a>
+<a href="#3630" id="3630">3630</a>
+<a href="#3631" id="3631">3631</a>
+<a href="#3632" id="3632">3632</a>
+<a href="#3633" id="3633">3633</a>
+<a href="#3634" id="3634">3634</a>
+<a href="#3635" id="3635">3635</a>
+<a href="#3636" id="3636">3636</a>
+<a href="#3637" id="3637">3637</a>
+<a href="#3638" id="3638">3638</a>
+<a href="#3639" id="3639">3639</a>
+<a href="#3640" id="3640">3640</a>
+<a href="#3641" id="3641">3641</a>
+<a href="#3642" id="3642">3642</a>
+<a href="#3643" id="3643">3643</a>
+<a href="#3644" id="3644">3644</a>
+<a href="#3645" id="3645">3645</a>
+<a href="#3646" id="3646">3646</a>
+<a href="#3647" id="3647">3647</a>
+<a href="#3648" id="3648">3648</a>
+<a href="#3649" id="3649">3649</a>
+<a href="#3650" id="3650">3650</a>
+<a href="#3651" id="3651">3651</a>
+<a href="#3652" id="3652">3652</a>
+<a href="#3653" id="3653">3653</a>
+<a href="#3654" id="3654">3654</a>
+<a href="#3655" id="3655">3655</a>
+<a href="#3656" id="3656">3656</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -6169,6 +6204,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
 		/// account.
+		///
+		/// # Note
+		///
+		/// In addition to a `root` or `nominator` role of `origin`, pool&#39;s depositor needs to have
+		/// at least `depositor_min_bond` in the pool to start nominating.
 		</span><span class="attr">#[pallet::call_index(<span class="number">8</span>)]
 		#[pallet::weight(T::WeightInfo::nominate(validators.len() <span class="kw">as </span>u32))]
 		</span><span class="kw">pub fn </span>nominate(
@@ -6179,6 +6219,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>bonded_pool = BondedPool::&lt;T&gt;::get(pool_id).ok_or(Error::&lt;T&gt;::PoolNotFound)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(bonded_pool.can_nominate(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::NotNominator);
+
+			<span class="kw">let </span>depositor_points = PoolMembers::&lt;T&gt;::get(<span class="kw-2">&amp;</span>bonded_pool.roles.depositor)
+				.ok_or(Error::&lt;T&gt;::PoolMemberNotFound)<span class="question-mark">?
+				</span>.active_points();
+
+			<span class="macro">ensure!</span>(
+				bonded_pool.points_to_balance(depositor_points) &gt;= <span class="self">Self</span>::depositor_min_bond(),
+				Error::&lt;T&gt;::MinimumBondNotMet
+			);
+
 			T::Staking::nominate(<span class="kw-2">&amp;</span>bonded_pool.bonded_account(), validators)
 		}
 
@@ -6341,17 +6391,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Chill on behalf of the pool.
 		///
-		/// The dispatch origin of this call must be signed by the pool nominator or the pool
+		/// The dispatch origin of this call can be signed by the pool nominator or the pool
 		/// root role, same as [`Pallet::nominate`].
 		///
+		/// Under certain conditions, this call can be dispatched permissionlessly (i.e. by any
+		/// account).
+		///
+		/// # Conditions for a permissionless dispatch:
+		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise  pool members
+		///   are unable to unbond.
+		///
+		/// # Conditions for permissioned dispatch:
+		/// * The caller has a nominator or root role of the pool.
 		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
 		/// account.
 		</span><span class="attr">#[pallet::call_index(<span class="number">13</span>)]
 		#[pallet::weight(T::WeightInfo::chill())]
 		</span><span class="kw">pub fn </span>chill(origin: OriginFor&lt;T&gt;, pool_id: PoolId) -&gt; DispatchResult {
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+
 			<span class="kw">let </span>bonded_pool = BondedPool::&lt;T&gt;::get(pool_id).ok_or(Error::&lt;T&gt;::PoolNotFound)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(bonded_pool.can_nominate(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::NotNominator);
+
+			<span class="kw">let </span>depositor_points = PoolMembers::&lt;T&gt;::get(<span class="kw-2">&amp;</span>bonded_pool.roles.depositor)
+				.ok_or(Error::&lt;T&gt;::PoolMemberNotFound)<span class="question-mark">?
+				</span>.active_points();
+
+			<span class="kw">if </span>bonded_pool.points_to_balance(depositor_points) &gt;=
+				T::Staking::minimum_nominator_bond()
+			{
+				<span class="macro">ensure!</span>(bonded_pool.can_nominate(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::NotNominator);
+			}
+
 			T::Staking::chill(<span class="kw-2">&amp;</span>bonded_pool.bonded_account())
 		}
 
