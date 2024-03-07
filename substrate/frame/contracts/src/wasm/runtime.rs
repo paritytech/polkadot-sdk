@@ -2305,7 +2305,6 @@ pub mod env {
 
 	/// Adds a new delegate dependency to the contract.
 	/// See [`pallet_contracts_uapi::HostFn::lock_delegate_dependency`].
-	#[unstable]
 	fn lock_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::LockDelegateDependency)?;
 		let code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)?;
@@ -2315,7 +2314,6 @@ pub mod env {
 
 	/// Removes the delegate dependency from the contract.
 	/// see [`pallet_contracts_uapi::HostFn::unlock_delegate_dependency`].
-	#[unstable]
 	fn unlock_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::UnlockDelegateDependency)?;
 		let code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)?;
