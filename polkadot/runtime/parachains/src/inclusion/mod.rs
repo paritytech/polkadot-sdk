@@ -31,7 +31,6 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
-	storage::PrefixIterator,
 	traits::{EnqueueMessage, Footprint, QueueFootprint},
 	BoundedSlice,
 };
@@ -445,28 +444,35 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 
 // An in memory overlay for large storage maps that we frequently iterate and want
 // to reading/writing to multiple times. A cache with write back capabilities.
-struct StorageMapOverlay<K, V> {
+struct StorageMapOverlay<K, V, F> {
 	data: hashbrown::HashMap<K, V>,
 	modified: hashbrown::HashSet<K>,
+	populate_key: F,
 }
 
-impl<K, V> StorageMapOverlay<K, V>
+impl<K, V, F> StorageMapOverlay<K, V, F>
 where
 	K: sp_std::hash::Hash + Eq + PartialEq + Clone + Copy,
 	V: Clone,
+	F: Fn(K) -> Option<V>,
 {
 	// Construct a new overlay instance given the populate fn.
-	pub fn new<F>(populate: F) -> Self
-	where
-		F: Fn() -> PrefixIterator<(K, V)>,
-	{
-		let data = populate().collect();
-		Self { data, modified: Default::default() }
+	pub fn new(populate_key: F) -> Self {
+		Self { populate_key, data: Default::default(), modified: Default::default() }
 	}
 
 	/// Get a value from cache.
-	pub fn get(&self, key: &K) -> Option<V> {
-		self.data.get(key).cloned()
+	pub fn get(&mut self, key: &K) -> Option<V> {
+		self.data.get(key).cloned().or_else(|| {
+			let value = (self.populate_key)(*key);
+
+			if let Some(value) = value {
+				self.data.insert(*key, value.clone());
+				Some(value)
+			} else {
+				None
+			}
+		})
 	}
 
 	/// Update a value and make key dirty.
@@ -545,7 +551,8 @@ impl<T: Config> Pallet<T> {
 		// let mut pending_availability =
 		// 	<PendingAvailability<T>>::drain().collect::<hashbrown::HashMap<_, _>>();
 
-		let mut pending_availability = StorageMapOverlay::new(|| <PendingAvailability<T>>::iter());
+		let mut pending_availability =
+			StorageMapOverlay::new(|key| <PendingAvailability<T>>::get(key));
 
 		for (checked_bitfield, validator_index) in
 			signed_bitfields.into_iter().map(|signed_bitfield| {
