@@ -31,6 +31,7 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
+	storage::PrefixIterator,
 	traits::{EnqueueMessage, Footprint, QueueFootprint},
 	BoundedSlice,
 };
@@ -442,6 +443,44 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 	}
 }
 
+// An in memory overlay for large storage maps that we frequently iterate and want
+// to reading/writing to multiple times. A cache with write back capabilities.
+struct StorageMapOverlay<K, V> {
+	data: hashbrown::HashMap<K, V>,
+	modified: hashbrown::HashSet<K>,
+}
+
+impl<K, V> StorageMapOverlay<K, V>
+where
+	K: sp_std::hash::Hash + Eq + PartialEq + Clone + Copy,
+	V: Clone,
+{
+	// Construct a new overlay instance given the populate fn.
+	pub fn new<F>(populate: F) -> Self
+	where
+		F: Fn() -> PrefixIterator<(K, V)>,
+	{
+		let data = populate().collect();
+		Self { data, modified: Default::default() }
+	}
+
+	/// Get a value from cache or fallback to storage if not present in cache
+	pub fn get(&self, key: &K) -> Option<V> {
+		self.data.get(key).cloned()
+	}
+
+	/// Update a value and make key dirty.
+	pub fn set(&mut self, key: K, value: V) {
+		self.data.insert(key, value);
+		self.modified.insert(key);
+	}
+
+	/// Returns all the dirty keys/values to be updated by caller.
+	pub fn into_iter(mut self) -> impl IntoIterator<Item = (K, Option<V>)> {
+		self.modified.into_iter().map(move |key| (key, self.data.remove(&key)))
+	}
+}
+
 impl<T: Config> Pallet<T> {
 	/// Block initialization logic, called by initializer.
 	pub(crate) fn initializer_initialize(_now: BlockNumberFor<T>) -> Weight {
@@ -494,6 +533,19 @@ impl<T: Config> Pallet<T> {
 		let threshold = availability_threshold(validators.len());
 
 		let mut votes_per_core: BTreeMap<CoreIndex, BTreeSet<ValidatorIndex>> = BTreeMap::new();
+
+		// We copy all the key/vals from the pending availability candidates in memory.
+		// Considering that commitments have been merged into `CandidatePendingAvailability` we
+		// need the below loops to operate `in-memory`.
+		//
+		// Notes on the safety of using `hashbrown::HashMap`:
+		// It is safe to do so because the key is not susceptible to hash collision attacks,
+		// as attackers cannot control the `para_id` being assigned. These are assigned in order
+		// and bounded economically.
+		// let mut pending_availability =
+		// 	<PendingAvailability<T>>::drain().collect::<hashbrown::HashMap<_, _>>();
+
+		let mut pending_availability = StorageMapOverlay::new(|| <PendingAvailability<T>>::iter());
 
 		for (checked_bitfield, validator_index) in
 			signed_bitfields.into_iter().map(|signed_bitfield| {
@@ -587,6 +639,11 @@ impl<T: Config> Pallet<T> {
 					}
 				}
 			});
+		}
+
+		// Write back to storage only keys that have been updated or deleted.
+		for (para_id, candidates) in pending_availability.into_iter() {
+			<PendingAvailability<T>>::set(para_id, candidates);
 		}
 
 		freed_cores
