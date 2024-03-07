@@ -13332,6 +13332,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "kitchensink-runtime",
+ "pallet-assets",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
