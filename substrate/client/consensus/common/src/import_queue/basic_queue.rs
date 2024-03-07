@@ -33,7 +33,7 @@ use std::{pin::Pin, time::Duration};
 use crate::{
 	import_queue::{
 		buffered_link::{self, BufferedLinkReceiver, BufferedLinkSender},
-		import_single_block_metered, BlockImportError, BlockImportStatus, BoxBlockImport,
+		import_single_block_metered_v2, BlockImportError, BlockImportStatus, BoxBlockImport,
 		BoxJustificationImport, ImportQueue, ImportQueueService, IncomingBlock, Link,
 		RuntimeOrigin, Verifier, LOG_TARGET,
 	},
@@ -432,7 +432,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 			Err(BlockImportError::Cancelled)
 		} else {
 			// The actual import.
-			import_single_block_metered(
+			import_single_block_metered_v2(
 				import_handle,
 				blocks_origin,
 				block,

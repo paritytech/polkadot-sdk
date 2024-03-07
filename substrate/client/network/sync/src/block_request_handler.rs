@@ -41,6 +41,7 @@ use sc_network::{
 	types::ProtocolName,
 };
 use sc_network_common::sync::message::{BlockAttributes, BlockData, BlockRequest, FromBlock};
+use sc_telemetry::custom_telemetry::*;
 use schnellru::{ByLength, LruMap};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -189,6 +190,11 @@ where
 
 	/// Run [`BlockRequestHandler`].
 	async fn process_requests(&mut self) {
+		const DATA_COLLECTING_MAX_DURATION: u64 = 20_000; // in ms
+
+		let mut timer = std::time::SystemTime::now();
+		let mut requests_handled = 0u32;
+
 		while let Some(request) = self.request_receiver.next().await {
 			let IncomingRequest { peer, payload, pending_response } = request;
 
@@ -198,6 +204,20 @@ where
 					target: LOG_TARGET,
 					"Failed to handle block request from {}: {}", peer, e,
 				),
+			}
+
+			requests_handled += 1;
+			let elapsed_time = timer.elapsed().map_or(0u64, |d| d.as_millis() as u64);
+			if elapsed_time > DATA_COLLECTING_MAX_DURATION {
+				let detail = BlockRequestsDetail {
+					current_queue_size: self.request_receiver.len() as u32,
+					requests_handled,
+					time_frame: elapsed_time,
+				};
+				BlockMetrics::observe_block_request(detail);
+
+				timer = std::time::SystemTime::now();
+				requests_handled = 0;
 			}
 		}
 	}

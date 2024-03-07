@@ -29,6 +29,7 @@
 
 use log::{debug, trace};
 
+use sc_telemetry::custom_telemetry::*;
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as _, NumberFor},
@@ -223,9 +224,48 @@ pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
 	block: IncomingBlock<B>,
 	verifier: &mut V,
 ) -> BlockImportResult<B> {
-	import_single_block_metered(import_handle, block_origin, block, verifier, None).await
+	import_single_block_metered_v2(import_handle, block_origin, block, verifier, None).await
 }
 
+/// Custom wrapper around `import_single_block_metered()`. Use this function instead of
+/// the original one.
+pub(crate) async fn import_single_block_metered_v2<B: BlockT, V: Verifier<B>>(
+	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,
+	block_origin: BlockOrigin,
+	block: IncomingBlock<B>,
+	verifier: &mut V,
+	metrics: Option<Metrics>,
+) -> BlockImportResult<B> {
+	let block_hash = std::format!("{}", block.hash);
+
+	// This is ugly because the type of `h.number()` is not a normal primitive but
+	// a trait. That's why we are forced to used try_into().
+	let block_number: u64 = block
+		.header
+		.as_ref()
+		.map(|h| (*h.number()).try_into().unwrap_or_default())
+		.unwrap_or_default();
+
+	let start_timestamp = BlockMetrics::get_current_timestamp_in_ms_or_default();
+	let res =
+		import_single_block_metered(import_handle, block_origin, block, verifier, metrics).await;
+	let end_timestamp = BlockMetrics::get_current_timestamp_in_ms_or_default();
+
+	let interval = IntervalWithBlockInformation {
+		kind: IntervalKind::Import,
+		block_number,
+		block_hash,
+		start_timestamp,
+		end_timestamp,
+	};
+	BlockMetrics::observe_interval(interval);
+
+	res
+}
+
+/// This is the original function from Substrate. We created our own `import_single_block_metered_v2`
+/// that wraps this one so that we can more easily track how long it took to import the block.
+///
 /// Single block import function with metering.
 pub(crate) async fn import_single_block_metered<B: BlockT, V: Verifier<B>>(
 	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,

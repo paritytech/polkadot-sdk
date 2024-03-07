@@ -6,7 +6,7 @@ use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncParams};
-use sc_telemetry::{Telemetry, TelemetryWorker};
+use sc_telemetry::{custom_telemetry::CustomTelemetryWorker, Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::{sync::Arc, time::Duration};
@@ -61,6 +61,12 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		task_manager.spawn_handle().spawn("telemetry", None, worker.run());
 		telemetry
 	});
+
+	let telemetry_handle = telemetry.as_ref().map(|t| t.handle());
+	let custom_telemetry_worker = CustomTelemetryWorker { handle: telemetry_handle };
+	task_manager
+		.spawn_handle()
+		.spawn("custom_telemetry", None, custom_telemetry_worker.run());
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 

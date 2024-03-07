@@ -47,6 +47,7 @@ sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-core = { path = "../../../primitives/core" }
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
 sp-runtime = { path = "../../../primitives/runtime" }
+sc-telemetry = { path = "../../../client/telemetry" }
 
 [dev-dependencies]
 mockall = "0.11.3"

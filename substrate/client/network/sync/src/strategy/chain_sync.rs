@@ -49,6 +49,7 @@ use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
 };
+use sc_telemetry::custom_telemetry::{BlockMetrics, IntervalKind};
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{BlockOrigin, BlockStatus};
@@ -698,8 +699,21 @@ where
 						if let Some(start_block) =
 							validate_blocks::<B>(&blocks, peer_id, Some(request))?
 						{
+							let timestamp = BlockMetrics::get_current_timestamp_in_ms_or_default();
+							for block in &blocks {
+								if let Some(header) = &block.header {
+									BlockMetrics::observe_interval_partial(
+										IntervalKind::Sync,
+										header.number().clone().try_into().unwrap_or_default(),
+										std::format!("{}", header.hash()),
+										timestamp,
+										false,
+									);
+								}
+							}
 							self.blocks.insert(start_block, blocks, *peer_id);
 						}
+
 						self.ready_blocks()
 					},
 					PeerSyncState::DownloadingGap(_) => {
@@ -1125,6 +1139,15 @@ where
 				})
 				.peers
 				.insert(peer_id);
+
+			let summary = announce.summary();
+			BlockMetrics::observe_interval_partial(
+				IntervalKind::Sync,
+				summary.number.try_into().unwrap_or_default(),
+				std::format!("{}", summary.block_hash),
+				BlockMetrics::get_current_timestamp_in_ms_or_default(),
+				true,
+			);
 		}
 
 		peer_info

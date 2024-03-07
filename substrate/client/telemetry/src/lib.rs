@@ -53,6 +53,8 @@ use std::{
 pub use log;
 pub use serde_json;
 
+///
+pub mod custom_telemetry;
 mod endpoints;
 mod error;
 mod node;
