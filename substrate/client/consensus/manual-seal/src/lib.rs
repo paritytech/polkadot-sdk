@@ -521,7 +521,7 @@ mod tests {
 			consensus_data_provider: None,
 		}));
 
-		let delay_sec = 5;
+		let delay_sec = 1;
 
 		// spawn the background finality task
 		tokio::spawn(run_delayed_finalize(DelayedFinalizeParams {
