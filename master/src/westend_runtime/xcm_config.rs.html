@@ -445,8 +445,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -483,9 +481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_core::ConstU32;
 <span class="kw">use </span>westend_runtime_constants::{
-	currency::CENTS,
-	system_parachain::<span class="kw-2">*</span>,
-	xcm::body::{FELLOWSHIP_ADMIN_INDEX, TREASURER_INDEX},
+	currency::CENTS, system_parachain::<span class="kw-2">*</span>, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
@@ -680,7 +676,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// FellowshipAdmin pluralistic body.
 	</span><span class="kw">pub const </span>FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
 	<span class="comment">// `Treasurer` pluralistic body.
-	</span><span class="kw">pub const </span>TreasurerBodyId: BodyId = BodyId::Index(TREASURER_INDEX);
+	</span><span class="kw">pub const </span>TreasurerBodyId: BodyId = BodyId::Treasury;
 }
 
 <span class="doccomment">/// Type to convert the `GeneralAdmin` origin to a Plurality `Location` value.

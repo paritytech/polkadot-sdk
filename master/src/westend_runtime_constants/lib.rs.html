@@ -310,6 +310,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -442,7 +444,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">const </span>ROOT_INDEX: u32 = <span class="number">0</span>;
 		<span class="comment">// The bodies corresponding to the Polkadot OpenGov Origins.
 		</span><span class="kw">pub const </span>FELLOWSHIP_ADMIN_INDEX: u32 = <span class="number">1</span>;
-		<span class="kw">pub const </span>TREASURER_INDEX: u32 = <span class="number">2</span>;
+		<span class="attr">#[deprecated = <span class="string">&quot;Will be removed after August 2024; Use `xcm::latest::BodyId::Treasury` \
+			instead&quot;</span>]
+		</span><span class="kw">pub const </span>TREASURER_INDEX: u32 = <span class="number">2</span>;
 	}
 }
 

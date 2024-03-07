@@ -555,7 +555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>GovernanceLocation: Location = Location::parent();
 	<span class="kw">pub const </span>FellowshipAdminBodyId: BodyId = BodyId::Index(xcm_constants::body::FELLOWSHIP_ADMIN_INDEX);
 	<span class="kw">pub </span>AssetHub: Location = (Parent, Parachain(<span class="number">1000</span>)).into();
-	<span class="kw">pub const </span>TreasurerBodyId: BodyId = BodyId::Index(xcm_constants::body::TREASURER_INDEX);
+	<span class="kw">pub const </span>TreasurerBodyId: BodyId = BodyId::Treasury;
 	<span class="kw">pub </span>AssetHubUsdtId: AssetId = (PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1984</span>)).into();
 	<span class="kw">pub </span>UsdtAssetHub: LocatableAssetId = LocatableAssetId {
 		location: AssetHub::get(),
