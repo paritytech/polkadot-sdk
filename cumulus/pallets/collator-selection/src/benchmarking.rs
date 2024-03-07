@@ -22,9 +22,7 @@ use super::*;
 #[allow(unused)]
 use crate::Pallet as CollatorSelection;
 use codec::Decode;
-use frame_benchmarking::{
-	account, v2::*, whitelisted_caller, BenchmarkError,
-};
+use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::traits::{Currency, EnsureOrigin, Get, ReservableCurrency};
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, RawOrigin};
 use pallet_authorship::EventHandler;
