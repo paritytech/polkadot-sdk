@@ -17,7 +17,7 @@
 use super::*;
 use bounded_collections::{ConstU32, WeakBoundedVec};
 use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
-use frame_support::weights::Weight;
+use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
 use xcm::{latest::prelude::*, v2};
@@ -170,7 +170,7 @@ benchmarks! {
 			Fungible(amount) => {
 				// Add transferred_amount to origin
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&Asset { fun: Fungible(*amount), id: asset.id },
+					&Asset { fun: Fungible(*amount), id: asset.id.clone() },
 					&origin_location,
 					None,
 				).map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
@@ -182,11 +182,29 @@ benchmarks! {
 		};
 
 		let recipient = [0u8; 32];
-		let versioned_dest: VersionedLocation = destination.into();
+		let versioned_dest: VersionedLocation = destination.clone().into();
 		let versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
+	verify {
+		match &asset.fun {
+			Fungible(amount) => {
+				assert_ok!(<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::withdraw_asset(
+					&Asset { fun: Fungible(*amount), id: asset.id },
+					&destination,
+					None,
+				));
+			},
+			NonFungible(instance) => {
+				assert_ok!(<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::withdraw_asset(
+					&asset,
+					&destination,
+					None,
+				));
+			}
+		};
+	}
 
 	transfer_assets {
 		let (assets, fee_index, destination, verify) = T::set_up_complex_asset_transfer().ok_or(
