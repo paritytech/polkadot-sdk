@@ -564,8 +564,9 @@ where
 			let traffic = queue_status.traffic;
 
 			// Calculate spot price
-			let spot_price: BalanceOf<T> = traffic
-				.saturating_mul_int(config.on_demand_base_fee.saturated_into::<BalanceOf<T>>());
+			let spot_price: BalanceOf<T> = traffic.saturating_mul_int(
+				config.scheduler_params.on_demand_base_fee.saturated_into::<BalanceOf<T>>(),
+			);
 
 			// Is the current price higher than `max_amount`
 			ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
@@ -578,7 +579,10 @@ where
 				existence_requirement,
 			)?;
 
-			ensure!(queue_status.size() < config.on_demand_queue_max_size, Error::<T>::QueueFull);
+			ensure!(
+				queue_status.size() < config.scheduler_params.on_demand_queue_max_size,
+				Error::<T>::QueueFull
+			);
 			Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
 			Ok(())
 		})
@@ -592,10 +596,10 @@ where
 		let old_traffic = queue_status.traffic;
 		match Self::calculate_spot_traffic(
 			old_traffic,
-			config.on_demand_queue_max_size,
+			config.scheduler_params.on_demand_queue_max_size,
 			queue_status.size(),
-			config.on_demand_target_queue_utilization,
-			config.on_demand_fee_variability,
+			config.scheduler_params.on_demand_target_queue_utilization,
+			config.scheduler_params.on_demand_fee_variability,
 		) {
 			Ok(new_traffic) => {
 				// Only update storage on change

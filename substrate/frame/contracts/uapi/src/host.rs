@@ -180,7 +180,7 @@ pub trait HostFn {
 		flags: CallFlags,
 		callee: &[u8],
 		ref_time_limit: u64,
-		proof_time_limit: u64,
+		proof_size_limit: u64,
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
