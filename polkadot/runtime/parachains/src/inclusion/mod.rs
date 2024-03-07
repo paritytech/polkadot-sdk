@@ -464,7 +464,7 @@ where
 		Self { data, modified: Default::default() }
 	}
 
-	/// Get a value from cache or fallback to storage if not present in cache
+	/// Get a value from cache.
 	pub fn get(&self, key: &K) -> Option<V> {
 		self.data.get(key).cloned()
 	}
