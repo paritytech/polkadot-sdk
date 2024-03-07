@@ -751,7 +751,7 @@ impl_runtime_apis! {
 							fun: NonFungible(Index(raw_region_id)),
 							id: AssetId(Location::new(0, [PalletInstance(50)]))
 						},
-						ParentThen(Parachain(random_para_id).into()).into(),
+						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
 					))
 				}
 
