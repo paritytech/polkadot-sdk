@@ -3590,6 +3590,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3443" id="3443">3443</a>
 <a href="#3444" id="3444">3444</a>
 <a href="#3445" id="3445">3445</a>
+<a href="#3446" id="3446">3446</a>
+<a href="#3447" id="3447">3447</a>
+<a href="#3448" id="3448">3448</a>
+<a href="#3449" id="3449">3449</a>
+<a href="#3450" id="3450">3450</a>
+<a href="#3451" id="3451">3451</a>
+<a href="#3452" id="3452">3452</a>
+<a href="#3453" id="3453">3453</a>
+<a href="#3454" id="3454">3454</a>
+<a href="#3455" id="3455">3455</a>
+<a href="#3456" id="3456">3456</a>
+<a href="#3457" id="3457">3457</a>
+<a href="#3458" id="3458">3458</a>
+<a href="#3459" id="3459">3459</a>
+<a href="#3460" id="3460">3460</a>
+<a href="#3461" id="3461">3461</a>
+<a href="#3462" id="3462">3462</a>
+<a href="#3463" id="3463">3463</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -7033,6 +7051,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>decoded: BoundedVec&lt;u8, ConstU32&lt;<span class="number">128</span>&gt;&gt; =
 			runtime.read_sandbox_memory_as(<span class="kw-2">&amp;</span>memory, <span class="number">0u32</span>).unwrap();
 		<span class="macro">assert_eq!</span>(decoded.into_inner(), data);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>run_out_of_gas_in_start_fn() {
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+(module
+	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(start $start)
+	(func $start
+		(loop $inf (br $inf)) ;; just run out of gas
+		(unreachable)
+	)
+	(func (export &quot;call&quot;))
+	(func (export &quot;deploy&quot;))
+)
+&quot;#</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
+		<span class="macro">assert_err!</span>(execute(<span class="kw-2">&amp;</span>CODE, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>mock_ext), &lt;Error&lt;Test&gt;&gt;::OutOfGas);
 	}
 }
 </code></pre></div></section></main></body></html>
