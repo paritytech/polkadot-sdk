@@ -967,6 +967,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#820" id="820">820</a>
 <a href="#821" id="821">821</a>
 <a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1466,9 +1471,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>expand_env(def: <span class="kw-2">&amp;</span>EnvDef, docs: bool) -&gt; TokenStream2 {
 	<span class="kw">let </span>impls = expand_impls(def);
 	<span class="kw">let </span>docs = docs.then_some(expand_docs(def)).unwrap_or(TokenStream2::new());
+	<span class="kw">let </span>stable_api_count = def.host_funcs.iter().filter(|f| f.is_stable).count();
 
 	<span class="macro">quote! </span>{
 		<span class="kw">pub struct </span>Env;
+
+		<span class="attr">#[cfg(test)]
+		</span><span class="kw">pub const </span>STABLE_API_COUNT: usize = #stable_api_count;
+
 		#impls
 		<span class="doccomment">/// Documentation of the API (host functions) available to contracts.
 		///

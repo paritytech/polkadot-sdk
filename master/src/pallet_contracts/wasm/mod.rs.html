@@ -3608,6 +3608,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3461" id="3461">3461</a>
 <a href="#3462" id="3462">3462</a>
 <a href="#3463" id="3463">3463</a>
+<a href="#3464" id="3464">3464</a>
+<a href="#3465" id="3465">3465</a>
+<a href="#3466" id="3466">3466</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3630,6 +3633,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">mod </span>prepare;
 <span class="kw">mod </span>runtime;
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">pub use </span>runtime::STABLE_API_COUNT;
 
 <span class="attr">#[cfg(doc)]
 </span><span class="kw">pub use </span><span class="kw">crate</span>::wasm::runtime::api_doc;
