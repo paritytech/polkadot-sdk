@@ -2,11 +2,10 @@
 //!
 //! Currency related traits in FRAME provide standardized interfaces for implementing various
 //! currency functionalities. The fundamental reason to have these traits is to allow pallets to
-//! utilize a token without relying on the implementation detail. Or else we could have a perfectly
-//! fine runtime without these traits.
-//! These traits enable developers to create, transfer, and manage different forms of digital assets
-//! within the blockchain environment, ensuring that the economic aspects of the chain are robust
-//! and adaptable to different use cases.
+//! utilize tokens without relying on the implementation detail.
+//! These traits enable developers to create, transfer, and manage fungible assets within the
+//! blockchain environment, ensuring that the economic aspects of the chain are robust and adaptable
+//! to different use cases.
 
 //!
 //! ## The Currency Trait
@@ -33,7 +32,7 @@
 //! approach for single-asset operations. Fungible is currently preferred over currency as the
 //! latter is deprecated.
 //!
-//! #### Holds and Freezes
+//! ### Holds and Freezes
 //!
 //! Learn more about this two concepts in
 //! [`frame_support::traits::tokens::fungible::hold`][1] and
