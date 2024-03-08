@@ -39,17 +39,13 @@ fn main() -> Result<(), String> {
 
 	// TODO: Adjust the test configurations to Kusama values
 	let options = DataAvailabilityReadOptions { fetch_from_backers: true };
-	let mut config = TestConfiguration::default();
+	let mut config = TestConfiguration::init(20, 5120, 5120);
 	config.latency = Some(PeerLatency { mean_latency_ms: 100, std_dev: 1.0 });
 	config.n_validators = 300;
-	config.n_cores = 20;
-	config.min_pov_size = 5120;
-	config.max_pov_size = 5120;
 	config.peer_bandwidth = 52428800;
 	config.bandwidth = 52428800;
 	config.num_blocks = 3;
 	config.connectivity = 90;
-	config.generate_pov_sizes();
 
 	warm_up(config.clone(), options.clone())?;
 	let usage = benchmark(config.clone(), options.clone());

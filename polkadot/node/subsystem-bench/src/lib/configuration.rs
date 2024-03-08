@@ -145,6 +145,15 @@ impl Default for TestConfiguration {
 }
 
 impl TestConfiguration {
+	pub fn init(count: usize, min_kib: usize, max_kib: usize) -> TestConfiguration {
+		let mut config = TestConfiguration::default();
+		config.n_cores = count;
+		config.min_pov_size = min_kib;
+		config.max_pov_size = max_kib;
+		config.generate_pov_sizes();
+		config
+	}
+
 	pub fn generate_pov_sizes(&mut self) {
 		self.pov_sizes = generate_pov_sizes(self.n_cores, self.min_pov_size, self.max_pov_size);
 	}

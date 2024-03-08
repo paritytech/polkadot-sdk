@@ -37,18 +37,14 @@ fn main() -> Result<(), String> {
 	let mut messages = vec![];
 
 	// TODO: Adjust the test configurations to Kusama values
-	let mut config = TestConfiguration::default();
+	let mut config = TestConfiguration::init(200, 5120, 5120);
 	config.latency = Some(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 });
 	config.n_validators = 1000;
-	config.n_cores = 200;
 	config.max_validators_per_core = 5;
-	config.min_pov_size = 5120;
-	config.max_pov_size = 5120;
 	config.peer_bandwidth = 52428800;
 	config.bandwidth = 52428800;
 	config.connectivity = 75;
 	config.num_blocks = 3;
-	config.generate_pov_sizes();
 
 	warm_up(config.clone())?;
 	let usage = benchmark(config.clone());
