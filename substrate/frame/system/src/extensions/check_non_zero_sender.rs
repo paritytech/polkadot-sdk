@@ -89,7 +89,7 @@ mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test, CALL};
 	use frame_support::{assert_ok, dispatch::DispatchInfo};
-	use sp_runtime::{traits::DispatchTransaction, TransactionValidityError};
+	use sp_runtime::{traits::DispatchTransaction, transaction_validity::TransactionValidityError};
 
 	#[test]
 	fn zero_account_ban_works() {

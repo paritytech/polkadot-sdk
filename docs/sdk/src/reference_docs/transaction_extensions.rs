@@ -13,7 +13,7 @@ pub mod transaction_extensions_example {
 	use sp_runtime::{
 		impl_tx_ext_default,
 		traits::{Dispatchable, TransactionExtension, TransactionExtensionBase},
-		TransactionValidityError,
+		transaction_validity::TransactionValidityError,
 	};
 
 	// This doesn't actually check anything, but simply allows
