@@ -229,7 +229,7 @@ impl Default for ApiVersion {
 #[test]
 fn api_version_is_up_to_date() {
 	assert_eq!(
-		107,
+		109,
 		crate::wasm::STABLE_API_COUNT,
 		"Stable API count has changed. Bump the returned value of ApiVersion::default() and update the test."
 	);
