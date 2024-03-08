@@ -24,7 +24,7 @@ fn send_transact_as_superuser_from_relay_to_system_para_works() {
 		ASSET_MIN_BALANCE,
 		true,
 		AssetHubWestendSender::get().into(),
-		Some(Weight::from_parts(1_019_445_000, 200_000)),
+		Some(Weight::from_parts(152053000, 3675)),
 	)
 }
 
@@ -42,7 +42,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		ASSET_MIN_BALANCE,
 		true,
 		para_sovereign_account.clone(),
-		Some(Weight::from_parts(1_019_445_000, 200_000)),
+		Some(Weight::from_parts(152053000, 3675)),
 		ASSET_MIN_BALANCE * 1000000000,
 	);
 
@@ -83,8 +83,8 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 		AssetHubWestend::assert_xcmp_queue_success(Some(Weight::from_parts(
-			16_290_336_000,
-			562_893,
+			14_770_030_000,
+			366_568,
 		)));
 
 		assert_expected_events!(
