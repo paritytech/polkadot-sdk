@@ -4048,7 +4048,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) {
 	<span class="kw">for </span>(peer, peer_data) <span class="kw">in </span>peers {
 		<span class="kw">if </span>peer_data.is_inactive(<span class="kw-2">&amp;</span>eviction_policy) {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Disconnecting inactive peer&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">&quot;Disconnecting inactive peer&quot;</span>);
 			disconnect_peer(sender, <span class="kw-2">*</span>peer).<span class="kw">await</span>;
 		}
 	}
