@@ -15,34 +15,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! For use cases which operate within the range of `[0, 1]` types that implement
-//! [`PerThing`](PerThing) are used:
-//! - **[`Perbill`](Perbill), parts of a billion**
+//! Types that implement [`PerThing`](PerThing) can be used as a floating-point alternative for
+//! numbers that operate within the realm of `[0, 1]`. The primary types may you encounter in
+//! Substrate would be the following:
+//! - [`Percent`](Percent) - parts of one hundred.
+//! - [`Permill`](Permill) - parts of a million.
+//! - [`Perbill`](Perbill) - parts of a billion.
+//!
+//! In use, you may see them being used as follows:
+//!
+//! > **[`Perbill`](Perbill), parts of a billion**
 #![doc = docify::embed!("./src/lib.rs", perbill_example)]
-//! - **[`Percent`](Percent), parts of a hundred**
+//! > **[`Percent`](Percent), parts of a hundred**
 #![doc = docify::embed!("./src/lib.rs", percent_example)]
 //!
-//! Note that `190 / 400 = 0.475`, and that `Percent` represents it as a _rounded down_, fixed point
-//! number (`47`). Unlike primitive types, types that implement
+//! Note that `Percent` is represented as a _rounded down_, fixed point
+//! number (see the example above). Unlike primitive types, types that implement
 //! [`PerThing`](PerThing) will also not overflow, and are therefore safe to use.
 //! They adopt the same behavior that a saturated calculation would provide, meaning that if one is
 //! to go over "100%", it wouldn't overflow, but simply stop at the upper or lower bound.
 //!
-//! For use cases which require precision beyond the range of `[0, 1]`, there are fixed-point types which can be used.
+//! For use cases which require precision beyond the range of `[0, 1]`, there are fixed-point types
+//! which can be used.
 //!
-//! Let's now explore these types in practice, and how they may be used with pallets to perform
-//! safer calculations in the runtime.
-//!
-//! ### 'PerThing' In Practice
-//!
-//! A notable trait called, called [`PerThing`](PerThing), allowing a
-//! custom type to be implemented specifically for fixed point arithmetic. While a number of
-//! fixed-point types are introduced, let's focus on a few specific examples that implement
-//! [`PerThing`](PerThing):
-//!
-//! - [`Percent`](Percent) - parts of one hundred.
-//! - [`Permill`](Permill) - parts of a million.
-//! - [`Perbill`](Perbill) - parts of a billion.
+//! Let's now explore these types in practice to perform safer calculations in the runtime.
 //!
 //! Each of these can be used to construct and represent ratios within our runtime.
 //! You will find types like [`Perbill`](Perbill) being used often in pallet
@@ -61,6 +57,7 @@
 //!
 //! As stated, one can also perform mathematics using these types directly. For example, finding the
 //! percentage of a particular item:
+
 #![doc = docify::embed!("./src/lib.rs", percent_mult)]
 
 #[cfg(feature = "serde")]

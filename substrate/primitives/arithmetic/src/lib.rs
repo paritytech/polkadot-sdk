@@ -41,38 +41,22 @@ pub mod rational;
 pub mod traits;
 
 pub use fixed_point::{
-	FixedI128,
-	FixedI64,
-	FixedPointNumber,
-	FixedPointOperand,
-	FixedU128,
-	FixedU64,
+	FixedI128, FixedI64, FixedPointNumber, FixedPointOperand, FixedU128, FixedU64,
 };
 pub use per_things::{
-	InnerOf,
-	MultiplyArg,
-	PerThing,
-	PerU16,
-	Perbill,
-	Percent,
-	Permill,
-	Perquintill,
-	RationalArg,
-	ReciprocalArg,
-	Rounding,
-	SignedRounding,
-	UpperOf,
+	InnerOf, MultiplyArg, PerThing, PerU16, Perbill, Percent, Permill, Perquintill, RationalArg,
+	ReciprocalArg, Rounding, SignedRounding, UpperOf,
 };
-pub use rational::{ MultiplyRational, Rational128, RationalInfinite };
+pub use rational::{MultiplyRational, Rational128, RationalInfinite};
 
-use sp_std::{ cmp::Ordering, fmt::Debug, prelude::* };
-use traits::{ BaseArithmetic, One, SaturatedConversion, Unsigned, Zero };
+use sp_std::{cmp::Ordering, fmt::Debug, prelude::*};
+use traits::{BaseArithmetic, One, SaturatedConversion, Unsigned, Zero};
 
-use codec::{ Decode, Encode, MaxEncodedLen };
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 #[cfg(feature = "serde")]
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 /// Arithmetic errors.
 #[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
@@ -107,9 +91,9 @@ pub trait ThresholdOrd<T> {
 	fn tcmp(&self, other: &T, threshold: T) -> Ordering;
 }
 
-impl<T> ThresholdOrd<T>
-	for T
-	where T: Ord + PartialOrd + Copy + Clone + traits::Zero + traits::Saturating
+impl<T> ThresholdOrd<T> for T
+where
+	T: Ord + PartialOrd + Copy + Clone + traits::Zero + traits::Saturating,
 {
 	fn tcmp(&self, other: &T, threshold: T) -> Ordering {
 		// early exit.
@@ -162,22 +146,15 @@ impl_normalize_for_numeric!(u8, u16, u32, u64, u128);
 
 impl<P: PerThing> Normalizable<P> for Vec<P> {
 	fn normalize(&self, targeted_sum: P) -> Result<Vec<P>, &'static str> {
-		let uppers = self
-			.iter()
-			.map(|p| <UpperOf<P>>::from(p.deconstruct()))
-			.collect::<Vec<_>>();
+		let uppers = self.iter().map(|p| <UpperOf<P>>::from(p.deconstruct())).collect::<Vec<_>>();
 
-		let normalized = normalize(
-			uppers.as_ref(),
-			<UpperOf<P>>::from(targeted_sum.deconstruct())
-		)?;
+		let normalized =
+			normalize(uppers.as_ref(), <UpperOf<P>>::from(targeted_sum.deconstruct()))?;
 
-		Ok(
-			normalized
-				.into_iter()
-				.map(|i: UpperOf<P>| P::from_parts(i.saturated_into::<P::Inner>()))
-				.collect()
-		)
+		Ok(normalized
+			.into_iter()
+			.map(|i: UpperOf<P>| P::from_parts(i.saturated_into::<P::Inner>()))
+			.collect())
 	}
 }
 
@@ -211,7 +188,8 @@ impl<P: PerThing> Normalizable<P> for Vec<P> {
 ///
 /// * This proof is used in the implementation as well.
 pub fn normalize<T>(input: &[T], targeted_sum: T) -> Result<Vec<T>, &'static str>
-	where T: Clone + Copy + Ord + BaseArithmetic + Unsigned + Debug
+where
+	T: Clone + Copy + Ord + BaseArithmetic + Unsigned + Debug,
 {
 	// compute sum and return error if failed.
 	let mut sum = T::zero();
@@ -252,7 +230,8 @@ pub fn normalize<T>(input: &[T], targeted_sum: T) -> Result<Vec<T>, &'static str
 
 		if !per_round.is_zero() {
 			for _ in 0..count {
-				output_with_idx[min_index].1 = output_with_idx[min_index].1
+				output_with_idx[min_index].1 = output_with_idx[min_index]
+					.1
 					.checked_add(&per_round)
 					.expect("Proof provided in the module doc; qed.");
 				if output_with_idx[min_index].1 >= threshold {
@@ -264,7 +243,8 @@ pub fn normalize<T>(input: &[T], targeted_sum: T) -> Result<Vec<T>, &'static str
 
 		// continue with the previous min_index
 		while !leftover.is_zero() {
-			output_with_idx[min_index].1 = output_with_idx[min_index].1
+			output_with_idx[min_index].1 = output_with_idx[min_index]
+				.1
 				.checked_add(&T::one())
 				.expect("Proof provided in the module doc; qed.");
 			if output_with_idx[min_index].1 >= threshold {
@@ -281,13 +261,13 @@ pub fn normalize<T>(input: &[T], targeted_sum: T) -> Result<Vec<T>, &'static str
 		// at this threshold we move to next index.
 		let threshold = output_with_idx
 			.first()
-			.expect("length of input is greater than zero; it must have a first; qed").1;
+			.expect("length of input is greater than zero; it must have a first; qed")
+			.1;
 
 		if !per_round.is_zero() {
 			for _ in 0..count {
-				output_with_idx[max_index].1 = output_with_idx[max_index].1
-					.checked_sub(&per_round)
-					.unwrap_or_else(|| {
+				output_with_idx[max_index].1 =
+					output_with_idx[max_index].1.checked_sub(&per_round).unwrap_or_else(|| {
 						let remainder = per_round - output_with_idx[max_index].1;
 						leftover += remainder;
 						output_with_idx[max_index].1.saturating_sub(per_round)
@@ -322,12 +302,7 @@ pub fn normalize<T>(input: &[T], targeted_sum: T) -> Result<Vec<T>, &'static str
 
 	// sort again based on the original index.
 	output_with_idx.sort_by_key(|x| x.0);
-	Ok(
-		output_with_idx
-			.into_iter()
-			.map(|(_, t)| t)
-			.collect()
-	)
+	Ok(output_with_idx.into_iter().map(|(_, t)| t).collect())
 }
 
 #[cfg(test)]
@@ -406,7 +381,7 @@ mod normalize_tests {
 			vec![
 				PerU16::from_parts(21845), // 33%
 				PerU16::from_parts(21845), // 33%
-				PerU16::from_parts(21845) // 33%
+				PerU16::from_parts(21845)  // 33%
 			]
 		);
 	}
@@ -505,11 +480,7 @@ mod per_and_fixed_examples {
 		// 1] In cases where we need > 1, we can used fixed types such as FixedU64
 
 		let rational_1 = FixedU64::from_rational(10, 5); //" 200%" aka 2.
-		let rational_2 = FixedU64::from_rational_with_rounding(
-			5,
-			10,
-			Rounding::Down
-		); // "50%" aka 0.50...
+		let rational_2 = FixedU64::from_rational_with_rounding(5, 10, Rounding::Down); // "50%" aka 0.50...
 
 		assert_eq!(rational_1, (2u64).into());
 		assert_eq!(rational_2.into_perbill(), Perbill::from_float(0.5));

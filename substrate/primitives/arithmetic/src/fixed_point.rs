@@ -22,7 +22,7 @@
 //!
 //! ### Fixed Point Types in Practice
 //!
-//! As said earlier, if one needs to exceed the value of one, then
+//! If one needs to exceed the value of one (1), then
 //! [`FixedU64`](FixedU64) (and its signed and `u128` counterparts) can be utilized.
 //! Take for example this very rudimentary pricing mechanism, where we wish to calculate the demand
 //! / supply to get a price for some on-chain compute:
@@ -31,7 +31,8 @@
 	fixed_u64_block_computation_example
 )]
 //!
-//! For a much more comprehensive example, be sure to look at the source for pallet_broker.
+//! For a much more comprehensive example, be sure to look at the source for broker (the "coretime")
+//! pallet.
 //!
 //! #### Fixed Point Types in Practice
 //!
