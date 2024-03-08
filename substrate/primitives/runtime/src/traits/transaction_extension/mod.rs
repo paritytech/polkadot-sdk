@@ -72,7 +72,7 @@ pub trait TransactionExtensionBase: TransactionExtensionInterior {
 	/// any data which is signed and verified as part of transactiob validation. Also perform any
 	/// pre-signature-verification checks and return an error if needed.
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		use crate::InvalidTransaction::IndeterminateImplicit;
+		use crate::transaction_validity::InvalidTransaction::IndeterminateImplicit;
 		Ok(Self::Implicit::decode(&mut &[][..]).map_err(|_| IndeterminateImplicit)?)
 	}
 
@@ -369,7 +369,7 @@ macro_rules! impl_tx_ext_default {
 			_info: &$crate::traits::DispatchInfoOf<$call>,
 			_len: usize,
 			_context: & $context,
-		) -> Result<Self::Pre, $crate::TransactionValidityError> {
+		) -> Result<Self::Pre, $crate::transaction_validity::TransactionValidityError> {
 			Ok(Default::default())
 		}
 		impl_tx_ext_default!{$call ; $context ; $( $rest )*}

@@ -74,7 +74,7 @@ impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Cont
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> sp_runtime::traits::ValidateResult<Self::Val, T::RuntimeCall> {
-		if let Some(who) = origin.as_system_signer() {
+		if let Some(who) = origin.as_signer() {
 			if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
 				return Err(InvalidTransaction::BadSigner.into())
 			}

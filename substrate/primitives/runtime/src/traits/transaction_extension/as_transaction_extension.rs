@@ -25,7 +25,7 @@ use sp_core::RuntimeDebug;
 
 use crate::{
 	traits::{AsSystemOriginSigner, SignedExtension, ValidateResult},
-	InvalidTransaction,
+	transaction_validity::InvalidTransaction,
 };
 
 use super::*;

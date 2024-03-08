@@ -553,8 +553,8 @@ pub trait OriginTrait: Sized {
 		self.caller().as_system_ref()
 	}
 
-	/// Extract a reference to the sytsem signer, if that's what the caller is.
-	fn as_system_signer(&self) -> Option<&Self::AccountId> {
+	/// Extract a reference to the signer, if that's what the caller is.
+	fn as_signer(&self) -> Option<&Self::AccountId> {
 		self.caller().as_system_ref().and_then(|s| {
 			if let RawOrigin::Signed(ref who) = s {
 				Some(who)

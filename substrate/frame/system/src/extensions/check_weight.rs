@@ -27,8 +27,8 @@ use sp_runtime::{
 		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
 		TransactionExtensionBase, ValidateResult,
 	},
-	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	DispatchResult, ValidTransaction,
+	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
+	DispatchResult,
 };
 use sp_weights::Weight;
 

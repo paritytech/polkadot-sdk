@@ -1659,11 +1659,11 @@ pub trait SignedExtension:
 	/// If you ever override this function, you need not perform the same validation as in
 	/// `validate_unsigned`.
 	fn pre_dispatch_unsigned(
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
 	) -> Result<(), TransactionValidityError> {
-		Ok(())
+		Self::validate_unsigned(call, info, len).map(|_| ()).map_err(Into::into)
 	}
 }
 
@@ -1713,7 +1713,6 @@ pub trait GetNodeBlockType {
 /// function is called right before dispatching the call wrapped by an unsigned extrinsic. The
 /// [`validate_unsigned`](Self::validate_unsigned) function is mainly being used in the context of
 /// the transaction pool to check the validity of the call wrapped by an unsigned extrinsic.
-// TODO: Rename to ValidateBareTransaction (or just remove).
 pub trait ValidateUnsigned {
 	/// The call to validate
 	type Call;
