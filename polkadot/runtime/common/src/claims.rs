@@ -174,13 +174,6 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
-	#[cfg(feature = "runtime-benchmarks")]
-	/// Helper trait to benchmark the `PrevalidateAttests` transaction extension.
-	pub trait BenchmarkHelperTrait<RuntimeCall, DispatchInfo> {
-		/// `Call` to be used when benchmarking the transaction extension.
-		fn default_call_and_info() -> (RuntimeCall, DispatchInfo);
-	}
-
 	/// Configuration trait.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -191,12 +184,6 @@ pub mod pallet {
 		type Prefix: Get<&'static [u8]>;
 		type MoveClaimOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
-		#[cfg(feature = "runtime-benchmarks")]
-		/// Benchmark helper
-		type BenchmarkHelper: BenchmarkHelperTrait<
-			Self::RuntimeCall,
-			DispatchInfoOf<Self::RuntimeCall>,
-		>;
 	}
 
 	#[pallet::event]
@@ -815,19 +802,6 @@ pub(super) mod tests {
 		type Prefix = Prefix;
 		type MoveClaimOrigin = frame_system::EnsureSignedBy<Six, u64>;
 		type WeightInfo = TestWeightInfo;
-		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper = ();
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	impl BenchmarkHelperTrait<RuntimeCall, DispatchInfoOf<RuntimeCall>> for () {
-		fn default_call_and_info() -> (RuntimeCall, DispatchInfoOf<RuntimeCall>) {
-			let call = RuntimeCall::Claims(crate::claims::Call::attest {
-				statement: StatementKind::Regular.to_text().to_vec(),
-			});
-			let info = call.get_dispatch_info();
-			(call, info)
-		}
 	}
 
 	fn alice() -> libsecp256k1::SecretKey {
@@ -1486,7 +1460,10 @@ pub(super) mod benchmarking {
 	use super::*;
 	use crate::claims::Call;
 	use frame_benchmarking::{account, benchmarks};
-	use frame_support::traits::UnfilteredDispatchable;
+	use frame_support::{
+		dispatch::{DispatchInfo, GetDispatchInfo},
+		traits::UnfilteredDispatchable,
+	};
 	use frame_system::RawOrigin;
 	use secp_utils::*;
 	use sp_runtime::{
@@ -1528,7 +1505,8 @@ pub(super) mod benchmarking {
 	}
 
 	benchmarks! {
-		where_clause { where <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+		where_clause { where <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>> + From<Call<T>>,
+			<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: Default,
 		}
@@ -1720,7 +1698,11 @@ pub(super) mod benchmarking {
 			}
 
 			let ext = PrevalidateAttests::<T>::new();
-			let (call, info) = T::BenchmarkHelper::default_call_and_info();
+			let call = super::Call::attest {
+				statement: StatementKind::Regular.to_text().to_vec(),
+			};
+			let call: <T as frame_system::Config>::RuntimeCall = call.into();
+			let info = call.get_dispatch_info();
 			let attest_c = u32::MAX - c;
 			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
 			let eth_address = eth(&secret_key);
