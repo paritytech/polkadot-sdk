@@ -76,7 +76,7 @@ fn warm_up(config: TestConfiguration, options: DataAvailabilityReadOptions) -> R
 		if let Some(ref prev) = prev_run {
 			let diff = curr.cpu_usage_diff(prev, "availability-recovery").expect("Must exist");
 			if diff < WARM_UP_PRECISION {
-				return Ok(())
+				return Ok(());
 			}
 		}
 		prev_run = Some(curr);
@@ -86,7 +86,7 @@ fn warm_up(config: TestConfiguration, options: DataAvailabilityReadOptions) -> R
 }
 
 fn benchmark(config: TestConfiguration, options: DataAvailabilityReadOptions) -> BenchmarkUsage {
-	println!("Benchmarking...");
+	println!("Benchmarking data_availability_read...");
 	let usages: Vec<BenchmarkUsage> =
 		(0..BENCH_COUNT).map(|_| run(config.clone(), options.clone())).collect();
 	let usage = BenchmarkUsage::average(&usages);
@@ -98,6 +98,5 @@ fn run(config: TestConfiguration, options: DataAvailabilityReadOptions) -> Bench
 	let mut state = TestState::new(&config);
 	let (mut env, _protocol_config) =
 		prepare_test(config.clone(), &mut state, TestDataAvailability::Read(options), false);
-	env.runtime()
-		.block_on(benchmark_availability_read("data_availability_read", &mut env, state))
+	env.runtime().block_on(benchmark_availability_read(&mut env, state))
 }

@@ -113,11 +113,11 @@ impl Display for TestMetric {
 fn check_metric_family(mf: &MetricFamily) -> bool {
 	if mf.get_metric().is_empty() {
 		gum::error!(target: LOG_TARGET, "MetricFamily has no metrics: {:?}", mf);
-		return false
+		return false;
 	}
 	if mf.get_name().is_empty() {
 		gum::error!(target: LOG_TARGET, "MetricFamily has no name: {:?}", mf);
-		return false
+		return false;
 	}
 
 	true
@@ -128,7 +128,7 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 	let mut test_metrics = Vec::new();
 	for mf in metric_families {
 		if !check_metric_family(&mf) {
-			continue
+			continue;
 		}
 
 		let name: String = mf.get_name().into();

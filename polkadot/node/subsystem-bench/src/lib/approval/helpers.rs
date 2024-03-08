@@ -61,8 +61,8 @@ impl PastSystemClock {
 
 impl Clock for PastSystemClock {
 	fn tick_now(&self) -> Tick {
-		self.real_system_clock.tick_now() -
-			self.delta_ticks.load(std::sync::atomic::Ordering::SeqCst)
+		self.real_system_clock.tick_now()
+			- self.delta_ticks.load(std::sync::atomic::Ordering::SeqCst)
 	}
 
 	fn wait(

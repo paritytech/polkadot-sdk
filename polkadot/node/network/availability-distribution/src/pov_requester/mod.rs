@@ -117,11 +117,11 @@ async fn do_fetch_pov(
 		Ok(PoVFetchingResponse::PoV(pov)) => pov,
 		Ok(PoVFetchingResponse::NoSuchPoV) => {
 			metrics.on_fetched_pov(NOT_FOUND);
-			return Err(Error::NoSuchPoV)
+			return Err(Error::NoSuchPoV);
 		},
 		Err(err) => {
 			metrics.on_fetched_pov(FAILED);
-			return Err(err)
+			return Err(err);
 		},
 	};
 	if pov.hash() == pov_hash {
@@ -237,7 +237,7 @@ mod tests {
 								ProtocolName::from(""),
 							)))
 							.unwrap();
-						break
+						break;
 					},
 					msg => gum::debug!(target: LOG_TARGET, msg = ?msg, "Received msg"),
 				}

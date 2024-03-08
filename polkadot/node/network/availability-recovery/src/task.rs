@@ -216,14 +216,15 @@ impl State {
 				requesting_chunks.push(Box::pin(async move {
 					let _timer = timer;
 					match res.await {
-						Ok(req_res::v1::ChunkFetchingResponse::Chunk(chunk)) =>
-							Ok(Some(chunk.recombine_into_chunk(&raw_request))),
+						Ok(req_res::v1::ChunkFetchingResponse::Chunk(chunk)) => {
+							Ok(Some(chunk.recombine_into_chunk(&raw_request)))
+						},
 						Ok(req_res::v1::ChunkFetchingResponse::NoSuchChunk) => Ok(None),
 						Err(e) => Err((validator_index, e)),
 					}
 				}));
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -259,7 +260,7 @@ impl State {
 			total_received_responses += 1;
 
 			match request_result {
-				Ok(Some(chunk)) =>
+				Ok(Some(chunk)) => {
 					if is_chunk_valid(params, &chunk) {
 						metrics.on_chunk_request_succeeded();
 						gum::trace!(
@@ -272,7 +273,8 @@ impl State {
 					} else {
 						metrics.on_chunk_request_invalid();
 						error_count += 1;
-					},
+					}
+				},
 				Ok(None) => {
 					metrics.on_chunk_request_no_such_chunk();
 					error_count += 1;
@@ -337,7 +339,7 @@ impl State {
 					threshold = ?params.threshold,
 					"Can conclude availability for a candidate",
 				);
-				break
+				break;
 			}
 		}
 
@@ -397,7 +399,7 @@ where
 	/// in-order and return whenever the first one recovers the full `AvailableData`.
 	pub async fn run(mut self) -> Result<AvailableData, RecoveryError> {
 		if let Some(data) = self.in_availability_store().await {
-			return Ok(data)
+			return Ok(data);
 		}
 
 		self.params.metrics.on_recovery_started();
@@ -415,7 +417,7 @@ where
 			let res = current_strategy.run(&mut self.state, &mut self.sender, &self.params).await;
 
 			match res {
-				Err(RecoveryError::Unavailable) =>
+				Err(RecoveryError::Unavailable) => {
 					if self.strategies.front().is_some() {
 						gum::debug!(
 							target: LOG_TARGET,
@@ -423,18 +425,19 @@ where
 							"Recovery strategy `{}` did not conclude. Trying the next one.",
 							current_strategy.display_name(),
 						);
-						continue
-					},
+						continue;
+					}
+				},
 				Err(err) => {
 					match &err {
 						RecoveryError::Invalid => self.params.metrics.on_recovery_invalid(),
 						_ => self.params.metrics.on_recovery_failed(),
 					}
-					return Err(err)
+					return Err(err);
 				},
 				Ok(data) => {
 					self.params.metrics.on_recovery_succeeded(data.encoded_size());
-					return Ok(data)
+					return Ok(data);
 				},
 			}
 		}
@@ -524,8 +527,9 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 							reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?
 						},
-						PostRecoveryCheck::PovHash =>
-							(data.pov.hash() == common_params.pov_hash).then_some(data),
+						PostRecoveryCheck::PovHash => {
+							(data.pov.hash() == common_params.pov_hash).then_some(data)
+						},
 					};
 
 					match maybe_data {
@@ -536,7 +540,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 								"Received full data",
 							);
 
-							return Ok(data)
+							return Ok(data);
 						},
 						None => {
 							gum::debug!(
@@ -687,7 +691,7 @@ impl FetchChunks {
 							None
 						})
 					},
-					PostRecoveryCheck::PovHash =>
+					PostRecoveryCheck::PovHash => {
 						(data.pov.hash() == common_params.pov_hash).then_some(data).or_else(|| {
 							gum::trace!(
 								target: LOG_TARGET,
@@ -696,7 +700,8 @@ impl FetchChunks {
 								"Data recovery error - PoV hash mismatch",
 							);
 							None
-						}),
+						})
+					},
 				};
 
 				if let Some(data) = maybe_data {
@@ -758,7 +763,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			// Do this before requesting any chunks because we may have enough of them coming from
 			// past RecoveryStrategies.
 			if state.chunk_count() >= common_params.threshold {
-				return self.attempt_recovery(state, common_params).await
+				return self.attempt_recovery(state, common_params).await;
 			}
 
 			if Self::is_unavailable(
@@ -778,7 +783,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					"Data recovery from chunks is not possible",
 				);
 
-				return Err(RecoveryError::Unavailable)
+				return Err(RecoveryError::Unavailable);
 			}
 
 			let desired_requests_count =
@@ -810,8 +815,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					&mut self.validators,
 					&mut self.requesting_chunks,
 					|unrequested_validators, reqs, chunk_count, params, _error_count| {
-						chunk_count >= params.threshold ||
-							Self::is_unavailable(
+						chunk_count >= params.threshold
+							|| Self::is_unavailable(
 								unrequested_validators,
 								reqs,
 								chunk_count,

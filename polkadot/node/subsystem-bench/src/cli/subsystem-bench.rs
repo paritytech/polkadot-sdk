@@ -107,7 +107,7 @@ impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
 		let is_valgrind_running = valgrind::is_valgrind_running();
 		if !is_valgrind_running && self.cache_misses {
-			return valgrind::relaunch_in_valgrind_mode()
+			return valgrind::relaunch_in_valgrind_mode();
 		}
 
 		let agent_running = if self.profile {
@@ -129,7 +129,6 @@ impl BenchCli {
 		for (index, CliTestConfiguration { objective, mut test_config }) in
 			test_sequence.into_iter().enumerate()
 		{
-			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, objective);
 			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {:?}", objective).green(), test_config);
 			test_config.generate_pov_sizes();
@@ -143,11 +142,8 @@ impl BenchCli {
 						availability::TestDataAvailability::Read(opts),
 						true,
 					);
-					env.runtime().block_on(availability::benchmark_availability_read(
-						&benchmark_name,
-						&mut env,
-						state,
-					))
+					env.runtime()
+						.block_on(availability::benchmark_availability_read(&mut env, state))
 				},
 				TestObjective::DataAvailabilityWrite => {
 					let mut state = availability::TestState::new(&test_config);
@@ -157,20 +153,13 @@ impl BenchCli {
 						availability::TestDataAvailability::Write,
 						true,
 					);
-					env.runtime().block_on(availability::benchmark_availability_write(
-						&benchmark_name,
-						&mut env,
-						state,
-					))
+					env.runtime()
+						.block_on(availability::benchmark_availability_write(&mut env, state))
 				},
 				TestObjective::ApprovalVoting(ref options) => {
 					let (mut env, state) =
 						approval::prepare_test(test_config.clone(), options.clone(), true);
-					env.runtime().block_on(approval::bench_approvals(
-						&benchmark_name,
-						&mut env,
-						state,
-					))
+					env.runtime().block_on(approval::bench_approvals(&mut env, state))
 				},
 			};
 			println!("{}", usage);

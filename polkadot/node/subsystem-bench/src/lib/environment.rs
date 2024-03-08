@@ -343,17 +343,14 @@ impl TestEnvironment {
 
 			gum::debug!(target: LOG_TARGET, metric_name, current_value, "Waiting for metric");
 			if condition(current_value) {
-				break
+				break;
 			}
 			// Check value every 50ms.
 			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 		}
 	}
 
-	pub fn collect_resource_usage(
-		&self,
-		subsystems_under_test: &[&str],
-	) -> BenchmarkUsage {
+	pub fn collect_resource_usage(&self, subsystems_under_test: &[&str]) -> BenchmarkUsage {
 		BenchmarkUsage {
 			network_usage: self.network_usage(),
 			cpu_usage: self.cpu_usage(subsystems_under_test),

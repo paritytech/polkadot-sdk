@@ -106,7 +106,7 @@ impl SessionCache {
 	{
 		if let Some(o_info) = self.session_info_cache.get(&session_index) {
 			gum::trace!(target: LOG_TARGET, session_index, "Got session from lru");
-			return Ok(Some(with_info(o_info)))
+			return Ok(Some(with_info(o_info)));
 		}
 
 		if let Some(info) =
@@ -209,8 +209,8 @@ impl SessionCache {
 				.collect();
 
 			let info = SessionInfo { validator_groups, our_index, session_index, our_group };
-			return Ok(Some(info))
+			return Ok(Some(info));
 		}
-		return Ok(None)
+		return Ok(None);
 	}
 }

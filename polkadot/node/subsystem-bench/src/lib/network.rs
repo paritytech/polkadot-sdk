@@ -134,7 +134,7 @@ impl RateLimit {
 		self.credits -= amount as isize;
 
 		if self.credits >= 0 {
-			return
+			return;
 		}
 
 		while self.credits < 0 {
@@ -165,12 +165,15 @@ impl NetworkMessage {
 			NetworkMessage::MessageFromPeer(_, Versioned::V2(message)) => message.encoded_size(),
 			NetworkMessage::MessageFromPeer(_, Versioned::V1(message)) => message.encoded_size(),
 			NetworkMessage::MessageFromPeer(_, Versioned::V3(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromNode(_peer_id, Versioned::V2(message)) =>
-				message.encoded_size(),
-			NetworkMessage::MessageFromNode(_peer_id, Versioned::V1(message)) =>
-				message.encoded_size(),
-			NetworkMessage::MessageFromNode(_peer_id, Versioned::V3(message)) =>
-				message.encoded_size(),
+			NetworkMessage::MessageFromNode(_peer_id, Versioned::V2(message)) => {
+				message.encoded_size()
+			},
+			NetworkMessage::MessageFromNode(_peer_id, Versioned::V1(message)) => {
+				message.encoded_size()
+			},
+			NetworkMessage::MessageFromNode(_peer_id, Versioned::V3(message)) => {
+				message.encoded_size()
+			},
 			NetworkMessage::RequestFromNode(_peer_id, incoming) => incoming.size(),
 			NetworkMessage::RequestFromPeer(request) => request.payload.encoded_size(),
 		}
@@ -179,8 +182,8 @@ impl NetworkMessage {
 	/// Returns the destination peer from the message or `None` if it originates from a peer.
 	pub fn peer(&self) -> Option<&AuthorityDiscoveryId> {
 		match &self {
-			NetworkMessage::MessageFromNode(peer_id, _) |
-			NetworkMessage::RequestFromNode(peer_id, _) => Some(peer_id),
+			NetworkMessage::MessageFromNode(peer_id, _)
+			| NetworkMessage::RequestFromNode(peer_id, _) => Some(peer_id),
 			_ => None,
 		}
 	}
@@ -347,8 +350,9 @@ impl NetworkInterface {
 					task_tx_limiter.lock().await.reap(size).await;
 
 					match peer_message {
-						NetworkMessage::MessageFromNode(peer, message) =>
-							tx_network.send_message_to_peer(&peer, message),
+						NetworkMessage::MessageFromNode(peer, message) => {
+							tx_network.send_message_to_peer(&peer, message)
+						},
 						NetworkMessage::RequestFromNode(peer, request) => {
 							// Send request through a proxy so we can account and limit bandwidth
 							// usage for the node.
@@ -370,7 +374,7 @@ impl NetworkInterface {
 					tx_network.inc_sent(size);
 				} else {
 					gum::info!(target: LOG_TARGET, "Downlink channel closed, network interface task exiting");
-					break
+					break;
 				}
 			}
 		}
@@ -861,7 +865,7 @@ impl NetworkEmulatorHandle {
 
 		if !dst_peer.is_connected() {
 			gum::warn!(target: LOG_TARGET, "Attempted to send message from a peer not connected to our node, operation ignored");
-			return Err(EmulatedPeerError::NotConnected)
+			return Err(EmulatedPeerError::NotConnected);
 		}
 
 		dst_peer.handle().send_message(message);
@@ -878,7 +882,7 @@ impl NetworkEmulatorHandle {
 
 		if !dst_peer.is_connected() {
 			gum::warn!(target: LOG_TARGET, "Attempted to send request from a peer not connected to our node, operation ignored");
-			return Err(EmulatedPeerError::NotConnected)
+			return Err(EmulatedPeerError::NotConnected);
 		}
 
 		dst_peer.handle().send_request(request);
@@ -1004,8 +1008,9 @@ impl RequestExt for Requests {
 	fn into_response_sender(self) -> ResponseSender {
 		match self {
 			Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.pending_response,
-			Requests::AvailableDataFetchingV1(outgoing_request) =>
-				outgoing_request.pending_response,
+			Requests::AvailableDataFetchingV1(outgoing_request) => {
+				outgoing_request.pending_response
+			},
 			_ => unimplemented!("unsupported request type"),
 		}
 	}
@@ -1013,10 +1018,12 @@ impl RequestExt for Requests {
 	/// Swaps the `ResponseSender` and returns the previous value.
 	fn swap_response_sender(&mut self, new_sender: ResponseSender) -> ResponseSender {
 		match self {
-			Requests::ChunkFetchingV1(outgoing_request) =>
-				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
-			Requests::AvailableDataFetchingV1(outgoing_request) =>
-				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
+			Requests::ChunkFetchingV1(outgoing_request) => {
+				std::mem::replace(&mut outgoing_request.pending_response, new_sender)
+			},
+			Requests::AvailableDataFetchingV1(outgoing_request) => {
+				std::mem::replace(&mut outgoing_request.pending_response, new_sender)
+			},
 			_ => unimplemented!("unsupported request type"),
 		}
 	}
@@ -1025,8 +1032,9 @@ impl RequestExt for Requests {
 	fn size(&self) -> usize {
 		match self {
 			Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.payload.encoded_size(),
-			Requests::AvailableDataFetchingV1(outgoing_request) =>
-				outgoing_request.payload.encoded_size(),
+			Requests::AvailableDataFetchingV1(outgoing_request) => {
+				outgoing_request.payload.encoded_size()
+			},
 			_ => unimplemented!("received an unexpected request"),
 		}
 	}
@@ -1061,8 +1069,8 @@ mod tests {
 
 		// Allow up to `budget/max_refill` error tolerance
 		let lower_bound = budget as u128 * ((end - start).as_millis() / 1000u128);
-		let upper_bound = budget as u128 *
-			((end - start).as_millis() / 1000u128 + rate_limiter.max_refill as u128);
+		let upper_bound = budget as u128
+			* ((end - start).as_millis() / 1000u128 + rate_limiter.max_refill as u128);
 		assert!(total_sent as u128 >= lower_bound);
 		assert!(total_sent as u128 <= upper_bound);
 	}

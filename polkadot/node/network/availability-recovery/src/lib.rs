@@ -153,7 +153,7 @@ fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
 					error = ?e,
 					"Invalid Merkle proof",
 				);
-				return false
+				return false;
 			},
 		};
 	let erasure_chunk_hash = BlakeTwo256::hash(&chunk.chunk);
@@ -164,7 +164,7 @@ fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
 			validator_index = ?chunk.index,
 			"Merkle proof mismatch"
 		);
-		return false
+		return false;
 	}
 	true
 }
@@ -200,7 +200,7 @@ fn reconstructed_data_matches_root(
 				err = ?e,
 				"Failed to obtain chunks",
 			);
-			return false
+			return false;
 		},
 	};
 
@@ -245,7 +245,7 @@ impl Future for RecoveryHandle {
 				"All receivers for available data dropped.",
 			);
 
-			return Poll::Ready(None)
+			return Poll::Ready(None);
 		}
 
 		let remote = &mut self.remote;
@@ -421,14 +421,14 @@ async fn handle_recover<Context>(
 				"Error responding with an availability recovery result",
 			);
 		}
-		return Ok(())
+		return Ok(());
 	}
 
 	if let Some(i) =
 		state.ongoing_recoveries.iter_mut().find(|i| i.candidate_hash == candidate_hash)
 	{
 		i.awaiting.push(response_sender);
-		return Ok(())
+		return Ok(());
 	}
 
 	let _span = span.child("not-cached");
@@ -475,8 +475,8 @@ async fn handle_recover<Context>(
 					};
 
 					match (&recovery_strategy_kind, small_pov_size) {
-						(RecoveryStrategyKind::BackersFirstAlways, _) |
-						(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) => recovery_strategies.push_back(
+						(RecoveryStrategyKind::BackersFirstAlways, _)
+						| (RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) => recovery_strategies.push_back(
 							Box::new(FetchFull::new(FetchFullParams {
 								validators: backing_validators.to_vec(),
 								erasure_task_tx: erasure_task_tx.clone(),
@@ -851,7 +851,7 @@ async fn erasure_task_thread(
 					target: LOG_TARGET,
 					"Erasure task channel closed. Node shutting down ?",
 				);
-				break
+				break;
 			},
 		}
 

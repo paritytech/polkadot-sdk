@@ -83,11 +83,11 @@ fn warm_up(config: TestConfiguration) -> Result<(), String> {
 				curr.cpu_usage_diff(prev, "bitfield-distribution").expect("Must exist");
 			let av_store_diff =
 				curr.cpu_usage_diff(prev, "availability-store").expect("Must exist");
-			if av_distr_diff < WARM_UP_PRECISION &&
-				bitf_distr_diff < WARM_UP_PRECISION &&
-				av_store_diff < WARM_UP_PRECISION
+			if av_distr_diff < WARM_UP_PRECISION
+				&& bitf_distr_diff < WARM_UP_PRECISION
+				&& av_store_diff < WARM_UP_PRECISION
 			{
-				return Ok(())
+				return Ok(());
 			}
 		}
 		prev_run = Some(curr);
@@ -97,7 +97,7 @@ fn warm_up(config: TestConfiguration) -> Result<(), String> {
 }
 
 fn benchmark(config: TestConfiguration) -> BenchmarkUsage {
-	println!("Benchmarking...");
+	println!("Benchmarking data_availability_write...");
 	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT).map(|_| run(config.clone())).collect();
 	let usage = BenchmarkUsage::average(&usages);
 	println!("{}", usage);
@@ -108,6 +108,5 @@ fn run(config: TestConfiguration) -> BenchmarkUsage {
 	let mut state = TestState::new(&config);
 	let (mut env, _protocol_config) =
 		prepare_test(config.clone(), &mut state, TestDataAvailability::Write, false);
-	env.runtime()
-		.block_on(benchmark_availability_write("data_availability_write", &mut env, state))
+	env.runtime().block_on(benchmark_availability_write(&mut env, state))
 }

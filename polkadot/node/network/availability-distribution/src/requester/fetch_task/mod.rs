@@ -156,7 +156,7 @@ impl FetchTaskConfig {
 
 		// Don't run tasks for our backing group:
 		if session_info.our_group == Some(core.group_responsible) {
-			return FetchTaskConfig { live_in, prepared_running: None }
+			return FetchTaskConfig { live_in, prepared_running: None };
 		}
 
 		let prepared_running = RunningTask {
@@ -285,11 +285,11 @@ impl RunningTask {
 						"Node seems to be shutting down, canceling fetch task"
 					);
 					self.metrics.on_fetch(FAILED);
-					return
+					return;
 				},
 				Err(TaskError::PeerError) => {
 					bad_validators.push(validator);
-					continue
+					continue;
 				},
 			};
 			// We drop the span here, so that the span is not active while we recombine the chunk.
@@ -312,7 +312,7 @@ impl RunningTask {
 						"Validator did not have our chunk"
 					);
 					bad_validators.push(validator);
-					continue
+					continue;
 				},
 			};
 			// We drop the span so that the span is not active whilst we validate and store the
@@ -326,13 +326,13 @@ impl RunningTask {
 			// Data genuine?
 			if !self.validate_chunk(&validator, &chunk) {
 				bad_validators.push(validator);
-				continue
+				continue;
 			}
 
 			// Ok, let's store it and be happy:
 			self.store_chunk(chunk).await;
 			succeeded = true;
-			break
+			break;
 		}
 		span.add_int_tag("tries", count as _);
 		if succeeded {
@@ -439,13 +439,13 @@ impl RunningTask {
 						error = ?e,
 						"Failed to calculate chunk merkle proof",
 					);
-					return false
+					return false;
 				},
 			};
 		let erasure_chunk_hash = BlakeTwo256::hash(&chunk.chunk);
 		if anticipated_hash != erasure_chunk_hash {
 			gum::warn!(target: LOG_TARGET, origin = ?validator,  "Received chunk does not match merkle tree");
-			return false
+			return false;
 		}
 		true
 	}

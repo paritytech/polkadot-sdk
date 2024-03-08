@@ -449,7 +449,6 @@ impl TestState {
 }
 
 pub async fn benchmark_availability_read(
-	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: TestState,
 ) -> BenchmarkUsage {
@@ -513,11 +512,10 @@ pub async fn benchmark_availability_read(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage( &["availability-recovery"])
+	env.collect_resource_usage(&["availability-recovery"])
 }
 
 pub async fn benchmark_availability_write(
-	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: TestState,
 ) -> BenchmarkUsage {
@@ -589,8 +587,8 @@ pub async fn benchmark_availability_write(
 				.get(index)
 				.expect("all validators have keys");
 
-			if env.network().is_peer_connected(peer) &&
-				env.network().send_request_from_peer(peer, request).is_ok()
+			if env.network().is_peer_connected(peer)
+				&& env.network().send_request_from_peer(peer, request).is_ok()
 			{
 				receivers.push(pending_response_receiver);
 			}
@@ -674,9 +672,11 @@ pub async fn benchmark_availability_write(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(
-		&["availability-distribution", "bitfield-distribution", "availability-store"],
-	)
+	env.collect_resource_usage(&[
+		"availability-distribution",
+		"bitfield-distribution",
+		"availability-store",
+	])
 }
 
 pub fn peer_bitfield_message_v2(

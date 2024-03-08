@@ -85,7 +85,7 @@ fn spawn_virtual_overseer(
 			loop {
 				let msg = ctx_handle.try_recv().await;
 				if msg.is_none() {
-					break
+					break;
 				}
 				match msg.unwrap() {
 					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(..)) => {},
