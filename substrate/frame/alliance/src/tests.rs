@@ -187,8 +187,8 @@ fn propose_works() {
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		assert_eq!(*AllianceMotion::proposals(), vec![hash]);
-		assert_eq!(AllianceMotion::proposal_of(&hash), Some(proposal));
+		assert_eq!(*pallet_collective::Proposals::<Test, Instance1>::get(), vec![hash]);
+		assert_eq!(pallet_collective::ProposalOf::<Test, Instance1>::get(&hash), Some(proposal));
 		assert_eq!(
 			System::events(),
 			vec![EventRecord {

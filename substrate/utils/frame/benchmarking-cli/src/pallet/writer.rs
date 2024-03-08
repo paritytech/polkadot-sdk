@@ -153,8 +153,8 @@ fn map_results(
 			continue
 		}
 
-		let pallet_string = String::from_utf8(batch.pallet.clone()).unwrap();
-		let instance_string = String::from_utf8(batch.instance.clone()).unwrap();
+		let pallet_name = String::from_utf8(batch.pallet.clone()).unwrap();
+		let instance_name = String::from_utf8(batch.instance.clone()).unwrap();
 		let benchmark_data = get_benchmark_data(
 			batch,
 			storage_info,
@@ -166,7 +166,7 @@ fn map_results(
 			worst_case_map_values,
 			additional_trie_layers,
 		);
-		let pallet_benchmarks = all_benchmarks.entry((pallet_string, instance_string)).or_default();
+		let pallet_benchmarks = all_benchmarks.entry((pallet_name, instance_name)).or_default();
 		pallet_benchmarks.push(benchmark_data);
 	}
 	Ok(all_benchmarks)
@@ -571,19 +571,22 @@ pub(crate) fn process_storage_results(
 
 			let mut prefix_result = result.clone();
 			let key_info = storage_info_map.get(&prefix);
+			let pallet_name = match key_info {
+				Some(k) => String::from_utf8(k.pallet_name.clone()).expect("encoded from string"),
+				None => "".to_string(),
+			};
+			let storage_name = match key_info {
+				Some(k) => String::from_utf8(k.storage_name.clone()).expect("encoded from string"),
+				None => "".to_string(),
+			};
 			let max_size = key_info.and_then(|k| k.max_size);
 
 			let override_pov_mode = match key_info {
-				Some(StorageInfo { pallet_name, storage_name, .. }) => {
-					let pallet_name =
-						String::from_utf8(pallet_name.clone()).expect("encoded from string");
-					let storage_name =
-						String::from_utf8(storage_name.clone()).expect("encoded from string");
-
+				Some(_) => {
 					// Is there an override for the storage key?
-					pov_modes.get(&(pallet_name.clone(), storage_name)).or(
+					pov_modes.get(&(pallet_name.clone(), storage_name.clone())).or(
 						// .. or for the storage prefix?
-						pov_modes.get(&(pallet_name, "ALL".to_string())).or(
+						pov_modes.get(&(pallet_name.clone(), "ALL".to_string())).or(
 							// .. or for the benchmark?
 							pov_modes.get(&("ALL".to_string(), "ALL".to_string())),
 						),
@@ -662,15 +665,10 @@ pub(crate) fn process_storage_results(
 			// writes.
 			if !is_prefix_identified {
 				match key_info {
-					Some(key_info) => {
+					Some(_) => {
 						let comment = format!(
 							"Storage: `{}::{}` (r:{} w:{})",
-							String::from_utf8(key_info.pallet_name.clone())
-								.expect("encoded from string"),
-							String::from_utf8(key_info.storage_name.clone())
-								.expect("encoded from string"),
-							reads,
-							writes,
+							pallet_name, storage_name, reads, writes,
 						);
 						comments.push(comment)
 					},
@@ -698,11 +696,7 @@ pub(crate) fn process_storage_results(
 						) {
 							Some(new_pov) => {
 								let comment = format!(
-									"Proof: `{}::{}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)",
-									String::from_utf8(key_info.pallet_name.clone())
-										.expect("encoded from string"),
-									String::from_utf8(key_info.storage_name.clone())
-										.expect("encoded from string"),
+									"Proof: `{pallet_name}::{storage_name}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)",
 									key_info.max_values,
 									key_info.max_size,
 									new_pov,
@@ -711,13 +705,9 @@ pub(crate) fn process_storage_results(
 								comments.push(comment)
 							},
 							None => {
-								let pallet = String::from_utf8(key_info.pallet_name.clone())
-									.expect("encoded from string");
-								let item = String::from_utf8(key_info.storage_name.clone())
-									.expect("encoded from string");
 								let comment = format!(
 									"Proof: `{}::{}` (`max_values`: {:?}, `max_size`: {:?}, mode: `{:?}`)",
-									pallet, item, key_info.max_values, key_info.max_size,
+									pallet_name, storage_name, key_info.max_values, key_info.max_size,
 									used_pov_mode,
 								);
 								comments.push(comment);
