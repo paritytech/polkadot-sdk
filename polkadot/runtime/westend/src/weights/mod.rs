@@ -17,6 +17,7 @@
 
 pub mod frame_election_provider_support;
 pub mod frame_system;
+pub mod frame_system_extensions;
 pub mod pallet_asset_rate;
 pub mod pallet_bags_list;
 pub mod pallet_balances;
@@ -37,6 +38,7 @@ pub mod pallet_session;
 pub mod pallet_staking;
 pub mod pallet_sudo;
 pub mod pallet_timestamp;
+pub mod pallet_transaction_payment;
 pub mod pallet_treasury;
 pub mod pallet_utility;
 pub mod pallet_vesting;
