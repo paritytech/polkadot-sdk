@@ -302,7 +302,7 @@ is a crucial step for computing the storage root hash, which is a key component 
 the genesis hash.</p>
 <p>Consequently, the runtime must support the [<code>sp_genesis_builder::GenesisBuilder</code>] API to
 utilize either <code>patch</code> or <code>full</code> formats.</p>
-<p>This entire process is encapsulated within the implementation of the <a href="../sp_runtime/trait.BuildStorage.html" title="trait sp_runtime::BuildStorage"><code>BuildStorage</code></a> trait,
+<p>This entire process is encapsulated within the implementation of the [<code>BuildStorage</code>] trait,
 which can be accessed through the <a href="trait.ChainSpec.html#tymethod.as_storage_builder" title="method sc_chain_spec::ChainSpec::as_storage_builder"><code>ChainSpec::as_storage_builder</code></a> method. There is an
 intermediate internal helper that facilitates this interaction,
 <a href="struct.GenesisConfigBuilderRuntimeCaller.html" title="struct sc_chain_spec::GenesisConfigBuilderRuntimeCaller"><code>GenesisConfigBuilderRuntimeCaller</code></a>, which serves as a straightforward wrapper for
