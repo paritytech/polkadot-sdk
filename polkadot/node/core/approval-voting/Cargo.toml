@@ -35,7 +35,7 @@ sp-consensus = { path = "../../../../substrate/primitives/consensus/common", def
 sp-consensus-slots = { path = "../../../../substrate/primitives/consensus/slots", default-features = false }
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto", default-features = false, features = ["full_crypto"] }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-# should match schnorrkel
+# rand_core should match schnorrkel
 rand_core = "0.6.2"
 rand_chacha = { version = "0.3.1" }
 rand = "0.8.5"
