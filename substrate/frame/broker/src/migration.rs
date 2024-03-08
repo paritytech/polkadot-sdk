@@ -21,10 +21,11 @@ use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::traits::{Get, OnRuntimeUpgrade};
 use sp_runtime::Saturating;
-use sp_std::vec::Vec;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+#[cfg(feature = "try-runtime")]
+use sp_std::vec::Vec;
 
 #[derive(Encode, Decode)]
 pub struct RegionRecordV0<AccountId, Balance> {
