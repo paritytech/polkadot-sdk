@@ -1000,7 +1000,7 @@ mod benchmarks {
 				DataSegment { offset: beneficiary_len as u32, value: code_hashes_bytes },
 			],
 			deploy_body: Some(body::repeated_dyn(
-				r,
+				T::MaxDelegateDependencies::get(),
 				vec![
 					Counter(beneficiary_len as u32, code_hash_len as u32), // code_hash_ptr
 					Regular(Instruction::Call(1)),
@@ -1029,6 +1029,12 @@ mod benchmarks {
 				&instance.account_id
 			),
 			0u32.into()
+		);
+		assert_eq!(
+			ContractInfoOf::<T>::get(&instance.account_id)
+				.unwrap()
+				.delegate_dependencies_count() as u32,
+			T::MaxDelegateDependencies::get()
 		);
 		#[extrinsic_call]
 		call(origin, instance.addr.clone(), 0u32.into(), Weight::MAX, None, vec![]);
