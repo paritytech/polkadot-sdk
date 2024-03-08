@@ -10950,7 +10950,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "8.0.1"
+version = "8.0.2"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -11483,7 +11483,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -12240,7 +12239,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-backing"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -12419,7 +12418,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-provisioner"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "bitvec",
  "fatality",
@@ -12922,7 +12921,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-primitives"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "bitvec",
  "hex-literal",
@@ -13060,7 +13059,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-parachains"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "assert_matches",
  "bitflags 1.3.2",
@@ -13318,7 +13317,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-statement-table"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
@@ -18956,7 +18955,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "array-bytes 6.1.0",
  "bounded-collections",
