@@ -75,6 +75,7 @@ use multi_view_listener::MultiViewListener;
 use sp_blockchain::{HashAndNumber, TreeRoute};
 
 mod multi_view_listener;
+mod view_revalidation;
 
 pub(crate) const LOG_TARGET: &str = "txpool";
 
@@ -406,6 +407,7 @@ where
 	// current tree? (somehow similar to enactment state?)
 	// todo: metrics
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
+	revalidation_queue: Arc<view_revalidation::RevalidationQueue<PoolApi>>,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
 	// is_validator: IsValidator,
 	// options: Options,
@@ -436,6 +438,7 @@ where
 				best_block_hash,
 				finalized_hash,
 			))),
+			revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
 		}
 	}
 
@@ -854,10 +857,14 @@ where
 		}
 
 		let best_view = self.views.find_best_view(tree_route);
-		if let Some(best_view) = best_view {
-			self.build_cloned_view(best_view, hash_and_number, tree_route).await;
+		let new_view = if let Some(best_view) = best_view {
+			self.build_cloned_view(best_view, hash_and_number, tree_route).await
 		} else {
-			self.create_new_view_at(hash_and_number, tree_route).await;
+			self.create_new_view_at(hash_and_number, tree_route).await
+		};
+
+		if let Some(view) = new_view {
+			self.revalidation_queue.revalidate_later(view).await;
 		}
 	}
 
@@ -865,11 +872,11 @@ where
 		&self,
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
-	) {
+	) -> Option<Arc<View<PoolApi>>> {
 		//todo: handle errors during creation (log?)
 
 		if self.views.views.read().contains_key(&at.hash) {
-			return;
+			return None;
 		}
 
 		log::info!("create_new_view_at: {at:?}");
@@ -882,9 +889,14 @@ where
 		let view = Arc::new(view);
 		self.views.views.write().insert(at.hash, view.clone());
 
-		self.ready_poll
-			.lock()
-			.trigger(at.hash, move || Box::from(view.pool.validated_pool().ready()));
+		{
+			let view = view.clone();
+			self.ready_poll
+				.lock()
+				.trigger(at.hash, move || Box::from(view.pool.validated_pool().ready()));
+		}
+
+		Some(view)
 	}
 
 	async fn build_cloned_view(
@@ -892,7 +904,7 @@ where
 		origin_view: Arc<View<PoolApi>>,
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
-	) {
+	) -> Option<Arc<View<PoolApi>>> {
 		log::info!("build_cloned_view: {:?}", at.hash);
 		let new_block_hash = at.hash;
 		let mut view = View { at: at.clone(), pool: origin_view.pool.deep_clone() };
@@ -921,9 +933,15 @@ where
 		self.update_view(&mut view).await;
 		let view = Arc::from(view);
 		self.views.views.write().insert(new_block_hash, view.clone());
-		self.ready_poll
-			.lock()
-			.trigger(new_block_hash, move || Box::from(view.pool.validated_pool().ready()));
+
+		{
+			let view = view.clone();
+			self.ready_poll
+				.lock()
+				.trigger(new_block_hash, move || Box::from(view.pool.validated_pool().ready()));
+		}
+
+		Some(view)
 	}
 
 	async fn update_view(&self, view: &mut View<PoolApi>) {
