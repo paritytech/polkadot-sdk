@@ -98,7 +98,6 @@ std = [
 	"hash256-std-hasher/std",
 	"impl-serde/std",
 	"itertools",
-	"k256/std",
 	"libsecp256k1/std",
 	"log/std",
 	"merlin/std",
