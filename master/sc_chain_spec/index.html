@@ -297,7 +297,7 @@ the <code>RuntimeGenesisConfig</code> format changes due to software upgrade.</p
 the node needs to interact with the runtime.</p>
 <p>This interaction involves passing the runtime genesis config JSON blob to the runtime using the
 [<code>sp_genesis_builder::GenesisBuilder::build_config</code>] function. During this operation, the
-runtime converts the JSON representation of the genesis config into [<code>sp_io::storage</code>] items. It
+runtime converts the JSON representation of the genesis config into <a href="../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a> items. It
 is a crucial step for computing the storage root hash, which is a key component in determining
 the genesis hash.</p>
 <p>Consequently, the runtime must support the [<code>sp_genesis_builder::GenesisBuilder</code>] API to

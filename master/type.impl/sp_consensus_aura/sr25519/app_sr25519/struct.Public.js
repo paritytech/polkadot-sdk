@@ -8,6 +8,7 @@
 "penpal_runtime":[],
 "people_rococo_runtime":[],
 "people_westend_runtime":[],
+"polkadot_parachain":[],
 "rococo_parachain_runtime":[],
 "seedling_runtime":[],
 "shell_runtime":[]

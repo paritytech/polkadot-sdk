@@ -1169,6 +1169,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1022" id="1022">1022</a>
 <a href="#1023" id="1023">1023</a>
 <a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1602,7 +1636,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>benchmarks_by_name_mappings: Vec&lt;TokenStream2&gt; = Vec::new();
 	<span class="kw">let </span>test_idents: Vec&lt;Ident&gt; = benchmark_names_str
 		.iter()
-		.map(|n| Ident::new(<span class="macro">format!</span>(<span class="string">&quot;test_{}&quot;</span>, n).as_str(), Span::call_site()))
+		.map(|n| Ident::new(<span class="macro">format!</span>(<span class="string">&quot;test_benchmark_{}&quot;</span>, n).as_str(), Span::call_site()))
 		.collect();
 	<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..benchmark_names.len() {
 		<span class="kw">let </span>name_ident = <span class="kw-2">&amp;</span>benchmark_names[i];
@@ -1611,6 +1645,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		selected_benchmark_mappings.push(<span class="macro">quote!</span>(#name_str =&gt; SelectedBenchmark::#name_ident));
 		benchmarks_by_name_mappings.push(<span class="macro">quote!</span>(#name_str =&gt; <span class="self">Self</span>::#test_ident()))
 	}
+
+	<span class="kw">let </span>impl_test_function = content
+		.iter_mut()
+		.find_map(|item| {
+			<span class="kw">let </span>Item::Macro(item_macro) = item <span class="kw">else </span>{
+				<span class="kw">return </span><span class="prelude-val">None</span>;
+			};
+
+			<span class="kw">if </span>!item_macro
+				.mac
+				.path
+				.segments
+				.iter()
+				.any(|s| s.ident == <span class="string">&quot;impl_benchmark_test_suite&quot;</span>)
+			{
+				<span class="kw">return </span><span class="prelude-val">None</span>;
+			}
+
+			<span class="kw">let </span>tokens = item_macro.mac.tokens.clone();
+			<span class="kw-2">*</span>item = Item::Verbatim(<span class="macro">quote! </span>{});
+
+			<span class="prelude-val">Some</span>(<span class="macro">quote! </span>{
+				<span class="macro">impl_test_function!</span>(
+					(#( {} #benchmark_names )<span class="kw-2">*</span>)
+					(#( #extra_benchmark_names )<span class="kw-2">*</span>)
+					(#( #skip_meta_benchmark_names )<span class="kw-2">*</span>)
+					#tokens
+				);
+			})
+		})
+		.unwrap_or(<span class="macro">quote! </span>{});
 
 	<span class="comment">// emit final quoted tokens
 	</span><span class="kw">let </span>res = <span class="macro">quote! </span>{
@@ -1847,6 +1912,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			}
+
+			#impl_test_function
 		}
 		#mod_vis <span class="kw">use </span>#mod_name::<span class="kw-2">*</span>;
 	};
@@ -1904,7 +1971,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>setup_stmts = benchmark_def.setup_stmts;
 	<span class="kw">let </span>verify_stmts = benchmark_def.verify_stmts;
 	<span class="kw">let </span>last_stmt = benchmark_def.last_stmt;
-	<span class="kw">let </span>test_ident = Ident::new(<span class="macro">format!</span>(<span class="string">&quot;test_{}&quot;</span>, name.to_string()).as_str(), Span::call_site());
+	<span class="kw">let </span>test_ident =
+		Ident::new(<span class="macro">format!</span>(<span class="string">&quot;test_benchmark_{}&quot;</span>, name.to_string()).as_str(), Span::call_site());
 
 	<span class="comment">// unroll params (prepare for quoting)
 	</span><span class="kw">let </span>unrolled = UnrolledParams::from(<span class="kw-2">&amp;</span>benchmark_def.params);

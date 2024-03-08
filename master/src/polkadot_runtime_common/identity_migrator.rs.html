@@ -484,7 +484,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::Get;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">use </span>frame_benchmarking::{account, impl_benchmark_test_suite, v2::<span class="kw-2">*</span>, BenchmarkError};
+</span><span class="kw">use </span>frame_benchmarking::{account, v2::<span class="kw-2">*</span>, BenchmarkError};
 
 <span class="kw">pub trait </span>WeightInfo {
 	<span class="kw">fn </span>reap_identity(r: u32, s: u32) -&gt; Weight;
