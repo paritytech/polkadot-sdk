@@ -460,7 +460,11 @@ where
 					.rpc_get_keys_in_range(&prefix, block, start_key.as_ref(), end_key.as_ref())
 					.await;
 
-				let keys = res.unwrap();
+				let keys = res.unwrap_or_default();
+
+				if keys.is_empty() {
+					yield vec![]
+				}
 
 				let client = self.as_online().rpc_client();
 				let payloads = keys
