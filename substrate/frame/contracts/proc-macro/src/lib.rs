@@ -497,9 +497,14 @@ fn expand_docs(def: &EnvDef) -> TokenStream2 {
 fn expand_env(def: &EnvDef, docs: bool) -> TokenStream2 {
 	let impls = expand_impls(def);
 	let docs = docs.then_some(expand_docs(def)).unwrap_or(TokenStream2::new());
+	let stable_count = def.host_funcs.iter().map(|f| if f.is_stable { 1 } else { 0 }).sum::<u16>();
 
 	quote! {
 		pub struct Env;
+
+		#[cfg(test)]
+		pub const STABLE_API_COUNT: u16 = #stable_count;
+
 		#impls
 		/// Documentation of the API (host functions) available to contracts.
 		///
