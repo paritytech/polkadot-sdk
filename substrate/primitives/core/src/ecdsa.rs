@@ -107,16 +107,10 @@ impl Public {
 		} else {
 			full
 		};
-		let pubkey = {
-			#[cfg(feature = "std")]
-			{
-				PublicKey::from_slice(&full)
-			}
-			#[cfg(not(feature = "std"))]
-			{
-				VerifyingKey::from_sec1_bytes(&full)
-			}
-		};
+		#[cfg(feature = "std")]
+		let pubkey = PublicKey::from_slice(&full);
+		#[cfg(not(feature = "std"))]
+		let pubkey = VerifyingKey::from_sec1_bytes(&full);
 		pubkey.map(|k| k.into()).map_err(|_| ())
 	}
 }
