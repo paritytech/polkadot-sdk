@@ -553,7 +553,7 @@ mod benchmarks {
 		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, true);
 		let origin = RawOrigin::Signed(caller.clone());
 		#[extrinsic_call]
-		upload_code(origin, code, None, Determinism::Enforced);
+		upload_code(origin, code, None, Determinism::Relaxed);
 		assert!(T::Currency::total_balance_on_hold(&caller) > 0u32.into());
 		assert!(<Contract<T>>::code_exists(&hash));
 		// Ensure that the benchmark follows the most expensive path, i.e., the code is saved with
