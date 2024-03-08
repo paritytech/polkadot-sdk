@@ -43,7 +43,6 @@ use pallet_xcm::XcmPassthrough;
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
 use sp_runtime::traits::Zero;
-use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::latest::prelude::*;
 #[allow(deprecated)]
 use xcm_builder::{
@@ -297,7 +296,13 @@ parameter_types! {
 		0,
 		[xcm::v3::Junction::PalletInstance(50), xcm::v3::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
 	);
-	pub EthereumLocation: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
+
+	/// The Penpal runtime is utilized for testing with various environment setups.
+	/// This storage item provides the opportunity to customize testing scenarios
+	/// by configuring the trusted asset from the `SystemAssetHub`.
+	///
+	/// By default, it is configured as a `SystemAssetHubLocation` and can be modified using `System::set_storage`.
+	pub storage CustomizableAssetFromSystemAssetHub: Location = SystemAssetHubLocation::get();
 }
 
 /// Accepts asset with ID `AssetLocation` and is coming from `Origin` chain.
@@ -312,11 +317,11 @@ impl<AssetLocation: Get<Location>, Origin: Get<Location>> ContainsPair<Asset, Lo
 	}
 }
 
-pub type Reserves = (
+pub type TrustedReserves = (
 	NativeAsset,
 	AssetsFrom<SystemAssetHubLocation>,
 	NativeAssetFrom<SystemAssetHubLocation>,
-	AssetPrefixFrom<EthereumLocation, SystemAssetHubLocation>,
+	AssetPrefixFrom<CustomizableAssetFromSystemAssetHub, SystemAssetHubLocation>,
 );
 pub type TrustedTeleporters =
 	(AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,);
@@ -328,7 +333,7 @@ impl xcm_executor::Config for XcmConfig {
 	// How to withdraw and deposit an asset.
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	type IsReserve = Reserves;
+	type IsReserve = TrustedReserves;
 	// no teleport trust established with other chains
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
