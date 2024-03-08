@@ -92,6 +92,7 @@ pub use chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
 pub use consensus_common::{Proposal, SelectChain};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use mmr_gadget::MmrGadget;
+use polkadot_node_subsystem_types::DefaultSubsystemClient;
 pub use polkadot_primitives::{Block, BlockId, BlockNumber, CollatorPair, Hash, Id as ParaId};
 pub use sc_client_api::{Backend, CallExecutor};
 pub use sc_consensus::{BlockImport, LongestChain};
@@ -1081,12 +1082,17 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			None
 		};
 
+	let runtime_client = Arc::new(DefaultSubsystemClient::new(
+		overseer_client.clone(),
+		OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+	));
+
 	let overseer_handle = if let Some(authority_discovery_service) = authority_discovery_service {
 		let (overseer, overseer_handle) = overseer_gen
-			.generate::<service::SpawnTaskHandle, FullClient>(
+			.generate::<service::SpawnTaskHandle, DefaultSubsystemClient<FullClient>>(
 				overseer_connector,
 				OverseerGenArgs {
-					runtime_client: overseer_client.clone(),
+					runtime_client,
 					network_service: network.clone(),
 					sync_service: sync_service.clone(),
 					authority_discovery_service,
@@ -1099,9 +1105,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					overseer_message_channel_capacity_override,
 					req_protocol_names,
 					peerset_protocol_names,
-					offchain_transaction_pool_factory: OffchainTransactionPoolFactory::new(
-						transaction_pool.clone(),
-					),
 					notification_services,
 				},
 				ext_overseer_args,
