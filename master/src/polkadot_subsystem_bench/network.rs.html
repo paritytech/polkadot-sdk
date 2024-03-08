@@ -1435,7 +1435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Poll::Ready(response) =&gt; Poll::Ready(ProxiedResponse {
 				sender: <span class="self">self</span>.sender.take().expect(<span class="string">&quot;sender already used&quot;</span>),
 				result: response
-					.expect(<span class="string">&quot;Response is always succesfully received.&quot;</span>)
+					.expect(<span class="string">&quot;Response is always successfully received.&quot;</span>)
 					.result
 					.map_err(|<span class="kw">_</span>| RequestFailure::Refused),
 			}),
@@ -1977,7 +1977,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;{}&quot;</span>,<span class="macro">format!</span>(<span class="string">&quot;connectivity {}%, latency {:?}&quot;</span>, config.connectivity, config.latency).bright_black());
 
 	<span class="kw">let </span>metrics =
-		Metrics::new(<span class="kw-2">&amp;</span>dependencies.registry).expect(<span class="string">&quot;Metrics always register succesfully&quot;</span>);
+		Metrics::new(<span class="kw-2">&amp;</span>dependencies.registry).expect(<span class="string">&quot;Metrics always register successfully&quot;</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>validator_authority_id_mapping = HashMap::new();
 
 	<span class="comment">// Create the channel from `peer` to `NetworkInterface` .

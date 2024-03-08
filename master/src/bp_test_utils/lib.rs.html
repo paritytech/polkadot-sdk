@@ -623,7 +623,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			votes_ancestries.push(child.clone());
 		}
 
-		<span class="comment">// The header we need to use when pre-commiting is the one at the highest height
+		<span class="comment">// The header we need to use when pre-committing is the one at the highest height
 		// on our chain.
 		</span><span class="kw">let </span>precommit_candidate = chain.last().map(|h| (h.hash(), <span class="kw-2">*</span>h.number())).unwrap();
 		unsigned_precommits.push(precommit_candidate);

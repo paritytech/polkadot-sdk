@@ -1440,7 +1440,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Waiting for all emulated peers to receive their chunk from us ...&quot;</span>);
 		<span class="kw">for </span>receiver <span class="kw">in </span>receivers.into_iter() {
-			<span class="kw">let </span>response = receiver.<span class="kw">await</span>.expect(<span class="string">&quot;Chunk is always served succesfully&quot;</span>);
+			<span class="kw">let </span>response = receiver.<span class="kw">await</span>.expect(<span class="string">&quot;Chunk is always served successfully&quot;</span>);
 			<span class="comment">// TODO: check if chunk is the one the peer expects to receive.
 			</span><span class="macro">assert!</span>(response.result.is_ok());
 		}
