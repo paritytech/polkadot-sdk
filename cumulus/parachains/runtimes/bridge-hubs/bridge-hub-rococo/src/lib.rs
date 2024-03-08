@@ -27,6 +27,8 @@ pub mod bridge_hub_wococo_config;
 mod weights;
 pub mod xcm_config;
 
+use fixed::{types::extra::U16, FixedU128};
+use sp_std::marker::PhantomData;
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -34,7 +36,7 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult,AccountId32
 };
 
 use sp_std::prelude::*;
@@ -47,20 +49,26 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything, SortedMembers, ContainsPair, AsEnsureOriginWithArg},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot,
+	EnsureRoot, EnsureSignedBy, EnsureSigned
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
-
+use xcm::latest::{prelude::*, AssetId as XcmAssetId, MultiLocation};
+use sp_std::collections::btree_map::BTreeMap;
+use sp_runtime::traits::AccountIdConversion;
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::HeaderId;
+use sygma_traits::{ChainID as SygmaChainID, DomainID, VerifyingContractAddress, ResourceId,
+				   ExtractDestinationData, DecimalConverter};
+use primitive_types::U256;
+use sygma_bridge_forwarder::xcm_asset_transactor::XCMAssetTransactor;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -84,6 +92,7 @@ use bridge_runtime_common::{
 	messages::{source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter},
 	messages_xcm_extension::{XcmAsPlainPayload, XcmBlobMessageDispatch},
 };
+use frame_support::pallet_prelude::Get;
 use parachains_common::{
 	impls::DealWithFees,
 	rococo::{consensus::*, currency::*, fee::WeightToFee},
@@ -120,7 +129,7 @@ pub type SignedExtra = (
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,);
@@ -277,7 +286,7 @@ parameter_types! {
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees<Runtime>>;
+	pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees<Runtime>>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -448,7 +457,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainWococoInstance> for Runtime
 	type BridgesGrandpaPalletInstance = BridgeGrandpaWococoInstance;
 	type ParasPalletName = WococoBridgeParachainPalletName;
 	type ParaStoredHeaderDataBuilder =
-		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_wococo::BridgeHubWococo>;
+	SingleParaStoredHeaderDataBuilder<bp_bridge_hub_wococo::BridgeHubWococo>;
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxWococoParaHeadDataSize;
 }
@@ -461,7 +470,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 	type BridgesGrandpaPalletInstance = BridgeGrandpaRococoInstance;
 	type ParasPalletName = RococoBridgeParachainPalletName;
 	type ParaStoredHeaderDataBuilder =
-		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
+	SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
 }
@@ -474,12 +483,12 @@ impl pallet_bridge_messages::Config<WithBridgeHubWococoMessagesInstance> for Run
 	type BridgedChainId = bridge_hub_rococo_config::BridgeHubWococoChainId;
 	type ActiveOutboundLanes = bridge_hub_rococo_config::ActiveOutboundLanesToBridgeHubWococo;
 	type MaxUnrewardedRelayerEntriesAtInboundLane =
-		bridge_hub_rococo_config::MaxUnrewardedRelayerEntriesAtInboundLane;
+	bridge_hub_rococo_config::MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane =
-		bridge_hub_rococo_config::MaxUnconfirmedMessagesAtInboundLane;
+	bridge_hub_rococo_config::MaxUnconfirmedMessagesAtInboundLane;
 
 	type MaximalOutboundPayloadSize =
-		bridge_hub_rococo_config::ToBridgeHubWococoMaximalOutboundPayloadSize;
+	bridge_hub_rococo_config::ToBridgeHubWococoMaximalOutboundPayloadSize;
 	type OutboundPayload = XcmAsPlainPayload;
 
 	type InboundPayload = XcmAsPlainPayload;
@@ -496,7 +505,7 @@ impl pallet_bridge_messages::Config<WithBridgeHubWococoMessagesInstance> for Run
 
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubWococoMessageBridge>;
 	type MessageDispatch =
-		XcmBlobMessageDispatch<OnBridgeHubRococoBlobDispatcher, Self::WeightInfo, ()>;
+	XcmBlobMessageDispatch<OnBridgeHubRococoBlobDispatcher, Self::WeightInfo, ()>;
 	type OnMessagesDelivered = ();
 }
 
@@ -508,12 +517,12 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	type BridgedChainId = bridge_hub_wococo_config::BridgeHubRococoChainId;
 	type ActiveOutboundLanes = bridge_hub_wococo_config::ActiveOutboundLanesToBridgeHubRococo;
 	type MaxUnrewardedRelayerEntriesAtInboundLane =
-		bridge_hub_wococo_config::MaxUnrewardedRelayerEntriesAtInboundLane;
+	bridge_hub_wococo_config::MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane =
-		bridge_hub_wococo_config::MaxUnconfirmedMessagesAtInboundLane;
+	bridge_hub_wococo_config::MaxUnconfirmedMessagesAtInboundLane;
 
 	type MaximalOutboundPayloadSize =
-		bridge_hub_wococo_config::ToBridgeHubRococoMaximalOutboundPayloadSize;
+	bridge_hub_wococo_config::ToBridgeHubRococoMaximalOutboundPayloadSize;
 	type OutboundPayload = XcmAsPlainPayload;
 
 	type InboundPayload = XcmAsPlainPayload;
@@ -530,7 +539,7 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubRococoMessageBridge>;
 	type MessageDispatch =
-		XcmBlobMessageDispatch<OnBridgeHubWococoBlobDispatcher, Self::WeightInfo, ()>;
+	XcmBlobMessageDispatch<OnBridgeHubWococoBlobDispatcher, Self::WeightInfo, ()>;
 	type OnMessagesDelivered = ();
 }
 
@@ -539,7 +548,7 @@ impl pallet_bridge_relayers::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
 	type PaymentProcedure =
-		bp_relayers::PayRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
+	bp_relayers::PayRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
 		BlockNumber,
@@ -549,6 +558,354 @@ impl pallet_bridge_relayers::Config for Runtime {
 		RelayerStakeLease,
 	>;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
+}
+
+pub type AssetId = u32;
+
+parameter_types! {
+	// Unit = the base number of indivisible units for balances
+	pub const UNIT: Balance = 1_000_000_000_000;
+	pub const DOLLARS: Balance = UNIT::get();
+	pub const CENTS: Balance = DOLLARS::get() / 100;
+}
+
+// Configure the sygma protocol.
+parameter_types! {
+	pub const AssetDeposit: Balance = 10 * UNIT::get(); // 10 UNITS deposit to create fungible asset class
+	pub const AssetAccountDeposit: Balance = DOLLARS::get();
+	pub const ApprovalDeposit: Balance = ExistentialDeposit::get();
+	pub const AssetsStringLimit: u32 = 50;
+	/// Key = 32 bytes, Value = 36 bytes (32+1+1+1+1)
+	// https://github.com/paritytech/substrate/blob/069917b/frame/assets/src/lib.rs#L257L271
+	pub const MetadataDepositBase: Balance = deposit(1, 68);
+	pub const MetadataDepositPerByte: Balance = deposit(0, 1);
+	pub const ExecutiveBody: BodyId = BodyId::Executive;
+}
+impl pallet_assets::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type AssetId = AssetId;
+	type AssetIdParameter = codec::Compact<u32>;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type AssetDeposit = AssetDeposit;
+	type AssetAccountDeposit = AssetAccountDeposit;
+	type MetadataDepositBase = MetadataDepositBase;
+	type MetadataDepositPerByte = MetadataDepositPerByte;
+	type ApprovalDeposit = ApprovalDeposit;
+	type StringLimit = AssetsStringLimit;
+	type RemoveItemsLimit = ConstU32<1000>;
+	type Freezer = ();
+	type Extra = ();
+	type CallbackHandle = ();
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
+parameter_types! {
+	pub const SygmaAccessSegregatorPalletIndex: u8 = 90;
+	pub const SygmaBasicFeeHandlerPalletIndex: u8 = 91;
+	pub const SygmaFeeHandlerRouterPalletIndex: u8 = 92;
+	pub const SygmaPercentageFeeHandlerRouterPalletIndex: u8 = 93;
+	pub const SygmaBridgePalletIndex: u8 = 94;
+}
+
+pub struct SygmaAdminMembers;
+impl SortedMembers<AccountId> for SygmaAdminMembers {
+	fn sorted_members() -> Vec<AccountId> {
+		[SygmaBridgeAdminAccount::get()].to_vec()
+	}
+}
+
+impl sygma_access_segregator::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type BridgeCommitteeOrigin = EnsureSignedBy<SygmaAdminMembers, AccountId>;
+	type PalletIndex = SygmaAccessSegregatorPalletIndex;
+	type Extrinsics = RegisteredExtrinsics;
+	type WeightInfo = sygma_access_segregator::weights::SygmaWeightInfo<Runtime>;
+}
+
+impl sygma_basic_feehandler::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletIndex = SygmaBasicFeeHandlerPalletIndex;
+	type WeightInfo = sygma_basic_feehandler::weights::SygmaWeightInfo<Runtime>;
+}
+
+impl sygma_fee_handler_router::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type BasicFeeHandler = SygmaBasicFeeHandler;
+	type DynamicFeeHandler = ();
+
+	type PercentageFeeHandler = SygmaPercentageFeeHandler;
+	type PalletIndex = SygmaFeeHandlerRouterPalletIndex;
+	type WeightInfo = sygma_fee_handler_router::weights::SygmaWeightInfo<Runtime>;
+}
+
+impl sygma_percentage_feehandler::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletIndex = SygmaPercentageFeeHandlerRouterPalletIndex;
+	type WeightInfo = sygma_percentage_feehandler::weights::SygmaWeightInfo<Runtime>;
+}
+
+parameter_types! {
+    pub NativeLocation: MultiLocation = MultiLocation::here();
+    pub NativeSygmaResourceId: [u8; 32] = hex_literal::hex!("0000000000000000000000000000000000000000000000000000000000000001");
+
+	// UsdtLocation is the representation of the USDT asset location in substrate
+	// USDT is a foreign asset, and in our local testing env, it's being registered on Parachain 2004 with the following location
+	pub UsdtLocation: MultiLocation = MultiLocation::new(
+		1,
+		X3(
+			Parachain(2005),
+			slice_to_generalkey(b"sygma"),
+			slice_to_generalkey(b"usdt"),
+		),
+	);
+	// UsdtAssetId is the substrate assetID of USDT
+	pub UsdtAssetId: AssetId = 2000;
+	// UsdtResourceId is the resourceID that mapping with the foreign asset USDT
+	pub UsdtResourceId: ResourceId = hex_literal::hex!("0000000000000000000000000000000000000000000000000000000000000300");
+}
+
+fn bridge_accounts_generator() -> BTreeMap<XcmAssetId, AccountId32> {
+	let mut account_map: BTreeMap<XcmAssetId, AccountId32> = BTreeMap::new();
+	account_map.insert(NativeLocation::get().into(), BridgeAccountNative::get());
+	account_map.insert(UsdtLocation::get().into(), BridgeAccountOtherToken::get());
+	account_map
+}
+
+const DEST_VERIFYING_CONTRACT_ADDRESS: &str = "6CdE2Cd82a4F8B74693Ff5e194c19CA08c2d1c68";
+parameter_types! {
+    // RegisteredExtrinsics here registers all valid (pallet index, extrinsic_name) paris
+    // make sure to update this when adding new access control extrinsic
+    pub RegisteredExtrinsics: Vec<(u8, Vec<u8>)> = [
+        (SygmaAccessSegregatorPalletIndex::get(), b"grant_access".to_vec()),
+        (SygmaBasicFeeHandlerPalletIndex::get(), b"set_fee".to_vec()),
+        (SygmaBridgePalletIndex::get(), b"set_mpc_address".to_vec()),
+        (SygmaBridgePalletIndex::get(), b"pause_bridge".to_vec()),
+        (SygmaBridgePalletIndex::get(), b"unpause_bridge".to_vec()),
+        (SygmaBridgePalletIndex::get(), b"register_domain".to_vec()),
+        (SygmaBridgePalletIndex::get(), b"unregister_domain".to_vec()),
+        (SygmaBridgePalletIndex::get(), b"retry".to_vec()),
+        (SygmaFeeHandlerRouterPalletIndex::get(), b"set_fee_handler".to_vec()),
+        (SygmaPercentageFeeHandlerRouterPalletIndex::get(), b"set_fee_rate".to_vec()),
+    ].to_vec();
+
+	pub const SygmaBridgePalletId: PalletId = PalletId(*b"sygma/01");
+
+	// SygmaBridgeAdminAccountKey Address: 44bdQyeqk5oJzxbZH9xMcovmj3oAxqzSjKujaVhHaZxZuTBH
+    pub SygmaBridgeAdminAccountKey: [u8; 32] = hex_literal::hex!("b00e3e4afb5a9c54036ec6c1775881031fb26b72427a10724c4d8b91099ee889");
+    pub SygmaBridgeAdminAccount: AccountId = SygmaBridgeAdminAccountKey::get().into();
+
+	// SygmaBridgeFeeAccount is a substrate account and currently used for substrate -> EVM bridging fee collection
+	// SygmaBridgeFeeAccount address: 5ELLU7ibt5ZrNEYRwohtaRBDBa3TzcWwwPELBPSWWd2mbgv3
+	pub SygmaBridgeFeeAccount: AccountId32 = AccountId32::new([100u8; 32]);
+
+	// BridgeAccountNative: 5EYCAe5jLbHcAAMKvLFSXgCTbPrLgBJusvPwfKcaKzuf5X5e
+	pub BridgeAccountNative: AccountId32 = SygmaBridgePalletId::get().into_account_truncating();
+	// BridgeAccountOtherToken  5EYCAe5jLbHcAAMKvLFiGhk3htXY8jQncbLTDGJQnpnPMAVp
+	pub BridgeAccountOtherToken: AccountId32 = SygmaBridgePalletId::get().into_sub_account_truncating(1u32);
+	// BridgeAccounts is a list of accounts for holding transferred asset collection
+	pub BridgeAccounts: BTreeMap<XcmAssetId, AccountId32> = bridge_accounts_generator();
+
+	// EIP712ChainID is the chainID that pallet is assigned with, used in EIP712 typed data domain
+    pub EIP712ChainID: SygmaChainID = U256::from(5232);
+
+	// DestVerifyingContractAddress is a H160 address that is used in proposal signature verification, specifically EIP712 typed data
+    // When relayers signing, this address will be included in the EIP712Domain
+    // As long as the relayer and pallet configured with the same address, EIP712Domain should be recognized properly.
+    pub DestVerifyingContractAddress: VerifyingContractAddress = primitive_types::H160::from_slice(hex::decode(DEST_VERIFYING_CONTRACT_ADDRESS).ok().unwrap().as_slice());
+
+	pub CheckingAccount: AccountId32 = AccountId32::new([102u8; 32]);
+
+	// ResourcePairs is where all supported assets and their associated resourceID are binding
+	pub ResourcePairs: Vec<(XcmAssetId, ResourceId)> = vec![(NativeLocation::get().into(), NativeSygmaResourceId::get()), (UsdtLocation::get().into(), UsdtResourceId::get())];
+
+	pub AssetDecimalPairs: Vec<(XcmAssetId, u8)> = vec![(NativeLocation::get().into(), 12u8), (UsdtLocation::get().into(), 12u8)];
+}
+
+pub struct ReserveChecker;
+impl ContainsPair<MultiAsset, MultiLocation> for ReserveChecker {
+	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+		if let Some(ref id) = ConcrateSygmaAsset::origin(asset) {
+			if id == origin {
+				return true;
+			}
+		}
+		false
+	}
+}
+
+pub struct ConcrateSygmaAsset;
+impl ConcrateSygmaAsset {
+	pub fn id(asset: &MultiAsset) -> Option<MultiLocation> {
+		match (&asset.id, &asset.fun) {
+			// So far our native asset is concrete
+			(Concrete(id), Fungible(_)) => Some(*id),
+			_ => None,
+		}
+	}
+
+	pub fn origin(asset: &MultiAsset) -> Option<MultiLocation> {
+		Self::id(asset).and_then(|id| {
+			match (id.parents, id.first_interior()) {
+				// Sibling parachain
+				(1, Some(Parachain(id))) => {
+					// Assume current parachain id is 2004, for production, you should always get
+					// your it from parachain info
+					if *id == 2004 {
+						// The registered foreign assets actually reserved on EVM chains, so when
+						// transfer back to EVM chains, they should be treated as non-reserve assets
+						// relative to current chain.
+						Some(MultiLocation::new(0, X1(slice_to_generalkey(b"sygma"))))
+					} else {
+						// Other parachain assets should be treat as reserve asset when transfered
+						// to outside EVM chains
+						Some(MultiLocation::here())
+					}
+				},
+				// Parent assets should be treat as reserve asset when transfered to outside EVM
+				// chains
+				(1, _) => Some(MultiLocation::here()),
+				// Children parachain
+				(0, Some(Parachain(id))) => Some(MultiLocation::new(0, X1(Parachain(*id)))),
+				// Local: (0, Here)
+				(0, None) => Some(id),
+				_ => None,
+			}
+		})
+	}
+}
+
+pub struct DestinationDataParser;
+impl ExtractDestinationData for DestinationDataParser {
+	fn extract_dest(dest: &MultiLocation) -> Option<(Vec<u8>, DomainID)> {
+		match (dest.parents, &dest.interior) {
+			(
+				0,
+				Junctions::X2(
+					GeneralKey { length: recipient_len, data: recipient },
+					GeneralKey { length: _domain_len, data: dest_domain_id },
+				),
+			) => {
+				let d = u8::default();
+				let domain_id = dest_domain_id.as_slice().first().unwrap_or(&d);
+				if *domain_id == d {
+					return None;
+				}
+				Some((recipient[..*recipient_len as usize].to_vec(), *domain_id))
+			},
+			_ => None,
+		}
+	}
+}
+
+pub struct SygmaDecimalConverter<DecimalPairs>(PhantomData<DecimalPairs>);
+impl<DecimalPairs: Get<Vec<(XcmAssetId, u8)>>> DecimalConverter
+for SygmaDecimalConverter<DecimalPairs>
+{
+	fn convert_to(asset: &MultiAsset) -> Option<u128> {
+		match (&asset.fun, &asset.id) {
+			(Fungible(amount), _) => {
+				for (asset_id, decimal) in DecimalPairs::get().iter() {
+					if *asset_id == asset.id {
+						return if *decimal == 18 {
+							Some(*amount)
+						} else {
+							type U112F16 = FixedU128<U16>;
+							if *decimal > 18 {
+								let a =
+									U112F16::from_num(10u128.saturating_pow(*decimal as u32 - 18));
+								let b = U112F16::from_num(*amount).checked_div(a);
+								let r: u128 = b.unwrap_or_else(|| U112F16::from_num(0)).to_num();
+								if r == 0 {
+									return None;
+								}
+								Some(r)
+							} else {
+								// Max is 5192296858534827628530496329220095
+								// if source asset decimal is 12, the max amount sending to sygma
+								// relayer is 5192296858534827.628530496329
+								if *amount > U112F16::MAX {
+									return None;
+								}
+								let a =
+									U112F16::from_num(10u128.saturating_pow(18 - *decimal as u32));
+								let b = U112F16::from_num(*amount).saturating_mul(a);
+								Some(b.to_num())
+							}
+						};
+					}
+				}
+				None
+			},
+			_ => None,
+		}
+	}
+
+	fn convert_from(asset: &MultiAsset) -> Option<MultiAsset> {
+		match (&asset.fun, &asset.id) {
+			(Fungible(amount), _) => {
+				for (asset_id, decimal) in DecimalPairs::get().iter() {
+					if *asset_id == asset.id {
+						return if *decimal == 18 {
+							Some((asset.id, *amount).into())
+						} else {
+							type U112F16 = FixedU128<U16>;
+							if *decimal > 18 {
+								// Max is 5192296858534827628530496329220095
+								// if dest asset decimal is 24, the max amount coming from sygma
+								// relayer is 5192296858.534827628530496329
+								if *amount > U112F16::MAX {
+									return None;
+								}
+								let a =
+									U112F16::from_num(10u128.saturating_pow(*decimal as u32 - 18));
+								let b = U112F16::from_num(*amount).saturating_mul(a);
+								let r: u128 = b.to_num();
+								Some((asset.id, r).into())
+							} else {
+								let a =
+									U112F16::from_num(10u128.saturating_pow(18 - *decimal as u32));
+								let b = U112F16::from_num(*amount).checked_div(a);
+								let r: u128 = b.unwrap_or_else(|| U112F16::from_num(0)).to_num();
+								if r == 0 {
+									return None;
+								}
+								Some((asset.id, r).into())
+							}
+						};
+					}
+				}
+				None
+			},
+			_ => None,
+		}
+	}
+}
+
+impl sygma_bridge::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type TransferReserveAccounts = BridgeAccounts;
+	type FeeReserveAccount = SygmaBridgeFeeAccount;
+	type EIP712ChainID = EIP712ChainID;
+	type DestVerifyingContractAddress = DestVerifyingContractAddress;
+	type FeeHandler = SygmaFeeHandlerRouter;
+	type AssetTransactor = XCMAssetTransactor<
+		xcm_config::CurrencyTransactor,
+		xcm_config::FungiblesTransactor,
+		xcm_config::NativeAssetTypeIdentifier<ParachainInfo>,
+		SygmaBridgeForwarder,
+	>;
+	type ResourcePairs = ResourcePairs;
+	type IsReserve = ReserveChecker;
+	type ExtractDestData = DestinationDataParser;
+	type PalletId = SygmaBridgePalletId;
+	type PalletIndex = SygmaBridgePalletIndex;
+	type DecimalConverter = SygmaDecimalConverter<AssetDecimalPairs>;
+	type WeightInfo = sygma_bridge::weights::SygmaWeightInfo<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -564,6 +921,7 @@ construct_runtime!(
 		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 3,
 
 		// Monetary stuff.
+		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 9,
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
 
@@ -599,6 +957,15 @@ construct_runtime!(
 		BridgeRococoMessages: pallet_bridge_messages::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 45,
 
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
+
+		// sygma
+        SygmaAccessSegregator: sygma_access_segregator::{Pallet, Call, Storage, Event<T>} = 90,
+		SygmaBasicFeeHandler: sygma_basic_feehandler::{Pallet, Call, Storage, Event<T>} = 91,
+		SygmaFeeHandlerRouter: sygma_fee_handler_router::{Pallet, Call, Storage, Event<T>} = 92,
+		SygmaPercentageFeeHandler: sygma_percentage_feehandler::{Pallet, Call, Storage, Event<T>} = 93,
+		SygmaBridge: sygma_bridge::{Pallet, Call, Storage, Event<T>} = 94,
+		SygmaXcmBridge: sygma_xcm_bridge::{Pallet, Event<T>} = 95,
+		SygmaBridgeForwarder: sygma_bridge_forwarder::{Pallet, Event<T>} = 96,
 	}
 );
 
@@ -1249,6 +1616,19 @@ impl_runtime_apis! {
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
+}
+
+pub fn slice_to_generalkey(key: &[u8]) -> Junction {
+	let len = key.len();
+	assert!(len <= 32);
+	GeneralKey {
+		length: len as u8,
+		data: {
+			let mut data = [0u8; 32];
+			data[..len].copy_from_slice(key);
+			data
+		},
+	}
 }
 
 #[cfg(test)]

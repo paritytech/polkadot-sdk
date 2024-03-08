@@ -15,6 +15,9 @@ log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.188", optional = true, features = ["derive"] }
 smallvec = "1.11.0"
+primitive-types = { version = "0.12.2", default-features = false, features = ["scale-info", "serde_no_std"] }
+fixed = {version = "1.23.0", default-features = false }
+hex = { version = "0.4.3", default-features = false }
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true}
@@ -47,6 +50,7 @@ sp-std = { path = "../../../../../substrate/primitives/std", default-features = 
 sp-storage = { path = "../../../../../substrate/primitives/storage", default-features = false}
 sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false}
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false}
+pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
 
 # Polkadot
 rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false}
@@ -89,6 +93,16 @@ pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains",
 pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
 
+# Sygma
+sygma-access-segregator = { path = "../../../../../bridges/modules/sygma/access-segregator", default-features = false }
+sygma-basic-feehandler = { path = "../../../../../bridges/modules/sygma/basic-fee-handler", default-features = false }
+sygma-traits = { path = "../../../../../bridges/modules/sygma/traits", default-features = false }
+sygma-fee-handler-router = { path = "../../../../../bridges/modules/sygma/fee-handler-router", default-features = false }
+sygma-percentage-feehandler = { path = "../../../../../bridges/modules/sygma/percentage-fee-handler", default-features = false }
+sygma-bridge = { path = "../../../../../bridges/modules/sygma/bridge", default-features = false }
+sygma-bridge-forwarder = { path = "../../../../../bridges/modules/sygma/bridge-forwarder", default-features = false }
+sygma-xcm-bridge = { path = "../../../../../bridges/modules/sygma/xcm-bridge", default-features = false }
+
 [dev-dependencies]
 static_assertions = "1.1"
 bridge-hub-test-utils = { path = "../test-utils" }
@@ -129,6 +143,7 @@ std = [
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
+	"pallet-assets/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
@@ -168,6 +183,14 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"sygma-access-segregator/std",
+	"sygma-basic-feehandler/std",
+	"sygma-traits/std",
+	"sygma-fee-handler-router/std",
+	"sygma-percentage-feehandler/std",
+	"sygma-bridge/std",
+	"sygma-bridge-forwarder/std",
+	"sygma-xcm-bridge/std",
 ]
 
 runtime-benchmarks = [
@@ -181,6 +204,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-bridge-parachains/runtime-benchmarks",
@@ -197,6 +221,11 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"sygma-access-segregator/runtime-benchmarks",
+	"sygma-basic-feehandler/runtime-benchmarks",
+	"sygma-fee-handler-router/runtime-benchmarks",
+	"sygma-percentage-feehandler/runtime-benchmarks",
+	"sygma-bridge/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -212,6 +241,7 @@ try-runtime = [
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-bridge-grandpa/try-runtime",
 	"pallet-bridge-messages/try-runtime",
 	"pallet-bridge-parachains/try-runtime",
@@ -226,6 +256,13 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"sygma-access-segregator/try-runtime",
+	"sygma-basic-feehandler/try-runtime",
+	"sygma-fee-handler-router/try-runtime",
+	"sygma-percentage-feehandler/try-runtime",
+	"sygma-bridge/try-runtime",
+	"sygma-bridge-forwarder/try-runtime",
+	"sygma-xcm-bridge/try-runtime",
 ]
 
 experimental = [ "pallet-aura/experimental" ]

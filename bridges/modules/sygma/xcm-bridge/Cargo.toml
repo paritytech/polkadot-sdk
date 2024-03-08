@@ -1,0 +1,95 @@
+[package]
+name = "sygma-xcm-bridge"
+version = "0.3.0"
+edition = "2021"
+license = "LGPL-3.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde", "decode"] }
+half = { version = "2.3.1", default-features = false }
+log = "0.4.20"
+
+# Substrate
+frame-support = { path = "../../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../../substrate/frame/system", default-features = false}
+pallet-balances = { path = "../../../../substrate/frame/balances", default-features = false }
+pallet-assets = { path = "../../../../substrate/frame/assets", default-features = false }
+sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false}
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false}
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false}
+
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false }
+
+# Cumulus
+cumulus-primitives-core = { path = "../../../../cumulus/primitives/core", default-features = false }
+cumulus-pallet-xcm = { path = "../../../../cumulus/pallets/xcm", default-features = false }
+cumulus-primitives-utility = { path = "../../../../cumulus/primitives/utility", default-features = false }
+
+# Local
+sygma-traits = { path = "../traits", default-features = false }
+sygma-bridge-forwarder = { path = "../bridge-forwarder", default-features = false }
+
+[dev-dependencies]
+# Substrate
+sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false}
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false}
+frame-support = { path = "../../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../../substrate/frame/system", default-features = false}
+pallet-balances = { path = "../../../../substrate/frame/balances", default-features = false }
+pallet-assets = { path = "../../../../substrate/frame/assets", default-features = false }
+pallet-timestamp = { path = "../../../../substrate/frame/timestamp", default-features = false}
+
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false }
+polkadot-parachain-primitives = { path = "../../../../polkadot/parachain", default-features = false }
+polkadot-runtime-common = { path = "../../../../polkadot/runtime/common", default-features = false }
+polkadot-runtime-parachains = { path = "../../../../polkadot/runtime/parachains", default-features = false }
+pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false }
+parachain-info = { path = "../../../../cumulus/parachains/pallets/parachain-info", default-features = false }
+
+# Cumulus
+cumulus-primitives-core = { path = "../../../../cumulus/primitives/core", default-features = false }
+cumulus-pallet-dmp-queue = { path = "../../../../cumulus/pallets/dmp-queue", default-features = false }
+cumulus-pallet-xcmp-queue = { path = "../../../../cumulus/pallets/xcmp-queue", default-features = false }
+cumulus-pallet-xcm = { path = "../../../../cumulus/pallets/xcm", default-features = false }
+cumulus-primitives-utility = { path = "../../../../cumulus/primitives/utility", default-features = false }
+
+# Local
+sygma-traits = { path = "../traits" }
+
+env_logger = "0.11.1"
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "scale-info/std",
+    "frame-support/std",
+    "frame-system/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "sp-core/full_crypto",
+    "xcm/std",
+    "xcm-builder/std",
+    "xcm-executor/std",
+    "pallet-balances/std",
+    "pallet-assets/std",
+    "cumulus-primitives-core/std",
+    "cumulus-primitives-utility/std",
+    "cumulus-pallet-xcm/std",
+    "sygma-traits/std",
+    "sygma-bridge-forwarder/std",
+]
+runtime-benchmarks = [
+    'frame-support/runtime-benchmarks',
+    'frame-system/runtime-benchmarks',
+]
+try-runtime = ["frame-support/try-runtime"]

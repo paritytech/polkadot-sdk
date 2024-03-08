@@ -14,12 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use sp_std::result;
+use sp_std::vec;
+use sp_std::{marker::PhantomData, vec::Vec};
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, BridgeGrandpaRococoInstance,
 	BridgeGrandpaWococoInstance, DeliveryRewardInBalance, ParachainInfo, ParachainSystem,
 	PolkadotXcm, RequiredStakeForStakeAndSlash, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	WeightToFee, XcmpQueue,
+	WeightToFee, XcmpQueue, SygmaBridge, CheckingAccount, Assets, Balance, XcmAssetId,
+	NativeLocation, UsdtAssetId, UsdtLocation, AssetId
 };
+use cumulus_primitives_core::ParaId;
 use crate::{
 	bridge_hub_rococo_config::ToBridgeHubWococoHaulBlobExporter,
 	bridge_hub_wococo_config::ToBridgeHubRococoHaulBlobExporter,
@@ -28,6 +33,7 @@ use frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, Contains, Everything, Nothing},
 };
+use sp_runtime::AccountId32;
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFrom};
@@ -41,20 +47,27 @@ use xcm_builder::{
 	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, FungiblesAdapter, NoChecking, FixedWeightBounds
 };
 use xcm_executor::{
-	traits::{ExportXcm, WithOriginFilter},
+	traits::{ExportXcm, WithOriginFilter, MatchesFungibles, Error as ExecutionError},
 	XcmExecutor,
 };
+use sygma_xcm_bridge::BridgeImpl;
+use sygma_traits::AssetTypeIdentifier;
 
 parameter_types! {
 	pub const RelayLocation: MultiLocation = MultiLocation::parent();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation =
 		X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
+	// One XCM operation is 1_000_000_000 weight - almost certainly a conservative estimate.
+	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
+	pub SelfLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(ParachainInfo::parachain_id().into())));
+	// set 1 token as min fee
+	pub MinXcmFee: Vec<(XcmAssetId, u128)> = vec![(NativeLocation::get().into(), 1_000_000_000_000u128)];
 }
 
 pub struct RelayNetwork;
@@ -98,6 +111,40 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	// We don't track any teleports of `Balances`.
 	(),
 >;
+
+/// Means for transacting assets besides the native currency on this chain.
+pub type FungiblesTransactor = FungiblesAdapter<
+	// Use this fungibles implementation:
+	Assets,
+	// Use this currency when it is a fungible asset matching the given location or name:
+	SimpleForeignAssetConverter,
+	// Convert an XCM MultiLocation into a local account id:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId32,
+	// Disable teleport.
+	NoChecking,
+	// The account to use for tracking teleports.
+	CheckingAccount,
+>;
+
+/// A simple Asset converter that extract the bingding relationship between AssetId and
+/// MultiLocation, And convert Asset transfer amount to Balance
+pub struct SimpleForeignAssetConverter(PhantomData<()>);
+impl MatchesFungibles<AssetId, Balance> for SimpleForeignAssetConverter {
+	fn matches_fungibles(a: &MultiAsset) -> result::Result<(AssetId, Balance), ExecutionError> {
+		match (&a.fun, &a.id) {
+			(Fungible(ref amount), Concrete(ref id)) => {
+				if id == &UsdtLocation::get() {
+					Ok((UsdtAssetId::get(), *amount))
+				} else {
+					Err(ExecutionError::AssetNotHandled)
+				}
+			},
+			_ => Err(ExecutionError::AssetNotHandled),
+		}
+	}
+}
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -154,10 +201,10 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 		// Allow to change dedicated storage items (called by governance-like)
 		match call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
-				if items.iter().any(|(k, _)| {
-					k.eq(&DeliveryRewardInBalance::key()) |
-						k.eq(&RequiredStakeForStakeAndSlash::key())
-				}) =>
+			if items.iter().any(|(k, _)| {
+				k.eq(&DeliveryRewardInBalance::key()) |
+					k.eq(&RequiredStakeForStakeAndSlash::key())
+			}) =>
 				return true,
 			_ => (),
 		};
@@ -243,7 +290,7 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader =
-		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToStakingPot<Runtime>>;
+	UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToStakingPot<Runtime>>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetLocker = ();
@@ -338,7 +385,7 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 				destination,
 				message,
 			)
-			.map(|result| ((Rococo, result.0), result.1)),
+				.map(|result| ((Rococo, result.0), result.1)),
 			Wococo => ToBridgeHubWococoHaulBlobExporter::validate(
 				network,
 				channel,
@@ -346,7 +393,7 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 				destination,
 				message,
 			)
-			.map(|result| ((Wococo, result.0), result.1)),
+				.map(|result| ((Wococo, result.0), result.1)),
 			_ => unimplemented!("Unsupported network: {:?}", network),
 		}
 	}
@@ -357,6 +404,41 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 			Rococo => ToBridgeHubRococoHaulBlobExporter::deliver(ticket),
 			Wococo => ToBridgeHubWococoHaulBlobExporter::deliver(ticket),
 			_ => unimplemented!("Unsupported network: {:?}", network),
+		}
+	}
+}
+
+impl sygma_xcm_bridge::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
+	type XcmExecutor = XcmExecutor<XcmConfig>;
+	type AssetReservedChecker = NativeAssetTypeIdentifier<ParachainInfo>;
+	type UniversalLocation = UniversalLocation;
+	type SelfLocation = SelfLocation;
+	type MinXcmFee = MinXcmFee;
+}
+
+impl sygma_bridge_forwarder::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type SygmaBridge = SygmaBridge;
+	type XCMBridge = BridgeImpl<Runtime>;
+}
+
+/// NativeAssetTypeIdentifier impl AssetTypeIdentifier for XCMAssetTransactor
+/// This impl is only for local mock purpose, the integrated parachain might have their own version
+pub struct NativeAssetTypeIdentifier<T>(PhantomData<T>);
+impl<T: Get<ParaId>> AssetTypeIdentifier for NativeAssetTypeIdentifier<T> {
+	/// check if the given MultiAsset is a native asset
+	fn is_native_asset(asset: &MultiAsset) -> bool {
+		// currently there are two multilocations are considered as native asset:
+		// 1. integrated parachain native asset(MultiLocation::here())
+		// 2. other parachain native asset(MultiLocation::new(1, X1(Parachain(T::get().into()))))
+		let native_locations =
+			[MultiLocation::here(), MultiLocation::new(1, X1(Parachain(T::get().into())))];
+
+		match (&asset.id, &asset.fun) {
+			(Concrete(ref id), Fungible(_)) => native_locations.contains(id),
+			_ => false,
 		}
 	}
 }

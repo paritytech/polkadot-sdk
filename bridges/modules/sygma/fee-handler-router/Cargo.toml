@@ -1,0 +1,61 @@
+[package]
+name = "sygma-fee-handler-router"
+version = "0.3.0"
+edition = "2021"
+license = "LGPL-3.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde", "decode"] }
+
+# Substrate
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false }
+frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+
+# Local
+sygma-traits = { path = "../traits", default-features = false }
+sygma-basic-feehandler = { path = "../basic-fee-handler", default-features = false }
+sygma-percentage-feehandler = { path = "../percentage-fee-handler", default-features = false }
+sygma-access-segregator = { path = "../access-segregator", default-features = false }
+
+[dev-dependencies]
+# Substrate
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false }
+pallet-balances = { path = "../../../../substrate/frame/balances", default-features = false }
+pallet-assets = { path = "../../../../substrate/frame/assets", default-features = false }
+
+sygma-access-segregator = { path = "../access-segregator" }
+sygma-basic-feehandler = { path = "../basic-fee-handler" }
+sygma-traits = { path = "../traits" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+    "frame-support/std",
+    "frame-system/std",
+    "frame-benchmarking/std",
+	"sp-std/std",
+	"xcm/std",
+	"xcm-builder/std",
+    "sygma-traits/std",
+	"sygma-basic-feehandler/std",
+	"sygma-percentage-feehandler/std",
+	"sygma-access-segregator/std",
+]
+runtime-benchmarks = [
+	'frame-benchmarking',
+	'frame-support/runtime-benchmarks',
+	'frame-system/runtime-benchmarks',
+]
+try-runtime = ["frame-support/try-runtime"]

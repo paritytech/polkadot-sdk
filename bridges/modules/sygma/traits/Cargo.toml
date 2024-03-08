@@ -1,0 +1,31 @@
+[package]
+name = "sygma-traits"
+version = "0.2.0"
+edition = "2021"
+license = "LGPL-3.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde", "decode"] }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+ethabi = { version = "18.0.0", default-features = false }
+primitive-types = { version = "0.12", default-features = false, features = ["scale-info", "serde_no_std"] }
+
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"xcm/std",
+	"xcm-builder/std",
+	"sp-std/std",
+	"ethabi/std",
+	"primitive-types/std",
+]
