@@ -40,7 +40,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = Ignored)]
+	#[benchmark(pov_mode = Ignored)]
 	fn storage_single_value_ignored_read() {
 		Value::<T>::put(123);
 		#[block]
@@ -49,7 +49,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = MaxEncodedLen {
+	#[benchmark(pov_mode = MaxEncodedLen {
 		Pov::Value2: Ignored
 	})]
 	fn storage_single_value_ignored_some_read() {
@@ -102,7 +102,7 @@ mod benchmarks {
 	// created. Then the one value is read from the map. This demonstrates that the number of other
 	// nodes in the Trie influences the proof size. The number of inserted nodes can be interpreted
 	// as the number of `StorageMap`/`StorageValue` in the whole runtime.
-	#[benchmark(pov = Measured)]
+	#[benchmark(pov_mode = Measured)]
 	fn storage_1m_map_read_one_value_two_additional_layers() {
 		(0..(1 << 10)).for_each(|i| Map1M::<T>::insert(i, i));
 		// Assume there are 16-256 other storage items.
@@ -117,7 +117,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = Measured)]
+	#[benchmark(pov_mode = Measured)]
 	fn storage_1m_map_read_one_value_three_additional_layers() {
 		(0..(1 << 10)).for_each(|i| Map1M::<T>::insert(i, i));
 		// Assume there are 256-4096 other storage items.
@@ -132,7 +132,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = Measured)]
+	#[benchmark(pov_mode = Measured)]
 	fn storage_1m_map_read_one_value_four_additional_layers() {
 		(0..(1 << 10)).for_each(|i| Map1M::<T>::insert(i, i));
 		// Assume there are 4096-65536 other storage items.
@@ -160,7 +160,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = MaxEncodedLen {
+	#[benchmark(pov_mode = MaxEncodedLen {
 		Pov::Map1M: Ignored
 	})]
 	fn storage_map_read_per_component_one_ignored(n: Linear<0, 100>, m: Linear<0, 100>) {
@@ -226,7 +226,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = Ignored)]
+	#[benchmark(pov_mode = Ignored)]
 	fn storage_value_unbounded_ignored_read() {
 		#[block]
 		{
@@ -245,7 +245,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = Measured)]
+	#[benchmark(pov_mode = Measured)]
 	fn measured_storage_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
 		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
@@ -255,7 +255,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = MaxEncodedLen)]
+	#[benchmark(pov_mode = MaxEncodedLen)]
 	fn mel_storage_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
 		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
@@ -265,7 +265,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = Measured)]
+	#[benchmark(pov_mode = Measured)]
 	fn measured_storage_double_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
 		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
@@ -277,7 +277,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = MaxEncodedLen)]
+	#[benchmark(pov_mode = MaxEncodedLen)]
 	fn mel_storage_double_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
 		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
@@ -289,7 +289,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = MaxEncodedLen {
+	#[benchmark(pov_mode = MaxEncodedLen {
 		Pov::LargeValue2: Measured
 	})]
 	fn mel_mixed_storage_double_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
@@ -303,7 +303,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = Measured {
+	#[benchmark(pov_mode = Measured {
 		Pov::LargeValue2: MaxEncodedLen
 	})]
 	fn measured_mixed_storage_double_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
@@ -317,7 +317,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = Measured)]
+	#[benchmark(pov_mode = Measured)]
 	fn storage_map_unbounded_both_measured_read(i: Linear<0, 1000>) {
 		UnboundedMap::<T>::insert(i, sp_std::vec![0; i as usize]);
 		UnboundedMap2::<T>::insert(i, sp_std::vec![0; i as usize]);
@@ -328,7 +328,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = MaxEncodedLen {
+	#[benchmark(pov_mode = MaxEncodedLen {
 		Pov::UnboundedMap: Measured
 	})]
 	fn storage_map_partial_unbounded_read(i: Linear<0, 1000>) {
@@ -341,7 +341,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov = MaxEncodedLen {
+	#[benchmark(pov_mode = MaxEncodedLen {
 		Pov::UnboundedMap: Ignored
 	})]
 	fn storage_map_partial_unbounded_ignored_read(i: Linear<0, 1000>) {

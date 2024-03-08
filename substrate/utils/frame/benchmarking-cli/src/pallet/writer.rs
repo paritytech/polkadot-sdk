@@ -28,7 +28,10 @@ use itertools::Itertools;
 use serde::Serialize;
 
 use crate::{
-	pallet::command::{ComponentRange, PovEstimationMode, PovModesMap},
+	pallet::{
+		command::{ComponentRange, PovModesMap},
+		PovEstimationMode,
+	},
 	shared::UnderscoreHelper,
 	PalletCmd,
 };

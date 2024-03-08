@@ -125,7 +125,7 @@ pub struct PalletCmd {
 
 	/// The PoV estimation mode of a benchmark if no `pov_mode` attribute is present.
 	#[arg(long, default_value("max-encoded-len"), value_enum)]
-	pub default_pov_mode: command::PovEstimationMode,
+	pub default_pov_mode: PovEstimationMode,
 
 	/// Set the heap pages while running benchmarks. If not set, the default value from the client
 	/// is used.
@@ -221,4 +221,28 @@ pub struct PalletCmd {
 	/// This exists only to restore legacy behaviour. It should never actually be needed.
 	#[arg(long)]
 	pub unsafe_overwrite_results: bool,
+}
+
+/// How the PoV size of a storage item should be estimated.
+#[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy)]
+pub enum PovEstimationMode {
+	/// Use the maximal encoded length as provided by [`codec::MaxEncodedLen`].
+	MaxEncodedLen,
+	/// Measure the accessed value size in the pallet benchmarking and add some trie overhead.
+	Measured,
+	/// Do not estimate the PoV size for this storage item or benchmark.
+	Ignored,
+}
+
+impl core::str::FromStr for PovEstimationMode {
+	type Err = &'static str;
+
+	fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+		match s {
+			"MaxEncodedLen" => Ok(Self::MaxEncodedLen),
+			"Measured" => Ok(Self::Measured),
+			"Ignored" => Ok(Self::Ignored),
+			_ => unreachable!("The benchmark! macro should have prevented this"),
+		}
+	}
 }

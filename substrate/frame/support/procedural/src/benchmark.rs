@@ -40,7 +40,7 @@ mod keywords {
 	custom_keyword!(benchmarks);
 	custom_keyword!(block);
 	custom_keyword!(extra);
-	custom_keyword!(pov);
+	custom_keyword!(pov_mode);
 	custom_keyword!(extrinsic_call);
 	custom_keyword!(skip_meta);
 	custom_keyword!(BenchmarkError);
@@ -87,6 +87,32 @@ enum BenchmarkAttr {
 	PoV(PovModeAttr),
 }
 
+impl syn::parse::Parse for PovModeAttr {
+	fn parse(input: ParseStream) -> Result<Self> {
+		let _pov: keywords::pov_mode = input.parse()?;
+		let _eq: Token![=] = input.parse()?;
+		let root = PovEstimationMode::parse(input)?;
+
+		let mut maybe_content = None;
+		let _ = || -> Result<()> {
+			let content;
+			syn::braced!(content in input);
+			maybe_content = Some(content);
+			Ok(())
+		}();
+
+		let per_key = match maybe_content {
+			Some(content) => {
+				let per_key = Punctuated::<PovModeKeyAttr, Token![,]>::parse_terminated(&content)?;
+				per_key.into_iter().collect()
+			},
+			None => Vec::new(),
+		};
+
+		Ok(Self { root, per_key })
+	}
+}
+
 impl syn::parse::Parse for BenchmarkAttr {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let lookahead = input.lookahead1();
@@ -96,49 +122,34 @@ impl syn::parse::Parse for BenchmarkAttr {
 		} else if lookahead.peek(keywords::skip_meta) {
 			let _skip_meta: keywords::skip_meta = input.parse()?;
 			Ok(BenchmarkAttr::SkipMeta)
-		} else if lookahead.peek(keywords::pov) {
-			let _pov: keywords::pov = input.parse()?;
-			let _eq: Token![=] = input.parse()?;
-			let mode = PovEstimationMode::parse(input)?;
-
-			let mut maybe_content = None;
-			let _ = || -> Result<()> {
-				let content;
-				syn::braced!(content in input);
-				maybe_content = Some(content);
-				Ok(())
-			}();
-
-			match maybe_content {
-				None => Ok(BenchmarkAttr::PoV(PovModeAttr { root: mode, per_key: Vec::new() })),
-				Some(content) => {
-					let per_key =
-						Punctuated::<PovModeKeyAttr, Token![,]>::parse_terminated(&content)?;
-					Ok(BenchmarkAttr::PoV(PovModeAttr {
-						root: mode,
-						per_key: per_key.into_iter().collect(),
-					}))
-				},
-			}
+		} else if lookahead.peek(keywords::pov_mode) {
+			PovModeAttr::parse(input).map(BenchmarkAttr::PoV)
 		} else {
 			Err(lookahead.error())
 		}
 	}
 }
 
-#[derive(Debug, Clone, derive_syn_parse::Parse)]
-struct PovModeKeyAttr {
-	key: Path,
-	_underscore: Token![:],
-	mode: PovEstimationMode,
-}
-
+/// A `#[pov_mode = .. { .. }]` attribute.
 #[derive(Debug, Clone)]
 struct PovModeAttr {
+	/// The root mode for this benchmarks.
 	root: PovEstimationMode,
+	/// The pov-mode for a specific key. This overwrites `root` for this key.
 	per_key: Vec<PovModeKeyAttr>,
 }
 
+/// A single key-value pair inside the `{}` of a `#[pov_mode = .. { .. }]` attribute.
+#[derive(Debug, Clone, derive_syn_parse::Parse)]
+struct PovModeKeyAttr {
+	/// A specific storage key for which to set the PoV mode.
+	key: Path,
+	_underscore: Token![:],
+	/// The PoV mode for this key.
+	mode: PovEstimationMode,
+}
+
+/// How the PoV should be estimated.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum PovEstimationMode {
 	/// Use the maximal encoded length as provided by [`codec::MaxEncodedLen`].
@@ -147,6 +158,24 @@ pub enum PovEstimationMode {
 	Measured,
 	/// Do not estimate the PoV size for this storage item or benchmark.
 	Ignored,
+}
+
+impl syn::parse::Parse for PovEstimationMode {
+	fn parse(input: ParseStream) -> Result<Self> {
+		let lookahead = input.lookahead1();
+		if lookahead.peek(keywords::MaxEncodedLen) {
+			let _max_encoded_len: keywords::MaxEncodedLen = input.parse()?;
+			return Ok(PovEstimationMode::MaxEncodedLen)
+		} else if lookahead.peek(keywords::Measured) {
+			let _measured: keywords::Measured = input.parse()?;
+			return Ok(PovEstimationMode::Measured)
+		} else if lookahead.peek(keywords::Ignored) {
+			let _ignored: keywords::Ignored = input.parse()?;
+			return Ok(PovEstimationMode::Ignored)
+		} else {
+			return Err(lookahead.error())
+		}
+	}
 }
 
 impl ToString for PovEstimationMode {
@@ -165,24 +194,6 @@ impl quote::ToTokens for PovEstimationMode {
 			PovEstimationMode::MaxEncodedLen => tokens.extend(quote!(MaxEncodedLen)),
 			PovEstimationMode::Measured => tokens.extend(quote!(Measured)),
 			PovEstimationMode::Ignored => tokens.extend(quote!(Ignored)),
-		}
-	}
-}
-
-impl syn::parse::Parse for PovEstimationMode {
-	fn parse(input: ParseStream) -> Result<Self> {
-		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::MaxEncodedLen) {
-			let _max_encoded_len: keywords::MaxEncodedLen = input.parse()?;
-			return Ok(PovEstimationMode::MaxEncodedLen)
-		} else if lookahead.peek(keywords::Measured) {
-			let _measured: keywords::Measured = input.parse()?;
-			return Ok(PovEstimationMode::Measured)
-		} else if lookahead.peek(keywords::Ignored) {
-			let _ignored: keywords::Ignored = input.parse()?;
-			return Ok(PovEstimationMode::Ignored)
-		} else {
-			return Err(lookahead.error())
 		}
 	}
 }
@@ -210,7 +221,7 @@ impl syn::parse::Parse for BenchmarkAttrs {
 				},
 				BenchmarkAttr::PoV(mode) => {
 					if pov_mode.is_some() {
-						return Err(input.error("Only one PoV mode can be specified"))
+						return Err(input.error("`pov_mode` can only be specified once"))
 					}
 					pov_mode = Some(mode);
 				},
@@ -511,6 +522,7 @@ pub fn benchmarks(
 				modes.push(quote!(("ALL".as_bytes().to_vec(), #m.as_bytes().to_vec())));
 
 				for attr in mode.per_key.iter() {
+					// syn always puts spaces in quoted paths:
 					let key = attr.key.clone().into_token_stream().to_string().replace(" ", "");
 					let mode = attr.mode.to_string();
 					modes.push(quote!((#key.as_bytes().to_vec(), #mode.as_bytes().to_vec())));
@@ -628,7 +640,10 @@ pub fn benchmarks(
 					let pov_modes:
 						#krate::__private::Vec<(
 							#krate::__private::Vec<u8>,
-							#krate::__private::Vec<(#krate::__private::Vec<u8>, #krate::__private::Vec<u8>)>,
+							#krate::__private::Vec<(
+								#krate::__private::Vec<u8>,
+								#krate::__private::Vec<u8>
+							)>,
 						)> = #krate::__private::vec![
 						#( #pov_modes ),*
 					];
