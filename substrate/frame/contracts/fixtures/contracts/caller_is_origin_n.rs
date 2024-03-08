@@ -14,12 +14,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Valid module but missing the call function
+
+//! This fixture calls caller_is_origin `n` times.
+
 #![no_std]
 #![no_main]
 
-extern crate common;
+use common::input;
+use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn deploy() {}
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn call() {
+	input!(n: u32, );
+
+	for _ in 0..n {
+		let _ = api::caller_is_origin();
+	}
+}
