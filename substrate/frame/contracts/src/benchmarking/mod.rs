@@ -198,7 +198,6 @@ benchmarks! {
 		ContractInfo::<T>::process_deletion_queue_batch(Weight::MAX)
 	}
 
-	#[skip_meta]
 	#[pov_mode = Measured]
 	on_initialize_per_trie_key {
 		let k in 0..1024;
@@ -1150,7 +1149,6 @@ benchmarks! {
 	//
 	// We need to use a smaller `r` because the keys are big and writing them all into the wasm
 	// might exceed the code size.
-	#[skip_meta]
 	#[pov_mode = Measured]
 	seal_set_storage {
 		let r in 0 .. API_BENCHMARK_RUNS/2;
@@ -1198,7 +1196,6 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	#[skip_meta]
 	#[pov_mode = Measured]
 	seal_set_storage_per_new_byte {
 		let n in 0 .. T::Schedule::get().limits.payload_len;
@@ -1241,7 +1238,6 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	#[skip_meta]
 	#[pov_mode = Measured]
 	seal_set_storage_per_old_byte {
 		let n in 0 .. T::Schedule::get().limits.payload_len;
@@ -1288,7 +1284,6 @@ benchmarks! {
 	// delete beforehand in order to prevent any optimizations that could occur when
 	// deleting a non existing key. We generate keys of a maximum length, and have to
 	// the amount of runs in order to make resulting contract code size less than MaxCodeLen.
-	#[skip_meta]
 	#[pov_mode = Measured]
 	seal_clear_storage {
 		let r in 0 .. API_BENCHMARK_RUNS/2;
@@ -1335,7 +1330,6 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	#[skip_meta]
 	#[pov_mode = Measured]
 	seal_clear_storage_per_byte {
 		let n in 0 .. T::Schedule::get().limits.payload_len;
@@ -1377,7 +1371,6 @@ benchmarks! {
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
 	// We make sure that all storage accesses are to unique keys.
-	#[skip_meta]
 	#[pov_mode = Measured]
 	seal_get_storage {
 		let r in 0 .. API_BENCHMARK_RUNS/2;
@@ -1431,7 +1424,6 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	#[skip_meta]
 	#[pov_mode = Measured]
 	seal_get_storage_per_byte {
 		let n in 0 .. T::Schedule::get().limits.payload_len;
@@ -1480,7 +1472,6 @@ benchmarks! {
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
 	// We make sure that all storage accesses are to unique keys.
-	#[skip_meta]
 	#[pov_mode = Measured]
 	seal_contains_storage {
 		let r in 0 .. API_BENCHMARK_RUNS/2;
@@ -1528,7 +1519,6 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	#[skip_meta]
 	#[pov_mode = Measured]
 	seal_contains_storage_per_byte {
 		let n in 0 .. T::Schedule::get().limits.payload_len;
@@ -1570,7 +1560,6 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	#[skip_meta]
 	#[pov_mode = Measured]
 	seal_take_storage {
 		let r in 0 .. API_BENCHMARK_RUNS/2;
@@ -1624,7 +1613,6 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	#[skip_meta]
 	#[pov_mode = Measured]
 	seal_take_storage_per_byte {
 		let n in 0 .. T::Schedule::get().limits.payload_len;

@@ -5,6 +5,7 @@ It is therefore important to regularly update these weights as the chain grows.
 This sub-command measures the cost of storage operations for a concrete snapshot.
 
 For the Substrate node it looks like this (for debugging you can use `--release`):
+
 ```sh
 cargo run --profile=production -- benchmark storage --dev --state-version=1
 ```
@@ -15,11 +16,13 @@ used.
 The output for the Polkadot client with a recent chain snapshot will give you a better impression. A recent snapshot can
 be downloaded from [Polkachu].
 Then run (remove the `--db=paritydb` if you have a RocksDB snapshot):
+
 ```sh
 cargo run --profile=production -- benchmark storage --dev --state-version=0 --db=paritydb --weight-path runtime/polkadot/constants/src/weights
 ```
 
 This takes a while since reads and writes all keys from the snapshot:
+
 ```pre
 # The 'read' benchmark
 Preparing keys from block BlockId::Number(9939462)
@@ -51,6 +54,7 @@ Percentiles 99th, 95th, 75th: 3368, 383, 80
 
 Writing weights to "paritydb_weights.rs"
 ```
+
 You will see that the [paritydb_weights.rs] files was modified and now contains new weights. The exact command for
 Polkadot can be seen at the top of the file.
 This uses the most recent block from your snapshot which is printed at the top.
@@ -58,6 +62,7 @@ The value size summary tells us that the pruned Polkadot chain state is ~253 MiB
 Reading a value on average takes (in this examples) 14.3 µs and writing 71.3 µs.
 The interesting part in the generated weight file tells us the weight constants and some statistics about the
 measurements:
+
 ```rust
 /// Time to read one storage item.
 /// Calculated by multiplying the *Average* of all values with `1.1` and adding `0`.
@@ -106,6 +111,6 @@ write: 71_347 * constants::WEIGHT_REF_TIME_PER_NANOS,
 License: Apache-2.0
 
 <!-- LINKS -->
-[Polkachu]: https://polkachu.com/snapshots
+[Polkachu]: https://polkachu.com/substrate_snapshots
 [paritydb_weights.rs]:
     https://github.com/paritytech/polkadot/blob/c254e5975711a6497af256f6831e9a6c752d28f5/runtime/polkadot/constants/src/weights/paritydb_weights.rs#L60

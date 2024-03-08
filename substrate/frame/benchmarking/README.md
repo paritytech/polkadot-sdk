@@ -106,9 +106,11 @@ cargo test -p pallet-balances --features runtime-benchmarks
 ```
 
 > NOTE: Substrate uses a virtual workspace which does not allow you to compile with feature flags.
+>
 > ```
 > error: --features is not allowed in the root of a virtual workspace`
 > ```
+>
 > To solve this, navigate to the folder of the node (`cd bin/node/cli`) or pallet (`cd frame/pallet`) and run the
 > command there.
 
@@ -160,7 +162,6 @@ Then you can run a benchmark like so:
 ```bash
 ./target/production/substrate benchmark pallet \
     --chain dev \                  # Configurable Chain Spec
-    --wasm-execution=compiled \    # Always used `wasm-time`
     --pallet pallet_balances \     # Select the pallet
     --extrinsic transfer \         # Select the extrinsic
     --steps 50 \                   # Number of samples across component ranges
