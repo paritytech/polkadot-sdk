@@ -24,7 +24,7 @@ fn send_transact_as_superuser_from_relay_to_system_para_works() {
 		ASSET_MIN_BALANCE,
 		true,
 		AssetHubRococoSender::get().into(),
-		Some(Weight::from_parts(152053000, 3675)),
+		Some(Weight::from_parts(152_053_000, 3_675)),
 	)
 }
 
@@ -42,7 +42,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		ASSET_MIN_BALANCE,
 		true,
 		para_sovereign_account.clone(),
-		Some(Weight::from_parts(152053000, 3675)),
+		Some(Weight::from_parts(152_053_000, 3_675)),
 		ASSET_MIN_BALANCE * 1000000000,
 	);
 

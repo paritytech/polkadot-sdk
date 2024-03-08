@@ -485,7 +485,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 		ASSET_MIN_BALANCE,
 		true,
 		AssetHubWestendSender::get(),
-		Some(Weight::from_parts(152053000, 3675)),
+		Some(Weight::from_parts(152_053_000, 3_675)),
 		ASSET_MIN_BALANCE * 1_000_000,
 	);
 	PenpalB::force_create_and_mint_asset(
