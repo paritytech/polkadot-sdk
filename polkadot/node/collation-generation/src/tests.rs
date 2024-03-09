@@ -25,16 +25,18 @@ use polkadot_node_primitives::{BlockData, Collation, CollationResult, MaybeCompr
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest},
+	ActivatedLeaf,
 };
 use polkadot_node_subsystem_test_helpers::{subsystem_test_harness, TestSubsystemContextHandle};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	CollatorPair, HeadData, Id as ParaId, PersistedValidationData, ScheduledCore, ValidationCode,
+	AsyncBackingParams, CollatorPair, HeadData, Id as ParaId, Id, PersistedValidationData,
+	ScheduledCore, ValidationCode,
 };
 use rstest::rstest;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use std::pin::Pin;
-use test_helpers::{dummy_hash, dummy_head_data, dummy_validator};
+use test_helpers::{dummy_candidate_descriptor, dummy_hash, dummy_head_data, dummy_validator};
 
 type VirtualOverseer = TestSubsystemContextHandle<CollationGenerationMessage>;
 
@@ -691,4 +693,212 @@ fn submit_collation_leads_to_distribution() {
 
 		virtual_overseer
 	});
+}
+
+// There is once core in Occupied state and async backing is enabled. On new head activation
+// `CollationGeneration` should produce and distribute a new collation.
+#[rstest]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn test_distribute_collation_with_async_backing(#[case] runtime_version: u32) {
+	let activated_hash: Hash = [1; 32].into();
+	let para_id = ParaId::from(5);
+
+	// One core, in occupied state. The data in `CoreState` and `ClaimQueue` should match.
+	let cores: Vec<CoreState> = vec![CoreState::Occupied(polkadot_primitives::OccupiedCore {
+		next_up_on_available: Some(ScheduledCore { para_id, collator: None }),
+		occupied_since: 1,
+		time_out_at: 10,
+		next_up_on_time_out: Some(ScheduledCore { para_id, collator: None }),
+		availability: Default::default(), // doesn't matter
+		group_responsible: polkadot_primitives::GroupIndex(0),
+		candidate_hash: Default::default(),
+		candidate_descriptor: dummy_candidate_descriptor(dummy_hash()),
+	})];
+	let claim_queue = BTreeMap::from([(CoreIndex::from(0), VecDeque::from([para_id]))]);
+
+	test_harness(|mut virtual_overseer| async move {
+		building_blocks::initialize_collator(&mut virtual_overseer, para_id).await;
+		building_blocks::activate_new_head(&mut virtual_overseer, activated_hash).await;
+		building_blocks::handle_runtime_calls_on_new_head_activation(
+			&mut virtual_overseer,
+			activated_hash,
+			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 1 },
+			cores,
+			runtime_version,
+			claim_queue,
+		)
+		.await;
+		building_blocks::handle_core_processing_for_a_leaf(
+			&mut virtual_overseer,
+			activated_hash,
+			para_id,
+			// `CoreState` is `Occupied` => `OccupiedCoreAssumption` is `Included`
+			OccupiedCoreAssumption::Included,
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+mod building_blocks {
+	use super::*;
+
+	// Sends `Initialize` with a collator config
+	pub async fn initialize_collator(virtual_overseer: &mut VirtualOverseer, para_id: ParaId) {
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Initialize(test_config(para_id)),
+			})
+			.await;
+	}
+
+	// Sends `ActiveLeaves` for a single leaf with the specified hash. Block number is hardcoded.
+	pub async fn activate_new_head(virtual_overseer: &mut VirtualOverseer, activated_hash: Hash) {
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
+				activated: Some(ActivatedLeaf {
+					hash: activated_hash,
+					number: 10,
+					unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(
+						activated_hash,
+					),
+					span: Arc::new(overseer::jaeger::Span::Disabled),
+				}),
+				..Default::default()
+			})))
+			.await;
+	}
+
+	// Handle all runtime calls performed in `handle_new_activations`. Conditionally expects a
+	// `CLAIM_QUEUE_RUNTIME_REQUIREMENT` call if the passed `runtime_version` is greater or equal to
+	// `CLAIM_QUEUE_RUNTIME_REQUIREMENT`
+	pub async fn handle_runtime_calls_on_new_head_activation(
+		virtual_overseer: &mut VirtualOverseer,
+		activated_hash: Hash,
+		async_backing_params: AsyncBackingParams,
+		cores: Vec<CoreState>,
+		runtime_version: u32,
+		claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
+	) {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, RuntimeApiRequest::AvailabilityCores(tx))) => {
+				assert_eq!(hash, activated_hash);
+				let _ = tx.send(Ok(cores));
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, RuntimeApiRequest::Validators(tx))) => {
+				assert_eq!(hash, activated_hash);
+				let _ = tx.send(Ok(vec![
+					Sr25519Keyring::Alice.public().into(),
+					Sr25519Keyring::Bob.public().into(),
+					Sr25519Keyring::Charlie.public().into(),
+				]));
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+								hash,
+								RuntimeApiRequest::AsyncBackingParams(
+									tx,
+								),
+							)) => {
+				assert_eq!(hash, activated_hash);
+				let _ = tx.send(Ok(async_backing_params));
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+								hash,
+								RuntimeApiRequest::Version(tx),
+							)) => {
+				assert_eq!(hash, activated_hash);
+				let _ = tx.send(Ok(runtime_version));
+			}
+		);
+
+		if runtime_version == RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT {
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+									hash,
+									RuntimeApiRequest::ClaimQueue(tx),
+								)) => {
+					assert_eq!(hash, activated_hash);
+					let _ = tx.send(Ok(claim_queue));
+				}
+			);
+		}
+	}
+
+	// Handles all runtime requests performed in `handle_new_activations` for the case when a
+	// collation should be prepared for the new leaf
+	pub async fn handle_core_processing_for_a_leaf(
+		virtual_overseer: &mut VirtualOverseer,
+		activated_hash: Hash,
+		para_id: ParaId,
+		expected_occupied_core_assumption: OccupiedCoreAssumption,
+	) {
+		// Some hardcoded data - if needed, extract to parameters
+		let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
+		let parent_head = HeadData::from(vec![1, 2, 3]);
+		let pvd = PersistedValidationData {
+			parent_head: parent_head.clone(),
+			relay_parent_number: 10,
+			relay_parent_storage_root: Hash::repeat_byte(1),
+			max_pov_size: 1024,
+		};
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, RuntimeApiRequest::PersistedValidationData(id, a, tx))) => {
+				assert_eq!(hash, activated_hash);
+				assert_eq!(id, para_id);
+				assert_eq!(a, expected_occupied_core_assumption);
+
+				let _ = tx.send(Ok(Some(pvd.clone())));
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				hash,
+				RuntimeApiRequest::ValidationCodeHash(
+					id,
+					assumption,
+					tx,
+				),
+			)) => {
+				assert_eq!(hash, activated_hash);
+				assert_eq!(id, para_id);
+				assert_eq!(assumption, expected_occupied_core_assumption);
+
+				let _ = tx.send(Ok(Some(validation_code_hash)));
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation(
+				ccr,
+				parent_head_data_hash,
+				..
+			)) => {
+				assert_eq!(parent_head_data_hash, parent_head.hash());
+				assert_eq!(ccr.descriptor().persisted_validation_data_hash, pvd.hash());
+				assert_eq!(ccr.descriptor().para_head, dummy_head_data().hash());
+				assert_eq!(ccr.descriptor().validation_code_hash, validation_code_hash);
+			}
+		);
+	}
 }
