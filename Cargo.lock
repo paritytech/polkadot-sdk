@@ -1435,6 +1435,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f2635620bf0b9d4576eb7bb9a38a55df78bd1205d26fa994b25911a69f212f"
 dependencies = [
  "bitcoin_hashes",
+ "serde",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -19751,7 +19753,7 @@ dependencies = [
 name = "substrate-bip39"
 version = "0.4.7"
 dependencies = [
- "bip39",
+ "bip39 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hmac 0.12.1",
  "pbkdf2",
  "rustc-hex",
