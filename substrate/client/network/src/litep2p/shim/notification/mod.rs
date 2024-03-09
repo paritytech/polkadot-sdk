@@ -269,11 +269,6 @@ impl NotificationService for NotificationProtocol {
 	/// Get next event from the `Notifications` event stream.
 	async fn next_event(&mut self) -> Option<SubstrateNotificationEvent> {
 		loop {
-			if self.test.elapsed().as_secs() > 5 * 60 {
-				self.handle.force_close();
-				self.test = Instant::now();
-			}
-
 			tokio::select! {
 				biased;
 
