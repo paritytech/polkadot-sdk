@@ -38,7 +38,7 @@ use tokio::sync::oneshot;
 
 use sc_network_types::PeerId;
 
-use std::{collections::HashSet, fmt, time::Instant};
+use std::{collections::HashSet, fmt};
 
 pub mod config;
 pub mod peerset;
@@ -142,8 +142,6 @@ pub struct NotificationProtocol {
 
 	/// Notification metrics.
 	metrics: NotificationMetrics,
-
-	test: Instant,
 }
 
 impl fmt::Debug for NotificationProtocol {
@@ -164,7 +162,6 @@ impl NotificationProtocol {
 		metrics: NotificationMetrics,
 	) -> Self {
 		Self {
-			test: Instant::now(),
 			protocol,
 			handle,
 			peerset,
