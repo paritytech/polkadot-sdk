@@ -149,7 +149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     __arg0: <a class="struct" href="struct.InstantSealParams.html" title="struct sc_consensus_manual_seal::InstantSealParams">InstantSealParams</a>&lt;B, BI, E, C, TP, SC, CIDP, P&gt;
 )<span class="where fmt-newline">where
     B: BlockT + 'static,
-    BI: BlockImport&lt;B, Error = Error&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
+    BI: <a class="trait" href="../sc_consensus/block_import/trait.BlockImport.html" title="trait sc_consensus::block_import::BlockImport">BlockImport</a>&lt;B, Error = Error&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + 'static,
     CB: ClientBackend&lt;B&gt; + 'static,
     E: Environment&lt;B&gt; + 'static,
