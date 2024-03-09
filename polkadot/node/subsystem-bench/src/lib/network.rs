@@ -220,7 +220,7 @@ impl Future for ProxiedRequest {
 			Poll::Ready(response) => Poll::Ready(ProxiedResponse {
 				sender: self.sender.take().expect("sender already used"),
 				result: response
-					.expect("Response is always succesfully received.")
+					.expect("Response is always successfully received.")
 					.result
 					.map_err(|_| RequestFailure::Refused),
 			}),
@@ -762,7 +762,7 @@ pub fn new_network(
 	gum::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, latency {:?}", config.connectivity, config.latency).bright_black());
 
 	let metrics =
-		Metrics::new(&dependencies.registry).expect("Metrics always register succesfully");
+		Metrics::new(&dependencies.registry).expect("Metrics always register successfully");
 	let mut validator_authority_id_mapping = HashMap::new();
 
 	// Create the channel from `peer` to `NetworkInterface` .
