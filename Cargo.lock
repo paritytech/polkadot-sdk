@@ -2902,9 +2902,9 @@ dependencies = [
 
 [[package]]
 name = "const-hex"
-version = "1.11.1"
+version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efbd12d49ab0eaf8193ba9175e45f56bbc2e4b27d57b8cfe62aa47942a46b9a9"
+checksum = "b37dae8c8ded08d5ec72caa1b4204a5344047cd4a2c7387e3d150020abfbc1c9"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -7916,7 +7916,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.2.0"
-source = "git+https://github.com/altonen/litep2p?branch=debug-2944#976409ded090e221d07ad45f9fca83123cf8721d"
+source = "git+https://github.com/altonen/litep2p?branch=debug-2944#b64f8da2f08063700adde74e3961c0047f101ce0"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
