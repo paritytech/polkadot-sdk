@@ -24,8 +24,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		LockableCurrency, OnUnbalanced, UnixTime,
+		Currency, Defensive, EnsureOrigin, EstimateNextNewSession, Get, LockableCurrency,
+		OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -50,7 +50,7 @@ use crate::{
 	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
 	EraRewardPoints, Exposure, ExposurePage, Forcing, MaxNominationsOf, NegativeImbalanceOf,
 	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	StakingLedger, UnappliedSlash, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -1029,79 +1029,7 @@ pub mod pallet {
 			#[pallet::compact] value: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
-			let unlocking =
-				Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
-
-			// if there are no unlocking chunks available, try to withdraw chunks older than
-			// `BondingDuration` to proceed with the unbonding.
-			let maybe_withdraw_weight = {
-				if unlocking == T::MaxUnlockingChunks::get() as usize {
-					let real_num_slashing_spans =
-						Self::slashing_spans(&controller).map_or(0, |s| s.iter().count());
-					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
-				} else {
-					None
-				}
-			};
-
-			// we need to fetch the ledger again because it may have been mutated in the call
-			// to `Self::do_withdraw_unbonded` above.
-			let mut ledger = Self::ledger(Controller(controller))?;
-			let mut value = value.min(ledger.active);
-			let stash = ledger.stash.clone();
-
-			ensure!(
-				ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
-				Error::<T>::NoMoreChunks,
-			);
-
-			if !value.is_zero() {
-				ledger.active -= value;
-
-				// Avoid there being a dust balance left in the staking system.
-				if ledger.active < T::Currency::minimum_balance() {
-					value += ledger.active;
-					ledger.active = Zero::zero();
-				}
-
-				let min_active_bond = if Nominators::<T>::contains_key(&stash) {
-					MinNominatorBond::<T>::get()
-				} else if Validators::<T>::contains_key(&stash) {
-					MinValidatorBond::<T>::get()
-				} else {
-					Zero::zero()
-				};
-
-				// Make sure that the user maintains enough active bond for their role.
-				// If a user runs into this error, they should chill first.
-				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
-
-				// Note: in case there is no current era it is fine to bond one era more.
-				let era = Self::current_era()
-					.unwrap_or(0)
-					.defensive_saturating_add(T::BondingDuration::get());
-				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
-					// To keep the chunk count down, we only keep one chunk per era. Since
-					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
-					// be the last one.
-					chunk.value = chunk.value.defensive_saturating_add(value)
-				} else {
-					ledger
-						.unlocking
-						.try_push(UnlockChunk { value, era })
-						.map_err(|_| Error::<T>::NoMoreChunks)?;
-				};
-				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-				ledger.update()?;
-
-				// update this staker in the sorted list, if they exist in it.
-				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
-				}
-
-				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
-			}
-
+			let maybe_withdraw_weight = Self::do_unbond(controller, value)?;
 			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
 				Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
 			} else {
@@ -1977,6 +1905,32 @@ pub mod pallet {
 				<Ledger<T>>::insert(stash, ledger);
 			}
 			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
+		}
+
+		/// Forcefully Unbonds by Chilling first
+		/// Emits `Unbonded`.
+		#[pallet::call_index(29)]
+		#[pallet::weight(
+		T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::unbond()))
+		]
+		pub fn force_unbond(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+		) -> DispatchResultWithPostInfo {
+			let controller = ensure_signed(origin)?;
+
+			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
+
+			Self::chill_stash(&ledger.stash);
+
+			let maybe_withdraw_weight = Self::do_unbond(controller, value)?;
+			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
+				Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
+			} else {
+				Some(T::WeightInfo::unbond())
+			};
+
+			Ok(actual_weight.into())
 		}
 	}
 }
