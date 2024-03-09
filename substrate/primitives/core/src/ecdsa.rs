@@ -27,7 +27,6 @@ use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
 	Public as TraitPublic, SecretStringError, UncheckedFrom,
 };
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 
 #[cfg(all(not(feature = "std"), feature = "full_crypto"))]
 use k256::ecdsa::SigningKey as SecretKey;
