@@ -505,7 +505,6 @@ impl Pair {
 
 	/// Verify a signature on a pre-hashed message. Return `true` if the signature is valid
 	/// and thus matches the given `public` key.
-	#[cfg(feature = "full_crypto")]
 	pub fn verify_prehashed(sig: &Signature, message: &[u8; 32], public: &Public) -> bool {
 		match sig.recover_prehashed(message) {
 			Some(actual) => actual == *public,
