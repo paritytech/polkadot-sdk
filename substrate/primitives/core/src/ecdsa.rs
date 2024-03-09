@@ -28,10 +28,8 @@ use crate::crypto::{
 	Public as TraitPublic, SecretStringError, UncheckedFrom,
 };
 
-#[cfg(all(not(feature = "std"), feature = "full_crypto"))]
-use k256::ecdsa::SigningKey as SecretKey;
 #[cfg(not(feature = "std"))]
-use k256::ecdsa::VerifyingKey;
+use k256::ecdsa::{SigningKey as SecretKey, VerifyingKey};
 #[cfg(all(feature = "std", feature = "full_crypto"))]
 use secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},

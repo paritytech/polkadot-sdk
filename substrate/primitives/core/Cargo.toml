@@ -27,7 +27,7 @@ hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 bs58 = { version = "0.5.0", default-features = false, optional = true }
 rand = { version = "0.8.5", features = ["small_rng"], optional = true }
-substrate-bip39 = { path = "../../utils/substrate-bip39" }
+substrate-bip39 = { path = "../../utils/substrate-bip39", default-features = false }
 bip39 = { git = "https://github.com/michalkucharczyk/rust-bip39", branch = "mku-unicode-normalization-in-no-std", version = "2.0.0", default-features = false, features = ["alloc"] }
 zeroize = { version = "1.4.3", default-features = false }
 secrecy = { version = "0.8.0", default-features = false, features = ["alloc"] }
