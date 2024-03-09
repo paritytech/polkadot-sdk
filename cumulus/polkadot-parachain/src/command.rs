@@ -671,7 +671,7 @@ pub fn run() -> Result<()> {
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				match config.chain_spec.runtime()? {
-					AssetHubPolkadot => crate::service::start_asset_hub_node::<
+					AssetHubPolkadot => crate::service::start_asset_hub_lookahead_node::<
 						AssetHubPolkadotRuntimeApi,
 						AssetHubPolkadotAuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
@@ -679,16 +679,7 @@ pub fn run() -> Result<()> {
 					.map(|r| r.0)
 					.map_err(Into::into),
 
-					AssetHubKusama =>
-						crate::service::start_asset_hub_node::<
-							RuntimeApi,
-							AuraId,
-						>(config, polkadot_config, collator_options, id, hwbench)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into),
-
-				    AssetHubRococo | AssetHubWestend =>
+				    AssetHubKusama | AssetHubRococo | AssetHubWestend =>
 						crate::service::start_asset_hub_lookahead_node::<
 						RuntimeApi,
 							AuraId,
@@ -697,13 +688,7 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 
-					CollectivesPolkadot =>
-						crate::service::start_generic_aura_node(config, polkadot_config, collator_options, id, hwbench)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into),
-
-					CollectivesWestend =>
+					CollectivesPolkadot | CollectivesWestend =>
 						crate::service::start_generic_aura_lookahead_node(config, polkadot_config, collator_options, id, hwbench)
 						.await
 						.map(|r| r.0)
@@ -734,21 +719,12 @@ pub fn run() -> Result<()> {
 
 					BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal =>
-							crate::service::start_generic_aura_node(config, polkadot_config, collator_options, id, hwbench)
-								.await
-								.map(|r| r.0),
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal =>
-							crate::service::start_generic_aura_node(config, polkadot_config, collator_options, id, hwbench)
-							.await
-							.map(|r| r.0),
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =>
-							crate::service::start_generic_aura_lookahead_node(config, polkadot_config, collator_options, id, hwbench)
-							.await
-							.map(|r| r.0),
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =>
