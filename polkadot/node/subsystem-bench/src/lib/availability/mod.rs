@@ -602,7 +602,7 @@ pub async fn benchmark_availability_write(
 
 		gum::info!(target: LOG_TARGET, "Waiting for all emulated peers to receive their chunk from us ...");
 		for receiver in receivers.into_iter() {
-			let response = receiver.await.expect("Chunk is always served succesfully");
+			let response = receiver.await.expect("Chunk is always served successfully");
 			// TODO: check if chunk is the one the peer expects to receive.
 			assert!(response.result.is_ok());
 		}
