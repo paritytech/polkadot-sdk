@@ -30,7 +30,7 @@ use crate::crypto::{
 
 #[cfg(not(feature = "std"))]
 use k256::ecdsa::{SigningKey as SecretKey, VerifyingKey};
-#[cfg(all(feature = "std", feature = "full_crypto"))]
+#[cfg(feature = "std")]
 use secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
 	Message, PublicKey, SecretKey, SECP256K1,
@@ -373,7 +373,7 @@ impl From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for Signature {
 	}
 }
 
-#[cfg(all(feature = "std", feature = "full_crypto"))]
+#[cfg(feature = "std")]
 impl From<RecoverableSignature> for Signature {
 	fn from(recsig: RecoverableSignature) -> Signature {
 		let mut r = Self::default();
@@ -515,7 +515,6 @@ impl Pair {
 	/// Verify a signature on a message. Returns true if the signature is good.
 	/// Parses Signature using parse_overflowing_slice.
 	#[deprecated(note = "please use `verify` instead")]
-	#[cfg(feature = "full_crypto")]
 	pub fn verify_deprecated<M: AsRef<[u8]>>(sig: &Signature, message: M, pubkey: &Public) -> bool {
 		let message =
 			libsecp256k1::Message::parse(&sp_crypto_hashing::blake2_256(message.as_ref()));
@@ -542,7 +541,7 @@ impl Pair {
 // NOTE: this solution is not effective when `Pair` is moved around memory.
 // The very same problem affects other cryptographic backends that are just using
 // `zeroize`for their secrets.
-#[cfg(all(feature = "std", feature = "full_crypto"))]
+#[cfg(feature = "std")]
 impl Drop for Pair {
 	fn drop(&mut self) {
 		self.secret.non_secure_erase()
