@@ -7744,7 +7744,7 @@ dependencies = [
  "libp2p-core",
  "log",
  "thiserror",
- "yamux 0.10.2",
+ "yamux",
 ]
 
 [[package]]
@@ -7916,7 +7916,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.2.0"
-source = "git+https://github.com/altonen/litep2p?branch=debug-2944#10afa1105630433332af726abd909bbd91354447"
+source = "git+https://github.com/altonen/litep2p?branch=debug-2944#af68929ca151b27a2d0cf7e98ac1d25e27be4506"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
@@ -7933,6 +7933,7 @@ dependencies = [
  "multiaddr",
  "multihash 0.17.0",
  "network-interface",
+ "nohash-hasher",
  "parking_lot 0.12.1",
  "pin-project",
  "prost 0.11.9",
@@ -7948,6 +7949,7 @@ dependencies = [
  "smallvec",
  "snow",
  "socket2 0.5.6",
+ "static_assertions",
  "str0m",
  "thiserror",
  "tokio",
@@ -7962,7 +7964,6 @@ dependencies = [
  "webpki",
  "x25519-dalek 2.0.1",
  "x509-parser 0.15.1",
- "yamux 0.11.1",
  "yasna",
  "zeroize",
 ]
@@ -18902,7 +18903,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.10.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9f5d9fa96f88007292c2d59810b7c3c855da58a7"
+source = "git+https://github.com/paritytech/polkadot-sdk#1c435e91c117b877c803427a91c0ccd18c527382"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -18963,7 +18964,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9f5d9fa96f88007292c2d59810b7c3c855da58a7"
+source = "git+https://github.com/paritytech/polkadot-sdk#1c435e91c117b877c803427a91c0ccd18c527382"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -18983,7 +18984,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.25.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9f5d9fa96f88007292c2d59810b7c3c855da58a7"
+source = "git+https://github.com/paritytech/polkadot-sdk#1c435e91c117b877c803427a91c0ccd18c527382"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -19218,7 +19219,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "24.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9f5d9fa96f88007292c2d59810b7c3c855da58a7"
+source = "git+https://github.com/paritytech/polkadot-sdk#1c435e91c117b877c803427a91c0ccd18c527382"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -19249,7 +19250,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9f5d9fa96f88007292c2d59810b7c3c855da58a7"
+source = "git+https://github.com/paritytech/polkadot-sdk#1c435e91c117b877c803427a91c0ccd18c527382"
 dependencies = [
  "Inflector",
  "expander 2.1.0",
@@ -19379,7 +19380,7 @@ version = "14.0.0"
 [[package]]
 name = "sp-std"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9f5d9fa96f88007292c2d59810b7c3c855da58a7"
+source = "git+https://github.com/paritytech/polkadot-sdk#1c435e91c117b877c803427a91c0ccd18c527382"
 
 [[package]]
 name = "sp-storage"
@@ -19396,7 +19397,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "19.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9f5d9fa96f88007292c2d59810b7c3c855da58a7"
+source = "git+https://github.com/paritytech/polkadot-sdk#1c435e91c117b877c803427a91c0ccd18c527382"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -19445,7 +19446,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "16.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9f5d9fa96f88007292c2d59810b7c3c855da58a7"
+source = "git+https://github.com/paritytech/polkadot-sdk#1c435e91c117b877c803427a91c0ccd18c527382"
 dependencies = [
  "parity-scale-codec",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
@@ -19546,7 +19547,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "20.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9f5d9fa96f88007292c2d59810b7c3c855da58a7"
+source = "git+https://github.com/paritytech/polkadot-sdk#1c435e91c117b877c803427a91c0ccd18c527382"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
@@ -22951,21 +22952,6 @@ dependencies = [
  "log",
  "nohash-hasher",
  "parking_lot 0.12.1",
- "rand 0.8.5",
- "static_assertions",
-]
-
-[[package]]
-name = "yamux"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0875ad26dfbf0e7126d4a200747c78496aa3f0225d094a8c867b0e98bb19f9d7"
-dependencies = [
- "futures",
- "log",
- "nohash-hasher",
- "parking_lot 0.12.1",
- "pin-project",
  "rand 0.8.5",
  "static_assertions",
 ]
