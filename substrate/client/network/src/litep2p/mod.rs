@@ -62,8 +62,9 @@ use litep2p::{
 	},
 	transport::{
 		tcp::config::Config as TcpTransportConfig,
-		websocket::config::Config as WebSocketTransportConfig,
+		websocket::config::Config as WebSocketTransportConfig, Endpoint,
 	},
+	types::ConnectionId,
 	Error as Litep2pError, Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
 };
 use parking_lot::RwLock;
@@ -77,7 +78,7 @@ use sp_runtime::traits::Block as BlockT;
 
 use std::{
 	cmp,
-	collections::{HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	fs,
 	future::Future,
 	io, iter,
@@ -128,6 +129,15 @@ impl Executor for Litep2pExecutor {
 /// Logging target for the file.
 const LOG_TARGET: &str = "sub-libp2p";
 
+/// Peer context.
+struct ConnectionContext {
+	/// Peer endpoints.
+	endpoints: HashMap<ConnectionId, Endpoint>,
+
+	/// Number of active connections.
+	num_connections: usize,
+}
+
 /// Networking backend for `litep2p`.
 pub struct Litep2pNetworkBackend {
 	/// Main `litep2p` object.
@@ -153,6 +163,9 @@ pub struct Litep2pNetworkBackend {
 
 	/// Number of connected peers.
 	num_connected: Arc<AtomicUsize>,
+
+	/// Connected peers.
+	peers: HashMap<litep2p::PeerId, ConnectionContext>,
 
 	/// Peerstore.
 	peerstore_handle: Arc<dyn PeerStoreProvider>,
@@ -595,6 +608,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			peerstore_handle: peer_store_handle,
 			block_announce_protocol,
 			event_streams: out_events::OutChannels::new(None)?,
+			peers: HashMap::new(),
 			litep2p,
 			external_addresses,
 		})
@@ -892,8 +906,64 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					}
 				},
 				event = self.litep2p.next_event() => match event {
-					Some(Litep2pEvent::ConnectionEstablished { .. }) => {}
-					Some(Litep2pEvent::ConnectionClosed { .. }) => {}
+					Some(Litep2pEvent::ConnectionEstablished { peer, endpoint }) => {
+						let Some(metrics) = &self.metrics else {
+							continue;
+						};
+
+						let direction = match endpoint {
+							Endpoint::Dialer { .. } => "out",
+							Endpoint::Listener { .. } => "in",
+						};
+						metrics.connections_opened_total.with_label_values(&[direction]).inc();
+
+						match self.peers.entry(peer) {
+							Entry::Vacant(entry) => {
+								entry.insert(ConnectionContext {
+									endpoints: HashMap::from_iter([(endpoint.connection_id(), endpoint)]),
+									num_connections: 1usize,
+								});
+								metrics.distinct_peers_connections_opened_total.inc();
+							}
+							Entry::Occupied(entry) => {
+								let entry = entry.into_mut();
+								entry.num_connections += 1;
+								entry.endpoints.insert(endpoint.connection_id(), endpoint);
+							}
+						}
+					}
+					Some(Litep2pEvent::ConnectionClosed { peer, connection_id }) => {
+						let Some(metrics) = &self.metrics else {
+							continue;
+						};
+
+						let Some(context) = self.peers.get_mut(&peer) else {
+							log::debug!(target: LOG_TARGET, "unknown peer disconnected: {peer:?} ({connection_id:?})");
+							continue
+						};
+
+						let direction = match context.endpoints.remove(&connection_id) {
+							None => {
+								log::debug!(target: LOG_TARGET, "connection {connection_id:?} doesn't exist for {peer:?} ");
+								continue
+							}
+							Some(endpoint) => {
+								context.num_connections -= 1;
+
+								match endpoint {
+									Endpoint::Dialer { .. } => "out",
+									Endpoint::Listener { .. } => "in",
+								}
+							}
+						};
+
+						metrics.connections_closed_total.with_label_values(&[direction, "actively-closed"]).inc();
+
+						if context.num_connections == 0 {
+							self.peers.remove(&peer);
+							metrics.distinct_peers_connections_closed_total.inc();
+						}
+					}
 					Some(Litep2pEvent::DialFailure { address, error }) => {
 						log::trace!(
 							target: LOG_TARGET,

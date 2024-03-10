@@ -488,7 +488,7 @@ where
 
 		let (protocol, notif_protocol_handles) = Protocol::new(
 			From::from(&params.role),
-			&params.metrics_registry,
+			params.notification_metrics,
 			notification_protocols,
 			params.block_announce_config,
 			Arc::clone(&peer_store_handle),

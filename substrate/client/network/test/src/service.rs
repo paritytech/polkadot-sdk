@@ -267,6 +267,7 @@ impl TestNetworkBuilder {
 			fork_id,
 			metrics_registry: None,
 			bitswap_config: None,
+			notification_metrics: NotificationMetrics::new(None),
 		})
 		.unwrap();
 

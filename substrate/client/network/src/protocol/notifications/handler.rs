@@ -58,13 +58,11 @@
 //! [`NotifsHandlerIn::Open`] has gotten an answer.
 
 use crate::{
-	protocol::notifications::{
-		service::metrics,
-		upgrade::{
-			NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
-			UpgradeCollec,
-		},
+	protocol::notifications::upgrade::{
+		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
+		UpgradeCollec,
 	},
+	service::metrics::NotificationMetrics,
 	types::ProtocolName,
 };
 
@@ -131,7 +129,7 @@ pub struct NotifsHandler {
 	>,
 
 	/// Metrics.
-	metrics: Option<Arc<metrics::Metrics>>,
+	metrics: Option<Arc<NotificationMetrics>>,
 }
 
 impl NotifsHandler {
@@ -140,7 +138,7 @@ impl NotifsHandler {
 		peer_id: PeerId,
 		endpoint: ConnectedPoint,
 		protocols: Vec<ProtocolConfig>,
-		metrics: Option<metrics::Metrics>,
+		metrics: Option<NotificationMetrics>,
 	) -> Self {
 		Self {
 			protocols: protocols
@@ -345,7 +343,7 @@ pub enum NotifsHandlerOut {
 #[derive(Debug, Clone)]
 pub struct NotificationsSink {
 	inner: Arc<NotificationsSinkInner>,
-	metrics: Option<Arc<metrics::Metrics>>,
+	metrics: Option<Arc<NotificationMetrics>>,
 }
 
 impl NotificationsSink {
@@ -372,7 +370,7 @@ impl NotificationsSink {
 	}
 
 	/// Get reference to metrics.
-	pub fn metrics(&self) -> &Option<Arc<metrics::Metrics>> {
+	pub fn metrics(&self) -> &Option<Arc<NotificationMetrics>> {
 		&self.metrics
 	}
 }

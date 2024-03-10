@@ -58,7 +58,7 @@ use sc_network::{
 	request_responses::ProtocolConfig as RequestResponseConfig,
 	types::ProtocolName,
 	Multiaddr, NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest,
-	NetworkWorker, NotificationService,
+	NetworkWorker, NotificationMetrics, NotificationService,
 };
 use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -961,6 +961,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			metrics_registry: None,
 			block_announce_config,
 			bitswap_config: None,
+			notification_metrics: NotificationMetrics::new(None),
 		})
 		.unwrap();
 

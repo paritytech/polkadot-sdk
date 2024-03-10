@@ -20,7 +20,7 @@ use crate::{
 	config, error,
 	peer_store::PeerStoreProvider,
 	protocol_controller::{self, SetId},
-	service::traits::Direction,
+	service::{metrics::NotificationMetrics, traits::Direction},
 	types::ProtocolName,
 };
 
@@ -36,14 +36,13 @@ use libp2p::{
 use log::warn;
 
 use codec::DecodeAll;
-use prometheus_endpoint::Registry;
 use sc_network_common::role::Roles;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::Block as BlockT;
 
 use std::{collections::HashSet, iter, sync::Arc, task::Poll};
 
-use notifications::{metrics, Notifications, NotificationsOut};
+use notifications::{Notifications, NotificationsOut};
 
 pub(crate) use notifications::ProtocolHandle;
 
@@ -80,7 +79,7 @@ impl<B: BlockT> Protocol<B> {
 	/// Create a new instance.
 	pub(crate) fn new(
 		roles: Roles,
-		registry: &Option<Registry>,
+		notification_metrics: NotificationMetrics,
 		notification_protocols: Vec<config::NonDefaultSetConfig>,
 		block_announces_protocol: config::NonDefaultSetConfig,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
@@ -122,16 +121,15 @@ impl<B: BlockT> Protocol<B> {
 			}))
 			.unzip();
 
-			let metrics = registry.as_ref().and_then(|registry| metrics::register(&registry).ok());
 			handles.iter_mut().for_each(|handle| {
-				handle.set_metrics(metrics.clone());
+				handle.set_metrics(notification_metrics.clone());
 			});
 
 			(
 				Notifications::new(
 					protocol_controller_handles,
 					from_protocol_controllers,
-					metrics,
+					notification_metrics,
 					protocol_configs.into_iter(),
 				),
 				installed_protocols,

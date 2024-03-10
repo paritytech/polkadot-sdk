@@ -40,7 +40,7 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 	spawn_handle: SpawnTaskHandle,
 	genesis_hash: Hash,
 	best_header: Header,
-	metrics: NotificationMetrics,
+	notification_metrics: NotificationMetrics,
 ) -> Result<
 	(Arc<dyn NetworkService>, NetworkStarter, Arc<dyn sp_consensus::SyncOracle + Send + Sync>),
 	Error,
@@ -53,7 +53,7 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 		best_header.number,
 		best_header.hash(),
 		genesis_hash,
-		metrics,
+		notification_metrics.clone(),
 		network_config.peer_store_handle(),
 	);
 
@@ -79,6 +79,7 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
 		bitswap_config: None,
+		notification_metrics,
 	};
 
 	let network_worker = Network::new(network_params)?;

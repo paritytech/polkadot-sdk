@@ -946,6 +946,7 @@ where
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
 		bitswap_config,
+		notification_metrics: metrics,
 	};
 
 	let has_bootnodes = !network_params.network_config.network_config.boot_nodes.is_empty();

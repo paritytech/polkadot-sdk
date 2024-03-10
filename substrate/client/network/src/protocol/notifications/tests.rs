@@ -22,7 +22,10 @@ use crate::{
 	peer_store::PeerStore,
 	protocol::notifications::{Notifications, NotificationsOut, ProtocolConfig},
 	protocol_controller::{ProtoSetConfig, ProtocolController, SetId},
-	service::traits::{NotificationEvent, ValidationResult},
+	service::{
+		metrics::NotificationMetrics,
+		traits::{NotificationEvent, ValidationResult},
+	},
 };
 
 use futures::{future::BoxFuture, prelude::*};
@@ -100,7 +103,7 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 			inner: Notifications::new(
 				vec![controller_handle],
 				from_controller,
-				None,
+				NotificationMetrics::new(None),
 				iter::once((
 					ProtocolConfig {
 						name: "/foo".into(),
