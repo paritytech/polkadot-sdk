@@ -21,8 +21,11 @@
 use crate::{
 	error,
 	protocol::notifications::handler::NotificationsSink,
-	service::traits::{
-		Direction, MessageSink, NotificationEvent, NotificationService, ValidationResult,
+	service::{
+		metrics::NotificationMetrics,
+		traits::{
+			Direction, MessageSink, NotificationEvent, NotificationService, ValidationResult,
+		},
 	},
 	types::ProtocolName,
 	PeerId,
@@ -66,7 +69,7 @@ impl MessageSink for NotificationSink {
 	fn send_sync_notification(&self, notification: Vec<u8>) {
 		let sink = self.lock();
 
-		metrics::register_notification_sent(&sink.0.metrics(), &sink.1, notification.len());
+		metrics::register_notification_sent(sink.0.metrics(), &sink.1, notification.len());
 		sink.0.send_sync_notification(notification);
 	}
 
@@ -87,7 +90,7 @@ impl MessageSink for NotificationSink {
 			.map_err(|_| error::Error::ConnectionClosed)?;
 
 		permit.send(notification).map_err(|_| error::Error::ChannelClosed).map(|res| {
-			metrics::register_notification_sent(&sink.0.metrics(), &sink.1, notification_len);
+			metrics::register_notification_sent(sink.0.metrics(), &sink.1, notification_len);
 			res
 		})
 	}
@@ -233,7 +236,7 @@ impl NotificationService for NotificationHandle {
 	fn send_sync_notification(&mut self, peer: &sc_network_types::PeerId, notification: Vec<u8>) {
 		if let Some(info) = self.peers.get(&((*peer).into())) {
 			metrics::register_notification_sent(
-				&info.sink.metrics(),
+				info.sink.metrics(),
 				&self.protocol,
 				notification.len(),
 			);
@@ -262,7 +265,7 @@ impl NotificationService for NotificationHandle {
 			.map_err(|_| error::Error::ChannelClosed)
 			.map(|res| {
 				metrics::register_notification_sent(
-					&sink.metrics(),
+					sink.metrics(),
 					&self.protocol,
 					notification_len,
 				);
@@ -423,7 +426,7 @@ pub(crate) struct ProtocolHandle {
 	delegate_to_peerset: bool,
 
 	/// Prometheus metrics.
-	metrics: Option<metrics::Metrics>,
+	metrics: Option<NotificationMetrics>,
 }
 
 pub(crate) enum ValidationCallResult {
@@ -438,8 +441,8 @@ impl ProtocolHandle {
 	}
 
 	/// Set metrics.
-	pub fn set_metrics(&mut self, metrics: Option<metrics::Metrics>) {
-		self.metrics = metrics;
+	pub fn set_metrics(&mut self, metrics: NotificationMetrics) {
+		self.metrics = Some(metrics);
 	}
 
 	/// Delegate validation to `Peerset`.

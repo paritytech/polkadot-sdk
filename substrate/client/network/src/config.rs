@@ -28,7 +28,10 @@ pub use crate::{
 	request_responses::{
 		IncomingRequest, OutgoingResponse, ProtocolConfig as RequestResponseConfig,
 	},
-	service::traits::{NotificationConfig, NotificationService, PeerStore},
+	service::{
+		metrics::NotificationMetrics,
+		traits::{NotificationConfig, NotificationService, PeerStore},
+	},
 	types::ProtocolName,
 };
 
@@ -768,6 +771,9 @@ pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 
 	/// Bitswap configuration, if the server has been enabled.
 	pub bitswap_config: Option<N::BitswapConfig>,
+
+	/// Notification metrics.
+	pub notification_metrics: NotificationMetrics,
 }
 
 /// Full network configuration.
