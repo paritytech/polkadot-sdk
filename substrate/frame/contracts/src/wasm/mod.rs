@@ -21,6 +21,9 @@
 mod prepare;
 mod runtime;
 
+#[cfg(test)]
+pub use runtime::STABLE_API_COUNT;
+
 #[cfg(doc)]
 pub use crate::wasm::runtime::api_doc;
 
@@ -313,6 +316,11 @@ impl<T: Config> CodeInfo<T> {
 		}
 	}
 
+	/// Returns the determinism of the module.
+	pub fn determinism(&self) -> Determinism {
+		self.determinism
+	}
+
 	/// Returns reference count of the module.
 	pub fn refcount(&self) -> u64 {
 		self.refcount
@@ -386,7 +394,7 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 			let engine_consumed_total =
 				store.fuel_consumed().expect("Fuel metering is enabled; qed");
 			let gas_meter = store.data_mut().ext().gas_meter_mut();
-			gas_meter.charge_fuel(engine_consumed_total)?;
+			let _ = gas_meter.sync_from_executor(engine_consumed_total)?;
 			store.into_data().to_execution_result(result)
 		};
 
@@ -1819,17 +1827,6 @@ mod tests {
 
 		assert!(weight_left.all_lt(gas_limit), "gas_left must be less than initial");
 		assert!(weight_left.all_gt(actual_left), "gas_left must be greater than final");
-	}
-
-	/// Test that [`frame_support::weights::OldWeight`] en/decodes the same as our
-	/// [`crate::OldWeight`].
-	#[test]
-	fn old_weight_decode() {
-		#![allow(deprecated)]
-		let sp = frame_support::weights::OldWeight(42).encode();
-		let our = crate::OldWeight::decode(&mut &*sp).unwrap();
-
-		assert_eq!(our, 42);
 	}
 
 	const CODE_VALUE_TRANSFERRED: &str = r#"
@@ -3447,5 +3444,23 @@ mod tests {
 		let decoded: BoundedVec<u8, ConstU32<128>> =
 			runtime.read_sandbox_memory_as(&memory, 0u32).unwrap();
 		assert_eq!(decoded.into_inner(), data);
+	}
+
+	#[test]
+	fn run_out_of_gas_in_start_fn() {
+		const CODE: &str = r#"
+(module
+	(import "env" "memory" (memory 1 1))
+	(start $start)
+	(func $start
+		(loop $inf (br $inf)) ;; just run out of gas
+		(unreachable)
+	)
+	(func (export "call"))
+	(func (export "deploy"))
+)
+"#;
+		let mut mock_ext = MockExt::default();
+		assert_err!(execute(&CODE, vec![], &mut mock_ext), <Error<Test>>::OutOfGas);
 	}
 }

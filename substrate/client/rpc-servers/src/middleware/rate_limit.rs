@@ -16,92 +16,32 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! RPC rate limiting middleware.
+//! RPC rate limit.
 
-use std::{num::NonZeroU32, sync::Arc, time::Duration};
-
-use futures::future::{BoxFuture, FutureExt};
 use governor::{
-	clock::{Clock, DefaultClock, QuantaClock},
+	clock::{DefaultClock, QuantaClock},
 	middleware::NoOpMiddleware,
 	state::{InMemoryState, NotKeyed},
-	Jitter,
+	Quota,
 };
-use jsonrpsee::{
-	server::middleware::rpc::RpcServiceT,
-	types::{ErrorObject, Id, Request},
-	MethodResponse,
-};
+use std::{num::NonZeroU32, sync::Arc};
 
 type RateLimitInner = governor::RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
 
-const MAX_JITTER: Duration = Duration::from_millis(50);
-const MAX_RETRIES: usize = 10;
-
-/// JSON-RPC rate limit middleware layer.
+/// Rate limit.
 #[derive(Debug, Clone)]
-pub struct RateLimitLayer(governor::Quota);
+pub struct RateLimit {
+	pub(crate) inner: Arc<RateLimitInner>,
+	pub(crate) clock: QuantaClock,
+}
 
-impl RateLimitLayer {
-	/// Create new rate limit enforced per minute.
+impl RateLimit {
+	/// Create a new `RateLimit` per minute.
 	pub fn per_minute(n: NonZeroU32) -> Self {
-		Self(governor::Quota::per_minute(n))
-	}
-}
-
-/// JSON-RPC rate limit middleware
-pub struct RateLimit<S> {
-	service: S,
-	rate_limit: Arc<RateLimitInner>,
-	clock: QuantaClock,
-}
-
-impl<S> tower::Layer<S> for RateLimitLayer {
-	type Service = RateLimit<S>;
-
-	fn layer(&self, service: S) -> Self::Service {
 		let clock = QuantaClock::default();
-		RateLimit {
-			service,
-			rate_limit: Arc::new(RateLimitInner::direct_with_clock(self.0, &clock)),
+		Self {
+			inner: Arc::new(RateLimitInner::direct_with_clock(Quota::per_minute(n), &clock)),
 			clock,
 		}
 	}
-}
-
-impl<'a, S> RpcServiceT<'a> for RateLimit<S>
-where
-	S: Send + Sync + RpcServiceT<'a> + Clone + 'static,
-{
-	type Future = BoxFuture<'a, MethodResponse>;
-
-	fn call(&self, req: Request<'a>) -> Self::Future {
-		let service = self.service.clone();
-		let rate_limit = self.rate_limit.clone();
-		let clock = self.clock.clone();
-
-		async move {
-			let mut attempts = 0;
-			let jitter = Jitter::up_to(MAX_JITTER);
-
-			loop {
-				if attempts >= MAX_RETRIES {
-					break reject_too_many_calls(req.id);
-				}
-
-				if let Err(rejected) = rate_limit.check() {
-					tokio::time::sleep(jitter + rejected.wait_time_from(clock.now())).await;
-				} else {
-					break service.call(req).await;
-				}
-
-				attempts += 1;
-			}
-		}
-		.boxed()
-	}
-}
-
-fn reject_too_many_calls(id: Id) -> MethodResponse {
-	MethodResponse::error(id, ErrorObject::owned(-32999, "RPC rate limit exceeded", None::<()>))
 }

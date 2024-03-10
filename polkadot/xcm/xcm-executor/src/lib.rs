@@ -826,9 +826,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					// be weighed
 					let to_weigh = self.holding.saturating_take(assets.clone());
 					self.holding.subsume_assets(to_weigh.clone());
-
+					let to_weigh_reanchored = Self::reanchored(to_weigh, &dest, None);
 					let mut message_to_weigh =
-						vec![ReserveAssetDeposited(to_weigh.into()), ClearOrigin];
+						vec![ReserveAssetDeposited(to_weigh_reanchored), ClearOrigin];
 					message_to_weigh.extend(xcm.0.clone().into_iter());
 					let (_, fee) =
 						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
