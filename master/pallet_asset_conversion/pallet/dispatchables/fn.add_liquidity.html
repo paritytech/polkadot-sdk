@@ -159,6 +159,10 @@ might be different than the provided <code>amount1_desired</code>/<code>amount2_
 thus you should provide the min amount you’re happy to provide.
 Params <code>amount1_min</code>/<code>amount2_min</code> represent that.
 <code>mint_to</code> will be sent the liquidity tokens that represent this share of the pool.</p>
+<p>NOTE: when encountering an incorrect exchange rate and non-withdrawable pool liquidity,
+batch an atomic call with <a href="../struct.Pallet.html#method.add_liquidity" title="associated function pallet_asset_conversion::pallet::Pallet::add_liquidity"><code>Pallet::add_liquidity</code></a> and
+<a href="../struct.Pallet.html#method.swap_exact_tokens_for_tokens" title="associated function pallet_asset_conversion::pallet::Pallet::swap_exact_tokens_for_tokens"><code>Pallet::swap_exact_tokens_for_tokens</code></a> or <a href="../struct.Pallet.html#method.swap_tokens_for_exact_tokens" title="associated function pallet_asset_conversion::pallet::Pallet::swap_tokens_for_exact_tokens"><code>Pallet::swap_tokens_for_exact_tokens</code></a>
+calls to render the liquidity withdrawable and rectify the exchange rate.</p>
 <p>Once liquidity is added, someone may successfully call
 <a href="../struct.Pallet.html#method.swap_exact_tokens_for_tokens" title="associated function pallet_asset_conversion::pallet::Pallet::swap_exact_tokens_for_tokens"><code>Pallet::swap_exact_tokens_for_tokens</code></a> successfully.</p>
 <h2 id="warning-doc-only"><a href="#warning-doc-only">Warning: Doc-Only</a></h2>
