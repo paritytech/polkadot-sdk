@@ -20,8 +20,8 @@ doc:
 crates:
   - name: "sc-network"
   - name: "sc-service"
-  - name: "minimal-node"
-  - name: "node-template"
+  - name: "minimal-template-node"
+  - name: "solochain-template-node"
   - name: "staging-node-cli"
   - name: "polkadot-service"
   - name: "parachain-template-node"
