@@ -1162,6 +1162,16 @@ impl<T: Config> Pallet<T> {
 	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
 		<PendingAvailability<T>>::get(&para).and_then(|p| p.get(0).cloned())
 	}
+
+	/// Returns the metadata around the candidate pending availability occupying the supplied core,
+	/// if any.
+	pub(crate) fn pending_availability_with_core(
+		para: ParaId,
+		core: CoreIndex,
+	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
+		<PendingAvailability<T>>::get(&para)
+			.and_then(|p| p.iter().find(|c| c.core == core).cloned())
+	}
 }
 
 const fn availability_threshold(n_validators: usize) -> usize {

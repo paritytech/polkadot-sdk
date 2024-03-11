@@ -92,9 +92,11 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 		.enumerate()
 		.map(|(i, core)| match core {
 			CoreOccupied::Paras(entry) => {
-				let pending_availability =
-					<inclusion::Pallet<T>>::pending_availability(entry.para_id())
-						.expect("Occupied core always has pending availability; qed");
+				let pending_availability = <inclusion::Pallet<T>>::pending_availability_with_core(
+					entry.para_id(),
+					CoreIndex(i as u32),
+				)
+				.expect("Occupied core always has pending availability; qed");
 
 				let backed_in_number = *pending_availability.backed_in_number();
 
