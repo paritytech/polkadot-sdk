@@ -45,7 +45,10 @@ use sp_blockchain::{
 	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
 };
 use sp_consensus::{Error as ConsensusError, SyncOracle};
-use sp_consensus_beefy::{AuthorityIdBound, BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet};
+use sp_consensus_beefy::{
+	AuthorityIdBound, BeefyApi, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
+	BEEFY_ENGINE_ID,
+};
 use sp_keystore::KeystorePtr;
 use sp_mmr_primitives::MmrApi;
 use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
@@ -241,11 +244,14 @@ where
 /// Helper object holding BEEFY worker communication/gossip components.
 ///
 /// These are created once, but will be reused if worker is restarted/reinitialized.
-pub(crate) struct BeefyComms<B: Block> {
+pub(crate) struct BeefyComms<B: Block, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B>>,
+	pub gossip_validator: Arc<GossipValidator<B, AuthorityId>>,
 	pub gossip_report_stream: TracingUnboundedReceiver<PeerReport>,
-	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
+	pub on_demand_justifications: OnDemandJustificationsEngine<B, AuthorityId>,
 }
 
 /// Helper builder object for building [worker::BeefyWorker].
@@ -254,22 +260,27 @@ pub(crate) struct BeefyComms<B: Block> {
 /// for certain chain and backend conditions, and while sleeping we still need to pump the
 /// GossipEngine. Once initialization is done, the GossipEngine (and other pieces) are added to get
 /// the complete [worker::BeefyWorker] object.
-pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi> {
+pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	// utilities
 	backend: Arc<BE>,
 	runtime: Arc<RuntimeApi>,
 	key_store: BeefyKeystore<AuthorityId>,
 	// voter metrics
 	metrics: Option<VoterMetrics>,
-	persisted_state: PersistedState<B>,
+	persisted_state: PersistedState<B, AuthorityId>,
 }
 
-impl<B, BE, R> BeefyWorkerBuilder<B, BE, R>
+impl<B, BE, R, AuthorityId> BeefyWorkerBuilder<B, BE, R, AuthorityId>
 where
 	B: Block + codec::Codec,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	/// This will wait for the chain to enable BEEFY (if not yet enabled) and also wait for the
 	/// backend to sync all headers required by the voter to build a contiguous chain of mandatory
@@ -283,7 +294,7 @@ where
 		key_store: BeefyKeystore<AuthorityId>,
 		metrics: Option<VoterMetrics>,
 		min_block_delta: u32,
-		gossip_validator: Arc<GossipValidator<B>>,
+		gossip_validator: Arc<GossipValidator<B, AuthorityId>>,
 		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
 	) -> Result<Self, Error> {
 		// Wait for BEEFY pallet to be active before starting voter.
@@ -313,10 +324,10 @@ where
 		self,
 		payload_provider: P,
 		sync: Arc<S>,
-		comms: BeefyComms<B>,
-		links: BeefyVoterLinks<B>,
-		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
-	) -> BeefyWorker<B, BE, P, R, S> {
+		comms: BeefyComms<B, AuthorityId>,
+		links: BeefyVoterLinks<B, AuthorityId>,
+		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B, AuthorityId>>,
+	) -> BeefyWorker<B, BE, P, R, S, AuthorityId> {
 		BeefyWorker {
 			backend: self.backend,
 			runtime: self.runtime,
@@ -342,7 +353,7 @@ where
 		min_block_delta: u32,
 		backend: Arc<BE>,
 		runtime: Arc<R>,
-	) -> Result<PersistedState<B>, Error> {
+	) -> Result<PersistedState<B, AuthorityId>, Error> {
 		let blockchain = backend.blockchain();
 
 		let beefy_genesis = runtime
@@ -412,7 +423,7 @@ where
 				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?
 			}
 
-			if let Some(active) = find_authorities_change::<B>(&header) {
+			if let Some(active) = find_authorities_change::<B, AuthorityId>(&header) {
 				debug!(
 					target: LOG_TARGET,
 					"🥩 Marking block {:?} as BEEFY Mandatory.",
@@ -438,7 +449,7 @@ where
 		runtime: Arc<R>,
 		key_store: &BeefyKeystore<AuthorityId>,
 		metrics: &Option<VoterMetrics>,
-	) -> Result<PersistedState<B>, Error> {
+	) -> Result<PersistedState<B, AuthorityId>, Error> {
 		// Initialize voter state from AUX DB if compatible.
 		if let Some(mut state) = crate::aux_schema::load_persistent(backend.as_ref())?
 			// Verify state pallet genesis matches runtime.
@@ -455,7 +466,7 @@ where
 			let mut header = best_grandpa.clone();
 			while *header.number() > state.best_beefy() {
 				if state.voting_oracle().can_add_session(*header.number()) {
-					if let Some(active) = find_authorities_change::<B>(&header) {
+					if let Some(active) = find_authorities_change::<B, AuthorityId>(&header) {
 						new_sessions.push((active, *header.number()));
 					}
 				}
@@ -741,9 +752,12 @@ where
 
 /// Scan the `header` digest log for a BEEFY validator set change. Return either the new
 /// validator set or `None` in case no validator set change has been signaled.
-pub(crate) fn find_authorities_change<B>(header: &B::Header) -> Option<ValidatorSet<AuthorityId>>
+pub(crate) fn find_authorities_change<B, AuthorityId>(
+	header: &B::Header,
+) -> Option<ValidatorSet<AuthorityId>>
 where
 	B: Block,
+	AuthorityId: AuthorityIdBound,
 {
 	let id = OpaqueDigestItemId::Consensus(&BEEFY_ENGINE_ID);
 

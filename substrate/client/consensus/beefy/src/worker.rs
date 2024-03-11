@@ -54,6 +54,7 @@ use sp_runtime::{
 use std::{
 	collections::{BTreeMap, BTreeSet, VecDeque},
 	fmt::Debug,
+	marker::PhantomData,
 	sync::Arc,
 };
 
@@ -332,11 +333,11 @@ where
 		self.voting_oracle.best_grandpa_block_header = best_grandpa;
 	}
 
-	pub fn voting_oracle(&self) -> &VoterOracle<B> {
+	pub fn voting_oracle(&self) -> &VoterOracle<B, AuthorityId> {
 		&self.voting_oracle
 	}
 
-	pub(crate) fn gossip_filter_config(&self) -> Result<GossipFilterCfg<B>, Error> {
+	pub(crate) fn gossip_filter_config(&self) -> Result<GossipFilterCfg<B, AuthorityId>, Error> {
 		let (start, end) = self.voting_oracle.accepted_interval()?;
 		let validator_set = self.voting_oracle.current_validator_set()?;
 		Ok(GossipFilterCfg { start, end, validator_set })
@@ -367,7 +368,9 @@ where
 
 		if log_enabled!(target: LOG_TARGET, log::Level::Debug) {
 			// verify the new validator set - only do it if we're also logging the warning
-			if verify_validator_set::<B>(&new_session_start, &validator_set, key_store).is_err() {
+			if verify_validator_set::<B, AuthorityId>(&new_session_start, &validator_set, key_store)
+				.is_err()
+			{
 				metric_inc!(metrics, beefy_no_authority_found_in_store);
 			}
 		}
@@ -385,7 +388,10 @@ where
 }
 
 /// A BEEFY worker/voter that follows the BEEFY protocol
-pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
+pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	// utilities
 	pub backend: Arc<BE>,
 	pub runtime: Arc<RuntimeApi>,
@@ -404,7 +410,7 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	/// Buffer holding justifications for future processing.
 	pub pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B, AuthorityId>>,
 	/// Persisted voter state.
-	pub persisted_state: PersistedState<B>,
+	pub persisted_state: PersistedState<B, AuthorityId>,
 	/// BEEFY voter metrics
 	pub metrics: Option<VoterMetrics>,
 }
@@ -1084,7 +1090,7 @@ where
 ///
 /// Note that for a non-authority node there will be no keystore, and we will
 /// return an error and don't check. The error can usually be ignored.
-fn verify_validator_set<B: Block>(
+fn verify_validator_set<B: Block, AuthorityId: AuthorityIdBound>(
 	block: &NumberFor<B>,
 	active: &ValidatorSet<AuthorityId>,
 	key_store: &BeefyKeystore<AuthorityId>,
@@ -1138,8 +1144,11 @@ pub(crate) mod tests {
 		Backend,
 	};
 
-	impl<B: super::Block> PersistedState<B> {
-		pub fn active_round(&self) -> Result<&Rounds<B>, Error> {
+	impl<B: super::Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId>
+	where
+		<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+	{
+		pub fn active_round(&self) -> Result<&Rounds<B, AuthorityId>, Error> {
 			self.voting_oracle.active_rounds()
 		}
 
@@ -1520,20 +1529,38 @@ pub(crate) mod tests {
 		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
 
 		// keystore doesn't contain other keys than validators'
-		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), Ok(()));
+		assert_eq!(
+			verify_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+				&1,
+				&validator_set,
+				&worker.key_store
+			),
+			Ok(())
+		);
 
 		// unknown `Bob` key
 		let keys = &[Keyring::Bob];
 		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
 		let err_msg = "no authority public key found in store".to_string();
 		let expected = Err(Error::Keystore(err_msg));
-		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), expected);
+		assert_eq!(
+			verify_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+				&1,
+				&validator_set,
+				&worker.key_store
+			),
+			expected
+		);
 
 		// worker has no keystore
 		worker.key_store = None.into();
 		let expected_err = Err(Error::Keystore("no Keystore".into()));
 		assert_eq!(
-			verify_validator_set::<Block>(&1, &validator_set, &worker.key_store),
+			verify_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+				&1,
+				&validator_set,
+				&worker.key_store
+			),
 			expected_err
 		);
 	}
