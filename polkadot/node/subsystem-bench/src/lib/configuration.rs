@@ -274,8 +274,8 @@ pub struct TestConfigurationBuilder {
 	num_blocks: usize,
 }
 
-impl TestConfigurationBuilder {
-	pub fn new() -> Self {
+impl Default for TestConfigurationBuilder {
+	fn default() -> Self {
 		Self {
 			n_validators: Default::default(),
 			n_cores: Default::default(),
@@ -294,6 +294,12 @@ impl TestConfigurationBuilder {
 			connectivity: default_connectivity(),
 			num_blocks: Default::default(),
 		}
+	}
+}
+
+impl TestConfigurationBuilder {
+	pub fn new() -> Self {
+		TestConfigurationBuilder::default()
 	}
 
 	pub fn from_test_config(test_config: TestConfiguration) -> Self {
