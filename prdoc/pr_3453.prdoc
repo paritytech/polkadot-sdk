@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-nomination-pools]: `chill` is permissionless if depositor's stake is less than `min_nominator_bond`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Nomination pools currently have an issue whereby member funds cannot be unbonded if the depositor bonded amount is less than `MinNominatorBond`.
+      This PR makes the `chill` function permissionless if this condition is met.
+      Consequently, `nominate` function also checks for `depositor` to have at least `MinNominatorBond`, and returns `MinimumBondNotMet` error if not.
+crates:
+  - name: pallet-nomination-pools

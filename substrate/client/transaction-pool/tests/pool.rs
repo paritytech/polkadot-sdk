@@ -73,7 +73,7 @@ fn create_basic_pool_with_genesis(
 			.map(|blocks| blocks[0].0.header.hash())
 			.expect("there is block 0. qed")
 	};
-	BasicPool::new_test(test_api, genesis_hash, genesis_hash)
+	BasicPool::new_test(test_api, genesis_hash, genesis_hash, Default::default())
 }
 
 fn create_basic_pool(test_api: TestApi) -> BasicPool<TestApi, Block> {
@@ -994,6 +994,7 @@ fn import_notification_to_pool_maintain_works() {
 			)),
 			best_hash,
 			finalized_hash,
+			Default::default(),
 		)
 		.0,
 	);

@@ -440,6 +440,12 @@ fn mint_should_work() {
 			account(2),
 			Some(MintWitness { owned_item: Some(43), ..Default::default() })
 		));
+		assert!(events().contains(&Event::<Test>::PalletAttributeSet {
+			collection: 0,
+			item: Some(43),
+			attribute: PalletAttributes::<<Test as Config>::CollectionId>::UsedToClaim(1),
+			value: Nfts::construct_attribute_value(vec![]).unwrap(),
+		}));
 
 		// can't mint twice
 		assert_noop!(
