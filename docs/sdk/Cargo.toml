@@ -65,6 +65,7 @@ pallet-aura = { path = "../../substrate/frame/aura", default-features = false }
 # Pallets and FRAME internals
 pallet-timestamp = { path = "../../substrate/frame/timestamp" }
 pallet-balances = { path = "../../substrate/frame/balances" }
+pallet-assets = { path = "../../substrate/frame/assets" }
 pallet-transaction-payment = { path = "../../substrate/frame/transaction-payment" }
 pallet-utility = { path = "../../substrate/frame/utility" }
 pallet-multisig = { path = "../../substrate/frame/multisig" }
