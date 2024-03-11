@@ -247,8 +247,11 @@ async fn handle_new_activations<Context>(
 						let res = match maybe_claim_queue {
 							Some(ref claim_queue) => {
 								// read what's in the claim queue for this core
-								fetch_scheduled_para(claim_queue, CoreIndex(core_idx as u32))
-									.map(|sc| (sc, OccupiedCoreAssumption::Included))
+								fetch_next_scheduled_on_core(
+									claim_queue,
+									CoreIndex(core_idx as u32),
+								)
+								.map(|sc| (sc, OccupiedCoreAssumption::Included))
 							},
 							None => {
 								// Runtime doesn't support claim queue runtime api. Fallback to
@@ -639,12 +642,12 @@ async fn fetch_claim_queue(
 	}
 }
 
-fn fetch_scheduled_para(
+// Returns the next scheduled `ParaId` for a core in the claim queue, wrapped in `ScheduledCore`.
+// This function is supposed to be used in `handle_new_activations` hence the return type.
+fn fetch_next_scheduled_on_core(
 	claim_queue: &BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	core_idx: CoreIndex,
 ) -> Option<ScheduledCore> {
-	// TODO: In the future we will return more than one scheduled para_id hence the weird processing
-	// below
 	claim_queue
 		.get(&core_idx)?
 		.front()

@@ -695,12 +695,12 @@ fn submit_collation_leads_to_distribution() {
 	});
 }
 
-// There is once core in Occupied state and async backing is enabled. On new head activation
+// There is one core in `Occupied` state and async backing is enabled. On new head activation
 // `CollationGeneration` should produce and distribute a new collation.
 #[rstest]
 #[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
 #[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn test_distribute_collation_with_async_backing(#[case] runtime_version: u32) {
+fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] runtime_version: u32) {
 	let activated_hash: Hash = [1; 32].into();
 	let para_id = ParaId::from(5);
 
@@ -718,9 +718,9 @@ fn test_distribute_collation_with_async_backing(#[case] runtime_version: u32) {
 	let claim_queue = BTreeMap::from([(CoreIndex::from(0), VecDeque::from([para_id]))]);
 
 	test_harness(|mut virtual_overseer| async move {
-		building_blocks::initialize_collator(&mut virtual_overseer, para_id).await;
-		building_blocks::activate_new_head(&mut virtual_overseer, activated_hash).await;
-		building_blocks::handle_runtime_calls_on_new_head_activation(
+		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
+		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
+		helpers::handle_runtime_calls_on_new_head_activation(
 			&mut virtual_overseer,
 			activated_hash,
 			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 1 },
@@ -729,7 +729,7 @@ fn test_distribute_collation_with_async_backing(#[case] runtime_version: u32) {
 			claim_queue,
 		)
 		.await;
-		building_blocks::handle_core_processing_for_a_leaf(
+		helpers::handle_core_processing_for_a_leaf(
 			&mut virtual_overseer,
 			activated_hash,
 			para_id,
@@ -742,7 +742,48 @@ fn test_distribute_collation_with_async_backing(#[case] runtime_version: u32) {
 	});
 }
 
-mod building_blocks {
+// There is one core in `Occupied` state and async backing is disabled. On new head activation
+// no new collation should be generated.
+#[rstest]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn no_collation_is_distributed_for_occupied_core_with_async_backing_disabled(
+	#[case] runtime_version: u32,
+) {
+	let activated_hash: Hash = [1; 32].into();
+	let para_id = ParaId::from(5);
+
+	// One core, in occupied state. The data in `CoreState` and `ClaimQueue` should match.
+	let cores: Vec<CoreState> = vec![CoreState::Occupied(polkadot_primitives::OccupiedCore {
+		next_up_on_available: Some(ScheduledCore { para_id, collator: None }),
+		occupied_since: 1,
+		time_out_at: 10,
+		next_up_on_time_out: Some(ScheduledCore { para_id, collator: None }),
+		availability: Default::default(), // doesn't matter
+		group_responsible: polkadot_primitives::GroupIndex(0),
+		candidate_hash: Default::default(),
+		candidate_descriptor: dummy_candidate_descriptor(dummy_hash()),
+	})];
+	let claim_queue = BTreeMap::from([(CoreIndex::from(0), VecDeque::from([para_id]))]);
+
+	test_harness(|mut virtual_overseer| async move {
+		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
+		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
+		helpers::handle_runtime_calls_on_new_head_activation(
+			&mut virtual_overseer,
+			activated_hash,
+			AsyncBackingParams { max_candidate_depth: 0, allowed_ancestry_len: 0 },
+			cores,
+			runtime_version,
+			claim_queue,
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+mod helpers {
 	use super::*;
 
 	// Sends `Initialize` with a collator config
