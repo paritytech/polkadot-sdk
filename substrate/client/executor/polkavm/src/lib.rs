@@ -59,8 +59,11 @@ impl WasmInstance for Instance {
 
 		// TODO: This will leak guest memory; find a better solution.
 		let mut state_args = polkavm::StateArgs::new();
-		state_args.sbrk(raw_data_length);
+
+		// Make sure the memory is cleared...
 		state_args.reset_memory(true);
+		// ...and allocate space for the input payload.
+		state_args.sbrk(raw_data_length);
 
 		match self.0.update_state(state_args) {
 			Ok(()) => {},
@@ -73,7 +76,10 @@ impl WasmInstance for Instance {
 			Err(polkavm::ExecutionError::OutOfGas) => unreachable!("gas metering is never enabled"),
 		}
 
+		// Grab the address of where the guest's heap starts; that's where we've just allocated
+		// the memory for the input payload.
 		let data_pointer = self.0.module().memory_map().heap_base();
+
 		if let Err(error) = self.0.write_memory(data_pointer, raw_data) {
 			return (Err(format!("call into the runtime method '{name}': failed to write the input payload into guest memory: {error}").into()), None);
 		}
