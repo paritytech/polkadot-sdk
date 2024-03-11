@@ -151,8 +151,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     blocks: NumberFor&lt;Block&gt;
 ) -&gt; Result&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;<span class="where fmt-newline">where
     Block: BlockT,
-    Client: AuxStore + HeaderMetadata&lt;Block, Error = Error&gt; + HeaderBackend&lt;Block&gt; + <a class="trait" href="../sp_api/trait.ProvideRuntimeApi.html" title="trait sp_api::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;Block&gt; + UsageProvider&lt;Block&gt;,
-    Client::<a class="associatedtype" href="../sp_api/trait.ProvideRuntimeApi.html#associatedtype.Api" title="type sp_api::ProvideRuntimeApi::Api">Api</a>: <a class="trait" href="trait.BabeApi.html" title="trait sc_consensus_babe::BabeApi">BabeApi</a>&lt;Block&gt;,
+    Client: AuxStore + HeaderMetadata&lt;Block, Error = Error&gt; + HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + UsageProvider&lt;Block&gt;,
+    Client::Api: <a class="trait" href="trait.BabeApi.html" title="trait sc_consensus_babe::BabeApi">BabeApi</a>&lt;Block&gt;,
     Backend: BackendT&lt;Block&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Reverts protocol aux data to at most the last finalized block.
 In particular, epoch-changes and block weights announced after the revert
 point are removed.</p>

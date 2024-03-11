@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     BE: Backend&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a> + 'static,
     N: NetworkT&lt;Block&gt;,
     S: SyncingT&lt;Block&gt;,
-    SC: <a class="trait" href="../sp_consensus/select_chain/trait.SelectChain.html" title="trait sp_consensus::select_chain::SelectChain">SelectChain</a>&lt;Block&gt;,
+    SC: SelectChain&lt;Block&gt;,
     NumberFor&lt;Block&gt;: <a class="trait" href="trait.BlockNumberOps.html" title="trait sc_consensus_grandpa::BlockNumberOps">BlockNumberOps</a>,
     Client: <a class="trait" href="trait.ClientForGrandpa.html" title="trait sc_consensus_grandpa::ClientForGrandpa">ClientForGrandpa</a>&lt;Block, BE&gt; + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Run a GRANDPA observer as a task, the observer will finalize blocks only by
 listening for and validating GRANDPA commits instead of following the full
