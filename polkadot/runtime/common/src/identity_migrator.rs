@@ -31,7 +31,7 @@ use pallet_identity;
 use sp_core::Get;
 
 #[cfg(feature = "runtime-benchmarks")]
-use frame_benchmarking::{account, impl_benchmark_test_suite, v2::*, BenchmarkError};
+use frame_benchmarking::{account, v2::*, BenchmarkError};
 
 pub trait WeightInfo {
 	fn reap_identity(r: u32, s: u32) -> Weight;

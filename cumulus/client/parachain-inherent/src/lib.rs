@@ -159,7 +159,7 @@ impl ParachainInherentDataProvider {
 					target: LOG_TARGET,
 					relay_parent = ?relay_parent,
 					error = ?e,
-					"An error occured during requesting the downward messages.",
+					"An error occurred during requesting the downward messages.",
 				);
 			})
 			.ok()?;
@@ -171,7 +171,7 @@ impl ParachainInherentDataProvider {
 					target: LOG_TARGET,
 					relay_parent = ?relay_parent,
 					error = ?e,
-					"An error occured during requesting the inbound HRMP messages.",
+					"An error occurred during requesting the inbound HRMP messages.",
 				);
 			})
 			.ok()?;
