@@ -275,9 +275,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -311,7 +308,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>origin;
 <span class="kw">mod </span>pallet_struct;
 <span class="kw">mod </span>storage;
-<span class="kw">mod </span>store_trait;
 <span class="kw">mod </span>tasks;
 <span class="kw">mod </span>tt_default_parts;
 <span class="kw">mod </span>type_value;
@@ -348,7 +344,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>storages = storage::expand_storages(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>inherents = inherent::expand_inherents(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>instances = instances::expand_instances(<span class="kw-2">&amp;mut </span>def);
-	<span class="kw">let </span>store_trait = store_trait::expand_store_trait(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>hooks = hooks::expand_hooks(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>genesis_build = genesis_build::expand_genesis_build(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>genesis_config = genesis_config::expand_genesis_config(<span class="kw-2">&amp;mut </span>def);
@@ -390,7 +385,6 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#storages
 		#inherents
 		#instances
-		#store_trait
 		#hooks
 		#genesis_build
 		#genesis_config

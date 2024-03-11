@@ -2720,26 +2720,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2573" id="2573">2573</a>
 <a href="#2574" id="2574">2574</a>
 <a href="#2575" id="2575">2575</a>
-<a href="#2576" id="2576">2576</a>
-<a href="#2577" id="2577">2577</a>
-<a href="#2578" id="2578">2578</a>
-<a href="#2579" id="2579">2579</a>
-<a href="#2580" id="2580">2580</a>
-<a href="#2581" id="2581">2581</a>
-<a href="#2582" id="2582">2582</a>
-<a href="#2583" id="2583">2583</a>
-<a href="#2584" id="2584">2584</a>
-<a href="#2585" id="2585">2585</a>
-<a href="#2586" id="2586">2586</a>
-<a href="#2587" id="2587">2587</a>
-<a href="#2588" id="2588">2588</a>
-<a href="#2589" id="2589">2589</a>
-<a href="#2590" id="2590">2590</a>
-<a href="#2591" id="2591">2591</a>
-<a href="#2592" id="2592">2592</a>
-<a href="#2593" id="2593">2593</a>
-<a href="#2594" id="2594">2594</a>
-<a href="#2595" id="2595">2595</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3444,7 +3424,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>fail {
 	( <span class="macro-nonterminal">$y</span>:expr ) =&gt; {{
-		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro-nonterminal">$y</span>.into())
+		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro-nonterminal">$y</span>.into());
 	}};
 }
 
@@ -3691,8 +3671,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// 	pub trait Config: frame_system::Config {}
 /// }
 /// ```
-///
-/// I.e. a regular struct definition named `Pallet`, with generic T and no where clause.
+</span><span class="comment">//
+</span><span class="doccomment">/// I.e. a regular struct definition named `Pallet`, with generic T and no where clause.
 ///
 /// ## Macro expansion:
 ///
@@ -4082,26 +4062,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// See [`pallet::storage`](`frame_support::pallet_macros::storage`) for more info.
 	</span><span class="kw">pub use </span>frame_support_procedural::getter;
-
-	<span class="doccomment">/// Allows generating the `Store` trait for all storages.
-	///
-	/// DEPRECATED: Will be removed, do not use.
-	/// See &lt;https://github.com/paritytech/substrate/pull/13535&gt; for more details.
-	///
-	/// To generate a `Store` trait associating all storages, annotate your `Pallet` struct
-	/// with the attribute `#[pallet::generate_store($vis trait Store)]`, e.g.:
-	///
-	/// ```ignore
-	/// #[pallet::pallet]
-	/// #[pallet::generate_store(pub(super) trait Store)]
-	/// pub struct Pallet&lt;T&gt;(_);
-	/// ```
-	/// More precisely, the `Store` trait contains an associated type for each storage. It is
-	/// implemented for `Pallet` allowing access to the storage from pallet struct.
-	///
-	/// Thus when defining a storage named `Foo`, it can later be accessed from `Pallet` using
-	/// `&lt;Pallet as Store&gt;::Foo`.
-	</span><span class="kw">pub use </span>frame_support_procedural::generate_store;
 
 	<span class="doccomment">/// Defines constants that are added to the constant field of
 	/// [`PalletMetadata`](frame_metadata::v15::PalletMetadata) struct for this pallet.

@@ -294,28 +294,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -341,10 +319,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>keyword {
 	<span class="macro">syn::custom_keyword!</span>(pallet);
 	<span class="macro">syn::custom_keyword!</span>(Pallet);
-	<span class="macro">syn::custom_keyword!</span>(generate_store);
 	<span class="macro">syn::custom_keyword!</span>(without_storage_info);
 	<span class="macro">syn::custom_keyword!</span>(storage_version);
-	<span class="macro">syn::custom_keyword!</span>(Store);
 }
 
 <span class="doccomment">/// Definition of the pallet pallet.
@@ -355,8 +331,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>instances: Vec&lt;helper::InstanceUsage&gt;,
 	<span class="doccomment">/// The keyword Pallet used (contains span).
 	</span><span class="kw">pub </span>pallet: keyword::Pallet,
-	<span class="doccomment">/// Whether the trait `Store` must be generated.
-	</span><span class="kw">pub </span>store: <span class="prelude-ty">Option</span>&lt;(syn::Visibility, keyword::Store, proc_macro2::Span)&gt;,
 	<span class="doccomment">/// The span of the pallet::pallet attribute.
 	</span><span class="kw">pub </span>attr_span: proc_macro2::Span,
 	<span class="doccomment">/// Whether to specify the storages max encoded len when implementing `StorageInfoTrait`.
@@ -367,11 +341,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Parse for one variant of:
-/// * `#[pallet::generate_store($vis trait Store)]`
 /// * `#[pallet::without_storage_info]`
 /// * `#[pallet::storage_version(STORAGE_VERSION)]`
 </span><span class="kw">pub enum </span>PalletStructAttr {
-	GenerateStore { span: proc_macro2::Span, vis: syn::Visibility, keyword: keyword::Store },
 	WithoutStorageInfoTrait(proc_macro2::Span),
 	StorageVersion { storage_version: syn::Path, span: proc_macro2::Span },
 }
@@ -379,9 +351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>PalletStructAttr {
 	<span class="kw">fn </span>span(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; proc_macro2::Span {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::GenerateStore { span, .. } |
-			<span class="self">Self</span>::WithoutStorageInfoTrait(span) |
-			<span class="self">Self</span>::StorageVersion { span, .. } =&gt; <span class="kw-2">*</span>span,
+			<span class="self">Self</span>::WithoutStorageInfoTrait(span) | <span class="self">Self</span>::StorageVersion { span, .. } =&gt; <span class="kw-2">*</span>span,
 		}
 	}
 }
@@ -395,16 +365,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		content.parse::&lt;<span class="macro">syn::Token!</span>[::]&gt;()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>lookahead = content.lookahead1();
-		<span class="kw">if </span>lookahead.peek(keyword::generate_store) {
-			content.parse::&lt;keyword::generate_store&gt;()<span class="question-mark">?</span>;
-			<span class="kw">let </span>generate_content;
-			<span class="macro">syn::parenthesized!</span>(generate_content <span class="kw">in </span>content);
-			<span class="kw">let </span>vis = generate_content.parse::&lt;syn::Visibility&gt;()<span class="question-mark">?</span>;
-			generate_content.parse::&lt;<span class="macro">syn::Token!</span>[<span class="kw">trait</span>]&gt;()<span class="question-mark">?</span>;
-			<span class="kw">let </span>keyword = generate_content.parse::&lt;keyword::Store&gt;()<span class="question-mark">?</span>;
-			<span class="kw">let </span>span = content.span();
-			<span class="prelude-val">Ok</span>(<span class="self">Self</span>::GenerateStore { vis, keyword, span })
-		} <span class="kw">else if </span>lookahead.peek(keyword::without_storage_info) {
+		<span class="kw">if </span>lookahead.peek(keyword::without_storage_info) {
 			<span class="kw">let </span>span = content.parse::&lt;keyword::without_storage_info&gt;()<span class="question-mark">?</span>.span();
 			<span class="prelude-val">Ok</span>(<span class="self">Self</span>::WithoutStorageInfoTrait(span))
 		} <span class="kw">else if </span>lookahead.peek(keyword::storage_version) {
@@ -434,16 +395,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item.span(), msg))
 		};
 
-		<span class="kw">let </span><span class="kw-2">mut </span>store = <span class="prelude-val">None</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>without_storage_info = <span class="prelude-val">None</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>storage_version_found = <span class="prelude-val">None</span>;
 
 		<span class="kw">let </span>struct_attrs: Vec&lt;PalletStructAttr&gt; = helper::take_item_pallet_attrs(<span class="kw-2">&amp;mut </span>item.attrs)<span class="question-mark">?</span>;
 		<span class="kw">for </span>attr <span class="kw">in </span>struct_attrs {
 			<span class="kw">match </span>attr {
-				PalletStructAttr::GenerateStore { vis, keyword, span } <span class="kw">if </span>store.is_none() =&gt; {
-					store = <span class="prelude-val">Some</span>((vis, keyword, span));
-				},
 				PalletStructAttr::WithoutStorageInfoTrait(span)
 					<span class="kw">if </span>without_storage_info.is_none() =&gt;
 				{
@@ -480,7 +437,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			index,
 			instances,
 			pallet,
-			store,
 			attr_span,
 			without_storage_info,
 			storage_version: storage_version_found,
