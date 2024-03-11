@@ -241,6 +241,7 @@ fn node_config<
 		trie_cache_maximum_size: Some(16 * 1024 * 1024),
 		state_pruning: Default::default(),
 		blocks_pruning: BlocksPruning::KeepFinalized,
+		disable_block_limit_per_level: true,
 		chain_spec: Box::new((*spec).clone()),
 		wasm_method: Default::default(),
 		wasm_runtime_overrides: Default::default(),

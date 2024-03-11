@@ -74,6 +74,9 @@ pub struct Configuration {
 	///
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: BlocksPruning,
+	/// Disable the default limit of 32 block on the same level
+	/// (with the same number) of noncanonicalized blocks.
+	pub disable_block_limit_per_level: bool,
 	/// Chain configuration.
 	pub chain_spec: Box<dyn ChainSpec>,
 	/// Wasm execution method.
@@ -249,6 +252,7 @@ impl Configuration {
 			state_pruning: self.state_pruning.clone(),
 			source: self.database.clone(),
 			blocks_pruning: self.blocks_pruning,
+			disable_block_limit_per_level: self.disable_block_limit_per_level,
 		}
 	}
 }

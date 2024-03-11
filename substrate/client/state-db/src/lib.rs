@@ -22,7 +22,6 @@
 //! Canonicalization window tracks a tree of blocks identified by header hash. The in-memory
 //! overlay allows to get any trie node that was inserted in any of the blocks within the window.
 //! The overlay is journaled to the backing database and rebuilt on startup.
-//! There's a limit of 32 blocks that may have the same block number in the canonicalization window.
 //!
 //! Canonicalization function selects one root from the top of the tree and discards all other roots
 //! and their subtrees. Upon canonicalization all trie nodes that were inserted in the block are
@@ -305,6 +304,7 @@ pub struct StateDbSync<BlockHash: Hash, Key: Hash, D: MetaDb> {
 	pruning: Option<RefWindow<BlockHash, Key, D>>,
 	pinned: HashMap<BlockHash, u32>,
 	ref_counting: bool,
+	disable_block_limit_per_level: bool,
 }
 
 impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
@@ -312,17 +312,26 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 		mode: PruningMode,
 		ref_counting: bool,
 		db: D,
+		disable_block_limit_per_level: bool,
 	) -> Result<StateDbSync<BlockHash, Key, D>, Error<D::Error>> {
 		trace!(target: LOG_TARGET, "StateDb settings: {:?}. Ref-counting: {}", mode, ref_counting);
 
-		let non_canonical: NonCanonicalOverlay<BlockHash, Key> = NonCanonicalOverlay::new(&db)?;
+		let non_canonical: NonCanonicalOverlay<BlockHash, Key> =
+			NonCanonicalOverlay::new(&db, disable_block_limit_per_level)?;
 		let pruning: Option<RefWindow<BlockHash, Key, D>> = match mode {
 			PruningMode::Constrained(Constraints { max_blocks }) =>
 				Some(RefWindow::new(db, max_blocks.unwrap_or(0), ref_counting)?),
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical => None,
 		};
 
-		Ok(StateDbSync { mode, non_canonical, pruning, pinned: Default::default(), ref_counting })
+		Ok(StateDbSync {
+			mode,
+			non_canonical,
+			pruning,
+			pinned: Default::default(),
+			ref_counting,
+			disable_block_limit_per_level,
+		})
 	}
 
 	fn insert_block(
@@ -536,6 +545,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 		requested_mode: Option<PruningMode>,
 		ref_counting: bool,
 		should_init: bool,
+		disable_block_limit_per_level: bool,
 	) -> Result<(CommitSet<Key>, StateDb<BlockHash, Key, D>), Error<D::Error>> {
 		let stored_mode = fetch_stored_pruning_mode(&db)?;
 
@@ -569,8 +579,14 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 			Default::default()
 		};
 
-		let state_db =
-			StateDb { db: RwLock::new(StateDbSync::new(selected_mode, ref_counting, db)?) };
+		let state_db = StateDb {
+			db: RwLock::new(StateDbSync::new(
+				selected_mode,
+				ref_counting,
+				db,
+				disable_block_limit_per_level,
+			)?),
+		};
 
 		Ok((db_init_commit_set, state_db))
 	}
@@ -655,7 +671,12 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 	/// Reset in-memory changes to the last disk-backed state.
 	pub fn reset(&self, db: D) -> Result<(), Error<D::Error>> {
 		let mut state_db = self.db.write();
-		*state_db = StateDbSync::new(state_db.mode.clone(), state_db.ref_counting, db)?;
+		*state_db = StateDbSync::new(
+			state_db.mode.clone(),
+			state_db.ref_counting,
+			db,
+			state_db.disable_block_limit_per_level,
+		)?;
 		Ok(())
 	}
 }
@@ -713,7 +734,7 @@ mod tests {
 	fn make_test_db(settings: PruningMode) -> (TestDb, StateDb<H256, H256, TestDb>) {
 		let mut db = make_db(&[91, 921, 922, 93, 94]);
 		let (state_db_init, state_db) =
-			StateDb::open(db.clone(), Some(settings), false, true).unwrap();
+			StateDb::open(db.clone(), Some(settings), false, true, true).unwrap();
 		db.commit(&state_db_init);
 
 		db.commit(
@@ -851,7 +872,7 @@ mod tests {
 	fn detects_incompatible_mode() {
 		let mut db = make_db(&[]);
 		let (state_db_init, state_db) =
-			StateDb::open(db.clone(), Some(PruningMode::ArchiveAll), false, true).unwrap();
+			StateDb::open(db.clone(), Some(PruningMode::ArchiveAll), false, true, true).unwrap();
 		db.commit(&state_db_init);
 		db.commit(
 			&state_db
@@ -865,7 +886,7 @@ mod tests {
 		);
 		let new_mode = PruningMode::Constrained(Constraints { max_blocks: Some(2) });
 		let state_db_open_result: Result<(_, StateDb<H256, H256, TestDb>), _> =
-			StateDb::open(db.clone(), Some(new_mode), false, false);
+			StateDb::open(db.clone(), Some(new_mode), false, false, true);
 		assert!(state_db_open_result.is_err());
 	}
 
@@ -876,13 +897,13 @@ mod tests {
 	) {
 		let mut db = make_db(&[]);
 		let (state_db_init, state_db) =
-			StateDb::<H256, H256, TestDb>::open(db.clone(), mode_when_created, false, true)
+			StateDb::<H256, H256, TestDb>::open(db.clone(), mode_when_created, false, true, true)
 				.unwrap();
 		db.commit(&state_db_init);
 		std::mem::drop(state_db);
 
 		let state_db_reopen_result =
-			StateDb::<H256, H256, TestDb>::open(db.clone(), mode_when_reopened, false, false);
+			StateDb::<H256, H256, TestDb>::open(db.clone(), mode_when_reopened, false, false, true);
 		if let Ok(expected_mode) = expected_effective_mode_when_reopenned {
 			let (state_db_init, state_db_reopened) = state_db_reopen_result.unwrap();
 			db.commit(&state_db_init);
