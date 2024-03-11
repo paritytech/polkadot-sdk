@@ -9506,6 +9506,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
