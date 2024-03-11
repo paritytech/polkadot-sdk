@@ -247,6 +247,7 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 			}
 		}
 		footprint.pages = footprint.storage.size as u32 / 16; // Number does not matter
+		footprint.ready_pages = footprint.pages;
 		footprint
 	}
 }
