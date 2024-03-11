@@ -20,7 +20,10 @@
 use clap::Parser;
 use color_eyre::eyre;
 use colored::Colorize;
-use polkadot_subsystem_bench::{approval, availability, configuration};
+use polkadot_subsystem_bench::{
+	approval, availability,
+	configuration::{self, TestConfigurationBuilder},
+};
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use serde::{Deserialize, Serialize};
@@ -120,19 +123,25 @@ impl BenchCli {
 			None
 		};
 
-		let test_sequence = TestSequence::new_from_file(Path::new(&self.path))
-			.expect("File exists")
-			.test_configurations;
+		let test_sequence: Vec<CliTestConfiguration> =
+			TestSequence::new_from_file(Path::new(&self.path))
+				.expect("File exists")
+				.test_configurations
+				.into_iter()
+				.map(|CliTestConfiguration { objective, test_config }| CliTestConfiguration {
+					objective,
+					test_config: TestConfigurationBuilder::from_test_config(test_config).build(),
+				})
+				.collect();
 		let num_steps = test_sequence.len();
 		gum::info!("{}", format!("Sequence contains {} step(s)", num_steps).bright_purple());
 
-		for (index, CliTestConfiguration { objective, mut test_config }) in
+		for (index, CliTestConfiguration { objective, test_config }) in
 			test_sequence.into_iter().enumerate()
 		{
 			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, objective);
 			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {:?}", objective).green(), test_config);
-			test_config.generate_pov_sizes();
 
 			let usage = match objective {
 				TestObjective::DataAvailabilityRead(opts) => {

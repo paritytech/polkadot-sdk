@@ -25,7 +25,7 @@
 
 use polkadot_subsystem_bench::{
 	availability::{benchmark_availability_write, prepare_test, TestDataAvailability, TestState},
-	configuration::{PeerLatency, TestConfiguration},
+	configuration::{PeerLatency, TestConfiguration, TestConfigurationBuilder},
 	usage::BenchmarkUsage,
 };
 
@@ -37,14 +37,18 @@ fn main() -> Result<(), String> {
 	let mut messages = vec![];
 
 	// TODO: Adjust the test configurations to Kusama values
-	let mut config = TestConfiguration::init(200, 5120, 5120);
-	config.latency = Some(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 });
-	config.n_validators = 1000;
-	config.max_validators_per_core = 5;
-	config.peer_bandwidth = 52428800;
-	config.bandwidth = 52428800;
-	config.connectivity = 75;
-	config.num_blocks = 3;
+	let config = TestConfigurationBuilder::new()
+		.with_n_cores(200)
+		.with_min_pov_size(5120)
+		.with_max_pov_size(5120)
+		.with_latency(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 })
+		.with_max_validators_per_core(5)
+		.with_n_validators(1000)
+		.with_peer_bandwidth(52428800)
+		.with_bandwidth(52428800)
+		.with_num_blocks(3)
+		.with_connectivity(75)
+		.build();
 
 	warm_up(config.clone())?;
 	let usage = benchmark(config.clone());
