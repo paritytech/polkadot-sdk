@@ -1446,6 +1446,13 @@ async fn distribution_messages_for_activation<Context>(
 													None => continue,
 												};
 
+											let core_index = block_entry
+												.candidates()
+												.iter()
+												.find_map(|(core_index, h)| {
+													(h == candidate_hash).then_some(*core_index)
+												});
+
 											actions.push(Action::LaunchApproval {
 												claimed_candidate_indices: bitfield,
 												candidate_hash: candidate_entry
@@ -1461,6 +1468,7 @@ async fn distribution_messages_for_activation<Context>(
 													.clone(),
 												backing_group: approval_entry.backing_group(),
 												distribute_assignment: false,
+												core_index,
 											});
 										}
 									},
