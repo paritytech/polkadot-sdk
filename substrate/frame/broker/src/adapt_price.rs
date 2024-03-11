@@ -92,4 +92,23 @@ mod tests {
 			}
 		}
 	}
+
+	#[test]
+	fn linear_bound_check() {
+		// Using constraints from pallet implementation i.e. `limit >= sold`.
+		// Check extremes
+		let limit = 10;
+		let target = 5;
+
+		// Maximally sold: `sold == limit`
+		assert_eq!(Linear::adapt_price(limit, target, limit), FixedU64::from_float(2.0));
+		// Ideally sold: `sold == target`
+		assert_eq!(Linear::adapt_price(target, target, limit), FixedU64::one());
+		// Minimally sold: `sold == 0`
+		assert_eq!(Linear::adapt_price(0, target, limit), FixedU64::from_float(0.5));
+		// Optimistic target: `target == limit`
+		assert_eq!(Linear::adapt_price(limit, limit, limit), FixedU64::one());
+		// Pessimistic target: `target == 0`
+		assert_eq!(Linear::adapt_price(limit, 0, limit), FixedU64::from_float(2.0));
+	}
 }
