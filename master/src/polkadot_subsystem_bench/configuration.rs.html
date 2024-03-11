@@ -388,6 +388,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#241" id="241">241</a>
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -425,19 +443,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>std_dev: f64,
 }
 
-<span class="comment">// Default PoV size in KiB.
-</span><span class="kw">fn </span>default_pov_size() -&gt; usize {
-	<span class="number">5120
+<span class="comment">// Based on Kusama `max_validators`
+</span><span class="kw">fn </span>default_n_validators() -&gt; usize {
+	<span class="number">300
 </span>}
 
-<span class="comment">// Default bandwidth in bytes
-</span><span class="kw">fn </span>default_bandwidth() -&gt; usize {
-	<span class="number">52428800
+<span class="comment">// Based on Kusama cores
+</span><span class="kw">fn </span>default_n_cores() -&gt; usize {
+	<span class="number">60
 </span>}
+
+<span class="comment">// Default PoV size in KiB.
+</span><span class="kw">fn </span>default_pov_size() -&gt; usize {
+	<span class="number">5 </span>* <span class="number">1024
+</span>}
+
+<span class="comment">// Default bandwidth in bytes, based stats from Kusama validators
+</span><span class="kw">fn </span>default_bandwidth() -&gt; usize {
+	<span class="number">42 </span>* <span class="number">1024 </span>* <span class="number">1024
+</span>}
+
+<span class="comment">// Default peer latency
+</span><span class="kw">fn </span>default_peer_latency() -&gt; <span class="prelude-ty">Option</span>&lt;PeerLatency&gt; {
+	<span class="prelude-val">Some</span>(PeerLatency { mean_latency_ms: <span class="number">30</span>, std_dev: <span class="number">2.0 </span>})
+}
 
 <span class="comment">// Default connectivity percentage
 </span><span class="kw">fn </span>default_connectivity() -&gt; usize {
-	<span class="number">100
+	<span class="number">90
 </span>}
 
 <span class="comment">// Default backing group size
@@ -453,6 +486,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">fn </span>default_zeroth_delay_tranche_width() -&gt; usize {
 	<span class="number">0
 </span>}
+
 <span class="kw">fn </span>default_relay_vrf_modulo_samples() -&gt; usize {
 	<span class="number">6
 </span>}
@@ -468,8 +502,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>TestConfiguration {
 	<span class="doccomment">/// Number of validators
+	</span><span class="attr">#[serde(default = <span class="string">&quot;default_n_validators&quot;</span>)]
 	</span><span class="kw">pub </span>n_validators: usize,
 	<span class="doccomment">/// Number of cores
+	</span><span class="attr">#[serde(default = <span class="string">&quot;default_n_cores&quot;</span>)]
 	</span><span class="kw">pub </span>n_cores: usize,
 	<span class="doccomment">/// The number of needed votes to approve a candidate.
 	</span><span class="attr">#[serde(default = <span class="string">&quot;default_needed_approvals&quot;</span>)]
@@ -501,10 +537,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[serde(default = <span class="string">&quot;default_bandwidth&quot;</span>)]
 	</span><span class="kw">pub </span>bandwidth: usize,
 	<span class="doccomment">/// Optional peer emulation latency (round trip time) wrt node under test
-	</span><span class="attr">#[serde(default)]
+	</span><span class="attr">#[serde(default = <span class="string">&quot;default_peer_latency&quot;</span>)]
 	</span><span class="kw">pub </span>latency: <span class="prelude-ty">Option</span>&lt;PeerLatency&gt;,
-	<span class="doccomment">/// Connectivity ratio, the percentage of peers we are not connected to, but ar part of
-	/// the topology.
+	<span class="doccomment">/// Connectivity ratio, the percentage of peers we are connected to, but as part of the
+	/// topology.
 	</span><span class="attr">#[serde(default = <span class="string">&quot;default_connectivity&quot;</span>)]
 	</span><span class="kw">pub </span>connectivity: usize,
 	<span class="doccomment">/// Number of blocks to run the test for
@@ -514,8 +550,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Default <span class="kw">for </span>TestConfiguration {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
-			n_validators: Default::default(),
-			n_cores: Default::default(),
+			n_validators: default_n_validators(),
+			n_cores: default_n_cores(),
 			needed_approvals: default_needed_approvals(),
 			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
 			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
@@ -527,7 +563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pov_sizes: Default::default(),
 			peer_bandwidth: default_bandwidth(),
 			bandwidth: default_bandwidth(),
-			latency: Default::default(),
+			latency: default_peer_latency(),
 			connectivity: default_connectivity(),
 			num_blocks: Default::default(),
 		}
