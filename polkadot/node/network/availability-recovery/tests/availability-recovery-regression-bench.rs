@@ -39,7 +39,7 @@ fn main() -> Result<(), String> {
 
 	// TODO: Adjust the test configurations to Kusama values
 	let options = DataAvailabilityReadOptions { fetch_from_backers: true };
-	let config = TestConfigurationBuilder::new()
+	let config = TestConfiguration::builder()
 		.with_n_cores(20)
 		.with_min_pov_size(5120)
 		.with_max_pov_size(5120)

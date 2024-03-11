@@ -37,7 +37,7 @@ fn main() -> Result<(), String> {
 	let mut messages = vec![];
 
 	// TODO: Adjust the test configurations to Kusama values
-	let config = TestConfigurationBuilder::new()
+	let config = TestConfiguration::builder()
 		.with_n_cores(200)
 		.with_min_pov_size(5120)
 		.with_max_pov_size(5120)

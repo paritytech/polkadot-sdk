@@ -145,6 +145,14 @@ impl Default for TestConfiguration {
 }
 
 impl TestConfiguration {
+	pub fn builder() -> TestConfigurationBuilder {
+		TestConfigurationBuilder::new()
+	}
+
+	pub fn builder_from(config: TestConfiguration) -> TestConfigurationBuilder {
+		TestConfigurationBuilder::from(config)
+	}
+
 	fn generate_pov_sizes(&mut self) {
 		self.pov_sizes = generate_pov_sizes(self.n_cores, self.min_pov_size, self.max_pov_size);
 	}
@@ -298,11 +306,11 @@ impl Default for TestConfigurationBuilder {
 }
 
 impl TestConfigurationBuilder {
-	pub fn new() -> Self {
+	fn new() -> Self {
 		TestConfigurationBuilder::default()
 	}
 
-	pub fn from_test_config(test_config: TestConfiguration) -> Self {
+	fn from(test_config: TestConfiguration) -> Self {
 		Self {
 			n_validators: test_config.n_validators,
 			n_cores: test_config.n_cores,

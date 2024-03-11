@@ -130,7 +130,7 @@ impl BenchCli {
 				.into_iter()
 				.map(|CliTestConfiguration { objective, test_config }| CliTestConfiguration {
 					objective,
-					test_config: TestConfigurationBuilder::from_test_config(test_config).build(),
+					test_config: TestConfiguration::builder_from(test_config).build(),
 				})
 				.collect();
 		let num_steps = test_sequence.len();
