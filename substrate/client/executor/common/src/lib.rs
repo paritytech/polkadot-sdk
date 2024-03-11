@@ -27,7 +27,5 @@ pub mod util;
 pub mod wasm_runtime;
 
 pub(crate) fn is_polkavm_enabled() -> bool {
-	std::env::var_os("SUBSTRATE_ENABLE_POLKAVM")
-		.map(|value| value == "1")
-		.unwrap_or(false)
+	std::env::var_os("SUBSTRATE_ENABLE_POLKAVM").map_or(false, |value| value == "1")
 }
