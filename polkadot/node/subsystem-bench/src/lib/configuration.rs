@@ -40,7 +40,7 @@ fn default_n_validators() -> usize {
 	300
 }
 
-// Based on number of kusama validators producing blocks
+// Based on Kusama cores
 fn default_n_cores() -> usize {
 	60
 }
