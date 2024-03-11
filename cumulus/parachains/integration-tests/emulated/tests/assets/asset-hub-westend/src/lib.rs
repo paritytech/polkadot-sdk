@@ -67,8 +67,8 @@ mod imports {
 
 	// Runtimes
 	pub use asset_hub_westend_runtime::xcm_config::{
-		UniversalLocation as AssetHubWestendUniversalLocation,
-		WestendLocation as RelayLocation, XcmConfig as AssetHubWestendXcmConfig,
+		UniversalLocation as AssetHubWestendUniversalLocation, WestendLocation as RelayLocation,
+		XcmConfig as AssetHubWestendXcmConfig,
 	};
 	pub use penpal_runtime::xcm_config::{
 		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,

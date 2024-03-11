@@ -79,9 +79,20 @@ pub fn genesis(para_id: u32) -> Storage {
 		foreign_assets: penpal_runtime::ForeignAssetsConfig {
 			assets: vec![
 				// Relay Native asset representation
-				(Location::try_from(RelayLocation::get()).expect("conversion works"), PenpalAssetOwner::get(), true, ED),
+				(
+					Location::try_from(RelayLocation::get()).expect("conversion works"),
+					PenpalAssetOwner::get(),
+					true,
+					ED,
+				),
 				// Sufficient AssetHub asset representation
-				(Location::try_from(LocalReservableFromAssetHub::get()).expect("conversion works"), PenpalAssetOwner::get(), true, ED),
+				(
+					Location::try_from(LocalReservableFromAssetHub::get())
+						.expect("conversion works"),
+					PenpalAssetOwner::get(),
+					true,
+					ED,
+				),
 			],
 			..Default::default()
 		},

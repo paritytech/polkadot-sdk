@@ -87,7 +87,8 @@ fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 
 fn system_para_to_para_receiver_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-	let system_para_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let system_para_native_asset_location =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 
 	PenpalA::assert_xcmp_queue_success(None);
 
@@ -211,9 +212,10 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 
 fn para_to_system_para_assets_sender_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-	let system_para_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
-	let reservable_asset_location
-		= v3::Location::try_from(PenpalLocalReservableFromAssetHub::get()).expect("conversion works");
+	let system_para_native_asset_location =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let reservable_asset_location =
+		v3::Location::try_from(PenpalLocalReservableFromAssetHub::get()).expect("conversion works");
 	PenpalA::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(864_610_000, 8799)));
 	assert_expected_events!(
 		PenpalA,
@@ -243,7 +245,8 @@ fn para_to_system_para_assets_sender_assertions(t: ParaToSystemParaTest) {
 
 fn system_para_to_para_assets_receiver_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-	let system_para_asset_location = v3::Location::try_from(PenpalLocalReservableFromAssetHub::get()).expect("conversion works");
+	let system_para_asset_location =
+		v3::Location::try_from(PenpalLocalReservableFromAssetHub::get()).expect("conversion works");
 	PenpalA::assert_xcmp_queue_success(None);
 	assert_expected_events!(
 		PenpalA,
@@ -314,7 +317,8 @@ fn relay_to_para_assets_receiver_assertions(t: RelayToParaTest) {
 fn para_to_para_through_relay_sender_assertions(t: ParaToParaThroughRelayTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 
-	let relay_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let relay_asset_location =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 	// XCM sent to relay reserve
@@ -367,7 +371,8 @@ fn para_to_para_relay_hop_assertions(t: ParaToParaThroughRelayTest) {
 
 fn para_to_para_through_relay_receiver_assertions(t: ParaToParaThroughRelayTest) {
 	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
-	let relay_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let relay_asset_location =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 
 	PenpalB::assert_xcmp_queue_success(None);
 
@@ -522,7 +527,8 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	let assets: Assets = (Here, amount_to_send).into();
 
 	// Init values fot Parachain
-	let relay_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let relay_native_asset_location =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 	let receiver = PenpalAReceiver::get();
 
 	// Init Test
@@ -581,7 +587,8 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 	let amount_to_send: Balance = ROCOCO_ED * 1000;
 	let assets: Assets = (Parent, amount_to_send).into();
 	let asset_owner = PenpalAssetOwner::get();
-	let relay_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let relay_native_asset_location =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
@@ -666,7 +673,8 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let assets: Assets = (Parent, amount_to_send).into();
 
 	// Init values for Parachain
-	let system_para_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let system_para_native_asset_location =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 	let receiver = PenpalAReceiver::get();
 
 	// Init Test
@@ -732,7 +740,8 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 	let sender = PenpalASender::get();
 	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
 	let assets: Assets = (Parent, amount_to_send).into();
-	let system_para_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let system_para_native_asset_location =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 	let asset_owner = PenpalAssetOwner::get();
 
 	// fund Parachain's sender account
@@ -846,9 +855,10 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 
 	// Init values for Parachain
 	let receiver = PenpalAReceiver::get();
-	let system_para_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
-	let system_para_foreign_asset_location
-		= v3::Location::try_from(PenpalLocalReservableFromAssetHub::get()).expect("conversion works");
+	let system_para_native_asset_location =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let system_para_foreign_asset_location =
+		v3::Location::try_from(PenpalLocalReservableFromAssetHub::get()).expect("conversion works");
 
 	// Init Test
 	let para_test_args = TestContext {
@@ -932,10 +942,11 @@ fn reserve_transfer_assets_from_para_to_system_para() {
 	let asset_amount_to_send = ASSET_HUB_ROCOCO_ED * 10000;
 	let penpal_asset_owner = PenpalAssetOwner::get();
 	let penpal_asset_owner_signer = <PenpalA as Chain>::RuntimeOrigin::signed(penpal_asset_owner);
-	let asset_location_on_penpal
-		= v3::Location::try_from(PenpalLocalReservableFromAssetHub::get()).expect("conversion works");
+	let asset_location_on_penpal =
+		v3::Location::try_from(PenpalLocalReservableFromAssetHub::get()).expect("conversion works");
 	let asset_location_on_penpal_latest: Location = asset_location_on_penpal.try_into().unwrap();
-	let system_asset_location_on_penpal = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let system_asset_location_on_penpal =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 	let assets: Assets = vec![
 		(Parent, fee_amount_to_send).into(),
 		(asset_location_on_penpal_latest, asset_amount_to_send).into(),
@@ -965,9 +976,10 @@ fn reserve_transfer_assets_from_para_to_system_para() {
 	let receiver = AssetHubRococoReceiver::get();
 	let penpal_location_as_seen_by_ahr = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location_as_seen_by_ahr);
-	let system_para_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
-	let system_para_foreign_asset_location
-		= v3::Location::try_from(PenpalLocalReservableFromAssetHub::get()).expect("conversion works");
+	let system_para_native_asset_location =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let system_para_foreign_asset_location =
+		v3::Location::try_from(PenpalLocalReservableFromAssetHub::get()).expect("conversion works");
 	let ah_asset_owner = AssetHubRococoAssetOwner::get();
 	let ah_asset_owner_signer = <AssetHubRococo as Chain>::RuntimeOrigin::signed(ah_asset_owner);
 
@@ -1062,7 +1074,8 @@ fn reserve_transfer_native_asset_from_para_to_para_trough_relay() {
 	let amount_to_send: Balance = ROCOCO_ED * 10000;
 	let asset_owner = PenpalAssetOwner::get();
 	let assets = (Parent, amount_to_send).into();
-	let relay_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let relay_native_asset_location =
+		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 	let sender_as_seen_by_relay = Rococo::child_location_of(PenpalA::para_id());
 	let sov_of_sender_on_relay = Rococo::sovereign_account_id_of(sender_as_seen_by_relay);
 
