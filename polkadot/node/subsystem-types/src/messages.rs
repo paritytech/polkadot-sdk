@@ -724,7 +724,7 @@ pub enum RuntimeApiRequest {
 	/// Approval voting params
 	/// `V10`
 	ApprovalVotingParams(SessionIndex, RuntimeApiSender<ApprovalVotingParams>),
-	/// Fetch the [`ClaimQueue`] from scheduler pallet
+	/// Fetch the `ClaimQueue` from scheduler pallet
 	/// `V11`
 	ClaimQueue(RuntimeApiSender<BTreeMap<CoreIndex, VecDeque<ParaId>>>),
 }
