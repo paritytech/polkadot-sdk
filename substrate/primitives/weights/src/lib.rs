@@ -51,23 +51,54 @@ pub mod constants {
 
 /// The weight of database operations that the runtime can invoke.
 ///
-/// NOTE: This is currently only measured in computational time, and will probably
-/// be updated all together once proof size is accounted for.
+/// NOTE: `RuntimeDbRefTime` formerly `RuntimeDbWeight` can only be used to estimate the
+/// computational time component (`ref_time`) of database operations.
+///
+/// It is primarily intended for use within benchmark-generated [`Weight`] functions to help
+/// calculate the computational cost of these operations.
+/// It should NOT be used in any context that is meant to be parachain compatible, where a non-zero
+/// `pov_weight` component is expected.
 #[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
-pub struct RuntimeDbWeight {
+pub struct RuntimeDbRefTime {
 	pub read: u64,
 	pub write: u64,
 }
 
-impl RuntimeDbWeight {
+#[deprecated(note = "Use `RuntimeDbRefTime` instead.")]
+pub type RuntimeDbWeight = RuntimeDbRefTime;
+
+impl RuntimeDbRefTime {
+	/// The weight of a read operation.
+	///
+	/// Note: `RuntimeDbRefTime` does not know about `proof_size`. The returned [`Weight`] only has
+	/// a non-zero computational time component (`ref_time`).
+	///
+	/// This function is primarily intended for use within benchmark-generated [`Weight`] functions
+	/// to help calculate the computational cost of these operations.
+	/// It should NOT be used in any context that is meant to be parachain compatible, where a
+	/// non-zero `pov_weight` component is expected.
 	pub fn reads(self, r: u64) -> Weight {
 		Weight::from_parts(self.read.saturating_mul(r), 0)
 	}
 
+	/// The weight of a write operation.
+	///
+	/// Note: `RuntimeDbRefTime` does not know about `proof_size`. The returned [`Weight`] only has
+	/// a non-zero computational time component (`ref_time`).
+	///
+	/// This function is primarily intended for use within benchmark-generated [`Weight`] functions
+	/// to help calculate the computational cost of these operations.
+	/// It should NOT be used in any context that is meant to be parachain compatible, where a
+	/// non-zero `pov_weight` component is expected.
 	pub fn writes(self, w: u64) -> Weight {
 		Weight::from_parts(self.write.saturating_mul(w), 0)
 	}
 
+	/// The weight of a read and write operation.
+	///
+	/// Note: `RuntimeDbRefTime` does not know about `proof_size`. The returned [`Weight`] only has
+	/// a non-zero computational time component (`ref_time`).
+	/// This function should only be used in generated benchmark code.
 	pub fn reads_writes(self, r: u64, w: u64) -> Weight {
 		let read_weight = self.read.saturating_mul(r);
 		let write_weight = self.write.saturating_mul(w);
