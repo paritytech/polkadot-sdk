@@ -18,6 +18,6 @@ frame-support = { path = "../../../../../../../../substrate/frame/support", defa
 parachains-common = { version = "9.0.0", path = "../../../../../../common" }
 cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false, version = "0.9.0" }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false, version = "5.0.0" }
-penpal-runtime = { version = "0.16.0", path = "../../../../../../runtimes/testing/penpal" }
+penpal-runtime = { version = "0.16.1", path = "../../../../../../runtimes/testing/penpal" }
 rococo-emulated-chain = { version = "0.1.0", path = "../../../relays/rococo" }
 westend-emulated-chain = { version = "0.1.0", path = "../../../relays/westend" }
