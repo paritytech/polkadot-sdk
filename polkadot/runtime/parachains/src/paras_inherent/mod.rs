@@ -393,6 +393,14 @@ impl<T: Config> Pallet<T> {
 		let expected_bits = <scheduler::Pallet<T>>::availability_cores().len();
 		let validator_public = shared::Pallet::<T>::active_validator_keys();
 
+		// We on demand copy the key/vals from the pending availability candidates in memory.
+		// Considering that commitments have been merged into `CandidatePendingAvailability` we
+		// need the below loops to operate `in-memory`.
+		//
+		// Notes on the safety of using `hashbrown::HashMap`:
+		// It is safe to do so because the key is not susceptible to hash collision attacks,
+		// as attackers cannot control the `para_id` being assigned. These are assigned in order
+		// and bounded economically.
 		let mut pending_availability_overlay = PendingAvailabilityOverlay::new();
 
 		// We are assuming (incorrectly) to have all the weight (for the mandatory class or even

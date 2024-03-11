@@ -517,15 +517,6 @@ impl<T: Config> Pallet<T> {
 
 		let mut votes_per_core: BTreeMap<CoreIndex, BTreeSet<ValidatorIndex>> = BTreeMap::new();
 
-		// We on demand copy the key/vals from the pending availability candidates in memory.
-		// Considering that commitments have been merged into `CandidatePendingAvailability` we
-		// need the below loops to operate `in-memory`.
-		//
-		// Notes on the safety of using `hashbrown::HashMap`:
-		// It is safe to do so because the key is not susceptible to hash collision attacks,
-		// as attackers cannot control the `para_id` being assigned. These are assigned in order
-		// and bounded economically.
-
 		for (checked_bitfield, validator_index) in
 			signed_bitfields.into_iter().map(|signed_bitfield| {
 				let validator_idx = signed_bitfield.validator_index();

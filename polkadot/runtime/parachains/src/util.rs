@@ -130,7 +130,7 @@ pub(crate) trait PopulateKeys {
 // An in memory overlay for large storage maps that we frequently iterate and want
 // to reading/writing to multiple times. A cache with write back capabilities.
 //
-// Maybe TODO(in the future): move this capability to FRAME and ensure we use blake256 hashing of 
+// Maybe TODO(in the future): move this capability to FRAME and ensure we use blake256 hashing of
 // keys, to ensure attackers cannot control the keys and force us to create overweight blocks.
 pub(crate) struct StorageMapOverlay<K, V, P: PopulateKeys> {
 	data: hashbrown::HashMap<K, V>,
