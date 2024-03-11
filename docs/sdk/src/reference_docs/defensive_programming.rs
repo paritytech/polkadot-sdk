@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Learn about how to write safe and defensive code in your FRAME runtime.
 //! [Defensive programming](https://en.wikipedia.org/wiki/Defensive_programming) is a design paradigm that enables a program to continue
 //! running despite unexpected behavior, input, or events that may arise in runtime.
 //! Usually, unforeseen circumstances may cause the program to stop or, in the Rust context,
@@ -114,6 +113,10 @@
 //! Both Rust and Substrate provide safe ways to deal with numbers and alternatives to floating
 //! point arithmetic.
 //!
+//! Known scenarios that could be fallible should be avoided: i.e., avoiding the possibility of
+//! dividing/modulo by zero at any point should be mitigated. One should be opting for a
+//! `checked_*` method to introduce safe arithmetic in their code in most cases.
+//!
 //! A developer should use fixed-point instead of floating-point arithmetic to mitigate the
 //! potential for inaccuracy, rounding errors, or other unexpected behavior.
 //!
@@ -142,7 +145,7 @@
 //!
 //! Suppose you aren’t sure which operation to use for runtime math. In that case, checked
 //! operations are the safest bet, presenting two predictable (and erroring) outcomes that can be
-//! handled accordingly (Some and None). 
+//! handled accordingly (Some and None).
 //!
 //! The following conventions can be seen within the Polkadot SDK, where it is
 //! handled in two ways:
@@ -156,20 +159,20 @@
 //! handling via `if` or `if let`:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance)]
 //!
-//! Optionally, `match` may also be directly used in a more concise manner:
+//! Optionally, match may also be directly used in a more concise manner:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     increase_balance_match
 )]
 //!
-//! This is generally a useful convention for handling not only checked types, but most types that
-//! return `Option<T>` (such as some storage constructs in Substrate).
+//! This is generally a useful convention for handling checked types and most types that return
+//! `Option<T>`.
 //!
 //! #### Handling via Result - Less Verbose
 //!
-//! In the Polkadot SDK codebase, you may see checked operations being handled as a [`Result`] via
-//! `ok_or`. This is a less verbose way of expressing the above. This usage often boils down to
-//! the developer's preference:
+//! In the Polkadot SDK codebase, checked operations are handled as a `Result` via `ok_or`. This is
+//! a less verbose way of expressing the above. This usage often boils down to the developer’s
+//! preference:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     increase_balance_result
@@ -177,8 +180,9 @@
 //!
 //! ### Saturating Operations
 //!
-//! Saturating a number limits it to the type's upper or lower bound, even if the integer were to
-//! overflow in runtime. For example, adding to `u32::MAX` would simply limit itself to `u32::MAX`:
+//! Saturating a number limits it to the type’s upper or lower bound, even if the integer type
+//! overflowed in runtime. For example, adding to `u32::MAX` would simply limit itself to
+//! `u32::MAX`:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     saturated_add_example
@@ -204,16 +208,11 @@
 //! 2. **Saturating** operations - limited to the lower and upper bounds of a number type
 //! 3. **Wrapped** operations (the default) - wrap around to above or below the bounds of a type
 //!
-//! Known scenarios that could be fallible should be avoided: i.e., avoiding the possibility of
-//! dividing/modulo by zero at any point should be mitigated. One should be opting for a
-//! `checked_*` method to introduce safe arithmetic in their code.
-//!
 //! #### The problem with 'default' wrapped operations
 //!
 //! **Wrapped operations** cause the overflow to wrap around to either the maximum or minimum of
 //! that type. Imagine this in the context of a blockchain, where there are account balances, voting
 //! counters, nonces for transactions, and other aspects of a blockchain.
-//!
 //!
 //! While it may seem trivial, choosing how to handle numbers is quite important. As a thought
 //! exercise, here are some scenarios of which will shed more light on when to use which.
@@ -233,30 +232,29 @@
 //!
 //! #### Alice's 'Underflowed' Balance
 //!
-//! Alice's balance has reached `0` after a transfer to Bob. Suddenly, she has been slashed on
-//! `EduChain`, causing her balance to reach near the limit of `u32::MAX` - a very large amount - as
-//! _wrapped operations_ can go both ways. Alice can now successfully vote using her new,
-//! overpowered token balance, destroying the integrity of the chain.
+//! Alice’s balance has reached `0` after a transfer to Bob. Suddenly, she has been slashed on
+//! EduChain, causing her balance to reach near the limit of `u32::MAX` - a very large amount - as
+//! wrapped operations can go both ways. Alice can now successfully vote using her new, overpowered
+//! token balance, destroying the chain's integrity.
 //!
 //! <details>
 //!   <summary><b>Solution: Saturating</b></summary>
-//!   For Alice's balance problem, using `saturated_sub` could've mitigated this issue.  As debt or
-//!   having a negative balance is not a concept within blockchains, a saturating calculation
-//! would've simply limited her balance to the lower bound of u32.
-//!
-//!   In other words: Alice's balance would've stayed at "0", even after being slashed.
+//!   For Alice's balance problem, using `saturated_sub` could've mitigated this issue. A saturating
+//! calculation would've simply limited her balance to the lower bound of u32, as having a negative
+//! balance is not a concept within blockchains.   In other words: Alice's balance would've stayed
+//! at "0", even after being slashed.
 //!
 //!   This is also an example that while one system may work in isolation, shared interfaces, such
 //!   as the notion of balances, are often shared across multiple pallets - meaning these small
-//!   changes can make a big difference in outcome. </details>
+//!   changes can make a big difference depending on the scenario. </details>
 //!
 //! #### Proposal ID Overwrite
 //!
-//! The type for counting the number of proposals on-chain is represented by a `u8` number, called
-//! `proposals_count`. Every time a new proposal is added to the system, this number increases. With
-//! the proposal pallet being high in usage, it has reached `u8::MAX`'s limit of `255`, causing
-//! `proposals_count` to go to `0`. Unfortunately, this results in new proposals overwriting old
-//! ones, effectively erasing any notion of past proposals!
+//! A `u8` parameter, called `proposals_count`, represents the type for counting the number of
+//! proposals on-chain. Every time a new proposal is added to the system, this number increases.
+//! With the proposal pallet's high usage, it has reached `u8::MAX`’s limit of 255, causing
+//! `proposals_count` to go to 0. Unfortunately, this results in new proposals overwriting old ones,
+//! effectively erasing any notion of past proposals!
 //!
 //! <details>
 //!  <summary><b>Solution: Checked</b></summary>
@@ -279,11 +277,11 @@
 //! ### Edge cases of `panic!`-able instances in Substrate
 //!
 //! As you traverse through the codebase (particularly in `substrate/frame`, where the majority of
-//! runtime code lives), you may notice that there occurrences where `panic!` is used explicitly.
-//! This is used when the runtime should stall, rather than keep running, as that is considered
-//! safer. Particularly when it comes to mission critical components, such as block authoring,
-//! consensus, or other protocol-level dependencies, the unauthorized nature of a node may actually
-//! cause harm to the network, and thus stalling would be the better option.
+//! runtime code lives), you may notice that there (only a few!) occurrences where `panic!` is used
+//! explicitly. This is used when the runtime should stall, rather than keep running, as that is
+//! considered safer. Particularly when it comes to mission-critical components, such as block
+//! authoring, consensus, or other protocol-level dependencies, going through with an action may
+//! actually cause harm to the network, and thus stalling would be the better option.
 //!
 //! Take the example of the BABE pallet ([`pallet_babe`]), which doesn't allow for a validator to
 //! participate if it is disabled (see: [`frame::traits::DisabledValidators`]):
@@ -297,9 +295,9 @@
 //! }
 //! ```
 //!
-//! There are other such examples in various pallets, mostly those that are crucial to the
-//! blockchain's functionality at the consensus level. Most of the time, you will not be writing
-//! pallets which operate at this level.
+//! There are other examples in various pallets, mostly those crucial to the blockchain’s
+//! functionality. Most of the time, you will not be writing pallets which operate at this level,
+//! but these exceptions should be noted regardless.
 //!
 //! ## Other Resources
 //!
