@@ -229,6 +229,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -250,6 +280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span><span class="kw">crate</span>::CoreIndex;
 <span class="kw">use </span>sp_arithmetic::{traits::One, FixedU64};
+<span class="kw">use </span>sp_runtime::Saturating;
 
 <span class="doccomment">/// Type for determining how to set price.
 </span><span class="kw">pub trait </span>AdaptPrice {
@@ -280,14 +311,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>Linear;
 <span class="kw">impl </span>AdaptPrice <span class="kw">for </span>Linear {
 	<span class="kw">fn </span>leadin_factor_at(when: FixedU64) -&gt; FixedU64 {
-		FixedU64::from(<span class="number">2</span>) - when
+		FixedU64::from(<span class="number">2</span>).saturating_sub(when)
 	}
 	<span class="kw">fn </span>adapt_price(sold: CoreIndex, target: CoreIndex, limit: CoreIndex) -&gt; FixedU64 {
 		<span class="kw">if </span>sold &lt;= target {
-			FixedU64::from_rational(sold.into(), target.into())
+			<span class="comment">// Range of [0.5, 1.0].
+			</span>FixedU64::from_rational(<span class="number">1</span>, <span class="number">2</span>).saturating_add(FixedU64::from_rational(
+				sold.into(),
+				target.saturating_mul(<span class="number">2</span>).into(),
+			))
 		} <span class="kw">else </span>{
-			FixedU64::one() +
-				FixedU64::from_rational((sold - target).into(), (limit - target).into())
+			<span class="comment">// Range of (1.0, 2].
+
+			// Unchecked math: In this branch we know that sold &gt; target. The limit must be &gt;= sold
+			// by construction, and thus target must be &lt; limit.
+			</span>FixedU64::one().saturating_add(FixedU64::from_rational(
+				(sold - target).into(),
+				(limit - target).into(),
+			))
 		}
 	}
 }
@@ -311,6 +352,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 		}
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>linear_bound_check() {
+		<span class="comment">// Using constraints from pallet implementation i.e. `limit &gt;= sold`.
+		// Check extremes
+		</span><span class="kw">let </span>limit = <span class="number">10</span>;
+		<span class="kw">let </span>target = <span class="number">5</span>;
+
+		<span class="comment">// Maximally sold: `sold == limit`
+		</span><span class="macro">assert_eq!</span>(Linear::adapt_price(limit, target, limit), FixedU64::from_float(<span class="number">2.0</span>));
+		<span class="comment">// Ideally sold: `sold == target`
+		</span><span class="macro">assert_eq!</span>(Linear::adapt_price(target, target, limit), FixedU64::one());
+		<span class="comment">// Minimally sold: `sold == 0`
+		</span><span class="macro">assert_eq!</span>(Linear::adapt_price(<span class="number">0</span>, target, limit), FixedU64::from_float(<span class="number">0.5</span>));
+		<span class="comment">// Optimistic target: `target == limit`
+		</span><span class="macro">assert_eq!</span>(Linear::adapt_price(limit, limit, limit), FixedU64::one());
+		<span class="comment">// Pessimistic target: `target == 0`
+		</span><span class="macro">assert_eq!</span>(Linear::adapt_price(limit, <span class="number">0</span>, limit), FixedU64::from_float(<span class="number">2.0</span>));
 	}
 }
 </code></pre></div></section></main></body></html>

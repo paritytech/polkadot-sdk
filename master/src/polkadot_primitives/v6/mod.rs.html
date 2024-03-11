@@ -2262,18 +2262,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2115" id="2115">2115</a>
 <a href="#2116" id="2116">2116</a>
 <a href="#2117" id="2117">2117</a>
-<a href="#2118" id="2118">2118</a>
-<a href="#2119" id="2119">2119</a>
-<a href="#2120" id="2120">2120</a>
-<a href="#2121" id="2121">2121</a>
-<a href="#2122" id="2122">2122</a>
-<a href="#2123" id="2123">2123</a>
-<a href="#2124" id="2124">2124</a>
-<a href="#2125" id="2125">2125</a>
-<a href="#2126" id="2126">2126</a>
-<a href="#2127" id="2127">2127</a>
-<a href="#2128" id="2128">2128</a>
-<a href="#2129" id="2129">2129</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2807,18 +2795,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		CandidateHash(BlakeTwo256::hash_of(<span class="self">self</span>))
 	}
-}
-
-<span class="doccomment">/// All data pertaining to the execution of a para candidate.
-</span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-</span><span class="kw">pub struct </span>FullCandidateReceipt&lt;H = Hash, N = BlockNumber&gt; {
-	<span class="doccomment">/// The inner candidate receipt.
-	</span><span class="kw">pub </span>inner: CandidateReceipt&lt;H&gt;,
-	<span class="doccomment">/// The validation data derived from the relay-chain state at that
-	/// point. The hash of the persisted validation data should
-	/// match the `persisted_validation_data_hash` in the descriptor
-	/// of the receipt.
-	</span><span class="kw">pub </span>validation_data: PersistedValidationData&lt;H, N&gt;,
 }
 
 <span class="doccomment">/// A candidate-receipt with commitments directly included.

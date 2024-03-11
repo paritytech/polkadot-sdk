@@ -162,11 +162,8 @@ challenged.</p>
 <span class="boring">}
 </span></code></pre></pre>
 <h2 id="candidate-receipt"><a class="header" href="#candidate-receipt">Candidate Receipt</a></h2>
-<p>Much info in a <a href="#full-candidate-receipt"><code>FullCandidateReceipt</code></a> is duplicated from the relay-chain state. When the
-corresponding relay-chain state is considered widely available, the Candidate Receipt should be favored over the
-<code>FullCandidateReceipt</code>.</p>
-<p>Examples of situations where the state is readily available includes within the scope of work done by subsystems working
-on a given relay-parent, or within the logic of the runtime importing a backed candidate.</p>
+<p>Compact representation of the result of a validation. This is what validators
+receive from collators, together with the PoV.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>/// A candidate-receipt.
@@ -175,22 +172,6 @@ struct CandidateReceipt {
 	descriptor: CandidateDescriptor,
 	/// The hash of the encoded commitments made as a result of candidate execution.
 	commitments_hash: Hash,
-}
-<span class="boring">}
-</span></code></pre></pre>
-<h2 id="full-candidate-receipt"><a class="header" href="#full-candidate-receipt">Full Candidate Receipt</a></h2>
-<p>This is the full receipt type. The <code>PersistedValidationData</code> are technically redundant with the <code>inner.relay_parent</code>,
-which uniquely describes the block in the blockchain from whose state these values are derived. The
-<a href="#candidate-receipt"><code>CandidateReceipt</code></a> variant is often used instead for this reason.</p>
-<p>However, the Full Candidate Receipt type is useful as a means of avoiding the implicit dependency on availability of old
-blockchain state. In situations such as availability and approval, having the full description of the candidate within a
-self-contained struct is convenient.</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>/// All data pertaining to the execution of a para candidate.
-struct FullCandidateReceipt {
-	inner: CandidateReceipt,
-	validation_data: PeristedValidationData,
 }
 <span class="boring">}
 </span></code></pre></pre>
@@ -338,7 +319,7 @@ simpler.</p>
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2024-03-11, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/8dc6048d5e">8dc6048d5e</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
