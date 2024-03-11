@@ -13807,9 +13807,9 @@ dependencies = [
 
 [[package]]
 name = "polkavm"
-version = "0.9.0"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "987d321f69aabd7c397b555cb5f57c860d17357fc370e62b8d78b5a03f326ad6"
+checksum = "8a3693e5efdb2bf74e449cd25fd777a28bd7ed87e41f5d5da75eb31b4de48b94"
 dependencies = [
  "libc",
  "log",
@@ -13912,9 +13912,9 @@ dependencies = [
 
 [[package]]
 name = "polkavm-linker"
-version = "0.9.0"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b952ae5085ed6011a989a257a88505301bae0153fc389528134038c2e346b93d"
+checksum = "9c7be503e60cf56c0eb785f90aaba4b583b36bff00e93997d93fef97f9553c39"
 dependencies = [
  "gimli 0.28.0",
  "hashbrown 0.14.3",
@@ -20039,7 +20039,7 @@ dependencies = [
  "console",
  "filetime",
  "parity-wasm",
- "polkavm-linker 0.9.0",
+ "polkavm-linker 0.9.2",
  "sp-maybe-compressed-blob",
  "strum 0.24.1",
  "tempfile",
