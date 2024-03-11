@@ -22,7 +22,7 @@ use color_eyre::eyre;
 use colored::Colorize;
 use polkadot_subsystem_bench::{
 	approval, availability,
-	configuration::{self, TestConfigurationBuilder},
+	configuration::{self, TestConfiguration},
 };
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
