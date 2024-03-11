@@ -65,10 +65,10 @@ impl WasmInstance for Instance {
 		match self.0.update_state(state_args) {
 			Ok(()) => {},
 			Err(polkavm::ExecutionError::Trap(trap)) => {
-				return (Err(format!("call into the runtime method '{name}' failed: failed to allocate memory for the input payload: {trap}").into()), None);
+				return (Err(format!("call into the runtime method '{name}' failed: failed to prepare the guest's memory: {trap}").into()), None);
 			},
 			Err(polkavm::ExecutionError::Error(error)) => {
-				return (Err(format!("call into the runtime method '{name}' failed: failed to allocate memory for the input payload: {error}").into()), None);
+				return (Err(format!("call into the runtime method '{name}' failed: failed to prepare the guest's memory: {error}").into()), None);
 			},
 			Err(polkavm::ExecutionError::OutOfGas) => unreachable!("gas metering is never enabled"),
 		}
