@@ -13,5 +13,5 @@ doc:
 
 crates:
   - name: pallet-babe
-  - name: pallet-aura-ext
+  - name: cumulus-pallet-aura-ext
   - name: pallet-session

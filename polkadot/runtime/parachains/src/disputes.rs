@@ -379,7 +379,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]

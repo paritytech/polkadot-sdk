@@ -205,6 +205,7 @@ pub mod pallet {
 		type OnSystemEvent: OnSystemEvent;
 
 		/// Returns the parachain ID we are running with.
+		#[pallet::constant]
 		type SelfParaId: Get<ParaId>;
 
 		/// The place where outbound XCMP messages come from. This is queried in `finalize_block`.
@@ -837,6 +838,7 @@ pub mod pallet {
 	///
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
+	#[pallet::disable_try_decode_storage]
 	pub(super) type HostConfiguration<T: Config> = StorageValue<_, AbridgedHostConfiguration>;
 
 	/// The last downward message queue chain head we have observed.
@@ -1603,6 +1605,15 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> UpwardMessageSender for Pallet<T> {
 	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Self::send_upward_message(message)
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pallet<T> {
+	fn ensure(para_id: ParaId) {
+		if let ChannelStatus::Closed = Self::get_channel_status(para_id) {
+			Self::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
+		}
 	}
 }
 

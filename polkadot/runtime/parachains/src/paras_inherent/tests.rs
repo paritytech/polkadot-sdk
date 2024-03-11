@@ -22,18 +22,19 @@ use super::*;
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod enter {
 
-	use super::*;
+	use super::{inclusion::tests::TestCandidateBuilder, *};
 	use crate::{
 		builder::{Bench, BenchBuilder},
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
 		scheduler::{
-			common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+			common::{Assignment, AssignmentProvider},
 			ParasEntry,
 		},
 	};
 	use assert_matches::assert_matches;
 	use frame_support::assert_ok;
 	use frame_system::limits;
+	use primitives::vstaging::SchedulerParams;
 	use sp_runtime::Perbill;
 	use sp_std::collections::btree_map::BTreeMap;
 
@@ -87,7 +88,7 @@ mod enter {
 	// `create_inherent` and will not cause `enter` to early.
 	fn include_backed_candidates() {
 		let config = MockGenesisConfig::default();
-		assert!(config.configuration.config.scheduling_lookahead > 0);
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 
 		new_test_ext(config).execute_with(|| {
 			let dispute_statements = BTreeMap::new();
@@ -625,7 +626,7 @@ mod enter {
 	#[test]
 	fn limit_candidates_over_weight_1() {
 		let config = MockGenesisConfig::default();
-		assert!(config.configuration.config.scheduling_lookahead > 0);
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 
 		new_test_ext(config).execute_with(|| {
 			// Create the inherent data for this block
@@ -706,8 +707,8 @@ mod enter {
 			let cores = (0..used_cores)
 				.into_iter()
 				.map(|i| {
-					let AssignmentProviderConfig { ttl, .. } =
-						scheduler::Pallet::<Test>::assignment_provider_config(CoreIndex(i));
+					let SchedulerParams { ttl, .. } =
+						<configuration::Pallet<Test>>::config().scheduler_params;
 					// Load an assignment into provider so that one is present to pop
 					let assignment =
 						<Test as scheduler::Config>::AssignmentProvider::get_mock_assignment(
@@ -921,6 +922,129 @@ mod enter {
 			assert_eq!(limit_inherent_data.backed_candidates.len(), 1);
 			// * 0 disputes.
 			assert_eq!(limit_inherent_data.disputes.len(), 0);
+		});
+	}
+
+	// Helper fn that builds chained dummy candidates for elastic scaling tests
+	fn build_backed_candidate_chain(
+		para_id: ParaId,
+		len: usize,
+		start_core_index: usize,
+		code_upgrade_index: Option<usize>,
+	) -> Vec<BackedCandidate> {
+		if let Some(code_upgrade_index) = code_upgrade_index {
+			assert!(code_upgrade_index < len, "Code upgrade index out of bounds");
+		}
+
+		(0..len)
+			.into_iter()
+			.map(|idx| {
+				let mut builder = TestCandidateBuilder::default();
+				builder.para_id = para_id;
+				let mut ccr = builder.build();
+
+				if Some(idx) == code_upgrade_index {
+					ccr.commitments.new_validation_code = Some(vec![1, 2, 3, 4].into());
+				}
+
+				ccr.commitments.processed_downward_messages = idx as u32;
+				let core_index = start_core_index + idx;
+
+				BackedCandidate::new(
+					ccr.into(),
+					Default::default(),
+					Default::default(),
+					Some(CoreIndex(core_index as u32)),
+				)
+			})
+			.collect::<Vec<_>>()
+	}
+
+	// Ensure that overweight parachain inherents are always rejected by the runtime.
+	// Runtime should panic and return `InherentOverweight` error.
+	#[test]
+	fn test_backed_candidates_apply_weight_works_for_elastic_scaling() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			let seed = [
+				1, 0, 52, 0, 0, 0, 0, 0, 1, 0, 10, 0, 22, 32, 0, 0, 2, 0, 55, 49, 0, 11, 0, 0, 3,
+				0, 0, 0, 0, 0, 2, 92,
+			];
+			let mut rng = rand_chacha::ChaChaRng::from_seed(seed);
+
+			// Create an overweight inherent and oversized block
+			let mut backed_and_concluding = BTreeMap::new();
+
+			for i in 0..30 {
+				backed_and_concluding.insert(i, i);
+			}
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: Default::default(),
+				dispute_sessions: vec![], // 3 cores with disputes
+				backed_and_concluding,
+				num_validators_per_core: 5,
+				code_upgrade: None,
+				fill_claimqueue: false,
+			});
+
+			let mut para_inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (5 validators per core, 30 backed candidates, 0 disputes
+			//   => 5*30 = 150)
+			assert_eq!(para_inherent_data.bitfields.len(), 150);
+			// * 30 backed candidates
+			assert_eq!(para_inherent_data.backed_candidates.len(), 30);
+
+			let mut input_candidates =
+				build_backed_candidate_chain(ParaId::from(1000), 3, 0, Some(1));
+			let chained_candidates_weight = backed_candidates_weight::<Test>(&input_candidates);
+
+			input_candidates.append(&mut para_inherent_data.backed_candidates);
+			let input_bitfields = para_inherent_data.bitfields;
+
+			// Test if weight insufficient even for 1 candidate (which doesn't contain a code
+			// upgrade).
+			let max_weight = backed_candidate_weight::<Test>(&input_candidates[0]) +
+				signed_bitfields_weight::<Test>(&input_bitfields);
+			let mut backed_candidates = input_candidates.clone();
+			let mut bitfields = input_bitfields.clone();
+			apply_weight_limit::<Test>(
+				&mut backed_candidates,
+				&mut bitfields,
+				max_weight,
+				&mut rng,
+			);
+
+			// The chained candidates are not picked, instead a single other candidate is picked
+			assert_eq!(backed_candidates.len(), 1);
+			assert_ne!(backed_candidates[0].descriptor().para_id, ParaId::from(1000));
+
+			// All bitfields are kept.
+			assert_eq!(bitfields.len(), 150);
+
+			// Test if para_id 1000 chained candidates make it if there is enough room for its 3
+			// candidates.
+			let max_weight =
+				chained_candidates_weight + signed_bitfields_weight::<Test>(&input_bitfields);
+			let mut backed_candidates = input_candidates.clone();
+			let mut bitfields = input_bitfields.clone();
+			apply_weight_limit::<Test>(
+				&mut backed_candidates,
+				&mut bitfields,
+				max_weight,
+				&mut rng,
+			);
+
+			// Only the chained candidates should pass filter.
+			assert_eq!(backed_candidates.len(), 3);
+			// Check the actual candidates
+			assert_eq!(backed_candidates[0].descriptor().para_id, ParaId::from(1000));
+			assert_eq!(backed_candidates[1].descriptor().para_id, ParaId::from(1000));
+			assert_eq!(backed_candidates[2].descriptor().para_id, ParaId::from(1000));
+
+			// All bitfields are kept.
+			assert_eq!(bitfields.len(), 150);
 		});
 	}
 
