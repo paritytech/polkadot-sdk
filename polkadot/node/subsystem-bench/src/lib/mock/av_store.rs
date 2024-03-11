@@ -97,7 +97,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 					outgoing_request
 						.pending_response
 						.send(response)
-						.expect("Response is always sent succesfully");
+						.expect("Response is always sent successfully");
 					None
 				},
 				_ => Some(NetworkMessage::RequestFromNode(peer, request)),

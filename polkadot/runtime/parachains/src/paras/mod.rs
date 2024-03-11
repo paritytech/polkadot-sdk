@@ -1374,7 +1374,7 @@ impl<T: Config> Pallet<T> {
 		outgoing
 	}
 
-	// note replacement of the code of para with given `id`, which occured in the
+	// note replacement of the code of para with given `id`, which occurred in the
 	// context of the given relay-chain block number. provide the replaced code.
 	//
 	// `at` for para-triggered replacement is the block number of the relay-chain
