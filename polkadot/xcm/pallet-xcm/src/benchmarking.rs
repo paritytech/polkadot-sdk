@@ -129,7 +129,10 @@ benchmarks! {
 					&Asset { fun: Fungible(*amount), id: asset.id },
 					&origin_location,
 					None,
-				).map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+				).map_err(|error| {
+				  log::error!("Asset couldn't be deposited, error: {:?}", error);
+				  BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
 			},
 			NonFungible(instance) => {
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
