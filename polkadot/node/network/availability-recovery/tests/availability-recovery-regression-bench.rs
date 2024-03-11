@@ -23,7 +23,7 @@
 
 use polkadot_subsystem_bench::{
 	availability::{
-		benchmark_availability_read, prepare_test, DataAvailabilityReadOptions,
+		benchmark_availability_read, prepare_test, DataAvailabilityReadOptions, Strategy,
 		TestDataAvailability, TestState,
 	},
 	configuration::{PeerLatency, TestConfiguration},
@@ -38,7 +38,7 @@ fn main() -> Result<(), String> {
 	let mut messages = vec![];
 
 	// TODO: Adjust the test configurations to Kusama values
-	let options = DataAvailabilityReadOptions { fetch_from_backers: true };
+	let options = DataAvailabilityReadOptions { strategy: Strategy::Chunks };
 	let mut config = TestConfiguration::default();
 	config.latency = Some(PeerLatency { mean_latency_ms: 100, std_dev: 1.0 });
 	config.n_validators = 300;
