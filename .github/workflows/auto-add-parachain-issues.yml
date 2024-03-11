@@ -1,0 +1,30 @@
+# If there are new issues related to the async backing feature,
+# add it to the parachain team's board and set a custom "meta" field.
+
+name: Add selected issues to Parachain team board
+on:
+  issues:
+    types:
+      - labeled
+
+jobs:
+  add-parachain-issues:
+    if: github.event.label.name == 'T16-async_backing'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v2.1.0
+        with:
+          app_id: ${{ secrets.PROJECT_APP_ID }}
+          private_key: ${{ secrets.PROJECT_APP_KEY }}
+      - name: Sync issues
+        uses: paritytech/github-issue-sync@v0.3.2
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROJECT_TOKEN: ${{ steps.generate_token.outputs.token }}
+          project: 119 # Parachain team board
+          project_field: 'meta'
+          project_value: 'async backing'
+          labels: |
+            T16-async_backing
