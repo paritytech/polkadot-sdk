@@ -43,7 +43,7 @@ impl MockChainSelection {
 			let msg = ctx.recv().await.expect("Should not fail");
 			match msg {
 				orchestra::FromOrchestra::Signal(_) => {},
-				orchestra::FromOrchestra::Communication { msg } => {
+				orchestra::FromOrchestra::Communication { msg } =>
 					if let ChainSelectionMessage::Approved(hash) = msg {
 						let block_info = self.state.get_info_by_hash(hash);
 						let approved_number = block_info.block_number;
@@ -53,12 +53,11 @@ impl MockChainSelection {
 							.last_approved_block
 							.store(approved_number, std::sync::atomic::Ordering::SeqCst);
 
-						let approved_in_tick = self.clock.tick_now()
-							- slot_number_to_tick(SLOT_DURATION_MILLIS, block_info.slot);
+						let approved_in_tick = self.clock.tick_now() -
+							slot_number_to_tick(SLOT_DURATION_MILLIS, block_info.slot);
 
 						gum::info!(target: LOG_TARGET, ?hash, "Chain selection approved  after {:} ms", approved_in_tick * TICK_DURATION_MILLIS);
-					}
-				},
+					},
 			}
 		}
 	}

@@ -83,9 +83,9 @@ fn warm_up(config: TestConfiguration) -> Result<(), String> {
 				curr.cpu_usage_diff(prev, "bitfield-distribution").expect("Must exist");
 			let av_store_diff =
 				curr.cpu_usage_diff(prev, "availability-store").expect("Must exist");
-			if av_distr_diff < WARM_UP_PRECISION
-				&& bitf_distr_diff < WARM_UP_PRECISION
-				&& av_store_diff < WARM_UP_PRECISION
+			if av_distr_diff < WARM_UP_PRECISION &&
+				bitf_distr_diff < WARM_UP_PRECISION &&
+				av_store_diff < WARM_UP_PRECISION
 			{
 				return Ok(());
 			}

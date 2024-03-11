@@ -475,8 +475,8 @@ async fn handle_recover<Context>(
 					};
 
 					match (&recovery_strategy_kind, small_pov_size) {
-						(RecoveryStrategyKind::BackersFirstAlways, _)
-						| (RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) => recovery_strategies.push_back(
+						(RecoveryStrategyKind::BackersFirstAlways, _) |
+						(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) => recovery_strategies.push_back(
 							Box::new(FetchFull::new(FetchFullParams {
 								validators: backing_validators.to_vec(),
 								erasure_task_tx: erasure_task_tx.clone(),

@@ -125,9 +125,8 @@ impl AvailabilityDistributionSubsystem {
 
 			// Handle task messages sending:
 			let message = match action {
-				Either::Left(subsystem_msg) => {
-					subsystem_msg.map_err(|e| FatalError::IncomingMessageChannel(e))?
-				},
+				Either::Left(subsystem_msg) =>
+					subsystem_msg.map_err(|e| FatalError::IncomingMessageChannel(e))?,
 				Either::Right(from_task) => {
 					let from_task = from_task.ok_or(FatalError::RequesterExhausted)?;
 					ctx.send_message(from_task).await;

@@ -216,9 +216,8 @@ impl State {
 				requesting_chunks.push(Box::pin(async move {
 					let _timer = timer;
 					match res.await {
-						Ok(req_res::v1::ChunkFetchingResponse::Chunk(chunk)) => {
-							Ok(Some(chunk.recombine_into_chunk(&raw_request)))
-						},
+						Ok(req_res::v1::ChunkFetchingResponse::Chunk(chunk)) =>
+							Ok(Some(chunk.recombine_into_chunk(&raw_request))),
 						Ok(req_res::v1::ChunkFetchingResponse::NoSuchChunk) => Ok(None),
 						Err(e) => Err((validator_index, e)),
 					}
@@ -260,7 +259,7 @@ impl State {
 			total_received_responses += 1;
 
 			match request_result {
-				Ok(Some(chunk)) => {
+				Ok(Some(chunk)) =>
 					if is_chunk_valid(params, &chunk) {
 						metrics.on_chunk_request_succeeded();
 						gum::trace!(
@@ -273,8 +272,7 @@ impl State {
 					} else {
 						metrics.on_chunk_request_invalid();
 						error_count += 1;
-					}
-				},
+					},
 				Ok(None) => {
 					metrics.on_chunk_request_no_such_chunk();
 					error_count += 1;
@@ -417,7 +415,7 @@ where
 			let res = current_strategy.run(&mut self.state, &mut self.sender, &self.params).await;
 
 			match res {
-				Err(RecoveryError::Unavailable) => {
+				Err(RecoveryError::Unavailable) =>
 					if self.strategies.front().is_some() {
 						gum::debug!(
 							target: LOG_TARGET,
@@ -426,8 +424,7 @@ where
 							current_strategy.display_name(),
 						);
 						continue;
-					}
-				},
+					},
 				Err(err) => {
 					match &err {
 						RecoveryError::Invalid => self.params.metrics.on_recovery_invalid(),
@@ -527,9 +524,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 							reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?
 						},
-						PostRecoveryCheck::PovHash => {
-							(data.pov.hash() == common_params.pov_hash).then_some(data)
-						},
+						PostRecoveryCheck::PovHash =>
+							(data.pov.hash() == common_params.pov_hash).then_some(data),
 					};
 
 					match maybe_data {
@@ -691,7 +687,7 @@ impl FetchChunks {
 							None
 						})
 					},
-					PostRecoveryCheck::PovHash => {
+					PostRecoveryCheck::PovHash =>
 						(data.pov.hash() == common_params.pov_hash).then_some(data).or_else(|| {
 							gum::trace!(
 								target: LOG_TARGET,
@@ -700,8 +696,7 @@ impl FetchChunks {
 								"Data recovery error - PoV hash mismatch",
 							);
 							None
-						})
-					},
+						}),
 				};
 
 				if let Some(data) = maybe_data {
@@ -815,8 +810,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					&mut self.validators,
 					&mut self.requesting_chunks,
 					|unrequested_validators, reqs, chunk_count, params, _error_count| {
-						chunk_count >= params.threshold
-							|| Self::is_unavailable(
+						chunk_count >= params.threshold ||
+							Self::is_unavailable(
 								unrequested_validators,
 								reqs,
 								chunk_count,

@@ -166,11 +166,10 @@ impl MockAvailabilityStore {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(signal) => {
+				orchestra::FromOrchestra::Signal(signal) =>
 					if signal == OverseerSignal::Conclude {
 						return;
-					}
-				},
+					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					AvailabilityStoreMessage::QueryAvailableData(candidate_hash, tx) => {
 						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAvailableData");
