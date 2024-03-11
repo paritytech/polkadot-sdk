@@ -38,20 +38,10 @@
 //! For use cases which require precision beyond the range of `[0, 1]`, there are fixed-point types
 //! which can be used.
 //!
-//! Let's now explore these types in practice to perform safer calculations in the runtime.
-//!
 //! Each of these can be used to construct and represent ratios within our runtime.
 //! You will find types like [`Perbill`](Perbill) being used often in pallet
-//! development.  pallet_referenda is a good example of a pallet which makes good use of fixed
-//! point arithmetic.
-//!
-//! Let's examine the usage of `Perbill` and how exactly we can use it as an alternative to floating
-//! point numbers in development with Substrate. For this scenario, let's say we are demonstrating a
-//! _voting_ system which depends on reaching a certain threshold, or percentage, before it can be
-//! deemed valid.
-//!
-//! For most applications, `Perbill` gives us a reasonable amount of precision, which
-//! is why we're using it here.
+//! development.  `pallet_referenda` is a good example of a pallet which makes good use of fixed
+//! point arithmetic, as it relies on representing various curves and thresholds relating to governance.
 //!
 //! #### Fixed Point Arithmetic with [`PerThing`](PerThing)
 //!
