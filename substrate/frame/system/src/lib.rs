@@ -142,7 +142,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::storage::well_known_keys;
-use sp_weights::{RuntimeDbWeight, Weight};
+use sp_weights::{RuntimeDbRefTime, Weight};
 
 #[cfg(any(feature = "std", test))]
 use sp_io::TestExternalities;
@@ -541,7 +541,7 @@ pub mod pallet {
 		/// The computational time component (`ref_time`) of runtime database operations the runtime
 		/// can invoke.
 		#[pallet::constant]
-		type DbWeight: Get<RuntimeDbWeight>;
+		type DbWeight: Get<RuntimeDbRefTime>;
 
 		/// Get the chain's in-code version.
 		#[pallet::constant]

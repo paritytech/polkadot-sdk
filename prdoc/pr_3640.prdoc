@@ -1,9 +1,9 @@
-title: Rename `RuntimeDbWeight` to `RuntimeDbRefTime`
+title: Rename `RuntimeDbRefTime` to `RuntimeDbRefTime`
 doc:
   - audience: Runtime Dev
     description: |
-      The `RuntimeDbWeight` struct was renamed `RuntimeDbRefTime` 
+      The `RuntimeDbRefTime` struct was renamed `RuntimeDbRefTime` 
       to better reflect the fact that it can only be used to generate the `ref_time` component of the weight.
-      `RuntimeDbWeight` is now a (deprecated) type alias for `RuntimeDbRefTime`.
+      `RuntimeDbRefTime` is now a (deprecated) type alias for `RuntimeDbRefTime`.
 
 crates: [ name: sp-weights ]

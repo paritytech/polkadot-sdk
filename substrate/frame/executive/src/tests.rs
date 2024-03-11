@@ -36,7 +36,7 @@ use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
 	traits::{fungible, ConstU8, Currency, IsInherent},
-	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
+	weights::{ConstantMultiplier, IdentityFee, RuntimeDbRefTime, Weight, WeightMeter, WeightToFee},
 };
 use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
 use pallet_balances::Call as BalancesCall;
@@ -303,7 +303,7 @@ parameter_types! {
 			.for_class(DispatchClass::all(), |weights| weights.base_extrinsic = Weight::from_parts(5, 0))
 			.for_class(DispatchClass::non_mandatory(), |weights| weights.max_total = Weight::from_parts(1024, u64::MAX).into())
 			.build_or_panic();
-	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
+	pub const DbWeight: RuntimeDbRefTime = RuntimeDbRefTime {
 		read: 10,
 		write: 100,
 	};

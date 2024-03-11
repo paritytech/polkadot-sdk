@@ -18,12 +18,12 @@
 pub mod constants {
 	use frame_support::weights::constants;
 	use sp_core::parameter_types;
-	use sp_weights::RuntimeDbWeight;
+	use sp_weights::RuntimeDbRefTime;
 
 	parameter_types! {
 		/// ParityDB can be enabled with a feature flag, but is still experimental. These weights
 		/// are available for brave runtime engineers who may want to try this out as default.
-		pub const ParityDbWeight: RuntimeDbWeight = RuntimeDbWeight {
+		pub const ParityDbWeight: RuntimeDbRefTime = RuntimeDbRefTime {
 			read: 8_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
 			write: 50_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
 		};

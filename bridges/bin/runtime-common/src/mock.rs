@@ -40,7 +40,7 @@ use bp_runtime::{
 use codec::{Decode, Encode};
 use frame_support::{
 	derive_impl, parameter_types,
-	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight},
+	weights::{ConstantMultiplier, IdentityFee, RuntimeDbRefTime, Weight},
 };
 use pallet_transaction_payment::Multiplier;
 use sp_runtime::{
@@ -129,7 +129,7 @@ parameter_types! {
 	pub const BridgedChainId: ChainId = TEST_BRIDGED_CHAIN_ID;
 	pub const BridgedParasPalletName: &'static str = "Paras";
 	pub const ExistentialDeposit: ThisChainBalance = 500;
-	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
+	pub const DbWeight: RuntimeDbRefTime = RuntimeDbRefTime { read: 1, write: 2 };
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
 	pub const TransactionBaseFee: ThisChainBalance = 0;
 	pub const TransactionByteFee: ThisChainBalance = 1;

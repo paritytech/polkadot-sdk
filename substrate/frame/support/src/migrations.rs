@@ -22,7 +22,7 @@ use crate::{
 		Defensive, GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, SafeMode,
 		StorageVersion,
 	},
-	weights::{RuntimeDbWeight, Weight, WeightMeter},
+	weights::{RuntimeDbRefTime, Weight, WeightMeter},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
@@ -43,7 +43,7 @@ use sp_std::{marker::PhantomData, vec::Vec};
 /// - `To`: The version being upgraded to.
 /// - `Inner`: An implementation of `OnRuntimeUpgrade`.
 /// - `Pallet`: The Pallet being upgraded.
-/// - `Weight`: The runtime's RuntimeDbWeight implementation.
+/// - `Weight`: The runtime's RuntimeDbRefTime implementation.
 ///
 /// When a [`VersionedMigration`] `on_runtime_upgrade`, `pre_upgrade`, or `post_upgrade` method is
 /// called, the on-chain version of the pallet is compared to `From`. If they match, the `Inner`
@@ -118,7 +118,7 @@ impl<
 		const TO: u16,
 		Inner: crate::traits::OnRuntimeUpgrade,
 		Pallet: GetStorageVersion<InCodeStorageVersion = StorageVersion> + PalletInfoAccess,
-		DbWeight: Get<RuntimeDbWeight>,
+		DbWeight: Get<RuntimeDbRefTime>,
 	> crate::traits::OnRuntimeUpgrade for VersionedMigration<FROM, TO, Inner, Pallet, DbWeight>
 {
 	/// Executes pre_upgrade if the migration will run, and wraps the pre_upgrade bytes in
@@ -213,14 +213,14 @@ impl<T: GetStorageVersion<InCodeStorageVersion = NoStorageVersionSet> + PalletIn
 
 /// Trait used by [`migrate_from_pallet_version_to_storage_version`] to do the actual migration.
 pub trait PalletVersionToStorageVersionHelper {
-	fn migrate(db_weight: &RuntimeDbWeight) -> Weight;
+	fn migrate(db_weight: &RuntimeDbRefTime) -> Weight;
 }
 
 impl<T: GetStorageVersion + PalletInfoAccess> PalletVersionToStorageVersionHelper for T
 where
 	T::InCodeStorageVersion: StoreInCodeStorageVersion<T>,
 {
-	fn migrate(db_weight: &RuntimeDbWeight) -> Weight {
+	fn migrate(db_weight: &RuntimeDbRefTime) -> Weight {
 		const PALLET_VERSION_STORAGE_KEY_POSTFIX: &[u8] = b":__PALLET_VERSION__:";
 
 		fn pallet_version_key(name: &str) -> [u8; 32] {
@@ -239,7 +239,7 @@ where
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
 impl PalletVersionToStorageVersionHelper for T {
-	fn migrate(db_weight: &RuntimeDbWeight) -> Weight {
+	fn migrate(db_weight: &RuntimeDbRefTime) -> Weight {
 		let mut weight = Weight::zero();
 
 		for_tuples!( #( weight = weight.saturating_add(T::migrate(db_weight)); )* );
@@ -254,7 +254,7 @@ impl PalletVersionToStorageVersionHelper for T {
 pub fn migrate_from_pallet_version_to_storage_version<
 	Pallets: PalletVersionToStorageVersionHelper,
 >(
-	db_weight: &RuntimeDbWeight,
+	db_weight: &RuntimeDbRefTime,
 ) -> Weight {
 	Pallets::migrate(db_weight)
 }
@@ -265,7 +265,7 @@ pub fn migrate_from_pallet_version_to_storage_version<
 /// This struct is generic over two parameters:
 /// - `P` is a type that implements the `Get` trait for a static string, representing the pallet's
 ///   name.
-/// - `DbWeight` is a type that implements the `Get` trait for `RuntimeDbWeight`, providing the
+/// - `DbWeight` is a type that implements the `Get` trait for `RuntimeDbRefTime`, providing the
 ///   weight for database operations.
 ///
 /// On runtime upgrade, the `on_runtime_upgrade` function will clear all storage items associated
@@ -314,10 +314,10 @@ pub fn migrate_from_pallet_version_to_storage_version<
 /// a multi-block scheduler currently under development which will allow for removal of storage
 /// items (and performing other heavy migrations) over multiple blocks
 /// (see <https://github.com/paritytech/substrate/issues/13690>).
-pub struct RemovePallet<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>(
+pub struct RemovePallet<P: Get<&'static str>, DbWeight: Get<RuntimeDbRefTime>>(
 	PhantomData<(P, DbWeight)>,
 );
-impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits::OnRuntimeUpgrade
+impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbRefTime>> frame_support::traits::OnRuntimeUpgrade
 	for RemovePallet<P, DbWeight>
 {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {

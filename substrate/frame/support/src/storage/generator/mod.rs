@@ -65,7 +65,7 @@ mod tests {
 			type RuntimeCall;
 			type RuntimeTask;
 			type PalletInfo: crate::traits::PalletInfo;
-			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
+			type DbWeight: Get<crate::weights::RuntimeDbRefTime>;
 		}
 
 		#[pallet::origin]

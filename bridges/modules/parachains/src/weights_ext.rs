@@ -19,7 +19,7 @@
 use crate::weights::{BridgeWeight, WeightInfo};
 
 use bp_runtime::Size;
-use frame_support::weights::{RuntimeDbWeight, Weight};
+use frame_support::weights::{RuntimeDbRefTime, Weight};
 
 /// Size of the regular parachain head.
 ///
@@ -44,7 +44,7 @@ pub trait WeightInfoExt: WeightInfo {
 
 	/// Weight of the parachain heads delivery extrinsic.
 	fn submit_parachain_heads_weight(
-		db_weight: RuntimeDbWeight,
+		db_weight: RuntimeDbRefTime,
 		proof: &impl Size,
 		parachains_count: u32,
 	) -> Weight {
@@ -73,14 +73,14 @@ pub trait WeightInfoExt: WeightInfo {
 	/// This weight only includes db write operations that happens if parachain head is actually
 	/// updated. All extra weights (weight of storage proof validation, additional checks, ...) is
 	/// not included.
-	fn parachain_head_storage_write_weight(db_weight: RuntimeDbWeight) -> Weight {
+	fn parachain_head_storage_write_weight(db_weight: RuntimeDbRefTime) -> Weight {
 		// it's just a couple of operations - we need to write the hash (`ImportedParaHashes`) and
 		// the head itself (`ImportedParaHeads`. Pruning is not included here
 		db_weight.writes(2)
 	}
 
 	/// Returns weight of single parachain head pruning.
-	fn parachain_head_pruning_weight(db_weight: RuntimeDbWeight) -> Weight {
+	fn parachain_head_pruning_weight(db_weight: RuntimeDbRefTime) -> Weight {
 		// it's just one write operation, we don't want any benchmarks for that
 		db_weight.writes(1)
 	}

@@ -23,7 +23,7 @@ use bp_relayers::{
 	PayRewardFromAccount, PaymentProcedure, RewardsAccountOwner, RewardsAccountParams,
 };
 use frame_support::{
-	derive_impl, parameter_types, traits::fungible::Mutate, weights::RuntimeDbWeight,
+	derive_impl, parameter_types, traits::fungible::Mutate, weights::RuntimeDbRefTime,
 };
 use sp_runtime::BuildStorage;
 
@@ -52,7 +52,7 @@ frame_support::construct_runtime! {
 }
 
 parameter_types! {
-	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
+	pub const DbWeight: RuntimeDbRefTime = RuntimeDbRefTime { read: 1, write: 2 };
 	pub const ExistentialDeposit: Balance = 1;
 	pub const ReserveId: [u8; 8] = *b"brdgrlrs";
 	pub const Stake: Balance = 1_000;

@@ -21,7 +21,7 @@ use crate::{Config, LOG_TARGET};
 use bp_messages::{DeliveredMessages, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer};
 use codec::{Decode, Encode};
 use frame_support::{
-	weights::{RuntimeDbWeight, Weight},
+	weights::{RuntimeDbRefTime, Weight},
 	BoundedVec, PalletError,
 };
 use num_traits::Zero;
@@ -143,7 +143,7 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 	/// Returns weight, consumed by messages pruning and lane state update.
 	pub fn prune_messages(
 		&mut self,
-		db_weight: RuntimeDbWeight,
+		db_weight: RuntimeDbRefTime,
 		mut remaining_weight: Weight,
 	) -> Weight {
 		let write_weight = db_weight.writes(1);

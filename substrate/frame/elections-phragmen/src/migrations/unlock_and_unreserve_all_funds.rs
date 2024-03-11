@@ -23,7 +23,7 @@ use frame_support::{
 	pallet_prelude::ValueQuery,
 	storage_alias,
 	traits::{Currency, LockIdentifier, LockableCurrency, OnRuntimeUpgrade, ReservableCurrency},
-	weights::RuntimeDbWeight,
+	weights::RuntimeDbRefTime,
 	Parameter, Twox64Concat,
 };
 use sp_core::Get;
@@ -52,7 +52,7 @@ pub trait UnlockConfig: 'static {
 	/// runtime.
 	type PalletId: Get<LockIdentifier>;
 	/// The DB weight as configured in the runtime to calculate the correct weight.
-	type DbWeight: Get<RuntimeDbWeight>;
+	type DbWeight: Get<RuntimeDbRefTime>;
 }
 
 #[storage_alias(dynamic)]
