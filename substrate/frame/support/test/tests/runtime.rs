@@ -815,7 +815,7 @@ fn test_metadata() {
 					name: "Version",
 					ty: meta_type::<RuntimeVersion>(),
 					value: RuntimeVersion::default().encode(),
-					docs: maybe_docs(vec![ " Get the chain's current version."]),
+					docs: maybe_docs(vec![ " Get the chain's in-code version."]),
 				},
 				PalletConstantMetadata {
 					name: "SS58Prefix",
@@ -895,7 +895,7 @@ fn test_metadata() {
 		ty: meta_type::<UncheckedExtrinsic>(),
 		version: 4,
 		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+			identifier: "UnitTransactionExtension",
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],
