@@ -862,16 +862,6 @@ pub fn disable_frame_system_supertrait_check(_: TokenStream, _: TokenStream) -> 
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::generate_store`.
-#[proc_macro_attribute]
-pub fn generate_store(_: TokenStream, _: TokenStream) -> TokenStream {
-	pallet_macro_stub()
-}
-
-///
-/// ---
-///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
 /// `frame_support::pallet_macros::storage_version`.
 #[proc_macro_attribute]
 pub fn storage_version(_: TokenStream, _: TokenStream) -> TokenStream {

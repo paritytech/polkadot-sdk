@@ -702,7 +702,7 @@ pub use frame_support_procedural::crate_to_crate_version;
 #[macro_export]
 macro_rules! fail {
 	( $y:expr ) => {{
-		return Err($y.into())
+		return Err($y.into());
 	}};
 }
 
@@ -949,7 +949,7 @@ pub mod pallet_prelude {
 /// 	pub trait Config: frame_system::Config {}
 /// }
 /// ```
-///
+//
 /// I.e. a regular struct definition named `Pallet`, with generic T and no where clause.
 ///
 /// ## Macro expansion:
@@ -1340,26 +1340,6 @@ pub mod pallet_macros {
 	///
 	/// See [`pallet::storage`](`frame_support::pallet_macros::storage`) for more info.
 	pub use frame_support_procedural::getter;
-
-	/// Allows generating the `Store` trait for all storages.
-	///
-	/// DEPRECATED: Will be removed, do not use.
-	/// See <https://github.com/paritytech/substrate/pull/13535> for more details.
-	///
-	/// To generate a `Store` trait associating all storages, annotate your `Pallet` struct
-	/// with the attribute `#[pallet::generate_store($vis trait Store)]`, e.g.:
-	///
-	/// ```ignore
-	/// #[pallet::pallet]
-	/// #[pallet::generate_store(pub(super) trait Store)]
-	/// pub struct Pallet<T>(_);
-	/// ```
-	/// More precisely, the `Store` trait contains an associated type for each storage. It is
-	/// implemented for `Pallet` allowing access to the storage from pallet struct.
-	///
-	/// Thus when defining a storage named `Foo`, it can later be accessed from `Pallet` using
-	/// `<Pallet as Store>::Foo`.
-	pub use frame_support_procedural::generate_store;
 
 	/// Defines constants that are added to the constant field of
 	/// [`PalletMetadata`](frame_metadata::v15::PalletMetadata) struct for this pallet.
