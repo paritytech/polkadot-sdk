@@ -56,14 +56,14 @@ impl AdaptPrice for Linear {
 		if sold <= target {
 			// Range of [0.5, 1.0].
 			FixedU64::from_rational(1, 2).saturating_add(FixedU64::from_rational(
-				(sold).into(),
-				(target.saturating_mul(2)).into(),
+				sold.into(),
+				target.saturating_mul(2).into(),
 			))
 		} else {
 			// Range of (1.0, 2].
 
-			// Unchecked math: In this branch we know that sold < target. The limit must be >= sold
-			// by construction, and thus target must be > limit.
+			// Unchecked math: In this branch we know that sold > target. The limit must be >= sold
+			// by construction, and thus target must be < limit.
 			FixedU64::one().saturating_add(FixedU64::from_rational(
 				(sold - target).into(),
 				(limit - target).into(),
