@@ -2117,22 +2117,6 @@ impl<T: Config> Pallet<T> {
 			ledger.unlocking.iter().fold(ledger.active, |a, c| a + c.value);
 		ensure!(real_total == ledger.total, "ledger.total corrupt");
 
-		// bonded stash matches the (generated) controller in the staking ledger.
-		if let Some(controller) = Bonded::<T>::get(ledger.stash.clone()) {
-			if ledger.controller != Some(controller.clone()) {
-				log!(
-                    warn,
-                    "🧪 controller in existing ledger != diff bonded controller:\nbonded_ctrl: {:?}\nctrl: {:?}",
-                    controller,
-                    ledger.controller,
-                );
-			}
-		//ensure!(ledger.stash == bonded_stash, "bonded stash != stash in the ledger");
-		} else {
-			log!(warn, "🧨 ledger controller not bonded for stash {:?}", ledger.stash);
-		}
-		//.ok_or("ledger does not have a bonded (controller, stash) tuple")?;
-
 		Ok(())
 	}
 }
