@@ -644,9 +644,11 @@ impl<T: Config> Pallet<T> {
 			// PVD hash should have already been checked in `filter_unchained_candidates`, but do it
 			// again for safety.
 
-			// this cannot be None if the parachain was registered.
 			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
-				None => continue,
+				None => {
+					defensive!("Latest included head data for paraid {:?} is None", para_id);
+					continue
+				},
 				Some(latest_head_data) => latest_head_data,
 			};
 
@@ -1027,7 +1029,7 @@ impl<T: Config> Pallet<T> {
 		pred: impl Fn(BlockNumberFor<T>) -> AvailabilityTimeoutStatus<BlockNumberFor<T>>,
 	) -> Vec<CoreIndex> {
 		let timed_out: Vec<_> =
-			Self::free_cores(|candidate| pred(candidate.backed_in_number).timed_out, None)
+			Self::free_failed_cores(|candidate| pred(candidate.backed_in_number).timed_out, None)
 				.collect();
 		let mut timed_out_cores = Vec::with_capacity(timed_out.len());
 		for candidate in timed_out.iter() {
@@ -1055,16 +1057,23 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn collect_disputed(
 		disputed: &BTreeSet<CandidateHash>,
 	) -> impl Iterator<Item = (CoreIndex, CandidateHash)> + '_ {
-		Self::free_cores(|candidate| disputed.contains(&candidate.hash), Some(disputed.len()))
-			.map(|candidate| (candidate.core, candidate.hash))
+		Self::free_failed_cores(
+			|candidate| disputed.contains(&candidate.hash),
+			Some(disputed.len()),
+		)
+		.map(|candidate| (candidate.core, candidate.hash))
 	}
 
-	fn free_cores<P: Fn(&CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>) -> bool>(
+	// Clean up cores whose candidates are deemed as failed by the predicate. `pred` returns true if
+	// a candidate is considered failed.
+	// A failed candidate also frees all subsequent cores which hold descendants of said candidate.
+	fn free_failed_cores<
+		P: Fn(&CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>) -> bool,
+	>(
 		pred: P,
 		capacity_hint: Option<usize>,
 	) -> impl Iterator<Item = CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
-		let mut cleaned_up_cores =
-			if let Some(capacity) = capacity_hint { Vec::with_capacity(capacity) } else { vec![] };
+		let mut earliest_dropped_indices: BTreeMap<ParaId, usize> = BTreeMap::new();
 
 		for (para_id, pending_candidates) in <PendingAvailability<T>>::iter() {
 			// We assume that pending candidates are stored in dependency order. So we need to store
@@ -1074,20 +1083,27 @@ impl<T: Config> Pallet<T> {
 				if pred(candidate) {
 					earliest_dropped_idx = Some(index);
 					// Since we're looping the candidates in dependency order, we've found the
-					// earliest disputed index for this paraid.
+					// earliest failed index for this paraid.
 					break;
 				}
 			}
 
 			if let Some(earliest_dropped_idx) = earliest_dropped_idx {
-				// Do cleanups and record the cleaned up cores
-				<PendingAvailability<T>>::mutate(&para_id, |record| {
-					if let Some(record) = record {
-						let cleaned_up = record.drain(earliest_dropped_idx..);
-						cleaned_up_cores.extend(cleaned_up);
-					}
-				});
+				earliest_dropped_indices.insert(para_id, earliest_dropped_idx);
 			}
+		}
+
+		let mut cleaned_up_cores =
+			if let Some(capacity) = capacity_hint { Vec::with_capacity(capacity) } else { vec![] };
+
+		for (para_id, earliest_dropped_idx) in earliest_dropped_indices {
+			// Do cleanups and record the cleaned up cores
+			<PendingAvailability<T>>::mutate(&para_id, |record| {
+				if let Some(record) = record {
+					let cleaned_up = record.drain(earliest_dropped_idx..);
+					cleaned_up_cores.extend(cleaned_up);
+				}
+			});
 		}
 
 		cleaned_up_cores.into_iter()
@@ -1104,9 +1120,9 @@ impl<T: Config> Pallet<T> {
 		let enacted_candidate =
 			<PendingAvailability<T>>::mutate(&para, |candidates| match candidates {
 				Some(candidates) => candidates.pop_front(),
-				// TODO: this should also check the descendants, as they have been made available
-				// before their parent. Or just change the semantic of force_enact to enact all
-				// candidates of a para.
+				// TODO: this should also check the descendants, as they may have been made
+				// available before their parent. Or just change the semantic of force_enact to
+				// enact all candidates of a para.
 				_ => None,
 			});
 

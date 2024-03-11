@@ -34,6 +34,7 @@ use crate::{
 };
 use bitvec::prelude::BitVec;
 use frame_support::{
+	defensive,
 	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 	inherent::{InherentData, InherentIdentifier, MakeFatalError, ProvideInherent},
 	pallet_prelude::*,
@@ -1241,10 +1242,9 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 ) {
 	let mut para_latest_head_data: BTreeMap<ParaId, HeadData> = BTreeMap::new();
 	for para_id in candidates.keys() {
-		// this cannot be None
 		let latest_head_data = match <inclusion::Pallet<T>>::para_latest_head_data(&para_id) {
 			None => {
-				log::warn!(target: LOG_TARGET, "Latest included head data for paraid {:?} is None", para_id);
+				defensive!("Latest included head data for paraid {:?} is None", para_id);
 				continue
 			},
 			Some(latest_head_data) => latest_head_data,
@@ -1328,8 +1328,8 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 	let mut backed_candidates_with_core = BTreeMap::new();
 
 	for (para_id, backed_candidates) in candidates.into_iter() {
-		// Sanity check, should never be true.
 		if backed_candidates.len() == 0 {
+			defensive!("Backed candidates for paraid {} is empty.", para_id);
 			continue
 		}
 
@@ -1390,7 +1390,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 
 						log::debug!(
 							target: LOG_TARGET,
-							"Found a backed candidate {:?} with no injected core index, for paraid {:?} which has mulitple scheduled cores.",
+							"Found a backed candidate {:?} with no injected core index, for paraid {:?} which has multiple scheduled cores.",
 							candidate.candidate().hash(),
 							candidate.descriptor().para_id
 						);
@@ -1406,7 +1406,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 			} else {
 				log::warn!(
 					target: LOG_TARGET,
-					"Found a paraid {:?} which has mulitple scheduled cores but ElasticScalingMVP feature is not enabled: {:?}",
+					"Found a paraid {:?} which has multiple scheduled cores but ElasticScalingMVP feature is not enabled: {:?}",
 					para_id,
 					scheduled_cores
 				);
