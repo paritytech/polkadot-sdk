@@ -23,7 +23,7 @@ rbtag = "0.3"
 structopt = "0.3"
 signal-hook = "0.3.15"
 signal-hook-async-std = "0.2.2"
-strum = { version = "0.26.1", features = ["derive"] }
+strum = { version = "0.26.2", features = ["derive"] }
 
 # Bridge dependencies
 bp-bridge-hub-polkadot = { path = "../../primitives/chain-bridge-hub-polkadot" }
