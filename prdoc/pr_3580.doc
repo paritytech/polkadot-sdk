@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Expose `ClaimQueue` via a runtime api and consume it in `collation-generation`
+
+doc:
+  - audience: Node Dev
+    description: |
+      Creates a new runtime api exposing the `ClaimQueue` from `scheduler` pallet. Consume the api
+      in collation generation (if available) by getting what's scheduled on a core from the
+      `ClaimQueue` instead of from `next_up_on_available` (from `AvailabilityCores` runtime api).
+
+crates: [ ]
