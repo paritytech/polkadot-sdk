@@ -39,9 +39,9 @@ pub mod runtime_vs_smart_contract;
 /// Learn about how extrinsics are encoded to be transmitted to a node and stored in blocks.
 pub mod extrinsic_encoding;
 
-/// Learn about the signed extensions that form a part of extrinsics.
+/// Learn about the transaction extensions that form a part of extrinsics.
 // TODO: @jsdw https://github.com/paritytech/polkadot-sdk-docs/issues/42
-pub mod signed_extensions;
+pub mod transaction_extensions;
 
 /// Learn about *Origins*, a topic in FRAME that enables complex account abstractions to be built.
 pub mod frame_origin;
@@ -92,11 +92,18 @@ pub mod cli;
 // TODO: @JoshOrndorff @kianenigma https://github.com/paritytech/polkadot-sdk-docs/issues/54
 pub mod consensus_swapping;
 
-/// Learn about all the advance ways to test your coordinate a rutnime upgrade and data migration.
-// TODO: @liamaharon https://github.com/paritytech/polkadot-sdk-docs/issues/55
-pub mod frame_runtime_migration;
+/// Learn about Runtime Upgrades and best practices for writing Migrations.
+pub mod frame_runtime_upgrades_and_migrations;
 
 /// Learn about light nodes, how they function, and how Substrate-based chains come
 /// light-node-first out of the box.
 // TODO: @jsdw @josepot https://github.com/paritytech/polkadot-sdk-docs/issues/68
 pub mod light_nodes;
+
+/// Learn about the offchain workers, how they function, and how to use them, as provided by the
+/// [`frame`] APIs.
+pub mod frame_offchain_workers;
+
+/// Learn about the different ways through which multiple [`frame`] pallets can be combined to work
+/// together.
+pub mod frame_pallet_coupling;

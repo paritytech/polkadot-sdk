@@ -413,6 +413,11 @@ pub mod pallet {
 		/// Params `amount1_min`/`amount2_min` represent that.
 		/// `mint_to` will be sent the liquidity tokens that represent this share of the pool.
 		///
+		/// NOTE: when encountering an incorrect exchange rate and non-withdrawable pool liquidity,
+		/// batch an atomic call with [`Pallet::add_liquidity`] and
+		/// [`Pallet::swap_exact_tokens_for_tokens`] or [`Pallet::swap_tokens_for_exact_tokens`]
+		/// calls to render the liquidity withdrawable and rectify the exchange rate.
+		///
 		/// Once liquidity is added, someone may successfully call
 		/// [`Pallet::swap_exact_tokens_for_tokens`] successfully.
 		#[pallet::call_index(1)]

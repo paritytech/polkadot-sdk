@@ -111,3 +111,74 @@
 //! If you have a powerful remote server available, you may consider using
 //! [cargo-remote](https://github.com/sgeisler/cargo-remote) to execute cargo commands on it,
 //! freeing up local resources for other tasks like `rust-analyzer`.
+//!
+//! When using `cargo-remote`, you can configure your editor to perform the the typical
+//! "check-on-save" remotely as well. The configuration for VSCode is as follows:
+//!
+//! ```json
+//! {
+//! 	"rust-analyzer.cargo.buildScripts.overrideCommand": [
+//! 		"cargo",
+//! 		"remote",
+//! 		"--build-env",
+//! 		"SKIP_WASM_BUILD=1",
+//! 		"--",
+//! 		"check",
+//! 		"--message-format=json",
+//! 		"--all-targets",
+//! 		"--all-features",
+//! 		"--target-dir=target/rust-analyzer"
+//! 	],
+//! 	"rust-analyzer.check.overrideCommand": [
+//! 		"cargo",
+//! 		"remote",
+//! 		"--build-env",
+//! 		"SKIP_WASM_BUILD=1",
+//! 		"--",
+//! 		"check",
+//! 		"--workspace",
+//! 		"--message-format=json",
+//! 		"--all-targets",
+//! 		"--all-features",
+//! 		"--target-dir=target/rust-analyzer"
+//! 	],
+//! }
+//! ```
+//!
+//! //! and the same in Lua for `neovim/nvim-lspconfig`:
+//!
+//! ```lua
+//! ["rust-analyzer"] = {
+//!   cargo = {
+//!     buildScripts = {
+//!       overrideCommand = {
+//!         "cargo",
+//!         "remote",
+//!         "--build-env",
+//!         "SKIP_WASM_BUILD=1",
+//!         "--",
+//!         "check",
+//!         "--message-format=json",
+//!         "--all-targets",
+//!         "--all-features",
+//!         "--target-dir=target/rust-analyzer"
+//!       },
+//!     },
+//!     check = {
+//!       overrideCommand = {
+//!         "cargo",
+//!         "remote",
+//!         "--build-env",
+//!         "SKIP_WASM_BUILD=1",
+//!         "--",
+//!         "check",
+//!         "--workspace",
+//!         "--message-format=json",
+//!         "--all-targets",
+//!         "--all-features",
+//!         "--target-dir=target/rust-analyzer"
+//!       },
+//!     },
+//!   },
+//! },
+//! ```
