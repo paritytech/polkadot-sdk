@@ -7736,7 +7736,7 @@ dependencies = [
  "libp2p-core",
  "log",
  "thiserror",
- "yamux 0.10.2",
+ "yamux",
 ]
 
 [[package]]
@@ -7897,7 +7897,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.2.0"
-source = "git+https://github.com/altonen/litep2p?branch=master#b7deb51ebb54e72d8ed5ba0f35087705e99b534e"
+source = "git+https://github.com/paritytech/litep2p?branch=master#cc043b66f9c2c20349359150f522b83f260ec587"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
@@ -7914,6 +7914,7 @@ dependencies = [
  "multiaddr",
  "multihash 0.17.0",
  "network-interface",
+ "nohash-hasher",
  "parking_lot 0.12.1",
  "pin-project",
  "prost 0.11.9",
@@ -7929,6 +7930,7 @@ dependencies = [
  "smallvec",
  "snow",
  "socket2 0.5.6",
+ "static_assertions",
  "str0m",
  "thiserror",
  "tokio",
@@ -7943,7 +7945,6 @@ dependencies = [
  "webpki",
  "x25519-dalek 2.0.0",
  "x509-parser 0.15.1",
- "yamux 0.11.1",
  "yasna",
  "zeroize",
 ]
@@ -22898,21 +22899,6 @@ dependencies = [
  "log",
  "nohash-hasher",
  "parking_lot 0.12.1",
- "rand 0.8.5",
- "static_assertions",
-]
-
-[[package]]
-name = "yamux"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0875ad26dfbf0e7126d4a200747c78496aa3f0225d094a8c867b0e98bb19f9d7"
-dependencies = [
- "futures",
- "log",
- "nohash-hasher",
- "parking_lot 0.12.1",
- "pin-project",
  "rand 0.8.5",
  "static_assertions",
 ]
