@@ -35,6 +35,7 @@ frame-election-provider-support = { path = "../../election-provider-support" }
 
 pallet-election-provider-multi-phase = { path = ".." }
 pallet-staking = { path = "../../staking" }
+pallet-stake-tracker = { path = "../../staking/stake-tracker", default-features = false }
 pallet-nomination-pools = { path = "../../nomination-pools" }
 pallet-bags-list = { path = "../../bags-list" }
 pallet-balances = { path = "../../balances" }
@@ -51,6 +52,7 @@ try-runtime = [
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-nomination-pools/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-stake-tracker/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",

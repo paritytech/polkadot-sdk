@@ -270,6 +270,7 @@ impl ExtBuilder {
 				.map(|(stash, _, balance)| (stash, balance * 2))
 				.chain(validators_range.clone().map(|x| (x, 7 + 100)))
 				.chain(nominators_range.clone().map(|x| (x, 7 + 100)))
+				.chain(vec![(42, 100_000)].into_iter())
 				.collect::<Vec<_>>(),
 		}
 		.assimilate_storage(&mut storage);
@@ -279,8 +280,10 @@ impl ExtBuilder {
 				.unexposed
 				.into_iter()
 				.map(|(x, y, z)| (x, y, z, pallet_staking::StakerStatus::Nominator(vec![42])))
-				.chain(validators_range.map(|x| (x, x, 100, StakerStatus::Validator)))
 				.chain(nominators_range.map(|x| (x, x, 100, StakerStatus::Nominator(vec![x]))))
+				.chain(validators_range.map(|x| (x, x, 100, StakerStatus::Validator)))
+				.chain(vec![(42, 42, 107, pallet_staking::StakerStatus::Validator)].into_iter())
+				.rev() // validators need to set intention to validate before being nominated.
 				.collect::<Vec<_>>(),
 			..Default::default()
 		}

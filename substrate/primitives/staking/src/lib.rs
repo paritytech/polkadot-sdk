@@ -100,19 +100,34 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	///
 	/// This is effectively any changes to the bond amount, such as bonding more funds, and
 	/// unbonding.
-	fn on_stake_update(_who: &AccountId, _prev_stake: Option<Stake<Balance>>) {}
+	fn on_stake_update(
+		_who: &AccountId,
+		_prev_stake: Option<Stake<Balance>>,
+		_stake: Stake<Balance>,
+	) {
+	}
 
 	/// Fired when someone sets their intention to nominate.
 	///
 	/// This should never be fired for existing nominators.
-	fn on_nominator_add(_who: &AccountId) {}
+	fn on_nominator_add(_who: &AccountId, _nominations: Vec<AccountId>) {}
 
 	/// Fired when an existing nominator updates their nominations.
 	///
 	/// Note that this is not fired when a nominator changes their stake. For that,
 	/// `on_stake_update` should be used, followed by querying whether `who` was a validator or a
 	/// nominator.
-	fn on_nominator_update(_who: &AccountId, _prev_nominations: Vec<AccountId>) {}
+	fn on_nominator_update(
+		_who: &AccountId,
+		_prev_nominations: Vec<AccountId>,
+		_nominations: Vec<AccountId>,
+	) {
+	}
+
+	/// Fired when an existng nominator becomes idle.
+	///
+	///	An idle nominator stops nominating but its stake state should not be removed.
+	fn on_nominator_idle(_who: &AccountId, _prev_nominations: Vec<AccountId>) {}
 
 	/// Fired when someone removes their intention to nominate, either due to chill or validating.
 	///
@@ -123,15 +138,23 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when someone sets their intention to validate.
 	///
 	/// Note validator preference changes are not communicated, but could be added if needed.
-	fn on_validator_add(_who: &AccountId) {}
+	fn on_validator_add(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
 
 	/// Fired when an existing validator updates their preferences.
 	///
 	/// Note validator preference changes are not communicated, but could be added if needed.
-	fn on_validator_update(_who: &AccountId) {}
+	fn on_validator_update(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
+
+	/// Fired when an existing validator becomes idle.
+	///
+	///	An idle validator stops validating but its stake state should not be removed.
+	fn on_validator_idle(_who: &AccountId) {}
 
 	/// Fired when someone removes their intention to validate, either due to chill or nominating.
 	fn on_validator_remove(_who: &AccountId) {}
+
+	/// Fired when a portion of a staker's balance has been withdrawn.
+	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
 
 	/// Fired when someone is fully unstaked.
 	fn on_unstake(_who: &AccountId) {}
@@ -150,9 +173,65 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 		_slashed_total: Balance,
 	) {
 	}
+}
 
-	/// Fired when a portion of a staker's balance has been withdrawn.
-	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
+/// Representation of the `OnStakingUpdate` events.
+///
+/// Represents the events that may be emitted by the `OnStakingUpdate` trait, maps 1-1 to the
+/// trait's method signatures.
+///
+/// Only used for testing in external crates.
+#[cfg(feature = "test-utils")]
+#[derive(PartialEq, Clone, Debug)]
+pub enum OnStakingUpdateEvent<AccountId, Balance> {
+	StakeUpdate {
+		who: AccountId,
+		prev_stake: Option<Stake<Balance>>,
+		stake: Stake<Balance>,
+	},
+	NominatorAdd {
+		who: AccountId,
+		nominations: Vec<AccountId>,
+	},
+	NominatorUpdate {
+		who: AccountId,
+		prev_nominations: Vec<AccountId>,
+		nominations: Vec<AccountId>,
+	},
+	NominatorIdle {
+		who: AccountId,
+		prev_nominations: Vec<AccountId>,
+	},
+	NominatorRemove {
+		who: AccountId,
+		nominations: Vec<AccountId>,
+	},
+	ValidatorAdd {
+		who: AccountId,
+		self_stake: Option<Stake<Balance>>,
+	},
+	ValidatorUpdate {
+		who: AccountId,
+		self_stake: Option<Stake<Balance>>,
+	},
+	ValidatorIdle {
+		who: AccountId,
+	},
+	ValidatorRemove {
+		who: AccountId,
+	},
+	Withdraw {
+		who: AccountId,
+		amount: Balance,
+	},
+	Unstake {
+		who: AccountId,
+	},
+	Slash {
+		who: AccountId,
+		slashed_active: Balance,
+		slashed_total: Balance,
+	},
 }
 
 /// A generic representation of a staking implementation.
@@ -169,6 +248,7 @@ pub trait StakingInterface {
 		+ MaxEncodedLen
 		+ FullCodec
 		+ TypeInfo
+		+ Zero
 		+ Saturating;
 
 	/// AccountId type used by the staking system.

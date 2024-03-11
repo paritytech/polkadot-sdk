@@ -45,12 +45,14 @@ sp-core = { path = "../../primitives/core" }
 sp-npos-elections = { path = "../../primitives/npos-elections" }
 pallet-balances = { path = "../balances" }
 pallet-timestamp = { path = "../timestamp" }
+pallet-stake-tracker = { path = "./stake-tracker" }
 pallet-staking-reward-curve = { path = "reward-curve" }
 pallet-bags-list = { path = "../bags-list" }
 substrate-test-utils = { path = "../../test-utils" }
 frame-benchmarking = { path = "../benchmarking" }
 frame-election-provider-support = { path = "../election-provider-support" }
 rand_chacha = { version = "0.2" }
+sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde", "test-utils"] }
 
 [features]
 default = ["std"]
@@ -65,6 +67,7 @@ std = [
 	"pallet-bags-list/std",
 	"pallet-balances/std",
 	"pallet-session/std",
+	"pallet-stake-tracker/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"serde/std",
@@ -84,6 +87,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-stake-tracker/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
@@ -97,6 +101,7 @@ try-runtime = [
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-stake-tracker/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

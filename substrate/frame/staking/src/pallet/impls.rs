@@ -51,7 +51,7 @@ use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	RewardDestination, SessionInterface, StakerStatus, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -137,7 +137,8 @@ impl<T: Config> Pallet<T> {
 
 				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
 			} else {
-				// This was the consequence of a partial unbond. just update the ledger and move on.
+				// This was the consequence of a partial unbond. just update the ledger and move
+				// on.
 				ledger.update()?;
 
 				// This is only an update, so we use less overall weight.
@@ -213,14 +214,12 @@ impl<T: Config> Pallet<T> {
 				Err(Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
 			}
 		})?;
+		let stash = ledger.stash.clone();
 
 		// clean up older claimed rewards
 		ledger
 			.legacy_claimed_rewards
 			.retain(|&x| x >= current_era.saturating_sub(history_depth));
-		ledger.clone().update()?;
-
-		let stash = ledger.stash.clone();
 
 		if EraInfo::<T>::is_rewards_claimed_with_legacy_fallback(era, &ledger, &stash, page) {
 			return Err(Error::<T>::AlreadyClaimed
@@ -234,7 +233,8 @@ impl<T: Config> Pallet<T> {
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
 
-		// Input data seems good, no errors allowed after this point
+		// Input data seems good, no errors allowed after the ledger is successfully updated.
+		ledger.update()?;
 
 		// Get Era reward points. It has TOTAL and INDIVIDUAL
 		// Find the fraction of the era reward that belongs to the validator
@@ -261,7 +261,7 @@ impl<T: Config> Pallet<T> {
 		// This is how much validator + nominators are entitled to.
 		let validator_total_payout = validator_total_reward_part * era_payout;
 
-		let validator_commission = EraInfo::<T>::get_validator_commission(era, &ledger.stash);
+		let validator_commission = EraInfo::<T>::get_validator_commission(era, &stash);
 		// total commission validator takes across all nominator pages
 		let validator_total_commission_payout = validator_commission * validator_total_payout;
 
@@ -321,10 +321,19 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Chill a stash account.
+	///
+	/// Chilling consists of removing the nominator/validator's stash from the corresponding
+	/// `Nominators` or `Validators` storage map.
+	///
+	/// Note: chilling a staker does not remove its footprint from the voter list or target list.
+	///
+	/// Invariant: upon chilling the status of the stash must be `StakerStatus::Idle`.
 	pub(crate) fn chill_stash(stash: &T::AccountId) {
-		let chilled_as_validator = Self::do_remove_validator(stash);
-		let chilled_as_nominator = Self::do_remove_nominator(stash);
+		let chilled_as_validator = Self::do_chill_validator(stash);
+		let chilled_as_nominator = Self::do_chill_nominator(stash);
 		if chilled_as_validator || chilled_as_nominator {
+			debug_assert_eq!(Self::status(stash), Ok(StakerStatus::Idle));
+
 			Self::deposit_event(Event::<T>::Chilled { stash: stash.clone() });
 		}
 	}
@@ -348,7 +357,6 @@ impl<T: Config> Pallet<T> {
 					ledger.active += amount;
 					ledger.total += amount;
 					let r = T::Currency::deposit_into_existing(stash, amount).ok();
-
 					let _ = ledger
 						.update()
 						.defensive_proof("ledger fetched from storage, so it exists; qed.");
@@ -720,12 +728,29 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
 		slashing::clear_stash_metadata::<T>(&stash, num_slashing_spans)?;
 
-		// removes controller from `Bonded` and staking ledger from `Ledger`, as well as reward
-		// setting of the stash in `Payee`.
-		StakingLedger::<T>::kill(&stash)?;
+		// note: these must be called *before* cleaning up the staking ledger storage with fn kill.
+		match Self::status(stash) {
+			Ok(StakerStatus::Validator) => {
+				// validator is both a nominator and validator.
+				Self::do_remove_validator(&stash);
+				Self::do_remove_nominator(&stash);
+			},
+			Ok(StakerStatus::Nominator(_)) => {
+				Self::do_remove_nominator(&stash);
+			},
+			Ok(StakerStatus::Idle) => {
+				// we keep track of chilled (`Idle`) validators in the TargetList as well, so we
+				// may need to remove them.
+				Self::do_remove_validator(&stash);
+			},
+			Err(_) => {
+				// do nothing; it will fail below when trying to kill the stash.
+			},
+		}
 
-		Self::do_remove_validator(&stash);
-		Self::do_remove_nominator(&stash);
+		// and finally, it removes controller from `Bonded` and staking ledger from `Ledger`, as
+		// well as reward setting of the stash in `Payee`.
+		StakingLedger::<T>::kill(&stash)?;
 
 		frame_system::Pallet::<T>::dec_consumers(&stash);
 
@@ -955,7 +980,13 @@ impl<T: Config> Pallet<T> {
 		let mut all_targets = Vec::<T::AccountId>::with_capacity(final_predicted_len as usize);
 		let mut targets_seen = 0;
 
-		let mut targets_iter = T::TargetList::iter();
+		// target list may contain chilled validators and dangling (i.e. unbonded) targets, filter
+		// those.
+		let mut targets_iter = T::TargetList::iter().filter(|t| match Self::status(&t) {
+			Ok(StakerStatus::Idle) | Err(_) => false,
+			Ok(_) => true,
+		});
+
 		while all_targets.len() < final_predicted_len as usize &&
 			targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
@@ -991,21 +1022,46 @@ impl<T: Config> Pallet<T> {
 	///
 	/// If the nominator already exists, their nominations will be updated.
 	///
-	/// NOTE: you must ALWAYS use this function to add nominator or update their targets. Any access
-	/// to `Nominators` or `VoterList` outside of this function is almost certainly
-	/// wrong.
+	/// NOTE: you must ALWAYS use this function to add nominator or update their targets. Any
+	/// access to `Nominators` or `VoterList` outside of this function is almost certainly wrong.
 	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
-		if !Nominators::<T>::contains_key(who) {
-			// maybe update sorted list.
-			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
-				.defensive_unwrap_or_default();
+		let nomination_accounts = nominations.targets.to_vec();
+
+		match Self::status(who) {
+			Ok(StakerStatus::Idle) => {
+				// new nomination
+				Nominators::<T>::insert(who, nominations);
+				T::EventListeners::on_nominator_add(who, nomination_accounts);
+			},
+			Ok(StakerStatus::Nominator(prev_nominations)) => {
+				// update nominations or un-chill nominator.
+				Nominators::<T>::insert(who, nominations);
+				T::EventListeners::on_nominator_update(who, prev_nominations, nomination_accounts);
+			},
+			_ => {
+				defensive!("calling add_nominator on a validator or unbonded stash.");
+			},
 		}
-		Nominators::<T>::insert(who, nominations);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.count() as u32,
 		);
+	}
+
+	/// Tries to chill a nominator.
+	///
+	/// A chilled nominator is removed from the `Nominators` map, and the nominator's new state must
+	/// be signalled to [`T::EventListeners`].
+	///
+	/// Returns `true` if the nominator was successfully chilled, `false` otherwise.
+	pub(crate) fn do_chill_nominator(who: &T::AccountId) -> bool {
+		Nominators::<T>::take(who).map_or(false, |nominations| {
+			T::EventListeners::on_nominator_remove(who, nominations.clone().targets.into());
+			true
+		})
 	}
 
 	/// This function will remove a nominator from the `Nominators` storage map,
@@ -1013,21 +1069,16 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns true if `who` was removed from `Nominators`, otherwise false.
 	///
-	/// NOTE: you must ALWAYS use this function to remove a nominator from the system. Any access to
-	/// `Nominators` or `VoterList` outside of this function is almost certainly
-	/// wrong.
+	/// NOTE: you must ALWAYS use this function to remove a nominator from the system. Any access
+	/// to `Nominators` or `VoterList` outside of this function is almost certainly wrong.
 	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
-		let outcome = if Nominators::<T>::contains_key(who) {
-			Nominators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who).defensive();
-			true
-		} else {
-			false
-		};
+		let outcome = Self::do_chill_nominator(who);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.count() as u32,
 		);
 
 		outcome
@@ -1042,16 +1093,35 @@ impl<T: Config> Pallet<T> {
 	/// wrong.
 	pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) {
 		if !Validators::<T>::contains_key(who) {
-			// maybe update sorted list.
-			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
-				.defensive_unwrap_or_default();
-		}
+			let self_stake = Self::stake(who);
+			T::EventListeners::on_validator_add(
+				who,
+				Some(self_stake.defensive_unwrap_or_default().into()),
+			);
+		};
 		Validators::<T>::insert(who, prefs);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.count() as u32,
 		);
+	}
+
+	/// Tries to chill a validator.
+	///
+	/// A chilled validator is removed from the `Validators` map.
+	///
+	/// Returns `true` if the validator was successfully chilled, `false` otherwise.
+	pub(crate) fn do_chill_validator(who: &T::AccountId) -> bool {
+		if Validators::<T>::contains_key(who) {
+			Validators::<T>::remove(who);
+			T::EventListeners::on_validator_idle(who);
+			true
+		} else {
+			false
+		}
 	}
 
 	/// This function will remove a validator from the `Validators` storage map.
@@ -1062,17 +1132,14 @@ impl<T: Config> Pallet<T> {
 	/// `Validators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
 	pub fn do_remove_validator(who: &T::AccountId) -> bool {
-		let outcome = if Validators::<T>::contains_key(who) {
-			Validators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who).defensive();
-			true
-		} else {
-			false
-		};
+		let outcome = Self::do_chill_validator(who);
+		T::EventListeners::on_validator_remove(who);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.count() as u32,
 		);
 
 		outcome
@@ -1575,6 +1642,10 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 		0
 	}
 	#[cfg(feature = "try-runtime")]
+	fn in_position(_: &T::AccountId) -> Result<bool, Self::Error> {
+		unimplemented!()
+	}
+	#[cfg(feature = "try-runtime")]
 	fn try_state() -> Result<(), TryRuntimeError> {
 		Ok(())
 	}
@@ -1651,6 +1722,10 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 		0
 	}
 
+	#[cfg(feature = "try-runtime")]
+	fn in_position(_: &T::AccountId) -> Result<bool, Self::Error> {
+		unimplemented!()
+	}
 	#[cfg(feature = "try-runtime")]
 	fn try_state() -> Result<(), TryRuntimeError> {
 		Ok(())
@@ -1775,6 +1850,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			validator == *who || exposure_page.others.iter().any(|i| i.who == *who)
 		})
 	}
+
 	fn status(
 		who: &Self::AccountId,
 	) -> Result<sp_staking::StakerStatus<Self::AccountId>, DispatchError> {
@@ -1785,7 +1861,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		let is_validator = Validators::<T>::contains_key(&who);
 		let is_nominator = Nominators::<T>::get(&who);
 
-		use sp_staking::StakerStatus;
 		match (is_validator, is_nominator.is_some()) {
 			(false, false) => Ok(StakerStatus::Idle),
 			(true, false) => Ok(StakerStatus::Validator),
@@ -1831,8 +1906,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		ensure!(
-			T::VoterList::iter()
-				.all(|x| <Nominators<T>>::contains_key(&x) || <Validators<T>>::contains_key(&x)),
+			T::VoterList::iter().all(|x| <Nominators<T>>::contains_key(&x) ||
+				<Validators<T>>::contains_key(&x) ||
+				Self::status(&x) == Ok(StakerStatus::Idle)),
 			"VoterList contains non-staker"
 		);
 
@@ -1863,13 +1939,17 @@ impl<T: Config> Pallet<T> {
 
 	fn check_count() -> Result<(), TryRuntimeError> {
 		ensure!(
-			<T as Config>::VoterList::count() ==
-				Nominators::<T>::count() + Validators::<T>::count(),
-			"wrong external count"
+			<T as Config>::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.count() as u32 == Nominators::<T>::count() + Validators::<T>::count(),
+			"wrong external count (VoterList.count != Nominators.count + Validators.count)"
 		);
 		ensure!(
-			<T as Config>::TargetList::count() == Validators::<T>::count(),
-			"wrong external count"
+			<T as Config>::TargetList::iter()
+				.filter(|t| Self::status(&t) != Ok(StakerStatus::Idle))
+				.filter(|t| !Self::status(&t).is_err())
+				.count() as u32 == Validators::<T>::count(),
+			"wrong external count (TargetList.count != Validators.count)"
 		);
 		ensure!(
 			ValidatorCount::<T>::get() <=

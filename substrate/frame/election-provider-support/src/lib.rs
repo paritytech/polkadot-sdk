@@ -566,6 +566,12 @@ pub trait SortedListProvider<AccountId> {
 	/// unbounded amount of storage accesses.
 	fn unsafe_clear();
 
+	/// Returns whether the `id` is in the correct bag, given its score.
+	///
+	/// Returns a boolean and it is only available in the context of `try-runtime` checks.
+	#[cfg(feature = "try-runtime")]
+	fn in_position(id: &AccountId) -> Result<bool, Self::Error>;
+
 	/// Check internal state of the list. Only meant for debugging.
 	#[cfg(feature = "try-runtime")]
 	fn try_state() -> Result<(), TryRuntimeError>;

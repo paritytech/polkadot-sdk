@@ -20,7 +20,7 @@
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen, VoteWeight,
+	onchain, SequentialPhragmen, SortedListProvider, VoteWeight,
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
@@ -35,7 +35,7 @@ use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	OnStakingUpdate,
+	OnStakingUpdate, OnStakingUpdateEvent, Stake,
 };
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
@@ -94,7 +94,9 @@ frame_support::construct_runtime!(
 		Staking: pallet_staking,
 		Session: pallet_session,
 		Historical: pallet_session::historical,
+		StakeTracker: pallet_stake_tracker,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		TargetBagsList: pallet_bags_list::<Instance2>,
 	}
 );
 
@@ -204,11 +206,14 @@ impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
 	}
 }
 
-const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
+const VOTER_THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 	[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
+const TARGET_THRESHOLDS: [Balance; 9] = [100, 200, 300, 400, 500, 600, 1_000, 2_000, 10_000];
+
 parameter_types! {
-	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
+	pub static VoterBagThresholds: &'static [sp_npos_elections::VoteWeight] = &VOTER_THRESHOLDS;
+	pub static TargetBagThresholds: &'static [Balance] = &TARGET_THRESHOLDS;
 	pub static HistoryDepth: u32 = 80;
 	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
@@ -224,8 +229,17 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type WeightInfo = ();
 	// Staking is the source of truth for voter bags list, since they are not kept up to date.
 	type ScoreProvider = Staking;
-	type BagThresholds = BagThresholds;
+	type BagThresholds = VoterBagThresholds;
 	type Score = VoteWeight;
+}
+
+type TargetBagsListInstance = pallet_bags_list::Instance2;
+impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type ScoreProvider = pallet_bags_list::Pallet<Test, TargetBagsListInstance>;
+	type BagThresholds = TargetBagThresholds;
+	type Score = Balance;
 }
 
 pub struct OnChainSeqPhragmen;
@@ -249,10 +263,11 @@ parameter_types! {
 	pub static LedgerSlashPerEra:
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
+	pub static EventsEmitted: Vec<OnStakingUpdateEvent<AccountId, Balance>> = vec![];
 }
 
-pub struct EventListenerMock;
-impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
+pub struct SlashListenerMock;
+impl OnStakingUpdate<AccountId, Balance> for SlashListenerMock {
 	fn on_slash(
 		_pool_account: &AccountId,
 		slashed_bonded: Balance,
@@ -261,6 +276,92 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
 	}
+}
+
+pub struct EventTracker;
+impl OnStakingUpdate<AccountId, Balance> for EventTracker {
+	fn on_stake_update(who: &AccountId, prev_stake: Option<Stake<Balance>>, stake: Stake<Balance>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::StakeUpdate { who: *who, prev_stake, stake });
+		})
+	}
+	fn on_nominator_add(who: &AccountId, nominations: Vec<AccountId>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::NominatorAdd { who: *who, nominations });
+		})
+	}
+	fn on_nominator_update(
+		who: &AccountId,
+		prev_nominations: Vec<AccountId>,
+		nominations: Vec<AccountId>,
+	) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::NominatorUpdate {
+				who: *who,
+				prev_nominations,
+				nominations,
+			});
+		})
+	}
+	fn on_nominator_idle(who: &AccountId, prev_nominations: Vec<AccountId>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::NominatorIdle { who: *who, prev_nominations });
+		})
+	}
+	fn on_nominator_remove(who: &AccountId, nominations: Vec<AccountId>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::NominatorRemove { who: *who, nominations });
+		})
+	}
+	fn on_validator_add(who: &AccountId, self_stake: Option<Stake<Balance>>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::ValidatorAdd { who: *who, self_stake });
+		})
+	}
+	fn on_validator_update(who: &AccountId, self_stake: Option<Stake<Balance>>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::ValidatorUpdate { who: *who, self_stake });
+		})
+	}
+	fn on_validator_idle(who: &AccountId) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::ValidatorIdle { who: *who });
+		})
+	}
+	fn on_validator_remove(who: &AccountId) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::ValidatorRemove { who: *who });
+		})
+	}
+	fn on_withdraw(who: &AccountId, amount: Balance) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::Withdraw { who: *who, amount });
+		})
+	}
+	fn on_unstake(who: &AccountId) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::Unstake { who: *who });
+		})
+	}
+	fn on_slash(
+		who: &AccountId,
+		slashed_active: Balance,
+		_slashed_unlocking: &BTreeMap<EraIndex, Balance>,
+		slashed_total: Balance,
+	) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::Slash { who: *who, slashed_active, slashed_total });
+		})
+	}
+}
+
+impl pallet_stake_tracker::Config for Test {
+	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
+	type Staking = Staking;
+	type VoterList = VoterBagsList;
+	type TargetList = TargetBagsList;
+	type WeightInfo = ();
 }
 
 impl crate::pallet::pallet::Config for Test {
@@ -285,12 +386,12 @@ impl crate::pallet::pallet::Config for Test {
 	type GenesisElectionProvider = Self::ElectionProvider;
 	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
 	type VoterList = VoterBagsList;
-	type TargetList = UseValidatorsMap<Self>;
+	type TargetList = TargetBagsList;
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
-	type EventListeners = EventListenerMock;
+	type EventListeners = (StakeTracker, SlashListenerMock, EventTracker);
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
 }
@@ -320,6 +421,8 @@ pub(crate) type TestCall = <Test as frame_system::Config>::RuntimeCall;
 parameter_types! {
 	// if true, skips the try-state for the test running.
 	pub static SkipTryStateCheck: bool = false;
+	// if true, skips the stake-tracker try-state for the tests running.
+	pub static SkipStakeTrackerTryStateCheck: bool = false;
 }
 
 pub struct ExtBuilder {
@@ -435,6 +538,10 @@ impl ExtBuilder {
 		SkipTryStateCheck::set(!enable);
 		self
 	}
+	pub fn stake_tracker_try_state(self, enable: bool) -> Self {
+		SkipStakeTrackerTryStateCheck::set(!enable);
+		self
+	}
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -467,6 +574,8 @@ impl ExtBuilder {
 				(71, self.balance_factor * 2000),
 				(80, self.balance_factor),
 				(81, self.balance_factor * 2000),
+				(90, self.balance_factor),
+				(91, self.balance_factor * 2000),
 				// This allows us to have a total_payout different from 0.
 				(999, 1_000_000_000_000),
 			],
@@ -564,7 +673,24 @@ impl ExtBuilder {
 		ext.execute_with(test);
 		ext.execute_with(|| {
 			if !SkipTryStateCheck::get() {
-				Staking::do_try_state(System::block_number()).unwrap();
+				let _ = Staking::do_try_state(System::block_number())
+					.map_err(|err| {
+						println!(" 🕵️‍♂️  try_state failure: {:?}", err);
+						err
+					})
+					.unwrap();
+			}
+
+			// run the stake tracker try state checks too to leverage the test coverage of the
+			// staking pallet tests.
+			#[cfg(feature = "try-runtime")]
+			if !SkipStakeTrackerTryStateCheck::get() {
+				StakeTracker::do_try_state()
+					.map_err(|err| {
+						println!(" 🕵️‍♂️  StakeTracker try_state failure: {:?}", err);
+						err
+					})
+					.unwrap()
 			}
 		});
 	}
@@ -835,4 +961,65 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+// this helper method also cleans the current state of `EventsEmtted`.
+pub(crate) fn ensure_on_staking_updates_emitted(
+	expected: Vec<OnStakingUpdateEvent<AccountId, Balance>>,
+) {
+	assert_eq!(
+		EventsEmitted::get(),
+		expected,
+		"`OnStakingUpdate` events not as expected: {:?} != {:?}",
+		EventsEmitted::get(),
+		expected
+	);
+
+	// reset events emitted.
+	EventsEmitted::set(vec![]);
+}
+
+pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(AccountId, Balance)>) {
+	(
+		VoterBagsList::iter()
+			.map(|v| (v, VoterBagsList::get_score(&v).unwrap()))
+			.collect::<Vec<_>>(),
+		TargetBagsList::iter()
+			.map(|t| (t, TargetBagsList::get_score(&t).unwrap()))
+			.collect::<Vec<_>>(),
+	)
+}
+
+#[allow(dead_code)]
+pub(crate) fn print_lists_debug() {
+	use sp_staking::StakingInterface;
+
+	println!("\nVoters:");
+	let _ = voters_and_targets()
+		.0
+		.iter()
+		.map(|v| {
+			println!(" {:?} -> {:?}", v, Staking::status(&v.0));
+		})
+		.collect::<Vec<_>>();
+
+	println!("\nTargets:");
+	let _ = voters_and_targets()
+		.1
+		.iter()
+		.map(|v| {
+			println!(" {:?} -> {:?}", v, Staking::status(&v.0));
+		})
+		.collect::<Vec<_>>();
+	println!("\n");
+}
+
+pub(crate) fn target_bags_events() -> Vec<pallet_bags_list::Event<Test, TargetBagsListInstance>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(
+			|e| if let RuntimeEvent::TargetBagsList(inner) = e { Some(inner) } else { None },
+		)
+		.collect::<Vec<_>>()
 }

@@ -71,7 +71,9 @@ frame_support::construct_runtime!(
 		Staking: pallet_staking,
 		Pools: pallet_nomination_pools,
 		Balances: pallet_balances,
-		BagsList: pallet_bags_list,
+		VoterBagsList: pallet_bags_list::<Instance1>,
+		TargetBagsList: pallet_bags_list::<Instance2>,
+		StakeTracker: pallet_stake_tracker,
 		Session: pallet_session,
 		Historical: pallet_session::historical,
 		Timestamp: pallet_timestamp,
@@ -229,10 +231,12 @@ impl MinerConfig for Runtime {
 	}
 }
 
-const THRESHOLDS: [VoteWeight; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
+const VOTERS_THRESHOLDS: [VoteWeight; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
+const TARGETS_THRESHOLDS: [Balance; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
 parameter_types! {
-	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
+	pub static VoterBagThresholds: &'static [VoteWeight] = &VOTERS_THRESHOLDS;
+	pub static TargetBagThresholds: &'static [Balance] = &TARGETS_THRESHOLDS;
 	pub const SessionsPerEra: sp_staking::SessionIndex = 2;
 	pub static BondingDuration: sp_staking::EraIndex = 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 7; // 1/4 the bonding duration.
@@ -240,12 +244,31 @@ parameter_types! {
 	pub HistoryDepth: u32 = 84;
 }
 
-impl pallet_bags_list::Config for Runtime {
+type VoterBagsListInstance = pallet_bags_list::Instance1;
+impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type ScoreProvider = Staking;
-	type BagThresholds = BagThresholds;
+	type BagThresholds = VoterBagThresholds;
 	type Score = VoteWeight;
+}
+
+type TargetBagsListInstance = pallet_bags_list::Instance2;
+impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type ScoreProvider = Staking;
+	type BagThresholds = TargetBagThresholds;
+	type Score = VoteWeight;
+}
+
+impl pallet_stake_tracker::Config for Runtime {
+	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
+	type Staking = Staking;
+	type VoterList = VoterBagsList;
+	type TargetList = TargetBagsList;
+	type WeightInfo = ();
 }
 
 pub struct BalanceToU256;
@@ -283,12 +306,12 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 }
 
+/// Upper limit on the number of NPOS nominations.
+const MAX_QUOTA_NOMINATIONS: u32 = 16;
+
 parameter_types! {
 	pub static MaxUnlockingChunks: u32 = 32;
 }
-
-/// Upper limit on the number of NPOS nominations.
-const MAX_QUOTA_NOMINATIONS: u32 = 16;
 
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
@@ -310,13 +333,13 @@ impl pallet_staking::Config for Runtime {
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
-	type VoterList = BagsList;
+	type VoterList = VoterBagsList;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type TargetList = TargetBagsList;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = HistoryDepth;
-	type EventListeners = Pools;
+	type EventListeners = (StakeTracker, Pools);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 }
