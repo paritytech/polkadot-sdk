@@ -24,7 +24,7 @@
 use crate::{
 	configuration,
 	disputes::DisputesHandler,
-	inclusion::{self, CandidateCheckContext},
+	inclusion::{self, CandidateCheckContext, PendingAvailabilityOverlay},
 	initializer,
 	metrics::METRICS,
 	paras,
@@ -235,6 +235,7 @@ pub mod pallet {
 	/// free due to candidates that became available.
 	pub(crate) fn collect_all_freed_cores<T, I>(
 		freed_concluded: I,
+		pending_availabiltiy_overlay: &mut PendingAvailabilityOverlay<T>,
 	) -> BTreeMap<CoreIndex, FreedReason>
 	where
 		I: core::iter::IntoIterator<Item = (CoreIndex, CandidateHash)>,
@@ -243,7 +244,7 @@ pub mod pallet {
 		// Handle timeouts for any availability core work.
 		let freed_timeout = if <scheduler::Pallet<T>>::availability_timeout_check_required() {
 			let pred = <scheduler::Pallet<T>>::availability_timeout_predicate();
-			<inclusion::Pallet<T>>::collect_timedout(pred)
+			<inclusion::Pallet<T>>::collect_timedout(pred, pending_availabiltiy_overlay)
 		} else {
 			Vec::new()
 		};
@@ -392,6 +393,8 @@ impl<T: Config> Pallet<T> {
 		let expected_bits = <scheduler::Pallet<T>>::availability_cores().len();
 		let validator_public = shared::Pallet::<T>::active_validator_keys();
 
+		let mut pending_availability_overlay = PendingAvailabilityOverlay::new();
+
 		// We are assuming (incorrectly) to have all the weight (for the mandatory class or even
 		// full block) available to us. This can lead to slightly overweight blocks, which still
 		// works as the dispatch class for `enter` is `Mandatory`. By using the `Mandatory`
@@ -517,6 +520,10 @@ impl<T: Config> Pallet<T> {
 				parent_header,
 			};
 
+			for (para_id, candidates) in pending_availability_overlay.into_iter() {
+				<inclusion::PendingAvailability<T>>::set(para_id, candidates);
+			}
+
 			// The relay chain we are currently on is invalid. Proceed no further on parachains.
 			return Ok((processed, Some(checked_disputes_sets_consumed_weight).into()))
 		}
@@ -542,9 +549,12 @@ impl<T: Config> Pallet<T> {
 		let (freed_disputed_cores, freed_disputed_candidates): (
 			BTreeMap<CoreIndex, FreedReason>,
 			BTreeSet<CandidateHash>,
-		) = <inclusion::Pallet<T>>::collect_disputed(&current_concluded_invalid_disputes)
-			.map(|(core, candidate)| ((core, FreedReason::Concluded), candidate))
-			.unzip();
+		) = <inclusion::Pallet<T>>::collect_disputed(
+			&current_concluded_invalid_disputes,
+			&mut pending_availability_overlay,
+		)
+		.map(|(core, candidate)| ((core, FreedReason::Concluded), candidate))
+		.unzip();
 
 		// Create a bit index from the set of core indices where each index corresponds to
 		// a core index that was freed due to a dispute.
@@ -577,6 +587,7 @@ impl<T: Config> Pallet<T> {
 				&validator_public[..],
 				bitfields.clone(),
 				<scheduler::Pallet<T>>::core_para,
+				&mut pending_availability_overlay,
 			);
 
 		// Inform the disputes module of all included candidates.
@@ -586,7 +597,10 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_included(freed_concluded.len() as u64);
 
-		let freed = collect_all_freed_cores::<T, _>(freed_concluded.iter().cloned());
+		let freed = collect_all_freed_cores::<T, _>(
+			freed_concluded.iter().cloned(),
+			&mut pending_availability_overlay,
+		);
 
 		<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(freed, now);
 
@@ -613,6 +627,7 @@ impl<T: Config> Pallet<T> {
 			freed_disputed_candidates,
 			scheduled,
 			core_index_enabled,
+			&mut pending_availability_overlay,
 		);
 		let count = count_backed_candidates(&backed_candidates_with_core);
 
@@ -639,6 +654,7 @@ impl<T: Config> Pallet<T> {
 			&backed_candidates_with_core,
 			<scheduler::Pallet<T>>::group_validators,
 			core_index_enabled,
+			&mut pending_availability_overlay,
 		)?;
 		// Note which of the scheduled cores were actually occupied by a backed candidate.
 		<scheduler::Pallet<T>>::occupied(occupied.into_iter().map(|e| (e.0, e.1)).collect());
@@ -667,6 +683,11 @@ impl<T: Config> Pallet<T> {
 			disputes,
 			parent_header,
 		};
+
+		// Write back to storage only keys that have been updated or deleted.
+		for (para_id, candidates) in pending_availability_overlay.into_iter() {
+			<inclusion::PendingAvailability<T>>::set(para_id, candidates);
+		}
 		Ok((processed, Some(all_weight_after).into()))
 	}
 }
@@ -986,6 +1007,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	concluded_invalid_with_descendants: BTreeSet<CandidateHash>,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	core_index_enabled: bool,
+	pending_availabiltiy_overlay: &mut PendingAvailabilityOverlay<T>,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
 	// Map the candidates to the right paraids, while making sure that the order between candidates
 	// of the same para is preserved.
@@ -999,7 +1021,11 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 
 	// Check that candidates pertaining to the same para form a chain. Drop the ones that
 	// don't, along with the rest of candidates which follow them in the input vector.
-	filter_unchained_candidates::<T>(&mut candidates_per_para, allowed_relay_parents);
+	filter_unchained_candidates::<T>(
+		&mut candidates_per_para,
+		allowed_relay_parents,
+		pending_availabiltiy_overlay,
+	);
 
 	// Remove any candidates that were concluded invalid or who are descendants of concluded invalid
 	// candidates (along with their descendants).
@@ -1269,6 +1295,7 @@ fn filter_backed_statements_from_disabled_validators<
 fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion::Config>(
 	candidates: &mut BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
+	pending_availabiltiy_overlay: &mut PendingAvailabilityOverlay<T>,
 ) {
 	let mut para_latest_head_data: BTreeMap<ParaId, HeadData> = BTreeMap::new();
 	for para_id in candidates.keys() {

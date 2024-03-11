@@ -17,7 +17,10 @@
 //! Utilities that don't belong to any particular module but may draw
 //! on all modules.
 
+use core::marker::PhantomData;
+
 use frame_system::pallet_prelude::BlockNumberFor;
+use hashbrown::HashMap;
 use primitives::{HeadData, Id as ParaId, PersistedValidationData, ValidatorIndex};
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
@@ -113,6 +116,61 @@ pub fn take_active_subset<T: Clone>(active: &[ValidatorIndex], set: &[T]) -> Vec
 	}
 
 	subset
+}
+
+pub(crate) trait PopulateKeys {
+	type Key;
+	type Value;
+
+	/// Load from actual storage into a HashMap. We need to ensure there are no
+	/// hash collisions
+	fn populate() -> HashMap<Self::Key, Self::Value>;
+}
+
+// An in memory overlay for large storage maps that we frequently iterate and want
+// to reading/writing to multiple times. A cache with write back capabilities.
+//
+// Maybe TODO(in the future): move this capability to FRAME and ensure we use blake256 hashing of 
+// keys, to ensure attackers cannot control the keys and force us to create overweight blocks.
+pub(crate) struct StorageMapOverlay<K, V, P: PopulateKeys> {
+	data: hashbrown::HashMap<K, V>,
+	modified: hashbrown::HashSet<K>,
+	_phantom: PhantomData<P>,
+}
+
+impl<K, V, P> StorageMapOverlay<K, V, P>
+where
+	K: sp_std::hash::Hash + Eq + PartialEq + Clone + Copy,
+	V: Clone,
+	P: PopulateKeys<Key = K, Value = V>,
+{
+	// Construct a new overlay instance.
+	pub fn new() -> Self {
+		let data = P::populate();
+		Self { data, modified: Default::default(), _phantom: Default::default() }
+	}
+
+	/// Get a value from cache.
+	pub fn get(&self, key: &K) -> Option<V> {
+		self.data.get(key).cloned()
+	}
+
+	/// Update a value and make key dirty.
+	pub fn set(&mut self, key: K, value: V) {
+		self.data.insert(key, value);
+		self.modified.insert(key);
+	}
+
+	/// Returns all the dirty keys/values to be updated by caller.
+	pub fn into_iter(mut self) -> impl IntoIterator<Item = (K, Option<V>)> {
+		self.modified.into_iter().map(move |key| (key, self.data.remove(&key)))
+	}
+
+	/// Get an iterator over all elements in storage.
+	/// This will read the entire storage.
+	pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+		self.data.iter()
+	}
 }
 
 #[cfg(test)]

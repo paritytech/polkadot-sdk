@@ -25,7 +25,7 @@ use crate::{
 	paras::{self, SetGoAhead},
 	scheduler::{self, AvailabilityTimeoutStatus},
 	shared::{self, AllowedRelayParentsTracker},
-	util::make_persisted_validation_data_with_parent,
+	util::{make_persisted_validation_data_with_parent, PopulateKeys, StorageMapOverlay},
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::{
@@ -35,6 +35,7 @@ use frame_support::{
 	BoundedSlice,
 };
 use frame_system::pallet_prelude::*;
+use hashbrown::HashMap;
 use pallet_message_queue::OnQueueChanged;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{
@@ -442,50 +443,25 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 	}
 }
 
-// An in memory overlay for large storage maps that we frequently iterate and want
-// to reading/writing to multiple times. A cache with write back capabilities.
-struct StorageMapOverlay<K, V, F> {
-	data: hashbrown::HashMap<K, V>,
-	modified: hashbrown::HashSet<K>,
-	populate_key: F,
-}
+pub(crate) struct PopulatePendingAvailability<T>(PhantomData<T>);
 
-impl<K, V, F> StorageMapOverlay<K, V, F>
+impl<T> PopulateKeys for PopulatePendingAvailability<T>
 where
-	K: sp_std::hash::Hash + Eq + PartialEq + Clone + Copy,
-	V: Clone,
-	F: Fn(K) -> Option<V>,
+	T: Config,
 {
-	// Construct a new overlay instance given the populate fn.
-	pub fn new(populate_key: F) -> Self {
-		Self { populate_key, data: Default::default(), modified: Default::default() }
-	}
+	type Key = ParaId;
+	type Value = VecDeque<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>>;
 
-	/// Get a value from cache.
-	pub fn get(&mut self, key: &K) -> Option<V> {
-		self.data.get(key).cloned().or_else(|| {
-			let value = (self.populate_key)(*key);
-
-			if let Some(value) = value {
-				self.data.insert(*key, value.clone());
-				Some(value)
-			} else {
-				None
-			}
-		})
-	}
-
-	/// Update a value and make key dirty.
-	pub fn set(&mut self, key: K, value: V) {
-		self.data.insert(key, value);
-		self.modified.insert(key);
-	}
-
-	/// Returns all the dirty keys/values to be updated by caller.
-	pub fn into_iter(mut self) -> impl IntoIterator<Item = (K, Option<V>)> {
-		self.modified.into_iter().map(move |key| (key, self.data.remove(&key)))
+	fn populate() -> HashMap<Self::Key, Self::Value> {
+		<PendingAvailability<T>>::iter().collect()
 	}
 }
+
+pub(crate) type PendingAvailabilityOverlay<T> = StorageMapOverlay<
+	ParaId,
+	VecDeque<CandidatePendingAvailability<<T as frame_system::Config>::Hash, BlockNumberFor<T>>>,
+	PopulatePendingAvailability<T>,
+>;
 
 impl<T: Config> Pallet<T> {
 	/// Block initialization logic, called by initializer.
@@ -531,6 +507,7 @@ impl<T: Config> Pallet<T> {
 		validators: &[ValidatorId],
 		signed_bitfields: SignedAvailabilityBitfields,
 		core_lookup: F,
+		pending_availability_overlay: &mut PendingAvailabilityOverlay<T>,
 	) -> Vec<(CoreIndex, CandidateHash)>
 	where
 		F: Fn(CoreIndex) -> Option<ParaId>,
@@ -540,7 +517,7 @@ impl<T: Config> Pallet<T> {
 
 		let mut votes_per_core: BTreeMap<CoreIndex, BTreeSet<ValidatorIndex>> = BTreeMap::new();
 
-		// We copy all the key/vals from the pending availability candidates in memory.
+		// We on demand copy the key/vals from the pending availability candidates in memory.
 		// Considering that commitments have been merged into `CandidatePendingAvailability` we
 		// need the below loops to operate `in-memory`.
 		//
@@ -548,11 +525,6 @@ impl<T: Config> Pallet<T> {
 		// It is safe to do so because the key is not susceptible to hash collision attacks,
 		// as attackers cannot control the `para_id` being assigned. These are assigned in order
 		// and bounded economically.
-		// let mut pending_availability =
-		// 	<PendingAvailability<T>>::drain().collect::<hashbrown::HashMap<_, _>>();
-
-		let mut pending_availability =
-			StorageMapOverlay::new(|key| <PendingAvailability<T>>::get(key));
 
 		for (checked_bitfield, validator_index) in
 			signed_bitfields.into_iter().map(|signed_bitfield| {
@@ -667,6 +639,7 @@ impl<T: Config> Pallet<T> {
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
 		core_index_enabled: bool,
+		pending_availability_overlay: &mut PendingAvailabilityOverlay<T>,
 	) -> Result<ProcessedCandidates<T::Hash>, DispatchError>
 	where
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
@@ -735,28 +708,29 @@ impl<T: Config> Pallet<T> {
 					.push((candidate.receipt(), backer_idx_and_attestation));
 				core_indices.push((*core, *para_id));
 
-				// Update storage now
-				<PendingAvailability<T>>::mutate(&para_id, |pending_availability| {
-					let new_candidate = CandidatePendingAvailability {
-						core: *core,
-						hash: candidate_hash,
-						descriptor: candidate.candidate().descriptor.clone(),
-						commitments: candidate.candidate().commitments.clone(),
-						// initialize all availability votes to 0.
-						availability_votes: bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()],
-						relay_parent_number,
-						backers: backers.to_bitvec(),
-						backed_in_number: now,
-						backing_group: group_idx,
-					};
+				let new_candidate = CandidatePendingAvailability {
+					core: *core,
+					hash: candidate_hash,
+					descriptor: candidate.candidate().descriptor.clone(),
+					commitments: candidate.candidate().commitments.clone(),
+					// initialize all availability votes to 0.
+					availability_votes: bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()],
+					relay_parent_number,
+					backers: backers.to_bitvec(),
+					backed_in_number: now,
+					backing_group: group_idx,
+				};
 
-					if let Some(pending_availability) = pending_availability {
-						pending_availability.push_back(new_candidate);
-					} else {
-						*pending_availability =
-							Some([new_candidate].into_iter().collect::<VecDeque<_>>())
-					}
-				});
+				// Update storage now
+				if let Some(mut candidates_pending_availability) =
+					pending_availability_overlay.get(&para_id)
+				{
+					candidates_pending_availability.push_back(new_candidate);
+					pending_availability_overlay.set(*para_id, candidates_pending_availability);
+				} else {
+					pending_availability_overlay
+						.set(*para_id, vec![new_candidate].into_iter().collect::<VecDeque<_>>());
+				}
 
 				// Deposit backed event.
 				Self::deposit_event(Event::<T>::CandidateBacked(
@@ -1060,6 +1034,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns a vector of cleaned-up core IDs.
 	pub(crate) fn collect_timedout(
 		pred: impl Fn(BlockNumberFor<T>) -> AvailabilityTimeoutStatus<BlockNumberFor<T>>,
+		pending_availability_overlay: &mut PendingAvailabilityOverlay<T>,
 	) -> Vec<CoreIndex> {
 		let timed_out: Vec<_> =
 			Self::free_failed_cores(|candidate| pred(candidate.backed_in_number).timed_out, None)
@@ -1105,10 +1080,15 @@ impl<T: Config> Pallet<T> {
 	>(
 		pred: P,
 		capacity_hint: Option<usize>,
+		pending_availability_overlay: &mut PendingAvailabilityOverlay<T>,
 	) -> impl Iterator<Item = CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
 		let mut earliest_dropped_indices: BTreeMap<ParaId, usize> = BTreeMap::new();
 
-		for (para_id, pending_candidates) in <PendingAvailability<T>>::iter() {
+		let pending = pending_availability_overlay
+			.iter()
+			.map(|(para_id, pending_candidates)| (*para_id, pending_candidates.clone()))
+			.collect::<Vec<_>>();
+		for (para_id, pending_candidates) in pending {
 			// We assume that pending candidates are stored in dependency order. So we need to store
 			// the earliest dropped candidate. All others that follow will get freed as well.
 			let mut earliest_dropped_idx = None;
@@ -1178,6 +1158,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the first `CommittedCandidateReceipt` pending availability for the para provided, if
 	/// any.
+	/// No need to pass overlay here, as this is a runtime API.
 	pub(crate) fn candidate_pending_availability(
 		para: ParaId,
 	) -> Option<CommittedCandidateReceipt<T::Hash>> {
@@ -1191,6 +1172,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the metadata around the first candidate pending availability for the
 	/// para provided, if any.
+	/// No need to pass overlay here, as this is a runtime API.
 	pub(crate) fn pending_availability(
 		para: ParaId,
 	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
