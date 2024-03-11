@@ -24,7 +24,7 @@
 use crate::{
 	configuration,
 	disputes::DisputesHandler,
-	inclusion::{self, CandidateCheckContext, PVDMismatch},
+	inclusion::{self, CandidateCheckContext},
 	initializer,
 	metrics::METRICS,
 	paras,
@@ -134,14 +134,8 @@ pub mod pallet {
 		/// The hash of the submitted parent header doesn't correspond to the saved block hash of
 		/// the parent.
 		InvalidParentHeader,
-		/// Disputed candidate that was concluded invalid.
-		CandidateConcludedInvalid,
 		/// The data given to the inherent will result in an overweight block.
 		InherentOverweight,
-		/// The ordering of dispute statements was invalid.
-		DisputeStatementsUnsortedOrDuplicates,
-		/// A dispute statement was invalid.
-		DisputeInvalid,
 		/// A candidate was filtered during inherent execution. This should have only been done
 		/// during creation.
 		CandidatesFilteredDuringExecution,
@@ -1318,15 +1312,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 			candidate.candidate(),
 			latest_head_data.clone(),
 		) {
-			Ok(Err(PVDMismatch)) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"Found backed candidates which don't form a chain for paraid {:?}. The order may also be wrong. Dropping the candidates.",
-					para_id
-				);
-				false
-			},
-			Ok(Ok(_)) => true,
+			Ok(_) => true,
 			Err(err) => {
 				log::debug!(
 					target: LOG_TARGET,

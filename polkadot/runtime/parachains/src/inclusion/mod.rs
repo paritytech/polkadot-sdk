@@ -314,28 +314,10 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Validator indices are out of order or contains duplicates.
-		UnsortedOrDuplicateValidatorIndices,
-		/// Dispute statement sets are out of order or contain duplicates.
-		UnsortedOrDuplicateDisputeStatementSet,
-		/// Backed candidates are out of order (core index) or contain duplicates.
-		UnsortedOrDuplicateBackedCandidates,
-		/// A different relay parent was provided compared to the on-chain stored one.
-		UnexpectedRelayParent,
-		/// Availability bitfield has unexpected size.
-		WrongBitfieldSize,
-		/// Bitfield consists of zeros only.
-		BitfieldAllZeros,
-		/// Multiple bitfields submitted by same validator or validators out of order by index.
-		BitfieldDuplicateOrUnordered,
 		/// Validator index out of bounds.
 		ValidatorIndexOutOfBounds,
-		/// Invalid signature
-		InvalidBitfieldSignature,
 		/// Candidate submitted but para not scheduled.
 		UnscheduledCandidate,
-		/// Candidate scheduled despite pending candidate already existing for the para.
-		CandidateScheduledBeforeParaFree,
 		/// Head data exceeds the configured maximum.
 		HeadDataTooLarge,
 		/// Code upgrade prematurely.
@@ -356,6 +338,8 @@ pub mod pallet {
 		InvalidBacking,
 		/// Collator did not sign PoV.
 		NotCollatorSigned,
+		/// The validation data hash does not match expected.
+		ValidationDataHashMismatch,
 		/// The downward message queue is not processed correctly.
 		IncorrectDownwardMessageHandling,
 		/// At least one upward message sent does not pass the acceptance criteria.
@@ -369,10 +353,6 @@ pub mod pallet {
 		/// The `para_head` hash in the candidate descriptor doesn't match the hash of the actual
 		/// para head in the commitments.
 		ParaHeadMismatch,
-		/// A bitfield that references a freed core,
-		/// either intentionally or as part of a concluded
-		/// invalid dispute.
-		BitfieldReferencesFreedCore,
 	}
 
 	/// The latest bitfield for each validator, referred to by their index in the validator set.
@@ -640,9 +620,6 @@ impl<T: Config> Pallet<T> {
 		let mut core_indices = Vec::with_capacity(candidates.len());
 
 		for (para_id, candidates) in candidates {
-			// PVD hash should have already been checked in `filter_unchained_candidates`, but do it
-			// again for safety.
-
 			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
 				None => {
 					defensive!("Latest included head data for paraid {:?} is None", para_id);
@@ -655,18 +632,11 @@ impl<T: Config> Pallet<T> {
 				let candidate_hash = candidate.candidate().hash();
 
 				let check_ctx = CandidateCheckContext::<T>::new(None);
-				let relay_parent_number = match check_ctx.verify_backed_candidate(
+				let relay_parent_number = check_ctx.verify_backed_candidate(
 					&allowed_relay_parents,
 					candidate.candidate(),
 					latest_head_data.clone(),
-				)? {
-					Err(PVDMismatch) => {
-						// This means that this candidate is not a child of
-						// latest_head_data.
-						break
-					},
-					Ok(relay_parent_number) => relay_parent_number,
-				};
+				)?;
 
 				// The candidate based upon relay parent `N` should be backed by a
 				// group assigned to core at block `N + 1`. Thus,
@@ -1221,11 +1191,6 @@ pub(crate) struct CandidateCheckContext<T: Config> {
 	prev_context: Option<BlockNumberFor<T>>,
 }
 
-/// An error indicating that creating Persisted Validation Data failed
-/// while checking a candidate's validity.
-#[derive(PartialEq)]
-pub(crate) struct PVDMismatch;
-
 impl<T: Config> CandidateCheckContext<T> {
 	pub(crate) fn new(prev_context: Option<BlockNumberFor<T>>) -> Self {
 		Self { config: <configuration::Pallet<T>>::config(), prev_context }
@@ -1245,7 +1210,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		backed_candidate_receipt: &CommittedCandidateReceipt<<T as frame_system::Config>::Hash>,
 		parent_head_data: HeadData,
-	) -> Result<Result<BlockNumberFor<T>, PVDMismatch>, Error<T>> {
+	) -> Result<BlockNumberFor<T>, Error<T>> {
 		let para_id = backed_candidate_receipt.descriptor().para_id;
 		let relay_parent = backed_candidate_receipt.descriptor().relay_parent;
 
@@ -1266,9 +1231,10 @@ impl<T: Config> CandidateCheckContext<T> {
 
 			let expected = persisted_validation_data.hash();
 
-			if backed_candidate_receipt.descriptor().persisted_validation_data_hash != expected {
-				return Ok(Err(PVDMismatch))
-			}
+			ensure!(
+				expected == backed_candidate_receipt.descriptor().persisted_validation_data_hash,
+				Error::<T>::ValidationDataHashMismatch,
+			);
 		}
 
 		ensure!(
@@ -1308,7 +1274,7 @@ impl<T: Config> CandidateCheckContext<T> {
 			);
 			Err(err.strip_into_dispatch_err::<T>())?;
 		};
-		Ok(Ok(relay_parent_number))
+		Ok(relay_parent_number)
 	}
 
 	/// Check the given outputs after candidate validation on whether it passes the acceptance

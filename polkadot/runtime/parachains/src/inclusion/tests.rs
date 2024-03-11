@@ -1175,21 +1175,17 @@ fn candidate_checks() {
 				None,
 			);
 
-			// validation data hash mismatch is not fatal, but candidates will be dropped.
-			let ProcessedCandidates {
-				core_indices: occupied_cores,
-				candidate_receipt_with_backing_validator_indices,
-			} = ParaInclusion::process_candidates(
-				&allowed_relay_parents,
-				&vec![(chain_a_assignment.0, vec![(backed, chain_a_assignment.1)])]
-					.into_iter()
-					.collect(),
-				&group_validators,
-				false,
-			)
-			.unwrap();
-			assert!(occupied_cores.is_empty());
-			assert!(candidate_receipt_with_backing_validator_indices.is_empty());
+			assert_noop!(
+				ParaInclusion::process_candidates(
+					&allowed_relay_parents,
+					&vec![(chain_a_assignment.0, vec![(backed, chain_a_assignment.1)])]
+						.into_iter()
+						.collect(),
+					&group_validators,
+					false,
+				),
+				Error::<Test>::ValidationDataHashMismatch
+			);
 		}
 
 		// bad validation code hash
