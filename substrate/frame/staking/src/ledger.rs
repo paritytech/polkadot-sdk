@@ -32,8 +32,8 @@
 //! state consistency.
 
 use frame_support::{
-	defensive,
-	traits::{LockableCurrency, WithdrawReasons},
+	defensive, ensure,
+	traits::{Defensive, LockableCurrency, WithdrawReasons},
 };
 use sp_staking::StakingAccount;
 use sp_std::prelude::*;
@@ -199,6 +199,32 @@ impl<T: Config> StakingLedger<T> {
 			<Payee<T>>::insert(&self.stash, payee);
 			Ok(())
 		}
+	}
+
+	/// Sets the ledger controller to its stash.
+	pub(crate) fn set_controller_to_stash(self) -> Result<(), Error<T>> {
+		let controller = self.controller.as_ref()
+            .defensive_proof("Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.")
+            .ok_or(Error::<T>::NotController)?;
+
+		ensure!(self.stash != *controller, Error::<T>::AlreadyPaired);
+
+		match Ledger::<T>::get(&self.stash) {
+			Some(other_ledger) => {
+				if other_ledger.stash != self.stash {
+					// stash is a controller of another ledger, fail with `Error::<T>::DoubleBonded`
+					// to avoid data inconsistencies.
+					return Err(Error::<T>::DoubleBonded);
+				}
+			},
+			None => (), // proceed.
+		}
+
+		<Ledger<T>>::remove(&controller);
+		<Ledger<T>>::insert(&self.stash, &self);
+		<Bonded<T>>::insert(&self.stash, &self.stash);
+
+		Ok(())
 	}
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]

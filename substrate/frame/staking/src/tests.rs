@@ -7161,4 +7161,78 @@ mod ledger {
 			assert_eq!(ledger_updated.stash, stash);
 		})
 	}
+
+	#[test]
+	fn deprecate_controller_batch_with_double_bonded_ok() {
+		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// now let's deprecate all the controllers for all the existing ledgers.
+			let bounded_controllers: BoundedVec<
+				_,
+				<Test as Config>::MaxControllersInDeprecationBatch,
+			> = BoundedVec::try_from(vec![1, 2, 3, 4]).unwrap();
+
+			assert_ok!(Staking::deprecate_controller_batch(
+				RuntimeOrigin::root(),
+				bounded_controllers
+			));
+
+			assert_eq!(
+				*staking_events().last().unwrap(),
+				Event::ControllerBatchDeprecated { failures: 0 }
+			);
+		})
+	}
+
+	#[test]
+	fn deprecate_controller_batch_with_double_bonded_failures() {
+		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// now let's deprecate all the controllers for all the existing ledgers.
+			let bounded_controllers: BoundedVec<
+				_,
+				<Test as Config>::MaxControllersInDeprecationBatch,
+			> = BoundedVec::try_from(vec![4, 3, 2, 1]).unwrap();
+
+			assert_ok!(Staking::deprecate_controller_batch(
+				RuntimeOrigin::root(),
+				bounded_controllers
+			));
+
+			assert_eq!(
+				*staking_events().last().unwrap(),
+				Event::ControllerBatchDeprecated { failures: 2 }
+			);
+		})
+	}
+
+	#[test]
+	fn set_controller_with_double_bonded_ok() {
+		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(1)));
+			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(2)));
+			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(3)));
+		})
+	}
+
+	#[test]
+	fn set_controller_with_double_bonded_fail() {
+		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			assert_noop!(
+				Staking::set_controller(RuntimeOrigin::signed(3)),
+				Error::<Test>::DoubleBonded
+			);
+			assert_noop!(
+				Staking::set_controller(RuntimeOrigin::signed(2)),
+				Error::<Test>::DoubleBonded
+			);
+			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(1)));
+		})
+	}
 }

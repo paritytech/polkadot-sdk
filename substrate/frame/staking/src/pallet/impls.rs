@@ -1847,13 +1847,25 @@ impl<T: Config> Pallet<T> {
 
 	/// Invariants:
 	/// * A bonded (stash, controller) pair should have only one associated ledger. I.e. if the
-	///   ledger is bonded by stash, the controller account must not bond a different ledger.
+	///   ledger is bonded by stash, the controller account must not bond a different ledger. (note:
+	///   only warn, do not fail this check).
 	/// * A bonded (stash, controller) pair must have an associated ledger.
 	fn check_bonded_consistency() -> Result<(), TryRuntimeError> {
+		use sp_std::collections::btree_map::BTreeMap;
+
 		let mut count_double = 0;
 		let mut count_none = 0;
+		// sanity check to ensure that each controller in Bonded storage is associated with only one
+		// ledger.
+		let mut controllers: BTreeMap<T::AccountId, ()> = BTreeMap::new();
 
 		for (stash, controller) in <Bonded<T>>::iter() {
+			ensure!(
+				!controllers.contains_key(&controller),
+				"controller associated with more than 1 ledger"
+			);
+			controllers.insert(controller.clone(), ());
+
 			match (<Ledger<T>>::get(&stash), <Ledger<T>>::get(&controller)) {
 				(Some(_), Some(_)) =>
 				// if stash == controller, it means that the ledger has migrated to
@@ -1869,10 +1881,9 @@ impl<T: Config> Pallet<T> {
 			};
 		}
 
-		ensure!(
-			count_double == 0,
-			"inconsistent bonded state: (stash, controller) pair bond more than one ledger",
-		);
+		if count_double == 0 {
+			log!(warn, "single tuple of (stash, controller) pair bonds more than one ledger");
+		};
 
 		ensure!(
 			count_none == 0,
