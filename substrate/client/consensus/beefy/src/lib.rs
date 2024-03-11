@@ -42,7 +42,7 @@ use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as Gossi
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_blockchain::{
-	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
+	Backend as BlockchainBackend, HeaderBackend,
 };
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
