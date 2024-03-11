@@ -54,7 +54,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			<ParachainId<T>>::put(self.parachain_id);
+			ParachainId::<T>::put(self.parachain_id);
 		}
 	}
 
@@ -69,6 +69,12 @@ pub mod pallet {
 
 	impl<T: Config> Get<ParaId> for Pallet<T> {
 		fn get() -> ParaId {
+			ParachainId::<T>::get()
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub fn parachain_id() -> ParaId {
 			ParachainId::<T>::get()
 		}
 	}

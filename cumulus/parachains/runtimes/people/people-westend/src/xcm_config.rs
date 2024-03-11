@@ -53,7 +53,7 @@ parameter_types! {
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Westend);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
-		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(<ParachainInfo as sp_runtime::traits::Get<crate::ParaId>>::get().into().into())].into();
+		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub FellowshipLocation: Location = Location::new(1, Parachain(1001));

@@ -61,7 +61,7 @@ parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorLocation = [Parachain(<ParachainInfo as sp_runtime::traits::Get<crate::ParaId>>::get().into().into())].into();
+	pub UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
