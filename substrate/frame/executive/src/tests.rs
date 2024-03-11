@@ -36,7 +36,9 @@ use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
 	traits::{fungible, ConstU8, Currency, IsInherent},
-	weights::{ConstantMultiplier, IdentityFee, RuntimeDbRefTime, Weight, WeightMeter, WeightToFee},
+	weights::{
+		ConstantMultiplier, IdentityFee, RuntimeDbRefTime, Weight, WeightMeter, WeightToFee,
+	},
 };
 use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
 use pallet_balances::Call as BalancesCall;
