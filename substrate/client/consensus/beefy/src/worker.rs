@@ -43,8 +43,8 @@ use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
 	check_equivocation_proof, AuthorityIdBound, BeefyApi, BeefySignatureHasher, Commitment,
-	 EquivocationProof, PayloadProvider, ValidatorSet, VersionedFinalityProof,
-	VoteMessage, BEEFY_ENGINE_ID,
+	EquivocationProof, PayloadProvider, ValidatorSet, VersionedFinalityProof, VoteMessage,
+	BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
 	generic::BlockId,

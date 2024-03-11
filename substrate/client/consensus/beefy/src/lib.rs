@@ -41,9 +41,7 @@ use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::RuntimeAppPublic;
-use sp_blockchain::{
-	Backend as BlockchainBackend, HeaderBackend,
-};
+use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
 	AuthorityIdBound, BeefyApi, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
