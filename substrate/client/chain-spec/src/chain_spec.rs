@@ -648,6 +648,7 @@ where
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
+
 			(
 				true,
 				Genesis::RuntimeGenesis(RuntimeGenesisInner {

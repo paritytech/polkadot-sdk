@@ -41,18 +41,19 @@
 
 #![deny(unused_crate_dependencies)]
 
-use std::sync::Arc;
-
 use jsonrpsee::{
 	core::async_trait,
 	proc_macros::rpc,
 	types::{ErrorObject, ErrorObjectOwned},
 };
 
-use sc_client_api::StorageData;
+use sc_client_api::{ProofProvider, StorageData};
 use sc_consensus_babe::{BabeWorkerHandle, Error as BabeError};
+use sp_api::StorageProof;
 use sp_blockchain::HeaderBackend;
+use sp_core::storage::well_known_keys;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
+use std::sync::Arc;
 
 type SharedAuthoritySet<TBl> =
 	sc_consensus_grandpa::SharedAuthoritySet<<TBl as BlockT>::Hash, NumberFor<TBl>>;
@@ -78,6 +79,12 @@ pub enum Error<Block: BlockT> {
 		Read the `sc-sync-state-rpc` crate docs on how to do this!"
 	)]
 	LightSyncStateExtensionNotFound,
+
+	#[error(
+		"The checkpoint extension is not provided by the chain spec. \
+		Read the `sc-sync-state-rpc` crate docs on how to do this!"
+	)]
+	CheckpointExtensionNotFound,
 }
 
 impl<Block: BlockT> From<Error<Block>> for ErrorObjectOwned {
@@ -124,6 +131,32 @@ pub struct LightSyncState<Block: BlockT> {
 		sc_consensus_grandpa::AuthoritySet<<Block as BlockT>::Hash, NumberFor<Block>>,
 }
 
+/// The checkpoint extension.
+///
+/// This represents a [`Checkpoint`]. It is required to be added to the
+/// chain-spec as an extension.
+pub type CheckpointExtension = Option<SerdePassThrough<serde_json::Value>>;
+
+/// A serde wrapper that passes through the given value.
+///
+/// This is introduced to distinguish between the `LightSyncStateExtension`
+/// and `CheckpointExtension` extension types.
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct SerdePassThrough<T>(T);
+
+/// Checkpoint information that allows light clients to sync quickly.
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct Checkpoint<Block: BlockT> {
+	/// The header of the best finalized block.
+	#[serde(serialize_with = "serialize_encoded")]
+	pub header: <Block as BlockT>::Header,
+	/// The epoch changes tree for babe.
+	#[serde(serialize_with = "serialize_encoded")]
+	pub call_proof: StorageProof,
+}
+
 /// An api for sync state RPC calls.
 #[rpc(client, server)]
 pub trait SyncStateApi<B: BlockT> {
@@ -143,7 +176,7 @@ pub struct SyncState<Block: BlockT, Client> {
 impl<Block, Client> SyncState<Block, Client>
 where
 	Block: BlockT,
-	Client: HeaderBackend<Block> + sc_client_api::AuxStore + 'static,
+	Client: HeaderBackend<Block> + sc_client_api::AuxStore + ProofProvider<Block> + 'static,
 {
 	/// Create a new sync state RPC helper.
 	pub fn new(
@@ -152,13 +185,16 @@ where
 		shared_authority_set: SharedAuthoritySet<Block>,
 		babe_worker_handle: BabeWorkerHandle<Block>,
 	) -> Result<Self, Error<Block>> {
-		if sc_chain_spec::get_extension::<LightSyncStateExtension>(chain_spec.extensions())
-			.is_some()
-		{
-			Ok(Self { chain_spec, client, shared_authority_set, babe_worker_handle })
-		} else {
-			Err(Error::<Block>::LightSyncStateExtensionNotFound)
+		if sc_chain_spec::get_extension::<CheckpointExtension>(chain_spec.extensions()).is_none() {
+			return Err(Error::<Block>::CheckpointExtensionNotFound)
 		}
+		if sc_chain_spec::get_extension::<LightSyncStateExtension>(chain_spec.extensions())
+			.is_none()
+		{
+			return Err(Error::<Block>::LightSyncStateExtensionNotFound)
+		}
+
+		Ok(Self { chain_spec, client, shared_authority_set, babe_worker_handle })
 	}
 
 	async fn build_sync_state(&self) -> Result<LightSyncState<Block>, Error<Block>> {
@@ -185,28 +221,142 @@ where
 			grandpa_authority_set: self.shared_authority_set.clone_inner(),
 		})
 	}
+
+	fn build_checkpoint(&self) -> Result<Checkpoint<Block>, sp_blockchain::Error> {
+		let finalized_hash = self.client.info().finalized_hash;
+		let finalized_header = self
+			.client
+			.header(finalized_hash)?
+			.ok_or_else(|| sp_blockchain::Error::MissingHeader(finalized_hash.to_string()))?;
+
+		let call_proof = generate_checkpoint_proof(&self.client, finalized_hash)?;
+
+		Ok(Checkpoint { header: finalized_header, call_proof })
+	}
 }
 
 #[async_trait]
 impl<Block, Backend> SyncStateApiServer<Block> for SyncState<Block, Backend>
 where
 	Block: BlockT,
-	Backend: HeaderBackend<Block> + sc_client_api::AuxStore + 'static,
+	Backend: HeaderBackend<Block> + sc_client_api::AuxStore + ProofProvider<Block> + 'static,
 {
 	async fn system_gen_sync_spec(&self, raw: bool) -> Result<serde_json::Value, Error<Block>> {
+		// Build data to pass to the chainSpec as extensions.
+		// TODO: Both these states could be cached to avoid recomputation.
 		let current_sync_state = self.build_sync_state().await?;
+		let checkpoint_state = self.build_checkpoint()?;
+
 		let mut chain_spec = self.chain_spec.cloned_box();
 
+		// Populate the LightSyncState extension.
 		let extension = sc_chain_spec::get_extension_mut::<LightSyncStateExtension>(
 			chain_spec.extensions_mut(),
 		)
 		.ok_or(Error::<Block>::LightSyncStateExtensionNotFound)?;
-
 		let val = serde_json::to_value(&current_sync_state)
 			.map_err(|e| Error::<Block>::JsonRpc(e.to_string()))?;
 		*extension = Some(val);
 
+		// Populate the Checkpoint extension.
+		let extension =
+			sc_chain_spec::get_extension_mut::<CheckpointExtension>(chain_spec.extensions_mut())
+				.ok_or(Error::<Block>::CheckpointExtensionNotFound)?;
+		let val = serde_json::to_value(&checkpoint_state)
+			.map_err(|e| Error::<Block>::JsonRpc(e.to_string()))?;
+		*extension = Some(SerdePassThrough(val));
+
 		let json_str = chain_spec.as_json(raw).map_err(|e| Error::<Block>::JsonRpc(e))?;
 		serde_json::from_str(&json_str).map_err(|e| Error::<Block>::JsonRpc(e.to_string()))
+	}
+}
+
+/// The runtime functions we'd like to prove in the storage proof.
+const RUNTIME_FUNCTIONS_TO_PROVE: [&str; 5] = [
+	"BabeApi_current_epoch",
+	"BabeApi_next_epoch",
+	"BabeApi_configuration",
+	"GrandpaApi_grandpa_authorities",
+	"GrandpaApi_current_set_id",
+];
+
+/// The checkpoint proof is a single storage proof that helps the lightclient
+/// synchronize to the head of the chain faster.
+///
+/// The lightclient trusts this chekpoint after verifing the proof.
+/// With the verified proof, the lightclient is able to reconstruct what was
+/// previously called as `lightSyncState`.
+///
+/// The checkpoint proof consist of the following proofs merged together:
+/// - `:code` and `:heappages` storage proofs
+/// - `BabeApi_current_epoch`, `BabeApi_next_epoch`, `BabeApi_configuration`,
+///   `GrandpaApi_grandpa_authorities`, and `GrandpaApi_current_set_id` call proofs
+pub fn generate_checkpoint_proof<Client, Block>(
+	client: &Arc<Client>,
+	at: Block::Hash,
+) -> sp_blockchain::Result<StorageProof>
+where
+	Block: BlockT + 'static,
+	Client: ProofProvider<Block> + 'static,
+{
+	// Extract only the proofs.
+	let mut proofs = RUNTIME_FUNCTIONS_TO_PROVE
+		.iter()
+		.map(|func| Ok(client.execution_proof(at, func, Default::default())?.1))
+		.collect::<Result<Vec<_>, sp_blockchain::Error>>()?;
+
+	// Fetch the `:code` and `:heap_pages` in one go.
+	let code_and_heap = client.read_proof(
+		at,
+		&mut [well_known_keys::CODE, well_known_keys::HEAP_PAGES].iter().map(|v| *v),
+	)?;
+	proofs.push(code_and_heap);
+
+	Ok(StorageProof::merge(proofs))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sc_block_builder::BlockBuilderBuilder;
+	use sc_client_api::{StorageKey, StorageProvider};
+	use sp_consensus::BlockOrigin;
+	use std::collections::HashMap;
+	use substrate_test_runtime_client::{prelude::*, ClientBlockImportExt};
+
+	#[tokio::test]
+	async fn check_proof_has_code() {
+		let builder = TestClientBuilder::new();
+		let mut client = Arc::new(builder.build());
+
+		// Import a new block.
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let best_hash = block.header.hash();
+
+		client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+		client.finalize_block(best_hash, None).unwrap();
+
+		let storage_proof = generate_checkpoint_proof(&client, best_hash).unwrap();
+
+		// Inspect the contents of the proof.
+		let memdb = storage_proof.to_memory_db::<sp_runtime::traits::BlakeTwo256>().drain();
+		let storage: HashMap<_, _> =
+			memdb.iter().map(|(key, (value, _n))| (key.as_bytes(), value)).collect();
+
+		// The code entry must be present in the proof.
+		let code = client
+			.storage(best_hash, &StorageKey(well_known_keys::CODE.into()))
+			.unwrap()
+			.unwrap();
+
+		let found_code = storage.iter().any(|(_, value)| value == &&code.0);
+		assert!(found_code);
 	}
 }

@@ -16805,6 +16805,7 @@ version = "0.34.0"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
+ "sc-block-builder",
  "sc-chain-spec",
  "sc-client-api",
  "sc-consensus-babe",
@@ -16812,9 +16813,14 @@ dependencies = [
  "sc-consensus-grandpa",
  "serde",
  "serde_json",
+ "sp-api",
  "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
  "sp-runtime",
+ "substrate-test-runtime-client",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
