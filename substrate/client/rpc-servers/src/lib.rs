@@ -23,7 +23,11 @@
 pub mod middleware;
 
 use std::{
-	convert::Infallible, error::Error as StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
+	convert::Infallible,
+	error::Error as StdError,
+	net::{IpAddr, SocketAddr, ToSocketAddrs},
+	num::NonZeroU32,
+	time::Duration,
 };
 
 use http::header::HeaderValue;
@@ -85,6 +89,8 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub batch_config: BatchRequestConfig,
 	/// Rate limit calls per minute.
 	pub rate_limit: Option<NonZeroU32>,
+	/// Disable rate limit for hosts.
+	pub rate_limit_whitelisted_hosts: &'a [String],
 }
 
 #[derive(Debug, Clone)]
@@ -117,11 +123,13 @@ where
 		tokio_handle,
 		rpc_api,
 		rate_limit,
+		rate_limit_whitelisted_hosts,
 	} = config;
 
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
 	let local_addr = std_listener.local_addr().ok();
 	let host_filter = hosts_filtering(cors.is_some(), local_addr);
+	let rate_limit_whitelisted_ip_addrs = hosts_to_ip_addrs(rate_limit_whitelisted_hosts)?;
 
 	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
@@ -160,20 +168,31 @@ where
 		stop_handle: stop_handle.clone(),
 	};
 
-	let make_service = make_service_fn(move |_conn: &AddrStream| {
+	let make_service = make_service_fn(move |conn: &AddrStream| {
 		let cfg = cfg.clone();
+		let conn_ip = conn.remote_addr().ip();
+		let rate_limit_whitelisted_ip_addrs = rate_limit_whitelisted_ip_addrs.clone();
 
 		async move {
 			let cfg = cfg.clone();
+			let rate_limit_whitelisted_ip_addrs = rate_limit_whitelisted_ip_addrs.clone();
 
 			Ok::<_, Infallible>(service_fn(move |req| {
+				let ip = read_ip(conn_ip, &req);
+
+				let rate_limit_cfg = if rate_limit_whitelisted_ip_addrs.iter().any(|ip2| ip2 == &ip) {
+					None
+				} else {
+					rate_limit
+				};
+
 				let PerConnection { service_builder, metrics, tokio_handle, stop_handle, methods } =
 					cfg.clone();
 
 				let is_websocket = ws::is_upgrade_request(&req);
 				let transport_label = if is_websocket { "ws" } else { "http" };
 
-				let middleware_layer = match (metrics, rate_limit) {
+				let middleware_layer = match (metrics, rate_limit_cfg) {
 					(None, None) => None,
 					(Some(metrics), None) => Some(
 						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
@@ -280,4 +299,36 @@ fn format_cors(maybe_cors: Option<&Vec<String>>) -> String {
 	} else {
 		format!("{:?}", ["*"])
 	}
+}
+
+/// Helper function that tries to read the ip addr from "X-Real-IP" header
+/// which is only set if the connection was made via a reverse-proxy
+///
+/// If that header is missing then remote addr from the socket is used.
+fn read_ip(remote_addr: IpAddr, req: &hyper::Request<hyper::Body>) -> IpAddr {
+	if let Some(ip) = req.headers().get("X-Real-IP").and_then(|v| v.to_str().ok()).and_then(|s| s.parse().ok()) {
+		ip
+	} else {
+		remote_addr
+	}
+}
+
+fn hosts_to_ip_addrs(hosts: &[String]) -> Result<Vec<IpAddr>, Box<dyn StdError + Send + Sync>> {
+	let mut ip_list = Vec::new();
+
+	for host in hosts {
+		// The host may contain a port such as `hostname:8080`
+		// and we don't care about the port to lookup the IP addr.
+		//
+		// to_socket_addr without the port will fail though
+		let host_no_port = if let Some((h, _port)) = host.split_once(":") { h } else { host };
+
+		let sockaddrs = (host_no_port, 0).to_socket_addrs()?;
+
+		for sockaddr in sockaddrs {
+			ip_list.push(sockaddr.ip());
+		}
+	}
+
+	Ok(ip_list)
 }

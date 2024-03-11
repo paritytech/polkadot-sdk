@@ -108,6 +108,8 @@ pub struct Configuration {
 	pub rpc_batch_config: RpcBatchRequestConfig,
 	/// RPC rate limit per minute.
 	pub rpc_rate_limit: Option<NonZeroU32>,
+	/// RPC rate limit whitelisted hosts,
+	pub rpc_rate_limit_whitelisted_hosts: Vec<String>,
 	/// Prometheus endpoint configuration. `None` if disabled.
 	pub prometheus_config: Option<PrometheusConfig>,
 	/// Telemetry service URL. `None` if disabled.

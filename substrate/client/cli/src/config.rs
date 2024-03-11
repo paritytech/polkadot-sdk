@@ -349,6 +349,11 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(None)
 	}
 
+	/// RPC rate limit configuration.
+	fn rpc_rate_limit_whitelisted_hosts(&self) -> Result<Vec<String>> {
+		Ok(vec![])
+	}
+
 	/// Get the prometheus configuration (`None` if disabled)
 	///
 	/// By default this is `None`.
@@ -523,6 +528,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			rpc_message_buffer_capacity: self.rpc_buffer_capacity_per_connection()?,
 			rpc_batch_config: self.rpc_batch_config()?,
 			rpc_rate_limit: self.rpc_rate_limit()?,
+			rpc_rate_limit_whitelisted_hosts: self.rpc_rate_limit_whitelisted_hosts()?,
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
 			telemetry_endpoints,
