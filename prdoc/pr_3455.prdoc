@@ -15,4 +15,3 @@ crates:
   - name: contracts-rococo-runtime
   - name: coretime-rococo-runtime
   - name: coretime-westend-runtime
-  - name: coretime-westend-runtime
