@@ -538,7 +538,8 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type BlockHashCount: Get<BlockNumberFor<Self>>;
 
-		/// The weight of runtime database operations the runtime can invoke.
+		/// The computational time component (`ref_time`) of runtime database operations the runtime
+		/// can invoke.
 		#[pallet::constant]
 		type DbWeight: Get<RuntimeDbWeight>;
 
