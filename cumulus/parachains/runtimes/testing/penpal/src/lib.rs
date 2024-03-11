@@ -53,7 +53,7 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned,
 };
-use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
+use parachains_common::{impls::{AssetsToBlockAuthor, NonZeroIssuance}, message_queue::{NarrowOriginToSibling, ParaIdToSibling}};
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -70,7 +70,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm_config::{AssetsToBlockAuthor, XcmOriginToTransactDispatchOrigin};
+use xcm_config::XcmOriginToTransactDispatchOrigin;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -618,7 +618,7 @@ impl pallet_asset_tx_payment::Config for Runtime {
 			ConvertInto,
 			pallet_assets::Instance1,
 		>,
-		AssetsToBlockAuthor<Runtime>,
+		AssetsToBlockAuthor<Runtime, pallet_assets::Instance1>,
 	>;
 }
 

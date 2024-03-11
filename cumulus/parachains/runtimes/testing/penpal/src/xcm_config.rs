@@ -26,23 +26,21 @@ use super::{
 	AccountId, AllPalletsWithSystem, AssetId as AssetIdPalletAssets, Assets, Authorship, Balance,
 	Balances, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
+	NonZeroIssuance,
 };
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
 	traits::{
-		fungibles::{self, Balanced, Credit},
 		ConstU32, Contains, ContainsPair, Everything, EverythingBut, Get, Nothing,
 	},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
-use pallet_asset_tx_payment::HandleCredit;
-use pallet_assets::Instance1;
 use pallet_xcm::XcmPassthrough;
+use parachains_common::xcm_config::AssetFeeAsExistentialDepositMultiplier;
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
-use sp_runtime::traits::Zero;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -55,10 +53,13 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::JustTry, XcmExecutor};
+use sp_runtime::traits::ConvertInto;
+
 
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
-	pub const NativeCurrency: Location = Location::here();
+	// Local native currency which is stored in `pallet_balances``
+	pub const PenpalNativeCurrency: Location = Location::here();
 	pub const RelayNetwork: Option<NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
@@ -81,7 +82,7 @@ pub type CurrencyTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	IsConcrete<NativeCurrency>,
+	IsConcrete<PenpalNativeCurrency>,
 	// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -193,13 +194,6 @@ impl Contains<Location> for ParentOrParentsExecutivePlurality {
 	}
 }
 
-pub struct CommonGoodAssetsParachain;
-impl Contains<Location> for CommonGoodAssetsParachain {
-	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [Parachain(ASSET_HUB_ID)]))
-	}
-}
-
 pub type Barrier = TrailingSetTopicAsId<(
 	TakeWeightCredit,
 	// Expected responses are OK.
@@ -249,34 +243,6 @@ impl<T: Get<Location>> ContainsPair<Asset, Location> for NativeAssetFrom<T> {
 	}
 }
 
-/// Allow checking in assets that have issuance > 0.
-pub struct NonZeroIssuance<AccountId, Assets>(PhantomData<(AccountId, Assets)>);
-impl<AccountId, Assets> Contains<<Assets as fungibles::Inspect<AccountId>>::AssetId>
-	for NonZeroIssuance<AccountId, Assets>
-where
-	Assets: fungibles::Inspect<AccountId>,
-{
-	fn contains(id: &<Assets as fungibles::Inspect<AccountId>>::AssetId) -> bool {
-		!Assets::total_issuance(id.clone()).is_zero()
-	}
-}
-
-/// A `HandleCredit` implementation that naively transfers the fees to the block author.
-/// Will drop and burn the assets in case the transfer fails.
-pub struct AssetsToBlockAuthor<R>(PhantomData<R>);
-impl<R> HandleCredit<AccountIdOf<R>, pallet_assets::Pallet<R, Instance1>> for AssetsToBlockAuthor<R>
-where
-	R: pallet_authorship::Config + pallet_assets::Config<Instance1>,
-	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
-{
-	fn handle_credit(credit: Credit<AccountIdOf<R>, pallet_assets::Pallet<R, Instance1>>) {
-		if let Some(author) = pallet_authorship::Pallet::<R>::author() {
-			// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
-			let _ = pallet_assets::Pallet::<R, Instance1>::resolve(&author, credit);
-		}
-	}
-}
-
 // This asset can be added to AH as Asset and reserved transfer between Penpal and AH
 pub const RESERVABLE_ASSET_ID: u32 = 1;
 // This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
@@ -288,9 +254,6 @@ pub const ASSET_HUB_ID: u32 = 1000;
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
 	pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
-	pub SystemAssetHubLocationV3: xcm::v3::Location = xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(ASSET_HUB_ID)]);
-	pub RelayLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
-	// ALWAYS ensure that the index in PalletInstance stays up-to-date with
 	// the Relay Chain's Asset Hub's Assets pallet index
 	pub SystemAssetHubAssetsPalletLocation: Location =
 		Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID)]);
@@ -301,17 +264,9 @@ parameter_types! {
 		0,
 		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
 	);
-	pub LocalTeleportableToAssetHubV3: xcm::v3::Location = xcm::v3::Location::new(
-		0,
-		[xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID), xcm::v3::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
-	);
 	pub LocalReservableFromAssetHub: Location = Location::new(
 		1,
 		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())]
-	);
-	pub LocalReservableFromAssetHubV3: xcm::v3::Location = xcm::v3::Location::new(
-		1,
-		[xcm::v3::Junction::Parachain(ASSET_HUB_ID), xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID), xcm::v3::Junction::GeneralIndex(RESERVABLE_ASSET_ID.into())]
 	);
 	pub EthereumLocation: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 }
@@ -356,12 +311,7 @@ impl xcm_executor::Config for XcmConfig {
 		// `pallet_assets` instance - `ForeignAssets`.
 		cumulus_primitives_utility::TakeFirstAssetTrader<
 			AccountId,
-			assets_common::ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger<
-				Runtime,
-				WeightToFee,
-				Balances,
-				ForeignAssetsInstance,
-			>,
+			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger,
 			ForeignAssetsConvertedConcreteId,
 			ForeignAssets,
 			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
@@ -387,6 +337,15 @@ impl xcm_executor::Config for XcmConfig {
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
 }
+
+/// Multiplier used for dedicated `TakeFirstAssetTrader` with `ForeignAssets` instance.
+pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
+	AssetFeeAsExistentialDepositMultiplier<
+		Runtime,
+		WeightToFee,
+		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>,
+		ForeignAssetsInstance,
+	>;
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;

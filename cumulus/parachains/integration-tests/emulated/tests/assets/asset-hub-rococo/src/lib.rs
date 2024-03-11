@@ -63,12 +63,12 @@ mod imports {
 
 	// Runtimes
 	pub use asset_hub_rococo_runtime::xcm_config::{
-		TokenLocationV3 as RelayLocationV3, UniversalLocation as AssetHubRococoUniversalLocation,
+		TokenLocation as RelayLocation, UniversalLocation as AssetHubRococoUniversalLocation,
 		XcmConfig as AssetHubRococoXcmConfig,
 	};
 	pub use penpal_runtime::xcm_config::{
-		LocalReservableFromAssetHubV3 as PenpalLocalReservableFromAssetHubV3,
-		LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3,
+		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
+		LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
 		UniversalLocation as PenpalUniversalLocation, XcmConfig as PenpalRococoXcmConfig,
 	};
 	pub use rococo_runtime::xcm_config::{

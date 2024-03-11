@@ -1095,7 +1095,6 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "pallet-asset-conversion",
- "pallet-assets",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
@@ -11766,6 +11765,7 @@ dependencies = [
  "parachains-common",
  "penpal-runtime",
  "sp-core",
+ "staging-xcm",
 ]
 
 [[package]]

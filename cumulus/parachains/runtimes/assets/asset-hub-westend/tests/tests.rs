@@ -23,7 +23,7 @@ use asset_hub_westend_runtime::{
 		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
 		ForeignCreatorsSovereignAccountOf, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, TrustBackedAssetsPalletLocationV3, WestendLocation,
-		WestendLocationV3, XcmConfig,
+		WestendLocationV3, XcmConfig, ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger
 	},
 	AllPalletsWithoutSystem, Assets, Balances, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
@@ -35,7 +35,6 @@ use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
 	ExtBuilder, SlotDurations,
 };
-use assets_common::ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger;
 use codec::{Decode, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
@@ -528,12 +527,7 @@ fn test_foreign_asset_xcm_take_first_trader() {
 			let bought = Weight::from_parts(4_000_000_000u64, 0);
 
 			// Lets calculate amount needed
-			let asset_amount_needed = ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::<
-				Runtime,
-				WeightToFee,
-				Balances,
-				ForeignAssetsInstance,
-			>::charge_weight_in_fungibles(foreign_location, bought)
+			let asset_amount_needed = ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(foreign_location, bought)
 			.expect("failed to compute");
 
 			// Lets pay with: asset_amount_needed + asset_amount_extra

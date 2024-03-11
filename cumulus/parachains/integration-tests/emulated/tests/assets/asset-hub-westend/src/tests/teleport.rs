@@ -110,7 +110,7 @@ fn para_dest_assertions(t: RelayToSystemParaTest) {
 
 fn penpal_to_ah_foreign_assets_sender_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-	let system_para_native_asset_location = RelayLocationV3::get();
+	let system_para_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 	let expected_asset_id = t.args.asset_id.unwrap();
 	let (_, expected_asset_amount) =
 		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
@@ -203,7 +203,7 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 	let (_, expected_asset_amount) =
 		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 	let checking_account = <PenpalA as PenpalAPallet>::PolkadotXcm::check_account();
-	let system_para_native_asset_location = RelayLocationV3::get();
+	let system_para_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 
 	PenpalA::assert_xcmp_queue_success(None);
 
@@ -561,14 +561,15 @@ fn teleport_to_other_system_parachains_works() {
 fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	// Init values for Parachain
 	let fee_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 100;
-	let asset_location_on_penpal = PenpalLocalTeleportableToAssetHubV3::get();
+	let asset_location_on_penpal
+		= v3::Location::try_from(PenpalLocalTeleportableToAssetHub::get()).expect("conversion works");
 	let asset_id_on_penpal = match asset_location_on_penpal.last() {
 		Some(v3::Junction::GeneralIndex(id)) => *id as u32,
 		_ => unreachable!(),
 	};
 	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 100;
 	let asset_owner = PenpalAssetOwner::get();
-	let system_para_native_asset_location = RelayLocationV3::get();
+	let system_para_native_asset_location = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 	let sender = PenpalASender::get();
 	let penpal_check_account = <PenpalA as PenpalAPallet>::PolkadotXcm::check_account();
 	let ah_as_seen_by_penpal = PenpalA::sibling_location_of(AssetHubWestend::para_id());

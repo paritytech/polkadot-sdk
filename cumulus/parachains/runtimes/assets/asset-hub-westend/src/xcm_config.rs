@@ -22,7 +22,7 @@ use super::{
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset},
-	ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, TrustBackedAssetsAsLocation,
+	TrustBackedAssetsAsLocation,
 };
 use frame_support::{
 	parameter_types,
@@ -543,6 +543,15 @@ pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentia
 	TrustBackedAssetsInstance,
 >;
 
+/// Multiplier used for dedicated `TakeFirstAssetTrader` with `ForeignAssets` instance.
+pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
+	AssetFeeAsExistentialDepositMultiplier<
+		Runtime,
+		WeightToFee,
+		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>,
+		ForeignAssetsInstance,
+	>;
+
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
@@ -612,12 +621,7 @@ impl xcm_executor::Config for XcmConfig {
 		// `pallet_assets` instance - `ForeignAssets`.
 		cumulus_primitives_utility::TakeFirstAssetTrader<
 			AccountId,
-			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger<
-				Runtime,
-				WeightToFee,
-				Balances,
-				ForeignAssetsInstance,
-			>,
+			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger,
 			ForeignAssetsConvertedConcreteId,
 			ForeignAssets,
 			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
