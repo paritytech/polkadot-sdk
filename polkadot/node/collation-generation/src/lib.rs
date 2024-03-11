@@ -251,16 +251,14 @@ async fn handle_new_activations<Context>(
 									claim_queue,
 									CoreIndex(core_idx as u32),
 								)
-								.map(|sc| (sc, OccupiedCoreAssumption::Included))
 							},
 							None => {
 								// Runtime doesn't support claim queue runtime api. Fallback to
 								// `next_up_on_available`
-								occupied_core
-									.next_up_on_available
-									.map(|scheduled| (scheduled, OccupiedCoreAssumption::Included))
+								occupied_core.next_up_on_available
 							},
-						};
+						}
+						.map(|scheduled| (scheduled, OccupiedCoreAssumption::Included));
 
 						match res {
 							Some(res) => res,
