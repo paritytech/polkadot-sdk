@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use collator_overseer::{CollatorOverseerGenArgs, NewMinimalNode};
+use collator_overseer::NewMinimalNode;
 
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_rpc_interface::{RelayChainRpcClient, RelayChainRpcInterface, Url};
 use network::build_collator_network;
 use polkadot_network_bridge::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::{
-	peer_set::PeerSetProtocolNames,
+	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
 		v1, v2, IncomingRequest, IncomingRequestReceiver, Protocol, ReqProtocolNames,
 	},
@@ -29,6 +29,7 @@ use polkadot_node_network_protocol::{
 
 use polkadot_node_subsystem_util::metrics::prometheus::Registry;
 use polkadot_primitives::CollatorPair;
+use polkadot_service::{overseer::OverseerGenArgs, IsParachainNode};
 
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::{config::FullNetworkConfiguration, Event, NetworkEventStream, NetworkService};
@@ -172,23 +173,26 @@ async fn new_minimal_relay_chain(
 	}
 
 	let genesis_hash = relay_chain_rpc_client.block_get_hash(Some(0)).await?.unwrap_or_default();
-	let peer_set_protocol_names =
+	let peerset_protocol_names =
 		PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
 	let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
-
-	for config in peer_sets_info(is_authority, &peer_set_protocol_names) {
-		net_config.add_notification_protocol(config);
-	}
+	let notification_services = peer_sets_info(is_authority, &peerset_protocol_names)
+		.into_iter()
+		.map(|(config, (peerset, service))| {
+			net_config.add_notification_protocol(config);
+			(peerset, service)
+		})
+		.collect::<std::collections::HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>();
 
 	let request_protocol_names = ReqProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
-	let (collation_req_receiver_v1, collation_req_receiver_v2, available_data_req_receiver) =
+	let (collation_req_v1_receiver, collation_req_v2_receiver, available_data_req_receiver) =
 		build_request_response_protocol_receivers(&request_protocol_names, &mut net_config);
 
 	let best_header = relay_chain_rpc_client
 		.chain_get_header(None)
 		.await?
 		.ok_or_else(|| RelayChainError::RpcCallError("Unable to fetch best header".to_string()))?;
-	let (network, network_starter, sync_oracle) = build_collator_network(
+	let (network, network_starter, sync_service) = build_collator_network(
 		&config,
 		net_config,
 		task_manager.spawn_handle(),
@@ -205,19 +209,21 @@ async fn new_minimal_relay_chain(
 		prometheus_registry.cloned(),
 	);
 
-	let overseer_args = CollatorOverseerGenArgs {
+	let overseer_args = OverseerGenArgs {
 		runtime_client: relay_chain_rpc_client.clone(),
 		network_service: network,
-		sync_oracle,
+		sync_service,
 		authority_discovery_service,
-		collation_req_receiver_v1,
-		collation_req_receiver_v2,
+		collation_req_v1_receiver,
+		collation_req_v2_receiver,
 		available_data_req_receiver,
 		registry: prometheus_registry,
 		spawner: task_manager.spawn_handle(),
-		collator_pair,
+		is_parachain_node: IsParachainNode::Collator(collator_pair),
+		overseer_message_channel_capacity_override: None,
 		req_protocol_names: request_protocol_names,
-		peer_set_protocol_names,
+		peerset_protocol_names,
+		notification_services,
 	};
 
 	let overseer_handle =
@@ -236,10 +242,10 @@ fn build_request_response_protocol_receivers(
 	IncomingRequestReceiver<v2::CollationFetchingRequest>,
 	IncomingRequestReceiver<v1::AvailableDataFetchingRequest>,
 ) {
-	let (collation_req_receiver_v1, cfg) =
+	let (collation_req_v1_receiver, cfg) =
 		IncomingRequest::get_config_receiver(request_protocol_names);
 	config.add_request_response_protocol(cfg);
-	let (collation_req_receiver_v2, cfg) =
+	let (collation_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver(request_protocol_names);
 	config.add_request_response_protocol(cfg);
 	let (available_data_req_receiver, cfg) =
@@ -247,5 +253,5 @@ fn build_request_response_protocol_receivers(
 	config.add_request_response_protocol(cfg);
 	let cfg = Protocol::ChunkFetchingV1.get_outbound_only_config(request_protocol_names);
 	config.add_request_response_protocol(cfg);
-	(collation_req_receiver_v1, collation_req_receiver_v2, available_data_req_receiver)
+	(collation_req_v1_receiver, collation_req_v2_receiver, available_data_req_receiver)
 }

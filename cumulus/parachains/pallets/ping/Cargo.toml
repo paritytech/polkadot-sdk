@@ -2,26 +2,29 @@
 authors.workspace = true
 edition.workspace = true
 name = "cumulus-ping"
-version = "0.1.0"
+version = "0.7.0"
 license = "Apache-2.0"
 description = "Ping Pallet for Cumulus XCM/UMP testing."
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false}
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false}
-frame-support = { path = "../../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../../substrate/frame/system", default-features = false}
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false }
 
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
 
 cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
 cumulus-pallet-xcm = { path = "../../../pallets/xcm", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-pallet-xcm/std",

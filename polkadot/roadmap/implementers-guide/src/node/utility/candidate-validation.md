@@ -5,6 +5,31 @@ This subsystem is responsible for handling candidate validation requests. It is 
 A variety of subsystems want to know if a parachain block candidate is valid. None of them care about the detailed
 mechanics of how a candidate gets validated, just the results. This subsystem handles those details.
 
+## High-Level Flow
+
+```dot process
+digraph {
+ rankdir="LR";
+
+ pre [label = "Pvf-Checker"; shape = square]
+ bac [label = "Backing"; shape = square]
+ app [label = "Approval\nVoting"; shape = square]
+ dis [label = "Dispute\nCoordinator"; shape = square]
+
+ can [label = "Candidate\nValidation"; shape = square]
+
+ pvf [label = "PVF Host"; shape = square]
+
+ pre -> can [style = dashed]
+ bac -> can
+ app -> can
+ dis -> can
+
+ can -> pvf [label = "Precheck"; style = dashed]
+ can -> pvf [label = "Validate"]
+}
+```
+
 ## Protocol
 
 Input: [`CandidateValidationMessage`](../../types/overseer-protocol.md#validation-request-type)

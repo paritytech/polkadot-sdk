@@ -20,10 +20,12 @@ mod conversion;
 pub use conversion::{CallDispatcher, ConvertLocation, ConvertOrigin, WithOriginFilter};
 mod drop_assets;
 pub use drop_assets::{ClaimAssets, DropAssets};
-mod asset_lock;
-pub use asset_lock::{AssetLock, Enact, LockError};
 mod asset_exchange;
 pub use asset_exchange::AssetExchange;
+mod asset_lock;
+pub use asset_lock::{AssetLock, Enact, LockError};
+mod asset_transfer;
+pub use asset_transfer::{Error as AssetTransferError, TransferType, XcmAssetTransfers};
 mod export;
 pub use export::{export_xcm, validate_export, ExportXcm};
 mod fee_manager;
@@ -37,6 +39,8 @@ pub use token_matching::{
 };
 mod on_response;
 pub use on_response::{OnResponse, QueryHandler, QueryResponseStatus, VersionChangeNotifier};
+mod process_transaction;
+pub use process_transaction::ProcessTransaction;
 mod should_execute;
 pub use should_execute::{CheckSuspension, Properties, ShouldExecute};
 mod transact_asset;
@@ -50,8 +54,9 @@ pub mod prelude {
 	pub use super::{
 		export_xcm, validate_export, AssetExchange, AssetLock, ClaimAssets, ConvertOrigin,
 		DropAssets, Enact, Error, ExportXcm, FeeManager, FeeReason, LockError, MatchesFungible,
-		MatchesFungibles, MatchesNonFungible, MatchesNonFungibles, OnResponse, ShouldExecute,
-		TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader, WithOriginFilter,
+		MatchesFungibles, MatchesNonFungible, MatchesNonFungibles, OnResponse, ProcessTransaction,
+		ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+		WithOriginFilter,
 	};
 	#[allow(deprecated)]
 	pub use super::{Identity, JustTry};

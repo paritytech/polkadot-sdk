@@ -16,13 +16,13 @@
 
 //! Common types/functions that may be used by runtimes of all bridged chains.
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::messages_call_ext::MessagesCallSubType;
 use pallet_bridge_grandpa::CallSubType as GrandpaCallSubType;
 use pallet_bridge_parachains::CallSubType as ParachainsCallSubtype;
 use sp_runtime::transaction_validity::TransactionValidity;
-use xcm::v3::NetworkId;
 
 pub mod messages;
 pub mod messages_api;
@@ -92,8 +92,8 @@ where
 /// ```nocompile
 /// generate_bridge_reject_obsolete_headers_and_messages!{
 ///     Call, AccountId
-///     BridgeRialtoGrandpa, BridgeWestendGrandpa,
-///     BridgeRialtoParachains
+///     BridgeRococoGrandpa, BridgeRococoMessages,
+///     BridgeRococoParachains
 /// }
 /// ```
 ///
@@ -105,93 +105,64 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 	($call:ty, $account_id:ty, $($filter_call:ty),*) => {
 		#[derive(Clone, codec::Decode, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 		pub struct BridgeRejectObsoleteHeadersAndMessages;
-		impl sp_runtime::traits::SignedExtension for BridgeRejectObsoleteHeadersAndMessages {
+		impl sp_runtime::traits::TransactionExtensionBase for BridgeRejectObsoleteHeadersAndMessages {
 			const IDENTIFIER: &'static str = "BridgeRejectObsoleteHeadersAndMessages";
-			type AccountId = $account_id;
-			type Call = $call;
-			type AdditionalSigned = ();
+			type Implicit = ();
+		}
+		impl<Context> sp_runtime::traits::TransactionExtension<$call, Context> for BridgeRejectObsoleteHeadersAndMessages {
 			type Pre = ();
-
-			fn additional_signed(&self) -> sp_std::result::Result<
-				(),
-				sp_runtime::transaction_validity::TransactionValidityError,
-			> {
-				Ok(())
-			}
+			type Val = ();
 
 			fn validate(
 				&self,
-				_who: &Self::AccountId,
-				call: &Self::Call,
-				_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				origin: <$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				call: &$call,
+				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
 				_len: usize,
-			) -> sp_runtime::transaction_validity::TransactionValidity {
-				let valid = sp_runtime::transaction_validity::ValidTransaction::default();
+				_context: &mut Context,
+				_self_implicit: Self::Implicit,
+				_inherited_implication: &impl codec::Encode,
+			) -> Result<
+				(
+					sp_runtime::transaction_validity::ValidTransaction,
+					Self::Val,
+					<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				), sp_runtime::transaction_validity::TransactionValidityError
+			> {
+				let tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
 				$(
-					let valid = valid
-						.combine_with(<$filter_call as $crate::BridgeRuntimeFilterCall<$call>>::validate(call)?);
+					let call_filter_validity = <$filter_call as $crate::BridgeRuntimeFilterCall<$call>>::validate(call)?;
+					let tx_validity = tx_validity.combine_with(call_filter_validity);
 				)*
-				Ok(valid)
+				Ok((tx_validity, (), origin))
 			}
 
-			fn pre_dispatch(
+			fn prepare(
 				self,
-				who: &Self::AccountId,
-				call: &Self::Call,
-				info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-				len: usize,
+				_val: Self::Val,
+				_origin: &<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				_call: &$call,
+				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
+				_len: usize,
+				_context: &Context,
 			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-				self.validate(who, call, info, len).map(drop)
+				Ok(())
 			}
 		}
 	};
-}
-
-/// A mapping over `NetworkId`.
-/// Since `NetworkId` doesn't include `Millau`, `Rialto` and `RialtoParachain`, we create some
-/// synthetic associations between these chains and `NetworkId` chains.
-pub enum CustomNetworkId {
-	/// The Millau network ID, associated with Kusama.
-	Millau,
-	/// The Rialto network ID, associated with Polkadot.
-	Rialto,
-	/// The RialtoParachain network ID, associated with Westend.
-	RialtoParachain,
-}
-
-impl TryFrom<bp_runtime::ChainId> for CustomNetworkId {
-	type Error = ();
-
-	fn try_from(chain: bp_runtime::ChainId) -> Result<Self, Self::Error> {
-		Ok(match chain {
-			bp_runtime::MILLAU_CHAIN_ID => Self::Millau,
-			bp_runtime::RIALTO_CHAIN_ID => Self::Rialto,
-			bp_runtime::RIALTO_PARACHAIN_CHAIN_ID => Self::RialtoParachain,
-			_ => return Err(()),
-		})
-	}
-}
-
-impl CustomNetworkId {
-	/// Converts self to XCM' network id.
-	pub const fn as_network_id(&self) -> NetworkId {
-		match *self {
-			CustomNetworkId::Millau => NetworkId::Kusama,
-			CustomNetworkId::Rialto => NetworkId::Polkadot,
-			CustomNetworkId::RialtoParachain => NetworkId::Westend,
-		}
-	}
 }
 
 #[cfg(test)]
 mod tests {
 	use crate::BridgeRuntimeFilterCall;
-	use frame_support::{assert_err, assert_ok};
+	use codec::Encode;
+	use frame_support::assert_err;
 	use sp_runtime::{
-		traits::SignedExtension,
+		traits::DispatchTransaction,
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	};
 
+	#[derive(Encode)]
 	pub struct MockCall {
 		data: u32,
 	}
@@ -242,17 +213,20 @@ mod tests {
 		);
 
 		assert_err!(
-			BridgeRejectObsoleteHeadersAndMessages.validate(&(), &MockCall { data: 1 }, &(), 0),
+			BridgeRejectObsoleteHeadersAndMessages.validate_only((), &MockCall { data: 1 }, &(), 0),
 			InvalidTransaction::Custom(1)
 		);
 
 		assert_err!(
-			BridgeRejectObsoleteHeadersAndMessages.validate(&(), &MockCall { data: 2 }, &(), 0),
+			BridgeRejectObsoleteHeadersAndMessages.validate_only((), &MockCall { data: 2 }, &(), 0),
 			InvalidTransaction::Custom(2)
 		);
 
-		assert_ok!(
-			BridgeRejectObsoleteHeadersAndMessages.validate(&(), &MockCall { data: 3 }, &(), 0),
+		assert_eq!(
+			BridgeRejectObsoleteHeadersAndMessages
+				.validate_only((), &MockCall { data: 3 }, &(), 0)
+				.unwrap()
+				.0,
 			ValidTransaction { priority: 3, ..Default::default() }
 		)
 	}

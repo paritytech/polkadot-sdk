@@ -101,14 +101,11 @@ pub use bench::BenchmarkingState;
 const CACHE_HEADERS: usize = 8;
 
 /// DB-backed patricia trie state, transaction type is an overlay of changes to commit.
-pub type DbState<B> =
-	sp_state_machine::TrieBackend<Arc<dyn sp_state_machine::Storage<HashingFor<B>>>, HashingFor<B>>;
+pub type DbState<H> = sp_state_machine::TrieBackend<Arc<dyn sp_state_machine::Storage<H>>, H>;
 
 /// Builder for [`DbState`].
-pub type DbStateBuilder<B> = sp_state_machine::TrieBackendBuilder<
-	Arc<dyn sp_state_machine::Storage<HashingFor<B>>>,
-	HashingFor<B>,
->;
+pub type DbStateBuilder<Hasher> =
+	sp_state_machine::TrieBackendBuilder<Arc<dyn sp_state_machine::Storage<Hasher>>, Hasher>;
 
 /// Length of a [`DbHash`].
 const DB_HASH_LEN: usize = 32;
@@ -135,13 +132,17 @@ enum DbExtrinsic<B: BlockT> {
 /// It makes sure that the hash we are using stays pinned in storage
 /// until this structure is dropped.
 pub struct RefTrackingState<Block: BlockT> {
-	state: DbState<Block>,
+	state: DbState<HashingFor<Block>>,
 	storage: Arc<StorageDb<Block>>,
 	parent_hash: Option<Block::Hash>,
 }
 
 impl<B: BlockT> RefTrackingState<B> {
-	fn new(state: DbState<B>, storage: Arc<StorageDb<B>>, parent_hash: Option<B::Hash>) -> Self {
+	fn new(
+		state: DbState<HashingFor<B>>,
+		storage: Arc<StorageDb<B>>,
+		parent_hash: Option<B::Hash>,
+	) -> Self {
 		RefTrackingState { state, parent_hash, storage }
 	}
 }
@@ -162,12 +163,12 @@ impl<Block: BlockT> std::fmt::Debug for RefTrackingState<Block> {
 
 /// A raw iterator over the `RefTrackingState`.
 pub struct RawIter<B: BlockT> {
-	inner: <DbState<B> as StateBackend<HashingFor<B>>>::RawIter,
+	inner: <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::RawIter,
 }
 
 impl<B: BlockT> StorageIterator<HashingFor<B>> for RawIter<B> {
 	type Backend = RefTrackingState<B>;
-	type Error = <DbState<B> as StateBackend<HashingFor<B>>>::Error;
+	type Error = <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::Error;
 
 	fn next_key(&mut self, backend: &Self::Backend) -> Option<Result<StorageKey, Self::Error>> {
 		self.inner.next_key(&backend.state)
@@ -186,8 +187,9 @@ impl<B: BlockT> StorageIterator<HashingFor<B>> for RawIter<B> {
 }
 
 impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
-	type Error = <DbState<B> as StateBackend<HashingFor<B>>>::Error;
-	type TrieBackendStorage = <DbState<B> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
+	type Error = <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::Error;
+	type TrieBackendStorage =
+		<DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
 	type RawIter = RawIter<B>;
 
 	fn storage(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
@@ -284,7 +286,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 }
 
 impl<B: BlockT> AsTrieBackend<HashingFor<B>> for RefTrackingState<B> {
-	type TrieBackendStorage = <DbState<B> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
+	type TrieBackendStorage =
+		<DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
 
 	fn as_trie_backend(
 		&self,
@@ -318,6 +321,16 @@ pub enum BlocksPruning {
 	KeepFinalized,
 	/// Keep N recent finalized blocks.
 	Some(u32),
+}
+
+impl BlocksPruning {
+	/// True if this is an archive pruning mode (either KeepAll or KeepFinalized).
+	pub fn is_archive(&self) -> bool {
+		match *self {
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => true,
+			BlocksPruning::Some(_) => false,
+		}
+	}
 }
 
 /// Where to find the database..
@@ -1926,7 +1939,7 @@ impl<Block: BlockT> Backend<Block> {
 
 	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
 		let root = EmptyStorage::<Block>::new().0; // Empty trie
-		let db_state = DbStateBuilder::<Block>::new(self.storage.clone(), root)
+		let db_state = DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
 			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
 			.build();
 		let state = RefTrackingState::new(db_state, self.storage.clone(), None);
@@ -2418,9 +2431,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if hash == self.blockchain.meta.read().genesis_hash {
 			if let Some(genesis_state) = &*self.genesis_state.read() {
 				let root = genesis_state.root;
-				let db_state = DbStateBuilder::<Block>::new(genesis_state.clone(), root)
-					.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
-					.build();
+				let db_state =
+					DbStateBuilder::<HashingFor<Block>>::new(genesis_state.clone(), root)
+						.with_optional_cache(
+							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
+						)
+						.build();
 
 				let state = RefTrackingState::new(db_state, self.storage.clone(), None);
 				return Ok(RecordStatsState::new(state, None, self.state_usage.clone()))
@@ -2439,11 +2455,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					self.storage.state_db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
 				{
 					let root = hdr.state_root;
-					let db_state = DbStateBuilder::<Block>::new(self.storage.clone(), root)
-						.with_optional_cache(
-							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-						)
-						.build();
+					let db_state =
+						DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
+							.with_optional_cache(
+								self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
+							)
+							.build();
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
 				} else {
@@ -2514,7 +2531,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			self.storage.state_db.pin(&hash, number.saturated_into::<u64>(), hint).map_err(
 				|_| {
 					sp_blockchain::Error::UnknownBlock(format!(
-						"State already discarded for `{:?}`",
+						"Unable to pin: state already discarded for `{:?}`",
 						hash
 					))
 				},
@@ -2556,7 +2573,8 @@ pub(crate) mod tests {
 	use sp_blockchain::{lowest_common_ancestor, tree_route};
 	use sp_core::H256;
 	use sp_runtime::{
-		testing::{Block as RawBlock, ExtrinsicWrapper, Header},
+		generic::UncheckedExtrinsic,
+		testing::{Block as RawBlock, Header, MockCallU64},
 		traits::{BlakeTwo256, Hash},
 		ConsensusEngineId, StateVersion,
 	};
@@ -2564,7 +2582,8 @@ pub(crate) mod tests {
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
 	const CONS1_ENGINE_ID: ConsensusEngineId = *b"CON1";
 
-	pub(crate) type Block = RawBlock<ExtrinsicWrapper<u64>>;
+	type UncheckedXt = UncheckedExtrinsic<u64, MockCallU64, (), ()>;
+	pub(crate) type Block = RawBlock<UncheckedXt>;
 
 	pub fn insert_header(
 		backend: &Backend<Block>,
@@ -2583,7 +2602,7 @@ pub(crate) mod tests {
 		parent_hash: H256,
 		_changes: Option<Vec<(Vec<u8>, Vec<u8>)>>,
 		extrinsics_root: H256,
-		body: Vec<ExtrinsicWrapper<u64>>,
+		body: Vec<UncheckedXt>,
 		transaction_index: Option<Vec<IndexOperation>>,
 	) -> Result<H256, sp_blockchain::Error> {
 		use sp_runtime::testing::Digest;
@@ -3397,7 +3416,7 @@ pub(crate) mod tests {
 					prev_hash,
 					None,
 					Default::default(),
-					vec![i.into()],
+					vec![UncheckedXt::new_transaction(i.into(), ())],
 					None,
 				)
 				.unwrap();
@@ -3419,11 +3438,20 @@ pub(crate) mod tests {
 				assert_eq!(None, bc.body(blocks[0]).unwrap());
 				assert_eq!(None, bc.body(blocks[1]).unwrap());
 				assert_eq!(None, bc.body(blocks[2]).unwrap());
-				assert_eq!(Some(vec![3.into()]), bc.body(blocks[3]).unwrap());
-				assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
+				assert_eq!(
+					Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
+					bc.body(blocks[3]).unwrap()
+				);
+				assert_eq!(
+					Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+					bc.body(blocks[4]).unwrap()
+				);
 			} else {
 				for i in 0..5 {
-					assert_eq!(Some(vec![(i as u64).into()]), bc.body(blocks[i]).unwrap());
+					assert_eq!(
+						Some(vec![UncheckedXt::new_transaction((i as u64).into(), ())]),
+						bc.body(blocks[i]).unwrap()
+					);
 				}
 			}
 		}
@@ -3447,7 +3475,7 @@ pub(crate) mod tests {
 					prev_hash,
 					None,
 					Default::default(),
-					vec![i.into()],
+					vec![UncheckedXt::new_transaction(i.into(), ())],
 					None,
 				)
 				.unwrap();
@@ -3456,16 +3484,26 @@ pub(crate) mod tests {
 			}
 
 			// insert a fork at block 2
-			let fork_hash_root =
-				insert_block(&backend, 2, blocks[1], None, H256::random(), vec![2.into()], None)
-					.unwrap();
+			let fork_hash_root = insert_block(
+				&backend,
+				2,
+				blocks[1],
+				None,
+				H256::random(),
+				vec![UncheckedXt::new_transaction(2.into(), ())],
+				None,
+			)
+			.unwrap();
 			insert_block(
 				&backend,
 				3,
 				fork_hash_root,
 				None,
 				H256::random(),
-				vec![3.into(), 11.into()],
+				vec![
+					UncheckedXt::new_transaction(3.into(), ()),
+					UncheckedXt::new_transaction(11.into(), ()),
+				],
 				None,
 			)
 			.unwrap();
@@ -3475,7 +3513,10 @@ pub(crate) mod tests {
 			backend.commit_operation(op).unwrap();
 
 			let bc = backend.blockchain();
-			assert_eq!(Some(vec![2.into()]), bc.body(fork_hash_root).unwrap());
+			assert_eq!(
+				Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
+				bc.body(fork_hash_root).unwrap()
+			);
 
 			for i in 1..5 {
 				let mut op = backend.begin_operation().unwrap();
@@ -3489,16 +3530,28 @@ pub(crate) mod tests {
 				assert_eq!(None, bc.body(blocks[1]).unwrap());
 				assert_eq!(None, bc.body(blocks[2]).unwrap());
 
-				assert_eq!(Some(vec![3.into()]), bc.body(blocks[3]).unwrap());
-				assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
+				assert_eq!(
+					Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
+					bc.body(blocks[3]).unwrap()
+				);
+				assert_eq!(
+					Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+					bc.body(blocks[4]).unwrap()
+				);
 			} else {
 				for i in 0..5 {
-					assert_eq!(Some(vec![(i as u64).into()]), bc.body(blocks[i]).unwrap());
+					assert_eq!(
+						Some(vec![UncheckedXt::new_transaction((i as u64).into(), ())]),
+						bc.body(blocks[i]).unwrap()
+					);
 				}
 			}
 
 			if matches!(pruning, BlocksPruning::KeepAll) {
-				assert_eq!(Some(vec![2.into()]), bc.body(fork_hash_root).unwrap());
+				assert_eq!(
+					Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
+					bc.body(fork_hash_root).unwrap()
+				);
 			} else {
 				assert_eq!(None, bc.body(fork_hash_root).unwrap());
 			}
@@ -3519,8 +3572,16 @@ pub(crate) mod tests {
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(10), 10);
 
 		let make_block = |index, parent, val: u64| {
-			insert_block(&backend, index, parent, None, H256::random(), vec![val.into()], None)
-				.unwrap()
+			insert_block(
+				&backend,
+				index,
+				parent,
+				None,
+				H256::random(),
+				vec![UncheckedXt::new_transaction(val.into(), ())],
+				None,
+			)
+			.unwrap()
 		};
 
 		let block_0 = make_block(0, Default::default(), 0x00);
@@ -3548,18 +3609,30 @@ pub(crate) mod tests {
 		let bc = backend.blockchain();
 		assert_eq!(None, bc.body(block_1b).unwrap());
 		assert_eq!(None, bc.body(block_2b).unwrap());
-		assert_eq!(Some(vec![0x00.into()]), bc.body(block_0).unwrap());
-		assert_eq!(Some(vec![0x1a.into()]), bc.body(block_1a).unwrap());
-		assert_eq!(Some(vec![0x2a.into()]), bc.body(block_2a).unwrap());
-		assert_eq!(Some(vec![0x3a.into()]), bc.body(block_3a).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(0x00.into(), ())]),
+			bc.body(block_0).unwrap()
+		);
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(0x1a.into(), ())]),
+			bc.body(block_1a).unwrap()
+		);
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(0x2a.into(), ())]),
+			bc.body(block_2a).unwrap()
+		);
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(0x3a.into(), ())]),
+			bc.body(block_3a).unwrap()
+		);
 	}
 
 	#[test]
 	fn indexed_data_block_body() {
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 10);
 
-		let x0 = ExtrinsicWrapper::from(0u64).encode();
-		let x1 = ExtrinsicWrapper::from(1u64).encode();
+		let x0 = UncheckedXt::new_transaction(0.into(), ()).encode();
+		let x1 = UncheckedXt::new_transaction(1.into(), ()).encode();
 		let x0_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x0[1..]);
 		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[1..]);
 		let index = vec![
@@ -3580,7 +3653,10 @@ pub(crate) mod tests {
 			Default::default(),
 			None,
 			Default::default(),
-			vec![0u64.into(), 1u64.into()],
+			vec![
+				UncheckedXt::new_transaction(0.into(), ()),
+				UncheckedXt::new_transaction(1.into(), ()),
+			],
 			Some(index),
 		)
 		.unwrap();
@@ -3602,8 +3678,9 @@ pub(crate) mod tests {
 	fn index_invalid_size() {
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 10);
 
-		let x0 = ExtrinsicWrapper::from(0u64).encode();
-		let x1 = ExtrinsicWrapper::from(1u64).encode();
+		let x0 = UncheckedXt::new_transaction(0.into(), ()).encode();
+		let x1 = UncheckedXt::new_transaction(1.into(), ()).encode();
+
 		let x0_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x0[..]);
 		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[..]);
 		let index = vec![
@@ -3624,7 +3701,10 @@ pub(crate) mod tests {
 			Default::default(),
 			None,
 			Default::default(),
-			vec![0u64.into(), 1u64.into()],
+			vec![
+				UncheckedXt::new_transaction(0.into(), ()),
+				UncheckedXt::new_transaction(1.into(), ()),
+			],
 			Some(index),
 		)
 		.unwrap();
@@ -3638,7 +3718,7 @@ pub(crate) mod tests {
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
-		let x1 = ExtrinsicWrapper::from(0u64).encode();
+		let x1 = UncheckedXt::new_transaction(0.into(), ()).encode();
 		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[1..]);
 		for i in 0..10 {
 			let mut index = Vec::new();
@@ -3658,7 +3738,7 @@ pub(crate) mod tests {
 				prev_hash,
 				None,
 				Default::default(),
-				vec![i.into()],
+				vec![UncheckedXt::new_transaction(i.into(), ())],
 				Some(index),
 			)
 			.unwrap();
@@ -3692,7 +3772,7 @@ pub(crate) mod tests {
 				prev_hash,
 				None,
 				Default::default(),
-				vec![i.into()],
+				vec![UncheckedXt::new_transaction(i.into(), ())],
 				None,
 			)
 			.unwrap();
@@ -3707,7 +3787,7 @@ pub(crate) mod tests {
 				blocks[1],
 				None,
 				sp_core::H256::random(),
-				vec![i.into()],
+				vec![UncheckedXt::new_transaction(i.into(), ())],
 				None,
 			)
 			.unwrap();
@@ -3721,7 +3801,7 @@ pub(crate) mod tests {
 			blocks[0],
 			None,
 			sp_core::H256::random(),
-			vec![42.into()],
+			vec![UncheckedXt::new_transaction(42.into(), ())],
 			None,
 		)
 		.unwrap();
@@ -4194,7 +4274,7 @@ pub(crate) mod tests {
 				prev_hash,
 				None,
 				Default::default(),
-				vec![i.into()],
+				vec![UncheckedXt::new_transaction(i.into(), ())],
 				None,
 			)
 			.unwrap();
@@ -4209,7 +4289,10 @@ pub(crate) mod tests {
 
 		// Check that we can properly access values when there is reference count
 		// but no value.
-		assert_eq!(Some(vec![1.into()]), bc.body(blocks[1]).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(1.into(), ())]),
+			bc.body(blocks[1]).unwrap()
+		);
 
 		// Block 1 gets pinned three times
 		backend.pin_block(blocks[1]).unwrap();
@@ -4226,27 +4309,42 @@ pub(crate) mod tests {
 
 		// Block 0, 1, 2, 3 are pinned, so all values should be cached.
 		// Block 4 is inside the pruning window, its value is in db.
-		assert_eq!(Some(vec![0.into()]), bc.body(blocks[0]).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(0.into(), ())]),
+			bc.body(blocks[0]).unwrap()
+		);
 
-		assert_eq!(Some(vec![1.into()]), bc.body(blocks[1]).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(1.into(), ())]),
+			bc.body(blocks[1]).unwrap()
+		);
 		assert_eq!(
 			Some(Justifications::from(build_justification(1))),
 			bc.justifications(blocks[1]).unwrap()
 		);
 
-		assert_eq!(Some(vec![2.into()]), bc.body(blocks[2]).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
+			bc.body(blocks[2]).unwrap()
+		);
 		assert_eq!(
 			Some(Justifications::from(build_justification(2))),
 			bc.justifications(blocks[2]).unwrap()
 		);
 
-		assert_eq!(Some(vec![3.into()]), bc.body(blocks[3]).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
+			bc.body(blocks[3]).unwrap()
+		);
 		assert_eq!(
 			Some(Justifications::from(build_justification(3))),
 			bc.justifications(blocks[3]).unwrap()
 		);
 
-		assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+			bc.body(blocks[4]).unwrap()
+		);
 		assert_eq!(
 			Some(Justifications::from(build_justification(4))),
 			bc.justifications(blocks[4]).unwrap()
@@ -4277,7 +4375,10 @@ pub(crate) mod tests {
 		assert!(bc.justifications(blocks[1]).unwrap().is_none());
 
 		// Block 4 is inside the pruning window and still kept
-		assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+			bc.body(blocks[4]).unwrap()
+		);
 		assert_eq!(
 			Some(Justifications::from(build_justification(4))),
 			bc.justifications(blocks[4]).unwrap()
@@ -4285,9 +4386,16 @@ pub(crate) mod tests {
 
 		// Block tree:
 		//   0 -> 1 -> 2 -> 3 -> 4 -> 5
-		let hash =
-			insert_block(&backend, 5, prev_hash, None, Default::default(), vec![5.into()], None)
-				.unwrap();
+		let hash = insert_block(
+			&backend,
+			5,
+			prev_hash,
+			None,
+			Default::default(),
+			vec![UncheckedXt::new_transaction(5.into(), ())],
+			None,
+		)
+		.unwrap();
 		blocks.push(hash);
 
 		backend.pin_block(blocks[4]).unwrap();
@@ -4302,12 +4410,18 @@ pub(crate) mod tests {
 		assert!(bc.body(blocks[2]).unwrap().is_none());
 		assert!(bc.body(blocks[3]).unwrap().is_none());
 
-		assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+			bc.body(blocks[4]).unwrap()
+		);
 		assert_eq!(
 			Some(Justifications::from(build_justification(4))),
 			bc.justifications(blocks[4]).unwrap()
 		);
-		assert_eq!(Some(vec![5.into()]), bc.body(blocks[5]).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(5.into(), ())]),
+			bc.body(blocks[5]).unwrap()
+		);
 		assert!(bc.header(blocks[5]).ok().flatten().is_some());
 
 		backend.unpin_block(blocks[4]);
@@ -4317,9 +4431,16 @@ pub(crate) mod tests {
 		// Append a justification to block 5.
 		backend.append_justification(blocks[5], ([0, 0, 0, 1], vec![42])).unwrap();
 
-		let hash =
-			insert_block(&backend, 6, blocks[5], None, Default::default(), vec![6.into()], None)
-				.unwrap();
+		let hash = insert_block(
+			&backend,
+			6,
+			blocks[5],
+			None,
+			Default::default(),
+			vec![UncheckedXt::new_transaction(6.into(), ())],
+			None,
+		)
+		.unwrap();
 		blocks.push(hash);
 
 		// Pin block 5 so it gets loaded into the cache on prune
@@ -4332,7 +4453,10 @@ pub(crate) mod tests {
 		op.mark_finalized(blocks[6], None).unwrap();
 		backend.commit_operation(op).unwrap();
 
-		assert_eq!(Some(vec![5.into()]), bc.body(blocks[5]).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(5.into(), ())]),
+			bc.body(blocks[5]).unwrap()
+		);
 		assert!(bc.header(blocks[5]).ok().flatten().is_some());
 		let mut expected = Justifications::from(build_justification(5));
 		expected.append(([0, 0, 0, 1], vec![42]));
@@ -4354,7 +4478,7 @@ pub(crate) mod tests {
 				prev_hash,
 				None,
 				Default::default(),
-				vec![i.into()],
+				vec![UncheckedXt::new_transaction(i.into(), ())],
 				None,
 			)
 			.unwrap();
@@ -4370,16 +4494,26 @@ pub(crate) mod tests {
 		// Block tree:
 		//   0 -> 1 -> 2 -> 3 -> 4
 		//        \ -> 2 -> 3
-		let fork_hash_root =
-			insert_block(&backend, 2, blocks[1], None, H256::random(), vec![2.into()], None)
-				.unwrap();
+		let fork_hash_root = insert_block(
+			&backend,
+			2,
+			blocks[1],
+			None,
+			H256::random(),
+			vec![UncheckedXt::new_transaction(2.into(), ())],
+			None,
+		)
+		.unwrap();
 		let fork_hash_3 = insert_block(
 			&backend,
 			3,
 			fork_hash_root,
 			None,
 			H256::random(),
-			vec![3.into(), 11.into()],
+			vec![
+				UncheckedXt::new_transaction(3.into(), ()),
+				UncheckedXt::new_transaction(11.into(), ()),
+			],
 			None,
 		)
 		.unwrap();
@@ -4400,14 +4534,35 @@ pub(crate) mod tests {
 		}
 
 		let bc = backend.blockchain();
-		assert_eq!(Some(vec![0.into()]), bc.body(blocks[0]).unwrap());
-		assert_eq!(Some(vec![1.into()]), bc.body(blocks[1]).unwrap());
-		assert_eq!(Some(vec![2.into()]), bc.body(blocks[2]).unwrap());
-		assert_eq!(Some(vec![3.into()]), bc.body(blocks[3]).unwrap());
-		assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(0.into(), ())]),
+			bc.body(blocks[0]).unwrap()
+		);
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(1.into(), ())]),
+			bc.body(blocks[1]).unwrap()
+		);
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
+			bc.body(blocks[2]).unwrap()
+		);
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
+			bc.body(blocks[3]).unwrap()
+		);
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+			bc.body(blocks[4]).unwrap()
+		);
 		// Check the fork hashes.
 		assert_eq!(None, bc.body(fork_hash_root).unwrap());
-		assert_eq!(Some(vec![3.into(), 11.into()]), bc.body(fork_hash_3).unwrap());
+		assert_eq!(
+			Some(vec![
+				UncheckedXt::new_transaction(3.into(), ()),
+				UncheckedXt::new_transaction(11.into(), ())
+			]),
+			bc.body(fork_hash_3).unwrap()
+		);
 
 		// Unpin all blocks, except the forked one.
 		for block in &blocks {

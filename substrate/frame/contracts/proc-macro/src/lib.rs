@@ -20,23 +20,13 @@
 //! Most likely you should use the [`#[define_env]`][`macro@define_env`] attribute macro which hides
 //! boilerplate of defining external environment for a wasm module.
 
-#![no_std]
-
-extern crate alloc;
-
-use alloc::{
-	collections::BTreeMap,
-	format,
-	string::{String, ToString},
-	vec::Vec,
-};
 use core::cmp::Reverse;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{
 	parse_macro_input, punctuated::Punctuated, spanned::Spanned, token::Comma, Data, DeriveInput,
-	FnArg, Ident,
+	Fields, FnArg, Ident,
 };
 
 /// This derives `Debug` for a struct where each field must be of some numeric type.
@@ -44,17 +34,6 @@ use syn::{
 /// it is readable by humans.
 #[proc_macro_derive(WeightDebug)]
 pub fn derive_weight_debug(input: TokenStream) -> TokenStream {
-	derive_debug(input, format_weight)
-}
-
-/// This is basically identical to the std libs Debug derive but without adding any
-/// bounds to existing generics.
-#[proc_macro_derive(ScheduleDebug)]
-pub fn derive_schedule_debug(input: TokenStream) -> TokenStream {
-	derive_debug(input, format_default)
-}
-
-fn derive_debug(input: TokenStream, fmt: impl Fn(&Ident) -> TokenStream2) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -68,45 +47,15 @@ fn derive_debug(input: TokenStream, fmt: impl Fn(&Ident) -> TokenStream2) -> Tok
 		.into()
 	};
 
-	#[cfg(feature = "full")]
-	let fields = iterate_fields(data, fmt);
-
-	#[cfg(not(feature = "full"))]
-	let fields = {
-		drop(fmt);
-		drop(data);
-		TokenStream2::new()
-	};
-
-	let tokens = quote! {
-		impl #impl_generics core::fmt::Debug for #name #ty_generics #where_clause {
-			fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-				use ::sp_runtime::{FixedPointNumber, FixedU128 as Fixed};
-				let mut formatter = formatter.debug_struct(stringify!(#name));
-				#fields
-				formatter.finish()
-			}
-		}
-	};
-
-	tokens.into()
-}
-
-/// This is only used then the `full` feature is activated.
-#[cfg(feature = "full")]
-fn iterate_fields(data: &syn::DataStruct, fmt: impl Fn(&Ident) -> TokenStream2) -> TokenStream2 {
-	use syn::Fields;
-
-	match &data.fields {
+	let fields = match &data.fields {
 		Fields::Named(fields) => {
 			let recurse = fields.named.iter().filter_map(|f| {
 				let name = f.ident.as_ref()?;
 				if name.to_string().starts_with('_') {
 					return None
 				}
-				let value = fmt(name);
 				let ret = quote_spanned! { f.span() =>
-					formatter.field(stringify!(#name), #value);
+					formatter.field(stringify!(#name), &HumanWeight(self.#name));
 				};
 				Some(ret)
 			});
@@ -119,39 +68,53 @@ fn iterate_fields(data: &syn::DataStruct, fmt: impl Fn(&Ident) -> TokenStream2) 
 			compile_error!("Unnamed fields are not supported")
 		},
 		Fields::Unit => quote!(),
-	}
-}
+	};
 
-fn format_weight(field: &Ident) -> TokenStream2 {
-	quote_spanned! { field.span() =>
-		&if self.#field.ref_time() > 1_000_000_000 {
-			format!(
-				"{:.1?} ms, {} bytes",
-				Fixed::saturating_from_rational(self.#field.ref_time(), 1_000_000_000).to_float(),
-				self.#field.proof_size()
-			)
-		} else if self.#field.ref_time() > 1_000_000 {
-			format!(
-				"{:.1?} µs, {} bytes",
-				Fixed::saturating_from_rational(self.#field.ref_time(), 1_000_000).to_float(),
-				self.#field.proof_size()
-			)
-		} else if self.#field.ref_time() > 1_000 {
-			format!(
-				"{:.1?} ns, {} bytes",
-				Fixed::saturating_from_rational(self.#field.ref_time(), 1_000).to_float(),
-				self.#field.proof_size()
-			)
-		} else {
-			format!("{} ps, {} bytes", self.#field.ref_time(), self.#field.proof_size())
+	let tokens = quote! {
+		impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
+			fn fmt(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> core::fmt::Result {
+				use ::sp_runtime::{FixedPointNumber, FixedU128 as Fixed};
+				use ::core::{fmt, write};
+
+				struct HumanWeight(Weight);
+
+				impl fmt::Debug for HumanWeight {
+					fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+						if self.0.ref_time() > 1_000_000_000 {
+							write!(
+								formatter,
+								"{} ms, {} bytes",
+								Fixed::saturating_from_rational(self.0.ref_time(), 1_000_000_000).into_inner() / Fixed::accuracy(),
+								self.0.proof_size()
+							)
+						} else if self.0.ref_time() > 1_000_000 {
+							write!(
+								formatter,
+								"{} µs, {} bytes",
+								Fixed::saturating_from_rational(self.0.ref_time(), 1_000_000).into_inner() / Fixed::accuracy(),
+								self.0.proof_size()
+							)
+						} else if self.0.ref_time() > 1_000 {
+							write!(
+								formatter,
+								"{} ns, {} bytes",
+								Fixed::saturating_from_rational(self.0.ref_time(), 1_000).into_inner() / Fixed::accuracy(),
+								self.0.proof_size()
+							)
+						} else {
+							write!(formatter, "{} ps, {} bytes", self.0.ref_time(), self.0.proof_size())
+						}
+					}
+				}
+
+				let mut formatter = formatter.debug_struct(stringify!(#name));
+				#fields
+				formatter.finish()
+			}
 		}
-	}
-}
+	};
 
-fn format_default(field: &Ident) -> TokenStream2 {
-	quote_spanned! { field.span() =>
-		&self.#field
-	}
+	tokens.into()
 }
 
 /// Parsed environment definition.
@@ -271,7 +234,7 @@ impl HostFn {
 		// process return type
 		let msg = r#"Should return one of the following:
 				- Result<(), TrapReason>,
-				- Result<ReturnCode, TrapReason>,
+				- Result<ReturnErrorCode, TrapReason>,
 				- Result<u64, TrapReason>,
 				- Result<u32, TrapReason>"#;
 		let ret_ty = match item.clone().sig.output {
@@ -336,7 +299,7 @@ impl HostFn {
 							"()" => Ok(HostFnReturn::Unit),
 							"u32" => Ok(HostFnReturn::U32),
 							"u64" => Ok(HostFnReturn::U64),
-							"ReturnCode" => Ok(HostFnReturn::ReturnCode),
+							"ReturnErrorCode" => Ok(HostFnReturn::ReturnCode),
 							_ => Err(err(arg1.span(), &msg)),
 						}?;
 
@@ -480,7 +443,7 @@ fn expand_func_doc(func: &HostFn) -> TokenStream2 {
 fn expand_docs(def: &EnvDef) -> TokenStream2 {
 	// Create the `Current` trait with only the newest versions
 	// we sort so that only the newest versions make it into `docs`
-	let mut current_docs = BTreeMap::new();
+	let mut current_docs = std::collections::HashMap::new();
 	let mut funcs: Vec<_> = def.host_funcs.iter().filter(|f| f.alias_to.is_none()).collect();
 	funcs.sort_unstable_by_key(|func| Reverse(func.version));
 	for func in funcs {
@@ -493,7 +456,7 @@ fn expand_docs(def: &EnvDef) -> TokenStream2 {
 
 	// Create the `legacy` module with all functions
 	// Maps from version to list of functions that have this version
-	let mut legacy_doc = BTreeMap::<u8, Vec<TokenStream2>>::new();
+	let mut legacy_doc = std::collections::BTreeMap::<u8, Vec<TokenStream2>>::new();
 	for func in def.host_funcs.iter() {
 		legacy_doc.entry(func.version).or_default().push(expand_func_doc(&func));
 	}
@@ -534,9 +497,14 @@ fn expand_docs(def: &EnvDef) -> TokenStream2 {
 fn expand_env(def: &EnvDef, docs: bool) -> TokenStream2 {
 	let impls = expand_impls(def);
 	let docs = docs.then_some(expand_docs(def)).unwrap_or(TokenStream2::new());
+	let stable_api_count = def.host_funcs.iter().filter(|f| f.is_stable).count();
 
 	quote! {
 		pub struct Env;
+
+		#[cfg(test)]
+		pub const STABLE_API_COUNT: usize = #stable_api_count;
+
 		#impls
 		/// Documentation of the API (host functions) available to contracts.
 		///
@@ -550,7 +518,7 @@ fn expand_env(def: &EnvDef, docs: bool) -> TokenStream2 {
 		/// consumed by humans through rustdoc.
 		#[cfg(doc)]
 		pub mod api_doc {
-			use super::{TrapReason, ReturnCode};
+			use super::{TrapReason, ReturnErrorCode};
 			#docs
 		}
 	}
@@ -675,37 +643,34 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 		};
 		let sync_gas_before = if expand_blocks {
 			quote! {
-				// Gas left in the gas meter right before switching to engine execution.
-				let __gas_before__ = {
-					let engine_consumed_total =
+				// Write gas from wasmi into pallet-contracts before entering the host function.
+				let __gas_left_before__ = {
+					let executor_total =
 						__caller__.fuel_consumed().expect("Fuel metering is enabled; qed");
-					let gas_meter = __caller__.data_mut().ext().gas_meter_mut();
-					gas_meter
-						.charge_fuel(engine_consumed_total)
+					__caller__
+						.data_mut()
+						.ext()
+						.gas_meter_mut()
+						.sync_from_executor(executor_total)
 						.map_err(TrapReason::from)
 						.map_err(#into_host)?
-						.ref_time()
 				};
 			}
 		} else {
 			quote! { }
 		};
-		// Gas left in the gas meter right after returning from engine execution.
+		// Write gas from pallet-contracts into wasmi after leaving the host function.
 		let sync_gas_after = if expand_blocks {
 			quote! {
-				let mut gas_after = __caller__.data_mut().ext().gas_meter().gas_left().ref_time();
-				let mut host_consumed = __gas_before__.saturating_sub(gas_after);
-				// Possible undercharge of at max 1 fuel here, if host consumed less than `instruction_weights.base`
-				// Not a problem though, as soon as host accounts its spent gas properly.
-				let fuel_consumed = host_consumed
-					.checked_div(__caller__.data_mut().ext().schedule().instruction_weights.base as u64)
-					.ok_or(Error::<E::T>::InvalidSchedule)
-					.map_err(TrapReason::from)
-					.map_err(#into_host)?;
+				let fuel_consumed = __caller__
+					.data_mut()
+					.ext()
+					.gas_meter_mut()
+					.sync_to_executor(__gas_left_before__)
+					.map_err(TrapReason::from)?;
 				 __caller__
-					 .consume_fuel(fuel_consumed)
-					 .map_err(|_| TrapReason::from(Error::<E::T>::OutOfGas))
-					 .map_err(#into_host)?;
+					 .consume_fuel(fuel_consumed.into())
+					 .map_err(|_| TrapReason::from(Error::<E::T>::OutOfGas))?;
 			}
 		} else {
 			quote! { }
@@ -767,7 +732,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 /// #[define_env]
 /// pub mod some_env {
 /// 	#[version(2)]
-/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnCode, TrapReason> {
+/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnErrorCode, TrapReason> {
 /// 		ctx.some_host_fn(KeyType::Fix, key_ptr, value_ptr, value_len).map(|_| ())
 /// 	}
 ///
@@ -793,7 +758,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 /// pub mod some_env {
 /// 	#[version(1)]
 /// 	#[prefixed_alias]
-/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnCode, TrapReason> {
+/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnErrorCode, TrapReason> {
 /// 		ctx.some_host_fn(KeyType::Fix, key_ptr, value_ptr, value_len).map(|_| ())
 /// 	}
 ///
@@ -811,7 +776,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 ///
 /// Only following return types are allowed for the host functions defined with the macro:
 /// - `Result<(), TrapReason>`,
-/// - `Result<ReturnCode, TrapReason>`,
+/// - `Result<ReturnErrorCode, TrapReason>`,
 /// - `Result<u32, TrapReason>`.
 ///
 /// The macro expands to `pub struct Env` declaration, with the following traits implementations:

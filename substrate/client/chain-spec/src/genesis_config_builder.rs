@@ -62,7 +62,7 @@ where
 	pub fn new(code: &'a [u8]) -> Self {
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
-			code_hash: sp_core::blake2_256(code).to_vec(),
+			code_hash: sp_crypto_hashing::blake2_256(code).to_vec(),
 			executor: WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
 				.with_allow_missing_host_functions(true)
 				.build(),
@@ -76,13 +76,13 @@ where
 				&RuntimeCode { heap_pages: None, code_fetcher: self, hash: self.code_hash.clone() },
 				method,
 				data,
-				false,
 				CallContext::Offchain,
 			)
 			.0
 	}
 
-	/// Returns the default `GenesisConfig` provided by the `runtime`.
+	/// Returns a json representation of the default `RuntimeGenesisConfig` provided by the
+	/// `runtime`.
 	///
 	/// Calls [`GenesisBuilder::create_default_config`](sp_genesis_builder::GenesisBuilder::create_default_config) in the `runtime`.
 	pub fn get_default_config(&self) -> core::result::Result<Value, String> {
@@ -95,7 +95,7 @@ where
 		Ok(from_slice(&default_config[..]).expect("returned value is json. qed."))
 	}
 
-	/// Build the given `GenesisConfig` and returns the genesis state.
+	/// Builds `RuntimeGenesisConfig` from given json blob and returns the genesis state.
 	///
 	/// Calls [`GenesisBuilder::build_config`](sp_genesis_builder::GenesisBuilder::build_config)
 	/// provided by the `runtime`.
@@ -112,25 +112,26 @@ where
 		Ok(ext.into_storages())
 	}
 
-	/// Creates the genesis state by patching the default `GenesisConfig` and applying it.
+	/// Creates the genesis state by patching the default `RuntimeGenesisConfig`.
 	///
-	/// This function generates the `GenesisConfig` for the runtime by applying a provided JSON
-	/// patch. The patch modifies the default `GenesisConfig` allowing customization of the specific
-	/// keys. The resulting `GenesisConfig` is then deserialized from the patched JSON
-	/// representation and stored in the storage.
+	/// This function generates the `RuntimeGenesisConfig` for the runtime by applying a provided
+	/// JSON patch. The patch modifies the default `RuntimeGenesisConfig` allowing customization of
+	/// the specific keys. The resulting `RuntimeGenesisConfig` is then deserialized from the
+	/// patched JSON representation and stored in the storage.
 	///
 	/// If the provided JSON patch is incorrect or the deserialization fails the error will be
 	/// returned.
 	///
-	/// The patching process modifies the default `GenesisConfig` according to the following rules:
+	/// The patching process modifies the default `RuntimeGenesisConfig` according to the following
+	/// rules:
 	/// 1. Existing keys in the default configuration will be overridden by the corresponding values
 	///    in the patch.
 	/// 2. If a key exists in the patch but not in the default configuration, it will be added to
-	///    the resulting `GenesisConfig`.
+	///    the resulting `RuntimeGenesisConfig`.
 	/// 3. Keys in the default configuration that have null values in the patch will be removed from
-	///    the resulting  `GenesisConfig`. This is helpful for changing enum variant value.
+	///    the resulting `RuntimeGenesisConfig`. This is helpful for changing enum variant value.
 	///
-	/// Please note that the patch may contain full `GenesisConfig`.
+	/// Please note that the patch may contain full `RuntimeGenesisConfig`.
 	pub fn get_storage_for_patch(&self, patch: Value) -> core::result::Result<Storage, String> {
 		let mut config = self.get_default_config()?;
 		crate::json_patch::merge(&mut config, patch);
@@ -142,7 +143,7 @@ where
 mod tests {
 	use super::*;
 	use serde_json::{from_str, json};
-	pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration, Slot};
+	pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration};
 
 	#[test]
 	fn get_default_config_works() {
@@ -150,7 +151,7 @@ mod tests {
 			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
 				.get_default_config()
 				.unwrap();
-		let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":null},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+		let expected = r#"{"babe": {"authorities": [], "epochConfig": {"allowed_slots": "PrimaryAndSecondaryVRFSlots", "c": [1, 4]}}, "balances": {"balances": []}, "substrateTest": {"authorities": []}, "system": {}}"#;
 		assert_eq!(from_str::<Value>(expected).unwrap(), config);
 	}
 

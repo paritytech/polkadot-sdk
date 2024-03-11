@@ -440,6 +440,12 @@ fn mint_should_work() {
 			account(2),
 			Some(MintWitness { owned_item: Some(43), ..Default::default() })
 		));
+		assert!(events().contains(&Event::<Test>::PalletAttributeSet {
+			collection: 0,
+			item: Some(43),
+			attribute: PalletAttributes::<<Test as Config>::CollectionId>::UsedToClaim(1),
+			value: Nfts::construct_attribute_value(vec![]).unwrap(),
+		}));
 
 		// can't mint twice
 		assert_noop!(
@@ -614,8 +620,13 @@ fn transfer_owner_should_work() {
 			Nfts::transfer_ownership(RuntimeOrigin::signed(account(1)), 0, account(2)),
 			Error::<Test>::Unaccepted
 		);
+		assert_eq!(System::consumers(&account(2)), 0);
+
 		assert_ok!(Nfts::set_accept_ownership(RuntimeOrigin::signed(account(2)), Some(0)));
+		assert_eq!(System::consumers(&account(2)), 1);
+
 		assert_ok!(Nfts::transfer_ownership(RuntimeOrigin::signed(account(1)), 0, account(2)));
+		assert_eq!(System::consumers(&account(2)), 1); // one consumer is added due to deposit repatriation
 
 		assert_eq!(collections(), vec![(account(2), 0)]);
 		assert_eq!(Balances::total_balance(&account(1)), 98);
@@ -2191,6 +2202,10 @@ fn max_supply_should_work() {
 			default_collection_config()
 		));
 		assert_eq!(CollectionConfigOf::<Test>::get(collection_id).unwrap().max_supply, None);
+		assert!(!events().contains(&Event::<Test>::CollectionMaxSupplySet {
+			collection: collection_id,
+			max_supply,
+		}));
 
 		assert_ok!(Nfts::set_collection_max_supply(
 			RuntimeOrigin::signed(user_id.clone()),
@@ -2242,9 +2257,31 @@ fn max_supply_should_work() {
 			None
 		));
 		assert_noop!(
-			Nfts::mint(RuntimeOrigin::signed(user_id.clone()), collection_id, 2, user_id, None),
+			Nfts::mint(
+				RuntimeOrigin::signed(user_id.clone()),
+				collection_id,
+				2,
+				user_id.clone(),
+				None
+			),
 			Error::<Test>::MaxSupplyReached
 		);
+
+		// validate the event gets emitted when we set the max supply on collection create
+		let collection_id = 1;
+		assert_ok!(Nfts::force_create(
+			RuntimeOrigin::root(),
+			user_id.clone(),
+			CollectionConfig { max_supply: Some(max_supply), ..default_collection_config() }
+		));
+		assert_eq!(
+			CollectionConfigOf::<Test>::get(collection_id).unwrap().max_supply,
+			Some(max_supply)
+		);
+		assert!(events().contains(&Event::<Test>::CollectionMaxSupplySet {
+			collection: collection_id,
+			max_supply,
+		}));
 	});
 }
 

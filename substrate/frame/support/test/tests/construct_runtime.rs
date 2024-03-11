@@ -27,13 +27,13 @@ use frame_support::{
 };
 use frame_system::limits::{BlockLength, BlockWeights};
 use scale_info::TypeInfo;
-use sp_api::RuntimeVersion;
 use sp_core::{sr25519, ConstU64};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, Verify},
 	DispatchError, ModuleError,
 };
+use sp_version::RuntimeVersion;
 
 parameter_types! {
 	pub static IntegrityTestExec: u32 = 0;
@@ -683,7 +683,7 @@ fn test_metadata() {
 					name: "Version",
 					ty: meta_type::<RuntimeVersion>(),
 					value: RuntimeVersion::default().encode(),
-					docs: maybe_docs(vec![ " Get the chain's current version."]),
+					docs: maybe_docs(vec![ " Get the chain's in-code version."]),
 				},
 				PalletConstantMetadata {
 					name: "SS58Prefix",
@@ -815,7 +815,7 @@ fn test_metadata() {
 		ty: meta_type::<UncheckedExtrinsic>(),
 		version: 4,
 		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+			identifier: "UnitTransactionExtension",
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],

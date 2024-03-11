@@ -9,9 +9,11 @@ guides, like how to run a validator node, see the [Polkadot Wiki](https://wiki.p
 
 ### Using a pre-compiled binary
 
-If you just wish to run a Polkadot node without compiling it yourself, you may either run the latest
-binary from our [releases](https://github.com/paritytech/polkadot-sdk/releases) page, or install
-Polkadot from one of our package repositories.
+If you just wish to run a Polkadot node without compiling it yourself, you may either:
+
+- run the latest binary from our [releases](https://github.com/paritytech/polkadot-sdk/releases) page (make sure to also
+  download all the `worker` binaries and put them in the same directory as `polkadot`), or
+- install Polkadot from one of our package repositories.
 
 ### Debian-based (Debian, Ubuntu)
 
@@ -63,7 +65,6 @@ directory of the repo:
 
 ```bash
 git checkout <latest tagged release>
-./scripts/init.sh
 cargo build --release
 ```
 
@@ -213,7 +214,7 @@ that we currently maintain.
 
 ### Using Docker
 
-[Using Docker](../docs/docker.md)
+[Using Docker](../docs/contributor/docker.md)
 
 ### Shell Completion
 
@@ -223,11 +224,11 @@ that we currently maintain.
 
 ### Contributing Guidelines
 
-[Contribution Guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CONTRIBUTING.md)
+[Contribution Guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md)
 
 ### Contributor Code of Conduct
 
-[Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CODE_OF_CONDUCT.md)
+[Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CODE_OF_CONDUCT.md)
 
 ## License
 

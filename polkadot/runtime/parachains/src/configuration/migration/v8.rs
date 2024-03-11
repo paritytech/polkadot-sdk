@@ -250,7 +250,7 @@ on_demand_fee_variability                : Perbill::from_percent(3),
 on_demand_target_queue_utilization       : Perbill::from_percent(25),
 on_demand_ttl                            : 5u32.into(),
 		}
-	};
+};
 
 	let v7 = v7::ActiveConfig::<T>::get()
 		.defensive_proof("Could not decode old config")

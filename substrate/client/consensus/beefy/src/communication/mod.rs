@@ -67,10 +67,16 @@ pub(crate) mod beefy_protocol_name {
 /// For standard protocol name see [`beefy_protocol_name::gossip_protocol_name`].
 pub fn beefy_peers_set_config(
 	gossip_protocol_name: sc_network::ProtocolName,
-) -> sc_network::config::NonDefaultSetConfig {
-	let mut cfg = sc_network::config::NonDefaultSetConfig::new(gossip_protocol_name, 1024 * 1024);
+) -> (sc_network::config::NonDefaultSetConfig, Box<dyn sc_network::NotificationService>) {
+	let (mut cfg, notification_service) = sc_network::config::NonDefaultSetConfig::new(
+		gossip_protocol_name,
+		Vec::new(),
+		1024 * 1024,
+		None,
+		Default::default(),
+	);
 	cfg.allow_non_reserved(25, 25);
-	cfg
+	(cfg, notification_service)
 }
 
 // cost scalars for reporting peers.
@@ -84,8 +90,6 @@ mod cost {
 	pub(super) const BAD_SIGNATURE: Rep = Rep::new(-100, "BEEFY: Bad signature");
 	// Message received with vote from voter not in validator set.
 	pub(super) const UNKNOWN_VOTER: Rep = Rep::new(-150, "BEEFY: Unknown voter");
-	// A message received that cannot be evaluated relative to our current state.
-	pub(super) const OUT_OF_SCOPE_MESSAGE: Rep = Rep::new(-500, "BEEFY: Out-of-scope message");
 	// Message containing invalid proof.
 	pub(super) const INVALID_PROOF: Rep = Rep::new(-5000, "BEEFY: Invalid commit");
 	// Reputation cost per signature checked for invalid proof.

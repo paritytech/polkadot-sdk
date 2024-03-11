@@ -1,10 +1,13 @@
 [package]
 name = "cumulus-client-service"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Common functions used to assemble the components of a parachain node."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.28"
@@ -38,7 +41,7 @@ cumulus-client-consensus-common = { path = "../consensus/common" }
 cumulus-client-pov-recovery = { path = "../pov-recovery" }
 cumulus-client-network = { path = "../network" }
 cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-size-hostfunction" }
 cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 cumulus-relay-chain-inprocess-interface = { path = "../relay-chain-inprocess-interface" }
 cumulus-relay-chain-minimal-node = { path = "../relay-chain-minimal-node" }
-

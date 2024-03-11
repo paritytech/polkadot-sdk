@@ -1,6 +1,6 @@
 [package]
 name = "sp-authority-discovery"
-version = "4.0.0-dev"
+version = "26.0.0"
 authors.workspace = true
 description = "Authority discovery primitives"
 edition.workspace = true
@@ -9,19 +9,22 @@ homepage = "https://substrate.io"
 repository.workspace = true
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-sp-api = { path = "../api", default-features = false}
-sp-application-crypto = { path = "../application-crypto", default-features = false}
-sp-runtime = { path = "../runtime", default-features = false}
-sp-std = { path = "../std", default-features = false}
+sp-api = { path = "../api", default-features = false }
+sp-application-crypto = { path = "../application-crypto", default-features = false }
+sp-runtime = { path = "../runtime", default-features = false }
+sp-std = { path = "../std", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",

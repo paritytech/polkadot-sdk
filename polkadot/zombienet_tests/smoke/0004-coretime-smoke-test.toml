@@ -1,0 +1,41 @@
+[settings]
+timeout = 1000
+
+[relaychain]
+default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
+chain = "rococo-local"
+command = "polkadot"
+
+  [[relaychain.nodes]]
+  name = "alice"
+  args = ["-lruntime=debug,xcm=trace" ]
+
+  [[relaychain.nodes]]
+  name = "bob"
+  args = ["-lruntime=debug,parachain=trace" ]
+
+  [[relaychain.nodes]]
+  name = "charlie"
+  args = ["-lruntime=debug,parachain=trace" ]
+
+[[parachains]]
+id = 1005
+chain = "coretime-rococo-local"
+
+  [parachains.collator]
+  name = "coretime-collator"
+  image = "{{CUMULUS_IMAGE}}"
+  command = "polkadot-parachain"
+  args = [ "-lruntime=debug,xcm=trace" ]
+
+[[parachains]]
+id = 100
+add_to_genesis = false
+register_para = false
+onboard_as_parachain = false
+
+  [parachains.collator]
+  name = "collator-para-100"
+  image = "{{CUMULUS_IMAGE}}"
+  command = "polkadot-parachain"
+  args = ["-lruntime=debug,parachain=trace,aura=trace", "--force-authoring"]

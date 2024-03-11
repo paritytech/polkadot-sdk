@@ -22,10 +22,12 @@ mod mock;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use mock::*;
 use pallet_nomination_pools::{
-	BondedPools, Error as PoolsError, Event as PoolsEvent, LastPoolId, PoolMember, PoolMembers,
-	PoolState,
+	BondExtra, BondedPools, Error as PoolsError, Event as PoolsEvent, LastPoolId, PoolMember,
+	PoolMembers, PoolState,
 };
-use pallet_staking::{CurrentEra, Event as StakingEvent, Payee, RewardDestination};
+use pallet_staking::{
+	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
+};
 use sp_runtime::{bounded_btree_map, traits::Zero};
 
 #[test]
@@ -192,6 +194,131 @@ fn pool_lifecycle_e2e() {
 }
 
 #[test]
+fn pool_chill_e2e() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::minimum_balance(), 5);
+		assert_eq!(Staking::current_era(), None);
+
+		// create the pool, we know this has id 1.
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+		assert_eq!(LastPoolId::<Runtime>::get(), 1);
+
+		// have the pool nominate.
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Bonded { stash: POOL1_BONDED, amount: 50 }]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Created { depositor: 10, pool_id: 1 },
+				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 50, joined: true },
+			]
+		);
+
+		// have two members join
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
+		assert_ok!(Pools::join(RuntimeOrigin::signed(21), 10, 1));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
+			]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
+				PoolsEvent::Bonded { member: 21, pool_id: 1, bonded: 10, joined: true },
+			]
+		);
+
+		// in case depositor does not have more than `MinNominatorBond` staked, we can end up in
+		// situation where a member unbonding would cause pool balance to drop below
+		// `MinNominatorBond` and hence not allowed. This can happen if the `MinNominatorBond` is
+		// increased after the pool is created.
+		assert_ok!(Staking::set_staking_configs(
+			RuntimeOrigin::root(),
+			pallet_staking::ConfigOp::Set(55), // minimum nominator bond
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+			pallet_staking::ConfigOp::Noop,
+		));
+
+		// members can unbond as long as total stake of the pool is above min nominator bond
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 10),);
+		assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().unbonding_eras.len(), 1);
+		assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 0);
+
+		// this member cannot unbond since it will cause `pool stake < MinNominatorBond`
+		assert_noop!(
+			Pools::unbond(RuntimeOrigin::signed(21), 21, 10),
+			StakingError::<Runtime>::InsufficientBond,
+		);
+
+		// members can call `chill` permissionlessly now
+		assert_ok!(Pools::chill(RuntimeOrigin::signed(20), 1));
+
+		// now another member can unbond.
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(21), 21, 10));
+		assert_eq!(PoolMembers::<Runtime>::get(21).unwrap().unbonding_eras.len(), 1);
+		assert_eq!(PoolMembers::<Runtime>::get(21).unwrap().points, 0);
+
+		// nominator can not resume nomination until depositor have enough stake
+		assert_noop!(
+			Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]),
+			PoolsError::<Runtime>::MinimumBondNotMet,
+		);
+
+		// other members joining pool does not affect the depositor's ability to resume nomination
+		assert_ok!(Pools::join(RuntimeOrigin::signed(22), 10, 1));
+
+		assert_noop!(
+			Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]),
+			PoolsError::<Runtime>::MinimumBondNotMet,
+		);
+
+		// depositor can bond extra stake
+		assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::FreeBalance(10)));
+
+		// `chill` can not be called permissionlessly anymore
+		assert_noop!(
+			Pools::chill(RuntimeOrigin::signed(20), 1),
+			PoolsError::<Runtime>::NotNominator,
+		);
+
+		// now nominator can resume nomination
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		// skip to make the unbonding period end.
+		CurrentEra::<Runtime>::set(Some(BondingDuration::get()));
+
+		// members can now withdraw.
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0));
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(21), 21, 0));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Chilled { stash: POOL1_BONDED },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 }, // other member bonding
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 }, // depositor bond extra
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 20 },
+			]
+		);
+	})
+}
+
+#[test]
 fn pool_slash_e2e() {
 	new_test_ext().execute_with(|| {
 		ExistentialDeposit::set(1);
@@ -214,7 +341,10 @@ fn pool_slash_e2e() {
 			]
 		);
 
-		assert_eq!(Payee::<Runtime>::get(POOL1_BONDED), RewardDestination::Account(POOL1_REWARD));
+		assert_eq!(
+			Payee::<Runtime>::get(POOL1_BONDED),
+			Some(RewardDestination::Account(POOL1_REWARD))
+		);
 
 		// have two members join
 		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 20, 1));

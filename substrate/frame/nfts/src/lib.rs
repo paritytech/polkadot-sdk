@@ -76,7 +76,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::ExistenceRequirement};
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -874,8 +874,8 @@ pub mod pallet {
 								),
 							);
 							Self::deposit_event(Event::PalletAttributeSet {
-								collection,
-								item: Some(item),
+								collection: collection_id,
+								item: Some(owned_item),
 								attribute: pallet_attribute,
 								value: attribute_value,
 							});
@@ -1153,11 +1153,11 @@ pub mod pallet {
 		pub fn transfer_ownership(
 			origin: OriginFor<T>,
 			collection: T::CollectionId,
-			owner: AccountIdLookupOf<T>,
+			new_owner: AccountIdLookupOf<T>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			let owner = T::Lookup::lookup(owner)?;
-			Self::do_transfer_ownership(origin, collection, owner)
+			let new_owner = T::Lookup::lookup(new_owner)?;
+			Self::do_transfer_ownership(origin, collection, new_owner)
 		}
 
 		/// Change the Issuer, Admin and Freezer of a collection.

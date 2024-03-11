@@ -33,9 +33,8 @@ use frame_support::{
 	},
 	DefaultNoBound, RuntimeDebugNoBound,
 };
-use sp_api::HashT;
 use sp_runtime::{
-	traits::{Saturating, Zero},
+	traits::{Hash as HashT, Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
 };
 use sp_std::{fmt::Debug, marker::PhantomData, vec, vec::Vec};

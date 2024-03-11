@@ -80,33 +80,43 @@ pub type EquivocationProof<H> = sp_consensus_slots::EquivocationProof<H, Authori
 /// Randomness required by some protocol's operations.
 pub type Randomness = [u8; RANDOMNESS_LENGTH];
 
-/// Configuration data that can be modified on epoch change.
+/// Protocol configuration that can be modified on epoch change.
+///
+/// Mostly tweaks to the ticketing system parameters.
 #[derive(
 	Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo, Default,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EpochConfiguration {
-	/// Tickets threshold redundancy factor.
+	/// Tickets redundancy factor.
+	///
+	/// Expected ratio between epoch's slots and the cumulative number of tickets which can
+	/// be submitted by the set of epoch validators.
 	pub redundancy_factor: u32,
-	/// Tickets attempts for each validator.
+	/// Tickets max attempts for each validator.
+	///
+	/// Influences the anonymity of block producers. As all published tickets have a public
+	/// attempt number less than `attempts_number` if two tickets share an attempt number
+	/// then they must belong to two different validators, which reduces anonymity late as
+	/// we approach the epoch tail.
+	///
+	/// This anonymity loss already becomes small when `attempts_number = 64` or `128`.
 	pub attempts_number: u32,
 }
 
 /// Sassafras epoch information
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
 pub struct Epoch {
-	/// The epoch index.
-	pub epoch_idx: u64,
-	/// The starting slot of the epoch.
-	pub start_slot: Slot,
-	/// Slot duration in milliseconds.
-	pub slot_duration: SlotDuration,
-	/// Duration of epoch in slots.
-	pub epoch_duration: u64,
-	/// Authorities for the epoch.
-	pub authorities: Vec<AuthorityId>,
-	/// Randomness for the epoch.
+	/// Epoch index.
+	pub index: u64,
+	/// Starting slot of the epoch.
+	pub start: Slot,
+	/// Number of slots in the epoch.
+	pub length: u32,
+	/// Randomness value.
 	pub randomness: Randomness,
+	/// Authorities list.
+	pub authorities: Vec<AuthorityId>,
 	/// Epoch configuration.
 	pub config: EpochConfiguration,
 }
