@@ -77,9 +77,7 @@ impl BenchmarkUsage {
 fn check_usage(usage: &[ResourceUsage], checks: &[ResourceUsageCheck]) -> Vec<String> {
 	checks
 		.iter()
-		.filter_map(|check| {
-			check_resource_usage(usage, check).map(|message| format!("{}", message))
-		})
+		.filter_map(|check| check_resource_usage(usage, check).map(|message| message.to_string()))
 		.collect()
 }
 
