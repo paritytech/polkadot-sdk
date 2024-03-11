@@ -513,7 +513,7 @@ impl<T: Config> Pallet<T> {
 		let now = <frame_system::Pallet<T>>::block_number();
 		let threshold = availability_threshold(validators.len());
 
-		let mut paras_made_available = BTreeSet::new();
+		let mut votes_per_core: BTreeMap<CoreIndex, BTreeSet<ValidatorIndex>> = BTreeMap::new();
 
 		for (checked_bitfield, validator_index) in
 			signed_bitfields.into_iter().map(|signed_bitfield| {
@@ -523,11 +523,28 @@ impl<T: Config> Pallet<T> {
 			}) {
 			for (bit_idx, _) in checked_bitfield.0.iter().enumerate().filter(|(_, is_av)| **is_av) {
 				let core_index = CoreIndex(bit_idx as u32);
-				if let Some(para_id) = core_lookup(core_index) {
-					<PendingAvailability<T>>::mutate(&para_id, |candidates| {
-						if let Some(candidates) = candidates {
-							for (candidate_idx, candidate) in candidates.iter_mut().enumerate() {
-								if candidate.core == core_index {
+				votes_per_core
+					.entry(core_index)
+					.or_insert_with(|| BTreeSet::new())
+					.insert(validator_index);
+			}
+
+			let record =
+				AvailabilityBitfieldRecord { bitfield: checked_bitfield, submitted_at: now };
+
+			<AvailabilityBitfields<T>>::insert(&validator_index, record);
+		}
+
+		// Update the availability votes for each candidate and take note of what cores were made
+		// available.
+		let mut candidates_made_available: BTreeMap<ParaId, BTreeSet<usize>> = BTreeMap::new();
+		for (core_index, validator_indices) in votes_per_core {
+			if let Some(para_id) = core_lookup(core_index) {
+				<PendingAvailability<T>>::mutate(&para_id, |candidates| {
+					if let Some(candidates) = candidates {
+						for (index, candidate) in candidates.iter_mut().enumerate() {
+							if candidate.core == core_index {
+								for validator_index in validator_indices.iter() {
 									// defensive check - this is constructed by loading the
 									// availability bitfield record, which is always `Some` if
 									// the core is occupied - that's why we're here.
@@ -537,61 +554,43 @@ impl<T: Config> Pallet<T> {
 									{
 										*bit = true;
 									}
-
-									// In terms of candidate enactment, we only care if the first
-									// candidate of this para was made available. We don't enact
-									// candidates until their predecessors have been enacted.
-									if candidate_idx == 0 &&
-										candidate.availability_votes.count_ones() >= threshold
-									{
-										paras_made_available.insert(para_id);
-									}
 								}
 							}
+
+							if candidate.availability_votes.count_ones() >= threshold {
+								candidates_made_available
+									.entry(para_id)
+									.or_insert_with(|| BTreeSet::new())
+									.insert(index);
+							}
 						}
-					});
-				} else {
-					// No parachain is occupying that core yet.
-				}
+					}
+				});
+			} else {
+				// No parachain is occupying that core yet.
 			}
-
-			let record =
-				AvailabilityBitfieldRecord { bitfield: checked_bitfield, submitted_at: now };
-
-			<AvailabilityBitfields<T>>::insert(&validator_index, record);
 		}
 
-		let mut freed_cores = Vec::with_capacity(paras_made_available.len());
-		// Iterate through the paraids that had one of their candidates made available and see if we
-		// can free any of its occupied cores.
-		// We can only free cores whose candidates form a chain starting from the included para
-		// head.
-		// We assume dependency order is preserved in `PendingAvailability`.
-		for (para_id, candidates_pending_availability) in paras_made_available
-			.into_iter()
-			.filter_map(|para_id| <PendingAvailability<T>>::get(para_id).map(|c| (para_id, c)))
-		{
-			let mut stopped_at_index = None;
+		let mut freed_cores = Vec::with_capacity(candidates_made_available.len());
 
-			// We try to check all candidates, because some of them may have already been made
-			// available in the past but their ancestors were not. However, we can stop when we find
-			// the first one which is not available yet.
-			for (index, pending_availability) in candidates_pending_availability.iter().enumerate()
-			{
-				if pending_availability.availability_votes.count_ones() >= threshold {
-					freed_cores.push((pending_availability.core, pending_availability.hash));
-					stopped_at_index = Some(index);
-				} else {
-					break
-				}
-			}
+		// Trim the pending availability candidates storage and enact candidates now.
+		for (para_id, available_candidates) in candidates_made_available {
+			<PendingAvailability<T>>::mutate(&para_id, |candidates| {
+				if let Some(candidates) = candidates {
+					let mut stopped_at_index = None;
+					for index in 0..candidates.len() {
+						if available_candidates.contains(&index) {
+							stopped_at_index = Some(index);
+						} else {
+							break
+						}
+					}
 
-			// Trim the pending availability candidates storage and enact candidates now.
-			if let Some(stopped_at_index) = stopped_at_index {
-				<PendingAvailability<T>>::mutate(&para_id, |candidates| {
-					if let Some(candidates) = candidates {
-						let candidates_made_available = candidates.drain(0..=stopped_at_index);
-						for candidate in candidates_made_available {
+					if let Some(stopped_at_index) = stopped_at_index {
+						let evicted_candidates = candidates.drain(0..=stopped_at_index);
+						for candidate in evicted_candidates {
+							freed_cores.push((candidate.core, candidate.hash));
+
 							let receipt = CommittedCandidateReceipt {
 								descriptor: candidate.descriptor,
 								commitments: candidate.commitments,
@@ -606,8 +605,8 @@ impl<T: Config> Pallet<T> {
 							);
 						}
 					}
-				});
-			}
+				}
+			});
 		}
 
 		freed_cores
