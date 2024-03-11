@@ -43,8 +43,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::mock::{make_ferdie_keystore, new_leaf};
 use polkadot_primitives::{
-	vstaging::NodeFeatures, ExecutorParams, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec,
-	SessionInfo, ValidationCode,
+	vstaging::NodeFeatures, Block, ExecutorParams, GroupIndex, Hash, HeadData, Id as ParaId,
+	IndexedVec, SessionInfo, ValidationCode,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt, dummy_hash, AlwaysZeroRng,
@@ -768,8 +768,14 @@ fn receiving_from_one_sends_to_another_and_to_candidate_backing() {
 	let (ctx, mut handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
-	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 
 	let bg = async move {
 		let s = StatementDistributionSubsystem {
@@ -1016,9 +1022,14 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 	let (ctx, mut handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
-	let (statement_req_receiver, mut req_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (statement_req_receiver, mut req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 
 	let bg = async move {
 		let s = StatementDistributionSubsystem {
@@ -1554,8 +1565,14 @@ fn delay_reputation_changes() {
 	let (ctx, mut handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
-	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 
 	let reputation_interval = Duration::from_millis(100);
 
@@ -2044,9 +2061,14 @@ fn share_prioritizes_backing_group() {
 	let (ctx, mut handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
-	let (statement_req_receiver, mut req_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (statement_req_receiver, mut req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 
 	let bg = async move {
 		let s = StatementDistributionSubsystem {
@@ -2377,8 +2399,14 @@ fn peer_cant_flood_with_large_statements() {
 	let (ctx, mut handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
-	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let bg = async move {
 		let s = StatementDistributionSubsystem {
 			keystore: make_ferdie_keystore(),
@@ -2610,8 +2638,14 @@ fn handle_multiple_seconded_statements() {
 	let (ctx, mut handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
-	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (candidate_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 
 	let virtual_overseer_fut = async move {
 		let s = StatementDistributionSubsystem {

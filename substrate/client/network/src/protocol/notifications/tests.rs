@@ -40,6 +40,7 @@ use sc_utils::mpsc::tracing_unbounded;
 use std::{
 	iter,
 	pin::Pin,
+	sync::Arc,
 	task::{Context, Poll},
 	time::Duration,
 };
@@ -91,7 +92,7 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 				reserved_only: false,
 			},
 			to_notifications,
-			Box::new(peer_store.handle()),
+			Arc::new(peer_store.handle()),
 		);
 
 		let (notif_handle, command_stream) = protocol_handle_pair.split();

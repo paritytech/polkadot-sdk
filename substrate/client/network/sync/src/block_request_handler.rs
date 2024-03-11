@@ -29,24 +29,26 @@ use crate::{
 
 use codec::{Decode, DecodeAll, Encode};
 use futures::{channel::oneshot, stream::StreamExt};
-use libp2p::PeerId;
 use log::debug;
 use prost::Message;
+use schnellru::{ByLength, LruMap};
+
 use sc_client_api::BlockBackend;
 use sc_network::{
 	config::ProtocolId,
-	request_responses::{
-		IfDisconnected, IncomingRequest, OutgoingResponse, ProtocolConfig, RequestFailure,
-	},
+	request_responses::{IfDisconnected, IncomingRequest, OutgoingResponse, RequestFailure},
+	service::traits::RequestResponseConfig,
 	types::ProtocolName,
+	NetworkBackend,
 };
 use sc_network_common::sync::message::{BlockAttributes, BlockData, BlockRequest, FromBlock};
-use schnellru::{ByLength, LruMap};
+use sc_network_types::PeerId;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header, One, Zero},
 };
+
 use std::{
 	cmp::min,
 	hash::{Hash, Hasher},
@@ -71,21 +73,26 @@ mod rep {
 		Rep::new(-(1 << 10), "same small block request multiple times");
 }
 
-/// Generates a [`ProtocolConfig`] for the block request protocol, refusing incoming requests.
-pub fn generate_protocol_config<Hash: AsRef<[u8]>>(
+/// Generates a `RequestResponseProtocolConfig` for the block request protocol,
+/// refusing incoming requests.
+pub fn generate_protocol_config<
+	Hash: AsRef<[u8]>,
+	B: BlockT,
+	N: NetworkBackend<B, <B as BlockT>::Hash>,
+>(
 	protocol_id: &ProtocolId,
 	genesis_hash: Hash,
 	fork_id: Option<&str>,
-) -> ProtocolConfig {
-	ProtocolConfig {
-		name: generate_protocol_name(genesis_hash, fork_id).into(),
-		fallback_names: std::iter::once(generate_legacy_protocol_name(protocol_id).into())
-			.collect(),
-		max_request_size: 1024 * 1024,
-		max_response_size: 16 * 1024 * 1024,
-		request_timeout: Duration::from_secs(20),
-		inbound_queue: None,
-	}
+	inbound_queue: async_channel::Sender<IncomingRequest>,
+) -> N::RequestResponseProtocolConfig {
+	N::request_response_config(
+		generate_protocol_name(genesis_hash, fork_id).into(),
+		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
+		1024 * 1024,
+		16 * 1024 * 1024,
+		Duration::from_secs(20),
+		Some(inbound_queue),
+	)
 }
 
 /// Generate the block protocol name from the genesis hash and fork id.
@@ -154,19 +161,19 @@ where
 	Client: HeaderBackend<B> + BlockBackend<B> + Send + Sync + 'static,
 {
 	/// Create a new [`BlockRequestHandler`].
-	pub fn new(
+	pub fn new<N: NetworkBackend<B, <B as BlockT>::Hash>>(
 		network: NetworkServiceHandle,
 		protocol_id: &ProtocolId,
 		fork_id: Option<&str>,
 		client: Arc<Client>,
 		num_peer_hint: usize,
-	) -> BlockRelayParams<B> {
+	) -> BlockRelayParams<B, N> {
 		// Reserve enough request slots for one request per peer when we are at the maximum
 		// number of peers.
 		let capacity = std::cmp::max(num_peer_hint, 1);
 		let (tx, request_receiver) = async_channel::bounded(capacity);
 
-		let mut protocol_config = generate_protocol_config(
+		let protocol_config = generate_protocol_config::<_, B, N>(
 			protocol_id,
 			client
 				.block_hash(0u32.into())
@@ -174,15 +181,18 @@ where
 				.flatten()
 				.expect("Genesis block exists; qed"),
 			fork_id,
+			tx,
 		);
-		protocol_config.inbound_queue = Some(tx);
 
 		let capacity = ByLength::new(num_peer_hint.max(1) as u32 * 2);
 		let seen_requests = LruMap::new(capacity);
 
 		BlockRelayParams {
 			server: Box::new(Self { client, request_receiver, seen_requests }),
-			downloader: Arc::new(FullBlockDownloader::new(protocol_config.name.clone(), network)),
+			downloader: Arc::new(FullBlockDownloader::new(
+				protocol_config.protocol_name().clone(),
+				network,
+			)),
 			request_response_config: protocol_config,
 		}
 	}

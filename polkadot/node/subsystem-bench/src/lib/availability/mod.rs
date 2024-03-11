@@ -60,14 +60,12 @@ use polkadot_node_subsystem_types::{
 };
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
 use polkadot_primitives::{
-	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData,
-	Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
+	AvailabilityBitfield, Block, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash,
+	HeadData, Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
-use sc_network::{
-	request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig},
-	PeerId,
-};
+use sc_network::request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig};
+use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
@@ -215,15 +213,21 @@ fn prepare_test_inner(
 
 	let mut req_cfgs = Vec::new();
 
-	let (collation_req_receiver, collation_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+	let (collation_req_receiver, collation_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
 	req_cfgs.push(collation_req_cfg);
 
-	let (pov_req_receiver, pov_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
 
-	let (chunk_req_receiver, chunk_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+	let (chunk_req_receiver, chunk_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
 	req_cfgs.push(pov_req_cfg);
 
 	let (network, network_interface, network_receiver) =

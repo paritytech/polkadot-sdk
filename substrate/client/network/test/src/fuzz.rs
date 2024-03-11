@@ -20,7 +20,6 @@
 //! and `PeerStore` to discover possible inconsistencies in peer management.
 
 use futures::prelude::*;
-use libp2p::PeerId;
 use rand::{
 	distributions::{Distribution, Uniform, WeightedIndex},
 	seq::IteratorRandom,
@@ -28,10 +27,13 @@ use rand::{
 use sc_network::{
 	peer_store::{PeerStore, PeerStoreProvider},
 	protocol_controller::{IncomingIndex, Message, ProtoSetConfig, ProtocolController, SetId},
-	ReputationChange,
+	PeerId, ReputationChange,
 };
 use sc_utils::mpsc::tracing_unbounded;
-use std::collections::{HashMap, HashSet};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+};
 
 /// Peer events as observed by `Notifications` / fuzz test.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -141,7 +143,7 @@ async fn test_once() {
 		.collect();
 
 	let peer_store = PeerStore::new(bootnodes);
-	let mut peer_store_handle = peer_store.handle();
+	let peer_store_handle = peer_store.handle();
 
 	let (to_notifications, mut from_controller) =
 		tracing_unbounded("test_to_notifications", 10_000);
@@ -163,7 +165,7 @@ async fn test_once() {
 			reserved_only: Uniform::new_inclusive(0, 10).sample(&mut rng) == 0,
 		},
 		to_notifications,
-		Box::new(peer_store_handle.clone()),
+		Arc::new(peer_store_handle.clone()),
 	);
 
 	tokio::spawn(peer_store.run());
@@ -319,14 +321,15 @@ async fn test_once() {
 				1 => {
 					let new_id = PeerId::random();
 					known_nodes.insert(new_id, State::Disconnected);
-					peer_store_handle.add_known_peer(new_id);
+					peer_store_handle.add_known_peer(new_id.into());
 				},
 
 				// If we generate 2, adjust a random reputation.
 				2 =>
 					if let Some(id) = known_nodes.keys().choose(&mut rng) {
 						let val = Uniform::new_inclusive(i32::MIN, i32::MAX).sample(&mut rng);
-						peer_store_handle.report_peer(*id, ReputationChange::new(val, ""));
+						let peer: sc_network_types::PeerId = id.into();
+						peer_store_handle.report_peer(peer, ReputationChange::new(val, ""));
 					},
 
 				// If we generate 3, disconnect from a random node.
@@ -414,5 +417,6 @@ async fn test_once() {
 			}
 		}
 	})
-	.await;
+	.await
+	.unwrap();
 }
