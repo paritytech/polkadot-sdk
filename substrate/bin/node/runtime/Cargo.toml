@@ -88,6 +88,7 @@ pallet-election-provider-support-benchmarking = { path = "../../../frame/electio
 pallet-elections-phragmen = { path = "../../../frame/elections-phragmen", default-features = false }
 pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
 pallet-fast-unstake = { path = "../../../frame/fast-unstake", default-features = false }
+pallet-migrations = { path = "../../../frame/migrations", default-features = false }
 pallet-nis = { path = "../../../frame/nis", default-features = false }
 pallet-grandpa = { path = "../../../frame/grandpa", default-features = false }
 pallet-im-online = { path = "../../../frame/im-online", default-features = false }
@@ -198,6 +199,7 @@ std = [
 	"pallet-lottery/std",
 	"pallet-membership/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-mixnet/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
@@ -274,6 +276,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-alliance/runtime-benchmarks",
+	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-asset-tx-payment/runtime-benchmarks",
@@ -302,6 +305,7 @@ runtime-benchmarks = [
 	"pallet-lottery/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-mixnet/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -330,6 +334,7 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-tips/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-transaction-storage/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-tx-pause/runtime-benchmarks",
@@ -381,6 +386,7 @@ try-runtime = [
 	"pallet-lottery/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-mixnet/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",

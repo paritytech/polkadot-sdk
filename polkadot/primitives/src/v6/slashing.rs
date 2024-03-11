@@ -54,7 +54,7 @@ impl DisputesTimeSlot {
 /// is required to identify and verify it.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
 pub struct DisputeProof {
-	/// Time slot when the dispute occured.
+	/// Time slot when the dispute occurred.
 	pub time_slot: DisputesTimeSlot,
 	/// The dispute outcome.
 	pub kind: SlashingOffenceKind,
