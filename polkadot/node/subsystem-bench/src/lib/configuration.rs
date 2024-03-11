@@ -42,7 +42,7 @@ fn default_n_validators() -> usize {
 
 // Based on number of kusama validators producing blocks
 fn default_n_cores() -> usize {
-	50
+	60
 }
 
 // Default PoV size in KiB.
