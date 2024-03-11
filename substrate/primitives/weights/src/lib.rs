@@ -98,7 +98,11 @@ impl RuntimeDbRefTime {
 	///
 	/// Note: `RuntimeDbRefTime` does not know about `proof_size`. The returned [`Weight`] only has
 	/// a non-zero computational time component (`ref_time`).
-	/// This function should only be used in generated benchmark code.
+	///
+	/// This function is primarily intended for use within benchmark-generated [`Weight`] functions
+	/// to help calculate the computational cost of these operations.
+	/// It should NOT be used in any context that is meant to be parachain compatible, where a
+	/// non-zero `pov_weight` component is expected.
 	pub fn reads_writes(self, r: u64, w: u64) -> Weight {
 		let read_weight = self.read.saturating_mul(r);
 		let write_weight = self.write.saturating_mul(w);
