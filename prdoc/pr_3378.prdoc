@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove deprecated GenesisConfig
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removes deprecated type `GenesisConfig`, it was replaced by `RuntimeGenesisConfig` on May 24 of 2023.
+      The type `GenesisConfig` was deprecated on May 24 of 2023 [#14210](https://github.com/paritytech/substrate/pull/14210)
+
+crates:
+  - name: frame-support-procedural

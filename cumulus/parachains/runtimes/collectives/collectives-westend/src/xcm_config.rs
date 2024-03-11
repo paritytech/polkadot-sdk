@@ -59,7 +59,7 @@ parameter_types! {
 	pub const GovernanceLocation: Location = Location::parent();
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(xcm_constants::body::FELLOWSHIP_ADMIN_INDEX);
 	pub AssetHub: Location = (Parent, Parachain(1000)).into();
-	pub const TreasurerBodyId: BodyId = BodyId::Index(xcm_constants::body::TREASURER_INDEX);
+	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
 	pub AssetHubUsdtId: AssetId = (PalletInstance(50), GeneralIndex(1984)).into();
 	pub UsdtAssetHub: LocatableAssetId = LocatableAssetId {
 		location: AssetHub::get(),
