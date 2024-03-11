@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use codec::Decode;
-use frame_metadata::{RuntimeMetadata, RuntimeMetadataPrefixed};
-use metadata_shortener::traits::HashableMetadata;
+use frame_metadata::RuntimeMetadataPrefixed;
+use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
 use sc_executor_wasmtime::{
 	create_runtime, Config, HeapAllocStrategy, InstantiationStrategy, RuntimeBlob, WasmModule,
 };
@@ -56,10 +56,15 @@ pub fn generate_hash(wasm: &Path) -> [u8; 32] {
 
 	let metadata = Vec::<u8>::decode(&mut &metadata[..]).unwrap();
 
-	let metadata = match RuntimeMetadataPrefixed::decode(&mut &metadata[..]).unwrap().1 {
-		RuntimeMetadata::V14(m) => m,
-		_ => unimplemented!("Unsupported metadata"),
+	let metadata = RuntimeMetadataPrefixed::decode(&mut &metadata[..]).unwrap().1;
+
+	let extra_info = ExtraInfo {
+		spec_version: 1,
+		spec_name: "esel".into(),
+		base58_prefix: 10,
+		decimals: 10,
+		token_symbol: "lol".into(),
 	};
 
-	HashableMetadata::<()>::types_merkle_root(&metadata).unwrap()
+	generate_metadata_digest(&metadata, extra_info).unwrap().hash()
 }

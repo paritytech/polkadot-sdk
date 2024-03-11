@@ -143,6 +143,7 @@ pub(crate) fn create_and_compile(
 		&project,
 		default_rustflags,
 		cargo_cmd,
+		None,
 	);
 
 	let (final_blob_binary, bloaty_blob_binary) = match target {

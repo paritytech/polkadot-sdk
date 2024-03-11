@@ -26,7 +26,7 @@ sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
 filetime = "0.2.16"
 wasm-opt = "0.116"
 parity-wasm = "0.45"
-metadata-shortener = { git = "https://github.com/Alzymologist/metadata-shortener.git", optional = true }
+merkleized-metadata = { git = "https://github.com/bkchr/merkleized-metadata.git", optional = true }
 sc-executor-wasmtime = { path = "../../client/executor/wasmtime", optional = true }
 sp-io = { path = "../../primitives/io", optional = true }
 frame-metadata = { version = "16.0.0", features = [ "current" ], optional = true }
@@ -37,4 +37,4 @@ polkavm-linker = { workspace = true }
 
 [features]
 default = [ "experimental-metadata-hash" ]
-experimental-metadata-hash = [ "metadata-shortener", "sc-executor-wasmtime", "sp-io", "frame-metadata", "codec", "sp-tracing" ]
+experimental-metadata-hash = [ "merkleized-metadata", "sc-executor-wasmtime", "sp-io", "frame-metadata", "codec", "sp-tracing" ]
