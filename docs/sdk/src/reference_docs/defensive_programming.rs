@@ -13,136 +13,101 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! As our runtime should _never_ panic, we should carefully handle [`Result`]/[`Option`]
-//! types, eliminating the possibility of integer overflows, converting between number types, or
-//! even replacing floating point usage with fixed point arithmetic to mitigate issues that come
-//! with floating point calculations.
+//! Learn about how to write safe and defensive code in your FRAME runtime.
+//! [Defensive programming](https://en.wikipedia.org/wiki/Defensive_programming) is a design paradigm that enables a program to continue
+//! running despite unexpected behavior, input, or events that may arise in runtime.
+//! Usually, unforeseen circumstances may cause the program to stop or, in the Rust context,
+//! panic!. Defensive practices allow for these circumstances to be accounted for ahead of time
+//! and for them to be handled gracefully, which is in line with the intended fault-tolerant and
+//! deterministic nature of blockchains.
 //!
-//! Intentional and predictable design should be our first and foremost
-//! priority for ensuring a well running, safely designed system.
+//! The Polkadot SDK is built to reflect these principles and to facilitate their usage accordingly.
 //!
-//! ## Defensive Programming
+//! ## General Overview
 //!
-//! [Defensive programming](https://en.wikipedia.org/wiki/Defensive_programming) is a design paradigm that enables a particular program to continue
-//! running despite unexpected behavior, input or events which may arise in runtime. Normally,
-//! unforeseen circumstances may cause the program to stop or, in the Rust context, `panic!`.
-//! Defensive practices allow for these circumstances to be accounted for ahead of time and for them
-//! to be handled in a graceful manner, which is in the line of the intended, fault-tolerant and
-//! deterministic behavior of blockchains.
+//! When developing within the context of the Substrate runtime, there is one golden rule:
 //!
-//! The Polkadot SDK is built to reflect these principles and to facilitate their usage
-//! accordingly.
+//! ***DO NOT PANIC***. There are some exceptions, but generally, this is the default precedent.
 //!
-//! ## General Practices
+//! > It’s important to differentiate between the runtime and node. The runtime refers to the core
+//! > business logic of a Substrate-based chain, whereas the node refers to the outer client, which
+//! > deals with telemetry and gossip from other nodes. For more information, read about
+//! > [Substrate's node
+//! > architecture](crate::reference_docs::wasm_meta_protocol#node-vs-runtime). It’s also important
+//! > to note that the criticality of the node is slightly lesser
+//! > than that of the runtime, which is why you may see `unwrap()` or other “non-defensive”
+//! > approaches
+//! in a few places of the node's code repository.
 //!
-//! When developing within the context of the a runtime, there is *one* golden rule:
-//!
-//! ***DO NOT PANIC***. There are some exceptions, which will be covered later on in this doc.
-//!
-//! > It's important to make the differentiation between the **runtime** and **node**.  The runtime
-//! > refers to the core business logic of a Substrate-based chain, whereas the node refers to the
-//! > outer client which deals with telemetry and gossip from other nodes. For more information,
-//! > read about Substrate's architecture.
-//! > It's also important to note that the criticality of the **node** is slightly lesser than that
-//! > of the
-//! > **runtime**, which is why in a few places of the node's code repository, you may see
-//! > `unwrap()` or other "non-defensive"
-//! > code instances.
+//! Most of these practices fall within Rust's
+//! colloquial usage of proper error propagation, handling, and arithmetic-based edge cases.
 //!
 //!  General guidelines:
 //!
-//! - Avoid writing functions that could explicitly panic. Directly using `unwrap()` on a
-//!   [`Result`], or  accessing an out-of-bounds index on a collection, should be avoided. Safer
-//!   methods to access collection types, i.e., `get()` which allow defensive handling of the
-//!   resulting [`Option`] are recommended to be used.
-//! - It may be acceptable to use `except()`, but only if one is completely certain (and has
-//!   performed a check beforehand) that a value won't panic upon unwrapping.  Even this is
-//!   discouraged, however, as future changes to that function could then cause that statement to
+//! - **Avoid writing functions that could explicitly panic,** such as directly using `unwrap()` on
+//!   a [`Result`], or  accessing an out-of-bounds index on a collection. Safer methods to access
+//!   collection types, i.e., `get()` which allow defensive handling of the resulting [`Option`] are
+//!   recommended to be used.
+//! - **It may be acceptable to use `except()`,** but only if one is completely certain (and has
+//!   performed a check beforehand) that a value won't panic upon unwrapping.  *Even this is
+//!   discouraged*, however, as future changes to that function could then cause that statement to
 //!   panic.  It is important to ensure all possible errors are propagated and handled effectively.
-//! - If a function *can* panic, it usually is prefaced with `unchecked_` to indicate its unsafety.
-//! - If you are writing a function that could panic, [be sure to document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
-//! - Carefully handle mathematical operations.  Many seemingly, simplistic operations, such as
+//! - **If a function *can* panic,** it usually is prefaced with `unchecked_` to indicate its
+//!   unsafety.
+//! - **If you are writing a function that could panic,** [document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
+//! - **Carefully handle mathematical operations.**  Many seemingly, simplistic operations, such as
 //!   **arithmetic** in the runtime, could present a number of issues [(see more later in this
 //!   document)](#integer-overflow). Use checked arithmetic wherever possible.
 //!
-//! ### Examples of when to `panic!`
+//! These guidelines could be summarized in the following example, where `bad_pop` is prone to
+//! panicking, and `good_pop` allows for proper error handling to take place:
 //!
-//! As you traverse through the codebase (particularly in `substrate/frame`, where the majority of
-//! runtime code lives), you may notice that there occurrences where `panic!` is used explicitly.
-//! This is used when the runtime should stall, rather than keep running, as that is considered
-//! safer. Particularly when it comes to mission critical components, such as block authoring,
-//! consensus, or other protocol-level dependencies, the unauthorized nature of a node may actually
-//! cause harm to the network, and thus stalling would be the better option.
-//!
-//! Take the example of the BABE pallet ([`pallet_babe`]), which doesn't allow for a validator to
-//! participate if it is disabled (see: [frame::traits::DisabledValidators]):
-//!
-//! ```rust
-//! if T::DisabledValidators::is_disabled(authority_index) {
-//! 	panic!(
-//! 		"Validator with index {:?} is disabled and should not be attempting to author blocks.",
-//! 		authority_index,
-//! 	);
-//! }
+//!```rust
+//! // Bad pop always requires that we return something, even if vector/array is empty.
+//! fn bad_pop<T>(v: Vec<T>) -> T {}
+//! // Good pop allows us to return None from the Option if need be.
+//! fn good_pop<T>(v: Vec<T>) -> Option<T> {}
 //! ```
-//!
-//! There are other such examples in various pallets, mostly those that are crucial to the
-//! blockchain's functionality.
 //!
 //! ### Defensive Traits
 //!
 //! The [`Defensive`](frame::traits::Defensive) trait provides a number of functions, all of which
 //! provide an alternative to 'vanilla' Rust functions, e.g.,:
 //!
-//! - [`defensive_unwrap_or()`](frame::traits::Defensive::defensive_unwrap_or)
-//! - [`defensive_ok_or()`](frame::traits::DefensiveOption::defensive_ok_or)
-//!
-//! The [`Defensive`](frame::traits::Defensive) trait and its companions,
-//! [`DefensiveOption`](frame::traits::DefensiveOption),
-//! [`DefensiveResult`](frame::traits::DefensiveResult) can be used to defensively unwrap
-//! and handle values.  This can be used in place of
-//! an `expect`, and again, only if the developer is sure about the unwrap in the first place.
-//!
-//! Here is a full list of all defensive types:
-//!
-//! - [`DefensiveOption`](frame::traits::DefensiveOption)
-//! - [`DefensiveResult`](frame::traits::DefensiveResult)
-//! - [`DefensiveMax`](frame::traits::DefensiveMax)
-//! - [`DefensiveSaturating`](frame::traits::DefensiveSaturating)
-//! - [`DefensiveTruncateFrom`](frame::traits::DefensiveTruncateFrom)
-//!
-//! All of which can be used by importing
-//! [`frame::traits::defensive_prelude`](frame::traits::defensive_prelude), which imports all
-//! defensive traits at once.
+//! - [`defensive_unwrap_or()`](frame::traits::Defensive::defensive_unwrap_or) instead of
+//!   `unwrap_or()`
+//! - [`defensive_ok_or()`](frame::traits::DefensiveOption::defensive_ok_or) instead of `ok_or()`
 //!
 //! Defensive methods use [`debug_assertions`](https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions), which panic in development, but in
 //! production/release, they will merely log an error (i.e., `log::error`).
 //!
+//! The [`Defensive`](frame::traits::Defensive) trait and its various implementations can be found
+//! [here](frame::traits::Defensive).
+//!
 //! ## Integer Overflow
 //!
-//! The Rust compiler prevents any sort of static overflow from happening at compile time.  
+//! The Rust compiler prevents static overflow from happening at compile time.  
 //! The compiler panics in **debug** mode in the event of an integer overflow. In
 //! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion
 //! (from the `MAX` back to zero).
 //!
-//! In the context of runtime development, we don't always have control over what is being supplied
+//! In runtime development, we don't always have control over what is being supplied
 //! as a parameter. For example, even this simple add function could present one of two outcomes
 //! depending on whether it is in **release** or **debug** mode:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", naive_add)]
 //!
-//! If we passed in overflow-able values at runtime, this could actually panic (or wrap, if in
-//! release).
+//! If we passed overflow-able values at runtime, this could panic (or wrap if in release).
 //!
 //! ```ignore
 //! naive_add(250u8, 10u8); // In debug mode, this would panic. In release, this would return 4.
 //! ```
 //!
-//! It is the _silent_ portion of this behavior that presents a real issue. Such behavior should be
-//! made obvious, especially in the context of blockchain development, where unsafe arithmetic could
-//! produce unexpected consequences like a user balance over or underflowing.
+//! It is the silent portion of this behavior that presents a real issue. Such behavior should be
+//! made obvious, especially in blockchain development, where unsafe arithmetic could produce
+//! unexpected consequences like a user balance over or underflowing.
 //!
 //! Fortunately, there are ways to both represent and handle these scenarios depending on our
-//! specific use case natively built into Rust, as well as libraries like [`sp_arithmetic`].
+//! specific use case natively built into Rust and libraries like [`sp_arithmetic`].
 //!
 //! ## Infallible Arithmetic
 //!
@@ -152,12 +117,13 @@
 //! A developer should use fixed-point instead of floating-point arithmetic to mitigate the
 //! potential for inaccuracy, rounding errors, or other unexpected behavior.
 //!
-//! Using floating point number types in the runtime should be avoided,
-//! as a single non-deterministic result could cause chaos for blockchain consensus along with the
-//! aforementioned issues. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
+//! - [Fixed point types](sp_arithmetic::fixed_point) and their associated usage can be found here.
+//! - [PerThing](sp_arithmetic::per_things) and its associated types can be found here.
 //!
-//! The following methods demonstrate different ways one can handle numbers natively in Rust in a
-//! safe manner, without fear of panic or unexpected behavior from wrapping.
+//! Using floating point number types (i.e., f32. f64) in the runtime should be avoided, as a single non-deterministic result could cause chaos for blockchain consensus along with the issues above. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
+//!
+//! The following methods demonstrate different ways to handle numbers natively in Rust safely,
+//! without fear of panic or unexpected behavior from wrapping.
 //!
 //! ### Checked Arithmetic
 //!
@@ -174,13 +140,12 @@
     checked_add_handle_error_example
 )]
 //!
-//! Typically, if you aren't sure about which operation to use for runtime math, **checked**
-//! operations are a safe bet, as it presents two, predictable (and _erroring_) outcomes that can be
-//! handled accordingly (`Some` and `None`).
+//! Suppose you aren’t sure which operation to use for runtime math. In that case, checked
+//! operations are the safest bet, presenting two predictable (and erroring) outcomes that can be
+//! handled accordingly (Some and None). 
 //!
-//! In a practical context, the resulting [`Option`] should be handled accordingly. The following
-//! conventions can be seen within the Polkadot SDK, where it is handled in
-//! two ways:
+//! The following conventions can be seen within the Polkadot SDK, where it is
+//! handled in two ways:
 //!
 //! - As an [`Option`], using the `if let` / `if` or `match`
 //! - As a [`Result`], via `ok_or` (or similar conversion to [`Result`] from [`Option`])
@@ -198,7 +163,7 @@
 )]
 //!
 //! This is generally a useful convention for handling not only checked types, but most types that
-//! return `Option<T>`.
+//! return `Option<T>` (such as some storage constructs in Substrate).
 //!
 //! #### Handling via Result - Less Verbose
 //!
@@ -295,7 +260,7 @@
 //!
 //! <details>
 //!  <summary><b>Solution: Checked</b></summary>
-//! For the proposal IDs, proper handling via `checked` math would've been much more suitable,
+//! For the proposal IDs, proper handling via `checked` math would've been suitable,
 //! Saturating could've been used - but it also would've 'failed' silently. Using `checked_add` to
 //! ensure that the next proposal ID would've been valid would've been a viable way to let the user
 //! know the state of their proposal:
@@ -307,13 +272,35 @@
 //! </details>
 //!
 //! From the above, we can clearly see the problematic nature of seemingly simple operations in the
-//! runtime. Of course, it may be that using unchecked math is perfectly fine under some scenarios -
-//! such as certain balance being never realistically attainable, or a number type being so large
-//! that it could never realistically overflow unless one sent thousands of transactions to the
-//! network.
+//! runtime, and care should be given to ensure a defensive approach is taken.
 //!
 //! ### Decision Chart: When to use which?
 #![doc = simple_mermaid::mermaid!("../../../mermaid/integer_operation_decision.mmd")]
+//! ### Edge cases of `panic!`-able instances in Substrate
+//!
+//! As you traverse through the codebase (particularly in `substrate/frame`, where the majority of
+//! runtime code lives), you may notice that there occurrences where `panic!` is used explicitly.
+//! This is used when the runtime should stall, rather than keep running, as that is considered
+//! safer. Particularly when it comes to mission critical components, such as block authoring,
+//! consensus, or other protocol-level dependencies, the unauthorized nature of a node may actually
+//! cause harm to the network, and thus stalling would be the better option.
+//!
+//! Take the example of the BABE pallet ([`pallet_babe`]), which doesn't allow for a validator to
+//! participate if it is disabled (see: [`frame::traits::DisabledValidators`]):
+//!
+//! ```rust
+//! if T::DisabledValidators::is_disabled(authority_index) {
+//! 	panic!(
+//! 		"Validator with index {:?} is disabled and should not be attempting to author blocks.",
+//! 		authority_index,
+//! 	);
+//! }
+//! ```
+//!
+//! There are other such examples in various pallets, mostly those that are crucial to the
+//! blockchain's functionality at the consensus level. Most of the time, you will not be writing
+//! pallets which operate at this level.
+//!
 //! ## Other Resources
 //!
 //! - [PBA Book - FRAME Tips & Tricks](https://polkadot-blockchain-academy.github.io/pba-book/substrate/tips-tricks/page.html?highlight=perthing#substrate-and-frame-tips-and-tricks)

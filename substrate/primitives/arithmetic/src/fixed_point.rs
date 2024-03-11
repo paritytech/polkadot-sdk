@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! Decimal Fixed Point implementations for Substrate runtime.
-//! Similar to types that implement [`PerThing`](PerThing), these are also
+//! Similar to types that implement [`PerThing`](crate::per_things), these are also
 //! fixed-point types, however, they are able to represent larger fractions:
 #![doc = docify::embed!("./src/lib.rs", fixed_u64)]
 //!
