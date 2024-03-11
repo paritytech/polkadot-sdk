@@ -19,11 +19,8 @@
 #![cfg(test)]
 
 use crate::{mock::*, Numbers};
-use frame_support::traits::Task;
+use frame_support::{assert_noop, assert_ok, traits::Task};
 use sp_runtime::BuildStorage;
-
-#[cfg(feature = "experimental")]
-use frame_support::{assert_noop, assert_ok};
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
@@ -92,7 +89,6 @@ fn task_index_works_at_runtime_level() {
 	});
 }
 
-#[cfg(feature = "experimental")]
 #[test]
 fn task_execution_works() {
 	new_test_ext().execute_with(|| {
@@ -114,7 +110,6 @@ fn task_execution_works() {
 	});
 }
 
-#[cfg(feature = "experimental")]
 #[test]
 fn task_execution_fails_for_invalid_task() {
 	new_test_ext().execute_with(|| {

@@ -34,10 +34,6 @@
 //!
 //! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
 //!
-//! ## Warning: Experimental
-//!
-//! This crate and all of its content is experimental, and should not yet be used in production.
-//!
 //! ## Underlying dependencies
 //!
 //! This crate is an amalgamation of multiple other crates that are often used together to compose a
@@ -47,7 +43,6 @@
 //! sources are listed (and re-exported again) in [`deps`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg(feature = "experimental")]
 
 /// Exports the main pallet macro. This can wrap a `mod pallet` and will transform it into
 /// being a pallet, eg `#[frame::pallet] mod pallet { .. }`.

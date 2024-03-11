@@ -17,10 +17,7 @@ workspace = true
 # Needed for all FRAME-based code
 parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
-frame = { path = "../../substrate/frame", features = [
-	"experimental",
-	"runtime",
-] }
+frame = { path = "../../substrate/frame", features = ["runtime"] }
 pallet-examples = { path = "../../substrate/frame/examples" }
 pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }
 pallet-example-offchain-worker = { path = "../../substrate/frame/examples/offchain-worker" }
@@ -86,6 +83,3 @@ sp-version = { path = "../../substrate/primitives/version" }
 
 # XCM
 xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
-
-[features]
-experimental = ["pallet-aura/experimental"]

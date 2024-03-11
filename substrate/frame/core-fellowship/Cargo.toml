@@ -34,7 +34,6 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
-	"frame-support/experimental",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",

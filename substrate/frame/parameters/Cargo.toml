@@ -14,7 +14,7 @@ paste = { version = "1.0.14", default-features = false }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
 docify = "0.2.5"
 
-frame-support = { path = "../support", default-features = false, features = ["experimental"] }
+frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }

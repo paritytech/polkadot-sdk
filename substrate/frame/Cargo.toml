@@ -13,8 +13,6 @@ publish = false
 workspace = true
 
 [package.metadata.docs.rs]
-# enable `experimental` feature for docs
-features = ["experimental"]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
@@ -59,7 +57,6 @@ pallet-examples = { path = "./examples" }
 
 [features]
 default = ["runtime", "std"]
-experimental = ["frame-support/experimental"]
 runtime = [
 	"sp-api",
 	"sp-block-builder",

@@ -110,7 +110,6 @@ mod tests {
 				type DisabledValidators = ();
 				type MaxAuthorities = ConstU32<100_000>;
 				type AllowMultipleBlocksPerSlot = ConstBool<false>;
-				#[cfg(feature = "experimental")]
 				type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
 			}
 

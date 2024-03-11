@@ -44,7 +44,7 @@ bp-xcm-bridge-hub-router = { path = "../../../bridges/primitives/xcm-bridge-hub-
 # Substrate
 sp-core = { path = "../../../substrate/primitives/core" }
 pallet-balances = { path = "../../../substrate/frame/balances" }
-frame-support = { path = "../../../substrate/frame/support", features = ["experimental"] }
+frame-support = { path = "../../../substrate/frame/support" }
 
 # Polkadot
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder" }

@@ -746,7 +746,6 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		#[cfg(feature = "experimental")]
 		#[pallet::call_index(8)]
 		#[pallet::weight(task.weight())]
 		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
@@ -835,13 +834,10 @@ pub mod pallet {
 		KilledAccount { account: T::AccountId },
 		/// On on-chain remark happened.
 		Remarked { sender: T::AccountId, hash: T::Hash },
-		#[cfg(feature = "experimental")]
 		/// A [`Task`] has started executing
 		TaskStarted { task: T::RuntimeTask },
-		#[cfg(feature = "experimental")]
 		/// A [`Task`] has finished executing.
 		TaskCompleted { task: T::RuntimeTask },
-		#[cfg(feature = "experimental")]
 		/// A [`Task`] failed during execution.
 		TaskFailed { task: T::RuntimeTask, err: DispatchError },
 		/// An upgrade was authorized.
@@ -869,10 +865,8 @@ pub mod pallet {
 		CallFiltered,
 		/// A multi-block migration is ongoing and prevents the current code from being replaced.
 		MultiBlockMigrationsOngoing,
-		#[cfg(feature = "experimental")]
 		/// The specified [`Task`] is not valid.
 		InvalidTask,
-		#[cfg(feature = "experimental")]
 		/// The specified [`Task`] failed during execution.
 		FailedTask,
 		/// No upgrade authorized.
