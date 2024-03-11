@@ -41,7 +41,8 @@
 //! Each of these can be used to construct and represent ratios within our runtime.
 //! You will find types like [`Perbill`](Perbill) being used often in pallet
 //! development.  `pallet_referenda` is a good example of a pallet which makes good use of fixed
-//! point arithmetic, as it relies on representing various curves and thresholds relating to governance.
+//! point arithmetic, as it relies on representing various curves and thresholds relating to
+//! governance.
 //!
 //! #### Fixed Point Arithmetic with [`PerThing`](PerThing)
 //!
