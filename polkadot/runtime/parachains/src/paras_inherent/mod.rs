@@ -377,7 +377,7 @@ impl<T: Config> Pallet<T> {
 				);
 			});
 		}
-		let allowed_relay_parents = <shared::Pallet<T>>::allowed_relay_parents();
+		let allowed_relay_parents = shared::AllowedRelayParents::<T>::get();
 
 		let candidates_weight = backed_candidates_weight::<T>(&backed_candidates);
 		let bitfields_weight = signed_bitfields_weight::<T>(&bitfields);
@@ -390,9 +390,9 @@ impl<T: Config> Pallet<T> {
 		log::debug!(target: LOG_TARGET, "Size before filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_before.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
 		log::debug!(target: LOG_TARGET, "Time weight before filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_before.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
 
-		let current_session = <shared::Pallet<T>>::session_index();
+		let current_session = shared::CurrentSessionIndex::<T>::get();
 		let expected_bits = scheduler::AvailabilityCores::<T>::get().len();
-		let validator_public = shared::Pallet::<T>::active_validator_keys();
+		let validator_public = shared::ActiveValidatorKeys::<T>::get();
 
 		// We are assuming (incorrectly) to have all the weight (for the mandatory class or even
 		// full block) available to us. This can lead to slightly overweight blocks, which still

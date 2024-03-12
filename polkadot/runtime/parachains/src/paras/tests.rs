@@ -93,7 +93,8 @@ fn run_to_block(to: BlockNumber, new_session: Option<Vec<BlockNumber>>) {
 		ParasShared::initializer_finalize();
 		if new_session.as_ref().map_or(false, |v| v.contains(&(b + 1))) {
 			let mut session_change_notification = SessionChangeNotification::default();
-			session_change_notification.session_index = ParasShared::session_index() + 1;
+			session_change_notification.session_index =
+				shared::CurrentSessionIndex::<Test>::get() + 1;
 			session_change_notification.validators = validator_pubkeys.clone();
 			ParasShared::initializer_on_new_session(
 				session_change_notification.session_index,

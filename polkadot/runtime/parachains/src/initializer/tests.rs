@@ -16,13 +16,13 @@
 
 use super::*;
 use crate::{
-	mock::{new_test_ext, Dmp, Initializer, MockGenesisConfig, Paras, SessionInfo, System, Test},
+	mock::{new_test_ext, Dmp, Initializer, MockGenesisConfig, Paras, System, Test},
+	paras::ParaKind,
 	session_info,
 };
 use primitives::{HeadData, Id as ParaId};
 use test_helpers::dummy_validation_code;
 
-use crate::paras::ParaKind;
 use frame_support::{
 	assert_ok,
 	traits::{OnFinalize, OnInitialize},

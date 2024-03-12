@@ -431,7 +431,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			&Digest { logs: Vec::new() },
 		);
 
-		assert_eq!(<shared::Pallet<T>>::session_index(), target_session);
+		assert_eq!(shared::CurrentSessionIndex::<T>::get(), target_session);
 
 		// We need to refetch validators since they have been shuffled.
 		let validators_shuffled =

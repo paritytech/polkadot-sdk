@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
 		let validators = notification.validators.clone().into();
 		let discovery_keys = <T as AuthorityDiscoveryConfig>::authorities();
 		let assignment_keys = AssignmentKeysUnsafe::<T>::get();
-		let active_set = <shared::Pallet<T>>::active_validator_indices();
+		let active_set = shared::ActiveValidatorIndices::<T>::get();
 
 		let validator_groups = scheduler::ValidatorGroups::<T>::get().into();
 		let n_cores = scheduler::AvailabilityCores::<T>::get().len() as u32;

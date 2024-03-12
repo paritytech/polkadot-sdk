@@ -71,7 +71,7 @@ where
 	C::ValidatorSet: ValidatorSet<C::AccountId, ValidatorId = C::AccountId>,
 {
 	fn reward_backing(indices: impl IntoIterator<Item = ValidatorIndex>) {
-		let session_index = shared::Pallet::<C>::session_index();
+		let session_index = shared::CurrentSessionIndex::<C>::get();
 		Self::reward_only_active(session_index, indices, BACKING_POINTS);
 	}
 

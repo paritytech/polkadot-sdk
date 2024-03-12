@@ -612,7 +612,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let minimum_backing_votes = configuration::ActiveConfig::<T>::get().minimum_backing_votes;
-		let validators = shared::Pallet::<T>::active_validator_keys();
+		let validators = shared::ActiveValidatorKeys::<T>::get();
 
 		// Collect candidate receipts with backers.
 		let mut candidate_receipt_with_backing_validator_indices =
@@ -652,7 +652,7 @@ impl<T: Config> Pallet<T> {
 				let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 				let signing_context = SigningContext {
 					parent_hash: relay_parent_hash,
-					session_index: shared::Pallet::<T>::session_index(),
+					session_index: shared::CurrentSessionIndex::<T>::get(),
 				};
 
 				let relay_parent_number = match check_ctx.verify_backed_candidate(

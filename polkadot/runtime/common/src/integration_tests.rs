@@ -348,7 +348,7 @@ const VALIDATORS: &[Sr25519Keyring] = &[
 
 fn maybe_new_session(n: u32) {
 	if n % BLOCKS_PER_SESSION == 0 {
-		let session_index = shared::Pallet::<Test>::session_index() + 1;
+		let session_index = shared::CurrentSessionIndex::<Test>::get() + 1;
 		let validators_pub_keys = validators_public_keys(VALIDATORS);
 
 		shared::Pallet::<Test>::set_session_index(session_index);

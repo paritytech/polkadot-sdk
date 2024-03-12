@@ -904,7 +904,7 @@ mod tests {
 			}
 			// Session change every 3 blocks.
 			if (b + 1) % BLOCKS_PER_SESSION == 0 {
-				let session_index = shared::Pallet::<Test>::session_index() + 1;
+				let session_index = shared::CurrentSessionIndex::<Test>::get() + 1;
 				let validators_pub_keys = VALIDATORS.iter().map(|v| v.public().into()).collect();
 
 				shared::Pallet::<Test>::set_session_index(session_index);

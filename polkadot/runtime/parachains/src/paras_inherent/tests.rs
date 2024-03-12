@@ -1513,7 +1513,7 @@ mod sanitizers {
 				vec![(CoreIndex(0), ParaId::from(1)), (CoreIndex(1), ParaId::from(2))]
 			);
 			assert_eq!(
-				shared::Pallet::<Test>::active_validator_indices(),
+				shared::ActiveValidatorIndices::<Test>::get(),
 				vec![
 					ValidatorIndex(0),
 					ValidatorIndex(1),
@@ -1861,7 +1861,7 @@ mod sanitizers {
 			}
 
 			assert_eq!(
-				shared::Pallet::<Test>::active_validator_indices(),
+				shared::ActiveValidatorIndices::<Test>::get(),
 				vec![
 					ValidatorIndex(0),
 					ValidatorIndex(1),
@@ -1897,7 +1897,7 @@ mod sanitizers {
 				assert_eq!(
 					sanitize_backed_candidates::<Test, _>(
 						backed_candidates.clone(),
-						&<shared::Pallet<Test>>::allowed_relay_parents(),
+						&shared::AllowedRelayParents::<Test>::get(),
 						has_concluded_invalid,
 						scheduled,
 						core_index_enabled
@@ -1928,7 +1928,7 @@ mod sanitizers {
 				assert_eq!(
 					sanitize_backed_candidates::<Test, _>(
 						backed_candidates.clone(),
-						&<shared::Pallet<Test>>::allowed_relay_parents(),
+						&shared::AllowedRelayParents::<Test>::get(),
 						has_concluded_invalid,
 						scheduled,
 						core_index_enabled
@@ -1968,7 +1968,7 @@ mod sanitizers {
 					dropped_unscheduled_candidates,
 				} = sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					has_concluded_invalid,
 					scheduled,
 					core_index_enabled,
@@ -2007,7 +2007,7 @@ mod sanitizers {
 					dropped_unscheduled_candidates,
 				} = sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					has_concluded_invalid,
 					scheduled,
 					core_index_enabled,
@@ -2036,7 +2036,7 @@ mod sanitizers {
 				// filtered
 				assert!(!filter_backed_statements_from_disabled_validators::<Test>(
 					&mut all_backed_candidates_with_core,
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					core_index_enabled
 				));
 				assert_eq!(all_backed_candidates_with_core, before);
@@ -2084,7 +2084,7 @@ mod sanitizers {
 
 				assert!(filter_backed_statements_from_disabled_validators::<Test>(
 					&mut all_backed_candidates_with_core,
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					core_index_enabled
 				));
 
@@ -2134,7 +2134,7 @@ mod sanitizers {
 
 				assert!(filter_backed_statements_from_disabled_validators::<Test>(
 					&mut all_backed_candidates_with_core,
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					core_index_enabled
 				));
 

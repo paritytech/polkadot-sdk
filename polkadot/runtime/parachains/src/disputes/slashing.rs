@@ -187,7 +187,7 @@ where
 		validators: impl IntoIterator<Item = ValidatorIndex>,
 	) -> Option<Vec<IdentificationTuple<T>>> {
 		// We use `ValidatorSet::session_index` and not
-		// `shared::Pallet<T>::session_index()` because at the first block of a new era,
+		// `shared::CurrentSessionIndex::<T>::get()` because at the first block of a new era,
 		// the `IdentificationOf` of a validator in the previous session might be
 		// missing, while `shared` pallet would return the same session index as being
 		// updated at the end of the block.

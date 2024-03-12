@@ -202,7 +202,7 @@ fn generate_statements<T>(
 where
 	T: Config + shared::Config,
 {
-	let validators = ParasShared::<T>::active_validator_keys();
+	let validators = shared::ActiveValidatorKeys::<T>::get();
 
 	let accept_threshold = primitives::supermajority_threshold(validators.len());
 	let required_votes = match vote_outcome {

@@ -183,7 +183,7 @@ fn session_info_active_subsets() {
 	new_test_ext(genesis_config()).execute_with(|| {
 		ParasShared::set_active_validators_with_indices(active_set.clone(), validators.clone());
 
-		assert_eq!(ParasShared::active_validator_indices(), active_set);
+		assert_eq!(shared::ActiveValidatorIndices::<Test>::get(), active_set);
 
 		AssignmentKeysUnsafe::<Test>::set(unscrambled_assignment.clone());
 		crate::mock::set_discovery_authorities(unscrambled_discovery.clone());

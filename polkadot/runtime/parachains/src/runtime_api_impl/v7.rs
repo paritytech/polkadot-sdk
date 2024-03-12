@@ -39,7 +39,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 /// Implementation for the `validators` function of the runtime API.
 pub fn validators<T: initializer::Config>() -> Vec<ValidatorId> {
-	<shared::Pallet<T>>::active_validator_keys()
+	shared::ActiveValidatorKeys::<T>::get()
 }
 
 /// Implementation for the `validator_groups` function of the runtime API.
@@ -233,7 +233,7 @@ pub fn session_index_for_child<T: initializer::Config>() -> SessionIndex {
 	//
 	// Incidentally, this is also the rationale for why it is OK to query validators or
 	// occupied cores or etc. and expect the correct response "for child".
-	<shared::Pallet<T>>::session_index()
+	shared::CurrentSessionIndex::<T>::get()
 }
 
 /// Implementation for the `AuthorityDiscoveryApi::authorities()` function of the runtime API.
@@ -413,7 +413,7 @@ pub fn backing_state<T: initializer::Config>(
 	//
 	// Thus, minimum relay parent is ensured to have asynchronous backing enabled.
 	let now = <frame_system::Pallet<T>>::block_number();
-	let min_relay_parent_number = <shared::Pallet<T>>::allowed_relay_parents()
+	let min_relay_parent_number = shared::AllowedRelayParents::<T>::get()
 		.hypothetical_earliest_block_number(now, config.async_backing_params.allowed_ancestry_len);
 
 	let required_parent = paras::Heads::<T>::get(para_id)?;

@@ -941,7 +941,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::force_queue_action())]
 		pub fn force_queue_action(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
 			ensure_root(origin)?;
-			let next_session = shared::Pallet::<T>::session_index().saturating_add(One::one());
+			let next_session = shared::CurrentSessionIndex::<T>::get().saturating_add(One::one());
 			ActionsQueue::<T>::mutate(next_session, |v| {
 				if let Err(i) = v.binary_search(&para) {
 					v.insert(i, para);
@@ -1044,8 +1044,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 
-			let validators = shared::Pallet::<T>::active_validator_keys();
-			let current_session = shared::Pallet::<T>::session_index();
+			let validators = shared::ActiveValidatorKeys::<T>::get();
+			let current_session = shared::CurrentSessionIndex::<T>::get();
 			if stmt.session_index < current_session {
 				return Err(Error::<T>::PvfCheckStatementStale.into())
 			} else if stmt.session_index > current_session {
@@ -1143,7 +1143,7 @@ pub mod pallet {
 				_ => return InvalidTransaction::Call.into(),
 			};
 
-			let current_session = shared::Pallet::<T>::session_index();
+			let current_session = shared::CurrentSessionIndex::<T>::get();
 			if stmt.session_index < current_session {
 				return InvalidTransaction::Stale.into()
 			} else if stmt.session_index > current_session {
@@ -1151,7 +1151,7 @@ pub mod pallet {
 			}
 
 			let validator_index = stmt.validator_index.0 as usize;
-			let validators = shared::Pallet::<T>::active_validator_keys();
+			let validators = shared::ActiveValidatorKeys::<T>::get();
 			let validator_public = match validators.get(validator_index) {
 				Some(pk) => pk,
 				None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
@@ -1588,7 +1588,7 @@ impl<T: Config> Pallet<T> {
 		//
 		// we cannot onboard at the current session, so it must be at least one
 		// session ahead.
-		let onboard_at: SessionIndex = shared::Pallet::<T>::session_index() +
+		let onboard_at: SessionIndex = shared::CurrentSessionIndex::<T>::get() +
 			cmp::max(shared::SESSION_DELAY.saturating_sub(sessions_observed), 1);
 
 		ActionsQueue::<T>::mutate(onboard_at, |v| {
@@ -1986,7 +1986,7 @@ impl<T: Config> Pallet<T> {
 					// process.
 					weight += T::DbWeight::get().reads_writes(3, 2);
 					let now = <frame_system::Pallet<T>>::block_number();
-					let n_validators = shared::Pallet::<T>::active_validator_keys().len();
+					let n_validators = shared::ActiveValidatorKeys::<T>::get().len();
 					PvfActiveVoteMap::<T>::insert(
 						&code_hash,
 						PvfCheckActiveVoteState::new(now, n_validators, cause),
@@ -2202,7 +2202,7 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn test_on_new_session() {
 		Self::initializer_on_new_session(&SessionChangeNotification {
-			session_index: shared::Pallet::<T>::session_index(),
+			session_index: shared::CurrentSessionIndex::<T>::get(),
 			..Default::default()
 		});
 	}

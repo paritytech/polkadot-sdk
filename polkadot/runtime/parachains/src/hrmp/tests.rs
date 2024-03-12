@@ -19,9 +19,13 @@
 // both paras are system chains, then they are also configured to the system's max configuration.
 
 use super::*;
-use crate::mock::{
-	deregister_parachain, new_test_ext, register_parachain, register_parachain_with_balance, Hrmp,
-	MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent, RuntimeOrigin, System, Test,
+use crate::{
+	mock::{
+		deregister_parachain, new_test_ext, register_parachain, register_parachain_with_balance,
+		Hrmp, MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent, RuntimeOrigin,
+		System, Test,
+	},
+	shared,
 };
 use frame_support::{assert_noop, assert_ok};
 use primitives::BlockNumber;
@@ -41,7 +45,7 @@ pub(crate) fn run_to_block(to: BlockNumber, new_session: Option<Vec<BlockNumber>
 			let notification = crate::initializer::SessionChangeNotification {
 				prev_config: config.clone(),
 				new_config: config.clone(),
-				session_index: ParasShared::session_index() + 1,
+				session_index: shared::CurrentSessionIndex::<Test>::get() + 1,
 				..Default::default()
 			};
 

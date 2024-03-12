@@ -183,7 +183,7 @@ pub(crate) fn run_to_block_default_notifications(to: BlockNumber, new_session: V
 		new_session.contains(&b).then_some(SessionChangeNotification {
 			prev_config: configuration::ActiveConfig::<Test>::get(),
 			new_config: configuration::ActiveConfig::<Test>::get(),
-			session_index: ParasShared::session_index() + 1,
+			session_index: shared::CurrentSessionIndex::<Test>::get() + 1,
 			..Default::default()
 		})
 	});
@@ -232,11 +232,11 @@ fn default_bitfield() -> AvailabilityBitfield {
 }
 
 fn default_availability_votes() -> BitVec<u8, BitOrderLsb0> {
-	bitvec::bitvec![u8, BitOrderLsb0; 0; ParasShared::active_validator_keys().len()]
+	bitvec::bitvec![u8, BitOrderLsb0; 0; shared::ActiveValidatorKeys::<Test>::get().len()]
 }
 
 fn default_backing_bitfield() -> BitVec<u8, BitOrderLsb0> {
-	bitvec::bitvec![u8, BitOrderLsb0; 0; ParasShared::active_validator_keys().len()]
+	bitvec::bitvec![u8, BitOrderLsb0; 0; shared::ActiveValidatorKeys::<Test>::get().len()]
 }
 
 fn backing_bitfield(v: &[usize]) -> BitVec<u8, BitOrderLsb0> {
@@ -346,8 +346,8 @@ fn simple_sanitize_bitfields(
 	expected_bits: usize,
 ) -> SignedAvailabilityBitfields {
 	let parent_hash = frame_system::Pallet::<Test>::parent_hash();
-	let session_index = shared::Pallet::<Test>::session_index();
-	let validators = shared::Pallet::<Test>::active_validator_keys();
+	let session_index = shared::CurrentSessionIndex::<Test>::get();
+	let validators = shared::ActiveValidatorKeys::<Test>::get();
 
 	crate::paras_inherent::sanitize_bitfields::<Test>(
 		unchecked_bitfields,
@@ -364,7 +364,7 @@ pub(crate) fn process_bitfields(
 	signed_bitfields: SignedAvailabilityBitfields,
 	core_lookup: impl Fn(CoreIndex) -> Option<ParaId>,
 ) -> Vec<(CoreIndex, CandidateHash)> {
-	let validators = shared::Pallet::<Test>::active_validator_keys();
+	let validators = shared::ActiveValidatorKeys::<Test>::get();
 
 	ParaInclusion::update_pending_availability_and_get_freed_cores::<_>(
 		expected_bits,
@@ -2312,7 +2312,7 @@ fn session_change_wipes() {
 
 		run_to_block(11, |_| None);
 
-		assert_eq!(shared::Pallet::<Test>::session_index(), 5);
+		assert_eq!(shared::CurrentSessionIndex::<Test>::get(), 5);
 
 		assert!(<AvailabilityBitfields<Test>>::get(&ValidatorIndex(0)).is_some());
 		assert!(<AvailabilityBitfields<Test>>::get(&ValidatorIndex(1)).is_some());
@@ -2335,7 +2335,7 @@ fn session_change_wipes() {
 			_ => None,
 		});
 
-		assert_eq!(shared::Pallet::<Test>::session_index(), 6);
+		assert_eq!(shared::CurrentSessionIndex::<Test>::get(), 6);
 
 		assert!(<AvailabilityBitfields<Test>>::get(&ValidatorIndex(0)).is_none());
 		assert!(<AvailabilityBitfields<Test>>::get(&ValidatorIndex(1)).is_none());
