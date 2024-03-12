@@ -183,7 +183,8 @@ impl pallet_transaction_payment::Config for TestRuntime {
 impl pallet_bridge_grandpa::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = BridgedUnderlyingChain;
-	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
+	type MaxFreeHeadersPerBlock = ConstU32<4>;
+	type FreeHeadersInterval = ConstU32<1_024>;
 	type HeadersToKeep = ConstU32<8>;
 	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<TestRuntime>;
 }
