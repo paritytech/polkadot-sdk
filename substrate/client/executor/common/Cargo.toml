@@ -22,6 +22,7 @@ wasm-instrument = "0.4"
 sc-allocator = { path = "../../allocator" }
 sp-maybe-compressed-blob = { path = "../../../primitives/maybe-compressed-blob" }
 sp-wasm-interface = { path = "../../../primitives/wasm-interface" }
+polkavm = { workspace = true }
 
 [features]
 default = []

@@ -150,6 +150,24 @@ pub enum WasmError {
 	Other(String),
 }
 
+impl From<polkavm::ProgramParseError> for WasmError {
+	fn from(error: polkavm::ProgramParseError) -> Self {
+		WasmError::Other(error.to_string())
+	}
+}
+
+impl From<polkavm::Error> for WasmError {
+	fn from(error: polkavm::Error) -> Self {
+		WasmError::Other(error.to_string())
+	}
+}
+
+impl From<polkavm::Error> for Error {
+	fn from(error: polkavm::Error) -> Self {
+		Error::Other(error.to_string())
+	}
+}
+
 /// An error message with an attached backtrace.
 #[derive(Debug)]
 pub struct MessageWithBacktrace {
