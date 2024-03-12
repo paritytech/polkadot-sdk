@@ -61,19 +61,24 @@ impl<N: Network, AD: AuthorityDiscovery> Service<N, AD> {
 		let state = &mut self.state[peer_set];
 		let new_peer_ids: HashSet<PeerId> = extract_peer_ids(newly_requested.iter().cloned());
 		let num_peers = new_peer_ids.len();
-
+		let previously_request = state.previously_requested.clone();
 		let peers_to_remove: Vec<PeerId> =
 			state.previously_requested.difference(&new_peer_ids).cloned().collect();
 		let removed = peers_to_remove.len();
-		state.previously_requested = new_peer_ids;
 
 		gum::debug!(
 			target: LOG_TARGET,
 			?peer_set,
 			?num_peers,
 			?removed,
+			?peers_to_remove,
+			?new_peer_ids,
+			?previously_request,
 			"New ConnectToValidators resolved request",
 		);
+
+		state.previously_requested = new_peer_ids;
+
 		// ask the network to connect to these nodes and not disconnect
 		// from them until removed from the set
 		//
