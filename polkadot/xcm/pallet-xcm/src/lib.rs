@@ -220,9 +220,9 @@ pub mod pallet {
 		/// The type used to actually dispatch an XCM to its destination.
 		type XcmRouter: SendXcm;
 
-		/// Required origin for executing XCM messages, including the teleport functionality. If
-		/// successful, then it resolves to `Location` which exists as an interior location
-		/// within this chain's XCM context.
+		/// Required origin for executing XCM messages, including the teleport and reserve-transfer
+		/// functionality. If successful, then it resolves to `Location` which exists as an interior
+		/// location within this chain's XCM context.
 		type ExecuteXcmOrigin: EnsureOrigin<<Self as SysConfig>::RuntimeOrigin, Success = Location>;
 
 		/// Our XCM filter which messages to be executed using `XcmExecutor` must pass.
