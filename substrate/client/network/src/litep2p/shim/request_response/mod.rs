@@ -188,7 +188,7 @@ pub struct RequestResponseProtocol {
 	/// Map of supported request-response protocols which are used to support fallback requests.
 	///
 	/// If negotiation for the main protocol fails and the request was sent with a fallback,
-	/// [`RequestResponseProtocol`] queries this map and sends the protocol that protocol for
+	/// [`RequestResponseProtocol`] queries this map and sends the request that protocol for
 	/// processing.
 	request_tx: HashMap<ProtocolName, TracingUnboundedSender<OutboundRequest>>,
 

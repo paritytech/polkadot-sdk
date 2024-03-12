@@ -808,7 +808,7 @@ async fn old_protocol_supported_but_no_fallback_provided() {
 		)
 	};
 
-	// `litep2p2` supports only the new protocol
+	// `litep2p2` supports only the old protocol
 	let (config2, handle2) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/1"))
 		.with_max_size(1024)
 		.build();
