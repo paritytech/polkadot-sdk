@@ -16,7 +16,7 @@
 
 //! availability-write regression tests
 //!
-//! TODO: Explain the test case after configuration adjusted to Kusama
+//! Availability write benchmark based on Kusama parameters and scale.
 //!
 //! Subsystems involved:
 //! - availability-recovery
@@ -26,7 +26,7 @@ use polkadot_subsystem_bench::{
 		benchmark_availability_read, prepare_test, DataAvailabilityReadOptions,
 		TestDataAvailability, TestState,
 	},
-	configuration::{PeerLatency, TestConfiguration},
+	configuration::TestConfiguration,
 	usage::BenchmarkUsage,
 };
 
@@ -37,7 +37,6 @@ const WARM_UP_PRECISION: f64 = 0.01;
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
 
-	// TODO: Adjust the test configurations to Kusama values
 	let options = DataAvailabilityReadOptions { fetch_from_backers: true };
 	let config = TestConfiguration::builder()
 		.n_cores(20)
