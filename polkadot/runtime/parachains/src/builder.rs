@@ -175,7 +175,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 	/// Maximum number of validators that may be part of a validator group.
 	pub(crate) fn fallback_max_validators() -> u32 {
-		configuration::Pallet::<T>::config().max_validators.unwrap_or(200)
+		configuration::ActiveConfig::<T>::get().max_validators.unwrap_or(200)
 	}
 
 	/// Maximum number of validators participating in parachains consensus (a.k.a. active
@@ -194,7 +194,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Maximum number of validators per core (a.k.a. max validators per group). This value is used
 	/// if none is explicitly set on the builder.
 	pub(crate) fn fallback_max_validators_per_core() -> u32 {
-		configuration::Pallet::<T>::config()
+		configuration::ActiveConfig::<T>::get()
 			.scheduler_params
 			.max_validators_per_core
 			.unwrap_or(5)
@@ -252,7 +252,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	}
 
 	fn mock_head_data() -> HeadData {
-		let max_head_size = configuration::Pallet::<T>::config().max_head_data_size;
+		let max_head_size = configuration::ActiveConfig::<T>::get().max_head_data_size;
 		HeadData(vec![0xFF; max_head_size as usize])
 	}
 
@@ -504,7 +504,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	) -> Vec<BackedCandidate<T::Hash>> {
 		let validators =
 			self.validators.as_ref().expect("must have some validators prior to calling");
-		let config = configuration::Pallet::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		cores_with_backed_candidates
 			.iter()
@@ -589,7 +589,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 				// Check if the elastic scaling bit is set, if so we need to supply the core index
 				// in the generated candidate.
-				let core_idx = configuration::Pallet::<T>::config()
+				let core_idx = configuration::ActiveConfig::<T>::get()
 					.node_features
 					.get(FeatureIndex::ElasticScalingMVP as usize)
 					.map(|_the_bit| core_idx);
@@ -722,7 +722,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let cores = (0..used_cores)
 			.into_iter()
 			.map(|i| {
-				let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
+				let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
 				// Load an assignment into provider so that one is present to pop
 				let assignment = <T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
 					CoreIndex(i),
@@ -737,7 +737,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			let cores = (0..used_cores)
 				.into_iter()
 				.map(|i| {
-					let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
+					let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
 					// Load an assignment into provider so that one is present to pop
 					let assignment =
 						<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(

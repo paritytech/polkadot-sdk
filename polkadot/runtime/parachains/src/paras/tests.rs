@@ -25,10 +25,7 @@ use test_helpers::{dummy_head_data, dummy_validation_code, validator_pubkeys};
 
 use crate::{
 	configuration::HostConfiguration,
-	mock::{
-		new_test_ext, Configuration, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin, System,
-		Test,
-	},
+	mock::{new_test_ext, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin, System, Test},
 };
 
 static VALIDATORS: &[Sr25519Keyring] = &[
@@ -450,7 +447,7 @@ fn code_upgrade_applied_after_delay() {
 				para_id,
 				new_code.clone(),
 				1,
-				&Configuration::config(),
+				&configuration::ActiveConfig::<Test>::get(),
 				SetGoAhead::Yes,
 			);
 			// Include votes for super-majority.
@@ -570,7 +567,7 @@ fn code_upgrade_applied_without_setting_go_ahead_signal() {
 				para_id,
 				new_code.clone(),
 				1,
-				&Configuration::config(),
+				&configuration::ActiveConfig::<Test>::get(),
 				SetGoAhead::No,
 			);
 			// Include votes for super-majority.
@@ -687,7 +684,7 @@ fn code_upgrade_applied_after_delay_even_when_late() {
 				para_id,
 				new_code.clone(),
 				1,
-				&Configuration::config(),
+				&configuration::ActiveConfig::<Test>::get(),
 				SetGoAhead::Yes,
 			);
 			// Include votes for super-majority.
@@ -771,7 +768,7 @@ fn submit_code_change_when_not_allowed_is_err() {
 			para_id,
 			new_code.clone(),
 			1,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 		// Include votes for super-majority.
@@ -789,7 +786,7 @@ fn submit_code_change_when_not_allowed_is_err() {
 			para_id,
 			newer_code.clone(),
 			2,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 		assert_eq!(
@@ -853,7 +850,7 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 			para_id,
 			new_code.clone(),
 			0,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 		// Include votes for super-majority.
@@ -878,7 +875,7 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 			para_id,
 			newer_code.clone(),
 			30,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 		assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(0 + validation_upgrade_delay));
@@ -939,7 +936,7 @@ fn full_parachain_cleanup_storage() {
 				para_id,
 				new_code.clone(),
 				1,
-				&Configuration::config(),
+				&configuration::ActiveConfig::<Test>::get(),
 				SetGoAhead::Yes,
 			);
 			// Include votes for super-majority.
@@ -1035,7 +1032,7 @@ fn cannot_offboard_ongoing_pvf_check() {
 			para_id,
 			new_code.clone(),
 			RELAY_PARENT,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 		assert!(!Paras::pvfs_require_precheck().is_empty());
@@ -1193,7 +1190,7 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 			para_id,
 			new_code.clone(),
 			0,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 		// Include votes for super-majority.
@@ -1302,7 +1299,7 @@ fn pvf_check_coalescing_onboarding_and_upgrade() {
 			a,
 			validation_code.clone(),
 			RELAY_PARENT,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 		assert!(!Paras::pvfs_require_precheck().is_empty());
@@ -1412,7 +1409,7 @@ fn pvf_check_upgrade_reject() {
 			a,
 			new_code.clone(),
 			RELAY_PARENT,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 		check_code_is_stored(&new_code);
@@ -1598,7 +1595,7 @@ fn include_pvf_check_statement_refunds_weight() {
 			a,
 			new_code.clone(),
 			RELAY_PARENT,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 
@@ -1699,7 +1696,7 @@ fn poke_unused_validation_code_doesnt_remove_code_with_users() {
 			para_id,
 			validation_code.clone(),
 			1,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);
@@ -1770,7 +1767,7 @@ fn add_trusted_validation_code_insta_approval() {
 			para_id,
 			validation_code.clone(),
 			1,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);
@@ -1812,7 +1809,7 @@ fn add_trusted_validation_code_enacts_existing_pvf_vote() {
 			para_id,
 			validation_code.clone(),
 			1,
-			&Configuration::config(),
+			&configuration::ActiveConfig::<Test>::get(),
 			SetGoAhead::Yes,
 		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);

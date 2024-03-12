@@ -932,7 +932,7 @@ fn basic_swap_works() {
 		// ----------------------------------------- para deposit --- crowdloan
 		let crowdloan_deposit = 100;
 		let para_id_deposit = <Test as paras_registrar::Config>::ParaDeposit::get();
-		let code_deposit = configuration::Pallet::<Test>::config().max_code_size *
+		let code_deposit = configuration::ActiveConfig::<Test>::get().max_code_size *
 			<Test as paras_registrar::Config>::DataDepositPerByte::get();
 
 		// Para 2000 has a genesis head size of 10.

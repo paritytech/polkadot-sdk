@@ -505,8 +505,7 @@ pub mod pallet {
 	/// The active configuration for the current session.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	#[pallet::getter(fn config)]
-	pub(crate) type ActiveConfig<T: Config> =
+	pub type ActiveConfig<T: Config> =
 		StorageValue<_, HostConfiguration<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Pending configuration changes.
@@ -1368,7 +1367,7 @@ impl<T: Config> Pallet<T> {
 		let mut base_config = pending_configs
 			.last()
 			.map(|(_, config)| config.clone())
-			.unwrap_or_else(Self::config);
+			.unwrap_or_else(ActiveConfig::<T>::get);
 		let base_config_consistent = base_config.check_consistency().is_ok();
 
 		// Now, we need to decide what the new configuration should be.

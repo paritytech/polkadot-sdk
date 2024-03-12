@@ -544,7 +544,7 @@ impl<T: Config> Pallet<T> {
 		// fine.
 		const REMOVE_LIMIT: u32 = u32::MAX;
 
-		let config = <crate::configuration::Pallet<T>>::config();
+		let config = crate::configuration::ActiveConfig::<T>::get();
 		if session_index <= config.dispute_period + 1 {
 			return
 		}

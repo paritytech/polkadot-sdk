@@ -519,14 +519,14 @@ impl<T: Config> Registrar for Pallet<T> {
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn worst_head_data() -> HeadData {
-		let max_head_size = configuration::Pallet::<T>::config().max_head_data_size;
+		let max_head_size = configuration::ActiveConfig::<T>::get().max_head_data_size;
 		assert!(max_head_size > 0, "max_head_data can't be zero for generating worst head data.");
 		vec![0u8; max_head_size as usize].into()
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn worst_validation_code() -> ValidationCode {
-		let max_code_size = configuration::Pallet::<T>::config().max_code_size;
+		let max_code_size = configuration::ActiveConfig::<T>::get().max_code_size;
 		assert!(max_code_size > 0, "max_code_size can't be zero for generating worst code data.");
 		let validation_code = vec![0u8; max_code_size as usize];
 		validation_code.into()
@@ -656,7 +656,7 @@ impl<T: Config> Pallet<T> {
 		validation_code: ValidationCode,
 		para_kind: ParaKind,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
-		let config = configuration::Pallet::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		ensure!(validation_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
 		ensure!(validation_code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
 		ensure!(
@@ -936,11 +936,11 @@ mod tests {
 	}
 
 	fn max_code_size() -> u32 {
-		Configuration::config().max_code_size
+		configuration::ActiveConfig::<Test>::get().max_code_size
 	}
 
 	fn max_head_size() -> u32 {
-		Configuration::config().max_head_data_size
+		configuration::ActiveConfig::<Test>::get().max_head_data_size
 	}
 
 	#[test]

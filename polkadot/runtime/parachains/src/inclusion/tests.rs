@@ -19,8 +19,7 @@ use crate::{
 	configuration::HostConfiguration,
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, Configuration, MockGenesisConfig, ParaInclusion, Paras, ParasShared,
-		Scheduler, System, Test,
+		new_test_ext, MockGenesisConfig, ParaInclusion, Paras, ParasShared, Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 	paras_inherent::DisputedBitfield,
@@ -125,7 +124,7 @@ pub(crate) fn back_candidate(
 	let mut validator_indices = bitvec::bitvec![u8, BitOrderLsb0; 0; group.len()];
 	let threshold = effective_minimum_backing_votes(
 		group.len(),
-		configuration::Pallet::<Test>::config().minimum_backing_votes,
+		configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 	);
 
 	let signing = match kind {
@@ -182,8 +181,8 @@ pub(crate) fn back_candidate(
 pub(crate) fn run_to_block_default_notifications(to: BlockNumber, new_session: Vec<BlockNumber>) {
 	run_to_block(to, |b| {
 		new_session.contains(&b).then_some(SessionChangeNotification {
-			prev_config: Configuration::config(),
-			new_config: Configuration::config(),
+			prev_config: configuration::ActiveConfig::<Test>::get(),
+			new_config: configuration::ActiveConfig::<Test>::get(),
 			session_index: ParasShared::session_index() + 1,
 			..Default::default()
 		})
@@ -224,7 +223,8 @@ pub(crate) fn run_to_block(
 }
 
 pub(crate) fn expected_bits() -> usize {
-	Paras::parachains().len() + Configuration::config().scheduler_params.num_cores as usize
+	Paras::parachains().len() +
+		configuration::ActiveConfig::<Test>::get().scheduler_params.num_cores as usize
 }
 
 fn default_bitfield() -> AvailabilityBitfield {
@@ -1245,7 +1245,7 @@ fn candidate_checks() {
 			);
 
 			{
-				let cfg = Configuration::config();
+				let cfg = configuration::ActiveConfig::<Test>::get();
 				let expected_at = 10 + cfg.validation_upgrade_delay;
 				assert_eq!(expected_at, 12);
 				Paras::schedule_code_upgrade(
@@ -1600,7 +1600,7 @@ fn backing_works() {
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
@@ -1625,7 +1625,7 @@ fn backing_works() {
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).map(|v| v + 2).collect::<Vec<_>>())
 		};
@@ -1875,7 +1875,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
@@ -2009,7 +2009,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};

@@ -432,7 +432,6 @@ pub mod pallet {
 	/// and its value indicates the last valid block number in the chain.
 	/// It can only be set back to `None` by governance intervention.
 	#[pallet::storage]
-	#[pallet::getter(fn last_valid_block)]
 	pub(super) type Frozen<T: Config> = StorageValue<_, Option<BlockNumberFor<T>>, ValueQuery>;
 
 	#[pallet::event]
@@ -853,6 +852,14 @@ impl StatementSetFilter {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Whether the chain is frozen. Starts as `None`. When this is `Some`,
+	/// the chain will not accept any new parachain blocks for backing or inclusion,
+	/// and its value indicates the last valid block number in the chain.
+	/// It can only be set back to `None` by governance intervention.
+	pub fn last_valid_block() -> Option<BlockNumberFor<T>> {
+		Frozen::<T>::get()
+	}
+
 	/// Called by the initializer to initialize the disputes module.
 	pub(crate) fn initializer_initialize(_now: BlockNumberFor<T>) -> Weight {
 		Weight::zero()
@@ -865,7 +872,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_on_new_session(
 		notification: &SessionChangeNotification<BlockNumberFor<T>>,
 	) {
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		if notification.session_index <= config.dispute_period + 1 {
 			return
@@ -910,7 +917,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn process_checked_multi_dispute_data(
 		statement_sets: &CheckedMultiDisputeStatementSet,
 	) -> Result<Vec<(SessionIndex, CandidateHash)>, DispatchError> {
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		let mut fresh = Vec::with_capacity(statement_sets.len());
 		for statement_set in statement_sets {
@@ -952,7 +959,7 @@ impl<T: Config> Pallet<T> {
 			None => return StatementSetFilter::RemoveAll,
 		};
 
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		let n_validators = session_info.validators.len();
 

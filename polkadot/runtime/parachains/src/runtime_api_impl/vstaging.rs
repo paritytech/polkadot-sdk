@@ -35,11 +35,11 @@ where
 
 /// Returns the current state of the node features.
 pub fn node_features<T: initializer::Config>() -> NodeFeatures {
-	<configuration::Pallet<T>>::config().node_features
+	configuration::ActiveConfig::<T>::get().node_features
 }
 
 /// Approval voting subsystem configuration parameteres
 pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams {
-	let config = <configuration::Pallet<T>>::config();
+	let config = configuration::ActiveConfig::<T>::get();
 	config.approval_voting_params
 }

@@ -337,7 +337,7 @@ pub fn validation_code_by_hash<T: paras::Config>(
 
 /// Disputes imported via means of on-chain imports.
 pub fn on_chain_votes<T: paras_inherent::Config>() -> Option<ScrapedOnChainVotes<T::Hash>> {
-	<paras_inherent::Pallet<T>>::on_chain_votes()
+	paras_inherent::OnChainVotes::<T>::get()
 }
 
 /// Submits an PVF pre-checking vote.
@@ -401,14 +401,14 @@ pub fn submit_unsigned_slashing_report<T: disputes::slashing::Config>(
 
 /// Return the min backing votes threshold from the configuration.
 pub fn minimum_backing_votes<T: initializer::Config>() -> u32 {
-	<configuration::Pallet<T>>::config().minimum_backing_votes
+	configuration::ActiveConfig::<T>::get().minimum_backing_votes
 }
 
 /// Implementation for `ParaBackingState` function from the runtime API
 pub fn backing_state<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Option<BackingState<T::Hash, BlockNumberFor<T>>> {
-	let config = <configuration::Pallet<T>>::config();
+	let config = configuration::ActiveConfig::<T>::get();
 	// Async backing is only expected to be enabled with a tracker capacity of 1.
 	// Subsequent configuration update gets applied on new session, which always
 	// clears the buffer.
@@ -493,5 +493,5 @@ pub fn backing_state<T: initializer::Config>(
 
 /// Implementation for `AsyncBackingParams` function from the runtime API
 pub fn async_backing_params<T: configuration::Config>() -> AsyncBackingParams {
-	<configuration::Pallet<T>>::config().async_backing_params
+	configuration::ActiveConfig::<T>::get().async_backing_params
 }

@@ -147,7 +147,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ensure!(<paras::Pallet<T>>::is_valid_para(id), Error::<T>::ParaDoesntExist);
-			let config = <configuration::Pallet<T>>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			<dmp::Pallet<T>>::queue_downward_message(&config, id, xcm.encode()).map_err(|e| match e
 			{
 				dmp::QueueDownwardMessageError::ExceedsMaxMessageSize =>

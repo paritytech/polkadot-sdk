@@ -161,8 +161,7 @@ pub mod pallet {
 
 	/// Scraped on chain data for extracting resolved disputes as well as backing votes.
 	#[pallet::storage]
-	#[pallet::getter(fn on_chain_votes)]
-	pub(crate) type OnChainVotes<T: Config> = StorageValue<_, ScrapedOnChainVotes<T::Hash>>;
+	pub type OnChainVotes<T: Config> = StorageValue<_, ScrapedOnChainVotes<T::Hash>>;
 
 	/// Update the disputes statements set part of the on-chain votes.
 	pub(crate) fn set_scrapable_on_chain_disputes<T: Config>(
@@ -362,7 +361,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		let now = <frame_system::Pallet<T>>::block_number();
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		// Before anything else, update the allowed relay-parents.
 		{
@@ -591,7 +590,7 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
-		let core_index_enabled = configuration::Pallet::<T>::config()
+		let core_index_enabled = configuration::ActiveConfig::<T>::get()
 			.node_features
 			.get(FeatureIndex::ElasticScalingMVP as usize)
 			.map(|b| *b)
@@ -1170,7 +1169,7 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 	// Flag which will be returned. Set to `true` if at least one vote is filtered.
 	let mut filtered = false;
 
-	let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
+	let minimum_backing_votes = configuration::ActiveConfig::<T>::get().minimum_backing_votes;
 
 	// Process all backed candidates. `validator_indices` in `BackedCandidates` are indices within
 	// the validator group assigned to the parachain. To obtain this group we need:

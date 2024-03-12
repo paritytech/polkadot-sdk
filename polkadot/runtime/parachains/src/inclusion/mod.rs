@@ -611,7 +611,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(ProcessedCandidates::default())
 		}
 
-		let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
+		let minimum_backing_votes = configuration::ActiveConfig::<T>::get().minimum_backing_votes;
 		let validators = shared::Pallet::<T>::active_validator_keys();
 
 		// Collect candidate receipts with backers.
@@ -867,7 +867,7 @@ impl<T: Config> Pallet<T> {
 	) -> Weight {
 		let plain = receipt.to_plain();
 		let commitments = receipt.commitments;
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		T::RewardValidators::reward_backing(
 			backers
@@ -1168,7 +1168,7 @@ impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
 		#[allow(deprecated)]
 		well_known_keys::relay_dispatch_queue_size_typed(para).set((count, size));
 
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let remaining_count = config.max_upward_queue_count.saturating_sub(count);
 		let remaining_size = config.max_upward_queue_size.saturating_sub(size);
 		well_known_keys::relay_dispatch_queue_remaining_capacity(para)
@@ -1188,7 +1188,7 @@ pub(crate) struct FailedToCreatePVD;
 
 impl<T: Config> CandidateCheckContext<T> {
 	pub(crate) fn new(prev_context: Option<BlockNumberFor<T>>) -> Self {
-		Self { config: <configuration::Pallet<T>>::config(), prev_context }
+		Self { config: configuration::ActiveConfig::<T>::get(), prev_context }
 	}
 
 	/// Execute verification of the candidate.

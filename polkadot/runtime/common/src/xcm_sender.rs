@@ -116,7 +116,7 @@ where
 
 		// Downward message passing.
 		let xcm = msg.take().ok_or(MissingArgument)?;
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let para = id.into();
 		let price = P::price_for_delivery(para, &xcm);
 		let blob = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?.encode();

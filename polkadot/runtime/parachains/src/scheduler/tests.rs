@@ -1058,7 +1058,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 	new_test_ext(genesis_config).execute_with(|| {
 		// Setting explicit core count
 		MockAssigner::set_core_count(5);
-		let coretime_ttl = <configuration::Pallet<Test>>::config().scheduler_params.ttl;
+		let coretime_ttl = configuration::ActiveConfig::<Test>::get().scheduler_params.ttl;
 
 		schedule_blank_para(para_a);
 		schedule_blank_para(para_b);

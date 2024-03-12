@@ -196,7 +196,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			let config = <configuration::Pallet<T>>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			// Calculate spot price multiplier and store it.
 			let old_traffic = SpotTraffic::<T>::get();
 			match Self::calculate_spot_traffic(
@@ -324,7 +324,7 @@ where
 		para_id: ParaId,
 		existence_requirement: ExistenceRequirement,
 	) -> DispatchResult {
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		// Traffic always falls back to 1.0
 		let traffic = SpotTraffic::<T>::get();
@@ -447,7 +447,7 @@ where
 		// Only parathreads are valid paraids for on the go parachains.
 		ensure!(<paras::Pallet<T>>::is_parathread(order.para_id), Error::<T>::InvalidParaId);
 
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		OnDemandQueue::<T>::try_mutate(|queue| {
 			// Abort transaction if queue is too large
@@ -468,7 +468,7 @@ where
 	/// Returns:
 	/// - The size of the on demand queue.
 	fn queue_size() -> u32 {
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		match OnDemandQueue::<T>::get().len().try_into() {
 			Ok(size) => return size,
 			Err(_) => {

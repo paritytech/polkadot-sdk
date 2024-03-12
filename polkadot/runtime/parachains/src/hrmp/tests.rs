@@ -20,16 +20,15 @@
 
 use super::*;
 use crate::mock::{
-	deregister_parachain, new_test_ext, register_parachain, register_parachain_with_balance,
-	Configuration, Hrmp, MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent,
-	RuntimeOrigin, System, Test,
+	deregister_parachain, new_test_ext, register_parachain, register_parachain_with_balance, Hrmp,
+	MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent, RuntimeOrigin, System, Test,
 };
 use frame_support::{assert_noop, assert_ok};
 use primitives::BlockNumber;
 use std::collections::BTreeMap;
 
 pub(crate) fn run_to_block(to: BlockNumber, new_session: Option<Vec<BlockNumber>>) {
-	let config = Configuration::config();
+	let config = configuration::ActiveConfig::<Test>::get();
 	while System::block_number() < to {
 		let b = System::block_number();
 
@@ -412,7 +411,7 @@ fn poke_deposits_works() {
 		register_parachain_with_balance(para_a, 200);
 		register_parachain_with_balance(para_b, 200);
 
-		let config = Configuration::config();
+		let config = configuration::ActiveConfig::<Test>::get();
 		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
 
 		// Our normal establishment won't actually reserve deposits, so just insert them directly.
@@ -512,7 +511,7 @@ fn send_recv_messages() {
 			vec![OutboundHrmpMessage { recipient: para_b, data: b"this is an emergency".to_vec() }]
 				.try_into()
 				.unwrap();
-		let config = Configuration::config();
+		let config = configuration::ActiveConfig::<Test>::get();
 		assert!(Hrmp::check_outbound_hrmp(&config, para_a, &msgs).is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
 		Hrmp::assert_storage_consistency_exhaustive();
@@ -621,7 +620,7 @@ fn check_sent_messages() {
 			vec![OutboundHrmpMessage { recipient: para_b, data: b"knock".to_vec() }]
 				.try_into()
 				.unwrap();
-		let config = Configuration::config();
+		let config = configuration::ActiveConfig::<Test>::get();
 		assert!(Hrmp::check_outbound_hrmp(&config, para_a, &msgs).is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs.clone());
 
@@ -912,7 +911,7 @@ fn watermark_maxed_out_at_relay_parent() {
 			vec![OutboundHrmpMessage { recipient: para_b, data: b"this is an emergency".to_vec() }]
 				.try_into()
 				.unwrap();
-		let config = Configuration::config();
+		let config = configuration::ActiveConfig::<Test>::get();
 		assert!(Hrmp::check_outbound_hrmp(&config, para_a, &msgs).is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
 		Hrmp::assert_storage_consistency_exhaustive();

@@ -129,7 +129,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_on_new_session(
 		notification: &crate::initializer::SessionChangeNotification<BlockNumberFor<T>>,
 	) {
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		let dispute_period = config.dispute_period;
 

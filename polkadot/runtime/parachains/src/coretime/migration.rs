@@ -113,7 +113,7 @@ mod v_coretime {
 			}
 
 			let legacy_paras = paras::Parachains::<T>::get();
-			let config = <configuration::Pallet<T>>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			let total_core_count = config.scheduler_params.num_cores + legacy_paras.len() as u32;
 
 			let dmp_queue_size =
@@ -175,7 +175,7 @@ mod v_coretime {
 			}
 		}
 
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		// num_cores was on_demand_cores until now:
 		for on_demand in 0..config.scheduler_params.num_cores {
 			let core = CoreIndex(legacy_count.saturating_add(on_demand as _));
@@ -246,8 +246,10 @@ mod v_coretime {
 			Some(mk_coretime_call(crate::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
 
-		let core_count: u16 =
-			configuration::Pallet::<T>::config().scheduler_params.num_cores.saturated_into();
+		let core_count: u16 = configuration::ActiveConfig::<T>::get()
+			.scheduler_params
+			.num_cores
+			.saturated_into();
 		let set_core_count = iter::once(mk_coretime_call(
 			crate::coretime::CoretimeCalls::NotifyCoreCount(core_count),
 		));

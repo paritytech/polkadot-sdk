@@ -922,7 +922,7 @@ pub mod pallet {
 			relay_parent_number: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let config = configuration::Pallet::<T>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			Self::schedule_code_upgrade(
 				para,
 				new_code,
@@ -998,7 +998,7 @@ pub mod pallet {
 					}
 				});
 
-				let cfg = configuration::Pallet::<T>::config();
+				let cfg = configuration::ActiveConfig::<T>::get();
 				Self::enact_pvf_accepted(
 					<frame_system::Pallet<T>>::block_number(),
 					&code_hash,
@@ -1108,7 +1108,7 @@ pub mod pallet {
 				});
 				match outcome {
 					PvfCheckOutcome::Accepted => {
-						let cfg = configuration::Pallet::<T>::config();
+						let cfg = configuration::ActiveConfig::<T>::get();
 						Self::enact_pvf_accepted(
 							<frame_system::Pallet<T>>::block_number(),
 							&stmt.subject,
@@ -1231,7 +1231,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		// Check that we can schedule an upgrade at all.
 		ensure!(Self::can_upgrade_validation_code(id), Error::<T>::CannotUpgradeCode);
-		let config = configuration::Pallet::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		// Validation code sanity checks:
 		ensure!(new_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
 		ensure!(new_code.0.len() <= config.max_code_size as usize, Error::<T>::InvalidCode);
@@ -1406,7 +1406,7 @@ impl<T: Config> Pallet<T> {
 	// looks at old code metadata, compares them to the current acceptance window, and prunes those
 	// that are too old.
 	fn prune_old_code(now: BlockNumberFor<T>) -> Weight {
-		let config = configuration::Pallet::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let code_retention_period = config.code_retention_period;
 		if now <= code_retention_period {
 			let weight = T::DbWeight::get().reads_writes(1, 0);
@@ -1765,7 +1765,7 @@ impl<T: Config> Pallet<T> {
 		let validation_code_hash = validation_code.hash();
 		CurrentCodeHash::<T>::insert(&id, validation_code_hash);
 
-		let cfg = configuration::Pallet::<T>::config();
+		let cfg = configuration::ActiveConfig::<T>::get();
 		Self::kick_off_pvf_check(
 			PvfCheckCause::Onboarding(id),
 			validation_code_hash,

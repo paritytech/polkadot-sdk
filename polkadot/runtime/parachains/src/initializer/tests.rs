@@ -16,8 +16,7 @@
 
 use super::*;
 use crate::mock::{
-	new_test_ext, Configuration, Dmp, Initializer, MockGenesisConfig, Paras, SessionInfo, System,
-	Test,
+	new_test_ext, Dmp, Initializer, MockGenesisConfig, Paras, SessionInfo, System, Test,
 };
 use primitives::{HeadData, Id as ParaId};
 use test_helpers::dummy_validation_code;
@@ -116,9 +115,21 @@ fn scheduled_cleanup_performed() {
 	})
 	.execute_with(|| {
 		// enqueue downward messages to A, B and C.
-		assert_ok!(Dmp::queue_downward_message(&Configuration::config(), a, vec![1, 2, 3]));
-		assert_ok!(Dmp::queue_downward_message(&Configuration::config(), b, vec![4, 5, 6]));
-		assert_ok!(Dmp::queue_downward_message(&Configuration::config(), c, vec![7, 8, 9]));
+		assert_ok!(Dmp::queue_downward_message(
+			&configuration::ActiveConfig::<Test>::get(),
+			a,
+			vec![1, 2, 3]
+		));
+		assert_ok!(Dmp::queue_downward_message(
+			&configuration::ActiveConfig::<Test>::get(),
+			b,
+			vec![4, 5, 6]
+		));
+		assert_ok!(Dmp::queue_downward_message(
+			&configuration::ActiveConfig::<Test>::get(),
+			c,
+			vec![7, 8, 9]
+		));
 
 		assert_ok!(Paras::schedule_para_cleanup(a));
 		assert_ok!(Paras::schedule_para_cleanup(b));

@@ -136,13 +136,13 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know our 2
 				// backed candidates did not get filtered out
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				2
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 		});
@@ -211,7 +211,7 @@ mod enter {
 			let candidate_hash = CandidateHash(sp_core::H256::repeat_byte(1));
 			let statements = generate_votes(3, candidate_hash);
 			set_scrapable_on_chain_disputes::<Test>(3, statements);
-			assert_matches!(pallet::Pallet::<Test>::on_chain_votes(), Some(ScrapedOnChainVotes {
+			assert_matches!(pallet::OnChainVotes::<Test>::get(), Some(ScrapedOnChainVotes {
 				session,
 				..
 			} ) => {
@@ -230,7 +230,7 @@ mod enter {
 			let candidate_hash = CandidateHash(sp_core::H256::repeat_byte(2));
 			let statements = generate_votes(7, candidate_hash);
 			set_scrapable_on_chain_disputes::<Test>(7, statements);
-			assert_matches!(pallet::Pallet::<Test>::on_chain_votes(), Some(ScrapedOnChainVotes {
+			assert_matches!(pallet::OnChainVotes::<Test>::get(), Some(ScrapedOnChainVotes {
 				session,
 				..
 			} ) => {
@@ -296,13 +296,13 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know there
 				// where no backed candidates included
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				0
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 		});
@@ -362,13 +362,13 @@ mod enter {
 
 			assert_eq!(
 				// Ensure that our inherent data did not included backed candidates as expected
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				0
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 		});
@@ -443,13 +443,13 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know
 				// all of our candidates got filtered out
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				0,
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 		});
@@ -529,13 +529,13 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know
 				// all of our candidates got filtered out
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				0,
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 		});
@@ -691,13 +691,13 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know 1
 				// candidate got filtered out
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				1
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 
@@ -708,7 +708,7 @@ mod enter {
 				.into_iter()
 				.map(|i| {
 					let SchedulerParams { ttl, .. } =
-						<configuration::Pallet<Test>>::config().scheduler_params;
+						configuration::ActiveConfig::<Test>::get().scheduler_params;
 					// Load an assignment into provider so that one is present to pop
 					let assignment =
 						<Test as scheduler::Config>::AssignmentProvider::get_mock_assignment(
@@ -2058,7 +2058,7 @@ mod sanitizers {
 				// Update `minimum_backing_votes` in HostConfig. We want `minimum_backing_votes` set
 				// to one so that the candidate will have enough backing votes even after dropping
 				// Alice's one.
-				let mut hc = configuration::Pallet::<Test>::config();
+				let mut hc = configuration::ActiveConfig::<Test>::get();
 				hc.minimum_backing_votes = 1;
 				configuration::Pallet::<Test>::force_set_active_config(hc);
 
