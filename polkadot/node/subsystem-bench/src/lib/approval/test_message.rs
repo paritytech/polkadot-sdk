@@ -138,7 +138,7 @@ impl TestMessageInfo {
 		if self.is_approval() {
 			match &self.msg {
 				protocol_v3::ApprovalDistributionMessage::Assignments(_) => todo!(),
-				protocol_v3::ApprovalDistributionMessage::Approvals(approvals) => 
+				protocol_v3::ApprovalDistributionMessage::Approvals(approvals) =>
 					for approval in approvals {
 						for candidate_index in approval.candidate_indices.iter_ones() {
 							state
@@ -178,13 +178,13 @@ impl TestMessageInfo {
 	pub fn candidate_indices(&self) -> HashSet<usize> {
 		let mut unique_candidate_indicies = HashSet::new();
 		match &self.msg {
-			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) => 
+			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) =>
 				for (_assignment, candidate_indices) in assignments {
 					for candidate_index in candidate_indices.iter_ones() {
 						unique_candidate_indicies.insert(candidate_index);
 					}
 				},
-			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) => 
+			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) =>
 				for approval in approvals {
 					for candidate_index in approval.candidate_indices.iter_ones() {
 						unique_candidate_indicies.insert(candidate_index);
