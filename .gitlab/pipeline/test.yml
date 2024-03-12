@@ -17,6 +17,8 @@ test-linux-stable:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    # the jit seems to not work on the CI machine
+    POLKAVM_BACKEND: "interpreter"
   parallel: 3
   script:
     # Build all but only execute 'runtime' tests.

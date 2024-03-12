@@ -473,6 +473,8 @@ members = [
 	"substrate/primitives/trie",
 	"substrate/primitives/version",
 	"substrate/primitives/version/proc-macro",
+	"substrate/primitives/virtualization",
+	"substrate/primitives/virtualization/test-fixture",
 	"substrate/primitives/wasm-interface",
 	"substrate/primitives/weights",
 	"substrate/scripts/ci/node-template-release",
@@ -543,8 +545,9 @@ extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
 default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
 
 [workspace.dependencies]
-polkavm-linker = "0.8.2"
-polkavm-derive = "0.8.0"
+polkavm = "0.9.0"
+polkavm-linker = "0.9.0"
+polkavm-derive = "0.9.1"
 log = { version = "0.4.20", default-features = false }
 quote = { version = "1.0.33" }
 serde = { version = "1.0.197", default-features = false }

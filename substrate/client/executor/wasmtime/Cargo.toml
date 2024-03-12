@@ -34,6 +34,7 @@ anyhow = "1.0.68"
 sc-allocator = { path = "../../allocator" }
 sc-executor-common = { path = "../common" }
 sp-runtime-interface = { path = "../../../primitives/runtime-interface" }
+sp-virtualization = { path = "../../../primitives/virtualization" }
 sp-wasm-interface = { path = "../../../primitives/wasm-interface", features = ["wasmtime"] }
 
 # Here we include the rustix crate in the exactly same semver-compatible version as used by

@@ -41,7 +41,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use crate::WasmExecutionMethod;
 
 pub type TestExternalities = CoreTestExternalities<BlakeTwo256>;
-type HostFunctions = sp_io::SubstrateHostFunctions;
+type HostFunctions = (sp_io::SubstrateHostFunctions, sp_virtualization::host_fn::HostFunctions);
 
 /// Simple macro that runs a given method as test with the available wasm execution methods.
 #[macro_export]
@@ -798,4 +798,15 @@ fn return_overflow(wasm_method: WasmExecutionMethod) {
 		},
 		error => panic!("unexpected error: {:?}", error),
 	}
+}
+
+#[cfg(feature = "riscv")]
+test_wasm_execution!(test_virtualization);
+#[cfg(feature = "riscv")]
+fn test_virtualization(wasm_method: WasmExecutionMethod) {
+	let mut ext = TestExternalities::default();
+	let mut ext = ext.ext();
+	let fixture = sp_virtualization_test_fixture::binary().encode();
+
+	call_in_wasm("test_virtualization", fixture.as_ref(), wasm_method, &mut ext).unwrap();
 }
