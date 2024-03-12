@@ -3656,12 +3656,7 @@ async fn follow_unique_pruned_blocks() {
 	println!("event: {:?}", event);
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_8_hash)],
-		pruned_block_hashes: vec![
-			format!("{:?}", block_2_hash),
-			// However only block 4 and 5 should be reported.
-			format!("{:?}", block_4_hash),
-			format!("{:?}", block_5_hash),
-		],
+		pruned_block_hashes: vec![format!("{:?}", block_4_hash), format!("{:?}", block_5_hash)],
 	});
 	assert_eq!(event, expected);
 }

@@ -37,6 +37,7 @@ use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 };
 use sc_rpc::utils::to_sub_message;
+use schnellru::{ByLength, LruMap};
 use sp_api::CallApiAt;
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata, Info,
@@ -50,6 +51,11 @@ use std::{
 /// The maximum number of finalized blocks provided by the
 /// `Initialized` event.
 const MAX_FINALIZED_BLOCKS: usize = 16;
+/// The size of the LRU cache for pruned blocks.
+///
+/// This is the exact value of the total number of pinned blocks, and ensures
+/// that all active pruned block hashes (if any) are kept in memory.
+const LRU_CACHE_SIZE: u32 = 512;
 
 use super::subscription::InsertedSubscriptionData;
 
@@ -67,6 +73,8 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	sub_id: String,
 	/// The best reported block by this subscription.
 	best_block_cache: Option<Block::Hash>,
+	/// LRU cache of pruned blocks.
+	pruned_blocks: LruMap<Block::Hash, ()>,
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Client> {
@@ -78,7 +86,15 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 		with_runtime: bool,
 		sub_id: String,
 	) -> Self {
-		Self { client, backend, sub_handle, with_runtime, sub_id, best_block_cache: None }
+		Self {
+			client,
+			backend,
+			sub_handle,
+			with_runtime,
+			sub_id,
+			best_block_cache: None,
+			pruned_blocks: LruMap::new(ByLength::new(LRU_CACHE_SIZE)),
+		}
 	}
 }
 
@@ -434,25 +450,25 @@ where
 	///
 	/// The result does not include hashes from `to_ignore`.
 	fn get_pruned_hashes(
-		&self,
+		&mut self,
 		stale_heads: &[Block::Hash],
 		last_finalized: Block::Hash,
-		to_ignore: &mut HashSet<Block::Hash>,
 	) -> Result<Vec<Block::Hash>, SubscriptionManagementError> {
 		let blockchain = self.backend.blockchain();
 		let mut pruned = Vec::new();
-		let mut unique_hashes = HashSet::new();
 
 		for stale_head in stale_heads {
 			let tree_route = sp_blockchain::tree_route(blockchain, last_finalized, *stale_head)?;
 
 			// Collect only blocks that are not part of the canonical chain.
 			pruned.extend(tree_route.enacted().iter().filter_map(|block| {
-				if !to_ignore.remove(&block.hash) && unique_hashes.insert(block.hash) {
-					Some(block.hash)
-				} else {
-					None
+				if self.pruned_blocks.get(&block.hash).is_some() {
+					// The block was already reported as pruned.
+					return None
 				}
+
+				self.pruned_blocks.insert(block.hash, ());
+				Some(block.hash)
 			}))
 		}
 
@@ -466,7 +482,6 @@ where
 	fn handle_finalized_blocks(
 		&mut self,
 		notification: FinalityNotification<Block>,
-		to_ignore: &mut HashSet<Block::Hash>,
 		startup_point: &StartupPoint<Block>,
 	) -> Result<Vec<FollowEvent<Block::Hash>>, SubscriptionManagementError> {
 		let last_finalized = notification.hash;
@@ -487,7 +502,7 @@ where
 		// Report all pruned blocks from the notification that are not
 		// part of the fork we need to ignore.
 		let pruned_block_hashes =
-			self.get_pruned_hashes(&notification.stale_heads, last_finalized, to_ignore)?;
+			self.get_pruned_hashes(&notification.stale_heads, last_finalized)?;
 
 		let finalized_event = FollowEvent::Finalized(Finalized {
 			finalized_block_hashes,
@@ -589,7 +604,6 @@ where
 		&mut self,
 		startup_point: &StartupPoint<Block>,
 		mut stream: EventStream,
-		mut to_ignore: HashSet<Block::Hash>,
 		sink: SubscriptionSink,
 		rx_stop: oneshot::Receiver<()>,
 	) where
@@ -606,7 +620,7 @@ where
 				NotificationType::NewBlock(notification) =>
 					self.handle_import_blocks(notification, &startup_point),
 				NotificationType::Finalized(notification) =>
-					self.handle_finalized_blocks(notification, &mut to_ignore, &startup_point),
+					self.handle_finalized_blocks(notification, &startup_point),
 				NotificationType::MethodResponse(notification) => Ok(vec![notification]),
 			};
 
@@ -692,7 +706,10 @@ where
 		let merged = tokio_stream::StreamExt::merge(merged, stream_responses);
 		let stream = stream::once(futures::future::ready(initial)).chain(merged);
 
-		self.submit_events(&startup_point, stream.boxed(), pruned_forks, sink, sub_data.rx_stop)
-			.await;
+		// These are the pruned blocks that we should not report again.
+		for pruned in pruned_forks {
+			self.pruned_blocks.insert(pruned, ());
+		}
+		self.submit_events(&startup_point, stream.boxed(), sink, sub_data.rx_stop).await;
 	}
 }
