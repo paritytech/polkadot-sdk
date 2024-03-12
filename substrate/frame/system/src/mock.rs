@@ -42,7 +42,7 @@ parameter_types! {
 		transaction_version: 1,
 		state_version: 1,
 	};
-	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
+	pub const DbWeight: RuntimeDbRefTime = RuntimeDbRefTime {
 		read: 10,
 		write: 100,
 	};

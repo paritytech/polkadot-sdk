@@ -23,7 +23,7 @@ use frame_support::{
 	pallet_prelude::OptionQuery,
 	storage_alias,
 	traits::{Currency, LockableCurrency, OnRuntimeUpgrade, ReservableCurrency},
-	weights::RuntimeDbWeight,
+	weights::RuntimeDbRefTime,
 	Parameter, Twox64Concat,
 };
 use sp_runtime::{traits::Zero, Saturating};
@@ -57,7 +57,7 @@ pub trait UnlockConfig<I>: 'static {
 	/// [`construct_runtime!`](frame_support::construct_runtime).
 	type PalletName: sp_core::Get<&'static str>;
 	/// The DB weight as configured in the runtime to calculate the correct weight.
-	type DbWeight: sp_core::Get<RuntimeDbWeight>;
+	type DbWeight: sp_core::Get<RuntimeDbRefTime>;
 	/// The block number as configured in the runtime.
 	type BlockNumber: Parameter + Zero + Copy + Ord;
 }

@@ -27,7 +27,7 @@ use frame_support::{
 		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, StorageVersion,
 		UnfilteredDispatchable,
 	},
-	weights::{RuntimeDbWeight, Weight},
+	weights::{RuntimeDbRefTime, Weight},
 	OrdNoBound, PartialOrdNoBound,
 };
 use scale_info::{meta_type, TypeInfo};
@@ -1358,7 +1358,7 @@ fn migrate_from_pallet_version_to_storage_version() {
 		assert_eq!(Example2::on_chain_storage_version(), StorageVersion::new(0));
 		assert_eq!(System::on_chain_storage_version(), StorageVersion::new(0));
 
-		let db_weight = RuntimeDbWeight { read: 0, write: 5 };
+		let db_weight = RuntimeDbRefTime { read: 0, write: 5 };
 		let weight = frame_support::migrations::migrate_from_pallet_version_to_storage_version::<
 			AllPalletsWithSystem,
 		>(&db_weight);

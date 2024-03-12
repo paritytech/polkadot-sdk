@@ -647,7 +647,7 @@ mod weight_tests {
 	use super::*;
 	use sp_core::parameter_types;
 	use sp_runtime::{generic, traits::BlakeTwo256};
-	use sp_weights::RuntimeDbWeight;
+	use sp_weights::RuntimeDbRefTime;
 
 	pub use self::frame_system::{Call, Config};
 
@@ -682,7 +682,7 @@ mod weight_tests {
 			type RuntimeCall;
 			type RuntimeTask;
 			type PalletInfo: crate::traits::PalletInfo;
-			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
+			type DbWeight: Get<crate::weights::RuntimeDbRefTime>;
 		}
 
 		#[pallet::error]
@@ -764,7 +764,7 @@ mod weight_tests {
 	);
 
 	parameter_types! {
-		pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
+		pub const DbWeight: RuntimeDbRefTime = RuntimeDbRefTime {
 			read: 100,
 			write: 1000,
 		};

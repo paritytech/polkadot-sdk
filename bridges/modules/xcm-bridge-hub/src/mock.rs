@@ -31,7 +31,7 @@ use bridge_runtime_common::{
 	messages_xcm_extension::{SenderAndLane, XcmBlobHauler},
 };
 use codec::Encode;
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::RuntimeDbWeight};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::RuntimeDbRefTime};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
@@ -60,7 +60,7 @@ frame_support::construct_runtime! {
 }
 
 parameter_types! {
-	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
+	pub const DbWeight: RuntimeDbRefTime = RuntimeDbRefTime { read: 1, write: 2 };
 	pub const ExistentialDeposit: Balance = 1;
 }
 

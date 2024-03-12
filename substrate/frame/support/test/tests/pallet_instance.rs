@@ -761,7 +761,7 @@ fn metadata() {
 			},
 			PalletConstantMetadata {
 				name: "DbWeight",
-				ty: scale_info::meta_type::<frame_support::weights::RuntimeDbWeight>(),
+				ty: scale_info::meta_type::<frame_support::weights::RuntimeDbRefTime>(),
 				value: vec![],
 				docs: vec![],
 			},

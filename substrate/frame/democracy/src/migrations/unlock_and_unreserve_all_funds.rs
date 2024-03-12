@@ -24,7 +24,7 @@ use frame_support::{
 	pallet_prelude::ValueQuery,
 	storage_alias,
 	traits::{Currency, LockableCurrency, OnRuntimeUpgrade, ReservableCurrency},
-	weights::RuntimeDbWeight,
+	weights::RuntimeDbRefTime,
 	Parameter, Twox64Concat,
 };
 use sp_core::Get;
@@ -52,7 +52,7 @@ pub trait UnlockConfig: 'static {
 	/// The maximum deposit as configured previously in the runtime.
 	type MaxDeposits: Get<u32>;
 	/// The DB weight as configured in the runtime to calculate the correct weight.
-	type DbWeight: Get<RuntimeDbWeight>;
+	type DbWeight: Get<RuntimeDbRefTime>;
 	/// The block number as configured in the runtime.
 	type BlockNumber: Parameter + Zero + Copy + Ord;
 }
