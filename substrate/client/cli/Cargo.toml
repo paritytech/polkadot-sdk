@@ -33,7 +33,7 @@ serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
-bip39 = { features = ["rand"], git = "https://github.com/michalkucharczyk/rust-bip39.git", branch = "mku-unicode-normalization-in-no-std" }
+bip39 = { package = "parity-bip39", version = "2.0.1", features = ["rand"] }
 tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "signal"] }
 sc-client-api = { path = "../api" }
 sc-client-db = { path = "../db", default-features = false }
