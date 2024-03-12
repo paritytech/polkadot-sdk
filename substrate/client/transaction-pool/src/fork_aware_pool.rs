@@ -266,11 +266,16 @@ where
 		let maybe_watchers = futures::future::join_all(futs).await;
 		log::info!("submit_and_watch: maybe_watchers: {}", maybe_watchers.len());
 
-		// let results = maybe_watchers.into_iter().map(|(hash, result)| {}).collect::<Vec<_>>();
-		// let results = futures::future::join_all(results).await;
+		let maybe_error = maybe_watchers.into_iter().reduce(|mut r, v| {
+			if r.is_err() && v.is_ok() {
+				r = v;
+			}
+			r
+		});
+		if let Some(Err(err)) = maybe_error {
+			return Err(err);
+		};
 
-		// HashMap::<_, _>::from_iter(results.into_iter())
-		// todo: handle errors from views: if all are errors return error (re-use xxx?)
 		Ok(external_watcher.unwrap())
 	}
 
@@ -973,7 +978,9 @@ where
 							|error| {
 								let error = error.into_pool_error();
 								match error {
-									//we need listener for stale xt
+									// We need to install listener for stale xt: in case of
+									// transaction being already included in the block we want to
+									// send inblock + finalization event.
 									Ok(Error::InvalidTransaction(InvalidTransaction::Stale)) =>
 										Some(view.pool.validated_pool().create_watcher(tx_hash)),
 									//ignore

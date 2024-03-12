@@ -21,8 +21,8 @@
 use futures::{executor::block_on, task::Poll, FutureExt, StreamExt};
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
-	error::Error as TxPoolError, ChainEvent, MaintainedTransactionPool, TransactionPool,
-	TransactionStatus,
+	error::{Error as TxPoolError, IntoPoolError},
+	ChainEvent, MaintainedTransactionPool, TransactionPool, TransactionStatus,
 };
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource, UnknownTransaction};
 use std::sync::Arc;
@@ -513,12 +513,11 @@ fn fap_one_view_ready_turns_to_stale_works() {
 	assert_eq!(pending, vec![xt0.clone()]);
 	assert_eq!(pool.status_all()[&block1].ready, 1);
 
-	// todo: xt0 shall become stale, and this does not neccesarily requires transaction in block 2.
-	// nonce setting should be enough, but revalidation is required!
-	let header = api.push_block(2, vec![uxt(Alice, 200)], true);
+	let header = api.push_block(2, vec![], true);
 	let block2 = header.hash();
 	api.set_nonce(block2, Alice.into(), 201);
 	let event = new_best_block_event(&pool, Some(block1), block2);
+	//note: blocking revalidation (w/o background worker) will detect xt0 is stale
 	block_on(pool.maintain(event));
 	assert_pool_status!(block2, &pool, 0, 0);
 	assert!(pool.ready(block2).unwrap().count() == 0);
@@ -786,6 +785,7 @@ fn fap_fork_no_xts_ready_switch_to_future() {
 	//future) could occur e.g. when runtime was updated on fork1.
 	sp_tracing::try_init_simple();
 
+	// note: there are no xts in blocks!
 	let (api, forks) = test_chain_with_forks::chain(Some(&|f, b| match (f, b) {
 		_ => false,
 	}));
@@ -806,8 +806,8 @@ fn fap_fork_no_xts_ready_switch_to_future() {
 
 	assert_pool_status!(f03, &pool, 1, 0);
 
-	// todo: xt0 shall become future, and this may only happen after view revalidation
-	// assert_pool_status!(f13, &pool, 0, 1);
+	// xt0 becomes future, and this may only happen after view revalidation
+	assert_pool_status!(f13, &pool, 0, 1);
 }
 
 #[test]
@@ -995,28 +995,64 @@ fn fap_fork_finalization_removes_stale_views() {
 	assert_eq!(pool.views_len(), 1);
 }
 
-// todo: this maybe should work once revalidation is done?
-// #[test]
-// fn fap_watcher_invalid() {
-// 	sp_tracing::try_init_simple();
-//
-// 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-// 	let pool = create_basic_pool(api.clone());
-//
-// 	let header01 = api.push_block(1, vec![], true);
-//
-// 	let event = new_best_block_event(&pool, None, header01.hash());
-// 	block_on(pool.maintain(event));
-//
-// 	let xt0 = uxt(Alice, 150);
-// 	api.add_invalid(&xt0);
-// 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-//
-// 	assert_pool_status!(header01.hash(), &pool, 0, 0);
-//
-// 	let xt0_events = block_on(xt0_watcher.take(1).collect::<Vec<_>>());
-// 	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
-// }
+#[test]
+fn fap_watcher_invalid() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 150);
+	api.add_invalid(&xt0);
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone()));
+	let xt0_watcher = xt0_watcher.map(|_| ());
+
+	assert_pool_status!(header01.hash(), &pool, 0, 0);
+	assert!(matches!(
+		xt0_watcher.unwrap_err().into_pool_error(),
+		Ok(TxPoolError::InvalidTransaction(InvalidTransaction::Stale))
+	));
+
+	// let xt0_events = block_on(xt0_watcher.take(1).collect::<Vec<_>>());
+	// assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
+}
+
+#[test]
+fn fap_watcher_invalid_revalidation() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 200);
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+
+	api.add_invalid(&xt0);
+
+	// assert_pool_status!(header01.hash(), &pool, 0, 0);
+	// assert!(matches!(
+	// 	xt0_watcher.unwrap_err().into_pool_error(),
+	// 	Ok(TxPoolError::InvalidTransaction(InvalidTransaction::Stale))
+	// ));
+
+	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
+	let event = new_best_block_event(&pool, Some(header01.hash()), header02.hash());
+	block_on(pool.maintain(event));
+
+	let xt0_status = futures::executor::block_on_stream(xt0_watcher).take(2).collect::<Vec<_>>();
+	log::info!("xt0_status: {:#?}", xt0_status);
+	// let xt0_events = block_on(xt0_watcher.take(1).collect::<Vec<_>>());
+	// assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
+}
 
 #[test]
 fn fap_watcher_future() {
