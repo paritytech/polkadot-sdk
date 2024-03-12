@@ -783,6 +783,7 @@ pub(crate) mod tests {
 				Box::new(header),
 				justification.clone(),
 				TEST_GRANDPA_SET_ID,
+				false,
 			)
 		);
 

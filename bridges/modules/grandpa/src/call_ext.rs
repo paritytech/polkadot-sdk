@@ -16,7 +16,7 @@
 
 use crate::{
 	weights::WeightInfo, BridgedBlockNumber, BridgedHeader, Config, CurrentAuthoritySet, Error,
-	Pallet,
+	FreeHeadersRemaining, Pallet,
 };
 use bp_header_chain::{
 	justification::GrandpaJustification, max_expected_submit_finality_proof_arguments_size,
@@ -40,6 +40,9 @@ pub struct SubmitFinalityProofInfo<N> {
 	/// An identifier of the validators set that has signed the submitted justification.
 	/// It might be `None` if deprecated version of the `submit_finality_proof` is used.
 	pub current_set_id: Option<SetId>,
+	/// If `true`, then the call must be free (assuming that everything else is valid) to
+	/// be treated as valid.
+	pub is_free_execution_expected: bool,
 	/// Extra weight that we assume is included in the call.
 	///
 	/// We have some assumptions about headers and justifications of the bridged chain.
@@ -67,9 +70,36 @@ pub struct SubmitFinalityProofHelper<T: Config<I>, I: 'static> {
 }
 
 impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
+	/// Check that the: (1) GRANDPA head provided by the `SubmitFinalityProof` is better than the
+	/// best one we know (2) if `current_set_id` matches the current authority set id, if specified
+	/// and (3) whether transaction MAY be free for the submitter if `is_free_execution_expected`
+	/// is `true`.
+	pub fn check_obsolete_from_extension(
+		call_info: &SubmitFinalityProofInfo<BlockNumberOf<T::BridgedChain>>,
+	) -> Result<(), Error<T, I>> {
+		// do basic checks first
+		Self::check_obsolete(call_info.block_number, call_info.current_set_id)?;
+
+		// if submitter has NOT specified that it wants free execution, then we are done
+		if !call_info.is_free_execution_expected {
+			return Ok(());
+		}
+
+		// else - if we can not accept more free headers, "reject" the transaction
+		if FreeHeadersRemaining::<T, I>::get() == 0 {
+			return Err(Error::<T, I>::CannotAcceptMoreFreeHeaders);
+		}
+
+		// we do not check whether the header matches free submission criteria here - it is the
+		// relayer responsibility to check that
+
+		Ok(())
+	}
+
 	/// Check that the GRANDPA head provided by the `SubmitFinalityProof` is better than the best
 	/// one we know. Additionally, checks if `current_set_id` matches the current authority set
-	/// id, if specified.
+	/// id, if specified. This method is called by the call code and the transaction extension,
+	/// so it does not check the free execution.
 	pub fn check_obsolete(
 		finality_target: BlockNumberOf<T::BridgedChain>,
 		current_set_id: Option<SetId>,
@@ -135,17 +165,20 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 				finality_target,
 				justification,
 				None,
+				false,
 			))
 		} else if let Some(crate::Call::<T, I>::submit_finality_proof_ex {
 			finality_target,
 			justification,
 			current_set_id,
+			is_free_execution_expected,
 		}) = self.is_sub_type()
 		{
 			return Some(submit_finality_proof_info_from_args::<T, I>(
 				finality_target,
 				justification,
 				Some(*current_set_id),
+				*is_free_execution_expected,
 			))
 		}
 
@@ -159,7 +192,7 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	where
 		Self: Sized,
 	{
-		let finality_target = match self.submit_finality_proof_info() {
+		let call_info = match self.submit_finality_proof_info() {
 			Some(finality_proof) => finality_proof,
 			_ => return Ok(ValidTransaction::default()),
 		};
@@ -168,10 +201,7 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 			return InvalidTransaction::Call.into()
 		}
 
-		match SubmitFinalityProofHelper::<T, I>::check_obsolete(
-			finality_target.block_number,
-			finality_target.current_set_id,
-		) {
+		match SubmitFinalityProofHelper::<T, I>::check_obsolete_from_extension(&call_info) {
 			Ok(_) => Ok(ValidTransaction::default()),
 			Err(Error::<T, I>::OldHeader) => InvalidTransaction::Stale.into(),
 			Err(_) => InvalidTransaction::Call.into(),
@@ -189,6 +219,7 @@ pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 	finality_target: &BridgedHeader<T, I>,
 	justification: &GrandpaJustification<BridgedHeader<T, I>>,
 	current_set_id: Option<SetId>,
+	is_free_execution_expected: bool,
 ) -> SubmitFinalityProofInfo<BridgedBlockNumber<T, I>> {
 	let block_number = *finality_target.number();
 
@@ -230,7 +261,13 @@ pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 	);
 	let extra_size = actual_call_size.saturating_sub(max_expected_call_size);
 
-	SubmitFinalityProofInfo { block_number, current_set_id, extra_weight, extra_size }
+	SubmitFinalityProofInfo {
+		block_number,
+		current_set_id,
+		is_free_execution_expected,
+		extra_weight,
+		extra_size,
+	}
 }
 
 #[cfg(test)]
@@ -238,8 +275,8 @@ mod tests {
 	use crate::{
 		call_ext::CallSubType,
 		mock::{run_test, test_header, RuntimeCall, TestBridgedChain, TestNumber, TestRuntime},
-		BestFinalized, Config, CurrentAuthoritySet, PalletOperatingMode, StoredAuthoritySet,
-		SubmitFinalityProofInfo, WeightInfo,
+		BestFinalized, Config, CurrentAuthoritySet, FreeHeadersRemaining, PalletOperatingMode,
+		StoredAuthoritySet, SubmitFinalityProofInfo, WeightInfo,
 	};
 	use bp_header_chain::ChainWithGrandpa;
 	use bp_runtime::{BasicOperatingMode, HeaderId};
@@ -256,6 +293,7 @@ mod tests {
 			justification: make_default_justification(&test_header(num)),
 			// not initialized => zero
 			current_set_id: 0,
+			is_free_execution_expected: false,
 		};
 		RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
 			bridge_grandpa_call,
@@ -312,6 +350,34 @@ mod tests {
 	}
 
 	#[test]
+	fn extension_rejects_new_header_if_free_execution_is_requested_and_free_submissions_are_not_accepted(
+	) {
+		run_test(|| {
+			let bridge_grandpa_call = crate::Call::<TestRuntime, ()>::submit_finality_proof_ex {
+				finality_target: Box::new(test_header(15)),
+				justification: make_default_justification(&test_header(15)),
+				current_set_id: 0,
+				is_free_execution_expected: true,
+			};
+			sync_to_header_10();
+
+			// when we can accept free headers => Ok
+			FreeHeadersRemaining::<TestRuntime, ()>::put(2);
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
+				bridge_grandpa_call.clone(),
+			))
+			.is_ok());
+
+			// when we can NOT accept free headers => Err
+			FreeHeadersRemaining::<TestRuntime, ()>::put(0);
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
+				bridge_grandpa_call,
+			))
+			.is_err());
+		})
+	}
+
+	#[test]
 	fn extension_accepts_new_header() {
 		run_test(|| {
 			// when current best finalized is #10 and we're trying to import header#15 => tx is
@@ -336,6 +402,7 @@ mod tests {
 				current_set_id: None,
 				extra_weight: Weight::zero(),
 				extra_size: 0,
+				is_free_execution_expected: false,
 			})
 		);
 
@@ -345,6 +412,7 @@ mod tests {
 				finality_target: Box::new(test_header(42)),
 				justification: make_default_justification(&test_header(42)),
 				current_set_id: 777,
+				is_free_execution_expected: false,
 			});
 		assert_eq!(
 			deprecated_call.submit_finality_proof_info(),
@@ -353,6 +421,7 @@ mod tests {
 				current_set_id: Some(777),
 				extra_weight: Weight::zero(),
 				extra_size: 0,
+				is_free_execution_expected: false,
 			})
 		);
 	}
@@ -370,6 +439,7 @@ mod tests {
 			finality_target: Box::new(small_finality_target),
 			justification: small_justification,
 			current_set_id: TEST_GRANDPA_SET_ID,
+			is_free_execution_expected: false,
 		});
 		assert_eq!(small_call.submit_finality_proof_info().unwrap().extra_size, 0);
 
@@ -387,6 +457,7 @@ mod tests {
 			finality_target: Box::new(large_finality_target),
 			justification: large_justification,
 			current_set_id: TEST_GRANDPA_SET_ID,
+			is_free_execution_expected: false,
 		});
 		assert_ne!(large_call.submit_finality_proof_info().unwrap().extra_size, 0);
 	}
@@ -406,6 +477,7 @@ mod tests {
 			finality_target: Box::new(finality_target.clone()),
 			justification,
 			current_set_id: TEST_GRANDPA_SET_ID,
+			is_free_execution_expected: false,
 		});
 		assert_eq!(call.submit_finality_proof_info().unwrap().extra_weight, Weight::zero());
 
@@ -420,6 +492,7 @@ mod tests {
 			finality_target: Box::new(finality_target),
 			justification,
 			current_set_id: TEST_GRANDPA_SET_ID,
+			is_free_execution_expected: false,
 		});
 		assert_eq!(call.submit_finality_proof_info().unwrap().extra_weight, call_weight);
 	}

@@ -189,6 +189,8 @@ pub mod pallet {
 				// the `submit_finality_proof_ex` also reads this value, but it is done from the
 				// cache, so we don't treat it as an additional db access
 				<CurrentAuthoritySet<T, I>>::get().set_id,
+				// cannot enforce free execution using this call
+				false,
 			)
 		}
 
@@ -264,6 +266,12 @@ pub mod pallet {
 		/// - verification is not optimized or invalid;
 		///
 		/// - header contains forced authorities set change or change with non-zero delay.
+		///
+		/// The `is_free_execution_expected` parameter is not really used inside the call. It is
+		/// used by the transaction extension, which should be registered at the runtime level. If
+		/// this parameter is `true`, the transaction will be treated as invalid, if the call won't
+		/// be executed for free. If transaction extension is not used by the runtime, this
+		/// parameter is not used at all.
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T::WeightInfo as WeightInfo>::submit_finality_proof(
 			justification.commit.precommits.len().saturated_into(),
@@ -274,6 +282,7 @@ pub mod pallet {
 			finality_target: Box<BridgedHeader<T, I>>,
 			justification: GrandpaJustification<BridgedHeader<T, I>>,
 			current_set_id: sp_consensus_grandpa::SetId,
+			_is_free_execution_expected: bool,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
 			ensure_signed(origin)?;
@@ -484,9 +493,13 @@ pub mod pallet {
 		/// The `current_set_id` argument of the `submit_finality_proof_ex` doesn't match
 		/// the id of the current set, known to the pallet.
 		InvalidAuthoritySetId,
+		/// The submitter wanted free execution, but we can't fit more free transactions
+		/// to the block.
+		CannotAcceptMoreFreeHeaders,
 	}
 
-	/// Return true if we want to refund
+	/// Return true if we may refund transaction cost to the submitter. In other words,
+	/// this transaction is considered as common good deed w.r.t to pallet configuration.
 	fn may_refund_call_fee<T: Config<I>, I: 'static>(
 		is_mandatory_header: bool,
 		finality_target: &BridgedHeader<T, I>,
@@ -495,10 +508,6 @@ pub mod pallet {
 	) -> bool {
 		// if we have refunded too much at this block => not refunding
 		if FreeHeadersRemaining::<T, I>::get() == 0 {
-			// TODO: attacker may watch tx pool for our free tx of header #1000 and then
-			// submit its own `FreeHeadersRemaining` transactions with tip
-			// => our transaction will be paid. Cut this off in the extension.
-
 			return false;
 		}
 
@@ -507,6 +516,10 @@ pub mod pallet {
 			&finality_target,
 			&justification,
 			Some(current_set_id),
+			// this function is called from the transaction body and we do not want
+			// to do MAY-be-free-executed checks here - they had to be done in the
+			// transaction extension before
+			false,
 		);
 		if !call_info.fits_limits() {
 			return false;
@@ -800,6 +813,7 @@ mod tests {
 			Box::new(header),
 			justification,
 			TEST_GRANDPA_SET_ID,
+			false,
 		)
 	}
 
@@ -819,6 +833,7 @@ mod tests {
 			Box::new(header),
 			justification,
 			set_id,
+			false,
 		)
 	}
 
@@ -847,6 +862,7 @@ mod tests {
 			Box::new(header),
 			justification,
 			set_id,
+			false,
 		)
 	}
 
@@ -1062,6 +1078,7 @@ mod tests {
 					Box::new(header.clone()),
 					justification.clone(),
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::InvalidJustification
 			);
@@ -1071,6 +1088,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					next_set_id,
+					false,
 				),
 				<Error<TestRuntime>>::InvalidAuthoritySetId
 			);
@@ -1092,6 +1110,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::InvalidJustification
 			);
@@ -1122,6 +1141,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::InvalidAuthoritySet
 			);
@@ -1161,6 +1181,7 @@ mod tests {
 				Box::new(header.clone()),
 				justification.clone(),
 				TEST_GRANDPA_SET_ID,
+				false,
 			);
 			assert_ok!(result);
 			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::No);
@@ -1224,6 +1245,7 @@ mod tests {
 				Box::new(header.clone()),
 				justification,
 				TEST_GRANDPA_SET_ID,
+				false,
 			);
 			assert_ok!(result);
 			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
@@ -1256,6 +1278,7 @@ mod tests {
 				Box::new(header.clone()),
 				justification,
 				TEST_GRANDPA_SET_ID,
+				false,
 			);
 			assert_ok!(result);
 			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
@@ -1286,6 +1309,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
@@ -1312,6 +1336,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
@@ -1338,6 +1363,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::TooManyAuthoritiesInSet
 			);
@@ -1403,6 +1429,7 @@ mod tests {
 					Box::new(header),
 					invalid_justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				)
 			};
 
@@ -1611,6 +1638,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				DispatchError::BadOrigin,
 			);
