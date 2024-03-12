@@ -441,13 +441,14 @@ where
 	) -> Result<Vec<Block::Hash>, SubscriptionManagementError> {
 		let blockchain = self.backend.blockchain();
 		let mut pruned = Vec::new();
+		let mut unique_hashes = HashSet::new();
 
 		for stale_head in stale_heads {
 			let tree_route = sp_blockchain::tree_route(blockchain, last_finalized, *stale_head)?;
 
 			// Collect only blocks that are not part of the canonical chain.
 			pruned.extend(tree_route.enacted().iter().filter_map(|block| {
-				if !to_ignore.remove(&block.hash) {
+				if !to_ignore.remove(&block.hash) && unique_hashes.insert(block.hash) {
 					Some(block.hash)
 				} else {
 					None
