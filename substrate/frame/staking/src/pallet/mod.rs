@@ -1913,7 +1913,7 @@ pub mod pallet {
 		/// Emits `Unbonded`.
 		#[pallet::call_index(29)]
 		#[pallet::weight(
-		T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::unbond()))
+		T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::force_unbond()))
 		]
 		pub fn force_unbond(
 			origin: OriginFor<T>,
@@ -1923,13 +1923,23 @@ pub mod pallet {
 
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
-			Self::chill_stash(&ledger.stash);
+			let min_active_bond = if Nominators::<T>::contains_key(&ledger.stash) {
+				MinNominatorBond::<T>::get()
+			} else if Validators::<T>::contains_key(&ledger.stash) {
+				MinValidatorBond::<T>::get()
+			} else {
+				Zero::zero()
+			};
+
+			if (ledger.active - value) <= min_active_bond {
+				Self::chill_stash(&ledger.stash);
+			}
 
 			let maybe_withdraw_weight = Self::do_unbond(controller, value)?;
 			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
-				Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
+				Some(T::WeightInfo::force_unbond().saturating_add(withdraw_weight))
 			} else {
-				Some(T::WeightInfo::unbond())
+				Some(T::WeightInfo::force_unbond())
 			};
 
 			Ok(actual_weight.into())
