@@ -17,7 +17,8 @@
 //! Auxiliary `struct`/`enum`s for polkadot runtime.
 
 use crate::NegativeImbalance;
-use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
+use core::marker::PhantomData;
+use frame_support::traits::{Contains, Currency, Imbalance, OnUnbalanced};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::Balance;
 use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
@@ -147,6 +148,27 @@ impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocation
 			VersionedLocation::V4(l) => l,
 		};
 		Ok(latest)
+	}
+}
+
+/// Adapter for [`Contains`] trait to match [`VersionedLocatableAsset`] type converted to the latest
+/// version of itself where it's location matched by `L` and it's asset id by `A` parameter types.
+pub struct ContainsLatest<L, A>(PhantomData<(L, A)>);
+impl<L, A> Contains<VersionedLocatableAsset> for ContainsLatest<L, A>
+where
+	L: Contains<xcm::v4::Location>,
+	A: Contains<xcm::v4::Location>,
+{
+	fn contains(asset: &VersionedLocatableAsset) -> bool {
+		use VersionedLocatableAsset::*;
+		let (location, asset_id) = match asset.clone() {
+			V3 { location, asset_id } => match (location.try_into(), asset_id.try_into()) {
+				(Ok(l), Ok(a)) => (l, a),
+				_ => return false,
+			},
+			V4 { location, asset_id } => (location, asset_id),
+		};
+		L::contains(&location) && A::contains(&asset_id.0)
 	}
 }
 

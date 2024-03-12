@@ -24,10 +24,12 @@ use crate::{
 	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation, Preimage,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, WestendTreasuryAccount, DAYS,
 };
+use cumulus_primitives_core::ParaId;
 use frame_support::{
 	parameter_types,
 	traits::{
-		EitherOf, EitherOfDiverse, MapSuccess, NeverEnsureOrigin, OriginTrait, TryWithMorphedArg,
+		tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, MapSuccess, NeverEnsureOrigin,
+		OriginTrait, TryWithMorphedArg,
 	},
 	PalletId,
 };
@@ -40,10 +42,10 @@ use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::impls::ToParentTreasury;
 use polkadot_runtime_common::impls::{
-	LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
+	ContainsLatest, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 use sp_arithmetic::Permill;
-use sp_core::{ConstU128, ConstU32};
+use sp_core::{ConstU128, ConstU32, ConstU8};
 use sp_runtime::traits::{ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst};
 use testnet_parachains_constants::westend::{account, currency::GRAND};
 use westend_runtime_constants::time::HOURS;
@@ -345,7 +347,13 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type Paymaster = FellowshipTreasuryPaymaster;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Paymaster = PayWithEnsure<FellowshipTreasuryPaymaster, OpenHrmpChannel<ConstU32<1000>>>;
-	type BalanceConverter = AssetRate;
+	type BalanceConverter = UnityOrOuterConversion<
+		ContainsLatest<
+			xcm_builder::IsSiblingSystemParachain<ParaId>,
+			xcm_builder::IsParentsOnly<ConstU8<1>>,
+		>,
+		AssetRate,
+	>;
 	type PayoutPeriod = ConstU32<{ 30 * DAYS }>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments<
