@@ -19,7 +19,7 @@
 mod codegen_runtime;
 
 use bp_polkadot::{AccountInfoStorageMapKeyProvider, POLKADOT_SYNCED_HEADERS_GRANDPA_INFO_METHOD};
-use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
+use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 use codec::Encode;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithTransactions, Error as SubstrateError,
@@ -83,7 +83,7 @@ impl RelayChain for Polkadot {
 impl ChainWithTransactions for Polkadot {
 	type AccountKeyPair = sp_core::sr25519::Pair;
 	type SignedTransaction =
-		bp_polkadot_core::UncheckedExtrinsic<Self::Call, bp_polkadot::SignedExtension>;
+		bp_polkadot_core::UncheckedExtrinsic<Self::Call, bp_polkadot::TransactionExtension>;
 
 	fn sign_transaction(
 		param: SignParam<Self>,
@@ -91,7 +91,7 @@ impl ChainWithTransactions for Polkadot {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			bp_polkadot::SignedExtension::from_params(
+			bp_polkadot::TransactionExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,
@@ -112,21 +112,5 @@ impl ChainWithTransactions for Polkadot {
 			signature.into(),
 			extra,
 		))
-	}
-
-	fn is_signed(tx: &Self::SignedTransaction) -> bool {
-		tx.signature.is_some()
-	}
-
-	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
-		tx.signature
-			.as_ref()
-			.map(|(address, _, _)| *address == Address::Id(signer.public().into()))
-			.unwrap_or(false)
-	}
-
-	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
-		let extra = &tx.signature.as_ref()?.2;
-		Some(UnsignedTransaction::new(tx.function, extra.nonce()).tip(extra.tip()))
 	}
 }

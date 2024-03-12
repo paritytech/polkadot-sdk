@@ -99,8 +99,10 @@ impl ChainWithBalances for PolkadotBulletin {
 
 impl ChainWithTransactions for PolkadotBulletin {
 	type AccountKeyPair = sp_core::sr25519::Pair;
-	type SignedTransaction =
-		bp_polkadot_bulletin::UncheckedExtrinsic<Self::Call, bp_polkadot_bulletin::SignedExtension>;
+	type SignedTransaction = bp_polkadot_bulletin::UncheckedExtrinsic<
+		Self::Call,
+		bp_polkadot_bulletin::TransactionExtension,
+	>;
 
 	fn sign_transaction(
 		param: SignParam<Self>,
@@ -108,7 +110,7 @@ impl ChainWithTransactions for PolkadotBulletin {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			bp_polkadot_bulletin::SignedExtension::from_params(
+			bp_polkadot_bulletin::TransactionExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,
@@ -127,21 +129,5 @@ impl ChainWithTransactions for PolkadotBulletin {
 			signature.into(),
 			extra,
 		))
-	}
-
-	fn is_signed(tx: &Self::SignedTransaction) -> bool {
-		tx.signature.is_some()
-	}
-
-	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
-		tx.signature
-			.as_ref()
-			.map(|(address, _, _)| *address == Address::Id(signer.public().into()))
-			.unwrap_or(false)
-	}
-
-	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
-		let extra = &tx.signature.as_ref()?.2;
-		Some(UnsignedTransaction::new(tx.function, extra.nonce()))
 	}
 }
