@@ -64,7 +64,7 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 pub mod v15 {
 	use super::*;
 
-	struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = v14::OffendingValidators::<T>::take()
@@ -75,6 +75,15 @@ pub mod v15 {
 
 			log!(info, "v15 applied successfully.");
 			T::DbWeight::get().reads_writes(1, 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			frame_support::ensure!(
+				v14::OffendingValidators::<T>::decode_len().is_none(),
+				"OffendingValidators is not empty after the migration"
+			);
+			Ok(())
 		}
 	}
 
