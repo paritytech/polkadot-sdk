@@ -22,7 +22,7 @@ use either::Either;
 use libp2p::{
 	core::{
 		muxing::StreamMuxerBox,
-		transport::{Boxed, OptionalTransport},
+		transport::{timeout::TransportTimeout, Boxed, OptionalTransport},
 		upgrade,
 	},
 	dns, identity, noise, tcp, websocket, PeerId, Transport, TransportExt,
@@ -30,6 +30,9 @@ use libp2p::{
 use std::{sync::Arc, time::Duration};
 
 pub use libp2p::bandwidth::BandwidthSinks;
+
+/// Timeout after which a TCP connection attempt is considered failed.
+const TCP_DIAL_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// Builds the transport that serves as a common ground for all connections.
 ///
@@ -56,7 +59,8 @@ pub fn build_transport(
 	let transport = if !memory_only {
 		// Main transport: DNS(TCP)
 		let tcp_config = tcp::Config::new().nodelay(true);
-		let tcp_trans = tcp::tokio::Transport::new(tcp_config.clone());
+		let tcp_trans =
+			TransportTimeout::new(tcp::tokio::Transport::new(tcp_config.clone()), TCP_DIAL_TIMEOUT);
 		let dns_init = dns::TokioDnsConfig::system(tcp_trans);
 
 		Either::Left(if let Ok(dns) = dns_init {
@@ -65,15 +69,20 @@ pub fn build_transport(
 			// Main transport can't be used for `/wss` addresses because WSS transport needs
 			// unresolved addresses (BUT WSS transport itself needs an instance of DNS transport to
 			// resolve and dial addresses).
-			let tcp_trans = tcp::tokio::Transport::new(tcp_config);
+			let tcp_trans =
+				TransportTimeout::new(tcp::tokio::Transport::new(tcp_config), TCP_DIAL_TIMEOUT);
 			let dns_for_wss = dns::TokioDnsConfig::system(tcp_trans)
 				.expect("same system_conf & resolver to work");
 			Either::Left(websocket::WsConfig::new(dns_for_wss).or_transport(dns))
 		} else {
 			// In case DNS can't be constructed, fallback to TCP + WS (WSS won't work)
-			let tcp_trans = tcp::tokio::Transport::new(tcp_config.clone());
-			let desktop_trans = websocket::WsConfig::new(tcp_trans)
-				.or_transport(tcp::tokio::Transport::new(tcp_config));
+			let tcp_trans = TransportTimeout::new(
+				tcp::tokio::Transport::new(tcp_config.clone()),
+				TCP_DIAL_TIMEOUT,
+			);
+			let tcp_trans_for_ws =
+				TransportTimeout::new(tcp::tokio::Transport::new(tcp_config), TCP_DIAL_TIMEOUT);
+			let desktop_trans = websocket::WsConfig::new(tcp_trans_for_ws).or_transport(tcp_trans);
 			Either::Right(desktop_trans)
 		})
 	} else {
