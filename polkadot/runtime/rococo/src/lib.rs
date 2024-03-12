@@ -1506,7 +1506,7 @@ pub mod migrations {
 	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
 		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
 			let now = frame_system::Pallet::<Runtime>::block_number();
-			let lease = slots::Pallet::<Runtime>::lease(para);
+			let lease = slots::Leases::<Runtime>::get(para);
 			if lease.is_empty() {
 				return None
 			}
