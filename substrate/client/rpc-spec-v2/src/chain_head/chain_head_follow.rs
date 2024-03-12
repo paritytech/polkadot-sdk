@@ -496,15 +496,64 @@ where
 
 		match self.best_block_cache {
 			Some(block_cache) => {
-				// If the best block wasn't pruned, we are done here.
-				if !pruned_block_hashes.iter().any(|hash| *hash == block_cache) {
+				// We need to generate a `NewBlock` event for the finalized block when:
+				// - (i) the last reported best block was pruned
+				// - (ii) the last reported best block is on a fork that will be pruned in the
+				//   future.
+				// Note: pruning happens on level n - 1.
+
+				// Best block already generated.
+				if block_cache == last_finalized {
+					events.push(finalized_event);
+					return Ok(events);
+				}
+
+				// Checking if the block was pruned is faster than computing the route tree.
+				let was_pruned = pruned_block_hashes.iter().any(|hash| *hash == block_cache);
+				if was_pruned {
+					// We need to generate a best block event.
+					let best_block_hash = self.client.info().best_hash;
+
+					// Defensive check against state missmatch.
+					if best_block_hash == block_cache {
+						// The client doest not have any new information about the best block.
+						// The information from `.info()` is updated from the DB as the last
+						// step of the finalization and it should be up to date.
+						// If the info is outdated, there is nothing the RPC can do for now.
+						error!(
+							target: LOG_TARGET,
+							"[follow][id={:?}] Client does not contain different best block",
+							self.sub_id,
+						);
+						events.push(finalized_event);
+						return Ok(events);
+					}
+
+					// The RPC needs to also submit a new best block changed before the
+					// finalized event.
+					self.best_block_cache = Some(best_block_hash);
+					let best_block_event =
+						FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
+					events.extend([best_block_event, finalized_event]);
+					return Ok(events)
+				}
+
+				// The best block was not pruned, however it might be on a fork that will be pruned.
+				let tree_route = sp_blockchain::tree_route(
+					self.backend.blockchain(),
+					last_finalized,
+					block_cache,
+				)?;
+
+				// The best block is a descendent of the finalized block.
+				if tree_route.retracted().is_empty() {
 					events.push(finalized_event);
 					return Ok(events)
 				}
 
-				// The best block is reported as pruned. Therefore, we need to signal a new
-				// best block event before submitting the finalized event.
+				// The best block is on a fork that will be pruned.
 				let best_block_hash = self.client.info().best_hash;
+				// Defensive check against state missmatch.
 				if best_block_hash == block_cache {
 					// The client doest not have any new information about the best block.
 					// The information from `.info()` is updated from the DB as the last
@@ -516,16 +565,16 @@ where
 						self.sub_id,
 					);
 					events.push(finalized_event);
-					Ok(events)
-				} else {
-					// The RPC needs to also submit a new best block changed before the
-					// finalized event.
-					self.best_block_cache = Some(best_block_hash);
-					let best_block_event =
-						FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
-					events.extend([best_block_event, finalized_event]);
-					Ok(events)
+					return Ok(events);
 				}
+
+				// The RPC needs to also submit a new best block changed before the
+				// finalized event.
+				self.best_block_cache = Some(best_block_hash);
+				let best_block_event =
+					FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
+				events.extend([best_block_event, finalized_event]);
+				Ok(events)
 			},
 			None => {
 				events.push(finalized_event);
