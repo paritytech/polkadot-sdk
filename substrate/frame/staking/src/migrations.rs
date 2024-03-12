@@ -67,7 +67,7 @@ pub mod v15 {
 	struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let migrated = v14::OffendingValidators::<T>::get()
+			let migrated = v14::OffendingValidators::<T>::take()
 				.into_iter()
 				.map(|p| p.0)
 				.collect::<Vec<_>>();
