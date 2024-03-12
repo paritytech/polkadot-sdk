@@ -129,6 +129,16 @@ use sp_externalities::{Externalities, ExternalitiesExt};
 
 pub use sp_externalities::MultiRemovalResults;
 
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
+mod global_alloc_wasm;
+
+#[cfg(all(
+	not(feature = "disable_allocator"),
+	substrate_runtime,
+	any(target_arch = "riscv32", target_arch = "riscv64")
+))]
+mod global_alloc_riscv;
+
 #[cfg(feature = "std")]
 const LOG_TARGET: &str = "runtime::io";
 
@@ -1736,30 +1746,6 @@ mod tracing_setup {
 }
 
 pub use tracing_setup::init_tracing;
-
-/// Allocator used by Substrate from within the runtime.
-#[cfg(substrate_runtime)]
-struct RuntimeAllocator;
-
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime))]
-#[global_allocator]
-static ALLOCATOR: RuntimeAllocator = RuntimeAllocator;
-
-#[cfg(substrate_runtime)]
-mod allocator_impl {
-	use super::*;
-	use core::alloc::{GlobalAlloc, Layout};
-
-	unsafe impl GlobalAlloc for RuntimeAllocator {
-		unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-			allocator::malloc(layout.size() as u32)
-		}
-
-		unsafe fn dealloc(&self, ptr: *mut u8, _: Layout) {
-			allocator::free(ptr)
-		}
-	}
-}
 
 /// Crashes the execution of the program.
 ///
