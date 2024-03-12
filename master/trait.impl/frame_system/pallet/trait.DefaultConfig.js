@@ -1,6 +1,7 @@
 (function() {var implementors = {
 "frame":[],
 "frame_system":[],
+"pallet_assets":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_assets/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_assets::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
 "pallet_balances":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_balances/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_balances::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
 "pallet_default_config_example":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_default_config_example/pallet/config_preludes/struct.OtherDefaultConfig.html\" title=\"struct pallet_default_config_example::pallet::config_preludes::OtherDefaultConfig\">OtherDefaultConfig</a>"],["impl DefaultConfig for <a class=\"struct\" href=\"pallet_default_config_example/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_default_config_example::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
 "pallet_parameters":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_parameters/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_parameters::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],

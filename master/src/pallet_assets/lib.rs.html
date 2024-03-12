@@ -1818,6 +1818,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1671" id="1671">1671</a>
 <a href="#1672" id="1672">1672</a>
 <a href="#1673" id="1673">1673</a>
+<a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
+<a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
+<a href="#1693" id="1693">1693</a>
+<a href="#1694" id="1694">1694</a>
+<a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
+<a href="#1699" id="1699">1699</a>
+<a href="#1700" id="1700">1700</a>
+<a href="#1701" id="1701">1701</a>
+<a href="#1702" id="1702">1702</a>
+<a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+<a href="#1705" id="1705">1705</a>
+<a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
+<a href="#1708" id="1708">1708</a>
+<a href="#1709" id="1709">1709</a>
+<a href="#1710" id="1710">1710</a>
+<a href="#1711" id="1711">1711</a>
+<a href="#1712" id="1712">1712</a>
+<a href="#1713" id="1713">1713</a>
+<a href="#1714" id="1714">1714</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2046,10 +2087,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[pallet::config]
+	<span class="doccomment">/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	</span><span class="kw">pub mod </span>config_preludes {
+		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+		<span class="kw">use </span>frame_support::{derive_impl, traits::ConstU64};
+		<span class="kw">pub struct </span>TestDefaultConfig;
+
+		<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig, no_aggregated_types)]
+		</span><span class="kw">impl </span>frame_system::DefaultConfig <span class="kw">for </span>TestDefaultConfig {}
+
+		<span class="attr">#[frame_support::register_default_impl(TestDefaultConfig)]
+		</span><span class="kw">impl </span>DefaultConfig <span class="kw">for </span>TestDefaultConfig {
+			<span class="attr">#[inject_runtime_type]
+			</span><span class="kw">type </span>RuntimeEvent = ();
+			<span class="kw">type </span>Balance = u64;
+			<span class="kw">type </span>RemoveItemsLimit = ConstU32&lt;<span class="number">5</span>&gt;;
+			<span class="kw">type </span>AssetId = u32;
+			<span class="kw">type </span>AssetIdParameter = u32;
+			<span class="kw">type </span>AssetDeposit = ConstU64&lt;<span class="number">1</span>&gt;;
+			<span class="kw">type </span>AssetAccountDeposit = ConstU64&lt;<span class="number">10</span>&gt;;
+			<span class="kw">type </span>MetadataDepositBase = ConstU64&lt;<span class="number">1</span>&gt;;
+			<span class="kw">type </span>MetadataDepositPerByte = ConstU64&lt;<span class="number">1</span>&gt;;
+			<span class="kw">type </span>ApprovalDeposit = ConstU64&lt;<span class="number">1</span>&gt;;
+			<span class="kw">type </span>StringLimit = ConstU32&lt;<span class="number">50</span>&gt;;
+			<span class="kw">type </span>Extra = ();
+			<span class="kw">type </span>CallbackHandle = ();
+			<span class="kw">type </span>WeightInfo = ();
+			<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+			</span><span class="kw">type </span>BenchmarkHelper = ();
+		}
+	}
+
+	<span class="attr">#[pallet::config(with_default)]
 	</span><span class="doccomment">/// The module configuration trait.
 	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// The overarching event type.
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
@@ -2082,10 +2155,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>AssetIdParameter: Parameter + From&lt;<span class="self">Self</span>::AssetId&gt; + Into&lt;<span class="self">Self</span>::AssetId&gt; + MaxEncodedLen;
 
 		<span class="doccomment">/// The currency mechanism.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>Currency: ReservableCurrency&lt;<span class="self">Self</span>::AccountId&gt;;
 
 		<span class="doccomment">/// Standard asset class creation is only allowed if the origin attempting it and the
 		/// asset class are in this set.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>CreateOrigin: EnsureOriginWithArg&lt;
 			<span class="self">Self</span>::RuntimeOrigin,
 			<span class="self">Self</span>::AssetId,
@@ -2094,28 +2169,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// The origin which may forcibly create or destroy an asset or otherwise alter privileged
 		/// attributes.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>ForceOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 
 		<span class="doccomment">/// The basic amount of funds that must be reserved for an asset.
 		</span><span class="attr">#[pallet::constant]
+		#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>AssetDeposit: Get&lt;DepositBalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
 		<span class="doccomment">/// The amount of funds that must be reserved for a non-provider asset account to be
 		/// maintained.
 		</span><span class="attr">#[pallet::constant]
+		#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>AssetAccountDeposit: Get&lt;DepositBalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
 		<span class="doccomment">/// The basic amount of funds that must be reserved when adding metadata to your asset.
 		</span><span class="attr">#[pallet::constant]
+		#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>MetadataDepositBase: Get&lt;DepositBalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
 		<span class="doccomment">/// The additional funds that must be reserved for the number of bytes you store in your
 		/// metadata.
 		</span><span class="attr">#[pallet::constant]
+		#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>MetadataDepositPerByte: Get&lt;DepositBalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
 		<span class="doccomment">/// The amount of funds that must be reserved when creating a new approval.
 		</span><span class="attr">#[pallet::constant]
+		#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>ApprovalDeposit: Get&lt;DepositBalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
 		<span class="doccomment">/// The maximum length of a name or symbol stored on-chain.
@@ -2124,6 +2205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// A hook to allow a per-asset, per-account minimum balance to be enforced. This must be
 		/// respected in all permissionless operations.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>Freezer: FrozenBalance&lt;<span class="self">Self</span>::AssetId, <span class="self">Self</span>::AccountId, <span class="self">Self</span>::Balance&gt;;
 
 		<span class="doccomment">/// Additional data to be stored with an account&#39;s asset balance.
