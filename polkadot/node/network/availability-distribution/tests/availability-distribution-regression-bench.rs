@@ -45,13 +45,13 @@ fn main() -> Result<(), String> {
 	let usage = benchmark(config.clone());
 
 	messages.extend(usage.check_network_usage(&[
-		("Received from peers", 4330.0, 0.05),
-		("Sent to peers", 15900.0, 0.05),
+		("Received from peers", 443.333, 0.05),
+		("Sent to peers", 21818.555, 0.05),
 	]));
 	messages.extend(usage.check_cpu_usage(&[
-		("availability-distribution", 0.025, 0.05),
-		("bitfield-distribution", 0.085, 0.05),
-		("availability-store", 0.180, 0.05),
+		("availability-distribution", 0.013, 0.05),
+		("bitfield-distribution", 0.032, 0.05),
+		("availability-store", 0.232, 0.05),
 	]));
 
 	if messages.is_empty() {
