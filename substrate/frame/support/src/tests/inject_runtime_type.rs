@@ -32,7 +32,10 @@ fn derive_impl_works_with_runtime_type_injection() {
 fn derive_impl_works_with_no_aggregated_types() {
 	struct DummyRuntime;
 
-	#[derive_impl(super::frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+	#[derive_impl(
+        super::frame_system::config_preludes::TestDefaultConfig as super::frame_system::DefaultConfig,
+        no_aggregated_types
+    )]
 	impl Config for DummyRuntime {
 		type Block = super::Block;
 		type AccountId = super::AccountId;
