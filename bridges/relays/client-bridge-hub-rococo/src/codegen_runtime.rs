@@ -463,7 +463,7 @@ pub mod api {
 				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
 				pub struct RefundBridgedParachainMessages;
 				#[derive(:: codec :: Decode, :: codec :: Encode, Clone, Debug, PartialEq)]
-				pub struct RefundSignedExtensionAdapter<_0>(pub _0);
+				pub struct RefundTransactionExtensionAdapter<_0>(pub _0);
 			}
 		}
 		pub mod cumulus_pallet_parachain_system {

@@ -125,18 +125,6 @@ impl relay_substrate_client::ChainWithTransactions for RococoAsPolkadot {
 			unsigned.switch_chain(),
 		)
 	}
-
-	fn is_signed(tx: &Self::SignedTransaction) -> bool {
-		relay_rococo_client::Rococo::is_signed(tx)
-	}
-
-	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
-		relay_rococo_client::Rococo::is_signed_by(signer, tx)
-	}
-
-	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
-		relay_rococo_client::Rococo::parse_transaction(tx).map(|tx| tx.switch_chain())
-	}
 }
 
 impl CliChain for RococoAsPolkadot {
@@ -231,19 +219,6 @@ impl relay_substrate_client::ChainWithTransactions for BridgeHubRococoAsBridgeHu
 			},
 			unsigned.switch_chain(),
 		)
-	}
-
-	fn is_signed(tx: &Self::SignedTransaction) -> bool {
-		relay_bridge_hub_rococo_client::BridgeHubRococo::is_signed(tx)
-	}
-
-	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
-		relay_bridge_hub_rococo_client::BridgeHubRococo::is_signed_by(signer, tx)
-	}
-
-	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
-		relay_bridge_hub_rococo_client::BridgeHubRococo::parse_transaction(tx)
-			.map(|tx| tx.switch_chain())
 	}
 }
 

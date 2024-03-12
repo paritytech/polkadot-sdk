@@ -203,17 +203,6 @@ pub trait ChainWithTransactions: Chain {
 	) -> Result<Self::SignedTransaction, crate::Error>
 	where
 		Self: Sized;
-
-	/// Returns true if transaction is signed.
-	fn is_signed(tx: &Self::SignedTransaction) -> bool;
-
-	/// Returns true if transaction is signed by given signer.
-	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool;
-
-	/// Parse signed transaction into its unsigned part.
-	///
-	/// Returns `None` if signed transaction has unsupported format.
-	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>>;
 }
 
 /// Sign transaction parameters
