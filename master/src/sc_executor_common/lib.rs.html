@@ -172,6 +172,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -199,4 +203,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>runtime_blob;
 <span class="kw">pub mod </span>util;
 <span class="kw">pub mod </span>wasm_runtime;
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_polkavm_enabled() -&gt; bool {
+	std::env::var_os(<span class="string">&quot;SUBSTRATE_ENABLE_POLKAVM&quot;</span>).map_or(<span class="bool-val">false</span>, |value| value == <span class="string">&quot;1&quot;</span>)
+}
 </code></pre></div></section></main></body></html>

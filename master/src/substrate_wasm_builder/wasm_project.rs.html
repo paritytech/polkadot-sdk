@@ -2153,7 +2153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">println!</span>(<span class="string">&quot;{} {}&quot;</span>, colorize_info_message(<span class="string">&quot;Using rustc version:&quot;</span>), cargo_cmd.rustc_version());
 
 	<span class="comment">// Use `process::exit(1)` to have a clean error output.
-	</span><span class="kw">if </span>!<span class="macro">matches!</span>(build_cmd.status().map(|s| s.success()), <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)) {
+	</span><span class="kw">if </span>!build_cmd.status().map_or(<span class="bool-val">false</span>, |s| s.success()) {
 		process::exit(<span class="number">1</span>);
 	}
 

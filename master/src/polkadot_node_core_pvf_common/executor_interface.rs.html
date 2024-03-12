@@ -552,7 +552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_executor_common::{
 	error::WasmError,
 	runtime_blob::RuntimeBlob,
-	wasm_runtime::{HeapAllocStrategy, InvokeMethod, WasmModule <span class="kw">as _</span>},
+	wasm_runtime::{HeapAllocStrategy, WasmModule <span class="kw">as _</span>},
 };
 <span class="kw">use </span>sc_executor_wasmtime::{Config, DeterministicStackLimit, Semantics, WasmtimeRuntime};
 <span class="kw">use </span>sp_core::storage::{ChildInfo, TrackedStorageKey};
@@ -647,7 +647,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">match </span>sc_executor::with_externalities_safe(<span class="kw-2">&amp;mut </span>ext, || {
 		<span class="kw">let </span>runtime = create_runtime_from_artifact_bytes(compiled_artifact_blob, executor_params)<span class="question-mark">?</span>;
-		runtime.new_instance()<span class="question-mark">?</span>.call(InvokeMethod::Export(<span class="string">&quot;validate_block&quot;</span>), params)
+		runtime.new_instance()<span class="question-mark">?</span>.call(<span class="string">&quot;validate_block&quot;</span>, params)
 	}) {
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(ok)) =&gt; <span class="prelude-val">Ok</span>(ok),
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) | <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),

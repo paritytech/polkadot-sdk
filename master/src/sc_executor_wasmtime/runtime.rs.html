@@ -887,15 +887,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#740" id="740">740</a>
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -928,10 +919,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	error::{Error, <span class="prelude-ty">Result</span>, WasmError},
 	runtime_blob::RuntimeBlob,
 	util::checked_range,
-	wasm_runtime::{HeapAllocStrategy, InvokeMethod, WasmInstance, WasmModule},
+	wasm_runtime::{HeapAllocStrategy, WasmInstance, WasmModule},
 };
 <span class="kw">use </span>sp_runtime_interface::unpack_ptr_and_len;
-<span class="kw">use </span>sp_wasm_interface::{HostFunctions, Pointer, Value, WordSize};
+<span class="kw">use </span>sp_wasm_interface::{HostFunctions, Pointer, WordSize};
 <span class="kw">use </span>std::{
 	path::{Path, PathBuf},
 	sync::{
@@ -939,7 +930,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Arc,
 	},
 };
-<span class="kw">use </span>wasmtime::{AsContext, Engine, Memory, Table};
+<span class="kw">use </span>wasmtime::{AsContext, Engine, Memory};
 
 <span class="kw">const </span>MAX_INSTANCE_COUNT: u32 = <span class="number">64</span>;
 
@@ -949,8 +940,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) host_state: <span class="prelude-ty">Option</span>&lt;HostState&gt;,
 	<span class="doccomment">/// This will be always set once the store is initialized.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) memory: <span class="prelude-ty">Option</span>&lt;Memory&gt;,
-	<span class="doccomment">/// This will be set only if the runtime actually contains a table.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) table: <span class="prelude-ty">Option</span>&lt;Table&gt;,
 }
 
 <span class="kw">impl </span>StoreData {
@@ -1062,7 +1051,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>WasmtimeInstance {
 	<span class="kw">fn </span>call_impl(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		method: InvokeMethod,
+		method: <span class="kw-2">&amp;</span>str,
 		data: <span class="kw-2">&amp;</span>[u8],
 		allocation_stats: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;AllocationStats&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt; {
@@ -1082,19 +1071,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>WasmInstance <span class="kw">for </span>WasmtimeInstance {
 	<span class="kw">fn </span>call_with_allocation_stats(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		method: InvokeMethod,
+		method: <span class="kw-2">&amp;</span>str,
 		data: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; (<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt;, <span class="prelude-ty">Option</span>&lt;AllocationStats&gt;) {
 		<span class="kw">let </span><span class="kw-2">mut </span>allocation_stats = <span class="prelude-val">None</span>;
 		<span class="kw">let </span>result = <span class="self">self</span>.call_impl(method, data, <span class="kw-2">&amp;mut </span>allocation_stats);
 		(result, allocation_stats)
-	}
-
-	<span class="kw">fn </span>get_global_const(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Value&gt;&gt; {
-		<span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.strategy {
-			Strategy::RecreateInstance(<span class="kw-2">ref mut </span>instance_creator) =&gt;
-				instance_creator.instantiate()<span class="question-mark">?</span>.get_global_val(name),
-		}
 	}
 }
 

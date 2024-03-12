@@ -349,6 +349,7 @@ var srcIndex = JSON.parse('{\
 "sc_consensus_slots":["",[],["aux_schema.rs","lib.rs","slots.rs"]],\
 "sc_executor":["",[],["executor.rs","lib.rs","wasm_runtime.rs"]],\
 "sc_executor_common":["",[["runtime_blob",[],["mod.rs","runtime_blob.rs"]]],["error.rs","lib.rs","util.rs","wasm_runtime.rs"]],\
+"sc_executor_polkavm":["",[],["lib.rs"]],\
 "sc_executor_wasmtime":["",[],["host.rs","imports.rs","instance_wrapper.rs","lib.rs","runtime.rs","util.rs"]],\
 "sc_informant":["",[],["display.rs","lib.rs"]],\
 "sc_keystore":["",[],["lib.rs","local.rs"]],\

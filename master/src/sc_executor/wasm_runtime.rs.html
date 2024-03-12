@@ -703,6 +703,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1002,6 +1006,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>H: HostFunctions,
 {
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(blob) = blob.as_polkavm_blob() {
+		<span class="kw">return </span>sc_executor_polkavm::create_runtime::&lt;H&gt;(blob);
+	}
+
 	<span class="kw">match </span>wasm_method {
 		WasmExecutionMethod::Compiled { instantiation_strategy } =&gt;
 			sc_executor_wasmtime::create_runtime::&lt;H&gt;(

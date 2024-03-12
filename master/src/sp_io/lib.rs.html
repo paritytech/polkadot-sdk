@@ -2107,20 +2107,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1960" id="1960">1960</a>
 <a href="#1961" id="1961">1961</a>
 <a href="#1962" id="1962">1962</a>
-<a href="#1963" id="1963">1963</a>
-<a href="#1964" id="1964">1964</a>
-<a href="#1965" id="1965">1965</a>
-<a href="#1966" id="1966">1966</a>
-<a href="#1967" id="1967">1967</a>
-<a href="#1968" id="1968">1968</a>
-<a href="#1969" id="1969">1969</a>
-<a href="#1970" id="1970">1970</a>
-<a href="#1971" id="1971">1971</a>
-<a href="#1972" id="1972">1972</a>
-<a href="#1973" id="1973">1973</a>
-<a href="#1974" id="1974">1974</a>
-<a href="#1975" id="1975">1975</a>
-<a href="#1976" id="1976">1976</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2251,6 +2237,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>sp_externalities::{Externalities, ExternalitiesExt};
 
 <span class="kw">pub use </span>sp_externalities::MultiRemovalResults;
+
+<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;disable_allocator&quot;</span>), substrate_runtime, target_family = <span class="string">&quot;wasm&quot;</span>))]
+</span><span class="kw">mod </span>global_alloc_wasm;
+
+<span class="attr">#[cfg(all(
+	not(feature = <span class="string">&quot;disable_allocator&quot;</span>),
+	substrate_runtime,
+	any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>)
+))]
+</span><span class="kw">mod </span>global_alloc_riscv;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::io&quot;</span>;
@@ -3859,30 +3855,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub use </span>tracing_setup::init_tracing;
-
-<span class="doccomment">/// Allocator used by Substrate from within the runtime.
-</span><span class="attr">#[cfg(substrate_runtime)]
-</span><span class="kw">struct </span>RuntimeAllocator;
-
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;disable_allocator&quot;</span>), substrate_runtime))]
-#[global_allocator]
-</span><span class="kw">static </span>ALLOCATOR: RuntimeAllocator = RuntimeAllocator;
-
-<span class="attr">#[cfg(substrate_runtime)]
-</span><span class="kw">mod </span>allocator_impl {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>core::alloc::{GlobalAlloc, Layout};
-
-	<span class="kw">unsafe impl </span>GlobalAlloc <span class="kw">for </span>RuntimeAllocator {
-		<span class="kw">unsafe fn </span>alloc(<span class="kw-2">&amp;</span><span class="self">self</span>, layout: Layout) -&gt; <span class="kw-2">*mut </span>u8 {
-			allocator::malloc(layout.size() <span class="kw">as </span>u32)
-		}
-
-		<span class="kw">unsafe fn </span>dealloc(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">*mut </span>u8, <span class="kw">_</span>: Layout) {
-			allocator::free(ptr)
-		}
-	}
-}
 
 <span class="doccomment">/// Crashes the execution of the program.
 ///
