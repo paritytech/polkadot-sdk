@@ -3498,7 +3498,7 @@ fn offence_threshold_doesnt_trigger_new_era() {
 			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41]);
 
 			assert_eq!(
-				UpToThresholdDisablingStrategy::<DISABLING_THRESHOLD_FACTOR>::disable_threshold(
+				UpToThresholdDisablingStrategy::<DISABLING_LIMIT_FACTOR>::disable_threshold(
 					Session::validators().len()
 				),
 				1

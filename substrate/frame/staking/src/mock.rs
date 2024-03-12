@@ -263,7 +263,7 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 }
 
 // Disabling threshold for `UpToThresholdDisablingStrategy`
-pub(crate) const DISABLING_THRESHOLD_FACTOR: usize = 3;
+pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
 impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;
@@ -294,8 +294,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
-	type DisablingStrategy =
-		pallet_staking::UpToThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>;
+	type DisablingStrategy = pallet_staking::UpToThresholdDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

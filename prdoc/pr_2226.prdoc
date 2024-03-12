@@ -14,7 +14,7 @@ doc:
       will be used on Kusama and Polkadot. In nutshell `UpToThresholdDisablingStrategy`
       disables offenders up to the configured threshold (1/3 of the validators in the active set by
       default). Offending validators are not disabled for offences in previous eras. The threshold is
-      controlled via `DISABLING_THRESHOLD_FACTOR` (a generic parameter of
+      controlled via `DISABLING_LIMIT_FACTOR` (a generic parameter of
       `UpToThresholdDisablingStrategy`).
 
 migrations:

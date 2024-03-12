@@ -1238,30 +1238,28 @@ pub trait DisablingStrategy<T: Config> {
 }
 
 /// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
-/// threshold. `DISABLING_THRESHOLD_FACTOR` is the factor of the maximum disabled validators in the
+/// threshold. `DISABLING_LIMIT_FACTOR` is the factor of the maximum disabled validators in the
 /// active set. E.g. setting this value to `3` means no more than 1/3 of the validators in the
 /// active set can be disabled in an era.
 /// By default a factor of 3 is used which is the byzantine threshold.
-pub struct UpToThresholdDisablingStrategy<const DISABLING_THRESHOLD_FACTOR: usize = 3>;
+pub struct UpToThresholdDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
 
-impl<const DISABLING_THRESHOLD_FACTOR: usize>
-	UpToThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>
-{
+impl<const DISABLING_LIMIT_FACTOR: usize> UpToThresholdDisablingStrategy<DISABLING_LIMIT_FACTOR> {
 	/// Disabling limit calculated from the total number of validators in the active set. When
 	/// reached no more validators will be disabled.
 	pub fn disable_threshold(validators_len: usize) -> usize {
 		validators_len
 			.saturating_sub(1)
-			.checked_div(DISABLING_THRESHOLD_FACTOR)
+			.checked_div(DISABLING_LIMIT_FACTOR)
 			.unwrap_or_else(|| {
-				defensive!("DISABLING_THRESHOLD_FACTOR should not be 0");
+				defensive!("DISABLING_LIMIT_FACTOR should not be 0");
 				0
 			})
 	}
 }
 
-impl<T: Config, const DISABLING_THRESHOLD_FACTOR: usize> DisablingStrategy<T>
-	for UpToThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>
+impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
+	for UpToThresholdDisablingStrategy<DISABLING_LIMIT_FACTOR>
 {
 	fn decision(
 		offender_stash: &T::AccountId,
