@@ -297,7 +297,7 @@ where
 		&self,
 		signed_commitment: SignedCommitment<NumberFor<B>, Signature>,
 	) -> Result<(), Error> {
-		let SignedCommitment { commitment, signatures } = signed_commitment;
+		let SignedCommitment { commitment, signatures } = signed_commitment.clone();
 		let number = commitment.block_number;
 		// if the vote is for a block number exceeding our best block number, there shouldn't even
 		// be a payload to sign yet, hence we assume it is an equivocation and report it
@@ -344,7 +344,13 @@ where
 					number,
 				);
 				let validator_set = self.active_validator_set_at(canonical_hhp.hash)?;
-				if signatures.len() != validator_set.validators().len() {
+				if crate::justification::verify_with_validator_set::<B>(
+					commitment.block_number,
+					&validator_set,
+					&BeefyVersionedFinalityProof::<B>::V1(signed_commitment),
+				)
+				.is_err()
+				{
 					// invalid proof
 					return Ok(())
 				}
@@ -362,7 +368,7 @@ where
 								BeefySignatureHasher,
 							>(&commitment, &id, &sig)
 							{
-								Some((id, sig))
+								Some((id, sig.clone()))
 							} else {
 								None
 							}
