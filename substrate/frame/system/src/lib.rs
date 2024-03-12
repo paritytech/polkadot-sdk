@@ -1417,7 +1417,7 @@ impl<T: Config> Pallet<T> {
 	/// current runtime until there is another runtime upgrade.
 	///
 	/// Example:
-	#[doc = docify::embed!("src/tests.rs", last_runtime_upgrade_spec_version_usage)]
+	//#[doc = docify::embed!("src/tests.rs", last_runtime_upgrade_spec_version_usage)]
 	pub fn last_runtime_upgrade_spec_version() -> u32 {
 		LastRuntimeUpgrade::<T>::get().map_or(0, |l| l.spec_version.0)
 	}

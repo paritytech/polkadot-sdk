@@ -239,8 +239,12 @@ fn deposit_event_should_work() {
 		System::deposit_event(SysEvent::NewAccount { account: 32 });
 		System::note_finished_initialize();
 		System::deposit_event(SysEvent::KilledAccount { account: 42 });
-		System::note_applied_extrinsic(&Ok(().into()), Default::default());
-		System::note_applied_extrinsic(&Err(DispatchError::BadOrigin.into()), Default::default());
+		System::note_applied_extrinsic(&Ok(().into()), Default::default(), false);
+		System::note_applied_extrinsic(
+			&Err(DispatchError::BadOrigin.into()),
+			Default::default(),
+			false,
+		);
 		System::note_finished_extrinsics();
 		System::deposit_event(SysEvent::NewAccount { account: 3 });
 		System::finalize();
@@ -253,12 +257,12 @@ fn deposit_event_should_work() {
 					topics: vec![],
 				},
 				EventRecord {
-					phase: Phase::ApplyExtrinsic(0),
+					phase: Phase::ApplyInherent(0),
 					event: SysEvent::KilledAccount { account: 42 }.into(),
 					topics: vec![]
 				},
 				EventRecord {
-					phase: Phase::ApplyExtrinsic(0),
+					phase: Phase::ApplyInherent(0),
 					event: SysEvent::ExtrinsicSuccess {
 						dispatch_info: DispatchInfo { weight: normal_base, ..Default::default() }
 					}
@@ -295,26 +299,34 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			.get(DispatchClass::Normal)
 			.base_extrinsic;
 		let pre_info = DispatchInfo { weight: Weight::from_parts(1000, 0), ..Default::default() };
-		System::note_applied_extrinsic(&Ok(from_actual_ref_time(Some(300))), pre_info);
-		System::note_applied_extrinsic(&Ok(from_actual_ref_time(Some(1000))), pre_info);
+		System::note_applied_extrinsic(&Ok(from_actual_ref_time(Some(300))), pre_info, false);
+		System::note_applied_extrinsic(&Ok(from_actual_ref_time(Some(1000))), pre_info, false);
 		System::note_applied_extrinsic(
 			// values over the pre info should be capped at pre dispatch value
 			&Ok(from_actual_ref_time(Some(1200))),
 			pre_info,
+			false,
 		);
 		System::note_applied_extrinsic(
 			&Ok(from_post_weight_info(Some(2_500_000), Pays::Yes)),
 			pre_info,
+			false,
 		);
-		System::note_applied_extrinsic(&Ok(Pays::No.into()), pre_info);
+		System::note_applied_extrinsic(&Ok(Pays::No.into()), pre_info, false);
 		System::note_applied_extrinsic(
 			&Ok(from_post_weight_info(Some(2_500_000), Pays::No)),
 			pre_info,
+			false,
 		);
-		System::note_applied_extrinsic(&Ok(from_post_weight_info(Some(500), Pays::No)), pre_info);
+		System::note_applied_extrinsic(
+			&Ok(from_post_weight_info(Some(500), Pays::No)),
+			pre_info,
+			false,
+		);
 		System::note_applied_extrinsic(
 			&Err(DispatchError::BadOrigin.with_weight(Weight::from_parts(999, 0))),
 			pre_info,
+			false,
 		);
 
 		System::note_applied_extrinsic(
@@ -323,6 +335,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 				error: DispatchError::BadOrigin,
 			}),
 			pre_info,
+			false,
 		);
 		System::note_applied_extrinsic(
 			&Err(DispatchErrorWithPostInfo {
@@ -333,6 +346,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 				error: DispatchError::BadOrigin,
 			}),
 			pre_info,
+			false,
 		);
 		System::note_applied_extrinsic(
 			&Err(DispatchErrorWithPostInfo {
@@ -343,6 +357,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 				error: DispatchError::BadOrigin,
 			}),
 			pre_info,
+			false,
 		);
 		// Also works for operational.
 		let operational_base = <Test as crate::Config>::BlockWeights::get()
@@ -354,7 +369,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			class: DispatchClass::Operational,
 			..Default::default()
 		};
-		System::note_applied_extrinsic(&Ok(from_actual_ref_time(Some(300))), pre_info);
+		System::note_applied_extrinsic(&Ok(from_actual_ref_time(Some(300))), pre_info, true);
 
 		let got = System::events();
 		let want = vec![
@@ -777,9 +792,13 @@ fn extrinsics_root_is_calculated_correctly() {
 		System::initialize(&1, &[0u8; 32].into(), &Default::default());
 		System::note_finished_initialize();
 		System::note_extrinsic(vec![1]);
-		System::note_applied_extrinsic(&Ok(().into()), Default::default());
+		System::note_applied_extrinsic(&Ok(().into()), Default::default(), false);
 		System::note_extrinsic(vec![2]);
-		System::note_applied_extrinsic(&Err(DispatchError::BadOrigin.into()), Default::default());
+		System::note_applied_extrinsic(
+			&Err(DispatchError::BadOrigin.into()),
+			Default::default(),
+			false,
+		);
 		System::note_finished_extrinsics();
 		let header = System::finalize();
 
@@ -836,7 +855,7 @@ pub fn from_post_weight_info(ref_time: Option<u64>, pays_fee: Pays) -> PostDispa
 	PostDispatchInfo { actual_weight: ref_time.map(|t| Weight::from_all(t)), pays_fee }
 }
 
-#[docify::export]
+//#[docify::export]
 #[test]
 fn last_runtime_upgrade_spec_version_usage() {
 	struct Migration;
