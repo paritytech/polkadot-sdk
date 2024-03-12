@@ -15,28 +15,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[frame_support::pallet]
-mod pallet {
-	use frame_support::pallet_prelude::Hooks;
-	use frame_system::pallet_prelude::BlockNumberFor;
-	use frame_support::pallet_prelude::StorageValue;
+use core::alloc::{GlobalAlloc, Layout};
 
-	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+/// Allocator used by Substrate from within the runtime.
+struct RuntimeAllocator;
 
-	#[pallet::pallet]
-	#[pallet::generate_store(pub trait Store)]
-	pub struct Pallet<T>(core::marker::PhantomData<T>);
+#[global_allocator]
+static ALLOCATOR: RuntimeAllocator = RuntimeAllocator;
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+unsafe impl GlobalAlloc for RuntimeAllocator {
+	unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+		crate::allocator::malloc(layout.size() as u32)
+	}
 
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
-
-	#[pallet::storage]
-	type Foo<T> = StorageValue<_, u8>;
-}
-
-fn main() {
+	unsafe fn dealloc(&self, ptr: *mut u8, _: Layout) {
+		crate::allocator::free(ptr)
+	}
 }
