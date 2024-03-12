@@ -388,7 +388,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 			},
 			FromSwarm::ExpiredListenAddr(e) => {
 				self.ping.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
-				self.identify.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
+				// See `FromSwarm::NewListenAddr` for why we do not notify `Identify`.
 				self.external_addresses.remove(e.addr);
 			},
 			FromSwarm::NewExternalAddr(e) => {
@@ -414,7 +414,8 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 			},
 			FromSwarm::NewListenAddr(e) => {
 				self.ping.on_swarm_event(FromSwarm::NewListenAddr(e));
-				self.identify.on_swarm_event(FromSwarm::NewListenAddr(e));
+				// Do not report listen addresses to `Identify`, because remote nodes should only
+				// know about our external addresses.
 			},
 		}
 	}
