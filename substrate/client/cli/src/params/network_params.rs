@@ -55,9 +55,9 @@ pub struct NetworkParams {
 	///
 	/// This can be used if there's a proxy in front of this node.
 	///
-	/// If you use this flag and the node listens on other global addresses, consider also
-	/// passing `--hide-listen-addr` so those other addresses are not advertised to remote
-	/// nodes and not added to DHT.
+	/// If you use this flag and the node listens on other global addresses, which should not be
+	/// dialed, consider also passing `--hide-listen-addr` so those other addresses are not
+	/// advertised to remote nodes and not added to DHT.
 	#[arg(long, value_name = "PUBLIC_ADDR", num_args = 1..)]
 	pub public_addr: Vec<Multiaddr>,
 

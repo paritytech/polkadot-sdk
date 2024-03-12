@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Do not report listen addresses via Identify protocol
+
+doc:
+  - audience: Node Operator
+    description: |
+      New flag `--hide-listen-addr` is added that makes the node not advertise listen addresses
+      to remote nodes via Identify protocol, effectively hiding these addresses from DHT discovery.
+      This does not affect external addresses added with `--public-addr` nor external addresses
+      discovered with Identify protocol.
+      Consider passing this flag if you manually specify `--public-addr` and your node listens
+      on other global addresses, which should not be dialed.
+
+crates:
+  - name: sc-network
+  - name: sc-cli
