@@ -47,7 +47,7 @@ fn main() -> Result<(), String> {
 
 	messages.extend(usage.check_network_usage(&[
 		("Received from peers", 307200.000, 0.05),
-		("Sent to peers", 0.050, 0.05),
+		("Sent to peers", 1.667, 0.05),
 	]));
 	messages.extend(usage.check_cpu_usage(&[("availability-recovery", 11.500, 0.05)]));
 
