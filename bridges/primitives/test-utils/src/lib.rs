@@ -129,7 +129,7 @@ pub fn make_justification_for_header<H: HeaderT>(
 			votes_ancestries.push(child.clone());
 		}
 
-		// The header we need to use when pre-commiting is the one at the highest height
+		// The header we need to use when pre-committing is the one at the highest height
 		// on our chain.
 		let precommit_candidate = chain.last().map(|h| (h.hash(), *h.number())).unwrap();
 		unsigned_precommits.push(precommit_candidate);
