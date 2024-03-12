@@ -58,6 +58,35 @@ pub mod v0 {
 	#[storage_alias]
 	pub type SaleInfo<T: Config> = StorageValue<Pallet<T>, SaleInfoRecordOf<T>, OptionQuery>;
 	pub type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, BlockNumberFor<T>>;
+
+	/// The status of a Bulk Coretime Sale.
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub struct SaleInfoRecord<Balance, BlockNumber> {
+		/// The relay block number at which the sale will/did start.
+		pub sale_start: BlockNumber,
+		/// The length in relay chain blocks of the Leadin Period (where the price is decreasing).
+		pub leadin_length: BlockNumber,
+		/// The price of Bulk Coretime after the Leadin Period.
+		pub price: Balance,
+		/// The first timeslice of the Regions which are being sold in this sale.
+		pub region_begin: Timeslice,
+		/// The timeslice on which the Regions which are being sold in the sale terminate. (i.e.
+		/// One after the last timeslice which the Regions control.)
+		pub region_end: Timeslice,
+		/// The number of cores we want to sell, ideally. Selling this amount would result in no
+		/// change to the price for the next sale.
+		pub ideal_cores_sold: CoreIndex,
+		/// Number of cores which are/have been offered for sale.
+		pub cores_offered: CoreIndex,
+		/// The index of the first core which is for sale. Core of Regions which are sold have
+		/// incrementing indices from this.
+		pub first_core: CoreIndex,
+		/// The latest price at which Bulk Coretime was purchased until surpassing the ideal number
+		/// of cores were sold.
+		pub sellout_price: Option<Balance>,
+		/// Number of cores which have been sold; never more than cores_offered.
+		pub cores_sold: CoreIndex,
+	}
 }
 
 pub mod v1 {
@@ -177,8 +206,6 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			use frame_system::pallet_prelude::BlockNumberFor;
-
 			ensure!(StorageVersion::get::<Pallet<T>>() == 1, "must upgrade");
 
 			let (
@@ -238,14 +265,52 @@ pub mod v1 {
 #[cfg(test)]
 #[cfg(feature = "try-runtime")]
 mod test {
+	use self::mock::new_test_ext;
+
 	use super::*;
-	use crate::mock::{Test as T, TestExt};
+
+	use crate::{
+		migrations::v1::v0::ConfigRecord,
+		mock::{Test as T, TestExt},
+		types::*,
+	};
+	use frame_system::pallet::Pallet as SPallet;
+	use sp_runtime::Perbill;
 
 	#[allow(deprecated)]
 	#[test]
 	fn migration_works() {
-		TestExt::new().execute_with(|| {
+		new_test_ext().execute_with(|| {
 			assert_eq!(StorageVersion::get::<Pallet<T>>(), 0);
+
+			// Testing with Random Values
+			let config_record = v0::ConfigRecord {
+				advance_notice: u32::MAX.into(),
+				interlude_length: (u32::MAX).into(),
+				leadin_length: (u32::MAX - 1).into(),
+				contribution_timeout: 0,
+				region_length: 0,
+				ideal_bulk_proportion: Perbill::one(),
+				limit_cores_offered: Some(1),
+				renewal_bump: Perbill::one(),
+			};
+
+			v0::Configuration::<T>::put(config_record);
+
+			let sale_info = v0::SaleInfoRecord {
+				sale_start: u64::MAX,
+				leadin_length: (u32::MAX - 1).into(),
+				price: 5u64,
+				region_begin: 0,
+				region_end: 1,
+				cores_offered: 1,
+				ideal_cores_sold: 3,
+				first_core: 3,
+				sellout_price: Some(5),
+				cores_sold: 5,
+			};
+
+			v0::SaleInfo::<T>::put(sale_info);
 
 			// Migrate.
 			let state = v1::Migration::<T>::pre_upgrade().unwrap();
