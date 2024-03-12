@@ -40,15 +40,15 @@ fn main() -> Result<(), String> {
 	// TODO: Adjust the test configurations to Kusama values
 	let options = DataAvailabilityReadOptions { fetch_from_backers: true };
 	let config = TestConfiguration::builder()
-		.with_n_cores(20)
-		.with_min_pov_size(5120)
-		.with_max_pov_size(5120)
-		.with_latency(PeerLatency { mean_latency_ms: 100, std_dev: 1.0 })
-		.with_n_validators(300)
-		.with_peer_bandwidth(52428800)
-		.with_bandwidth(52428800)
-		.with_num_blocks(3)
-		.with_connectivity(90)
+		.n_cores(20)
+		.min_pov_size(5120)
+		.max_pov_size(5120)
+		.latency(PeerLatency { mean_latency_ms: 100, std_dev: 1.0 })
+		.n_validators(300)
+		.peer_bandwidth(52428800)
+		.bandwidth(52428800)
+		.num_blocks(3)
+		.connectivity(90)
 		.build();
 
 	warm_up(config.clone(), options.clone())?;

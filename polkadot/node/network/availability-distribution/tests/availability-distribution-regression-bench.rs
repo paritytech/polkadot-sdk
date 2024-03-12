@@ -38,16 +38,16 @@ fn main() -> Result<(), String> {
 
 	// TODO: Adjust the test configurations to Kusama values
 	let config = TestConfiguration::builder()
-		.with_n_cores(200)
-		.with_min_pov_size(5120)
-		.with_max_pov_size(5120)
-		.with_latency(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 })
-		.with_max_validators_per_core(5)
-		.with_n_validators(1000)
-		.with_peer_bandwidth(52428800)
-		.with_bandwidth(52428800)
-		.with_num_blocks(3)
-		.with_connectivity(75)
+		.n_cores(200)
+		.min_pov_size(5120)
+		.max_pov_size(5120)
+		.latency(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 })
+		.max_validators_per_core(5)
+		.n_validators(1000)
+		.peer_bandwidth(52428800)
+		.bandwidth(52428800)
+		.num_blocks(3)
+		.connectivity(75)
 		.build();
 
 	warm_up(config.clone())?;
