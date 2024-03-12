@@ -1230,7 +1230,7 @@ impl BenchmarkingConfig for TestBenchmarkingConfig {
 pub trait DisablingStrategy<T: Config> {
 	/// Make a decision if an offender should be disabled or not. The result is a `Vec` of validator
 	/// indices that should be disabled
-	fn make_disabling_decision(
+	fn decision(
 		offender_stash: &T::AccountId,
 		slash_era: EraIndex,
 		currently_disabled: &Vec<u32>,
@@ -1263,7 +1263,7 @@ impl<const DISABLING_THRESHOLD_FACTOR: usize>
 impl<T: Config, const DISABLING_THRESHOLD_FACTOR: usize> DisablingStrategy<T>
 	for UpToThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>
 {
-	fn make_disabling_decision(
+	fn decision(
 		offender_stash: &T::AccountId,
 		slash_era: EraIndex,
 		currently_disabled: &Vec<u32>,

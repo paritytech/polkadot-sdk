@@ -7202,11 +7202,12 @@ mod byzantine_threshold_disabling_strategy {
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 			CurrentEra::<Test>::put(2);
 
-			let disable_offender = <UpToThresholdDisablingStrategy as DisablingStrategy<
-			Test,
-		>>::make_disabling_decision(
-			&OFFENDER_ID, SLASH_ERA, &initially_disabled
-		);
+			let disable_offender =
+				<UpToThresholdDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					SLASH_ERA,
+					&initially_disabled,
+				);
 
 			assert!(disable_offender.is_none());
 		});
@@ -7218,11 +7219,12 @@ mod byzantine_threshold_disabling_strategy {
 			let initially_disabled = vec![1, 2];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
-			let disable_offender = <UpToThresholdDisablingStrategy as DisablingStrategy<
-			Test,
-		>>::make_disabling_decision(
-			&OFFENDER_ID, SLASH_ERA, &initially_disabled
-		);
+			let disable_offender =
+				<UpToThresholdDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					SLASH_ERA,
+					&initially_disabled,
+				);
 
 			assert!(disable_offender.is_none());
 		});
@@ -7234,11 +7236,12 @@ mod byzantine_threshold_disabling_strategy {
 			let initially_disabled = vec![1];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
-			let disable_offender = <UpToThresholdDisablingStrategy as DisablingStrategy<
-			Test,
-		>>::make_disabling_decision(
-			&OFFENDER_ID, SLASH_ERA, &initially_disabled
-		);
+			let disable_offender =
+				<UpToThresholdDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					SLASH_ERA,
+					&initially_disabled,
+				);
 
 			assert_eq!(disable_offender, Some(OFFENDER_VALIDATOR_IDX));
 		});

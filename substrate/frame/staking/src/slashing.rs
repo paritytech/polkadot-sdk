@@ -325,7 +325,7 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 	DisabledValidators::<T>::mutate(|disabled| {
 		if let Some(offender) =
-			T::DisablingStrategy::make_disabling_decision(params.stash, params.slash_era, &disabled)
+			T::DisablingStrategy::decision(params.stash, params.slash_era, &disabled)
 		{
 			// Add the validator to `DisabledValidators` and disable it. Do nothing if it is
 			// already disabled.
