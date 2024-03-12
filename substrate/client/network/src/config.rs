@@ -578,6 +578,9 @@ pub struct NetworkConfiguration {
 	/// Multiaddresses to listen for incoming connections.
 	pub listen_addresses: Vec<Multiaddr>,
 
+	/// Whether to hide `listen_addresses` from Identify behavior and not report to remote nodes.
+	pub hide_listen_addresses: bool,
+
 	/// Multiaddresses to advertise. Detected automatically if empty.
 	pub public_addresses: Vec<Multiaddr>,
 
@@ -669,6 +672,7 @@ impl NetworkConfiguration {
 		Self {
 			net_config_path,
 			listen_addresses: Vec::new(),
+			hide_listen_addresses: false,
 			public_addresses: Vec::new(),
 			boot_nodes: Vec::new(),
 			node_key,

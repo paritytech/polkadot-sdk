@@ -175,6 +175,7 @@ impl<B: BlockT> Behaviour<B> {
 		request_response_protocols: Vec<ProtocolConfig>,
 		peer_store_handle: PeerStoreHandle,
 		external_addresses: Arc<Mutex<HashSet<Multiaddr>>>,
+		hide_listen_addresses: bool,
 	) -> Result<Self, request_responses::RegisterError> {
 		Ok(Self {
 			substrate,
@@ -182,6 +183,7 @@ impl<B: BlockT> Behaviour<B> {
 				user_agent,
 				local_public_key,
 				external_addresses,
+				hide_listen_addresses,
 			),
 			discovery: disco_config.finish(),
 			request_responses: request_responses::RequestResponsesBehaviour::new(

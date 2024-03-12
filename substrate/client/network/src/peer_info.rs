@@ -71,6 +71,8 @@ pub struct PeerInfoBehaviour {
 	garbage_collect: Pin<Box<dyn Stream<Item = ()> + Send>>,
 	/// Record keeping of external addresses. Data is queried by the `NetworkService`.
 	external_addresses: ExternalAddresses,
+	/// Whether only external addresses should be sent to remote peers in [`Identify`] messages.
+	hide_listen_addresses: bool,
 }
 
 /// Information about a node we're connected to.
@@ -119,6 +121,7 @@ impl PeerInfoBehaviour {
 		user_agent: String,
 		local_public_key: PublicKey,
 		external_addresses: Arc<Mutex<HashSet<Multiaddr>>>,
+		hide_listen_addresses: bool,
 	) -> Self {
 		let identify = {
 			let cfg = IdentifyConfig::new("/substrate/1.0".to_string(), local_public_key)
@@ -134,6 +137,7 @@ impl PeerInfoBehaviour {
 			nodes_info: FnvHashMap::default(),
 			garbage_collect: Box::pin(interval(GARBAGE_COLLECT_INTERVAL)),
 			external_addresses: ExternalAddresses { addresses: external_addresses },
+			hide_listen_addresses,
 		}
 	}
 
@@ -388,7 +392,10 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 			},
 			FromSwarm::ExpiredListenAddr(e) => {
 				self.ping.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
-				// See `FromSwarm::NewListenAddr` for why we do not notify `Identify`.
+				// See `FromSwarm::NewListenAddr` for why we do not always notify `Identify`.
+				if !self.hide_listen_addresses {
+					self.identify.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
+				}
 				self.external_addresses.remove(e.addr);
 			},
 			FromSwarm::NewExternalAddr(e) => {
@@ -414,8 +421,11 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 			},
 			FromSwarm::NewListenAddr(e) => {
 				self.ping.on_swarm_event(FromSwarm::NewListenAddr(e));
-				// Do not report listen addresses to `Identify`, because remote nodes should only
-				// know about our external addresses.
+				// Only report listen addresses to `Identify` if remote nodes should know about our
+				// listen addresses. Note that external addresses are always reported.
+				if !self.hide_listen_addresses {
+					self.identify.on_swarm_event(FromSwarm::NewListenAddr(e));
+				}
 			},
 		}
 	}

@@ -435,6 +435,7 @@ where
 					request_response_protocols,
 					params.peer_store.clone(),
 					external_addresses.clone(),
+					network_config.hide_listen_addresses,
 				);
 
 				match result {

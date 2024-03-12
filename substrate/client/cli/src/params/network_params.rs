@@ -54,6 +54,10 @@ pub struct NetworkParams {
 	/// Public address that other nodes will use to connect to this node.
 	///
 	/// This can be used if there's a proxy in front of this node.
+	///
+	/// If you use this flag and the node listens on other global addresses, consider also
+	/// passing `--hide-listen-addr` so those other addresses are not advertised to remote
+	/// nodes and not added to DHT.
 	#[arg(long, value_name = "PUBLIC_ADDR", num_args = 1..)]
 	pub public_addr: Vec<Multiaddr>,
 
@@ -64,6 +68,12 @@ pub struct NetworkParams {
 	/// Otherwise: `/ip4/0.0.0.0/tcp/<port>/ws` and `/ip6/[::]/tcp/<port>/ws`.
 	#[arg(long, value_name = "LISTEN_ADDR", num_args = 1..)]
 	pub listen_addr: Vec<Multiaddr>,
+
+	/// Do not advertise listen addresses to remote peers, effectively hiding the addresses from
+	/// DHT. This does not affect addresses added via `--public-addr` and external addresses
+	/// discovered using Identify protocol.
+	#[arg(long)]
+	pub hide_listen_addr: bool,
 
 	/// Specify p2p protocol TCP port.
 	#[arg(long, value_name = "PORT", conflicts_with_all = &[ "listen_addr" ])]
@@ -244,6 +254,7 @@ impl NetworkParams {
 			},
 			default_peers_set_num_full: self.in_peers + self.out_peers,
 			listen_addresses,
+			hide_listen_addresses: self.hide_listen_addr,
 			public_addresses,
 			node_key,
 			node_name: node_name.to_string(),
