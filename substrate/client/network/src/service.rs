@@ -87,7 +87,7 @@ use std::{
 	collections::{HashMap, HashSet},
 	fs, iter,
 	marker::PhantomData,
-	num::NonZeroUsize,
+	num::{NonZeroU8, NonZeroUsize},
 	pin::Pin,
 	str,
 	sync::{
@@ -472,7 +472,10 @@ where
 				// NOTE: 24 is somewhat arbitrary and should be tuned in the future if necessary.
 				// See <https://github.com/paritytech/substrate/pull/6080>
 				.per_connection_event_buffer_size(24)
-				.max_negotiating_inbound_streams(2048);
+				.max_negotiating_inbound_streams(2048)
+				// Increase the default dial concurrency factor 8 to 16 to help with cases where DHT
+				// has plenty of stale peer addresses.
+				.dial_concurrency_factor(NonZeroU8::new(16).expect("0 < 16 < 256; qed"));
 
 			(builder.build(), bandwidth)
 		};
