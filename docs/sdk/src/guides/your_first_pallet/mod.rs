@@ -438,7 +438,7 @@ pub mod pallet {
 				}
 			);
 
-			#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+			#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 			impl frame_system::Config for Runtime {
 				type Block = MockBlock<Runtime>;
 				// within pallet we just said `<T as frame_system::Config>::AccountId`, now we
@@ -717,7 +717,7 @@ pub mod pallet_v2 {
 				}
 			);
 
-			#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+			#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 			impl frame_system::Config for Runtime {
 				type Block = MockBlock<Runtime>;
 				type AccountId = u64;

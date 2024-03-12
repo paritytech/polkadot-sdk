@@ -86,7 +86,7 @@ pub(crate) type VoterIndex = u16;
 pub(crate) type TargetIndex = u16;
 pub(crate) type Moment = u32;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;

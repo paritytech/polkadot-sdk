@@ -452,7 +452,7 @@ pub mod pallet {
 
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -1131,7 +1131,7 @@ mod mock {
 		pub const SS58Prefix: u8 = 42;
 	}
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
 		type BlockHashCount = ConstU32<250>;
@@ -1144,7 +1144,7 @@ mod mock {
 		pub const MigrationMaxKeyLen: u32 = 512;
 	}
 
-	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
 		type ReserveIdentifier = [u8; 8];
 		type AccountStore = System;
@@ -1177,7 +1177,7 @@ mod mock {
 		}
 	}
 
-	#[derive_impl(super::config_preludes::TestDefaultConfig as pallet_state_trie_migration::DefaultConfig)]
+	#[derive_impl(super::config_preludes::TestDefaultConfig)]
 	impl pallet_state_trie_migration::Config for Test {
 		type ControlOrigin = EnsureRoot<u64>;
 		type Currency = Balances;

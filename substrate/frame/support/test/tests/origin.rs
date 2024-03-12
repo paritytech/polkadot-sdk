@@ -170,7 +170,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for RuntimeOriginTest {
 	type BaseCallFilter = BaseCallFilter;
 	type Block = Block;

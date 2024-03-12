@@ -38,7 +38,7 @@ pub(crate) type T = Runtime;
 pub(crate) const POOL1_BONDED: AccountId = 20318131474730217858575332831085u128;
 pub(crate) const POOL1_REWARD: AccountId = 20397359637244482196168876781421u128;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

@@ -55,7 +55,7 @@ impl pallet_collective_content::Config for Test {
 	type WeightInfo = CCWeightInfo;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = ();
 	type BlockWeights = ();

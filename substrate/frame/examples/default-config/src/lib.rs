@@ -92,7 +92,7 @@ pub mod pallet {
 		/// A type providing default configurations for this pallet in testing environment.
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(SystemTestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(SystemTestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -114,7 +114,7 @@ pub mod pallet {
 		/// example, we simple derive `frame_system::config_preludes::TestDefaultConfig` again.
 		pub struct OtherDefaultConfig;
 
-		#[derive_impl(SystemTestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(SystemTestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for OtherDefaultConfig {}
 
 		#[frame_support::register_default_impl(OtherDefaultConfig)]

@@ -87,7 +87,7 @@ parameter_types! {
 	pub static MaxProposalWeight: Weight = default_max_proposal_weight();
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
