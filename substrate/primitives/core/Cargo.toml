@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 log = { workspace = true }
-serde = { version = "1.0.195", optional = true, default-features = false, features = ["alloc", "derive"] }
+serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 bounded-collections = { version = "0.2.0", default-features = false }
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "scale-info"] }
 impl-serde = { version = "0.4.0", default-features = false, optional = true }
@@ -27,7 +27,7 @@ hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 bs58 = { version = "0.5.0", default-features = false, optional = true }
 rand = { version = "0.8.5", features = ["small_rng"], optional = true }
-substrate-bip39 = { version = "0.4.5", optional = true }
+substrate-bip39 = { path = "../../utils/substrate-bip39", optional = true }
 bip39 = { version = "2.0.0", default-features = false }
 zeroize = { version = "1.4.3", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
@@ -39,7 +39,7 @@ sp-storage = { path = "../storage", default-features = false }
 sp-externalities = { path = "../externalities", optional = true }
 futures = { version = "0.3.21", optional = true }
 dyn-clonable = { version = "0.9.0", optional = true }
-thiserror = { version = "1.0.48", optional = true }
+thiserror = { optional = true, workspace = true }
 tracing = { version = "0.1.29", optional = true }
 bitflags = "1.3"
 paste = "1.0.7"
@@ -52,9 +52,12 @@ blake2 = { version = "0.10.4", default-features = false, optional = true }
 libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"], optional = true }
 schnorrkel = { version = "0.11.4", features = ["preaudit_deprecated"], default-features = false }
 merlin = { version = "3.0", default-features = false }
-secp256k1 = { version = "0.28.0", default-features = false, features = ["alloc", "recovery"], optional = true }
 sp-crypto-hashing = { path = "../crypto/hashing", default-features = false, optional = true }
 sp-runtime-interface = { path = "../runtime-interface", default-features = false }
+# k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
+k256 = { version = "0.13.3", features = ["alloc", "ecdsa"], default-features = false }
+# secp256k1 crate, better performance, intended to be used on host side (std)
+secp256k1 = { version = "0.28.0", default-features = false, features = ["alloc", "recovery"], optional = true }
 
 # bls crypto
 w3f-bls = { version = "0.1.3", default-features = false, optional = true }
@@ -63,7 +66,7 @@ bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "e9782f9", 
 
 [dev-dependencies]
 criterion = "0.4.0"
-serde_json = "1.0.111"
+serde_json = { workspace = true, default-features = true }
 lazy_static = "1.4.0"
 regex = "1.6.0"
 
@@ -76,6 +79,7 @@ bench = false
 
 [features]
 default = ["std"]
+
 std = [
 	"array-bytes",
 	"bandersnatch_vrfs?/std",
@@ -94,6 +98,7 @@ std = [
 	"hash256-std-hasher/std",
 	"impl-serde/std",
 	"itertools",
+	"k256/std",
 	"libsecp256k1/std",
 	"log/std",
 	"merlin/std",
@@ -116,7 +121,7 @@ std = [
 	"sp-std/std",
 	"sp-storage/std",
 	"ss58-registry/std",
-	"substrate-bip39",
+	"substrate-bip39/std",
 	"thiserror",
 	"tracing",
 	"w3f-bls?/std",
@@ -132,6 +137,7 @@ serde = [
 	"bs58/alloc",
 	"dep:serde",
 	"impl-serde",
+	"k256/serde",
 	"primitive-types/serde_no_std",
 	"scale-info/serde",
 	"secrecy/alloc",
@@ -147,7 +153,6 @@ full_crypto = [
 	"blake2",
 	"ed25519-zebra",
 	"libsecp256k1",
-	"secp256k1",
 	"sp-crypto-hashing",
 	"sp-runtime-interface/disable_target_static_assertions",
 ]

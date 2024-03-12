@@ -433,6 +433,7 @@ where
 				.unwrap_or_else(|e| {
 					gum::warn!(
 						target: LOG_TARGET,
+						api = ?stringify!($api_name),
 						"cannot query the runtime API version: {}",
 						e,
 					);
