@@ -14,12 +14,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Valid module but missing the call function
-#![no_std]
-#![no_main]
 
-extern crate common;
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
+#[global_allocator]
+static ALLOCATOR: polkavm_derive::LeakingAllocator = polkavm_derive::LeakingAllocator;

@@ -788,7 +788,7 @@ fn random_sel<X, F: Fn(&X) -> Weight>(
 /// Assumes disputes are already filtered by the time this is called.
 ///
 /// Returns the total weight consumed by `bitfields` and `candidates`.
-fn apply_weight_limit<T: Config + inclusion::Config>(
+pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 	candidates: &mut Vec<BackedCandidate<<T>::Hash>>,
 	bitfields: &mut UncheckedSignedAvailabilityBitfields,
 	max_consumable_weight: Weight,
@@ -805,34 +805,70 @@ fn apply_weight_limit<T: Config + inclusion::Config>(
 		return total
 	}
 
-	// Prefer code upgrades, they tend to be large and hence stand no chance to be picked
-	// late while maintaining the weight bounds.
-	let preferred_indices = candidates
+	// Invariant: block author provides candidate in the order in which they form a chain
+	// wrt elastic scaling. If the invariant is broken, we'd fail later when filtering candidates
+	// which are unchained.
+
+	let mut chained_candidates: Vec<Vec<_>> = Vec::new();
+	let mut current_para_id = None;
+
+	for candidate in sp_std::mem::take(candidates).into_iter() {
+		let candidate_para_id = candidate.descriptor().para_id;
+		if Some(candidate_para_id) == current_para_id {
+			let chain = chained_candidates
+				.last_mut()
+				.expect("if the current_para_id is Some, then vec is not empty; qed");
+			chain.push(candidate);
+		} else {
+			current_para_id = Some(candidate_para_id);
+			chained_candidates.push(vec![candidate]);
+		}
+	}
+
+	// Elastic scaling: we prefer chains that have a code upgrade among the candidates,
+	// as the candidates containing the upgrade tend to be large and hence stand no chance to
+	// be picked late while maintaining the weight bounds.
+	//
+	// Limitations: For simplicity if total weight of a chain of candidates is larger than
+	// the remaining weight, the chain will still not be included while it could still be possible
+	// to include part of that chain.
+	let preferred_chain_indices = chained_candidates
 		.iter()
 		.enumerate()
-		.filter_map(|(idx, candidate)| {
-			candidate.candidate().commitments.new_validation_code.as_ref().map(|_code| idx)
+		.filter_map(|(idx, candidates)| {
+			// Check if any of the candidate in chain contains a code upgrade.
+			if candidates
+				.iter()
+				.any(|candidate| candidate.candidate().commitments.new_validation_code.is_some())
+			{
+				Some(idx)
+			} else {
+				None
+			}
 		})
 		.collect::<Vec<usize>>();
 
-	// There is weight remaining to be consumed by a subset of candidates
+	// There is weight remaining to be consumed by a subset of chained candidates
 	// which are going to be picked now.
 	if let Some(max_consumable_by_candidates) =
 		max_consumable_weight.checked_sub(&total_bitfields_weight)
 	{
-		let (acc_candidate_weight, indices) =
-			random_sel::<BackedCandidate<<T as frame_system::Config>::Hash>, _>(
+		let (acc_candidate_weight, chained_indices) =
+			random_sel::<Vec<BackedCandidate<<T as frame_system::Config>::Hash>>, _>(
 				rng,
-				&candidates,
-				preferred_indices,
-				|c| backed_candidate_weight::<T>(c),
+				&chained_candidates,
+				preferred_chain_indices,
+				|candidates| backed_candidates_weight::<T>(&candidates),
 				max_consumable_by_candidates,
 			);
-		log::debug!(target: LOG_TARGET, "Indices Candidates: {:?}, size: {}", indices, candidates.len());
-		candidates.indexed_retain(|idx, _backed_candidate| indices.binary_search(&idx).is_ok());
+		log::debug!(target: LOG_TARGET, "Indices Candidates: {:?}, size: {}", chained_indices, candidates.len());
+		chained_candidates
+			.indexed_retain(|idx, _backed_candidates| chained_indices.binary_search(&idx).is_ok());
 		// pick all bitfields, and
 		// fill the remaining space with candidates
 		let total_consumed = acc_candidate_weight.saturating_add(total_bitfields_weight);
+
+		*candidates = chained_candidates.into_iter().flatten().collect::<Vec<_>>();
 
 		return total_consumed
 	}

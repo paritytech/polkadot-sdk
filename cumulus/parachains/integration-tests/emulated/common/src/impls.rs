@@ -265,7 +265,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							// XCM is succesfully received and proccessed
+							// XCM is successfully received and proccessed
 							[<$chain RuntimeEvent>]::<N>::MessageQueue($crate::impls::pallet_message_queue::Event::Processed {
 								origin: $crate::impls::AggregateMessageOrigin::Ump($crate::impls::UmpQueueId::Para(id)),
 								weight_used,

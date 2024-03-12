@@ -15,28 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[frame_support::pallet]
-mod pallet {
-	use frame_support::pallet_prelude::Hooks;
-	use frame_system::pallet_prelude::BlockNumberFor;
-	use frame_support::pallet_prelude::StorageValue;
+//! This fixture calls caller_is_origin `n` times.
 
-	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+#![no_std]
+#![no_main]
 
-	#[pallet::pallet]
-	#[pallet::generate_store(pub trait Store)]
-	pub struct Pallet<T>(core::marker::PhantomData<T>);
+use common::input;
+use uapi::{HostFn, HostFnImpl as api};
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn deploy() {}
 
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn call() {
+	input!(n: u32, );
 
-	#[pallet::storage]
-	type Foo<T> = StorageValue<_, u8>;
-}
-
-fn main() {
+	for _ in 0..n {
+		let _ = api::caller_is_origin();
+	}
 }
