@@ -3333,9 +3333,9 @@ async fn follow_unique_pruned_blocks() {
 	//
 	// finalized -> block 1 -> block 2 -> block 3
 	//
-	//                      -> block 2 -> block 4
+	//                      -> block 2 -> block 4 -> block 5
 	//
-	//           -> block 1 -> block 2_f -> block 5
+	//           -> block 1 -> block 2_f -> block 6     -> (added later) block 7 -> block 8
 	//                                    ^^^ finalized
 	//
 	// The block 4 is needed on the longest chain because we want the
@@ -3366,7 +3366,7 @@ async fn follow_unique_pruned_blocks() {
 	println!("block_2_f_hash: {:?}", block_2_f_hash);
 	client.import(BlockOrigin::Own, block_2_f.clone()).await.unwrap();
 
-	let block_5 = BlockBuilderBuilder::new(&*client)
+	let block_6 = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(block_2_f_hash)
 		.with_parent_block_number(2)
 		.build()
@@ -3374,10 +3374,10 @@ async fn follow_unique_pruned_blocks() {
 		.build()
 		.unwrap()
 		.block;
-	let block_5_hash = block_5.hash();
-	println!("block_5_hash: {:?}", block_5_hash);
+	let block_6_hash = block_6.hash();
+	println!("block_6: {:?}", block_6_hash);
 
-	client.import(BlockOrigin::Own, block_5.clone()).await.unwrap();
+	client.import(BlockOrigin::Own, block_6.clone()).await.unwrap();
 
 	// Import block 2 as best on the fork.
 	let mut block_builder = BlockBuilderBuilder::new(&*client)
@@ -3398,7 +3398,6 @@ async fn follow_unique_pruned_blocks() {
 	let block_2 = block_builder.build().unwrap().block;
 	let block_2_hash = block_2.header.hash();
 	println!("block_2_hash: {:?}", block_2_hash);
-
 	client.import_as_best(BlockOrigin::Own, block_2.clone()).await.unwrap();
 
 	let block_3 = BlockBuilderBuilder::new(&*client)
@@ -3411,7 +3410,6 @@ async fn follow_unique_pruned_blocks() {
 		.block;
 	let block_3_hash = block_3.hash();
 	println!("block_3_hash: {:?}", block_3_hash);
-
 	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
 
 	// Fork block 4.
@@ -3433,8 +3431,19 @@ async fn follow_unique_pruned_blocks() {
 	let block_4 = block_builder.build().unwrap().block;
 	let block_4_hash = block_4.header.hash();
 	println!("block_4_hash: {:?}", block_4_hash);
-
 	client.import_as_best(BlockOrigin::Own, block_4.clone()).await.unwrap();
+
+	let block_5 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_4_hash)
+		.with_parent_block_number(3)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_5_hash = block_5.hash();
+	println!("block_5_hash: {:?}", block_5_hash);
+	client.import(BlockOrigin::Own, block_5.clone()).await.unwrap();
 
 	// Check block 1.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -3466,10 +3475,10 @@ async fn follow_unique_pruned_blocks() {
 	});
 	assert_eq!(event, expected);
 
-	// Check block 5.
+	// Check block 6.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
-		block_hash: format!("{:?}", block_5_hash),
+		block_hash: format!("{:?}", block_6_hash),
 		parent_block_hash: format!("{:?}", block_2_f_hash),
 		new_runtime: None,
 		with_runtime: false,
@@ -3477,7 +3486,7 @@ async fn follow_unique_pruned_blocks() {
 	assert_eq!(event, expected);
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
-		best_block_hash: format!("{:?}", block_5_hash),
+		best_block_hash: format!("{:?}", block_6_hash),
 	});
 	assert_eq!(event, expected);
 
@@ -3526,18 +3535,28 @@ async fn follow_unique_pruned_blocks() {
 	});
 	assert_eq!(event, expected);
 
-	// Finalize the block 5 from the fork.
-	client.finalize_block(block_5_hash, None).unwrap();
+	// Check block 5.
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::NewBlock(NewBlock {
+		block_hash: format!("{:?}", block_5_hash),
+		parent_block_hash: format!("{:?}", block_4_hash),
+		new_runtime: None,
+		with_runtime: false,
+	});
+	assert_eq!(event, expected);
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", block_5_hash),
+	});
+	assert_eq!(event, expected);
 
-	// Conclusion:
-	// - Block 5 is not reported as bewst; block 4 is the last best block.
-	//
-	// - block 2 is not pruned (it should be reported as pruned at N - 1, so its ok)
+	// Finalize the block 6 from the fork.
+	client.finalize_block(block_6_hash, None).unwrap();
 
 	// Expect to report the best block changed before the finalized event.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
-		best_block_hash: format!("{:?}", block_5_hash),
+		best_block_hash: format!("{:?}", block_6_hash),
 	});
 	assert_eq!(event, expected);
 
@@ -3547,7 +3566,7 @@ async fn follow_unique_pruned_blocks() {
 		finalized_block_hashes: vec![
 			format!("{:?}", block_1_hash),
 			format!("{:?}", block_2_f_hash),
-			format!("{:?}", block_5_hash),
+			format!("{:?}", block_6_hash),
 		],
 		pruned_block_hashes: vec![],
 	});
@@ -3559,24 +3578,24 @@ async fn follow_unique_pruned_blocks() {
 	let hash = format!("{:?}", block_2_hash);
 	let _res: () = api.call("chainHead_unstable_unpin", rpc_params![&sub_id, &hash]).await.unwrap();
 
-	// Check block 6.
-	let block_6 = BlockBuilderBuilder::new(&*client)
-		.on_parent_block(block_5_hash)
+	// Check block 7.
+	let block_7 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_6_hash)
 		.with_parent_block_number(3)
 		.build()
 		.unwrap()
 		.build()
 		.unwrap()
 		.block;
-	let block_6_hash = block_6.hash();
-	println!("block_6_hash: {:?}", block_6_hash);
-	client.import(BlockOrigin::Own, block_6.clone()).await.unwrap();
+	let block_7_hash = block_7.hash();
+	println!("block_7: {:?}", block_7_hash);
+	client.import(BlockOrigin::Own, block_7.clone()).await.unwrap();
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	println!("event: {:?}", event);
 	let expected = FollowEvent::NewBlock(NewBlock {
-		block_hash: format!("{:?}", block_6_hash),
-		parent_block_hash: format!("{:?}", block_5_hash),
+		block_hash: format!("{:?}", block_7_hash),
+		parent_block_hash: format!("{:?}", block_6_hash),
 		new_runtime: None,
 		with_runtime: false,
 	});
@@ -3584,22 +3603,64 @@ async fn follow_unique_pruned_blocks() {
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	println!("event: {:?}", event);
 	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
-		best_block_hash: format!("{:?}", block_6_hash),
+		best_block_hash: format!("{:?}", block_7_hash),
 	});
 	assert_eq!(event, expected);
 
-	// Finalize the block 6.
-	client.finalize_block(block_6_hash, None).unwrap();
-	println!("Finalized block 6");
+	// Finalize the block 7.
+	client.finalize_block(block_7_hash, None).unwrap();
+	println!("Finalized block 7");
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	println!("event: {:?}", event);
 	let expected = FollowEvent::Finalized(Finalized {
-		finalized_block_hashes: vec![format!("{:?}", block_6_hash)],
+		finalized_block_hashes: vec![format!("{:?}", block_7_hash)],
+		pruned_block_hashes: vec![format!("{:?}", block_2_hash), format!("{:?}", block_3_hash)],
+	});
+	assert_eq!(event, expected);
+
+	// Check block 8.
+	let block_8 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_7_hash)
+		.with_parent_block_number(4)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_8_hash = block_8.hash();
+	println!("block_8_hash: {:?}", block_8_hash);
+	client.import(BlockOrigin::Own, block_8.clone()).await.unwrap();
+
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	println!("event: {:?}", event);
+	let expected = FollowEvent::NewBlock(NewBlock {
+		block_hash: format!("{:?}", block_8_hash),
+		parent_block_hash: format!("{:?}", block_7_hash),
+		new_runtime: None,
+		with_runtime: false,
+	});
+	assert_eq!(event, expected);
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	println!("event: {:?}", event);
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", block_8_hash),
+	});
+	assert_eq!(event, expected);
+
+	// Finalize the block 8.
+	client.finalize_block(block_8_hash, None).unwrap();
+	println!("Finalized block 8");
+
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	println!("event: {:?}", event);
+	let expected = FollowEvent::Finalized(Finalized {
+		finalized_block_hashes: vec![format!("{:?}", block_8_hash)],
 		pruned_block_hashes: vec![
 			format!("{:?}", block_2_hash),
-			format!("{:?}", block_3_hash),
+			// However only block 4 and 5 should be reported.
 			format!("{:?}", block_4_hash),
+			format!("{:?}", block_5_hash),
 		],
 	});
 	assert_eq!(event, expected);
