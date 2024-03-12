@@ -3549,7 +3549,7 @@ async fn follow_unique_pruned_blocks() {
 			format!("{:?}", block_2_f_hash),
 			format!("{:?}", block_5_hash),
 		],
-		pruned_block_hashes: vec![format!("{:?}", block_2_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 
@@ -3558,4 +3558,49 @@ async fn follow_unique_pruned_blocks() {
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 	let hash = format!("{:?}", block_2_hash);
 	let _res: () = api.call("chainHead_unstable_unpin", rpc_params![&sub_id, &hash]).await.unwrap();
+
+	// Check block 6.
+	let block_6 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_5_hash)
+		.with_parent_block_number(3)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_6_hash = block_6.hash();
+	println!("block_6_hash: {:?}", block_6_hash);
+	client.import(BlockOrigin::Own, block_6.clone()).await.unwrap();
+
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	println!("event: {:?}", event);
+	let expected = FollowEvent::NewBlock(NewBlock {
+		block_hash: format!("{:?}", block_6_hash),
+		parent_block_hash: format!("{:?}", block_5_hash),
+		new_runtime: None,
+		with_runtime: false,
+	});
+	assert_eq!(event, expected);
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	println!("event: {:?}", event);
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", block_6_hash),
+	});
+	assert_eq!(event, expected);
+
+	// Finalize the block 6.
+	client.finalize_block(block_6_hash, None).unwrap();
+	println!("Finalized block 6");
+
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	println!("event: {:?}", event);
+	let expected = FollowEvent::Finalized(Finalized {
+		finalized_block_hashes: vec![format!("{:?}", block_6_hash)],
+		pruned_block_hashes: vec![
+			format!("{:?}", block_2_hash),
+			format!("{:?}", block_3_hash),
+			format!("{:?}", block_4_hash),
+		],
+	});
+	assert_eq!(event, expected);
 }
