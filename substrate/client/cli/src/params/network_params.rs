@@ -70,7 +70,9 @@ pub struct NetworkParams {
 	pub listen_addr: Vec<Multiaddr>,
 
 	/// Do not advertise listen addresses to remote peers, effectively hiding the addresses from
-	/// DHT. This does not affect addresses added via `--public-addr` and external addresses
+	/// DHT.
+	///
+	/// This does not affect addresses added with `--public-addr` and external addresses
 	/// discovered using Identify protocol.
 	#[arg(long)]
 	pub hide_listen_addr: bool,
