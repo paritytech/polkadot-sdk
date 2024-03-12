@@ -259,3 +259,19 @@ find-fail-ci-phrase:
       echo "No $ASSERT_REGEX was found, exiting with 0";
       exit 0;
       fi
+
+check-core-crypto-features:
+  stage: check
+  extends:
+    - .docker-env
+    - .common-refs
+  script:
+    - pushd substrate/primitives/core
+    - ./check-features-variants.sh
+    - popd
+    - pushd substrate/primitives/application-crypto
+    - ./check-features-variants.sh
+    - popd
+    - pushd substrate/primitives/keyring
+    - ./check-features-variants.sh
+    - popd
