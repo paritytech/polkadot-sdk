@@ -18,8 +18,8 @@
 
 pub mod codegen_runtime;
 
-use bp_bridge_hub_rococo::{SignedExtension, AVERAGE_BLOCK_INTERVAL};
-use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
+use bp_bridge_hub_rococo::{TransactionExtension, AVERAGE_BLOCK_INTERVAL};
+use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 use codec::Encode;
 use relay_substrate_client::{
 	calls::UtilityCall as MockUtilityCall, Chain, ChainWithBalances, ChainWithMessages,
@@ -38,7 +38,8 @@ pub type BridgeBulletinMessagesCall = runtime_types::pallet_bridge_messages::pal
 pub type BridgeGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call;
 pub type BridgeBulletinGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call2;
 pub type BridgeParachainCall = runtime_types::pallet_bridge_parachains::pallet::Call;
-type UncheckedExtrinsic = bp_bridge_hub_rococo::UncheckedExtrinsic<RuntimeCall, SignedExtension>;
+type UncheckedExtrinsic =
+	bp_bridge_hub_rococo::UncheckedExtrinsic<RuntimeCall, TransactionExtension>;
 type UtilityCall = runtime_types::pallet_utility::pallet::Call;
 
 /// Rococo chain definition
@@ -88,7 +89,7 @@ impl ChainWithTransactions for BridgeHubRococo {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			SignedExtension::from_params(
+			TransactionExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,
@@ -110,24 +111,6 @@ impl ChainWithTransactions for BridgeHubRococo {
 			extra,
 		))
 	}
-
-	fn is_signed(tx: &Self::SignedTransaction) -> bool {
-		tx.signature.is_some()
-	}
-
-	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
-		tx.signature
-			.as_ref()
-			.map(|(address, _, _)| {
-				*address == bp_bridge_hub_rococo::Address::Id(signer.public().into())
-			})
-			.unwrap_or(false)
-	}
-
-	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
-		let extra = &tx.signature.as_ref()?.2;
-		Some(UnsignedTransaction::new(tx.function, extra.nonce()).tip(extra.tip()))
-	}
 }
 
 impl ChainWithMessages for BridgeHubRococo {
@@ -138,35 +121,4 @@ impl ChainWithMessages for BridgeHubRococo {
 		bp_bridge_hub_rococo::TO_BRIDGE_HUB_ROCOCO_MESSAGE_DETAILS_METHOD;
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
 		bp_bridge_hub_rococo::FROM_BRIDGE_HUB_ROCOCO_MESSAGE_DETAILS_METHOD;
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use relay_substrate_client::TransactionEra;
-
-	type SystemCall = runtime_types::frame_system::pallet::Call;
-
-	#[test]
-	fn parse_transaction_works() {
-		let unsigned = UnsignedTransaction {
-			call: RuntimeCall::System(SystemCall::remark { remark: b"Hello world!".to_vec() })
-				.into(),
-			nonce: 777,
-			tip: 888,
-			era: TransactionEra::immortal(),
-		};
-		let signed_transaction = BridgeHubRococo::sign_transaction(
-			SignParam {
-				spec_version: 42,
-				transaction_version: 50000,
-				genesis_hash: [42u8; 32].into(),
-				signer: sp_core::sr25519::Pair::from_seed_slice(&[1u8; 32]).unwrap(),
-			},
-			unsigned.clone(),
-		)
-		.unwrap();
-		let parsed_transaction = BridgeHubRococo::parse_transaction(signed_transaction).unwrap();
-		assert_eq!(parsed_transaction, unsigned);
-	}
 }

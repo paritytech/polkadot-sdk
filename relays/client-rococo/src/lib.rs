@@ -18,7 +18,7 @@
 
 pub mod codegen_runtime;
 
-use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
+use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 use bp_rococo::ROCOCO_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
 use codec::Encode;
 use relay_substrate_client::{
@@ -83,7 +83,7 @@ impl RelayChain for Rococo {
 impl ChainWithTransactions for Rococo {
 	type AccountKeyPair = sp_core::sr25519::Pair;
 	type SignedTransaction =
-		bp_polkadot_core::UncheckedExtrinsic<Self::Call, bp_rococo::SignedExtension>;
+		bp_polkadot_core::UncheckedExtrinsic<Self::Call, bp_rococo::TransactionExtension>;
 
 	fn sign_transaction(
 		param: SignParam<Self>,
@@ -91,7 +91,7 @@ impl ChainWithTransactions for Rococo {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			bp_rococo::SignedExtension::from_params(
+			bp_rococo::TransactionExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,
@@ -112,21 +112,5 @@ impl ChainWithTransactions for Rococo {
 			signature.into(),
 			extra,
 		))
-	}
-
-	fn is_signed(tx: &Self::SignedTransaction) -> bool {
-		tx.signature.is_some()
-	}
-
-	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
-		tx.signature
-			.as_ref()
-			.map(|(address, _, _)| *address == Address::Id(signer.public().into()))
-			.unwrap_or(false)
-	}
-
-	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
-		let extra = &tx.signature.as_ref()?.2;
-		Some(UnsignedTransaction::new(tx.function, extra.nonce()).tip(extra.tip()))
 	}
 }

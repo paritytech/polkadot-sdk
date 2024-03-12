@@ -20,14 +20,14 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-pub use bp_bridge_hub_polkadot::SignedExtension;
+pub use bp_bridge_hub_polkadot::TransactionExtension;
 pub use bp_header_chain::BridgeGrandpaCallOf;
 pub use bp_parachains::BridgeParachainCall;
 pub use bridge_runtime_common::messages::BridgeMessagesCallOf;
 pub use relay_substrate_client::calls::{SystemCall, UtilityCall};
 
 /// Unchecked BridgeHubPolkadot extrinsic.
-pub type UncheckedExtrinsic = bp_bridge_hub_polkadot::UncheckedExtrinsic<Call, SignedExtension>;
+pub type UncheckedExtrinsic = bp_bridge_hub_polkadot::UncheckedExtrinsic<Call, TransactionExtension>;
 
 /// The indirect pallet call used to sync `Kusama` GRANDPA finality to `BHPolkadot`.
 pub type BridgeKusamaGrandpaCall = BridgeGrandpaCallOf<bp_kusama::Kusama>;
