@@ -24,16 +24,13 @@ use sp_runtime_interface::pass_by::PassByInner;
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, Public as TraitPublic, UncheckedFrom,
+	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
+	Public as TraitPublic, SecretStringError, UncheckedFrom,
 };
-#[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 
-#[cfg(all(not(feature = "std"), feature = "full_crypto"))]
-use k256::ecdsa::SigningKey as SecretKey;
 #[cfg(not(feature = "std"))]
-use k256::ecdsa::VerifyingKey;
-#[cfg(all(feature = "std", feature = "full_crypto"))]
+use k256::ecdsa::{SigningKey as SecretKey, VerifyingKey};
+#[cfg(feature = "std")]
 use secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
 	Message, PublicKey, SecretKey, SECP256K1,
@@ -42,7 +39,7 @@ use secp256k1::{
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
-#[cfg(feature = "full_crypto")]
+#[cfg(not(feature = "std"))]
 use sp_std::vec::Vec;
 
 /// An identifier used to match public keys against ecdsa keys
@@ -57,11 +54,9 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 /// The secret seed.
 ///
 /// The raw secret seed, which can be used to create the `Pair`.
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; 32];
 
 /// The ECDSA compressed public key.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(
 	Clone,
 	Copy,
@@ -74,6 +69,7 @@ type Seed = [u8; 32];
 	PartialEq,
 	PartialOrd,
 	Ord,
+	Hash,
 )]
 pub struct Public(pub [u8; PUBLIC_KEY_SERIALIZED_SIZE]);
 
@@ -221,8 +217,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
+#[derive(Hash, Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
 pub struct Signature(pub [u8; SIGNATURE_SERIALIZED_SIZE]);
 
 impl ByteArray for Signature {
@@ -345,13 +340,11 @@ impl Signature {
 	}
 
 	/// Recover the public key from this signature and a message.
-	#[cfg(feature = "full_crypto")]
 	pub fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
 		self.recover_prehashed(&sp_crypto_hashing::blake2_256(message.as_ref()))
 	}
 
 	/// Recover the public key from this signature and a pre-hashed message.
-	#[cfg(feature = "full_crypto")]
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
 		#[cfg(feature = "std")]
 		{
@@ -380,7 +373,7 @@ impl From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for Signature {
 	}
 }
 
-#[cfg(all(feature = "std", feature = "full_crypto"))]
+#[cfg(feature = "std")]
 impl From<RecoverableSignature> for Signature {
 	fn from(recsig: RecoverableSignature) -> Signature {
 		let mut r = Self::default();
@@ -393,20 +386,17 @@ impl From<RecoverableSignature> for Signature {
 }
 
 /// Derive a single hard junction.
-#[cfg(feature = "full_crypto")]
 fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
 	("Secp256k1HDKD", secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
 /// A key pair.
-#[cfg(feature = "full_crypto")]
 #[derive(Clone)]
 pub struct Pair {
 	public: Public,
 	secret: SecretKey,
 }
 
-#[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
@@ -454,6 +444,7 @@ impl TraitPair for Pair {
 	}
 
 	/// Sign a message.
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, message: &[u8]) -> Signature {
 		self.sign_prehashed(&sp_crypto_hashing::blake2_256(message))
 	}
@@ -469,7 +460,6 @@ impl TraitPair for Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl Pair {
 	/// Get the seed for this key.
 	pub fn seed(&self) -> Seed {
@@ -496,6 +486,7 @@ impl Pair {
 	}
 
 	/// Sign a pre-hashed message
+	#[cfg(feature = "full_crypto")]
 	pub fn sign_prehashed(&self, message: &[u8; 32]) -> Signature {
 		#[cfg(feature = "std")]
 		{
@@ -550,7 +541,7 @@ impl Pair {
 // NOTE: this solution is not effective when `Pair` is moved around memory.
 // The very same problem affects other cryptographic backends that are just using
 // `zeroize`for their secrets.
-#[cfg(all(feature = "std", feature = "full_crypto"))]
+#[cfg(feature = "std")]
 impl Drop for Pair {
 	fn drop(&mut self) {
 		self.secret.non_secure_erase()
@@ -558,16 +549,13 @@ impl Drop for Pair {
 }
 
 impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
 impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
-#[cfg(feature = "full_crypto")]
 impl CryptoType for Pair {
 	type Pair = Pair;
 }
