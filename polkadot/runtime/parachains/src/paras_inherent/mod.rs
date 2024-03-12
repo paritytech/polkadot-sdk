@@ -391,7 +391,7 @@ impl<T: Config> Pallet<T> {
 		log::debug!(target: LOG_TARGET, "Time weight before filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_before.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
 
 		let current_session = <shared::Pallet<T>>::session_index();
-		let expected_bits = <scheduler::Pallet<T>>::availability_cores().len();
+		let expected_bits = scheduler::AvailabilityCores::<T>::get().len();
 		let validator_public = shared::Pallet::<T>::active_validator_keys();
 
 		// We are assuming (incorrectly) to have all the weight (for the mandatory class or even

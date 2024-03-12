@@ -86,28 +86,23 @@ pub mod pallet {
 
 	/// The earliest session for which previous session info is stored.
 	#[pallet::storage]
-	#[pallet::getter(fn earliest_stored_session)]
-	pub(crate) type EarliestStoredSession<T: Config> = StorageValue<_, SessionIndex, ValueQuery>;
+	pub type EarliestStoredSession<T: Config> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// Session information in a rolling window.
 	/// Should have an entry in range `EarliestStoredSession..=CurrentSessionIndex`.
 	/// Does not have any entries before the session index in the first session change notification.
 	#[pallet::storage]
-	#[pallet::getter(fn session_info)]
-	pub(crate) type Sessions<T: Config> = StorageMap<_, Identity, SessionIndex, SessionInfo>;
+	pub type Sessions<T: Config> = StorageMap<_, Identity, SessionIndex, SessionInfo>;
 
 	/// The validator account keys of the validators actively participating in parachain consensus.
 	// We do not store this in `SessionInfo` to avoid leaking the `AccountId` type to the client,
 	// which would complicate the migration process if we are to change it in the future.
 	#[pallet::storage]
-	#[pallet::getter(fn account_keys)]
-	pub(crate) type AccountKeys<T: Config> =
-		StorageMap<_, Identity, SessionIndex, Vec<AccountId<T>>>;
+	pub type AccountKeys<T: Config> = StorageMap<_, Identity, SessionIndex, Vec<AccountId<T>>>;
 
 	/// Executor parameter set for a given session index
 	#[pallet::storage]
-	#[pallet::getter(fn session_executor_params)]
-	pub(crate) type SessionExecutorParams<T: Config> =
+	pub type SessionExecutorParams<T: Config> =
 		StorageMap<_, Identity, SessionIndex, ExecutorParams>;
 }
 
@@ -138,8 +133,8 @@ impl<T: Config> Pallet<T> {
 		let assignment_keys = AssignmentKeysUnsafe::<T>::get();
 		let active_set = <shared::Pallet<T>>::active_validator_indices();
 
-		let validator_groups = <scheduler::Pallet<T>>::validator_groups().into();
-		let n_cores = <scheduler::Pallet<T>>::availability_cores().len() as u32;
+		let validator_groups = scheduler::ValidatorGroups::<T>::get().into();
+		let n_cores = scheduler::AvailabilityCores::<T>::get().len() as u32;
 		let zeroth_delay_tranche_width = config.zeroth_delay_tranche_width;
 		let relay_vrf_modulo_samples = config.relay_vrf_modulo_samples;
 		let n_delay_tranches = config.n_delay_tranches;

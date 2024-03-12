@@ -718,15 +718,13 @@ pub mod pallet {
 
 	/// The context (relay-chain block number) of the most recent parachain head.
 	#[pallet::storage]
-	pub type MostRecentContext<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, BlockNumberFor<T>>;
+	pub type MostRecentContext<T: Config> = StorageMap<_, Twox64Concat, ParaId, BlockNumberFor<T>>;
 
 	/// The validation code hash of every live para.
 	///
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	#[pallet::storage]
-	pub type CurrentCodeHash<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
+	pub type CurrentCodeHash<T: Config> = StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
 	/// Actual past code hash, indicated by the para id as well as the block number at which it
 	/// became outdated.
@@ -757,15 +755,13 @@ pub mod pallet {
 	/// The change will be applied after the first parablock for this ID included which executes
 	/// in the context of a relay chain block with a number >= `expected_at`.
 	#[pallet::storage]
-	pub type FutureCodeUpgrades<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, BlockNumberFor<T>>;
+	pub type FutureCodeUpgrades<T: Config> = StorageMap<_, Twox64Concat, ParaId, BlockNumberFor<T>>;
 
 	/// The actual future code hash of a para.
 	///
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	#[pallet::storage]
-	pub type FutureCodeHash<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
+	pub type FutureCodeHash<T: Config> = StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
 	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
 	/// procedure.
@@ -832,8 +828,7 @@ pub mod pallet {
 	/// This storage is consistent with [`FutureCodeHash`], [`CurrentCodeHash`] and
 	/// [`PastCodeHash`].
 	#[pallet::storage]
-	pub type CodeByHash<T: Config> =
-		StorageMap<_, Identity, ValidationCodeHash, ValidationCode>;
+	pub type CodeByHash<T: Config> = StorageMap<_, Identity, ValidationCodeHash, ValidationCode>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]

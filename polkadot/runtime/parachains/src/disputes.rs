@@ -954,7 +954,7 @@ impl<T: Config> Pallet<T> {
 		let oldest_accepted = now.saturating_sub(post_conclusion_acceptance_period);
 
 		// Load session info to access validators
-		let session_info = match <session_info::Pallet<T>>::session_info(set.session) {
+		let session_info = match session_info::Sessions::<T>::get(set.session) {
 			Some(s) => s,
 			None => return StatementSetFilter::RemoveAll,
 		};
@@ -1074,7 +1074,7 @@ impl<T: Config> Pallet<T> {
 		let set = set.as_ref();
 
 		// Load session info to access validators
-		let session_info = match <session_info::Pallet<T>>::session_info(set.session) {
+		let session_info = match session_info::Sessions::<T>::get(set.session) {
 			Some(s) => s,
 			None => return Err(Error::<T>::AncientDisputeStatement.into()),
 		};

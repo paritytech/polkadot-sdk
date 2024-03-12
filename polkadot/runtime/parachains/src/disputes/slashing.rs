@@ -193,7 +193,7 @@ where
 		// updated at the end of the block.
 		let current_session = T::ValidatorSet::session_index();
 		if session_index == current_session {
-			let account_keys = crate::session_info::Pallet::<T>::account_keys(session_index);
+			let account_keys = crate::session_info::AccountKeys::<T>::get(session_index);
 			let account_ids = account_keys.defensive_unwrap_or_default();
 
 			let fully_identified = validators
@@ -232,7 +232,7 @@ where
 			return
 		}
 
-		let session_info = crate::session_info::Pallet::<T>::session_info(session_index);
+		let session_info = crate::session_info::Sessions::<T>::get(session_index);
 		let session_info = match session_info.defensive_proof(DEFENSIVE_PROOF) {
 			Some(info) => info,
 			None => return,

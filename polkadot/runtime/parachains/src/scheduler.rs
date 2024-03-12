@@ -86,8 +86,7 @@ pub mod pallet {
 	/// multiplexers. Reasonably, 100-1000. The dominant factor is the number of validators: safe
 	/// upper bound at 10k.
 	#[pallet::storage]
-	#[pallet::getter(fn validator_groups)]
-	pub(crate) type ValidatorGroups<T> = StorageValue<_, Vec<Vec<ValidatorIndex>>, ValueQuery>;
+	pub type ValidatorGroups<T> = StorageValue<_, Vec<Vec<ValidatorIndex>>, ValueQuery>;
 
 	/// One entry for each availability core. The i'th parachain belongs to the i'th core, with the
 	/// remaining cores all being on demand parachain multiplexers.
@@ -96,9 +95,7 @@ pub mod pallet {
 	///   * The number of parachains and parathread multiplexers
 	///   * The number of validators divided by `configuration.max_validators_per_core`.
 	#[pallet::storage]
-	#[pallet::getter(fn availability_cores)]
-	pub(crate) type AvailabilityCores<T: Config> =
-		StorageValue<_, Vec<CoreOccupiedType<T>>, ValueQuery>;
+	pub type AvailabilityCores<T: Config> = StorageValue<_, Vec<CoreOccupiedType<T>>, ValueQuery>;
 
 	/// Representation of a core in `AvailabilityCores`.
 	///
@@ -140,15 +137,13 @@ pub mod pallet {
 	/// Thus for all intents and purposes the effect of the session change is observed at the
 	/// block following the session change, block number of which we save in this storage value.
 	#[pallet::storage]
-	#[pallet::getter(fn session_start_block)]
-	pub(crate) type SessionStartBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type SessionStartBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// One entry for each availability core. The `VecDeque` represents the assignments to be
 	/// scheduled on that core. The value contained here will not be valid after the end of
 	/// a block. Runtime APIs should be used to determine scheduled cores for the upcoming block.
 	#[pallet::storage]
-	#[pallet::getter(fn claimqueue)]
-	pub(crate) type ClaimQueue<T: Config> =
+	pub type ClaimQueue<T: Config> =
 		StorageValue<_, BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>, ValueQuery>;
 
 	/// Assignments as tracked in the claim queue.
@@ -493,7 +488,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn group_rotation_info(
 		now: BlockNumberFor<T>,
 	) -> GroupRotationInfo<BlockNumberFor<T>> {
-		let session_start_block = Self::session_start_block();
+		let session_start_block = SessionStartBlock::<T>::get();
 		let group_rotation_frequency = configuration::ActiveConfig::<T>::get()
 			.scheduler_params
 			.group_rotation_frequency;

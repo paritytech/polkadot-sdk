@@ -49,7 +49,7 @@ pub fn validator_groups<T: initializer::Config>(
 	// when populating group_responsible in `availability_cores`
 	let now = <frame_system::Pallet<T>>::block_number() + One::one();
 
-	let groups = <scheduler::Pallet<T>>::validator_groups();
+	let groups = scheduler::ValidatorGroups::<T>::get();
 	let rotation_info = <scheduler::Pallet<T>>::group_rotation_info(now);
 
 	(groups, rotation_info)
@@ -57,7 +57,7 @@ pub fn validator_groups<T: initializer::Config>(
 
 /// Implementation for the `availability_cores` function of the runtime API.
 pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, BlockNumberFor<T>>> {
-	let cores = <scheduler::Pallet<T>>::availability_cores();
+	let cores = scheduler::AvailabilityCores::<T>::get();
 	let now = <frame_system::Pallet<T>>::block_number() + One::one();
 
 	// This explicit update is only strictly required for session boundaries:
@@ -242,7 +242,7 @@ pub fn session_index_for_child<T: initializer::Config>() -> SessionIndex {
 pub fn relevant_authority_ids<T: initializer::Config + pallet_authority_discovery::Config>(
 ) -> Vec<AuthorityDiscoveryId> {
 	let current_session_index = session_index_for_child::<T>();
-	let earliest_stored_session = <session_info::Pallet<T>>::earliest_stored_session();
+	let earliest_stored_session = session_info::EarliestStoredSession::<T>::get();
 
 	// Due to `max_validators`, the `SessionInfo` stores only the validators who are actively
 	// selected to participate in parachain consensus. We'd like all authorities for the current
@@ -253,7 +253,7 @@ pub fn relevant_authority_ids<T: initializer::Config + pallet_authority_discover
 	// Due to disputes, we'd like to remain connected to authorities of the previous few sessions.
 	// For this, we don't need anyone other than the validators actively participating in consensus.
 	for session_index in earliest_stored_session..current_session_index {
-		let info = <session_info::Pallet<T>>::session_info(session_index);
+		let info = session_info::Sessions::<T>::get(session_index);
 		if let Some(mut info) = info {
 			authority_ids.append(&mut info.discovery_keys);
 		}
@@ -311,7 +311,7 @@ where
 
 /// Get the session info for the given session, if stored.
 pub fn session_info<T: session_info::Config>(index: SessionIndex) -> Option<SessionInfo> {
-	<session_info::Pallet<T>>::session_info(index)
+	session_info::Sessions::<T>::get(index)
 }
 
 /// Implementation for the `dmq_contents` function of the runtime API.
@@ -362,9 +362,7 @@ pub fn validation_code_hash<T>(
 where
 	T: inclusion::Config,
 {
-	with_assumption::<T, _, _>(para_id, assumption, || {
-		paras::CurrentCodeHash::<T>::get(&para_id)
-	})
+	with_assumption::<T, _, _>(para_id, assumption, || paras::CurrentCodeHash::<T>::get(&para_id))
 }
 
 /// Implementation for `get_session_disputes` function from the runtime API
@@ -377,7 +375,7 @@ pub fn get_session_disputes<T: disputes::Config>(
 pub fn session_executor_params<T: session_info::Config>(
 	session_index: SessionIndex,
 ) -> Option<ExecutorParams> {
-	<session_info::Pallet<T>>::session_executor_params(session_index)
+	session_info::SessionExecutorParams::<T>::get(session_index)
 }
 
 /// Implementation of `unapplied_slashes` runtime API

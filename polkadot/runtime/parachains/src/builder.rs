@@ -434,10 +434,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		assert_eq!(<shared::Pallet<T>>::session_index(), target_session);
 
 		// We need to refetch validators since they have been shuffled.
-		let validators_shuffled = session_info::Pallet::<T>::session_info(target_session)
-			.unwrap()
-			.validators
-			.clone();
+		let validators_shuffled =
+			session_info::Sessions::<T>::get(target_session).unwrap().validators.clone();
 
 		self.validators = Some(validators_shuffled);
 		self.block_number = block_number;

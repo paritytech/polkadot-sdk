@@ -15,8 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::mock::{
-	new_test_ext, Dmp, Initializer, MockGenesisConfig, Paras, SessionInfo, System, Test,
+use crate::{
+	mock::{new_test_ext, Dmp, Initializer, MockGenesisConfig, Paras, SessionInfo, System, Test},
+	session_info,
 };
 use primitives::{HeadData, Id as ParaId};
 use test_helpers::dummy_validation_code;
@@ -35,8 +36,8 @@ fn session_0_is_instantly_applied() {
 		let v = BufferedSessionChanges::<Test>::get();
 		assert!(v.is_empty());
 
-		assert_eq!(SessionInfo::earliest_stored_session(), 0);
-		assert!(SessionInfo::session_info(0).is_some());
+		assert_eq!(session_info::EarliestStoredSession::<Test>::get(), 0);
+		assert!(session_info::Sessions::<Test>::get(0).is_some());
 	});
 }
 

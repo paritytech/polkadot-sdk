@@ -491,7 +491,10 @@ fn code_upgrade_applied_after_delay() {
 		{
 			Paras::note_new_head(para_id, Default::default(), expected_at);
 
-			assert_eq!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(), Some(expected_at));
+			assert_eq!(
+				paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(),
+				Some(expected_at)
+			);
 			assert_eq!(
 				PastCodeHash::<Test>::get(&(para_id, expected_at)),
 				Some(original_code.hash()),
@@ -612,7 +615,10 @@ fn code_upgrade_applied_without_setting_go_ahead_signal() {
 		{
 			Paras::note_new_head(para_id, Default::default(), expected_at);
 
-			assert_eq!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(), Some(expected_at));
+			assert_eq!(
+				paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(),
+				Some(expected_at)
+			);
 			assert_eq!(
 				PastCodeHash::<Test>::get(&(para_id, expected_at)),
 				Some(original_code.hash()),
@@ -714,7 +720,10 @@ fn code_upgrade_applied_after_delay_even_when_late() {
 
 			Paras::note_new_head(para_id, Default::default(), expected_at + 4);
 
-			assert_eq!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(), Some(expected_at));
+			assert_eq!(
+				paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(),
+				Some(expected_at)
+			);
 
 			assert_eq!(
 				PastCodeHash::<Test>::get(&(para_id, expected_at)),
@@ -1205,7 +1214,10 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 		run_to_block(10, None);
 		Paras::note_new_head(para_id, Default::default(), 7);
 
-		assert_eq!(paras::PastCodeMeta::<Test>::get(&para_id).upgrade_times, vec![upgrade_at(4, 10)]);
+		assert_eq!(
+			paras::PastCodeMeta::<Test>::get(&para_id).upgrade_times,
+			vec![upgrade_at(4, 10)]
+		);
 		assert_eq!(Paras::current_code(&para_id), Some(new_code.clone()));
 
 		// Make sure that the old code is available **before** the code retion period passes.

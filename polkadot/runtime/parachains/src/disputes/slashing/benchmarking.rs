@@ -84,7 +84,7 @@ where
 	initializer::Pallet::<T>::on_finalize(BlockNumberFor::<T>::one());
 
 	let session_index = crate::shared::Pallet::<T>::session_index();
-	let session_info = crate::session_info::Pallet::<T>::session_info(session_index);
+	let session_info = crate::session_info::Sessions::<T>::get(session_index);
 	let session_info = session_info.unwrap();
 	let validator_id = session_info.validators.get(ValidatorIndex::from(0)).unwrap().clone();
 	let key = (PARACHAIN_KEY_TYPE_ID, validator_id.clone());
