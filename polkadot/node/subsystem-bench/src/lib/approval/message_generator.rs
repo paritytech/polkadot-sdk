@@ -329,12 +329,10 @@ impl PeerMessagesGenerator {
 			let assigned_cores = match &assignment.cert().kind {
 				approval::v2::AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =>
 					core_bitfield.iter_ones().map(|val| CoreIndex::from(val as u32)).collect_vec(),
-				approval::v2::AssignmentCertKindV2::RelayVRFDelay { core_index } => {
-					vec![*core_index]
-				},
-				approval::v2::AssignmentCertKindV2::RelayVRFModulo { sample: _ } => {
-					vec![core_index]
-				},
+				approval::v2::AssignmentCertKindV2::RelayVRFDelay { core_index } => 
+					vec![*core_index],
+				approval::v2::AssignmentCertKindV2::RelayVRFModulo { sample: _ } => 
+					vec![core_index],
 			};
 
 			let bitfiled: CoreBitfield = assigned_cores.clone().try_into().unwrap();

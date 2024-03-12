@@ -67,7 +67,7 @@ fn warm_up(config: TestConfiguration, options: DataAvailabilityReadOptions) -> R
 		if let Some(ref prev) = prev_run {
 			let diff = curr.cpu_usage_diff(prev, "availability-recovery").expect("Must exist");
 			if diff < WARM_UP_PRECISION {
-				return Ok(());
+				return Ok(())
 			}
 		}
 		prev_run = Some(curr);

@@ -78,7 +78,7 @@ fn warm_up(config: TestConfiguration) -> Result<(), String> {
 				bitf_distr_diff < WARM_UP_PRECISION &&
 				av_store_diff < WARM_UP_PRECISION
 			{
-				return Ok(());
+				return Ok(())
 			}
 		}
 		prev_run = Some(curr);

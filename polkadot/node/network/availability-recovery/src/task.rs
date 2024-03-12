@@ -223,7 +223,7 @@ impl State {
 					}
 				}));
 			} else {
-				break;
+				break
 			}
 		}
 
@@ -337,7 +337,7 @@ impl State {
 					threshold = ?params.threshold,
 					"Can conclude availability for a candidate",
 				);
-				break;
+				break
 			}
 		}
 
@@ -397,7 +397,7 @@ where
 	/// in-order and return whenever the first one recovers the full `AvailableData`.
 	pub async fn run(mut self) -> Result<AvailableData, RecoveryError> {
 		if let Some(data) = self.in_availability_store().await {
-			return Ok(data);
+			return Ok(data)
 		}
 
 		self.params.metrics.on_recovery_started();
@@ -423,18 +423,18 @@ where
 							"Recovery strategy `{}` did not conclude. Trying the next one.",
 							current_strategy.display_name(),
 						);
-						continue;
+						continue
 					},
 				Err(err) => {
 					match &err {
 						RecoveryError::Invalid => self.params.metrics.on_recovery_invalid(),
 						_ => self.params.metrics.on_recovery_failed(),
 					}
-					return Err(err);
+					return Err(err)
 				},
 				Ok(data) => {
 					self.params.metrics.on_recovery_succeeded(data.encoded_size());
-					return Ok(data);
+					return Ok(data)
 				},
 			}
 		}
@@ -536,7 +536,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 								"Received full data",
 							);
 
-							return Ok(data);
+							return Ok(data)
 						},
 						None => {
 							gum::debug!(
@@ -758,7 +758,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			// Do this before requesting any chunks because we may have enough of them coming from
 			// past RecoveryStrategies.
 			if state.chunk_count() >= common_params.threshold {
-				return self.attempt_recovery(state, common_params).await;
+				return self.attempt_recovery(state, common_params).await
 			}
 
 			if Self::is_unavailable(
@@ -778,7 +778,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					"Data recovery from chunks is not possible",
 				);
 
-				return Err(RecoveryError::Unavailable);
+				return Err(RecoveryError::Unavailable)
 			}
 
 			let desired_requests_count =
