@@ -43,7 +43,7 @@ where
 {
 	ParasShared::<T>::set_session_index(SESSION_INDEX);
 	let mut config = HostConfiguration::default();
-	config.coretime_cores = 1;
+	config.scheduler_params.num_cores = 1;
 	ConfigurationPallet::<T>::force_set_active_config(config);
 	let mut parachains = ParachainsCache::new();
 	ParasPallet::<T>::initialize_para_now(

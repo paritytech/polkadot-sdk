@@ -22,21 +22,34 @@
 
 pub mod middleware;
 
-use std::{error::Error as StdError, net::SocketAddr, time::Duration};
+use std::{
+	convert::Infallible, error::Error as StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
+};
 
 use http::header::HeaderValue;
+use hyper::{
+	server::conn::AddrStream,
+	service::{make_service_fn, service_fn},
+};
 use jsonrpsee::{
-	server::middleware::{HostFilterLayer, ProxyGetRequestLayer},
-	RpcModule,
+	server::{
+		middleware::http::{HostFilterLayer, ProxyGetRequestLayer},
+		stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
+	},
+	Methods, RpcModule,
 };
 use tokio::net::TcpListener;
+use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use crate::middleware::RpcMetrics;
-pub use jsonrpsee::core::{
-	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
-	traits::IdProvider,
+pub use jsonrpsee::{
+	core::{
+		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
+		traits::IdProvider,
+	},
+	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
+pub use middleware::{Metrics, MiddlewareLayer, RpcMetrics};
 
 const MEGABYTE: u32 = 1024 * 1024;
 
@@ -68,14 +81,31 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub id_provider: Option<Box<dyn IdProvider>>,
 	/// Tokio runtime handle.
 	pub tokio_handle: tokio::runtime::Handle,
+	/// Batch request config.
+	pub batch_config: BatchRequestConfig,
+	/// Rate limit calls per minute.
+	pub rate_limit: Option<NonZeroU32>,
+}
+
+#[derive(Debug, Clone)]
+struct PerConnection<RpcMiddleware, HttpMiddleware> {
+	methods: Methods,
+	stop_handle: StopHandle,
+	metrics: Option<RpcMetrics>,
+	tokio_handle: tokio::runtime::Handle,
+	service_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
 }
 
 /// Start RPC server listening on given address.
-pub async fn start_server<M: Send + Sync + 'static>(
+pub async fn start_server<M>(
 	config: Config<'_, M>,
-) -> Result<Server, Box<dyn StdError + Send + Sync>> {
+) -> Result<Server, Box<dyn StdError + Send + Sync>>
+where
+	M: Send + Sync,
+{
 	let Config {
 		addrs,
+		batch_config,
 		cors,
 		max_payload_in_mb,
 		max_payload_out_mb,
@@ -86,13 +116,14 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		id_provider,
 		tokio_handle,
 		rpc_api,
+		rate_limit,
 	} = config;
 
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
 	let local_addr = std_listener.local_addr().ok();
 	let host_filter = hosts_filtering(cors.is_some(), local_addr);
 
-	let middleware = tower::ServiceBuilder::new()
+	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
 		// Proxy `GET /health` requests to internal `system_health` method.
 		.layer(ProxyGetRequestLayer::new("/health", "system_health")?)
@@ -103,10 +134,16 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
 		.max_connections(max_connections)
 		.max_subscriptions_per_connection(max_subs_per_conn)
-		.ping_interval(Duration::from_secs(30))
-		.set_middleware(middleware)
+		.enable_ws_ping(
+			PingConfig::new()
+				.ping_interval(Duration::from_secs(30))
+				.inactive_limit(Duration::from_secs(60))
+				.max_failures(3),
+		)
+		.set_http_middleware(http_middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
-		.custom_tokio_runtime(tokio_handle);
+		.set_batch_request_config(batch_config)
+		.custom_tokio_runtime(tokio_handle.clone());
 
 	if let Some(provider) = id_provider {
 		builder = builder.set_id_provider(provider);
@@ -114,14 +151,73 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		builder = builder.set_id_provider(RandomStringIdProvider::new(16));
 	};
 
-	let rpc_api = build_rpc_api(rpc_api);
-	let handle = if let Some(metrics) = metrics {
-		let server = builder.set_logger(metrics).build_from_tcp(std_listener)?;
-		server.start(rpc_api)
-	} else {
-		let server = builder.build_from_tcp(std_listener)?;
-		server.start(rpc_api)
+	let (stop_handle, server_handle) = stop_channel();
+	let cfg = PerConnection {
+		methods: build_rpc_api(rpc_api).into(),
+		service_builder: builder.to_service_builder(),
+		metrics,
+		tokio_handle,
+		stop_handle: stop_handle.clone(),
 	};
+
+	let make_service = make_service_fn(move |_conn: &AddrStream| {
+		let cfg = cfg.clone();
+
+		async move {
+			let cfg = cfg.clone();
+
+			Ok::<_, Infallible>(service_fn(move |req| {
+				let PerConnection { service_builder, metrics, tokio_handle, stop_handle, methods } =
+					cfg.clone();
+
+				let is_websocket = ws::is_upgrade_request(&req);
+				let transport_label = if is_websocket { "ws" } else { "http" };
+
+				let middleware_layer = match (metrics, rate_limit) {
+					(None, None) => None,
+					(Some(metrics), None) => Some(
+						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
+					),
+					(None, Some(rate_limit)) =>
+						Some(MiddlewareLayer::new().with_rate_limit_per_minute(rate_limit)),
+					(Some(metrics), Some(rate_limit)) => Some(
+						MiddlewareLayer::new()
+							.with_metrics(Metrics::new(metrics, transport_label))
+							.with_rate_limit_per_minute(rate_limit),
+					),
+				};
+
+				let rpc_middleware =
+					RpcServiceBuilder::new().option_layer(middleware_layer.clone());
+
+				let mut svc =
+					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
+
+				async move {
+					if is_websocket {
+						let on_disconnect = svc.on_session_closed();
+
+						// Spawn a task to handle when the connection is closed.
+						tokio_handle.spawn(async move {
+							let now = std::time::Instant::now();
+							middleware_layer.as_ref().map(|m| m.ws_connect());
+							on_disconnect.await;
+							middleware_layer.as_ref().map(|m| m.ws_disconnect(now));
+						});
+					}
+
+					svc.call(req).await
+				}
+			}))
+		}
+	});
+
+	let server = hyper::Server::from_tcp(std_listener)?.serve(make_service);
+
+	tokio::spawn(async move {
+		let graceful = server.with_graceful_shutdown(async move { stop_handle.shutdown().await });
+		let _ = graceful.await;
+	});
 
 	log::info!(
 		"Running JSON-RPC server: addr={}, allowed origins={}",
@@ -129,7 +225,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		format_cors(cors)
 	);
 
-	Ok(handle)
+	Ok(server_handle)
 }
 
 fn hosts_filtering(enabled: bool, addr: Option<SocketAddr>) -> Option<HostFilterLayer> {

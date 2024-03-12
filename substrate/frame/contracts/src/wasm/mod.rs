@@ -21,6 +21,9 @@
 mod prepare;
 mod runtime;
 
+#[cfg(test)]
+pub use runtime::STABLE_API_COUNT;
+
 #[cfg(doc)]
 pub use crate::wasm::runtime::api_doc;
 
@@ -313,6 +316,11 @@ impl<T: Config> CodeInfo<T> {
 		}
 	}
 
+	/// Returns the determinism of the module.
+	pub fn determinism(&self) -> Determinism {
+		self.determinism
+	}
+
 	/// Returns reference count of the module.
 	pub fn refcount(&self) -> u64 {
 		self.refcount
@@ -386,7 +394,7 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 			let engine_consumed_total =
 				store.fuel_consumed().expect("Fuel metering is enabled; qed");
 			let gas_meter = store.data_mut().ext().gas_meter_mut();
-			gas_meter.charge_fuel(engine_consumed_total)?;
+			let _ = gas_meter.sync_from_executor(engine_consumed_total)?;
 			store.into_data().to_execution_result(result)
 		};
 
@@ -687,6 +695,10 @@ mod tests {
 			&mut self.gas_meter
 		}
 		fn charge_storage(&mut self, _diff: &crate::storage::meter::Diff) {}
+
+		fn debug_buffer_enabled(&self) -> bool {
+			true
+		}
 		fn append_debug_buffer(&mut self, msg: &str) -> bool {
 			self.debug_buffer.extend(msg.as_bytes());
 			true
@@ -729,14 +741,14 @@ mod tests {
 			Ok(())
 		}
 		fn decrement_refcount(_code_hash: CodeHash<Self::T>) {}
-		fn add_delegate_dependency(
+		fn lock_delegate_dependency(
 			&mut self,
 			code: CodeHash<Self::T>,
 		) -> Result<(), DispatchError> {
 			self.delegate_dependencies.borrow_mut().insert(code);
 			Ok(())
 		}
-		fn remove_delegate_dependency(
+		fn unlock_delegate_dependency(
 			&mut self,
 			code: &CodeHash<Self::T>,
 		) -> Result<(), DispatchError> {
@@ -1815,17 +1827,6 @@ mod tests {
 
 		assert!(weight_left.all_lt(gas_limit), "gas_left must be less than initial");
 		assert!(weight_left.all_gt(actual_left), "gas_left must be greater than final");
-	}
-
-	/// Test that [`frame_support::weights::OldWeight`] en/decodes the same as our
-	/// [`crate::OldWeight`].
-	#[test]
-	fn old_weight_decode() {
-		#![allow(deprecated)]
-		let sp = frame_support::weights::OldWeight(42).encode();
-		let our = crate::OldWeight::decode(&mut &*sp).unwrap();
-
-		assert_eq!(our, 42);
 	}
 
 	const CODE_VALUE_TRANSFERRED: &str = r#"
@@ -3395,16 +3396,16 @@ mod tests {
 	}
 
 	#[test]
-	fn add_remove_delegate_dependency() {
-		const CODE_ADD_REMOVE_DELEGATE_DEPENDENCY: &str = r#"
+	fn lock_unlock_delegate_dependency() {
+		const CODE_LOCK_UNLOCK_DELEGATE_DEPENDENCY: &str = r#"
 (module
-	(import "seal0" "add_delegate_dependency" (func $add_delegate_dependency (param i32)))
-	(import "seal0" "remove_delegate_dependency" (func $remove_delegate_dependency (param i32)))
+	(import "seal0" "lock_delegate_dependency" (func $lock_delegate_dependency (param i32)))
+	(import "seal0" "unlock_delegate_dependency" (func $unlock_delegate_dependency (param i32)))
 	(import "env" "memory" (memory 1 1))
 	(func (export "call")
-		(call $add_delegate_dependency (i32.const 0))
-		(call $add_delegate_dependency (i32.const 32))
-		(call $remove_delegate_dependency (i32.const 32))
+		(call $lock_delegate_dependency (i32.const 0))
+		(call $lock_delegate_dependency (i32.const 32))
+		(call $unlock_delegate_dependency (i32.const 32))
 	)
 	(func (export "deploy"))
 
@@ -3422,7 +3423,7 @@ mod tests {
 )
 "#;
 		let mut mock_ext = MockExt::default();
-		assert_ok!(execute(&CODE_ADD_REMOVE_DELEGATE_DEPENDENCY, vec![], &mut mock_ext));
+		assert_ok!(execute(&CODE_LOCK_UNLOCK_DELEGATE_DEPENDENCY, vec![], &mut mock_ext));
 		let delegate_dependencies: Vec<_> =
 			mock_ext.delegate_dependencies.into_inner().into_iter().collect();
 		assert_eq!(delegate_dependencies.len(), 1);
@@ -3443,5 +3444,23 @@ mod tests {
 		let decoded: BoundedVec<u8, ConstU32<128>> =
 			runtime.read_sandbox_memory_as(&memory, 0u32).unwrap();
 		assert_eq!(decoded.into_inner(), data);
+	}
+
+	#[test]
+	fn run_out_of_gas_in_start_fn() {
+		const CODE: &str = r#"
+(module
+	(import "env" "memory" (memory 1 1))
+	(start $start)
+	(func $start
+		(loop $inf (br $inf)) ;; just run out of gas
+		(unreachable)
+	)
+	(func (export "call"))
+	(func (export "deploy"))
+)
+"#;
+		let mut mock_ext = MockExt::default();
+		assert_err!(execute(&CODE, vec![], &mut mock_ext), <Error<Test>>::OutOfGas);
 	}
 }

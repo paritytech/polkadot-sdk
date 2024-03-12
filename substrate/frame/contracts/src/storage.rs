@@ -66,7 +66,7 @@ pub struct ContractInfo<T: Config> {
 	storage_base_deposit: BalanceOf<T>,
 	/// Map of code hashes and deposit balances.
 	///
-	/// Tracks the code hash and deposit held for adding delegate dependencies. Dependencies added
+	/// Tracks the code hash and deposit held for locking delegate dependencies. Dependencies added
 	/// to the map can not be removed from the chain state and can be safely used for delegate
 	/// calls.
 	delegate_dependencies: BoundedBTreeMap<CodeHash<T>, BalanceOf<T>, T::MaxDelegateDependencies>,
@@ -106,6 +106,11 @@ impl<T: Config> ContractInfo<T> {
 		};
 
 		Ok(contract)
+	}
+
+	/// Returns the number of locked delegate dependencies.
+	pub fn delegate_dependencies_count(&self) -> usize {
+		self.delegate_dependencies.len()
 	}
 
 	/// Associated child trie unique id is built from the hash part of the trie id.
@@ -233,7 +238,7 @@ impl<T: Config> ContractInfo<T> {
 	///
 	/// Returns an error if the maximum number of delegate_dependencies is reached or if
 	/// the delegate dependency already exists.
-	pub fn add_delegate_dependency(
+	pub fn lock_delegate_dependency(
 		&mut self,
 		code_hash: CodeHash<T>,
 		amount: BalanceOf<T>,
@@ -249,7 +254,7 @@ impl<T: Config> ContractInfo<T> {
 	/// dependency.
 	///
 	/// Returns an error if the entry doesn't exist.
-	pub fn remove_delegate_dependency(
+	pub fn unlock_delegate_dependency(
 		&mut self,
 		code_hash: &CodeHash<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
@@ -322,7 +327,8 @@ impl<T: Config> ContractInfo<T> {
 				KillStorageResult::SomeRemaining(_) => return weight_limit,
 				KillStorageResult::AllRemoved(keys_removed) => {
 					entry.remove();
-					remaining_key_budget = remaining_key_budget.saturating_sub(keys_removed);
+					// charge at least one key even if none were removed.
+					remaining_key_budget = remaining_key_budget.saturating_sub(keys_removed.max(1));
 				},
 			};
 		}

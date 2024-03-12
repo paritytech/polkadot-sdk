@@ -25,11 +25,11 @@ polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 fatality = "0.0.6"
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 tokio-util = "0.7.1"
 
 [dev-dependencies]
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 env_logger = "0.9.0"
 assert_matches = "1.4.0"
 
