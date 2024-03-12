@@ -27,13 +27,12 @@ use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, Pays},
 	error::BadOrigin,
 	parameter_types, storage,
-	traits::{ConstU32, ConstU64, Contains},
+	traits::{ConstU64, Contains},
 	weights::Weight,
 };
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
-use sp_core::H256;
 use sp_runtime::{
-	traits::{BlakeTwo256, Dispatchable, Hash, IdentityLookup},
+	traits::{BlakeTwo256, Dispatchable, Hash},
 	BuildStorage, DispatchError, TokenError,
 };
 
@@ -148,27 +147,8 @@ parameter_types! {
 impl frame_system::Config for Test {
 	type BaseCallFilter = TestBaseCallFilter;
 	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Test>;
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {

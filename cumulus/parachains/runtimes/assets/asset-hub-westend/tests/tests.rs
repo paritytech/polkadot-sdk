@@ -22,8 +22,8 @@ use asset_hub_westend_runtime::{
 	xcm_config::{
 		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
 		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, ForeignCreatorsSovereignAccountOf,
-		LocationToAccountId, TrustBackedAssetsPalletLocation, TrustBackedAssetsPalletLocationV3,
-		WestendLocation, WestendLocationV3, XcmConfig,
+		LocationToAccountId, StakingPot, TrustBackedAssetsPalletLocation,
+		TrustBackedAssetsPalletLocationV3, WestendLocation, WestendLocationV3, XcmConfig,
 	},
 	AllPalletsWithoutSystem, Assets, Balances, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
@@ -50,11 +50,11 @@ use frame_support::{
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::MaybeEquivalence;
-use std::convert::Into;
+use std::{convert::Into, ops::Mul};
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::V4V3LocationConverter;
-use xcm_executor::traits::{JustTry, WeightTrader};
+use xcm_executor::traits::{ConvertLocation, JustTry, WeightTrader};
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -84,6 +84,52 @@ fn slot_durations() -> SlotDurations {
 		relay: SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
 		para: SlotDuration::from_millis(SLOT_DURATION),
 	}
+}
+
+fn setup_pool_for_paying_fees_with_foreign_assets(
+	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
+		AccountId,
+		xcm::v3::Location,
+		Balance,
+	),
+) {
+	let existential_deposit = ExistentialDeposit::get();
+
+	// setup a pool to pay fees with `foreign_asset_id_location` tokens
+	let pool_owner: AccountId = [14u8; 32].into();
+	let native_asset = xcm::v3::Location::parent();
+	let pool_liquidity: Balance =
+		existential_deposit.max(foreign_asset_id_minimum_balance).mul(100_000);
+
+	let _ = Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		pool_owner.clone().into(),
+		(existential_deposit + pool_liquidity).mul(2).into(),
+	);
+
+	assert_ok!(ForeignAssets::mint(
+		RuntimeOrigin::signed(foreign_asset_owner),
+		foreign_asset_id_location.into(),
+		pool_owner.clone().into(),
+		(foreign_asset_id_minimum_balance + pool_liquidity).mul(2).into(),
+	));
+
+	assert_ok!(AssetConversion::create_pool(
+		RuntimeOrigin::signed(pool_owner.clone()),
+		Box::new(native_asset.into()),
+		Box::new(foreign_asset_id_location.into())
+	));
+
+	assert_ok!(AssetConversion::add_liquidity(
+		RuntimeOrigin::signed(pool_owner.clone()),
+		Box::new(native_asset.into()),
+		Box::new(foreign_asset_id_location.into()),
+		pool_liquidity,
+		pool_liquidity,
+		1,
+		1,
+		pool_owner,
+	));
 }
 
 #[test]
@@ -1071,30 +1117,133 @@ fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() 
 		Some(xcm_config::TreasuryAccount::get()),
 	)
 }
+
 #[test]
-fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_works() {
+fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_swap_works() {
 	const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
+	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
+	let staking_pot = StakingPot::get();
+
+	let foreign_asset_id_location =
+		xcm::v3::Location::new(2, [xcm::v3::Junction::GlobalConsensus(xcm::v3::NetworkId::Rococo)]);
+	let foreign_asset_id_minimum_balance = 1_000_000_000;
+	// sovereign account as foreign asset owner (can be whoever for this scenario)
+	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
+	let foreign_asset_create_params =
+		(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance);
+
 	asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
 			Runtime,
 			AllPalletsWithoutSystem,
 			XcmConfig,
-			LocationToAccountId,
 			ForeignAssetsInstance,
 		>(
 			collator_session_keys().add(collator_session_key(BLOCK_AUTHOR_ACCOUNT)),
 			ExistentialDeposit::get(),
 			AccountId::from([73; 32]),
-			AccountId::from(BLOCK_AUTHOR_ACCOUNT),
+			block_author_account.clone(),
 			// receiving ROCs
-			(xcm::v3::Location::new(2, [xcm::v3::Junction::GlobalConsensus(xcm::v3::NetworkId::Rococo)]), 1000000000000, 1_000_000_000),
-			bridging_to_asset_hub_rococo,
+			foreign_asset_create_params.clone(),
+			1000000000000,
+			|| {
+				// setup pool for paying fees to touch `SwapFirstAssetTrader`
+				setup_pool_for_paying_fees_with_foreign_assets(foreign_asset_create_params);
+				// staking pot account for collecting local native fees from `BuyExecution`
+				let _ = Balances::force_set_balance(RuntimeOrigin::root(), StakingPot::get().into(), ExistentialDeposit::get());
+				// prepare bridge configuration
+				bridging_to_asset_hub_rococo()
+			},
 			(
 				[PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),
 				GlobalConsensus(Rococo),
 				[Parachain(1000)].into()
-			)
+			),
+			|| {
+				// check staking pot for ED
+				assert_eq!(Balances::free_balance(&staking_pot), ExistentialDeposit::get());
+				// check now foreign asset for staking pot
+				assert_eq!(
+					ForeignAssets::balance(
+						foreign_asset_id_location.into(),
+						&staking_pot
+					),
+					0
+				);
+			},
+			|| {
+				// `SwapFirstAssetTrader` - staking pot receives xcm fees in ROCs
+				assert!(
+					Balances::free_balance(&staking_pot) > ExistentialDeposit::get()
+				);
+				// staking pot receives no foreign assets
+				assert_eq!(
+					ForeignAssets::balance(
+						foreign_asset_id_location.into(),
+						&staking_pot
+					),
+					0
+				);
+			}
 		)
 }
+
+#[test]
+fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_sufficient_asset_works() {
+	const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
+	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
+	let staking_pot = StakingPot::get();
+
+	let foreign_asset_id_location =
+		xcm::v3::Location::new(2, [xcm::v3::Junction::GlobalConsensus(xcm::v3::NetworkId::Rococo)]);
+	let foreign_asset_id_minimum_balance = 1_000_000_000;
+	// sovereign account as foreign asset owner (can be whoever for this scenario)
+	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
+	let foreign_asset_create_params =
+		(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance);
+
+	asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys().add(collator_session_key(BLOCK_AUTHOR_ACCOUNT)),
+		ExistentialDeposit::get(),
+		AccountId::from([73; 32]),
+		block_author_account.clone(),
+		// receiving ROCs
+		foreign_asset_create_params,
+		1000000000000,
+		bridging_to_asset_hub_rococo,
+		(
+			[PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),
+			GlobalConsensus(Rococo),
+			[Parachain(1000)].into()
+		),
+		|| {
+			// check block author before
+			assert_eq!(
+				ForeignAssets::balance(
+					foreign_asset_id_location.into(),
+					&block_author_account
+				),
+				0
+			);
+		},
+		|| {
+			// `TakeFirstAssetTrader` puts fees to the block author
+			assert!(
+				ForeignAssets::balance(
+					foreign_asset_id_location.into(),
+					&block_author_account
+				) > 0
+			);
+			// `SwapFirstAssetTrader` did not work
+			assert_eq!(Balances::free_balance(&staking_pot), 0);
+		}
+	)
+}
+
 #[test]
 fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 	asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<

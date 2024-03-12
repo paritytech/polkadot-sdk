@@ -19,7 +19,7 @@
 //! [`PendingResponses`] is responsible for keeping track of pending responses and
 //! polling them. [`Stream`] implemented by [`PendingResponses`] never terminates.
 
-use crate::{types::PeerRequest, LOG_TARGET};
+use crate::{strategy::StrategyKey, types::PeerRequest, LOG_TARGET};
 use futures::{
 	channel::oneshot,
 	future::BoxFuture,
@@ -42,6 +42,7 @@ type ResponseFuture = BoxFuture<'static, ResponseResult>;
 /// An event we receive once a pending response future resolves.
 pub(crate) struct ResponseEvent<B: BlockT> {
 	pub peer_id: PeerId,
+	pub key: StrategyKey,
 	pub request: PeerRequest<B>,
 	pub response: ResponseResult,
 }
@@ -49,7 +50,8 @@ pub(crate) struct ResponseEvent<B: BlockT> {
 /// Stream taking care of polling pending responses.
 pub(crate) struct PendingResponses<B: BlockT> {
 	/// Pending responses
-	pending_responses: StreamMap<PeerId, BoxStream<'static, (PeerRequest<B>, ResponseResult)>>,
+	pending_responses:
+		StreamMap<(PeerId, StrategyKey), BoxStream<'static, (PeerRequest<B>, ResponseResult)>>,
 	/// Waker to implement never terminating stream
 	waker: Option<Waker>,
 }
@@ -62,6 +64,7 @@ impl<B: BlockT> PendingResponses<B> {
 	pub fn insert(
 		&mut self,
 		peer_id: PeerId,
+		key: StrategyKey,
 		request: PeerRequest<B>,
 		response_future: ResponseFuture,
 	) {
@@ -70,7 +73,7 @@ impl<B: BlockT> PendingResponses<B> {
 		if self
 			.pending_responses
 			.insert(
-				peer_id,
+				(peer_id, key),
 				Box::pin(async move { (request, response_future.await) }.into_stream()),
 			)
 			.is_some()
@@ -87,8 +90,20 @@ impl<B: BlockT> PendingResponses<B> {
 		}
 	}
 
-	pub fn remove(&mut self, peer_id: &PeerId) -> bool {
-		self.pending_responses.remove(peer_id).is_some()
+	pub fn remove(&mut self, peer_id: PeerId, key: StrategyKey) -> bool {
+		self.pending_responses.remove(&(peer_id, key)).is_some()
+	}
+
+	pub fn remove_all(&mut self, peer_id: &PeerId) {
+		let to_remove = self
+			.pending_responses
+			.keys()
+			.filter(|(peer, _key)| peer == peer_id)
+			.cloned()
+			.collect::<Vec<_>>();
+		to_remove.iter().for_each(|k| {
+			self.pending_responses.remove(k);
+		});
 	}
 
 	pub fn len(&self) -> usize {
@@ -104,13 +119,13 @@ impl<B: BlockT> Stream for PendingResponses<B> {
 		cx: &mut Context<'_>,
 	) -> Poll<Option<Self::Item>> {
 		match self.pending_responses.poll_next_unpin(cx) {
-			Poll::Ready(Some((peer_id, (request, response)))) => {
+			Poll::Ready(Some(((peer_id, key), (request, response)))) => {
 				// We need to manually remove the stream, because `StreamMap` doesn't know yet that
 				// it's going to yield `None`, so may not remove it before the next request is made
 				// to the same peer.
-				self.pending_responses.remove(&peer_id);
+				self.pending_responses.remove(&(peer_id, key));
 
-				Poll::Ready(Some(ResponseEvent { peer_id, request, response }))
+				Poll::Ready(Some(ResponseEvent { peer_id, key, request, response }))
 			},
 			Poll::Ready(None) | Poll::Pending => {
 				self.waker = Some(cx.waker().clone());

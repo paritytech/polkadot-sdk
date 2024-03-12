@@ -588,6 +588,13 @@ impl BlockEntry {
 		!self.candidates_pending_signature.is_empty()
 	}
 
+	/// Returns true if candidate hash is in the queue for a signature.
+	pub fn candidate_is_pending_signature(&self, candidate_hash: CandidateHash) -> bool {
+		self.candidates_pending_signature
+			.values()
+			.any(|context| context.candidate_hash == candidate_hash)
+	}
+
 	/// Candidate hashes  for candidates pending signatures
 	fn candidate_hashes_pending_signature(&self) -> Vec<CandidateHash> {
 		self.candidates_pending_signature

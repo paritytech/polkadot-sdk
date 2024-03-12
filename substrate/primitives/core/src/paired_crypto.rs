@@ -20,12 +20,10 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	ByteArray, CryptoType, Derive, Public as PublicT, Signature as SignatureT, UncheckedFrom,
+	ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair as PairT, Public as PublicT,
+	SecretStringError, Signature as SignatureT, UncheckedFrom,
 };
-#[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, DeriveJunction, Pair as PairT, SecretStringError};
 
-#[cfg(feature = "full_crypto")]
 use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -44,13 +42,8 @@ use sp_std::convert::TryFrom;
 pub mod ecdsa_bls377 {
 	use crate::{
 		bls377,
-		crypto::{impl_crypto_type, CryptoTypeId},
-		ecdsa,
-	};
-	#[cfg(feature = "full_crypto")]
-	use crate::{
-		crypto::{CryptoType, Pair as PairT, UncheckedFrom},
-		Hasher,
+		crypto::{impl_crypto_type, CryptoType, CryptoTypeId, Pair as PairT, UncheckedFrom},
+		ecdsa, Hasher,
 	};
 
 	/// An identifier used to match public keys against BLS12-377 keys
@@ -62,19 +55,14 @@ pub mod ecdsa_bls377 {
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
 	/// (ECDSA,BLS12-377) key-pair pair.
-	#[cfg(feature = "full_crypto")]
 	pub type Pair = super::Pair<ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN>;
 	/// (ECDSA,BLS12-377) public key pair.
 	pub type Public = super::Public<PUBLIC_KEY_LEN>;
 	/// (ECDSA,BLS12-377) signature pair.
 	pub type Signature = super::Signature<SIGNATURE_LEN>;
 
-	#[cfg(feature = "full_crypto")]
 	impl_crypto_type!(Pair, Public, Signature);
-	#[cfg(not(feature = "full_crypto"))]
-	impl_crypto_type!(Public, Signature);
 
-	#[cfg(feature = "full_crypto")]
 	impl Pair {
 		/// Hashes the `message` with the specified [`Hasher`] before signing sith the ECDSA secret
 		/// component.
@@ -132,7 +120,6 @@ pub mod ecdsa_bls377 {
 /// Secure seed length.
 ///
 /// Currently only supporting sub-schemes whose seed is a 32-bytes array.
-#[cfg(feature = "full_crypto")]
 const SECURE_SEED_LEN: usize = 32;
 
 /// A secret seed.
@@ -140,7 +127,6 @@ const SECURE_SEED_LEN: usize = 32;
 /// It's not called a "secret key" because ring doesn't expose the secret keys
 /// of the key pair (yeah, dumb); as such we're forced to remember the seed manually if we
 /// will need it later (such as for HDKD).
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; SECURE_SEED_LEN];
 
 /// A public key.
@@ -210,7 +196,6 @@ impl<const LEFT_PLUS_RIGHT_LEN: usize> PassBy for Public<LEFT_PLUS_RIGHT_LEN> {
 	type PassBy = pass_by::Inner<Self, [u8; LEFT_PLUS_RIGHT_LEN]>;
 }
 
-#[cfg(feature = "full_crypto")]
 impl<
 		LeftPair: PairT,
 		RightPair: PairT,
@@ -404,7 +389,6 @@ impl<const LEFT_PLUS_RIGHT_LEN: usize> UncheckedFrom<[u8; LEFT_PLUS_RIGHT_LEN]>
 }
 
 /// A key pair.
-#[cfg(feature = "full_crypto")]
 #[derive(Clone)]
 pub struct Pair<
 	LeftPair: PairT,
@@ -416,7 +400,6 @@ pub struct Pair<
 	right: RightPair,
 }
 
-#[cfg(feature = "full_crypto")]
 impl<
 		LeftPair: PairT,
 		RightPair: PairT,
@@ -477,6 +460,7 @@ where
 		Self::Public::unchecked_from(raw)
 	}
 
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, message: &[u8]) -> Self::Signature {
 		let mut raw: [u8; SIGNATURE_LEN] = [0u8; SIGNATURE_LEN];
 		raw[..LeftPair::Signature::LEN].copy_from_slice(self.left.sign(message).as_ref());

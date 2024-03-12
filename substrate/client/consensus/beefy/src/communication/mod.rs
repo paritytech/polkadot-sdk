@@ -90,8 +90,6 @@ mod cost {
 	pub(super) const BAD_SIGNATURE: Rep = Rep::new(-100, "BEEFY: Bad signature");
 	// Message received with vote from voter not in validator set.
 	pub(super) const UNKNOWN_VOTER: Rep = Rep::new(-150, "BEEFY: Unknown voter");
-	// A message received that cannot be evaluated relative to our current state.
-	pub(super) const OUT_OF_SCOPE_MESSAGE: Rep = Rep::new(-500, "BEEFY: Out-of-scope message");
 	// Message containing invalid proof.
 	pub(super) const INVALID_PROOF: Rep = Rep::new(-5000, "BEEFY: Invalid commit");
 	// Reputation cost per signature checked for invalid proof.

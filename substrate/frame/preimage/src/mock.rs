@@ -22,13 +22,12 @@ use super::*;
 use crate as pallet_preimage;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{fungible::HoldConsideration, ConstU32, ConstU64, Everything},
-	weights::constants::RocksDbWeight,
+	traits::{fungible::HoldConsideration, ConstU32, ConstU64},
 };
 use frame_system::EnsureSignedBy;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{BlakeTwo256, Convert, IdentityLookup},
+	traits::{BlakeTwo256, Convert},
 	BuildStorage,
 };
 
@@ -45,29 +44,8 @@ frame_support::construct_runtime!(
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = RocksDbWeight;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {

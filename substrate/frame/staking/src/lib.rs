@@ -202,6 +202,12 @@
 //! ```nocompile
 //! remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
 //! ```
+//!
+//! Note, however, that it is possible to set a cap on the total `staker_payout` for the era through
+//! the `MaxStakersRewards` storage type. The `era_payout` implementor must ensure that the
+//! `max_payout = remaining_payout + (staker_payout * max_stakers_rewards)`. The excess payout that
+//! is not allocated for stakers is the era remaining reward.
+//!
 //! The remaining reward is send to the configurable end-point [`Config::RewardRemainder`].
 //!
 //! ### Reward Calculation
@@ -897,8 +903,10 @@ impl<Balance: Default> EraPayout<Balance> for () {
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
 pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
-impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
-	EraPayout<Balance> for ConvertCurve<T>
+impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
+where
+	Balance: AtLeast32BitUnsigned + Clone + Copy,
+	T: Get<&'static PiecewiseLinear<'static>>,
 {
 	fn era_payout(
 		total_staked: Balance,
@@ -912,7 +920,7 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 			era_duration_millis,
 		);
-		let rest = max_payout.saturating_sub(validator_payout.clone());
+		let rest = max_payout.saturating_sub(validator_payout);
 		(validator_payout, rest)
 	}
 }

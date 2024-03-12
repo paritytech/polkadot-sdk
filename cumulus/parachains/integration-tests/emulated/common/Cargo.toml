@@ -14,6 +14,7 @@ codec = { package = "parity-scale-codec", version = "3.4.0", default-features = 
 paste = "1.0.14"
 
 # Substrate
+beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../substrate/primitives/consensus/beefy" }
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa" }
 sp-authority-discovery = { path = "../../../../../substrate/primitives/authority-discovery" }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime" }
@@ -25,7 +26,6 @@ pallet-balances = { path = "../../../../../substrate/frame/balances" }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue" }
 
 # Polkadot
-polkadot-service = { path = "../../../../../polkadot/node/service", default-features = false, features = ["full-node"] }
 polkadot-primitives = { path = "../../../../../polkadot/primitives" }
 polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm" }

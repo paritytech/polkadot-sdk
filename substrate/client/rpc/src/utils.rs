@@ -80,7 +80,7 @@ where
 			Either::Left((Ok(sink), _)) => break sink,
 			Either::Right((Some(msg), f)) => {
 				if buf.push_back(msg).is_err() {
-					log::warn!(target: "rpc", "Subscription::accept failed buffer limit={} exceed; dropping subscription", buf.max_cap);
+					log::warn!(target: "rpc", "Subscription::accept failed buffer limit={} exceeded; dropping subscription", buf.max_cap);
 					return
 				}
 				accept_fut = f;
@@ -125,7 +125,13 @@ async fn inner_pipe_from_stream<S, T>(
 			// New item from the stream
 			Either::Right((Either::Right((Some(v), n)), c)) => {
 				if buf.push_back(v).is_err() {
-					log::warn!(target: "rpc", "Subscription buffer limit={} exceed; dropping subscription", buf.max_cap);
+					log::warn!(
+						target: "rpc",
+						"Subscription buffer limit={} exceeded for subscription={} conn_id={}; dropping subscription",
+						buf.max_cap,
+						sink.method_name(),
+						sink.connection_id()
+					);
 					return
 				}
 

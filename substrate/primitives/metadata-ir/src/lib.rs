@@ -84,7 +84,7 @@ mod test {
 				call_ty: meta_type::<()>(),
 				signature_ty: meta_type::<()>(),
 				extra_ty: meta_type::<()>(),
-				signed_extensions: vec![],
+				extensions: vec![],
 			},
 			ty: meta_type::<()>(),
 			apis: vec![],

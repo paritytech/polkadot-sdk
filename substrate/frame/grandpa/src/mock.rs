@@ -35,11 +35,8 @@ use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
 use sp_core::{crypto::KeyTypeId, H256};
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::{
-	curve::PiecewiseLinear,
-	impl_opaque_keys,
-	testing::{TestXt, UintAuthorityId},
-	traits::{IdentityLookup, OpaqueKeys},
-	BuildStorage, DigestItem, Perbill,
+	curve::PiecewiseLinear, generic::UncheckedExtrinsic, impl_opaque_keys,
+	testing::UintAuthorityId, traits::OpaqueKeys, BuildStorage, DigestItem, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -68,29 +65,8 @@ impl_opaque_keys! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = sp_runtime::traits::BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -98,7 +74,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type OverarchingCall = RuntimeCall;
-	type Extrinsic = TestXt<RuntimeCall, ()>;
+	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 }
 
 parameter_types! {

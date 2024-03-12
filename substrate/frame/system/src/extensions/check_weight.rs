@@ -23,9 +23,12 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
-	transaction_validity::{InvalidTransaction, TransactionValidity, TransactionValidityError},
-	DispatchResult,
+	traits::{
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+		TransactionExtensionBase, ValidateResult,
+	},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+	DispatchResult, ValidTransaction,
 };
 use sp_weights::Weight;
 
@@ -100,39 +103,43 @@ where
 		}
 	}
 
-	/// Creates new `SignedExtension` to check weight of the extrinsic.
+	/// Creates new `TransactionExtension` to check weight of the extrinsic.
 	pub fn new() -> Self {
 		Self(Default::default())
-	}
-
-	/// Do the pre-dispatch checks. This can be applied to both signed and unsigned.
-	///
-	/// It checks and notes the new weight and length.
-	pub fn do_pre_dispatch(
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
-	) -> Result<(), TransactionValidityError> {
-		let next_len = Self::check_block_length(info, len)?;
-		let next_weight = Self::check_block_weight(info)?;
-		Self::check_extrinsic_weight(info)?;
-
-		crate::AllExtrinsicsLen::<T>::put(next_len);
-		crate::BlockWeight::<T>::put(next_weight);
-		Ok(())
 	}
 
 	/// Do the validate checks. This can be applied to both signed and unsigned.
 	///
 	/// It only checks that the block weight and length limit will not exceed.
-	pub fn do_validate(info: &DispatchInfoOf<T::RuntimeCall>, len: usize) -> TransactionValidity {
+	///
+	/// Returns the transaction validity and the next block length, to be used in `prepare`.
+	pub fn do_validate(
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> Result<(ValidTransaction, u32), TransactionValidityError> {
 		// ignore the next length. If they return `Ok`, then it is below the limit.
-		let _ = Self::check_block_length(info, len)?;
+		let next_len = Self::check_block_length(info, len)?;
 		// during validation we skip block limit check. Since the `validate_transaction`
 		// call runs on an empty block anyway, by this we prevent `on_initialize` weight
 		// consumption from causing false negatives.
 		Self::check_extrinsic_weight(info)?;
 
-		Ok(Default::default())
+		Ok((Default::default(), next_len))
+	}
+
+	/// Do the pre-dispatch checks. This can be applied to both signed and unsigned.
+	///
+	/// It checks and notes the new weight and length.
+	pub fn do_prepare(
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		next_len: u32,
+	) -> Result<(), TransactionValidityError> {
+		let next_weight = Self::check_block_weight(info)?;
+		// Extrinsic weight already checked in `validate`.
+
+		crate::AllExtrinsicsLen::<T>::put(next_len);
+		crate::BlockWeight::<T>::put(next_weight);
+		Ok(())
 	}
 }
 
@@ -201,62 +208,55 @@ where
 	Ok(all_weight)
 }
 
-impl<T: Config + Send + Sync> SignedExtension for CheckWeight<T>
+impl<T: Config + Send + Sync> TransactionExtensionBase for CheckWeight<T> {
+	const IDENTIFIER: &'static str = "CheckWeight";
+	type Implicit = ();
+
+	fn weight(&self) -> Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_weight()
+	}
+}
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for CheckWeight<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	type AccountId = T::AccountId;
-	type Call = T::RuntimeCall;
-	type AdditionalSigned = ();
 	type Pre = ();
-	const IDENTIFIER: &'static str = "CheckWeight";
-
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-		Ok(())
-	}
-
-	fn pre_dispatch(
-		self,
-		_who: &Self::AccountId,
-		_call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<(), TransactionValidityError> {
-		Self::do_pre_dispatch(info, len)
-	}
+	type Val = u32; /* next block length */
 
 	fn validate(
 		&self,
-		_who: &Self::AccountId,
-		_call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
+		origin: T::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-	) -> TransactionValidity {
-		Self::do_validate(info, len)
+		_context: &mut Context,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		let (validity, next_len) = Self::do_validate(info, len)?;
+		Ok((validity, next_len, origin))
 	}
 
-	fn pre_dispatch_unsigned(
-		_call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<(), TransactionValidityError> {
-		Self::do_pre_dispatch(info, len)
-	}
-
-	fn validate_unsigned(
-		_call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> TransactionValidity {
-		Self::do_validate(info, len)
+	fn prepare(
+		self,
+		val: Self::Val,
+		_origin: &T::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
+		_context: &Context,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		Self::do_prepare(info, val)
 	}
 
 	fn post_dispatch(
-		_pre: Option<Self::Pre>,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
+		_pre: Self::Pre,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
+		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		let unspent = post_info.calc_unspent(info);
 		if unspent.any_gt(Weight::zero()) {
@@ -301,6 +301,7 @@ mod tests {
 		AllExtrinsicsLen, BlockWeight, DispatchClass,
 	};
 	use frame_support::{assert_err, assert_ok, dispatch::Pays, weights::Weight};
+	use sp_runtime::traits::DispatchTransaction;
 	use sp_std::marker::PhantomData;
 
 	fn block_weights() -> crate::limits::BlockWeights {
@@ -338,7 +339,8 @@ mod tests {
 		}
 
 		check(|max, len| {
-			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(max, len));
+			let next_len = CheckWeight::<Test>::check_block_length(max, len).unwrap();
+			assert_ok!(CheckWeight::<Test>::do_prepare(max, next_len));
 			assert_eq!(System::block_weight().total(), Weight::MAX);
 			assert!(System::block_weight().total().ref_time() > block_weight_limit().ref_time());
 		});
@@ -419,9 +421,11 @@ mod tests {
 
 			let len = 0_usize;
 
-			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&max_normal, len));
+			let next_len = CheckWeight::<Test>::check_block_length(&max_normal, len).unwrap();
+			assert_ok!(CheckWeight::<Test>::do_prepare(&max_normal, next_len));
 			assert_eq!(System::block_weight().total(), Weight::from_parts(768, 0));
-			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&rest_operational, len));
+			let next_len = CheckWeight::<Test>::check_block_length(&rest_operational, len).unwrap();
+			assert_ok!(CheckWeight::<Test>::do_prepare(&rest_operational, next_len));
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), block_weight_limit().set_proof_size(0));
 			// Checking single extrinsic should not take current block weight into account.
@@ -443,10 +447,12 @@ mod tests {
 
 			let len = 0_usize;
 
-			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&rest_operational, len));
+			let next_len = CheckWeight::<Test>::check_block_length(&rest_operational, len).unwrap();
+			assert_ok!(CheckWeight::<Test>::do_prepare(&rest_operational, next_len));
 			// Extra 20 here from block execution + base extrinsic weight
 			assert_eq!(System::block_weight().total(), Weight::from_parts(266, 0));
-			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&max_normal, len));
+			let next_len = CheckWeight::<Test>::check_block_length(&max_normal, len).unwrap();
+			assert_ok!(CheckWeight::<Test>::do_prepare(&max_normal, next_len));
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), block_weight_limit().set_proof_size(0));
 		});
@@ -469,16 +475,19 @@ mod tests {
 			};
 			let len = 0_usize;
 
+			let next_len = CheckWeight::<Test>::check_block_length(&dispatch_normal, len).unwrap();
 			assert_err!(
-				CheckWeight::<Test>::do_pre_dispatch(&dispatch_normal, len),
+				CheckWeight::<Test>::do_prepare(&dispatch_normal, next_len),
 				InvalidTransaction::ExhaustsResources
 			);
+			let next_len =
+				CheckWeight::<Test>::check_block_length(&dispatch_operational, len).unwrap();
 			// Thank goodness we can still do an operational transaction to possibly save the
 			// blockchain.
-			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&dispatch_operational, len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&dispatch_operational, next_len));
 			// Not too much though
 			assert_err!(
-				CheckWeight::<Test>::do_pre_dispatch(&dispatch_operational, len),
+				CheckWeight::<Test>::do_prepare(&dispatch_operational, next_len),
 				InvalidTransaction::ExhaustsResources
 			);
 			// Even with full block, validity of single transaction should be correct.
@@ -503,21 +512,35 @@ mod tests {
 				current_weight.set(normal_limit, DispatchClass::Normal)
 			});
 			// will not fit.
-			assert_err!(
-				CheckWeight::<Test>(PhantomData).pre_dispatch(&1, CALL, &normal, len),
-				InvalidTransaction::ExhaustsResources
+			assert_eq!(
+				CheckWeight::<Test>(PhantomData)
+					.validate_and_prepare(Some(1).into(), CALL, &normal, len)
+					.unwrap_err(),
+				InvalidTransaction::ExhaustsResources.into()
 			);
 			// will fit.
-			assert_ok!(CheckWeight::<Test>(PhantomData).pre_dispatch(&1, CALL, &op, len));
+			assert_ok!(CheckWeight::<Test>(PhantomData).validate_and_prepare(
+				Some(1).into(),
+				CALL,
+				&op,
+				len
+			));
 
 			// likewise for length limit.
 			let len = 100_usize;
 			AllExtrinsicsLen::<Test>::put(normal_length_limit());
-			assert_err!(
-				CheckWeight::<Test>(PhantomData).pre_dispatch(&1, CALL, &normal, len),
-				InvalidTransaction::ExhaustsResources
+			assert_eq!(
+				CheckWeight::<Test>(PhantomData)
+					.validate_and_prepare(Some(1).into(), CALL, &normal, len)
+					.unwrap_err(),
+				InvalidTransaction::ExhaustsResources.into()
 			);
-			assert_ok!(CheckWeight::<Test>(PhantomData).pre_dispatch(&1, CALL, &op, len));
+			assert_ok!(CheckWeight::<Test>(PhantomData).validate_and_prepare(
+				Some(1).into(),
+				CALL,
+				&op,
+				len
+			));
 		})
 	}
 
@@ -528,7 +551,12 @@ mod tests {
 			let normal_limit = normal_weight_limit().ref_time() as usize;
 			let reset_check_weight = |tx, s, f| {
 				AllExtrinsicsLen::<Test>::put(0);
-				let r = CheckWeight::<Test>(PhantomData).pre_dispatch(&1, CALL, tx, s);
+				let r = CheckWeight::<Test>(PhantomData).validate_and_prepare(
+					Some(1).into(),
+					CALL,
+					tx,
+					s,
+				);
 				if f {
 					assert!(r.is_err())
 				} else {
@@ -571,7 +599,12 @@ mod tests {
 				BlockWeight::<Test>::mutate(|current_weight| {
 					current_weight.set(s, DispatchClass::Normal)
 				});
-				let r = CheckWeight::<Test>(PhantomData).pre_dispatch(&1, CALL, i, len);
+				let r = CheckWeight::<Test>(PhantomData).validate_and_prepare(
+					Some(1).into(),
+					CALL,
+					i,
+					len,
+				);
 				if f {
 					assert!(r.is_err())
 				} else {
@@ -604,18 +637,22 @@ mod tests {
 					.set(Weight::from_parts(256, 0) - base_extrinsic, DispatchClass::Normal);
 			});
 
-			let pre = CheckWeight::<Test>(PhantomData).pre_dispatch(&1, CALL, &info, len).unwrap();
+			let pre = CheckWeight::<Test>(PhantomData)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len)
+				.unwrap()
+				.0;
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
 				info.weight + Weight::from_parts(256, 0)
 			);
 
 			assert_ok!(CheckWeight::<Test>::post_dispatch(
-				Some(pre),
+				pre,
 				&info,
 				&post_info,
 				len,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
@@ -639,7 +676,10 @@ mod tests {
 				current_weight.set(Weight::from_parts(128, 0), DispatchClass::Normal);
 			});
 
-			let pre = CheckWeight::<Test>(PhantomData).pre_dispatch(&1, CALL, &info, len).unwrap();
+			let pre = CheckWeight::<Test>(PhantomData)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len)
+				.unwrap()
+				.0;
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
 				info.weight +
@@ -648,11 +688,12 @@ mod tests {
 			);
 
 			assert_ok!(CheckWeight::<Test>::post_dispatch(
-				Some(pre),
+				pre,
 				&info,
 				&post_info,
 				len,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
@@ -672,7 +713,12 @@ mod tests {
 
 			// Initial weight from `weights.base_block`
 			assert_eq!(System::block_weight().total(), weights.base_block);
-			assert_ok!(CheckWeight::<Test>(PhantomData).pre_dispatch(&1, CALL, &free, len));
+			assert_ok!(CheckWeight::<Test>(PhantomData).validate_and_prepare(
+				Some(1).into(),
+				CALL,
+				&free,
+				len
+			));
 			assert_eq!(
 				System::block_weight().total(),
 				weights.get(DispatchClass::Normal).base_extrinsic + weights.base_block
@@ -696,9 +742,11 @@ mod tests {
 
 			let len = 0_usize;
 
-			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&max_normal, len));
+			let next_len = CheckWeight::<Test>::check_block_length(&max_normal, len).unwrap();
+			assert_ok!(CheckWeight::<Test>::do_prepare(&max_normal, next_len));
 			assert_eq!(System::block_weight().total(), Weight::from_parts(768, 0));
-			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&mandatory, len));
+			let next_len = CheckWeight::<Test>::check_block_length(&mandatory, len).unwrap();
+			assert_ok!(CheckWeight::<Test>::do_prepare(&mandatory, next_len));
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), Weight::from_parts(1024 + 768, 0));
 			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&mandatory), Ok(()));

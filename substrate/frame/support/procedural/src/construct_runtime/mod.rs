@@ -233,24 +233,37 @@ pub fn construct_runtime(input: TokenStream) -> TokenStream {
 	let input_copy = input.clone();
 	let definition = syn::parse_macro_input!(input as RuntimeDeclaration);
 
-	let res = match definition {
-		RuntimeDeclaration::Implicit(implicit_def) =>
-			check_pallet_number(input_copy.clone().into(), implicit_def.pallets.len()).and_then(
-				|_| construct_runtime_implicit_to_explicit(input_copy.into(), implicit_def),
-			),
-		RuntimeDeclaration::Explicit(explicit_decl) => check_pallet_number(
-			input_copy.clone().into(),
-			explicit_decl.pallets.len(),
-		)
-		.and_then(|_| {
-			construct_runtime_explicit_to_explicit_expanded(input_copy.into(), explicit_decl)
-		}),
-		RuntimeDeclaration::ExplicitExpanded(explicit_decl) =>
-			check_pallet_number(input_copy.into(), explicit_decl.pallets.len())
-				.and_then(|_| construct_runtime_final_expansion(explicit_decl)),
+	let (check_pallet_number_res, res) = match definition {
+		RuntimeDeclaration::Implicit(implicit_def) => (
+			check_pallet_number(input_copy.clone().into(), implicit_def.pallets.len()),
+			construct_runtime_implicit_to_explicit(input_copy.into(), implicit_def),
+		),
+		RuntimeDeclaration::Explicit(explicit_decl) => (
+			check_pallet_number(input_copy.clone().into(), explicit_decl.pallets.len()),
+			construct_runtime_explicit_to_explicit_expanded(input_copy.into(), explicit_decl),
+		),
+		RuntimeDeclaration::ExplicitExpanded(explicit_decl) => (
+			check_pallet_number(input_copy.into(), explicit_decl.pallets.len()),
+			construct_runtime_final_expansion(explicit_decl),
+		),
 	};
 
 	let res = res.unwrap_or_else(|e| e.to_compile_error());
+
+	// We want to provide better error messages to the user and thus, handle the error here
+	// separately. If there is an error, we print the error and still generate all of the code to
+	// get in overall less errors for the user.
+	let res = if let Err(error) = check_pallet_number_res {
+		let error = error.to_compile_error();
+
+		quote! {
+			#error
+
+			#res
+		}
+	} else {
+		res
+	};
 
 	let res = expander::Expander::new("construct_runtime")
 		.dry(std::env::var("EXPAND_MACROS").is_err())

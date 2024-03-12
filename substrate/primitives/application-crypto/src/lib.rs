@@ -20,12 +20,11 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use sp_core::crypto::{key_types, CryptoType, CryptoTypeId, KeyTypeId};
 #[doc(hidden)]
-#[cfg(feature = "full_crypto")]
-pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
-#[cfg(any(feature = "full_crypto", feature = "serde"))]
-pub use sp_core::crypto::{DeriveJunction, Ss58Codec};
+pub use sp_core::crypto::{
+	key_types, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, KeyTypeId, Pair,
+	SecretStringError, Ss58Codec,
+};
 #[doc(hidden)]
 pub use sp_core::{
 	self,
@@ -85,7 +84,7 @@ macro_rules! app_crypto {
 			$module::CRYPTO_ID
 		);
 		$crate::app_crypto_signature_common!($module::Signature, $key_type);
-		$crate::app_crypto_pair!($module::Pair, $key_type, $module::CRYPTO_ID);
+		$crate::app_crypto_pair_common!($module::Pair, $key_type, $module::CRYPTO_ID);
 	};
 }
 
@@ -116,13 +115,15 @@ macro_rules! app_crypto {
 			$module::CRYPTO_ID
 		);
 		$crate::app_crypto_signature_common!($module::Signature, $key_type);
+		$crate::app_crypto_pair_common!($module::Pair, $key_type, $module::CRYPTO_ID);
 	};
 }
 
 /// Declares `Pair` type which is functionally equivalent to `$pair`, but is
 /// new application-specific type whose identifier is `$key_type`.
+/// It is a common part shared between full_crypto and non full_crypto environments.
 #[macro_export]
-macro_rules! app_crypto_pair {
+macro_rules! app_crypto_pair_common {
 	($pair:ty, $key_type:expr, $crypto_type:expr) => {
 		$crate::wrap! {
 			/// A generic `AppPublic` wrapper type over $pair crypto; this has no specific App.
@@ -140,7 +141,14 @@ macro_rules! app_crypto_pair {
 			type Seed = <$pair as $crate::Pair>::Seed;
 
 			$crate::app_crypto_pair_functions_if_std!($pair);
+			$crate::app_crypto_pair_functions_if_full_crypto!($pair);
 
+			fn from_phrase(
+				phrase: &str,
+				password: Option<&str>,
+			) -> Result<(Self, Self::Seed), $crate::SecretStringError> {
+				<$pair>::from_phrase(phrase, password).map(|r| (Self(r.0), r.1))
+			}
 			fn derive<Iter: Iterator<Item = $crate::DeriveJunction>>(
 				&self,
 				path: Iter,
@@ -153,9 +161,6 @@ macro_rules! app_crypto_pair {
 			}
 			fn from_seed_slice(seed: &[u8]) -> Result<Self, $crate::SecretStringError> {
 				<$pair>::from_seed_slice(seed).map(Self)
-			}
-			fn sign(&self, msg: &[u8]) -> Self::Signature {
-				Signature(self.0.sign(msg))
 			}
 			fn verify<M: AsRef<[u8]>>(
 				sig: &Self::Signature,
@@ -203,13 +208,6 @@ macro_rules! app_crypto_pair_functions_if_std {
 			let r = <$pair>::generate_with_phrase(password);
 			(Self(r.0), r.1, r.2)
 		}
-
-		fn from_phrase(
-			phrase: &str,
-			password: Option<&str>,
-		) -> Result<(Self, Self::Seed), $crate::SecretStringError> {
-			<$pair>::from_phrase(phrase, password).map(|r| (Self(r.0), r.1))
-		}
 	};
 }
 
@@ -217,6 +215,25 @@ macro_rules! app_crypto_pair_functions_if_std {
 #[cfg(not(feature = "std"))]
 #[macro_export]
 macro_rules! app_crypto_pair_functions_if_std {
+	($pair:ty) => {};
+}
+
+/// Implements functions for the `Pair` trait when `feature = "full_crypto"` is enabled.
+#[doc(hidden)]
+#[cfg(feature = "full_crypto")]
+#[macro_export]
+macro_rules! app_crypto_pair_functions_if_full_crypto {
+	($pair:ty) => {
+		fn sign(&self, msg: &[u8]) -> Self::Signature {
+			Signature(self.0.sign(msg))
+		}
+	};
+}
+
+#[doc(hidden)]
+#[cfg(not(feature = "full_crypto"))]
+#[macro_export]
+macro_rules! app_crypto_pair_functions_if_full_crypto {
 	($pair:ty) => {};
 }
 
@@ -282,10 +299,12 @@ macro_rules! app_crypto_public_not_full_crypto {
 		impl $crate::CryptoType for Public {
 			type Public = Public;
 			type Signature = Signature;
+			type Pair = Pair;
 		}
 
 		impl $crate::AppCrypto for Public {
 			type Public = Public;
+			type Pair = Pair;
 			type Signature = Signature;
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
@@ -461,10 +480,12 @@ macro_rules! app_crypto_signature_not_full_crypto {
 		impl $crate::CryptoType for Signature {
 			type Public = Public;
 			type Signature = Signature;
+			type Pair = Pair;
 		}
 
 		impl $crate::AppCrypto for Signature {
 			type Public = Public;
+			type Pair = Pair;
 			type Signature = Signature;
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;

@@ -320,7 +320,7 @@ pub mod pallet {
 		type MaxFreezes: Get<u32>;
 	}
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: frame_support::traits::StorageVersion =
 		frame_support::traits::StorageVersion::new(1);
 

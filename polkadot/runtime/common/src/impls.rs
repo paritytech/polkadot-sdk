@@ -107,7 +107,7 @@ pub fn era_payout(
 )]
 pub enum VersionedLocatableAsset {
 	#[codec(index = 3)]
-	V3 { location: xcm::v3::MultiLocation, asset_id: xcm::v3::AssetId },
+	V3 { location: xcm::v3::Location, asset_id: xcm::v3::AssetId },
 	#[codec(index = 4)]
 	V4 { location: xcm::v4::Location, asset_id: xcm::v4::AssetId },
 }
@@ -140,7 +140,7 @@ impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocation
 	) -> Result<xcm::latest::Location, &VersionedLocation> {
 		let latest = match location.clone() {
 			VersionedLocation::V2(l) => {
-				let v3: xcm::v3::MultiLocation = l.try_into().map_err(|_| location)?;
+				let v3: xcm::v3::Location = l.try_into().map_err(|_| location)?;
 				v3.try_into().map_err(|_| location)?
 			},
 			VersionedLocation::V3(l) => l.try_into().map_err(|_| location)?,
@@ -191,11 +191,11 @@ pub mod benchmarks {
 	{
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
 			VersionedLocatableAsset::V3 {
-				location: xcm::v3::MultiLocation::new(
+				location: xcm::v3::Location::new(
 					Parents::get(),
 					[xcm::v3::Junction::Parachain(ParaId::get())],
 				),
-				asset_id: xcm::v3::MultiLocation::new(
+				asset_id: xcm::v3::Location::new(
 					0,
 					[
 						xcm::v3::Junction::PalletInstance(seed.try_into().unwrap()),

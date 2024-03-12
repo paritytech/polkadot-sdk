@@ -23,19 +23,16 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	impl_crypto_type, ByteArray, CryptoTypeId, Derive, Public as TraitPublic,
-	Signature as TraitSignature, UncheckedFrom, VrfPublic,
+	impl_crypto_type, ByteArray, CryptoTypeId, Derive, DeriveError, DeriveJunction,
+	Pair as TraitPair, Public as TraitPublic, SecretStringError, Signature as TraitSignature,
+	UncheckedFrom, VrfPublic, VrfSecret,
 };
-#[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError, VrfSecret};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
 
-use bandersnatch_vrfs::CanonicalSerialize;
-#[cfg(feature = "full_crypto")]
-use bandersnatch_vrfs::SecretKey;
+use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::hash::Hash;
 use scale_info::TypeInfo;
@@ -47,10 +44,8 @@ use sp_std::{vec, vec::Vec};
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"band");
 
 /// Context used to produce a plain signature without any VRF input/output.
-#[cfg(feature = "full_crypto")]
 pub const SIGNING_CTX: &[u8] = b"BandersnatchSigningContext";
 
-#[cfg(feature = "full_crypto")]
 const SEED_SERIALIZED_SIZE: usize = 32;
 
 const PUBLIC_SERIALIZED_SIZE: usize = 33;
@@ -206,18 +201,15 @@ impl sp_std::fmt::Debug for Signature {
 }
 
 /// The raw secret seed, which can be used to reconstruct the secret [`Pair`].
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; SEED_SERIALIZED_SIZE];
 
 /// Bandersnatch secret key.
-#[cfg(feature = "full_crypto")]
 #[derive(Clone)]
 pub struct Pair {
 	secret: SecretKey,
 	seed: Seed,
 }
 
-#[cfg(feature = "full_crypto")]
 impl Pair {
 	/// Get the key seed.
 	pub fn seed(&self) -> Seed {
@@ -225,7 +217,6 @@ impl Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
 	type Seed = Seed;
 
@@ -280,6 +271,7 @@ impl TraitPair for Pair {
 	/// the constant label [`SIGNING_CTX`] and `data` without any additional data.
 	///
 	/// See [`vrf::VrfSignData`] for additional details.
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, data: &[u8]) -> Signature {
 		let data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, &[data], None);
 		self.vrf_sign(&data).signature
@@ -298,10 +290,7 @@ impl TraitPair for Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl_crypto_type!(Pair, Public, Signature);
-#[cfg(not(feature = "full_crypto"))]
-impl_crypto_type!(Public, Signature);
 
 /// Bandersnatch VRF types and operations.
 pub mod vrf {

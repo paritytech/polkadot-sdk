@@ -36,7 +36,7 @@ use bridge_runtime_common::{
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundTransactionExtensionAdapter,
 		RefundableMessagesLane, RefundableParachain,
 	},
 };
@@ -190,7 +190,7 @@ impl ThisChainWithMessages for BridgeHubWestend {
 }
 
 /// Signed extension that refunds relayers that are delivering messages from the Rococo parachain.
-pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundSignedExtensionAdapter<
+pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundTransactionExtensionAdapter<
 	RefundBridgedParachainMessages<
 		Runtime,
 		RefundableParachain<BridgeParachainRococoInstance, bp_bridge_hub_rococo::BridgeHubRococo>,
