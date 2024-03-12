@@ -323,7 +323,7 @@ where
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(asset_id: AssetId) {
-		O::from_asset_balance(balance, asset_id)
+		O::ensure_successful(asset_id)
 	}
 }
 
