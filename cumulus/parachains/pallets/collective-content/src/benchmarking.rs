@@ -16,7 +16,7 @@
 //! The pallet benchmarks.
 
 use super::{Pallet as CollectiveContent, *};
-use frame_benchmarking::{impl_benchmark_test_suite, v2::*};
+use frame_benchmarking::v2::*;
 use frame_support::traits::EnsureOrigin;
 
 fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
