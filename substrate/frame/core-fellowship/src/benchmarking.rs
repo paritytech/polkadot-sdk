@@ -69,6 +69,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_params() -> Result<(), BenchmarkError> {
+		make_member::<T, I>(9)?;
 		let params = ParamsType {
 			active_salary: [100u32.into(); 9].to_vec(),
 			passive_salary: [10u32.into(); 9].to_vec(),
