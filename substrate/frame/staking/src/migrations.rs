@@ -64,7 +64,7 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 pub mod v15 {
 	use super::*;
 
-	pub struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
+	struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = v14::OffendingValidators::<T>::get()
