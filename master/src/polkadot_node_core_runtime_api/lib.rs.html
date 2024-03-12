@@ -774,6 +774,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#627" id="627">627</a>
 <a href="#628" id="628">628</a>
 <a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1209,6 +1210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.unwrap_or_else(|e| {
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
+						api = <span class="question-mark">?</span><span class="macro">stringify!</span>(<span class="macro-nonterminal">$api_name</span>),
 						<span class="string">&quot;cannot query the runtime API version: {}&quot;</span>,
 						e,
 					);
