@@ -211,12 +211,13 @@ impl<
 				XcmConfig::AssetTransactor::deposit_asset(&fee, &origin_ref, None).unwrap();
 			}
 
-			// allow more initialization for target parachain
-			ToParachainHelper::ensure(Parachain::get());
-
 			// expected worst case - direct withdraw
 			fees_mode = Some(FeesMode { jit_withdraw: true });
 		}
+
+		// allow more initialization for target parachain
+		ToParachainHelper::ensure(Parachain::get());
+
 		(fees_mode, None)
 	}
 }
