@@ -596,7 +596,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Little util for parsing an address URI. Replaces regular expressions.
 
-</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), any(feature = <span class="string">&quot;serde&quot;</span>, feature = <span class="string">&quot;full_crypto&quot;</span>)))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
 </span><span class="kw">use </span>sp_std::{
 	alloc::string::{String, ToString},
 	vec::Vec,

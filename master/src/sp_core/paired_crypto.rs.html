@@ -889,17 +889,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
 <a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -921,12 +910,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::crypto::Ss58Codec;
-<span class="kw">use </span><span class="kw">crate</span>::crypto::{ByteArray, CryptoType, Derive, Public <span class="kw">as </span>PublicT, UncheckedFrom};
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::crypto::{DeriveError, DeriveJunction, Pair <span class="kw">as </span>PairT, SecretStringError};
+<span class="kw">use </span><span class="kw">crate</span>::crypto::{
+	ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair <span class="kw">as </span>PairT, Public <span class="kw">as </span>PublicT,
+	SecretStringError, UncheckedFrom,
+};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">use </span>sp_std::vec::Vec;
+<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -941,12 +930,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// ECDSA and BLS12-377 paired crypto scheme
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
 </span><span class="kw">pub mod </span>ecdsa_bls377 {
+	<span class="kw">use crate</span>::{bls377, crypto::CryptoTypeId, ecdsa};
 	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-	</span><span class="kw">use </span><span class="kw">crate</span>::Hasher;
-	<span class="kw">use crate</span>::{
-		bls377,
-		crypto::{CryptoTypeId, Pair <span class="kw">as </span>PairT, UncheckedFrom},
-		ecdsa,
+	</span><span class="kw">use crate</span>::{
+		crypto::{Pair <span class="kw">as </span>PairT, UncheckedFrom},
+		Hasher,
 	};
 
 	<span class="doccomment">/// An identifier used to match public keys against BLS12-377 keys
@@ -958,7 +946,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
 	<span class="doccomment">/// (ECDSA,BLS12-377) key-pair pair.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">pub type </span>Pair = <span class="kw">super</span>::Pair&lt;ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN&gt;;
 	<span class="doccomment">/// (ECDSA,BLS12-377) public key pair.
 	</span><span class="kw">pub type </span>Public = <span class="kw">super</span>::Public&lt;PUBLIC_KEY_LEN&gt;;
@@ -966,17 +953,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub type </span>Signature = <span class="kw">super</span>::Signature&lt;SIGNATURE_LEN&gt;;
 
 	<span class="kw">impl </span><span class="kw">super</span>::CryptoType <span class="kw">for </span>Public {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-		</span><span class="kw">type </span>Pair = Pair;
+		<span class="kw">type </span>Pair = Pair;
 	}
 
 	<span class="kw">impl </span><span class="kw">super</span>::CryptoType <span class="kw">for </span>Signature {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-		</span><span class="kw">type </span>Pair = Pair;
+		<span class="kw">type </span>Pair = Pair;
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-	</span><span class="kw">impl </span><span class="kw">super</span>::CryptoType <span class="kw">for </span>Pair {
+	<span class="kw">impl </span><span class="kw">super</span>::CryptoType <span class="kw">for </span>Pair {
 		<span class="kw">type </span>Pair = Pair;
 	}
 
@@ -1038,7 +1022,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Secure seed length.
 ///
 /// Currently only supporting sub-schemes whose seed is a 32-bytes array.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">const </span>SECURE_SEED_LEN: usize = <span class="number">32</span>;
 
 <span class="doccomment">/// A secret seed.
@@ -1046,15 +1029,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// It&#39;s not called a &quot;secret key&quot; because ring doesn&#39;t expose the secret keys
 /// of the key pair (yeah, dumb); as such we&#39;re forced to remember the seed manually if we
 /// will need it later (such as for HDKD).
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">type </span>Seed = [u8; SECURE_SEED_LEN];
 
 <span class="doccomment">/// A public key.
 </span><span class="attr">#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 </span><span class="kw">pub struct </span>Public&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt;([u8; LEFT_PLUS_RIGHT_LEN]);
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; sp_std::hash::Hash <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; {
+<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; sp_std::hash::Hash <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; {
 	<span class="kw">fn </span>hash&lt;H: sp_std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
 		<span class="self">self</span>.<span class="number">0</span>.hash(state);
 	}
@@ -1117,8 +1098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>PassBy = pass_by::Inner&lt;<span class="self">Self</span>, [u8; LEFT_PLUS_RIGHT_LEN]&gt;;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl</span>&lt;
+<span class="kw">impl</span>&lt;
 		LeftPair: PairT,
 		RightPair: PairT,
 		<span class="kw">const </span>LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
@@ -1213,8 +1193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>Signature&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt;([u8; LEFT_PLUS_RIGHT_LEN]);
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; sp_std::hash::Hash <span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt; {
+<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; sp_std::hash::Hash <span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt; {
 	<span class="kw">fn </span>hash&lt;H: sp_std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
 		<span class="self">self</span>.<span class="number">0</span>.hash(state);
 	}
@@ -1313,8 +1292,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A key pair.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-#[derive(Clone)]
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Pair&lt;
 	LeftPair: PairT,
 	RightPair: PairT,
@@ -1325,8 +1303,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	right: RightPair,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl</span>&lt;
+<span class="kw">impl</span>&lt;
 		LeftPair: PairT,
 		RightPair: PairT,
 		<span class="kw">const </span>PUBLIC_KEY_LEN: usize,
@@ -1385,7 +1362,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::Public::unchecked_from(raw)
 	}
 
-	<span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>::Signature {
+	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	</span><span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>::Signature {
 		<span class="kw">let </span><span class="kw-2">mut </span>raw: [u8; SIGNATURE_LEN] = [<span class="number">0u8</span>; SIGNATURE_LEN];
 		raw[..LeftPair::Signature::LEN].copy_from_slice(<span class="self">self</span>.left.sign(message).as_ref());
 		raw[LeftPair::Signature::LEN..].copy_from_slice(<span class="self">self</span>.right.sign(message).as_ref());

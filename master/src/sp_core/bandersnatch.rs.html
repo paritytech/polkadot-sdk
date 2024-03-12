@@ -1371,14 +1371,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1224" id="1224">1224</a>
 <a href="#1225" id="1225">1225</a>
 <a href="#1226" id="1226">1226</a>
-<a href="#1227" id="1227">1227</a>
-<a href="#1228" id="1228">1228</a>
-<a href="#1229" id="1229">1229</a>
-<a href="#1230" id="1230">1230</a>
-<a href="#1231" id="1231">1231</a>
-<a href="#1232" id="1232">1232</a>
-<a href="#1233" id="1233">1233</a>
-<a href="#1234" id="1234">1234</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1403,19 +1395,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::crypto::Ss58Codec;
-<span class="kw">use </span><span class="kw">crate</span>::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, Public <span class="kw">as </span>TraitPublic, UncheckedFrom, VrfPublic,
-};
 <span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::crypto::{DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair, SecretStringError, VrfSecret};
+</span><span class="kw">use </span><span class="kw">crate</span>::crypto::VrfSecret;
+<span class="kw">use </span><span class="kw">crate</span>::crypto::{
+	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair,
+	Public <span class="kw">as </span>TraitPublic, SecretStringError, UncheckedFrom, VrfPublic,
+};
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 <span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
 </span><span class="kw">use </span>sp_std::alloc::{format, string::String};
 
-<span class="kw">use </span>bandersnatch_vrfs::CanonicalSerialize;
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">use </span>bandersnatch_vrfs::SecretKey;
+<span class="kw">use </span>bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
@@ -1426,19 +1417,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b&quot;band&quot;</span>);
 
 <span class="doccomment">/// Context used to produce a plain signature without any VRF input/output.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">pub const </span>SIGNING_CTX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;BandersnatchSigningContext&quot;</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">const </span>SEED_SERIALIZED_SIZE: usize = <span class="number">32</span>;
+<span class="kw">const </span>SEED_SERIALIZED_SIZE: usize = <span class="number">32</span>;
 
 <span class="kw">const </span>PUBLIC_SERIALIZED_SIZE: usize = <span class="number">33</span>;
 <span class="kw">const </span>SIGNATURE_SERIALIZED_SIZE: usize = <span class="number">65</span>;
 <span class="kw">const </span>PREOUT_SERIALIZED_SIZE: usize = <span class="number">33</span>;
 
 <span class="doccomment">/// Bandersnatch public key.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;full_crypto&quot;</span>, derive(Hash))]
-#[derive(
+</span><span class="attr">#[derive(
 	Clone,
 	Copy,
 	PartialEq,
@@ -1450,6 +1438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	PassByInner,
 	MaxEncodedLen,
 	TypeInfo,
+	Hash,
 )]
 </span><span class="kw">pub struct </span>Public(<span class="kw">pub </span>[u8; PUBLIC_SERIALIZED_SIZE]);
 
@@ -1497,8 +1486,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>TraitPublic <span class="kw">for </span>Public {}
 
 <span class="kw">impl </span>CryptoType <span class="kw">for </span>Public {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-	</span><span class="kw">type </span>Pair = Pair;
+	<span class="kw">type </span>Pair = Pair;
 }
 
 <span class="kw">impl </span>Derive <span class="kw">for </span>Public {}
@@ -1535,8 +1523,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// The signature is created via the [`VrfSecret::vrf_sign`] using [`SIGNING_CTX`] as transcript
 /// `label`.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;full_crypto&quot;</span>, derive(Hash))]
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, PassByInner, MaxEncodedLen, TypeInfo)]
+</span><span class="attr">#[derive(
+	Clone, Copy, PartialEq, Eq, Encode, Decode, PassByInner, MaxEncodedLen, TypeInfo, Hash,
+)]
 </span><span class="kw">pub struct </span>Signature([u8; SIGNATURE_SERIALIZED_SIZE]);
 
 <span class="kw">impl </span>UncheckedFrom&lt;[u8; SIGNATURE_SERIALIZED_SIZE]&gt; <span class="kw">for </span>Signature {
@@ -1575,8 +1564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>CryptoType <span class="kw">for </span>Signature {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-	</span><span class="kw">type </span>Pair = Pair;
+	<span class="kw">type </span>Pair = Pair;
 }
 
 <span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>Signature {
@@ -1592,27 +1580,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// The raw secret seed, which can be used to reconstruct the secret [`Pair`].
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">type </span>Seed = [u8; SEED_SERIALIZED_SIZE];
 
 <span class="doccomment">/// Bandersnatch secret key.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-#[derive(Clone)]
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Pair {
 	secret: SecretKey,
 	seed: Seed,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl </span>Pair {
+<span class="kw">impl </span>Pair {
 	<span class="doccomment">/// Get the key seed.
 	</span><span class="kw">pub fn </span>seed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Seed {
 		<span class="self">self</span>.seed
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl </span>TraitPair <span class="kw">for </span>Pair {
+<span class="kw">impl </span>TraitPair <span class="kw">for </span>Pair {
 	<span class="kw">type </span>Seed = Seed;
 	<span class="kw">type </span>Public = Public;
 	<span class="kw">type </span>Signature = Signature;
@@ -1668,6 +1652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// the constant label [`SIGNING_CTX`] and `data` without any additional data.
 	///
 	/// See [`vrf::VrfSignData`] for additional details.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; Signature {
 		<span class="kw">let </span>data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, <span class="kw-2">&amp;</span>[data], <span class="prelude-val">None</span>);
 		<span class="self">self</span>.vrf_sign(<span class="kw-2">&amp;</span>data).signature
@@ -1686,8 +1671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl </span>CryptoType <span class="kw">for </span>Pair {
+<span class="kw">impl </span>CryptoType <span class="kw">for </span>Pair {
 	<span class="kw">type </span>Pair = Pair;
 }
 

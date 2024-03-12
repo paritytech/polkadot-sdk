@@ -297,7 +297,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>password = <span class="self">self</span>.keystore_params.read_password()<span class="question-mark">?</span>;
 		<span class="kw">let </span>output = <span class="self">self</span>.output_scheme.output_type;
 
-		<span class="kw">let </span>phrase = mnemonic.word_iter().join(<span class="string">&quot; &quot;</span>);
+		<span class="kw">let </span>phrase = mnemonic.words().join(<span class="string">&quot; &quot;</span>);
 
 		<span class="macro">with_crypto_scheme!</span>(
 			<span class="self">self</span>.crypto_scheme.scheme,

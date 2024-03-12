@@ -361,6 +361,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -381,14 +389,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Support code for the runtime. A set of test accounts.
 
 </span><span class="kw">pub use </span>sp_core::ed25519;
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">use </span>sp_core::ed25519::Signature;
 <span class="kw">use </span>sp_core::{
-	ed25519::{Pair, Public, Signature},
+	ed25519::{Pair, Public},
 	hex2array, ByteArray, Pair <span class="kw">as </span>PairT, H256,
 };
 <span class="kw">use </span>sp_runtime::AccountId32;
 
+<span class="kw">extern crate </span>alloc;
+<span class="kw">use </span>alloc::{format, string::String, vec::Vec};
+
 <span class="doccomment">/// Set of test accounts.
-</span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
+</span><span class="attr">#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter, Ord, PartialOrd,
+)]
 </span><span class="kw">pub enum </span>Keyring {
 	Alice,
 	Bob,
@@ -439,7 +454,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.to_raw_public().into()
 	}
 
-	<span class="kw">pub fn </span>sign(<span class="self">self</span>, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; Signature {
+	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="kw">pub fn </span>sign(<span class="self">self</span>, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; Signature {
 		Pair::from(<span class="self">self</span>).sign(msg)
 	}
 

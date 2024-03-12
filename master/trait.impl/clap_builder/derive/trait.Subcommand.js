@@ -12,6 +12,6 @@
 "staging_node_inspect":[["impl Subcommand for <a class=\"enum\" href=\"staging_node_inspect/cli/enum.InspectSubCmd.html\" title=\"enum staging_node_inspect::cli::InspectSubCmd\">InspectSubCmd</a>"]],
 "subkey":[["impl Subcommand for <a class=\"enum\" href=\"subkey/enum.Subkey.html\" title=\"enum subkey::Subkey\">Subkey</a>"]],
 "test_parachain":[["impl Subcommand for <a class=\"enum\" href=\"test_parachain/cli/enum.Subcommand.html\" title=\"enum test_parachain::cli::Subcommand\">Subcommand</a>"]],
-"try_runtime_cli":[["impl Subcommand for <a class=\"enum\" href=\"try_runtime_cli/enum.State.html\" title=\"enum try_runtime_cli::State\">State</a>"],["impl Subcommand for <a class=\"enum\" href=\"try_runtime_cli/enum.Command.html\" title=\"enum try_runtime_cli::Command\">Command</a>"]],
+"try_runtime_cli":[["impl Subcommand for <a class=\"enum\" href=\"try_runtime_cli/enum.Command.html\" title=\"enum try_runtime_cli::Command\">Command</a>"],["impl Subcommand for <a class=\"enum\" href=\"try_runtime_cli/enum.State.html\" title=\"enum try_runtime_cli::State\">State</a>"]],
 "undying_collator":[["impl Subcommand for <a class=\"enum\" href=\"undying_collator/cli/enum.Subcommand.html\" title=\"enum undying_collator::cli::Subcommand\">Subcommand</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

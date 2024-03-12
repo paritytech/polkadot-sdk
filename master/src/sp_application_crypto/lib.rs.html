@@ -731,6 +731,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#584" id="584">584</a>
 <a href="#585" id="585">585</a>
 <a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -753,12 +774,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![warn(missing_docs)]
 #![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">pub use </span>sp_core::crypto::{key_types, CryptoTypeId, KeyTypeId};
+</span><span class="kw">pub use </span>sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
 <span class="attr">#[doc(hidden)]
-#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">pub use </span>sp_core::crypto::{DeriveError, Pair, SecretStringError};
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;full_crypto&quot;</span>, feature = <span class="string">&quot;serde&quot;</span>))]
-</span><span class="kw">pub use </span>sp_core::crypto::{DeriveJunction, Ss58Codec};
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>sp_core::{
 	<span class="self">self</span>,
@@ -818,7 +836,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro-nonterminal">$module::CRYPTO_ID
 		</span>);
 		<span class="macro-nonterminal">$</span><span class="macro">crate::app_crypto_signature_common!</span>(<span class="macro-nonterminal">$module::Signature</span>, <span class="macro-nonterminal">$key_type</span>);
-		<span class="macro-nonterminal">$</span><span class="macro">crate::app_crypto_pair!</span>(<span class="macro-nonterminal">$module::Pair</span>, <span class="macro-nonterminal">$key_type</span>, <span class="macro-nonterminal">$module::CRYPTO_ID</span>);
+		<span class="macro-nonterminal">$</span><span class="macro">crate::app_crypto_pair_common!</span>(<span class="macro-nonterminal">$module::Pair</span>, <span class="macro-nonterminal">$key_type</span>, <span class="macro-nonterminal">$module::CRYPTO_ID</span>);
 	};
 }
 
@@ -849,13 +867,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro-nonterminal">$module::CRYPTO_ID
 		</span>);
 		<span class="macro-nonterminal">$</span><span class="macro">crate::app_crypto_signature_common!</span>(<span class="macro-nonterminal">$module::Signature</span>, <span class="macro-nonterminal">$key_type</span>);
+		<span class="macro-nonterminal">$</span><span class="macro">crate::app_crypto_pair_common!</span>(<span class="macro-nonterminal">$module::Pair</span>, <span class="macro-nonterminal">$key_type</span>, <span class="macro-nonterminal">$module::CRYPTO_ID</span>);
 	};
 }
 
 <span class="doccomment">/// Declares `Pair` type which is functionally equivalent to `$pair`, but is
 /// new application-specific type whose identifier is `$key_type`.
+/// It is a common part shared between full_crypto and non full_crypto environments.
 </span><span class="attr">#[macro_export]
-</span><span class="macro">macro_rules! </span>app_crypto_pair {
+</span><span class="macro">macro_rules! </span>app_crypto_pair_common {
 	(<span class="macro-nonterminal">$pair</span>:ty, <span class="macro-nonterminal">$key_type</span>:expr, <span class="macro-nonterminal">$crypto_type</span>:expr) =&gt; {
 		<span class="macro-nonterminal">$</span><span class="macro">crate::wrap! </span>{
 			<span class="doccomment">/// A generic `AppPublic` wrapper type over $pair crypto; this has no specific App.
@@ -873,7 +893,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">type </span>Signature = Signature;
 
 			<span class="macro-nonterminal">$</span><span class="macro">crate::app_crypto_pair_functions_if_std!</span>(<span class="macro-nonterminal">$pair</span>);
+			<span class="macro-nonterminal">$</span><span class="macro">crate::app_crypto_pair_functions_if_full_crypto!</span>(<span class="macro-nonterminal">$pair</span>);
 
+			<span class="kw">fn </span>from_phrase(
+				phrase: <span class="kw-2">&amp;</span>str,
+				password: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+			) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>::Seed), <span class="macro-nonterminal">$crate::SecretStringError</span>&gt; {
+				&lt;<span class="macro-nonterminal">$pair</span>&gt;::from_phrase(phrase, password).map(|r| (<span class="self">Self</span>(r.<span class="number">0</span>), r.<span class="number">1</span>))
+			}
 			<span class="kw">fn </span>derive&lt;Iter: Iterator&lt;Item = <span class="macro-nonterminal">$crate::DeriveJunction</span>&gt;&gt;(
 				<span class="kw-2">&amp;</span><span class="self">self</span>,
 				path: Iter,
@@ -886,9 +913,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 			<span class="kw">fn </span>from_seed_slice(seed: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="macro-nonterminal">$crate::SecretStringError</span>&gt; {
 				&lt;<span class="macro-nonterminal">$pair</span>&gt;::from_seed_slice(seed).map(<span class="self">Self</span>)
-			}
-			<span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>::Signature {
-				Signature(<span class="self">self</span>.<span class="number">0</span>.sign(msg))
 			}
 			<span class="kw">fn </span>verify&lt;M: AsRef&lt;[u8]&gt;&gt;(
 				sig: <span class="kw-2">&amp;</span><span class="self">Self</span>::Signature,
@@ -936,13 +960,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>r = &lt;<span class="macro-nonterminal">$pair</span>&gt;::generate_with_phrase(password);
 			(<span class="self">Self</span>(r.<span class="number">0</span>), r.<span class="number">1</span>, r.<span class="number">2</span>)
 		}
-
-		<span class="kw">fn </span>from_phrase(
-			phrase: <span class="kw-2">&amp;</span>str,
-			password: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>::Seed), <span class="macro-nonterminal">$crate::SecretStringError</span>&gt; {
-			&lt;<span class="macro-nonterminal">$pair</span>&gt;::from_phrase(phrase, password).map(|r| (<span class="self">Self</span>(r.<span class="number">0</span>), r.<span class="number">1</span>))
-		}
 	};
 }
 
@@ -950,6 +967,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>app_crypto_pair_functions_if_std {
+	(<span class="macro-nonterminal">$pair</span>:ty) =&gt; {};
+}
+
+<span class="doccomment">/// Implements functions for the `Pair` trait when `feature = &quot;full_crypto&quot;` is enabled.
+</span><span class="attr">#[doc(hidden)]
+#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+#[macro_export]
+</span><span class="macro">macro_rules! </span>app_crypto_pair_functions_if_full_crypto {
+	(<span class="macro-nonterminal">$pair</span>:ty) =&gt; {
+		<span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>::Signature {
+			Signature(<span class="self">self</span>.<span class="number">0</span>.sign(msg))
+		}
+	};
+}
+
+<span class="attr">#[doc(hidden)]
+#[cfg(not(feature = <span class="string">&quot;full_crypto&quot;</span>))]
+#[macro_export]
+</span><span class="macro">macro_rules! </span>app_crypto_pair_functions_if_full_crypto {
 	(<span class="macro-nonterminal">$pair</span>:ty) =&gt; {};
 }
 
@@ -1000,7 +1036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro-nonterminal">$</span><span class="macro">crate::wrap! </span>{
 			<span class="doccomment">/// A generic `AppPublic` wrapper type over $public crypto; this has no specific App.
 			</span><span class="attr">#[<span class="macro-nonterminal">derive</span>(
-				Clone, Eq, PartialEq, Ord, PartialOrd,
+				Clone, Eq, Hash, PartialEq, Ord, PartialOrd,
 				<span class="macro-nonterminal">$crate::codec::Encode</span>,
 				<span class="macro-nonterminal">$crate::codec::Decode</span>,
 				<span class="macro-nonterminal">$crate::RuntimeDebug</span>,
@@ -1010,10 +1046,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">pub struct </span>Public(<span class="macro-nonterminal">$public</span>);
 		}
 
-		<span class="kw">impl </span><span class="macro-nonterminal">$crate::CryptoType </span><span class="kw">for </span>Public {}
+		<span class="kw">impl </span><span class="macro-nonterminal">$crate::CryptoType </span><span class="kw">for </span>Public {
+			<span class="kw">type </span>Pair = Pair;
+		}
 
 		<span class="kw">impl </span><span class="macro-nonterminal">$crate::AppCrypto </span><span class="kw">for </span>Public {
 			<span class="kw">type </span>Public = Public;
+			<span class="kw">type </span>Pair = Pair;
 			<span class="kw">type </span>Signature = Signature;
 			<span class="kw">const </span>ID: <span class="macro-nonterminal">$crate::KeyTypeId </span>= <span class="macro-nonterminal">$key_type</span>;
 			<span class="kw">const </span>CRYPTO_ID: <span class="macro-nonterminal">$crate::CryptoTypeId </span>= <span class="macro-nonterminal">$crypto_type</span>;
@@ -1185,10 +1224,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">pub struct </span>Signature(<span class="macro-nonterminal">$sig</span>);
 		}
 
-		<span class="kw">impl </span><span class="macro-nonterminal">$crate::CryptoType </span><span class="kw">for </span>Signature {}
+		<span class="kw">impl </span><span class="macro-nonterminal">$crate::CryptoType </span><span class="kw">for </span>Signature {
+			<span class="kw">type </span>Pair = Pair;
+		}
 
 		<span class="kw">impl </span><span class="macro-nonterminal">$crate::AppCrypto </span><span class="kw">for </span>Signature {
 			<span class="kw">type </span>Public = Public;
+			<span class="kw">type </span>Pair = Pair;
 			<span class="kw">type </span>Signature = Signature;
 			<span class="kw">const </span>ID: <span class="macro-nonterminal">$crate::KeyTypeId </span>= <span class="macro-nonterminal">$key_type</span>;
 			<span class="kw">const </span>CRYPTO_ID: <span class="macro-nonterminal">$crate::CryptoTypeId </span>= <span class="macro-nonterminal">$crypto_type</span>;

@@ -778,17 +778,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#631" id="631">631</a>
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -810,7 +799,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Simple Ed25519 API.
 </span><span class="comment">// end::description[]
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">use crate</span>::{
@@ -823,14 +811,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::crypto::Ss58Codec;
 <span class="kw">use </span><span class="kw">crate</span>::crypto::{
-	CryptoType, CryptoTypeId, Derive, FromEntropy, Public <span class="kw">as </span>TraitPublic, UncheckedFrom,
+	CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, FromEntropy, Pair <span class="kw">as </span>TraitPair,
+	Public <span class="kw">as </span>TraitPublic, SecretStringError, UncheckedFrom,
 };
 <span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::crypto::{DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair, SecretStringError};
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">use </span>core::convert::TryFrom;
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">use </span>ed25519_zebra::{SigningKey, VerificationKey};
+<span class="kw">use </span>ed25519_zebra::{SigningKey, VerificationKey};
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 <span class="kw">use </span>sp_runtime_interface::pass_by::PassByInner;
@@ -844,12 +830,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A secret seed. It&#39;s not called a &quot;secret key&quot; because ring doesn&#39;t expose the secret keys
 /// of the key pair (yeah, dumb); as such we&#39;re forced to remember the seed manually if we
 /// will need it later (such as for HDKD).
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">type </span>Seed = [u8; <span class="number">32</span>];
 
 <span class="doccomment">/// A public key.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;full_crypto&quot;</span>, derive(Hash))]
-#[derive(
+</span><span class="attr">#[derive(
 	PartialEq,
 	Eq,
 	PartialOrd,
@@ -861,12 +845,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	PassByInner,
 	MaxEncodedLen,
 	TypeInfo,
+	Hash,
 )]
 </span><span class="kw">pub struct </span>Public(<span class="kw">pub </span>[u8; <span class="number">32</span>]);
 
 <span class="doccomment">/// A key pair.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-#[derive(Copy, Clone)]
+</span><span class="attr">#[derive(Copy, Clone)]
 </span><span class="kw">pub struct </span>Pair {
 	public: VerificationKey,
 	secret: SigningKey,
@@ -1001,8 +985,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A signature (a 512-bit value).
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;full_crypto&quot;</span>, derive(Hash))]
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
+</span><span class="attr">#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash)]
 </span><span class="kw">pub struct </span>Signature(<span class="kw">pub </span>[u8; <span class="number">64</span>]);
 
 <span class="kw">impl </span>TryFrom&lt;<span class="kw-2">&amp;</span>[u8]&gt; <span class="kw">for </span>Signature {
@@ -1161,13 +1144,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Derive <span class="kw">for </span>Public {}
 
 <span class="doccomment">/// Derive a single hard junction.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">fn </span>derive_hard_junction(secret_seed: <span class="kw-2">&amp;</span>Seed, cc: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; Seed {
 	(<span class="string">&quot;Ed25519HDKD&quot;</span>, secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl </span>TraitPair <span class="kw">for </span>Pair {
+<span class="kw">impl </span>TraitPair <span class="kw">for </span>Pair {
 	<span class="kw">type </span>Public = Public;
 	<span class="kw">type </span>Seed = Seed;
 	<span class="kw">type </span>Signature = Signature;
@@ -1205,6 +1186,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Sign a message.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; Signature {
 		Signature::from_raw(<span class="self">self</span>.secret.sign(message).into())
 	}
@@ -1224,8 +1206,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl </span>Pair {
+<span class="kw">impl </span>Pair {
 	<span class="doccomment">/// Get the seed for this key.
 	</span><span class="kw">pub fn </span>seed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Seed {
 		<span class="self">self</span>.secret.into()
@@ -1245,17 +1226,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>CryptoType <span class="kw">for </span>Public {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-	</span><span class="kw">type </span>Pair = Pair;
+	<span class="kw">type </span>Pair = Pair;
 }
 
 <span class="kw">impl </span>CryptoType <span class="kw">for </span>Signature {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-	</span><span class="kw">type </span>Pair = Pair;
+	<span class="kw">type </span>Pair = Pair;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl </span>CryptoType <span class="kw">for </span>Pair {
+<span class="kw">impl </span>CryptoType <span class="kw">for </span>Pair {
 	<span class="kw">type </span>Pair = Pair;
 }
 

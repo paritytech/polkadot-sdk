@@ -1653,24 +1653,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1506" id="1506">1506</a>
 <a href="#1507" id="1507">1507</a>
 <a href="#1508" id="1508">1508</a>
-<a href="#1509" id="1509">1509</a>
-<a href="#1510" id="1510">1510</a>
-<a href="#1511" id="1511">1511</a>
-<a href="#1512" id="1512">1512</a>
-<a href="#1513" id="1513">1513</a>
-<a href="#1514" id="1514">1514</a>
-<a href="#1515" id="1515">1515</a>
-<a href="#1516" id="1516">1516</a>
-<a href="#1517" id="1517">1517</a>
-<a href="#1518" id="1518">1518</a>
-<a href="#1519" id="1519">1519</a>
-<a href="#1520" id="1520">1520</a>
-<a href="#1521" id="1521">1521</a>
-<a href="#1522" id="1522">1522</a>
-<a href="#1523" id="1523">1523</a>
-<a href="#1524" id="1524">1524</a>
-<a href="#1525" id="1525">1525</a>
-<a href="#1526" id="1526">1526</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1691,16 +1673,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Cryptographic utilities.
 
 </span><span class="kw">use crate</span>::{ed25519, sr25519};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">use </span>bip39::{Language, Mnemonic};
+<span class="kw">use </span>bip39::{Language, Mnemonic};
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>itertools::Itertools;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>rand::{rngs::OsRng, RngCore};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub use </span>secrecy::{ExposeSecret, SecretString};
+<span class="kw">pub use </span>secrecy::{ExposeSecret, SecretString};
 <span class="kw">use </span>sp_runtime_interface::pass_by::PassByInner;
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>sp_std::ops::Deref;
@@ -1714,10 +1694,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Trait to zeroize a memory buffer.
 </span><span class="kw">pub use </span>zeroize::Zeroize;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub use </span><span class="kw">crate</span>::address_uri::AddressUri;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;full_crypto&quot;</span>))]
-</span><span class="kw">pub use </span><span class="kw">crate</span>::address_uri::Error <span class="kw">as </span>AddressUriError;
+<span class="kw">pub use </span><span class="kw">crate</span>::address_uri::{AddressUri, Error <span class="kw">as </span>AddressUriError};
 
 <span class="doccomment">/// The root phrase for our publicly known keys.
 </span><span class="kw">pub const </span>DEV_PHRASE: <span class="kw-2">&amp;</span>str =
@@ -1755,7 +1732,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// An error with the interpretation of a secret.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(thiserror::Error))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">pub enum </span>SecretStringError {
 	<span class="doccomment">/// The overall format was invalid (e.g. the seed phrase contained symbols).
 	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid format {0}&quot;</span>))]
@@ -1777,8 +1753,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>InvalidPath,
 }
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;full_crypto&quot;</span>))]
-</span><span class="kw">impl </span>From&lt;AddressUriError&gt; <span class="kw">for </span>SecretStringError {
+<span class="kw">impl </span>From&lt;AddressUriError&gt; <span class="kw">for </span>SecretStringError {
 	<span class="kw">fn </span>from(e: AddressUriError) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::InvalidFormat(e)
 	}
@@ -1787,7 +1762,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// An error when deriving a key.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(thiserror::Error))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">pub enum </span>DeriveError {
 	<span class="doccomment">/// A soft key was found in the path (and is unsupported).
 	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Soft key in path&quot;</span>))]
@@ -1798,7 +1772,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// a new secret key from an existing secret key and, in the case of `SoftRaw` and `SoftIndex`
 /// a new public key from an existing public key.
 </span><span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Encode, Decode)]
-#[cfg(any(feature = <span class="string">&quot;full_crypto&quot;</span>, feature = <span class="string">&quot;serde&quot;</span>))]
 </span><span class="kw">pub enum </span>DeriveJunction {
 	<span class="doccomment">/// Soft (vanilla) derivation. Public keys have a correspondent derivation.
 	</span>Soft([u8; JUNCTION_ID_LEN]),
@@ -1806,8 +1779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Hard([u8; JUNCTION_ID_LEN]),
 }
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;full_crypto&quot;</span>, feature = <span class="string">&quot;serde&quot;</span>))]
-</span><span class="kw">impl </span>DeriveJunction {
+<span class="kw">impl </span>DeriveJunction {
 	<span class="doccomment">/// Consume self to return a soft derive junction with the same chain code.
 	</span><span class="kw">pub fn </span>soften(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		DeriveJunction::Soft(<span class="self">self</span>.unwrap_inner())
@@ -1865,8 +1837,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;full_crypto&quot;</span>, feature = <span class="string">&quot;serde&quot;</span>))]
-</span><span class="kw">impl</span>&lt;T: AsRef&lt;str&gt;&gt; From&lt;T&gt; <span class="kw">for </span>DeriveJunction {
+<span class="kw">impl</span>&lt;T: AsRef&lt;str&gt;&gt; From&lt;T&gt; <span class="kw">for </span>DeriveJunction {
 	<span class="kw">fn </span>from(j: T) -&gt; DeriveJunction {
 		<span class="kw">let </span>j = j.as_ref();
 		<span class="kw">let </span>(code, hard) =
@@ -2485,7 +2456,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// assert_eq!(&quot;0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a&quot;, suri.phrase.expose_secret());
 /// assert!(suri.password.is_none());
 /// ```
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub struct </span>SecretUri {
 	<span class="doccomment">/// The phrase to derive the private key.
 	///
@@ -2497,8 +2467,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>junctions: Vec&lt;DeriveJunction&gt;,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl </span>sp_std::str::FromStr <span class="kw">for </span>SecretUri {
+<span class="kw">impl </span>sp_std::str::FromStr <span class="kw">for </span>SecretUri {
 	<span class="kw">type </span><span class="prelude-val">Err </span>= SecretStringError;
 
 	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
@@ -2518,7 +2487,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Trait suitable for typical cryptographic PKI key pair type.
 ///
 /// For now it just specifies how to create a key from a phrase and derivation path.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">pub trait </span>Pair: CryptoType + Sized {
 	<span class="doccomment">/// The type which is used to encode a public key.
 	</span><span class="kw">type </span>Public: Public + Hash;
@@ -2551,21 +2519,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">fn </span>generate_with_phrase(password: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; (<span class="self">Self</span>, String, <span class="self">Self</span>::Seed) {
 		<span class="kw">let </span>mnemonic = Mnemonic::generate(<span class="number">12</span>).expect(<span class="string">&quot;Mnemonic generation always works; qed&quot;</span>);
-		<span class="kw">let </span>phrase = mnemonic.word_iter().join(<span class="string">&quot; &quot;</span>);
+		<span class="kw">let </span>phrase = mnemonic.words().join(<span class="string">&quot; &quot;</span>);
 		<span class="kw">let </span>(pair, seed) = <span class="self">Self</span>::from_phrase(<span class="kw-2">&amp;</span>phrase, password)
 			.expect(<span class="string">&quot;All phrases generated by Mnemonic are valid; qed&quot;</span>);
 		(pair, phrase.to_owned(), seed)
 	}
 
 	<span class="doccomment">/// Returns the KeyPair from the English BIP39 seed `phrase`, or an error if it&#39;s invalid.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">fn </span>from_phrase(
 		phrase: <span class="kw-2">&amp;</span>str,
 		password: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>::Seed), SecretStringError&gt; {
 		<span class="kw">let </span>mnemonic = Mnemonic::parse_in(Language::English, phrase)
 			.map_err(|<span class="kw">_</span>| SecretStringError::InvalidPhrase)<span class="question-mark">?</span>;
-
 		<span class="kw">let </span>(entropy, entropy_len) = mnemonic.to_entropy_array();
 		<span class="kw">let </span>big_seed =
 			substrate_bip39::seed_from_entropy(<span class="kw-2">&amp;</span>entropy[<span class="number">0</span>..entropy_len], password.unwrap_or(<span class="string">&quot;&quot;</span>))
@@ -2601,6 +2567,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>from_seed_slice(seed: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SecretStringError&gt;;
 
 	<span class="doccomment">/// Sign a message.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>::Signature;
 
 	<span class="doccomment">/// Verify a signature on a message. Returns true if the signature is good.
@@ -2635,7 +2602,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Notably, integer junction indices may be legally prefixed with arbitrary number of zeros.
 	/// Similarly an empty password (ending the SURI with `///`) is perfectly valid and will
 	/// generally be equivalent to no password at all.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">fn </span>from_string_with_seed(
 		s: <span class="kw-2">&amp;</span>str,
 		password_override: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
@@ -2669,7 +2635,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Interprets the string `s` in order to generate a key pair.
 	///
 	/// See [`from_string_with_seed`](Pair::from_string_with_seed) for more extensive documentation.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">fn </span>from_string(s: <span class="kw-2">&amp;</span>str, password_override: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SecretStringError&gt; {
 		<span class="self">Self</span>::from_string_with_seed(s, password_override).map(|x| x.<span class="number">0</span>)
 	}
@@ -2727,7 +2692,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Type which has a particular kind of crypto associated with it.
 </span><span class="kw">pub trait </span>CryptoType {
 	<span class="doccomment">/// The pair key type of this crypto.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">type </span>Pair: Pair;
 }
 

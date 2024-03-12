@@ -1011,18 +1011,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#864" id="864">864</a>
 <a href="#865" id="865">865</a>
 <a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a>
-<a href="#868" id="868">868</a>
-<a href="#869" id="869">869</a>
-<a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1049,16 +1037,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::crypto::Ss58Codec;
 <span class="kw">use </span><span class="kw">crate</span>::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, Public <span class="kw">as </span>TraitPublic, UncheckedFrom,
+	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair,
+	Public <span class="kw">as </span>TraitPublic, SecretStringError, UncheckedFrom,
 };
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::crypto::{DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair, SecretStringError};
 
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;full_crypto&quot;</span>))]
-</span><span class="kw">use </span>k256::ecdsa::SigningKey <span class="kw">as </span>SecretKey;
 <span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">use </span>k256::ecdsa::VerifyingKey;
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;full_crypto&quot;</span>))]
+</span><span class="kw">use </span>k256::ecdsa::{SigningKey <span class="kw">as </span>SecretKey, VerifyingKey};
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
 	Message, PublicKey, SecretKey, SECP256K1,
@@ -1067,7 +1052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 <span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
 </span><span class="kw">use </span>sp_std::alloc::{format, string::String};
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
 </span><span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// An identifier used to match public keys against ecdsa keys
@@ -1082,12 +1067,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The secret seed.
 ///
 /// The raw secret seed, which can be used to create the `Pair`.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">type </span>Seed = [u8; <span class="number">32</span>];
 
 <span class="doccomment">/// The ECDSA compressed public key.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;full_crypto&quot;</span>, derive(Hash))]
-#[derive(
+</span><span class="attr">#[derive(
 	Clone,
 	Copy,
 	Encode,
@@ -1099,6 +1082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	PartialEq,
 	PartialOrd,
 	Ord,
+	Hash,
 )]
 </span><span class="kw">pub struct </span>Public(<span class="kw">pub </span>[u8; PUBLIC_KEY_SERIALIZED_SIZE]);
 
@@ -1246,8 +1230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A signature (a 512-bit value, plus 8 bits for recovery ID).
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;full_crypto&quot;</span>, derive(Hash))]
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
+</span><span class="attr">#[derive(Hash, Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>Signature(<span class="kw">pub </span>[u8; SIGNATURE_SERIALIZED_SIZE]);
 
 <span class="kw">impl </span>ByteArray <span class="kw">for </span>Signature {
@@ -1370,13 +1353,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Recover the public key from this signature and a message.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">pub fn </span>recover&lt;M: AsRef&lt;[u8]&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M) -&gt; <span class="prelude-ty">Option</span>&lt;Public&gt; {
 		<span class="self">self</span>.recover_prehashed(<span class="kw-2">&amp;</span>sp_crypto_hashing::blake2_256(message.as_ref()))
 	}
 
 	<span class="doccomment">/// Recover the public key from this signature and a pre-hashed message.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">pub fn </span>recover_prehashed(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; <span class="prelude-ty">Option</span>&lt;Public&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 		</span>{
@@ -1405,7 +1386,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;full_crypto&quot;</span>))]
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">impl </span>From&lt;RecoverableSignature&gt; <span class="kw">for </span>Signature {
 	<span class="kw">fn </span>from(recsig: RecoverableSignature) -&gt; Signature {
 		<span class="kw">let </span><span class="kw-2">mut </span>r = <span class="self">Self</span>::default();
@@ -1418,21 +1399,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Derive a single hard junction.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">fn </span>derive_hard_junction(secret_seed: <span class="kw-2">&amp;</span>Seed, cc: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; Seed {
 	(<span class="string">&quot;Secp256k1HDKD&quot;</span>, secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
 <span class="doccomment">/// A key pair.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-#[derive(Clone)]
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Pair {
 	public: Public,
 	secret: SecretKey,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl </span>TraitPair <span class="kw">for </span>Pair {
+<span class="kw">impl </span>TraitPair <span class="kw">for </span>Pair {
 	<span class="kw">type </span>Public = Public;
 	<span class="kw">type </span>Seed = Seed;
 	<span class="kw">type </span>Signature = Signature;
@@ -1479,6 +1457,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Sign a message.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; Signature {
 		<span class="self">self</span>.sign_prehashed(<span class="kw-2">&amp;</span>sp_crypto_hashing::blake2_256(message))
 	}
@@ -1494,8 +1473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl </span>Pair {
+<span class="kw">impl </span>Pair {
 	<span class="doccomment">/// Get the seed for this key.
 	</span><span class="kw">pub fn </span>seed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Seed {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
@@ -1521,6 +1499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Sign a pre-hashed message
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">pub fn </span>sign_prehashed(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; Signature {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 		</span>{
@@ -1575,7 +1554,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // NOTE: this solution is not effective when `Pair` is moved around memory.
 // The very same problem affects other cryptographic backends that are just using
 // `zeroize`for their secrets.
-</span><span class="attr">#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;full_crypto&quot;</span>))]
+</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">impl </span>Drop <span class="kw">for </span>Pair {
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="self">self</span>.secret.non_secure_erase()
@@ -1583,17 +1562,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>CryptoType <span class="kw">for </span>Public {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-	</span><span class="kw">type </span>Pair = Pair;
+	<span class="kw">type </span>Pair = Pair;
 }
 
 <span class="kw">impl </span>CryptoType <span class="kw">for </span>Signature {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-	</span><span class="kw">type </span>Pair = Pair;
+	<span class="kw">type </span>Pair = Pair;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">impl </span>CryptoType <span class="kw">for </span>Pair {
+<span class="kw">impl </span>CryptoType <span class="kw">for </span>Pair {
 	<span class="kw">type </span>Pair = Pair;
 }
 

@@ -199,8 +199,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
-<a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -230,9 +228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">crate::app_crypto!</span>(<span class="kw">super</span>, sp_core::testing::ED25519);
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">pub use </span>app::Pair <span class="kw">as </span>AppPair;
-<span class="kw">pub use </span>app::{Public <span class="kw">as </span>AppPublic, Signature <span class="kw">as </span>AppSignature};
+<span class="kw">pub use </span>app::{Pair <span class="kw">as </span>AppPair, Public <span class="kw">as </span>AppPublic, Signature <span class="kw">as </span>AppSignature};
 
 <span class="kw">impl </span>RuntimePublic <span class="kw">for </span>Public {
 	<span class="kw">type </span>Signature = Signature;
