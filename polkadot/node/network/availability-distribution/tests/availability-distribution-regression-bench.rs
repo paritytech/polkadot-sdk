@@ -49,8 +49,8 @@ fn main() -> Result<(), String> {
 		("Sent to peers", 21818.555, 0.05),
 	]));
 	messages.extend(usage.check_cpu_usage(&[
-		("availability-distribution", 0.013, 0.05),
-		("bitfield-distribution", 0.032, 0.05),
+		("availability-distribution", 0.011, 0.05),
+		("bitfield-distribution", 0.029, 0.05),
 		("availability-store", 0.232, 0.05),
 	]));
 
