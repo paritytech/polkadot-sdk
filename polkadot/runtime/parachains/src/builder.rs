@@ -442,7 +442,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		self.validators = Some(validators_shuffled);
 		self.block_number = block_number;
 		self.session = target_session;
-		assert_eq!(paras::Pallet::<T>::parachains().len(), total_cores as usize);
+		assert_eq!(paras::Parachains::<T>::get().len(), total_cores as usize);
 
 		self
 	}

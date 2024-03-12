@@ -156,7 +156,7 @@ mod v_coretime {
 		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 	>() -> Weight {
-		let legacy_paras = paras::Pallet::<T>::parachains();
+		let legacy_paras = paras::Parachains::<T>::get();
 		let legacy_count = legacy_paras.len() as u32;
 		let now = <frame_system::Pallet<T>>::block_number();
 		for (core, para_id) in legacy_paras.into_iter().enumerate() {
@@ -212,7 +212,7 @@ mod v_coretime {
 		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 	>() -> result::Result<(), SendError> {
-		let legacy_paras = paras::Pallet::<T>::parachains();
+		let legacy_paras = paras::Parachains::<T>::get();
 		let legacy_paras_count = legacy_paras.len();
 		let (system_chains, lease_holding): (Vec<_>, Vec<_>) =
 			legacy_paras.into_iter().partition(IsSystem::is_system);

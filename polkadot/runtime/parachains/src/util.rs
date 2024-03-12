@@ -35,7 +35,7 @@ pub fn make_persisted_validation_data<T: paras::Config + hrmp::Config>(
 	let config = configuration::ActiveConfig::<T>::get();
 
 	Some(PersistedValidationData {
-		parent_head: <paras::Pallet<T>>::para_head(&para_id)?,
+		parent_head: paras::Heads::<T>::get(&para_id)?,
 		relay_parent_number,
 		relay_parent_storage_root,
 		max_pov_size: config.max_pov_size,

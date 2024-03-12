@@ -181,7 +181,7 @@ mod v1 {
 				v1::add_to_claimqueue::<T>(core_idx, pe);
 			}
 
-			let parachains = paras::Pallet::<T>::parachains();
+			let parachains = paras::Parachains::<T>::get();
 			let availability_cores = v0::AvailabilityCores::<T>::take();
 			let mut new_availability_cores = Vec::new();
 

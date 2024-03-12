@@ -208,7 +208,7 @@ pub fn assumed_validation_data<T: initializer::Config>(
 		})
 	});
 	// If we were successful, also query current validation code hash.
-	persisted_validation_data.zip(<paras::Pallet<T>>::current_code_hash(&para_id))
+	persisted_validation_data.zip(paras::CurrentCodeHash::<T>::get(&para_id))
 }
 
 /// Implementation for the `check_validation_outputs` function of the runtime API.
@@ -332,7 +332,7 @@ pub fn inbound_hrmp_channels_contents<T: hrmp::Config>(
 pub fn validation_code_by_hash<T: paras::Config>(
 	hash: ValidationCodeHash,
 ) -> Option<ValidationCode> {
-	<paras::Pallet<T>>::code_by_hash(hash)
+	paras::CodeByHash::<T>::get(hash)
 }
 
 /// Disputes imported via means of on-chain imports.
@@ -363,7 +363,7 @@ where
 	T: inclusion::Config,
 {
 	with_assumption::<T, _, _>(para_id, assumption, || {
-		<paras::Pallet<T>>::current_code_hash(&para_id)
+		paras::CurrentCodeHash::<T>::get(&para_id)
 	})
 }
 
@@ -418,14 +418,14 @@ pub fn backing_state<T: initializer::Config>(
 	let min_relay_parent_number = <shared::Pallet<T>>::allowed_relay_parents()
 		.hypothetical_earliest_block_number(now, config.async_backing_params.allowed_ancestry_len);
 
-	let required_parent = <paras::Pallet<T>>::para_head(para_id)?;
-	let validation_code_hash = <paras::Pallet<T>>::current_code_hash(para_id)?;
+	let required_parent = paras::Heads::<T>::get(para_id)?;
+	let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)?;
 
-	let upgrade_restriction = <paras::Pallet<T>>::upgrade_restriction_signal(para_id);
+	let upgrade_restriction = paras::UpgradeRestrictionSignal::<T>::get(para_id);
 	let future_validation_code =
-		<paras::Pallet<T>>::future_code_upgrade_at(para_id).and_then(|block_num| {
+		paras::FutureCodeUpgrades::<T>::get(para_id).and_then(|block_num| {
 			// Only read the storage if there's a pending upgrade.
-			Some(block_num).zip(<paras::Pallet<T>>::future_code_hash(para_id))
+			Some(block_num).zip(paras::FutureCodeHash::<T>::get(para_id))
 		});
 
 	let (ump_msg_count, ump_total_bytes) =

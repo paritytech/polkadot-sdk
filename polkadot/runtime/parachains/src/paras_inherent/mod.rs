@@ -615,7 +615,7 @@ impl<T: Config> Pallet<T> {
 			 backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>|
 			 -> bool {
 				let para_id = backed_candidate.descriptor().para_id;
-				let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
+				let prev_context = paras::MostRecentContext::<T>::get(para_id);
 				let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 
 				// never include a concluded-invalid candidate

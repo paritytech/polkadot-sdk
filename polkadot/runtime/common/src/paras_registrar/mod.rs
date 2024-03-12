@@ -451,7 +451,7 @@ impl<T: Config> Registrar for Pallet<T> {
 	// All lease holding parachains. Ordered ascending by ParaId. On-demand parachains are not
 	// included.
 	fn parachains() -> Vec<ParaId> {
-		paras::Pallet::<T>::parachains()
+		paras::Parachains::<T>::get()
 	}
 
 	// Return if a para is a parathread (on-demand parachain)

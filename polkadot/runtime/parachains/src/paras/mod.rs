@@ -706,8 +706,7 @@ pub mod pallet {
 	///
 	/// Consider using the [`ParachainsCache`] type of modifying.
 	#[pallet::storage]
-	#[pallet::getter(fn parachains)]
-	pub(crate) type Parachains<T: Config> = StorageValue<_, Vec<ParaId>, ValueQuery>;
+	pub type Parachains<T: Config> = StorageValue<_, Vec<ParaId>, ValueQuery>;
 
 	/// The current lifecycle of a all known Para IDs.
 	#[pallet::storage]
@@ -715,21 +714,18 @@ pub mod pallet {
 
 	/// The head-data of every registered para.
 	#[pallet::storage]
-	#[pallet::getter(fn para_head)]
-	pub(super) type Heads<T: Config> = StorageMap<_, Twox64Concat, ParaId, HeadData>;
+	pub type Heads<T: Config> = StorageMap<_, Twox64Concat, ParaId, HeadData>;
 
 	/// The context (relay-chain block number) of the most recent parachain head.
 	#[pallet::storage]
-	#[pallet::getter(fn para_most_recent_context)]
-	pub(super) type MostRecentContext<T: Config> =
+	pub type MostRecentContext<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, BlockNumberFor<T>>;
 
 	/// The validation code hash of every live para.
 	///
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	#[pallet::storage]
-	#[pallet::getter(fn current_code_hash)]
-	pub(super) type CurrentCodeHash<T: Config> =
+	pub type CurrentCodeHash<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
 	/// Actual past code hash, indicated by the para id as well as the block number at which it
@@ -744,8 +740,7 @@ pub mod pallet {
 	/// but we also keep their code on-chain for the same amount of time as outdated code
 	/// to keep it available for approval checkers.
 	#[pallet::storage]
-	#[pallet::getter(fn past_code_meta)]
-	pub(super) type PastCodeMeta<T: Config> =
+	pub type PastCodeMeta<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, ParaPastCodeMeta<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Which paras have past code that needs pruning and the relay-chain block at which the code
@@ -762,16 +757,14 @@ pub mod pallet {
 	/// The change will be applied after the first parablock for this ID included which executes
 	/// in the context of a relay chain block with a number >= `expected_at`.
 	#[pallet::storage]
-	#[pallet::getter(fn future_code_upgrade_at)]
-	pub(super) type FutureCodeUpgrades<T: Config> =
+	pub type FutureCodeUpgrades<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, BlockNumberFor<T>>;
 
 	/// The actual future code hash of a para.
 	///
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	#[pallet::storage]
-	#[pallet::getter(fn future_code_hash)]
-	pub(super) type FutureCodeHash<T: Config> =
+	pub type FutureCodeHash<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
 	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
@@ -798,8 +791,7 @@ pub mod pallet {
 	/// NOTE that this field is used by parachains via merkle storage proofs, therefore changing
 	/// the format will require migration of parachains.
 	#[pallet::storage]
-	#[pallet::getter(fn upgrade_restriction_signal)]
-	pub(super) type UpgradeRestrictionSignal<T: Config> =
+	pub type UpgradeRestrictionSignal<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, UpgradeRestriction>;
 
 	/// The list of parachains that are awaiting for their upgrade restriction to cooldown.
@@ -819,8 +811,7 @@ pub mod pallet {
 
 	/// The actions to perform during the start of a specific session index.
 	#[pallet::storage]
-	#[pallet::getter(fn actions_queue)]
-	pub(super) type ActionsQueue<T: Config> =
+	pub type ActionsQueue<T: Config> =
 		StorageMap<_, Twox64Concat, SessionIndex, Vec<ParaId>, ValueQuery>;
 
 	/// Upcoming paras instantiation arguments.
@@ -841,8 +832,7 @@ pub mod pallet {
 	/// This storage is consistent with [`FutureCodeHash`], [`CurrentCodeHash`] and
 	/// [`PastCodeHash`].
 	#[pallet::storage]
-	#[pallet::getter(fn code_by_hash)]
-	pub(super) type CodeByHash<T: Config> =
+	pub type CodeByHash<T: Config> =
 		StorageMap<_, Identity, ValidationCodeHash, ValidationCode>;
 
 	#[pallet::genesis_config]
@@ -1274,7 +1264,7 @@ impl<T: Config> Pallet<T> {
 
 	/// The validation code of live para.
 	pub(crate) fn current_code(para_id: &ParaId) -> Option<ValidationCode> {
-		Self::current_code_hash(para_id).and_then(|code_hash| {
+		CurrentCodeHash::<T>::get(para_id).and_then(|code_hash| {
 			let code = CodeByHash::<T>::get(&code_hash);
 			if code.is_none() {
 				log::error!(
@@ -1442,7 +1432,7 @@ impl<T: Config> Pallet<T> {
 							}
 						}
 
-						meta.is_empty() && Self::para_head(&para_id).is_none()
+						meta.is_empty() && Heads::<T>::get(&para_id).is_none()
 					});
 
 					// This parachain has been removed and now the vestigial code

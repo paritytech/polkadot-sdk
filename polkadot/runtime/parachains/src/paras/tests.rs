@@ -26,6 +26,7 @@ use test_helpers::{dummy_head_data, dummy_validation_code, validator_pubkeys};
 use crate::{
 	configuration::HostConfiguration,
 	mock::{new_test_ext, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin, System, Test},
+	paras,
 };
 
 static VALIDATORS: &[Sr25519Keyring] = &[
@@ -298,7 +299,7 @@ fn para_past_code_pruning_in_initialize() {
 		PastCodePruning::<Test>::put(&vec![(id, included_block)]);
 
 		{
-			let mut code_meta = Paras::past_code_meta(&id);
+			let mut code_meta = paras::PastCodeMeta::<Test>::get(&id);
 			code_meta.note_replacement(at_block, included_block);
 			PastCodeMeta::<Test>::insert(&id, &code_meta);
 		}
@@ -309,12 +310,12 @@ fn para_past_code_pruning_in_initialize() {
 
 		run_to_block(pruned_at - 1, None);
 		assert_eq!(PastCodeHash::<Test>::get(&(id, at_block)), Some(validation_code.hash()));
-		assert_eq!(Paras::past_code_meta(&id).most_recent_change(), Some(at_block));
+		assert_eq!(paras::PastCodeMeta::<Test>::get(&id).most_recent_change(), Some(at_block));
 		check_code_is_stored(&validation_code);
 
 		run_to_block(pruned_at, None);
 		assert!(PastCodeHash::<Test>::get(&(id, at_block)).is_none());
-		assert!(Paras::past_code_meta(&id).most_recent_change().is_none());
+		assert!(paras::PastCodeMeta::<Test>::get(&id).most_recent_change().is_none());
 		check_code_is_not_stored(&validation_code);
 	});
 }
@@ -342,11 +343,11 @@ fn note_new_head_sets_head() {
 	new_test_ext(genesis_config).execute_with(|| {
 		let id_a = ParaId::from(0u32);
 
-		assert_eq!(Paras::para_head(&id_a), Some(dummy_head_data()));
+		assert_eq!(paras::Heads::<Test>::get(&id_a), Some(dummy_head_data()));
 
 		Paras::note_new_head(id_a, vec![1, 2, 3].into(), 0);
 
-		assert_eq!(Paras::para_head(&id_a), Some(vec![1, 2, 3].into()));
+		assert_eq!(paras::Heads::<Test>::get(&id_a), Some(vec![1, 2, 3].into()));
 	});
 }
 
@@ -389,11 +390,11 @@ fn note_past_code_sets_up_pruning_correctly() {
 
 		assert_eq!(PastCodePruning::<Test>::get(), vec![(id_a, 12), (id_b, 23)]);
 		assert_eq!(
-			Paras::past_code_meta(&id_a),
+			paras::PastCodeMeta::<Test>::get(&id_a),
 			ParaPastCodeMeta { upgrade_times: vec![upgrade_at(10, 12)], last_pruned: None }
 		);
 		assert_eq!(
-			Paras::past_code_meta(&id_b),
+			paras::PastCodeMeta::<Test>::get(&id_b),
 			ParaPastCodeMeta { upgrade_times: vec![upgrade_at(20, 23)], last_pruned: None }
 		);
 	});
@@ -455,7 +456,7 @@ fn code_upgrade_applied_after_delay() {
 
 			Paras::note_new_head(para_id, Default::default(), 1);
 
-			assert!(Paras::past_code_meta(&para_id).most_recent_change().is_none());
+			assert!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change().is_none());
 			assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(expected_at));
 			assert_eq!(FutureCodeHash::<Test>::get(&para_id), Some(new_code.hash()));
 			assert_eq!(UpcomingUpgrades::<Test>::get(), vec![(para_id, expected_at)]);
@@ -474,7 +475,7 @@ fn code_upgrade_applied_after_delay() {
 		{
 			Paras::note_new_head(para_id, Default::default(), expected_at - 1);
 
-			assert!(Paras::past_code_meta(&para_id).most_recent_change().is_none());
+			assert!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change().is_none());
 			assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(expected_at));
 			assert_eq!(FutureCodeHash::<Test>::get(&para_id), Some(new_code.hash()));
 			assert_eq!(UpgradeGoAheadSignal::<Test>::get(&para_id), Some(UpgradeGoAhead::GoAhead));
@@ -490,7 +491,7 @@ fn code_upgrade_applied_after_delay() {
 		{
 			Paras::note_new_head(para_id, Default::default(), expected_at);
 
-			assert_eq!(Paras::past_code_meta(&para_id).most_recent_change(), Some(expected_at));
+			assert_eq!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(), Some(expected_at));
 			assert_eq!(
 				PastCodeHash::<Test>::get(&(para_id, expected_at)),
 				Some(original_code.hash()),
@@ -575,7 +576,7 @@ fn code_upgrade_applied_without_setting_go_ahead_signal() {
 
 			Paras::note_new_head(para_id, Default::default(), 1);
 
-			assert!(Paras::past_code_meta(&para_id).most_recent_change().is_none());
+			assert!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change().is_none());
 			assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(expected_at));
 			assert_eq!(FutureCodeHash::<Test>::get(&para_id), Some(new_code.hash()));
 			assert_eq!(UpcomingUpgrades::<Test>::get(), vec![]);
@@ -595,7 +596,7 @@ fn code_upgrade_applied_without_setting_go_ahead_signal() {
 		{
 			Paras::note_new_head(para_id, Default::default(), expected_at - 1);
 
-			assert!(Paras::past_code_meta(&para_id).most_recent_change().is_none());
+			assert!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change().is_none());
 			assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(expected_at));
 			assert_eq!(FutureCodeHash::<Test>::get(&para_id), Some(new_code.hash()));
 			assert!(UpgradeGoAheadSignal::<Test>::get(&para_id).is_none());
@@ -611,7 +612,7 @@ fn code_upgrade_applied_without_setting_go_ahead_signal() {
 		{
 			Paras::note_new_head(para_id, Default::default(), expected_at);
 
-			assert_eq!(Paras::past_code_meta(&para_id).most_recent_change(), Some(expected_at));
+			assert_eq!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(), Some(expected_at));
 			assert_eq!(
 				PastCodeHash::<Test>::get(&(para_id, expected_at)),
 				Some(original_code.hash()),
@@ -692,7 +693,7 @@ fn code_upgrade_applied_after_delay_even_when_late() {
 
 			Paras::note_new_head(para_id, Default::default(), 1);
 
-			assert!(Paras::past_code_meta(&para_id).most_recent_change().is_none());
+			assert!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change().is_none());
 			assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(expected_at));
 			assert_eq!(FutureCodeHash::<Test>::get(&para_id), Some(new_code.hash()));
 			assert_eq!(UpcomingUpgrades::<Test>::get(), vec![(para_id, expected_at)]);
@@ -713,7 +714,7 @@ fn code_upgrade_applied_after_delay_even_when_late() {
 
 			Paras::note_new_head(para_id, Default::default(), expected_at + 4);
 
-			assert_eq!(Paras::past_code_meta(&para_id).most_recent_change(), Some(expected_at));
+			assert_eq!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(), Some(expected_at));
 
 			assert_eq!(
 				PastCodeHash::<Test>::get(&(para_id, expected_at)),
@@ -944,7 +945,7 @@ fn full_parachain_cleanup_storage() {
 
 			Paras::note_new_head(para_id, Default::default(), 1);
 
-			assert!(Paras::past_code_meta(&para_id).most_recent_change().is_none());
+			assert!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change().is_none());
 			assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(expected_at));
 			assert_eq!(FutureCodeHash::<Test>::get(&para_id), Some(new_code.hash()));
 			assert_eq!(Paras::current_code(&para_id), Some(original_code.clone()));
@@ -973,7 +974,7 @@ fn full_parachain_cleanup_storage() {
 		//
 		// Why 7 and 8? See above, the clean up scheduled above was processed at the block 8.
 		// The initial upgrade was enacted at the block 7.
-		assert_eq!(Paras::past_code_meta(&para_id).most_recent_change(), Some(8));
+		assert_eq!(paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(), Some(8));
 		assert_eq!(PastCodeHash::<Test>::get(&(para_id, 8)), Some(new_code.hash()));
 		assert_eq!(PastCodePruning::<Test>::get(), vec![(para_id, 7), (para_id, 8)]);
 		check_code_is_stored(&original_code);
@@ -990,7 +991,7 @@ fn full_parachain_cleanup_storage() {
 		run_to_block(cleaned_up_at, None);
 
 		// now the final cleanup: last past code cleaned up, and this triggers meta cleanup.
-		assert_eq!(Paras::past_code_meta(&para_id), Default::default());
+		assert_eq!(paras::PastCodeMeta::<Test>::get(&para_id), Default::default());
 		assert!(PastCodeHash::<Test>::get(&(para_id, 7)).is_none());
 		assert!(PastCodeHash::<Test>::get(&(para_id, 8)).is_none());
 		assert!(PastCodePruning::<Test>::get().is_empty());
@@ -1127,7 +1128,7 @@ fn para_incoming_at_session() {
 		// run to block without session change.
 		run_to_block(2, None);
 
-		assert_eq!(Paras::parachains(), Vec::new());
+		assert_eq!(paras::Parachains::<Test>::get(), Vec::new());
 		assert_eq!(ActionsQueue::<Test>::get(Paras::scheduled_session()), vec![c, b, a],);
 
 		// Lifecycle is tracked correctly
@@ -1138,7 +1139,7 @@ fn para_incoming_at_session() {
 		// Two sessions pass, so action queue is triggered
 		run_to_block(4, Some(vec![3, 4]));
 
-		assert_eq!(Paras::parachains(), vec![c, b]);
+		assert_eq!(paras::Parachains::<Test>::get(), vec![c, b]);
 		assert_eq!(ActionsQueue::<Test>::get(Paras::scheduled_session()), Vec::new());
 
 		// Lifecycle is tracked correctly
@@ -1204,25 +1205,25 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 		run_to_block(10, None);
 		Paras::note_new_head(para_id, Default::default(), 7);
 
-		assert_eq!(Paras::past_code_meta(&para_id).upgrade_times, vec![upgrade_at(4, 10)]);
+		assert_eq!(paras::PastCodeMeta::<Test>::get(&para_id).upgrade_times, vec![upgrade_at(4, 10)]);
 		assert_eq!(Paras::current_code(&para_id), Some(new_code.clone()));
 
 		// Make sure that the old code is available **before** the code retion period passes.
 		run_to_block(10 + code_retention_period, None);
-		assert_eq!(Paras::code_by_hash(&old_code.hash()), Some(old_code.clone()));
-		assert_eq!(Paras::code_by_hash(&new_code.hash()), Some(new_code.clone()));
+		assert_eq!(paras::CodeByHash::<Test>::get(&old_code.hash()), Some(old_code.clone()));
+		assert_eq!(paras::CodeByHash::<Test>::get(&new_code.hash()), Some(new_code.clone()));
 
 		run_to_block(10 + code_retention_period + 1, None);
 
 		// code entry should be pruned now.
 
 		assert_eq!(
-			Paras::past_code_meta(&para_id),
+			paras::PastCodeMeta::<Test>::get(&para_id),
 			ParaPastCodeMeta { upgrade_times: Vec::new(), last_pruned: Some(10) },
 		);
 
-		assert_eq!(Paras::code_by_hash(&old_code.hash()), None); // pruned :(
-		assert_eq!(Paras::code_by_hash(&new_code.hash()), Some(new_code.clone()));
+		assert_eq!(paras::CodeByHash::<Test>::get(&old_code.hash()), None); // pruned :(
+		assert_eq!(paras::CodeByHash::<Test>::get(&new_code.hash()), Some(new_code.clone()));
 	});
 }
 
@@ -1888,7 +1889,7 @@ fn most_recent_context() {
 
 		let para_id = ParaId::from(111);
 
-		assert_eq!(Paras::para_most_recent_context(para_id), None);
+		assert_eq!(paras::MostRecentContext::<Test>::get(para_id), None);
 
 		assert_ok!(Paras::schedule_para_initialize(
 			para_id,
@@ -1907,16 +1908,16 @@ fn most_recent_context() {
 
 		// Double-check the para is onboarded, the context is set to the recent block.
 		assert_eq!(ParaLifecycles::<Test>::get(&para_id), Some(ParaLifecycle::Parachain));
-		assert_eq!(Paras::para_most_recent_context(para_id), Some(0));
+		assert_eq!(paras::MostRecentContext::<Test>::get(para_id), Some(0));
 
 		// Progress para to the new head and check that the recent context is updated.
 		Paras::note_new_head(para_id, vec![4, 5, 6].into(), 3);
-		assert_eq!(Paras::para_most_recent_context(para_id), Some(3));
+		assert_eq!(paras::MostRecentContext::<Test>::get(para_id), Some(3));
 
 		// Finally, offboard the para and expect the context to be cleared.
 		assert_ok!(Paras::schedule_para_cleanup(para_id));
 		run_to_block(6, Some(vec![5, 6]));
-		assert_eq!(Paras::para_most_recent_context(para_id), None);
+		assert_eq!(paras::MostRecentContext::<Test>::get(para_id), None);
 	})
 }
 

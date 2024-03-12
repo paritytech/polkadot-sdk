@@ -647,7 +647,7 @@ impl<T: Config> Pallet<T> {
 				let relay_parent_hash = backed_candidate.descriptor().relay_parent;
 				let para_id = backed_candidate.descriptor().para_id;
 
-				let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
+				let prev_context = paras::MostRecentContext::<T>::get(para_id);
 
 				let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 				let signing_context = SigningContext {
@@ -830,7 +830,7 @@ impl<T: Config> Pallet<T> {
 		relay_parent_number: BlockNumberFor<T>,
 		validation_outputs: primitives::CandidateCommitments,
 	) -> bool {
-		let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
+		let prev_context = paras::MostRecentContext::<T>::get(para_id);
 		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 
 		if check_ctx
@@ -1242,7 +1242,7 @@ impl<T: Config> CandidateCheckContext<T> {
 			Error::<T>::NotCollatorSigned,
 		);
 
-		let validation_code_hash = <paras::Pallet<T>>::current_code_hash(para_id)
+		let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)
 			// A candidate for a parachain without current validation code is not scheduled.
 			.ok_or_else(|| Error::<T>::UnscheduledCandidate)?;
 		ensure!(

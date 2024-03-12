@@ -223,7 +223,7 @@ pub(crate) fn run_to_block(
 }
 
 pub(crate) fn expected_bits() -> usize {
-	Paras::parachains().len() +
+	paras::Parachains::<Test>::get().len() +
 		configuration::ActiveConfig::<Test>::get().scheduler_params.num_cores as usize
 }
 
@@ -835,7 +835,7 @@ fn supermajority_bitfields_trigger_availability() {
 		});
 
 		// and check that chain head was enacted.
-		assert_eq!(Paras::para_head(&chain_a), Some(vec![1, 2, 3, 4].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_a), Some(vec![1, 2, 3, 4].into()));
 
 		// Check that rewards are applied.
 		{
