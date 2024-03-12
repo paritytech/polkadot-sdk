@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{
-	crypto::{CryptoType, Pair, Public, UncheckedInto},
+	crypto::{Pair, Public, UncheckedInto},
 	sr25519,
 };
 use sp_mixnet::types::AuthorityId as MixnetId;
@@ -248,7 +248,7 @@ pub fn staging_testnet_config() -> ChainSpec {
 }
 
 /// Helper function to generate a crypto pair from seed.
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as CryptoType>::Public {
+pub fn get_from_seed<TPublic: Public>(seed: &str) -> TPublic {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
@@ -257,9 +257,9 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as CryptoTyp
 /// Helper function to generate an account ID from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
-	AccountPublic: From<<TPublic::Pair as CryptoType>::Public>,
+	AccountPublic: From<TPublic>,
 {
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+	AccountPublic::from(get_from_seed(seed)).into_account()
 }
 
 /// Helper function to generate stash, controller and session key from seed.

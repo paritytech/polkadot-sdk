@@ -42,7 +42,7 @@ use sp_std::convert::TryFrom;
 pub mod ecdsa_bls377 {
 	use crate::{
 		bls377,
-		crypto::{impl_crypto_type, CryptoType, CryptoTypeId, Pair as PairT, UncheckedFrom},
+		crypto::{impl_crypto_type, CryptoTypeId, Pair as PairT},
 		ecdsa, Hasher,
 	};
 
@@ -69,6 +69,7 @@ pub mod ecdsa_bls377 {
 		///
 		/// The hasher does not affect the BLS12-377 component. This generates BLS12-377 Signature
 		/// according to IETF standard.
+		#[cfg(feature = "full_crypto")]
 		pub fn sign_with_hasher<H>(&self, message: &[u8]) -> Signature
 		where
 			H: Hasher,

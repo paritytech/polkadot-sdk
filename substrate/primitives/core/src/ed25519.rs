@@ -444,7 +444,6 @@ impl Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl_crypto_type!(Pair, Public, Signature);
 
 #[cfg(test)]
