@@ -40,6 +40,8 @@ use sp_std::convert::TryFrom;
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls377 {
+	#[cfg(feature = "full_crypto")]
+	use crate::crypto::CryptoType;
 	use crate::{
 		bls377,
 		crypto::{impl_crypto_type, CryptoTypeId, Pair as PairT},

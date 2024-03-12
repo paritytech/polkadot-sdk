@@ -65,7 +65,7 @@ pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
 	AccountPublic: From<TPublic>,
 {
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+	AccountPublic::from(get_from_seed(seed)).into_account()
 }
 
 pub fn get_host_config() -> HostConfiguration<BlockNumber> {

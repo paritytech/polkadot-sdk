@@ -79,10 +79,7 @@ pub trait AppPublic:
 pub trait AppSignature:
 	AppCrypto
 	+ Signature<Pair = <Self as AppCrypto>::Pair, Public = <Self as AppCrypto>::Public>
-	+ Eq
-	+ PartialEq
 	+ Debug
-	+ Clone
 {
 	/// The wrapped type which is just a plain instance of `Signature`.
 	type Generic: IsWrappedBy<Self> + Eq + PartialEq + Debug;

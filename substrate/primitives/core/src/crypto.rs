@@ -490,7 +490,10 @@ pub trait Public:
 }
 
 /// Trait for cryptographic key signatures;
-pub trait Signature: CryptoType<Signature = Self> + AsRef<[u8]> {}
+pub trait Signature:
+	CryptoType<Signature = Self> + AsRef<[u8]> + PartialEq + Eq + Clone + Send + Sync + Hash
+{
+}
 
 /// An opaque 32-byte cryptographic identifier.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo, Hash)]
@@ -1258,6 +1261,7 @@ mod tests {
 		}
 	}
 
+	#[derive(Clone, PartialEq, Eq, Hash, Default)]
 	struct TestSignature;
 
 	impl Signature for TestSignature {}
