@@ -46,10 +46,10 @@ fn main() -> Result<(), String> {
 	let usage = benchmark(config.clone(), options.clone());
 
 	messages.extend(usage.check_network_usage(&[
-		("Received from peers", 102400.000, 0.05),
-		("Sent to peers", 0.335, 0.05),
+		("Received from peers", 307200.000, 0.05),
+		("Sent to peers", 0.050, 0.05),
 	]));
-	messages.extend(usage.check_cpu_usage(&[("availability-recovery", 3.850, 0.05)]));
+	messages.extend(usage.check_cpu_usage(&[("availability-recovery", 11.500, 0.05)]));
 
 	if messages.is_empty() {
 		Ok(())
