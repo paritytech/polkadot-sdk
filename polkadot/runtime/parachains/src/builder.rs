@@ -155,6 +155,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	}
 
 	/// Set a map from core/para id seed to number of validity votes.
+	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn set_elastic_paras(mut self, elastic_paras: BTreeMap<u32, u8>) -> Self {
 		self.elastic_paras = elastic_paras;
 		self
@@ -254,16 +255,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		(Self::fallback_max_validators() / 2) + 1
 	}
 
-	/// Create para id, core index, and grab the associated group index from the scheduler pallet.
-	fn create_indexes(&self, seed: u32) -> (ParaId, CoreIndex, GroupIndex) {
-		let para_id = ParaId::from(seed);
-		let core_idx = CoreIndex(seed);
-		let group_idx =
-			scheduler::Pallet::<T>::group_assigned_to_core(core_idx, self.block_number).unwrap();
-
-		(para_id, core_idx, group_idx)
-	}
-
 	fn mock_head_data() -> HeadData {
 		let max_head_size = configuration::Pallet::<T>::config().max_head_data_size;
 		HeadData(vec![0xFF; max_head_size as usize])
@@ -340,6 +331,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Create an `AvailabilityBitfield` where `concluding` is a map where each key is a core index
 	/// that is concluding and `cores` is the total number of cores in the system.
 	fn availability_bitvec(concluding: &BTreeMap<u32, u32>, cores: u32) -> AvailabilityBitfield {
+		log::debug!("availability_bitvec for {}", cores);
 		let mut bitfields = bitvec::bitvec![u8, bitvec::order::Lsb0; 0; 0];
 		for i in 0..cores {
 			if concluding.get(&(i as u32)).is_some() {
@@ -679,6 +671,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			self.validators.as_ref().expect("must have some validators prior to calling");
 
 		let dispute_sessions = dispute_sessions.as_ref();
+		let mut current_core_idx = start;
+
 		(start..last)
 			.map(|seed| {
 				let dispute_session_idx = (seed - start) as usize;
@@ -687,7 +681,14 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					.cloned()
 					.unwrap_or(self.target_session);
 
-				let (para_id, core_idx, group_idx) = self.create_indexes(seed);
+				let para_id = ParaId::from(seed);
+				let core_idx = CoreIndex::from(current_core_idx);
+				current_core_idx +=1;
+
+				let group_idx =
+					scheduler::Pallet::<T>::group_assigned_to_core(core_idx, self.block_number)
+						.unwrap();
+
 				let candidate_hash = CandidateHash(H256::from(byte32_slice_from(seed)));
 				let relay_parent = H256::from(byte32_slice_from(seed));
 
@@ -754,7 +755,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 		// NOTE: there is an n+2 session delay for these actions to take effect.
 		// We are currently in Session 0, so these changes will take effect in Session 2.
-		Self::setup_para_ids(self.backed_and_concluding_cores.len() as u32);
+		Self::setup_para_ids(used_cores);
 		configuration::ActiveConfig::<T>::mutate(|c| {
 			c.scheduler_params.num_cores = used_cores;
 		});
@@ -779,6 +780,13 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			used_cores,
 			builder.dispute_sessions.as_slice(),
 		);
+		let mut disputed_cores = (builder.backed_and_concluding_cores.len() as u32..used_cores)
+			.into_iter()
+			.map(|idx| (idx, 0))
+			.collect::<BTreeMap<_, _>>();
+
+		let mut all_cores = builder.backed_and_concluding_cores.clone();
+		all_cores.append(&mut disputed_cores);
 
 		assert_eq!(inclusion::PendingAvailability::<T>::iter().count(), used_cores as usize,);
 
@@ -790,8 +798,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let mut core_idx = 0u32;
 		let elastic_paras = &builder.elastic_paras;
 		// Assign potentially multiple cores to same parachains,
-		let cores = builder
-			.backed_and_concluding_cores
+		let cores = all_cores
 			.iter()
 			.map(|(para_id, _)| {
 				(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
@@ -815,8 +822,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 		core_idx = 0u32;
 		if fill_claimqueue {
-			let cores = builder
-				.backed_and_concluding_cores
+			let cores = all_cores
 				.iter()
 				.map(|(para_id, _)| {
 					(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
