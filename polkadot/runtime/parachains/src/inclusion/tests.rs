@@ -398,8 +398,10 @@ fn collect_timedout() {
 	new_test_ext(config).execute_with(|| {
 		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
 
-		let timed_out_cores =
-			ParaInclusion::collect_timedout(Scheduler::availability_timeout_predicate(), &mut overlay);
+		let timed_out_cores = ParaInclusion::collect_timedout(
+			Scheduler::availability_timeout_predicate(),
+			&mut overlay,
+		);
 		assert!(timed_out_cores.is_empty());
 
 		let make_candidate = |core_index: u32, timed_out: bool| {
@@ -472,14 +474,16 @@ fn collect_timedout() {
 
 		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
 
-		let timed_out_cores =
-			ParaInclusion::collect_timedout(Scheduler::availability_timeout_predicate(), &mut overlay);
+		let timed_out_cores = ParaInclusion::collect_timedout(
+			Scheduler::availability_timeout_predicate(),
+			&mut overlay,
+		);
 		// Write back to storage only keys that have been updated or deleted.
-		
+
 		for (para_id, candidates) in overlay.into_iter() {
 			<PendingAvailability<Test>>::set(para_id, candidates);
 		}
-		
+
 		assert_eq!(
 			timed_out_cores,
 			vec![
@@ -540,12 +544,13 @@ fn collect_disputed() {
 	new_test_ext(config).execute_with(|| {
 		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
 
-		let disputed_cores = ParaInclusion::collect_disputed(&BTreeSet::new(), &mut overlay).collect::<Vec<_>>();
+		let disputed_cores =
+			ParaInclusion::collect_disputed(&BTreeSet::new(), &mut overlay).collect::<Vec<_>>();
 		assert!(disputed_cores.is_empty());
 
 		let disputed_cores = ParaInclusion::collect_disputed(
 			&[CandidateHash::default()].into_iter().collect::<BTreeSet<_>>(),
-			&mut overlay
+			&mut overlay,
 		)
 		.collect::<Vec<_>>();
 		assert!(disputed_cores.is_empty());
@@ -608,7 +613,8 @@ fn collect_disputed() {
 
 		<PendingAvailability<Test>>::insert(&chain_f, f_candidates);
 
-		run_to_block(5, |_| None);
+		// Run to block 5 makes the test fail, as chain_b candidate doesn't time out and it should.
+		run_to_block(6, |_| None);
 
 		assert_eq!(<PendingAvailability<Test>>::get(&chain_a).unwrap().len(), 1);
 		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
@@ -617,7 +623,6 @@ fn collect_disputed() {
 		assert_eq!(<PendingAvailability<Test>>::get(&chain_e).unwrap().len(), 3);
 		assert_eq!(<PendingAvailability<Test>>::get(&chain_f).unwrap().len(), 3);
 
-		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
 		let disputed_candidates = [
 			CandidateHash(Hash::from_low_u64_be(0)),
 			CandidateHash(Hash::from_low_u64_be(2)),
@@ -627,6 +632,9 @@ fn collect_disputed() {
 		]
 		.into_iter()
 		.collect::<BTreeSet<_>>();
+
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 		let disputed_cores = ParaInclusion::collect_disputed(&disputed_candidates, &mut overlay);
 
 		assert_eq!(
@@ -1080,9 +1088,8 @@ fn supermajority_bitfields_trigger_availability() {
 		);
 		assert_eq!(checked_bitfields.len(), old_len, "No bitfields should have been filtered!");
 
-		
 		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
-		
+
 		// only chain A's core and candidate's C1 core are freed.
 		let v = process_bitfields(checked_bitfields, core_lookup, &mut overlay);
 		for (para_id, candidates) in overlay.into_iter() {

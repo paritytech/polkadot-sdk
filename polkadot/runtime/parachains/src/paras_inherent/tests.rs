@@ -1979,6 +1979,7 @@ mod sanitizers {
 		#[case(true)]
 		fn happy_path(#[case] core_index_enabled: bool) {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let overlay = PendingAvailabilityOverlay::<Test>::new();
 				let TestData {
 					backed_candidates,
 					all_backed_candidates_with_core,
@@ -1991,7 +1992,8 @@ mod sanitizers {
 						&<shared::Pallet<Test>>::allowed_relay_parents(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled
+						core_index_enabled,
+						&overlay,
 					),
 					all_backed_candidates_with_core,
 				);
@@ -2003,6 +2005,8 @@ mod sanitizers {
 		#[case(true)]
 		fn test_with_multiple_cores_per_para(#[case] core_index_enabled: bool) {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let overlay = PendingAvailabilityOverlay::<Test>::new();
+
 				let TestData {
 					backed_candidates,
 					all_backed_candidates_with_core: expected_all_backed_candidates_with_core,
@@ -2015,7 +2019,8 @@ mod sanitizers {
 						&<shared::Pallet<Test>>::allowed_relay_parents(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled
+						core_index_enabled,
+						&overlay,
 					),
 					expected_all_backed_candidates_with_core,
 				);
@@ -2033,6 +2038,8 @@ mod sanitizers {
 			#[case] multiple_cores_per_para: bool,
 		) {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let overlay = PendingAvailabilityOverlay::<Test>::new();
+
 				let TestData { backed_candidates, .. } = if multiple_cores_per_para {
 					get_test_data_multiple_cores_per_para(core_index_enabled)
 				} else {
@@ -2046,6 +2053,7 @@ mod sanitizers {
 					BTreeSet::new(),
 					scheduled,
 					core_index_enabled,
+					&overlay,
 				);
 
 				assert!(sanitized_backed_candidates.is_empty());
@@ -2058,6 +2066,8 @@ mod sanitizers {
 		#[case(true)]
 		fn invalid_are_filtered_out(#[case] core_index_enabled: bool) {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let overlay = PendingAvailabilityOverlay::<Test>::new();
+
 				let TestData { backed_candidates, scheduled_paras: scheduled, .. } =
 					get_test_data(core_index_enabled);
 
@@ -2080,6 +2090,7 @@ mod sanitizers {
 					set,
 					scheduled,
 					core_index_enabled,
+					&overlay,
 				);
 
 				assert_eq!(sanitized_backed_candidates.len(), backed_candidates.len() / 2);
