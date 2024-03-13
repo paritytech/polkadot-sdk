@@ -24,7 +24,7 @@ use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 
-#[cfg(any(feature = "rococo-native", feature = "westend-native",))]
+#[cfg(feature = "westend-native")]
 use polkadot_primitives::vstaging::SchedulerParams;
 #[cfg(feature = "rococo-native")]
 use rococo_runtime as rococo;
@@ -116,7 +116,7 @@ pub fn wococo_config() -> Result<RococoChainSpec, String> {
 }
 
 /// The default parachains host configuration.
-#[cfg(any(feature = "rococo-native", feature = "westend-native",))]
+#[cfg(feature = "westend-native")]
 fn default_parachains_host_configuration(
 ) -> polkadot_runtime_parachains::configuration::HostConfiguration<polkadot_primitives::BlockNumber>
 {
@@ -168,7 +168,7 @@ fn default_parachains_host_configuration(
 	}
 }
 
-#[cfg(any(feature = "rococo-native", feature = "westend-native",))]
+#[cfg(feature = "westend-native")]
 #[test]
 fn default_parachains_host_configuration_is_consistent() {
 	default_parachains_host_configuration().panic_if_not_consistent();
@@ -486,7 +486,7 @@ pub fn get_authority_keys_from_seed_no_beefy(
 	)
 }
 
-#[cfg(any(feature = "westend-native", feature = "rococo-native"))]
+#[cfg(feature = "westend-native")]
 fn testnet_accounts() -> Vec<AccountId> {
 	vec![
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
