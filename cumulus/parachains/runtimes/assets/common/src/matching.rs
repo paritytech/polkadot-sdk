@@ -113,17 +113,14 @@ impl<UniversalLocation: Get<InteriorLocation>, Reserves: ContainsPair<Asset, Loc
 		);
 
 		// check remote origin
-		let _ = match ensure_is_remote(universal_source.clone(), origin.clone()) {
-			Ok(devolved) => devolved,
-			Err(_) => {
-				log::trace!(
-					target: "xcm::contains",
-					"IsTrustedBridgedReserveLocationForConcreteAsset origin: {:?} is not remote to the universal_source: {:?}",
-					origin, universal_source
-				);
-				return false
-			},
-		};
+		if ensure_is_remote(universal_source.clone(), origin.clone()).is_err() {
+			log::trace!(
+				target: "xcm::contains",
+				"IsTrustedBridgedReserveLocationForConcreteAsset origin: {:?} is not remote to the universal_source: {:?}",
+				origin, universal_source
+			);
+			return false
+		}
 
 		// check asset according to the configured reserve locations
 		Reserves::contains(asset, origin)
