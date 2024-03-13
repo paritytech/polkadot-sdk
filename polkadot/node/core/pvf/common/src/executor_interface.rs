@@ -24,7 +24,7 @@ use polkadot_primitives::{
 use sc_executor_common::{
 	error::WasmError,
 	runtime_blob::RuntimeBlob,
-	wasm_runtime::{HeapAllocStrategy, InvokeMethod, WasmModule as _},
+	wasm_runtime::{HeapAllocStrategy, WasmModule as _},
 };
 use sc_executor_wasmtime::{Config, DeterministicStackLimit, Semantics, WasmtimeRuntime};
 use sp_core::storage::{ChildInfo, TrackedStorageKey};
@@ -119,7 +119,7 @@ pub unsafe fn execute_artifact(
 
 	match sc_executor::with_externalities_safe(&mut ext, || {
 		let runtime = create_runtime_from_artifact_bytes(compiled_artifact_blob, executor_params)?;
-		runtime.new_instance()?.call(InvokeMethod::Export("validate_block"), params)
+		runtime.new_instance()?.call("validate_block", params)
 	}) {
 		Ok(Ok(ok)) => Ok(ok),
 		Ok(Err(err)) | Err(err) => Err(err),

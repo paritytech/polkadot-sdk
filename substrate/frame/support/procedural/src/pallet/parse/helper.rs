@@ -148,6 +148,12 @@ impl MutItemAttrs for syn::ImplItemFn {
 	}
 }
 
+impl MutItemAttrs for syn::ItemType {
+	fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
+		Some(&mut self.attrs)
+	}
+}
+
 /// Parse for `()`
 struct Unit;
 impl syn::parse::Parse for Unit {

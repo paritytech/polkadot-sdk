@@ -16,7 +16,7 @@
 
 //! availability-read regression tests
 //!
-//! TODO: Explain the test case after configuration adjusted to Kusama
+//! Availability read benchmark based on Kusama parameters and scale.
 //!
 //! Subsystems involved:
 //! - availability-distribution
@@ -25,28 +25,19 @@
 
 use polkadot_subsystem_bench::{
 	availability::{benchmark_availability_write, prepare_test, TestDataAvailability, TestState},
-	configuration::{PeerLatency, TestConfiguration},
+	configuration::TestConfiguration,
 	usage::BenchmarkUsage,
 };
 
 const BENCH_COUNT: usize = 3;
-const WARM_UP_COUNT: usize = 20;
+const WARM_UP_COUNT: usize = 30;
 const WARM_UP_PRECISION: f64 = 0.01;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
-
-	// TODO: Adjust the test configurations to Kusama values
 	let mut config = TestConfiguration::default();
-	config.latency = Some(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 });
-	config.n_validators = 1000;
-	config.n_cores = 200;
-	config.max_validators_per_core = 5;
-	config.min_pov_size = 5120;
-	config.max_pov_size = 5120;
-	config.peer_bandwidth = 52428800;
-	config.bandwidth = 52428800;
-	config.connectivity = 75;
+	// A single node effort roughly n_cores * needed_approvals / n_validators = 60 * 30 / 300
+	config.n_cores = 6;
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
 

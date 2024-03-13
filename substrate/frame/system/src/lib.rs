@@ -310,7 +310,7 @@ pub mod pallet {
 			type PostTransactions = ();
 		}
 
-		/// Default configurations of this pallet in a solo-chain environment.
+		/// Default configurations of this pallet in a solochain environment.
 		///
 		/// ## Considerations:
 		///
