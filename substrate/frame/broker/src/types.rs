@@ -231,6 +231,7 @@ pub struct SaleInfoRecord<Balance, BlockNumber> {
 	/// Number of cores which have been sold; never more than cores_offered.
 	pub cores_sold: CoreIndex,
 }
+
 pub type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, BlockNumberFor<T>>;
 
 /// Record for Polkadot Core reservations (generally tasked with the maintenance of System

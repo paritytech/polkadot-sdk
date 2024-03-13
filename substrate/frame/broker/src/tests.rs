@@ -198,6 +198,19 @@ fn transfer_works() {
 }
 
 #[test]
+fn create_listing_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_create_listing(1, region.into(), 100));
+		//assert_eq!(<Broker as NftInspect<_>>::owner(&region.into()), Some(2));
+		//assert_noop!(Broker::do_assign(region, Some(1), 1001, Final), Error::<Test>::NotOwner);
+		//assert_ok!(Broker::do_assign(region, Some(2), 1002, Final));
+	});
+}
+
+#[test]
 fn mutate_operations_unsupported_for_regions() {
 	TestExt::new().execute_with(|| {
 		let region_id = RegionId { begin: 0, core: 0, mask: CoreMask::complete() };

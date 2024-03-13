@@ -51,9 +51,6 @@ pub mod pallet {
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
 			fungible::{Balanced, Credit, Mutate},
-			tokens::{
-				Preservation::Preserve,
-			},
 			EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
@@ -166,13 +163,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
 
-    /// The listings of regions available for sale.
+    /// The listings of regions available for secondary market sale.
     #[pallet::storage]
     pub type Listings<T: Config> = StorageMap<
         _,
         Twox64Concat,
         RegionId,
-        (T::AccountId, BalanceOf<T>), // (owner, price, expiry)
+        BalanceOf<T>, // price
         OptionQuery
     >;
 
@@ -502,15 +499,9 @@ pub mod pallet {
 		InvalidConfig,
 
         /// The region is not available for listing.
-        NotAvailableForListing,
-        /// The listing has already expired.
-        ListingExpired,
-        /// The region does not exist.
-        RegionDoesNotExist,
-        /// The region is not owned by the caller.
-        NotRegionOwner,
-        /// Insufficient balance to buy the region.
-        InsufficientBalance,
+        UnknownListing,
+        /// The listing has an invalid price.
+        InvalidPrice,
 	}
 
 	#[pallet::hooks]
@@ -825,56 +816,33 @@ pub mod pallet {
 		}
 
         /// Create a new listing for a region that you own.
+		/// The listing will be available for purchase by other users.
+		/// - `origin`: Must be a Signed origin.
+		/// - `region_id`: The region to list for sale.
+		/// - `price`: The price at which to list the region.
 		#[pallet::call_index(20)]
         pub fn create_listing(
             origin: OriginFor<T>,
             region_id: RegionId,
             price: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-            ensure!(
-                Regions::<T>::contains_key(&region_id),
-                Error::<T>::RegionDoesNotExist
-            );
-            let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::RegionDoesNotExist)?;
-            ensure!(region.owner == who, Error::<T>::NotRegionOwner);
-
-			// let's leave the expiry to be the block number + the listing duration for now
-            //let expiry = frame_system::Pallet::<T>::block_number() + T::ListingDuration::get();
-            Listings::<T>::insert(region_id, (who.clone(), price));
-            Self::deposit_event(Event::ListingCreated {
-                region_id,
-                owner: who,
-                price,
-            });
+			let who = ensure_signed(origin)?;
+			Self::do_create_listing(who, region_id, price)?;
             Ok(().into())
         }
 
         /// Purchase a listed region.
+		/// - `origin`: Must be a Signed origin.
+		/// - `region_id`: The region to purchase.
 		#[pallet::call_index(21)]
-        #[pallet::weight(10_000)]
-        pub fn execute_sale(
+        #[pallet::weight({10_000})]
+        pub fn purchase_listed(
             origin: OriginFor<T>,
             region_id: RegionId,
         ) -> DispatchResultWithPostInfo {
-            let buyer = ensure_signed(origin)?;
-            let (owner, price) = Listings::<T>::get(&region_id).ok_or(Error::<T>::NotAvailableForListing)?;
-            //ensure!(frame_system::Pallet::<T>::block_number() <= expiry, Error::<T>::ListingExpired);
-            
-            // Transfer funds from buyer to seller
-            T::Currency::transfer(&buyer, &owner, price, Preserve)?;
-
-            // Transfer region ownership
-			Self::do_transfer(region_id, Some(owner.clone()), buyer.clone())?;
-
-            Listings::<T>::remove(region_id);
-            Self::deposit_event(Event::RegionSold {
-                region_id,
-                seller: owner,
-                buyer,
-                price,
-            });
-            Ok(().into())
+			let who = ensure_signed(origin)?;
+            Self::do_purchase_listed(who, region_id)?;
+			Ok(Pays::No.into())
         }
 	}
 }
