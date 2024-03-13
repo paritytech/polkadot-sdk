@@ -27,6 +27,7 @@ use sp_runtime::{
 };
 
 use crate as pallet_bridge_parachains;
+use crate::{ParaHash, ParachainHeadsUpdateFilter, RelayBlockHash, RelayBlockNumber};
 
 pub type AccountId = u64;
 
@@ -198,10 +199,22 @@ impl pallet_bridge_parachains::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type BridgesGrandpaPalletInstance = pallet_bridge_grandpa::Instance1;
+	type FreeHeadsUpdateFilter = FreeForParachain2;
 	type ParasPalletName = ParasPalletName;
 	type ParaStoredHeaderDataBuilder = (Parachain1, Parachain2, Parachain3, BigParachain);
 	type HeadsToKeep = HeadsToKeep;
 	type MaxParaHeadDataSize = ConstU32<MAXIMAL_PARACHAIN_HEAD_DATA_SIZE>;
+}
+
+pub struct FreeForParachain2;
+
+impl ParachainHeadsUpdateFilter for FreeForParachain2 {
+	fn is_free(
+		_at_relay_block: (RelayBlockNumber, RelayBlockHash),
+		parachains: &[(ParaId, ParaHash)],
+	) -> bool {
+		parachains.len() == 1 && parachains[0].0 .0 == Parachain2::PARACHAIN_ID
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]

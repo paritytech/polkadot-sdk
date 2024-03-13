@@ -65,6 +65,24 @@ pub type RelayBlockNumber = bp_polkadot_core::BlockNumber;
 /// Hasher of the bridged relay chain.
 pub type RelayBlockHasher = bp_polkadot_core::Hasher;
 
+/// A filter of parachain head updates.
+pub trait ParachainHeadsUpdateFilter {
+	/// Returns true if the update passes the filter.
+	fn is_free(
+		at_relay_block: (RelayBlockNumber, RelayBlockHash),
+		parachains: &[(ParaId, ParaHash)],
+	) -> bool;
+}
+
+impl ParachainHeadsUpdateFilter for () {
+	fn is_free(
+		_at_relay_block: (RelayBlockNumber, RelayBlockHash),
+		_parachains: &[(ParaId, ParaHash)],
+	) -> bool {
+		false
+	}
+}
+
 /// Artifacts of the parachains head update.
 struct UpdateParachainHeadArtifacts {
 	/// New best head of the parachain.
@@ -193,6 +211,20 @@ pub mod pallet {
 		/// The GRANDPA pallet instance must be configured to import headers of relay chain that
 		/// we're interested in.
 		type BridgesGrandpaPalletInstance: 'static;
+
+		/// A way to make `submit_parachain_heads` free for the submitter. If update passes
+		/// this filter AND at least one parachain head has been updated in the call, the
+		/// submission will be free for the submitter.
+		///
+		/// It can be used to reduce bridge fees by deducting parachain finality submission cost
+		/// from the total fee. Instead, relayers may submit some headers for free, allowing
+		/// queued messages (and confirmations) to be proved without providing additional
+		/// finality proofs.
+		///
+		/// **IMPORTANT**: we are NOT limiting number of free calls per block. The filter must
+		/// take that into account or anyone could fill the block with parachain head updates
+		/// for free.
+		type FreeHeadsUpdateFilter: ParachainHeadsUpdateFilter;
 
 		/// Name of the original `paras` pallet in the `construct_runtime!()` call at the bridged
 		/// chain.
@@ -339,6 +371,9 @@ pub mod pallet {
 			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
 			ensure_signed(origin)?;
 
+			// check whether this submission may be refunded
+			let may_be_free = T::FreeHeadsUpdateFilter::is_free(at_relay_block, &parachains);
+
 			// we'll need relay chain header to verify that parachains heads are always increasing.
 			let (relay_block_number, relay_block_hash) = at_relay_block;
 			let relay_block = pallet_bridge_grandpa::ImportedHeaders::<
@@ -358,6 +393,7 @@ pub mod pallet {
 				parachains.len() as _,
 			);
 
+			let mut is_updated_something = false;
 			let mut storage = GrandpaPalletOf::<T, I>::storage_proof_checker(
 				relay_block_hash,
 				parachain_heads_proof.storage_proof,
@@ -437,6 +473,7 @@ pub mod pallet {
 							parachain_head_data,
 							parachain_head_hash,
 						)?;
+						is_updated_something = true;
 						*stored_best_head = Some(artifacts.best_head);
 						Ok(artifacts.prune_happened)
 					});
@@ -467,7 +504,11 @@ pub mod pallet {
 				Error::<T, I>::HeaderChainStorageProof(HeaderChainError::StorageProof(e))
 			})?;
 
-			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::Yes })
+			// we allow free submissions only if the update passes filter and something
+			// has been updated
+			let pays_fee = if is_updated_something && may_be_free { Pays::No } else { Pays::Yes };
+
+			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
 		}
 
 		/// Change `PalletOwner`.
@@ -736,6 +777,7 @@ pub(crate) mod tests {
 	use frame_support::{
 		assert_noop, assert_ok,
 		dispatch::DispatchResultWithPostInfo,
+		pallet_prelude::Pays,
 		storage::generator::{StorageDoubleMap, StorageMap},
 		traits::{Get, OnInitialize},
 		weights::Weight,
@@ -990,7 +1032,8 @@ pub(crate) mod tests {
 		run_test(|| {
 			// start with relay block #0 and import head#5 of parachain#1
 			initialize(state_root_5);
-			assert_ok!(import_parachain_1_head(0, state_root_5, parachains_5, proof_5));
+			let result = import_parachain_1_head(0, state_root_5, parachains_5, proof_5);
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 			assert_eq!(
 				ParasInfo::<TestRuntime>::get(ParaId(1)),
 				Some(ParaInfo {
@@ -1646,6 +1689,32 @@ pub(crate) mod tests {
 				),
 				DispatchError::BadOrigin
 			);
+		})
+	}
+
+	#[test]
+	fn may_be_free_for_submitter() {
+		run_test(|| {
+			let (state_root, proof, parachains) =
+				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, head_data(2, 5))]);
+			// start with relay block #0 and import head#5 of parachain#2
+			initialize(state_root);
+			// first submission is free
+			let result = Pallet::<TestRuntime>::submit_parachain_heads(
+				RuntimeOrigin::signed(1),
+				(0, test_relay_header(0, state_root).hash()),
+				parachains.clone(),
+				proof.clone(),
+			);
+			assert_eq!(result.unwrap().pays_fee, Pays::No);
+			// next submission is NOT free, because we haven't updated anything
+			let result = Pallet::<TestRuntime>::submit_parachain_heads(
+				RuntimeOrigin::signed(1),
+				(0, test_relay_header(0, state_root).hash()),
+				parachains,
+				proof,
+			);
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 		})
 	}
 }
