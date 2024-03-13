@@ -595,9 +595,10 @@ impl<T: Config> Pallet<T> {
 	/// Process candidates that have been backed. Provide a set of
 	/// candidates along with their scheduled cores.
 	///
-	/// Candidates of a paraid should sorted ascending by core index. If this condition is not met,
-	/// candidates of the para which don't satisfy this criteria will be dropped. (This really
-	/// should not happen here, if the candidates were properly sanitised in paras_inherent).
+	/// Candidates of the same paraid should be sorted according to their dependency order (they
+	/// should form a chain). If this condition is not met, this function will return an error.
+	/// (This really should not happen here, if the candidates were properly sanitised in
+	/// paras_inherent).
 	pub(crate) fn process_candidates<GV>(
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,

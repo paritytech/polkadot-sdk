@@ -1204,6 +1204,7 @@ fn candidate_checks() {
 		Sr25519Keyring::Charlie,
 		Sr25519Keyring::Dave,
 		Sr25519Keyring::Ferdie,
+		Sr25519Keyring::One,
 	];
 	let keystore: KeystorePtr = Arc::new(LocalKeystore::in_memory());
 	for validator in validators.iter() {
@@ -1230,7 +1231,8 @@ fn candidate_checks() {
 				group_index if group_index == GroupIndex::from(0) => Some(vec![0, 1]),
 				group_index if group_index == GroupIndex::from(1) => Some(vec![2, 3]),
 				group_index if group_index == GroupIndex::from(2) => Some(vec![4]),
-				_ => panic!("Group index out of bounds for 2 parachains and 1 parathread core"),
+				group_index if group_index == GroupIndex::from(3) => Some(vec![5]),
+				_ => panic!("Group index out of bounds"),
 			}
 			.map(|m| m.into_iter().map(ValidatorIndex).collect::<Vec<_>>())
 		};
@@ -1240,12 +1242,12 @@ fn candidate_checks() {
 			vec![ValidatorIndex(0), ValidatorIndex(1)],
 			vec![ValidatorIndex(2), ValidatorIndex(3)],
 			vec![ValidatorIndex(4)],
+			vec![ValidatorIndex(5)],
 		];
 		Scheduler::set_validator_groups(validator_groups);
 
 		let thread_collator: CollatorId = Sr25519Keyring::Two.public().into();
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
-
 		let chain_b_assignment = (chain_b, CoreIndex::from(1));
 
 		let thread_a_assignment = (thread_a, CoreIndex::from(2));
@@ -1262,7 +1264,7 @@ fn candidate_checks() {
 			Ok(ProcessedCandidates::default())
 		);
 
-		// candidates out of order.
+		// Check candidate ordering
 		{
 			let mut candidate_a = TestCandidateBuilder {
 				para_id: chain_a,
@@ -1273,19 +1275,37 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-			let mut candidate_b = TestCandidateBuilder {
+			let mut candidate_b_1 = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(2),
 				persisted_validation_data_hash: make_vdata_hash(chain_b).unwrap(),
 				hrmp_watermark: RELAY_PARENT_NUM,
+				head_data: HeadData(vec![1, 2, 3]),
+				..Default::default()
+			}
+			.build();
+
+			// Make candidate b2 a child of b1.
+			let mut candidate_b_2 = TestCandidateBuilder {
+				para_id: chain_b,
+				relay_parent: System::parent_hash(),
+				pov_hash: Hash::repeat_byte(3),
+				persisted_validation_data_hash: make_persisted_validation_data_with_parent::<Test>(
+					RELAY_PARENT_NUM,
+					Default::default(),
+					candidate_b_1.commitments.head_data.clone(),
+				)
+				.hash(),
+				hrmp_watermark: RELAY_PARENT_NUM,
+				head_data: HeadData(vec![5, 6, 7]),
 				..Default::default()
 			}
 			.build();
 
 			collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
-
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b);
+			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b_1);
+			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b_2);
 
 			let backed_a = back_candidate(
 				candidate_a,
@@ -1297,8 +1317,18 @@ fn candidate_checks() {
 				None,
 			);
 
-			let backed_b = back_candidate(
-				candidate_b,
+			let backed_b_1 = back_candidate(
+				candidate_b_1.clone(),
+				&validators,
+				group_validators(GroupIndex::from(2)).unwrap().as_ref(),
+				&keystore,
+				&signing_context,
+				BackingKind::Threshold,
+				None,
+			);
+
+			let backed_b_2 = back_candidate(
+				candidate_b_2,
 				&validators,
 				group_validators(GroupIndex::from(1)).unwrap().as_ref(),
 				&keystore,
@@ -1307,19 +1337,83 @@ fn candidate_checks() {
 				None,
 			);
 
-			// no longer needed to be sorted by core index.
-			assert!(ParaInclusion::process_candidates(
+			// candidates are required to be sorted in dependency order.
+			assert_noop!(
+				ParaInclusion::process_candidates(
+					&allowed_relay_parents,
+					&vec![(
+						chain_b,
+						vec![
+							(backed_b_2.clone(), CoreIndex(1)),
+							(backed_b_1.clone(), CoreIndex(2))
+						]
+					),]
+					.into_iter()
+					.collect(),
+					&group_validators,
+					false
+				),
+				Error::<Test>::ValidationDataHashMismatch
+			);
+
+			// candidates are no longer required to be sorted by core index.
+			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
 				&vec![
-					(chain_b_assignment.0, vec![(backed_b, chain_b_assignment.1)]),
-					(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])
+					(
+						chain_b,
+						vec![
+							(backed_b_1.clone(), CoreIndex(2)),
+							(backed_b_2.clone(), CoreIndex(1)),
+						],
+					),
+					(chain_a_assignment.0, vec![(backed_a.clone(), chain_a_assignment.1)]),
 				]
 				.into_iter()
 				.collect(),
 				&group_validators,
-				false
+				false,
 			)
-			.is_ok());
+			.unwrap();
+
+			// candidate does not build on top of the latest unincluded head
+
+			let mut candidate_b_3 = TestCandidateBuilder {
+				para_id: chain_b,
+				relay_parent: System::parent_hash(),
+				pov_hash: Hash::repeat_byte(4),
+				persisted_validation_data_hash: make_persisted_validation_data_with_parent::<Test>(
+					RELAY_PARENT_NUM,
+					Default::default(),
+					candidate_b_1.commitments.head_data.clone(),
+				)
+				.hash(),
+				hrmp_watermark: RELAY_PARENT_NUM,
+				head_data: HeadData(vec![8, 9]),
+				..Default::default()
+			}
+			.build();
+			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b_3);
+
+			let backed_b_3 = back_candidate(
+				candidate_b_3,
+				&validators,
+				group_validators(GroupIndex::from(3)).unwrap().as_ref(),
+				&keystore,
+				&signing_context,
+				BackingKind::Threshold,
+				None,
+			);
+
+			assert_noop!(
+				ParaInclusion::process_candidates(
+					&allowed_relay_parents,
+					&vec![(chain_b, vec![(backed_b_3, CoreIndex(3))])].into_iter().collect(),
+					&group_validators,
+					false
+				),
+				Error::<Test>::ValidationDataHashMismatch
+			);
 		}
 
 		// candidate not backed.
@@ -1335,8 +1429,9 @@ fn candidate_checks() {
 			.build();
 			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
+			// Insufficient backing.
 			let backed = back_candidate(
-				candidate,
+				candidate.clone(),
 				&validators,
 				group_validators(GroupIndex::from(0)).unwrap().as_ref(),
 				&keystore,
@@ -1355,6 +1450,29 @@ fn candidate_checks() {
 					false
 				),
 				Error::<Test>::InsufficientBacking
+			);
+
+			// Wrong backing group.
+			let backed = back_candidate(
+				candidate,
+				&validators,
+				group_validators(GroupIndex::from(1)).unwrap().as_ref(),
+				&keystore,
+				&signing_context,
+				BackingKind::Threshold,
+				None,
+			);
+
+			assert_noop!(
+				ParaInclusion::process_candidates(
+					&allowed_relay_parents,
+					&vec![(chain_a_assignment.0, vec![(backed, chain_a_assignment.1)])]
+						.into_iter()
+						.collect(),
+					&group_validators,
+					false
+				),
+				Error::<Test>::InvalidBacking
 			);
 		}
 
