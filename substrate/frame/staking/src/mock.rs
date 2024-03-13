@@ -791,10 +791,9 @@ pub(crate) fn setup_double_bonded_ledgers() {
 	assert_ok!(Staking::bond(RuntimeOrigin::signed(2), 20, RewardDestination::Staked));
 	assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 20, RewardDestination::Staked));
 	// not relevant to the test case, but ensures try-runtime checks pass.
-	let _ = [1, 2, 3]
+	[1, 2, 3]
 		.iter()
-		.map(|s| Payee::<Test>::insert(s, RewardDestination::Staked))
-		.collect::<Vec<_>>();
+		.for_each(|s| Payee::<Test>::insert(s, RewardDestination::Staked));
 
 	// we want to test the case where a controller can also be a stash of another ledger.
 	// for that, we change the controller/stash bonding so that:
