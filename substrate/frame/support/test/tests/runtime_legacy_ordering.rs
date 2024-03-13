@@ -30,7 +30,7 @@ use scale_info::TypeInfo;
 use sp_core::{sr25519, ConstU64};
 use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, Verify},
+	traits::{BlakeTwo256, ValidateUnsigned, Verify},
 	DispatchError, ModuleError,
 };
 use sp_version::RuntimeVersion;
@@ -176,6 +176,17 @@ mod nested {
 		impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 			fn build(&self) {}
 		}
+
+		#[pallet::validate_unsigned]
+		impl<T: Config> ValidateUnsigned for Pallet<T> {
+			type Call = Call<T>;
+			fn validate_unsigned(
+				_source: TransactionSource,
+				_call: &Self::Call,
+			) -> TransactionValidity {
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+			}
+		}
 	}
 }
 
@@ -247,6 +258,20 @@ pub mod module3 {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {}
 	}
+
+	#[pallet::storage]
+	pub type Storage<T> = StorageValue<_, u32>;
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(
+			_source: TransactionSource,
+			_call: &Self::Call,
+		) -> TransactionValidity {
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+		}
+	}
 }
 
 pub type BlockNumber = u64;
@@ -256,24 +281,64 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Signature, ()>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
-frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Event<T>, Origin<T>} = 30,
-		Module1_1: module1::<Instance1>::{Pallet, Call, Storage, Event<T>, Origin<T>},
-		Module2: module2::{Pallet, Call, Storage, Event<T>, Origin},
-		Module1_2: module1::<Instance2>::{Pallet, Call, Storage, Event<T>, Origin<T>},
-		NestedModule3: nested::module3::{Pallet, Call, Config<T>, Storage, Event<T>, Origin},
-		Module3: self::module3::{Pallet, Call, Config<T>, Storage, Event<T>, Origin<T>},
-		Module1_3: module1::<Instance3>::{Pallet, Storage, Event<T> } = 6,
-		Module1_4: module1::<Instance4>::{Pallet, Call, Event<T> } = 3,
-		Module1_5: module1::<Instance5>::{Pallet, Event<T>},
-		Module1_6: module1::<Instance6>::{Pallet, Call, Storage, Event<T>, Origin<T>} = 1,
-		Module1_7: module1::<Instance7>::{Pallet, Call, Storage, Event<T>, Origin<T>},
-		Module1_8: module1::<Instance8>::{Pallet, Call, Storage, Event<T>, Origin<T>} = 12,
-		Module1_9: module1::<Instance9>::{Pallet, Call, Storage, Event<T>, Origin<T>},
-	}
-);
+#[frame_support::runtime(legacy_ordering)]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
+
+	#[runtime::pallet_index(30)]
+	pub type System = frame_system + Pallet + Call + Event<T> + Origin<T>;
+
+	#[runtime::pallet_index(31)]
+	pub type Module1_1 = module1<Instance1>;
+
+	#[runtime::pallet_index(32)]
+	pub type Module2 = module2;
+
+	#[runtime::pallet_index(33)]
+	pub type Module1_2 = module1<Instance2>;
+
+	#[runtime::pallet_index(34)]
+	pub type NestedModule3 = nested::module3;
+
+	#[runtime::pallet_index(35)]
+	#[runtime::disable_unsigned]
+	pub type Module3 = self::module3;
+
+	#[runtime::pallet_index(6)]
+	#[runtime::disable_call]
+	pub type Module1_3 = module1<Instance3>;
+
+	#[runtime::pallet_index(3)]
+	pub type Module1_4 = module1<Instance4>;
+
+	#[runtime::pallet_index(4)]
+	#[runtime::disable_call]
+	pub type Module1_5 = module1<Instance5>;
+
+	#[runtime::pallet_index(1)]
+	pub type Module1_6 = module1<Instance6>;
+
+	#[runtime::pallet_index(2)]
+	pub type Module1_7 = module1<Instance7>;
+
+	#[runtime::pallet_index(12)]
+	pub type Module1_8 = module1<Instance8>;
+
+	#[runtime::pallet_index(13)]
+	pub type Module1_9 = module1<Instance9>;
+}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -636,9 +701,13 @@ fn call_subtype_conversion() {
 
 #[test]
 fn test_metadata() {
-	use frame_metadata::{v14::*, *};
+	use frame_metadata::{
+		v14::{StorageEntryType::Plain, *},
+		*,
+	};
 	use scale_info::meta_type;
 	use sp_core::Encode;
+	use sp_metadata_ir::StorageEntryModifierIR::Optional;
 
 	fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
 		if cfg!(feature = "no-metadata-docs") {
@@ -683,7 +752,7 @@ fn test_metadata() {
 					name: "Version",
 					ty: meta_type::<RuntimeVersion>(),
 					value: RuntimeVersion::default().encode(),
-					docs: maybe_docs(vec![ " Get the chain's in-code version."]),
+					docs: maybe_docs(vec![ " Get the chain's current version."]),
 				},
 				PalletConstantMetadata {
 					name: "SS58Prefix",
@@ -703,7 +772,7 @@ fn test_metadata() {
 		},
 		PalletMetadata {
 			name: "Module1_1",
-			storage: Some(PalletStorageMetadata { prefix: "Module1_1", entries: vec![] }),
+			storage: None,
 			calls: Some(meta_type::<module1::Call<Runtime, module1::Instance1>>().into()),
 			event: Some(meta_type::<module1::Event<Runtime, module1::Instance1>>().into()),
 			constants: vec![],
@@ -712,7 +781,7 @@ fn test_metadata() {
 		},
 		PalletMetadata {
 			name: "Module2",
-			storage: Some(PalletStorageMetadata { prefix: "Module2", entries: vec![] }),
+			storage: None,
 			calls: Some(meta_type::<module2::Call<Runtime>>().into()),
 			event: Some(meta_type::<module2::Event<Runtime>>().into()),
 			constants: vec![],
@@ -721,7 +790,7 @@ fn test_metadata() {
 		},
 		PalletMetadata {
 			name: "Module1_2",
-			storage: Some(PalletStorageMetadata { prefix: "Module1_2", entries: vec![] }),
+			storage: None,
 			calls: Some(meta_type::<module1::Call<Runtime, module1::Instance2>>().into()),
 			event: Some(meta_type::<module1::Event<Runtime, module1::Instance2>>().into()),
 			constants: vec![],
@@ -730,7 +799,7 @@ fn test_metadata() {
 		},
 		PalletMetadata {
 			name: "NestedModule3",
-			storage: Some(PalletStorageMetadata { prefix: "NestedModule3", entries: vec![] }),
+			storage: None,
 			calls: Some(meta_type::<nested::module3::Call<Runtime>>().into()),
 			event: Some(meta_type::<nested::module3::Event<Runtime>>().into()),
 			constants: vec![],
@@ -739,7 +808,18 @@ fn test_metadata() {
 		},
 		PalletMetadata {
 			name: "Module3",
-			storage: Some(PalletStorageMetadata { prefix: "Module3", entries: vec![] }),
+			storage: Some(PalletStorageMetadata {
+				prefix: "Module3", 
+				entries: vec![
+					StorageEntryMetadata {
+						name: "Storage",
+						modifier: Optional.into(),
+						ty: Plain(meta_type::<u32>().into()),
+						default: vec![0],
+						docs: vec![],
+					},
+				]
+			}),
 			calls: Some(meta_type::<module3::Call<Runtime>>().into()),
 			event: Some(meta_type::<module3::Event<Runtime>>().into()),
 			constants: vec![],
@@ -748,7 +828,7 @@ fn test_metadata() {
 		},
 		PalletMetadata {
 			name: "Module1_3",
-			storage: Some(PalletStorageMetadata { prefix: "Module1_3", entries: vec![] }),
+			storage: None,
 			calls: None,
 			event: Some(meta_type::<module1::Event<Runtime, module1::Instance3>>().into()),
 			constants: vec![],
@@ -775,7 +855,7 @@ fn test_metadata() {
 		},
 		PalletMetadata {
 			name: "Module1_6",
-			storage: Some(PalletStorageMetadata { prefix: "Module1_6", entries: vec![] }),
+			storage:None,
 			calls: Some(meta_type::<module1::Call<Runtime, module1::Instance6>>().into()),
 			event: Some(meta_type::<module1::Event<Runtime, module1::Instance6>>().into()),
 			constants: vec![],
@@ -784,7 +864,7 @@ fn test_metadata() {
 		},
 		PalletMetadata {
 			name: "Module1_7",
-			storage: Some(PalletStorageMetadata { prefix: "Module1_7", entries: vec![] }),
+			storage: None,
 			calls: Some(meta_type::<module1::Call<Runtime, module1::Instance7>>().into()),
 			event: Some(meta_type::<module1::Event<Runtime, module1::Instance7>>().into()),
 			constants: vec![],
@@ -793,7 +873,7 @@ fn test_metadata() {
 		},
 		PalletMetadata {
 			name: "Module1_8",
-			storage: Some(PalletStorageMetadata { prefix: "Module1_8", entries: vec![] }),
+			storage: None,
 			calls: Some(meta_type::<module1::Call<Runtime, module1::Instance8>>().into()),
 			event: Some(meta_type::<module1::Event<Runtime, module1::Instance8>>().into()),
 			constants: vec![],
@@ -802,7 +882,7 @@ fn test_metadata() {
 		},
 		PalletMetadata {
 			name: "Module1_9",
-			storage: Some(PalletStorageMetadata { prefix: "Module1_9", entries: vec![] }),
+			storage: None,
 			calls: Some(meta_type::<module1::Call<Runtime, module1::Instance9>>().into()),
 			event: Some(meta_type::<module1::Event<Runtime, module1::Instance9>>().into()),
 			constants: vec![],
@@ -894,4 +974,20 @@ fn pallet_in_runtime_is_correct() {
 	assert_eq!(PalletInfo::name::<Module1_9>().unwrap(), "Module1_9");
 	assert_eq!(PalletInfo::module_name::<Module1_9>().unwrap(), "module1");
 	assert!(PalletInfo::crate_version::<Module1_9>().is_some());
+}
+
+#[test]
+fn test_validate_unsigned() {
+	use frame_support::pallet_prelude::*;
+
+	let call = RuntimeCall::NestedModule3(nested::module3::Call::fail {});
+	let validity = Runtime::validate_unsigned(TransactionSource::Local, &call).unwrap_err();
+	assert_eq!(validity, TransactionValidityError::Invalid(InvalidTransaction::Call));
+
+	let call = RuntimeCall::Module3(module3::Call::fail {});
+	let validity = Runtime::validate_unsigned(TransactionSource::Local, &call).unwrap_err();
+	assert_eq!(
+		validity,
+		TransactionValidityError::Unknown(UnknownTransaction::NoUnsignedValidator)
+	);
 }
