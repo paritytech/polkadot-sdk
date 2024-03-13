@@ -6928,6 +6928,49 @@ mod ledger {
 	}
 
 	#[test]
+	fn get_ledger_bad_state_fails() {
+		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// Case 1: double bonded but not corrupted:
+			// stash 2 has controller 3:
+			assert_eq!(Bonded::<Test>::get(2), Some(3));
+			assert_eq!(Ledger::<Test>::get(3).unwrap().stash, 2);
+
+			// stash 2 is also a controller of 1:
+			assert_eq!(Bonded::<Test>::get(1), Some(2));
+			assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(1)), Some(2));
+			assert_eq!(Ledger::<Test>::get(2).unwrap().stash, 1);
+
+			// although 2 is double bonded (it is a controller and a stash of different ledgers),
+			// we can safely retrieve the ledger and mutate it since the correct ledger is
+			// returned.
+			let ledger_result = StakingLedger::<Test>::get(StakingAccount::Stash(2));
+			assert_eq!(ledger_result.unwrap().stash, 2); // correct ledger.
+
+			let ledger_result = StakingLedger::<Test>::get(StakingAccount::Controller(2));
+			assert_eq!(ledger_result.unwrap().stash, 1); // correct ledger.
+
+			// fetching ledger 1 by its stash works.
+			let ledger_result = StakingLedger::<Test>::get(StakingAccount::Stash(1));
+			assert_eq!(ledger_result.unwrap().stash, 1);
+
+			// Case 2: corrupted ledger bonding.
+			// in this case, we simulate what happens when fetching a ledger by stash returns a
+			// ledger with a different stash. when this happens, we return an error instead of the
+			// ledger to prevent ledger mutations.
+			let mut ledger = Ledger::<Test>::get(2).unwrap();
+			assert_eq!(ledger.stash, 1);
+			ledger.stash = 2;
+			Ledger::<Test>::insert(2, ledger);
+
+			// now, we are prevented from fetching the ledger by stash from 1. It's associated
+			// controller (2) is now bonding a ledger with a different stash (2, not 1).
+			assert!(StakingLedger::<Test>::get(StakingAccount::Stash(1)).is_err());
+		})
+	}
+
+	#[test]
 	fn bond_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			assert!(!StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
