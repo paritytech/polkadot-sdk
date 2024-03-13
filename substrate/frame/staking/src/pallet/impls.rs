@@ -1846,13 +1846,18 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
+	/// * A controller should not be associated with more than one ledger (note: only warn for now,
+	///   do not fail this check until <https://github.com/paritytech/polkadot-sdk/issues/3245> is
+	///   resolved).
 	/// * A bonded (stash, controller) pair should have only one associated ledger. I.e. if the
 	///   ledger is bonded by stash, the controller account must not bond a different ledger. (note:
-	///   only warn, do not fail this check).
+	///   only warn, do not fail this check until
+	///   <https://github.com/paritytech/polkadot-sdk/issues/3245> is resolved).
 	/// * A bonded (stash, controller) pair must have an associated ledger.
 	fn check_bonded_consistency() -> Result<(), TryRuntimeError> {
 		use sp_std::collections::btree_map::BTreeMap;
 
+		let mut count_controller_double = 0;
 		let mut count_double = 0;
 		let mut count_none = 0;
 		// sanity check to ensure that each controller in Bonded storage is associated with only one
@@ -1860,10 +1865,9 @@ impl<T: Config> Pallet<T> {
 		let mut controllers: BTreeMap<T::AccountId, ()> = BTreeMap::new();
 
 		for (stash, controller) in <Bonded<T>>::iter() {
-			ensure!(
-				!controllers.contains_key(&controller),
-				"controller associated with more than 1 ledger"
-			);
+			if controllers.contains_key(&controller) {
+				count_controller_double += 1;
+			}
 			controllers.insert(controller.clone(), ());
 
 			match (<Ledger<T>>::get(&stash), <Ledger<T>>::get(&controller)) {
@@ -1881,8 +1885,16 @@ impl<T: Config> Pallet<T> {
 			};
 		}
 
-		if count_double == 0 {
-			log!(warn, "single tuple of (stash, controller) pair bonds more than one ledger");
+		if count_controller_double != 0 {
+			log!(
+				warn,
+				"a controller is associated with more than one ledger ({} occurrences)",
+				count_controller_double
+			);
+		};
+
+		if count_double != 0 {
+			log!(warn, "single tuple of (stash, controller) pair bonds more than one ledger ({} occurrences)", count_double);
 		};
 
 		ensure!(

@@ -209,11 +209,13 @@ impl<T: Config> StakingLedger<T> {
 
 		ensure!(self.stash != *controller, Error::<T>::AlreadyPaired);
 
+		// check if the ledger's stash is a controller of another ledger.
 		match Ledger::<T>::get(&self.stash) {
 			Some(other_ledger) => {
 				if other_ledger.stash != self.stash {
 					// stash is a controller of another ledger, fail with `Error::<T>::DoubleBonded`
-					// to avoid data inconsistencies.
+					// to avoid data inconsistencies. See
+					// <https://github.com/paritytech/polkadot-sdk/pull/3639> for more details.
 					return Err(Error::<T>::DoubleBonded);
 				}
 			},

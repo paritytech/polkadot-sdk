@@ -940,6 +940,11 @@ pub mod pallet {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
 
+			// An existing controller cannot become a stash.
+			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
+				return Err(Error::<T>::AlreadyPaired.into())
+			}
+
 			// Reject a bond which is considered to be _dust_.
 			if value < T::Currency::minimum_balance() {
 				return Err(Error::<T>::InsufficientBond.into())
