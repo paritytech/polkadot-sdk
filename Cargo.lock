@@ -8164,6 +8164,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-genesis-builder",
+ "sp-runtime",
  "substrate-wasm-builder",
 ]
 
@@ -15052,6 +15053,7 @@ name = "rococo-runtime"
 version = "7.0.0"
 dependencies = [
  "binary-merkle-tree",
+ "bitvec",
  "frame-benchmarking",
  "frame-executive",
  "frame-remote-externalities",

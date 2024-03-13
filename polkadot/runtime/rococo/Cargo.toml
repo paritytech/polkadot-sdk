@@ -19,6 +19,7 @@ serde_derive = { optional = true, workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 static_assertions = "1.1.0"
 smallvec = "1.8.0"
+bitvec = { version = "1.0.1", optional = true }
 
 authority-discovery-primitives = { package = "sp-authority-discovery", path = "../../../substrate/primitives/authority-discovery", default-features = false }
 babe-primitives = { package = "sp-consensus-babe", path = "../../../substrate/primitives/consensus/babe", default-features = false }
