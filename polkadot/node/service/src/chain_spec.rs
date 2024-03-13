@@ -708,7 +708,7 @@ pub fn versi_local_testnet_config() -> Result<RococoChainSpec, String> {
 	.with_name("Versi Local Testnet")
 	.with_id("versi_local_testnet")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(versi_local_testnet_genesis())
+	.with_genesis_config_preset_name("versi_local_testnet")
 	.with_protocol_id("versi")
 	.build())
 }
