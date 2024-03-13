@@ -26,5 +26,5 @@ emulated_integration_tests_common::include_penpal_create_foreign_asset_on_asset_
 	PenpalB,
 	AssetHubWestend,
 	WESTEND_ED,
-	parachains_common::westend::fee::WeightToFee
+	testnet_parachains_constants::westend::fee::WeightToFee
 );

@@ -26,6 +26,7 @@ use frame_support::{
 		UnfilteredDispatchable,
 	},
 	weights::Weight,
+	OrdNoBound, PartialOrdNoBound,
 };
 use sp_io::{
 	hashing::{blake2_128, twox_128, twox_64},
@@ -208,6 +209,8 @@ pub mod pallet {
 		RuntimeDebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
+		PartialOrdNoBound,
+		OrdNoBound,
 		Encode,
 		Decode,
 		scale_info::TypeInfo,
@@ -940,7 +943,7 @@ fn metadata() {
 		ty: scale_info::meta_type::<UncheckedExtrinsic>(),
 		version: 4,
 		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+			identifier: "UnitTransactionExtension",
 			ty: scale_info::meta_type::<()>(),
 			additional_signed: scale_info::meta_type::<()>(),
 		}],

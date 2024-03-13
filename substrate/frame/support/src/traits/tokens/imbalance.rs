@@ -19,8 +19,8 @@
 //! with unbalanced operations.
 
 use crate::traits::misc::{SameOrOther, TryDrop};
+use core::ops::Div;
 use sp_runtime::traits::Saturating;
-use sp_std::ops::Div;
 
 mod on_unbalanced;
 mod signed_imbalance;

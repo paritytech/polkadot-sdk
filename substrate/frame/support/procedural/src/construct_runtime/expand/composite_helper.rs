@@ -68,3 +68,34 @@ pub(crate) fn expand_variant(
 		}
 	}
 }
+
+pub(crate) fn expand_variant_count(
+	composite_name: &str,
+	path: &PalletPath,
+	instance: Option<&Ident>,
+) -> TokenStream {
+	let composite_name = quote::format_ident!("{}", composite_name);
+
+	if let Some(inst) = instance {
+		quote! {
+			#path::#composite_name::<#path::#inst>::VARIANT_COUNT
+		}
+	} else {
+		// Wrapped `<`..`>` means: use default type parameter for enum.
+		//
+		// This is used for pallets without instance support or pallets with instance support when
+		// we don't specify instance:
+		//
+		// ```
+		// pub struct Pallet<T, I = ()>{..}
+		//
+		// #[pallet::composite_enum]
+		// pub enum HoldReason<I: 'static = ()> {..}
+		//
+		// Pallet1: pallet_x,  // <- default type parameter
+		// ```
+		quote! {
+			<#path::#composite_name>::VARIANT_COUNT
+		}
+	}
+}

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 mod call;
+mod composite;
 mod config;
 mod constants;
 mod doc_only;
@@ -30,7 +31,6 @@ mod instances;
 mod origin;
 mod pallet_struct;
 mod storage;
-mod store_trait;
 mod tasks;
 mod tt_default_parts;
 mod type_value;
@@ -67,7 +67,6 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 	let storages = storage::expand_storages(&mut def);
 	let inherents = inherent::expand_inherents(&mut def);
 	let instances = instances::expand_instances(&mut def);
-	let store_trait = store_trait::expand_store_trait(&mut def);
 	let hooks = hooks::expand_hooks(&mut def);
 	let genesis_build = genesis_build::expand_genesis_build(&mut def);
 	let genesis_config = genesis_config::expand_genesis_config(&mut def);
@@ -76,6 +75,7 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 	let validate_unsigned = validate_unsigned::expand_validate_unsigned(&mut def);
 	let tt_default_parts = tt_default_parts::expand_tt_default_parts(&mut def);
 	let doc_only = doc_only::expand_doc_only(&mut def);
+	let composites = composite::expand_composites(&mut def);
 
 	def.item.attrs.insert(
 		0,
@@ -108,7 +108,6 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#storages
 		#inherents
 		#instances
-		#store_trait
 		#hooks
 		#genesis_build
 		#genesis_config
@@ -117,6 +116,7 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#validate_unsigned
 		#tt_default_parts
 		#doc_only
+		#composites
 	);
 
 	def.item

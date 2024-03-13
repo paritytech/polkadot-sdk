@@ -15,21 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::vec;
-
 use codec::Encode;
-use sp_consensus_beefy::{
-	check_equivocation_proof, generate_equivocation_proof, known_payloads::MMR_ROOT_ID,
-	Keyring as BeefyKeyring, Payload, ValidatorSet, KEY_TYPE as BEEFY_KEY_TYPE,
-};
-
-use sp_runtime::DigestItem;
+use std::vec;
 
 use frame_support::{
 	assert_err, assert_ok,
 	dispatch::{GetDispatchInfo, Pays},
 	traits::{Currency, KeyOwnerProofSystem, OnInitialize},
 };
+use sp_consensus_beefy::{
+	check_equivocation_proof,
+	known_payloads::MMR_ROOT_ID,
+	test_utils::{generate_equivocation_proof, Keyring as BeefyKeyring},
+	Payload, ValidatorSet, KEY_TYPE as BEEFY_KEY_TYPE,
+};
+use sp_runtime::DigestItem;
 
 use crate::{mock::*, Call, Config, Error, Weight, WeightInfo};
 

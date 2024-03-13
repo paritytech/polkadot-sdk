@@ -117,14 +117,16 @@ mockall::mock! {
 			target: PeerId,
 			protocol: ProtocolName,
 			request: Vec<u8>,
+			fallback_request: Option<(Vec<u8>, ProtocolName)>,
 			connect: IfDisconnected,
-		) -> Result<Vec<u8>, RequestFailure>;
+		) -> Result<(Vec<u8>, ProtocolName), RequestFailure>;
 		fn start_request(
 			&self,
 			target: PeerId,
 			protocol: ProtocolName,
 			request: Vec<u8>,
-			tx: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
+			fallback_request: Option<(Vec<u8>, ProtocolName)>,
+			tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 			connect: IfDisconnected,
 		);
 	}

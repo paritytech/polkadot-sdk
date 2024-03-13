@@ -70,8 +70,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		TestPallet: pallet_test::{Pallet, Call, Storage},
+		System: frame_system,
+		TestPallet: pallet_test,
 	}
 );
 

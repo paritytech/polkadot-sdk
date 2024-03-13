@@ -20,11 +20,11 @@
 use crate::{core_mask::*, mock::*, *};
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::nonfungible::{Inspect as NftInspect, Transfer},
+	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
 	BoundedVec,
 };
 use frame_system::RawOrigin::Root;
-use sp_runtime::traits::Get;
+use sp_runtime::{traits::Get, TokenError};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
@@ -194,6 +194,26 @@ fn transfer_works() {
 		assert_eq!(<Broker as NftInspect<_>>::owner(&region.into()), Some(2));
 		assert_noop!(Broker::do_assign(region, Some(1), 1001, Final), Error::<Test>::NotOwner);
 		assert_ok!(Broker::do_assign(region, Some(2), 1002, Final));
+	});
+}
+
+#[test]
+fn mutate_operations_unsupported_for_regions() {
+	TestExt::new().execute_with(|| {
+		let region_id = RegionId { begin: 0, core: 0, mask: CoreMask::complete() };
+		assert_noop!(
+			<Broker as Mutate<_>>::mint_into(&region_id.into(), &2),
+			TokenError::Unsupported
+		);
+		assert_noop!(<Broker as Mutate<_>>::burn(&region_id.into(), None), TokenError::Unsupported);
+		assert_noop!(
+			<Broker as Mutate<_>>::set_attribute(&region_id.into(), &[], &[]),
+			TokenError::Unsupported
+		);
+		assert_noop!(
+			<Broker as Mutate<_>>::set_typed_attribute::<u8, u8>(&region_id.into(), &0, &0),
+			TokenError::Unsupported
+		);
 	});
 }
 
@@ -840,6 +860,29 @@ fn cannot_set_expired_lease() {
 			Broker::do_set_lease(1000, current_timeslice.saturating_sub(1)),
 			Error::<Test>::AlreadyExpired
 		);
+	});
+}
+
+#[test]
+fn short_leases_are_cleaned() {
+	TestExt::new().region_length(3).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(200, 1));
+		advance_to(2);
+
+		// New leases are allowed to expire within this region given expiry > `current_timeslice`.
+		assert_noop!(
+			Broker::do_set_lease(1000, Broker::current_timeslice()),
+			Error::<Test>::AlreadyExpired
+		);
+		assert_eq!(Leases::<Test>::get().len(), 0);
+		assert_ok!(Broker::do_set_lease(1000, Broker::current_timeslice().saturating_add(1)));
+		assert_eq!(Leases::<Test>::get().len(), 1);
+
+		// But are cleaned up in the next rotate_sale.
+		let config = Configuration::<Test>::get().unwrap();
+		let timeslice_period: u64 = <Test as Config>::TimeslicePeriod::get();
+		advance_to(timeslice_period.saturating_mul(config.region_length.into()));
+		assert_eq!(Leases::<Test>::get().len(), 0);
 	});
 }
 

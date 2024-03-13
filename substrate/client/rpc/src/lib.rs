@@ -39,6 +39,7 @@ pub mod offchain;
 pub mod state;
 pub mod statement;
 pub mod system;
+pub mod utils;
 
 #[cfg(any(test, feature = "test-helpers"))]
 pub mod testing;

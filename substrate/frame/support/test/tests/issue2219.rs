@@ -176,7 +176,7 @@ impl frame_system::Config for Runtime {
 impl module::Config for Runtime {}
 
 frame_support::construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: frame_system,
 		Module: module,
 	}

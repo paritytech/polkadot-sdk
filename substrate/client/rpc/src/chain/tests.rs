@@ -19,7 +19,7 @@
 use super::*;
 use crate::testing::{test_executor, timeout_secs};
 use assert_matches::assert_matches;
-use jsonrpsee::types::EmptyServerParams as EmptyParams;
+use jsonrpsee::core::EmptyServerParams as EmptyParams;
 use sc_block_builder::BlockBuilderBuilder;
 use sp_consensus::BlockOrigin;
 use sp_rpc::list::ListOrValue;
@@ -252,7 +252,7 @@ async fn test_head_subscription(method: &str) {
 
 	let mut sub = {
 		let api = new_full(client.clone(), test_executor()).into_rpc();
-		let sub = api.subscribe(method, EmptyParams::new()).await.unwrap();
+		let sub = api.subscribe_unbounded(method, EmptyParams::new()).await.unwrap();
 		let block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)

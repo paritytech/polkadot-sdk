@@ -77,7 +77,7 @@ pub struct TestCoretimeProvider;
 impl CoretimeInterface for TestCoretimeProvider {
 	type AccountId = u64;
 	type Balance = u64;
-	type RealyChainBlockNumberProvider = System;
+	type RelayChainBlockNumberProvider = System;
 	fn request_core_count(count: CoreIndex) {
 		CoreCountInbox::<Test>::put(count);
 	}

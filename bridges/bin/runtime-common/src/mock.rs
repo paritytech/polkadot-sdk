@@ -21,7 +21,7 @@
 use crate::messages::{
 	source::{
 		FromThisChainMaximalOutboundPayloadSize, FromThisChainMessagePayload,
-		FromThisChainMessageVerifier, TargetHeaderChainAdapter,
+		TargetHeaderChainAdapter,
 	},
 	target::{FromBridgedChainMessagePayload, SourceHeaderChainAdapter},
 	BridgedChainWithMessages, HashOf, MessageBridge, ThisChainWithMessages,
@@ -164,6 +164,7 @@ impl pallet_balances::Config for TestRuntime {
 	type AccountStore = System;
 }
 
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig as pallet_transaction_payment::DefaultConfig)]
 impl pallet_transaction_payment::Config for TestRuntime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
@@ -176,7 +177,6 @@ impl pallet_transaction_payment::Config for TestRuntime {
 		MinimumMultiplier,
 		MaximumMultiplier,
 	>;
-	type RuntimeEvent = RuntimeEvent;
 }
 
 impl pallet_bridge_grandpa::Config for TestRuntime {
@@ -213,7 +213,6 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type DeliveryPayments = ();
 
 	type TargetHeaderChain = TargetHeaderChainAdapter<OnThisChainBridge>;
-	type LaneMessageVerifier = FromThisChainMessageVerifier<OnThisChainBridge>;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
 		(),
@@ -315,6 +314,8 @@ impl From<BridgedChainOrigin>
 pub struct ThisUnderlyingChain;
 
 impl Chain for ThisUnderlyingChain {
+	const ID: ChainId = *b"tuch";
+
 	type BlockNumber = ThisChainBlockNumber;
 	type Hash = ThisChainHash;
 	type Hasher = ThisChainHasher;
@@ -355,6 +356,8 @@ pub struct BridgedUnderlyingParachain;
 pub struct BridgedChainCall;
 
 impl Chain for BridgedUnderlyingChain {
+	const ID: ChainId = *b"buch";
+
 	type BlockNumber = BridgedChainBlockNumber;
 	type Hash = BridgedChainHash;
 	type Hasher = BridgedChainHasher;
@@ -381,6 +384,8 @@ impl ChainWithGrandpa for BridgedUnderlyingChain {
 }
 
 impl Chain for BridgedUnderlyingParachain {
+	const ID: ChainId = *b"bupc";
+
 	type BlockNumber = BridgedChainBlockNumber;
 	type Hash = BridgedChainHash;
 	type Hasher = BridgedChainHasher;

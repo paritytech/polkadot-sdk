@@ -29,9 +29,9 @@ mod unchecked_extrinsic;
 
 pub use self::{
 	block::{Block, BlockId, SignedBlock},
-	checked_extrinsic::CheckedExtrinsic,
+	checked_extrinsic::{CheckedExtrinsic, ExtrinsicFormat},
 	digest::{Digest, DigestItem, DigestItemRef, OpaqueDigestItemId},
 	era::{Era, Phase},
 	header::Header,
-	unchecked_extrinsic::{SignedPayload, UncheckedExtrinsic},
+	unchecked_extrinsic::{Preamble, SignedPayload, UncheckedExtrinsic},
 };

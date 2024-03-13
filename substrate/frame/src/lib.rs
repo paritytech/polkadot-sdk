@@ -163,6 +163,12 @@ pub mod runtime {
 			ConstU32, ConstU64, ConstU8,
 		};
 
+		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
+		pub use frame_system::{
+			EnsureNever, EnsureNone, EnsureRoot, EnsureRootWithSuccess, EnsureSigned,
+			EnsureSignedBy,
+		};
+
 		/// Types to define your runtime version.
 		pub use sp_version::{create_runtime_str, runtime_version, RuntimeVersion};
 
@@ -191,7 +197,7 @@ pub mod runtime {
 		// Types often used in the runtime APIs.
 		pub use sp_core::OpaqueMetadata;
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_runtime::ApplyExtrinsicResult;
+		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 
 		pub use frame_system_rpc_runtime_api::*;
 		pub use sp_api::{self, *};
@@ -243,8 +249,8 @@ pub mod runtime {
 
 		/// The block type, which should be fed into [`frame_system::Config`].
 		///
-		/// Should be parameterized with `T: frame_system::Config` and a tuple of `SignedExtension`.
-		/// When in doubt, use [`SystemSignedExtensionsOf`].
+		/// Should be parameterized with `T: frame_system::Config` and a tuple of
+		/// `TransactionExtension`. When in doubt, use [`SystemTransactionExtensionsOf`].
 		// Note that this cannot be dependent on `T` for block-number because it would lead to a
 		// circular dependency (self-referential generics).
 		pub type BlockOf<T, Extra = ()> = generic::Block<HeaderInner, ExtrinsicInner<T, Extra>>;
@@ -258,7 +264,7 @@ pub mod runtime {
 		/// Default set of signed extensions exposed from the `frame_system`.
 		///
 		/// crucially, this does NOT contain any tx-payment extension.
-		pub type SystemSignedExtensionsOf<T> = (
+		pub type SystemTransactionExtensionsOf<T> = (
 			frame_system::CheckNonZeroSender<T>,
 			frame_system::CheckSpecVersion<T>,
 			frame_system::CheckTxVersion<T>,
@@ -307,8 +313,8 @@ pub mod primitives {
 /// This is already part of the [`prelude`].
 pub mod derive {
 	pub use frame_support::{
-		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
-		RuntimeDebugNoBound,
+		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
+		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
 	pub use parity_scale_codec::{Decode, Encode};
 	pub use scale_info::TypeInfo;

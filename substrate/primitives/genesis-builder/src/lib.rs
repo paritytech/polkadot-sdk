@@ -19,11 +19,15 @@
 
 //! Substrate genesis config builder
 //!
-//! The runtime may provide a number of partial `RuntimeGenesisConfig` configurations in form of
-//! patches which shall be applied on top of the default `RuntimeGenesisConfig`. Thus presets are
-//! sometimes refered to as patches. This allows the runtime to provide a number of predefined
-//! configuration (e.g. for different testnets) without leaking the runtime types outside the
-//! runtime.
+//! This module provides means to interact with `RuntimeGenesisConfig`. Runtime provides a default
+//! `RuntimeGenesisConfig` structire in form of json blob.
+//!
+//! Additionally the runtime may provide a number of partial predefined `RuntimeGenesisConfig`
+//! configurations in the form of patches which shall be applied on top of the default
+//! `RuntimeGenesisConfig`. These predefined configurations are refered to as presets.
+//!
+//! This allows the runtime to provide a number of predefined configs (e.g. for different
+//! testnets) without neccessity to leak the runtime types outside the itself.
 //!
 //! This Runtime API allows to interact with `RuntimeGenesisConfig`, in particular:
 //! - provide the list of available preset names,

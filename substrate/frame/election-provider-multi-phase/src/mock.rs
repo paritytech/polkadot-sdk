@@ -54,11 +54,10 @@ pub type UncheckedExtrinsic =
 	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, (), ()>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Event<T>, Config<T>},
-		Balances: pallet_balances::{Pallet, Call, Event<T>, Config<T>},
-		MultiPhase: multi_phase::{Pallet, Call, Event<T>},
+	pub enum Runtime {
+		System: frame_system,
+		Balances: pallet_balances,
+		MultiPhase: multi_phase,
 	}
 );
 
@@ -260,7 +259,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 #[derive(Default, Eq, PartialEq, Debug, Clone, Copy)]
@@ -443,7 +441,7 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
+pub type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 
 parameter_types! {
 	pub MaxNominations: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;

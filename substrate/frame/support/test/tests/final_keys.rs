@@ -201,7 +201,6 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
 frame_support::construct_runtime!(
 	pub enum Runtime
-
 	{
 		System: frame_system,
 		FinalKeysNone: no_instance,

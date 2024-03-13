@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "XCM WeightTrader: Swap Fee Asset for Native Asset"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Implements an XCM executor `WeightTrader`, facilitating fee payments in any asset that can be exchanged for a native asset.
+
+      A few constraints need to be observed:
+      - `buy_weight` and `refund` operations must be atomic, as another weight trader implementation might be attempted in case of failure.
+      - swap credit must be utilized since there isn’t an account to which an asset of some class can be deposited with a guarantee to meet the existential deposit requirement.
+
+crates:
+  - name: cumulus-primitives-utility

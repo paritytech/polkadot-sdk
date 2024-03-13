@@ -79,7 +79,10 @@ impl LoadedModule {
 		}
 
 		let engine = Engine::new(&config);
-		let module = Module::new(&engine, code).map_err(|_| "Can't load the module into wasmi!")?;
+		let module = Module::new(&engine, code).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "Module creation failed: {:?}", err);
+			"Can't load the module into wasmi!"
+		})?;
 
 		// Return a `LoadedModule` instance with
 		// __valid__ module.
@@ -220,7 +223,7 @@ impl LoadedModule {
 fn validate<E, T>(
 	code: &[u8],
 	schedule: &Schedule<T>,
-	determinism: Determinism,
+	determinism: &mut Determinism,
 ) -> Result<(), (DispatchError, &'static str)>
 where
 	E: Environment<()>,
@@ -229,7 +232,17 @@ where
 	(|| {
 		// We check that the module is generally valid,
 		// and does not have restricted WebAssembly features, here.
-		let contract_module = LoadedModule::new::<T>(code, determinism, None)?;
+		let contract_module = match *determinism {
+			Determinism::Relaxed =>
+				if let Ok(module) = LoadedModule::new::<T>(code, Determinism::Enforced, None) {
+					*determinism = Determinism::Enforced;
+					module
+				} else {
+					LoadedModule::new::<T>(code, Determinism::Relaxed, None)?
+				},
+			Determinism::Enforced => LoadedModule::new::<T>(code, Determinism::Enforced, None)?,
+		};
+
 		// The we check that module satisfies constraints the pallet puts on contracts.
 		contract_module.scan_exports()?;
 		contract_module.scan_imports::<T>(schedule)?;
@@ -252,7 +265,7 @@ where
 		&code,
 		(),
 		schedule,
-		determinism,
+		*determinism,
 		stack_limits,
 		AllowDeprecatedInterface::No,
 	)
@@ -276,13 +289,13 @@ pub fn prepare<E, T>(
 	code: CodeVec<T>,
 	schedule: &Schedule<T>,
 	owner: AccountIdOf<T>,
-	determinism: Determinism,
+	mut determinism: Determinism,
 ) -> Result<WasmBlob<T>, (DispatchError, &'static str)>
 where
 	E: Environment<()>,
 	T: Config,
 {
-	validate::<E, T>(code.as_ref(), schedule, determinism)?;
+	validate::<E, T>(code.as_ref(), schedule, &mut determinism)?;
 
 	// Calculate deposit for storing contract code and `code_info` in two different storage items.
 	let code_len = code.len() as u32;
@@ -384,12 +397,7 @@ mod tests {
 				let wasm = wat::parse_str($wat).unwrap().try_into().unwrap();
 				let schedule = Schedule {
 					limits: Limits {
-					    globals: 3,
-					    locals: 3,
-						parameters: 3,
 						memory_pages: 16,
-						table_size: 3,
-						br_table_size: 3,
 						.. Default::default()
 					},
 					.. Default::default()

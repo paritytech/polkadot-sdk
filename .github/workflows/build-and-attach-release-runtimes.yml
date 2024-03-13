@@ -35,7 +35,7 @@ jobs:
 
     - name: Build ${{ matrix.runtime.name }} ${{ matrix.build_config.type }}
       id: srtool_build
-      uses: chevdor/srtool-actions@v0.9.1
+      uses: chevdor/srtool-actions@v0.9.2
       env:
         BUILD_OPTS: ${{ matrix.build_config.opts }}
       with:

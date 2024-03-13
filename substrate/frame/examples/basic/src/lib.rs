@@ -46,14 +46,16 @@
 //!   use the [`Config::WeightInfo`] trait to calculate call weights. This can also be overridden,
 //!   as demonstrated by [`Call::set_dummy`].
 //! - A private function that performs a storage update.
-//! - A simple signed extension implementation (see: [`sp_runtime::traits::SignedExtension`]) which
-//!   increases the priority of the [`Call::set_dummy`] if it's present and drops any transaction
-//!   with an encoded length higher than 200 bytes.
+//! - A simple transaction extension implementation (see:
+//!   [`sp_runtime::traits::TransactionExtension`]) which increases the priority of the
+//!   [`Call::set_dummy`] if it's present and drops any transaction with an encoded length higher
+//!   than 200 bytes.
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
 	traits::IsSubType,
@@ -63,12 +65,14 @@ use frame_system::ensure_signed;
 use log::info;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Bounded, DispatchInfoOf, SaturatedConversion, Saturating, SignedExtension},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+	impl_tx_ext_default,
+	traits::{
+		Bounded, DispatchInfoOf, OriginOf, SaturatedConversion, Saturating, TransactionExtension,
+		TransactionExtensionBase, ValidateResult,
 	},
+	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
-use sp_std::{marker::PhantomData, prelude::*};
+use sp_std::vec::Vec;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -285,9 +289,7 @@ pub mod pallet {
 			let _sender = ensure_signed(origin)?;
 
 			// Read the value of dummy from storage.
-			// let dummy = Self::dummy();
-			// Will also work using the `::get` on the storage item type itself:
-			// let dummy = <Dummy<T>>::get();
+			// let dummy = Dummy::<T>::get();
 
 			// Calculate the new value.
 			// let new_dummy = dummy.map_or(increase_by, |dummy| dummy + increase_by);
@@ -380,20 +382,14 @@ pub mod pallet {
 	//   - `Foo::put(1); Foo::get()` returns `1`;
 	//   - `Foo::kill(); Foo::get()` returns `0` (u32::default()).
 	#[pallet::storage]
-	// The getter attribute generate a function on `Pallet` placeholder:
-	// `fn getter_name() -> Type` for basic value items or
-	// `fn getter_name(key: KeyType) -> ValueType` for map items.
-	#[pallet::getter(fn dummy)]
 	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;
 
 	// A map that has enumerable entries.
 	#[pallet::storage]
-	#[pallet::getter(fn bar)]
 	pub(super) type Bar<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::Balance>;
 
 	// this one uses the query kind: `ValueQuery`, we'll demonstrate the usage of 'mutate' API.
 	#[pallet::storage]
-	#[pallet::getter(fn foo)]
 	pub(super) type Foo<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
 
 	#[pallet::storage]
@@ -432,10 +428,10 @@ impl<T: Config> Pallet<T> {
 	fn accumulate_foo(origin: T::RuntimeOrigin, increase_by: T::Balance) -> DispatchResult {
 		let _sender = ensure_signed(origin)?;
 
-		let prev = <Foo<T>>::get();
+		let prev = Foo::<T>::get();
 		// Because Foo has 'default', the type of 'foo' in closure is the raw type instead of an
 		// Option<> type.
-		let result = <Foo<T>>::mutate(|foo| {
+		let result = Foo::<T>::mutate(|foo| {
 			*foo = foo.saturating_add(increase_by);
 			*foo
 		});
@@ -447,8 +443,8 @@ impl<T: Config> Pallet<T> {
 
 // Similar to other FRAME pallets, your pallet can also define a signed extension and perform some
 // checks and [pre/post]processing [before/after] the transaction. A signed extension can be any
-// decodable type that implements `SignedExtension`. See the trait definition for the full list of
-// bounds. As a convention, you can follow this approach to create an extension for your pallet:
+// decodable type that implements `TransactionExtension`. See the trait definition for the full list
+// of bounds. As a convention, you can follow this approach to create an extension for your pallet:
 //   - If the extension does not carry any data, then use a tuple struct with just a `marker`
 //     (needed for the compiler to accept `T: Config`) will suffice.
 //   - Otherwise, create a tuple struct which contains the external data. Of course, for the entire
@@ -462,18 +458,18 @@ impl<T: Config> Pallet<T> {
 //
 // Using the extension, you can add some hooks to the life cycle of each transaction. Note that by
 // default, an extension is applied to all `Call` functions (i.e. all transactions). the `Call` enum
-// variant is given to each function of `SignedExtension`. Hence, you can filter based on pallet or
-// a particular call if needed.
+// variant is given to each function of `TransactionExtension`. Hence, you can filter based on
+// pallet or a particular call if needed.
 //
 // Some extra information, such as encoded length, some static dispatch info like weight and the
 // sender of the transaction (if signed) are also provided.
 //
 // The full list of hooks that can be added to a signed extension can be found
-// [here](https://paritytech.github.io/polkadot-sdk/master/sp_runtime/traits/trait.SignedExtension.html).
+// [here](https://paritytech.github.io/polkadot-sdk/master/sp_runtime/traits/trait.TransactionExtension.html).
 //
 // The signed extensions are aggregated in the runtime file of a substrate chain. All extensions
 // should be aggregated in a tuple and passed to the `CheckedExtrinsic` and `UncheckedExtrinsic`
-// types defined in the runtime. Lookup `pub type SignedExtra = (...)` in `node/runtime` and
+// types defined in the runtime. Lookup `pub type TxExtension = (...)` in `node/runtime` and
 // `node-template` for an example of this.
 
 /// A simple signed extension that checks for the `set_dummy` call. In that case, it increases the
@@ -485,58 +481,51 @@ impl<T: Config> Pallet<T> {
 #[scale_info(skip_type_params(T))]
 pub struct WatchDummy<T: Config + Send + Sync>(PhantomData<T>);
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for WatchDummy<T> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<T: Config + Send + Sync> core::fmt::Debug for WatchDummy<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "WatchDummy")
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for WatchDummy<T>
+impl<T: Config + Send + Sync> TransactionExtensionBase for WatchDummy<T> {
+	const IDENTIFIER: &'static str = "WatchDummy";
+	type Implicit = ();
+}
+impl<T: Config + Send + Sync, Context>
+	TransactionExtension<<T as frame_system::Config>::RuntimeCall, Context> for WatchDummy<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
-	const IDENTIFIER: &'static str = "WatchDummy";
-	type AccountId = T::AccountId;
-	type Call = <T as frame_system::Config>::RuntimeCall;
-	type AdditionalSigned = ();
 	type Pre = ();
-
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-		Ok(())
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
-	}
+	type Val = ();
 
 	fn validate(
 		&self,
-		_who: &Self::AccountId,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: OriginOf<<T as frame_system::Config>::RuntimeCall>,
+		call: &<T as frame_system::Config>::RuntimeCall,
+		_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
-	) -> TransactionValidity {
+		_context: &mut Context,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
 		// if the transaction is too big, just drop it.
 		if len > 200 {
-			return InvalidTransaction::ExhaustsResources.into()
+			return Err(InvalidTransaction::ExhaustsResources.into())
 		}
 
 		// check for `set_dummy`
-		match call.is_sub_type() {
+		let validity = match call.is_sub_type() {
 			Some(Call::set_dummy { .. }) => {
 				sp_runtime::print("set_dummy was received.");
 
 				let valid_tx =
 					ValidTransaction { priority: Bounded::max_value(), ..Default::default() };
-				Ok(valid_tx)
+				valid_tx
 			},
-			_ => Ok(Default::default()),
-		}
+			_ => Default::default(),
+		};
+		Ok((validity, (), origin))
 	}
+	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; Context; prepare);
 }

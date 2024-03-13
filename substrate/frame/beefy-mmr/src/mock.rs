@@ -49,11 +49,11 @@ type Block = frame_system::mocking::MockBlock<Test>;
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		Mmr: pallet_mmr::{Pallet, Storage},
-		Beefy: pallet_beefy::{Pallet, Config<T>, Storage},
-		BeefyMmr: pallet_beefy_mmr::{Pallet, Storage},
+		System: frame_system,
+		Session: pallet_session,
+		Mmr: pallet_mmr,
+		Beefy: pallet_beefy,
+		BeefyMmr: pallet_beefy_mmr,
 	}
 );
 

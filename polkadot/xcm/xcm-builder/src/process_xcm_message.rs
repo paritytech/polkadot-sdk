@@ -30,7 +30,7 @@ pub struct ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>(
 	PhantomData<(MessageOrigin, XcmExecutor, Call)>,
 );
 impl<
-		MessageOrigin: Into<MultiLocation> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
+		MessageOrigin: Into<Location> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
 		XcmExecutor: ExecuteXcm<Call>,
 		Call,
 	> ProcessMessage for ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>
@@ -82,28 +82,26 @@ impl<
 
 		let (consumed, result) = match XcmExecutor::execute(origin.into(), pre, id, Weight::zero())
 		{
-			Outcome::Complete(w) => {
+			Outcome::Complete { used } => {
 				log::trace!(
 					target: LOG_TARGET,
-					"XCM message execution complete, used weight: {w}",
+					"XCM message execution complete, used weight: {used}",
 				);
-				(w, Ok(true))
+				(used, Ok(true))
 			},
-			Outcome::Incomplete(w, e) => {
+			Outcome::Incomplete { used, error } => {
 				log::trace!(
 					target: LOG_TARGET,
-					"XCM message execution incomplete, used weight: {w}, error: {e:?}",
+					"XCM message execution incomplete, used weight: {used}, error: {error:?}",
 				);
-
-				(w, Ok(false))
+				(used, Ok(false))
 			},
 			// In the error-case we assume the worst case and consume all possible weight.
-			Outcome::Error(e) => {
+			Outcome::Error { error } => {
 				log::trace!(
 					target: LOG_TARGET,
-					"XCM message execution error: {e:?}",
+					"XCM message execution error: {error:?}",
 				);
-
 				(required, Err(ProcessMessageError::Unsupported))
 			},
 		};

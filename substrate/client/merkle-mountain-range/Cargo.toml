@@ -1,6 +1,6 @@
 [package]
 name = "mmr-gadget"
-version = "4.0.0-dev"
+version = "29.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -16,7 +16,7 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3"
-log = "0.4"
+log = { workspace = true, default-features = true }
 sp-api = { path = "../../primitives/api" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sc-client-api = { path = "../api" }

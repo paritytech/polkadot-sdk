@@ -201,7 +201,7 @@ where
 			let peer = request.peer;
 			match self.handle_request(request) {
 				Ok(()) => {
-					metric_inc!(self, beefy_successful_justification_responses);
+					metric_inc!(self.metrics, beefy_successful_justification_responses);
 					debug!(
 						target: BEEFY_SYNC_LOG_TARGET,
 						"🥩 Handled BEEFY justification request from {:?}.", peer
@@ -209,7 +209,7 @@ where
 				},
 				Err(e) => {
 					// peer reputation changes already applied in `self.handle_request()`
-					metric_inc!(self, beefy_failed_justification_responses);
+					metric_inc!(self.metrics, beefy_failed_justification_responses);
 					debug!(
 						target: BEEFY_SYNC_LOG_TARGET,
 						"🥩 Failed to handle BEEFY justification request from {:?}: {}", peer, e,

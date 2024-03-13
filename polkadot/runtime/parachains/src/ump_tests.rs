@@ -31,8 +31,7 @@ use frame_support::{
 	weights::Weight,
 };
 use primitives::{well_known_keys, Id as ParaId, UpwardMessage};
-use sp_core::twox_64;
-use sp_io::hashing::blake2_256;
+use sp_crypto_hashing::{blake2_256, twox_64};
 use sp_runtime::traits::Bounded;
 use sp_std::prelude::*;
 
@@ -505,6 +504,10 @@ fn overweight_queue_works() {
 	let a_msg_2 = (501u32, "a_msg_2").encode();
 	let a_msg_3 = (501u32, "a_msg_3").encode();
 
+	let hash_1 = blake2_256(&a_msg_1[..]);
+	let hash_2 = blake2_256(&a_msg_2[..]);
+	let hash_3 = blake2_256(&a_msg_3[..]);
+
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// HACK: Start with the block number 1. This is needed because should an event be
 		// emitted during the genesis block they will be implicitly wiped.
@@ -517,9 +520,6 @@ fn overweight_queue_works() {
 		queue_upward_msg(para_a, a_msg_3.clone());
 
 		MessageQueue::service_queues(Weight::from_parts(500, 500));
-		let hash_1 = blake2_256(&a_msg_1[..]);
-		let hash_2 = blake2_256(&a_msg_2[..]);
-		let hash_3 = blake2_256(&a_msg_3[..]);
 		assert_last_events(
 			[
 				pallet_message_queue::Event::<Test>::Processed {
