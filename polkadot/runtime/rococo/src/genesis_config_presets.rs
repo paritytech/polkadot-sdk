@@ -21,7 +21,7 @@ use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
 use babe_primitives::AuthorityId as BabeId;
 use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa_primitives::AuthorityId as GrandpaId;
-use primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
+use primitives::{vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId};
 use rococo_runtime_constants::currency::UNITS as ROC;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::IdentifyAccount;
@@ -106,7 +106,9 @@ fn rococo_session_keys(
 
 fn default_parachains_host_configuration(
 ) -> runtime_parachains::configuration::HostConfiguration<primitives::BlockNumber> {
-	use primitives::{MAX_CODE_SIZE, MAX_POV_SIZE};
+	use primitives::{
+		vstaging::node_features::FeatureIndex, AsyncBackingParams, MAX_CODE_SIZE, MAX_POV_SIZE,
+	};
 
 	runtime_parachains::configuration::HostConfiguration {
 		validation_upgrade_cooldown: 2u32,
@@ -115,8 +117,6 @@ fn default_parachains_host_configuration(
 		max_code_size: MAX_CODE_SIZE,
 		max_pov_size: MAX_POV_SIZE,
 		max_head_data_size: 32 * 1024,
-		group_rotation_frequency: 20,
-		paras_availability_period: 4,
 		max_upward_queue_count: 8,
 		max_upward_queue_size: 1024 * 1024,
 		max_downward_message_size: 1024 * 1024,
@@ -137,6 +137,19 @@ fn default_parachains_host_configuration(
 		relay_vrf_modulo_samples: 2,
 		zeroth_delay_tranche_width: 0,
 		minimum_validation_upgrade_delay: 5,
+		async_backing_params: AsyncBackingParams {
+			max_candidate_depth: 3,
+			allowed_ancestry_len: 2,
+		},
+		node_features: bitvec::vec::BitVec::from_element(
+			1u8 << (FeatureIndex::ElasticScalingMVP as usize),
+		),
+		scheduler_params: SchedulerParams {
+			lookahead: 2,
+			group_rotation_frequency: 20,
+			paras_availability_period: 4,
+			..Default::default()
+		},
 		..Default::default()
 	}
 }
@@ -193,7 +206,10 @@ fn rococo_testnet_genesis(
 		"sudo": { "key": Some(root_key.clone()) },
 		"configuration": {
 			"config": runtime_parachains::configuration::HostConfiguration {
-				max_validators_per_core: Some(1),
+				scheduler_params: SchedulerParams {
+					max_validators_per_core: Some(1),
+					..default_parachains_host_configuration().scheduler_params
+				},
 				..default_parachains_host_configuration()
 			},
 		},
