@@ -37,7 +37,6 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use sc_rpc::DenyUnsafe;
-use sp_core::Pair;
 
 use jsonrpsee::RpcModule;
 
@@ -57,7 +56,7 @@ use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, Ta
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
 use sp_consensus_aura::AuraApi;
-use sp_core::traits::SpawnEssentialNamed;
+use sp_core::{crypto::CryptoType, traits::SpawnEssentialNamed};
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	app_crypto::AppCrypto,
@@ -636,8 +635,8 @@ where
 		+ sp_api::ApiExt<Block>
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_block_builder::BlockBuilder<Block>
-		+ sp_consensus_aura::AuraApi<Block, <AuraId as AppCrypto>::Public>,
-	<AuraId as AppCrypto>::Signature:
+		+ sp_consensus_aura::AuraApi<Block, <<AuraId as AppCrypto>::Pair as CryptoType>::Public>,
+	<<AuraId as AppCrypto>::Pair as CryptoType>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
 {
 	let verifier_client = client.clone();
@@ -810,10 +809,10 @@ where
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_block_builder::BlockBuilder<Block>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
-		+ sp_consensus_aura::AuraApi<Block, <AuraId as AppCrypto>::Public>
+		+ sp_consensus_aura::AuraApi<Block, <<AuraId as AppCrypto>::Pair as CryptoType>::Public>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-	<AuraId as AppCrypto>::Signature:
+	<<AuraId as AppCrypto>::Pair as CryptoType>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
 {
 	start_node_impl::<RuntimeApi, _, _, _>(
@@ -958,11 +957,11 @@ where
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_block_builder::BlockBuilder<Block>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
-		+ sp_consensus_aura::AuraApi<Block, <AuraId as AppCrypto>::Public>
+		+ sp_consensus_aura::AuraApi<Block, <<AuraId as AppCrypto>::Pair as CryptoType>::Public>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
 		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>,
-	<AuraId as AppCrypto>::Signature:
+	<<AuraId as AppCrypto>::Pair as CryptoType>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
 {
 	start_node_impl::<RuntimeApi, _, _, _>(
