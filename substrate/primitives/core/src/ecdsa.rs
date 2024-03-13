@@ -102,7 +102,7 @@ impl From<PublicKey> for Public {
 #[cfg(not(feature = "std"))]
 impl From<VerifyingKey> for Public {
 	fn from(pubkey: VerifyingKey) -> Self {
-		Self::unchecked_from(
+		Self::from_raw(
 			pubkey.to_sec1_bytes()[..]
 				.try_into()
 				.expect("valid key is serializable to [u8,33]. qed."),
@@ -214,8 +214,8 @@ impl Signature {
 
 		#[cfg(not(feature = "std"))]
 		{
-			let rid = k256::ecdsa::RecoveryId::from_byte(self.0[64])?;
-			let sig = k256::ecdsa::Signature::from_bytes((&self.0[..64]).into()).ok()?;
+			let rid = k256::ecdsa::RecoveryId::from_byte(self.inner()[64])?;
+			let sig = k256::ecdsa::Signature::from_bytes((&self.inner()[..64]).into()).ok()?;
 			VerifyingKey::recover_from_prehash(message, &sig, rid).map(Public::from).ok()
 		}
 	}
@@ -225,8 +225,8 @@ impl Signature {
 impl From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for Signature {
 	fn from(recsig: (k256::ecdsa::Signature, k256::ecdsa::RecoveryId)) -> Signature {
 		let mut r = Self::default();
-		r.0[..64].copy_from_slice(&recsig.0.to_bytes());
-		r.0[64] = recsig.1.to_byte();
+		r.as_mut()[..64].copy_from_slice(&recsig.0.to_bytes());
+		r.as_mut()[64] = recsig.1.to_byte();
 		r
 	}
 }
