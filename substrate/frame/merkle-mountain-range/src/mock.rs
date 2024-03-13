@@ -28,8 +28,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		MMR: pallet_mmr::{Pallet, Storage},
+		System: frame_system,
+		MMR: pallet_mmr,
 	}
 );
 

@@ -19,6 +19,7 @@ use codec::{Decode, Encode};
 use frame_support::PalletError;
 
 #[frame_support::pallet]
+#[allow(unused_imports)]
 mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
@@ -34,25 +35,24 @@ mod pallet {
 
 #[derive(Encode, Decode, PalletError, scale_info::TypeInfo)]
 pub enum MyError {
-    Foo,
-    Bar,
-    Baz(NestedError),
-    Struct(MyStruct),
-    Wrapper(Wrapper),
+	Foo,
+	Bar,
+	Baz(NestedError),
+	Struct(MyStruct),
+	Wrapper(Wrapper),
 }
 
 #[derive(Encode, Decode, PalletError, scale_info::TypeInfo)]
 pub enum NestedError {
-    Quux
+	Quux,
 }
 
 #[derive(Encode, Decode, PalletError, scale_info::TypeInfo)]
 pub struct MyStruct {
-    field: u8,
+	field: u8,
 }
 
 #[derive(Encode, Decode, PalletError, scale_info::TypeInfo)]
 pub struct Wrapper(bool);
 
-fn main() {
-}
+fn main() {}

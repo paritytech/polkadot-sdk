@@ -42,12 +42,11 @@ use crate::Config;
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		ImOnline: imonline::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Historical: pallet_session_historical::{Pallet},
+	pub enum Runtime {
+		System: frame_system,
+		Session: pallet_session,
+		ImOnline: imonline,
+		Historical: pallet_session_historical,
 	}
 );
 

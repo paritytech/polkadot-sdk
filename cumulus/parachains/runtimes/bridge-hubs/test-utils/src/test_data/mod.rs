@@ -37,10 +37,10 @@ use xcm_executor::traits::{validate_export, ExportXcm};
 
 pub fn prepare_inbound_xcm<InnerXcmRuntimeCall>(
 	xcm_message: Xcm<InnerXcmRuntimeCall>,
-	destination: InteriorMultiLocation,
+	destination: InteriorLocation,
 ) -> Vec<u8> {
-	let location = xcm::VersionedInteriorMultiLocation::V3(destination);
-	let xcm = xcm::VersionedXcm::<InnerXcmRuntimeCall>::V3(xcm_message);
+	let location = xcm::VersionedInteriorLocation::V4(destination);
+	let xcm = xcm::VersionedXcm::<InnerXcmRuntimeCall>::V4(xcm_message);
 	// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
 	// or public fields, so just tuple
 	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed
@@ -101,7 +101,7 @@ macro_rules! grab_haul_blob (
 /// which are transferred over bridge.
 pub(crate) fn simulate_message_exporter_on_bridged_chain<
 	SourceNetwork: Get<NetworkId>,
-	DestinationNetwork: Get<MultiLocation>,
+	DestinationNetwork: Get<Location>,
 	DestinationVersion: GetVersion,
 >(
 	(destination_network, destination_junctions): (NetworkId, Junctions),
@@ -109,8 +109,8 @@ pub(crate) fn simulate_message_exporter_on_bridged_chain<
 	grab_haul_blob!(GrabbingHaulBlob, GRABBED_HAUL_BLOB_PAYLOAD);
 
 	// lets pretend that some parachain on bridged chain exported the message
-	let universal_source_on_bridged_chain =
-		X2(GlobalConsensus(SourceNetwork::get()), Parachain(5678));
+	let universal_source_on_bridged_chain: Junctions =
+		[GlobalConsensus(SourceNetwork::get()), Parachain(5678)].into();
 	let channel = 1_u32;
 
 	// simulate XCM message export

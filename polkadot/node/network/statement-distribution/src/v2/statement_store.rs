@@ -97,10 +97,10 @@ impl StatementStore {
 		groups: &Groups,
 		statement: SignedStatement,
 		origin: StatementOrigin,
-	) -> Result<bool, ValidatorUnknown> {
+	) -> Result<bool, Error> {
 		let validator_index = statement.validator_index();
 		let validator_meta = match self.validator_meta.get_mut(&validator_index) {
-			None => return Err(ValidatorUnknown),
+			None => return Err(Error::ValidatorUnknown),
 			Some(m) => m,
 		};
 
@@ -134,7 +134,7 @@ impl StatementStore {
 						"groups passed into `insert` differ from those used at store creation"
 					);
 
-					return Err(ValidatorUnknown)
+					return Err(Error::ValidatorUnknown)
 				},
 			};
 
@@ -251,9 +251,12 @@ impl StatementStore {
 	}
 }
 
-/// Error indicating that the validator was unknown.
+/// Error when inserting a statement into the statement store.
 #[derive(Debug)]
-pub struct ValidatorUnknown;
+pub enum Error {
+	/// The validator was unknown.
+	ValidatorUnknown,
+}
 
 type Fingerprint = (ValidatorIndex, CompactStatement);
 

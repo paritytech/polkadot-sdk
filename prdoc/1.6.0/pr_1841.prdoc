@@ -1,0 +1,18 @@
+title: Validator disabling in Statement Distribution.
+
+doc:
+  - audience: Node Operator
+    description: |
+      Once a validator has been disabled for misbehavior, other validators
+      should no longer gossip its backing statements in the current era.
+      If they do, it might result in disconnects from the network due to low
+      reputation.
+
+migrations:
+  db: []
+  runtime: []
+
+crates:
+  - name: polkadot-statement-distribution
+
+host_functions: []

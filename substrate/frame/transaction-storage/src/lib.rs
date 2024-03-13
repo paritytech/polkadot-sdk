@@ -32,10 +32,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::{
-		fungible::{
-			hold::Balanced as FnBalanced, Inspect as FnInspect, Mutate as FnMutate,
-			MutateHold as FnMutateHold,
-		},
+		fungible::{hold::Balanced, Inspect, Mutate, MutateHold},
 		tokens::fungible::Credit,
 		OnUnbalanced,
 	},
@@ -49,7 +46,7 @@ use sp_transaction_storage_proof::{
 
 /// A type alias for the balance type from this pallet's point of view.
 type BalanceOf<T> =
-	<<T as Config>::Currency as FnInspect<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
@@ -111,9 +108,9 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
 		/// The fungible type for this pallet.
-		type Currency: FnMutate<Self::AccountId>
-			+ FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ FnBalanced<Self::AccountId>;
+		type Currency: Mutate<Self::AccountId>
+			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ Balanced<Self::AccountId>;
 		/// The overarching runtime hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 		/// Handler for the unbalanced decrease when fees are burned.

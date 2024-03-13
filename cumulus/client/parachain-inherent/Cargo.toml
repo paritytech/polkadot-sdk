@@ -1,0 +1,30 @@
+[package]
+name = "cumulus-client-parachain-inherent"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Inherent that needs to be present in every parachain block. Contains messages and a relay chain storage-proof."
+license = "Apache-2.0"
+
+[dependencies]
+async-trait = "0.1.73"
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
+scale-info = { version = "2.10.0", features = ["derive"] }
+tracing = { version = "0.1.37" }
+
+# Substrate
+sc-client-api = { path = "../../../substrate/client/api" }
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
+sp-inherents = { path = "../../../substrate/primitives/inherents" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
+sp-std = { path = "../../../substrate/primitives/std" }
+sp-storage = { path = "../../../substrate/primitives/storage" }
+sp-trie = { path = "../../../substrate/primitives/trie" }
+
+# Cumulus
+cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
+cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
+cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }

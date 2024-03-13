@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Adapters to work with [`frame_support::traits::fungibles`] through XCM.
+//! Adapters to work with [`frame_support::traits::tokens::nonfungibles`] through XCM.
 
 use crate::{AssetChecking, MintLocation};
 use frame_support::{
@@ -29,6 +29,9 @@ use xcm_executor::traits::{
 
 const LOG_TARGET: &str = "xcm::nonfungibles_adapter";
 
+/// [`TransactAsset`] implementation that allows the use of a [`nonfungibles`] implementation for
+/// handling an asset in the XCM executor.
+/// Only works for transfers.
 pub struct NonFungiblesTransferAdapter<Assets, Matcher, AccountIdConverter, AccountId>(
 	PhantomData<(Assets, Matcher, AccountIdConverter, AccountId)>,
 );
@@ -40,11 +43,11 @@ impl<
 	> TransactAsset for NonFungiblesTransferAdapter<Assets, Matcher, AccountIdConverter, AccountId>
 {
 	fn transfer_asset(
-		what: &MultiAsset,
-		from: &MultiLocation,
-		to: &MultiLocation,
+		what: &Asset,
+		from: &Location,
+		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<xcm_executor::Assets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(
 			target: LOG_TARGET,
 			"transfer_asset what: {:?}, from: {:?}, to: {:?}, context: {:?}",
@@ -63,6 +66,9 @@ impl<
 	}
 }
 
+/// [`TransactAsset`] implementation that allows the use of a [`nonfungibles`] implementation for
+/// handling an asset in the XCM executor.
+/// Only works for teleport bookkeeping.
 pub struct NonFungiblesMutateAdapter<
 	Assets,
 	Matcher,
@@ -131,7 +137,7 @@ impl<
 		CheckingAccount,
 	>
 {
-	fn can_check_in(_origin: &MultiLocation, what: &MultiAsset, context: &XcmContext) -> XcmResult {
+	fn can_check_in(_origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		log::trace!(
 			target: LOG_TARGET,
 			"can_check_in origin: {:?}, what: {:?}, context: {:?}",
@@ -150,7 +156,7 @@ impl<
 		}
 	}
 
-	fn check_in(_origin: &MultiLocation, what: &MultiAsset, context: &XcmContext) {
+	fn check_in(_origin: &Location, what: &Asset, context: &XcmContext) {
 		log::trace!(
 			target: LOG_TARGET,
 			"check_in origin: {:?}, what: {:?}, context: {:?}",
@@ -169,7 +175,7 @@ impl<
 		}
 	}
 
-	fn can_check_out(_dest: &MultiLocation, what: &MultiAsset, context: &XcmContext) -> XcmResult {
+	fn can_check_out(_dest: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		log::trace!(
 			target: LOG_TARGET,
 			"can_check_out dest: {:?}, what: {:?}, context: {:?}",
@@ -188,7 +194,7 @@ impl<
 		}
 	}
 
-	fn check_out(_dest: &MultiLocation, what: &MultiAsset, context: &XcmContext) {
+	fn check_out(_dest: &Location, what: &Asset, context: &XcmContext) {
 		log::trace!(
 			target: LOG_TARGET,
 			"check_out dest: {:?}, what: {:?}, context: {:?}",
@@ -207,11 +213,7 @@ impl<
 		}
 	}
 
-	fn deposit_asset(
-		what: &MultiAsset,
-		who: &MultiLocation,
-		context: Option<&XcmContext>,
-	) -> XcmResult {
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		log::trace!(
 			target: LOG_TARGET,
 			"deposit_asset what: {:?}, who: {:?}, context: {:?}",
@@ -228,10 +230,10 @@ impl<
 	}
 
 	fn withdraw_asset(
-		what: &MultiAsset,
-		who: &MultiLocation,
+		what: &Asset,
+		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::Assets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(
 			target: LOG_TARGET,
 			"withdraw_asset what: {:?}, who: {:?}, maybe_context: {:?}",
@@ -249,6 +251,9 @@ impl<
 	}
 }
 
+/// [`TransactAsset`] implementation that allows the use of a [`nonfungibles`] implementation for
+/// handling an asset in the XCM executor.
+/// Works for everything.
 pub struct NonFungiblesAdapter<
 	Assets,
 	Matcher,
@@ -267,7 +272,7 @@ impl<
 	> TransactAsset
 	for NonFungiblesAdapter<Assets, Matcher, AccountIdConverter, AccountId, CheckAsset, CheckingAccount>
 {
-	fn can_check_in(origin: &MultiLocation, what: &MultiAsset, context: &XcmContext) -> XcmResult {
+	fn can_check_in(origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		NonFungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -278,7 +283,7 @@ impl<
 		>::can_check_in(origin, what, context)
 	}
 
-	fn check_in(origin: &MultiLocation, what: &MultiAsset, context: &XcmContext) {
+	fn check_in(origin: &Location, what: &Asset, context: &XcmContext) {
 		NonFungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -289,7 +294,7 @@ impl<
 		>::check_in(origin, what, context)
 	}
 
-	fn can_check_out(dest: &MultiLocation, what: &MultiAsset, context: &XcmContext) -> XcmResult {
+	fn can_check_out(dest: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		NonFungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -300,7 +305,7 @@ impl<
 		>::can_check_out(dest, what, context)
 	}
 
-	fn check_out(dest: &MultiLocation, what: &MultiAsset, context: &XcmContext) {
+	fn check_out(dest: &Location, what: &Asset, context: &XcmContext) {
 		NonFungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -311,11 +316,7 @@ impl<
 		>::check_out(dest, what, context)
 	}
 
-	fn deposit_asset(
-		what: &MultiAsset,
-		who: &MultiLocation,
-		context: Option<&XcmContext>,
-	) -> XcmResult {
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		NonFungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -327,10 +328,10 @@ impl<
 	}
 
 	fn withdraw_asset(
-		what: &MultiAsset,
-		who: &MultiLocation,
+		what: &Asset,
+		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::Assets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		NonFungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -342,11 +343,11 @@ impl<
 	}
 
 	fn transfer_asset(
-		what: &MultiAsset,
-		from: &MultiLocation,
-		to: &MultiLocation,
+		what: &Asset,
+		from: &Location,
+		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<xcm_executor::Assets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		NonFungiblesTransferAdapter::<Assets, Matcher, AccountIdConverter, AccountId>::transfer_asset(
 			what, from, to, context,
 		)

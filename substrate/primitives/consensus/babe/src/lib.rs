@@ -256,6 +256,12 @@ pub struct BabeEpochConfiguration {
 	pub allowed_slots: AllowedSlots,
 }
 
+impl Default for BabeEpochConfiguration {
+	fn default() -> Self {
+		Self { c: (1, 4), allowed_slots: AllowedSlots::PrimaryAndSecondaryVRFSlots }
+	}
+}
+
 /// Verifies the equivocation proof by making sure that: both headers have
 /// different hashes, are targetting the same slot, and have valid signatures by
 /// the same authority.

@@ -30,10 +30,10 @@ use cumulus_client_consensus_common::{
 	self as consensus_common, ParachainBlockImportMarker, ParachainCandidate,
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
+use cumulus_client_parachain_inherent::{ParachainInherentData, ParachainInherentDataProvider};
 use cumulus_primitives_core::{
 	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
 };
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{Collation, MaybeCompressedPoV};
@@ -124,7 +124,7 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
-		let paras_inherent_data = ParachainInherentData::create_at(
+		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
 			&self.relay_client,
 			validation_data,
@@ -258,6 +258,7 @@ where
 pub struct SlotClaim<Pub> {
 	author_pub: Pub,
 	pre_digest: DigestItem,
+	slot: Slot,
 	timestamp: Timestamp,
 }
 
@@ -272,7 +273,7 @@ impl<Pub> SlotClaim<Pub> {
 		P::Public: Codec,
 		P::Signature: Codec,
 	{
-		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::<P>(slot) }
+		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::<P>(slot), slot }
 	}
 
 	/// Get the author's public key.
@@ -283,6 +284,11 @@ impl<Pub> SlotClaim<Pub> {
 	/// Get the Aura pre-digest for this slot.
 	pub fn pre_digest(&self) -> &DigestItem {
 		&self.pre_digest
+	}
+
+	/// Get the slot assigned to this claim.
+	pub fn slot(&self) -> Slot {
+		self.slot
 	}
 
 	/// Get the timestamp corresponding to the relay-chain slot this claim was

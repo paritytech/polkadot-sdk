@@ -178,7 +178,7 @@ mod tests {
 		RuntimeCall::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads {
 			at_relay_block: (num, Default::default()),
 			parachains,
-			parachain_heads_proof: ParaHeadsProof(Vec::new()),
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
 		})
 		.check_obsolete_submit_parachain_heads()
 		.is_ok()

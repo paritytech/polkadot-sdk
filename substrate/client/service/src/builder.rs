@@ -52,8 +52,8 @@ use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
 	block_relay_protocol::BlockRelayParams, block_request_handler::BlockRequestHandler,
 	engine::SyncingEngine, service::network::NetworkServiceProvider,
-	state_request_handler::StateRequestHandler, warp::WarpSyncParams,
-	warp_request_handler::RequestHandler as WarpSyncRequestHandler, SyncingService,
+	state_request_handler::StateRequestHandler,
+	warp_request_handler::RequestHandler as WarpSyncRequestHandler, SyncingService, WarpSyncParams,
 };
 use sc_rpc::{
 	author::AuthorApiServer,
@@ -63,7 +63,9 @@ use sc_rpc::{
 	system::SystemApiServer,
 	DenyUnsafe, SubscriptionTaskExecutor,
 };
-use sc_rpc_spec_v2::{chain_head::ChainHeadApiServer, transaction::TransactionApiServer};
+use sc_rpc_spec_v2::{
+	archive::ArchiveApiServer, chain_head::ChainHeadApiServer, transaction::TransactionApiServer,
+};
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
@@ -458,7 +460,7 @@ where
 	spawn_handle.spawn(
 		"on-transaction-imported",
 		Some("transaction-pool"),
-		transaction_notifications(
+		propagate_transaction_notifications(
 			transaction_pool.clone(),
 			tx_handler_controller,
 			telemetry.clone(),
@@ -530,7 +532,8 @@ where
 	Ok(rpc_handlers)
 }
 
-async fn transaction_notifications<Block, ExPool>(
+/// Returns a future that forwards imported transactions to the transaction networking protocol.
+pub async fn propagate_transaction_notifications<Block, ExPool>(
 	transaction_pool: Arc<ExPool>,
 	tx_handler_controller: sc_network_transactions::TransactionsHandlerController<
 		<Block as BlockT>::Hash,
@@ -558,7 +561,8 @@ async fn transaction_notifications<Block, ExPool>(
 		.await;
 }
 
-fn init_telemetry<Block, Client, Network>(
+/// Initialize telemetry with provided configuration and return telemetry handle
+pub fn init_telemetry<Block, Client, Network>(
 	config: &mut Configuration,
 	network: Network,
 	client: Arc<Client>,
@@ -596,7 +600,8 @@ where
 	Ok(telemetry.handle())
 }
 
-fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
+/// Generate RPC module using provided configuration
+pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 	deny_unsafe: DenyUnsafe,
 	spawn_handle: SpawnTaskHandle,
 	client: Arc<TCl>,
@@ -663,6 +668,26 @@ where
 		sc_rpc_spec_v2::chain_head::ChainHeadConfig::default(),
 	)
 	.into_rpc();
+
+	// Part of the RPC v2 spec.
+	// An archive node that can respond to the `archive` RPC-v2 queries is a node with:
+	// - state pruning in archive mode: The storage of blocks is kept around
+	// - block pruning in archive mode: The block's body is kept around
+	let is_archive_node = config.state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(false) &&
+		config.blocks_pruning.is_archive();
+	if is_archive_node {
+		let genesis_hash =
+			client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
+		let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
+			client.clone(),
+			backend.clone(),
+			genesis_hash,
+			// Defaults to sensible limits for the `Archive`.
+			sc_rpc_spec_v2::archive::ArchiveConfig::default(),
+		)
+		.into_rpc();
+		rpc_api.merge(archive_v2).map_err(|e| Error::Application(e.into()))?;
+	}
 
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
