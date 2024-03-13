@@ -148,7 +148,7 @@ parameter_types! {
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 
-pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
+pub type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
