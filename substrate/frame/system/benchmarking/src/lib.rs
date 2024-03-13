@@ -28,6 +28,7 @@ use sp_core::storage::well_known_keys;
 use sp_runtime::traits::Hash;
 use sp_std::{prelude::*, vec};
 
+pub mod extensions;
 mod mock;
 
 pub struct Pallet<T: Config>(System<T>);
