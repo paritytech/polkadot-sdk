@@ -42,6 +42,8 @@ use frame_system::{
 	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
+use sp_application_crypto::Ss58Codec;
+use sp_keyring::AccountKeyring;
 use sp_runtime::RuntimeString;
 use sp_std::prelude::*;
 #[cfg(not(feature = "std"))]
@@ -870,7 +872,6 @@ fn test_witness(proof: StorageProof, root: crate::Hash) {
 pub mod storage_key_generator {
 	use super::*;
 	use sp_core::Pair;
-	use sp_keyring::AccountKeyring;
 
 	/// Generate hex string without prefix
 	pub(super) fn hex<T>(x: T) -> String
@@ -1060,7 +1061,6 @@ mod tests {
 	use sp_api::{ApiExt, ProvideRuntimeApi};
 	use sp_consensus::BlockOrigin;
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
-	use sp_keyring::AccountKeyring;
 	use sp_runtime::{
 		traits::{DispatchTransaction, Hash as _},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
@@ -1211,7 +1211,7 @@ mod tests {
 	fn check_substrate_check_signed_extension_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
-			let x: AccountId = sp_keyring::AccountKeyring::Alice.into();
+			let x: AccountId = AccountKeyring::Alice.into();
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			assert_eq!(
@@ -1508,8 +1508,8 @@ mod tests {
 			let authority_key_vec =
 				Vec::<sp_core::sr25519::Public>::decode(&mut &value[..]).unwrap();
 			assert_eq!(authority_key_vec.len(), 2);
-			assert_eq!(authority_key_vec[0], sp_keyring::AccountKeyring::Ferdie.public());
-			assert_eq!(authority_key_vec[1], sp_keyring::AccountKeyring::Alice.public());
+			assert_eq!(authority_key_vec[0], AccountKeyring::Ferdie.public());
+			assert_eq!(authority_key_vec[1], AccountKeyring::Alice.public());
 
 			//Babe|Authorities
 			let value: Vec<u8> = get_from_storage(
