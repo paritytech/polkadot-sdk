@@ -24,7 +24,10 @@ use polkadot_subsystem_bench::{approval, availability, configuration};
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{
+	net::{Ipv4Addr, SocketAddr},
+	path::Path,
+};
 
 mod valgrind;
 
