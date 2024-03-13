@@ -510,6 +510,9 @@ pub use frame_support_procedural::{
 	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
 };
 
+#[cfg(feature = "experimental")]
+pub use frame_support_procedural::runtime;
+
 #[doc(hidden)]
 pub use frame_support_procedural::{__create_tt_macro, __generate_dummy_part_checker};
 
