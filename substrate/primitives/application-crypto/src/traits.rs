@@ -65,24 +65,34 @@ pub trait AppPair:
 
 /// Application-specific public key.
 pub trait AppPublic:
-	AppCrypto
+	AppCrypto<Public = Self>
 	+ Public<Pair = <Self as AppCrypto>::Pair, Signature = <Self as AppCrypto>::Signature>
 	+ Debug
 	+ MaybeHash
 	+ Codec
 {
 	/// The wrapped type which is just a plain instance of `Public`.
-	type Generic: IsWrappedBy<Self> + Public + Debug + MaybeHash + Codec;
+	type Generic: IsWrappedBy<Self>
+		+ Public<
+			Pair = <<Self as AppCrypto>::Pair as AppPair>::Generic,
+			Signature = <<Self as AppCrypto>::Signature as AppSignature>::Generic,
+		> + Debug
+		+ MaybeHash
+		+ Codec;
 }
 
 /// Application-specific signature.
 pub trait AppSignature:
-	AppCrypto
+	AppCrypto<Signature = Self>
 	+ Signature<Pair = <Self as AppCrypto>::Pair, Public = <Self as AppCrypto>::Public>
 	+ Debug
 {
 	/// The wrapped type which is just a plain instance of `Signature`.
-	type Generic: IsWrappedBy<Self> + Eq + PartialEq + Debug;
+	type Generic: IsWrappedBy<Self>
+		+ Signature<
+			Public = <<Self as AppCrypto>::Public as AppPublic>::Generic,
+			Signature = <<Self as AppCrypto>::Signature as AppSignature>::Generic,
+		> + Debug;
 }
 
 /// Runtime interface for a public key.

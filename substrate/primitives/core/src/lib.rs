@@ -52,6 +52,10 @@ pub use impl_serde::serialize as bytes;
 )]
 pub use sp_crypto_hashing::{self as hashing, *};
 
+mod address_uri;
+#[cfg(feature = "std")]
+mod hasher;
+
 pub mod const_hex2array;
 pub mod crypto;
 pub mod hexdisplay;
@@ -78,11 +82,6 @@ pub mod sr25519;
 pub use bls::{bls377, bls381};
 #[cfg(feature = "bls-experimental")]
 pub use paired_crypto::ecdsa_bls377;
-
-#[cfg(feature = "std")]
-mod hasher;
-
-mod address_uri;
 
 pub use self::{
 	hash::{convert_hash, H160, H256, H512},

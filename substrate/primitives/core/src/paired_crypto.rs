@@ -225,7 +225,7 @@ impl<const LEFT_PLUS_RIGHT_LEN: usize> UncheckedFrom<[u8; LEFT_PLUS_RIGHT_LEN]>
 #[cfg(feature = "std")]
 impl<const LEFT_PLUS_RIGHT_LEN: usize> std::fmt::Display for Public<LEFT_PLUS_RIGHT_LEN>
 where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType<Public = Self>,
+	Self: CryptoType<Public = Self>,
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}", self.to_ss58check())
@@ -234,7 +234,7 @@ where
 
 impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::fmt::Debug for Public<LEFT_PLUS_RIGHT_LEN>
 where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType<Public = Self>,
+	Self: CryptoType<Public = Self>,
 	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
 {
 	#[cfg(feature = "std")]

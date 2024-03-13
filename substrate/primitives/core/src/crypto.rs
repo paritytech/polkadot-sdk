@@ -1240,6 +1240,92 @@ macro_rules! impl_crypto_type {
 }
 pub(crate) use impl_crypto_type;
 
+macro_rules! impl_byte_array_types {
+	($type:ident) => {
+		impl Default for $type {
+			fn default() -> Self {
+				$type([0_u8; Self::LEN])
+			}
+		}
+
+		impl AsRef<[u8]> for $type {
+			fn as_ref(&self) -> &[u8] {
+				&self.0[..]
+			}
+		}
+
+		impl AsMut<[u8]> for $type {
+			fn as_mut(&mut self) -> &mut [u8] {
+				&mut self.0[..]
+			}
+		}
+
+		impl ByteArray for $type {
+			const LEN: usize = std::mem::size_of::<$type>();
+		}
+
+		impl From<$type> for [u8; $type::LEN] {
+			fn from(v: $type) -> [u8; $type::LEN] {
+				v.0
+			}
+		}
+
+		impl AsRef<[u8; $type::LEN]> for $type {
+			fn as_ref(&self) -> &[u8; $type::LEN] {
+				&self.0
+			}
+		}
+
+		impl TryFrom<&[u8]> for $type {
+			type Error = ();
+
+			fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
+				if data.len() != Self::LEN {
+					return Err(())
+				}
+				let mut r = [0u8; Self::LEN];
+				r.copy_from_slice(data);
+				Ok(Self::unchecked_from(r))
+			}
+		}
+
+		impl UncheckedFrom<[u8; Self::LEN]> for $type {
+			fn unchecked_from(x: [u8; Self::LEN]) -> Self {
+				Self(x)
+			}
+		}
+
+		impl core::ops::Deref for $type {
+			type Target = [u8];
+
+			fn deref(&self) -> &Self::Target {
+				&self.0
+			}
+		}
+
+		impl $type {
+			/// Construct from raw array.
+			pub fn from_raw(data: [u8; Self::LEN]) -> Self {
+				Self(data)
+			}
+
+			/// A new instance from the given slice that should be `Self::LEN` bytes long.
+			///
+			/// NOTE: No checking goes on to ensure this is a valid $type. Only use it if
+			/// you are certain that the array actually is a $type. YOLO!
+			pub fn from_slice(data: &[u8]) -> Option<Self> {
+				Self::try_from(data).ok()
+			}
+
+			/// Return a slice filled with raw data.
+			pub fn as_array_ref(&self) -> &[u8; Self::LEN] {
+				self.as_ref()
+			}
+		}
+	};
+}
+pub(crate) use impl_byte_array_types;
+
 #[cfg(test)]
 mod tests {
 	use super::*;

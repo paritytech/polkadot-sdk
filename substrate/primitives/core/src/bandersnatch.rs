@@ -474,6 +474,7 @@ pub mod vrf {
 		type VrfSignature = VrfSignature;
 	}
 
+	#[cfg(feature = "full_crypto")]
 	impl VrfSecret for Pair {
 		fn vrf_sign(&self, data: &Self::VrfSignData) -> Self::VrfSignature {
 			const _: () = assert!(MAX_VRF_IOS == 3, "`MAX_VRF_IOS` expected to be 3");
@@ -518,6 +519,7 @@ pub mod vrf {
 		}
 	}
 
+	#[cfg(feature = "full_crypto")]
 	impl Pair {
 		fn vrf_sign_gen<const N: usize>(&self, data: &VrfSignData) -> VrfSignature {
 			let ios = core::array::from_fn(|i| self.secret.vrf_inout(data.inputs[i].0));
@@ -788,6 +790,7 @@ pub mod ring_vrf {
 		pub pre_outputs: VrfIosVec<VrfPreOutput>,
 	}
 
+	#[cfg(feature = "full_crypto")]
 	impl Pair {
 		/// Produce a ring-vrf signature.
 		///
