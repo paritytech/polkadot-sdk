@@ -141,8 +141,18 @@ impl BenchCli {
 						test_config,
 						&mut state,
 						availability::TestDataAvailability::Read(opts),
-						true,
 					);
+
+					let registry_clone = env.registry().clone();
+					env.spawn_blocking("prometheus", async move {
+						prometheus_endpoint::init_prometheus(
+							SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
+							registry_clone,
+						)
+						.await
+						.unwrap();
+					});
+
 					env.runtime().block_on(availability::benchmark_availability_read(
 						&benchmark_name,
 						&mut env,
@@ -155,8 +165,18 @@ impl BenchCli {
 						test_config,
 						&mut state,
 						availability::TestDataAvailability::Write,
-						true,
 					);
+
+					let registry_clone = env.registry().clone();
+					env.spawn_blocking("prometheus", async move {
+						prometheus_endpoint::init_prometheus(
+							SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
+							registry_clone,
+						)
+						.await
+						.unwrap();
+					});
+
 					env.runtime().block_on(availability::benchmark_availability_write(
 						&benchmark_name,
 						&mut env,
@@ -165,7 +185,18 @@ impl BenchCli {
 				},
 				TestObjective::ApprovalVoting(ref options) => {
 					let (mut env, state) =
-						approval::prepare_test(test_config.clone(), options.clone(), true);
+						approval::prepare_test(test_config.clone(), options.clone());
+
+					let registry_clone = env.registry().clone();
+					env.spawn_blocking("prometheus", async move {
+						prometheus_endpoint::init_prometheus(
+							SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
+							registry_clone,
+						)
+						.await
+						.unwrap();
+					});
+
 					env.runtime().block_on(approval::bench_approvals(
 						&benchmark_name,
 						&mut env,

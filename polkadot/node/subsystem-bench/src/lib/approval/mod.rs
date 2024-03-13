@@ -835,14 +835,8 @@ fn build_overseer(
 pub fn prepare_test(
 	config: TestConfiguration,
 	options: ApprovalsOptions,
-	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, ApprovalTestState) {
-	prepare_test_inner(
-		config,
-		TestEnvironmentDependencies::default(),
-		options,
-		with_prometheus_endpoint,
-	)
+	prepare_test_inner(config, TestEnvironmentDependencies::default(), options)
 }
 
 /// Build the test environment for an Approval benchmark.
@@ -850,7 +844,7 @@ fn prepare_test_inner(
 	config: TestConfiguration,
 	dependencies: TestEnvironmentDependencies,
 	options: ApprovalsOptions,
-	with_prometheus_endpoint: bool,
+	// with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, ApprovalTestState) {
 	gum::info!("Prepare test state");
 	let state = ApprovalTestState::new(&config, options, &dependencies);
@@ -879,7 +873,7 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			state.test_authorities.clone(),
-			with_prometheus_endpoint,
+			// with_prometheus_endpoint,
 		),
 		state,
 	)
