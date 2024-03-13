@@ -93,7 +93,7 @@ pub(crate) fn try_upgrade_db(
 }
 
 /// Try upgrading parachain's database to the next version.
-/// If successfull, it returns the current version.
+/// If successful, it returns the current version.
 pub(crate) fn try_upgrade_db_to_next_version(
 	db_path: &Path,
 	db_kind: DatabaseKind,

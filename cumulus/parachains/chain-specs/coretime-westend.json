@@ -3,8 +3,8 @@
   "id": "coretime-westend",
   "chainType": "Live",
   "bootNodes": [
-    "/dns/westend-coretime-collator-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWP93Dzk8T7GWxyWw9jhLcz8Pksokk3R9vL2eEH337bNkT",
-    "/dns/westend-coretime-collator-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWMh2imeAzsZKGQgm2cv6Uoep3GBYtwGfujt1bs5YfVzkH"
+    "/dns/westend-coretime-collator-node-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWP93Dzk8T7GWxyWw9jhLcz8Pksokk3R9vL2eEH337bNkT",
+    "/dns/westend-coretime-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWMh2imeAzsZKGQgm2cv6Uoep3GBYtwGfujt1bs5YfVzkH"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

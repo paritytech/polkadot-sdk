@@ -39,6 +39,7 @@ sp-version = { path = "../../../substrate/primitives/version", default-features 
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
+cumulus-primitives-storage-weight-reclaim = { path = "../../primitives/storage-weight-reclaim", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }
@@ -49,6 +50,7 @@ std = [
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-primitives-core/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",

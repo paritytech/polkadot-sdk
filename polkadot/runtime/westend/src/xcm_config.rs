@@ -34,9 +34,7 @@ use runtime_common::{
 };
 use sp_core::ConstU32;
 use westend_runtime_constants::{
-	currency::CENTS,
-	system_parachain::*,
-	xcm::body::{FELLOWSHIP_ADMIN_INDEX, TREASURER_INDEX},
+	currency::CENTS, system_parachain::*, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -114,12 +112,16 @@ parameter_types! {
 	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
 	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
 	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
+	pub Encointer: Location = Parachain(ENCOINTER_ID).into_location();
 	pub People: Location = Parachain(PEOPLE_ID).into_location();
+	pub Broker: Location = Parachain(BROKER_ID).into_location();
 	pub Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
 	pub WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
 	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
 	pub WndForBridgeHub: (AssetFilter, Location) = (Wnd::get(), BridgeHub::get());
+	pub WndForEncointer: (AssetFilter, Location) = (Wnd::get(), Encointer::get());
 	pub WndForPeople: (AssetFilter, Location) = (Wnd::get(), People::get());
+	pub WndForBroker: (AssetFilter, Location) = (Wnd::get(), Broker::get());
 	pub MaxInstructions: u32 = 100;
 	pub MaxAssetsIntoHolding: u32 = 64;
 }
@@ -128,7 +130,9 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<WndForAssetHub>,
 	xcm_builder::Case<WndForCollectives>,
 	xcm_builder::Case<WndForBridgeHub>,
+	xcm_builder::Case<WndForEncointer>,
 	xcm_builder::Case<WndForPeople>,
+	xcm_builder::Case<WndForBroker>,
 );
 
 pub struct OnlyParachains;
@@ -225,7 +229,7 @@ parameter_types! {
 	// FellowshipAdmin pluralistic body.
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
 	// `Treasurer` pluralistic body.
-	pub const TreasurerBodyId: BodyId = BodyId::Index(TREASURER_INDEX);
+	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
 }
 
 /// Type to convert the `GeneralAdmin` origin to a Plurality `Location` value.
@@ -259,7 +263,7 @@ pub type LocalPalletOriginToLocation = (
 	StakingAdminToPlurality,
 	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	FellowshipAdminToPlurality,
-	// `Treasurer` origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// `Treasurer` origin to be used in XCM as a corresponding Plurality `Location` value.
 	TreasurerToPlurality,
 );
 

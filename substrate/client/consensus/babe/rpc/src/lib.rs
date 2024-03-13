@@ -258,7 +258,7 @@ mod tests {
 
 		let request = r#"{"jsonrpc":"2.0","method":"babe_epochAuthorship","params": [],"id":1}"#;
 		let (response, _) = api.raw_json_request(request, 1).await.unwrap();
-		let expected = r#"{"jsonrpc":"2.0","result":{"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY":{"primary":[0],"secondary":[1,2,4],"secondary_vrf":[]}},"id":1}"#;
+		let expected = r#"{"jsonrpc":"2.0","result":{"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY":{"primary":[0],"secondary":[],"secondary_vrf":[1,2,4]}},"id":1}"#;
 
 		assert_eq!(response, expected);
 	}

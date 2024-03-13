@@ -97,6 +97,19 @@ pub struct SignedCommitment<TBlockNumber, TSignature> {
 	pub signatures: Vec<Option<TSignature>>,
 }
 
+impl<TBlockNumber: sp_std::fmt::Debug, TSignature> sp_std::fmt::Display
+	for SignedCommitment<TBlockNumber, TSignature>
+{
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+		let signatures_count = self.signatures.iter().filter(|s| s.is_some()).count();
+		write!(
+			f,
+			"SignedCommitment(commitment: {:?}, signatures_count: {})",
+			self.commitment, signatures_count
+		)
+	}
+}
+
 impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 	/// Return the number of collected signatures.
 	pub fn no_of_signatures(&self) -> usize {
@@ -239,6 +252,14 @@ pub enum VersionedFinalityProof<N, S> {
 	#[codec(index = 1)]
 	/// Current active version
 	V1(SignedCommitment<N, S>),
+}
+
+impl<N: sp_std::fmt::Debug, S> sp_std::fmt::Display for VersionedFinalityProof<N, S> {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+		match self {
+			VersionedFinalityProof::V1(sc) => write!(f, "VersionedFinalityProof::V1({})", sc),
+		}
+	}
 }
 
 impl<N, S> From<SignedCommitment<N, S>> for VersionedFinalityProof<N, S> {

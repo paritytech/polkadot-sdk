@@ -168,13 +168,10 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
-	use frame_support::{
-		derive_impl, parameter_types,
-		traits::{ConstU32, ConstU64},
-	};
+	use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;
-	use sp_core::{crypto::key_types, H256};
+	use sp_core::crypto::key_types;
 	use sp_io::TestExternalities;
 	use sp_runtime::{
 		testing::UintAuthorityId,
@@ -227,29 +224,9 @@ mod tests {
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
-		type BaseCallFilter = frame_support::traits::Everything;
-		type BlockWeights = ();
-		type BlockLength = ();
-		type DbWeight = ();
-		type RuntimeOrigin = RuntimeOrigin;
-		type Nonce = u64;
-		type RuntimeCall = RuntimeCall;
-		type Hash = H256;
-		type Hashing = ::sp_runtime::traits::BlakeTwo256;
 		type AccountId = AuthorityId;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
-		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = ConstU64<250>;
-		type Version = ();
-		type PalletInfo = PalletInfo;
-		type AccountData = ();
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type SS58Prefix = ();
-		type OnSetCode = ();
-		type MaxConsumers = ConstU32<16>;
 	}
 
 	pub struct TestSessionHandler;

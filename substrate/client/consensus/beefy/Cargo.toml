@@ -20,7 +20,7 @@ fnv = "1.0.6"
 futures = "0.3"
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
-thiserror = "1.0"
+thiserror = { workspace = true }
 wasm-timer = "0.2.5"
 prometheus = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-client-api = { path = "../../api" }
@@ -44,7 +44,7 @@ tokio = "1.22.0"
 
 
 [dev-dependencies]
-serde = "1.0.196"
+serde = { workspace = true, default-features = true }
 tempfile = "3.1.0"
 sc-block-builder = { path = "../../block-builder" }
 sc-network-test = { path = "../../network/test" }

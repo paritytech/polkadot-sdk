@@ -25,6 +25,7 @@ test-linux-stable:
     # "upgrade_version_checks_should_work" is currently failing
     - |
       time cargo nextest run \
+        --filter-expr 'not deps(/polkadot-subsystem-bench/)' \
         --workspace \
         --locked \
         --release \
@@ -48,6 +49,7 @@ test-linux-stable:
       - target/nextest/default/junit.xml
     reports:
       junit: target/nextest/default/junit.xml
+  timeout: 90m
 
 test-linux-oldkernel-stable:
   extends: test-linux-stable
@@ -68,7 +70,7 @@ test-linux-stable-runtime-benchmarks:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    - time cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+    - time cargo nextest run --filter-expr 'not deps(/polkadot-subsystem-bench/)' --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
 # can be used to run all tests
 # test-linux-stable-all:
