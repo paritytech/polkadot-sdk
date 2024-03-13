@@ -116,7 +116,7 @@ impl<T: Config> StakingLedger<T> {
 			StakingAccount::Controller(controller) => (
 				Ledger::<T>::get(&controller)
 					.map(|l| l.stash)
-					.ok_or(Error::<T>::NotController)?,
+					.defensive_ok_or(Error::<T>::NotController)?,
 				controller,
 			),
 		};
