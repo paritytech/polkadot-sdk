@@ -167,7 +167,7 @@ pub struct ExtrinsicMetadataIR<T: Form = MetaForm> {
 	/// The type of the extrinsic's signature.
 	pub signature_ty: T::Type,
 	/// The type of the outermost Extra/Extensions enum.
-	// TODO: metadata-v16: rename this to `extension_ty`.
+	// TODO: metadata-v16: remove this.
 	pub extra_ty: T::Type,
 	/// The transaction extensions in the order they appear in the extrinsic.
 	pub extensions: Vec<TransactionExtensionMetadataIR<T>>,
@@ -196,8 +196,8 @@ pub struct TransactionExtensionMetadataIR<T: Form = MetaForm> {
 	pub identifier: T::String,
 	/// The type of the signed extension, with the data to be included in the extrinsic.
 	pub ty: T::Type,
-	/// The type of the additional signed data, with the data to be included in the signed payload.
-	pub additional_signed: T::Type,
+	/// The type of the implicit data, with the data to be included in the signed payload.
+	pub implicit: T::Type,
 }
 
 impl IntoPortable for TransactionExtensionMetadataIR {
@@ -207,7 +207,7 @@ impl IntoPortable for TransactionExtensionMetadataIR {
 		TransactionExtensionMetadataIR {
 			identifier: self.identifier.into_portable(registry),
 			ty: registry.register_type(&self.ty),
-			additional_signed: registry.register_type(&self.additional_signed),
+			implicit: registry.register_type(&self.implicit),
 		}
 	}
 }

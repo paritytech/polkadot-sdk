@@ -39,7 +39,7 @@ use sp_std::{fmt, prelude::*};
 /// This version needs to be bumped if the encoded representation changes.
 /// It ensures that if the representation is changed and the format is not known,
 /// the decoding fails.
-const EXTRINSIC_FORMAT_VERSION: u8 = 4;
+const EXTRINSIC_FORMAT_VERSION: u8 = 5;
 
 /// The `SignaturePayload` of `UncheckedExtrinsic`.
 type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
@@ -254,7 +254,7 @@ where
 		Ok(match self.preamble {
 			Preamble::Signed(signed, signature, tx_ext) => {
 				let signed = lookup.lookup(signed)?;
-				// CHECK! Should this not contain implicit?
+				// The `Implicit` is "implicitly" included in the payload.
 				let raw_payload = SignedPayload::new(self.function, tx_ext)?;
 				if !raw_payload.using_encoded(|payload| signature.verify(payload, &signed)) {
 					return Err(InvalidTransaction::BadProof.into())
@@ -432,17 +432,9 @@ where
 	Call: Encode + Dispatchable,
 	Extension: TransactionExtensionBase,
 {
-	/// Get an encoded version of this payload.
-	///
-	/// Payloads longer than 256 bytes are going to be `blake2_256`-hashed.
+	/// Get an encoded version of this `blake2_256`-hashed payload.
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		self.0.using_encoded(|payload| {
-			if payload.len() > 256 {
-				f(&blake2_256(payload)[..])
-			} else {
-				f(payload)
-			}
-		})
+		self.0.using_encoded(|payload| f(&blake2_256(payload)[..]))
 	}
 }
 

@@ -142,7 +142,7 @@ impl From<TransactionExtensionMetadataIR> for SignedExtensionMetadata {
 		SignedExtensionMetadata {
 			identifier: ir.identifier,
 			ty: ir.ty,
-			additional_signed: ir.additional_signed,
+			additional_signed: ir.implicit,
 		}
 	}
 }

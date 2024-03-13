@@ -100,16 +100,7 @@ pub fn sign(
 			let payload =
 				(xt.function, tx_ext.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
 			let key = AccountKeyring::from_account_id(&signed).unwrap();
-			let signature =
-				payload
-					.using_encoded(|b| {
-						if b.len() > 256 {
-							key.sign(&blake2_256(b))
-						} else {
-							key.sign(b)
-						}
-					})
-					.into();
+			let signature = payload.using_encoded(|b| key.sign(&blake2_256(b))).into();
 			UncheckedExtrinsic {
 				preamble: sp_runtime::generic::Preamble::Signed(
 					sp_runtime::MultiAddress::Id(signed),

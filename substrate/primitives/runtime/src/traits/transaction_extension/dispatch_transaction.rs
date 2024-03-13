@@ -44,7 +44,7 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 		info: &Self::Info,
 		len: usize,
 	) -> Result<(ValidTransaction, Self::Val, Self::Origin), TransactionValidityError>;
-	/// Prepare and validate a transaction, ready for dispatch.
+	/// Validate and prepare a transaction, ready for dispatch.
 	fn validate_and_prepare(
 		self,
 		origin: Self::Origin,
