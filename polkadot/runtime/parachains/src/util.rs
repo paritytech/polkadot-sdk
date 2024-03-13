@@ -155,6 +155,13 @@ where
 		self.data.get(key).cloned()
 	}
 
+	/// Get a mutable reference to value from cache.
+	/// Implicitly marks that key as dirty.
+	pub fn get_mut(&mut self, key: &K) -> Option<&mut V> {
+		self.modified.insert(*key);
+		self.data.get_mut(key)
+	}
+
 	/// Update a value and make key dirty.
 	pub fn set(&mut self, key: K, value: V) {
 		self.data.insert(key, value);
