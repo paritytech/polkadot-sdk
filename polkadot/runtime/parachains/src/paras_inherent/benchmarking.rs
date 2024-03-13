@@ -210,6 +210,44 @@ benchmarks! {
 			cores_with_backed.len()
 		);
 	}
+
+	// The weight of one inherent with 25 paras, 25 elastic paras (each with 3 cores), 100 backed candidates,
+	// and 500 bitfields.
+	enter_big_inherent {
+		let num_paras = 50;
+		let num_paras_elastic = 25;
+
+		let cores_with_backed: BTreeMap<_, _>
+			= (0..num_paras).map(|idx| (idx, BenchBuilder::<T>::fallback_max_validators_per_core()))
+				.into_iter()
+				.collect();
+
+		// Each elastic para uses 3 cores.
+		let elastic_paras: BTreeMap<_, _>
+			= (0..num_paras_elastic).map(|idx| (idx, 3))
+			.into_iter()
+			.collect();
+
+		let scenario = BenchBuilder::<T>::new()
+			.set_max_validators(500)
+			.set_backed_and_concluding_cores(cores_with_backed)
+			.set_elastic_paras(elastic_paras)
+			.build();
+
+		let mut benchmark = scenario.data.clone();
+		benchmark.disputes.clear();
+
+	}: enter(RawOrigin::None, benchmark)
+	verify {
+		// Assert that the block was not discarded
+		assert!(Included::<T>::get().is_some());
+		// Assert that there are on-chain votes that got scraped
+		let onchain_votes = OnChainVotes::<T>::get();
+		assert!(onchain_votes.is_some());
+		let vote = onchain_votes.unwrap();
+		// Ensure that the votes are for the correct session
+		assert_eq!(vote.session, scenario._session);
+	}
 }
 
 impl_benchmark_test_suite!(
