@@ -27,9 +27,12 @@ use codec::Encode;
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType, weights::Weight};
 use sp_consensus_grandpa::SetId;
 use sp_runtime::{
-	traits::{Header, Zero},
-	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
-	RuntimeDebug, SaturatedConversion,
+	traits::{CheckedSub, Header, One, UniqueSaturatedInto, Zero},
+	transaction_validity::{
+		InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
+		ValidTransactionBuilder,
+	},
+	RuntimeDebug, SaturatedConversion, Saturating,
 };
 
 /// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
@@ -74,15 +77,18 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 	/// best one we know (2) if `current_set_id` matches the current authority set id, if specified
 	/// and (3) whether transaction MAY be free for the submitter if `is_free_execution_expected`
 	/// is `true`.
+	///
+	/// Returns number of headers between the current best finalized header, known to the pallet
+	/// and the bundled header.
 	pub fn check_obsolete_from_extension(
 		call_info: &SubmitFinalityProofInfo<BlockNumberOf<T::BridgedChain>>,
-	) -> Result<(), Error<T, I>> {
+	) -> Result<BlockNumberOf<T::BridgedChain>, Error<T, I>> {
 		// do basic checks first
-		Self::check_obsolete(call_info.block_number, call_info.current_set_id)?;
+		let improved_by = Self::check_obsolete(call_info.block_number, call_info.current_set_id)?;
 
 		// if submitter has NOT specified that it wants free execution, then we are done
 		if !call_info.is_free_execution_expected {
-			return Ok(());
+			return Ok(improved_by);
 		}
 
 		// else - if we can not accept more free headers, "reject" the transaction
@@ -93,17 +99,20 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		// we do not check whether the header matches free submission criteria here - it is the
 		// relayer responsibility to check that
 
-		Ok(())
+		Ok(improved_by)
 	}
 
 	/// Check that the GRANDPA head provided by the `SubmitFinalityProof` is better than the best
 	/// one we know. Additionally, checks if `current_set_id` matches the current authority set
 	/// id, if specified. This method is called by the call code and the transaction extension,
 	/// so it does not check the free execution.
+	///
+	/// Returns number of headers between the current best finalized header, known to the pallet
+	/// and the bundled header.
 	pub fn check_obsolete(
 		finality_target: BlockNumberOf<T::BridgedChain>,
 		current_set_id: Option<SetId>,
-	) -> Result<(), Error<T, I>> {
+	) -> Result<BlockNumberOf<T::BridgedChain>, Error<T, I>> {
 		let best_finalized = crate::BestFinalized::<T, I>::get().ok_or_else(|| {
 			log::trace!(
 				target: crate::LOG_TARGET,
@@ -113,16 +122,19 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 			<Error<T, I>>::NotInitialized
 		})?;
 
-		if best_finalized.number() >= finality_target {
-			log::trace!(
-				target: crate::LOG_TARGET,
-				"Cannot finalize obsolete header: bundled {:?}, best {:?}",
-				finality_target,
-				best_finalized,
-			);
+		let improved_by = match finality_target.checked_sub(&best_finalized.number()) {
+			Some(improved_by) if improved_by > Zero::zero() => improved_by,
+			_ => {
+				log::trace!(
+					target: crate::LOG_TARGET,
+					"Cannot finalize obsolete header: bundled {:?}, best {:?}",
+					finality_target,
+					best_finalized,
+				);
 
-			return Err(Error::<T, I>::OldHeader)
-		}
+				return Err(Error::<T, I>::OldHeader)
+			},
+		};
 
 		if let Some(current_set_id) = current_set_id {
 			let actual_set_id = <CurrentAuthoritySet<T, I>>::get().set_id;
@@ -138,7 +150,7 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 			}
 		}
 
-		Ok(())
+		Ok(improved_by)
 	}
 
 	/// Check if the `SubmitFinalityProof` was successfully executed.
@@ -188,7 +200,16 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	/// Validate Grandpa headers in order to avoid "mining" transactions that provide outdated
 	/// bridged chain headers. Without this validation, even honest relayers may lose their funds
 	/// if there are multiple relays running and submitting the same information.
-	fn check_obsolete_submit_finality_proof(&self) -> TransactionValidity
+	///
+	/// It also adds `priority_boost` for every missed header between best finalized header, known
+	/// to the pallet and bundled header, staring from the second header. So if
+	/// `BestFinalized` header is header number `100` and transaction brings header
+	/// `101` there's no priority boost. If transaction brings header `102`, then
+	/// priority is boosted by `priority_boost` and so on.
+	fn check_obsolete_submit_finality_proof(
+		&self,
+		priority_boost: TransactionPriority,
+	) -> TransactionValidity
 	where
 		Self: Sized,
 	{
@@ -201,8 +222,14 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 			return InvalidTransaction::Call.into()
 		}
 
-		match SubmitFinalityProofHelper::<T, I>::check_obsolete_from_extension(&call_info) {
-			Ok(_) => Ok(ValidTransaction::default()),
+		let result = SubmitFinalityProofHelper::<T, I>::check_obsolete_from_extension(&call_info);
+		match result {
+			Ok(improved_by) => {
+				let improved_by: TransactionPriority =
+					improved_by.saturating_sub(One::one()).unique_saturated_into();
+				let total_priority_boost = improved_by.saturating_mul(priority_boost);
+				ValidTransactionBuilder::default().priority(total_priority_boost).build()
+			},
 			Err(Error::<T, I>::OldHeader) => InvalidTransaction::Stale.into(),
 			Err(_) => InvalidTransaction::Call.into(),
 		}
@@ -295,9 +322,10 @@ mod tests {
 			current_set_id: 0,
 			is_free_execution_expected: false,
 		};
-		RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
-			bridge_grandpa_call,
-		))
+		RuntimeCall::check_obsolete_submit_finality_proof(
+			&RuntimeCall::Grandpa(bridge_grandpa_call),
+			0,
+		)
 		.is_ok()
 	}
 
@@ -363,16 +391,18 @@ mod tests {
 
 			// when we can accept free headers => Ok
 			FreeHeadersRemaining::<TestRuntime, ()>::put(2);
-			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
-				bridge_grandpa_call.clone(),
-			))
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(
+				&RuntimeCall::Grandpa(bridge_grandpa_call.clone(),),
+				0
+			)
 			.is_ok());
 
 			// when we can NOT accept free headers => Err
 			FreeHeadersRemaining::<TestRuntime, ()>::put(0);
-			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
-				bridge_grandpa_call,
-			))
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(
+				&RuntimeCall::Grandpa(bridge_grandpa_call,),
+				0
+			)
 			.is_err());
 		})
 	}
@@ -495,5 +525,52 @@ mod tests {
 			is_free_execution_expected: false,
 		});
 		assert_eq!(call.submit_finality_proof_info().unwrap().extra_weight, call_weight);
+	}
+
+	#[test]
+	fn check_obsolete_submit_finality_proof_boosts_priority() {
+		run_test(|| {
+			fn make_call(number: u64) -> RuntimeCall {
+				RuntimeCall::Grandpa(crate::Call::<TestRuntime, ()>::submit_finality_proof_ex {
+					finality_target: Box::new(test_header(number)),
+					justification: make_default_justification(&test_header(number)),
+					current_set_id: 0,
+					is_free_execution_expected: true,
+				})
+			}
+
+			// when priority boost is zero, total boost is also zero
+			sync_to_header_10();
+			assert_eq!(
+				RuntimeCall::check_obsolete_submit_finality_proof(&make_call(15), 0)
+					.unwrap()
+					.priority,
+				0,
+			);
+
+			// when the difference between headers is 1, no boost
+			assert_eq!(
+				RuntimeCall::check_obsolete_submit_finality_proof(&make_call(11), 100)
+					.unwrap()
+					.priority,
+				0,
+			);
+
+			// when the difference between headers is 2 => boost
+			assert_eq!(
+				RuntimeCall::check_obsolete_submit_finality_proof(&make_call(12), 100)
+					.unwrap()
+					.priority,
+				100,
+			);
+
+			// when the difference between headers is 3 => 2 * boost
+			assert_eq!(
+				RuntimeCall::check_obsolete_submit_finality_proof(&make_call(13), 100)
+					.unwrap()
+					.priority,
+				200,
+			);
+		})
 	}
 }

@@ -38,7 +38,7 @@ where
 	T::RuntimeCall: GrandpaCallSubType<T, I>,
 {
 	fn validate(call: &T::RuntimeCall) -> TransactionValidity {
-		GrandpaCallSubType::<T, I>::check_obsolete_submit_finality_proof(call)
+		GrandpaCallSubType::<T, I>::check_obsolete_submit_finality_proof(call, 0)
 	}
 }
 
