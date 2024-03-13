@@ -24,7 +24,6 @@ use core::mem::size_of;
 use sp_runtime::traits::Bounded;
 
 use frame_benchmarking::{
-	impl_benchmark_test_suite,
 	v1::{account, whitelisted_caller},
 	v2::*,
 };
