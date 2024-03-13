@@ -15,7 +15,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 docify = "0.1.14"
 impl-trait-for-tuples = "0.2.2"
 log = "0.4.18"
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.0", default-features = false, features = ["derive"] }
 
 frame-benchmarking = { default-features = false, optional = true, path = "../benchmarking" }
 frame-support = { default-features = false, path = "../support" }

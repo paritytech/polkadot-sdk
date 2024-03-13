@@ -14,7 +14,7 @@ workspace = true
 [dependencies]
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.0", default-features = false, features = ["derive"] }
 log = { workspace = true }
 
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
