@@ -163,7 +163,6 @@ fn prepare_test_inner(
 	state: &mut TestState,
 	mode: TestDataAvailability,
 	dependencies: TestEnvironmentDependencies,
-	// with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	// Generate test authorities.
 	let test_authorities = config.generate_authorities();
@@ -309,7 +308,6 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			test_authorities,
-			// with_prometheus_endpoint,
 		),
 		req_cfgs,
 	)

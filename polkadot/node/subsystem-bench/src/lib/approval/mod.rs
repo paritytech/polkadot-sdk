@@ -844,7 +844,6 @@ fn prepare_test_inner(
 	config: TestConfiguration,
 	dependencies: TestEnvironmentDependencies,
 	options: ApprovalsOptions,
-	// with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, ApprovalTestState) {
 	gum::info!("Prepare test state");
 	let state = ApprovalTestState::new(&config, options, &dependencies);
@@ -873,7 +872,6 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			state.test_authorities.clone(),
-			// with_prometheus_endpoint,
 		),
 		state,
 	)
