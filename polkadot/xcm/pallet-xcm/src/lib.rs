@@ -993,6 +993,10 @@ pub mod pallet {
 				_ => Weight::MAX,
 			}
 		})]
+		#[allow(deprecated)]
+		#[deprecated(
+			note = "This extrinsic uses `WeightLimit::Unlimited`, please migrate to `limited_teleport_assets` or `transfer_assets`"
+		)]
 		pub fn teleport_assets(
 			origin: OriginFor<T>,
 			dest: Box<VersionedLocation>,
@@ -1051,6 +1055,10 @@ pub mod pallet {
 				_ => Weight::MAX,
 			}
 		})]
+		#[allow(deprecated)]
+		#[deprecated(
+			note = "This extrinsic uses `WeightLimit::Unlimited`, please migrate to `limited_reserve_transfer_assets` or `transfer_assets`"
+		)]
 		pub fn reserve_transfer_assets(
 			origin: OriginFor<T>,
 			dest: Box<VersionedLocation>,
@@ -1193,7 +1201,7 @@ pub mod pallet {
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
 		/// index `fee_asset_item`, up to enough to pay for `weight_limit` of weight. If more weight
-		/// is needed than `weight_limit`, then the operation will fail and the assets send may be
+		/// is needed than `weight_limit`, then the operation will fail and the sent assets may be
 		/// at risk.
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
@@ -1247,7 +1255,7 @@ pub mod pallet {
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
 		/// index `fee_asset_item`, up to enough to pay for `weight_limit` of weight. If more weight
-		/// is needed than `weight_limit`, then the operation will fail and the assets send may be
+		/// is needed than `weight_limit`, then the operation will fail and the sent assets may be
 		/// at risk.
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
@@ -1315,7 +1323,7 @@ pub mod pallet {
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
 		/// index `fee_asset_item` (hence referred to as `fees`), up to enough to pay for
 		/// `weight_limit` of weight. If more weight is needed than `weight_limit`, then the
-		/// operation will fail and the assets sent may be at risk.
+		/// operation will fail and the sent assets may be at risk.
 		///
 		/// `assets` (excluding `fees`) must have same reserve location or otherwise be teleportable
 		/// to `dest`, no limitations imposed on `fees`.
