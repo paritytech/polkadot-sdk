@@ -19,7 +19,7 @@
 mod block_builder;
 use codec::{Decode, Encode};
 use runtime::{
-	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedPayload, TxExtension,
+	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedExtra, SignedPayload,
 	UncheckedExtrinsic, VERSION,
 };
 use sc_executor::HeapAllocStrategy;
@@ -125,7 +125,7 @@ impl DefaultTestClientBuilderExt for TestClientBuilder {
 
 /// Create an unsigned extrinsic from a runtime call.
 pub fn generate_unsigned(function: impl Into<RuntimeCall>) -> UncheckedExtrinsic {
-	UncheckedExtrinsic::new_bare(function.into())
+	UncheckedExtrinsic::new_unsigned(function.into())
 }
 
 /// Create a signed extrinsic from a runtime call and sign
@@ -143,7 +143,7 @@ pub fn generate_extrinsic_with_pair(
 	let period =
 		BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
 	let tip = 0;
-	let tx_ext: TxExtension = (
+	let extra: SignedExtra = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckGenesis::<Runtime>::new(),
@@ -152,14 +152,13 @@ pub fn generate_extrinsic_with_pair(
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<Runtime>::new(),
-	)
-		.into();
+	);
 
 	let function = function.into();
 
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
-		tx_ext.clone(),
+		extra.clone(),
 		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
@@ -168,7 +167,7 @@ pub fn generate_extrinsic_with_pair(
 		function,
 		origin.public().into(),
 		Signature::Sr25519(signature),
-		tx_ext,
+		extra,
 	)
 }
 
