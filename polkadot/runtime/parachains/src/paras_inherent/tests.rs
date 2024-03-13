@@ -1375,6 +1375,7 @@ mod sanitizers {
 
 	mod candidates {
 		use crate::{
+			configuration::HostConfiguration,
 			mock::{set_disabled_validators, RuntimeOrigin},
 			scheduler::{common::Assignment, ParasEntry},
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
@@ -1384,6 +1385,18 @@ mod sanitizers {
 
 		use super::*;
 
+		fn default_config() -> MockGenesisConfig {
+			MockGenesisConfig {
+				configuration: configuration::GenesisConfig {
+					config: HostConfiguration {
+						max_head_data_size: 0b100000,
+						..Default::default()
+					},
+				},
+				..Default::default()
+			}
+		}
+
 		// Backed candidates and scheduled parachains used for `sanitize_backed_candidates` testing
 		struct TestData {
 			backed_candidates: Vec<BackedCandidate>,
@@ -1391,7 +1404,7 @@ mod sanitizers {
 			scheduled_paras: BTreeMap<primitives::Id, BTreeSet<CoreIndex>>,
 		}
 
-		// Generate test data for the candidates and assert that the evnironment is set as expected
+		// Generate test data for the candidates and assert that the environment is set as expected
 		// (check the comments for details)
 		fn get_test_data(core_index_enabled: bool) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
@@ -1568,7 +1581,7 @@ mod sanitizers {
 			}
 		}
 
-		// Generate test data for the candidates and assert that the evnironment is set as expected
+		// Generate test data for the candidates and assert that the environment is set as expected
 		// (check the comments for details)
 		// Para 1 scheduled on core 0 and core 1. Two candidates are supplied.
 		// Para 2 scheduled on cores 2 and 3. One candidate supplied.
@@ -1726,6 +1739,7 @@ mod sanitizers {
 					.unwrap()
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
+					head_data: HeadData(vec![1, 1]),
 					validation_code: ValidationCode(vec![1]),
 					..Default::default()
 				}
@@ -1974,11 +1988,514 @@ mod sanitizers {
 			}
 		}
 
+		// Para 1 scheduled on core 0 and core 1. Two candidates are supplied. They form a chain but
+		// in the wrong order.
+		// Para 2 scheduled on core 2, core 3 and core 4. Three candidates are supplied. The second
+		// one is not part of the chain.
+		// Para 3 scheduled on core 5 and 6. Two candidates are supplied and they all form a chain.
+		// Para 4 scheduled on core 7 and 8. Duplicated candidates.
+		fn get_test_data_for_order_checks(core_index_enabled: bool) -> TestData {
+			const RELAY_PARENT_NUM: u32 = 3;
+
+			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
+			// votes) won't behave correctly
+			shared::Pallet::<Test>::add_allowed_relay_parent(
+				default_header().hash(),
+				Default::default(),
+				RELAY_PARENT_NUM,
+				1,
+			);
+
+			let header = default_header();
+			let relay_parent = header.hash();
+			let session_index = SessionIndex::from(0_u32);
+
+			let keystore = LocalKeystore::in_memory();
+			let keystore = Arc::new(keystore) as KeystorePtr;
+			let signing_context = SigningContext { parent_hash: relay_parent, session_index };
+
+			let validators = vec![
+				keyring::Sr25519Keyring::Alice,
+				keyring::Sr25519Keyring::Bob,
+				keyring::Sr25519Keyring::Charlie,
+				keyring::Sr25519Keyring::Dave,
+				keyring::Sr25519Keyring::Eve,
+				keyring::Sr25519Keyring::Ferdie,
+				keyring::Sr25519Keyring::One,
+				keyring::Sr25519Keyring::Two,
+				keyring::Sr25519Keyring::AliceStash,
+			];
+			for validator in validators.iter() {
+				Keystore::sr25519_generate_new(
+					&*keystore,
+					PARACHAIN_KEY_TYPE_ID,
+					Some(&validator.to_seed()),
+				)
+				.unwrap();
+			}
+
+			// Set active validators in `shared` pallet
+			let validator_ids =
+				validators.iter().map(|v| v.public().into()).collect::<Vec<ValidatorId>>();
+			shared::Pallet::<Test>::set_active_validators_ascending(validator_ids);
+
+			// Set the validator groups in `scheduler`
+			scheduler::Pallet::<Test>::set_validator_groups(vec![
+				vec![ValidatorIndex(0)],
+				vec![ValidatorIndex(1)],
+				vec![ValidatorIndex(2)],
+				vec![ValidatorIndex(3)],
+				vec![ValidatorIndex(4)],
+				vec![ValidatorIndex(5)],
+				vec![ValidatorIndex(6)],
+				vec![ValidatorIndex(7)],
+				vec![ValidatorIndex(8)],
+			]);
+
+			// Update scheduler's claimqueue with the parachains
+			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+				(
+					CoreIndex::from(0),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(1),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(1) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(2),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(2) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(3),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(3) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(4),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(4) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(5),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 3.into(), core_index: CoreIndex(5) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(6),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 3.into(), core_index: CoreIndex(6) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(7),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 4.into(), core_index: CoreIndex(7) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(8),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 4.into(), core_index: CoreIndex(8) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+			]));
+
+			// Set the on-chain included head data and current code hash.
+			for id in 1..=4u32 {
+				paras::Pallet::<Test>::set_current_head(ParaId::from(id), HeadData(vec![id as u8]));
+				paras::Pallet::<Test>::force_set_current_code(
+					RuntimeOrigin::root(),
+					ParaId::from(id),
+					ValidationCode(vec![id as u8]),
+				)
+				.unwrap();
+			}
+
+			// Callback used for backing candidates
+			let group_validators = |group_index: GroupIndex| {
+				match group_index {
+					group_index if group_index == GroupIndex::from(0) => Some(vec![0]),
+					group_index if group_index == GroupIndex::from(1) => Some(vec![1]),
+					group_index if group_index == GroupIndex::from(2) => Some(vec![2]),
+					group_index if group_index == GroupIndex::from(3) => Some(vec![3]),
+					group_index if group_index == GroupIndex::from(4) => Some(vec![4]),
+					group_index if group_index == GroupIndex::from(5) => Some(vec![5]),
+					group_index if group_index == GroupIndex::from(6) => Some(vec![6]),
+					group_index if group_index == GroupIndex::from(7) => Some(vec![7]),
+					group_index if group_index == GroupIndex::from(8) => Some(vec![8]),
+
+					_ => panic!("Group index out of bounds"),
+				}
+				.map(|m| m.into_iter().map(ValidatorIndex).collect::<Vec<_>>())
+			};
+
+			let mut backed_candidates = vec![];
+			let mut all_backed_candidates_with_core = BTreeMap::new();
+
+			// Para 1
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(1),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(1 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(1),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
+					head_data: HeadData(vec![1, 1]),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![1]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let prev_candidate = candidate.clone();
+				let prev_backed: BackedCandidate = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(0 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(0 as u32)),
+				);
+
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(1),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(2 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data_with_parent::<
+						Test,
+					>(
+						RELAY_PARENT_NUM,
+						Default::default(),
+						prev_candidate.commitments.head_data,
+					)
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![1]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(1 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(1 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				backed_candidates.push(prev_backed.clone());
+			}
+
+			// Para 2.
+			{
+				let mut candidate_1 = TestCandidateBuilder {
+					para_id: ParaId::from(2),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(3 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(2),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
+					head_data: HeadData(vec![2, 2]),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![2]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate_1);
+
+				let backed_1: BackedCandidate = back_candidate(
+					candidate_1,
+					&validators,
+					group_validators(GroupIndex::from(2 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(2 as u32)),
+				);
+
+				backed_candidates.push(backed_1.clone());
+				if core_index_enabled {
+					all_backed_candidates_with_core
+						.entry(ParaId::from(2))
+						.or_insert(vec![])
+						.push((backed_1, CoreIndex(2)));
+				}
+
+				let mut candidate_2 = TestCandidateBuilder {
+					para_id: ParaId::from(2),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(4 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(2),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![2]),
+					head_data: HeadData(vec![3, 3]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate_2);
+
+				let backed_2 = back_candidate(
+					candidate_2.clone(),
+					&validators,
+					group_validators(GroupIndex::from(3 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(3 as u32)),
+				);
+				backed_candidates.push(backed_2.clone());
+
+				let mut candidate_3 = TestCandidateBuilder {
+					para_id: ParaId::from(2),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(5 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data_with_parent::<
+						Test,
+					>(
+						RELAY_PARENT_NUM,
+						Default::default(),
+						candidate_2.commitments.head_data,
+					)
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![2]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate_3);
+
+				let backed_3 = back_candidate(
+					candidate_3,
+					&validators,
+					group_validators(GroupIndex::from(4 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(4 as u32)),
+				);
+				backed_candidates.push(backed_3.clone());
+			}
+
+			// Para 3
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(3),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(6 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(3),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
+					head_data: HeadData(vec![3, 3]),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![3]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let prev_candidate = candidate.clone();
+				let backed: BackedCandidate = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(5 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(5 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				if core_index_enabled {
+					all_backed_candidates_with_core
+						.entry(ParaId::from(3))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(5)));
+				}
+
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(3),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(6 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data_with_parent::<
+						Test,
+					>(
+						RELAY_PARENT_NUM,
+						Default::default(),
+						prev_candidate.commitments.head_data,
+					)
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![3]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(6 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(6 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				if core_index_enabled {
+					all_backed_candidates_with_core
+						.entry(ParaId::from(3))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(6)));
+				}
+			}
+
+			// Para 4
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(4),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(8 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(4),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
+					head_data: HeadData(vec![4]),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![4]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed: BackedCandidate = back_candidate(
+					candidate.clone(),
+					&validators,
+					group_validators(GroupIndex::from(7 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(7 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				if core_index_enabled {
+					all_backed_candidates_with_core
+						.entry(ParaId::from(4))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(7)));
+				}
+
+				let backed: BackedCandidate = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(7 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(8 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+			}
+
+			// State sanity checks
+			assert_eq!(
+				<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
+				vec![
+					(CoreIndex(0), ParaId::from(1)),
+					(CoreIndex(1), ParaId::from(1)),
+					(CoreIndex(2), ParaId::from(2)),
+					(CoreIndex(3), ParaId::from(2)),
+					(CoreIndex(4), ParaId::from(2)),
+					(CoreIndex(5), ParaId::from(3)),
+					(CoreIndex(6), ParaId::from(3)),
+					(CoreIndex(7), ParaId::from(4)),
+					(CoreIndex(8), ParaId::from(4)),
+				]
+			);
+			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
+			for (core_idx, para_id) in <scheduler::Pallet<Test>>::scheduled_paras() {
+				scheduled.entry(para_id).or_default().insert(core_idx);
+			}
+
+			assert_eq!(
+				shared::Pallet::<Test>::active_validator_indices(),
+				vec![
+					ValidatorIndex(0),
+					ValidatorIndex(1),
+					ValidatorIndex(2),
+					ValidatorIndex(3),
+					ValidatorIndex(4),
+					ValidatorIndex(5),
+					ValidatorIndex(6),
+					ValidatorIndex(7),
+					ValidatorIndex(8),
+				]
+			);
+
+			TestData {
+				backed_candidates,
+				scheduled_paras: scheduled,
+				all_backed_candidates_with_core,
+			}
+		}
+
 		#[rstest]
 		#[case(false)]
 		#[case(true)]
 		fn happy_path(#[case] core_index_enabled: bool) {
-			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			new_test_ext(default_config()).execute_with(|| {
 				let TestData {
 					backed_candidates,
 					all_backed_candidates_with_core,
@@ -2002,7 +2519,7 @@ mod sanitizers {
 		#[case(false)]
 		#[case(true)]
 		fn test_with_multiple_cores_per_para(#[case] core_index_enabled: bool) {
-			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			new_test_ext(default_config()).execute_with(|| {
 				let TestData {
 					backed_candidates,
 					all_backed_candidates_with_core: expected_all_backed_candidates_with_core,
@@ -2022,6 +2539,30 @@ mod sanitizers {
 			});
 		}
 
+		#[rstest]
+		#[case(false)]
+		#[case(true)]
+		fn test_candidate_ordering(#[case] core_index_enabled: bool) {
+			new_test_ext(default_config()).execute_with(|| {
+				let TestData {
+					backed_candidates,
+					scheduled_paras: scheduled,
+					all_backed_candidates_with_core,
+				} = get_test_data_for_order_checks(core_index_enabled);
+
+				assert_eq!(
+					sanitize_backed_candidates::<Test>(
+						backed_candidates.clone(),
+						&<shared::Pallet<Test>>::allowed_relay_parents(),
+						BTreeSet::new(),
+						scheduled,
+						core_index_enabled,
+					),
+					all_backed_candidates_with_core
+				);
+			});
+		}
+
 		// nothing is scheduled, so no paraids match, thus all backed candidates are skipped
 		#[rstest]
 		#[case(false, false)]
@@ -2032,7 +2573,7 @@ mod sanitizers {
 			#[case] core_index_enabled: bool,
 			#[case] multiple_cores_per_para: bool,
 		) {
-			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			new_test_ext(default_config()).execute_with(|| {
 				let TestData { backed_candidates, .. } = if multiple_cores_per_para {
 					get_test_data_multiple_cores_per_para(core_index_enabled)
 				} else {
@@ -2057,7 +2598,7 @@ mod sanitizers {
 		#[case(false)]
 		#[case(true)]
 		fn invalid_are_filtered_out(#[case] core_index_enabled: bool) {
-			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			new_test_ext(default_config()).execute_with(|| {
 				let TestData { backed_candidates, scheduled_paras: scheduled, .. } =
 					get_test_data(core_index_enabled);
 
@@ -2090,7 +2631,7 @@ mod sanitizers {
 		#[case(false)]
 		#[case(true)]
 		fn disabled_non_signing_validator_doesnt_get_filtered(#[case] core_index_enabled: bool) {
-			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut all_backed_candidates_with_core, .. } =
 					get_test_data(core_index_enabled);
 
@@ -2116,7 +2657,7 @@ mod sanitizers {
 		fn drop_statements_from_disabled_without_dropping_candidate(
 			#[case] core_index_enabled: bool,
 		) {
-			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut all_backed_candidates_with_core, .. } =
 					get_test_data(core_index_enabled);
 
@@ -2226,7 +2767,7 @@ mod sanitizers {
 		#[case(false)]
 		#[case(true)]
 		fn drop_candidate_if_all_statements_are_from_disabled(#[case] core_index_enabled: bool) {
-			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut all_backed_candidates_with_core, .. } =
 					get_test_data(core_index_enabled);
 
