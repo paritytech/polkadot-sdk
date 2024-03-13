@@ -425,7 +425,10 @@ mod normalize_tests {
 	}
 }
 
+#[cfg(test)]
 mod per_and_fixed_examples {
+	use super::*;
+
 	#[docify::export]
 	#[test]
 	fn percent_mult() {
@@ -467,7 +470,7 @@ mod per_and_fixed_examples {
 		// Calculate a very rudimentary on-chain price from supply / demand
 		// Supply: Cores available per block
 		// Demand: Cores being ordered per block
-		let price = FixedU64::from_rational(10u32, 19u32);
+		let price = FixedU64::from_rational(19u128, 10u128);
 
 		// 1.9 DOT per core
 		assert_eq!(price, FixedU64::from_float(1.9));
