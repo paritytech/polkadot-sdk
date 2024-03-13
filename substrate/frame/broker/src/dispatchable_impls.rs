@@ -448,8 +448,8 @@ impl<T: Config> Pallet<T> {
 		
 		// Check if the owner is the same as the one who is creating the listing
 		ensure!(region.owner == who, Error::<T>::NotOwner);
-		// Check if the region is still valid
-		ensure!(status.last_committed_timeslice >= region.end, Error::<T>::StillValid);
+		// Check if the region is still valid and hasn't expired, there is no point in listing an expired region
+		ensure!(status.last_committed_timeslice <= region.end, Error::<T>::ExpiredRegion);
 
 		Listings::<T>::insert(region_id, price);
 
@@ -461,7 +461,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_purchase_listed(
+	pub(crate) fn do_purchase_listing(
 		buyer: T::AccountId,
 		region_id: RegionId,
 	) -> DispatchResult {
@@ -471,8 +471,8 @@ impl<T: Config> Pallet<T> {
 
 		let old_owner = region.owner;
 
-		// Check if the region is still valid
-		ensure!(status.last_committed_timeslice >= region.end, Error::<T>::StillValid);
+		// Check if the region is still valid and hasn't expired, there is no point in buying an expired region
+		ensure!(status.last_committed_timeslice <= region.end, Error::<T>::ExpiredRegion);
 
 		// Buyer pays the listing price
         T::Currency::transfer(&buyer, &old_owner, listing_price, Expendable)?;

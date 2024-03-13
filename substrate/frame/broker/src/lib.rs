@@ -498,6 +498,8 @@ pub mod pallet {
 		/// The configuration could not be applied because it is invalid.
 		InvalidConfig,
 
+		/// Region cannot be listed or sold because it has expired.
+		ExpiredRegion,
         /// The region is not available for listing.
         UnknownListing,
         /// The listing has an invalid price.
@@ -836,12 +838,12 @@ pub mod pallet {
 		/// - `region_id`: The region to purchase.
 		#[pallet::call_index(21)]
         #[pallet::weight({10_000})]
-        pub fn purchase_listed(
+        pub fn purchase_listing(
             origin: OriginFor<T>,
             region_id: RegionId,
         ) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-            Self::do_purchase_listed(who, region_id)?;
+            Self::do_purchase_listing(who, region_id)?;
 			Ok(Pays::No.into())
         }
 	}

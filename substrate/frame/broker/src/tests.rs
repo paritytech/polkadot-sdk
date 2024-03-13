@@ -199,14 +199,33 @@ fn transfer_works() {
 
 #[test]
 fn create_listing_works() {
-	TestExt::new().endow(1, 1000).execute_with(|| {
+	TestExt::new().endow(1, 1000).endow(2, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_create_listing(1, region.into(), 100));
-		//assert_eq!(<Broker as NftInspect<_>>::owner(&region.into()), Some(2));
-		//assert_noop!(Broker::do_assign(region, Some(1), 1001, Final), Error::<Test>::NotOwner);
-		//assert_ok!(Broker::do_assign(region, Some(2), 1002, Final));
+		assert_eq!(Listings::<Test>::iter().count(), 1);
+		assert_noop!(Broker::do_create_listing(2, region.into(), 100), Error::<Test>::NotOwner);
+	});
+}
+
+#[test]
+fn purchase_listing_works() {
+	TestExt::new().endow(1, 1000).endow(2, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_create_listing(1, region.into(), 500));
+		assert_eq!(Listings::<Test>::iter().count(), 1);
+
+		// Purchase the listing.
+		assert_ok!(Broker::do_purchase_listing(2, region.into()));
+		assert_eq!(Listings::<Test>::iter().count(), 0);
+		assert_eq!(<Broker as NftInspect<_>>::owner(&region.into()), Some(2));
+
+		//Check money transfer
+		assert_eq!(balance(1), 1400);
+		assert_eq!(balance(2), 500);
 	});
 }
 
