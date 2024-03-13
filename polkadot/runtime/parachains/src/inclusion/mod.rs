@@ -542,7 +542,7 @@ impl<T: Config> Pallet<T> {
 		let mut candidates_made_available: BTreeMap<ParaId, BTreeSet<usize>> = BTreeMap::new();
 		for (core_index, validator_indices) in votes_per_core {
 			if let Some(para_id) = core_lookup(core_index) {
-				if let Some(mut candidates) = pending_availability_overlay.get(&para_id) {
+				if let Some(candidates) = pending_availability_overlay.get_mut(&para_id) {
 					for (index, candidate) in candidates.iter_mut().enumerate() {
 						if candidate.core == core_index {
 							for validator_index in validator_indices.iter() {
@@ -564,7 +564,6 @@ impl<T: Config> Pallet<T> {
 								.insert(index);
 						}
 					}
-					pending_availability_overlay.set(para_id, candidates);
 				}
 			} else {
 				// No parachain is occupying that core yet.
@@ -575,7 +574,7 @@ impl<T: Config> Pallet<T> {
 
 		// Trim the pending availability candidates storage and enact candidates now.
 		for (para_id, available_candidates) in candidates_made_available {
-			if let Some(mut candidates) = pending_availability_overlay.get(&para_id) {
+			if let Some(candidates) = pending_availability_overlay.get_mut(&para_id) {
 				let mut stopped_at_index = None;
 				for index in 0..candidates.len() {
 					if available_candidates.contains(&index) {
@@ -604,7 +603,6 @@ impl<T: Config> Pallet<T> {
 						);
 					}
 				}
-				pending_availability_overlay.set(para_id, candidates);
 			}
 		}
 
@@ -706,11 +704,10 @@ impl<T: Config> Pallet<T> {
 				};
 
 				// Update storage now
-				if let Some(mut candidates_pending_availability) =
-					pending_availability_overlay.get(&para_id)
+				if let Some(candidates_pending_availability) =
+					pending_availability_overlay.get_mut(&para_id)
 				{
 					candidates_pending_availability.push_back(new_candidate);
-					pending_availability_overlay.set(*para_id, candidates_pending_availability);
 				} else {
 					pending_availability_overlay
 						.set(*para_id, vec![new_candidate].into_iter().collect::<VecDeque<_>>());
@@ -1076,11 +1073,7 @@ impl<T: Config> Pallet<T> {
 	) -> impl Iterator<Item = CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
 		let mut earliest_dropped_indices: BTreeMap<ParaId, usize> = BTreeMap::new();
 
-		let pending = pending_availability_overlay
-			.iter()
-			.map(|(para_id, pending_candidates)| (*para_id, pending_candidates.clone()))
-			.collect::<Vec<_>>();
-		for (para_id, pending_candidates) in pending {
+		for (para_id, pending_candidates) in pending_availability_overlay.iter() {
 			// We assume that pending candidates are stored in dependency order. So we need to store
 			// the earliest dropped candidate. All others that follow will get freed as well.
 			let mut earliest_dropped_idx = None;
@@ -1094,7 +1087,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			if let Some(earliest_dropped_idx) = earliest_dropped_idx {
-				earliest_dropped_indices.insert(para_id, earliest_dropped_idx);
+				earliest_dropped_indices.insert(*para_id, earliest_dropped_idx);
 			}
 		}
 
@@ -1103,10 +1096,9 @@ impl<T: Config> Pallet<T> {
 
 		for (para_id, earliest_dropped_idx) in earliest_dropped_indices {
 			// Do cleanups and record the cleaned up cores
-			if let Some(mut candidates) = pending_availability_overlay.get(&para_id) {
+			if let Some(candidates) = pending_availability_overlay.get_mut(&para_id) {
 				let cleaned_up = candidates.drain(earliest_dropped_idx..);
 				cleaned_up_cores.extend(cleaned_up);
-				pending_availability_overlay.set(para_id, candidates)
 			}
 		}
 
