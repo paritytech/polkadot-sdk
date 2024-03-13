@@ -1855,20 +1855,19 @@ impl<T: Config> Pallet<T> {
 	/// <https://github.com/paritytech/polkadot-sdk/issues/3245> is resolved, turn warns into check
 	/// failures.
 	fn check_bonded_consistency() -> Result<(), TryRuntimeError> {
-		use sp_std::collections::btree_map::BTreeMap;
+		use sp_std::collections::btree_set::BTreeSet;
 
 		let mut count_controller_double = 0;
 		let mut count_double = 0;
 		let mut count_none = 0;
 		// sanity check to ensure that each controller in Bonded storage is associated with only one
 		// ledger.
-		let mut controllers: BTreeMap<T::AccountId, ()> = BTreeMap::new();
+		let mut controllers = BTreeSet::new();
 
 		for (stash, controller) in <Bonded<T>>::iter() {
-			if controllers.contains_key(&controller) {
+			if !controllers.insert(controller.clone()) {
 				count_controller_double += 1;
 			}
-			controllers.insert(controller.clone(), ());
 
 			match (<Ledger<T>>::get(&stash), <Ledger<T>>::get(&controller)) {
 				(Some(_), Some(_)) =>
