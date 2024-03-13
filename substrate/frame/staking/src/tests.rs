@@ -1249,6 +1249,22 @@ fn bond_extra_works() {
 }
 
 #[test]
+fn bond_extra_controller_bad_state_works() {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
+		assert_eq!(StakingLedger::<Test>::get(StakingAccount::Stash(31)).unwrap().stash, 31);
+
+		// simulate ledger in bad state: the controller 41 is associated to the stash 31 and 41.
+		Bonded::<Test>::insert(31, 41);
+
+		// which means that when fetching the ledger of stash 31 we get 41's ledger instead.
+		assert_eq!(StakingLedger::<Test>::get(StakingAccount::Stash(31)).unwrap().stash, 41);
+
+		// if the ledger is in this bad state, the `bond_extra` should fail.
+		assert_noop!(Staking::bond_extra(RuntimeOrigin::signed(31), 10), Error::<Test>::BadState);
+	})
+}
+
+#[test]
 fn bond_extra_and_withdraw_unbonded_works() {
 	//
 	// * Should test
@@ -7185,7 +7201,7 @@ mod ledger {
 	}
 
 	#[test]
-	fn deprecate_controller_batch_with_double_bonded_ok() {
+	fn deprecate_controller_batch_with_bad_state_ok() {
 		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
@@ -7208,8 +7224,8 @@ mod ledger {
 	}
 
 	#[test]
-	fn deprecate_controller_batch_with_double_bonded_failures() {
-		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+	fn deprecate_controller_batch_with_bad_state_failures() {
+		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
 			// now let's deprecate all the controllers for all the existing ledgers.
@@ -7231,10 +7247,11 @@ mod ledger {
 	}
 
 	#[test]
-	fn set_controller_with_double_bonded_ok() {
+	fn set_controller_with_bad_state_ok() {
 		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
+			// in this case, setting controller works due to the ordering of the calls.
 			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(1)));
 			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(2)));
 			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(3)));
@@ -7242,17 +7259,19 @@ mod ledger {
 	}
 
 	#[test]
-	fn set_controller_with_double_bonded_fail() {
-		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+	fn set_controller_with_bad_state_fails() {
+		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
+			// setting the controller of ledger associated with stash 3 fails since its stash is a
+			// controller of another ledger.
 			assert_noop!(
 				Staking::set_controller(RuntimeOrigin::signed(3)),
-				Error::<Test>::DoubleBonded
+				Error::<Test>::BadState
 			);
 			assert_noop!(
 				Staking::set_controller(RuntimeOrigin::signed(2)),
-				Error::<Test>::DoubleBonded
+				Error::<Test>::BadState
 			);
 			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(1)));
 		})

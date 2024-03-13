@@ -855,9 +855,6 @@ pub mod pallet {
 		BoundNotMet,
 		/// Used when attempting to use deprecated controller account logic.
 		ControllerDeprecated,
-		/// Account is double bonded, i.e. a stash is also a controller for another ledger or a
-		/// controller is a stash for another ledger.
-		DoubleBonded,
 	}
 
 	#[pallet::hooks]
@@ -985,8 +982,10 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-
 			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
+
+			// return early if ledger is in a bad state (ledger's stash != expected).
+			ensure!(ledger.stash == stash, Error::<T>::BadState);
 
 			let stash_balance = T::Currency::free_balance(&stash);
 			if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
