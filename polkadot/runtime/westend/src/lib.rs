@@ -2365,7 +2365,7 @@ sp_api::impl_runtime_apis! {
 			}
 
 			type ToParachainDeliveryHelper<ParachainId> = runtime_common::xcm_sender::benchmarking::DestinationDeliveryHelper<
-				XcmConfig,
+				xcm_config::XcmConfig,
 				ExistentialDepositAsset,
 				xcm_config::PriceForChildParachainDelivery,
 				runtime_common::xcm_sender::ChildParachainDestinationMatcher<ParachainId>,
