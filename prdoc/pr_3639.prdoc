@@ -4,8 +4,8 @@ doc:
   - audience: Runtime User
     description: |
       This PR introduces a fix to the staking logic which prevents an existing controller from bonding as a stash of another ledger, which
-	    lead to staking ledger inconsistencies down the line. In addition, it adds a few (temporary) gates to prevent ledgers that are already
-	    in a bad state from mutating its state. 
+      lead to staking ledger inconsistencies down the line. In addition, it adds a few (temporary) gates to prevent ledgers that are already
+      in a bad state from mutating its state.
 
       In summary:
       * Checks if stash is already a controller when calling `Call::bond` and fails if that's the case;
