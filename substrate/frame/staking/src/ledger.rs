@@ -106,11 +106,31 @@ impl<T: Config> StakingLedger<T> {
 	/// This getter can be called with either a controller or stash account, provided that the
 	/// account is properly wrapped in the respective [`StakingAccount`] variant. This is meant to
 	/// abstract the concept of controller/stash accounts from the caller.
+	///
+	/// Returns [`Error::BadState`] when a bond is in "bad state". A bond is in a bad state when a
+	/// stash has a controller which is bonding a ledger associated with another stash.
 	pub(crate) fn get(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
-		let controller = match account {
-			StakingAccount::Stash(stash) => <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash),
-			StakingAccount::Controller(controller) => Ok(controller),
-		}?;
+		let (stash, controller) = match account.clone() {
+			StakingAccount::Stash(stash) =>
+				(stash.clone(), <Bonded<T>>::get(&stash).ok_or(Error::<T>::NotStash)?),
+			StakingAccount::Controller(controller) => (
+				Ledger::<T>::get(&controller)
+					.map(|l| l.stash)
+					.ok_or(Error::<T>::NotController)?,
+				controller,
+			),
+		};
+
+		// if ledger bond is in a bad state, return error to prevent applying operations that may
+		// affect the ledger's state. A bond is in bad state when a stash has a controller which is
+		// bonding a ledger of another stash.
+		//
+		// See <https://github.com/paritytech/polkadot-sdk/issues/3245> for more details.
+		if Bonded::<T>::get(&stash).is_some() &&
+			Ledger::<T>::get(controller.clone()).map(|l| l.stash != stash).unwrap_or(false)
+		{
+			return Err(Error::<T>::BadState);
+		}
 
 		<Ledger<T>>::get(&controller)
 			.map(|mut ledger| {

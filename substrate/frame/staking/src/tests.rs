@@ -1256,8 +1256,9 @@ fn bond_extra_controller_bad_state_works() {
 		// simulate ledger in bad state: the controller 41 is associated to the stash 31 and 41.
 		Bonded::<Test>::insert(31, 41);
 
-		// which means that when fetching the ledger of stash 31 we get 41's ledger instead.
-		assert_eq!(StakingLedger::<Test>::get(StakingAccount::Stash(31)).unwrap().stash, 41);
+		// we confirm that the ledger is in bad state: 31 has 41 as controller and when fetching
+		// the ledger associated with the controler 41, its stash is 41 (and not 31).
+		assert_eq!(Ledger::<Test>::get(41).unwrap().stash, 41);
 
 		// if the ledger is in this bad state, the `bond_extra` should fail.
 		assert_noop!(Staking::bond_extra(RuntimeOrigin::signed(31), 10), Error::<Test>::BadState);

@@ -984,9 +984,6 @@ pub mod pallet {
 			let stash = ensure_signed(origin)?;
 			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
-			// return early if ledger is in a bad state (ledger's stash != expected).
-			ensure!(ledger.stash == stash, Error::<T>::BadState);
-
 			let stash_balance = T::Currency::free_balance(&stash);
 			if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
 				let extra = extra.min(max_additional);

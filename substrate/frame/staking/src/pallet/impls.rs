@@ -165,7 +165,8 @@ impl<T: Config> Pallet<T> {
 		let controller = Self::bonded(&validator_stash).ok_or_else(|| {
 			Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
-		let ledger = <Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController)?;
+
+		let ledger = Self::ledger(StakingAccount::Controller(controller))?;
 		let page = EraInfo::<T>::get_next_claimable_page(era, &validator_stash, &ledger)
 			.ok_or_else(|| {
 				Error::<T>::AlreadyClaimed
@@ -1728,7 +1729,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	) -> Result<bool, DispatchError> {
 		let ctrl = Self::bonded(&who).ok_or(Error::<T>::NotStash)?;
 		Self::withdraw_unbonded(RawOrigin::Signed(ctrl.clone()).into(), num_slashing_spans)
-			.map(|_| !Ledger::<T>::contains_key(&ctrl))
+			.map(|_| !StakingLedger::<T>::is_bonded(StakingAccount::Controller(ctrl)))
 			.map_err(|with_post| with_post.error)
 	}
 
