@@ -39,7 +39,7 @@ use frame_support::{
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
 };
 use frame_system::{
-	pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo, Phase,
+	pallet_prelude::*, ChainContext, EventRecord, LastRuntimeUpgrade, LastRuntimeUpgradeInfo, Phase,
 };
 use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::CurrencyAdapter;
@@ -1377,6 +1377,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 	for (n_in, n_tx) in (0..15usize).zip(0..15usize) {
 		let mut extrinsics = Vec::new();
+		let mut expected_events = Vec::<EventRecord<RuntimeEvent, H256>>::new();
 
 		let header = new_test_ext(10).execute_with(|| {
 			MockedSystemCallbacks::reset();
@@ -1394,6 +1395,22 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 					))
 				};
 				Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
+
+				let class =
+					if i % 2 == 0 { DispatchClass::Mandatory } else { DispatchClass::Normal };
+
+				expected_events.push(EventRecord {
+					phase: Phase::ApplyInherent(extrinsics.len() as u32),
+					event: frame_system::Event::ExtrinsicSuccess {
+						dispatch_info: DispatchInfo {
+							weight: Weight::from_parts(5, 0),
+							class,
+							..Default::default()
+						},
+					}
+					.into(),
+					topics: vec![],
+				});
 				extrinsics.push(xt);
 			}
 
@@ -1409,6 +1426,18 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 				// Extrinsics can be applied even when MBMs are active. Only the `execute_block`
 				// will reject it.
 				Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
+
+				expected_events.push(EventRecord {
+					phase: Phase::ApplyExtrinsic(extrinsics.len() as u32),
+					event: frame_system::Event::ExtrinsicSuccess {
+						dispatch_info: DispatchInfo {
+							weight: Weight::from_parts(5, 0),
+							..Default::default()
+						},
+					}
+					.into(),
+					topics: vec![],
+				});
 				extrinsics.push(xt);
 			}
 
@@ -1437,6 +1466,17 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 						!MbmActive::get() || n_tx == 0,
 						"MBMs should be deactivated after finalization"
 					);
+
+					// We cannot just check for equality, since there are also TX withdrawal events.
+					for expected in expected_events.iter() {
+						if !System::events().contains(&expected) {
+							pretty_assertions::assert_eq!(
+								System::events(),
+								expected_events,
+								"Event missing"
+							);
+						}
+					}
 				},
 			}
 		});
@@ -1592,4 +1632,166 @@ fn extrinsic_index_is_correct() {
 		)
 		.unwrap();
 	});
+}
+
+// This case should already be covered by `callbacks_in_block_execution_works`, but anyway.
+#[test]
+fn single_extrinsic_phase_events_works() {
+	let xt1 = UncheckedXt::new_signed(
+		RuntimeCall::Custom2(custom2::Call::some_call {}),
+		1,
+		1.into(),
+		tx_ext(0, 1),
+	);
+
+	let (header, events) = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new_from_number(1));
+		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
+		(Executive::finalize_block(), System::events())
+	});
+
+	let events2 = new_test_ext(1).execute_with(|| {
+		Executive::execute_block(Block::new(header.clone(), vec![xt1.clone()]));
+		System::events()
+	});
+
+	assert_eq!(events, events2);
+
+	#[cfg(feature = "try-runtime")]
+	{
+		let events3 = new_test_ext(1).execute_with(|| {
+			Executive::try_execute_block(
+				Block::new(header, vec![xt1]),
+				true,
+				true,
+				frame_try_runtime::TryStateSelect::All,
+			)
+			.unwrap();
+
+			System::events()
+		});
+
+		assert_eq!(events2, events3);
+	}
+
+	pretty_assertions::assert_eq!(
+		vec![
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(0),
+				event: pallet_balances::Event::Withdraw { who: 1, amount: 6 }.into(),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(0),
+				event: pallet_transaction_payment::Event::TransactionFeePaid {
+					who: 1,
+					actual_fee: 6,
+					tip: 1
+				}
+				.into(),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(0),
+				event: frame_system::Event::ExtrinsicSuccess {
+					dispatch_info: DispatchInfo {
+						weight: Weight::from_parts(5, 0),
+						class: DispatchClass::Normal,
+						..Default::default()
+					},
+				}
+				.into(),
+				topics: vec![],
+			}
+		],
+		events,
+	);
+}
+
+// This case should already be covered by `callbacks_in_block_execution_works`, but anyway.
+#[test]
+fn simple_extrinsic_and_inherent_phase_events_works() {
+	let in1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
+	let xt1 = UncheckedXt::new_signed(
+		RuntimeCall::Custom2(custom2::Call::some_call {}),
+		1,
+		1.into(),
+		tx_ext(0, 1),
+	);
+
+	let (header, events) = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new_from_number(1));
+		Executive::apply_extrinsic(in1.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
+		(Executive::finalize_block(), System::events())
+	});
+
+	let events2 = new_test_ext(1).execute_with(|| {
+		Executive::execute_block(Block::new(header.clone(), vec![in1.clone(), xt1.clone()]));
+		System::events()
+	});
+
+	assert_eq!(events, events2);
+
+	#[cfg(feature = "try-runtime")]
+	{
+		let events3 = new_test_ext(1).execute_with(|| {
+			Executive::try_execute_block(
+				Block::new(header, vec![in1, xt1]),
+				true,
+				true,
+				frame_try_runtime::TryStateSelect::All,
+			)
+			.unwrap();
+
+			System::events()
+		});
+
+		assert_eq!(events2, events3);
+	}
+
+	pretty_assertions::assert_eq!(
+		vec![
+			EventRecord {
+				phase: Phase::ApplyInherent(0),
+				event: frame_system::Event::ExtrinsicSuccess {
+					dispatch_info: DispatchInfo {
+						weight: Weight::from_parts(5, 0),
+						class: DispatchClass::Mandatory,
+						..Default::default()
+					},
+				}
+				.into(),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(1),
+				event: pallet_balances::Event::Withdraw { who: 1, amount: 6 }.into(),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(1),
+				event: pallet_transaction_payment::Event::TransactionFeePaid {
+					who: 1,
+					actual_fee: 6,
+					tip: 1
+				}
+				.into(),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(1),
+				event: frame_system::Event::ExtrinsicSuccess {
+					dispatch_info: DispatchInfo {
+						weight: Weight::from_parts(5, 0),
+						class: DispatchClass::Normal,
+						..Default::default()
+					},
+				}
+				.into(),
+				topics: vec![],
+			},
+		],
+		events,
+	);
 }

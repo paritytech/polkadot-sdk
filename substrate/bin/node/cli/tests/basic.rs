@@ -337,7 +337,7 @@ fn full_native_block_import_works() {
 		alice_last_known_balance = Balances::total_balance(&alice());
 		let events = vec![
 			EventRecord {
-				phase: Phase::ApplyExtrinsic(0),
+				phase: Phase::ApplyInherent(0), // Timestamp::set
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
 						weight: timestamp_weight,
@@ -422,7 +422,7 @@ fn full_native_block_import_works() {
 				topics: vec![],
 			},
 			EventRecord {
-				phase: Phase::ApplyExtrinsic(0),
+				phase: Phase::ApplyInherent(0), // Timestamp::set
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
 						weight: timestamp_weight,

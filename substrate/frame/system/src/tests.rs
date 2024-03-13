@@ -293,7 +293,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 	new_test_ext().execute_with(|| {
 		System::reset_events();
 		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		// Call everything that Executive would also call:
 		System::note_finished_initialize();
+		System::note_inherents_applied();
+		System::note_post_inherents_applied();
 
 		let normal_base = <Test as crate::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
@@ -369,7 +372,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			class: DispatchClass::Operational,
 			..Default::default()
 		};
-		System::note_applied_extrinsic(&Ok(from_actual_ref_time(Some(300))), pre_info, true);
+		System::note_applied_extrinsic(&Ok(from_actual_ref_time(Some(300))), pre_info, false);
 
 		let got = System::events();
 		let want = vec![

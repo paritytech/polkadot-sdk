@@ -5829,6 +5829,7 @@ dependencies = [
  "frame-support",
  "log",
  "parity-scale-codec",
+ "pretty_assertions",
  "scale-info",
  "serde",
  "sp-core",
