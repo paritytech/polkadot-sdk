@@ -922,6 +922,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#775" id="775">775</a>
 <a href="#776" id="776">776</a>
 <a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1230,29 +1231,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>addresses_to_publish(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Multiaddr&gt; {
 		<span class="kw">let </span>peer_id: Multihash = <span class="self">self</span>.network.local_peer_id().into();
 		<span class="kw">let </span>publish_non_global_ips = <span class="self">self</span>.publish_non_global_ips;
-		<span class="self">self</span>.network
-			.external_addresses()
-			.into_iter()
-			.filter(<span class="kw">move </span>|a| {
-				<span class="kw">if </span>publish_non_global_ips {
-					<span class="kw">return </span><span class="bool-val">true
-				</span>}
+		<span class="kw">let </span>addresses = <span class="self">self</span>.network.external_addresses().into_iter().filter(<span class="kw">move </span>|a| {
+			<span class="kw">if </span>publish_non_global_ips {
+				<span class="kw">return </span><span class="bool-val">true
+			</span>}
 
-				a.iter().all(|p| <span class="kw">match </span>p {
-					<span class="comment">// The `ip_network` library is used because its `is_global()` method is stable,
-					// while `is_global()` in the standard library currently isn&#39;t.
-					</span>multiaddr::Protocol::Ip4(ip) <span class="kw">if </span>!IpNetwork::from(ip).is_global() =&gt; <span class="bool-val">false</span>,
-					multiaddr::Protocol::Ip6(ip) <span class="kw">if </span>!IpNetwork::from(ip).is_global() =&gt; <span class="bool-val">false</span>,
-					<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
-				})
+			a.iter().all(|p| <span class="kw">match </span>p {
+				<span class="comment">// The `ip_network` library is used because its `is_global()` method is stable,
+				// while `is_global()` in the standard library currently isn&#39;t.
+				</span>multiaddr::Protocol::Ip4(ip) <span class="kw">if </span>!IpNetwork::from(ip).is_global() =&gt; <span class="bool-val">false</span>,
+				multiaddr::Protocol::Ip6(ip) <span class="kw">if </span>!IpNetwork::from(ip).is_global() =&gt; <span class="bool-val">false</span>,
+				<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
 			})
-			.map(<span class="kw">move </span>|a| {
-				<span class="kw">if </span>a.iter().any(|p| <span class="macro">matches!</span>(p, multiaddr::Protocol::P2p(<span class="kw">_</span>))) {
-					a
-				} <span class="kw">else </span>{
-					a.with(multiaddr::Protocol::P2p(peer_id))
-				}
-			})
+		});
+
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Authority DHT record peer_id=&#39;{:?}&#39; addresses=&#39;{:?}&#39;&quot;</span>, peer_id, addresses.clone().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;());
+
+		<span class="comment">// The address must include the peer id if not already set.
+		</span>addresses.map(<span class="kw">move </span>|a| {
+			<span class="kw">if </span>a.iter().any(|p| <span class="macro">matches!</span>(p, multiaddr::Protocol::P2p(<span class="kw">_</span>))) {
+				a
+			} <span class="kw">else </span>{
+				a.with(multiaddr::Protocol::P2p(peer_id))
+			}
+		})
 	}
 
 	<span class="doccomment">/// Publish own public addresses.
