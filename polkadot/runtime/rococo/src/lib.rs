@@ -2316,7 +2316,7 @@ sp_api::impl_runtime_apis! {
 			impl frame_benchmarking::baseline::Config for Runtime {}
 			impl pallet_xcm::benchmarking::Config for Runtime {
 				type DeliveryHelper = (
-					ToParachainDeliveryHelper<AssetHubParaId>
+					ToParachainDeliveryHelper<AssetHubParaId>,
 					ToParachainDeliveryHelper<RandomParaId>,
 				);
 
