@@ -25,11 +25,11 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{ByteArray, CryptoType, Derive, Public as TraitPublic, UncheckedFrom};
-#[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
+use crate::crypto::{
+	ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
+	Public as TraitPublic, SecretStringError, UncheckedFrom,
+};
 
-#[cfg(feature = "full_crypto")]
 use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -40,9 +40,10 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
 
-use w3f_bls::{DoublePublicKey, DoubleSignature, EngineBLS, SerializableToBytes, TinyBLS381};
-#[cfg(feature = "full_crypto")]
-use w3f_bls::{DoublePublicKeyScheme, Keypair, Message, SecretKey};
+use w3f_bls::{
+	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
+	SecretKey, SerializableToBytes, TinyBLS381,
+};
 
 use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 use sp_std::{convert::TryFrom, marker::PhantomData, ops::Deref};
@@ -57,7 +58,6 @@ pub mod bls377 {
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"bls7");
 
 	/// BLS12-377 key pair.
-	#[cfg(feature = "full_crypto")]
 	pub type Pair = super::Pair<TinyBLS377>;
 	/// BLS12-377 public key.
 	pub type Public = super::Public<TinyBLS377>;
@@ -79,7 +79,6 @@ pub mod bls381 {
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"bls8");
 
 	/// BLS12-381 key pair.
-	#[cfg(feature = "full_crypto")]
 	pub type Pair = super::Pair<TinyBLS381>;
 	/// BLS12-381 public key.
 	pub type Public = super::Public<TinyBLS381>;
@@ -96,7 +95,6 @@ trait BlsBound: EngineBLS + HardJunctionId + Send + Sync + 'static {}
 impl<T: EngineBLS + HardJunctionId + Send + Sync + 'static> BlsBound for T {}
 
 /// Secret key serialized size
-#[cfg(feature = "full_crypto")]
 const SECRET_KEY_SERIALIZED_SIZE: usize =
 	<SecretKey<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
@@ -113,7 +111,6 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize =
 /// It's not called a "secret key" because ring doesn't expose the secret keys
 /// of the key pair (yeah, dumb); as such we're forced to remember the seed manually if we
 /// will need it later (such as for HDKD).
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; SECRET_KEY_SERIALIZED_SIZE];
 
 /// A public key.
@@ -150,7 +147,6 @@ impl<T> Ord for Public<T> {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl<T> sp_std::hash::Hash for Public<T> {
 	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
 		self.inner.hash(state)
@@ -226,7 +222,6 @@ impl<T> From<Public<T>> for [u8; PUBLIC_KEY_SERIALIZED_SIZE] {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl<T: BlsBound> From<Pair<T>> for Public<T> {
 	fn from(x: Pair<T>) -> Self {
 		x.public()
@@ -296,7 +291,6 @@ impl<T: BlsBound> TraitPublic for Public<T> {}
 impl<T> Derive for Public<T> {}
 
 impl<T: BlsBound> CryptoType for Public<T> {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair<T>;
 }
 
@@ -322,7 +316,6 @@ impl<T> PartialEq for Signature<T> {
 
 impl<T> Eq for Signature<T> {}
 
-#[cfg(feature = "full_crypto")]
 impl<T> sp_std::hash::Hash for Signature<T> {
 	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
 		self.inner.hash(state)
@@ -412,15 +405,12 @@ impl<T> UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature<T> {
 }
 
 impl<T: BlsBound> CryptoType for Signature<T> {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair<T>;
 }
 
 /// A key pair.
-#[cfg(feature = "full_crypto")]
 pub struct Pair<T: EngineBLS>(Keypair<T>);
 
-#[cfg(feature = "full_crypto")]
 impl<T: EngineBLS> Clone for Pair<T> {
 	fn clone(&self) -> Self {
 		Pair(self.0.clone())
@@ -432,15 +422,12 @@ trait HardJunctionId {
 }
 
 /// Derive a single hard junction.
-#[cfg(feature = "full_crypto")]
 fn derive_hard_junction<T: HardJunctionId>(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
 	(T::ID, secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
-#[cfg(feature = "full_crypto")]
 impl<T: EngineBLS> Pair<T> {}
 
-#[cfg(feature = "full_crypto")]
 impl<T: BlsBound> TraitPair for Pair<T> {
 	type Seed = Seed;
 	type Public = Public<T>;
@@ -480,6 +467,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 		Self::Public::unchecked_from(raw)
 	}
 
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, message: &[u8]) -> Self::Signature {
 		let mut mutable_self = self.clone();
 		let r: [u8; SIGNATURE_SERIALIZED_SIZE] =
@@ -523,7 +511,6 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl<T: BlsBound> CryptoType for Pair<T> {
 	type Pair = Pair<T>;
 }

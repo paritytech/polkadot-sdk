@@ -4848,6 +4848,18 @@ mod nominate {
 				Error::<Runtime>::NotNominator
 			);
 
+			// if `depositor` stake is less than the `MinimumNominatorBond`, they can't nominate
+			StakingMinBond::set(20);
+
+			// Can't nominate if depositor's stake is less than the `MinimumNominatorBond`
+			assert_noop!(
+				Pools::nominate(RuntimeOrigin::signed(900), 1, vec![21]),
+				Error::<Runtime>::MinimumBondNotMet
+			);
+
+			// restore `MinimumNominatorBond`
+			StakingMinBond::set(10);
+
 			// Root can nominate
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(900), 1, vec![21]));
 			assert_eq!(Nominations::get().unwrap(), vec![21]);
@@ -7336,5 +7348,35 @@ mod slash {
 			);
 			assert_eq!(BondedPool::<Runtime>::get(1).unwrap(), bonded(12 + 24, 3));
 		});
+	}
+}
+
+mod chill {
+	use super::*;
+
+	#[test]
+	fn chill_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// only nominator or root can chill
+			assert_noop!(
+				Pools::chill(RuntimeOrigin::signed(10), 1),
+				Error::<Runtime>::NotNominator
+			);
+
+			// root can chill and re-nominate
+			assert_ok!(Pools::chill(RuntimeOrigin::signed(900), 1));
+			assert_ok!(Pools::nominate(RuntimeOrigin::signed(900), 1, vec![31]));
+
+			// nominator can chill and re-nominate
+			assert_ok!(Pools::chill(RuntimeOrigin::signed(901), 1));
+			assert_ok!(Pools::nominate(RuntimeOrigin::signed(901), 1, vec![31]));
+
+			// if `depositor` stake is less than the `MinimumNominatorBond`, then this call
+			// becomes permissionless;
+			StakingMinBond::set(20);
+
+			// any account can chill
+			assert_ok!(Pools::chill(RuntimeOrigin::signed(10), 1));
+		})
 	}
 }

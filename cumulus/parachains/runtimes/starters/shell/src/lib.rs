@@ -34,19 +34,15 @@ pub mod xcm_config;
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
+use frame_support::unsigned::TransactionValidityError;
 use scale_info::TypeInfo;
 use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, OriginOf,
-		TransactionExtension, TransactionExtensionBase, ValidateResult,
-	},
-	transaction_validity::{
-		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
-	},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf},
+	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
 use sp_std::prelude::*;
@@ -58,7 +54,7 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_config, create_default_config},
+	genesis_builder_helper::{build_state, create_default_config, get_preset},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, IsInVec, Randomness},
 	weights::{
@@ -279,37 +275,35 @@ construct_runtime! {
 /// Simple implementation which fails any transaction which is signed.
 #[derive(Eq, PartialEq, Clone, Default, sp_core::RuntimeDebug, Encode, Decode, TypeInfo)]
 pub struct DisallowSigned;
-
-impl TransactionExtensionBase for DisallowSigned {
+impl sp_runtime::traits::SignedExtension for DisallowSigned {
 	const IDENTIFIER: &'static str = "DisallowSigned";
-	type Implicit = ();
-}
-
-impl<C> TransactionExtension<RuntimeCall, C> for DisallowSigned {
-	type Val = ();
+	type AccountId = AccountId;
+	type Call = RuntimeCall;
+	type AdditionalSigned = ();
 	type Pre = ();
+	fn additional_signed(
+		&self,
+	) -> sp_std::result::Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
+		Ok(())
+	}
+	fn pre_dispatch(
+		self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		self.validate(who, call, info, len).map(|_| ())
+	}
 	fn validate(
 		&self,
-		_origin: OriginOf<RuntimeCall>,
-		_call: &RuntimeCall,
-		_info: &DispatchInfoOf<RuntimeCall>,
+		_who: &Self::AccountId,
+		_call: &Self::Call,
+		_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
 		_len: usize,
-		_context: &mut C,
-		_self_implicit: Self::Implicit,
-		_inherited_implication: &impl Encode,
-	) -> ValidateResult<Self::Val, RuntimeCall> {
-		Err(InvalidTransaction::BadProof.into())
-	}
-	fn prepare(
-		self,
-		_val: Self::Val,
-		_origin: &OriginOf<RuntimeCall>,
-		_call: &RuntimeCall,
-		_info: &DispatchInfoOf<RuntimeCall>,
-		_len: usize,
-		_context: &C,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		Err(InvalidTransaction::BadProof.into())
+	) -> TransactionValidity {
+		let i = sp_runtime::transaction_validity::InvalidTransaction::BadProof;
+		Err(sp_runtime::transaction_validity::TransactionValidityError::Invalid(i))
 	}
 }
 
@@ -329,11 +323,11 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
-/// The extension to the basic transaction logic.
-pub type TxExtension = DisallowSigned;
+/// The SignedExtension to the basic transaction logic.
+pub type SignedExtra = DisallowSigned;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -441,8 +435,16 @@ impl_runtime_apis! {
 			create_default_config::<RuntimeGenesisConfig>()
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
+		}
+
+		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id)
+		}
+
+		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+			vec![]
 		}
 	}
 }
