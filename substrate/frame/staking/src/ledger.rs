@@ -112,7 +112,7 @@ impl<T: Config> StakingLedger<T> {
 	pub(crate) fn get(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
 		let (stash, controller) = match account.clone() {
 			StakingAccount::Stash(stash) =>
-				(stash.clone(), <Bonded<T>>::get(&stash).ok_or(Error::<T>::NotStash)?),
+				(stash.clone(), <Bonded<T>>::get(&stash).defensive_ok_or(Error::<T>::NotStash)?),
 			StakingAccount::Controller(controller) => (
 				Ledger::<T>::get(&controller)
 					.map(|l| l.stash)
