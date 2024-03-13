@@ -192,7 +192,7 @@ sp_core::wasm_export_functions! {
 		sig.copy_from_slice(&input[32..96]);
 
 		let msg = b"all ok!";
-		sr25519_verify(&sr25519::Signature(sig), &msg[..], &sr25519::Public(pubkey))
+		sr25519_verify(&sr25519::Signature::from(sig), &msg[..], &sr25519::Public::from(pubkey))
 	}
 
 	fn test_ordered_trie_root() -> Vec<u8> {

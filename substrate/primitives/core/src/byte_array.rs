@@ -86,6 +86,12 @@ impl<const N: usize, M> AsRef<[u8; N]> for ByteArray<N, M> {
 	}
 }
 
+impl<const N: usize, M> From<[u8; N]> for ByteArray<N, M> {
+	fn from(value: [u8; N]) -> Self {
+		Self::from_raw(value)
+	}
+}
+
 impl<const N: usize, M> TryFrom<&[u8]> for ByteArray<N, M> {
 	type Error = ();
 
