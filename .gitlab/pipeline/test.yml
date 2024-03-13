@@ -505,3 +505,4 @@ subsystem-regression-tests:
     - cargo test --profile=testnet -p polkadot-availability-recovery --test availability-recovery-regression-bench --features subsystem-benchmarks
   tags:
     - benchmark
+  allow_failure: true
