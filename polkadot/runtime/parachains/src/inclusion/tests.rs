@@ -613,8 +613,7 @@ fn collect_disputed() {
 
 		<PendingAvailability<Test>>::insert(&chain_f, f_candidates);
 
-		// Run to block 5 makes the test fail, as chain_b candidate doesn't time out and it should.
-		run_to_block(6, |_| None);
+		run_to_block(5, |_| None);
 
 		assert_eq!(<PendingAvailability<Test>>::get(&chain_a).unwrap().len(), 1);
 		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
@@ -649,8 +648,6 @@ fn collect_disputed() {
 				CoreIndex(8),
 			]
 		);
-
-		ParaInclusion::collect_timedout(Scheduler::availability_timeout_predicate(), &mut overlay);
 
 		// Write back to storage only keys that have been updated or deleted.
 		for (para_id, candidates) in overlay.into_iter() {
