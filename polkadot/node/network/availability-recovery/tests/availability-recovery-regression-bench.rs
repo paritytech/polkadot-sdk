@@ -88,7 +88,7 @@ fn benchmark(config: TestConfiguration, options: DataAvailabilityReadOptions) ->
 fn run(config: TestConfiguration, options: DataAvailabilityReadOptions) -> BenchmarkUsage {
 	let mut state = TestState::new(&config);
 	let (mut env, _protocol_config) =
-		prepare_test(config.clone(), &mut state, TestDataAvailability::Read(options), false);
+		prepare_test(config.clone(), &mut state, TestDataAvailability::Read(options));
 	env.runtime()
 		.block_on(benchmark_availability_read("data_availability_read", &mut env, state))
 }
