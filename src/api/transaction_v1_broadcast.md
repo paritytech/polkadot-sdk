@@ -1,4 +1,4 @@
-# transaction_unstable_broadcast
+# transaction_v1_broadcast
 
 **Parameters**:
 
@@ -8,7 +8,7 @@
 
 The string returned by this function is opaque and its meaning can't be interpreted by the JSON-RPC client.
 
-Once this function has been called, the JSON-RPC server will try to propagate this transaction over the peer-to-peer network until `transaction_unstable_stop` is called.
+Once this function has been called, the JSON-RPC server will try to propagate this transaction over the peer-to-peer network until `transaction_v1_stop` is called.
 
 The JSON-RPC server must allow at least 4 transactions being broadcasted at the same time per JSON-RPC client.
 Any attempt to broadcast more than 4 transactions simultaneously might result in `null` being returned.
