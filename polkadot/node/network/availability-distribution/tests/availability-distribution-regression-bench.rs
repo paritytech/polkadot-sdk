@@ -98,7 +98,7 @@ fn benchmark(config: TestConfiguration) -> BenchmarkUsage {
 fn run(config: TestConfiguration) -> BenchmarkUsage {
 	let mut state = TestState::new(&config);
 	let (mut env, _protocol_config) =
-		prepare_test(config.clone(), &mut state, TestDataAvailability::Write, false);
+		prepare_test(config.clone(), &mut state, TestDataAvailability::Write);
 	env.runtime()
 		.block_on(benchmark_availability_write("data_availability_write", &mut env, state))
 }
