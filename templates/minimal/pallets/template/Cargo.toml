@@ -22,7 +22,10 @@ codec = { package = "parity-scale-codec", version = "3.0.0", features = [
 scale-info = { version = "2.10.0", default-features = false, features = [
 	"derive",
 ] }
-frame = { path = "../../../../substrate/frame", default-features = false, features = ["runtime"] }
+frame = { path = "../../../../substrate/frame", default-features = false, features = [
+	"experimental",
+	"runtime",
+] }
 
 
 [features]
