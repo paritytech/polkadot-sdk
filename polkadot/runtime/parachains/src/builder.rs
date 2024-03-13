@@ -531,7 +531,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let mut prev_head = None;
 		cores_with_backed_candidates
 			.iter()
-			.map(|(seed, num_votes)| {
+			.flat_map(|(seed, num_votes)| {
 				assert!(*num_votes <= validators.len() as u32);
 
 				let para_id = ParaId::from(*seed);
@@ -655,7 +655,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					})
 					.collect::<Vec<_>>()
 			})
-			.flatten()
 			.collect()
 	}
 
@@ -745,7 +744,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		// We don't allow a core to have both disputes and be marked fully available at this block.
 		let max_cores = self.max_cores();
 		let used_elastic_cores =
-			self.elastic_paras.iter().map(|(_para, count)| *count as u32).sum::<u32>();
+			self.elastic_paras.values().map(|count| *count as u32).sum::<u32>();
 
 		let used_cores = (self.dispute_sessions.len() + self.backed_and_concluding_cores.len())
 			as u32 - self.elastic_paras.len() as u32 +
@@ -800,7 +799,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		// Assign potentially multiple cores to same parachains,
 		let cores = all_cores
 			.iter()
-			.map(|(para_id, _)| {
+			.flat_map(|(para_id, _)| {
 				(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
 					.map(|_para_local_core_idx| {
 						let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
@@ -815,7 +814,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					})
 					.collect::<Vec<CoreOccupied<_>>>()
 			})
-			.flatten()
 			.collect::<Vec<CoreOccupied<_>>>();
 
 		scheduler::AvailabilityCores::<T>::set(cores);
@@ -823,8 +821,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		core_idx = 0u32;
 		if fill_claimqueue {
 			let cores = all_cores
-				.iter()
-				.map(|(para_id, _)| {
+				.keys()
+				.flat_map(|para_id| {
 					(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
 						.map(|_para_local_core_idx| {
 							let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
@@ -844,7 +842,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 						})
 						.collect::<Vec<(CoreIndex, VecDeque<ParasEntry<_>>)>>()
 				})
-				.flatten()
 				.collect::<BTreeMap<CoreIndex, VecDeque<ParasEntry<_>>>>();
 
 			scheduler::ClaimQueue::<T>::set(cores);
