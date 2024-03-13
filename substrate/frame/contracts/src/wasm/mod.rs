@@ -21,6 +21,9 @@
 mod prepare;
 mod runtime;
 
+#[cfg(test)]
+pub use runtime::STABLE_API_COUNT;
+
 #[cfg(doc)]
 pub use crate::wasm::runtime::api_doc;
 
