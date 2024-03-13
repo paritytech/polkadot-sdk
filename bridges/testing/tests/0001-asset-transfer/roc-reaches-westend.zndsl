@@ -9,4 +9,4 @@ asset-hub-westend-collator1: run {{ENV_PATH}}/helper.sh with "reserve-transfer-a
 asset-hub-westend-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/wrapped-assets-balance.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,4800000000000,Rococo" within 600 seconds
 
 # check that the relayer //Charlie is rewarded by Westend AH
-bridge-hub-westend-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000002,0x6268726F,ThisChain,0" within 60 seconds
+bridge-hub-westend-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000002,0x6268726F,ThisChain,0" within 30 seconds
