@@ -18,23 +18,20 @@ use crate::{
 	configuration, inclusion, initializer, paras,
 	paras::ParaKind,
 	paras_inherent,
-	scheduler::{
-		self,
-		common::{AssignmentProvider, AssignmentProviderConfig},
-		CoreOccupied, ParasEntry,
-	},
+	scheduler::{self, common::AssignmentProvider, CoreOccupied, ParasEntry},
 	session_info, shared,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use primitives::{
-	collator_signature_payload, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
-	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CommittedCandidateReceipt,
-	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
-	Id as ParaId, IndexedVec, InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
-	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
-	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
+	collator_signature_payload, vstaging::node_features::FeatureIndex, AvailabilityBitfield,
+	BackedCandidate, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
+	CollatorSignature, CommittedCandidateReceipt, CompactStatement, CoreIndex, DisputeStatement,
+	DisputeStatementSet, GroupIndex, HeadData, Id as ParaId, IndexedVec,
+	InherentData as ParachainsInherentData, InvalidDisputeStatementKind, PersistedValidationData,
+	SessionIndex, SigningContext, UncheckedSigned, ValidDisputeStatementKind, ValidationCode,
+	ValidatorId, ValidatorIndex, ValidityAttestation,
 };
 use sp_core::{sr25519, H256};
 use sp_runtime::{
@@ -197,7 +194,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Maximum number of validators per core (a.k.a. max validators per group). This value is used
 	/// if none is explicitly set on the builder.
 	pub(crate) fn fallback_max_validators_per_core() -> u32 {
-		configuration::Pallet::<T>::config().max_validators_per_core.unwrap_or(5)
+		configuration::Pallet::<T>::config()
+			.scheduler_params
+			.max_validators_per_core
+			.unwrap_or(5)
 	}
 
 	/// Specify a mapping of core index/ para id to the number of dispute statements for the
@@ -510,7 +510,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.iter()
 			.map(|(seed, num_votes)| {
 				assert!(*num_votes <= validators.len() as u32);
-				let (para_id, _core_idx, group_idx) = self.create_indexes(*seed);
+				let (para_id, core_idx, group_idx) = self.create_indexes(*seed);
 
 				// This generates a pair and adds it to the keystore, returning just the public.
 				let collator_public = CollatorId::generate_pair(None);
@@ -587,11 +587,18 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					})
 					.collect();
 
+				// Check if the elastic scaling bit is set, if so we need to supply the core index
+				// in the generated candidate.
+				let core_idx = configuration::Pallet::<T>::config()
+					.node_features
+					.get(FeatureIndex::ElasticScalingMVP as usize)
+					.map(|_the_bit| core_idx);
+
 				BackedCandidate::<T::Hash>::new(
 					candidate,
 					validity_votes,
 					bitvec::bitvec![u8, bitvec::order::Lsb0; 1; group_validators.len()],
-					None,
+					core_idx,
 				)
 			})
 			.collect()
@@ -684,7 +691,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		// We are currently in Session 0, so these changes will take effect in Session 2.
 		Self::setup_para_ids(used_cores);
 		configuration::ActiveConfig::<T>::mutate(|c| {
-			c.coretime_cores = used_cores;
+			c.scheduler_params.num_cores = used_cores;
 		});
 
 		let validator_ids = Self::generate_validator_pairs(self.max_validators());
@@ -715,8 +722,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let cores = (0..used_cores)
 			.into_iter()
 			.map(|i| {
-				let AssignmentProviderConfig { ttl, .. } =
-					scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
+				let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
 				// Load an assignment into provider so that one is present to pop
 				let assignment = <T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
 					CoreIndex(i),
@@ -731,8 +737,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			let cores = (0..used_cores)
 				.into_iter()
 				.map(|i| {
-					let AssignmentProviderConfig { ttl, .. } =
-						scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
+					let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
 					// Load an assignment into provider so that one is present to pop
 					let assignment =
 						<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(

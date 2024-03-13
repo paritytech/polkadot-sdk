@@ -57,3 +57,11 @@ jobs:
           echo "Checking for PR#${GITHUB_PR}"
           echo "You can find more information about PRDoc at $PRDOC_DOC"
           $ENGINE run --rm -v $PWD:/repo -e RUST_LOG=info $IMAGE check -n ${GITHUB_PR}
+
+      - name: Validate prdoc for PR#${{ github.event.pull_request.number }}
+        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          echo "Validating PR#${GITHUB_PR}"
+          python3 --version
+          python3 -m pip install cargo-workspace==1.2.1
+          python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${GITHUB_PR}.prdoc

@@ -18,7 +18,7 @@ def parse_args():
 
 	parser.add_argument('workspace_dir', help='The directory to check', metavar='workspace_dir', type=str, nargs=1)
 	parser.add_argument('--exclude', help='Exclude crate paths from the check', metavar='exclude', type=str, nargs='*', default=[])
-	
+
 	args = parser.parse_args()
 	return (args.workspace_dir[0], args.exclude)
 
@@ -26,7 +26,7 @@ def main(root, exclude):
 	workspace_crates = get_members(root, exclude)
 	all_crates = get_crates(root, exclude)
 	print(f'📦 Found {len(all_crates)} crates in total')
-	
+
 	check_duplicates(workspace_crates)
 	check_missing(workspace_crates, all_crates)
 	check_links(all_crates)
@@ -48,14 +48,14 @@ def get_members(workspace_dir, exclude):
 
 	if not 'members' in root_manifest['workspace']:
 		return []
-	
+
 	members = []
 	for member in root_manifest['workspace']['members']:
 		if member in exclude:
 			print(f'❌ Excluded member should not appear in the workspace {member}')
 			sys.exit(1)
 		members.append(member)
-	
+
 	return members
 
 # List all members of the workspace.
@@ -74,12 +74,12 @@ def get_crates(workspace_dir, exclude_crates) -> dict:
 			with open(path, "r") as f:
 				content = f.read()
 				manifest = toml.loads(content)
-			
+
 			if 'workspace' in manifest:
 				if root != workspace_dir:
 					print("⏩ Excluded recursive workspace at %s" % path)
 				continue
-			
+
 			# Cut off the root path and the trailing /Cargo.toml.
 			path = path[len(workspace_dir)+1:-11]
 			name = manifest['package']['name']
@@ -87,7 +87,7 @@ def get_crates(workspace_dir, exclude_crates) -> dict:
 				print("⏩ Excluded crate %s at %s" % (name, path))
 				continue
 			crates[name] = (path, manifest)
-	
+
 	return crates
 
 # Check that there are no duplicate entries in the workspace.
@@ -138,23 +138,23 @@ def check_links(all_crates):
 					if not 'path' in deps[dep]:
 						broken.append((name, dep_name, "crate must be linked via `path`"))
 						return
-		
+
 		def check_crate(deps):
 			to_checks = ['dependencies', 'dev-dependencies', 'build-dependencies']
 
 			for to_check in to_checks:
 				if to_check in deps:
 					check_deps(deps[to_check])
-		
+
 		# There could possibly target dependant deps:
 		if 'target' in manifest:
 			# Target dependant deps can only have one level of nesting:
 			for _, target in manifest['target'].items():
 				check_crate(target)
-		
+
 		check_crate(manifest)
 
-		
+
 
 	links.sort()
 	broken.sort()
