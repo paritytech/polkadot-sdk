@@ -452,8 +452,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -645,7 +643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_core::Pair;
 	<span class="kw">use </span>westend_runtime <span class="kw">as </span>runtime;
 
-	<span class="kw">let </span>tx_ext: runtime::TxExtension = (
+	<span class="kw">let </span>extra: runtime::SignedExtra = (
 		frame_system::CheckNonZeroSender::&lt;runtime::Runtime&gt;::new(),
 		frame_system::CheckSpecVersion::&lt;runtime::Runtime&gt;::new(),
 		frame_system::CheckTxVersion::&lt;runtime::Runtime&gt;::new(),
@@ -657,12 +655,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		frame_system::CheckNonce::&lt;runtime::Runtime&gt;::from(nonce),
 		frame_system::CheckWeight::&lt;runtime::Runtime&gt;::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::&lt;runtime::Runtime&gt;::from(<span class="number">0</span>),
-	)
-		.into();
+	);
 
 	<span class="kw">let </span>payload = runtime::SignedPayload::from_raw(
 		call.clone(),
-		tx_ext.clone(),
+		extra.clone(),
 		(
 			(),
 			runtime::VERSION.spec_version,
@@ -680,7 +677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		call,
 		sp_runtime::AccountId32::from(acc.public()).into(),
 		polkadot_core_primitives::Signature::Sr25519(signature.clone()),
-		tx_ext,
+		extra,
 	)
 	.into()
 }
@@ -698,7 +695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>rococo_runtime <span class="kw">as </span>runtime;
 	<span class="kw">use </span>sp_core::Pair;
 
-	<span class="kw">let </span>tx_ext: runtime::TxExtension = (
+	<span class="kw">let </span>extra: runtime::SignedExtra = (
 		frame_system::CheckNonZeroSender::&lt;runtime::Runtime&gt;::new(),
 		frame_system::CheckSpecVersion::&lt;runtime::Runtime&gt;::new(),
 		frame_system::CheckTxVersion::&lt;runtime::Runtime&gt;::new(),
@@ -710,12 +707,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		frame_system::CheckNonce::&lt;runtime::Runtime&gt;::from(nonce),
 		frame_system::CheckWeight::&lt;runtime::Runtime&gt;::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::&lt;runtime::Runtime&gt;::from(<span class="number">0</span>),
-	)
-		.into();
+	);
 
 	<span class="kw">let </span>payload = runtime::SignedPayload::from_raw(
 		call.clone(),
-		tx_ext.clone(),
+		extra.clone(),
 		(
 			(),
 			runtime::VERSION.spec_version,
@@ -733,7 +729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		call,
 		sp_runtime::AccountId32::from(acc.public()).into(),
 		polkadot_core_primitives::Signature::Sr25519(signature.clone()),
-		tx_ext,
+		extra,
 	)
 	.into()
 }

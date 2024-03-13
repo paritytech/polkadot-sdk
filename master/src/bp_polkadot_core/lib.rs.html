@@ -529,11 +529,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
 <a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -560,8 +555,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="self">self</span>,
 	extensions::{
 		ChargeTransactionPayment, CheckEra, CheckGenesis, CheckNonZeroSender, CheckNonce,
-		CheckSpecVersion, CheckTxVersion, CheckWeight, GenericTransactionExtension,
-		TransactionExtensionSchema,
+		CheckSpecVersion, CheckTxVersion, CheckWeight, GenericSignedExtension,
+		SignedExtensionSchema,
 	},
 	EncodedOrDecodedCall, StorageMapKeyProvider, TransactionEra,
 };
@@ -765,12 +760,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>Balance = u128;
 
 <span class="doccomment">/// Unchecked Extrinsic type.
-</span><span class="kw">pub type </span>UncheckedExtrinsic&lt;Call, TransactionExt&gt; = generic::UncheckedExtrinsic&lt;
-	AccountAddress,
-	EncodedOrDecodedCall&lt;Call&gt;,
-	Signature,
-	TransactionExt,
-&gt;;
+</span><span class="kw">pub type </span>UncheckedExtrinsic&lt;Call, SignedExt&gt; =
+	generic::UncheckedExtrinsic&lt;AccountAddress, EncodedOrDecodedCall&lt;Call&gt;, Signature, SignedExt&gt;;
 
 <span class="doccomment">/// Account address, used by the Polkadot-like chain.
 </span><span class="kw">pub type </span>Address = MultiAddress&lt;AccountId, ()&gt;;
@@ -815,7 +806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Extra signed extension data that is used by most chains.
-</span><span class="kw">pub type </span>CommonTransactionExtra = (
+</span><span class="kw">pub type </span>CommonSignedExtra = (
 	CheckNonZeroSender,
 	CheckSpecVersion,
 	CheckTxVersion,
@@ -826,12 +817,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ChargeTransactionPayment&lt;Balance&gt;,
 );
 
-<span class="doccomment">/// Extra transaction extension data that starts with `CommonTransactionExtra`.
-</span><span class="kw">pub type </span>SuffixedCommonTransactionExtension&lt;Suffix&gt; =
-	GenericTransactionExtension&lt;(CommonTransactionExtra, Suffix)&gt;;
+<span class="doccomment">/// Extra signed extension data that starts with `CommonSignedExtra`.
+</span><span class="kw">pub type </span>SuffixedCommonSignedExtension&lt;Suffix&gt; =
+	GenericSignedExtension&lt;(CommonSignedExtra, Suffix)&gt;;
 
-<span class="doccomment">/// Helper trait to define some extra methods on `SuffixedCommonTransactionExtension`.
-</span><span class="kw">pub trait </span>SuffixedCommonTransactionExtensionExt&lt;Suffix: TransactionExtensionSchema&gt; {
+<span class="doccomment">/// Helper trait to define some extra methods on `SuffixedCommonSignedExtension`.
+</span><span class="kw">pub trait </span>SuffixedCommonSignedExtensionExt&lt;Suffix: SignedExtensionSchema&gt; {
 	<span class="doccomment">/// Create signed extension from its components.
 	</span><span class="kw">fn </span>from_params(
 		spec_version: u32,
@@ -840,7 +831,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		genesis_hash: Hash,
 		nonce: Nonce,
 		tip: Balance,
-		extra: (Suffix::Payload, Suffix::Implicit),
+		extra: (Suffix::Payload, Suffix::AdditionalSigned),
 	) -&gt; <span class="self">Self</span>;
 
 	<span class="doccomment">/// Return transaction nonce.
@@ -850,10 +841,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>tip(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Balance;
 }
 
-<span class="kw">impl</span>&lt;Suffix&gt; SuffixedCommonTransactionExtensionExt&lt;Suffix&gt;
-	<span class="kw">for </span>SuffixedCommonTransactionExtension&lt;Suffix&gt;
+<span class="kw">impl</span>&lt;Suffix&gt; SuffixedCommonSignedExtensionExt&lt;Suffix&gt; <span class="kw">for </span>SuffixedCommonSignedExtension&lt;Suffix&gt;
 <span class="kw">where
-	</span>Suffix: TransactionExtensionSchema,
+	</span>Suffix: SignedExtensionSchema,
 {
 	<span class="kw">fn </span>from_params(
 		spec_version: u32,
@@ -862,9 +852,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		genesis_hash: Hash,
 		nonce: Nonce,
 		tip: Balance,
-		extra: (Suffix::Payload, Suffix::Implicit),
+		extra: (Suffix::Payload, Suffix::AdditionalSigned),
 	) -&gt; <span class="self">Self </span>{
-		GenericTransactionExtension::new(
+		GenericSignedExtension::new(
 			(
 				(
 					(),              <span class="comment">// non-zero sender
@@ -906,7 +896,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Signed extension that is used by most chains.
-</span><span class="kw">pub type </span>CommonTransactionExtension = SuffixedCommonTransactionExtension&lt;()&gt;;
+</span><span class="kw">pub type </span>CommonSignedExtension = SuffixedCommonSignedExtension&lt;()&gt;;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {

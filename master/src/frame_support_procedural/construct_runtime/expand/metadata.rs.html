@@ -524,13 +524,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						call_ty,
 						signature_ty,
 						extra_ty,
-						extensions: &lt;
+						signed_extensions: &lt;
 								&lt;
 									#extrinsic <span class="kw">as </span>#scrate::sp_runtime::traits::ExtrinsicMetadata
-								&gt;::Extra <span class="kw">as </span>#scrate::sp_runtime::traits::TransactionExtensionBase
+								&gt;::SignedExtensions <span class="kw">as </span>#scrate::sp_runtime::traits::SignedExtension
 							&gt;::metadata()
 								.into_iter()
-								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {
+								.map(|meta| #scrate::__private::metadata_ir::SignedExtensionMetadataIR {
 									identifier: meta.identifier,
 									ty: meta.ty,
 									additional_signed: meta.additional_signed,
