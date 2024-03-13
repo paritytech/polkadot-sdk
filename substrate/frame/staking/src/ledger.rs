@@ -126,11 +126,11 @@ impl<T: Config> StakingLedger<T> {
 		// bonding a ledger of another stash.
 		//
 		// See <https://github.com/paritytech/polkadot-sdk/issues/3245> for more details.
-		if Bonded::<T>::get(&stash).is_some() &&
-			Ledger::<T>::get(controller.clone()).map(|l| l.stash != stash).unwrap_or(false)
-		{
-			return Err(Error::<T>::BadState);
-		}
+		ensure!(
+			Bonded::<T>::get(&stash).is_some() &&
+				Ledger::<T>::get(&controller).map(|l| l.stash == stash).unwrap_or(false),
+			Error::<T>::BadState
+		);
 
 		<Ledger<T>>::get(&controller)
 			.map(|mut ledger| {
