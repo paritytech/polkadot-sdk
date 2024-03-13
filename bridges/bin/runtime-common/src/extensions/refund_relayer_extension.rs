@@ -19,12 +19,15 @@
 //! with calls that are: delivering new message and all necessary underlying headers
 //! (parachain or relay chain).
 
-use crate::messages_call_ext::{
-	CallHelper as MessagesCallHelper, CallInfo as MessagesCallInfo, MessagesCallSubType,
+use crate::{
+	messages_call_ext::{
+		CallHelper as MessagesCallHelper, CallInfo as MessagesCallInfo, MessagesCallSubType,
+	},
+	RefundableParachainId,
 };
 use bp_messages::{LaneId, MessageNonce};
 use bp_relayers::{ExplicitOrAccountParams, RewardsAccountOwner, RewardsAccountParams};
-use bp_runtime::{Parachain, ParachainIdOf, RangeInclusiveExt, StaticStrProvider};
+use bp_runtime::{RangeInclusiveExt, StaticStrProvider};
 use codec::{Codec, Decode, Encode};
 use frame_support::{
 	dispatch::{CallableCallFor, DispatchInfo, PostDispatchInfo},
@@ -60,37 +63,6 @@ type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
 type BalanceOf<R> =
 	<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance;
 type CallOf<R> = <R as frame_system::Config>::RuntimeCall;
-
-/// Trait identifying a bridged parachain. A relayer might be refunded for delivering messages
-/// coming from this parachain.
-pub trait RefundableParachainId {
-	/// The instance of the bridge parachains pallet.
-	type Instance;
-	/// The parachain Id.
-	type Id: Get<u32>;
-}
-
-/// Default implementation of `RefundableParachainId`.
-pub struct DefaultRefundableParachainId<Instance, Id>(PhantomData<(Instance, Id)>);
-
-impl<Instance, Id> RefundableParachainId for DefaultRefundableParachainId<Instance, Id>
-where
-	Id: Get<u32>,
-{
-	type Instance = Instance;
-	type Id = Id;
-}
-
-/// Implementation of `RefundableParachainId` for `trait Parachain`.
-pub struct RefundableParachain<Instance, Para>(PhantomData<(Instance, Para)>);
-
-impl<Instance, Para> RefundableParachainId for RefundableParachain<Instance, Para>
-where
-	Para: Parachain,
-{
-	type Instance = Instance;
-	type Id = ParachainIdOf<Para>;
-}
 
 /// Trait identifying a bridged messages lane. A relayer might be refunded for delivering messages
 /// coming from this lane.
@@ -953,6 +925,7 @@ pub(crate) mod tests {
 			UnrewardedRelayerOccupation,
 		},
 		mock::*,
+		DefaultRefundableParachainId,
 	};
 	use bp_messages::{
 		DeliveredMessages, InboundLaneData, MessageNonce, MessagesOperatingMode, OutboundLaneData,
