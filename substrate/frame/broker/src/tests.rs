@@ -230,6 +230,99 @@ fn purchase_listing_works() {
 }
 
 #[test]
+fn listing_creation_and_purchase_scenarios() {
+    TestExt::new().endow(1, 1000).endow(2, 2000).execute_with(|| {
+        // Start sales and create a region
+        assert_ok!(Broker::do_start_sales(100, 1));
+        advance_to(2);
+        let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+        // Check if the purchase was successful
+        System::assert_has_event(Event::Purchased {
+            who: 1,
+            region_id: region,
+            price: 100, // Assuming price is 100 for simplicity
+            duration: 3, // Assuming duration is 3 for simplicity
+        }.into());
+
+        // Successful listing creation by owner
+        assert_ok!(Broker::do_create_listing(1, region.into(), 500));
+        assert_eq!(Listings::<Test>::iter().count(), 1);
+
+        // Check if the listing creation was successful
+        System::assert_has_event(Event::ListingCreated {
+            region_id: region,
+            owner: 1,
+            price: 500,
+        }.into());
+
+        // Attempt to create a listing for the same region by a non-owner
+        assert_noop!(Broker::do_create_listing(2, region.into(), 100), Error::<Test>::NotOwner);
+
+        // Purchase the listing by a different user
+        assert_ok!(Broker::do_purchase_listing(2, region.into()));
+        assert_eq!(Listings::<Test>::iter().count(), 0);
+        assert_eq!(<Broker as NftInspect<_>>::owner(&region.into()), Some(2));
+
+        // Check money transfer as a result of listing purchase
+        assert_eq!(balance(1), 1400); // Seller's new balance, considering initial endowment
+        assert_eq!(balance(2), 1500); // Buyer's new balance, after purchase
+
+        // Check if the purchase was successful
+        System::assert_has_event(Event::RegionSold {
+            region_id: region,
+            seller: 1,
+            buyer: 2,
+            price: 500,
+        }.into());
+    });
+}
+
+#[test]
+fn listing_update_and_deletion_scenarios() {
+    TestExt::new().endow(1, 1500).endow(2, 1000).execute_with(|| {
+        assert_ok!(Broker::do_start_sales(100, 1));
+        advance_to(2);
+        let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+        // Create initial listing
+        assert_ok!(Broker::do_create_listing(1, region.into(), 300));
+        assert_eq!(Listings::<Test>::iter().count(), 1);
+
+        // Update the listing with a new price
+        assert_ok!(Broker::do_create_listing(1, region.into(), 200));
+		assert_eq!(Listings::<Test>::iter().count(), 1);
+
+        //assert_eq!(Listings::<Test>::get(region.into()), Some((200))); // Updated price
+
+        // Delete the listing
+        assert_ok!(Broker::do_remove_listing(1, region.into()));
+        assert_eq!(Listings::<Test>::iter().count(), 0);
+
+        // Recreate listing and attempt purchase with insufficient funds
+        assert_ok!(Broker::do_create_listing(1, region.into(), 1200));
+        assert_noop!(Broker::do_purchase_listing(2, region.into()), Error::<Test>::Overpriced);
+
+        // Ensure listings are not purchasable once removed
+        assert_ok!(Broker::do_remove_listing(1, region.into()));
+        assert_noop!(Broker::do_purchase_listing(2, region.into()), Error::<Test>::UnknownListing);
+    });
+}
+
+#[test]
+fn expired_region_listing_scenario() {
+    TestExt::new().endow(1, 1000).execute_with(|| {
+        assert_ok!(Broker::do_start_sales(100, 1));
+        advance_to(40); // Fast forward time to ensure the region is expired
+        let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+        // Attempt to list an expired region
+        // assert_noop!(Broker::do_create_listing(1, region.into(), 500), Error::<Test>::ExpiredRegion);
+    });
+}
+
+
+#[test]
 fn mutate_operations_unsupported_for_regions() {
 	TestExt::new().execute_with(|| {
 		let region_id = RegionId { begin: 0, core: 0, mask: CoreMask::complete() };

@@ -482,12 +482,26 @@ impl<T: Config> Pallet<T> {
 
 		// Remove the listing
 		Listings::<T>::remove(region_id);
+
+		// Emit the event
 		Self::deposit_event(Event::RegionSold {
 			region_id,
 			seller: old_owner,
 			buyer,
 			price: listing_price,
 		});
+		Ok(())
+	}
+
+	pub(crate) fn do_remove_listing(
+		who: T::AccountId,
+		region_id: RegionId,
+	) -> DispatchResult {
+		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
+		ensure!(region.owner == who, Error::<T>::NotOwner);
+
+		Listings::<T>::remove(region_id);
+		//Self::deposit_event(Event::ListingRemoved { region_id, owner: who });
 		Ok(())
 	}
 
