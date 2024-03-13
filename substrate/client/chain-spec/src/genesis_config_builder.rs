@@ -173,7 +173,7 @@ where
 mod tests {
 	use super::*;
 	use serde_json::{from_str, json};
-	pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration, Slot};
+	pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration};
 	pub use sp_runtime::RuntimeString;
 
 	#[test]
