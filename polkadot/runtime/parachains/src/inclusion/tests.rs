@@ -375,60 +375,272 @@ pub(crate) fn process_bitfields(
 }
 
 #[test]
-fn collect_timedout_cleans_up_pending() {
+fn collect_timedout() {
 	let chain_a = ParaId::from(1_u32);
 	let chain_b = ParaId::from(2_u32);
-	let thread_a = ParaId::from(3_u32);
+	let chain_c = ParaId::from(3_u32);
+	let chain_d = ParaId::from(4_u32);
+	let chain_e = ParaId::from(5_u32);
+	let chain_f = ParaId::from(6_u32);
+	let thread_a = ParaId::from(7_u32);
 
 	let paras = vec![
 		(chain_a, ParaKind::Parachain),
 		(chain_b, ParaKind::Parachain),
+		(chain_c, ParaKind::Parachain),
+		(chain_d, ParaKind::Parachain),
+		(chain_e, ParaKind::Parachain),
+		(chain_f, ParaKind::Parachain),
 		(thread_a, ParaKind::Parathread),
 	];
 	let mut config = genesis_config(paras);
 	config.configuration.config.scheduler_params.group_rotation_frequency = 3;
 	new_test_ext(config).execute_with(|| {
-		let default_candidate = TestCandidateBuilder::default().build();
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
+		let timed_out_cores =
+			ParaInclusion::collect_timedout(Scheduler::availability_timeout_predicate(), &mut overlay);
+		assert!(timed_out_cores.is_empty());
+
+		let make_candidate = |core_index: u32, timed_out: bool| {
+			let default_candidate = TestCandidateBuilder::default().build();
+			let backed_in_number = if timed_out { 0 } else { 5 };
+
+			CandidatePendingAvailability {
+				core: CoreIndex::from(core_index),
+				hash: default_candidate.hash(),
+				descriptor: default_candidate.descriptor.clone(),
+				availability_votes: default_availability_votes(),
+				relay_parent_number: 0,
+				backed_in_number,
+				backers: default_backing_bitfield(),
+				backing_group: GroupIndex::from(core_index),
+				commitments: default_candidate.commitments.clone(),
+			}
+		};
+
 		<PendingAvailability<Test>>::insert(
 			chain_a,
-			[CandidatePendingAvailability {
-				core: CoreIndex::from(0),
-				hash: default_candidate.hash(),
+			[make_candidate(0, true)].into_iter().collect::<VecDeque<_>>(),
+		);
+
+		<PendingAvailability<Test>>::insert(
+			&chain_b,
+			[make_candidate(1, false)].into_iter().collect::<VecDeque<_>>(),
+		);
+
+		// 2 chained candidates. The first one is timed out. The other will be evicted also.
+		let mut c_candidates = VecDeque::new();
+		c_candidates.push_back(make_candidate(2, true));
+		c_candidates.push_back(make_candidate(3, false));
+
+		<PendingAvailability<Test>>::insert(&chain_c, c_candidates);
+
+		// 2 chained candidates. All are timed out.
+		let mut d_candidates = VecDeque::new();
+		d_candidates.push_back(make_candidate(4, true));
+		d_candidates.push_back(make_candidate(5, true));
+
+		<PendingAvailability<Test>>::insert(&chain_d, d_candidates);
+
+		// 3 chained candidates. The second one is timed out. The first one will remain in place.
+		// With the current time out predicate this scenario is impossible. But this is not a
+		// concern for this module.
+		let mut e_candidates = VecDeque::new();
+		e_candidates.push_back(make_candidate(6, false));
+		e_candidates.push_back(make_candidate(7, true));
+		e_candidates.push_back(make_candidate(8, false));
+
+		<PendingAvailability<Test>>::insert(&chain_e, e_candidates);
+
+		// 3 chained candidates, none are timed out.
+		let mut f_candidates = VecDeque::new();
+		f_candidates.push_back(make_candidate(9, false));
+		f_candidates.push_back(make_candidate(10, false));
+		f_candidates.push_back(make_candidate(11, false));
+
+		<PendingAvailability<Test>>::insert(&chain_f, f_candidates);
+
+		run_to_block(5, |_| None);
+
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_a).unwrap().len(), 1);
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_c).unwrap().len(), 2);
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_d).unwrap().len(), 2);
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_e).unwrap().len(), 3);
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_f).unwrap().len(), 3);
+
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
+		let timed_out_cores =
+			ParaInclusion::collect_timedout(Scheduler::availability_timeout_predicate(), &mut overlay);
+		// Write back to storage only keys that have been updated or deleted.
+		
+		for (para_id, candidates) in overlay.into_iter() {
+			<PendingAvailability<Test>>::set(para_id, candidates);
+		}
+		
+		assert_eq!(
+			timed_out_cores,
+			vec![
+				CoreIndex(0),
+				CoreIndex(2),
+				CoreIndex(3),
+				CoreIndex(4),
+				CoreIndex(5),
+				CoreIndex(7),
+				CoreIndex(8),
+			]
+		);
+
+		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
+		assert!(<PendingAvailability<Test>>::get(&chain_c).unwrap().is_empty());
+		assert!(<PendingAvailability<Test>>::get(&chain_d).unwrap().is_empty());
+		assert_eq!(
+			<PendingAvailability<Test>>::get(&chain_e)
+				.unwrap()
+				.into_iter()
+				.map(|c| c.core)
+				.collect::<Vec<_>>(),
+			vec![CoreIndex(6)]
+		);
+		assert_eq!(
+			<PendingAvailability<Test>>::get(&chain_f)
+				.unwrap()
+				.into_iter()
+				.map(|c| c.core)
+				.collect::<Vec<_>>(),
+			vec![CoreIndex(9), CoreIndex(10), CoreIndex(11)]
+		);
+	});
+}
+
+#[test]
+fn collect_disputed() {
+	let chain_a = ParaId::from(1_u32);
+	let chain_b = ParaId::from(2_u32);
+	let chain_c = ParaId::from(3_u32);
+	let chain_d = ParaId::from(4_u32);
+	let chain_e = ParaId::from(5_u32);
+	let chain_f = ParaId::from(6_u32);
+	let thread_a = ParaId::from(7_u32);
+
+	let paras = vec![
+		(chain_a, ParaKind::Parachain),
+		(chain_b, ParaKind::Parachain),
+		(chain_c, ParaKind::Parachain),
+		(chain_d, ParaKind::Parachain),
+		(chain_e, ParaKind::Parachain),
+		(chain_f, ParaKind::Parachain),
+		(thread_a, ParaKind::Parathread),
+	];
+	let mut config = genesis_config(paras);
+	config.configuration.config.scheduler_params.group_rotation_frequency = 3;
+	new_test_ext(config).execute_with(|| {
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
+		let disputed_cores = ParaInclusion::collect_disputed(&BTreeSet::new(), &mut overlay).collect::<Vec<_>>();
+		assert!(disputed_cores.is_empty());
+
+		let disputed_cores = ParaInclusion::collect_disputed(
+			&[CandidateHash::default()].into_iter().collect::<BTreeSet<_>>(),
+			&mut overlay
+		)
+		.collect::<Vec<_>>();
+		assert!(disputed_cores.is_empty());
+
+		let make_candidate = |core_index: u32| {
+			let default_candidate = TestCandidateBuilder::default().build();
+
+			CandidatePendingAvailability {
+				core: CoreIndex::from(core_index),
+				hash: CandidateHash(Hash::from_low_u64_be(core_index as _)),
 				descriptor: default_candidate.descriptor.clone(),
 				availability_votes: default_availability_votes(),
 				relay_parent_number: 0,
 				backed_in_number: 0,
 				backers: default_backing_bitfield(),
-				backing_group: GroupIndex::from(0),
+				backing_group: GroupIndex::from(core_index),
 				commitments: default_candidate.commitments.clone(),
-			}]
-			.into_iter()
-			.collect::<VecDeque<_>>(),
+			}
+		};
+
+		// Disputed
+		<PendingAvailability<Test>>::insert(
+			chain_a,
+			[make_candidate(0)].into_iter().collect::<VecDeque<_>>(),
 		);
 
+		// Not disputed.
 		<PendingAvailability<Test>>::insert(
 			&chain_b,
-			[CandidatePendingAvailability {
-				core: CoreIndex::from(1),
-				hash: default_candidate.hash(),
-				descriptor: default_candidate.descriptor,
-				availability_votes: default_availability_votes(),
-				relay_parent_number: 0,
-				backed_in_number: 5,
-				backers: default_backing_bitfield(),
-				backing_group: GroupIndex::from(1),
-				commitments: default_candidate.commitments.clone(),
-			}]
-			.into_iter()
-			.collect::<VecDeque<_>>(),
+			[make_candidate(1)].into_iter().collect::<VecDeque<_>>(),
 		);
+
+		// 2 chained candidates. The first one is disputed. The other will be evicted also.
+		let mut c_candidates = VecDeque::new();
+		c_candidates.push_back(make_candidate(2));
+		c_candidates.push_back(make_candidate(3));
+
+		<PendingAvailability<Test>>::insert(&chain_c, c_candidates);
+
+		// 2 chained candidates. All are disputed.
+		let mut d_candidates = VecDeque::new();
+		d_candidates.push_back(make_candidate(4));
+		d_candidates.push_back(make_candidate(5));
+
+		<PendingAvailability<Test>>::insert(&chain_d, d_candidates);
+
+		// 3 chained candidates. The second one is disputed. The first one will remain in place.
+		let mut e_candidates = VecDeque::new();
+		e_candidates.push_back(make_candidate(6));
+		e_candidates.push_back(make_candidate(7));
+		e_candidates.push_back(make_candidate(8));
+
+		<PendingAvailability<Test>>::insert(&chain_e, e_candidates);
+
+		// 3 chained candidates, none are disputed.
+		let mut f_candidates = VecDeque::new();
+		f_candidates.push_back(make_candidate(9));
+		f_candidates.push_back(make_candidate(10));
+		f_candidates.push_back(make_candidate(11));
+
+		<PendingAvailability<Test>>::insert(&chain_f, f_candidates);
 
 		run_to_block(5, |_| None);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).is_some());
-		assert!(<PendingAvailability<Test>>::get(&chain_b).is_some());
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_a).unwrap().len(), 1);
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_c).unwrap().len(), 2);
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_d).unwrap().len(), 2);
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_e).unwrap().len(), 3);
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_f).unwrap().len(), 3);
 
 		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+		let disputed_candidates = [
+			CandidateHash(Hash::from_low_u64_be(0)),
+			CandidateHash(Hash::from_low_u64_be(2)),
+			CandidateHash(Hash::from_low_u64_be(4)),
+			CandidateHash(Hash::from_low_u64_be(5)),
+			CandidateHash(Hash::from_low_u64_be(7)),
+		]
+		.into_iter()
+		.collect::<BTreeSet<_>>();
+		let disputed_cores = ParaInclusion::collect_disputed(&disputed_candidates, &mut overlay);
+
+		assert_eq!(
+			disputed_cores.map(|(core, _)| core).collect::<Vec<_>>(),
+			vec![
+				CoreIndex(0),
+				CoreIndex(2),
+				CoreIndex(3),
+				CoreIndex(4),
+				CoreIndex(5),
+				CoreIndex(7),
+				CoreIndex(8),
+			]
+		);
 
 		ParaInclusion::collect_timedout(Scheduler::availability_timeout_predicate(), &mut overlay);
 
@@ -437,7 +649,25 @@ fn collect_timedout_cleans_up_pending() {
 			<PendingAvailability<Test>>::set(para_id, candidates);
 		}
 		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
-		assert!(!<PendingAvailability<Test>>::get(&chain_b).unwrap().is_empty());
+		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
+		assert!(<PendingAvailability<Test>>::get(&chain_c).unwrap().is_empty());
+		assert!(<PendingAvailability<Test>>::get(&chain_d).unwrap().is_empty());
+		assert_eq!(
+			<PendingAvailability<Test>>::get(&chain_e)
+				.unwrap()
+				.into_iter()
+				.map(|c| c.core)
+				.collect::<Vec<_>>(),
+			vec![CoreIndex(6)]
+		);
+		assert_eq!(
+			<PendingAvailability<Test>>::get(&chain_f)
+				.unwrap()
+				.into_iter()
+				.map(|c| c.core)
+				.collect::<Vec<_>>(),
+			vec![CoreIndex(9), CoreIndex(10), CoreIndex(11)]
+		);
 	});
 }
 
@@ -637,13 +867,17 @@ fn availability_threshold_is_supermajority() {
 
 #[test]
 fn supermajority_bitfields_trigger_availability() {
-	let chain_a = ParaId::from(1_u32);
-	let chain_b = ParaId::from(2_u32);
-	let thread_a = ParaId::from(3_u32);
+	let chain_a = ParaId::from(0_u32);
+	let chain_b = ParaId::from(1_u32);
+	let chain_c = ParaId::from(2_u32);
+	let chain_d = ParaId::from(3_u32);
+	let thread_a = ParaId::from(4_u32);
 
 	let paras = vec![
 		(chain_a, ParaKind::Parachain),
 		(chain_b, ParaKind::Parachain),
+		(chain_c, ParaKind::Parachain),
+		(chain_d, ParaKind::Parachain),
 		(thread_a, ParaKind::Parathread),
 	];
 	let validators = vec![
@@ -652,6 +886,8 @@ fn supermajority_bitfields_trigger_availability() {
 		Sr25519Keyring::Charlie,
 		Sr25519Keyring::Dave,
 		Sr25519Keyring::Ferdie,
+		Sr25519Keyring::One,
+		Sr25519Keyring::Two,
 	];
 	let keystore: KeystorePtr = Arc::new(LocalKeystore::in_memory());
 	for validator in validators.iter() {
@@ -674,10 +910,14 @@ fn supermajority_bitfields_trigger_availability() {
 		let core_lookup = |core| match core {
 			core if core == CoreIndex::from(0) => Some(chain_a),
 			core if core == CoreIndex::from(1) => Some(chain_b),
-			core if core == CoreIndex::from(2) => Some(thread_a),
-			_ => panic!("Core out of bounds for 2 parachains and 1 parathread core."),
+			core if core == CoreIndex::from(2) => Some(chain_c),
+			core if core == CoreIndex::from(3) => Some(chain_c),
+			core if core == CoreIndex::from(4) => Some(chain_c),
+			core if core == CoreIndex::from(5) => Some(thread_a),
+			_ => panic!("Core out of bounds"),
 		};
 
+		// Chain A only has one candidate pending availability. It will be made available now.
 		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			head_data: vec![1, 2, 3, 4].into(),
@@ -702,6 +942,7 @@ fn supermajority_bitfields_trigger_availability() {
 			.collect::<VecDeque<_>>(),
 		);
 
+		// Chain B only has one candidate pending availability. It won't be made available now.
 		let candidate_b = TestCandidateBuilder {
 			para_id: chain_b,
 			head_data: vec![5, 6, 7, 8].into(),
@@ -726,36 +967,93 @@ fn supermajority_bitfields_trigger_availability() {
 			.collect::<VecDeque<_>>(),
 		);
 
+		// Chain C has three candidates pending availability. The first and third candidates will be
+		// made available. Only the first candidate will be evicted from the core and enacted.
+		let candidate_c_1 = TestCandidateBuilder {
+			para_id: chain_c,
+			head_data: vec![7, 8].into(),
+			..Default::default()
+		}
+		.build();
+		let candidate_c_2 = TestCandidateBuilder {
+			para_id: chain_c,
+			head_data: vec![9, 10].into(),
+			..Default::default()
+		}
+		.build();
+		let candidate_c_3 = TestCandidateBuilder {
+			para_id: chain_c,
+			head_data: vec![11, 12].into(),
+			..Default::default()
+		}
+		.build();
+
+		let mut c_candidates = VecDeque::new();
+		c_candidates.push_back(CandidatePendingAvailability {
+			core: CoreIndex::from(2),
+			hash: candidate_c_1.hash(),
+			descriptor: candidate_c_1.descriptor.clone(),
+			availability_votes: default_availability_votes(),
+			relay_parent_number: 0,
+			backed_in_number: 0,
+			backers: backing_bitfield(&[1]),
+			backing_group: GroupIndex::from(2),
+			commitments: candidate_c_1.commitments.clone(),
+		});
+		c_candidates.push_back(CandidatePendingAvailability {
+			core: CoreIndex::from(3),
+			hash: candidate_c_2.hash(),
+			descriptor: candidate_c_2.descriptor.clone(),
+			availability_votes: default_availability_votes(),
+			relay_parent_number: 0,
+			backed_in_number: 0,
+			backers: backing_bitfield(&[5]),
+			backing_group: GroupIndex::from(3),
+			commitments: candidate_c_2.commitments.clone(),
+		});
+		c_candidates.push_back(CandidatePendingAvailability {
+			core: CoreIndex::from(4),
+			hash: candidate_c_3.hash(),
+			descriptor: candidate_c_3.descriptor.clone(),
+			availability_votes: default_availability_votes(),
+			relay_parent_number: 0,
+			backed_in_number: 0,
+			backers: backing_bitfield(&[6]),
+			backing_group: GroupIndex::from(4),
+			commitments: candidate_c_3.commitments.clone(),
+		});
+
+		<PendingAvailability<Test>>::insert(chain_c, c_candidates);
+
 		// this bitfield signals that a and b are available.
-		let a_and_b_available = {
+		let all_available = {
 			let mut bare_bitfield = default_bitfield();
-			*bare_bitfield.0.get_mut(0).unwrap() = true;
-			*bare_bitfield.0.get_mut(1).unwrap() = true;
-
-			bare_bitfield
-		};
-
-		// this bitfield signals that only a is available.
-		let a_available = {
-			let mut bare_bitfield = default_bitfield();
-			*bare_bitfield.0.get_mut(0).unwrap() = true;
+			for bit in 0..=4 {
+				*bare_bitfield.0.get_mut(bit).unwrap() = true;
+			}
 
 			bare_bitfield
 		};
 
 		let threshold = availability_threshold(validators.len());
 
-		// 4 of 5 first value >= 2/3
-		assert_eq!(threshold, 4);
+		// 5 of 7 first value >= 2/3
+		assert_eq!(threshold, 5);
 
 		let signed_bitfields = validators
 			.iter()
 			.enumerate()
 			.filter_map(|(i, key)| {
-				let to_sign = if i < 3 {
-					a_and_b_available.clone()
-				} else if i < 4 {
-					a_available.clone()
+				let to_sign = if i < 4 {
+					all_available.clone()
+				} else if i < 5 {
+					// this bitfield signals that only a, c1 and c3 are available.
+					let mut bare_bitfield = default_bitfield();
+					*bare_bitfield.0.get_mut(0).unwrap() = true;
+					*bare_bitfield.0.get_mut(2).unwrap() = true;
+					*bare_bitfield.0.get_mut(4).unwrap() = true;
+
+					bare_bitfield
 				} else {
 					// sign nothing.
 					return None
@@ -782,19 +1080,29 @@ fn supermajority_bitfields_trigger_availability() {
 		);
 		assert_eq!(checked_bitfields.len(), old_len, "No bitfields should have been filtered!");
 
+		
 		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
-
-		// only chain A's core is freed.
+		
+		// only chain A's core and candidate's C1 core are freed.
 		let v = process_bitfields(checked_bitfields, core_lookup, &mut overlay);
-
 		for (para_id, candidates) in overlay.into_iter() {
 			<PendingAvailability<Test>>::set(para_id, candidates);
 		}
 
-		assert_eq!(vec![(CoreIndex(0), candidate_a.hash())], v);
+		assert_eq!(
+			vec![(CoreIndex(0), candidate_a.hash()), (CoreIndex(2), candidate_c_1.hash())],
+			v
+		);
 
-		// chain A had 4 signing off, which is >= threshold.
-		// chain B has 3 signing off, which is < threshold.
+		let votes = |bits: &[usize]| {
+			let mut votes = default_availability_votes();
+			for bit in bits {
+				*votes.get_mut(*bit).unwrap() = true;
+			}
+
+			votes
+		};
+
 		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
 		assert_eq!(
 			<PendingAvailability<Test>>::get(&chain_b)
@@ -802,38 +1110,112 @@ fn supermajority_bitfields_trigger_availability() {
 				.pop_front()
 				.unwrap()
 				.availability_votes,
-			{
-				// check that votes from first 3 were tracked.
-
-				let mut votes = default_availability_votes();
-				*votes.get_mut(0).unwrap() = true;
-				*votes.get_mut(1).unwrap() = true;
-				*votes.get_mut(2).unwrap() = true;
-
-				votes
-			}
+			votes(&[0, 1, 2, 3])
 		);
+		let mut pending_c = <PendingAvailability<Test>>::get(&chain_c).unwrap();
+		assert_eq!(pending_c.pop_front().unwrap().availability_votes, votes(&[0, 1, 2, 3]));
+		assert_eq!(pending_c.pop_front().unwrap().availability_votes, votes(&[0, 1, 2, 3, 4]));
+		assert!(pending_c.is_empty());
 
-		// and check that chain head was enacted.
+		// and check that chain heads.
 		assert_eq!(Paras::para_head(&chain_a), Some(vec![1, 2, 3, 4].into()));
+		assert_ne!(Paras::para_head(&chain_b), Some(vec![5, 6, 7, 8].into()));
+		assert_eq!(Paras::para_head(&chain_c), Some(vec![7, 8].into()));
 
 		// Check that rewards are applied.
 		{
 			let rewards = crate::mock::availability_rewards();
 
-			assert_eq!(rewards.len(), 4);
-			assert_eq!(rewards.get(&ValidatorIndex(0)).unwrap(), &1);
-			assert_eq!(rewards.get(&ValidatorIndex(1)).unwrap(), &1);
-			assert_eq!(rewards.get(&ValidatorIndex(2)).unwrap(), &1);
-			assert_eq!(rewards.get(&ValidatorIndex(3)).unwrap(), &1);
+			assert_eq!(rewards.len(), 5);
+			assert_eq!(rewards.get(&ValidatorIndex(0)).unwrap(), &2);
+			assert_eq!(rewards.get(&ValidatorIndex(1)).unwrap(), &2);
+			assert_eq!(rewards.get(&ValidatorIndex(2)).unwrap(), &2);
+			assert_eq!(rewards.get(&ValidatorIndex(3)).unwrap(), &2);
+			assert_eq!(rewards.get(&ValidatorIndex(4)).unwrap(), &2);
 		}
 
 		{
 			let rewards = crate::mock::backing_rewards();
 
-			assert_eq!(rewards.len(), 2);
+			assert_eq!(rewards.len(), 3);
 			assert_eq!(rewards.get(&ValidatorIndex(3)).unwrap(), &1);
 			assert_eq!(rewards.get(&ValidatorIndex(4)).unwrap(), &1);
+			assert_eq!(rewards.get(&ValidatorIndex(1)).unwrap(), &1);
+		}
+
+		// Add a new bitfield which will make candidate C2 available also. This will also evict and
+		// enact C3.
+		let signed_bitfields = vec![sign_bitfield(
+			&keystore,
+			&validators[5],
+			ValidatorIndex(5),
+			{
+				let mut bare_bitfield = default_bitfield();
+				*bare_bitfield.0.get_mut(3).unwrap() = true;
+				bare_bitfield
+			},
+			&signing_context,
+		)
+		.into()];
+
+		let old_len = signed_bitfields.len();
+		let checked_bitfields = simple_sanitize_bitfields(
+			signed_bitfields,
+			DisputedBitfield::zeros(expected_bits()),
+			expected_bits(),
+		);
+		assert_eq!(checked_bitfields.len(), old_len, "No bitfields should have been filtered!");
+
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
+		let v = process_bitfields(checked_bitfields, core_lookup, &mut overlay);
+		assert_eq!(
+			vec![(CoreIndex(3), candidate_c_2.hash()), (CoreIndex(4), candidate_c_3.hash())],
+			v
+		);
+
+		for (para_id, candidates) in overlay.into_iter() {
+			<PendingAvailability<Test>>::set(para_id, candidates);
+		}
+
+		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
+		assert_eq!(
+			<PendingAvailability<Test>>::get(&chain_b)
+				.unwrap()
+				.pop_front()
+				.unwrap()
+				.availability_votes,
+			votes(&[0, 1, 2, 3])
+		);
+		assert!(<PendingAvailability<Test>>::get(&chain_c).unwrap().is_empty());
+
+		// and check that chain heads.
+		assert_eq!(Paras::para_head(&chain_a), Some(vec![1, 2, 3, 4].into()));
+		assert_ne!(Paras::para_head(&chain_b), Some(vec![5, 6, 7, 8].into()));
+		assert_eq!(Paras::para_head(&chain_c), Some(vec![11, 12].into()));
+
+		// Check that rewards are applied.
+		{
+			let rewards = crate::mock::availability_rewards();
+
+			assert_eq!(rewards.len(), 6);
+			assert_eq!(rewards.get(&ValidatorIndex(0)).unwrap(), &4);
+			assert_eq!(rewards.get(&ValidatorIndex(1)).unwrap(), &4);
+			assert_eq!(rewards.get(&ValidatorIndex(2)).unwrap(), &4);
+			assert_eq!(rewards.get(&ValidatorIndex(3)).unwrap(), &4);
+			assert_eq!(rewards.get(&ValidatorIndex(4)).unwrap(), &3);
+			assert_eq!(rewards.get(&ValidatorIndex(5)).unwrap(), &1);
+		}
+
+		{
+			let rewards = crate::mock::backing_rewards();
+
+			assert_eq!(rewards.len(), 5);
+			assert_eq!(rewards.get(&ValidatorIndex(3)).unwrap(), &1);
+			assert_eq!(rewards.get(&ValidatorIndex(4)).unwrap(), &1);
+			assert_eq!(rewards.get(&ValidatorIndex(1)).unwrap(), &1);
+			assert_eq!(rewards.get(&ValidatorIndex(5)).unwrap(), &1);
+			assert_eq!(rewards.get(&ValidatorIndex(6)).unwrap(), &1);
 		}
 	});
 }
