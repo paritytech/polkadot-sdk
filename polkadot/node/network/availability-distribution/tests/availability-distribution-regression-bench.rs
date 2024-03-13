@@ -29,10 +29,6 @@ use polkadot_subsystem_bench::{
 	utils::{warm_up_and_benchmark, WarmUpOptions},
 };
 
-const BENCH_COUNT: usize = 3;
-const WARM_UP_COUNT: usize = 100;
-const WARM_UP_PRECISION: f64 = 0.02;
-
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
 	let mut config = TestConfiguration::default();

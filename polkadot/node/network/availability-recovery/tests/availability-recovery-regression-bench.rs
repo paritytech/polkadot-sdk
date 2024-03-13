@@ -30,10 +30,6 @@ use polkadot_subsystem_bench::{
 	utils::{warm_up_and_benchmark, WarmUpOptions},
 };
 
-const BENCH_COUNT: usize = 3;
-const WARM_UP_COUNT: usize = 10;
-const WARM_UP_PRECISION: f64 = 0.01;
-
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
 
