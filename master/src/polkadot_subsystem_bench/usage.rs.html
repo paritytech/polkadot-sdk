@@ -313,7 +313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::collections::HashMap;
 
-<span class="attr">#[derive(Debug, Serialize, Deserialize)]
+<span class="attr">#[derive(Debug, Serialize, Deserialize, Clone)]
 </span><span class="kw">pub struct </span>BenchmarkUsage {
 	<span class="kw">pub </span>benchmark_name: String,
 	<span class="kw">pub </span>network_usage: Vec&lt;ResourceUsage&gt;,
@@ -403,7 +403,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[derive(Debug, Serialize, Deserialize)]
+<span class="attr">#[derive(Debug, Serialize, Deserialize, Clone)]
 </span><span class="kw">pub struct </span>ResourceUsage {
 	<span class="kw">pub </span>resource_name: String,
 	<span class="kw">pub </span>total: f64,
