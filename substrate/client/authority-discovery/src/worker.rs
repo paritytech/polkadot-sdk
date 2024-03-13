@@ -346,6 +346,8 @@ where
 			self.client.as_ref(),
 		).await?.into_iter().collect::<HashSet<_>>();
 
+		error!(target: LOG_TARGET, "Publishing ext addresses {:?}", keys);
+
 		if only_if_changed && keys == self.latest_published_keys {
 			return Ok(())
 		}
