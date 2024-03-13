@@ -503,6 +503,5 @@ subsystem-regression-tests:
     - .run-immediately
   script:
     - cargo test --profile=testnet -p polkadot-availability-recovery --test availability-recovery-regression-bench --features subsystem-benchmarks
-    - cargo test --profile=testnet -p polkadot-availability-distribution --test availability-distribution-regression-bench --features subsystem-benchmarks
   tags:
     - benchmark

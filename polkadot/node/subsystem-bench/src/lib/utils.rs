@@ -68,6 +68,7 @@ pub fn warm_up_and_benchmark(
 	}
 
 	if usages.len() != options.bench {
+		println!("Didn't warm up after {} runs", options.warm_up);
 		return Err("Can't warm up".to_string())
 	}
 
