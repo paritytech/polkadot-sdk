@@ -2304,24 +2304,20 @@ sp_api::impl_runtime_apis! {
 				pub const RandomParaId: ParaId = ParaId::new(43211234);
 			}
 
+			type ToParachainDeliveryHelper<ParachainId> = runtime_common::xcm_sender::benchmarking::DestinationDeliveryHelper<
+				XcmConfig,
+				ExistentialDepositAsset,
+				xcm_config::PriceForChildParachainDelivery,
+				runtime_common::xcm_sender::ChildParachainDestinationMatcher<ParachainId>,
+				(/*TODO: EnsureXcmVersion*/),
+			>;
+
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl frame_benchmarking::baseline::Config for Runtime {}
 			impl pallet_xcm::benchmarking::Config for Runtime {
 				type DeliveryHelper = (
-					runtime_common::xcm_sender::ToParachainDeliveryHelper<
-						XcmConfig,
-						ExistentialDepositAsset,
-						xcm_config::PriceForChildParachainDelivery,
-						AssetHubParaId,
-						(),
-					>,
-					runtime_common::xcm_sender::ToParachainDeliveryHelper<
-						XcmConfig,
-						ExistentialDepositAsset,
-						xcm_config::PriceForChildParachainDelivery,
-						RandomParaId,
-						(),
-					>
+					ToParachainDeliveryHelper<AssetHubParaId>
+					ToParachainDeliveryHelper<RandomParaId>,
 				);
 
 				fn reachable_dest() -> Option<Location> {
@@ -2374,13 +2370,7 @@ sp_api::impl_runtime_apis! {
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = XcmConfig;
 				type AccountIdConverter = LocationConverter;
-				type DeliveryHelper = runtime_common::xcm_sender::ToParachainDeliveryHelper<
-					XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForChildParachainDelivery,
-					AssetHubParaId,
-					(),
-				>;
+				type DeliveryHelper = ToParachainDeliveryHelper<AssetHubParaId>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(AssetHub::get())
 				}

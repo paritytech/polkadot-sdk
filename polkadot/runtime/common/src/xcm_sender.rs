@@ -136,101 +136,150 @@ where
 	}
 }
 
-/// Implementation of `xcm_builder::EnsureDelivery` which helps to ensure delivery to the
-/// `ParaId` parachain (sibling or child). Deposits existential deposit for origin (if needed).
-/// Deposits estimated fee to the origin account (if needed).
-/// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if neeeded).
-#[cfg(feature = "runtime-benchmarks")]
-pub struct ToParachainDeliveryHelper<
-	XcmConfig,
-	ExistentialDeposit,
-	PriceForDelivery,
-	ParaId,
-	ToParaIdHelper,
->(
-	sp_std::marker::PhantomData<(
-		XcmConfig,
-		ExistentialDeposit,
-		PriceForDelivery,
-		ParaId,
-		ToParaIdHelper,
-	)>,
-);
-
-#[cfg(feature = "runtime-benchmarks")]
-impl<
-		XcmConfig: xcm_executor::Config,
-		ExistentialDeposit: Get<Option<Asset>>,
-		PriceForDelivery: PriceForMessageDelivery<Id = ParaId>,
-		Parachain: Get<ParaId>,
-		ToParachainHelper: EnsureForParachain,
-	> xcm_builder::EnsureDelivery
-	for ToParachainDeliveryHelper<
-		XcmConfig,
-		ExistentialDeposit,
-		PriceForDelivery,
-		Parachain,
-		ToParachainHelper,
-	>
+/// Implementation of `MatchesDestination`, which can be utilized for `DestinationDeliveryHelper`
+/// while respecting `ChildParachainRouter`.
+pub struct ChildParachainDestinationMatcher<Parachain>(sp_std::marker::PhantomData<Parachain>);
+impl<Parachain: Get<ParaId>> benchmarking::MatchesDestination
+	for ChildParachainDestinationMatcher<Parachain>
 {
-	fn ensure_successful_delivery(
-		origin_ref: &Location,
-		dest: &Location,
-		fee_reason: xcm_executor::traits::FeeReason,
-	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
-		use xcm_executor::{
-			traits::{FeeManager, TransactAsset},
-			FeesMode,
-		};
+	type PriceForDeliveryId = ParaId;
 
-		// check if the destination matches the expected `Parachain`.
-		if let Some(Parachain(para_id)) = dest.first_interior() {
-			if ParaId::from(*para_id) != Parachain::get().into() {
-				return (None, None)
-			}
+	fn extract_price_for_delivery_id(d: &Location) -> Option<Self::PriceForDeliveryId> {
+		if let (0, [Parachain(id)]) = d.unpack() {
+			Some(ParaId::from(*id))
 		} else {
-			return (None, None)
+			None
 		}
-
-		let mut fees_mode = None;
-		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
-			// if not waived, we need to set up accounts for paying and receiving fees
-
-			// mint ED to origin if needed
-			if let Some(ed) = ExistentialDeposit::get() {
-				XcmConfig::AssetTransactor::deposit_asset(&ed, &origin_ref, None).unwrap();
-			}
-
-			// overestimate delivery fee
-			let overestimated_xcm = vec![ClearOrigin; 128].into();
-			let overestimated_fees =
-				PriceForDelivery::price_for_delivery(Parachain::get(), &overestimated_xcm);
-
-			// mint overestimated fee to origin
-			for fee in overestimated_fees.inner() {
-				XcmConfig::AssetTransactor::deposit_asset(&fee, &origin_ref, None).unwrap();
-			}
-
-			// expected worst case - direct withdraw
-			fees_mode = Some(FeesMode { jit_withdraw: true });
-		}
-
-		// allow more initialization for target parachain
-		ToParachainHelper::ensure(Parachain::get());
-
-		(fees_mode, None)
+	}
+}
+#[cfg(feature = "runtime-benchmarks")]
+impl<Parachain: Get<ParaId>> frame_support::traits::Contains<Location>
+	for ChildParachainDestinationMatcher<Parachain>
+{
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Parachain(id)]) if ParaId::from(*id) == Parachain::get())
 	}
 }
 
-/// Ensure more initialization for `ParaId`. (e.g. open HRMP channels, ...)
 #[cfg(feature = "runtime-benchmarks")]
-pub trait EnsureForParachain {
-	fn ensure(para_id: ParaId);
-}
-#[cfg(feature = "runtime-benchmarks")]
-impl EnsureForParachain for () {
-	fn ensure(_: ParaId) {
-		// doing nothing
+pub mod benchmarking {
+	use super::*;
+	use frame_support::traits::Contains;
+	use xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS};
+
+	/// Implementation of `xcm_builder::EnsureDelivery` which helps to ensure delivery to the
+	/// `destination` (parent, sibling parachain or child parachain, ...).
+	/// Deposits existential deposit for origin (if needed).
+	/// Deposits estimated fee to the origin account (if needed).
+	/// Allows to trigger additional logic for specific `destination` (e.g. open HRMP channel) (if
+	/// neeeded).
+	pub struct DestinationDeliveryHelper<
+		XcmConfig,
+		ExistentialDeposit,
+		PriceForDelivery,
+		DestinationMatcher,
+		DestinationHelper,
+	>(
+		sp_std::marker::PhantomData<(
+			XcmConfig,
+			ExistentialDeposit,
+			PriceForDelivery,
+			DestinationMatcher,
+			DestinationHelper,
+		)>,
+	);
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl<
+			XcmConfig: xcm_executor::Config,
+			ExistentialDeposit: Get<Option<Asset>>,
+			PriceForDelivery: PriceForMessageDelivery,
+			DestinationMatcher: MatchesDestination<PriceForDeliveryId = PriceForDelivery::Id>,
+			DestinationHelper: EnsureForDestination,
+		> xcm_builder::EnsureDelivery
+		for DestinationDeliveryHelper<
+			XcmConfig,
+			ExistentialDeposit,
+			PriceForDelivery,
+			DestinationMatcher,
+			DestinationHelper,
+		>
+	{
+		fn ensure_successful_delivery(
+			origin_ref: &Location,
+			dest: &Location,
+			fee_reason: xcm_executor::traits::FeeReason,
+		) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
+			use xcm_executor::{
+				traits::{FeeManager, TransactAsset},
+				FeesMode,
+			};
+
+			// check if the `DestinationMatcher` matches a destination.
+			if !DestinationMatcher::contains(dest) {
+				return (None, None)
+			}
+
+			// handle/prepare delivery fees, if needed
+			let mut fees_mode = None;
+			if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
+				// if not waived, we need to set up accounts for paying and receiving fees
+
+				// mint ED to origin if needed
+				if let Some(ed) = ExistentialDeposit::get() {
+					XcmConfig::AssetTransactor::deposit_asset(&ed, &origin_ref, None).unwrap();
+				}
+
+				// overestimate delivery fee
+				let mut max_assets: Vec<Asset> = Vec::new();
+				for i in 0..MAX_ITEMS_IN_ASSETS {
+					max_assets.push((GeneralIndex(i as u128), 100u128).into());
+				}
+				let overestimated_xcm =
+					vec![WithdrawAsset(max_assets.into()); MAX_INSTRUCTIONS_TO_DECODE as usize]
+						.into();
+				let overestimated_fees = PriceForDelivery::price_for_delivery(
+					DestinationMatcher::extract_price_for_delivery_id(dest).expect("correct id"),
+					&overestimated_xcm,
+				);
+
+				// mint overestimated fee to origin
+				for fee in overestimated_fees.inner() {
+					XcmConfig::AssetTransactor::deposit_asset(&fee, &origin_ref, None).unwrap();
+				}
+
+				// expected worst case - direct withdraw
+				fees_mode = Some(FeesMode { jit_withdraw: true });
+			}
+
+			// trigger more initialization for the destination
+			DestinationHelper::ensure_for(dest);
+
+			(fees_mode, None)
+		}
+	}
+
+	/// Ensure more initialization for destination. (e.g. open HRMP channels, set XCM version, ...)
+	pub trait EnsureForDestination {
+		fn ensure_for(dest: &Location);
+	}
+
+	/// Tuple implementation for `EnsureForDestination`.
+	#[impl_trait_for_tuples::impl_for_tuples(30)]
+	impl EnsureForDestination for Tuple {
+		fn ensure_for(dest: &Location) {
+			for_tuples!( #(
+			Tuple::ensure_for(dest);
+		)* );
+		}
+	}
+
+	/// Helper trait for extracting the `id` type for `PriceForMessageDelivery` and matching
+	/// `Location`.
+	pub trait MatchesDestination: Contains<Location> {
+		type PriceForDeliveryId;
+
+		fn extract_price_for_delivery_id(dest: &Location) -> Option<Self::PriceForDeliveryId>;
 	}
 }
 
