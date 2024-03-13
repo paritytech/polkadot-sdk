@@ -23,7 +23,7 @@ use crate::messages_call_ext::{
 	CallHelper as MessagesCallHelper, CallInfo as MessagesCallInfo, MessagesCallSubType,
 };
 use bp_messages::{LaneId, MessageNonce};
-use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
+use bp_relayers::{ExplicitOrAccountParams, RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::{Parachain, ParachainIdOf, RangeInclusiveExt, StaticStrProvider};
 use codec::{Codec, Decode, Encode};
 use frame_support::{
@@ -552,7 +552,10 @@ where
 				);
 			},
 			RelayerAccountAction::Slash(relayer, slash_account) =>
-				RelayersPallet::<T::Runtime>::slash_and_deregister(&relayer, slash_account),
+				RelayersPallet::<T::Runtime>::slash_and_deregister(
+					&relayer,
+					ExplicitOrAccountParams::Params(slash_account),
+				),
 		}
 
 		Ok(())
