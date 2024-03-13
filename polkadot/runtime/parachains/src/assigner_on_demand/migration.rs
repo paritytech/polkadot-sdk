@@ -67,7 +67,7 @@ mod v1 {
 					Pallet::<T>::add_on_demand_order(
 						queue_status,
 						enqueued_order.para_id,
-						QueuePushDirection::Front,
+						QueuePushDirection::Back,
 					);
 				});
 			});
@@ -109,15 +109,10 @@ mod v1 {
 			);
 
 			let expected_len = u32::decode(&mut &state[..]).unwrap();
-			let n_affinity_entries = AffinityEntries::<T>::iter()
-				.map(|(_index, heap)| heap.len() as u32)
-				.fold(0, |acc, x| acc + x);
-			let n_free_entries = FreeEntries::<T>::get().len() as u32;
-			let n_orders = n_affinity_entries + n_free_entries;
-			// TODO: Ensure that affinity is intact.
+			let queue_status_size = QueueStatus::<T>::size();
 			ensure!(
-				expected_len == n_orders,
-				"Number of orders should be the same before and after migration."
+				expected_len == queue_status_size,
+				"Number of orders should be the same before and after migration"
 			);
 
 			let n_para_id_affinity = ParaIdAffinity::<T>::iter()

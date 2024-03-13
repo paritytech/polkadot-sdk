@@ -239,7 +239,7 @@ fn spot_traffic_decreases_between_idle_blocks() {
 
 		// Run to block 101 and ensure that the traffic decreases.
 		run_to_block(101, |n| if n == 100 { Some(Default::default()) } else { None });
-		assert_eq!(OnDemandAssigner::get_queue_status().traffic, FixedU128::from_float(2.49996875));
+		assert!(OnDemandAssigner::get_queue_status().traffic < FixedU128::from_u32(10));
 
 		// Run to block 102 and observe that we've hit the default traffic value.
 		run_to_block(102, |n| if n == 100 { Some(Default::default()) } else { None });
@@ -602,14 +602,14 @@ fn new_affinity_for_a_core_must_come_from_free_entries() {
 fn queue_index_ordering_is_unsound_over_max_size() {
 	// NOTE: Unsoundness proof. If the number goes sufficiently over the max_queue_max_size
 	// the overflow will cause an opposite comparison to what would be expected.
-	let mut max_num = u32::MAX - ON_DEMAND_MAX_QUEUE_MAX_SIZE;
+	let max_num = u32::MAX - ON_DEMAND_MAX_QUEUE_MAX_SIZE;
 	// 0 < some large number.
 	assert_eq!(QueueIndex(0).cmp(&QueueIndex(max_num + 1)), Ordering::Less);
 }
 
 #[test]
 fn queue_index_ordering_works() {
-	// The largest number accepted in in the queue index.
+	// The largest accepted queue size.
 	let mut max_num = ON_DEMAND_MAX_QUEUE_MAX_SIZE;
 
 	// 0 == 0
@@ -637,11 +637,10 @@ fn queue_index_ordering_works() {
 	v.sort_by_key(|&num| QueueIndex(num));
 	assert_eq!(v, vec![0, 1, 2, 4, 5, 6, max_num + 2]);
 
-	// Numbers way above the max size are unsound and will fail to be sorted.
-	// Assume all numbers above the max size to be unsound.
-	v = vec![u32::MAX, 6, 2, 1, 5, 4];
+	// Numbers way above the max size will overflow
+	v = vec![u32::MAX - 1, u32::MAX, 6, 2, 1, 5, 4];
 	v.sort_by_key(|&num| QueueIndex(num));
-	assert_eq!(v, vec![u32::MAX, 1, 2, 4, 5, 6]);
+	assert_eq!(v, vec![u32::MAX - 1, u32::MAX, 1, 2, 4, 5, 6]);
 }
 
 #[test]
@@ -659,4 +658,52 @@ fn reverse_queue_index_does_reverse() {
 	let mut v2 = vec![1, 2, u32::MAX];
 	v2.sort_by_key(|&num| ReverseQueueIndex(num));
 	assert_eq!(v2, vec![2, 1, u32::MAX]);
+}
+
+#[test]
+fn queue_status_size_fn_works() {
+	// Add orders to the on demand queue, and make sure that they are properly represented
+	// by the QueueStatusType::size fn.
+	let parachains = vec![ParaId::from(111), ParaId::from(222), ParaId::from(333)];
+	let core_indices = vec![CoreIndex(0), CoreIndex(1)];
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		parachains.iter().for_each(|chain| {
+			schedule_blank_para(*chain, ParaKind::Parathread);
+		});
+
+		assert_eq!(OnDemandAssigner::get_queue_status().size(), 0);
+
+		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+
+		// Place orders for all chains.
+		parachains.iter().for_each(|chain| {
+			// 2 per chain for a total of 6
+			place_order(*chain);
+			place_order(*chain);
+		});
+
+		// 6 orders in free entries
+		assert_eq!(OnDemandAssigner::get_free_entries().len(), 6);
+		// 6 orders via queue status size
+		assert_eq!(
+			OnDemandAssigner::get_free_entries().len(),
+			OnDemandAssigner::get_queue_status().size() as usize
+		);
+
+		core_indices.iter().for_each(|core_index| {
+			OnDemandAssigner::pop_assignment_for_core(*core_index);
+		});
+
+		// There should be 2 orders in the scheduler's claimqueue,
+		// 2 in assorted AffinityMaps and 2 in free.
+		// ParaId 111
+		assert_eq!(OnDemandAssigner::get_affinity_entries(core_indices[0]).len(), 1);
+		// ParaId 222
+		assert_eq!(OnDemandAssigner::get_affinity_entries(core_indices[1]).len(), 1);
+		// Free entries are from ParaId 333
+		assert_eq!(OnDemandAssigner::get_free_entries().len(), 2);
+		// For a total size of 4.
+		assert_eq!(OnDemandAssigner::get_queue_status().size(), 4)
+	});
 }

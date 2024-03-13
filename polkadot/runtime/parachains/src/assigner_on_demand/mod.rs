@@ -465,9 +465,6 @@ where
 	BalanceOf<T>: FixedPointOperand,
 {
 	/// Take the next queued entry that is available for a given core index.
-	/// Invalidates and removes orders with a `para_id` that is not `ParaLifecycle::Parathread`
-	/// but only in [0..P] range slice of the order queue, where P is the element that is
-	/// removed from the order queue.
 	///
 	/// Parameters:
 	/// - `core_index`: The core index
