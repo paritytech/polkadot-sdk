@@ -25,6 +25,7 @@
 
 // Executed Command:
 // target/production/substrate-node
+// target/production/substrate-node
 // benchmark
 // pallet
 // --steps=50
@@ -35,7 +36,11 @@
 // --json-file=/builds/parity/mirrors/polkadot-sdk/.git/.artifacts/bench.json
 // --pallet=pallet_nomination_pools
 // --chain=dev
+// --json-file=/builds/parity/mirrors/polkadot-sdk/.git/.artifacts/bench.json
+// --pallet=pallet_nomination_pools
+// --chain=dev
 // --header=./substrate/HEADER-APACHE2
+// --output=./substrate/frame/nomination-pools/src/weights.rs
 // --output=./substrate/frame/nomination-pools/src/weights.rs
 // --template=./substrate/.maintain/frame-weight-template.hbs
 
@@ -259,14 +264,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Freezes` (r:1 w:0)
 	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
-	/// Storage: `NominationPools::ReversePoolIdLookup` (r:1 w:0)
-	/// Proof: `NominationPools::ReversePoolIdLookup` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::TotalValueLocked` (r:1 w:1)
 	/// Proof: `NominationPools::TotalValueLocked` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[0, 100]`.
 	fn pool_withdraw_unbonded(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1848`
+		//  Measured:  `1817`
 		//  Estimated: `4764`
 		// Minimum execution time: 64_787_000 picoseconds.
 		Weight::from_parts(67_920_914, 4764)
@@ -293,8 +296,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `NominationPools::ReversePoolIdLookup` (r:1 w:0)
-	/// Proof: `NominationPools::ReversePoolIdLookup` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::TotalValueLocked` (r:1 w:1)
 	/// Proof: `NominationPools::TotalValueLocked` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::CounterForPoolMembers` (r:1 w:1)
@@ -304,7 +305,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `s` is `[0, 100]`.
 	fn withdraw_unbonded_update(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2238`
+		//  Measured:  `2207`
 		//  Estimated: `27847`
 		// Minimum execution time: 124_990_000 picoseconds.
 		Weight::from_parts(129_041_398, 27847)
@@ -337,12 +338,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Nominators` (r:1 w:0)
 	/// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `MaxEncodedLen`)
-	/// Storage: `NominationPools::ReversePoolIdLookup` (r:1 w:1)
-	/// Proof: `NominationPools::ReversePoolIdLookup` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::TotalValueLocked` (r:1 w:1)
 	/// Proof: `NominationPools::TotalValueLocked` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::CounterForPoolMembers` (r:1 w:1)
 	/// Proof: `NominationPools::CounterForPoolMembers` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `NominationPools::ReversePoolIdLookup` (r:1 w:1)
+	/// Proof: `NominationPools::ReversePoolIdLookup` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::CounterForReversePoolIdLookup` (r:1 w:1)
 	/// Proof: `NominationPools::CounterForReversePoolIdLookup` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::RewardPools` (r:1 w:1)
@@ -849,14 +850,12 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Freezes` (r:1 w:0)
 	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
-	/// Storage: `NominationPools::ReversePoolIdLookup` (r:1 w:0)
-	/// Proof: `NominationPools::ReversePoolIdLookup` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::TotalValueLocked` (r:1 w:1)
 	/// Proof: `NominationPools::TotalValueLocked` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[0, 100]`.
 	fn pool_withdraw_unbonded(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1848`
+		//  Measured:  `1817`
 		//  Estimated: `4764`
 		// Minimum execution time: 64_787_000 picoseconds.
 		Weight::from_parts(67_920_914, 4764)
@@ -883,8 +882,6 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `NominationPools::ReversePoolIdLookup` (r:1 w:0)
-	/// Proof: `NominationPools::ReversePoolIdLookup` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::TotalValueLocked` (r:1 w:1)
 	/// Proof: `NominationPools::TotalValueLocked` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::CounterForPoolMembers` (r:1 w:1)
@@ -894,7 +891,7 @@ impl WeightInfo for () {
 	/// The range of component `s` is `[0, 100]`.
 	fn withdraw_unbonded_update(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2238`
+		//  Measured:  `2207`
 		//  Estimated: `27847`
 		// Minimum execution time: 124_990_000 picoseconds.
 		Weight::from_parts(129_041_398, 27847)
@@ -927,12 +924,12 @@ impl WeightInfo for () {
 	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Nominators` (r:1 w:0)
 	/// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `MaxEncodedLen`)
-	/// Storage: `NominationPools::ReversePoolIdLookup` (r:1 w:1)
-	/// Proof: `NominationPools::ReversePoolIdLookup` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::TotalValueLocked` (r:1 w:1)
 	/// Proof: `NominationPools::TotalValueLocked` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::CounterForPoolMembers` (r:1 w:1)
 	/// Proof: `NominationPools::CounterForPoolMembers` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `NominationPools::ReversePoolIdLookup` (r:1 w:1)
+	/// Proof: `NominationPools::ReversePoolIdLookup` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::CounterForReversePoolIdLookup` (r:1 w:1)
 	/// Proof: `NominationPools::CounterForReversePoolIdLookup` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `NominationPools::RewardPools` (r:1 w:1)
