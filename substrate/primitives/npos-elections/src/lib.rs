@@ -279,8 +279,8 @@ impl<AccountId: Clone> Edge<AccountId> {
 }
 
 #[cfg(feature = "std")]
-impl<A: IdentifierT> std::fmt::Debug for Edge<A> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<A: IdentifierT> core::fmt::Debug for Edge<A> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "Edge({:?}, weight = {:?})", self.who, self.weight)
 	}
 }
