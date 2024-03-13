@@ -60,7 +60,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{RuntimeDebug, TryRuntimeError};
 use sp_std::{marker::PhantomData, prelude::*};
 
 use frame_support::{
@@ -276,6 +276,14 @@ pub mod pallet {
 		NotTracked,
 		/// Operation cannot be done yet since not enough time has passed.
 		TooSoon,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call]
@@ -549,6 +557,93 @@ pub mod pallet {
 				let e = Event::<T, I>::EvidenceJudged { who, wish, evidence, old_rank, new_rank };
 				Self::deposit_event(e);
 			}
+		}
+
+		/// Ensure the correctness of the state of this pallet
+		/// The following expectations must always apply.
+		///
+		/// ## Expectations:
+		///
+		/// `ranked_member`:
+		/// * for members with non zero demotion periods, the `last_proof` block (i.e. the estimated time for re-approving a rank)
+		/// should always be greater than the current block.
+		/// * members with zero demotion period should not submit an evidence with a wish to retain, subsequently no promotion 
+		/// available for max_rank() members.
+		/// 
+		/// `unranked_member`:
+		/// * for candidates, the `last_proof` block(i.e. the estimated time before offboarding) should always be greater than 
+		/// the current block.
+		/// * evidence should only be submitted with a `Wish:Promotion`.
+		#[cfg(any(feature = "try-runtime", test))]
+		pub fn do_try_state() -> Result<(), TryRuntimeError> {
+			// Check invariants for each member tracked by the pallet
+			let params = Params::<T, I>::get();
+
+			for who in Member::<T,I>::iter_keys() {
+				if let Some(member_status) = Member::<T,I>::get(who.clone()) {
+					// Ensure the member's rank is consistent with their status in the pallet
+					let rank = T::Members::rank_of(&who).ok_or("Member not found in rank registry")?;
+
+					if rank > T::Members::min_rank() {
+						Self::ranked_member(rank, &who, member_status.clone(), params.clone())?;
+					} else {
+						Self::unranked_member(rank, &who, member_status.clone(), params.clone())?;
+					}
+				}
+			}
+			Ok(())
+		}
+
+		fn ranked_member(rank: RankOf<T, I>, who: &T::AccountId, member_status: MemberStatusOf<T>, params: ParamsOf<T, I>) -> Result<(), TryRuntimeError> {
+
+			let now = frame_system::Pallet::<T>::block_number();
+    		let rank_index = Self::rank_to_index(rank).ok_or(Error::<T, I>::InvalidRank)?;
+			let demotion_period = params.demotion_period[rank_index];
+
+    		// Determine if a demotion period is applicable
+    		let demotion_period_applicable = demotion_period != Zero::zero();
+
+			// If member has evidence submitted, ensure it aligns with their rank and wish
+			if let Some((wish, _)) = MemberEvidence::<T, I>::get(&who) {
+				match wish {
+					Wish::Retention => {
+						ensure!(demotion_period_applicable, TryRuntimeError::Other("Member with no demotion period can not wish to retain"));
+					},
+					Wish::Promotion => {
+						ensure!(rank < 9, TryRuntimeError::Other("Member at max rank cannot be promoted"));
+						// propose the addition of T::Members::max_rank()
+					},
+				}
+			}
+			
+			if demotion_period_applicable {
+				let demotion_due = member_status.last_proof.saturating_add(demotion_period);
+				ensure!(now < demotion_due, TryRuntimeError::Other("Member is outside the demotion period, indicating potential rank inconsistency"));
+			}
+			Ok(())
+		}
+
+		fn unranked_member(rank: RankOf<T, I>, who: &T::AccountId, member_status: MemberStatusOf<T>, params: ParamsOf<T, I>) -> Result<(), TryRuntimeError>{
+			if let Some((wish, _evidence)) = MemberEvidence::<T, I>::get(&who) {
+				if wish == Wish::Retention {
+						
+					return Err(TryRuntimeError::Other("Rentention disallowed for Rank < 1"));
+				}
+			}
+
+			let now = frame_system::Pallet::<T>::block_number();
+			let offboard_timeout = if params.offboard_timeout != Zero::zero() {
+				Some(params.offboard_timeout)
+			} else {
+				None
+			};
+
+			if let Some(timeout) = offboard_timeout {
+				let offboard_due = member_status.last_proof.saturating_add(timeout);
+				ensure!(now < offboard_due, TryRuntimeError::Other("Member has exceeded offboard timeout, indicating potential rank inconsistency"));
+			}
+			
+			Ok(())
 		}
 	}
 
