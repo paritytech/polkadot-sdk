@@ -33,7 +33,7 @@ fn main() -> Result<(), String> {
 	let mut messages = vec![];
 	let mut config = TestConfiguration::default();
 	// A single node effort roughly n_cores * needed_approvals / n_validators = 60 * 30 / 300
-	// config.n_cores = 6;
+	config.n_cores = 6;
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
 

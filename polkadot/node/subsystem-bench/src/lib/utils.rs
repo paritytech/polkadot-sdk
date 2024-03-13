@@ -43,7 +43,7 @@ pub fn warm_up_and_benchmark(
 	println!("Warming up...");
 	let mut usages = Vec::with_capacity(options.bench);
 
-	for n in 0..options.warm_up {
+	for n in 1..=options.warm_up {
 		let curr = run();
 		if let Some(prev) = usages.last() {
 			let diffs = options
@@ -54,17 +54,14 @@ pub fn warm_up_and_benchmark(
 						.ok_or(format!("{} not found in benchmark {:?}", v, prev))
 				})
 				.collect::<Result<Vec<f64>, String>>()?;
-
-			println!("{} {:?}", n, diffs);
-
 			if !diffs.iter().all(|&v| v < options.precision) {
 				usages.clear();
 			}
 		}
 		usages.push(curr);
-		// print!("\r{}%", (n + 1) * 100 / options.warm_up);
+		print!("\r{}%", n * 100 / options.warm_up);
 		if usages.len() == options.bench {
-			println!("\rTook {} runs to warm up", n - options.bench);
+			println!("\rTook {} runs to warm up", n.saturating_sub(option.bench));
 			break;
 		}
 		stdout().flush().unwrap();
