@@ -117,7 +117,7 @@ mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
 
 mod routing;
-pub use routing::{WithTopicSource, WithUniqueTopic};
+pub use routing::{EnsureDelivery, WithTopicSource, WithUniqueTopic};
 
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;

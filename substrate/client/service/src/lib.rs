@@ -393,6 +393,7 @@ where
 
 	let server_config = sc_rpc_server::Config {
 		addrs: [addr, backup_addr],
+		batch_config: config.rpc_batch_config,
 		max_connections: config.rpc_max_connections,
 		max_payload_in_mb: config.rpc_max_request_size,
 		max_payload_out_mb: config.rpc_max_response_size,

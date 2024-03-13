@@ -348,20 +348,20 @@ pub trait Ext: sealing::Sealed {
 	/// - [`Error::<T>::MaxDelegateDependenciesReached`]
 	/// - [`Error::<T>::CannotAddSelfAsDelegateDependency`]
 	/// - [`Error::<T>::DelegateDependencyAlreadyExists`]
-	fn add_delegate_dependency(
+	fn lock_delegate_dependency(
 		&mut self,
 		code_hash: CodeHash<Self::T>,
 	) -> Result<(), DispatchError>;
 
 	/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
 	///
-	/// This is the counterpart of [`Self::add_delegate_dependency`]. It decreases the reference
-	/// count and refunds the deposit that was charged by [`Self::add_delegate_dependency`].
+	/// This is the counterpart of [`Self::lock_delegate_dependency`]. It decreases the reference
+	/// count and refunds the deposit that was charged by [`Self::lock_delegate_dependency`].
 	///
 	/// # Errors
 	///
 	/// - [`Error::<T>::DelegateDependencyNotFound`]
-	fn remove_delegate_dependency(
+	fn unlock_delegate_dependency(
 		&mut self,
 		code_hash: &CodeHash<Self::T>,
 	) -> Result<(), DispatchError>;
@@ -1554,7 +1554,7 @@ where
 		});
 	}
 
-	fn add_delegate_dependency(
+	fn lock_delegate_dependency(
 		&mut self,
 		code_hash: CodeHash<Self::T>,
 	) -> Result<(), DispatchError> {
@@ -1565,7 +1565,7 @@ where
 		let code_info = CodeInfoOf::<T>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		let deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
-		info.add_delegate_dependency(code_hash, deposit)?;
+		info.lock_delegate_dependency(code_hash, deposit)?;
 		Self::increment_refcount(code_hash)?;
 		frame
 			.nested_storage
@@ -1573,14 +1573,14 @@ where
 		Ok(())
 	}
 
-	fn remove_delegate_dependency(
+	fn unlock_delegate_dependency(
 		&mut self,
 		code_hash: &CodeHash<Self::T>,
 	) -> Result<(), DispatchError> {
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
 
-		let deposit = info.remove_delegate_dependency(code_hash)?;
+		let deposit = info.unlock_delegate_dependency(code_hash)?;
 		Self::decrement_refcount(*code_hash);
 		frame
 			.nested_storage

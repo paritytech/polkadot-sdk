@@ -24,8 +24,8 @@ kitchensink-runtime = { path = "../runtime" }
 sc-client-api = { path = "../../../client/api" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
-serde = "1.0.196"
-serde_json = "1.0.113"
+serde = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 derive_more = { version = "0.99.17", default-features = false, features = ["display"] }
 kvdb = "0.13.0"
 kvdb-rocksdb = "0.19.0"

@@ -108,7 +108,7 @@ pub mod pallet {
 		}
 
 		/// A type providing default configurations for this pallet in another environment. Examples
-		/// could be a parachain, or a solo-chain.
+		/// could be a parachain, or a solochain.
 		///
 		/// Appropriate derive for `frame_system::DefaultConfig` needs to be provided. In this
 		/// example, we simple derive `frame_system::config_preludes::TestDefaultConfig` again.
@@ -149,7 +149,7 @@ pub mod tests {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		// these items are defined by frame-system as `no_default`, so we must specify them here.
 		type Block = Block;

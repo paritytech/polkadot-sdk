@@ -56,6 +56,8 @@ pub(super) enum Action<H> {
 	Keep(H, ReputationChange),
 	// discard, applying cost/benefit to originator.
 	Discard(ReputationChange),
+	// ignore, no cost/benefit applied to originator.
+	DiscardNoReport,
 }
 
 /// An outcome of examining a message.
@@ -68,7 +70,7 @@ enum Consider {
 	/// Message is from the future. Reject.
 	RejectFuture,
 	/// Message cannot be evaluated. Reject.
-	RejectOutOfScope,
+	CannotEvaluate,
 }
 
 /// BEEFY gossip message type that gets encoded and sent on the network.
@@ -168,18 +170,14 @@ impl<B: Block> Filter<B> {
 			.as_ref()
 			.map(|f|
 				// only from current set and only [filter.start, filter.end]
-				if set_id < f.validator_set.id() {
+				if set_id < f.validator_set.id() || round < f.start {
 					Consider::RejectPast
-				} else if set_id > f.validator_set.id() {
-					Consider::RejectFuture
-				} else if round < f.start {
-					Consider::RejectPast
-				} else if round > f.end {
+				} else if set_id > f.validator_set.id() || round > f.end {
 					Consider::RejectFuture
 				} else {
 					Consider::Accept
 				})
-			.unwrap_or(Consider::RejectOutOfScope)
+			.unwrap_or(Consider::CannotEvaluate)
 	}
 
 	/// Return true if `round` is >= than `max(session_start, best_beefy)`,
@@ -199,7 +197,7 @@ impl<B: Block> Filter<B> {
 					Consider::Accept
 				}
 			)
-			.unwrap_or(Consider::RejectOutOfScope)
+			.unwrap_or(Consider::CannotEvaluate)
 	}
 
 	/// Add new _known_ `round` to the set of seen valid justifications.
@@ -244,7 +242,7 @@ where
 	pub(crate) fn new(
 		known_peers: Arc<Mutex<KnownPeers<B>>>,
 	) -> (GossipValidator<B>, TracingUnboundedReceiver<PeerReport>) {
-		let (tx, rx) = tracing_unbounded("mpsc_beefy_gossip_validator", 10_000);
+		let (tx, rx) = tracing_unbounded("mpsc_beefy_gossip_validator", 100_000);
 		let val = GossipValidator {
 			votes_topic: votes_topic::<B>(),
 			justifs_topic: proofs_topic::<B>(),
@@ -289,7 +287,9 @@ where
 			match filter.consider_vote(round, set_id) {
 				Consider::RejectPast => return Action::Discard(cost::OUTDATED_MESSAGE),
 				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
-				Consider::RejectOutOfScope => return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
+				// When we can't evaluate, it's our fault (e.g. filter not initialized yet), we
+				// discard the vote without punishing or rewarding the sending peer.
+				Consider::CannotEvaluate => return Action::DiscardNoReport,
 				Consider::Accept => {},
 			}
 
@@ -330,7 +330,9 @@ where
 			match guard.consider_finality_proof(round, set_id) {
 				Consider::RejectPast => return Action::Discard(cost::OUTDATED_MESSAGE),
 				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
-				Consider::RejectOutOfScope => return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
+				// When we can't evaluate, it's our fault (e.g. filter not initialized yet), we
+				// discard the proof without punishing or rewarding the sending peer.
+				Consider::CannotEvaluate => return Action::DiscardNoReport,
 				Consider::Accept => {},
 			}
 
@@ -357,7 +359,9 @@ where
 						Action::Keep(self.justifs_topic, benefit::VALIDATED_PROOF)
 					}
 				})
-				.unwrap_or(Action::Discard(cost::OUT_OF_SCOPE_MESSAGE))
+				// When we can't evaluate, it's our fault (e.g. filter not initialized yet), we
+				// discard the proof without punishing or rewarding the sending peer.
+				.unwrap_or(Action::DiscardNoReport)
 		};
 		if matches!(action, Action::Keep(_, _)) {
 			self.gossip_filter.write().mark_round_as_proven(round);
@@ -404,6 +408,7 @@ where
 				self.report(*sender, cb);
 				ValidationResult::Discard
 			},
+			Action::DiscardNoReport => ValidationResult::Discard,
 		}
 	}
 
@@ -579,8 +584,8 @@ pub(crate) mod tests {
 		// filter not initialized
 		let res = gv.validate(&mut context, &sender, &encoded);
 		assert!(matches!(res, ValidationResult::Discard));
-		expected_report.cost_benefit = cost::OUT_OF_SCOPE_MESSAGE;
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		// nothing reported
+		assert!(report_stream.try_recv().is_err());
 
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
 		// nothing in cache first time

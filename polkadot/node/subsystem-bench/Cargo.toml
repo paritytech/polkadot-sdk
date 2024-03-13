@@ -8,9 +8,13 @@ license.workspace = true
 readme = "README.md"
 publish = false
 
+[lib]
+name = "polkadot_subsystem_bench"
+path = "src/lib/lib.rs"
+
 [[bin]]
 name = "subsystem-bench"
-path = "src/subsystem-bench.rs"
+path = "src/cli/subsystem-bench.rs"
 
 # Prevent rustdoc error. Already documented from top-level Cargo.toml.
 doc = false
@@ -65,8 +69,8 @@ itertools = "0.11.0"
 polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 prometheus = { version = "0.13.0", default-features = false }
-serde = "1.0.196"
-serde_yaml = "0.9"
+serde = { workspace = true, default-features = true }
+serde_yaml = { workspace = true }
 
 polkadot-node-core-approval-voting = { path = "../core/approval-voting" }
 polkadot-approval-distribution = { path = "../network/approval-distribution" }
@@ -74,8 +78,9 @@ sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
 sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
 
-schnorrkel = { version = "0.9.1", default-features = false }
-rand_core = "0.6.2"                                                                         # should match schnorrkel
+schnorrkel = { version = "0.11.4", default-features = false }
+# rand_core should match schnorrkel
+rand_core = "0.6.2"
 rand_chacha = { version = "0.3.1" }
 paste = "1.0.14"
 orchestra = { version = "0.3.5", default-features = false, features = ["futures_channel"] }

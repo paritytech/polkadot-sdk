@@ -43,7 +43,7 @@ crate-type = ["cdylib", "rlib"]
 array-bytes = "6.1"
 clap = { version = "4.5.1", features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-serde = { version = "1.0.196", features = ["derive"] }
+serde = { features = ["derive"], workspace = true, default-features = true }
 jsonrpsee = { version = "0.22", features = ["server"] }
 futures = "0.3.21"
 log = { workspace = true, default-features = true }
@@ -116,7 +116,7 @@ sc-cli = { path = "../../../client/cli", optional = true }
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
 try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true }
-serde_json = "1.0.113"
+serde_json = { workspace = true, default-features = true }
 
 [dev-dependencies]
 sc-keystore = { path = "../../../client/keystore" }
@@ -159,7 +159,7 @@ sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
 sp-externalities = { path = "../../../primitives/externalities" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-runtime = { path = "../../../primitives/runtime" }
-serde_json = "1.0.113"
+serde_json = { workspace = true, default-features = true }
 scale-info = { version = "2.10.0", features = ["derive", "serde"] }
 sp-trie = { path = "../../../primitives/trie" }
 sp-state-machine = { path = "../../../primitives/state-machine" }

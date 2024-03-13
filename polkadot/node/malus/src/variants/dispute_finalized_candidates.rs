@@ -34,14 +34,13 @@
 use futures::channel::oneshot;
 use polkadot_cli::{
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
-		HeaderBackend, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
-		ParachainHost, ProvideRuntimeApi,
+		AuxStore, Error, ExtendedOverseerGenArgs, Overseer, OverseerConnector, OverseerGen,
+		OverseerGenArgs, OverseerHandle,
 	},
 	validator_overseer_builder, Cli,
 };
-use polkadot_node_subsystem::{messages::ApprovalVotingMessage, SpawnGlue};
-use polkadot_node_subsystem_types::{DefaultSubsystemClient, OverseerSignal};
+use polkadot_node_subsystem::SpawnGlue;
+use polkadot_node_subsystem_types::{ChainApiBackend, OverseerSignal, RuntimeApiSubsystemClient};
 use polkadot_node_subsystem_util::request_candidate_events;
 use polkadot_primitives::CandidateEvent;
 use sp_core::traits::SpawnNamed;
@@ -237,13 +236,9 @@ impl OverseerGen for DisputeFinalizedCandidates {
 		connector: OverseerConnector,
 		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
 		ext_args: Option<ExtendedOverseerGenArgs>,
-	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
-		Error,
-	>
+	) -> Result<(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
-		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		gum::info!(

@@ -31,8 +31,8 @@ sc-client-api = { path = "../api" }
 sc-utils = { path = "../utils" }
 sc-rpc = { path = "../rpc" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-thiserror = "1.0"
-serde = "1.0"
+thiserror = { workspace = true }
+serde = { workspace = true, default-features = true }
 hex = "0.4"
 futures = "0.3.21"
 parking_lot = "0.12.1"
@@ -44,7 +44,7 @@ futures-util = { version = "0.3.30", default-features = false }
 rand = "0.8.5"
 
 [dev-dependencies]
-serde_json = "1.0.113"
+serde_json = { workspace = true, default-features = true }
 tokio = { version = "1.22.0", features = ["macros"] }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }
