@@ -323,3 +323,84 @@ fn clear_transact_status_should_work() {
 	let expected_hash = fake_message_hash(&expected_msg);
 	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, expected_hash)]);
 }
+
+#[test]
+fn paid_transacting_should_refund_payment_for_unused_weight_with_respect_to_require_weight_at_most()
+{
+	let one: Location = AccountIndex64 { index: 1, network: None }.into();
+	AllowPaidFrom::set(vec![one.clone()]);
+	add_asset(AccountIndex64 { index: 1, network: None }, (Parent, 300u128));
+	WeightPrice::set((Parent.into(), 1_000_000_000_000, 1024 * 1024));
+
+	let origin = one.clone();
+	let fees = (Parent, 300u128).into();
+	let message = Xcm::<TestCall>(vec![
+		WithdrawAsset((Parent, 300u128).into()), // enough for 150 units of weight.
+		BuyExecution { fees, weight_limit: Limited(Weight::from_parts(150, 150)) },
+		Transact {
+			origin_kind: OriginKind::Native,
+			// call should at most take 50, but we set 100 to overprice
+			require_weight_at_most: Weight::from_parts(100, 100),
+			// call estimated at 50 but only takes 10.
+			// 90 should be refunded
+			call: TestCall::Any(Weight::from_parts(50, 50), Some(Weight::from_parts(10, 10)))
+				.encode()
+				.into(),
+		},
+		RefundSurplus,
+		DepositAsset { assets: AllCounted(1).into(), beneficiary: one },
+	]);
+	let mut hash = fake_message_hash(&message);
+	let weight_limit = Weight::from_parts(150, 150);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		origin,
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(60, 60) });
+	// The refunded amount should be equal to the 150
+	// provided minus the used 60. 90 in total
+	assert_eq!(
+		asset_list(AccountIndex64 { index: 1, network: None }),
+		vec![(Parent, 180u128).into()]
+	);
+}
+
+#[test]
+fn unpaid_transact_require_weight_at_most_refund_respected() {
+	AllowUnpaidFrom::set(vec![Parent.into()]);
+	let one: Location = AccountIndex64 { index: 1, network: None }.into();
+	WeightPrice::set((Parent.into(), 1_000_000_000_000, 1024 * 1024));
+
+	let message = Xcm::<TestCall>(vec![
+		Transact {
+			origin_kind: OriginKind::Native,
+			// call should at most take 50, but we set 100 to overprice
+			require_weight_at_most: Weight::from_parts(100, 100),
+			// call estimated at 50 but only takes 10.
+			// 90 should be refunded
+			call: TestCall::Any(Weight::from_parts(50, 50), Some(Weight::from_parts(10, 10)))
+				.encode()
+				.into(),
+		},
+		RefundSurplus,
+		DepositAsset { assets: AllCounted(1).into(), beneficiary: one },
+	]);
+	let mut hash = fake_message_hash(&message);
+	let weight_limit = Weight::from_parts(130, 130);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parent,
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(40, 40) });
+	// The address is not refunded, even though we set a refund
+	// This is because we never set a BuyExecution for starters
+	// This means that there is no weight from which the refund can
+	// be substracted in the trader
+	assert_eq!(asset_list(AccountIndex64 { index: 1, network: None }), vec![]);
+}
