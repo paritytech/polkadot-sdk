@@ -18,6 +18,7 @@
 //! Simple ECDSA secp256k1 API.
 
 use codec::Encode;
+use scale_info::TypeInfo;
 use sp_runtime_interface::pass_by::PassByInner;
 
 #[cfg(feature = "serde")]
@@ -54,7 +55,7 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, TypeInfo)]
 pub struct EcdsaMarker<const I: u8 = 0>;
 
 /// The secret seed.
@@ -64,14 +65,6 @@ type Seed = [u8; 32];
 
 /// The ECDSA compressed public key.
 pub type Public = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, EcdsaMarker>;
-
-impl crate::crypto::FromEntropy for Public {
-	fn from_entropy(input: &mut impl codec::Input) -> Result<Self, codec::Error> {
-		let mut result = Self::default();
-		input.read(result.as_mut())?;
-		Ok(result)
-	}
-}
 
 impl Public {
 	/// Create a new instance from the given full public key.

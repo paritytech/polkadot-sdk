@@ -17,12 +17,15 @@
 
 //! Generic byte array which can be specialized with a marker type.
 
-use crate::crypto::UncheckedFrom;
+use crate::{
+	crypto::{FromEntropy, UncheckedFrom},
+	hash::{H256, H512},
+};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
-use sp_runtime_interface::pass_by::PassByInner;
+use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 
 /// Generic byte array.
 #[derive(
@@ -53,6 +56,10 @@ impl<const N: usize, M> PassByInner for ByteArray<N, M> {
 	fn from_inner(inner: Self::Inner) -> Self {
 		Self { inner, marker: PhantomData }
 	}
+}
+
+impl<const N: usize, M> PassBy for ByteArray<N, M> {
+	type PassBy = pass_by::Inner<Self, [u8; N]>;
 }
 
 impl<const N: usize, M> AsRef<[u8]> for ByteArray<N, M> {
@@ -112,9 +119,9 @@ impl<const N: usize, M> ByteArray<N, M> {
 		Self { inner, marker: PhantomData }
 	}
 
-	/// A new instance from the given slice `N` bytes long.
-	pub fn from_slice(data: &[u8]) -> Option<Self> {
-		Self::try_from(data).ok()
+	/// Construct from raw array.
+	pub fn to_raw(self) -> [u8; N] {
+		self.inner
 	}
 
 	/// Return a slice filled with raw data.
@@ -130,6 +137,40 @@ impl<const N: usize, M> ByteArray<N, M> {
 
 impl<const N: usize, M> crate::ByteArray for ByteArray<N, M> {
 	const LEN: usize = N;
+}
+
+impl<const N: usize, M> FromEntropy for ByteArray<N, M> {
+	fn from_entropy(input: &mut impl codec::Input) -> Result<Self, codec::Error> {
+		let mut result = Self::default();
+		input.read(result.as_mut())?;
+		Ok(result)
+	}
+}
+
+impl<M> From<ByteArray<32, M>> for H256 {
+	fn from(x: ByteArray<32, M>) -> H256 {
+		H256::from(x.inner)
+	}
+}
+
+impl<M> From<ByteArray<64, M>> for H512 {
+	fn from(x: ByteArray<64, M>) -> H512 {
+		H512::from(x.inner)
+	}
+}
+
+impl<M> ByteArray<32, M> {
+	/// A new instance from an H256.
+	pub fn from_h256(x: H256) -> Self {
+		Self::from_raw(x.into())
+	}
+}
+
+impl<M> ByteArray<64, M> {
+	/// A new instance from an H512.
+	pub fn from_h512(x: H512) -> Self {
+		Self::from_raw(x.into())
+	}
 }
 
 #[cfg(test)]
