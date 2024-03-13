@@ -34,11 +34,12 @@
 //! trait implementations.
 //!
 //! *Traits* define common interfaces that types of token should implement. For example, the
-//! [`fungible::Inspect`] trait specifies that implementations of this trait must contain methods
-//! for accessing the total issuance of the token, the balance of individual accounts, etc.
+//! [`frame_support::traits::fungible::Inspect`] trait specifies that implementations of this trait
+//! must contain methods for accessing the total issuance of the token, the balance of individual
+//! accounts, etc.
 //!
 //! *Trait implementations* are concrete implementations of these traits. For example, one of the
-//! many traits [`pallet_balances`] implements is [`fungible::Inspect`].
+//! many traits [`pallet_balances`] implements is [`frame_support::traits::fungible::Inspect`].
 //!
 //! The distinction between traits and trait implementations is helpful because it allows pallets
 //! and other logic to be generic over their dependencies, avoiding cumbersome and unwieldy tight
@@ -82,9 +83,15 @@
 //!
 //! ## Non-Fungible Tokens in Substrate
 //!
-//! The [`pallet_uniques`] is recommended to use for all NFT use cases in Substrate.
+//! [`pallet_uniques`] is recommended to use for all NFT use cases in Substrate.
 //! See the crate documentation for more info about this pallet.
 //!
-//! The [`pallet_nfts`] is deprecatd and should not be used.
+//! [`pallet_nfts`] is deprecated and should not be used.
 //!
-//! akkk
+//! # What Next?
+//!
+//! - If you are interested in implementing a single fungible token, continue reading the
+//!   [`frame_support::traits::fungible`] and [`pallet_balances`] docs.
+//! - If you are interested in implementing a set of fungible tokens, continue reading the
+//!   [`frame_support::traits::fungibles`] trait and [`pallet_assets`] docs.
+//! - If you are interested in implementing an NFT, continue reading the [`pallet_uniques`] docs.

@@ -157,6 +157,8 @@
 //!
 //! Note, you may find the Balances pallet still functions with an ED of zero in some circumstances,
 //! however this is not a configuration which is generally supported, nor will it be.
+//!
+//! [`tokens_in_substrate`]: ../polkadot_sdk_docs/reference_docs/tokens_in_substrate/index.html
 
 #![cfg_attr(not(feature = "std"), no_std)]
 mod benchmarking;

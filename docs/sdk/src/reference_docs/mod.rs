@@ -32,6 +32,9 @@ pub mod glossary;
 /// Learn about the WASM meta-protocol of all Substrate-based chains.
 pub mod wasm_meta_protocol;
 
+/// Learn about the token-related logic in Substrate and how to use it.
+pub mod tokens_in_substrate;
+
 /// Learn about the differences between smart contracts and a FRAME-based runtime. They are both
 /// "code stored onchain", but how do they differ?
 pub mod runtime_vs_smart_contract;

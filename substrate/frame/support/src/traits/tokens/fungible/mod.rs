@@ -41,9 +41,75 @@
 //!   funds must be removed from an account before it is known precisely what should be done with
 //!   them.
 //!
-//! # Holds vs. Freezes
+//! ## Terminology
 //!
-//! TODO: Differentiate between the two.
+//! ### Total Balance
+//!
+//! The sum of an accounts free and held balances.
+//!
+//! ### Free Balance
+//!
+//! A portion of an accounts total balance that is not held.
+//!
+//! ### Held Balance
+//!
+//! A portion of a users total balance that is not free.
+//!
+//! Multiple holds stack rather than overlay. This means that if an account has
+//! 3 locks for 100 units, the account can spend it's funds for any reason down to 300 units, at
+//! which point the holds will start to come into play.
+//!
+//! Multiple holds are stack on top of another (cumulative) rather than overlay another.
+//!
+//! ### Frozen Balance
+//!
+//! An minimum amount a user should not be allowed to withdraw below.
+//!
+//! Multiple freezes overlay rather than stack on top of another. This means that if an account has
+//! 3 locks for 100 units, the account can spend it's funds for any reason down to 100 units, at
+//! which point the freezes will start to come into play.
+//!
+//! ### Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)
+//!
+//! The minimum amount of balance that an account must have to exist.
+//!
+//! ### Untouchable Balance
+//!
+//! The part of a users free balance they cannot spend, due to ED or Freeze/s.
+//!
+//! ### Spendable Balance
+//!
+//! The part of a users free balance they can spend.
+//!
+//! ## Visualising Balance Components Together 💫
+//!
+//! ```ignore
+//! |__total__________________________________|
+//! |__on_hold__|_____________free____________|
+//! |__________frozen___________|
+//! |__on_hold__|__ed__|
+//!             |__untouchable__|__spendable__|
+//! ```
+//!
+//! ## Holds vs. Freezes
+//!
+//! Both holds and freezes are used to prevent an account from using some of its balance.
+//!
+//! The primary distinction between the two are that:
+//! - Holds are cumulative (do not overlap) and are distinct from the free balance
+//! - Freezes are not cumulative, and can overlap with each other or with holds
+//!
+//! ```ignore
+//! |__total_____________________________|
+//! |__hold_a__|__hold_b__|_____free_____|
+//! |__on_hold____________|     // <- the sum of all holds
+//! |__freeze_a_______________|
+//! |__freeze_b____|
+//! |__freeze_c________|
+//! |__frozen_________________| // <- the max of all freezes
+//! ```
+//!
+//! [`tokens_in_substrate`]: ../../../../polkadot_sdk_docs/reference_docs/tokens_in_substrate/index.html
 
 pub mod conformance_tests;
 pub mod freeze;
