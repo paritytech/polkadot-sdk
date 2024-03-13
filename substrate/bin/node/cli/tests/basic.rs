@@ -67,7 +67,7 @@ fn transfer_fee<E: Encode>(extrinsic: &E) -> Balance {
 
 fn xt() -> UncheckedExtrinsic {
 	sign(CheckedExtrinsic {
-		signed: Some((alice(), signed_extra(0, 0))),
+		format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, 0)),
 		function: RuntimeCall::Balances(default_transfer_call()),
 	})
 }
@@ -84,11 +84,11 @@ fn changes_trie_block() -> (Vec<u8>, Hash) {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time }),
 			},
 			CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, 0)),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 69 * DOLLARS,
@@ -111,11 +111,11 @@ fn blocks() -> ((Vec<u8>, Hash), (Vec<u8>, Hash)) {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time1 }),
 			},
 			CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, 0)),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 69 * DOLLARS,
@@ -131,18 +131,18 @@ fn blocks() -> ((Vec<u8>, Hash), (Vec<u8>, Hash)) {
 		block1.1,
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time2 }),
 			},
 			CheckedExtrinsic {
-				signed: Some((bob(), signed_extra(0, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(bob(), tx_ext(0, 0)),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: alice().into(),
 					value: 5 * DOLLARS,
 				}),
 			},
 			CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(1, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(1, 0)),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 15 * DOLLARS,
@@ -166,11 +166,11 @@ fn block_with_size(time: u64, nonce: u32, size: usize) -> (Vec<u8>, Hash) {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time * 1000 }),
 			},
 			CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(nonce, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(nonce, 0)),
 				function: RuntimeCall::System(frame_system::Call::remark { remark: vec![0; size] }),
 			},
 		],
@@ -677,11 +677,11 @@ fn deploying_wasm_contract_should_work() {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time }),
 			},
 			CheckedExtrinsic {
-				signed: Some((charlie(), signed_extra(0, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(0, 0)),
 				function: RuntimeCall::Contracts(pallet_contracts::Call::instantiate_with_code::<
 					Runtime,
 				> {
@@ -694,7 +694,7 @@ fn deploying_wasm_contract_should_work() {
 				}),
 			},
 			CheckedExtrinsic {
-				signed: Some((charlie(), signed_extra(1, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(1, 0)),
 				function: RuntimeCall::Contracts(pallet_contracts::Call::call::<Runtime> {
 					dest: sp_runtime::MultiAddress::Id(addr.clone()),
 					value: 10,

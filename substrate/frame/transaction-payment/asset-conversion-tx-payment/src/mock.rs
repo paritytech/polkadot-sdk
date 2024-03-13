@@ -168,12 +168,12 @@ impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for DealWithFees 
 	}
 }
 
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig as pallet_transaction_payment::DefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
-	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = ConstU8<5>;
 }
 
@@ -269,4 +269,72 @@ impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = Assets;
 	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion, Native>;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = Helper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let base_weight = 5;
+	let balance_factor = 100;
+	crate::tests::ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct Helper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelperTrait<u64, u32, u32> for Helper {
+	fn create_asset_id_parameter(id: u32) -> (u32, u32) {
+		(id, id)
+	}
+
+	fn setup_balances_and_pool(asset_id: u32, account: u64) {
+		use frame_support::{assert_ok, traits::fungibles::Mutate};
+		use sp_runtime::traits::StaticLookup;
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			asset_id.into(),
+			42,   /* owner */
+			true, /* is_sufficient */
+			1,
+		));
+
+		let lp_provider = 12;
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), lp_provider, u64::MAX / 2));
+		let lp_provider_account = <Runtime as system::Config>::Lookup::unlookup(lp_provider);
+		assert_ok!(Assets::mint_into(asset_id.into(), &lp_provider_account, u64::MAX / 2));
+
+		let token_1 = Box::new(NativeOrWithId::Native);
+		let token_2 = Box::new(NativeOrWithId::WithId(asset_id));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(lp_provider),
+			token_1.clone(),
+			token_2.clone()
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(lp_provider),
+			token_1,
+			token_2,
+			(u32::MAX / 8).into(), // 1 desired
+			u32::MAX.into(),       // 2 desired
+			1,                     // 1 min
+			1,                     // 2 min
+			lp_provider_account,
+		));
+
+		use frame_support::traits::Currency;
+		let _ = Balances::deposit_creating(&account, u32::MAX.into());
+
+		let beneficiary = <Runtime as system::Config>::Lookup::unlookup(account);
+		let balance = 1000;
+
+		assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
+		assert_eq!(Assets::balance(asset_id, account), balance);
+	}
 }
