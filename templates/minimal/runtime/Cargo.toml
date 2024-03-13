@@ -15,6 +15,7 @@ workspace = true
 [dependencies]
 parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
+serde_json = { workspace = true, features = ["alloc"] }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
 frame = { path = "../../../substrate/frame", default-features = false, features = [
@@ -31,7 +32,10 @@ pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/
 
 # genesis builder that allows us to interact with runtime genesis config
 sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
+
+# and some helpers to build genesis config presets
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
+sp-keyring = { path = "../../../substrate/primitives/keyring", default-features = false }
 
 # local pallet templates
 pallet-minimal-template = { path = "../pallets/template", default-features = false }

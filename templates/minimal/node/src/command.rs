@@ -63,23 +63,35 @@ impl SubstrateCli for Cli {
 		let code = std::fs::read(&self.runtime)
 			.map_err(|e| format!("Failed to runtime read {}: {}", &self.runtime, e))?;
 
-		Ok(Box::new(if maybe_path.is_empty() {
+		let caller: sc_chain_spec::GenesisConfigBuilderRuntimeCaller =
+			sc_chain_spec::GenesisConfigBuilderRuntimeCaller::new(&code[..]);
+
+		let presets = caller
+			.preset_names()
+			.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
+		let presets: Vec<String> = presets.into_iter().map(Into::into).collect();
+
+		println!("Known presets are:\n{presets:#?}");
+
+		Ok(Box::new(if presets.contains(&maybe_path.to_string()) || maybe_path.is_empty() {
 			println!("Using development chain spec, no genesis state set.");
 			let mut properties = Properties::new();
 			properties.insert("tokenDecimals".to_string(), 0.into());
 			properties.insert("tokenSymbol".to_string(), "MINI".into());
 
-			// `.with_genesis_config(Default::default)` won't work, but should.
-			let tmp = sc_chain_spec::GenesisConfigBuilderRuntimeCaller::<'_, ()>::new(&code);
-			let genesis = tmp.get_default_config()?;
-
-			ChainSpec::builder(code.as_ref(), Default::default())
+			let builder = ChainSpec::builder(code.as_ref(), Default::default())
 				.with_name("Development")
 				.with_id("dev")
 				.with_chain_type(ChainType::Development)
-				.with_properties(properties)
-				.with_genesis_config(genesis)
-				.build()
+				.with_properties(properties);
+
+			let builder = if presets.contains(&maybe_path.to_string()) {
+				builder.with_genesis_config_preset_name(maybe_path)
+			} else {
+				builder.with_genesis_config_patch(serde_json::json!({}))
+			};
+
+			builder.build()
 		} else {
 			println!("Loading chain spec from {}", maybe_path);
 			ChainSpec::from_json_file(std::path::PathBuf::from(maybe_path))?

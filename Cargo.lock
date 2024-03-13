@@ -8166,7 +8166,9 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "scale-info",
+ "serde_json",
  "sp-genesis-builder",
+ "sp-keyring",
  "sp-runtime",
  "substrate-wasm-builder",
 ]
