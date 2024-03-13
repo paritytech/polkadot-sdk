@@ -1846,14 +1846,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
-	/// * A controller should not be associated with more than one ledger (note: only warn for now,
-	///   do not fail this check until <https://github.com/paritytech/polkadot-sdk/issues/3245> is
-	///   resolved).
+	/// * A controller should not be associated with more than one ledger.
 	/// * A bonded (stash, controller) pair should have only one associated ledger. I.e. if the
-	///   ledger is bonded by stash, the controller account must not bond a different ledger. (note:
-	///   only warn, do not fail this check until
-	///   <https://github.com/paritytech/polkadot-sdk/issues/3245> is resolved).
+	///   ledger is bonded by stash, the controller account must not bond a different ledger.
 	/// * A bonded (stash, controller) pair must have an associated ledger.
+	/// NOTE: these checks result in warnings only. Once
+	/// <https://github.com/paritytech/polkadot-sdk/issues/3245> is resolved, turn warns into check
+	/// failures.
 	fn check_bonded_consistency() -> Result<(), TryRuntimeError> {
 		use sp_std::collections::btree_map::BTreeMap;
 
@@ -1895,12 +1894,11 @@ impl<T: Config> Pallet<T> {
 
 		if count_double != 0 {
 			log!(warn, "single tuple of (stash, controller) pair bonds more than one ledger ({} occurrences)", count_double);
-		};
+		}
 
-		ensure!(
-			count_none == 0,
-			"inconsistent bonded state: (stash, controller) pair missing associated ledger",
-		);
+		if count_none != 0 {
+			log!(warn, "inconsistent bonded state: (stash, controller) pair missing associated ledger ({} occurrences)", count_none);
+		}
 
 		Ok(())
 	}
