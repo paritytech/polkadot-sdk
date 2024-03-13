@@ -675,7 +675,7 @@ where
 	fn check_obsolete_parsed_call(
 		call: &CallOf<Runtime>,
 	) -> Result<&CallOf<Runtime>, TransactionValidityError> {
-		call.check_obsolete_submit_finality_proof(0)?;
+		call.check_obsolete_submit_finality_proof(0).1?;
 		call.check_obsolete_submit_parachain_heads()?;
 		call.check_obsolete_call()?;
 		Ok(call)
@@ -819,7 +819,7 @@ where
 	fn check_obsolete_parsed_call(
 		call: &CallOf<Runtime>,
 	) -> Result<&CallOf<Runtime>, TransactionValidityError> {
-		call.check_obsolete_submit_finality_proof(0)?;
+		call.check_obsolete_submit_finality_proof(0).1?;
 		call.check_obsolete_call()?;
 		Ok(call)
 	}
