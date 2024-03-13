@@ -269,7 +269,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let now = <frame_system::Pallet<T>>::block_number() + One::one();
-		<SessionStartBlock<T>>::set(now);
+		SessionStartBlock::<T>::set(now);
 	}
 
 	/// Free unassigned cores. Provide a list of cores that should be considered newly-freed along
@@ -416,7 +416,7 @@ impl<T: Config> Pallet<T> {
 		at: BlockNumberFor<T>,
 	) -> Option<GroupIndex> {
 		let config = configuration::ActiveConfig::<T>::get();
-		let session_start_block = <SessionStartBlock<T>>::get();
+		let session_start_block = SessionStartBlock::<T>::get();
 
 		if at < session_start_block {
 			return None

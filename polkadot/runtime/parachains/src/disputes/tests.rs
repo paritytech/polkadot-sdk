@@ -2203,7 +2203,7 @@ fn filter_removes_concluded_ancient() {
 		let candidate_hash_a = CandidateHash(sp_core::H256::repeat_byte(1));
 		let candidate_hash_b = CandidateHash(sp_core::H256::repeat_byte(2));
 
-		<Disputes<Test>>::insert(
+		Disputes::<Test>::insert(
 			&1,
 			&candidate_hash_a,
 			DisputeState {
@@ -2214,7 +2214,7 @@ fn filter_removes_concluded_ancient() {
 			},
 		);
 
-		<Disputes<Test>>::insert(
+		Disputes::<Test>::insert(
 			&1,
 			&candidate_hash_b,
 			DisputeState {

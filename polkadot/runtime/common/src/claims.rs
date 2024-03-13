@@ -359,10 +359,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			<Total<T>>::mutate(|t| *t += value);
-			<Claims<T>>::insert(who, value);
+			Total::<T>::mutate(|t| *t += value);
+			Claims::<T>::insert(who, value);
 			if let Some(vs) = vesting_schedule {
-				<Vesting<T>>::insert(who, vs);
+				Vesting::<T>::insert(who, vs);
 			}
 			if let Some(s) = statement {
 				Signing::<T>::insert(who, s);
@@ -510,7 +510,7 @@ pub mod pallet {
 			))?;
 
 			let e = InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into());
-			ensure!(<Claims<T>>::contains_key(&signer), e);
+			ensure!(Claims::<T>::contains_key(&signer), e);
 
 			let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
 			match Signing::<T>::get(signer) {
@@ -590,9 +590,9 @@ impl<T: Config> Pallet<T> {
 				.expect("No other vesting schedule exists, as checked above; qed");
 		}
 
-		<Total<T>>::put(new_total);
-		<Claims<T>>::remove(&signer);
-		<Vesting<T>>::remove(&signer);
+		Total::<T>::put(new_total);
+		Claims::<T>::remove(&signer);
+		Vesting::<T>::remove(&signer);
 		Signing::<T>::remove(&signer);
 
 		// Let's deposit an event to let the outside world know this happened.
@@ -1383,7 +1383,7 @@ pub(super) mod tests {
 
 		new_test_ext().execute_with(|| {
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(
+				Pallet::<Test>::validate_unsigned(
 					source,
 					&ClaimsCall::claim {
 						dest: 1,
@@ -1399,14 +1399,14 @@ pub(super) mod tests {
 				})
 			);
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(
+				Pallet::<Test>::validate_unsigned(
 					source,
 					&ClaimsCall::claim { dest: 0, ethereum_signature: EcdsaSignature([0; 65]) }
 				),
 				InvalidTransaction::Custom(ValidityError::InvalidEthereumSignature.into()).into(),
 			);
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(
+				Pallet::<Test>::validate_unsigned(
 					source,
 					&ClaimsCall::claim {
 						dest: 1,
@@ -1422,7 +1422,7 @@ pub(super) mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			};
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(source, &call),
+				Pallet::<Test>::validate_unsigned(source, &call),
 				Ok(ValidTransaction {
 					priority: 100,
 					requires: vec![],
@@ -1432,7 +1432,7 @@ pub(super) mod tests {
 				})
 			);
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(
+				Pallet::<Test>::validate_unsigned(
 					source,
 					&ClaimsCall::claim_attest {
 						dest: 1,
@@ -1450,7 +1450,7 @@ pub(super) mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			};
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(source, &call),
+				Pallet::<Test>::validate_unsigned(source, &call),
 				InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()).into(),
 			);
 
@@ -1461,7 +1461,7 @@ pub(super) mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			};
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(source, &call),
+				Pallet::<Test>::validate_unsigned(source, &call),
 				InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()).into(),
 			);
 
@@ -1472,7 +1472,7 @@ pub(super) mod tests {
 				statement: StatementKind::Saft.to_text().to_vec(),
 			};
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(source, &call),
+				Pallet::<Test>::validate_unsigned(source, &call),
 				InvalidTransaction::Custom(ValidityError::InvalidStatement.into()).into(),
 			);
 		});

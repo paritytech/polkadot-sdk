@@ -301,7 +301,7 @@ pub mod pallet {
 					LeasePeriodOf::<T>::from(T::PermanentSlotLeasePeriodLength::get()),
 				),
 			);
-			<PermanentSlotCount<T>>::mutate(|count| count.saturating_inc());
+			PermanentSlotCount::<T>::mutate(|count| count.saturating_inc());
 
 			Self::deposit_event(Event::<T>::PermanentSlotAssigned(id));
 			Ok(())
@@ -389,7 +389,7 @@ pub mod pallet {
 			}
 
 			TemporarySlots::<T>::insert(id, temp_slot);
-			<TemporarySlotCount<T>>::mutate(|count| count.saturating_inc());
+			TemporarySlotCount::<T>::mutate(|count| count.saturating_inc());
 
 			Self::deposit_event(Event::<T>::TemporarySlotAssigned(id));
 
@@ -415,12 +415,12 @@ pub mod pallet {
 
 			if PermanentSlots::<T>::contains_key(id) {
 				PermanentSlots::<T>::remove(id);
-				<PermanentSlotCount<T>>::mutate(|count| *count = count.saturating_sub(One::one()));
+				PermanentSlotCount::<T>::mutate(|count| *count = count.saturating_sub(One::one()));
 			} else if TemporarySlots::<T>::contains_key(id) {
 				TemporarySlots::<T>::remove(id);
-				<TemporarySlotCount<T>>::mutate(|count| *count = count.saturating_sub(One::one()));
+				TemporarySlotCount::<T>::mutate(|count| *count = count.saturating_sub(One::one()));
 				if is_parachain {
-					<ActiveTemporarySlotCount<T>>::mutate(|active_count| {
+					ActiveTemporarySlotCount::<T>::mutate(|active_count| {
 						*active_count = active_count.saturating_sub(One::one())
 					});
 				}

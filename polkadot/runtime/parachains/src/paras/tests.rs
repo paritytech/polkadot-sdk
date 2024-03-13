@@ -970,7 +970,7 @@ fn full_parachain_cleanup_storage() {
 		// For that run to block #7 and submit a new head.
 		assert_eq!(expected_at, 7);
 		run_to_block(7, None);
-		assert_eq!(<frame_system::Pallet<Test>>::block_number(), 7);
+		assert_eq!(frame_system::Pallet::<Test>::block_number(), 7);
 		Paras::note_new_head(para_id, Default::default(), expected_at);
 
 		assert_ok!(Paras::schedule_para_cleanup(para_id));

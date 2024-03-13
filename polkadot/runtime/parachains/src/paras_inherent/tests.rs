@@ -125,7 +125,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			assert_eq!(
@@ -273,7 +273,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
 
 			let multi_dispute_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -343,7 +343,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
 
 			let limit_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -413,7 +413,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
@@ -498,7 +498,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
@@ -702,7 +702,7 @@ mod enter {
 			);
 
 			// One core was scheduled. We should put the assignment back, before calling enter().
-			let now = <frame_system::Pallet<Test>>::block_number() + 1;
+			let now = frame_system::Pallet::<Test>::block_number() + 1;
 			let used_cores = 5;
 			let cores = (0..used_cores)
 				.into_iter()
@@ -1509,7 +1509,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
+				scheduler::Pallet::<Test>::scheduled_paras().collect::<Vec<_>>(),
 				vec![(CoreIndex(0), ParaId::from(1)), (CoreIndex(1), ParaId::from(2))]
 			);
 			assert_eq!(
@@ -1844,7 +1844,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
+				scheduler::Pallet::<Test>::scheduled_paras().collect::<Vec<_>>(),
 				vec![
 					(CoreIndex(0), ParaId::from(1)),
 					(CoreIndex(1), ParaId::from(1)),
@@ -1856,7 +1856,7 @@ mod sanitizers {
 				]
 			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in <scheduler::Pallet<Test>>::scheduled_paras() {
+			for (core_idx, para_id) in scheduler::Pallet::<Test>::scheduled_paras() {
 				scheduled.entry(para_id).or_default().insert(core_idx);
 			}
 
