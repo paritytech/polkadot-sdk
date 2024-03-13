@@ -25,7 +25,8 @@ use frame_support::traits::OnInitialize;
 // Cumulus
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impl_assets_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
+	impl_assets_helpers_for_parachain, impl_xcm_helpers_for_parachain, impls::Parachain,
+	xcm_emulator::decl_test_parachains,
 };
 
 // Penpal Parachain declaration
@@ -77,3 +78,5 @@ impl_assert_events_helpers_for_parachain!(PenpalA);
 impl_assert_events_helpers_for_parachain!(PenpalB);
 impl_assets_helpers_for_parachain!(PenpalA);
 impl_assets_helpers_for_parachain!(PenpalB);
+impl_xcm_helpers_for_parachain!(PenpalA);
+impl_xcm_helpers_for_parachain!(PenpalB);
