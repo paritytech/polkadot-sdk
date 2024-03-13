@@ -45,7 +45,7 @@ docker compose up
 Please follow the [official installation guide](https://prometheus.io/docs/prometheus/latest/installation/) for your
 platform/OS.
 
-After succesfully installing and starting up Prometheus, we need to alter it's configuration such that it
+After successfully installing and starting up Prometheus, we need to alter it's configuration such that it
 will scrape the benchmark prometheus endpoint `127.0.0.1:9999`. Please check the prometheus official documentation
 regarding the location of `prometheus.yml`. On MacOS for example the full path `/opt/homebrew/etc/prometheus.yml`
 
@@ -211,7 +211,7 @@ You can select log target, subtarget and verbosity just like with Polkadot node 
 
 ### View test metrics
 
-Assuming the Grafana/Prometheus stack installation steps completed succesfully, you should be able to
+Assuming the Grafana/Prometheus stack installation steps completed successfully, you should be able to
 view the test progress in real time by accessing [this link](http://localhost:3000/goto/SM5B8pNSR?orgId=1).
 
 Now run
