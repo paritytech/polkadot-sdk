@@ -362,6 +362,7 @@ fn simple_sanitize_bitfields(
 pub(crate) fn process_bitfields(
 	signed_bitfields: SignedAvailabilityBitfields,
 	core_lookup: impl Fn(CoreIndex) -> Option<ParaId>,
+	overlay: &mut PendingAvailabilityOverlay<Test>,
 ) -> Vec<(CoreIndex, CandidateHash)> {
 	let validators = shared::Pallet::<Test>::active_validator_keys();
 
@@ -369,6 +370,7 @@ pub(crate) fn process_bitfields(
 		&validators[..],
 		signed_bitfields,
 		core_lookup,
+		overlay,
 	)
 }
 
@@ -394,8 +396,12 @@ fn collect_timedout() {
 	let mut config = genesis_config(paras);
 	config.configuration.config.scheduler_params.group_rotation_frequency = 3;
 	new_test_ext(config).execute_with(|| {
-		let timed_out_cores =
-			ParaInclusion::collect_timedout(Scheduler::availability_timeout_predicate());
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
+		let timed_out_cores = ParaInclusion::collect_timedout(
+			Scheduler::availability_timeout_predicate(),
+			&mut overlay,
+		);
 		assert!(timed_out_cores.is_empty());
 
 		let make_candidate = |core_index: u32, timed_out: bool| {
@@ -466,8 +472,17 @@ fn collect_timedout() {
 		assert_eq!(<PendingAvailability<Test>>::get(&chain_e).unwrap().len(), 3);
 		assert_eq!(<PendingAvailability<Test>>::get(&chain_f).unwrap().len(), 3);
 
-		let timed_out_cores =
-			ParaInclusion::collect_timedout(Scheduler::availability_timeout_predicate());
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
+		let timed_out_cores = ParaInclusion::collect_timedout(
+			Scheduler::availability_timeout_predicate(),
+			&mut overlay,
+		);
+		// Write back to storage only keys that have been updated or deleted.
+
+		for (para_id, candidates) in overlay.into_iter() {
+			<PendingAvailability<Test>>::set(para_id, candidates);
+		}
 
 		assert_eq!(
 			timed_out_cores,
@@ -527,11 +542,15 @@ fn collect_disputed() {
 	let mut config = genesis_config(paras);
 	config.configuration.config.scheduler_params.group_rotation_frequency = 3;
 	new_test_ext(config).execute_with(|| {
-		let disputed_cores = ParaInclusion::collect_disputed(&BTreeSet::new()).collect::<Vec<_>>();
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
+		let disputed_cores =
+			ParaInclusion::collect_disputed(&BTreeSet::new(), &mut overlay).collect::<Vec<_>>();
 		assert!(disputed_cores.is_empty());
 
 		let disputed_cores = ParaInclusion::collect_disputed(
 			&[CandidateHash::default()].into_iter().collect::<BTreeSet<_>>(),
+			&mut overlay,
 		)
 		.collect::<Vec<_>>();
 		assert!(disputed_cores.is_empty());
@@ -612,7 +631,10 @@ fn collect_disputed() {
 		]
 		.into_iter()
 		.collect::<BTreeSet<_>>();
-		let disputed_cores = ParaInclusion::collect_disputed(&disputed_candidates);
+
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
+		let disputed_cores = ParaInclusion::collect_disputed(&disputed_candidates, &mut overlay);
 
 		assert_eq!(
 			disputed_cores.map(|(core, _)| core).collect::<Vec<_>>(),
@@ -627,6 +649,10 @@ fn collect_disputed() {
 			]
 		);
 
+		// Write back to storage only keys that have been updated or deleted.
+		for (para_id, candidates) in overlay.into_iter() {
+			<PendingAvailability<Test>>::set(para_id, candidates);
+		}
 		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
 		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
 		assert!(<PendingAvailability<Test>>::get(&chain_c).unwrap().is_empty());
@@ -741,6 +767,8 @@ fn bitfield_checks() {
 			);
 		}
 
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 		// non-pending bit set.
 		{
 			let mut bare_bitfield = default_bitfield();
@@ -762,7 +790,7 @@ fn bitfield_checks() {
 			);
 			assert_eq!(checked_bitfields.len(), 1, "No bitfields should have been filtered!");
 
-			let x = process_bitfields(checked_bitfields, core_lookup);
+			let x = process_bitfields(checked_bitfields, core_lookup, &mut overlay);
 			assert!(x.is_empty(), "No core should be freed.");
 		}
 
@@ -783,7 +811,7 @@ fn bitfield_checks() {
 			);
 			assert_eq!(checked_bitfields.len(), 1, "No bitfields should have been filtered!");
 
-			let x = process_bitfields(checked_bitfields, core_lookup);
+			let x = process_bitfields(checked_bitfields, core_lookup, &mut overlay);
 			assert!(x.is_empty(), "No core should be freed.");
 		}
 
@@ -827,7 +855,7 @@ fn bitfield_checks() {
 			);
 			assert_eq!(checked_bitfields.len(), 1, "No bitfields should have been filtered!");
 
-			let x = process_bitfields(checked_bitfields, core_lookup);
+			let x = process_bitfields(checked_bitfields, core_lookup, &mut overlay);
 			assert!(x.is_empty(), "No core should be freed.");
 
 			<PendingAvailability<Test>>::remove(chain_a);
@@ -1057,8 +1085,14 @@ fn supermajority_bitfields_trigger_availability() {
 		);
 		assert_eq!(checked_bitfields.len(), old_len, "No bitfields should have been filtered!");
 
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 		// only chain A's core and candidate's C1 core are freed.
-		let v = process_bitfields(checked_bitfields, core_lookup);
+		let v = process_bitfields(checked_bitfields, core_lookup, &mut overlay);
+		for (para_id, candidates) in overlay.into_iter() {
+			<PendingAvailability<Test>>::set(para_id, candidates);
+		}
+
 		assert_eq!(
 			vec![(CoreIndex(0), candidate_a.hash()), (CoreIndex(2), candidate_c_1.hash())],
 			v
@@ -1136,11 +1170,17 @@ fn supermajority_bitfields_trigger_availability() {
 		);
 		assert_eq!(checked_bitfields.len(), old_len, "No bitfields should have been filtered!");
 
-		let v = process_bitfields(checked_bitfields, core_lookup);
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
+		let v = process_bitfields(checked_bitfields, core_lookup, &mut overlay);
 		assert_eq!(
 			vec![(CoreIndex(3), candidate_c_2.hash()), (CoreIndex(4), candidate_c_3.hash())],
 			v
 		);
+
+		for (para_id, candidates) in overlay.into_iter() {
+			<PendingAvailability<Test>>::set(para_id, candidates);
+		}
 
 		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
 		assert_eq!(
@@ -1251,13 +1291,16 @@ fn candidate_checks() {
 		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 		// no candidates.
 		assert_eq!(
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
 				&BTreeMap::new(),
 				&group_validators,
-				false
+				false,
+				&mut overlay,
 			),
 			Ok(ProcessedCandidates::default())
 		);
@@ -1307,6 +1350,8 @@ fn candidate_checks() {
 				None,
 			);
 
+			let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 			// no longer needed to be sorted by core index.
 			assert!(ParaInclusion::process_candidates(
 				&allowed_relay_parents,
@@ -1317,7 +1362,8 @@ fn candidate_checks() {
 				.into_iter()
 				.collect(),
 				&group_validators,
-				false
+				false,
+				&mut overlay,
 			)
 			.is_ok());
 		}
@@ -1345,6 +1391,8 @@ fn candidate_checks() {
 				None,
 			);
 
+			let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
@@ -1352,7 +1400,8 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
+					false,
+					&mut overlay,
 				),
 				Error::<Test>::InsufficientBacking
 			);
@@ -1406,6 +1455,8 @@ fn candidate_checks() {
 				None,
 			);
 
+			let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
@@ -1416,7 +1467,8 @@ fn candidate_checks() {
 					.into_iter()
 					.collect(),
 					&group_validators,
-					false
+					false,
+					&mut overlay,
 				),
 				Error::<Test>::DisallowedRelayParent
 			);
@@ -1449,6 +1501,7 @@ fn candidate_checks() {
 				BackingKind::Threshold,
 				None,
 			);
+			let mut overlay = PendingAvailabilityOverlay::<Test>::new();
 
 			assert_noop!(
 				ParaInclusion::process_candidates(
@@ -1457,7 +1510,8 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
+					false,
+					&mut overlay,
 				),
 				Error::<Test>::NotCollatorSigned
 			);
@@ -1501,6 +1555,8 @@ fn candidate_checks() {
 				);
 			}
 
+			let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
@@ -1508,7 +1564,8 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
+					false,
+					&mut overlay,
 				),
 				Error::<Test>::PrematureCodeUpgrade
 			);
@@ -1537,6 +1594,7 @@ fn candidate_checks() {
 				BackingKind::Threshold,
 				None,
 			);
+			let mut overlay = PendingAvailabilityOverlay::<Test>::new();
 
 			assert_noop!(
 				ParaInclusion::process_candidates(
@@ -1546,6 +1604,7 @@ fn candidate_checks() {
 						.collect(),
 					&group_validators,
 					false,
+					&mut overlay,
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1576,6 +1635,8 @@ fn candidate_checks() {
 				None,
 			);
 
+			let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
@@ -1583,7 +1644,8 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
+					false,
+					&mut overlay,
 				),
 				Error::<Test>::InvalidValidationCodeHash
 			);
@@ -1614,6 +1676,8 @@ fn candidate_checks() {
 				None,
 			);
 
+			let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
@@ -1621,7 +1685,8 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
+					false,
+					&mut overlay,
 				),
 				Error::<Test>::ParaHeadMismatch
 			);
@@ -1786,6 +1851,8 @@ fn backing_works() {
 			}
 		};
 
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 		let ProcessedCandidates {
 			core_indices: occupied_cores,
 			candidate_receipt_with_backing_validator_indices,
@@ -1794,6 +1861,7 @@ fn backing_works() {
 			&backed_candidates,
 			&group_validators,
 			false,
+			&mut overlay,
 		)
 		.expect("candidates scheduled, in order, and backed");
 
@@ -1862,6 +1930,11 @@ fn backing_works() {
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
+
+		// Write back to storage only keys that have been updated or deleted.
+		for (para_id, candidates) in overlay.into_iter() {
+			<PendingAvailability<Test>>::set(para_id, candidates);
+		}
 		assert_eq!(
 			<PendingAvailability<Test>>::get(&chain_a),
 			Some(
@@ -2089,6 +2162,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 			}
 		};
 
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
 		let ProcessedCandidates {
 			core_indices: occupied_cores,
 			candidate_receipt_with_backing_validator_indices,
@@ -2097,6 +2171,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 			&backed_candidates,
 			&group_validators,
 			true,
+			&mut overlay,
 		)
 		.expect("candidates scheduled, in order, and backed");
 
@@ -2155,6 +2230,10 @@ fn backing_works_with_elastic_scaling_mvp() {
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
+		// Write back to storage only keys that have been updated or deleted.
+		for (para_id, candidates) in overlay.into_iter() {
+			<PendingAvailability<Test>>::set(para_id, candidates);
+		}
 		assert_eq!(
 			<PendingAvailability<Test>>::get(&chain_a),
 			Some(
@@ -2286,6 +2365,8 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			None,
 		);
 
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 		let ProcessedCandidates { core_indices: occupied_cores, .. } =
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
@@ -2294,6 +2375,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 					.collect::<BTreeMap<_, _>>(),
 				group_validators,
 				false,
+				&mut overlay,
 			)
 			.expect("candidates scheduled, in order, and backed");
 
@@ -2306,6 +2388,11 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
+
+		// Write back to storage only keys that have been updated or deleted.
+		for (para_id, candidates) in overlay.into_iter() {
+			<PendingAvailability<Test>>::set(para_id, candidates);
+		}
 		assert_eq!(
 			<PendingAvailability<Test>>::get(&chain_a),
 			Some(
@@ -2510,11 +2597,14 @@ fn check_allowed_relay_parents() {
 		.into_iter()
 		.collect::<BTreeMap<_, _>>();
 
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
+
 		ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
 			false,
+			&mut overlay,
 		)
 		.expect("candidates scheduled, in order, and backed");
 	});
@@ -2744,7 +2834,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			BackingKind::Threshold,
 			None,
 		);
-
+		let mut overlay = PendingAvailabilityOverlay::<Test>::new();
 		let ProcessedCandidates { core_indices: occupied_cores, .. } =
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
@@ -2753,6 +2843,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 					.collect::<BTreeMap<_, _>>(),
 				&group_validators,
 				false,
+				&mut overlay,
 			)
 			.expect("candidates scheduled, in order, and backed");
 
@@ -2785,9 +2876,13 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			expected_bits(),
 		);
 
-		let v = process_bitfields(checked_bitfields, core_lookup);
+		let v = process_bitfields(checked_bitfields, core_lookup, &mut overlay);
 		assert_eq!(vec![(CoreIndex(0), candidate_a.hash())], v);
 
+		// Write back to storage only keys that have been updated or deleted.
+		for (para_id, candidates) in overlay.into_iter() {
+			<PendingAvailability<Test>>::set(para_id, candidates);
+		}
 		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
 
 		let active_vote_state = paras::Pallet::<Test>::active_vote_state(&new_validation_code_hash)

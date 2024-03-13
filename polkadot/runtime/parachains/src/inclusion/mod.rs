@@ -25,7 +25,7 @@ use crate::{
 	paras::{self, SetGoAhead},
 	scheduler::{self, AvailabilityTimeoutStatus},
 	shared::{self, AllowedRelayParentsTracker},
-	util::make_persisted_validation_data_with_parent,
+	util::{make_persisted_validation_data_with_parent, PopulateKeys, StorageMapOverlay},
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::{
@@ -35,6 +35,7 @@ use frame_support::{
 	BoundedSlice,
 };
 use frame_system::pallet_prelude::*;
+use hashbrown::HashMap;
 use pallet_message_queue::OnQueueChanged;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{
@@ -442,6 +443,26 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 	}
 }
 
+pub(crate) struct PopulatePendingAvailability<T>(PhantomData<T>);
+
+impl<T> PopulateKeys for PopulatePendingAvailability<T>
+where
+	T: Config,
+{
+	type Key = ParaId;
+	type Value = VecDeque<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>>;
+
+	fn populate() -> HashMap<Self::Key, Self::Value> {
+		<PendingAvailability<T>>::iter().collect()
+	}
+}
+
+pub(crate) type PendingAvailabilityOverlay<T> = StorageMapOverlay<
+	ParaId,
+	VecDeque<CandidatePendingAvailability<<T as frame_system::Config>::Hash, BlockNumberFor<T>>>,
+	PopulatePendingAvailability<T>,
+>;
+
 impl<T: Config> Pallet<T> {
 	/// Block initialization logic, called by initializer.
 	pub(crate) fn initializer_initialize(_now: BlockNumberFor<T>) -> Weight {
@@ -486,6 +507,7 @@ impl<T: Config> Pallet<T> {
 		validators: &[ValidatorId],
 		signed_bitfields: SignedAvailabilityBitfields,
 		core_lookup: F,
+		pending_availability_overlay: &mut PendingAvailabilityOverlay<T>,
 	) -> Vec<(CoreIndex, CandidateHash)>
 	where
 		F: Fn(CoreIndex) -> Option<ParaId>,
@@ -520,32 +542,29 @@ impl<T: Config> Pallet<T> {
 		let mut candidates_made_available: BTreeMap<ParaId, BTreeSet<usize>> = BTreeMap::new();
 		for (core_index, validator_indices) in votes_per_core {
 			if let Some(para_id) = core_lookup(core_index) {
-				<PendingAvailability<T>>::mutate(&para_id, |candidates| {
-					if let Some(candidates) = candidates {
-						for (index, candidate) in candidates.iter_mut().enumerate() {
-							if candidate.core == core_index {
-								for validator_index in validator_indices.iter() {
-									// defensive check - this is constructed by loading the
-									// availability bitfield record, which is always `Some` if
-									// the core is occupied - that's why we're here.
-									if let Some(mut bit) = candidate
-										.availability_votes
-										.get_mut(validator_index.0 as usize)
-									{
-										*bit = true;
-									}
+				if let Some(candidates) = pending_availability_overlay.get_mut(&para_id) {
+					for (index, candidate) in candidates.iter_mut().enumerate() {
+						if candidate.core == core_index {
+							for validator_index in validator_indices.iter() {
+								// defensive check - this is constructed by loading the
+								// availability bitfield record, which is always `Some` if
+								// the core is occupied - that's why we're here.
+								if let Some(mut bit) =
+									candidate.availability_votes.get_mut(validator_index.0 as usize)
+								{
+									*bit = true;
 								}
 							}
+						}
 
-							if candidate.availability_votes.count_ones() >= threshold {
-								candidates_made_available
-									.entry(para_id)
-									.or_insert_with(|| BTreeSet::new())
-									.insert(index);
-							}
+						if candidate.availability_votes.count_ones() >= threshold {
+							candidates_made_available
+								.entry(para_id)
+								.or_insert_with(|| BTreeSet::new())
+								.insert(index);
 						}
 					}
-				});
+				}
 			} else {
 				// No parachain is occupying that core yet.
 			}
@@ -555,38 +574,36 @@ impl<T: Config> Pallet<T> {
 
 		// Trim the pending availability candidates storage and enact candidates now.
 		for (para_id, available_candidates) in candidates_made_available {
-			<PendingAvailability<T>>::mutate(&para_id, |candidates| {
-				if let Some(candidates) = candidates {
-					let mut stopped_at_index = None;
-					for index in 0..candidates.len() {
-						if available_candidates.contains(&index) {
-							stopped_at_index = Some(index);
-						} else {
-							break
-						}
-					}
-
-					if let Some(stopped_at_index) = stopped_at_index {
-						let evicted_candidates = candidates.drain(0..=stopped_at_index);
-						for candidate in evicted_candidates {
-							freed_cores.push((candidate.core, candidate.hash));
-
-							let receipt = CommittedCandidateReceipt {
-								descriptor: candidate.descriptor,
-								commitments: candidate.commitments,
-							};
-							let _weight = Self::enact_candidate(
-								candidate.relay_parent_number,
-								receipt,
-								candidate.backers,
-								candidate.availability_votes,
-								candidate.core,
-								candidate.backing_group,
-							);
-						}
+			if let Some(candidates) = pending_availability_overlay.get_mut(&para_id) {
+				let mut stopped_at_index = None;
+				for index in 0..candidates.len() {
+					if available_candidates.contains(&index) {
+						stopped_at_index = Some(index);
+					} else {
+						break
 					}
 				}
-			});
+
+				if let Some(stopped_at_index) = stopped_at_index {
+					let evicted_candidates = candidates.drain(0..=stopped_at_index);
+					for candidate in evicted_candidates {
+						freed_cores.push((candidate.core, candidate.hash));
+
+						let receipt = CommittedCandidateReceipt {
+							descriptor: candidate.descriptor,
+							commitments: candidate.commitments,
+						};
+						let _weight = Self::enact_candidate(
+							candidate.relay_parent_number,
+							receipt,
+							candidate.backers,
+							candidate.availability_votes,
+							candidate.core,
+							candidate.backing_group,
+						);
+					}
+				}
+			}
 		}
 
 		freed_cores
@@ -603,6 +620,7 @@ impl<T: Config> Pallet<T> {
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
 		core_index_enabled: bool,
+		pending_availability_overlay: &mut PendingAvailabilityOverlay<T>,
 	) -> Result<ProcessedCandidates<T::Hash>, DispatchError>
 	where
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
@@ -620,13 +638,14 @@ impl<T: Config> Pallet<T> {
 		let mut core_indices = Vec::with_capacity(candidates.len());
 
 		for (para_id, candidates) in candidates {
-			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
-				None => {
-					defensive!("Latest included head data for paraid {:?} is None", para_id);
-					continue
-				},
-				Some(latest_head_data) => latest_head_data,
-			};
+			let mut latest_head_data =
+				match Self::para_latest_head_data(para_id, &pending_availability_overlay) {
+					None => {
+						defensive!("Latest included head data for paraid {:?} is None", para_id);
+						continue
+					},
+					Some(latest_head_data) => latest_head_data,
+				};
 
 			for (candidate, core) in candidates.iter() {
 				let candidate_hash = candidate.candidate().hash();
@@ -671,28 +690,28 @@ impl<T: Config> Pallet<T> {
 					.push((candidate.receipt(), backer_idx_and_attestation));
 				core_indices.push((*core, *para_id));
 
-				// Update storage now
-				<PendingAvailability<T>>::mutate(&para_id, |pending_availability| {
-					let new_candidate = CandidatePendingAvailability {
-						core: *core,
-						hash: candidate_hash,
-						descriptor: candidate.candidate().descriptor.clone(),
-						commitments: candidate.candidate().commitments.clone(),
-						// initialize all availability votes to 0.
-						availability_votes: bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()],
-						relay_parent_number,
-						backers: backers.to_bitvec(),
-						backed_in_number: now,
-						backing_group: group_idx,
-					};
+				let new_candidate = CandidatePendingAvailability {
+					core: *core,
+					hash: candidate_hash,
+					descriptor: candidate.candidate().descriptor.clone(),
+					commitments: candidate.candidate().commitments.clone(),
+					// initialize all availability votes to 0.
+					availability_votes: bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()],
+					relay_parent_number,
+					backers: backers.to_bitvec(),
+					backed_in_number: now,
+					backing_group: group_idx,
+				};
 
-					if let Some(pending_availability) = pending_availability {
-						pending_availability.push_back(new_candidate);
-					} else {
-						*pending_availability =
-							Some([new_candidate].into_iter().collect::<VecDeque<_>>())
-					}
-				});
+				// Update storage now
+				if let Some(candidates_pending_availability) =
+					pending_availability_overlay.get_mut(&para_id)
+				{
+					candidates_pending_availability.push_back(new_candidate);
+				} else {
+					pending_availability_overlay
+						.set(*para_id, vec![new_candidate].into_iter().collect::<VecDeque<_>>());
+				}
 
 				// Deposit backed event.
 				Self::deposit_event(Event::<T>::CandidateBacked(
@@ -711,8 +730,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// Get the latest backed output head data of this para.
-	pub(crate) fn para_latest_head_data(para_id: &ParaId) -> Option<HeadData> {
-		match <PendingAvailability<T>>::get(para_id).and_then(|pending_candidates| {
+	pub(crate) fn para_latest_head_data(
+		para_id: &ParaId,
+		overlay: &PendingAvailabilityOverlay<T>,
+	) -> Option<HeadData> {
+		match overlay.get(para_id).and_then(|pending_candidates| {
 			pending_candidates.back().map(|x| x.commitments.head_data.clone())
 		}) {
 			Some(head_data) => Some(head_data),
@@ -996,10 +1018,14 @@ impl<T: Config> Pallet<T> {
 	/// Returns a vector of cleaned-up core IDs.
 	pub(crate) fn collect_timedout(
 		pred: impl Fn(BlockNumberFor<T>) -> AvailabilityTimeoutStatus<BlockNumberFor<T>>,
+		pending_availability_overlay: &mut PendingAvailabilityOverlay<T>,
 	) -> Vec<CoreIndex> {
-		let timed_out: Vec<_> =
-			Self::free_failed_cores(|candidate| pred(candidate.backed_in_number).timed_out, None)
-				.collect();
+		let timed_out: Vec<_> = Self::free_failed_cores(
+			|candidate| pred(candidate.backed_in_number).timed_out,
+			None,
+			pending_availability_overlay,
+		)
+		.collect();
 		let mut timed_out_cores = Vec::with_capacity(timed_out.len());
 		for candidate in timed_out.iter() {
 			timed_out_cores.push(candidate.core);
@@ -1023,12 +1049,14 @@ impl<T: Config> Pallet<T> {
 	/// are descendants of a disputed candidate.
 	///
 	/// Returns a vector of cleaned-up core IDs, along with the evicted candidate hashes.
-	pub(crate) fn collect_disputed(
-		disputed: &BTreeSet<CandidateHash>,
-	) -> impl Iterator<Item = (CoreIndex, CandidateHash)> + '_ {
+	pub(crate) fn collect_disputed<'a>(
+		disputed: &'a BTreeSet<CandidateHash>,
+		pending_availabiltiy_overlay: &'a mut PendingAvailabilityOverlay<T>,
+	) -> impl Iterator<Item = (CoreIndex, CandidateHash)> + 'a {
 		Self::free_failed_cores(
 			|candidate| disputed.contains(&candidate.hash),
 			Some(disputed.len()),
+			pending_availabiltiy_overlay,
 		)
 		.map(|candidate| (candidate.core, candidate.hash))
 	}
@@ -1041,10 +1069,11 @@ impl<T: Config> Pallet<T> {
 	>(
 		pred: P,
 		capacity_hint: Option<usize>,
+		pending_availability_overlay: &mut PendingAvailabilityOverlay<T>,
 	) -> impl Iterator<Item = CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
 		let mut earliest_dropped_indices: BTreeMap<ParaId, usize> = BTreeMap::new();
 
-		for (para_id, pending_candidates) in <PendingAvailability<T>>::iter() {
+		for (para_id, pending_candidates) in pending_availability_overlay.iter() {
 			// We assume that pending candidates are stored in dependency order. So we need to store
 			// the earliest dropped candidate. All others that follow will get freed as well.
 			let mut earliest_dropped_idx = None;
@@ -1058,7 +1087,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			if let Some(earliest_dropped_idx) = earliest_dropped_idx {
-				earliest_dropped_indices.insert(para_id, earliest_dropped_idx);
+				earliest_dropped_indices.insert(*para_id, earliest_dropped_idx);
 			}
 		}
 
@@ -1067,12 +1096,10 @@ impl<T: Config> Pallet<T> {
 
 		for (para_id, earliest_dropped_idx) in earliest_dropped_indices {
 			// Do cleanups and record the cleaned up cores
-			<PendingAvailability<T>>::mutate(&para_id, |record| {
-				if let Some(record) = record {
-					let cleaned_up = record.drain(earliest_dropped_idx..);
-					cleaned_up_cores.extend(cleaned_up);
-				}
-			});
+			if let Some(candidates) = pending_availability_overlay.get_mut(&para_id) {
+				let cleaned_up = candidates.drain(earliest_dropped_idx..);
+				cleaned_up_cores.extend(cleaned_up);
+			}
 		}
 
 		cleaned_up_cores.into_iter()
@@ -1114,6 +1141,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the first `CommittedCandidateReceipt` pending availability for the para provided, if
 	/// any.
+	/// No need to pass overlay here, as this is a runtime API.
 	pub(crate) fn candidate_pending_availability(
 		para: ParaId,
 	) -> Option<CommittedCandidateReceipt<T::Hash>> {
@@ -1127,6 +1155,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the metadata around the first candidate pending availability for the
 	/// para provided, if any.
+	/// No need to pass overlay here, as this is a runtime API.
 	pub(crate) fn pending_availability(
 		para: ParaId,
 	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
