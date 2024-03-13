@@ -939,7 +939,7 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
 	use super::*;
 	use crate::{
 		messages::{
@@ -1035,7 +1035,7 @@ mod tests {
 		TestPaymentProcedure::rewards_account(MsgDeliveryProofsRewardsAccount::get())
 	}
 
-	fn relayer_account_at_this_chain() -> ThisChainAccountId {
+	pub fn relayer_account_at_this_chain() -> ThisChainAccountId {
 		0
 	}
 
@@ -1043,7 +1043,7 @@ mod tests {
 		0
 	}
 
-	fn initialize_environment(
+	pub fn initialize_environment(
 		best_relay_header_number: RelayBlockNumber,
 		parachain_head_at_relay_header_number: RelayBlockNumber,
 		best_message: MessageNonce,
@@ -1099,7 +1099,7 @@ mod tests {
 		})
 	}
 
-	fn submit_relay_header_call_ex(relay_header_number: RelayBlockNumber) -> RuntimeCall {
+	pub fn submit_relay_header_call_ex(relay_header_number: RelayBlockNumber) -> RuntimeCall {
 		let relay_header = BridgedChainHeader::new(
 			relay_header_number,
 			Default::default(),
