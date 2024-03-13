@@ -247,6 +247,11 @@ benchmarks! {
 		let vote = onchain_votes.unwrap();
 		// Ensure that the votes are for the correct session
 		assert_eq!(vote.session, scenario._session);
+
+		assert_eq!(
+			inclusion::PendingAvailability::<T>::iter().count(),
+			100
+		);
 	}
 }
 
