@@ -61,7 +61,7 @@ pub fn warm_up_and_benchmark(
 		usages.push(curr);
 		print!("\r{}%", n * 100 / options.warm_up);
 		if usages.len() == options.bench {
-			println!("\rTook {} runs to warm up", n.saturating_sub(option.bench));
+			println!("\rTook {} runs to warm up", n.saturating_sub(options.bench));
 			break;
 		}
 		stdout().flush().unwrap();
