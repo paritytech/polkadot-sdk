@@ -635,6 +635,7 @@ impl<T: Config> Pallet<T> {
 			freed_disputed_candidates,
 			scheduled,
 			core_index_enabled,
+			&pending_availability_overlay,
 		);
 		let count = count_backed_candidates(&backed_candidates_with_core);
 
@@ -1014,6 +1015,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	concluded_invalid_with_descendants: BTreeSet<CandidateHash>,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	core_index_enabled: bool,
+	pending_availability_overlay: &PendingAvailabilityOverlay<T>,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
 	// Map the candidates to the right paraids, while making sure that the order between candidates
 	// of the same para is preserved.
@@ -1027,7 +1029,11 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 
 	// Check that candidates pertaining to the same para form a chain. Drop the ones that
 	// don't, along with the rest of candidates which follow them in the input vector.
-	filter_unchained_candidates::<T>(&mut candidates_per_para, allowed_relay_parents);
+	filter_unchained_candidates::<T>(
+		&mut candidates_per_para,
+		allowed_relay_parents,
+		&pending_availability_overlay,
+	);
 
 	// Remove any candidates that were concluded invalid or who are descendants of concluded invalid
 	// candidates (along with their descendants).
@@ -1297,10 +1303,14 @@ fn filter_backed_statements_from_disabled_validators<
 fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion::Config>(
 	candidates: &mut BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
+	pending_availability_overlay: &PendingAvailabilityOverlay<T>,
 ) {
 	let mut para_latest_head_data: BTreeMap<ParaId, HeadData> = BTreeMap::new();
 	for para_id in candidates.keys() {
-		let latest_head_data = match <inclusion::Pallet<T>>::para_latest_head_data(&para_id) {
+		let latest_head_data = match <inclusion::Pallet<T>>::para_latest_head_data(
+			&para_id,
+			&pending_availability_overlay,
+		) {
 			None => {
 				defensive!("Latest included head data for paraid {:?} is None", para_id);
 				continue

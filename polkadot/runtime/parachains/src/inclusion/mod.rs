@@ -640,13 +640,14 @@ impl<T: Config> Pallet<T> {
 		let mut core_indices = Vec::with_capacity(candidates.len());
 
 		for (para_id, candidates) in candidates {
-			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
-				None => {
-					defensive!("Latest included head data for paraid {:?} is None", para_id);
-					continue
-				},
-				Some(latest_head_data) => latest_head_data,
-			};
+			let mut latest_head_data =
+				match Self::para_latest_head_data(para_id, &pending_availability_overlay) {
+					None => {
+						defensive!("Latest included head data for paraid {:?} is None", para_id);
+						continue
+					},
+					Some(latest_head_data) => latest_head_data,
+				};
 
 			for (candidate, core) in candidates.iter() {
 				let candidate_hash = candidate.candidate().hash();
@@ -732,8 +733,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// Get the latest backed output head data of this para.
-	pub(crate) fn para_latest_head_data(para_id: &ParaId) -> Option<HeadData> {
-		match <PendingAvailability<T>>::get(para_id).and_then(|pending_candidates| {
+	pub(crate) fn para_latest_head_data(
+		para_id: &ParaId,
+		overlay: &PendingAvailabilityOverlay<T>,
+	) -> Option<HeadData> {
+		match overlay.get(para_id).and_then(|pending_candidates| {
 			pending_candidates.back().map(|x| x.commitments.head_data.clone())
 		}) {
 			Some(head_data) => Some(head_data),
