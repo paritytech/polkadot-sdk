@@ -253,20 +253,47 @@ impl pallet_template::Config for Runtime {
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
-construct_runtime!(
-	pub enum Runtime {
-		System: frame_system,
-		Timestamp: pallet_timestamp,
-		Aura: pallet_aura,
-		Grandpa: pallet_grandpa,
-		Balances: pallet_balances,
-		TransactionPayment: pallet_transaction_payment,
-		Sudo: pallet_sudo,
+#[frame_support::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
 
-		// Include the custom logic from the pallet-template in the runtime.
-		TemplateModule: pallet_template,
-	}
-);
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+
+	#[runtime::pallet_index(1)]
+	pub type Timestamp = pallet_timestamp;
+
+	#[runtime::pallet_index(2)]
+	pub type Aura = pallet_aura;
+
+	#[runtime::pallet_index(3)]
+	pub type Grandpa = pallet_grandpa;
+
+	#[runtime::pallet_index(4)]
+	pub type Balances = pallet_balances;
+
+	#[runtime::pallet_index(5)]
+	pub type TransactionPayment = pallet_transaction_payment;
+
+	#[runtime::pallet_index(6)]
+	pub type Sudo = pallet_sudo;
+
+	// Include the custom logic from the pallet-template in the runtime.
+	#[runtime::pallet_index(7)]
+	pub type TemplateModule = pallet_template;
+}
 
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
