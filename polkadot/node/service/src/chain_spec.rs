@@ -28,8 +28,6 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use polkadot_primitives::vstaging::SchedulerParams;
 #[cfg(feature = "rococo-native")]
 use rococo_runtime as rococo;
-#[cfg(feature = "rococo-native")]
-use rococo_runtime_constants::currency::UNITS as ROC;
 use sc_chain_spec::ChainSpecExtension;
 #[cfg(any(feature = "westend-native", feature = "rococo-native"))]
 use sc_chain_spec::ChainType;
