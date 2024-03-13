@@ -1112,6 +1112,9 @@ pub struct ProspectiveValidationDataRequest {
 /// is present in and the depths of that tree the candidate is present in.
 pub type FragmentTreeMembership = Vec<(Hash, Vec<usize>)>;
 
+/// A collection of ancestor candidates of a parachain.
+pub type Ancestors = HashSet<CandidateHash>;
+
 /// Messages sent to the Prospective Parachains subsystem.
 #[derive(Debug)]
 pub enum ProspectiveParachainsMessage {
@@ -1128,15 +1131,18 @@ pub enum ProspectiveParachainsMessage {
 	/// has been backed. This requires that the candidate was successfully introduced in
 	/// the past.
 	CandidateBacked(ParaId, CandidateHash),
-	/// Get N backable candidate hashes along with their relay parents for the given parachain,
-	/// under the given relay-parent hash, which is a descendant of the given candidate hashes.
+	/// Try getting N backable candidate hashes along with their relay parents for the given
+	/// parachain, under the given relay-parent hash, which is a descendant of the given ancestors.
+	/// Timed out ancestors should not be included in the collection.
 	/// N should represent the number of scheduled cores of this ParaId.
-	/// Returns `None` on the channel if no such candidate exists.
+	/// A timed out ancestor frees the cores of all of its descendants, so if there's a hole in the
+	/// supplied ancestor path, we'll get candidates that backfill those timed out slots first. It
+	/// may also return less/no candidates, if there aren't enough backable candidates recorded.
 	GetBackableCandidates(
 		Hash,
 		ParaId,
 		u32,
-		Vec<CandidateHash>,
+		Ancestors,
 		oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 	),
 	/// Get the hypothetical frontier membership of candidates with the given properties

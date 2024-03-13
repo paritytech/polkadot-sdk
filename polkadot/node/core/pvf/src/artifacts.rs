@@ -238,6 +238,14 @@ impl Artifacts {
 			.is_none());
 	}
 
+	/// Remove artifact by its id.
+	pub fn remove(&mut self, artifact_id: ArtifactId) -> Option<(ArtifactId, PathBuf)> {
+		self.inner.remove(&artifact_id).and_then(|state| match state {
+			ArtifactState::Prepared { path, .. } => Some((artifact_id, path)),
+			_ => None,
+		})
+	}
+
 	/// Remove artifacts older than the given TTL and return id and path of the removed ones.
 	pub fn prune(&mut self, artifact_ttl: Duration) -> Vec<(ArtifactId, PathBuf)> {
 		let now = SystemTime::now();

@@ -29,13 +29,11 @@ use sp_runtime::traits::IdentityLookup;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::{configuration, origin, shared};
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, ChildParachainAsNative, ChildParachainConvertsVia,
 	ChildSystemParachainAsSuperuser, DescribeAllTerminal, DescribeFamily, FixedRateOfFungible,
-	FixedWeightBounds, FrameTransactionalProcessor, HashedDescription, IsConcrete,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{Config, XcmExecutor};
@@ -119,9 +117,8 @@ pub type SovereignAccountOf = (
 	ChildParachainConvertsVia<ParaId, AccountId>,
 );
 
-#[allow(deprecated)]
 pub type LocalBalancesTransactor =
-	XcmCurrencyAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
+	FungibleAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
 
 pub type AssetTransactors = LocalBalancesTransactor;
 

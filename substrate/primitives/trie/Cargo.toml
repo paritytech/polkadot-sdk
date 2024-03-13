@@ -30,7 +30,7 @@ nohash-hasher = { version = "0.2.0", optional = true }
 parking_lot = { version = "0.12.1", optional = true }
 rand = { version = "0.8", optional = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.48", optional = true }
+thiserror = { optional = true, workspace = true }
 tracing = { version = "0.1.29", optional = true }
 trie-db = { version = "0.28.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }

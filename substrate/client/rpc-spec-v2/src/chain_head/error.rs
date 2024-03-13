@@ -32,6 +32,9 @@ pub enum Error {
 	/// Wait-for-continue event not generated.
 	#[error("Wait for continue event was not generated for the subscription")]
 	InvalidContinue,
+	/// Received duplicate hashes for the `chainHead_unpin` method.
+	#[error("Received duplicate hashes for the `chainHead_unpin` method")]
+	InvalidDuplicateHashes,
 	/// Invalid parameter provided to the RPC method.
 	#[error("Invalid parameter: {0}")]
 	InvalidParam(String),
@@ -49,6 +52,8 @@ pub mod rpc_spec_v2 {
 	pub const INVALID_RUNTIME_CALL: i32 = -32802;
 	/// Wait-for-continue event not generated.
 	pub const INVALID_CONTINUE: i32 = -32803;
+	/// Received duplicate hashes for the `chainHead_unpin` method.
+	pub const INVALID_DUPLICATE_HASHES: i32 = -32804;
 }
 
 /// General purpose errors, as defined in
@@ -71,6 +76,8 @@ impl From<Error> for ErrorObject<'static> {
 				ErrorObject::owned(rpc_spec_v2::INVALID_RUNTIME_CALL, msg, None::<()>),
 			Error::InvalidContinue =>
 				ErrorObject::owned(rpc_spec_v2::INVALID_CONTINUE, msg, None::<()>),
+			Error::InvalidDuplicateHashes =>
+				ErrorObject::owned(rpc_spec_v2::INVALID_DUPLICATE_HASHES, msg, None::<()>),
 			Error::InvalidParam(_) =>
 				ErrorObject::owned(json_rpc_spec::INVALID_PARAM_ERROR, msg, None::<()>),
 			Error::InternalError(_) =>

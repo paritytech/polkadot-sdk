@@ -22,7 +22,7 @@ sp-core = { path = "../../../substrate/primitives/core", default-features = fals
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
 sp-weights = { path = "../../../substrate/primitives/weights", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 
 [features]

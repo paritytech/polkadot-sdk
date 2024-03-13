@@ -407,7 +407,7 @@ async fn get_backable_candidates(
 	virtual_overseer: &mut VirtualOverseer,
 	leaf: &TestLeaf,
 	para_id: ParaId,
-	required_path: Vec<CandidateHash>,
+	ancestors: Ancestors,
 	count: u32,
 	expected_result: Vec<(CandidateHash, Hash)>,
 ) {
@@ -415,11 +415,7 @@ async fn get_backable_candidates(
 	virtual_overseer
 		.send(overseer::FromOrchestra::Communication {
 			msg: ProspectiveParachainsMessage::GetBackableCandidates(
-				leaf.hash,
-				para_id,
-				count,
-				required_path,
-				tx,
+				leaf.hash, para_id, count, ancestors, tx,
 			),
 		})
 		.await;
@@ -903,7 +899,7 @@ fn check_backable_query_single_candidate() {
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
-			vec![candidate_hash_a],
+			vec![candidate_hash_a].into_iter().collect(),
 			1,
 			vec![],
 		)
@@ -912,12 +908,20 @@ fn check_backable_query_single_candidate() {
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
-			vec![candidate_hash_a],
+			vec![candidate_hash_a].into_iter().collect(),
 			0,
 			vec![],
 		)
 		.await;
-		get_backable_candidates(&mut virtual_overseer, &leaf_a, 1.into(), vec![], 0, vec![]).await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			1.into(),
+			Ancestors::new(),
+			0,
+			vec![],
+		)
+		.await;
 
 		// Second candidates.
 		second_candidate(&mut virtual_overseer, candidate_a.clone()).await;
@@ -928,7 +932,7 @@ fn check_backable_query_single_candidate() {
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
-			vec![candidate_hash_a],
+			vec![candidate_hash_a].into_iter().collect(),
 			1,
 			vec![],
 		)
@@ -939,12 +943,20 @@ fn check_backable_query_single_candidate() {
 		back_candidate(&mut virtual_overseer, &candidate_b, candidate_hash_b).await;
 
 		// Should not get any backable candidates for the other para.
-		get_backable_candidates(&mut virtual_overseer, &leaf_a, 2.into(), vec![], 1, vec![]).await;
 		get_backable_candidates(
 			&mut virtual_overseer,
 			&leaf_a,
 			2.into(),
-			vec![candidate_hash_a],
+			Ancestors::new(),
+			1,
+			vec![],
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			2.into(),
+			vec![candidate_hash_a].into_iter().collect(),
 			1,
 			vec![],
 		)
@@ -955,7 +967,7 @@ fn check_backable_query_single_candidate() {
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
-			vec![],
+			Ancestors::new(),
 			1,
 			vec![(candidate_hash_a, leaf_a.hash)],
 		)
@@ -964,20 +976,20 @@ fn check_backable_query_single_candidate() {
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
-			vec![candidate_hash_a],
+			vec![candidate_hash_a].into_iter().collect(),
 			1,
 			vec![(candidate_hash_b, leaf_a.hash)],
 		)
 		.await;
 
-		// Should not get anything at the wrong path.
+		// Wrong path
 		get_backable_candidates(
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
-			vec![candidate_hash_b],
+			vec![candidate_hash_b].into_iter().collect(),
 			1,
-			vec![],
+			vec![(candidate_hash_a, leaf_a.hash)],
 		)
 		.await;
 
@@ -1075,15 +1087,29 @@ fn check_backable_query_multiple_candidates() {
 				make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_i, 10);
 
 			// Should not get any backable candidates for the other para.
-			get_backable_candidates(&mut virtual_overseer, &leaf_a, 2.into(), vec![], 1, vec![])
-				.await;
-			get_backable_candidates(&mut virtual_overseer, &leaf_a, 2.into(), vec![], 5, vec![])
-				.await;
 			get_backable_candidates(
 				&mut virtual_overseer,
 				&leaf_a,
 				2.into(),
-				vec![candidate_hash_a],
+				Ancestors::new(),
+				1,
+				vec![],
+			)
+			.await;
+			get_backable_candidates(
+				&mut virtual_overseer,
+				&leaf_a,
+				2.into(),
+				Ancestors::new(),
+				5,
+				vec![],
+			)
+			.await;
+			get_backable_candidates(
+				&mut virtual_overseer,
+				&leaf_a,
+				2.into(),
+				vec![candidate_hash_a].into_iter().collect(),
 				1,
 				vec![],
 			)
@@ -1097,7 +1123,7 @@ fn check_backable_query_multiple_candidates() {
 					&mut virtual_overseer,
 					&leaf_a,
 					1.into(),
-					vec![],
+					Ancestors::new(),
 					1,
 					vec![(candidate_hash_a, leaf_a.hash)],
 				)
@@ -1106,7 +1132,7 @@ fn check_backable_query_multiple_candidates() {
 					&mut virtual_overseer,
 					&leaf_a,
 					1.into(),
-					vec![],
+					Ancestors::new(),
 					4,
 					vec![
 						(candidate_hash_a, leaf_a.hash),
@@ -1124,7 +1150,7 @@ fn check_backable_query_multiple_candidates() {
 					&mut virtual_overseer,
 					&leaf_a,
 					1.into(),
-					vec![candidate_hash_a],
+					vec![candidate_hash_a].into_iter().collect(),
 					1,
 					vec![(candidate_hash_b, leaf_a.hash)],
 				)
@@ -1133,16 +1159,7 @@ fn check_backable_query_multiple_candidates() {
 					&mut virtual_overseer,
 					&leaf_a,
 					1.into(),
-					vec![candidate_hash_a],
-					2,
-					vec![(candidate_hash_b, leaf_a.hash), (candidate_hash_d, leaf_a.hash)],
-				)
-				.await;
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![candidate_hash_a],
+					vec![candidate_hash_a].into_iter().collect(),
 					3,
 					vec![
 						(candidate_hash_b, leaf_a.hash),
@@ -1159,7 +1176,7 @@ fn check_backable_query_multiple_candidates() {
 						&mut virtual_overseer,
 						&leaf_a,
 						1.into(),
-						vec![candidate_hash_a],
+						vec![candidate_hash_a].into_iter().collect(),
 						count,
 						vec![
 							(candidate_hash_c, leaf_a.hash),
@@ -1172,26 +1189,30 @@ fn check_backable_query_multiple_candidates() {
 				}
 			}
 
-			// required path of 2
+			// required path of 2 and higher
 			{
 				get_backable_candidates(
 					&mut virtual_overseer,
 					&leaf_a,
 					1.into(),
-					vec![candidate_hash_a, candidate_hash_b],
+					vec![candidate_hash_a, candidate_hash_i, candidate_hash_h, candidate_hash_c]
+						.into_iter()
+						.collect(),
 					1,
-					vec![(candidate_hash_d, leaf_a.hash)],
+					vec![(candidate_hash_j, leaf_a.hash)],
 				)
 				.await;
+
 				get_backable_candidates(
 					&mut virtual_overseer,
 					&leaf_a,
 					1.into(),
-					vec![candidate_hash_a, candidate_hash_c],
+					vec![candidate_hash_a, candidate_hash_b].into_iter().collect(),
 					1,
-					vec![(candidate_hash_h, leaf_a.hash)],
+					vec![(candidate_hash_d, leaf_a.hash)],
 				)
 				.await;
+
 				// If the requested count exceeds the largest chain, return the longest
 				// chain we can get.
 				for count in 4..10 {
@@ -1199,7 +1220,7 @@ fn check_backable_query_multiple_candidates() {
 						&mut virtual_overseer,
 						&leaf_a,
 						1.into(),
-						vec![candidate_hash_a, candidate_hash_c],
+						vec![candidate_hash_a, candidate_hash_c].into_iter().collect(),
 						count,
 						vec![
 							(candidate_hash_h, leaf_a.hash),
@@ -1213,317 +1234,127 @@ fn check_backable_query_multiple_candidates() {
 
 			// No more candidates in any chain.
 			{
-				let required_paths = vec![
-					vec![candidate_hash_a, candidate_hash_b, candidate_hash_e],
-					vec![
-						candidate_hash_a,
-						candidate_hash_c,
-						candidate_hash_h,
-						candidate_hash_i,
-						candidate_hash_j,
-					],
-				];
-				for path in required_paths {
-					for count in 1..4 {
-						get_backable_candidates(
-							&mut virtual_overseer,
-							&leaf_a,
-							1.into(),
-							path.clone(),
-							count,
-							vec![],
-						)
-						.await;
-					}
+				for count in 1..4 {
+					get_backable_candidates(
+						&mut virtual_overseer,
+						&leaf_a,
+						1.into(),
+						vec![candidate_hash_a, candidate_hash_b, candidate_hash_e]
+							.into_iter()
+							.collect(),
+						count,
+						vec![],
+					)
+					.await;
+
+					get_backable_candidates(
+						&mut virtual_overseer,
+						&leaf_a,
+						1.into(),
+						vec![
+							candidate_hash_a,
+							candidate_hash_c,
+							candidate_hash_h,
+							candidate_hash_i,
+							candidate_hash_j,
+						]
+						.into_iter()
+						.collect(),
+						count,
+						vec![],
+					)
+					.await;
 				}
 			}
 
-			// Should not get anything at the wrong path.
+			// Wrong paths.
 			get_backable_candidates(
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![candidate_hash_b],
+				vec![candidate_hash_b].into_iter().collect(),
 				1,
-				vec![],
+				vec![(candidate_hash_a, leaf_a.hash)],
 			)
 			.await;
 			get_backable_candidates(
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![candidate_hash_b, candidate_hash_a],
+				vec![candidate_hash_b, candidate_hash_f].into_iter().collect(),
 				3,
-				vec![],
-			)
-			.await;
-			get_backable_candidates(
-				&mut virtual_overseer,
-				&leaf_a,
-				1.into(),
-				vec![candidate_hash_a, candidate_hash_b, candidate_hash_c],
-				3,
-				vec![],
-			)
-			.await;
-
-			virtual_overseer
-		});
-
-		assert_eq!(view.active_leaves.len(), 1);
-		assert_eq!(view.candidate_storage.len(), 2);
-		// 10 candidates and 7 parents on para 1.
-		assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (7, 10));
-		assert_eq!(view.candidate_storage.get(&2.into()).unwrap().len(), (0, 0));
-	}
-
-	// A tree with multiple roots.
-	// Parachain 1 looks like this:
-	//       (imaginary root)
-	//          |        |
-	//     +----B---+    A
-	//	   |    |   |    |
-	//     |    |   |    C
-	//     D    E   F    |
-	//              |    H
-	//              G    |
-	//                   I
-	//                   |
-	//                   J
-	{
-		let test_state = TestState::default();
-		let view = test_harness(|mut virtual_overseer| async move {
-			// Leaf A
-			let leaf_a = TestLeaf {
-				number: 100,
-				hash: Hash::from_low_u64_be(130),
-				para_data: vec![
-					(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-					(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+				vec![
+					(candidate_hash_a, leaf_a.hash),
+					(candidate_hash_b, leaf_a.hash),
+					(candidate_hash_d, leaf_a.hash),
 				],
-			};
-
-			// Activate leaves.
-			activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
-
-			// Candidate B
-			let (candidate_b, pvd_b) = make_candidate(
-				leaf_a.hash,
-				leaf_a.number,
-				1.into(),
-				HeadData(vec![1, 2, 3]),
-				HeadData(vec![2]),
-				test_state.validation_code_hash,
-			);
-			let candidate_hash_b = candidate_b.hash();
-			introduce_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
-			second_candidate(&mut virtual_overseer, candidate_b.clone()).await;
-			back_candidate(&mut virtual_overseer, &candidate_b, candidate_hash_b).await;
-
-			// Candidate A
-			let (candidate_a, pvd_a) = make_candidate(
-				leaf_a.hash,
-				leaf_a.number,
-				1.into(),
-				HeadData(vec![1, 2, 3]),
-				HeadData(vec![1]),
-				test_state.validation_code_hash,
-			);
-			let candidate_hash_a = candidate_a.hash();
-			introduce_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a).await;
-			second_candidate(&mut virtual_overseer, candidate_a.clone()).await;
-			back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
-
-			let (candidate_c, candidate_hash_c) =
-				make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_a, 3);
-			let (_candidate_d, candidate_hash_d) =
-				make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_b, 4);
-			let (_candidate_e, candidate_hash_e) =
-				make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_b, 5);
-			let (candidate_f, candidate_hash_f) =
-				make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_b, 6);
-			let (_candidate_g, candidate_hash_g) =
-				make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_f, 7);
-			let (candidate_h, candidate_hash_h) =
-				make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_c, 8);
-			let (candidate_i, candidate_hash_i) =
-				make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_h, 9);
-			let (_candidate_j, candidate_hash_j) =
-				make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_i, 10);
-
-			// Should not get any backable candidates for the other para.
-			get_backable_candidates(&mut virtual_overseer, &leaf_a, 2.into(), vec![], 1, vec![])
-				.await;
-			get_backable_candidates(&mut virtual_overseer, &leaf_a, 2.into(), vec![], 5, vec![])
-				.await;
+			)
+			.await;
 			get_backable_candidates(
 				&mut virtual_overseer,
 				&leaf_a,
-				2.into(),
-				vec![candidate_hash_a],
+				1.into(),
+				vec![candidate_hash_a, candidate_hash_h].into_iter().collect(),
+				4,
+				vec![
+					(candidate_hash_c, leaf_a.hash),
+					(candidate_hash_h, leaf_a.hash),
+					(candidate_hash_i, leaf_a.hash),
+					(candidate_hash_j, leaf_a.hash),
+				],
+			)
+			.await;
+			get_backable_candidates(
+				&mut virtual_overseer,
+				&leaf_a,
+				1.into(),
+				vec![candidate_hash_e, candidate_hash_h].into_iter().collect(),
+				2,
+				vec![(candidate_hash_a, leaf_a.hash), (candidate_hash_b, leaf_a.hash)],
+			)
+			.await;
+
+			get_backable_candidates(
+				&mut virtual_overseer,
+				&leaf_a,
+				1.into(),
+				vec![candidate_hash_a, candidate_hash_c, candidate_hash_d].into_iter().collect(),
+				2,
+				vec![(candidate_hash_h, leaf_a.hash), (candidate_hash_i, leaf_a.hash)],
+			)
+			.await;
+
+			// Parachain fork.
+			get_backable_candidates(
+				&mut virtual_overseer,
+				&leaf_a,
+				1.into(),
+				vec![candidate_hash_a, candidate_hash_b, candidate_hash_c].into_iter().collect(),
 				1,
 				vec![],
 			)
 			.await;
 
-			// Test various scenarios with various counts.
-
-			// empty required_path
-			{
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![],
-					1,
-					vec![(candidate_hash_b, leaf_a.hash)],
-				)
-				.await;
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![],
-					2,
-					vec![(candidate_hash_b, leaf_a.hash), (candidate_hash_d, leaf_a.hash)],
-				)
-				.await;
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![],
-					4,
-					vec![
-						(candidate_hash_a, leaf_a.hash),
-						(candidate_hash_c, leaf_a.hash),
-						(candidate_hash_h, leaf_a.hash),
-						(candidate_hash_i, leaf_a.hash),
-					],
-				)
-				.await;
-			}
-
-			// required path of 1
-			{
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![candidate_hash_a],
-					1,
-					vec![(candidate_hash_c, leaf_a.hash)],
-				)
-				.await;
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![candidate_hash_b],
-					1,
-					vec![(candidate_hash_d, leaf_a.hash)],
-				)
-				.await;
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![candidate_hash_a],
-					2,
-					vec![(candidate_hash_c, leaf_a.hash), (candidate_hash_h, leaf_a.hash)],
-				)
-				.await;
-
-				// If the requested count exceeds the largest chain, return the longest
-				// chain we can get.
-				for count in 2..10 {
-					get_backable_candidates(
-						&mut virtual_overseer,
-						&leaf_a,
-						1.into(),
-						vec![candidate_hash_b],
-						count,
-						vec![(candidate_hash_f, leaf_a.hash), (candidate_hash_g, leaf_a.hash)],
-					)
-					.await;
-				}
-			}
-
-			// required path of 2
-			{
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![candidate_hash_b, candidate_hash_f],
-					1,
-					vec![(candidate_hash_g, leaf_a.hash)],
-				)
-				.await;
-				get_backable_candidates(
-					&mut virtual_overseer,
-					&leaf_a,
-					1.into(),
-					vec![candidate_hash_a, candidate_hash_c],
-					1,
-					vec![(candidate_hash_h, leaf_a.hash)],
-				)
-				.await;
-				// If the requested count exceeds the largest chain, return the longest
-				// chain we can get.
-				for count in 4..10 {
-					get_backable_candidates(
-						&mut virtual_overseer,
-						&leaf_a,
-						1.into(),
-						vec![candidate_hash_a, candidate_hash_c],
-						count,
-						vec![
-							(candidate_hash_h, leaf_a.hash),
-							(candidate_hash_i, leaf_a.hash),
-							(candidate_hash_j, leaf_a.hash),
-						],
-					)
-					.await;
-				}
-			}
-
-			// No more candidates in any chain.
-			{
-				let required_paths = vec![
-					vec![candidate_hash_b, candidate_hash_f, candidate_hash_g],
-					vec![candidate_hash_b, candidate_hash_e],
-					vec![candidate_hash_b, candidate_hash_d],
-					vec![
-						candidate_hash_a,
-						candidate_hash_c,
-						candidate_hash_h,
-						candidate_hash_i,
-						candidate_hash_j,
-					],
-				];
-				for path in required_paths {
-					for count in 1..4 {
-						get_backable_candidates(
-							&mut virtual_overseer,
-							&leaf_a,
-							1.into(),
-							path.clone(),
-							count,
-							vec![],
-						)
-						.await;
-					}
-				}
-			}
-
-			// Should not get anything at the wrong path.
+			// Non-existent candidate.
 			get_backable_candidates(
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![candidate_hash_d],
-				1,
+				vec![candidate_hash_a, CandidateHash(Hash::from_low_u64_be(100))]
+					.into_iter()
+					.collect(),
+				2,
+				vec![(candidate_hash_b, leaf_a.hash), (candidate_hash_d, leaf_a.hash)],
+			)
+			.await;
+
+			// Requested count is zero.
+			get_backable_candidates(
+				&mut virtual_overseer,
+				&leaf_a,
+				1.into(),
+				Ancestors::new(),
+				0,
 				vec![],
 			)
 			.await;
@@ -1531,8 +1362,8 @@ fn check_backable_query_multiple_candidates() {
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![candidate_hash_b, candidate_hash_a],
-				3,
+				vec![candidate_hash_a].into_iter().collect(),
+				0,
 				vec![],
 			)
 			.await;
@@ -1540,8 +1371,8 @@ fn check_backable_query_multiple_candidates() {
 				&mut virtual_overseer,
 				&leaf_a,
 				1.into(),
-				vec![candidate_hash_a, candidate_hash_c, candidate_hash_d],
-				3,
+				vec![candidate_hash_a, candidate_hash_b].into_iter().collect(),
+				0,
 				vec![],
 			)
 			.await;
@@ -1853,8 +1684,8 @@ fn check_pvd_query() {
 	assert_eq!(view.candidate_storage.len(), 2);
 }
 
-// Test simultaneously activating and deactivating leaves, and simultaneously deactivating multiple
-// leaves.
+// Test simultaneously activating and deactivating leaves, and simultaneously deactivating
+// multiple leaves.
 #[test]
 fn correctly_updates_leaves() {
 	let test_state = TestState::default();
@@ -2048,7 +1879,7 @@ fn persists_pending_availability_candidate() {
 			&mut virtual_overseer,
 			&leaf_b,
 			para_id,
-			vec![candidate_hash_a],
+			vec![candidate_hash_a].into_iter().collect(),
 			1,
 			vec![(candidate_hash_b, leaf_b_hash)],
 		)
@@ -2113,7 +1944,7 @@ fn backwards_compatible() {
 			&mut virtual_overseer,
 			&leaf_a,
 			para_id,
-			vec![],
+			Ancestors::new(),
 			1,
 			vec![(candidate_hash_a, candidate_relay_parent)],
 		)
@@ -2135,7 +1966,15 @@ fn backwards_compatible() {
 		)
 		.await;
 
-		get_backable_candidates(&mut virtual_overseer, &leaf_b, para_id, vec![], 1, vec![]).await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			para_id,
+			Ancestors::new(),
+			1,
+			vec![],
+		)
+		.await;
 
 		virtual_overseer
 	});
@@ -2162,13 +2001,13 @@ fn uses_ancestry_only_within_session() {
 			.await;
 
 		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
-			) if parent == hash => {
-				tx.send(Ok(AsyncBackingParams { max_candidate_depth: 0, allowed_ancestry_len: ancestry_len })).unwrap();
-			}
-		);
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
+					) if parent == hash => {
+						tx.send(Ok(AsyncBackingParams { max_candidate_depth: 0, allowed_ancestry_len: ancestry_len
+		})).unwrap(); 			}
+				);
 
 		assert_matches!(
 			virtual_overseer.recv().await,

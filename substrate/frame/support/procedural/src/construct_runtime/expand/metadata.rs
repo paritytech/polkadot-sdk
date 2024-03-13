@@ -119,13 +119,13 @@ pub fn expand_runtime_metadata(
 						call_ty,
 						signature_ty,
 						extra_ty,
-						signed_extensions: <
+						extensions: <
 								<
 									#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
-								>::SignedExtensions as #scrate::sp_runtime::traits::SignedExtension
+								>::Extra as #scrate::sp_runtime::traits::TransactionExtensionBase
 							>::metadata()
 								.into_iter()
-								.map(|meta| #scrate::__private::metadata_ir::SignedExtensionMetadataIR {
+								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {
 									identifier: meta.identifier,
 									ty: meta.ty,
 									additional_signed: meta.additional_signed,

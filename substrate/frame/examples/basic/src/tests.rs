@@ -27,7 +27,7 @@ use sp_core::H256;
 // The testing primitives are very useful for avoiding having to work with signatures
 // or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, DispatchTransaction, IdentityLookup},
 	BuildStorage,
 };
 // Reexport crate as its pallet name for construct_runtime.
@@ -119,25 +119,25 @@ fn it_works_for_optional_value() {
 		// Check that GenesisBuilder works properly.
 		let val1 = 42;
 		let val2 = 27;
-		assert_eq!(Example::dummy(), Some(val1));
+		assert_eq!(Dummy::<Test>::get(), Some(val1));
 
 		// Check that accumulate works when we have Some value in Dummy already.
 		assert_ok!(Example::accumulate_dummy(RuntimeOrigin::signed(1), val2));
-		assert_eq!(Example::dummy(), Some(val1 + val2));
+		assert_eq!(Dummy::<Test>::get(), Some(val1 + val2));
 
 		// Check that accumulate works when we Dummy has None in it.
 		<Example as OnInitialize<u64>>::on_initialize(2);
 		assert_ok!(Example::accumulate_dummy(RuntimeOrigin::signed(1), val1));
-		assert_eq!(Example::dummy(), Some(val1 + val2 + val1));
+		assert_eq!(Dummy::<Test>::get(), Some(val1 + val2 + val1));
 	});
 }
 
 #[test]
 fn it_works_for_default_value() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Example::foo(), 24);
+		assert_eq!(Foo::<Test>::get(), 24);
 		assert_ok!(Example::accumulate_foo(RuntimeOrigin::signed(1), 1));
-		assert_eq!(Example::foo(), 25);
+		assert_eq!(Foo::<Test>::get(), 25);
 	});
 }
 
@@ -146,7 +146,7 @@ fn set_dummy_works() {
 	new_test_ext().execute_with(|| {
 		let test_val = 133;
 		assert_ok!(Example::set_dummy(RuntimeOrigin::root(), test_val.into()));
-		assert_eq!(Example::dummy(), Some(test_val));
+		assert_eq!(Dummy::<Test>::get(), Some(test_val));
 	});
 }
 
@@ -158,13 +158,16 @@ fn signed_ext_watch_dummy_works() {
 
 		assert_eq!(
 			WatchDummy::<Test>(PhantomData)
-				.validate(&1, &call, &info, 150)
+				.validate_only(Some(1).into(), &call, &info, 150)
 				.unwrap()
+				.0
 				.priority,
 			u64::MAX,
 		);
 		assert_eq!(
-			WatchDummy::<Test>(PhantomData).validate(&1, &call, &info, 250),
+			WatchDummy::<Test>(PhantomData)
+				.validate_only(Some(1).into(), &call, &info, 250)
+				.unwrap_err(),
 			InvalidTransaction::ExhaustsResources.into(),
 		);
 	})

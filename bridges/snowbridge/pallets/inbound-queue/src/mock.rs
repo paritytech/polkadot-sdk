@@ -3,7 +3,7 @@
 use super::*;
 
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU128, ConstU32, Everything},
 	weights::IdentityFee,
 };
@@ -47,10 +47,9 @@ parameter_types! {
 
 type Balance = u128;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeTask = RuntimeTask;
@@ -60,16 +59,8 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
-	type DbWeight = ();
-	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type Nonce = u64;
 	type Block = Block;
 }

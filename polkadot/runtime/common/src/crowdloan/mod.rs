@@ -180,7 +180,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]

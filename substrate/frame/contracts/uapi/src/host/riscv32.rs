@@ -130,7 +130,7 @@ impl HostFn for HostFnImpl {
 		flags: CallFlags,
 		callee: &[u8],
 		ref_time_limit: u64,
-		proof_time_limit: u64,
+		proof_size_limit: u64,
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
@@ -281,11 +281,11 @@ impl HostFn for HostFnImpl {
 		todo!()
 	}
 
-	fn add_delegate_dependency(code_hash: &[u8]) {
+	fn lock_delegate_dependency(code_hash: &[u8]) {
 		todo!()
 	}
 
-	fn remove_delegate_dependency(code_hash: &[u8]) {
+	fn unlock_delegate_dependency(code_hash: &[u8]) {
 		todo!()
 	}
 
@@ -297,7 +297,7 @@ impl HostFn for HostFnImpl {
 		todo!()
 	}
 
-	fn xcm_execute(msg: &[u8], output: &mut &mut [u8]) -> Result {
+	fn xcm_execute(msg: &[u8]) -> Result {
 		todo!()
 	}
 

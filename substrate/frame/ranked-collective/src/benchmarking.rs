@@ -181,5 +181,5 @@ benchmarks_instance_pallet! {
 		assert_has_event::<T, I>(Event::MemberExchanged { who, new_who }.into());
 	}
 
-	impl_benchmark_test_suite!(RankedCollective, crate::tests::new_test_ext(), crate::tests::Test);
+	impl_benchmark_test_suite!(RankedCollective, crate::tests::ExtBuilder::default().build(), crate::tests::Test);
 }

@@ -96,6 +96,7 @@ use std::{
 
 use super::LOG_TARGET;
 use bitvec::prelude::*;
+use polkadot_node_subsystem::messages::Ancestors;
 use polkadot_node_subsystem_util::inclusion_emulator::{
 	ConstraintModifications, Constraints, Fragment, ProspectiveCandidate, RelayChainBlockInfo,
 };
@@ -756,45 +757,46 @@ impl FragmentTree {
 		depths.iter_ones().collect()
 	}
 
-	/// Select `count` candidates after the given `required_path` which pass
+	/// Select `count` candidates after the given `ancestors` which pass
 	/// the predicate and have not already been backed on chain.
 	///
-	/// Does an exhaustive search into the tree starting after `required_path`.
-	/// If there are multiple possibilities of size `count`, this will select the first one.
-	/// If there is no chain of size `count` that matches the criteria, this will return the largest
-	/// chain it could find with the criteria.
-	/// If there are no candidates meeting those criteria, returns an empty `Vec`.
-	/// Cycles are accepted, see module docs for the `Cycles` section.
+	/// Does an exhaustive search into the tree after traversing the ancestors path.
+	/// If the ancestors draw out a path that can be traversed in multiple ways, no
+	/// candidates will be returned.
+	/// If the ancestors do not draw out a full path (the path contains holes), candidates will be
+	/// suggested that may fill these holes.
+	/// If the ancestors don't draw out a valid path, no candidates will be returned. If there are
+	/// multiple possibilities of the same size, this will select the first one. If there is no
+	/// chain of size `count` that matches the criteria, this will return the largest chain it could
+	/// find with the criteria. If there are no candidates meeting those criteria, returns an empty
+	/// `Vec`.
+	/// Cycles are accepted, but this code expects that the runtime will deduplicate
+	/// identical candidates when occupying the cores (when proposing to back A->B->A, only A will
+	/// be backed on chain).
 	///
-	/// The intention of the `required_path` is to allow queries on the basis of
+	/// The intention of the `ancestors` is to allow queries on the basis of
 	/// one or more candidates which were previously pending availability becoming
-	/// available and opening up more room on the core.
-	pub(crate) fn select_children(
+	/// available or candidates timing out.
+	pub(crate) fn find_backable_chain(
 		&self,
-		required_path: &[CandidateHash],
+		ancestors: Ancestors,
 		count: u32,
 		pred: impl Fn(&CandidateHash) -> bool,
 	) -> Vec<CandidateHash> {
-		let base_node = {
-			// traverse the required path.
-			let mut node = NodePointer::Root;
-			for required_step in required_path {
-				if let Some(next_node) = self.node_candidate_child(node, &required_step) {
-					node = next_node;
-				} else {
-					return vec![]
-				};
-			}
+		if count == 0 {
+			return vec![]
+		}
+		// First, we need to order the ancestors.
+		// The node returned is the one from which we can start finding new backable candidates.
+		let Some(base_node) = self.find_ancestor_path(ancestors) else { return vec![] };
 
-			node
-		};
-
-		// TODO: taking the first best selection might introduce bias
-		// or become gameable.
-		//
-		// For plausibly unique parachains, this shouldn't matter much.
-		// figure out alternative selection criteria?
-		self.select_children_inner(base_node, count, count, &pred, &mut vec![])
+		self.find_backable_chain_inner(
+			base_node,
+			count,
+			count,
+			&pred,
+			&mut Vec::with_capacity(count as usize),
+		)
 	}
 
 	// Try finding a candidate chain starting from `base_node` of length `expected_count`.
@@ -805,7 +807,7 @@ impl FragmentTree {
 	// Cycles are accepted, but this doesn't allow for infinite execution time, because the maximum
 	// depth we'll reach is `expected_count`.
 	//
-	// Worst case performance is `O(num_forks ^ expected_count)`.
+	// Worst case performance is `O(num_forks ^ expected_count)`, the same as populating the tree.
 	// Although an exponential function, this is actually a constant that can only be altered via
 	// sudo/governance, because:
 	// 1. `num_forks` at a given level is at most `max_candidate_depth * max_validators_per_core`
@@ -817,7 +819,7 @@ impl FragmentTree {
 	//    scaling scenario). For non-elastic-scaling, this is just 1. In practice, this should be a
 	//    small number (1-3), capped by the total number of available cores (a constant alterable
 	//    only via governance/sudo).
-	fn select_children_inner(
+	fn find_backable_chain_inner(
 		&self,
 		base_node: NodePointer,
 		expected_count: u32,
@@ -857,7 +859,7 @@ impl FragmentTree {
 		for (child_ptr, child_hash) in children {
 			accumulator.push(child_hash);
 
-			let result = self.select_children_inner(
+			let result = self.find_backable_chain_inner(
 				child_ptr,
 				expected_count,
 				remaining_count - 1,
@@ -869,6 +871,9 @@ impl FragmentTree {
 
 			// Short-circuit the search if we've found the right length. Otherwise, we'll
 			// search for a max.
+			// Taking the first best selection doesn't introduce bias or become gameable,
+			// because `find_ancestor_path` uses a `HashSet` to track the ancestors, which
+			// makes the order in which ancestors are visited non-deterministic.
 			if result.len() == expected_count as usize {
 				return result
 			} else if best_result.len() < result.len() {
@@ -877,6 +882,93 @@ impl FragmentTree {
 		}
 
 		best_result
+	}
+
+	// Orders the ancestors into a viable path from root to the last one.
+	// Returns a pointer to the last node in the path.
+	// We assume that the ancestors form a chain (that the
+	// av-cores do not back parachain forks), None is returned otherwise.
+	// If we cannot use all ancestors, stop at the first found hole in the chain. This usually
+	// translates to a timed out candidate.
+	fn find_ancestor_path(&self, mut ancestors: Ancestors) -> Option<NodePointer> {
+		// The number of elements in the path we've processed so far.
+		let mut depth = 0;
+		let mut last_node = NodePointer::Root;
+		let mut next_node: Option<NodePointer> = Some(NodePointer::Root);
+
+		while let Some(node) = next_node {
+			if depth > self.scope.max_depth {
+				return None;
+			}
+
+			last_node = node;
+
+			next_node = match node {
+				NodePointer::Root => {
+					let children = self
+						.nodes
+						.iter()
+						.enumerate()
+						.take_while(|n| n.1.parent == NodePointer::Root)
+						.map(|(index, node)| (NodePointer::Storage(index), node.candidate_hash))
+						.collect::<Vec<_>>();
+
+					self.find_valid_child(&mut ancestors, children.iter()).ok()?
+				},
+				NodePointer::Storage(ptr) => {
+					let children = self.nodes.get(ptr).and_then(|n| Some(n.children.iter()));
+					if let Some(children) = children {
+						self.find_valid_child(&mut ancestors, children).ok()?
+					} else {
+						None
+					}
+				},
+			};
+
+			depth += 1;
+		}
+
+		Some(last_node)
+	}
+
+	// Find a node from the given iterator which is present in the ancestors
+	// collection. If there are multiple such nodes, return an error and log a warning. We don't
+	// accept forks in a parachain to be backed. The supplied ancestors should all form a chain.
+	// If there is no such node, return None.
+	fn find_valid_child<'a>(
+		&self,
+		ancestors: &'a mut Ancestors,
+		nodes: impl Iterator<Item = &'a (NodePointer, CandidateHash)> + 'a,
+	) -> Result<Option<NodePointer>, ()> {
+		let mut possible_children =
+			nodes.filter_map(|(node_ptr, hash)| match ancestors.remove(&hash) {
+				true => Some(node_ptr),
+				false => None,
+			});
+
+		// We don't accept forks in a parachain to be backed. The supplied ancestors
+		// should all form a chain.
+		let next = possible_children.next();
+		if let Some(second_child) = possible_children.next() {
+			if let (Some(NodePointer::Storage(first_child)), NodePointer::Storage(second_child)) =
+				(next, second_child)
+			{
+				gum::error!(
+					target: LOG_TARGET,
+					para_id = ?self.scope.para,
+					relay_parent = ?self.scope.relay_parent,
+					"Trying to find new backable candidates for a parachain for which we've backed a fork.\
+					This is a bug and the runtime should not have allowed it.\n\
+					Backed candidates with the same parent: {}, {}",
+					self.nodes[*first_child].candidate_hash,
+					self.nodes[*second_child].candidate_hash,
+				);
+			}
+
+			Err(())
+		} else {
+			Ok(next.copied())
+		}
 	}
 
 	fn populate_from_bases(&mut self, storage: &CandidateStorage, initial_bases: Vec<NodePointer>) {
@@ -1061,7 +1153,17 @@ mod tests {
 	use polkadot_node_subsystem_util::inclusion_emulator::InboundHrmpLimitations;
 	use polkadot_primitives::{BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData};
 	use polkadot_primitives_test_helpers as test_helpers;
+	use rstest::rstest;
 	use std::iter;
+
+	impl NodePointer {
+		fn unwrap_idx(self) -> usize {
+			match self {
+				NodePointer::Root => panic!("Unexpected root"),
+				NodePointer::Storage(index) => index,
+			}
+		}
+	}
 
 	fn make_constraints(
 		min_relay_parent_number: BlockNumber,
@@ -1547,6 +1649,373 @@ mod tests {
 	}
 
 	#[test]
+	fn test_find_ancestor_path_and_find_backable_chain_empty_tree() {
+		let para_id = ParaId::from(5u32);
+		let relay_parent = Hash::repeat_byte(1);
+		let required_parent: HeadData = vec![0xff].into();
+		let max_depth = 10;
+
+		// Empty tree
+		let storage = CandidateStorage::new();
+		let base_constraints = make_constraints(0, vec![0], required_parent.clone());
+
+		let relay_parent_info =
+			RelayChainBlockInfo { number: 0, hash: relay_parent, storage_root: Hash::zero() };
+
+		let scope = Scope::with_ancestors(
+			para_id,
+			relay_parent_info,
+			base_constraints,
+			vec![],
+			max_depth,
+			vec![],
+		)
+		.unwrap();
+		let tree = FragmentTree::populate(scope, &storage);
+		assert_eq!(tree.candidates().collect::<Vec<_>>().len(), 0);
+		assert_eq!(tree.nodes.len(), 0);
+
+		assert_eq!(tree.find_ancestor_path(Ancestors::new()).unwrap(), NodePointer::Root);
+		assert_eq!(tree.find_backable_chain(Ancestors::new(), 2, |_| true), vec![]);
+		// Invalid candidate.
+		let ancestors: Ancestors = [CandidateHash::default()].into_iter().collect();
+		assert_eq!(tree.find_ancestor_path(ancestors.clone()), Some(NodePointer::Root));
+		assert_eq!(tree.find_backable_chain(ancestors, 2, |_| true), vec![]);
+	}
+
+	#[rstest]
+	#[case(true, 13)]
+	#[case(false, 8)]
+	// The tree with no cycles looks like:
+	// Make a tree that looks like this (note that there's no cycle):
+	//         +-(root)-+
+	//         |        |
+	//    +----0---+    7
+	//    |        |
+	//    1----+   5
+	//    |    |
+	//    |    |
+	//    2    6
+	//    |
+	//    3
+	//    |
+	//    4
+	//
+	// The tree with cycles is the same as the first but has a cycle from 4 back to the state
+	// produced by 0 (It's bounded by the max_depth + 1).
+	//         +-(root)-+
+	//         |        |
+	//    +----0---+    7
+	//    |        |
+	//    1----+   5
+	//    |    |
+	//    |    |
+	//    2    6
+	//    |
+	//    3
+	//    |
+	//    4---+
+	//    |   |
+	//    1   5
+	//    |
+	//    2
+	//    |
+	//    3
+	fn test_find_ancestor_path_and_find_backable_chain(
+		#[case] has_cycle: bool,
+		#[case] expected_node_count: usize,
+	) {
+		let para_id = ParaId::from(5u32);
+		let relay_parent = Hash::repeat_byte(1);
+		let required_parent: HeadData = vec![0xff].into();
+		let max_depth = 7;
+		let relay_parent_number = 0;
+		let relay_parent_storage_root = Hash::repeat_byte(69);
+
+		let mut candidates = vec![];
+
+		// Candidate 0
+		candidates.push(make_committed_candidate(
+			para_id,
+			relay_parent,
+			0,
+			required_parent.clone(),
+			vec![0].into(),
+			0,
+		));
+		// Candidate 1
+		candidates.push(make_committed_candidate(
+			para_id,
+			relay_parent,
+			0,
+			vec![0].into(),
+			vec![1].into(),
+			0,
+		));
+		// Candidate 2
+		candidates.push(make_committed_candidate(
+			para_id,
+			relay_parent,
+			0,
+			vec![1].into(),
+			vec![2].into(),
+			0,
+		));
+		// Candidate 3
+		candidates.push(make_committed_candidate(
+			para_id,
+			relay_parent,
+			0,
+			vec![2].into(),
+			vec![3].into(),
+			0,
+		));
+		// Candidate 4
+		candidates.push(make_committed_candidate(
+			para_id,
+			relay_parent,
+			0,
+			vec![3].into(),
+			vec![4].into(),
+			0,
+		));
+		// Candidate 5
+		candidates.push(make_committed_candidate(
+			para_id,
+			relay_parent,
+			0,
+			vec![0].into(),
+			vec![5].into(),
+			0,
+		));
+		// Candidate 6
+		candidates.push(make_committed_candidate(
+			para_id,
+			relay_parent,
+			0,
+			vec![1].into(),
+			vec![6].into(),
+			0,
+		));
+		// Candidate 7
+		candidates.push(make_committed_candidate(
+			para_id,
+			relay_parent,
+			0,
+			required_parent.clone(),
+			vec![7].into(),
+			0,
+		));
+
+		if has_cycle {
+			candidates[4] = make_committed_candidate(
+				para_id,
+				relay_parent,
+				0,
+				vec![3].into(),
+				vec![0].into(), // put the cycle here back to the output state of 0.
+				0,
+			);
+		}
+
+		let base_constraints = make_constraints(0, vec![0], required_parent.clone());
+		let mut storage = CandidateStorage::new();
+
+		let relay_parent_info = RelayChainBlockInfo {
+			number: relay_parent_number,
+			hash: relay_parent,
+			storage_root: relay_parent_storage_root,
+		};
+
+		for (pvd, candidate) in candidates.iter() {
+			storage.add_candidate(candidate.clone(), pvd.clone()).unwrap();
+		}
+		let candidates =
+			candidates.into_iter().map(|(_pvd, candidate)| candidate).collect::<Vec<_>>();
+		let scope = Scope::with_ancestors(
+			para_id,
+			relay_parent_info,
+			base_constraints,
+			vec![],
+			max_depth,
+			vec![],
+		)
+		.unwrap();
+		let tree = FragmentTree::populate(scope, &storage);
+
+		assert_eq!(tree.candidates().collect::<Vec<_>>().len(), candidates.len());
+		assert_eq!(tree.nodes.len(), expected_node_count);
+
+		// Do some common tests on both trees.
+		{
+			// No ancestors supplied.
+			assert_eq!(tree.find_ancestor_path(Ancestors::new()).unwrap(), NodePointer::Root);
+			assert_eq!(
+				tree.find_backable_chain(Ancestors::new(), 4, |_| true),
+				[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+			// Ancestor which is not part of the tree. Will be ignored.
+			let ancestors: Ancestors = [CandidateHash::default()].into_iter().collect();
+			assert_eq!(tree.find_ancestor_path(ancestors.clone()).unwrap(), NodePointer::Root);
+			assert_eq!(
+				tree.find_backable_chain(ancestors, 4, |_| true),
+				[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+			// A chain fork.
+			let ancestors: Ancestors =
+				[(candidates[0].hash()), (candidates[7].hash())].into_iter().collect();
+			assert_eq!(tree.find_ancestor_path(ancestors.clone()), None);
+			assert_eq!(tree.find_backable_chain(ancestors, 1, |_| true), vec![]);
+
+			// Ancestors which are part of the tree but don't form a path. Will be ignored.
+			let ancestors: Ancestors =
+				[candidates[1].hash(), candidates[2].hash()].into_iter().collect();
+			assert_eq!(tree.find_ancestor_path(ancestors.clone()).unwrap(), NodePointer::Root);
+			assert_eq!(
+				tree.find_backable_chain(ancestors, 4, |_| true),
+				[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+
+			// Valid ancestors.
+			let ancestors: Ancestors = [candidates[7].hash()].into_iter().collect();
+			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
+			assert_eq!(candidate.candidate_hash, candidates[7].hash());
+			assert_eq!(tree.find_backable_chain(ancestors, 1, |_| true), vec![]);
+
+			let ancestors: Ancestors =
+				[candidates[2].hash(), candidates[0].hash(), candidates[1].hash()]
+					.into_iter()
+					.collect();
+			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
+			assert_eq!(candidate.candidate_hash, candidates[2].hash());
+			assert_eq!(
+				tree.find_backable_chain(ancestors.clone(), 2, |_| true),
+				[3, 4].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+
+			// Valid ancestors with candidates which have been omitted due to timeouts
+			let ancestors: Ancestors =
+				[candidates[0].hash(), candidates[2].hash()].into_iter().collect();
+			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
+			assert_eq!(candidate.candidate_hash, candidates[0].hash());
+			assert_eq!(
+				tree.find_backable_chain(ancestors, 3, |_| true),
+				[1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+
+			let ancestors: Ancestors =
+				[candidates[0].hash(), candidates[1].hash(), candidates[3].hash()]
+					.into_iter()
+					.collect();
+			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
+			assert_eq!(candidate.candidate_hash, candidates[1].hash());
+			if has_cycle {
+				assert_eq!(
+					tree.find_backable_chain(ancestors, 2, |_| true),
+					[2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+				);
+			} else {
+				assert_eq!(
+					tree.find_backable_chain(ancestors, 4, |_| true),
+					[2, 3, 4].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+				);
+			}
+
+			let ancestors: Ancestors =
+				[candidates[1].hash(), candidates[2].hash()].into_iter().collect();
+			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
+			assert_eq!(res, NodePointer::Root);
+			assert_eq!(
+				tree.find_backable_chain(ancestors, 4, |_| true),
+				[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+
+			// Requested count is 0.
+			assert_eq!(tree.find_backable_chain(Ancestors::new(), 0, |_| true), vec![]);
+
+			let ancestors: Ancestors =
+				[candidates[2].hash(), candidates[0].hash(), candidates[1].hash()]
+					.into_iter()
+					.collect();
+			assert_eq!(tree.find_backable_chain(ancestors, 0, |_| true), vec![]);
+
+			let ancestors: Ancestors =
+				[candidates[2].hash(), candidates[0].hash()].into_iter().collect();
+			assert_eq!(tree.find_backable_chain(ancestors, 0, |_| true), vec![]);
+		}
+
+		// Now do some tests only on the tree with cycles
+		if has_cycle {
+			// Exceeds the maximum tree depth. 0-1-2-3-4-1-2-3-4, when the tree stops at
+			// 0-1-2-3-4-1-2-3.
+			let ancestors: Ancestors = [
+				candidates[0].hash(),
+				candidates[1].hash(),
+				candidates[2].hash(),
+				candidates[3].hash(),
+				candidates[4].hash(),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
+			assert_eq!(candidate.candidate_hash, candidates[4].hash());
+			assert_eq!(
+				tree.find_backable_chain(ancestors, 4, |_| true),
+				[1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+
+			// 0-1-2.
+			let ancestors: Ancestors =
+				[candidates[0].hash(), candidates[1].hash(), candidates[2].hash()]
+					.into_iter()
+					.collect();
+			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
+			assert_eq!(candidate.candidate_hash, candidates[2].hash());
+			assert_eq!(
+				tree.find_backable_chain(ancestors.clone(), 1, |_| true),
+				[3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+			assert_eq!(
+				tree.find_backable_chain(ancestors, 5, |_| true),
+				[3, 4, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+
+			// 0-1
+			let ancestors: Ancestors =
+				[candidates[0].hash(), candidates[1].hash()].into_iter().collect();
+			let res = tree.find_ancestor_path(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
+			assert_eq!(candidate.candidate_hash, candidates[1].hash());
+			assert_eq!(
+				tree.find_backable_chain(ancestors, 6, |_| true),
+				[2, 3, 4, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>(),
+			);
+
+			// For 0-1-2-3-4-5, there's more than 1 way of finding this path in
+			// the tree. `None` should be returned. The runtime should not have accepted this.
+			let ancestors: Ancestors = [
+				candidates[0].hash(),
+				candidates[1].hash(),
+				candidates[2].hash(),
+				candidates[3].hash(),
+				candidates[4].hash(),
+				candidates[5].hash(),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_ancestor_path(ancestors.clone());
+			assert_eq!(res, None);
+			assert_eq!(tree.find_backable_chain(ancestors, 1, |_| true), vec![]);
+		}
+	}
+
+	#[test]
 	fn graceful_cycle_of_0() {
 		let mut storage = CandidateStorage::new();
 
@@ -1602,13 +2071,17 @@ mod tests {
 
 		for count in 1..10 {
 			assert_eq!(
-				tree.select_children(&[], count, |_| true),
+				tree.find_backable_chain(Ancestors::new(), count, |_| true),
 				iter::repeat(candidate_a_hash)
 					.take(std::cmp::min(count as usize, max_depth + 1))
 					.collect::<Vec<_>>()
 			);
 			assert_eq!(
-				tree.select_children(&[candidate_a_hash], count - 1, |_| true),
+				tree.find_backable_chain(
+					[candidate_a_hash].into_iter().collect(),
+					count - 1,
+					|_| true
+				),
 				iter::repeat(candidate_a_hash)
 					.take(std::cmp::min(count as usize - 1, max_depth))
 					.collect::<Vec<_>>()
@@ -1682,22 +2155,22 @@ mod tests {
 		assert_eq!(tree.nodes[3].candidate_hash, candidate_b_hash);
 		assert_eq!(tree.nodes[4].candidate_hash, candidate_a_hash);
 
-		assert_eq!(tree.select_children(&[], 1, |_| true), vec![candidate_a_hash],);
+		assert_eq!(tree.find_backable_chain(Ancestors::new(), 1, |_| true), vec![candidate_a_hash],);
 		assert_eq!(
-			tree.select_children(&[], 2, |_| true),
+			tree.find_backable_chain(Ancestors::new(), 2, |_| true),
 			vec![candidate_a_hash, candidate_b_hash],
 		);
 		assert_eq!(
-			tree.select_children(&[], 3, |_| true),
+			tree.find_backable_chain(Ancestors::new(), 3, |_| true),
 			vec![candidate_a_hash, candidate_b_hash, candidate_a_hash],
 		);
 		assert_eq!(
-			tree.select_children(&[candidate_a_hash], 2, |_| true),
+			tree.find_backable_chain([candidate_a_hash].into_iter().collect(), 2, |_| true),
 			vec![candidate_b_hash, candidate_a_hash],
 		);
 
 		assert_eq!(
-			tree.select_children(&[], 6, |_| true),
+			tree.find_backable_chain(Ancestors::new(), 6, |_| true),
 			vec![
 				candidate_a_hash,
 				candidate_b_hash,
@@ -1706,10 +2179,17 @@ mod tests {
 				candidate_a_hash
 			],
 		);
-		assert_eq!(
-			tree.select_children(&[candidate_a_hash, candidate_b_hash], 6, |_| true),
-			vec![candidate_a_hash, candidate_b_hash, candidate_a_hash,],
-		);
+
+		for count in 3..7 {
+			assert_eq!(
+				tree.find_backable_chain(
+					[candidate_a_hash, candidate_b_hash].into_iter().collect(),
+					count,
+					|_| true
+				),
+				vec![candidate_a_hash, candidate_b_hash, candidate_a_hash],
+			);
+		}
 	}
 
 	#[test]
