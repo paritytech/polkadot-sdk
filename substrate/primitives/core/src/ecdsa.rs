@@ -17,15 +17,17 @@
 
 //! Simple ECDSA secp256k1 API.
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
+use codec::Encode;
 use sp_runtime_interface::pass_by::PassByInner;
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
-	Public as TraitPublic, SecretStringError, UncheckedFrom,
+use crate::{
+	byte_array::ByteArray as ByteArrayGen,
+	crypto::{
+		CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
+		Public as TraitPublic, SecretStringError,
+	},
 };
 
 #[cfg(not(feature = "std"))]
@@ -51,45 +53,27 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 /// The byte length of signature
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 
+#[allow(missing_docs)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct EcdsaMarker<const I: u8 = 0>;
+
 /// The secret seed.
 ///
 /// The raw secret seed, which can be used to create the `Pair`.
 type Seed = [u8; 32];
 
 /// The ECDSA compressed public key.
-#[derive(
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	PassByInner,
-	MaxEncodedLen,
-	TypeInfo,
-	Eq,
-	PartialEq,
-	PartialOrd,
-	Ord,
-	Hash,
-)]
-pub struct Public(pub [u8; PUBLIC_KEY_SERIALIZED_SIZE]);
+pub type Public = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, EcdsaMarker>;
 
 impl crate::crypto::FromEntropy for Public {
 	fn from_entropy(input: &mut impl codec::Input) -> Result<Self, codec::Error> {
-		let mut result = Self([0u8; PUBLIC_KEY_SERIALIZED_SIZE]);
-		input.read(&mut result.0[..])?;
+		let mut result = Self::default();
+		input.read(result.as_mut())?;
 		Ok(result)
 	}
 }
 
 impl Public {
-	/// A new instance from the given 33-byte `data`.
-	///
-	/// NOTE: No checking goes on to ensure this is a real public key. Only use it if
-	/// you are certain that the array actually is a pubkey. GIGO!
-	pub fn from_raw(data: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -> Self {
-		Self(data)
-	}
-
 	/// Create a new instance from the given full public key.
 	///
 	/// This will convert the full public key into the compressed format.
@@ -111,30 +95,14 @@ impl Public {
 	}
 }
 
-impl ByteArray for Public {
-	const LEN: usize = PUBLIC_KEY_SERIALIZED_SIZE;
-}
-
 impl TraitPublic for Public {}
 
 impl Derive for Public {}
 
-impl AsRef<[u8]> for Public {
-	fn as_ref(&self) -> &[u8] {
-		&self.0[..]
-	}
-}
-
-impl AsMut<[u8]> for Public {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0[..]
-	}
-}
-
 #[cfg(feature = "std")]
 impl From<PublicKey> for Public {
 	fn from(pubkey: PublicKey) -> Self {
-		Self(pubkey.serialize())
+		Self::from_raw(pubkey.serialize())
 	}
 }
 
@@ -149,29 +117,10 @@ impl From<VerifyingKey> for Public {
 	}
 }
 
-impl TryFrom<&[u8]> for Public {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != Self::LEN {
-			return Err(())
-		}
-		let mut r = [0u8; Self::LEN];
-		r.copy_from_slice(data);
-		Ok(Self::unchecked_from(r))
-	}
-}
-
 #[cfg(feature = "full_crypto")]
 impl From<Pair> for Public {
 	fn from(x: Pair) -> Self {
 		x.public()
-	}
-}
-
-impl UncheckedFrom<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public {
-	fn unchecked_from(x: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -> Self {
-		Public(x)
 	}
 }
 
@@ -217,26 +166,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
-#[derive(Hash, Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
-pub struct Signature(pub [u8; SIGNATURE_SERIALIZED_SIZE]);
-
-impl ByteArray for Signature {
-	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
-}
-
-impl TryFrom<&[u8]> for Signature {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() == SIGNATURE_SERIALIZED_SIZE {
-			let mut inner = [0u8; SIGNATURE_SERIALIZED_SIZE];
-			inner.copy_from_slice(data);
-			Ok(Signature(inner))
-		} else {
-			Err(())
-		}
-	}
-}
+pub type Signature = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, EcdsaMarker<1>>;
 
 #[cfg(feature = "serde")]
 impl Serialize for Signature {
@@ -261,48 +191,10 @@ impl<'de> Deserialize<'de> for Signature {
 	}
 }
 
-impl Clone for Signature {
-	fn clone(&self) -> Self {
-		let mut r = [0u8; SIGNATURE_SERIALIZED_SIZE];
-		r.copy_from_slice(&self.0[..]);
-		Signature(r)
-	}
-}
-
-impl Default for Signature {
-	fn default() -> Self {
-		Signature([0u8; SIGNATURE_SERIALIZED_SIZE])
-	}
-}
-
-impl From<Signature> for [u8; SIGNATURE_SERIALIZED_SIZE] {
-	fn from(v: Signature) -> [u8; SIGNATURE_SERIALIZED_SIZE] {
-		v.0
-	}
-}
-
-impl AsRef<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature {
-	fn as_ref(&self) -> &[u8; SIGNATURE_SERIALIZED_SIZE] {
-		&self.0
-	}
-}
-
-impl AsRef<[u8]> for Signature {
-	fn as_ref(&self) -> &[u8] {
-		&self.0[..]
-	}
-}
-
-impl AsMut<[u8]> for Signature {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0[..]
-	}
-}
-
 impl sp_std::fmt::Debug for Signature {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
+		write!(f, "{}", crate::hexdisplay::HexDisplay::from(self.inner()))
 	}
 
 	#[cfg(not(feature = "std"))]
@@ -311,34 +203,7 @@ impl sp_std::fmt::Debug for Signature {
 	}
 }
 
-impl UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature {
-	fn unchecked_from(data: [u8; SIGNATURE_SERIALIZED_SIZE]) -> Signature {
-		Signature(data)
-	}
-}
-
 impl Signature {
-	/// A new instance from the given 65-byte `data`.
-	///
-	/// NOTE: No checking goes on to ensure this is a real signature. Only use it if
-	/// you are certain that the array actually is a signature. GIGO!
-	pub fn from_raw(data: [u8; SIGNATURE_SERIALIZED_SIZE]) -> Signature {
-		Signature(data)
-	}
-
-	/// A new instance from the given slice that should be 65 bytes long.
-	///
-	/// NOTE: No checking goes on to ensure this is a real signature. Only use it if
-	/// you are certain that the array actually is a signature. GIGO!
-	pub fn from_slice(data: &[u8]) -> Option<Self> {
-		if data.len() != SIGNATURE_SERIALIZED_SIZE {
-			return None
-		}
-		let mut r = [0u8; SIGNATURE_SERIALIZED_SIZE];
-		r.copy_from_slice(data);
-		Some(Signature(r))
-	}
-
 	/// Recover the public key from this signature and a message.
 	pub fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
 		self.recover_prehashed(&sp_crypto_hashing::blake2_256(message.as_ref()))
@@ -348,8 +213,8 @@ impl Signature {
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
 		#[cfg(feature = "std")]
 		{
-			let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
-			let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
+			let rid = RecoveryId::from_i32(self.inner()[64] as i32).ok()?;
+			let sig = RecoverableSignature::from_compact(&self.inner()[..64], rid).ok()?;
 			let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
 			SECP256K1.recover_ecdsa(&message, &sig).ok().map(Public::from)
 		}
@@ -378,9 +243,9 @@ impl From<RecoverableSignature> for Signature {
 	fn from(recsig: RecoverableSignature) -> Signature {
 		let mut r = Self::default();
 		let (recid, sig) = recsig.serialize_compact();
-		r.0[..64].copy_from_slice(&sig);
+		r.as_mut()[..64].copy_from_slice(&sig);
 		// This is safe due to the limited range of possible valid ids.
-		r.0[64] = recid.to_i32() as u8;
+		r.as_mut()[64] = recid.to_i32() as u8;
 		r
 	}
 }
@@ -525,12 +390,12 @@ impl Pair {
 			Some((sig, rid))
 		};
 
-		let (sig, rid) = match parse_signature_overflowing(sig.0) {
+		let (sig, rid) = match parse_signature_overflowing(*sig.inner()) {
 			Some(sigri) => sigri,
 			_ => return false,
 		};
 		match libsecp256k1::recover(&message, &sig, &rid) {
-			Ok(actual) => pubkey.0 == actual.serialize_compressed(),
+			Ok(actual) => pubkey.inner() == &actual.serialize_compressed(),
 			_ => false,
 		}
 	}

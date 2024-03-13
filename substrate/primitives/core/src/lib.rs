@@ -62,6 +62,7 @@ mod address_uri;
 pub mod bandersnatch;
 #[cfg(feature = "bls-experimental")]
 pub mod bls;
+pub mod byte_array;
 pub mod defer;
 pub mod ecdsa;
 pub mod ed25519;

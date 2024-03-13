@@ -136,11 +136,10 @@ impl<const N: usize, M> crate::ByteArray for ByteArray<N, M> {
 mod tests {
 	use super::*;
 
-	struct FooMarker;
-	type Foo = ByteArray<32, FooMarker>;
+	struct Marker<const I: u8 = 0>;
 
-	struct BarMarker;
-	type Bar = ByteArray<32, BarMarker>;
+	type Foo = ByteArray<32, Marker>;
+	type Bar = ByteArray<32, Marker<1>>;
 
 	fn print_foo(f: &Foo) {
 		println!("{:02x?}", f.inner());
@@ -151,11 +150,14 @@ mod tests {
 	}
 
 	#[test]
-	fn asd_works() {
+	fn byte_array_works() {
 		let foo = Foo::default();
 		let bar = Bar::default();
 
 		print_foo(&foo);
 		print_bar(&bar);
+
+		// Different Maker!
+		// print_bar(&foo);
 	}
 }
