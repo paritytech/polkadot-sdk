@@ -121,23 +121,21 @@ impl<T: Config> StakingLedger<T> {
 			),
 		};
 
+		let ledger = <Ledger<T>>::get(&controller)
+			.map(|mut ledger| {
+				ledger.controller = Some(controller.clone());
+				ledger
+			})
+			.ok_or(Error::<T>::NotController)?;
+
 		// if ledger bond is in a bad state, return error to prevent applying operations that may
 		// further spoil the ledger's state. A bond is in bad state when the bonded controller is
 		// associted with a different ledger (i.e. a ledger with a different stash).
 		//
 		// See <https://github.com/paritytech/polkadot-sdk/issues/3245> for more details.
-		ensure!(
-			Bonded::<T>::get(&stash).is_some() &&
-				Ledger::<T>::get(&controller).map(|l| l.stash == stash).unwrap_or(false),
-			Error::<T>::BadState
-		);
+		ensure!(Bonded::<T>::get(&stash).is_some() && ledger.stash == stash, Error::<T>::BadState);
 
-		<Ledger<T>>::get(&controller)
-			.map(|mut ledger| {
-				ledger.controller = Some(controller.clone());
-				ledger
-			})
-			.ok_or(Error::<T>::NotController)
+		Ok(ledger)
 	}
 
 	/// Returns the reward destination of a staking ledger, stored in [`Payee`].
