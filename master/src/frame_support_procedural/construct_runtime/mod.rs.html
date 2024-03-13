@@ -953,6 +953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
 <a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1163,8 +1164,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! This macro returns the ` :: expanded { Error }` list of additional parts we would like to
 //! expose.
 
-</span><span class="kw">mod </span>expand;
-<span class="kw">mod </span>parse;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>expand;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>parse;
 
 <span class="kw">use </span><span class="kw">crate</span>::pallet::parse::helper::two128_str;
 <span class="kw">use </span>cfg_expr::Predicate;
@@ -1470,7 +1471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(res)
 }
 
-<span class="kw">fn </span>decl_all_pallets&lt;<span class="lifetime">&#39;a</span>&gt;(
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>decl_all_pallets&lt;<span class="lifetime">&#39;a</span>&gt;(
 	runtime: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Ident,
 	pallet_declarations: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Pallet&gt;,
 	features: <span class="kw-2">&amp;</span>HashSet&lt;<span class="kw-2">&amp;</span>str&gt;,
@@ -1579,7 +1580,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#( #all_pallets_without_system )*
 	)
 }
-<span class="kw">fn </span>decl_pallet_runtime_setup(
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>decl_pallet_runtime_setup(
 	runtime: <span class="kw-2">&amp;</span>Ident,
 	pallet_declarations: <span class="kw-2">&amp;</span>[Pallet],
 	scrate: <span class="kw-2">&amp;</span>TokenStream2,
@@ -1685,7 +1687,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 }
 
-<span class="kw">fn </span>decl_integrity_test(scrate: <span class="kw-2">&amp;</span>TokenStream2) -&gt; TokenStream2 {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>decl_integrity_test(scrate: <span class="kw-2">&amp;</span>TokenStream2) -&gt; TokenStream2 {
 	<span class="macro">quote!</span>(
 		<span class="attr">#[cfg(test)]
 		</span><span class="kw">mod </span>__construct_runtime_integrity_test {
@@ -1700,7 +1702,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 }
 
-<span class="kw">fn </span>decl_static_assertions(
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>decl_static_assertions(
 	runtime: <span class="kw-2">&amp;</span>Ident,
 	pallet_decls: <span class="kw-2">&amp;</span>[Pallet],
 	scrate: <span class="kw-2">&amp;</span>TokenStream2,
@@ -1731,7 +1733,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>check_pallet_number(input: TokenStream2, pallet_num: usize) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>check_pallet_number(input: TokenStream2, pallet_num: usize) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">let </span>max_pallet_num = {
 		<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;tuples-96&quot;</span>) {
 			<span class="number">96

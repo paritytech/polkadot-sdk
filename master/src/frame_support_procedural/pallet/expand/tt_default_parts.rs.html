@@ -287,6 +287,80 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -317,6 +391,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		syn::Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;__tt_default_parts_{}&quot;</span>, count), def.item.span());
 	<span class="kw">let </span>extra_parts_unique_id =
 		syn::Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;__tt_extra_parts_{}&quot;</span>, count), def.item.span());
+	<span class="kw">let </span>default_parts_unique_id_v2 =
+		syn::Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;__tt_default_parts_v2_{}&quot;</span>, count), def.item.span());
 
 	<span class="kw">let </span>call_part = def.call.as_ref().map(|<span class="kw">_</span>| <span class="macro">quote::quote!</span>(Call,));
 
@@ -369,6 +445,58 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.iter()
 		.any(|c| <span class="macro">matches!</span>(c.composite_keyword, CompositeKeyword::SlashReason(<span class="kw">_</span>)))
 		.then_some(<span class="macro">quote::quote!</span>(SlashReason,));
+
+	<span class="kw">let </span>call_part_v2 = def.call.as_ref().map(|<span class="kw">_</span>| <span class="macro">quote::quote!</span>(+ Call));
+
+	<span class="kw">let </span>task_part_v2 = def.task_enum.as_ref().map(|<span class="kw">_</span>| <span class="macro">quote::quote!</span>(+ Task));
+
+	<span class="kw">let </span>storage_part_v2 = (!def.storages.is_empty()).then(|| <span class="macro">quote::quote!</span>(+ Storage));
+
+	<span class="kw">let </span>event_part_v2 = def.event.as_ref().map(|event| {
+		<span class="kw">let </span>gen = event.gen_kind.is_generic().then(|| <span class="macro">quote::quote!</span>(&lt;T&gt;));
+		<span class="macro">quote::quote!</span>(+ Event #gen)
+	});
+
+	<span class="kw">let </span>error_part_v2 = def.error.as_ref().map(|<span class="kw">_</span>| <span class="macro">quote::quote!</span>(+ Error&lt;T&gt;));
+
+	<span class="kw">let </span>origin_part_v2 = def.origin.as_ref().map(|origin| {
+		<span class="kw">let </span>gen = origin.is_generic.then(|| <span class="macro">quote::quote!</span>(&lt;T&gt;));
+		<span class="macro">quote::quote!</span>(+ Origin #gen)
+	});
+
+	<span class="kw">let </span>config_part_v2 = def.genesis_config.as_ref().map(|genesis_config| {
+		<span class="kw">let </span>gen = genesis_config.gen_kind.is_generic().then(|| <span class="macro">quote::quote!</span>(&lt;T&gt;));
+		<span class="macro">quote::quote!</span>(+ Config #gen)
+	});
+
+	<span class="kw">let </span>inherent_part_v2 = def.inherent.as_ref().map(|<span class="kw">_</span>| <span class="macro">quote::quote!</span>(+ Inherent));
+
+	<span class="kw">let </span>validate_unsigned_part_v2 =
+		def.validate_unsigned.as_ref().map(|<span class="kw">_</span>| <span class="macro">quote::quote!</span>(+ ValidateUnsigned));
+
+	<span class="kw">let </span>freeze_reason_part_v2 = def
+		.composites
+		.iter()
+		.any(|c| <span class="macro">matches!</span>(c.composite_keyword, CompositeKeyword::FreezeReason(<span class="kw">_</span>)))
+		.then_some(<span class="macro">quote::quote!</span>(+ FreezeReason));
+
+	<span class="kw">let </span>hold_reason_part_v2 = def
+		.composites
+		.iter()
+		.any(|c| <span class="macro">matches!</span>(c.composite_keyword, CompositeKeyword::HoldReason(<span class="kw">_</span>)))
+		.then_some(<span class="macro">quote::quote!</span>(+ HoldReason));
+
+	<span class="kw">let </span>lock_id_part_v2 = def
+		.composites
+		.iter()
+		.any(|c| <span class="macro">matches!</span>(c.composite_keyword, CompositeKeyword::LockId(<span class="kw">_</span>)))
+		.then_some(<span class="macro">quote::quote!</span>(+ LockId));
+
+	<span class="kw">let </span>slash_reason_part_v2 = def
+		.composites
+		.iter()
+		.any(|c| <span class="macro">matches!</span>(c.composite_keyword, CompositeKeyword::SlashReason(<span class="kw">_</span>)))
+		.then_some(<span class="macro">quote::quote!</span>(+ SlashReason));
 
 	<span class="macro">quote::quote!</span>(
 		<span class="comment">// This macro follows the conventions as laid out by the `tt-call` crate. It does not
@@ -427,6 +555,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">pub use </span>#extra_parts_unique_id <span class="kw">as </span>tt_extra_parts;
+
+		<span class="attr">#[macro_export]
+		#[doc(hidden)]
+		</span><span class="macro">macro_rules! </span>#default_parts_unique_id_v2 {
+			{
+				<span class="macro-nonterminal">$caller</span>:tt
+				frame_support = [{ $(<span class="macro-nonterminal">$frame_support</span>:ident)::* }]
+			} =&gt; {
+				$(<span class="macro-nonterminal">$frame_support</span>)<span class="kw-2">*</span><span class="macro">::__private::tt_return! </span>{
+					<span class="macro-nonterminal">$caller
+					</span>tokens = [{
+						+ Pallet #call_part_v2 #storage_part_v2 #event_part_v2 #error_part_v2 #origin_part_v2 #config_part_v2
+						#inherent_part_v2 #validate_unsigned_part_v2 #freeze_reason_part_v2 #task_part_v2
+						#hold_reason_part_v2 #lock_id_part_v2 #slash_reason_part_v2
+					}]
+				}
+			};
+		}
+
+		<span class="kw">pub use </span>#default_parts_unique_id_v2 <span class="kw">as </span>tt_default_parts_v2;
 	)
 }
 </code></pre></div></section></main></body></html>
