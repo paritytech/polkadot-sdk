@@ -38,7 +38,7 @@ fn migrate_pool_account_id_with_native() {
 		let lp_token =
 			<Test as pallet_asset_conversion::Config>::PoolAssetId::initial_value().unwrap();
 
-		// setup pool and add provide some liquidity.
+		// setup pool and provide some liquidity.
 		assert_ok!(NativeAndAssets::create(token_2.clone(), user, false, 1));
 
 		assert_ok!(AssetConversion::create_pool(
@@ -122,7 +122,7 @@ fn migrate_pool_account_id_with_insufficient_assets() {
 		let lp_token =
 			<Test as pallet_asset_conversion::Config>::PoolAssetId::initial_value().unwrap();
 
-		// setup pool and add provide some liquidity.
+		// setup pool and provide some liquidity.
 		assert_ok!(NativeAndAssets::create(token_1.clone(), user, false, 1));
 		assert_ok!(NativeAndAssets::create(token_2.clone(), user, false, 1));
 
@@ -206,7 +206,7 @@ fn migrate_pool_account_id_with_sufficient_assets() {
 		let lp_token =
 			<Test as pallet_asset_conversion::Config>::PoolAssetId::initial_value().unwrap();
 
-		// setup pool and add provide some liquidity.
+		// setup pool and provide some liquidity.
 		assert_ok!(NativeAndAssets::create(token_1.clone(), user, true, 1));
 		assert_ok!(NativeAndAssets::create(token_2.clone(), user, true, 1));
 
@@ -286,7 +286,7 @@ fn migrate_empty_pool_account_id() {
 		let token_1 = NativeOrWithId::Native;
 		let token_2 = NativeOrWithId::WithId(2);
 
-		// setup pool and add provide some liquidity.
+		// setup pool and provide some liquidity.
 		assert_ok!(NativeAndAssets::create(token_2.clone(), user, false, 1));
 
 		assert_ok!(AssetConversion::create_pool(

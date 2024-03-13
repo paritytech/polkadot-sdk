@@ -135,13 +135,6 @@ pub mod pallet {
 		PartialTransfer,
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
-			// TODO
-		}
-	}
-
 	/// Pallet's callable functions.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
