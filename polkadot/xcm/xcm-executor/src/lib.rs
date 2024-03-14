@@ -33,7 +33,7 @@ use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
 	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
-	XcmAssetTransfers, HandleHrmp
+	XcmAssetTransfers, HandleHrmpNewChannelOpenRequest, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
 };
 
 mod assets;
@@ -1212,9 +1212,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				);
 				Ok(())
 			},
-			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } => Config::HrmpHandler::handle_new_channel_open_request(sender, max_message_size, max_capacity),
-			HrmpChannelAccepted { recipient } => Config::HrmpHandler::handle_channel_accepted(recipient),
-			HrmpChannelClosing { initiator, sender, recipient } => Config::HrmpHandler::handle_channel_closing(initiator, sender, recipient),
+			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } => Config::HrmpNewChannelOpenRequestHandler::handle(sender, max_message_size, max_capacity),
+			HrmpChannelAccepted { recipient } => Config::HrmpChannelAcceptedHandler::handle(recipient),
+			HrmpChannelClosing { initiator, sender, recipient } => Config::HrmpChannelClosingHandler::handle(initiator, sender, recipient),
 		}
 	}
 }

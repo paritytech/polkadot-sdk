@@ -1,23 +1,35 @@
-use xcm::v3::{
-	prelude::{XcmError, XcmResult},
-};
+use xcm::v3::prelude::XcmResult;
 
-pub trait HandleHrmp {
-	fn handle_new_channel_open_request(sender: u32, max_message_size: u32, max_capacity: u32) -> XcmResult;
-	fn handle_channel_accepted(recipient: u32) -> XcmResult;
-	fn handle_channel_closing(initiator: u32, sender: u32, recipient: u32) -> XcmResult;
+pub trait HandleHrmpNewChannelOpenRequest {
+	fn handle(sender: u32, max_message_size: u32, max_capacity: u32) -> XcmResult;
+}
+pub trait HandleHrmpChannelAccepted {
+	fn handle(recipient: u32) -> XcmResult;
+}
+pub trait HandleHrmpChannelClosing {
+	fn handle(initiator: u32, sender: u32, recipient: u32) -> XcmResult;
 }
 
-impl HandleHrmp for () {
-	fn handle_new_channel_open_request(_sender: u32, _max_message_size: u32, _max_capacity: u32) -> XcmResult {
-		Err(XcmError::Unimplemented)
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl HandleHrmpNewChannelOpenRequest for Tuple {
+	fn handle(sender: u32, max_message_size: u32, max_capacity: u32) -> XcmResult {
+		for_tuples!( #( Tuple::handle(sender, max_message_size, max_capacity)?; )* );
+		Ok(())
 	}
+}
 
-	fn handle_channel_accepted(_recipient: u32) -> XcmResult {
-		Err(XcmError::Unimplemented)
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl HandleHrmpChannelAccepted for Tuple {
+	fn handle(recipient: u32) -> XcmResult {
+		for_tuples!( #( Tuple::handle(recipient)?; )* );
+		Ok(())
 	}
+}
 
-	fn handle_channel_closing(_initiator: u32, _sender: u32, _recipient: u32) -> XcmResult {
-		Err(XcmError::Unimplemented)
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl HandleHrmpChannelClosing for Tuple {
+	fn handle(initiator: u32, sender: u32, recipient: u32) -> XcmResult {
+		for_tuples!( #( Tuple::handle(initiator, sender, recipient)?; )* );
+		Ok(())
 	}
 }

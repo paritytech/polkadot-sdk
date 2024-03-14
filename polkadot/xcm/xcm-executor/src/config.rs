@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::traits::{AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm, FeeManager, HandleHrmp, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader};
+use crate::traits::{AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm, FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader};
 use frame_support::{
 	dispatch::{GetDispatchInfo, Parameter, PostDispatchInfo},
 	traits::{Contains, ContainsPair, Get, PalletsInfoAccess},
@@ -111,6 +111,7 @@ pub trait Config {
 	/// Transactional processor for XCM instructions.
 	type TransactionalProcessor: ProcessTransaction;
 
-	/// Handler for HRMP notification messages sent by the relay chain.
-	type HrmpHandler: HandleHrmp;
+	type HrmpNewChannelOpenRequestHandler: HandleHrmpNewChannelOpenRequest;
+	type HrmpChannelAcceptedHandler: HandleHrmpChannelAccepted;
+	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
 }
