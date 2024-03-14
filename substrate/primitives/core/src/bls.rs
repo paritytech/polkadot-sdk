@@ -25,15 +25,17 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{
-	ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
-	Public as TraitPublic, SecretStringError, UncheckedFrom,
+use crate::{
+	byte_array::ByteArray as ByteArrayGen,
+	crypto::{
+		CryptoType, Derive, DeriveError, DeriveJunction, Pair as TraitPair, Public as TraitPublic,
+		SecretStringError, UncheckedFrom,
+	},
 };
 
 use sp_std::vec::Vec;
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
+use codec::Encode;
 
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -44,9 +46,6 @@ use w3f_bls::{
 	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
 	SecretKey, SerializableToBytes, TinyBLS381,
 };
-
-use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
-use sp_std::{convert::TryFrom, marker::PhantomData, ops::Deref};
 
 /// BLS-377 specialized types
 pub mod bls377 {
@@ -113,124 +112,15 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize =
 /// will need it later (such as for HDKD).
 type Seed = [u8; SECRET_KEY_SERIALIZED_SIZE];
 
+#[allow(missing_docs)]
+pub struct PublicMarker;
+
 /// A public key.
-#[derive(Copy, Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct Public<T> {
-	inner: [u8; PUBLIC_KEY_SERIALIZED_SIZE],
-	_phantom: PhantomData<fn() -> T>,
-}
-
-impl<T> Clone for Public<T> {
-	fn clone(&self) -> Self {
-		Self { inner: self.inner, _phantom: PhantomData }
-	}
-}
-
-impl<T> PartialEq for Public<T> {
-	fn eq(&self, other: &Self) -> bool {
-		self.inner == other.inner
-	}
-}
-
-impl<T> Eq for Public<T> {}
-
-impl<T> PartialOrd for Public<T> {
-	fn partial_cmp(&self, other: &Self) -> Option<sp_std::cmp::Ordering> {
-		Some(self.cmp(other))
-	}
-}
-
-impl<T> Ord for Public<T> {
-	fn cmp(&self, other: &Self) -> sp_std::cmp::Ordering {
-		self.inner.cmp(&other.inner)
-	}
-}
-
-impl<T> sp_std::hash::Hash for Public<T> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
-		self.inner.hash(state)
-	}
-}
-
-impl<T> ByteArray for Public<T> {
-	const LEN: usize = PUBLIC_KEY_SERIALIZED_SIZE;
-}
-
-impl<T> PassByInner for Public<T> {
-	type Inner = [u8; PUBLIC_KEY_SERIALIZED_SIZE];
-
-	fn into_inner(self) -> Self::Inner {
-		self.inner
-	}
-
-	fn inner(&self) -> &Self::Inner {
-		&self.inner
-	}
-
-	fn from_inner(inner: Self::Inner) -> Self {
-		Self { inner, _phantom: PhantomData }
-	}
-}
-
-impl<T> PassBy for Public<T> {
-	type PassBy = pass_by::Inner<Self, [u8; PUBLIC_KEY_SERIALIZED_SIZE]>;
-}
-
-impl<T> AsRef<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public<T> {
-	fn as_ref(&self) -> &[u8; PUBLIC_KEY_SERIALIZED_SIZE] {
-		&self.inner
-	}
-}
-
-impl<T> AsRef<[u8]> for Public<T> {
-	fn as_ref(&self) -> &[u8] {
-		&self.inner[..]
-	}
-}
-
-impl<T> AsMut<[u8]> for Public<T> {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.inner[..]
-	}
-}
-
-impl<T> Deref for Public<T> {
-	type Target = [u8];
-
-	fn deref(&self) -> &Self::Target {
-		&self.inner
-	}
-}
-
-impl<T> TryFrom<&[u8]> for Public<T> {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != PUBLIC_KEY_SERIALIZED_SIZE {
-			return Err(())
-		}
-		let mut r = [0u8; PUBLIC_KEY_SERIALIZED_SIZE];
-		r.copy_from_slice(data);
-		Ok(Self::unchecked_from(r))
-	}
-}
-
-impl<T> From<Public<T>> for [u8; PUBLIC_KEY_SERIALIZED_SIZE] {
-	fn from(x: Public<T>) -> Self {
-		x.inner
-	}
-}
+pub type Public<T> = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, (T, PublicMarker)>;
 
 impl<T: BlsBound> From<Pair<T>> for Public<T> {
 	fn from(x: Pair<T>) -> Self {
 		x.public()
-	}
-}
-
-impl<T> UncheckedFrom<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public<T> {
-	fn unchecked_from(data: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -> Self {
-		Public { inner: data, _phantom: PhantomData }
 	}
 }
 
@@ -294,50 +184,11 @@ impl<T: BlsBound> CryptoType for Public<T> {
 	type Pair = Pair<T>;
 }
 
+#[allow(missing_docs)]
+pub struct SignatureMarker;
+
 /// A generic BLS signature.
-#[derive(Copy, Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct Signature<T> {
-	inner: [u8; SIGNATURE_SERIALIZED_SIZE],
-	_phantom: PhantomData<fn() -> T>,
-}
-
-impl<T> Clone for Signature<T> {
-	fn clone(&self) -> Self {
-		Self { inner: self.inner, _phantom: PhantomData }
-	}
-}
-
-impl<T> PartialEq for Signature<T> {
-	fn eq(&self, other: &Self) -> bool {
-		self.inner == other.inner
-	}
-}
-
-impl<T> Eq for Signature<T> {}
-
-impl<T> sp_std::hash::Hash for Signature<T> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
-		self.inner.hash(state)
-	}
-}
-
-impl<T> ByteArray for Signature<T> {
-	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
-}
-
-impl<T> TryFrom<&[u8]> for Signature<T> {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != SIGNATURE_SERIALIZED_SIZE {
-			return Err(())
-		}
-		let mut inner = [0u8; SIGNATURE_SERIALIZED_SIZE];
-		inner.copy_from_slice(data);
-		Ok(Signature::unchecked_from(inner))
-	}
-}
+pub type Signature<T> = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, (T, SignatureMarker)>;
 
 #[cfg(feature = "serde")]
 impl<T> Serialize for Signature<T> {
@@ -362,30 +213,6 @@ impl<'de, T> Deserialize<'de> for Signature<T> {
 	}
 }
 
-impl<T> From<Signature<T>> for [u8; SIGNATURE_SERIALIZED_SIZE] {
-	fn from(signature: Signature<T>) -> [u8; SIGNATURE_SERIALIZED_SIZE] {
-		signature.inner
-	}
-}
-
-impl<T> AsRef<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature<T> {
-	fn as_ref(&self) -> &[u8; SIGNATURE_SERIALIZED_SIZE] {
-		&self.inner
-	}
-}
-
-impl<T> AsRef<[u8]> for Signature<T> {
-	fn as_ref(&self) -> &[u8] {
-		&self.inner[..]
-	}
-}
-
-impl<T> AsMut<[u8]> for Signature<T> {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.inner[..]
-	}
-}
-
 impl<T> sp_std::fmt::Debug for Signature<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
@@ -395,12 +222,6 @@ impl<T> sp_std::fmt::Debug for Signature<T> {
 	#[cfg(not(feature = "std"))]
 	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		Ok(())
-	}
-}
-
-impl<T> UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature<T> {
-	fn unchecked_from(data: [u8; SIGNATURE_SERIALIZED_SIZE]) -> Self {
-		Signature { inner: data, _phantom: PhantomData }
 	}
 }
 

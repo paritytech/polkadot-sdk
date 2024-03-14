@@ -28,14 +28,32 @@ use scale_info::TypeInfo;
 use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 
 /// Generic byte array.
-#[derive(
-	Clone, Copy, Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, PartialOrd, Ord, Hash,
-)]
+#[derive(Copy, Encode, Decode, MaxEncodedLen, TypeInfo, PartialOrd, Ord)]
 pub struct ByteArray<const N: usize, M = ()> {
 	/// Inner raw array
 	pub inner: [u8; N],
 	marker: PhantomData<fn() -> M>,
 }
+
+impl<const N: usize, M> Clone for ByteArray<N, M> {
+	fn clone(&self) -> Self {
+		Self { inner: self.inner.clone(), marker: PhantomData }
+	}
+}
+
+impl<const N: usize, M> PartialEq for ByteArray<N, M> {
+	fn eq(&self, other: &Self) -> bool {
+		self.inner.eq(&other.inner)
+	}
+}
+
+impl<const N: usize, M> core::hash::Hash for ByteArray<N, M> {
+	fn hash<H: scale_info::prelude::hash::Hasher>(&self, state: &mut H) {
+		self.inner.hash(state)
+	}
+}
+
+impl<const N: usize, M> Eq for ByteArray<N, M> {}
 
 impl<const N: usize, M> Default for ByteArray<N, M> {
 	fn default() -> Self {
