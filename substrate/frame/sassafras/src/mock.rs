@@ -34,8 +34,7 @@ use sp_core::{
 	H256, U256,
 };
 use sp_runtime::{
-	generic::UncheckedExtrinsic,
-	testing::{Digest, DigestItem, Header},
+	testing::{Digest, DigestItem, Header, TestXt},
 	BuildStorage,
 };
 
@@ -54,7 +53,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type OverarchingCall = RuntimeCall;
-	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
 impl pallet_sassafras::Config for Test {

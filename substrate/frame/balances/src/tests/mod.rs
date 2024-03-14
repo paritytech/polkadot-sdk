@@ -37,7 +37,7 @@ use scale_info::TypeInfo;
 use sp_core::hexdisplay::HexDisplay;
 use sp_io;
 use sp_runtime::{
-	traits::{BadOrigin, Zero},
+	traits::{BadOrigin, SignedExtension, Zero},
 	ArithmeticError, BuildStorage, DispatchError, DispatchResult, FixedPointNumber, RuntimeDebug,
 	TokenError,
 };
@@ -103,6 +103,7 @@ impl pallet_transaction_payment::Config for Test {
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<u64>;
 	type LengthToFee = IdentityFee<u64>;
+	type FeeMultiplierUpdate = ();
 }
 
 pub(crate) type Balance = u64;
