@@ -19,7 +19,6 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_runtime_interface::pass_by::PassByInner;
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
@@ -58,18 +57,7 @@ type Seed = [u8; 32];
 
 /// The ECDSA compressed public key.
 #[derive(
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	PassByInner,
-	MaxEncodedLen,
-	TypeInfo,
-	Eq,
-	PartialEq,
-	PartialOrd,
-	Ord,
-	Hash,
+	Clone, Copy, Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, PartialOrd, Ord, Hash,
 )]
 pub struct Public(pub [u8; PUBLIC_KEY_SERIALIZED_SIZE]);
 
@@ -169,6 +157,12 @@ impl From<Pair> for Public {
 	}
 }
 
+impl From<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public {
+	fn from(value: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -> Self {
+		Self(value)
+	}
+}
+
 impl UncheckedFrom<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public {
 	fn unchecked_from(x: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -> Self {
 		Public(x)
@@ -217,7 +211,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
-#[derive(Hash, Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
+#[derive(Hash, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
 pub struct Signature(pub [u8; SIGNATURE_SERIALIZED_SIZE]);
 
 impl ByteArray for Signature {
@@ -235,6 +229,12 @@ impl TryFrom<&[u8]> for Signature {
 		} else {
 			Err(())
 		}
+	}
+}
+
+impl From<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature {
+	fn from(value: [u8; SIGNATURE_SERIALIZED_SIZE]) -> Self {
+		Self(value)
 	}
 }
 

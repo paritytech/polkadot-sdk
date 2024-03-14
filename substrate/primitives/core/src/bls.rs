@@ -45,7 +45,6 @@ use w3f_bls::{
 	SecretKey, SerializableToBytes, TinyBLS381,
 };
 
-use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 use sp_std::{convert::TryFrom, marker::PhantomData, ops::Deref};
 
 /// BLS-377 specialized types
@@ -157,26 +156,6 @@ impl<T> ByteArray for Public<T> {
 	const LEN: usize = PUBLIC_KEY_SERIALIZED_SIZE;
 }
 
-impl<T> PassByInner for Public<T> {
-	type Inner = [u8; PUBLIC_KEY_SERIALIZED_SIZE];
-
-	fn into_inner(self) -> Self::Inner {
-		self.inner
-	}
-
-	fn inner(&self) -> &Self::Inner {
-		&self.inner
-	}
-
-	fn from_inner(inner: Self::Inner) -> Self {
-		Self { inner, _phantom: PhantomData }
-	}
-}
-
-impl<T> PassBy for Public<T> {
-	type PassBy = pass_by::Inner<Self, [u8; PUBLIC_KEY_SERIALIZED_SIZE]>;
-}
-
 impl<T> AsRef<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public<T> {
 	fn as_ref(&self) -> &[u8; PUBLIC_KEY_SERIALIZED_SIZE] {
 		&self.inner
@@ -225,6 +204,12 @@ impl<T> From<Public<T>> for [u8; PUBLIC_KEY_SERIALIZED_SIZE] {
 impl<T: BlsBound> From<Pair<T>> for Public<T> {
 	fn from(x: Pair<T>) -> Self {
 		x.public()
+	}
+}
+
+impl<T> From<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public<T> {
+	fn from(data: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -> Self {
+		Public { inner: data, _phantom: PhantomData }
 	}
 }
 

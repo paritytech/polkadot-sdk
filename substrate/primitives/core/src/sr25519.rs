@@ -44,7 +44,6 @@ use sp_std::ops::Deref;
 use schnorrkel::keys::{MINI_SECRET_KEY_LENGTH, SECRET_KEY_LENGTH};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use sp_runtime_interface::pass_by::PassByInner;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
 
@@ -56,18 +55,7 @@ pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"sr25");
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") public key.
 #[derive(
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	PassByInner,
-	MaxEncodedLen,
-	TypeInfo,
-	Hash,
+	PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Encode, Decode, MaxEncodedLen, TypeInfo, Hash,
 )]
 pub struct Public(pub [u8; 32]);
 
@@ -152,6 +140,12 @@ impl TryFrom<&[u8]> for Public {
 	}
 }
 
+impl From<[u8; 32]> for Public {
+	fn from(value: [u8; 32]) -> Self {
+		Self(value)
+	}
+}
+
 impl UncheckedFrom<[u8; 32]> for Public {
 	fn unchecked_from(x: [u8; 32]) -> Self {
 		Public::from_raw(x)
@@ -206,7 +200,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Hash)]
 pub struct Signature(pub [u8; 64]);
 
 impl TryFrom<&[u8]> for Signature {
@@ -220,6 +214,12 @@ impl TryFrom<&[u8]> for Signature {
 		} else {
 			Err(())
 		}
+	}
+}
+
+impl From<[u8; 64]> for Signature {
+	fn from(value: [u8; 64]) -> Self {
+		Self(value)
 	}
 }
 

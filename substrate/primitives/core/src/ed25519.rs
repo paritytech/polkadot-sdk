@@ -39,7 +39,6 @@ use core::convert::TryFrom;
 use ed25519_zebra::{SigningKey, VerificationKey};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use sp_runtime_interface::pass_by::PassByInner;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
 use sp_std::ops::Deref;
@@ -54,18 +53,7 @@ type Seed = [u8; 32];
 
 /// A public key.
 #[derive(
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	PassByInner,
-	MaxEncodedLen,
-	TypeInfo,
-	Hash,
+	PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Encode, Decode, MaxEncodedLen, TypeInfo, Hash,
 )]
 pub struct Public(pub [u8; 32]);
 
@@ -120,6 +108,12 @@ impl TryFrom<&[u8]> for Public {
 		let mut r = [0u8; Self::LEN];
 		r.copy_from_slice(data);
 		Ok(Self::unchecked_from(r))
+	}
+}
+
+impl From<[u8; 32]> for Public {
+	fn from(value: [u8; 32]) -> Self {
+		Self(value)
 	}
 }
 
@@ -205,7 +199,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature (a 512-bit value).
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Hash)]
 pub struct Signature(pub [u8; 64]);
 
 impl TryFrom<&[u8]> for Signature {
@@ -219,6 +213,12 @@ impl TryFrom<&[u8]> for Signature {
 		} else {
 			Err(())
 		}
+	}
+}
+
+impl From<[u8; 64]> for Signature {
+	fn from(value: [u8; 64]) -> Self {
+		Self(value)
 	}
 }
 

@@ -37,7 +37,6 @@ use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-use sp_runtime_interface::pass_by::PassByInner;
 use sp_std::{vec, vec::Vec};
 
 /// Identifier used to match public keys against bandersnatch-vrf keys.
@@ -54,20 +53,15 @@ const PREOUT_SERIALIZED_SIZE: usize = 33;
 
 /// Bandersnatch public key.
 #[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Encode,
-	Decode,
-	PassByInner,
-	MaxEncodedLen,
-	TypeInfo,
-	Hash,
+	Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, MaxEncodedLen, TypeInfo, Hash,
 )]
 pub struct Public(pub [u8; PUBLIC_SERIALIZED_SIZE]);
+
+impl From<[u8; PUBLIC_SERIALIZED_SIZE]> for Public {
+	fn from(raw: [u8; PUBLIC_SERIALIZED_SIZE]) -> Self {
+		Public(raw)
+	}
+}
 
 impl UncheckedFrom<[u8; PUBLIC_SERIALIZED_SIZE]> for Public {
 	fn unchecked_from(raw: [u8; PUBLIC_SERIALIZED_SIZE]) -> Self {
@@ -150,9 +144,7 @@ impl<'de> Deserialize<'de> for Public {
 ///
 /// The signature is created via the [`VrfSecret::vrf_sign`] using [`SIGNING_CTX`] as transcript
 /// `label`.
-#[derive(
-	Clone, Copy, PartialEq, Eq, Encode, Decode, PassByInner, MaxEncodedLen, TypeInfo, Hash,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, Hash)]
 pub struct Signature([u8; SIGNATURE_SERIALIZED_SIZE]);
 
 impl UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature {

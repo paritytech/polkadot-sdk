@@ -20,7 +20,6 @@
 use crate::{OpaquePeerId, RuntimeDebug};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_runtime_interface::pass_by::{PassByCodec, PassByEnum, PassByInner};
 use sp_std::prelude::{Box, Vec};
 
 pub use crate::crypto::KeyTypeId;
@@ -57,7 +56,7 @@ pub trait OffchainStorage: Clone + Send + Sync {
 }
 
 /// A type of supported crypto.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, RuntimeDebug, PassByEnum)]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
 pub enum StorageKind {
@@ -89,16 +88,26 @@ impl TryFrom<u32> for StorageKind {
 
 impl From<StorageKind> for u32 {
 	fn from(c: StorageKind) -> Self {
-		c as u8 as u32
+		c as u32
 	}
 }
 
 /// Opaque type for offchain http requests.
-#[derive(
-	Clone, Copy, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, Encode, Decode, PassByInner,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct HttpRequestId(pub u16);
+
+impl From<u16> for HttpRequestId {
+	fn from(value: u16) -> Self {
+		Self(value)
+	}
+}
+
+impl From<HttpRequestId> for u16 {
+	fn from(c: HttpRequestId) -> Self {
+		c.0
+	}
+}
 
 impl From<HttpRequestId> for u32 {
 	fn from(c: HttpRequestId) -> Self {
@@ -107,7 +116,7 @@ impl From<HttpRequestId> for u32 {
 }
 
 /// An error enum returned by some http methods.
-#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug, Encode, Decode, PassByEnum)]
+#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug, Encode, Decode)]
 #[repr(C)]
 pub enum HttpError {
 	/// The requested action couldn't been completed within a deadline.
@@ -138,7 +147,7 @@ impl From<HttpError> for u32 {
 }
 
 /// Status of the HTTP request
-#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug, Encode, Decode, PassByCodec)]
+#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug, Encode, Decode)]
 pub enum HttpRequestStatus {
 	/// Deadline was reached while we waited for this request to finish.
 	///
@@ -184,7 +193,7 @@ impl TryFrom<u32> for HttpRequestStatus {
 
 /// A blob to hold information about the local node's network state
 /// without committing to its format.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, PassByCodec, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Default))]
 pub struct OpaqueNetworkState {
 	/// PeerId of the local node in SCALE encoded.
@@ -194,7 +203,7 @@ pub struct OpaqueNetworkState {
 }
 
 /// Simple blob to hold a `Multiaddr` without committing to its format.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, PassByInner, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct OpaqueMultiaddr(pub Vec<u8>);
 
 impl OpaqueMultiaddr {
@@ -205,16 +214,24 @@ impl OpaqueMultiaddr {
 }
 
 /// Opaque timestamp type
-#[derive(
-	Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Default, RuntimeDebug, PassByInner, Encode, Decode,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Default, RuntimeDebug, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Timestamp(u64);
 
+impl From<u64> for Timestamp {
+	fn from(value: u64) -> Self {
+		Self(value)
+	}
+}
+
+impl From<Timestamp> for u64 {
+	fn from(value: Timestamp) -> u64 {
+		value.0
+	}
+}
+
 /// Duration type
-#[derive(
-	Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Default, RuntimeDebug, PassByInner, Encode, Decode,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Default, RuntimeDebug, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Duration(u64);
 
