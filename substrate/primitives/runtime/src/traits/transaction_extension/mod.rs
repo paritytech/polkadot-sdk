@@ -136,10 +136,10 @@ pub trait TransactionExtensionBase: TransactionExtensionInterior {
 /// ## Default implementations
 ///
 /// Of the 5 functions in this trait, 3 of them must return a value of an associated type on
-/// success, and none of these types implement [Default] or anything like it. This means that
-/// default implementations cannot be provided for these functions. However, a macro is provided
+/// success, with only `implicit` having a default implementation. This means that default
+/// implementations cannot be provided for `validate` and `prepare`. However, a macro is provided
 /// [impl_tx_ext_default](crate::impl_tx_ext_default) which is capable of generating default
-/// implementations for each of these 3 functions. If you do not wish to introduce additional logic
+/// implementations for both of these functions. If you do not wish to introduce additional logic
 /// into the transaction pipeline, then it is recommended that you use this macro to implement these
 /// functions.
 ///
@@ -339,7 +339,43 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	}
 }
 
-/// Implict
+/// Helper macro to be used in a `impl TransactionExtension` block to add default implementations of
+/// `validate` and/or `prepare`
+///
+/// The macro is to be used with 3 parameters, separated by ";":
+/// - the `Call` type;
+/// - the `Context` type;
+/// - the functions for which a default implementation should be generated, separated by " ";
+///
+/// Example usage:
+/// ```nocompile
+/// impl<C> TransactionExtension<FirstCall, C> for EmptyExtension {
+/// 	type Val = ();
+/// 	type Pre = ();
+///
+/// 	impl_tx_ext_default!(FirstCall; C; validate prepare);
+/// }
+///
+/// impl<C> TransactionExtension<SecondCall, C> for SimpleExtension {
+/// 	type Val = u32;
+/// 	type Pre = ();
+///
+/// 	fn validate(
+/// 			&self,
+/// 			_origin: <T as Config>::RuntimeOrigin,
+/// 			_call: &SecondCall,
+/// 			_info: &DispatchInfoOf<SecondCall>,
+/// 			_len: usize,
+/// 			_context: &mut C,
+/// 			_self_implicit: Self::Implicit,
+/// 			_inherited_implication: &impl Encode,
+/// 		) -> ValidateResult<Self::Val, SecondCall> {
+/// 		Ok((Default::default(), 42u32, origin))
+/// 	}
+///
+/// 	impl_tx_ext_default!(SecondCall; C; prepare);
+/// }
+/// ```
 #[macro_export]
 macro_rules! impl_tx_ext_default {
 	($call:ty ; $context:ty ; , $( $rest:tt )*) => {
