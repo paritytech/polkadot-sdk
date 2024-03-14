@@ -551,13 +551,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -583,41 +576,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! `ReserveAssetTransferDeposited` message but that will but the intension will be to support this
 //! soon.
 </span><span class="kw">use super</span>::{
-	AccountId, AllPalletsWithSystem, AssetId <span class="kw">as </span>AssetIdPalletAssets, Assets, Balance, Balances,
-	ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, AssetId <span class="kw">as </span>AssetIdPalletAssets, Assets, Authorship, Balance,
+	Balances, ForeignAssets, ForeignAssetsInstance, NonZeroIssuance, ParachainInfo,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee,
+	XcmpQueue,
 };
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
 	parameter_types,
-	traits::{
-		fungibles::{<span class="self">self</span>, Balanced, Credit},
-		ConstU32, Contains, ContainsPair, Everything, Get, Nothing,
-	},
+	traits::{ConstU32, Contains, ContainsPair, Everything, EverythingBut, Get, Nothing},
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
-<span class="kw">use </span>pallet_asset_tx_payment::HandleCredit;
-<span class="kw">use </span>pallet_assets::Instance1;
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
+<span class="kw">use </span>parachains_common::xcm_config::AssetFeeAsExistentialDepositMultiplier;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>polkadot_runtime_common::impls::ToAuthor;
-<span class="kw">use </span>sp_runtime::traits::Zero;
+<span class="kw">use </span>sp_runtime::traits::ConvertInto;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
-	ConvertedConcreteId, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
+	AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex, ConvertedConcreteId, EnsureXcmOrigin,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, IsConcrete,
+	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::{traits::JustTry, XcmExecutor};
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>RelayLocation: Location = Location::parent();
+	<span class="comment">// Local native currency which is stored in `pallet_balances``
+	</span><span class="kw">pub const </span>PenpalNativeCurrency: Location = Location::here();
 	<span class="kw">pub const </span>RelayNetwork: <span class="prelude-ty">Option</span>&lt;NetworkId&gt; = <span class="prelude-val">None</span>;
 	<span class="kw">pub </span>RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	<span class="kw">pub </span>UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
@@ -640,7 +631,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Use this currency:
 	</span>Balances,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
-	</span>IsConcrete&lt;RelayLocation&gt;,
+	</span>IsConcrete&lt;PenpalNativeCurrency&gt;,
 	<span class="comment">// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
 	</span>LocationToAccountId,
 	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
@@ -683,9 +674,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>CheckingAccount,
 &gt;;
 
-<span class="doccomment">/// `AssetId/Balance` converter for `TrustBackedAssets`
-</span><span class="kw">pub type </span>ForeignAssetsConvertedConcreteId =
-	assets_common::ForeignAssetsConvertedConcreteId&lt;StartsWith&lt;RelayLocation&gt;, Balance&gt;;
+<span class="kw">pub type </span>ForeignAssetsConvertedConcreteId = assets_common::LocationConvertedConcreteId&lt;
+	EverythingBut&lt;(
+		<span class="comment">// Here we rely on fact that something like this works:
+		// assert!(Location::new(1,
+		// [Parachain(100)]).starts_with(&amp;Location::parent()));
+		// assert!([Parachain(100)].into().starts_with(&amp;Here));
+		</span>StartsWith&lt;assets_common::matching::LocalLocationPattern&gt;,
+	)&gt;,
+	Balance,
+&gt;;
 
 <span class="doccomment">/// Means for transacting foreign assets from different global consensus.
 </span><span class="kw">pub type </span>ForeignFungiblesTransactor = FungiblesAdapter&lt;
@@ -735,19 +733,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>UnitWeightCost: Weight = Weight::from_parts(<span class="number">1_000_000_000</span>, <span class="number">64 </span>* <span class="number">1024</span>);
 	<span class="kw">pub const </span>MaxInstructions: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
+	<span class="kw">pub </span>XcmAssetFeesReceiver: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = Authorship::author();
 }
 
 <span class="kw">pub struct </span>ParentOrParentsExecutivePlurality;
 <span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>ParentOrParentsExecutivePlurality {
 	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="macro">matches!</span>(location.unpack(), (<span class="number">1</span>, []) | (<span class="number">1</span>, [Plurality { id: BodyId::Executive, .. }]))
-	}
-}
-
-<span class="kw">pub struct </span>CommonGoodAssetsParachain;
-<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>CommonGoodAssetsParachain {
-	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
-		<span class="macro">matches!</span>(location.unpack(), (<span class="number">1</span>, [Parachain(<span class="number">1000</span>)]))
 	}
 }
 
@@ -761,12 +753,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// If the message is one that immediately attempts to pay for execution, then
 			// allow it.
 			</span>AllowTopLevelPaidExecutionFrom&lt;Everything&gt;,
-			<span class="comment">// System Assets parachain, parent and its exec plurality get free
-			// execution
-			</span>AllowExplicitUnpaidExecutionFrom&lt;(
-				CommonGoodAssetsParachain,
-				ParentOrParentsExecutivePlurality,
-			)&gt;,
 			<span class="comment">// Subscriptions for version tracking are OK.
 			</span>AllowSubscriptionsFrom&lt;Everything&gt;,
 		),
@@ -806,53 +792,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Allow checking in assets that have issuance &gt; 0.
-</span><span class="kw">pub struct </span>NonZeroIssuance&lt;AccountId, Assets&gt;(PhantomData&lt;(AccountId, Assets)&gt;);
-<span class="kw">impl</span>&lt;AccountId, Assets&gt; Contains&lt;&lt;Assets <span class="kw">as </span>fungibles::Inspect&lt;AccountId&gt;&gt;::AssetId&gt;
-	<span class="kw">for </span>NonZeroIssuance&lt;AccountId, Assets&gt;
-<span class="kw">where
-	</span>Assets: fungibles::Inspect&lt;AccountId&gt;,
-{
-	<span class="kw">fn </span>contains(id: <span class="kw-2">&amp;</span>&lt;Assets <span class="kw">as </span>fungibles::Inspect&lt;AccountId&gt;&gt;::AssetId) -&gt; bool {
-		!Assets::total_issuance(id.clone()).is_zero()
-	}
-}
-
-<span class="doccomment">/// A `HandleCredit` implementation that naively transfers the fees to the block author.
-/// Will drop and burn the assets in case the transfer fails.
-</span><span class="kw">pub struct </span>AssetsToBlockAuthor&lt;R&gt;(PhantomData&lt;R&gt;);
-<span class="kw">impl</span>&lt;R&gt; HandleCredit&lt;AccountIdOf&lt;R&gt;, pallet_assets::Pallet&lt;R, Instance1&gt;&gt; <span class="kw">for </span>AssetsToBlockAuthor&lt;R&gt;
-<span class="kw">where
-	</span>R: pallet_authorship::Config + pallet_assets::Config&lt;Instance1&gt;,
-	AccountIdOf&lt;R&gt;: From&lt;polkadot_primitives::AccountId&gt; + Into&lt;polkadot_primitives::AccountId&gt;,
-{
-	<span class="kw">fn </span>handle_credit(credit: Credit&lt;AccountIdOf&lt;R&gt;, pallet_assets::Pallet&lt;R, Instance1&gt;&gt;) {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(author) = pallet_authorship::Pallet::&lt;R&gt;::author() {
-			<span class="comment">// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
-			</span><span class="kw">let _ </span>= pallet_assets::Pallet::&lt;R, Instance1&gt;::resolve(<span class="kw-2">&amp;</span>author, credit);
-		}
-	}
-}
-
+<span class="comment">// This asset can be added to AH as Asset and reserved transfer between Penpal and AH
+</span><span class="kw">pub const </span>RESERVABLE_ASSET_ID: u32 = <span class="number">1</span>;
 <span class="comment">// This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
 </span><span class="kw">pub const </span>TELEPORTABLE_ASSET_ID: u32 = <span class="number">2</span>;
+
+<span class="kw">pub const </span>ASSETS_PALLET_ID: u8 = <span class="number">50</span>;
+<span class="kw">pub const </span>ASSET_HUB_ID: u32 = <span class="number">1000</span>;
+
 <span class="macro">parameter_types! </span>{
 	<span class="doccomment">/// The location that this chain recognizes as the Relay network&#39;s Asset Hub.
-	</span><span class="kw">pub </span>SystemAssetHubLocation: Location = Location::new(<span class="number">1</span>, [Parachain(<span class="number">1000</span>)]);
-	<span class="comment">// ALWAYS ensure that the index in PalletInstance stays up-to-date with
-	// the Relay Chain&#39;s Asset Hub&#39;s Assets pallet index
+	</span><span class="kw">pub </span>SystemAssetHubLocation: Location = Location::new(<span class="number">1</span>, [Parachain(ASSET_HUB_ID)]);
+	<span class="comment">// the Relay Chain&#39;s Asset Hub&#39;s Assets pallet index
 	</span><span class="kw">pub </span>SystemAssetHubAssetsPalletLocation: Location =
-		Location::new(<span class="number">1</span>, [Parachain(<span class="number">1000</span>), PalletInstance(<span class="number">50</span>)]);
+		Location::new(<span class="number">1</span>, [Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID)]);
 	<span class="kw">pub </span>AssetsPalletLocation: Location =
-		Location::new(<span class="number">0</span>, [PalletInstance(<span class="number">50</span>)]);
+		Location::new(<span class="number">0</span>, [PalletInstance(ASSETS_PALLET_ID)]);
 	<span class="kw">pub </span>CheckingAccount: AccountId = PolkadotXcm::check_account();
 	<span class="kw">pub </span>LocalTeleportableToAssetHub: Location = Location::new(
 		<span class="number">0</span>,
-		[PalletInstance(<span class="number">50</span>), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
+		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
 	);
-	<span class="kw">pub </span>LocalTeleportableToAssetHubV3: xcm::v3::Location = xcm::v3::Location::new(
-		<span class="number">0</span>,
-		[xcm::v3::Junction::PalletInstance(<span class="number">50</span>), xcm::v3::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
+	<span class="kw">pub </span>LocalReservableFromAssetHub: Location = Location::new(
+		<span class="number">1</span>,
+		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())]
 	);
 
 	<span class="doccomment">/// The Penpal runtime is utilized for testing with various environment setups.
@@ -897,8 +860,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 	<span class="kw">type </span>Barrier = Barrier;
 	<span class="kw">type </span>Weigher = FixedWeightBounds&lt;UnitWeightCost, RuntimeCall, MaxInstructions&gt;;
-	<span class="kw">type </span>Trader =
-		UsingComponents&lt;WeightToFee, RelayLocation, AccountId, Balances, ToAuthor&lt;Runtime&gt;&gt;;
+	<span class="kw">type </span>Trader = (
+		UsingComponents&lt;WeightToFee, RelayLocation, AccountId, Balances, ToAuthor&lt;Runtime&gt;&gt;,
+		<span class="comment">// This trader allows to pay with `is_sufficient=true` &quot;Foreign&quot; assets from dedicated
+		// `pallet_assets` instance - `ForeignAssets`.
+		</span>cumulus_primitives_utility::TakeFirstAssetTrader&lt;
+			AccountId,
+			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger,
+			ForeignAssetsConvertedConcreteId,
+			ForeignAssets,
+			cumulus_primitives_utility::XcmFeesTo32ByteAccount&lt;
+				ForeignFungiblesTransactor,
+				AccountId,
+				XcmAssetFeesReceiver,
+			&gt;,
+		&gt;,
+	);
 	<span class="kw">type </span>ResponseHandler = PolkadotXcm;
 	<span class="kw">type </span>AssetTrap = PolkadotXcm;
 	<span class="kw">type </span>AssetClaims = PolkadotXcm;
@@ -915,6 +892,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Aliasers = Nothing;
 	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
 }
+
+<span class="doccomment">/// Multiplier used for dedicated `TakeFirstAssetTrader` with `ForeignAssets` instance.
+</span><span class="kw">pub type </span>ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
+	AssetFeeAsExistentialDepositMultiplier&lt;
+		Runtime,
+		WeightToFee,
+		pallet_assets::BalanceToAssetBalance&lt;Balances, Runtime, ConvertInto, ForeignAssetsInstance&gt;,
+		ForeignAssetsInstance,
+	&gt;;
 
 <span class="doccomment">/// No local origins on this chain are allowed to dispatch XCM sends/executions.
 </span><span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, RelayNetwork&gt;;

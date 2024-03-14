@@ -1056,6 +1056,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1111,7 +1114,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned,
 };
-<span class="kw">use </span>parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
+<span class="kw">use </span>parachains_common::{
+	impls::{AssetsToBlockAuthor, NonZeroIssuance},
+	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
+};
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 <span class="kw">use </span>smallvec::smallvec;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
@@ -1128,7 +1134,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
-<span class="kw">use </span>xcm_config::{AssetsToBlockAuthor, XcmOriginToTransactDispatchOrigin};
+<span class="kw">use </span>xcm_config::XcmOriginToTransactDispatchOrigin;
 
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
@@ -1676,7 +1682,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ConvertInto,
 			pallet_assets::Instance1,
 		&gt;,
-		AssetsToBlockAuthor&lt;Runtime&gt;,
+		AssetsToBlockAuthor&lt;Runtime, pallet_assets::Instance1&gt;,
 	&gt;;
 }
 

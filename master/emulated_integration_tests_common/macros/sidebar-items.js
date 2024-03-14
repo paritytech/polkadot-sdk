@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["WeightLimit"],"trait":["Chain"]};
+window.SIDEBAR_ITEMS = {"enum":["MaybeErrorCode","OriginKind","VersionedXcm","WeightLimit"],"struct":["Asset","AssetId","Location","Weight","Xcm"],"trait":["Chain","WeightToFee"],"type":["AccountId","V3Location"]};

@@ -212,6 +212,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -228,16 +251,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 // Substrate
-</span><span class="kw">use </span>sp_core::storage::Storage;
+</span><span class="kw">use </span>frame_support::parameter_types;
+<span class="kw">use </span>sp_core::{sr25519, storage::Storage};
 
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
+	accounts, build_genesis_storage, collators, get_account_id_from_seed,
+	PenpalSiblingSovereigAccount, PenpalTeleportableAssetLocation, RESERVABLE_ASSET_ID,
+	SAFE_XCM_VERSION,
 };
-<span class="kw">use </span>parachains_common::Balance;
+<span class="kw">use </span>parachains_common::{AccountId, Balance};
 
 <span class="kw">pub const </span>PARA_ID: u32 = <span class="number">1000</span>;
 <span class="kw">pub const </span>ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub </span>AssetHubWestendAssetOwner: AccountId = get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>);
+}
 
 <span class="kw">pub fn </span>genesis() -&gt; Storage {
 	<span class="kw">let </span>genesis_config = asset_hub_westend_runtime::RuntimeGenesisConfig {
@@ -268,6 +298,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		polkadot_xcm: asset_hub_westend_runtime::PolkadotXcmConfig {
 			safe_xcm_version: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
+			..Default::default()
+		},
+		assets: asset_hub_westend_runtime::AssetsConfig {
+			assets: <span class="macro">vec!</span>[(RESERVABLE_ASSET_ID, AssetHubWestendAssetOwner::get(), <span class="bool-val">true</span>, ED)],
+			..Default::default()
+		},
+		foreign_assets: asset_hub_westend_runtime::ForeignAssetsConfig {
+			assets: <span class="macro">vec!</span>[
+				<span class="comment">// Penpal&#39;s teleportable asset representation
+				</span>(
+					PenpalTeleportableAssetLocation::get(),
+					PenpalSiblingSovereigAccount::get(),
+					<span class="bool-val">true</span>,
+					ED,
+				),
+			],
 			..Default::default()
 		},
 		..Default::default()

@@ -227,7 +227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impl_assets_helpers_for_parachain, impl_foreign_assets_helpers_for_parachain,
+	impl_assets_helpers_for_parachain, impl_assets_helpers_for_system_parachain,
 	impl_xcm_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 <span class="kw">use </span>rococo_emulated_chain::Rococo;
@@ -260,7 +260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// AssetHubRococo implementation
 </span><span class="macro">impl_accounts_helpers_for_parachain!</span>(AssetHubRococo);
 <span class="macro">impl_assert_events_helpers_for_parachain!</span>(AssetHubRococo);
-<span class="macro">impl_assets_helpers_for_parachain!</span>(AssetHubRococo, Rococo);
-<span class="macro">impl_foreign_assets_helpers_for_parachain!</span>(AssetHubRococo, Rococo);
+<span class="macro">impl_assets_helpers_for_system_parachain!</span>(AssetHubRococo, Rococo);
+<span class="macro">impl_assets_helpers_for_parachain!</span>(AssetHubRococo);
 <span class="macro">impl_xcm_helpers_for_parachain!</span>(AssetHubRococo);
 </code></pre></div></section></main></body></html>

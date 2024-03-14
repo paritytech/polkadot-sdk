@@ -198,17 +198,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
-<a href="#54" id="54">54</a>
-<a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
-<a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -224,52 +213,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">pub use </span>codec::Encode;
+</span><span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>imports {
+	<span class="kw">pub use </span>codec::Encode;
 
-<span class="comment">// Substrate
-</span><span class="kw">pub use </span>frame_support::{
-	assert_err, assert_ok,
-	pallet_prelude::Weight,
-	sp_runtime::{AccountId32, DispatchError, DispatchResult},
-	traits::fungibles::Inspect,
-};
+	<span class="comment">// Substrate
+	</span><span class="kw">pub use </span>frame_support::{
+		assert_ok,
+		pallet_prelude::Weight,
+		sp_runtime::{AccountId32, DispatchResult},
+		traits::fungibles::Inspect,
+	};
 
-<span class="comment">// Polkadot
-</span><span class="kw">pub use </span>xcm::{
-	prelude::{AccountId32 <span class="kw">as </span>AccountId32Junction, <span class="kw-2">*</span>},
-	v3::{Error, NetworkId::Rococo <span class="kw">as </span>RococoId},
-};
+	<span class="comment">// Polkadot
+	</span><span class="kw">pub use </span>xcm::prelude::<span class="kw-2">*</span>;
 
-<span class="comment">// Cumulus
-</span><span class="kw">pub use </span>asset_test_utils::xcm_helpers;
-<span class="kw">pub use </span>emulated_integration_tests_common::{
-	test_parachain_is_trusted_teleporter,
-	xcm_emulator::{
-		assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain <span class="kw">as </span>Para,
-		RelayChain <span class="kw">as </span>Relay, Test, TestArgs, TestContext, TestExt,
-	},
-	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
-};
-<span class="kw">pub use </span>parachains_common::{AccountId, Balance};
-<span class="kw">pub use </span>rococo_system_emulated_network::{
-	people_rococo_emulated_chain::{
-		genesis::ED <span class="kw">as </span>PEOPLE_ROCOCO_ED, PeopleRococoParaPallet <span class="kw">as </span>PeopleRococoPallet,
-	},
-	rococo_emulated_chain::{genesis::ED <span class="kw">as </span>ROCOCO_ED, RococoRelayPallet <span class="kw">as </span>RococoPallet},
-	PenpalAPara <span class="kw">as </span>PenpalA, PeopleRococoPara <span class="kw">as </span>PeopleRococo,
-	PeopleRococoParaReceiver <span class="kw">as </span>PeopleRococoReceiver, PeopleRococoParaSender <span class="kw">as </span>PeopleRococoSender,
-	RococoRelay <span class="kw">as </span>Rococo, RococoRelayReceiver <span class="kw">as </span>RococoReceiver,
-	RococoRelaySender <span class="kw">as </span>RococoSender,
-};
+	<span class="comment">// Cumulus
+	</span><span class="kw">pub use </span>asset_test_utils::xcm_helpers;
+	<span class="kw">pub use </span>emulated_integration_tests_common::xcm_emulator::{
+		assert_expected_events, bx, Chain, Parachain <span class="kw">as </span>Para, RelayChain <span class="kw">as </span>Relay, Test, TestArgs,
+		TestContext, TestExt,
+	};
+	<span class="kw">pub use </span>parachains_common::Balance;
+	<span class="kw">pub use </span>rococo_system_emulated_network::{
+		people_rococo_emulated_chain::{
+			genesis::ED <span class="kw">as </span>PEOPLE_ROCOCO_ED, PeopleRococoParaPallet <span class="kw">as </span>PeopleRococoPallet,
+		},
+		rococo_emulated_chain::{genesis::ED <span class="kw">as </span>ROCOCO_ED, RococoRelayPallet <span class="kw">as </span>RococoPallet},
+		PeopleRococoPara <span class="kw">as </span>PeopleRococo, PeopleRococoParaReceiver <span class="kw">as </span>PeopleRococoReceiver,
+		PeopleRococoParaSender <span class="kw">as </span>PeopleRococoSender, RococoRelay <span class="kw">as </span>Rococo,
+		RococoRelayReceiver <span class="kw">as </span>RococoReceiver, RococoRelaySender <span class="kw">as </span>RococoSender,
+	};
 
-<span class="comment">// pub const ASSET_ID: u32 = 1;
-// pub const ASSET_MIN_BALANCE: u128 = 1000;
-</span><span class="kw">pub type </span>RelayToSystemParaTest = Test&lt;Rococo, PeopleRococo&gt;;
-<span class="kw">pub type </span>RelayToParaTest = Test&lt;Rococo, PenpalA&gt;;
-<span class="kw">pub type </span>SystemParaToRelayTest = Test&lt;PeopleRococo, Rococo&gt;;
-<span class="kw">pub type </span>SystemParaToParaTest = Test&lt;PeopleRococo, PenpalA&gt;;
-<span class="kw">pub type </span>ParaToSystemParaTest = Test&lt;PenpalA, PeopleRococo&gt;;
+	<span class="kw">pub type </span>RelayToSystemParaTest = Test&lt;Rococo, PeopleRococo&gt;;
+	<span class="kw">pub type </span>SystemParaToRelayTest = Test&lt;PeopleRococo, Rococo&gt;;
+}
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;

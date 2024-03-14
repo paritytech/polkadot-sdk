@@ -209,13 +209,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -231,59 +224,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Substrate
-</span><span class="kw">pub use </span>frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
-<span class="kw">pub use </span>sp_runtime::DispatchError;
+</span><span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>imports {
+	<span class="comment">// Substrate
+	</span><span class="kw">pub use </span>frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
+	<span class="kw">pub use </span>sp_runtime::DispatchError;
 
-<span class="comment">// Polkadot
-</span><span class="kw">pub use </span>xcm::{
-	latest::ParentThen,
-	prelude::{AccountId32 <span class="kw">as </span>AccountId32Junction, <span class="kw-2">*</span>},
-	v3,
-	v4::{
-		Error,
-		NetworkId::{Rococo <span class="kw">as </span>RococoId, Westend <span class="kw">as </span>WestendId},
-	},
-};
+	<span class="comment">// Polkadot
+	</span><span class="kw">pub use </span>xcm::{
+		latest::ParentThen,
+		prelude::{AccountId32 <span class="kw">as </span>AccountId32Junction, <span class="kw-2">*</span>},
+		v3,
+		v4::NetworkId::Rococo <span class="kw">as </span>RococoId,
+	};
 
-<span class="comment">// Bridges
-</span><span class="kw">pub use </span>bp_messages::LaneId;
+	<span class="comment">// Cumulus
+	</span><span class="kw">pub use </span>emulated_integration_tests_common::{
+		accounts::ALICE,
+		impls::Inspect,
+		test_parachain_is_trusted_teleporter,
+		xcm_emulator::{
+			assert_expected_events, bx, Chain, Parachain <span class="kw">as </span>Para, RelayChain <span class="kw">as </span>Relay, TestExt,
+		},
+	};
+	<span class="kw">pub use </span>parachains_common::AccountId;
+	<span class="kw">pub use </span>rococo_westend_system_emulated_network::{
+		asset_hub_rococo_emulated_chain::{
+			genesis::ED <span class="kw">as </span>ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet <span class="kw">as </span>AssetHubRococoPallet,
+		},
+		asset_hub_westend_emulated_chain::{
+			genesis::ED <span class="kw">as </span>ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet <span class="kw">as </span>AssetHubWestendPallet,
+		},
+		bridge_hub_westend_emulated_chain::{
+			genesis::ED <span class="kw">as </span>BRIDGE_HUB_WESTEND_ED,
+			BridgeHubWestendParaPallet <span class="kw">as </span>BridgeHubWestendPallet,
+		},
+		westend_emulated_chain::WestendRelayPallet <span class="kw">as </span>WestendPallet,
+		AssetHubRococoPara <span class="kw">as </span>AssetHubRococo, AssetHubRococoParaReceiver <span class="kw">as </span>AssetHubRococoReceiver,
+		AssetHubRococoParaSender <span class="kw">as </span>AssetHubRococoSender, AssetHubWestendPara <span class="kw">as </span>AssetHubWestend,
+		AssetHubWestendParaReceiver <span class="kw">as </span>AssetHubWestendReceiver,
+		AssetHubWestendParaSender <span class="kw">as </span>AssetHubWestendSender, BridgeHubRococoPara <span class="kw">as </span>BridgeHubRococo,
+		BridgeHubWestendPara <span class="kw">as </span>BridgeHubWestend,
+		BridgeHubWestendParaSender <span class="kw">as </span>BridgeHubWestendSender, WestendRelay <span class="kw">as </span>Westend,
+	};
 
-<span class="comment">// Cumulus
-</span><span class="kw">pub use </span>emulated_integration_tests_common::{
-	accounts::ALICE,
-	impls::Inspect,
-	test_parachain_is_trusted_teleporter,
-	xcm_emulator::{
-		assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain <span class="kw">as </span>Para,
-		RelayChain <span class="kw">as </span>Relay, Test, TestArgs, TestContext, TestExt,
-	},
-	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
-};
-<span class="kw">pub use </span>parachains_common::{AccountId, Balance};
-<span class="kw">pub use </span>rococo_westend_system_emulated_network::{
-	asset_hub_rococo_emulated_chain::{
-		genesis::ED <span class="kw">as </span>ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet <span class="kw">as </span>AssetHubRococoPallet,
-	},
-	asset_hub_westend_emulated_chain::{
-		genesis::ED <span class="kw">as </span>ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet <span class="kw">as </span>AssetHubWestendPallet,
-	},
-	bridge_hub_westend_emulated_chain::{
-		genesis::ED <span class="kw">as </span>BRIDGE_HUB_WESTEND_ED, BridgeHubWestendParaPallet <span class="kw">as </span>BridgeHubWestendPallet,
-	},
-	westend_emulated_chain::WestendRelayPallet <span class="kw">as </span>WestendPallet,
-	AssetHubRococoPara <span class="kw">as </span>AssetHubRococo, AssetHubRococoParaReceiver <span class="kw">as </span>AssetHubRococoReceiver,
-	AssetHubRococoParaSender <span class="kw">as </span>AssetHubRococoSender, AssetHubWestendPara <span class="kw">as </span>AssetHubWestend,
-	AssetHubWestendParaReceiver <span class="kw">as </span>AssetHubWestendReceiver,
-	AssetHubWestendParaSender <span class="kw">as </span>AssetHubWestendSender, BridgeHubRococoPara <span class="kw">as </span>BridgeHubRococo,
-	BridgeHubWestendPara <span class="kw">as </span>BridgeHubWestend, BridgeHubWestendParaSender <span class="kw">as </span>BridgeHubWestendSender,
-	WestendRelay <span class="kw">as </span>Westend,
-};
-
-<span class="kw">pub const </span>ASSET_ID: u32 = <span class="number">1</span>;
-<span class="kw">pub const </span>ASSET_MIN_BALANCE: u128 = <span class="number">1000</span>;
-<span class="kw">pub const </span>ASSETS_PALLET_ID: u8 = <span class="number">50</span>;
+	<span class="kw">pub const </span>ASSET_MIN_BALANCE: u128 = <span class="number">1000</span>;
+}
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;

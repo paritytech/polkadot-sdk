@@ -1,4 +1,5 @@
 (function() {var implementors = {
+"emulated_integration_tests_common":[],
 "frame_support":[],
 "penpal_runtime":[["impl <a class=\"trait\" href=\"sp_weights/trait.WeightToFee.html\" title=\"trait sp_weights::WeightToFee\">WeightToFee</a> for <a class=\"struct\" href=\"penpal_runtime/struct.WeightToFee.html\" title=\"struct penpal_runtime::WeightToFee\">WeightToFee</a>"]],
 "sp_weights":[],
