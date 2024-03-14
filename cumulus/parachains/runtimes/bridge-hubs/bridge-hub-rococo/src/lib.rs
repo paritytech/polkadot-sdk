@@ -518,7 +518,7 @@ pub mod benchmark_helpers {
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
 		fn initialize_storage(block_hash: H256, header: CompactExecutionHeader) {
-			EthereumBeaconClient::store_execution_header(block_hash, header, 0, H256::default())
+			EthereumBeaconClient::store_execution_header(block_hash, header)
 		}
 	}
 

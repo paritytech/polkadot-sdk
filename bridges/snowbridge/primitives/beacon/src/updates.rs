@@ -23,26 +23,13 @@ pub struct CheckpointUpdate<const COMMITTEE_SIZE: usize> {
 	pub block_roots_branch: Vec<H256>,
 }
 
-impl<const COMMITTEE_SIZE: usize> Default for CheckpointUpdate<COMMITTEE_SIZE> {
-	fn default() -> Self {
-		CheckpointUpdate {
-			header: Default::default(),
-			current_sync_committee: Default::default(),
-			current_sync_committee_branch: Default::default(),
-			validators_root: Default::default(),
-			block_roots_root: Default::default(),
-			block_roots_branch: Default::default(),
-		}
-	}
-}
-
 #[derive(
 	Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
 #[cfg_attr(
 	feature = "std",
 	derive(serde::Deserialize),
-	serde(deny_unknown_fields, bound(serialize = ""), bound(deserialize = ""))
+	serde(bound(serialize = ""), bound(deserialize = ""))
 )]
 pub struct Update<const COMMITTEE_SIZE: usize, const COMMITTEE_BITS_SIZE: usize> {
 	/// A recent header attesting to the finalized header, using its `state_root`.

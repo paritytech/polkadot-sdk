@@ -1165,7 +1165,7 @@ pub fn make_finalized_header_update() -> Box<Update> {
             hex!("ecea7e1d3152d8130e83afdfe34b4de4ba2b69a33c9471991096daf454de9cf5").into(),
             hex!("b2bf1758e50b2bfff29169fbc70fdb884b2b05bb615dbc53567574da6f4f1ae2").into(),
             hex!("cd87069daf70975779126d6af833b7d636c75ca4d5e750ebcad0e76408a5e5bf").into(),
-        ]
+        ],
     })
 }
 

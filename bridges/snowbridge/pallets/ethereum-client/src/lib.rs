@@ -40,8 +40,8 @@ use frame_support::{
 use frame_system::ensure_signed;
 use primitives::{
 	fast_aggregate_verify, verify_merkle_branch, verify_receipt_proof, BeaconHeader, BlsError,
-	CompactBeaconState, CompactExecutionHeader, ExecutionHeaderState, ForkData, ForkVersion,
-	ForkVersions, PublicKeyPrepared, SigningData,
+	CompactBeaconState, CompactExecutionHeader, ForkData, ForkVersion, ForkVersions,
+	PublicKeyPrepared, SigningData,
 };
 use snowbridge_core::{BasicOperatingMode, RingBufferMap};
 use sp_core::H256;
@@ -187,12 +187,6 @@ pub mod pallet {
 	pub(super) type NextSyncCommittee<T: Config> =
 		StorageValue<_, SyncCommitteePrepared, ValueQuery>;
 
-	/// Latest imported execution header
-	#[pallet::storage]
-	#[pallet::getter(fn latest_execution_state)]
-	pub(super) type LatestExecutionState<T: Config> =
-		StorageValue<_, ExecutionHeaderState, ValueQuery>;
-
 	/// Execution Headers
 	#[pallet::storage]
 	pub type ExecutionHeaders<T: Config> =
@@ -321,7 +315,6 @@ pub mod pallet {
 			<CurrentSyncCommittee<T>>::set(sync_committee_prepared);
 			<NextSyncCommittee<T>>::kill();
 			InitialCheckpointRoot::<T>::set(header_root);
-			<LatestExecutionState<T>>::kill();
 
 			Self::store_validators_root(update.validators_root);
 			Self::store_finalized_header(header_root, update.header, update.block_roots_root)?;
@@ -330,29 +323,8 @@ pub mod pallet {
 		}
 
 		pub(crate) fn process_update(update: &Update) -> DispatchResult {
-			Self::cross_check_execution_state()?;
 			Self::verify_update(update)?;
 			Self::apply_update(update)?;
-			Ok(())
-		}
-
-		/// Cross check to make sure that execution header import does not fall too far behind
-		/// finalised beacon header import. If that happens just return an error and pause
-		/// processing until execution header processing has caught up.
-		pub(crate) fn cross_check_execution_state() -> DispatchResult {
-			let latest_finalized_state =
-				FinalizedBeaconState::<T>::get(LatestFinalizedBlockRoot::<T>::get())
-					.ok_or(Error::<T>::NotBootstrapped)?;
-			let latest_execution_state = Self::latest_execution_state();
-			// The execution header import should be at least within the slot range of a sync
-			// committee period.
-			let max_latency = config::EPOCHS_PER_SYNC_COMMITTEE_PERIOD * config::SLOTS_PER_EPOCH;
-			ensure!(
-				latest_execution_state.beacon_slot == 0 ||
-					latest_finalized_state.slot <
-						latest_execution_state.beacon_slot + max_latency as u64,
-				Error::<T>::ExecutionHeaderTooFarBehind
-			);
 			Ok(())
 		}
 
@@ -548,15 +520,6 @@ pub mod pallet {
 				Error::<T>::HeaderNotFinalized
 			);
 
-			// Checks that we don't skip execution headers, they need to be imported sequentially.
-			let latest_execution_state: ExecutionHeaderState = Self::latest_execution_state();
-			ensure!(
-				latest_execution_state.block_number == 0 ||
-					update.execution_header.block_number() ==
-						latest_execution_state.block_number + 1,
-				Error::<T>::ExecutionHeaderSkippedBlock
-			);
-
 			// Gets the hash tree root of the execution header, in preparation for the execution
 			// header proof (used to check that the execution header is rooted in the beacon
 			// header body.
@@ -605,8 +568,6 @@ pub mod pallet {
 			Self::store_execution_header(
 				update.execution_header.block_hash(),
 				update.execution_header.clone().into(),
-				update.header.slot,
-				block_root,
 			);
 
 			Ok(())
@@ -692,12 +653,7 @@ pub mod pallet {
 		/// Stores the provided execution header in pallet storage. The header is stored
 		/// in a ring buffer map, with the block hash as map key. The last imported execution
 		/// header is also kept in storage, for the relayer to check import progress.
-		pub fn store_execution_header(
-			block_hash: H256,
-			header: CompactExecutionHeader,
-			beacon_slot: u64,
-			beacon_block_root: H256,
-		) {
+		pub fn store_execution_header(block_hash: H256, header: CompactExecutionHeader) {
 			let block_number = header.block_number;
 
 			<ExecutionHeaderBuffer<T>>::insert(block_hash, header);
@@ -708,13 +664,6 @@ pub mod pallet {
 				block_hash,
 				block_number
 			);
-
-			LatestExecutionState::<T>::mutate(|s| {
-				s.beacon_block_root = beacon_block_root;
-				s.beacon_slot = beacon_slot;
-				s.block_hash = block_hash;
-				s.block_number = block_number;
-			});
 
 			Self::deposit_event(Event::ExecutionHeaderImported { block_hash, block_number });
 		}

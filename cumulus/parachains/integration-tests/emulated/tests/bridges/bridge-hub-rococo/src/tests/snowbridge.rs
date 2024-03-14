@@ -58,8 +58,6 @@ pub fn send_inbound_message(fixture: InboundQueueFixture) -> DispatchResult {
 	EthereumBeaconClient::store_execution_header(
 		fixture.message.proof.block_hash,
 		fixture.execution_header,
-		0,
-		H256::default(),
 	);
 
 	EthereumInboundQueue::submit(
