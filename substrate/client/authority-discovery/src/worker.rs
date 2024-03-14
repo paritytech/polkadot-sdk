@@ -251,9 +251,10 @@ where
 
 			error!(
 				target: LOG_TARGET,
-				"Publishing ext addresses  ===== {:?} ======= {:?}",
+				"Publishing ext addresses  =====  publish_interval {:?} =======  publish_if_changed_interval {:?} self.query_interval {:?}",
 				self.publish_interval,
-				self.publish_if_changed_interval
+				self.publish_if_changed_interval,
+				self.query_interval,
 			);
 
 			futures::select! {
@@ -285,6 +286,10 @@ where
 				},
 				// Request addresses of authorities.
 				_ = self.query_interval.next().fuse() => {
+					error!(
+						target: LOG_TARGET,
+						"Querying interval"
+					);
 					if let Err(e) = self.refill_pending_lookups_queue().await {
 						error!(
 							target: LOG_TARGET,
@@ -582,6 +587,8 @@ where
 			.collect();
 
 		if !remote_addresses.is_empty() {
+			error!(target: LOG_TARGET, "Found authority-id {:?}", authority_id);
+
 			self.addr_cache.insert(authority_id, remote_addresses);
 			if let Some(metrics) = &self.metrics {
 				metrics
