@@ -27,6 +27,7 @@ use std::{
 /// Exponentially increasing interval
 ///
 /// Doubles interval duration on each tick until the configured maximum is reached.
+#[derive(Debug)]
 pub struct ExpIncInterval {
 	max: Duration,
 	next: Duration,

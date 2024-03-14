@@ -249,6 +249,13 @@ where
 		loop {
 			self.start_new_lookups();
 
+			error!(
+				target: LOG_TARGET,
+				"Publishing ext addresses  ===== {:?} ======= {:?}",
+				self.publish_interval,
+				self.publish_if_changed_interval
+			);
+
 			futures::select! {
 				// Process incoming events.
 				event = self.dht_event_rx.next().fuse() => {
@@ -346,7 +353,7 @@ where
 			self.client.as_ref(),
 		).await?.into_iter().collect::<HashSet<_>>();
 
-		error!(target: LOG_TARGET, "Publishing ext addresses {:?}", keys);
+		error!(target: LOG_TARGET, "Publishing ext addresses {:?} {:?} {:?}", keys, only_if_changed, self.latest_published_keys);
 
 		if only_if_changed && keys == self.latest_published_keys {
 			return Ok(())
