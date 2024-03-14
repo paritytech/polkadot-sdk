@@ -75,8 +75,6 @@ pub trait AuthorityIdBound:
 	+ Debug
 	+ Clone
 	+ Ord
-	//+ Sync
-	//+ Send
 	+ AsRef<[u8]>
 	+ ByteArray
 	+ AppPublic
