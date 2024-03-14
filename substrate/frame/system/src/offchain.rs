@@ -79,9 +79,6 @@ pub struct SubmitTransaction<T: SendTransactionTypes<OverarchingCall>, Overarchi
 	_phantom: sp_std::marker::PhantomData<(T, OverarchingCall)>,
 }
 
-// TODO [#2415]: Avoid splitting call and the totally opaque `signature`; `CreateTransaction` trait
-// should provide something which impls `Encode`, which can be sent onwards to
-// `sp_io::offchain::submit_transaction`. There's no great need to split things up as in here.
 impl<T, LocalCall> SubmitTransaction<T, LocalCall>
 where
 	T: SendTransactionTypes<LocalCall>,
@@ -91,8 +88,6 @@ where
 		call: <T as SendTransactionTypes<LocalCall>>::OverarchingCall,
 		signature: Option<<T::Extrinsic as ExtrinsicT>::SignaturePayload>,
 	) -> Result<(), ()> {
-		// TODO: Use regular transaction API instead.
-		#[allow(deprecated)]
 		let xt = T::Extrinsic::new(call, signature).ok_or(())?;
 		sp_io::offchain::submit_transaction(xt.encode())
 	}
@@ -476,7 +471,7 @@ pub trait SendTransactionTypes<LocalCall> {
 ///
 /// This trait is meant to be implemented by the runtime and is responsible for constructing
 /// a payload to be signed and contained within the extrinsic.
-/// This will most likely include creation of `TxExtension` (a tuple of `TransactionExtension`s).
+/// This will most likely include creation of `SignedExtra` (a set of `SignedExtensions`).
 /// Note that the result can be altered by inspecting the `Call` (for instance adjusting
 /// fees, or mortality depending on the `pallet` being called).
 pub trait CreateSignedTransaction<LocalCall>:
@@ -626,17 +621,14 @@ mod tests {
 	use crate::mock::{RuntimeCall, Test as TestRuntime, CALL};
 	use codec::Decode;
 	use sp_core::offchain::{testing, TransactionPoolExt};
-	use sp_runtime::{
-		generic::UncheckedExtrinsic,
-		testing::{TestSignature, UintAuthorityId},
-	};
+	use sp_runtime::testing::{TestSignature, TestXt, UintAuthorityId};
 
 	impl SigningTypes for TestRuntime {
 		type Public = UintAuthorityId;
 		type Signature = TestSignature;
 	}
 
-	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+	type Extrinsic = TestXt<RuntimeCall, ()>;
 
 	impl SendTransactionTypes<RuntimeCall> for TestRuntime {
 		type Extrinsic = Extrinsic;
@@ -701,7 +693,7 @@ mod tests {
 			let _tx3 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 
@@ -732,7 +724,7 @@ mod tests {
 			let tx1 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 
@@ -766,7 +758,7 @@ mod tests {
 			let _tx2 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 
@@ -798,7 +790,7 @@ mod tests {
 			let tx1 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 }
