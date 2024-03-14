@@ -1710,7 +1710,7 @@ pub mod migrations {
 			Runtime,
 			crate::xcm_config::XcmRouter,
 			GetLegacyLeaseImpl,
-		>
+		>,
 	);
 }
 
