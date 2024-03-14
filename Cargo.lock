@@ -945,7 +945,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "6.0.0"
+version = "6.0.1"
 dependencies = [
  "assets-common",
  "cumulus-pallet-parachain-system",
@@ -1907,7 +1907,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-test-utils"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "asset-test-utils",
  "bp-header-chain",
@@ -3716,7 +3716,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-utility"
-version = "0.6.0"
+version = "0.6.2"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -10099,7 +10099,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools"
-version = "24.0.0"
+version = "24.0.2"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10937,7 +10937,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-benchmarks"
-version = "6.0.0"
+version = "6.0.2"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11156,7 +11156,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "6.0.0"
+version = "6.0.1"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -11400,7 +11400,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.13.0"
+version = "0.13.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
@@ -18077,7 +18077,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "6.0.0"
+version = "6.0.2"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -18107,7 +18107,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "6.0.0"
+version = "6.0.2"
 dependencies = [
  "environmental",
  "frame-benchmarking",
