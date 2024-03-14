@@ -1363,21 +1363,26 @@ impl_runtime_apis! {
 				pub const RandomParaId: ParaId = ParaId::new(43211234);
 			}
 
+			type ToParentDeliveryHelper = polkadot_runtime_common::xcm_sender::benchmarking::DestinationDeliveryHelper<
+				xcm_config::XcmConfig,
+				ExistentialDepositAsset,
+				xcm_config::PriceForParentDelivery,
+				cumulus_primitives_utility::ParentDestinationMatcher,
+				(/*TODO: EnsureXcmVersion*/),
+			>;
+			type ToParachainDeliveryHelper<ParachainId> = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+				xcm_config::XcmConfig,
+				ExistentialDepositAsset,
+				PriceForSiblingParachainDelivery,
+				cumulus_pallet_xcmp_queue::SiblingParachainDestinationMatcher<ParachainId>,
+				(ParachainSystem, /*TODO: EnsureXcmVersion*/),
+			>;
+
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
 				type DeliveryHelper = (
-					cumulus_primitives_utility::ToParentDeliveryHelper<
-						xcm_config::XcmConfig,
-						ExistentialDepositAsset,
-						xcm_config::PriceForParentDelivery,
-					>,
-					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
-						xcm_config::XcmConfig,
-						ExistentialDepositAsset,
-						PriceForSiblingParachainDelivery,
-						RandomParaId,
-						ParachainSystem,
-					>
+					ToParentDeliveryHelper,
+					ToParachainDeliveryHelper<RandomParaId>
 				);
 
 				fn reachable_dest() -> Option<Location> {
@@ -1498,11 +1503,7 @@ impl_runtime_apis! {
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = ToParentDeliveryHelper;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(TokenLocation::get())
 				}

@@ -1613,10 +1613,20 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pallet<T> {
-	fn ensure(para_id: ParaId) {
-		if let ChannelStatus::Closed = Self::get_channel_status(para_id) {
-			Self::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
+impl<T: Config> polkadot_runtime_common::xcm_sender::benchmarking::EnsureForDestination
+	for Pallet<T>
+{
+	fn ensure_for(dest: &xcm::latest::Location) {
+		if let Some(xcm::latest::prelude::Parachain(para_id)) = dest.first_interior() {
+			let para_id = ParaId::from(*para_id);
+			if let ChannelStatus::Closed = Self::get_channel_status(para_id) {
+				Self::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
+			}
+		} else {
+			log::trace!(
+				target: "parachain_system",
+				"Unsupported destination: {dest:?}, an interior location should start with `Junction::Parachain`"
+			);
 		}
 	}
 }

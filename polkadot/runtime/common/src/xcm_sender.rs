@@ -137,8 +137,10 @@ where
 }
 
 /// Implementation of `MatchesDestination`, which can be utilized for `DestinationDeliveryHelper`
-/// while respecting `ChildParachainRouter`.
+/// while respecting the `SendXcm` implementation for the `ChildParachainRouter`.
+#[cfg(feature = "runtime-benchmarks")]
 pub struct ChildParachainDestinationMatcher<Parachain>(sp_std::marker::PhantomData<Parachain>);
+#[cfg(feature = "runtime-benchmarks")]
 impl<Parachain: Get<ParaId>> benchmarking::MatchesDestination
 	for ChildParachainDestinationMatcher<Parachain>
 {

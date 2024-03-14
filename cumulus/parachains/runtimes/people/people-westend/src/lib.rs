@@ -684,13 +684,17 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
+			type ToParentDeliveryHelper = polkadot_runtime_common::xcm_sender::benchmarking::DestinationDeliveryHelper<
+				xcm_config::XcmConfig,
+				ExistentialDepositAsset,
+				xcm_config::PriceForParentDelivery,
+				cumulus_primitives_utility::ParentDestinationMatcher,
+				(/*TODO: EnsureXcmVersion*/),
+			>;
+
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsiscsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = ToParentDeliveryHelper;
 
 				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
@@ -732,11 +736,7 @@ impl_runtime_apis! {
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					XcmConfig,
-					ExistentialDepositAsset,
-					PriceForParentDelivery,
-				>;
+				type DeliveryHelper = ToParentDeliveryHelper;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(RelayLocation::get())
 				}

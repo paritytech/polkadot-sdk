@@ -947,6 +947,33 @@ impl<T: Config> SendXcm for Pallet<T> {
 	}
 }
 
+/// Implementation of `MatchesDestination`, which can be utilized for `DestinationDeliveryHelper`,
+/// while respecting the `SendXcm` implementation for the XCMP pallet.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct SiblingParachainDestinationMatcher<Parachain>(sp_std::marker::PhantomData<Parachain>);
+#[cfg(feature = "runtime-benchmarks")]
+impl<Parachain: Get<ParaId>> polkadot_runtime_common::xcm_sender::benchmarking::MatchesDestination
+	for SiblingParachainDestinationMatcher<Parachain>
+{
+	type PriceForDeliveryId = ParaId;
+
+	fn extract_price_for_delivery_id(d: &Location) -> Option<Self::PriceForDeliveryId> {
+		if let (1, [Parachain(id)]) = d.unpack() {
+			Some(ParaId::from(*id))
+		} else {
+			None
+		}
+	}
+}
+#[cfg(feature = "runtime-benchmarks")]
+impl<Parachain: Get<ParaId>> frame_support::traits::Contains<Location>
+	for SiblingParachainDestinationMatcher<Parachain>
+{
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, [Parachain(id)]) if ParaId::from(*id) == Parachain::get())
+	}
+}
+
 /// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`.
 ///
 /// Note that this uses the limit of the sender - not the receiver. It it best effort.

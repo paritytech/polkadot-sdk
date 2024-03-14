@@ -90,6 +90,31 @@ where
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+/// Implementation of `MatchesDestination`, which can be utilized for `DestinationDeliveryHelper`
+/// while respecting the `SendXcm` implementation for the `ParentAsUmp`.
+pub struct ParentDestinationMatcher;
+#[cfg(feature = "runtime-benchmarks")]
+impl polkadot_runtime_common::xcm_sender::benchmarking::MatchesDestination
+	for ParentDestinationMatcher
+{
+	type PriceForDeliveryId = ();
+
+	fn extract_price_for_delivery_id(d: &Location) -> Option<Self::PriceForDeliveryId> {
+		if d.contains_parents_only(1) {
+			Some(())
+		} else {
+			None
+		}
+	}
+}
+#[cfg(feature = "runtime-benchmarks")]
+impl frame_support::traits::Contains<Location> for ParentDestinationMatcher {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []))
+	}
+}
+
 /// Contains information to handle refund/payment for xcm-execution
 #[derive(Clone, Eq, PartialEq, Debug)]
 struct AssetTraderRefunder {
@@ -757,65 +782,5 @@ mod test_trader {
 
 		// lets do second call (error)
 		assert_eq!(trader.buy_weight(weight_to_buy, payment, &ctx), Err(XcmError::NotWithdrawable));
-	}
-}
-
-/// Implementation of `xcm_builder::EnsureDelivery` which helps to ensure delivery to the
-/// parent relay chain. Deposits existential deposit for origin (if needed).
-/// Deposits estimated fee to the origin account (if needed).
-/// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if neeeded).
-#[cfg(feature = "runtime-benchmarks")]
-pub struct ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>(
-	sp_std::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
-);
-
-#[cfg(feature = "runtime-benchmarks")]
-impl<
-		XcmConfig: xcm_executor::Config,
-		ExistentialDeposit: Get<Option<Asset>>,
-		PriceForDelivery: PriceForMessageDelivery<Id = ()>,
-	> xcm_builder::EnsureDelivery
-	for ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>
-{
-	fn ensure_successful_delivery(
-		origin_ref: &Location,
-		dest: &Location,
-		fee_reason: xcm_executor::traits::FeeReason,
-	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
-		use xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS};
-		use xcm_executor::{traits::FeeManager, FeesMode};
-
-		// check if the destination is relay/parent
-		if dest.ne(&Location::parent()) {
-			return (None, None);
-		}
-
-		let mut fees_mode = None;
-		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
-			// if not waived, we need to set up accounts for paying and receiving fees
-
-			// mint ED to origin if needed
-			if let Some(ed) = ExistentialDeposit::get() {
-				XcmConfig::AssetTransactor::deposit_asset(&ed, &origin_ref, None).unwrap();
-			}
-
-			// overestimate delivery fee
-			let mut max_assets: Vec<Asset> = Vec::new();
-			for i in 0..MAX_ITEMS_IN_ASSETS {
-				max_assets.push((GeneralIndex(i as u128), 100u128).into());
-			}
-			let overestimated_xcm =
-				vec![WithdrawAsset(max_assets.into()); MAX_INSTRUCTIONS_TO_DECODE as usize].into();
-			let overestimated_fees = PriceForDelivery::price_for_delivery((), &overestimated_xcm);
-
-			// mint overestimated fee to origin
-			for fee in overestimated_fees.inner() {
-				XcmConfig::AssetTransactor::deposit_asset(&fee, &origin_ref, None).unwrap();
-			}
-
-			// expected worst case - direct withdraw
-			fees_mode = Some(FeesMode { jit_withdraw: true });
-		}
-		(fees_mode, None)
 	}
 }
