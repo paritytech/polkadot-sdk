@@ -96,9 +96,10 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	backed_and_concluding_cores: BTreeMap<u32, u32>,
 	/// Map from para id (seed) to number of chained candidates.
 	elastic_paras: BTreeMap<u32, u8>,
-	/// Make every candidate include a code upgrade by setting this to `Some` where the interior
-	/// value is the byte length of the new code.
-	code_upgrade: Option<u32>,
+	/// Make at up to u32 candidates include a code upgrade by setting this to `Some` where the
+	/// interior value is the byte length of the new code. First value is the count of candidates,
+	/// second is the size of each one.
+	code_upgrade: Option<(u32, u32)>,
 	/// Specifies whether the claimqueue should be filled.
 	fill_claimqueue: bool,
 	_phantom: sp_std::marker::PhantomData<T>,
@@ -163,7 +164,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 	/// Set to include a code upgrade for all backed candidates. The value will be the byte length
 	/// of the code.
-	pub(crate) fn set_code_upgrade(mut self, code_upgrade: impl Into<Option<u32>>) -> Self {
+	pub(crate) fn set_code_upgrade(mut self, code_upgrade: impl Into<Option<(u32, u32)>>) -> Self {
 		self.code_upgrade = code_upgrade.into();
 		self
 	}
@@ -331,6 +332,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Create an `AvailabilityBitfield` where `concluding` is a map where each key is a core index
 	/// that is concluding and `cores` is the total number of cores in the system.
 	fn availability_bitvec(concluding: &BTreeMap<u32, u32>, cores: u32) -> AvailabilityBitfield {
+		log::debug!("availability_bitvec for {}", cores);
 		let mut bitfields = bitvec::bitvec![u8, bitvec::order::Lsb0; 0; 0];
 		for i in 0..cores {
 			if concluding.get(&(i as u32)).is_some() {
@@ -520,7 +522,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		&self,
 		cores_with_backed_candidates: &BTreeMap<u32, u32>,
 		elastic_paras: &BTreeMap<u32, u8>,
-		includes_code_upgrade: Option<u32>,
+		includes_code_upgrade: Option<(u32, u32)>,
 	) -> Vec<BackedCandidate<T::Hash>> {
 		let validators =
 			self.validators.as_ref().expect("must have some validators prior to calling");
@@ -593,6 +595,14 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 						let group_validators =
 							scheduler::Pallet::<T>::group_validators(group_idx).unwrap();
 
+						let maybe_validation_code = match includes_code_upgrade {
+							Some((max_candidates, code_size))
+								if current_core_idx < max_candidates =>
+								Some(ValidationCode(vec![42u8; code_size as usize])),
+							_ => None,
+
+						};
+
 						let candidate = CommittedCandidateReceipt::<T::Hash> {
 							descriptor: CandidateDescriptor::<T::Hash> {
 								para_id,
@@ -608,8 +618,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							commitments: CandidateCommitments::<u32> {
 								upward_messages: Default::default(),
 								horizontal_messages: Default::default(),
-								new_validation_code: includes_code_upgrade
-									.map(|v| ValidationCode(vec![42u8; v as usize])),
+								new_validation_code: maybe_validation_code,
 								head_data,
 								processed_downward_messages: 0,
 								hrmp_watermark: self.relay_parent_number(),
