@@ -32,6 +32,9 @@ use crate::wasm::*;
 #[cfg(not(substrate_runtime))]
 use sp_wasm_interface::{FunctionContext, Pointer, Result};
 
+#[cfg(not(substrate_runtime))]
+use alloc::{format, string::String};
+
 use alloc::vec::Vec;
 use core::{any::type_name, marker::PhantomData};
 
