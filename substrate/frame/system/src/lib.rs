@@ -166,7 +166,7 @@ pub use extensions::{
 	check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight, WeightInfo as ExtensionsWeightInfo,
+	check_weight::CheckWeight,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
@@ -284,7 +284,6 @@ pub mod pallet {
 			type OnNewAccount = ();
 			type OnKilledAccount = ();
 			type SystemWeightInfo = ();
-			type ExtensionsWeightInfo = ();
 			type SS58Prefix = ();
 			type Version = ();
 			type BlockWeights = ();
@@ -310,7 +309,7 @@ pub mod pallet {
 			type PostTransactions = ();
 		}
 
-		/// Default configurations of this pallet in a solo-chain environment.
+		/// Default configurations of this pallet in a solochain environment.
 		///
 		/// ## Considerations:
 		///
@@ -356,9 +355,6 @@ pub mod pallet {
 
 			/// Weight information for the extrinsics of this pallet.
 			type SystemWeightInfo = ();
-
-			/// Weight information for the extensions of this pallet.
-			type ExtensionsWeightInfo = ();
 
 			/// This is used as an identifier of the chain.
 			type SS58Prefix = ();
@@ -567,11 +563,7 @@ pub mod pallet {
 		/// All resources should be cleaned up associated with the given account.
 		type OnKilledAccount: OnKilledAccount<Self::AccountId>;
 
-		/// Weight information for the extrinsics of this pallet.
 		type SystemWeightInfo: WeightInfo;
-
-		/// Weight information for the transaction extensions of this pallet.
-		type ExtensionsWeightInfo: extensions::WeightInfo;
 
 		/// The designated SS58 prefix of this chain.
 		///
