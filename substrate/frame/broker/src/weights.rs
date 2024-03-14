@@ -77,7 +77,6 @@ pub trait WeightInfo {
 	fn process_core_schedule() -> Weight;
 	fn request_revenue_info_at() -> Weight;
 	fn notify_core_count() -> Weight;
-	fn create_listing() -> Weight;
 	fn do_tick_base() -> Weight;
 }
 
@@ -455,15 +454,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 2_432_000 picoseconds.
 		Weight::from_parts(2_536_000, 0)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-
-	fn create_listing() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 2_701_000 picoseconds.
-		Weight::from_parts(2_902_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 
@@ -859,15 +849,6 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 2_432_000 picoseconds.
 		Weight::from_parts(2_536_000, 0)
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-
-	fn create_listing() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 2_701_000 picoseconds.
-		Weight::from_parts(2_902_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 

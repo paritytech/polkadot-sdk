@@ -828,6 +828,7 @@ pub mod pallet {
 		/// - `region_id`: The region to list for sale.
 		/// - `price`: The price at which to list the region.
 		#[pallet::call_index(20)]
+		#[pallet::weight({10_000})]
         pub fn create_listing(
             origin: OriginFor<T>,
             region_id: RegionId,
