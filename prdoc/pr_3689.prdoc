@@ -69,6 +69,6 @@ crates:
   - name: sp-statement-store
     bump: major
     note: Requires the new `#[runtime_interface]` macro and associated machinery. Some types don't implement the traits related to the old `#[runtime_interface]` anymore.
-  - name: sp-crypto
+  - name: sp-crypto-ec-utils
     bump: minor
     note: Requires the new `#[runtime_interface]` macro and associated machinery.
