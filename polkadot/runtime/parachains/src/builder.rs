@@ -329,7 +329,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 	/// Create an `AvailabilityBitfield` where `concluding` is a map where each key is a core index
 	/// that is concluding and `cores` is the total number of cores in the system.
-	fn availability_bitvec(concluding: &BTreeMap<u32, u32>, cores: u32) -> AvailabilityBitfield {
+	fn availability_bitvec(concluding: &BTreeMap<u32, u32>, cores: usize) -> AvailabilityBitfield {
 		let mut bitfields = bitvec::bitvec![u8, bitvec::order::Lsb0; 0; 0];
 		for i in 0..cores {
 			if concluding.get(&(i as u32)).is_some() {
@@ -360,7 +360,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	///
 	/// Note that this must be called at least 2 sessions before the target session as there is a
 	/// n+2 session delay for the scheduled actions to take effect.
-	fn setup_para_ids(cores: u32) {
+	fn setup_para_ids(cores: usize) {
 		// make sure parachains exist prior to session change.
 		for i in 0..cores {
 			let para_id = ParaId::from(i as u32);
@@ -415,6 +415,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		mut self,
 		target_session: SessionIndex,
 		validators: Vec<(T::AccountId, ValidatorId)>,
+		// Total cores used in the scenario
+		total_cores: usize,
+		// Additional cores for elastic parachains
+		extra_cores: usize,
 	) -> Self {
 		let mut block = 1;
 		for session in 0..=target_session {
@@ -449,7 +453,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		self.validators = Some(validators_shuffled);
 		self.block_number = block_number;
 		self.session = target_session;
-		// assert_eq!(paras::Pallet::<T>::parachains().len(), total_cores as usize);
+
+		assert_eq!(paras::Pallet::<T>::parachains().len(), total_cores - extra_cores);
 
 		self
 	}
@@ -462,7 +467,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		&self,
 		concluding_cores: &BTreeMap<u32, u32>,
 		elastic_paras: &BTreeMap<u32, u8>,
-		total_cores: u32,
+		total_cores: usize,
 	) -> Vec<UncheckedSigned<AvailabilityBitfield>> {
 		let validators =
 			self.validators.as_ref().expect("must have some validators prior to calling");
@@ -739,13 +744,18 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		inclusion::PendingAvailability::<T>::remove_all(None);
 
 		// We don't allow a core to have both disputes and be marked fully available at this block.
-		let max_cores = self.max_cores();
-		let used_elastic_cores =
-			self.elastic_paras.values().map(|count| *count as u32).sum::<u32>();
+		let max_cores = self.max_cores() as usize;
 
-		let used_cores = (self.dispute_sessions.len() + self.backed_and_concluding_paras.len())
-			as u32 - self.elastic_paras.len() as u32 +
-			used_elastic_cores;
+		let extra_cores = self
+			.elastic_paras
+			.values()
+			.map(|count| *count as usize)
+			.sum::<usize>()
+			.saturating_sub(self.elastic_paras.len() as usize);
+
+		let used_cores =
+			self.dispute_sessions.len() + self.backed_and_concluding_paras.len() + extra_cores;
+
 		assert!(used_cores <= max_cores);
 		let fill_claimqueue = self.fill_claimqueue;
 
@@ -753,12 +763,12 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		// We are currently in Session 0, so these changes will take effect in Session 2.
 		Self::setup_para_ids(used_cores);
 		configuration::ActiveConfig::<T>::mutate(|c| {
-			c.scheduler_params.num_cores = used_cores;
+			c.scheduler_params.num_cores = used_cores as u32;
 		});
 
 		let validator_ids = Self::generate_validator_pairs(self.max_validators());
 		let target_session = SessionIndex::from(self.target_session);
-		let builder = self.setup_session(target_session, validator_ids);
+		let builder = self.setup_session(target_session, validator_ids, used_cores, extra_cores);
 
 		let bitfields = builder.create_availability_bitfields(
 			&builder.backed_and_concluding_paras,
@@ -773,10 +783,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 		let disputes = builder.create_disputes(
 			builder.backed_and_concluding_paras.len() as u32,
-			used_cores,
+			used_cores as u32,
 			builder.dispute_sessions.as_slice(),
 		);
-		let mut disputed_cores = (builder.backed_and_concluding_paras.len() as u32..used_cores)
+		let mut disputed_cores = (builder.backed_and_concluding_paras.len() as u32..
+			used_cores as u32)
 			.into_iter()
 			.map(|idx| (idx, 0))
 			.collect::<BTreeMap<_, _>>();
