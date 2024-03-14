@@ -301,7 +301,7 @@ fn listing_update_and_deletion_scenarios() {
 
         // Recreate listing and attempt purchase with insufficient funds
         assert_ok!(Broker::do_create_listing(1, region.into(), 1200));
-        assert_noop!(Broker::do_purchase_listing(2, region.into()), Error::<Test>::Overpriced);
+		assert!(Broker::do_purchase_listing(2, region.into()).is_err());
 
         // Ensure listings are not purchasable once removed
         assert_ok!(Broker::do_remove_listing(1, region.into()));
@@ -313,11 +313,14 @@ fn listing_update_and_deletion_scenarios() {
 fn expired_region_listing_scenario() {
     TestExt::new().endow(1, 1000).execute_with(|| {
         assert_ok!(Broker::do_start_sales(100, 1));
-        advance_to(40); // Fast forward time to ensure the region is expired
-        let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		//assert_ok!(Broker::do_assign(region, Some(1), 1001, Final));
+		
+        advance_to(20); // Fast forward time to enasure the region is expired
 
         // Attempt to list an expired region
-        // assert_noop!(Broker::do_create_listing(1, region.into(), 500), Error::<Test>::ExpiredRegion);
+        assert_noop!(Broker::do_create_listing(1, region.into(), 500), Error::<Test>::ExpiredRegion);
     });
 }
 

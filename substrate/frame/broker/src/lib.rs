@@ -433,6 +433,11 @@ pub mod pallet {
 			buyer: T::AccountId,
 			price: BalanceOf<T>,
 		},
+		/// A listing has been removed.
+		ListingRemoved {
+			region_id: RegionId,
+			owner: T::AccountId,
+		},
 	}
 
 	#[pallet::error]
