@@ -60,13 +60,13 @@ fn main() -> Result<(), String> {
 	println!("{}", usage);
 
 	messages.extend(usage.check_network_usage(&[
-		("Received from peers", 443.333, 0.05),
-		("Sent to peers", 21818.555, 0.05),
+		("Received from peers", 433.333, 0.05),
+		("Sent to peers", 18480.000, 0.05),
 	]));
 	messages.extend(usage.check_cpu_usage(&[
-		("availability-distribution", 0.011, 0.05),
-		("bitfield-distribution", 0.029, 0.05),
-		("availability-store", 0.232, 0.05),
+		("availability-distribution", 0.013, 0.05),
+		("bitfield-distribution", 0.046, 0.05),
+		("availability-store", 0.154, 0.05),
 	]));
 
 	if messages.is_empty() {
