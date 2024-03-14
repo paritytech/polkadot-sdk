@@ -26,6 +26,7 @@ use frame_support::{
 	traits::{ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
+use sp_consensus_beefy::{BeefyAuthorityId, CheckForkEquivocationProof, ForkEquivocationProof};
 use sp_core::{crypto::KeyTypeId, ConstU128};
 use sp_io::TestExternalities;
 use sp_runtime::{
@@ -33,7 +34,7 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	impl_opaque_keys,
 	testing::TestXt,
-	traits::{Keccak256, OpaqueKeys},
+	traits::{Hash as HashT, Header as HeaderT, Keccak256, OpaqueKeys},
 	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
@@ -88,13 +89,30 @@ parameter_types! {
 	pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
 }
 
+pub struct AlwaysValidForkEquivocationProof;
+
+impl<Err, Header: HeaderT> CheckForkEquivocationProof<Err, Header>
+	for AlwaysValidForkEquivocationProof
+{
+	type Hash = Keccak256;
+	fn check_fork_equivocation_proof<Id, MsgHash>(
+		_proof: &ForkEquivocationProof<Id, Header, <Self::Hash as HashT>::Output>,
+	) -> Result<(), Err>
+	where
+		Id: BeefyAuthorityId<MsgHash> + PartialEq,
+		MsgHash: HashT,
+	{
+		Ok(())
+	}
+}
+
 impl pallet_beefy::Config for Test {
 	type BeefyId = BeefyId;
 	type MaxAuthorities = ConstU32<100>;
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type OnNewValidatorSet = ();
-	type CheckForkEquivocationProof = ();
+	type CheckForkEquivocationProof = AlwaysValidForkEquivocationProof;
 	type WeightInfo = ();
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =

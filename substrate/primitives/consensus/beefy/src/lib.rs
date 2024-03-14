@@ -602,19 +602,6 @@ pub trait CheckForkEquivocationProof<Err, Header: HeaderT> {
 		MsgHash: HashT;
 }
 
-impl<Err, Header: HeaderT> CheckForkEquivocationProof<Err, Header> for () {
-	type Hash = Keccak256;
-	fn check_fork_equivocation_proof<Id, MsgHash>(
-		_proof: &ForkEquivocationProof<Id, Header, <Self::Hash as HashT>::Output>,
-	) -> Result<(), Err>
-	where
-		Id: BeefyAuthorityId<MsgHash> + PartialEq,
-		MsgHash: HashT,
-	{
-		Ok(())
-	}
-}
-
 /// An opaque type used to represent the key ownership proof at the runtime API
 /// boundary. The inner value is an encoded representation of the actual key
 /// ownership proof which will be parameterized when defining the runtime. At
