@@ -16,18 +16,15 @@
 // limitations under the License.
 
 use frame_benchmarking::v2::*;
-use frame_support_test::Config;
 
 #[benchmarks]
 mod benches {
 	use super::*;
 
-	#[benchmark(skip_meta, pov_mode = Measured, extra)]
+	#[benchmark(pov_mode =)]
 	fn bench() {
-		let a = 2 + 2;
 		#[block]
 		{}
-		assert_eq!(a, 4);
 	}
 }
 

@@ -22,12 +22,10 @@ use frame_support_test::Config;
 mod benches {
 	use super::*;
 
-	#[benchmark(skip_meta, pov_mode = Measured, extra)]
+	#[benchmark(pov_mode = Measured, pov_mode = MaxEncodedLen)]
 	fn bench() {
-		let a = 2 + 2;
 		#[block]
 		{}
-		assert_eq!(a, 4);
 	}
 }
 
