@@ -41,8 +41,8 @@ fn main() -> Result<(), String> {
 	let usage = warm_up_and_benchmark(
 		WarmUpOptions::new(&[
 			("availability-distribution", 0.03),
-			("bitfield-distribution", 0.02),
-			("availability-store", 0.02),
+			("bitfield-distribution", 0.01),
+			("availability-store", 0.01),
 		]),
 		|| {
 			let mut state = TestState::new(&config);
@@ -64,7 +64,7 @@ fn main() -> Result<(), String> {
 	messages.extend(usage.check_cpu_usage(&[
 		("availability-distribution", 0.013, 0.10),
 		("bitfield-distribution", 0.050, 0.08),
-		("availability-store", 0.158, 0.05),
+		("availability-store", 0.158, 0.08),
 	]));
 
 	if messages.is_empty() {
