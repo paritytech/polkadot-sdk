@@ -217,6 +217,12 @@ benchmarks! {
 		let num_paras = 50;
 		let num_paras_elastic = 25;
 
+		let max_block_size_full = <T as frame_system::Config>::BlockLength::get();
+		let max_block_size = max_block_size_full.max.get(DispatchClass::Mandatory);
+
+		// Each candidate will contain a code upgrade such that we fully fill the RCB.
+		let code_upgrade_size = max_block_size / 20;
+
 		let cores_with_backed: BTreeMap<_, _>
 			= (0..num_paras).map(|idx| (idx, BenchBuilder::<T>::fallback_max_validators_per_core()))
 				.into_iter()
@@ -232,11 +238,11 @@ benchmarks! {
 			.set_max_validators(500)
 			.set_backed_and_concluding_cores(cores_with_backed)
 			.set_elastic_paras(elastic_paras)
+			.set_code_upgrade((3,code_upgrade_size))
 			.build();
 
 		let mut benchmark = scenario.data.clone();
 		benchmark.disputes.clear();
-
 	}: enter(RawOrigin::None, benchmark)
 	verify {
 		// Assert that the block was not discarded
