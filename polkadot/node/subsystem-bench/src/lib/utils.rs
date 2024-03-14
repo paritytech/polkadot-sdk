@@ -17,38 +17,23 @@
 //! Test utils
 
 use crate::usage::BenchmarkUsage;
-use std::io::{stdout, Write};
+use std::{
+	collections::HashMap,
+	io::{stdout, Write},
+};
 
 pub struct WarmUpOptions<'a> {
 	/// The maximum number of runs considered for marming up.
 	pub warm_up: usize,
 	/// The number of runs considered for benchmarking.
 	pub bench: usize,
-	/// The difference in CPU usage between runs considered as normal
-	pub precision: f64,
-	/// The subsystems whose CPU usage is checked during warm-up cycles
-	pub subsystems: &'a [&'a str],
+	/// The difference in CPU usage between runs considered as normal mapped to subsystem
+	pub precisions: HashMap<&'a str, f64>,
 }
 
 impl<'a> WarmUpOptions<'a> {
-	pub fn new() -> Self {
-		Self { warm_up: 100, bench: 3, precision: 0.02, subsystems: &[] }
-	}
-
-	pub fn subsystems(mut self, v: &'a [&'a str]) -> Self {
-		self.subsystems = v;
-		self
-	}
-
-	pub fn precision(mut self, v: f64) -> Self {
-		self.precision = v;
-		self
-	}
-}
-
-impl<'a> Default for WarmUpOptions<'a> {
-	fn default() -> Self {
-		Self::new()
+	pub fn new(precisions: &[(&'a str, f64)]) -> Self {
+		Self { warm_up: 100, bench: 3, precisions: precisions.iter().cloned().collect() }
 	}
 }
 
@@ -63,14 +48,27 @@ pub fn warm_up_and_benchmark(
 		let curr = run();
 		if let Some(prev) = usages.last() {
 			let diffs = options
-				.subsystems
-				.iter()
-				.map(|&v| {
-					curr.cpu_usage_diff(prev, v)
-						.ok_or(format!("{} not found in benchmark {:?}", v, prev))
+				.precisions
+				.keys()
+				.map(|&subsystem| {
+					curr.cpu_usage_diff(prev, subsystem)
+						.map(|diff| (subsystem, diff))
+						.ok_or(format!("{} not found in benchmark {:?}", subsystem, prev))
 				})
-				.collect::<Result<Vec<f64>, String>>()?;
-			if !diffs.iter().all(|&v| v < options.precision) {
+				.collect::<Result<HashMap<&str, f64>, String>>()?;
+			let is_warmed_up = diffs
+				.iter()
+				.map(|(subsystem, diff)| {
+					options
+						.precisions
+						.get(subsystem)
+						.map(|precision| *diff < *precision)
+						.ok_or(format!("{} not found in benchmark {:?}", subsystem, prev))
+				})
+				.collect::<Result<Vec<bool>, String>>()?
+				.iter()
+				.all(|v| *v);
+			if !is_warmed_up {
 				usages.clear();
 			}
 		}

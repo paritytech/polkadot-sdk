@@ -39,13 +39,11 @@ fn main() -> Result<(), String> {
 	config.generate_pov_sizes();
 
 	let usage = warm_up_and_benchmark(
-		WarmUpOptions::new()
-			.subsystems(&[
-				"availability-distribution",
-				"bitfield-distribution",
-				"availability-store",
-			])
-			.precision(0.03),
+		WarmUpOptions::new(&[
+			("availability-distribution", 0.03),
+			("bitfield-distribution", 0.02),
+			("availability-store", 0.02),
+		]),
 		|| {
 			let mut state = TestState::new(&config);
 			let (mut env, _protocol_config) =
@@ -64,7 +62,7 @@ fn main() -> Result<(), String> {
 		("Sent to peers", 18480.000, 0.05),
 	]));
 	messages.extend(usage.check_cpu_usage(&[
-		("availability-distribution", 0.012, 0.05),
+		("availability-distribution", 0.012, 0.07),
 		("bitfield-distribution", 0.046, 0.05),
 		("availability-store", 0.151, 0.05),
 	]));

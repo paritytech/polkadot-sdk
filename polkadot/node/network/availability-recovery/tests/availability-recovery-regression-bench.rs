@@ -39,7 +39,7 @@ fn main() -> Result<(), String> {
 	config.generate_pov_sizes();
 
 	let usage =
-		warm_up_and_benchmark(WarmUpOptions::new().subsystems(&["availability-recovery"]), || {
+		warm_up_and_benchmark(WarmUpOptions::new(&[("availability-recovery", 0.02)]), || {
 			let mut state = TestState::new(&config);
 			let (mut env, _protocol_config) = prepare_test(
 				config.clone(),
