@@ -6582,6 +6582,8 @@ mod ledger {
 					);
 				})
 			}
+
+	 */
 		#[test]
 		fn set_controller_with_bad_state_ok() {
 			ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
@@ -6596,7 +6598,7 @@ mod ledger {
 
 		#[test]
 		fn set_controller_with_bad_state_fails() {
-			ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+			ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 				setup_double_bonded_ledgers();
 
 				// setting the controller of ledger associated with stash 3 fails since its stash is a
@@ -6612,5 +6614,4 @@ mod ledger {
 				assert_ok!(Staking::set_controller(RuntimeOrigin::signed(1)));
 			})
 		}
-	*/
 }
