@@ -147,6 +147,12 @@ This could mean that you either did not build the node correctly with the \
 `--features runtime-benchmarks` flag, or the chain spec that you are using was \
 not created by a node that was compiled with the flag";
 
+/// When the runtime could not build the genesis storage.
+const ERROR_CANNOT_BUILD_GENESIS: &str = "The runtime returned \
+an error when trying to build the genesis storage. Please ensure that all pallets \
+define a genesis config that can be built. This can be tested with: \
+https://github.com/paritytech/polkadot-sdk/pull/3412";
+
 /// Warn when using the chain spec to generate the genesis state.
 const WARN_SPEC_GENESIS_CTOR: &'static str = "Using the chain spec instead of the runtime to \
 generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`--local` argument, \
@@ -233,7 +239,6 @@ impl PalletCmd {
 		let method =
 			execution_method_from_cli(self.wasm_method, self.wasmtime_instantiation_strategy);
 
-		// Get Benchmark List
 		let state = &state_without_tracking;
 		let runtime = self.runtime_blob(&state_without_tracking)?;
 		let runtime_code = runtime.code()?;
@@ -252,19 +257,6 @@ impl PalletCmd {
 		.with_runtime_cache_size(2)
 		.build();
 
-		let extensions = || -> Extensions {
-			let mut extensions = Extensions::default();
-			let (offchain, _) = TestOffchainExt::new();
-			let (pool, _) = TestTransactionPoolExt::new();
-			let keystore = MemoryKeystore::new();
-			extensions.register(KeystoreExt::new(keystore));
-			extensions.register(OffchainWorkerExt::new(offchain.clone()));
-			extensions.register(OffchainDbExt::new(offchain));
-			extensions.register(TransactionPoolExt::new(pool));
-			extensions.register(ReadRuntimeVersionExt::new(executor.clone()));
-			extensions
-		};
-
 		let (list, storage_info): (Vec<BenchmarkList>, Vec<StorageInfo>) =
 			Self::exec_state_machine(
 				StateMachine::new(
@@ -273,7 +265,7 @@ impl PalletCmd {
 					&executor,
 					"Benchmark_benchmark_metadata",
 					&(self.extra).encode(),
-					&mut extensions(),
+					&mut Self::build_extensions(executor.clone()),
 					&runtime_code,
 					CallContext::Offchain,
 				),
@@ -420,7 +412,7 @@ impl PalletCmd {
 								1,    // no need to do internal repeats
 							)
 								.encode(),
-							&mut extensions(),
+							&mut Self::build_extensions(executor.clone()),
 							&runtime_code,
 							CallContext::Offchain,
 						),
@@ -461,7 +453,7 @@ impl PalletCmd {
 								self.repeat,
 							)
 								.encode(),
-							&mut extensions(),
+							&mut Self::build_extensions(executor.clone()),
 							&runtime_code,
 							CallContext::Offchain,
 						),
@@ -504,7 +496,7 @@ impl PalletCmd {
 								self.repeat,
 							)
 								.encode(),
-							&mut extensions(),
+							&mut Self::build_extensions(executor.clone()),
 							&runtime_code,
 							CallContext::Offchain,
 						),
@@ -581,14 +573,9 @@ impl PalletCmd {
 					return Err("No chain spec specified to generate the genesis state".into());
 				};
 
-				let storage = chain_spec.build_storage().map_err(|e| {
-					format!(
-						"The runtime returned \
-				an error when trying to build the genesis storage. Please ensure that all pallets \
-				define a genesis config that can be built. For more info, see: \
-				https://github.com/paritytech/polkadot-sdk/pull/3412\nError: {e}"
-					)
-				})?;
+				let storage = chain_spec
+					.build_storage()
+					.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}"))?;
 
 				(storage, Default::default())
 			},
@@ -618,7 +605,6 @@ impl PalletCmd {
 		let runtime = self.runtime_blob(&state)?;
 		let runtime_code = runtime.code()?;
 
-		// TODO register extensions
 		let genesis_json: Vec<u8> = Self::exec_state_machine(
 			StateMachine::new(
 				&state,
@@ -633,11 +619,10 @@ impl PalletCmd {
 			"build the genesis spec",
 		)?;
 
-		// Sanity check that it is JSON before we plug it into the next runtime call.
-		assert!(
-			serde_json::from_slice::<serde_json::Value>(&genesis_json).is_ok(),
-			"The runtime returned invalid an invalid genesis JSON"
-		);
+		// Sanity check that it is JSON before we plug it into the next call.
+		if !serde_json::from_slice::<serde_json::Value>(&genesis_json).is_ok() {
+			log::warn!("GenesisBuilder::create_default_config returned invalid JSON");
+		}
 
 		let mut changes = Default::default();
 		let build_config_ret: Vec<u8> = Self::exec_state_machine(
@@ -655,7 +640,7 @@ impl PalletCmd {
 		)?;
 
 		if !build_config_ret.is_empty() {
-			log::warn!("GenesisBuilder::build_config should not return any data - ignoring");
+			log::warn!("GenesisBuilder::build_config returned unexpected data");
 		}
 
 		Ok(changes)
@@ -674,9 +659,23 @@ impl PalletCmd {
 		Ok(res)
 	}
 
-	/// Get the runtime blob for this benchmark.
+	/// Build the extension that are available for pallet benchmarks.
+	fn build_extensions<E: CodeExecutor>(exe: E) -> Extensions {
+		let mut extensions = Extensions::default();
+		let (offchain, _) = TestOffchainExt::new();
+		let (pool, _) = TestTransactionPoolExt::new();
+		let keystore = MemoryKeystore::new();
+		extensions.register(KeystoreExt::new(keystore));
+		extensions.register(OffchainWorkerExt::new(offchain.clone()));
+		extensions.register(OffchainDbExt::new(offchain));
+		extensions.register(TransactionPoolExt::new(pool));
+		extensions.register(ReadRuntimeVersionExt::new(exe));
+		extensions
+	}
+
+	/// Load the runtime blob for this benchmark.
 	///
-	/// The runtime will either be loaded from the `:code` key out of the chain spec, or from a file
+	/// The blob will either be loaded from the `:code` key out of the chain spec, or from a file
 	/// when specified with `--runtime`.
 	fn runtime_blob<'a, H: Hash>(
 		&self,
@@ -701,6 +700,7 @@ impl PalletCmd {
 		}
 	}
 
+	/// Allocation strategy for pallet benchmarking.
 	fn alloc_strategy(heap_pages: Option<u64>) -> HeapAllocStrategy {
 		heap_pages.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static {
 			extra_pages: p as _,
@@ -940,7 +940,7 @@ impl PalletCmd {
 	/// Sanity check the CLI arguments.
 	fn check_args(&self) -> Result<()> {
 		if self.runtime.is_some() && self.shared_params.chain.is_some() {
-			unreachable!("Clap should not allow both `--runtime` and `--chain` to be specified")
+			unreachable!("Clap should not allow both `--runtime` and `--chain` to be provided.")
 		}
 
 		if let Some(output_path) = &self.output {
@@ -973,7 +973,7 @@ impl CliConfiguration for PalletCmd {
 	fn chain_id(&self, _is_dev: bool) -> Result<String> {
 		Ok(match self.shared_params.chain {
 			Some(ref chain) => chain.clone(),
-			None => "dev".into(),
+			None => "dev".into(), // FAIL-CI
 		})
 	}
 }

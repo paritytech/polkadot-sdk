@@ -496,6 +496,7 @@ members = [
 	"substrate/utils/frame/frame-utilities-cli",
 	"substrate/utils/frame/generate-bags",
 	"substrate/utils/frame/generate-bags/node-runtime",
+	"substrate/utils/frame/omni-bencher",
 	"substrate/utils/frame/remote-externalities",
 	"substrate/utils/frame/rpc/client",
 	"substrate/utils/frame/rpc/state-trie-migration-rpc",
