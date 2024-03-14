@@ -1380,7 +1380,7 @@ mod sanitizers {
 			scheduler::{common::Assignment, ParasEntry},
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
-		use primitives::ValidationCode;
+		use primitives::{vstaging::SchedulerParams, ValidationCode};
 		use sp_std::collections::vec_deque::VecDeque;
 
 		use super::*;
@@ -1390,6 +1390,10 @@ mod sanitizers {
 				configuration: configuration::GenesisConfig {
 					config: HostConfiguration {
 						max_head_data_size: 0b100000,
+						scheduler_params: SchedulerParams {
+							group_rotation_frequency: u32::MAX,
+							..Default::default()
+						},
 						..Default::default()
 					},
 				},
@@ -1400,13 +1404,14 @@ mod sanitizers {
 		// Backed candidates and scheduled parachains used for `sanitize_backed_candidates` testing
 		struct TestData {
 			backed_candidates: Vec<BackedCandidate>,
-			all_backed_candidates_with_core: BTreeMap<ParaId, Vec<(BackedCandidate, CoreIndex)>>,
+			expected_backed_candidates_with_core:
+				BTreeMap<ParaId, Vec<(BackedCandidate, CoreIndex)>>,
 			scheduled_paras: BTreeMap<primitives::Id, BTreeSet<CoreIndex>>,
 		}
 
 		// Generate test data for the candidates and assert that the environment is set as expected
 		// (check the comments for details)
-		fn get_test_data(core_index_enabled: bool) -> TestData {
+		fn get_test_data_one_core_per_para(core_index_enabled: bool) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 
 			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
@@ -1563,12 +1568,12 @@ mod sanitizers {
 				]
 			);
 
-			let mut all_backed_candidates_with_core = BTreeMap::new();
+			let mut expected_backed_candidates_with_core = BTreeMap::new();
 
 			for candidate in backed_candidates.iter() {
 				let para_id = candidate.descriptor().para_id;
 
-				all_backed_candidates_with_core.entry(para_id).or_insert(vec![]).push((
+				expected_backed_candidates_with_core.entry(para_id).or_insert(vec![]).push((
 					candidate.clone(),
 					scheduled.get(&para_id).unwrap().first().copied().unwrap(),
 				));
@@ -1577,7 +1582,7 @@ mod sanitizers {
 			TestData {
 				backed_candidates,
 				scheduled_paras: scheduled,
-				all_backed_candidates_with_core,
+				expected_backed_candidates_with_core,
 			}
 		}
 
@@ -1588,6 +1593,8 @@ mod sanitizers {
 		// Para 3 scheduled on core 4. One candidate supplied.
 		// Para 4 scheduled on core 5. Two candidates supplied.
 		// Para 5 scheduled on core 6. No candidates supplied.
+		// Para 6 is not scheduled. One candidate supplied.
+		// Para 7 is scheduled on core 7 and 8, but the candidate contains the wrong core index.
 		fn get_test_data_multiple_cores_per_para(core_index_enabled: bool) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 
@@ -1693,10 +1700,24 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 					)]),
 				),
+				(
+					CoreIndex::from(7),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 7.into(), core_index: CoreIndex(7) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(8),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 7.into(), core_index: CoreIndex(8) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
 			]));
 
 			// Set the on-chain included head data and current code hash.
-			for id in 1..=5u32 {
+			for id in 1..=7u32 {
 				paras::Pallet::<Test>::set_current_head(ParaId::from(id), HeadData(vec![id as u8]));
 				paras::Pallet::<Test>::force_set_current_code(
 					RuntimeOrigin::root(),
@@ -1723,7 +1744,7 @@ mod sanitizers {
 			};
 
 			let mut backed_candidates = vec![];
-			let mut all_backed_candidates_with_core = BTreeMap::new();
+			let mut expected_backed_candidates_with_core = BTreeMap::new();
 
 			// Para 1
 			{
@@ -1759,7 +1780,7 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed.clone());
 				if core_index_enabled {
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.entry(ParaId::from(1))
 						.or_insert(vec![])
 						.push((backed, CoreIndex(0)));
@@ -1796,7 +1817,7 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed.clone());
 				if core_index_enabled {
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.entry(ParaId::from(1))
 						.or_insert(vec![])
 						.push((backed, CoreIndex(1)));
@@ -1835,7 +1856,7 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed.clone());
 				if core_index_enabled {
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.entry(ParaId::from(2))
 						.or_insert(vec![])
 						.push((backed, CoreIndex(2)));
@@ -1873,7 +1894,7 @@ mod sanitizers {
 					core_index_enabled.then_some(CoreIndex(4 as u32)),
 				);
 				backed_candidates.push(backed.clone());
-				all_backed_candidates_with_core
+				expected_backed_candidates_with_core
 					.entry(ParaId::from(3))
 					.or_insert(vec![])
 					.push((backed, CoreIndex(4)));
@@ -1911,7 +1932,7 @@ mod sanitizers {
 					None,
 				);
 				backed_candidates.push(backed.clone());
-				all_backed_candidates_with_core
+				expected_backed_candidates_with_core
 					.entry(ParaId::from(4))
 					.or_insert(vec![])
 					.push((backed, CoreIndex(5)));
@@ -1950,6 +1971,72 @@ mod sanitizers {
 
 			// No candidate for para 5.
 
+			// Para 6.
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(6),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(3 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(6),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![6]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(6 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(6 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+			}
+
+			// Para 7.
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(7),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(3 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(7),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![7]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(6 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(6 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+			}
+
 			// State sanity checks
 			assert_eq!(
 				<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
@@ -1961,6 +2048,8 @@ mod sanitizers {
 					(CoreIndex(4), ParaId::from(3)),
 					(CoreIndex(5), ParaId::from(4)),
 					(CoreIndex(6), ParaId::from(5)),
+					(CoreIndex(7), ParaId::from(7)),
+					(CoreIndex(8), ParaId::from(7)),
 				]
 			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
@@ -1984,7 +2073,7 @@ mod sanitizers {
 			TestData {
 				backed_candidates,
 				scheduled_paras: scheduled,
-				all_backed_candidates_with_core,
+				expected_backed_candidates_with_core,
 			}
 		}
 
@@ -2149,7 +2238,7 @@ mod sanitizers {
 			};
 
 			let mut backed_candidates = vec![];
-			let mut all_backed_candidates_with_core = BTreeMap::new();
+			let mut expected_backed_candidates_with_core = BTreeMap::new();
 
 			// Para 1
 			{
@@ -2251,7 +2340,7 @@ mod sanitizers {
 
 				backed_candidates.push(backed_1.clone());
 				if core_index_enabled {
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.entry(ParaId::from(2))
 						.or_insert(vec![])
 						.push((backed_1, CoreIndex(2)));
@@ -2354,7 +2443,7 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed.clone());
 				if core_index_enabled {
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.entry(ParaId::from(3))
 						.or_insert(vec![])
 						.push((backed, CoreIndex(5)));
@@ -2391,7 +2480,7 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed.clone());
 				if core_index_enabled {
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.entry(ParaId::from(3))
 						.or_insert(vec![])
 						.push((backed, CoreIndex(6)));
@@ -2431,7 +2520,7 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed.clone());
 				if core_index_enabled {
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.entry(ParaId::from(4))
 						.or_insert(vec![])
 						.push((backed, CoreIndex(7)));
@@ -2487,20 +2576,20 @@ mod sanitizers {
 			TestData {
 				backed_candidates,
 				scheduled_paras: scheduled,
-				all_backed_candidates_with_core,
+				expected_backed_candidates_with_core,
 			}
 		}
 
 		#[rstest]
 		#[case(false)]
 		#[case(true)]
-		fn happy_path(#[case] core_index_enabled: bool) {
+		fn happy_path_one_core_per_para(#[case] core_index_enabled: bool) {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData {
 					backed_candidates,
-					all_backed_candidates_with_core,
+					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
-				} = get_test_data(core_index_enabled);
+				} = get_test_data_one_core_per_para(core_index_enabled);
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
@@ -2510,7 +2599,7 @@ mod sanitizers {
 						scheduled,
 						core_index_enabled
 					),
-					all_backed_candidates_with_core,
+					expected_backed_candidates_with_core,
 				);
 			});
 		}
@@ -2522,7 +2611,7 @@ mod sanitizers {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData {
 					backed_candidates,
-					all_backed_candidates_with_core: expected_all_backed_candidates_with_core,
+					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
 				} = get_test_data_multiple_cores_per_para(core_index_enabled);
 
@@ -2534,7 +2623,7 @@ mod sanitizers {
 						scheduled,
 						core_index_enabled
 					),
-					expected_all_backed_candidates_with_core,
+					expected_backed_candidates_with_core,
 				);
 			});
 		}
@@ -2547,7 +2636,7 @@ mod sanitizers {
 				let TestData {
 					backed_candidates,
 					scheduled_paras: scheduled,
-					all_backed_candidates_with_core,
+					expected_backed_candidates_with_core,
 				} = get_test_data_for_order_checks(core_index_enabled);
 
 				assert_eq!(
@@ -2558,7 +2647,7 @@ mod sanitizers {
 						scheduled,
 						core_index_enabled,
 					),
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 				);
 			});
 		}
@@ -2577,7 +2666,7 @@ mod sanitizers {
 				let TestData { backed_candidates, .. } = if multiple_cores_per_para {
 					get_test_data_multiple_cores_per_para(core_index_enabled)
 				} else {
-					get_test_data(core_index_enabled)
+					get_test_data_one_core_per_para(core_index_enabled)
 				};
 				let scheduled = BTreeMap::new();
 
@@ -2597,10 +2686,12 @@ mod sanitizers {
 		#[rstest]
 		#[case(false)]
 		#[case(true)]
-		fn invalid_are_filtered_out(#[case] core_index_enabled: bool) {
+		fn concluded_invalid_are_filtered_out_single_core_per_para(
+			#[case] core_index_enabled: bool,
+		) {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { backed_candidates, scheduled_paras: scheduled, .. } =
-					get_test_data(core_index_enabled);
+					get_test_data_one_core_per_para(core_index_enabled);
 
 				// mark every second one as concluded invalid
 				let set = {
@@ -2627,27 +2718,107 @@ mod sanitizers {
 			});
 		}
 
+		// candidates that have concluded as invalid are filtered out, as well as their descendants.
+		#[test]
+		fn concluded_invalid_are_filtered_out_multiple_cores_per_para() {
+			// Mark the first candidate of paraid 1 as invalid. Its descendant should also
+			// be dropped. Also mark the candidate of paraid 3 as invalid.
+			new_test_ext(default_config()).execute_with(|| {
+				let TestData {
+					backed_candidates,
+					scheduled_paras: scheduled,
+					mut expected_backed_candidates_with_core,
+					..
+				} = get_test_data_multiple_cores_per_para(true);
+
+				let mut invalid_set = std::collections::BTreeSet::new();
+
+				for (idx, backed_candidate) in backed_candidates.iter().enumerate() {
+					if backed_candidate.descriptor().para_id == ParaId::from(1) && idx == 0 {
+						invalid_set.insert(backed_candidate.hash());
+					} else if backed_candidate.descriptor().para_id == ParaId::from(3) {
+						invalid_set.insert(backed_candidate.hash());
+					}
+				}
+				let sanitized_backed_candidates: BTreeMap<
+					ParaId,
+					Vec<(BackedCandidate<_>, CoreIndex)>,
+				> = sanitize_backed_candidates::<Test>(
+					backed_candidates.clone(),
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					invalid_set,
+					scheduled,
+					true,
+				);
+
+				// We'll be left with candidates from paraid 2 and 4.
+
+				expected_backed_candidates_with_core.remove(&ParaId::from(1)).unwrap();
+				expected_backed_candidates_with_core.remove(&ParaId::from(3)).unwrap();
+
+				assert_eq!(sanitized_backed_candidates, sanitized_backed_candidates);
+			});
+
+			// Mark the second candidate of paraid 1 as invalid. Its predecessor should be left
+			// in place.
+			new_test_ext(default_config()).execute_with(|| {
+				let TestData {
+					backed_candidates,
+					scheduled_paras: scheduled,
+					mut expected_backed_candidates_with_core,
+					..
+				} = get_test_data_multiple_cores_per_para(true);
+
+				let mut invalid_set = std::collections::BTreeSet::new();
+
+				for (idx, backed_candidate) in backed_candidates.iter().enumerate() {
+					if backed_candidate.descriptor().para_id == ParaId::from(1) && idx == 1 {
+						invalid_set.insert(backed_candidate.hash());
+					}
+				}
+				let sanitized_backed_candidates: BTreeMap<
+					ParaId,
+					Vec<(BackedCandidate<_>, CoreIndex)>,
+				> = sanitize_backed_candidates::<Test>(
+					backed_candidates.clone(),
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					invalid_set,
+					scheduled,
+					true,
+				);
+
+				// Only the second candidate of paraid 1 should be removed.
+				expected_backed_candidates_with_core
+					.get_mut(&ParaId::from(1))
+					.unwrap()
+					.remove(1);
+
+				// We'll be left with candidates from paraid 1, 2, 3 and 4.
+				assert_eq!(sanitized_backed_candidates, expected_backed_candidates_with_core);
+			});
+		}
+
 		#[rstest]
 		#[case(false)]
 		#[case(true)]
 		fn disabled_non_signing_validator_doesnt_get_filtered(#[case] core_index_enabled: bool) {
 			new_test_ext(default_config()).execute_with(|| {
-				let TestData { mut all_backed_candidates_with_core, .. } =
-					get_test_data(core_index_enabled);
+				let TestData { mut expected_backed_candidates_with_core, .. } =
+					get_test_data_one_core_per_para(core_index_enabled);
 
 				// Disable Eve
 				set_disabled_validators(vec![4]);
 
-				let before = all_backed_candidates_with_core.clone();
+				let before = expected_backed_candidates_with_core.clone();
 
 				// Eve is disabled but no backing statement is signed by it so nothing should be
 				// filtered
 				filter_backed_statements_from_disabled_validators::<Test>(
-					&mut all_backed_candidates_with_core,
+					&mut expected_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					core_index_enabled,
 				);
-				assert_eq!(all_backed_candidates_with_core, before);
+				assert_eq!(expected_backed_candidates_with_core, before);
 			});
 		}
 
@@ -2658,8 +2829,8 @@ mod sanitizers {
 			#[case] core_index_enabled: bool,
 		) {
 			new_test_ext(default_config()).execute_with(|| {
-				let TestData { mut all_backed_candidates_with_core, .. } =
-					get_test_data(core_index_enabled);
+				let TestData { mut expected_backed_candidates_with_core, .. } =
+					get_test_data_one_core_per_para(core_index_enabled);
 
 				// Disable Alice
 				set_disabled_validators(vec![0]);
@@ -2673,7 +2844,7 @@ mod sanitizers {
 
 				// Verify the initial state is as expected
 				assert_eq!(
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.get(&ParaId::from(1))
 						.unwrap()
 						.iter()
@@ -2684,7 +2855,7 @@ mod sanitizers {
 						.len(),
 					2
 				);
-				let (validator_indices, maybe_core_index) = all_backed_candidates_with_core
+				let (validator_indices, maybe_core_index) = expected_backed_candidates_with_core
 					.get(&ParaId::from(1))
 					.unwrap()
 					.iter()
@@ -2700,7 +2871,7 @@ mod sanitizers {
 
 				assert_eq!(validator_indices.get(0).unwrap(), true);
 				assert_eq!(validator_indices.get(1).unwrap(), true);
-				let untouched = all_backed_candidates_with_core
+				let untouched = expected_backed_candidates_with_core
 					.get(&ParaId::from(2))
 					.unwrap()
 					.iter()
@@ -2709,15 +2880,15 @@ mod sanitizers {
 					.0
 					.clone();
 
-				let before = all_backed_candidates_with_core.clone();
+				let before = expected_backed_candidates_with_core.clone();
 				filter_backed_statements_from_disabled_validators::<Test>(
-					&mut all_backed_candidates_with_core,
+					&mut expected_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					core_index_enabled,
 				);
-				assert_eq!(before.len(), all_backed_candidates_with_core.len());
+				assert_eq!(before.len(), expected_backed_candidates_with_core.len());
 
-				let (validator_indices, maybe_core_index) = all_backed_candidates_with_core
+				let (validator_indices, maybe_core_index) = expected_backed_candidates_with_core
 					.get(&ParaId::from(1))
 					.unwrap()
 					.iter()
@@ -2732,10 +2903,10 @@ mod sanitizers {
 				}
 
 				// there should still be two backed candidates
-				assert_eq!(all_backed_candidates_with_core.len(), 2);
+				assert_eq!(expected_backed_candidates_with_core.len(), 2);
 				// but the first one should have only one validity vote
 				assert_eq!(
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.get(&ParaId::from(1))
 						.unwrap()
 						.iter()
@@ -2751,7 +2922,7 @@ mod sanitizers {
 				assert_eq!(validator_indices.get(1).unwrap(), true);
 				// the second candidate shouldn't be modified
 				assert_eq!(
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.get(&ParaId::from(2))
 						.unwrap()
 						.iter()
@@ -2766,17 +2937,19 @@ mod sanitizers {
 		#[rstest]
 		#[case(false)]
 		#[case(true)]
-		fn drop_candidate_if_all_statements_are_from_disabled(#[case] core_index_enabled: bool) {
+		fn drop_candidate_if_all_statements_are_from_disabled_single_core_per_para(
+			#[case] core_index_enabled: bool,
+		) {
 			new_test_ext(default_config()).execute_with(|| {
-				let TestData { mut all_backed_candidates_with_core, .. } =
-					get_test_data(core_index_enabled);
+				let TestData { mut expected_backed_candidates_with_core, .. } =
+					get_test_data_one_core_per_para(core_index_enabled);
 
 				// Disable Alice and Bob
 				set_disabled_validators(vec![0, 1]);
 
 				// Verify the initial state is as expected
 				assert_eq!(
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.get(&ParaId::from(1))
 						.unwrap()
 						.iter()
@@ -2787,7 +2960,7 @@ mod sanitizers {
 						.len(),
 					2
 				);
-				let untouched = all_backed_candidates_with_core
+				let untouched = expected_backed_candidates_with_core
 					.get(&ParaId::from(2))
 					.unwrap()
 					.iter()
@@ -2797,14 +2970,14 @@ mod sanitizers {
 					.clone();
 
 				filter_backed_statements_from_disabled_validators::<Test>(
-					&mut all_backed_candidates_with_core,
+					&mut expected_backed_candidates_with_core,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					core_index_enabled,
 				);
 
-				assert_eq!(all_backed_candidates_with_core.len(), 1);
+				assert_eq!(expected_backed_candidates_with_core.len(), 1);
 				assert_eq!(
-					all_backed_candidates_with_core
+					expected_backed_candidates_with_core
 						.get(&ParaId::from(2))
 						.unwrap()
 						.iter()
@@ -2813,8 +2986,54 @@ mod sanitizers {
 						.0,
 					untouched
 				);
-				assert_eq!(all_backed_candidates_with_core.get(&ParaId::from(1)), None);
+				assert_eq!(expected_backed_candidates_with_core.get(&ParaId::from(1)), None);
 			});
+		}
+
+		#[test]
+		fn drop_candidate_if_all_statements_are_from_disabled_multiple_cores_per_para() {
+			// Disable Bob, only the second candidate of paraid 1 should be removed.
+			new_test_ext(default_config()).execute_with(|| {
+				let TestData { mut expected_backed_candidates_with_core, .. } =
+					get_test_data_multiple_cores_per_para(true);
+
+				set_disabled_validators(vec![1]);
+
+				let mut untouched = expected_backed_candidates_with_core.clone();
+
+				filter_backed_statements_from_disabled_validators::<Test>(
+					&mut expected_backed_candidates_with_core,
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					true,
+				);
+
+				untouched.get_mut(&ParaId::from(1)).unwrap().remove(1);
+
+				assert_eq!(expected_backed_candidates_with_core, untouched);
+			});
+
+			// Disable Alice or disable both Alice and Bob, all candidates of paraid 1 should be
+			// removed.
+			for disabled in [vec![0], vec![0, 1]] {
+				new_test_ext(default_config()).execute_with(|| {
+					let TestData { mut expected_backed_candidates_with_core, .. } =
+						get_test_data_multiple_cores_per_para(true);
+
+					set_disabled_validators(disabled);
+
+					let mut untouched = expected_backed_candidates_with_core.clone();
+
+					filter_backed_statements_from_disabled_validators::<Test>(
+						&mut expected_backed_candidates_with_core,
+						&<shared::Pallet<Test>>::allowed_relay_parents(),
+						true,
+					);
+
+					untouched.remove(&ParaId::from(1)).unwrap();
+
+					assert_eq!(expected_backed_candidates_with_core, untouched);
+				});
+			}
 		}
 	}
 }

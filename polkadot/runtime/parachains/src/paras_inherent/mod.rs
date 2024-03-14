@@ -1382,6 +1382,11 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 					if scheduled_cores.len() == 0 {
 						// We've got candidates for all of this para's assigned cores. Move on to
 						// the next para.
+						log::debug!(
+							target: LOG_TARGET,
+							"Found enough candidates for paraid: {:?}. Dropping the rest.",
+							candidate.descriptor().para_id
+						);
 						break;
 					}
 					let maybe_injected_core_index: Option<CoreIndex> =
@@ -1394,7 +1399,6 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 							// if we got a candidate for a core index which is not scheduled, stop
 							// the work for this para. the already processed candidate chain in
 							// temp_backed_candidates is still fine though.
-
 							log::debug!(
 								target: LOG_TARGET,
 								"Found a backed candidate {:?} with injected core index {}, which is not scheduled for paraid {:?}.",
@@ -1421,10 +1425,12 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 					}
 				}
 
-				backed_candidates_with_core
-					.entry(para_id)
-					.or_insert_with(|| vec![])
-					.extend(temp_backed_candidates);
+				if !temp_backed_candidates.is_empty() {
+					backed_candidates_with_core
+						.entry(para_id)
+						.or_insert_with(|| vec![])
+						.extend(temp_backed_candidates);
+				}
 			} else {
 				log::warn!(
 					target: LOG_TARGET,
@@ -1433,6 +1439,13 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 					scheduled_cores
 				);
 			}
+		} else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Paraid: {:?} has no scheduled cores but {} candidates were supplied.",
+				para_id,
+				backed_candidates.len()
+			);
 		}
 	}
 
