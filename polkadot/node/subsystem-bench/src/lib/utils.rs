@@ -46,6 +46,12 @@ impl<'a> WarmUpOptions<'a> {
 	}
 }
 
+impl<'a> Default for WarmUpOptions<'a> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 pub fn warm_up_and_benchmark(
 	options: WarmUpOptions,
 	run: impl Fn() -> BenchmarkUsage,
