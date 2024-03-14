@@ -18,17 +18,18 @@
 //! Transaction extensions.
 
 use crate::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
-use codec::{Decode, Encode};
-use scale_info::TypeInfo;
+use codec::{Codec, Decode, Encode};
+use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		transaction_extension::{TransactionExtensionBase, TransactionExtensionInterior},
-		DispatchInfoOf, Dispatchable, IdentifyAccount, TransactionExtension, Verify,
+		transaction_extension::TransactionExtensionBase, DispatchInfoOf, Dispatchable,
+		IdentifyAccount, TransactionExtension, Verify,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
+use sp_std::fmt::Debug;
 
 #[derive(
 	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo,
@@ -37,8 +38,9 @@ use sp_runtime::{
 #[codec(decode_bound())]
 pub struct VerifyMultiSignature<V: Verify>
 where
-	V: TransactionExtensionInterior,
-	<V::Signer as IdentifyAccount>::AccountId: TransactionExtensionInterior,
+	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+	<V::Signer as IdentifyAccount>::AccountId:
+		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 {
 	signature: V,
 	account: <V::Signer as IdentifyAccount>::AccountId,
@@ -46,8 +48,9 @@ where
 
 impl<V: Verify> TransactionExtensionBase for VerifyMultiSignature<V>
 where
-	V: TransactionExtensionInterior,
-	<V::Signer as IdentifyAccount>::AccountId: TransactionExtensionInterior,
+	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+	<V::Signer as IdentifyAccount>::AccountId:
+		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 {
 	const IDENTIFIER: &'static str = "VerifyMultiSignature";
 	type Implicit = ();
@@ -56,8 +59,9 @@ where
 impl<V: Verify, Call: Dispatchable + Encode, Context> TransactionExtension<Call, Context>
 	for VerifyMultiSignature<V>
 where
-	V: TransactionExtensionInterior,
-	<V::Signer as IdentifyAccount>::AccountId: TransactionExtensionInterior,
+	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+	<V::Signer as IdentifyAccount>::AccountId:
+		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<Call as Dispatchable>::RuntimeOrigin: From<Option<<V::Signer as IdentifyAccount>::AccountId>>,
 {
 	type Val = ();
