@@ -78,3 +78,6 @@ crates:
   - name: frame-support-procedural
     bump: minor
     note: Needs new `frame-benchmarking` due to the change to `current_time`.
+  - name: polkadot-runtime-metrics
+    bump: minor
+    note: Needs new `frame-benchmarking` due to the change to `current_time`.
