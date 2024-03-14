@@ -229,7 +229,8 @@ mod custom2 {
 			Ok(())
 		}
 
-		pub fn some_call(_: OriginFor<T>) -> DispatchResult {
+		pub fn some_call(origin: OriginFor<T>) -> DispatchResult {
+			frame_system::ensure_signed(origin)?;
 			assert!(MockedSystemCallbacks::post_inherent_called());
 			assert!(!MockedSystemCallbacks::post_transactions_called());
 			assert!(System::inherents_applied());
@@ -1311,9 +1312,19 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 			for i in 0..n_in {
 				let xt = if i % 2 == 0 {
-					TestXt::new(RuntimeCall::Custom(custom2::Call::assert_inherent_phase { expected: i as u32 }), None)
+					TestXt::new(
+						RuntimeCall::Custom2(custom2::Call::assert_inherent_phase {
+							expected: i as u32,
+						}),
+						None,
+					)
 				} else {
-					TestXt::new(RuntimeCall::Custom2(custom2::Call::assert_optional_inherent_phase { expected: i as u32 }), None)
+					TestXt::new(
+						RuntimeCall::Custom2(custom2::Call::assert_optional_inherent_phase {
+							expected: i as u32,
+						}),
+						None,
+					)
 				};
 				Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
 
@@ -1324,7 +1335,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 					phase: Phase::ApplyInherent(extrinsics.len() as u32),
 					event: frame_system::Event::ExtrinsicSuccess {
 						dispatch_info: DispatchInfo {
-							weight: Weight::from_parts(5, 0),
+							weight: Weight::from_parts(12, 0),
 							class,
 							..Default::default()
 						},
@@ -1350,7 +1361,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 					phase: Phase::ApplyExtrinsic(extrinsics.len() as u32),
 					event: frame_system::Event::ExtrinsicSuccess {
 						dispatch_info: DispatchInfo {
-							weight: Weight::from_parts(5, 0),
+							weight: Weight::from_parts(23, 0),
 							..Default::default()
 						},
 					}
@@ -1389,11 +1400,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 					// We cannot just check for equality, since there are also TX withdrawal events.
 					for expected in expected_events.iter() {
 						if !System::events().contains(&expected) {
-							pretty_assertions::assert_eq!(
-								System::events(),
-								expected_events,
-								"Event missing"
-							);
+							assert_eq!(System::events(), expected_events, "Event missing");
 						}
 					}
 				},
@@ -1487,29 +1494,25 @@ fn is_inherent_works() {
 
 #[test]
 fn extrinsic_index_is_correct() {
-	let in1 = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::assert_inherent_phase {
-		expected: 0,
-	}));
-	let in2 = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::assert_inherent_phase {
-		expected: 1,
-	}));
-	let xt1 = UncheckedXt::new_signed(
+	let in1 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_inherent_phase { expected: 0 }),
+		None,
+	);
+	let in2 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_inherent_phase { expected: 1 }),
+		None,
+	);
+	let xt1 = TestXt::new(
 		RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase { expected: 2 }),
-		1,
-		1.into(),
-		tx_ext(0, 1),
+		sign_extra(1, 0, 0),
 	);
-	let xt2 = UncheckedXt::new_signed(
+	let xt2 = TestXt::new(
 		RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase { expected: 3 }),
-		1,
-		1.into(),
-		tx_ext(1, 1),
+		sign_extra(1, 1, 0),
 	);
-	let xt3 = UncheckedXt::new_signed(
+	let xt3 = TestXt::new(
 		RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase { expected: 4 }),
-		1,
-		1.into(),
-		tx_ext(2, 1),
+		sign_extra(1, 2, 0),
 	);
 
 	let header = new_test_ext(1).execute_with(|| {
@@ -1546,12 +1549,7 @@ fn extrinsic_index_is_correct() {
 // This case should already be covered by `callbacks_in_block_execution_works`, but anyway.
 #[test]
 fn single_extrinsic_phase_events_works() {
-	let xt1 = UncheckedXt::new_signed(
-		RuntimeCall::Custom2(custom2::Call::some_call {}),
-		1,
-		1.into(),
-		tx_ext(0, 1),
-	);
+	let xt1 = TestXt::new(RuntimeCall::Custom2(custom2::Call::some_call {}), sign_extra(1, 0, 0));
 
 	let (header, events) = new_test_ext(1).execute_with(|| {
 		Executive::initialize_block(&Header::new_from_number(1));
@@ -1583,28 +1581,18 @@ fn single_extrinsic_phase_events_works() {
 		assert_eq!(events2, events3);
 	}
 
-	pretty_assertions::assert_eq!(
+	assert_eq!(
 		vec![
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
-				event: pallet_balances::Event::Withdraw { who: 1, amount: 6 }.into(),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(0),
-				event: pallet_transaction_payment::Event::TransactionFeePaid {
-					who: 1,
-					actual_fee: 6,
-					tip: 1
-				}
-				.into(),
+				event: pallet_balances::Event::Withdraw { who: 1, amount: 19 }.into(),
 				topics: vec![],
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
 				event: frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
-						weight: Weight::from_parts(5, 0),
+						weight: Weight::from_parts(19, 0),
 						class: DispatchClass::Normal,
 						..Default::default()
 					},
@@ -1620,13 +1608,8 @@ fn single_extrinsic_phase_events_works() {
 // This case should already be covered by `callbacks_in_block_execution_works`, but anyway.
 #[test]
 fn simple_extrinsic_and_inherent_phase_events_works() {
-	let in1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
-	let xt1 = UncheckedXt::new_signed(
-		RuntimeCall::Custom2(custom2::Call::some_call {}),
-		1,
-		1.into(),
-		tx_ext(0, 1),
-	);
+	let in1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+	let xt1 = TestXt::new(RuntimeCall::Custom2(custom2::Call::some_call {}), sign_extra(1, 0, 0));
 
 	let (header, events) = new_test_ext(1).execute_with(|| {
 		Executive::initialize_block(&Header::new_from_number(1));
@@ -1659,13 +1642,13 @@ fn simple_extrinsic_and_inherent_phase_events_works() {
 		assert_eq!(events2, events3);
 	}
 
-	pretty_assertions::assert_eq!(
+	assert_eq!(
 		vec![
 			EventRecord {
 				phase: Phase::ApplyInherent(0),
 				event: frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
-						weight: Weight::from_parts(5, 0),
+						weight: Weight::from_parts(8, 0),
 						class: DispatchClass::Mandatory,
 						..Default::default()
 					},
@@ -1675,24 +1658,14 @@ fn simple_extrinsic_and_inherent_phase_events_works() {
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
-				event: pallet_balances::Event::Withdraw { who: 1, amount: 6 }.into(),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(1),
-				event: pallet_transaction_payment::Event::TransactionFeePaid {
-					who: 1,
-					actual_fee: 6,
-					tip: 1
-				}
-				.into(),
+				event: pallet_balances::Event::Withdraw { who: 1, amount: 19 }.into(),
 				topics: vec![],
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
-						weight: Weight::from_parts(5, 0),
+						weight: Weight::from_parts(19, 0),
 						class: DispatchClass::Normal,
 						..Default::default()
 					},
