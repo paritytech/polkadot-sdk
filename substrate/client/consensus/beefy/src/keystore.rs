@@ -377,7 +377,6 @@ pub mod tests {
 		assert_eq!(id, alice);
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	#[test]
 	fn authority_id_works_for_ecdsa() {
 		authority_id_works::<ecdsa_crypto::AuthorityId>();
