@@ -349,7 +349,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(None)
 	}
 
-	/// RPC rate limit configuration.
+	/// RPC rate limit whitelisted hosts.
 	fn rpc_rate_limit_whitelisted_hosts(&self) -> Result<Vec<String>> {
 		Ok(vec![])
 	}
