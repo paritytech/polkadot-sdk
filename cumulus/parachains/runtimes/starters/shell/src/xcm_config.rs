@@ -88,6 +88,7 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = ();
+	type HrmpHandler = ();
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

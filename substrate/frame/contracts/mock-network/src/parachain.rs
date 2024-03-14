@@ -282,6 +282,7 @@ impl Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpHandler = ();
 }
 
 impl mock_msg_queue::Config for Runtime {

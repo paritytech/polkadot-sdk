@@ -156,6 +156,7 @@ impl Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpHandler = ();
 }
 
 #[frame_support::pallet]

@@ -649,6 +649,7 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpHandler = ();
 }
 
 /// Local origins on this chain are allowed to dispatch XCM sends/executions.
