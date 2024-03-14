@@ -665,14 +665,16 @@ sp_api::decl_runtime_apis! {
 			key_owner_proof: OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 
-		/// Submits an unsigned extrinsic to report commitments to an invalid fork.
-		/// The caller must provide the invalid commitments proof and key ownership proofs
-		/// (should be obtained using `generate_key_ownership_proof`) for the offenders. The
-		/// extrinsic will be unsigned and should only be accepted for local
-		/// authorship (not to be broadcast to the network). This method returns
-		/// `None` when creation of the extrinsic fails, e.g. if equivocation
-		/// reporting is disabled for the given runtime (i.e. this method is
-		/// hardcoded to return `None`). Only useful in an offchain context.
+		/// Submits an unsigned extrinsic to report commitments to an invalid
+		/// fork. The caller must provide the invalid commitments proof and key
+		/// ownership proofs (should be obtained using
+		/// `generate_key_ownership_proof`) for the offenders. The extrinsic
+		/// will be unsigned and should only be accepted for local authorship
+		/// (not to be broadcast to the network). This method returns `None`
+		/// when creation of the extrinsic fails, e.g. if the key owner proofs
+		/// are not validly encoded or if equivocation reporting is disabled for
+		/// the given runtime (i.e. this method is hardcoded to return `None`).
+		/// Only useful in an offchain context.
 		fn submit_report_fork_equivocation_unsigned_extrinsic(
 			fork_equivocation_proof:
 				ForkEquivocationProof<AuthorityId, Block::Header, Hash>,

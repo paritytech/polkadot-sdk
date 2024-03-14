@@ -430,8 +430,11 @@ impl<T: Config> Pallet<T> {
 				HeaderFor<T>,
 			>>::Hash as HashT>::Output,
 		>,
-		key_owner_proofs: Vec<T::KeyOwnerProof>,
+		key_owner_proofs: Vec<sp_consensus_beefy::OpaqueKeyOwnershipProof>,
 	) -> Option<()> {
+		let key_owner_proofs =
+			key_owner_proofs.into_iter().map(|p| p.decode()).collect::<Option<Vec<_>>>()?;
+
 		T::EquivocationReportSystem::publish_evidence(
 			EquivocationEvidenceFor::<T>::ForkEquivocationProof(
 				fork_equivocation_proof,

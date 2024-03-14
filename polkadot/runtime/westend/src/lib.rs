@@ -2043,8 +2043,6 @@ sp_api::impl_runtime_apis! {
 			fork_equivocation_proof: beefy_primitives::ForkEquivocationProof<BeefyId, Header, Hash>,
 			key_owner_proofs: Vec<beefy_primitives::OpaqueKeyOwnershipProof>,
 		) -> Option<()> {
-			let key_owner_proofs = key_owner_proofs.iter().cloned().map(|p| p.decode()).collect::<Option<Vec<_>>>()?;
-
 			Beefy::submit_unsigned_fork_equivocation_report(
 				fork_equivocation_proof,
 				key_owner_proofs,
