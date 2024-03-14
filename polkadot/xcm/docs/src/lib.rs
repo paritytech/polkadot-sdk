@@ -23,7 +23,14 @@
 //!
 //! ## Contribute
 //!
-//! To contribute to the XCM standard, check out the [RFC process](https://github.com/paritytech/xcm-format/blob/master/proposals/0001-process.md).
+//! To contribute to the format, check out the [RFC process](https://github.com/paritytech/xcm-format/blob/master/proposals/0001-process.md).
+//! To contribute to these docs, [make a PR](https://github.com/paritytech/polkadot-sdk/tree/master/polkadot/xcm/docs).
+//!
+//! ## Why Rust Docs?
+//!
+//! Rust Docs allow docs to be as close to the source as possible.
+//! They're also available offline automatically for anyone who has the `polkadot-sdk` repo locally.
+//! Given all the content is here, it's simple to .
 //!
 //! ## Docs structure
 #![doc = simple_mermaid::mermaid!("../mermaid/structure.mmd")]
