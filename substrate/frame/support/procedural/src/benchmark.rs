@@ -69,6 +69,7 @@ struct RangeArgs {
 	start: syn::GenericArgument,
 	_comma: Comma,
 	end: syn::GenericArgument,
+	_trailing_comma: Option<Comma>,
 	_gt_token: Gt,
 }
 
