@@ -32,7 +32,8 @@ use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 	Clone, Copy, Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, PartialOrd, Ord, Hash,
 )]
 pub struct ByteArray<const N: usize, M = ()> {
-	inner: [u8; N],
+	/// Inner raw array
+	pub inner: [u8; N],
 	marker: PhantomData<fn() -> M>,
 }
 

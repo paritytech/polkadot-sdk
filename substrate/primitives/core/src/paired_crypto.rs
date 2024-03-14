@@ -17,28 +17,31 @@
 
 //! API for using a pair of crypto schemes together.
 
+use core::marker::PhantomData;
+
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{
-	ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair as PairT, Public as PublicT,
-	SecretStringError, UncheckedFrom,
+use crate::{
+	byte_array::ByteArray as ByteArrayGen,
+	crypto::{
+		ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair as PairT,
+		Public as PublicT, SecretStringError, UncheckedFrom,
+	},
 };
 
 use sp_std::vec::Vec;
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
 
-use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
-use sp_std::convert::TryFrom;
+use sp_runtime_interface::pass_by::PassByInner;
 
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls377 {
+	use super::MarkerBound;
 	use crate::{bls377, crypto::CryptoTypeId, ecdsa};
 	#[cfg(feature = "full_crypto")]
 	use crate::{
@@ -54,12 +57,18 @@ pub mod ecdsa_bls377 {
 	const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
+	#[allow(missing_docs)]
+	#[derive(Clone, core::hash::Hash, PartialEq, Eq)]
+	pub struct EcdsaBls377Marker;
+	impl MarkerBound for EcdsaBls377Marker {}
+
 	/// (ECDSA,BLS12-377) key-pair pair.
-	pub type Pair = super::Pair<ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN>;
+	pub type Pair =
+		super::Pair<ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN, EcdsaBls377Marker>;
 	/// (ECDSA,BLS12-377) public key pair.
-	pub type Public = super::Public<PUBLIC_KEY_LEN>;
+	pub type Public = super::Public<PUBLIC_KEY_LEN, EcdsaBls377Marker>;
 	/// (ECDSA,BLS12-377) signature pair.
-	pub type Signature = super::Signature<SIGNATURE_LEN>;
+	pub type Signature = super::Signature<SIGNATURE_LEN, EcdsaBls377Marker>;
 
 	impl super::CryptoType for Public {
 		type Pair = Pair;
@@ -107,20 +116,20 @@ pub mod ecdsa_bls377 {
 		{
 			let msg_hash = H::hash(message).into();
 
-			let Ok(left_pub) = public.0[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
+			let Ok(left_pub) = public.inner[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
 				return false
 			};
-			let Ok(left_sig) = sig.0[0..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
+			let Ok(left_sig) = sig.inner[0..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
 				return false
 			};
 			if !ecdsa::Pair::verify_prehashed(&left_sig, &msg_hash, &left_pub) {
 				return false
 			}
 
-			let Ok(right_pub) = public.0[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].try_into() else {
+			let Ok(right_pub) = public.inner[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].try_into() else {
 				return false
 			};
-			let Ok(right_sig) = sig.0[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() else {
+			let Ok(right_sig) = sig.inner[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() else {
 				return false
 			};
 			bls377::Pair::verify(&right_sig, message, &right_pub)
@@ -140,116 +149,55 @@ const SECURE_SEED_LEN: usize = 32;
 /// will need it later (such as for HDKD).
 type Seed = [u8; SECURE_SEED_LEN];
 
+#[allow(missing_docs)]
+pub trait MarkerBound: Clone + PartialEq + Eq + core::hash::Hash {}
+
+#[allow(missing_docs)]
+#[derive(Clone, PartialEq, Eq, core::hash::Hash)]
+pub struct PublicMarker;
+
 /// A public key.
-#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Public<const LEFT_PLUS_RIGHT_LEN: usize>([u8; LEFT_PLUS_RIGHT_LEN]);
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::hash::Hash for Public<LEFT_PLUS_RIGHT_LEN> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
-		self.0.hash(state);
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> ByteArray for Public<LEFT_PLUS_RIGHT_LEN> {
-	const LEN: usize = LEFT_PLUS_RIGHT_LEN;
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> TryFrom<&[u8]> for Public<LEFT_PLUS_RIGHT_LEN> {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != LEFT_PLUS_RIGHT_LEN {
-			return Err(())
-		}
-		let mut inner = [0u8; LEFT_PLUS_RIGHT_LEN];
-		inner.copy_from_slice(data);
-		Ok(Public(inner))
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> AsRef<[u8; LEFT_PLUS_RIGHT_LEN]>
-	for Public<LEFT_PLUS_RIGHT_LEN>
-{
-	fn as_ref(&self) -> &[u8; LEFT_PLUS_RIGHT_LEN] {
-		&self.0
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> AsRef<[u8]> for Public<LEFT_PLUS_RIGHT_LEN> {
-	fn as_ref(&self) -> &[u8] {
-		&self.0[..]
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> AsMut<[u8]> for Public<LEFT_PLUS_RIGHT_LEN> {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0[..]
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> PassByInner for Public<LEFT_PLUS_RIGHT_LEN> {
-	type Inner = [u8; LEFT_PLUS_RIGHT_LEN];
-
-	fn into_inner(self) -> Self::Inner {
-		self.0
-	}
-
-	fn inner(&self) -> &Self::Inner {
-		&self.0
-	}
-
-	fn from_inner(inner: Self::Inner) -> Self {
-		Self(inner)
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> PassBy for Public<LEFT_PLUS_RIGHT_LEN> {
-	type PassBy = pass_by::Inner<Self, [u8; LEFT_PLUS_RIGHT_LEN]>;
-}
+pub type Public<const LEFT_PLUS_RIGHT_LEN: usize, M> =
+	ByteArrayGen<LEFT_PLUS_RIGHT_LEN, (M, PublicMarker)>;
 
 impl<
 		LeftPair: PairT,
 		RightPair: PairT,
 		const LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
 		const SIGNATURE_LEN: usize,
-	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN>>
-	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN>
+		M: MarkerBound,
+	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, M>>
+	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, M>
 where
-	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN>:
-		PairT<Public = Public<LEFT_PLUS_RIGHT_PUBLIC_LEN>>,
+	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, M>:
+		PairT<Public = Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, M>>,
 {
-	fn from(x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN>) -> Self {
+	fn from(x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, M>) -> Self {
 		x.public()
 	}
 }
 
-impl<const LEFT_PLUS_RIGHT_LEN: usize> UncheckedFrom<[u8; LEFT_PLUS_RIGHT_LEN]>
-	for Public<LEFT_PLUS_RIGHT_LEN>
-{
-	fn unchecked_from(data: [u8; LEFT_PLUS_RIGHT_LEN]) -> Self {
-		Public(data)
-	}
-}
-
 #[cfg(feature = "std")]
-impl<const LEFT_PLUS_RIGHT_LEN: usize> std::fmt::Display for Public<LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> std::fmt::Display
+	for Public<LEFT_PLUS_RIGHT_LEN, M>
 where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN, M>: CryptoType,
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}", self.to_ss58check())
 	}
 }
 
-impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::fmt::Debug for Public<LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> sp_std::fmt::Debug
+	for Public<LEFT_PLUS_RIGHT_LEN, M>
 where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN, M>: CryptoType,
 	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
 {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
+		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(self.inner()), &s[0..8])
 	}
 
 	#[cfg(not(feature = "std"))]
@@ -259,9 +207,9 @@ where
 }
 
 #[cfg(feature = "serde")]
-impl<const LEFT_PLUS_RIGHT_LEN: usize> Serialize for Public<LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> Serialize for Public<LEFT_PLUS_RIGHT_LEN, M>
 where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN, M>: CryptoType,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -272,9 +220,10 @@ where
 }
 
 #[cfg(feature = "serde")]
-impl<'de, const LEFT_PLUS_RIGHT_LEN: usize> Deserialize<'de> for Public<LEFT_PLUS_RIGHT_LEN>
+impl<'de, const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> Deserialize<'de>
+	for Public<LEFT_PLUS_RIGHT_LEN, M>
 where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN, M>: CryptoType,
 {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
@@ -285,12 +234,12 @@ where
 	}
 }
 
-impl<const LEFT_PLUS_RIGHT_LEN: usize> PublicT for Public<LEFT_PLUS_RIGHT_LEN> where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType
+impl<const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> PublicT for Public<LEFT_PLUS_RIGHT_LEN, M> where
+	Public<LEFT_PLUS_RIGHT_LEN, M>: CryptoType
 {
 }
 
-impl<const LEFT_PLUS_RIGHT_LEN: usize> Derive for Public<LEFT_PLUS_RIGHT_LEN> {}
+impl<const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> Derive for Public<LEFT_PLUS_RIGHT_LEN, M> {}
 
 /// Trait characterizing a signature which could be used as individual component of an
 /// `paired_crypto:Signature` pair.
@@ -298,55 +247,16 @@ pub trait SignatureBound: ByteArray {}
 
 impl<T: ByteArray> SignatureBound for T {}
 
+#[derive(Clone, Eq, PartialEq)]
+#[allow(missing_docs)]
+pub struct SignatureMarker;
+
 /// A pair of signatures of different types
-#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
-pub struct Signature<const LEFT_PLUS_RIGHT_LEN: usize>([u8; LEFT_PLUS_RIGHT_LEN]);
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::hash::Hash for Signature<LEFT_PLUS_RIGHT_LEN> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
-		self.0.hash(state);
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> ByteArray for Signature<LEFT_PLUS_RIGHT_LEN> {
-	const LEN: usize = LEFT_PLUS_RIGHT_LEN;
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> TryFrom<&[u8]> for Signature<LEFT_PLUS_RIGHT_LEN> {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != LEFT_PLUS_RIGHT_LEN {
-			return Err(())
-		}
-		let mut inner = [0u8; LEFT_PLUS_RIGHT_LEN];
-		inner.copy_from_slice(data);
-		Ok(Signature(inner))
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> AsMut<[u8]> for Signature<LEFT_PLUS_RIGHT_LEN> {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0[..]
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> AsRef<[u8; LEFT_PLUS_RIGHT_LEN]>
-	for Signature<LEFT_PLUS_RIGHT_LEN>
-{
-	fn as_ref(&self) -> &[u8; LEFT_PLUS_RIGHT_LEN] {
-		&self.0
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> AsRef<[u8]> for Signature<LEFT_PLUS_RIGHT_LEN> {
-	fn as_ref(&self) -> &[u8] {
-		&self.0[..]
-	}
-}
+pub type Signature<const LEFT_PLUS_RIGHT_LEN: usize, M> =
+	ByteArrayGen<LEFT_PLUS_RIGHT_LEN, (M, SignatureMarker)>;
 
 #[cfg(feature = "serde")]
-impl<const LEFT_PLUS_RIGHT_LEN: usize> Serialize for Signature<LEFT_PLUS_RIGHT_LEN> {
+impl<const LEFT_PLUS_RIGHT_LEN: usize, M> Serialize for Signature<LEFT_PLUS_RIGHT_LEN, M> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -356,47 +266,33 @@ impl<const LEFT_PLUS_RIGHT_LEN: usize> Serialize for Signature<LEFT_PLUS_RIGHT_L
 }
 
 #[cfg(feature = "serde")]
-impl<'de, const LEFT_PLUS_RIGHT_LEN: usize> Deserialize<'de> for Signature<LEFT_PLUS_RIGHT_LEN> {
+impl<'de, const LEFT_PLUS_RIGHT_LEN: usize, M> Deserialize<'de>
+	for Signature<LEFT_PLUS_RIGHT_LEN, M>
+{
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: Deserializer<'de>,
 	{
 		let bytes = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
 			.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
-		Signature::<LEFT_PLUS_RIGHT_LEN>::try_from(bytes.as_ref()).map_err(|e| {
+		Signature::<LEFT_PLUS_RIGHT_LEN, M>::try_from(bytes.as_ref()).map_err(|e| {
 			de::Error::custom(format!("Error converting deserialized data into signature: {:?}", e))
 		})
 	}
 }
 
-impl<const LEFT_PLUS_RIGHT_LEN: usize> From<Signature<LEFT_PLUS_RIGHT_LEN>>
-	for [u8; LEFT_PLUS_RIGHT_LEN]
-{
-	fn from(signature: Signature<LEFT_PLUS_RIGHT_LEN>) -> [u8; LEFT_PLUS_RIGHT_LEN] {
-		signature.0
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::fmt::Debug for Signature<LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize, M> sp_std::fmt::Debug for Signature<LEFT_PLUS_RIGHT_LEN, M>
 where
 	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
 {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
+		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.inner))
 	}
 
 	#[cfg(not(feature = "std"))]
 	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		Ok(())
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize> UncheckedFrom<[u8; LEFT_PLUS_RIGHT_LEN]>
-	for Signature<LEFT_PLUS_RIGHT_LEN>
-{
-	fn unchecked_from(data: [u8; LEFT_PLUS_RIGHT_LEN]) -> Self {
-		Signature(data)
 	}
 }
 
@@ -407,9 +303,11 @@ pub struct Pair<
 	RightPair: PairT,
 	const PUBLIC_KEY_LEN: usize,
 	const SIGNATURE_LEN: usize,
+	M,
 > {
 	left: LeftPair,
 	right: RightPair,
+	_phantom: PhantomData<fn() -> M>,
 }
 
 impl<
@@ -417,18 +315,19 @@ impl<
 		RightPair: PairT,
 		const PUBLIC_KEY_LEN: usize,
 		const SIGNATURE_LEN: usize,
-	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>
+		M: MarkerBound,
+	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, M>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, M>: CryptoType,
 	LeftPair::Signature: SignatureBound,
 	RightPair::Signature: SignatureBound,
-	Public<PUBLIC_KEY_LEN>: CryptoType,
+	Public<PUBLIC_KEY_LEN, M>: CryptoType,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	type Seed = Seed;
-	type Public = Public<PUBLIC_KEY_LEN>;
-	type Signature = Signature<SIGNATURE_LEN>;
+	type Public = Public<PUBLIC_KEY_LEN, M>;
+	type Signature = Signature<SIGNATURE_LEN, M>;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECURE_SEED_LEN {
@@ -436,7 +335,7 @@ where
 		}
 		let left = LeftPair::from_seed_slice(&seed_slice)?;
 		let right = RightPair::from_seed_slice(&seed_slice)?;
-		Ok(Pair { left, right })
+		Ok(Pair { left, right, _phantom: PhantomData })
 	}
 
 	/// Derive a child key from a series of given junctions.
@@ -459,7 +358,7 @@ where
 			_ => None,
 		};
 
-		Ok((Self { left: left.0, right: right.0 }, seed))
+		Ok((Self { left: left.0, right: right.0, _phantom: PhantomData }, seed))
 	}
 
 	fn public(&self) -> Self::Public {
@@ -479,17 +378,24 @@ where
 		Self::Signature::unchecked_from(raw)
 	}
 
-	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, public: &Self::Public) -> bool {
-		let Ok(left_pub) = public.0[..LeftPair::Public::LEN].try_into() else { return false };
-		let Ok(left_sig) = sig.0[0..LeftPair::Signature::LEN].try_into() else { return false };
+	fn verify<Msg: AsRef<[u8]>>(
+		sig: &Self::Signature,
+		message: Msg,
+		public: &Self::Public,
+	) -> bool {
+		let Ok(left_pub) = public.as_slice()[..LeftPair::Public::LEN].try_into() else {
+			return false
+		};
+		let Ok(left_sig) = sig.inner[0..LeftPair::Signature::LEN].try_into() else { return false };
 		if !LeftPair::verify(&left_sig, message.as_ref(), &left_pub) {
 			return false
 		}
 
-		let Ok(right_pub) = public.0[LeftPair::Public::LEN..PUBLIC_KEY_LEN].try_into() else {
+		let Ok(right_pub) = public.as_slice()[LeftPair::Public::LEN..PUBLIC_KEY_LEN].try_into()
+		else {
 			return false
 		};
-		let Ok(right_sig) = sig.0[LeftPair::Signature::LEN..].try_into() else { return false };
+		let Ok(right_sig) = sig.inner[LeftPair::Signature::LEN..].try_into() else { return false };
 		RightPair::verify(&right_sig, message.as_ref(), &right_pub)
 	}
 
@@ -506,6 +412,7 @@ where
 mod test {
 	use super::*;
 	use crate::{crypto::DEV_PHRASE, KeccakHasher};
+	use codec::{Decode, Encode};
 	use ecdsa_bls377::{Pair, Signature};
 
 	use crate::{bls377, ecdsa};
@@ -703,7 +610,7 @@ mod test {
 		let signature = pair.sign(&message[..]);
 
 		let serialized_signature = serde_json::to_string(&signature).unwrap();
-		println!("{:?} -- {:}", signature.0, serialized_signature);
+		println!("{:?} -- {:}", signature.inner, serialized_signature);
 		// Signature is 177 bytes, hexify * 2 + 2 quote charsy
 		assert_eq!(serialized_signature.len(), 356);
 		let signature = serde_json::from_str(&serialized_signature).unwrap();
