@@ -550,8 +550,7 @@ mod tests {
 		NotificationSenderError, NotificationSenderT as NotificationSender, ReputationChange,
 	};
 	use sp_runtime::{
-		generic::UncheckedExtrinsic,
-		testing::{Block as RawBlock, MockCallU64, H256},
+		testing::{Block as RawBlock, ExtrinsicWrapper, H256},
 		traits::NumberFor,
 	};
 	use std::{
@@ -560,7 +559,7 @@ mod tests {
 		sync::{Arc, Mutex},
 	};
 
-	type Block = RawBlock<UncheckedExtrinsic<u64, MockCallU64, (), ()>>;
+	type Block = RawBlock<ExtrinsicWrapper<u64>>;
 
 	macro_rules! push_msg {
 		($consensus:expr, $topic:expr, $hash: expr, $m:expr) => {
