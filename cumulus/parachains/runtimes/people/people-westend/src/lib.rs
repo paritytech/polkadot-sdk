@@ -687,7 +687,7 @@ impl_runtime_apis! {
 			type ToParentDeliveryHelper = polkadot_runtime_common::xcm_sender::benchmarking::DestinationDeliveryHelper<
 				xcm_config::XcmConfig,
 				ExistentialDepositAsset,
-				xcm_config::PriceForParentDelivery,
+				PriceForParentDelivery,
 				cumulus_primitives_utility::ParentDestinationMatcher,
 				(/*TODO: EnsureXcmVersion*/),
 			>;

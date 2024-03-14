@@ -1370,7 +1370,7 @@ impl_runtime_apis! {
 				cumulus_primitives_utility::ParentDestinationMatcher,
 				(/*TODO: EnsureXcmVersion*/),
 			>;
-			type ToParachainDeliveryHelper<ParachainId> = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+			type ToParachainDeliveryHelper<ParachainId> = polkadot_runtime_common::xcm_sender::benchmarking::DestinationDeliveryHelper<
 				xcm_config::XcmConfig,
 				ExistentialDepositAsset,
 				PriceForSiblingParachainDelivery,
