@@ -24,7 +24,7 @@
 //!
 //! ## Performing a Runtime Upgrade
 //!
-//! To upgrade a runtime, an [`Origin`](frame_system::RawOrigin) with the necesarry permissions
+//! To upgrade a runtime, an [`Origin`](frame_system::RawOrigin) with the necessary permissions
 //! (usually via governance) changes the `:code` storage. Usually, this is performed via a call to
 //! [`set_code`] (or [`set_code_without_checks`]) with the desired new runtime blob, scheduled
 //! using [`pallet_scheduler`].

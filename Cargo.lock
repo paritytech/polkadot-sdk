@@ -884,6 +884,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
+ "pallet-migrations",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -891,6 +892,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-session",
  "pallet-state-trie-migration",
+ "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -9089,6 +9091,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "staging-xcm",
 ]
 
 [[package]]

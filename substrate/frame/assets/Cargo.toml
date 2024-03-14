@@ -29,6 +29,9 @@ frame-system = { path = "../system", default-features = false }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
 sp-core = { path = "../../primitives/core", default-features = false }
 
+# TODO: Remove migrations from here since they require XCM
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
+
 [dev-dependencies]
 sp-std = { path = "../../primitives/std" }
 sp-io = { path = "../../primitives/io" }
@@ -48,6 +51,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
