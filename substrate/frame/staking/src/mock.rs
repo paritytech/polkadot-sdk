@@ -379,6 +379,11 @@ impl Default for ExtBuilder {
 	}
 }
 
+parameter_types! {
+	// if true, skips the try-state for the test running.
+	pub static SkipTryStateCheck: bool = false;
+}
+
 impl ExtBuilder {
 	pub fn existential_deposit(self, existential_deposit: Balance) -> Self {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = existential_deposit);
@@ -452,6 +457,10 @@ impl ExtBuilder {
 	}
 	pub fn balance_factor(mut self, factor: Balance) -> Self {
 		self.balance_factor = factor;
+		self
+	}
+	pub fn try_state(self, enable: bool) -> Self {
+		SkipTryStateCheck::set(!enable);
 		self
 	}
 	fn build(self) -> sp_io::TestExternalities {
@@ -582,7 +591,9 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			Staking::do_try_state(System::block_number()).unwrap();
+			if !SkipTryStateCheck::get() {
+				Staking::do_try_state(System::block_number()).unwrap();
+			}
 		});
 	}
 }
@@ -801,6 +812,57 @@ pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> 
 	<Ledger<Test>>::insert(controller, StakingLedger::<Test>::default_from(stash));
 
 	Ok(())
+}
+
+pub(crate) fn setup_double_bonded_ledgers() {
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 10, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(2), 20, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 20, RewardDestination::Staked));
+	// not relevant to the test case, but ensures try-runtime checks pass.
+	[1, 2, 3]
+		.iter()
+		.for_each(|s| Payee::<Test>::insert(s, RewardDestination::Staked));
+
+	// we want to test the case where a controller can also be a stash of another ledger.
+	// for that, we change the controller/stash bonding so that:
+	// * 2 becomes controller of 1.
+	// * 3 becomes controller of 2.
+	// * 4 becomes controller of 3.
+	let ledger_1 = Ledger::<Test>::get(1).unwrap();
+	let ledger_2 = Ledger::<Test>::get(2).unwrap();
+	let ledger_3 = Ledger::<Test>::get(3).unwrap();
+
+	// 4 becomes controller of 3.
+	Bonded::<Test>::mutate(3, |controller| *controller = Some(4));
+	Ledger::<Test>::insert(4, ledger_3);
+
+	// 3 becomes controller of 2.
+	Bonded::<Test>::mutate(2, |controller| *controller = Some(3));
+	Ledger::<Test>::insert(3, ledger_2);
+
+	// 2 becomes controller of 1
+	Bonded::<Test>::mutate(1, |controller| *controller = Some(2));
+	Ledger::<Test>::insert(2, ledger_1);
+	// 1 is not controller anymore.
+	Ledger::<Test>::remove(1);
+
+	// checks. now we have:
+	// * 3 ledgers
+	assert_eq!(Ledger::<Test>::iter().count(), 3);
+	// * stash 1 has controller 2.
+	assert_eq!(Bonded::<Test>::get(1), Some(2));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(1)), Some(2));
+	assert_eq!(Ledger::<Test>::get(2).unwrap().stash, 1);
+
+	// * stash 2 has controller 3.
+	assert_eq!(Bonded::<Test>::get(2), Some(3));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(2)), Some(3));
+	assert_eq!(Ledger::<Test>::get(3).unwrap().stash, 2);
+
+	// * stash 3 has controller 4.
+	assert_eq!(Bonded::<Test>::get(3), Some(4));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(3)), Some(4));
+	assert_eq!(Ledger::<Test>::get(4).unwrap().stash, 3);
 }
 
 #[macro_export]
