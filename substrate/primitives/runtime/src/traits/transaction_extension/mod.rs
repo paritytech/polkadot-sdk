@@ -42,20 +42,11 @@ pub use dispatch_transaction::DispatchTransaction;
 pub type ValidateResult<Val, Call> =
 	Result<(ValidTransaction, Val, OriginOf<Call>), TransactionValidityError>;
 
-/// Simple blanket implementation trait to denote the bounds of a type which can be contained within
-/// a [`TransactionExtension`].
-pub trait TransactionExtensionInterior:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
-{
-}
-impl<T: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo>
-	TransactionExtensionInterior for T
-{
-}
-
 /// Base for [TransactionExtension]s; this contains the associated types and does not require any
 /// generic parameterization.
-pub trait TransactionExtensionBase: TransactionExtensionInterior {
+pub trait TransactionExtensionBase:
+	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+{
 	/// Unique identifier of this signed extension.
 	///
 	/// This will be exposed in the metadata to identify the signed extension used in an extrinsic.
