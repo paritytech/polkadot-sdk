@@ -578,11 +578,14 @@ pub struct NetworkConfiguration {
 	/// Multiaddresses to listen for incoming connections.
 	pub listen_addresses: Vec<Multiaddr>,
 
-	/// Whether to hide `listen_addresses` from Identify behavior and not report to remote nodes.
-	pub hide_listen_addresses: bool,
-
 	/// Multiaddresses to advertise. Detected automatically if empty.
 	pub public_addresses: Vec<Multiaddr>,
+
+	/// Do not advertise automatically discovered address.
+	///
+	/// This applies to external addresses in the authority discovery DHT record and external &
+	/// listen addresses in Identify protocol messages.
+	pub public_addresses_only: bool,
 
 	/// List of initial node addresses
 	pub boot_nodes: Vec<MultiaddrWithPeerId>,
@@ -672,8 +675,8 @@ impl NetworkConfiguration {
 		Self {
 			net_config_path,
 			listen_addresses: Vec::new(),
-			hide_listen_addresses: false,
 			public_addresses: Vec::new(),
+			public_addresses_only: false,
 			boot_nodes: Vec::new(),
 			node_key,
 			default_peers_set_num_full: default_peers_set.in_peers + default_peers_set.out_peers,

@@ -31,11 +31,12 @@ use libp2p::{
 		Info as IdentifyInfo,
 	},
 	identity::PublicKey,
+	multiaddr::Protocol,
 	ping::{Behaviour as Ping, Config as PingConfig, Event as PingEvent, Success as PingSuccess},
 	swarm::{
 		behaviour::{
 			AddressChange, ConnectionClosed, ConnectionEstablished, DialFailure, FromSwarm,
-			ListenFailure,
+			ListenFailure, NewExternalAddr,
 		},
 		ConnectionDenied, ConnectionHandler, ConnectionId, IntoConnectionHandlerSelect,
 		NetworkBehaviour, PollParameters, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
@@ -71,8 +72,8 @@ pub struct PeerInfoBehaviour {
 	garbage_collect: Pin<Box<dyn Stream<Item = ()> + Send>>,
 	/// Record keeping of external addresses. Data is queried by the `NetworkService`.
 	external_addresses: ExternalAddresses,
-	/// Whether only external addresses should be sent to remote peers in [`Identify`] messages.
-	hide_listen_addresses: bool,
+	/// Whether only these addresses should be advertised to remote peers in [`Identify`] messages.
+	public_addresses_only: Option<Vec<Multiaddr>>,
 }
 
 /// Information about a node we're connected to.
@@ -121,9 +122,9 @@ impl PeerInfoBehaviour {
 		user_agent: String,
 		local_public_key: PublicKey,
 		external_addresses: Arc<Mutex<HashSet<Multiaddr>>>,
-		hide_listen_addresses: bool,
+		public_addresses_only: Option<Vec<Multiaddr>>,
 	) -> Self {
-		let identify = {
+		let mut identify = {
 			let cfg = IdentifyConfig::new("/substrate/1.0".to_string(), local_public_key)
 				.with_agent_version(user_agent)
 				// We don't need any peer information cached.
@@ -131,13 +132,34 @@ impl PeerInfoBehaviour {
 			Identify::new(cfg)
 		};
 
+		let mut external_addresses = ExternalAddresses { addresses: external_addresses };
+
+		public_addresses_only.as_ref().map(|addresses| {
+			addresses.iter().cloned().for_each(|mut address| {
+				// Make sure addresses do not contain `/p2p/...` part to be consistent with
+				// addresses reported by [`libp2p::swarm::Swarm`].
+				if matches!(address.iter().last(), Some(Protocol::P2p(_))) {
+					address.pop();
+				}
+				trace!(
+					target: "sub-libp2p",
+					"PeerInfo: adding explicitly set public address {address}.",
+				);
+				// Let `Identify` know about explicit public addresses (ab)using libp2p API.
+				identify
+					.on_swarm_event(FromSwarm::NewExternalAddr(NewExternalAddr { addr: &address }));
+				// Make sure explicit public addresses are added to external addresses.
+				external_addresses.add(address);
+			});
+		});
+
 		Self {
 			ping: Ping::new(PingConfig::new()),
 			identify,
 			nodes_info: FnvHashMap::default(),
 			garbage_collect: Box::pin(interval(GARBAGE_COLLECT_INTERVAL)),
-			external_addresses: ExternalAddresses { addresses: external_addresses },
-			hide_listen_addresses,
+			external_addresses,
+			public_addresses_only,
 		}
 	}
 
@@ -382,26 +404,41 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				self.ping.on_swarm_event(FromSwarm::ListenerError(e));
 				self.identify.on_swarm_event(FromSwarm::ListenerError(e));
 			},
-			FromSwarm::ExpiredExternalAddr(e) => {
-				self.ping.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
-				self.identify.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
-			},
 			FromSwarm::NewListener(e) => {
 				self.ping.on_swarm_event(FromSwarm::NewListener(e));
 				self.identify.on_swarm_event(FromSwarm::NewListener(e));
 			},
+			FromSwarm::NewListenAddr(e) => {
+				self.ping.on_swarm_event(FromSwarm::NewListenAddr(e));
+				// Only notify [`Identify`] if we do not have the explicit list of advertised
+				// addresses.
+				if self.public_addresses_only.is_none() {
+					self.identify.on_swarm_event(FromSwarm::NewListenAddr(e));
+				}
+			},
 			FromSwarm::ExpiredListenAddr(e) => {
 				self.ping.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
 				// See `FromSwarm::NewListenAddr` for why we do not always notify `Identify`.
-				if !self.hide_listen_addresses {
+				if self.public_addresses_only.is_none() {
 					self.identify.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
 				}
-				self.external_addresses.remove(e.addr);
 			},
 			FromSwarm::NewExternalAddr(e) => {
 				self.ping.on_swarm_event(FromSwarm::NewExternalAddr(e));
-				self.identify.on_swarm_event(FromSwarm::NewExternalAddr(e));
-				self.external_addresses.add(e.addr.clone());
+				// Only notify [`Identify`] and add an external address if we do not have the
+				// explicit list of advertised addresses.
+				if self.public_addresses_only.is_none() {
+					self.identify.on_swarm_event(FromSwarm::NewExternalAddr(e));
+					self.external_addresses.add(e.addr.clone());
+				}
+			},
+			FromSwarm::ExpiredExternalAddr(e) => {
+				self.ping.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
+				// See `FromSwarm::NewExternalAddr` for why we do not always notify `Identify`.
+				if self.public_addresses_only.is_none() {
+					self.identify.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
+					self.external_addresses.remove(e.addr);
+				}
 			},
 			FromSwarm::AddressChange(e @ AddressChange { peer_id, old, new, .. }) => {
 				self.ping.on_swarm_event(FromSwarm::AddressChange(e));
@@ -417,14 +454,6 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				} else {
 					error!(target: "sub-libp2p",
 						"Unknown peer {:?} to change address from {:?} to {:?}", peer_id, old, new);
-				}
-			},
-			FromSwarm::NewListenAddr(e) => {
-				self.ping.on_swarm_event(FromSwarm::NewListenAddr(e));
-				// Only report listen addresses to `Identify` if remote nodes should know about our
-				// listen addresses. Note that external addresses are always reported.
-				if !self.hide_listen_addresses {
-					self.identify.on_swarm_event(FromSwarm::NewListenAddr(e));
 				}
 			},
 		}

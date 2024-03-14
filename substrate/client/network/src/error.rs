@@ -77,6 +77,9 @@ pub enum Error {
 	/// Connection closed.
 	#[error("Connection closed")]
 	ConnectionClosed,
+	/// Requested to advertise public addresses only, but no public addresses provided.
+	#[error("Requested to advertise public addresses only, but no public addresses provided.")]
+	NoPublicAddresses,
 }
 
 // Make `Debug` use the `Display` implementation.
