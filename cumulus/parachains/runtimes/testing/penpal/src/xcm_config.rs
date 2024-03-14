@@ -56,10 +56,16 @@ parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
 	// Local native currency which is stored in `pallet_balances``
 	pub const PenpalNativeCurrency: Location = Location::here();
-	pub const RelayNetwork: Option<NetworkId> = None;
+	// The Penpal runtime is utilized for testing with various environment setups.
+	// This storage item allows us to customize the `NetworkId` where Penpal is deployed.
+	// By default, it is set to `NetworkId::Rococo` and can be changed using `System::set_storage`.
+	pub storage RelayNetworkId: NetworkId = NetworkId::Rococo;
+	pub RelayNetwork: Option<NetworkId> = Some(RelayNetworkId::get());
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	// FIXME: should also work for Westend
-	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Rococo), Parachain(ParachainInfo::parachain_id().into())].into();
+	pub UniversalLocation: InteriorLocation = [
+		GlobalConsensus(RelayNetworkId::get()),
+		Parachain(ParachainInfo::parachain_id().into())
+	].into();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
