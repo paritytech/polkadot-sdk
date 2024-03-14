@@ -24,7 +24,7 @@ fn builder_pattern_works() {
 	let asset: Asset = (Here, 100u128).into();
 	let beneficiary: Location = AccountId32 { id: [0u8; 32], network: None }.into();
 	let message: Xcm<()> = Xcm::builder_unsafe()
-		.receive_teleported_asset((Here, 100u128))
+		.receive_teleported_asset(asset.clone())
 		.buy_execution(asset.clone(), Unlimited)
 		.deposit_asset(asset.clone(), beneficiary.clone())
 		.build();
