@@ -47,10 +47,7 @@ if_wasmtime_is_enabled! {
 }
 
 /// Result type used by traits in this crate.
-#[cfg(feature = "std")]
 pub type Result<T> = core::result::Result<T, String>;
-#[cfg(not(feature = "std"))]
-pub type Result<T> = core::result::Result<T, &'static str>;
 
 /// Value types supported by Substrate on the boundary between host/Wasm.
 #[derive(Copy, Clone, PartialEq, Debug, Eq)]

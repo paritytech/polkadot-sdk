@@ -58,8 +58,8 @@ crates:
     bump: major
     note: Rework of the `#[runtime_interface]` macro.
   - name: sp-wasm-interface
-    bump: minor
-    note: The `Pointer` type now implements `Copy` and `Clone` unconditionally.
+    bump: major
+    note: The `Pointer` type now implements `Copy` and `Clone` unconditionally. The `Result` now always returns a `String`.
   - name: sp-core
     bump: major
     note: Some types don't implement the traits related to the old `#[runtime_interface]` anymore. A few extra conversion impls.
