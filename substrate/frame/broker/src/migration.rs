@@ -27,6 +27,7 @@ use frame_support::ensure;
 #[cfg(feature = "try-runtime")]
 use sp_std::vec::Vec;
 
+/// V0 region record.
 #[derive(Encode, Decode)]
 pub struct RegionRecordV0<AccountId, Balance> {
 	/// The end of the Region.

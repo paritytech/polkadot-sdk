@@ -66,6 +66,7 @@ impl<T: Config> Transfer<T::AccountId> for Pallet<T> {
 /// its owner to `None`, whereas 'minting' the region assigns its owner to an actual account. This
 /// way we never lose track of the associated record data.
 impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
+	/// Deposit a region into an account.
 	fn mint_into(item: &Self::ItemId, who: &T::AccountId) -> DispatchResult {
 		let region_id: RegionId = (*item).into();
 		let record = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
@@ -78,6 +79,7 @@ impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
 		Ok(())
 	}
 
+	/// Withdraw a region from account.
 	fn burn(item: &Self::ItemId, maybe_check_owner: Option<&T::AccountId>) -> DispatchResult {
 		let region_id: RegionId = (*item).into();
 		let mut record = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
