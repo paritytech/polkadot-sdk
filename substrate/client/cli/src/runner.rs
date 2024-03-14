@@ -273,6 +273,7 @@ mod tests {
 				rpc_port: 9944,
 				rpc_batch_config: sc_service::config::RpcBatchRequestConfig::Unlimited,
 				rpc_rate_limit: None,
+				rpc_rate_limit_whitelisted_hosts: Default::default(),
 				prometheus_config: None,
 				telemetry_endpoints: None,
 				default_heap_pages: None,

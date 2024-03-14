@@ -180,7 +180,8 @@ where
 			Ok::<_, Infallible>(service_fn(move |req| {
 				let ip = read_ip(conn_ip, &req);
 
-				let rate_limit_cfg = if rate_limit_whitelisted_ip_addrs.iter().any(|ip2| ip2 == &ip) {
+				let rate_limit_cfg = if rate_limit_whitelisted_ip_addrs.iter().any(|ip2| ip2 == &ip)
+				{
 					None
 				} else {
 					rate_limit
@@ -306,7 +307,12 @@ fn format_cors(maybe_cors: Option<&Vec<String>>) -> String {
 ///
 /// If that header is missing then remote addr from the socket is used.
 fn read_ip(remote_addr: IpAddr, req: &hyper::Request<hyper::Body>) -> IpAddr {
-	if let Some(ip) = req.headers().get("X-Real-IP").and_then(|v| v.to_str().ok()).and_then(|s| s.parse().ok()) {
+	if let Some(ip) = req
+		.headers()
+		.get("X-Real-IP")
+		.and_then(|v| v.to_str().ok())
+		.and_then(|s| s.parse().ok())
+	{
 		ip
 	} else {
 		remote_addr
