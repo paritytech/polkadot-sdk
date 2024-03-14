@@ -38,20 +38,21 @@ fn main() -> Result<(), String> {
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
 
-	let usage = warm_up_and_benchmark(WarmUpOptions::new(&["availability-recovery"]), || {
-		let mut state = TestState::new(&config);
-		let (mut env, _protocol_config) = prepare_test(
-			config.clone(),
-			&mut state,
-			TestDataAvailability::Read(options.clone()),
-			false,
-		);
-		env.runtime().block_on(benchmark_availability_read(
-			"data_availability_read",
-			&mut env,
-			state,
-		))
-	})?;
+	let usage =
+		warm_up_and_benchmark(WarmUpOptions::new().subsystems(&["availability-recovery"]), || {
+			let mut state = TestState::new(&config);
+			let (mut env, _protocol_config) = prepare_test(
+				config.clone(),
+				&mut state,
+				TestDataAvailability::Read(options.clone()),
+				false,
+			);
+			env.runtime().block_on(benchmark_availability_read(
+				"data_availability_read",
+				&mut env,
+				state,
+			))
+		})?;
 	println!("{}", usage);
 
 	messages.extend(usage.check_network_usage(&[

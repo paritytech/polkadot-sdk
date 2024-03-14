@@ -31,8 +31,18 @@ pub struct WarmUpOptions<'a> {
 }
 
 impl<'a> WarmUpOptions<'a> {
-	pub fn new(subsystems: &'a [&'a str]) -> Self {
-		Self { warm_up: 100, bench: 3, precision: 0.02, subsystems }
+	pub fn new() -> Self {
+		Self { warm_up: 100, bench: 3, precision: 0.02, subsystems: &[] }
+	}
+
+	pub fn subsystems(mut self, v: &'a [&'a str]) -> Self {
+		self.subsystems = v;
+		self
+	}
+
+	pub fn precision(mut self, v: f64) -> Self {
+		self.precision = v;
+		self
 	}
 }
 

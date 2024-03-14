@@ -32,17 +32,20 @@ use polkadot_subsystem_bench::{
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
 	let mut config = TestConfiguration::default();
-	// A single node effort roughly n_cores * needed_approvals / n_validators = 60 * 30 / 300
-	config.n_cores = 6;
+	// A single node effort roughly
+	config.n_cores = 10;
+	config.n_validators = 500;
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
 
 	let usage = warm_up_and_benchmark(
-		WarmUpOptions::new(&[
-			"availability-distribution",
-			"bitfield-distribution",
-			"availability-store",
-		]),
+		WarmUpOptions::new()
+			.subsystems(&[
+				"availability-distribution",
+				"bitfield-distribution",
+				"availability-store",
+			])
+			.precision(0.03),
 		|| {
 			let mut state = TestState::new(&config);
 			let (mut env, _protocol_config) =
