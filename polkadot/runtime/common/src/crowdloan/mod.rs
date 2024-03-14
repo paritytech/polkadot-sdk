@@ -332,15 +332,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		#[cfg(not(feature = "insecure_zero_ed"))]
-		fn integrity_test() {
-			assert!(
-				!CurrencyOf::<T>::minimum_balance().is_zero(),
-				"The Crowdloan pallet is possibly not usable with \
-			zero ED. You can silence this warning at your own risk by enabling feature `insecure_zero_ed`"
-			);
-		}
-
 		fn on_initialize(num: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			if let Some((sample, sub_sample)) = T::Auctioneer::auction_status(num).is_ending() {
 				// This is the very first block in the ending period
