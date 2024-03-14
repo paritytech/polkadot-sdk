@@ -145,7 +145,7 @@ impl PeerInfoBehaviour {
 					target: "sub-libp2p",
 					"PeerInfo: adding explicitly set public address {address}.",
 				);
-				// Let `Identify` know about explicit public addresses (ab)using libp2p API.
+				// Let [`Identify`] know about explicit public addresses (ab)using libp2p API.
 				identify
 					.on_swarm_event(FromSwarm::NewExternalAddr(NewExternalAddr { addr: &address }));
 				// Make sure explicit public addresses are added to external addresses.
@@ -418,7 +418,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 			},
 			FromSwarm::ExpiredListenAddr(e) => {
 				self.ping.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
-				// See `FromSwarm::NewListenAddr` for why we do not always notify `Identify`.
+				// See `FromSwarm::NewListenAddr` for why we do not always notify [`Identify`].
 				if self.public_addresses_only.is_none() {
 					self.identify.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
 				}
@@ -434,7 +434,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 			},
 			FromSwarm::ExpiredExternalAddr(e) => {
 				self.ping.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
-				// See `FromSwarm::NewExternalAddr` for why we do not always notify `Identify`.
+				// See `FromSwarm::NewExternalAddr` for why we do not always notify [`Identify`].
 				if self.public_addresses_only.is_none() {
 					self.identify.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
 					self.external_addresses.remove(e.addr);
