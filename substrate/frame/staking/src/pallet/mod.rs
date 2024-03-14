@@ -37,8 +37,9 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	EraIndex, Page, SessionIndex,
+	EraIndex, Page, SessionIndex, StakerStatus,
 	StakingAccount::{self, Controller, Stash},
+	StakingInterface,
 };
 use sp_std::prelude::*;
 
@@ -855,6 +856,8 @@ pub mod pallet {
 		BoundNotMet,
 		/// Used when attempting to use deprecated controller account logic.
 		ControllerDeprecated,
+		/// Cannot force clean the ledger.
+		CannotCleanLedger,
 	}
 
 	#[pallet::hooks]
@@ -1996,7 +1999,13 @@ pub mod pallet {
 			// than expected.
 			ensure!(
 				Ledger::<T>::get(&controller).map(|l| l.stash != stash).unwrap_or(true),
-				Error::<T>::AlreadyPaired
+				Error::<T>::CannotCleanLedger
+			);
+
+			// validator ledgers, even if corrupted, cannot be cleaned through this extrinsic.
+			ensure!(
+				Self::status(&stash) != Ok(StakerStatus::Validator),
+				Error::<T>::CannotCleanLedger
 			);
 
 			// 1. remove staking lock on the stash.
@@ -2004,8 +2013,7 @@ pub mod pallet {
 			// 2. remove the bonded and payee entries of the stash to clean up.
 			Bonded::<T>::remove(&stash);
 			Payee::<T>::remove(&stash);
-			// 3. remove the validator/nominator entry for the stash.
-			Validators::<T>::remove(&stash);
+			// 3. remove the nominator entry for the stash.
 			Nominators::<T>::remove(&stash);
 			// 4. ensure the `VoterList` is cleared up.
 			let _ = T::VoterList::on_remove(&stash);

@@ -7353,7 +7353,7 @@ mod bad_state_recovery {
 			// ledger bonded by stash 1 is OK and cannot be cleaned.
 			assert_noop!(
 				Staking::clean_bad_state_bond(RuntimeOrigin::root(), 1),
-				Error::<Test>::AlreadyPaired
+				Error::<Test>::CannotCleanLedger,
 			);
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
