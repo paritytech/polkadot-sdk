@@ -19378,7 +19378,6 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "sp-std 14.0.0",
  "wasmtime",
 ]
 
