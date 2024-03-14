@@ -21,14 +21,13 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use codec::Encode;
-use frame_benchmarking::{impl_benchmark_test_suite, v2::*};
+use frame_benchmarking::v2::*;
 use frame_support::{dispatch::DispatchClass, storage, traits::Get};
 use frame_system::{Call, Pallet as System, RawOrigin};
 use sp_core::storage::well_known_keys;
 use sp_runtime::traits::Hash;
 use sp_std::{prelude::*, vec};
 
-pub mod extensions;
 mod mock;
 
 pub struct Pallet<T: Config>(System<T>);
