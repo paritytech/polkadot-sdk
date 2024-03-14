@@ -75,7 +75,7 @@ where
 }
 
 #[cfg(substrate_runtime)]
-impl<'a, T, const N: usize> IntoFFIValue for PassPointerAndReadCopy<T, N>
+impl<T, const N: usize> IntoFFIValue for PassPointerAndReadCopy<T, N>
 where
 	T: AsRef<[u8]>,
 {
@@ -207,7 +207,7 @@ impl<'a> FromFFIValue<'a> for PassFatPointerAndRead<Vec<u8>> {
 }
 
 #[cfg(substrate_runtime)]
-impl<'a, T> IntoFFIValue for PassFatPointerAndRead<T>
+impl<T> IntoFFIValue for PassFatPointerAndRead<T>
 where
 	T: AsRef<[u8]>,
 {
@@ -474,7 +474,7 @@ where
 }
 
 #[cfg(substrate_runtime)]
-impl<'a, T, U> IntoFFIValue for PassAs<T, U>
+impl<T, U> IntoFFIValue for PassAs<T, U>
 where
 	U: RIType + IntoFFIValue + Primitive,
 	U::Inner: From<T>,
