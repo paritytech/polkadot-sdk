@@ -113,3 +113,12 @@ pub fn schedule_code_upgrade<T: paras::Config>(
 pub fn set_current_head<T: paras::Config>(id: ParaId, new_head: HeadData) {
 	paras::Pallet::<T>::set_current_head(id, new_head)
 }
+
+/// Runtime hook for when we swap a lease holding parachain and an on-demand parachain.
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+pub trait OnSwap {
+	/// Updates any needed state/references to enact a logical swap of two parachains. Identity,
+	/// code and `head_data` remain equivalent for all parachains/threads, however other properties
+	/// such as leases, deposits held and thread/chain nature are swapped.
+	fn on_swap(one: ParaId, other: ParaId);
+}

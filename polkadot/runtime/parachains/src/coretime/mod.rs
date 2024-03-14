@@ -32,6 +32,7 @@ use crate::{
 	assigner_coretime::{self, PartsOf57600},
 	initializer::{OnNewSession, SessionChangeNotification},
 	origin::{ensure_parachain, Origin},
+	OnSwap,
 };
 
 mod benchmarking;
@@ -238,6 +239,12 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 	fn on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
 		Self::initializer_on_new_session(notification);
+	}
+}
+
+impl<T: Config> OnSwap for Pallet<T> {
+	fn on_swap(one: ParaId, other: ParaId) {
+		todo!()
 	}
 }
 
