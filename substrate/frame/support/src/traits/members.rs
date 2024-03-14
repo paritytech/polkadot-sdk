@@ -403,22 +403,31 @@ pub mod membership {
 
 	/// Access data associated to a unique membership
 	pub trait Inspect<AccountId> {
+		type GroupId: Parameter;
 		type MembershipId: Parameter;
 		type MembershipInfo: Membership<Id = Self::MembershipId>;
 
 		/// Retrieve membership data that is expected to belong to member
 		fn get_membership(
-			id: impl Into<Self::MembershipId>,
+			group: Self::GroupId,
+			id: Self::MembershipId,
 			member: &AccountId,
 		) -> Option<Self::MembershipInfo>;
 
-		/// Retrieve all memberships belonging to member
-		fn account_memberships(member: &AccountId) -> impl Iterator<Item = Self::MembershipId>;
-
 		/// Check membership is owned by the given account
-		fn has_membership(id: impl Into<Self::MembershipId>, member: &AccountId) -> bool {
+		fn has_membership(
+			group: &Self::GroupId,
+			id: &Self::MembershipId,
+			member: &AccountId,
+		) -> bool {
 			Self::get_membership(id, member).is_some()
 		}
+
+		/// Retrieve all memberships belonging to an account
+		fn account_memberships(member: &AccountId) -> impl Iterator<Item = Self::MembershipId>;
+
+		/// How many members exist in a group
+		fn member_count(group: Self::GroupId) -> usize;
 	}
 
 	/// Change data related to a unique membership
