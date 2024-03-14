@@ -645,8 +645,8 @@ pub mod pallet {
 					_ => Ok(()),
 				});
 				assert!(
-					ValidatorCount::<T>::get()
-						<= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
+					ValidatorCount::<T>::get() <=
+						<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
 				);
 			}
 
@@ -801,8 +801,8 @@ pub mod pallet {
 
 			// ensure election results are always bounded with the same value
 			assert!(
-				<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
-					== <T::GenesisElectionProvider as ElectionProviderBase>::MaxWinners::get()
+				<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get() ==
+					<T::GenesisElectionProvider as ElectionProviderBase>::MaxWinners::get()
 			);
 
 			assert!(
@@ -844,6 +844,14 @@ pub mod pallet {
 			payee: RewardDestination<T::AccountId>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+
+			log::info!(
+				target: "runtime::staking",
+				"bond: {:?} for {:?} with payee {:?}",
+				value,
+				stash,
+				payee
+			);
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into());
@@ -1558,8 +1566,8 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 
 			let ed = T::Currency::minimum_balance();
-			let reapable = T::Currency::total_balance(&stash) < ed
-				|| Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default() < ed;
+			let reapable = T::Currency::total_balance(&stash) < ed ||
+				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default() < ed;
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.
