@@ -1990,10 +1990,14 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 
 			let controller = Bonded::<T>::get(&stash).ok_or(Error::<T>::NotStash)?;
-			let ledger = Ledger::<T>::get(&controller).ok_or(Error::<T>::NotController)?;
 
-			// ensure that this bond is in a bad state to proceed.
-			ensure!(ledger.stash != stash, Error::<T>::AlreadyPaired);
+			// ensure that this bond is in a bad state to proceed. i.e. one of two states: either
+			// the ledger for the controller does not exist or it exists but the stash is different
+			// than expected.
+			ensure!(
+				Ledger::<T>::get(&controller).map(|l| l.stash != stash).unwrap_or(true),
+				Error::<T>::AlreadyPaired
+			);
 
 			// 1. remove staking lock on the stash.
 			T::Currency::remove_lock(crate::STAKING_ID, &stash);
@@ -2008,7 +2012,6 @@ pub mod pallet {
 
 			Ok(Pays::No.into())
 		}
-
 	}
 }
 

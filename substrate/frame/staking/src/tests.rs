@@ -7327,22 +7327,36 @@ mod bad_state_recovery {
 
 	#[test]
 	fn clean_bad_state_bond_extrinsic_works() {
-		ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
 			// setup the bad state:
 			// Bonded(1, 1)
 			// Bonded(2, 1)
 			// Ledger(1) = StakingLedger { stash = 1 }
 			// Ledger(2) = StakingLedger { stash = 1 }
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 100, RewardDestination::Staked));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(1), vec![11]));
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(2), 100, RewardDestination::Staked));
-            // TODO: nominate.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(2), vec![11]));
+
 			Ledger::<Test>::insert(&2, Ledger::<Test>::get(&1).unwrap());
+			Ledger::<Test>::remove(&2);
 
 			// double-check bad state.
-			assert_eq!(
-				StakingLedger::<Test>::get(StakingAccount::Stash(1)).unwrap(),
-				Ledger::<Test>::get(&1).unwrap()
-			);
+			assert!(StakingLedger::<Test>::get(StakingAccount::Stash(2)).is_err());
+			assert_eq!(Ledger::<Test>::get(&2), None);
+			assert_eq!(Bonded::<Test>::iter().count(), 7);
+			assert_eq!(Payee::<Test>::iter().count(), 7);
+			assert_eq!(Ledger::<Test>::iter().count(), 6);
+			// in sum, try-state checks won't pass.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			assert_ok!(Staking::clean_bad_state_bond(RuntimeOrigin::root(), 2));
+
+			// bad ledger was unbonded.
+			assert_eq!(Bonded::<Test>::get(&2), None);
+			assert_eq!(Ledger::<Test>::get(&2), None);
+			// try-state checks are ok now.
+			assert_ok!(Staking::do_try_state(System::block_number()));
 		})
 	}
 }
