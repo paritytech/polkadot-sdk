@@ -399,6 +399,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -433,8 +478,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! state consistency.
 
 </span><span class="kw">use </span>frame_support::{
-	defensive,
-	traits::{LockableCurrency, WithdrawReasons},
+	defensive, ensure,
+	traits::{Defensive, LockableCurrency, WithdrawReasons},
 };
 <span class="kw">use </span>sp_staking::StakingAccount;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
@@ -507,18 +552,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This getter can be called with either a controller or stash account, provided that the
 	/// account is properly wrapped in the respective [`StakingAccount`] variant. This is meant to
 	/// abstract the concept of controller/stash accounts from the caller.
+	///
+	/// Returns [`Error::BadState`] when a bond is in &quot;bad state&quot;. A bond is in a bad state when a
+	/// stash has a controller which is bonding a ledger associated with another stash.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get(account: StakingAccount&lt;T::AccountId&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;StakingLedger&lt;T&gt;, Error&lt;T&gt;&gt; {
-		<span class="kw">let </span>controller = <span class="kw">match </span>account {
-			StakingAccount::Stash(stash) =&gt; &lt;Bonded&lt;T&gt;&gt;::get(stash).ok_or(Error::&lt;T&gt;::NotStash),
-			StakingAccount::Controller(controller) =&gt; <span class="prelude-val">Ok</span>(controller),
-		}<span class="question-mark">?</span>;
+		<span class="kw">let </span>(stash, controller) = <span class="kw">match </span>account.clone() {
+			StakingAccount::Stash(stash) =&gt;
+				(stash.clone(), &lt;Bonded&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>stash).ok_or(Error::&lt;T&gt;::NotStash)<span class="question-mark">?</span>),
+			StakingAccount::Controller(controller) =&gt; (
+				Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller)
+					.map(|l| l.stash)
+					.ok_or(Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>,
+				controller,
+			),
+		};
 
-		&lt;Ledger&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>controller)
+		<span class="kw">let </span>ledger = &lt;Ledger&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>controller)
 			.map(|<span class="kw-2">mut </span>ledger| {
 				ledger.controller = <span class="prelude-val">Some</span>(controller.clone());
 				ledger
 			})
-			.ok_or(Error::&lt;T&gt;::NotController)
+			.ok_or(Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>;
+
+		<span class="comment">// if ledger bond is in a bad state, return error to prevent applying operations that may
+		// further spoil the ledger&#39;s state. A bond is in bad state when the bonded controller is
+		// associted with a different ledger (i.e. a ledger with a different stash).
+		//
+		// See &lt;https://github.com/paritytech/polkadot-sdk/issues/3245&gt; for more details.
+		</span><span class="macro">ensure!</span>(
+			Bonded::&lt;T&gt;::get(<span class="kw-2">&amp;</span>stash) == <span class="prelude-val">Some</span>(controller) &amp;&amp; ledger.stash == stash,
+			Error::&lt;T&gt;::BadState
+		);
+
+		<span class="prelude-val">Ok</span>(ledger)
 	}
 
 	<span class="doccomment">/// Returns the reward destination of a staking ledger, stored in [`Payee`].
@@ -600,6 +666,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;Payee&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.stash, payee);
 			<span class="prelude-val">Ok</span>(())
 		}
+	}
+
+	<span class="doccomment">/// Sets the ledger controller to its stash.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_controller_to_stash(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&lt;T&gt;&gt; {
+		<span class="kw">let </span>controller = <span class="self">self</span>.controller.as_ref()
+            .defensive_proof(<span class="string">&quot;Ledger&#39;s controller field didn&#39;t exist. The controller should have been fetched using StakingLedger.&quot;</span>)
+            .ok_or(Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>;
+
+		<span class="macro">ensure!</span>(<span class="self">self</span>.stash != <span class="kw-2">*</span>controller, Error::&lt;T&gt;::AlreadyPaired);
+
+		<span class="comment">// check if the ledger&#39;s stash is a controller of another ledger.
+		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(bonded_ledger) = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span><span class="self">self</span>.stash) {
+			<span class="comment">// there is a ledger bonded by the stash. In this case, the stash of the bonded ledger
+			// should be the same as the ledger&#39;s stash. Otherwise fail to prevent data
+			// inconsistencies. See &lt;https://github.com/paritytech/polkadot-sdk/pull/3639&gt; for more
+			// details.
+			</span><span class="macro">ensure!</span>(bonded_ledger.stash == <span class="self">self</span>.stash, Error::&lt;T&gt;::BadState);
+		}
+
+		&lt;Ledger&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>controller);
+		&lt;Ledger&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.stash, <span class="kw-2">&amp;</span><span class="self">self</span>);
+		&lt;Bonded&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.stash, <span class="kw-2">&amp;</span><span class="self">self</span>.stash);
+
+		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]

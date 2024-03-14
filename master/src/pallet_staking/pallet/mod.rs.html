@@ -2132,6 +2132,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1985" id="1985">1985</a>
 <a href="#1986" id="1986">1986</a>
 <a href="#1987" id="1987">1987</a>
+<a href="#1988" id="1988">1988</a>
+<a href="#1989" id="1989">1989</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2925,6 +2927,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>SnapshotTargetsSizeExceeded { size: u32 },
 		<span class="doccomment">/// A new force era mode was set.
 		</span>ForceEra { mode: Forcing },
+		<span class="doccomment">/// Report of a controller batch deprecation.
+		</span>ControllerBatchDeprecated { failures: u32 },
 	}
 
 	<span class="attr">#[pallet::error]
@@ -3069,6 +3073,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::AlreadyBonded.into())
 			}
 
+			<span class="comment">// An existing controller cannot become a stash.
+			</span><span class="kw">if </span>StakingLedger::&lt;T&gt;::is_bonded(StakingAccount::Controller(stash.clone())) {
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::AlreadyPaired.into())
+			}
+
 			<span class="comment">// Reject a bond which is considered to be _dust_.
 			</span><span class="kw">if </span>value &lt; T::Currency::minimum_balance() {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::InsufficientBond.into())
@@ -3109,7 +3118,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[pallet::compact] </span>max_additional: BalanceOf&lt;T&gt;,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>stash = ensure_signed(origin)<span class="question-mark">?</span>;
-
 			<span class="kw">let </span><span class="kw-2">mut </span>ledger = <span class="self">Self</span>::ledger(StakingAccount::Stash(stash.clone()))<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>stash_balance = T::Currency::free_balance(<span class="kw-2">&amp;</span>stash);
@@ -3466,9 +3474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>set_controller(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
 			<span class="kw">let </span>stash = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="comment">// The bonded map and ledger are mutated directly as this extrinsic is related to a
-			// (temporary) passive migration.
-			</span><span class="self">Self</span>::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
+			<span class="self">Self</span>::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
 				<span class="kw">let </span>controller = ledger.controller()
                     .defensive_proof(<span class="string">&quot;Ledger&#39;s controller field didn&#39;t exist. The controller should have been fetched using StakingLedger.&quot;</span>)
                     .ok_or(Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>;
@@ -3477,9 +3483,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Stash is already its own controller.
 					</span><span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::AlreadyPaired.into())
 				}
-				&lt;Ledger&lt;T&gt;&gt;::remove(controller);
-				&lt;Bonded&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>stash, <span class="kw-2">&amp;</span>stash);
-				&lt;Ledger&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>stash, ledger);
+
+				<span class="kw">let _ </span>= ledger.set_controller_to_stash()<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(())
 			})<span class="question-mark">?
 		</span>}
@@ -4094,7 +4099,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						};
 
 						<span class="kw">if </span>ledger.stash != <span class="kw-2">*</span>controller &amp;&amp; !payee_deprecated {
-							<span class="prelude-val">Some</span>((controller.clone(), ledger))
+							<span class="prelude-val">Some</span>(ledger)
 						} <span class="kw">else </span>{
 							<span class="prelude-val">None
 						</span>}
@@ -4103,13 +4108,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.collect();
 
 			<span class="comment">// Update unique pairs.
-			</span><span class="kw">for </span>(controller, ledger) <span class="kw">in </span>filtered_batch_with_ledger {
-				<span class="kw">let </span>stash = ledger.stash.clone();
-
-				&lt;Bonded&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>stash, <span class="kw-2">&amp;</span>stash);
-				&lt;Ledger&lt;T&gt;&gt;::remove(controller);
-				&lt;Ledger&lt;T&gt;&gt;::insert(stash, ledger);
+			</span><span class="kw">let </span><span class="kw-2">mut </span>failures = <span class="number">0</span>;
+			<span class="kw">for </span>ledger <span class="kw">in </span>filtered_batch_with_ledger {
+				<span class="kw">let _ </span>= ledger.clone().set_controller_to_stash().map_err(|<span class="kw">_</span>| failures += <span class="number">1</span>);
 			}
+			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::ControllerBatchDeprecated { failures });
+
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::deprecate_controller_batch(controllers.len() <span class="kw">as </span>u32)).into())
 		}
 	}
