@@ -465,14 +465,14 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	///  to the cores successfully being freed from the candidates being marked as available.
 	fn create_availability_bitfields(
 		&self,
-		concluding_cores: &BTreeMap<u32, u32>,
+		concluding_paras: &BTreeMap<u32, u32>,
 		elastic_paras: &BTreeMap<u32, u8>,
 		total_cores: usize,
 	) -> Vec<UncheckedSigned<AvailabilityBitfield>> {
 		let validators =
 			self.validators.as_ref().expect("must have some validators prior to calling");
 
-		let availability_bitvec = Self::availability_bitvec(concluding_cores, total_cores);
+		let availability_bitvec = Self::availability_bitvec(concluding_paras, total_cores);
 
 		let bitfields: Vec<UncheckedSigned<AvailabilityBitfield>> = validators
 			.iter()
@@ -491,7 +491,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 		let mut current_core_idx = 0u32;
 
-		for (seed, _) in concluding_cores.iter() {
+		for (seed, _) in concluding_paras.iter() {
 			// make sure the candidates that will be concluding are marked as pending availability.
 			let para_id = ParaId::from(*seed);
 
@@ -531,14 +531,13 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let config = configuration::Pallet::<T>::config();
 
 		let mut current_core_idx = 0u32;
-		let mut prev_head = None;
 		cores_with_backed_candidates
 			.iter()
 			.flat_map(|(seed, num_votes)| {
 				assert!(*num_votes <= validators.len() as u32);
 
 				let para_id = ParaId::from(*seed);
-				prev_head = None;
+				let mut prev_head = None;
 				// How many chained candidates we want to build ?
 				(0..elastic_paras.get(&seed).cloned().unwrap_or(1))
 					.map(|chain_idx| {
