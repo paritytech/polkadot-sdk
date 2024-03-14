@@ -630,11 +630,11 @@ pub fn benchmarks(
 						);
 
 						let start_pov = #krate::benchmarking::proof_size();
-						let start_extrinsic = #krate::benchmarking::current_time();
+						let start_extrinsic = #krate::current_time();
 
 						closure_to_benchmark()?;
 
-						let finish_extrinsic = #krate::benchmarking::current_time();
+						let finish_extrinsic = #krate::current_time();
 						let end_pov = #krate::benchmarking::proof_size();
 
 						// Calculate the diff caused by the benchmark.
@@ -657,9 +657,9 @@ pub fn benchmarks(
 						);
 
 						// Time the storage root recalculation.
-						let start_storage_root = #krate::benchmarking::current_time();
+						let start_storage_root = #krate::current_time();
 						#krate::__private::storage_root(#krate::__private::StateVersion::V1);
-						let finish_storage_root = #krate::benchmarking::current_time();
+						let finish_storage_root = #krate::current_time();
 						let elapsed_storage_root = finish_storage_root - start_storage_root;
 
 						let skip_meta = [ #(#skip_meta_benchmark_names_str),* ];

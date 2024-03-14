@@ -23,6 +23,9 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::TrailingZeroInput, DispatchError};
+use sp_runtime_interface::pass_by::{
+	AllocateAndReturnByCodec, PassByCodec, PassFatPointerAndRead, PassPointerAndWrite,
+};
 use sp_std::{prelude::Box, vec::Vec};
 use sp_storage::TrackedStorageKey;
 
@@ -242,6 +245,16 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
+/// Get the number of nanoseconds passed since the UNIX epoch
+///
+/// WARNING! This is a non-deterministic call. Do not use this within
+/// consensus critical logic.
+pub fn current_time() -> u128 {
+	let mut out = [0; 16];
+	self::benchmarking::current_time(&mut out);
+	u128::from_le_bytes(out)
+}
+
 /// Interface that provides functions for benchmarking the runtime.
 #[sp_runtime_interface::runtime_interface]
 pub trait Benchmarking {
@@ -249,11 +262,12 @@ pub trait Benchmarking {
 	///
 	/// WARNING! This is a non-deterministic call. Do not use this within
 	/// consensus critical logic.
-	fn current_time() -> u128 {
-		std::time::SystemTime::now()
+	fn current_time(out: PassPointerAndWrite<&mut [u8; 16], 16>) {
+		*out = std::time::SystemTime::now()
 			.duration_since(std::time::SystemTime::UNIX_EPOCH)
 			.expect("Unix time doesn't go backwards; qed")
 			.as_nanos()
+			.to_le_bytes();
 	}
 
 	/// Reset the trie database to the genesis state.
@@ -267,7 +281,7 @@ pub trait Benchmarking {
 	}
 
 	/// Get the read/write count.
-	fn read_write_count(&self) -> (u32, u32, u32, u32) {
+	fn read_write_count(&self) -> AllocateAndReturnByCodec<(u32, u32, u32, u32)> {
 		self.read_write_count()
 	}
 
@@ -277,17 +291,17 @@ pub trait Benchmarking {
 	}
 
 	/// Get the DB whitelist.
-	fn get_whitelist(&self) -> Vec<TrackedStorageKey> {
+	fn get_whitelist(&self) -> AllocateAndReturnByCodec<Vec<TrackedStorageKey>> {
 		self.get_whitelist()
 	}
 
 	/// Set the DB whitelist.
-	fn set_whitelist(&mut self, new: Vec<TrackedStorageKey>) {
+	fn set_whitelist(&mut self, new: PassByCodec<Vec<TrackedStorageKey>>) {
 		self.set_whitelist(new)
 	}
 
 	// Add a new item to the DB whitelist.
-	fn add_to_whitelist(&mut self, add: TrackedStorageKey) {
+	fn add_to_whitelist(&mut self, add: PassByCodec<TrackedStorageKey>) {
 		let mut whitelist = self.get_whitelist();
 		match whitelist.iter_mut().find(|x| x.key == add.key) {
 			// If we already have this key in the whitelist, update to be the most constrained
@@ -306,18 +320,20 @@ pub trait Benchmarking {
 	}
 
 	// Remove an item from the DB whitelist.
-	fn remove_from_whitelist(&mut self, remove: Vec<u8>) {
+	fn remove_from_whitelist(&mut self, remove: PassFatPointerAndRead<Vec<u8>>) {
 		let mut whitelist = self.get_whitelist();
 		whitelist.retain(|x| x.key != remove);
 		self.set_whitelist(whitelist);
 	}
 
-	fn get_read_and_written_keys(&self) -> Vec<(Vec<u8>, u32, u32, bool)> {
+	fn get_read_and_written_keys(
+		&self,
+	) -> AllocateAndReturnByCodec<Vec<(Vec<u8>, u32, u32, bool)>> {
 		self.get_read_and_written_keys()
 	}
 
 	/// Get current estimated proof size.
-	fn proof_size(&self) -> Option<u32> {
+	fn proof_size(&self) -> AllocateAndReturnByCodec<Option<u32>> {
 		self.proof_size()
 	}
 }

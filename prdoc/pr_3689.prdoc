@@ -72,3 +72,9 @@ crates:
   - name: sp-crypto-ec-utils
     bump: minor
     note: Requires the new `#[runtime_interface]` macro and associated machinery.
+  - name: frame-benchmarking
+    bump: major
+    note: Requires the new `#[runtime_interface]` macro and associated machinery. `Benchmarking::current_time` host call was changed.
+  - name: frame-support-procedural
+    bump: minor
+    note: Needs new `frame-benchmarking` due to the change to `current_time`.
