@@ -37,9 +37,8 @@ use sp_core::{
 use sp_io;
 use sp_runtime::{
 	curve::PiecewiseLinear,
-	generic::UncheckedExtrinsic,
 	impl_opaque_keys,
-	testing::{Digest, DigestItem, Header},
+	testing::{Digest, DigestItem, Header, TestXt},
 	traits::{Header as _, OpaqueKeys},
 	BuildStorage, Perbill,
 };
@@ -75,7 +74,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type OverarchingCall = RuntimeCall;
-	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
 impl_opaque_keys! {

@@ -32,8 +32,8 @@
 //! state consistency.
 
 use frame_support::{
-	defensive,
-	traits::{LockableCurrency, WithdrawReasons},
+	defensive, ensure,
+	traits::{Defensive, LockableCurrency, WithdrawReasons},
 };
 use sp_staking::StakingAccount;
 use sp_std::prelude::*;
@@ -106,18 +106,39 @@ impl<T: Config> StakingLedger<T> {
 	/// This getter can be called with either a controller or stash account, provided that the
 	/// account is properly wrapped in the respective [`StakingAccount`] variant. This is meant to
 	/// abstract the concept of controller/stash accounts from the caller.
+	///
+	/// Returns [`Error::BadState`] when a bond is in "bad state". A bond is in a bad state when a
+	/// stash has a controller which is bonding a ledger associated with another stash.
 	pub(crate) fn get(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
-		let controller = match account {
-			StakingAccount::Stash(stash) => <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash),
-			StakingAccount::Controller(controller) => Ok(controller),
-		}?;
+		let (stash, controller) = match account.clone() {
+			StakingAccount::Stash(stash) =>
+				(stash.clone(), <Bonded<T>>::get(&stash).ok_or(Error::<T>::NotStash)?),
+			StakingAccount::Controller(controller) => (
+				Ledger::<T>::get(&controller)
+					.map(|l| l.stash)
+					.ok_or(Error::<T>::NotController)?,
+				controller,
+			),
+		};
 
-		<Ledger<T>>::get(&controller)
+		let ledger = <Ledger<T>>::get(&controller)
 			.map(|mut ledger| {
 				ledger.controller = Some(controller.clone());
 				ledger
 			})
-			.ok_or(Error::<T>::NotController)
+			.ok_or(Error::<T>::NotController)?;
+
+		// if ledger bond is in a bad state, return error to prevent applying operations that may
+		// further spoil the ledger's state. A bond is in bad state when the bonded controller is
+		// associted with a different ledger (i.e. a ledger with a different stash).
+		//
+		// See <https://github.com/paritytech/polkadot-sdk/issues/3245> for more details.
+		ensure!(
+			Bonded::<T>::get(&stash) == Some(controller) && ledger.stash == stash,
+			Error::<T>::BadState
+		);
+
+		Ok(ledger)
 	}
 
 	/// Returns the reward destination of a staking ledger, stored in [`Payee`].
@@ -199,6 +220,30 @@ impl<T: Config> StakingLedger<T> {
 			<Payee<T>>::insert(&self.stash, payee);
 			Ok(())
 		}
+	}
+
+	/// Sets the ledger controller to its stash.
+	pub(crate) fn set_controller_to_stash(self) -> Result<(), Error<T>> {
+		let controller = self.controller.as_ref()
+            .defensive_proof("Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.")
+            .ok_or(Error::<T>::NotController)?;
+
+		ensure!(self.stash != *controller, Error::<T>::AlreadyPaired);
+
+		// check if the ledger's stash is a controller of another ledger.
+		if let Some(bonded_ledger) = Ledger::<T>::get(&self.stash) {
+			// there is a ledger bonded by the stash. In this case, the stash of the bonded ledger
+			// should be the same as the ledger's stash. Otherwise fail to prevent data
+			// inconsistencies. See <https://github.com/paritytech/polkadot-sdk/pull/3639> for more
+			// details.
+			ensure!(bonded_ledger.stash == self.stash, Error::<T>::BadState);
+		}
+
+		<Ledger<T>>::remove(&controller);
+		<Ledger<T>>::insert(&self.stash, &self);
+		<Bonded<T>>::insert(&self.stash, &self.stash);
+
+		Ok(())
 	}
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]

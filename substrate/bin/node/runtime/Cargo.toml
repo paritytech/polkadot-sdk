@@ -58,7 +58,7 @@ sp-io = { path = "../../../primitives/io", default-features = false }
 frame-executive = { path = "../../../frame/executive", default-features = false }
 frame-benchmarking = { path = "../../../frame/benchmarking", default-features = false }
 frame-benchmarking-pallet-pov = { path = "../../../frame/benchmarking/pov", default-features = false }
-frame-support = { path = "../../../frame/support", default-features = false, features = ["tuples-96"] }
+frame-support = { path = "../../../frame/support", default-features = false, features = ["experimental", "tuples-96"] }
 frame-system = { path = "../../../frame/system", default-features = false }
 frame-system-benchmarking = { path = "../../../frame/system/benchmarking", default-features = false, optional = true }
 frame-election-provider-support = { path = "../../../frame/election-provider-support", default-features = false }
@@ -276,7 +276,6 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-alliance/runtime-benchmarks",
-	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-asset-tx-payment/runtime-benchmarks",
@@ -334,7 +333,6 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-tips/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-transaction-storage/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-tx-pause/runtime-benchmarks",
