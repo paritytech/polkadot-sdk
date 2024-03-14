@@ -136,3 +136,44 @@ pub type MigrateV0ToV1<T> = VersionedMigration<
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
+
+#[cfg(test)]
+mod tests {
+	use super::{v0, v1, OnRuntimeUpgrade, Weight};
+	use crate::mock::{new_test_ext, MockGenesisConfig, OnDemandAssigner, Test};
+	use primitives::Id as ParaId;
+
+	#[test]
+	fn migration_to_v1_preserves_queue_ordering() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// Place orders for paraids 1..5
+			for i in 1..=5 {
+				v0::OnDemandQueue::<Test>::mutate(|queue| {
+					queue.push_back(v0::EnqueuedOrder { para_id: ParaId::new(i) })
+				});
+			}
+
+			// Queue has 5 orders
+			let old_queue = v0::OnDemandQueue::<Test>::get();
+			assert_eq!(old_queue.len(), 5);
+			// New queue has 0 orders
+			assert_eq!(OnDemandAssigner::get_queue_status().size(), 0);
+
+			// For tests, db weight is zero.
+			assert_eq!(
+				<v1::UncheckedMigrateToV1<Test> as OnRuntimeUpgrade>::on_runtime_upgrade(),
+				Weight::zero()
+			);
+
+			// New queue has 5 orders
+			assert_eq!(OnDemandAssigner::get_queue_status().size(), 5);
+
+			// Compare each entry from the old queue with the entry in the new queue.
+			old_queue.iter().zip(OnDemandAssigner::get_free_entries().iter()).for_each(
+				|(old_enq, new_enq)| {
+					assert_eq!(old_enq.para_id, new_enq.para_id);
+				},
+			);
+		});
+	}
+}
