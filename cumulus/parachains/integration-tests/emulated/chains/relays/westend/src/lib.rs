@@ -41,6 +41,7 @@ decl_test_relay_chains! {
 			Hrmp: westend_runtime::Hrmp,
 			Identity: westend_runtime::Identity,
 			IdentityMigrator: westend_runtime::IdentityMigrator,
+			Scheduler: westend_runtime::Scheduler,
 		}
 	},
 }

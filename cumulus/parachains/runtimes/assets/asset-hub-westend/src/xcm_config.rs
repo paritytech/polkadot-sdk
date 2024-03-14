@@ -48,8 +48,8 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, DescribeFamily, DescribePalletTerminal, EnsureXcmOrigin,
-	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
+	DenyThenTry, DescribeFamily, DescribePalletTerminal, DescribeTreasuryVoiceTerminal,
+	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
 	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
@@ -85,6 +85,7 @@ parameter_types! {
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub RelayTreasuryVoice: Location = Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]);
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -99,7 +100,10 @@ pub type LocationToAccountId = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign chain account alias into local accounts according to a hash of their standard
 	// description.
-	HashedDescription<AccountId, DescribeFamily<DescribePalletTerminal>>,
+	HashedDescription<
+		AccountId,
+		DescribeFamily<(DescribePalletTerminal, DescribeTreasuryVoiceTerminal)>,
+	>,
 	// Different global consensus parachain sovereign account.
 	// (Used for over-bridge transfers and reserve processing)
 	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
@@ -494,7 +498,13 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					pallet_uniques::Call::buy_item { .. }
 			) | RuntimeCall::ToRococoXcmRouter(
 				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
-			)
+			) |
+				// TODO: this cannot be included into the production safe filter in a current way.
+				// The safe filter will be entirely dropped or inner call arguments of `batch` and 
+				// `schedule` calls has to be filtered.
+				// Alternatively the `batch` call can be replaced by multiple `Transact`s.
+				RuntimeCall::Utility(..) |
+				RuntimeCall::Scheduler(..)
 		)
 	}
 }
