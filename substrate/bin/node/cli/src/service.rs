@@ -63,8 +63,13 @@ type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport =
 	grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
-type FullBeefyBlockImport<InnerBlockImport> =
-	beefy::import::BeefyBlockImport<Block, FullBackend, FullClient, InnerBlockImport>;
+type FullBeefyBlockImport<InnerBlockImport> = beefy::import::BeefyBlockImport<
+	Block,
+	FullBackend,
+	FullClient,
+	InnerBlockImport,
+	beefy_primitives::ecdsa_crypto::AuthorityId,
+>;
 
 /// The transaction pool type definition.
 pub type TransactionPool = sc_transaction_pool::FullPool<Block, FullClient>;
@@ -179,7 +184,7 @@ pub fn new_partial(
 				>,
 				grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 				sc_consensus_babe::BabeLink<Block>,
-				beefy::BeefyVoterLinks<Block>,
+				beefy::BeefyVoterLinks<Block, beefy_primitives::ecdsa_crypto::AuthorityId>,
 			),
 			grandpa::SharedVoterState,
 			Option<Telemetry>,
@@ -327,7 +332,7 @@ pub fn new_partial(
 						subscription_executor: subscription_executor.clone(),
 						finality_provider: finality_proof_provider.clone(),
 					},
-					beefy: node_rpc::BeefyDeps {
+					beefy: node_rpc::BeefyDeps::<beefy_primitives::ecdsa_crypto::AuthorityId> {
 						beefy_finality_proof_stream: beefy_rpc_links
 							.from_voter_justif_stream
 							.clone(),
@@ -657,7 +662,7 @@ pub fn new_full_base(
 		on_demand_justifications_handler: beefy_on_demand_justifications_handler,
 	};
 
-	let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
+	let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _, _>(beefy_params);
 	// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
 	// is noticed.
 	task_manager

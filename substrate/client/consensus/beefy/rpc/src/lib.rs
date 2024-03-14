@@ -21,9 +21,11 @@
 #![warn(missing_docs)]
 
 use parking_lot::RwLock;
+use sp_consensus_beefy::AuthorityIdBound;
 use std::sync::Arc;
 
 use sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
+use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::traits::Block as BlockT;
 
 use futures::{task::SpawnError, FutureExt, StreamExt};
@@ -98,19 +100,20 @@ pub trait BeefyApi<Notification, Hash> {
 }
 
 /// Implements the BeefyApi RPC trait for interacting with BEEFY.
-pub struct Beefy<Block: BlockT> {
-	finality_proof_stream: BeefyVersionedFinalityProofStream<Block>,
+pub struct Beefy<Block: BlockT, AuthorityId: AuthorityIdBound> {
+	finality_proof_stream: BeefyVersionedFinalityProofStream<Block, AuthorityId>,
 	beefy_best_block: Arc<RwLock<Option<Block::Hash>>>,
 	executor: SubscriptionTaskExecutor,
 }
 
-impl<Block> Beefy<Block>
+impl<Block, AuthorityId> Beefy<Block, AuthorityId>
 where
 	Block: BlockT,
+	AuthorityId: AuthorityIdBound,
 {
 	/// Creates a new Beefy Rpc handler instance.
 	pub fn new(
-		finality_proof_stream: BeefyVersionedFinalityProofStream<Block>,
+		finality_proof_stream: BeefyVersionedFinalityProofStream<Block, AuthorityId>,
 		best_block_stream: BeefyBestBlockStream<Block>,
 		executor: SubscriptionTaskExecutor,
 	) -> Result<Self, Error> {
@@ -129,16 +132,18 @@ where
 }
 
 #[async_trait]
-impl<Block> BeefyApiServer<notification::EncodedVersionedFinalityProof, Block::Hash>
-	for Beefy<Block>
+impl<Block, AuthorityId> BeefyApiServer<notification::EncodedVersionedFinalityProof, Block::Hash>
+	for Beefy<Block, AuthorityId>
 where
 	Block: BlockT,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	fn subscribe_justifications(&self, pending: PendingSubscriptionSink) {
 		let stream = self
 			.finality_proof_stream
 			.subscribe(100_000)
-			.map(|vfp| notification::EncodedVersionedFinalityProof::new::<Block>(vfp));
+			.map(|vfp| notification::EncodedVersionedFinalityProof::new::<Block, AuthorityId>(vfp));
 
 		sc_rpc::utils::spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
 	}
@@ -158,20 +163,26 @@ mod tests {
 		communication::notification::BeefyVersionedFinalityProofSender,
 		justification::BeefyVersionedFinalityProof,
 	};
-	use sp_consensus_beefy::{known_payloads, Payload, SignedCommitment};
+	use sp_consensus_beefy::{ecdsa_crypto, known_payloads, Payload, SignedCommitment};
 	use sp_runtime::traits::{BlakeTwo256, Hash};
 	use substrate_test_runtime_client::runtime::Block;
 
-	fn setup_io_handler() -> (RpcModule<Beefy<Block>>, BeefyVersionedFinalityProofSender<Block>) {
+	fn setup_io_handler() -> (
+		RpcModule<Beefy<Block, ecdsa_crypto::AuthorityId>>,
+		BeefyVersionedFinalityProofSender<Block, ecdsa_crypto::AuthorityId>,
+	) {
 		let (_, stream) = BeefyBestBlockStream::<Block>::channel();
 		setup_io_handler_with_best_block_stream(stream)
 	}
 
 	fn setup_io_handler_with_best_block_stream(
 		best_block_stream: BeefyBestBlockStream<Block>,
-	) -> (RpcModule<Beefy<Block>>, BeefyVersionedFinalityProofSender<Block>) {
+	) -> (
+		RpcModule<Beefy<Block, ecdsa_crypto::AuthorityId>>,
+		BeefyVersionedFinalityProofSender<Block, ecdsa_crypto::AuthorityId>,
+	) {
 		let (finality_proof_sender, finality_proof_stream) =
-			BeefyVersionedFinalityProofStream::<Block>::channel();
+			BeefyVersionedFinalityProofStream::<Block, ecdsa_crypto::AuthorityId>::channel();
 
 		let handler =
 			Beefy::new(finality_proof_stream, best_block_stream, sc_rpc::testing::test_executor())
@@ -250,10 +261,10 @@ mod tests {
 		assert_eq!(response, expected);
 	}
 
-	fn create_finality_proof() -> BeefyVersionedFinalityProof<Block> {
+	fn create_finality_proof() -> BeefyVersionedFinalityProof<Block, ecdsa_crypto::AuthorityId> {
 		let payload =
 			Payload::from_single_entry(known_payloads::MMR_ROOT_ID, "Hello World!".encode());
-		BeefyVersionedFinalityProof::<Block>::V1(SignedCommitment {
+		BeefyVersionedFinalityProof::<Block, ecdsa_crypto::AuthorityId>::V1(SignedCommitment {
 			commitment: sp_consensus_beefy::Commitment {
 				payload,
 				block_number: 5,
@@ -280,7 +291,7 @@ mod tests {
 
 		// Inspect what we received
 		let (bytes, recv_sub_id) = sub.next::<sp_core::Bytes>().await.unwrap().unwrap();
-		let recv_finality_proof: BeefyVersionedFinalityProof<Block> =
+		let recv_finality_proof: BeefyVersionedFinalityProof<Block, ecdsa_crypto::AuthorityId> =
 			Decode::decode(&mut &bytes[..]).unwrap();
 		assert_eq!(&recv_sub_id, sub.subscription_id());
 		assert_eq!(recv_finality_proof, finality_proof);
