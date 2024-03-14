@@ -1368,21 +1368,24 @@ impl_runtime_apis! {
 				ExistentialDepositAsset,
 				xcm_config::PriceForParentDelivery,
 				cumulus_primitives_utility::ParentDestinationMatcher,
-				(/*TODO: EnsureXcmVersion*/),
+				(pallet_xcm::EnsureXcmVersionForDestination<Runtime>,),
 			>;
 			type ToParachainDeliveryHelper<ParachainId> = polkadot_runtime_common::xcm_sender::benchmarking::DestinationDeliveryHelper<
 				xcm_config::XcmConfig,
 				ExistentialDepositAsset,
 				PriceForSiblingParachainDelivery,
 				cumulus_pallet_xcmp_queue::SiblingParachainDestinationMatcher<ParachainId>,
-				(ParachainSystem, /*TODO: EnsureXcmVersion*/),
+				(
+					ParachainSystem,
+					pallet_xcm::EnsureXcmVersionForDestination<Runtime>
+				),
 			>;
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
 				type DeliveryHelper = (
 					ToParentDeliveryHelper,
-					ToParachainDeliveryHelper<RandomParaId>
+					ToParachainDeliveryHelper<RandomParaId>,
 				);
 
 				fn reachable_dest() -> Option<Location> {

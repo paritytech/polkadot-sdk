@@ -689,7 +689,7 @@ impl_runtime_apis! {
 				ExistentialDepositAsset,
 				PriceForParentDelivery,
 				cumulus_primitives_utility::ParentDestinationMatcher,
-				(/*TODO: EnsureXcmVersion*/),
+				(pallet_xcm::EnsureXcmVersionForDestination<Runtime>,),
 			>;
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsiscsBenchmark;

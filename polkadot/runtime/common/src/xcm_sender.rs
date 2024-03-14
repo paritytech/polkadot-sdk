@@ -168,6 +168,7 @@ pub mod benchmarking {
 	use super::*;
 	use frame_support::traits::Contains;
 	use xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS};
+	pub use xcm_builder::EnsureForDestination;
 
 	/// Implementation of `xcm_builder::EnsureDelivery` which helps to ensure delivery to the
 	/// `destination` (parent, sibling parachain or child parachain, ...).
@@ -258,21 +259,6 @@ pub mod benchmarking {
 			DestinationHelper::ensure_for(dest);
 
 			(fees_mode, None)
-		}
-	}
-
-	/// Ensure more initialization for destination. (e.g. open HRMP channels, set XCM version, ...)
-	pub trait EnsureForDestination {
-		fn ensure_for(dest: &Location);
-	}
-
-	/// Tuple implementation for `EnsureForDestination`.
-	#[impl_trait_for_tuples::impl_for_tuples(30)]
-	impl EnsureForDestination for Tuple {
-		fn ensure_for(dest: &Location) {
-			for_tuples!( #(
-			Tuple::ensure_for(dest);
-		)* );
 		}
 	}
 

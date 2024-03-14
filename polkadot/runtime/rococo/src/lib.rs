@@ -2282,7 +2282,7 @@ sp_api::impl_runtime_apis! {
 				ExistentialDepositAsset,
 				xcm_config::PriceForChildParachainDelivery,
 				runtime_common::xcm_sender::ChildParachainDestinationMatcher<ParachainId>,
-				(/*TODO: EnsureXcmVersion*/),
+				(pallet_xcm::EnsureXcmVersionForDestination<Runtime>,),
 			>;
 
 			impl frame_system_benchmarking::Config for Runtime {}

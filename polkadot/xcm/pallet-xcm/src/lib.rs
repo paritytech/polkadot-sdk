@@ -3147,3 +3147,23 @@ impl<RuntimeOrigin: From<crate::Origin>> ConvertOrigin<RuntimeOrigin>
 		}
 	}
 }
+
+/// Implementation of `EnsureForDestination`, which can be utilized for `DestinationDeliveryHelper`,
+/// sets the `XCM version` for the `destination`. By default, `CurrentXcmVersion` is used.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct EnsureXcmVersionForDestination<T, V = CurrentXcmVersion>(PhantomData<(T, V)>);
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config, V: Get<XcmVersion>> xcm_builder::EnsureForDestination
+	for EnsureXcmVersionForDestination<T, V>
+{
+	fn ensure_for(dest: &Location) {
+		log::trace!(target: "xcm::pallet_xcm::ensure_for", "setting `force_xcm_version` for {dest:?} to {}", V::get());
+		if let Err(e) = Pallet::<T>::force_xcm_version(
+			T::AdminOrigin::try_successful_origin().expect("valid origin"),
+			Box::new(dest.clone()),
+			V::get(),
+		) {
+			log::error!(target: "xcm::pallet_xcm::ensure_for", "Error setting `force_xcm_version` for {dest:?}, error: {e:?}");
+		}
+	}
+}

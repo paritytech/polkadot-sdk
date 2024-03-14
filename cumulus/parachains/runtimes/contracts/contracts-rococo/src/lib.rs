@@ -729,7 +729,7 @@ impl_runtime_apis! {
 				ExistentialDepositAsset,
 				xcm_config::PriceForParentDelivery,
 				cumulus_primitives_utility::ParentDestinationMatcher,
-				(/*TODO: EnsureXcmVersion*/),
+				(pallet_xcm::EnsureXcmVersionForDestination<Runtime>,),
 			>;
 
 			use xcm::latest::prelude::*;

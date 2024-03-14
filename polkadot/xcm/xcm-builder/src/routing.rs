@@ -139,3 +139,18 @@ impl EnsureDelivery for Tuple {
 		(None, None)
 	}
 }
+
+/// Ensure more initialization for destination. (e.g. open HRMP channels, set XCM version, ...)
+pub trait EnsureForDestination {
+	fn ensure_for(dest: &Location);
+}
+
+/// Tuple implementation for `EnsureForDestination`.
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl EnsureForDestination for Tuple {
+	fn ensure_for(dest: &Location) {
+		for_tuples!( #(
+			Tuple::ensure_for(dest);
+		)* );
+	}
+}
