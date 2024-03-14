@@ -28,7 +28,7 @@ pallet-grandpa = { path = "../../grandpa", default-features = false, version = "
 pallet-im-online = { path = "../../im-online", default-features = false, version = "29.0.0" }
 pallet-offences = { path = "..", default-features = false, version = "29.0.0" }
 pallet-session = { path = "../../session", default-features = false, version = "30.0.0" }
-pallet-staking = { path = "../../staking", default-features = false, version = "30.0.0" }
+pallet-staking = { path = "../../staking", default-features = false, version = "30.0.1" }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "33.0.0" }
 sp-staking = { path = "../../../primitives/staking", default-features = false, version = "28.0.0" }
 sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }

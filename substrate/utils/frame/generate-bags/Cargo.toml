@@ -15,7 +15,7 @@ workspace = true
 frame-support = { version = "30.0.0", path = "../../../frame/support" }
 frame-election-provider-support = { version = "30.0.0", path = "../../../frame/election-provider-support" }
 frame-system = { version = "30.0.0", path = "../../../frame/system" }
-pallet-staking = { version = "30.0.0", path = "../../../frame/staking" }
+pallet-staking = { version = "30.0.1", path = "../../../frame/staking" }
 sp-staking = { version = "28.0.0", path = "../../../primitives/staking" }
 
 # third party

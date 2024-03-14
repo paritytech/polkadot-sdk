@@ -119,7 +119,7 @@ pallet-root-testing = { path = "../../../frame/root-testing", default-features =
 pallet-salary = { path = "../../../frame/salary", default-features = false, version = "15.0.0" }
 pallet-session = { path = "../../../frame/session", default-features = false, features = ["historical"], version = "30.0.0" }
 pallet-session-benchmarking = { path = "../../../frame/session/benchmarking", default-features = false, optional = true, version = "30.0.0" }
-pallet-staking = { path = "../../../frame/staking", default-features = false, version = "30.0.0" }
+pallet-staking = { path = "../../../frame/staking", default-features = false, version = "30.0.1" }
 pallet-staking-reward-curve = { path = "../../../frame/staking/reward-curve", default-features = false, version = "11.0.0" }
 pallet-staking-runtime-api = { path = "../../../frame/staking/runtime-api", default-features = false, version = "16.0.0" }
 pallet-state-trie-migration = { path = "../../../frame/state-trie-migration", default-features = false, version = "31.0.0" }
