@@ -7321,3 +7321,28 @@ mod ledger {
 		})
 	}
 }
+
+mod bad_state_recovery {
+	use super::*;
+
+	#[test]
+	fn clean_bad_state_bond_extrinsic_works() {
+		ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+			// setup the bad state:
+			// Bonded(1, 1)
+			// Bonded(2, 1)
+			// Ledger(1) = StakingLedger { stash = 1 }
+			// Ledger(2) = StakingLedger { stash = 1 }
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 100, RewardDestination::Staked));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(2), 100, RewardDestination::Staked));
+            // TODO: nominate.
+			Ledger::<Test>::insert(&2, Ledger::<Test>::get(&1).unwrap());
+
+			// double-check bad state.
+			assert_eq!(
+				StakingLedger::<Test>::get(StakingAccount::Stash(1)).unwrap(),
+				Ledger::<Test>::get(&1).unwrap()
+			);
+		})
+	}
+}

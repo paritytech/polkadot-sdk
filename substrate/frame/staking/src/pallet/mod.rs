@@ -1980,6 +1980,35 @@ pub mod pallet {
 
 			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
 		}
+
+		#[pallet::call_index(29)]
+		#[pallet::weight(0)]
+		pub fn clean_bad_state_bond(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			let controller = Bonded::<T>::get(&stash).ok_or(Error::<T>::NotStash)?;
+			let ledger = Ledger::<T>::get(&controller).ok_or(Error::<T>::NotController)?;
+
+			// ensure that this bond is in a bad state to proceed.
+			ensure!(ledger.stash != stash, Error::<T>::AlreadyPaired);
+
+			// 1. remove staking lock on the stash.
+			T::Currency::remove_lock(crate::STAKING_ID, &stash);
+			// 2. remove the bonded and payee entries of the stash to clean up.
+			Bonded::<T>::remove(&stash);
+			Payee::<T>::remove(&stash);
+			// 3. remove the validator/nominator entry for the stash.
+			Validators::<T>::remove(&stash);
+			Nominators::<T>::remove(&stash);
+			// 4. ensure the `VoterList` is cleared up.
+			let _ = T::VoterList::on_remove(&stash);
+
+			Ok(Pays::No.into())
+		}
+
 	}
 }
 
