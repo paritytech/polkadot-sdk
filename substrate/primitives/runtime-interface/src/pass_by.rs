@@ -503,7 +503,7 @@ where
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a, T, U> IntoFFIValue for ReturnAs<T, U>
+impl<T, U> IntoFFIValue for ReturnAs<T, U>
 where
 	U: RIType + IntoFFIValue + Primitive,
 	<U as RIType>::Inner: From<Self::Inner>,
@@ -556,7 +556,7 @@ impl<T, const N: usize> RIType for AllocateAndReturnPointer<T, N> {
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a, T, const N: usize> IntoFFIValue for AllocateAndReturnPointer<T, N>
+impl<T, const N: usize> IntoFFIValue for AllocateAndReturnPointer<T, N>
 where
 	T: AsRef<[u8]>,
 {
