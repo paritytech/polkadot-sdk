@@ -61,7 +61,7 @@
 //! [`#[runtime_interface]`](./attr.runtime_interface.html).
 
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 extern crate self as sp_runtime_interface;
 extern crate alloc;
