@@ -851,5 +851,19 @@ pub mod pallet {
             Self::do_purchase_listing(who, region_id)?;
 			Ok(Pays::No.into())
         }
+
+		/// Remove a listed region. Only the owner of the region can remove the listing.
+		/// - `origin`: Must be a Signed origin.
+		/// - `region_id`: The region to purchase.
+		#[pallet::call_index(22)]
+        #[pallet::weight({10_000})]
+        pub fn remove_listing(
+            origin: OriginFor<T>,
+            region_id: RegionId,
+        ) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+            Self::do_remove_listing(who, region_id)?;
+			Ok(Pays::No.into())
+        }
 	}
 }
