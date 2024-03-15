@@ -857,7 +857,7 @@ async fn erasure_task_thread(
 
 		// In benchmarks this is a very hot loop not yielding at all.
 		// To update CPU metrics for the task we need to yield.
-		#[cfg(feature = "subsystem-benchmarks")]
+		#[cfg(feature = "subsystem-benchmarks-helpers")]
 		tokio::task::yield_now().await;
 	}
 }

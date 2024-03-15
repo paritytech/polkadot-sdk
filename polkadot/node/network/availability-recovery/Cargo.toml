@@ -51,3 +51,4 @@ required-features = ["subsystem-benchmarks"]
 
 [features]
 subsystem-benchmarks = []
+subsystem-benchmarks-helpers = []

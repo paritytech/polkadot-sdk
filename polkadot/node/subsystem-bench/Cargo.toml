@@ -26,7 +26,7 @@ polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
-polkadot-availability-recovery = { path = "../network/availability-recovery", features = ["subsystem-benchmarks"] }
+polkadot-availability-recovery = { path = "../network/availability-recovery", features = ["subsystem-benchmarks-helpers"] }
 polkadot-availability-distribution = { path = "../network/availability-distribution" }
 polkadot-node-core-av-store = { path = "../core/av-store" }
 polkadot-node-core-chain-api = { path = "../core/chain-api" }
