@@ -141,7 +141,7 @@ impl<const N: usize, T> TryFrom<&[u8]> for ByteArray<N, T> {
 		}
 		let mut r = [0u8; N];
 		r.copy_from_slice(data);
-		Ok(Self::unchecked_from(r))
+		Ok(Self::from_raw(r))
 	}
 }
 
@@ -172,13 +172,8 @@ impl<const N: usize, T> ByteArray<N, T> {
 
 	/// Return a slice filled with raw data.
 	pub fn as_array_ref(&self) -> &[u8; N] {
-		self.as_ref()
+		&self.0
 	}
-}
-
-impl<const N: usize, T> ByteArray<N, T> {
-	/// Size of the byte array.
-	pub const LEN: usize = N;
 }
 
 impl<const N: usize, T> crate::ByteArray for ByteArray<N, T> {

@@ -313,7 +313,7 @@ impl Pair {
 		// that have not been upgraded and those that have.
 		match PublicKey::from_bytes(pubkey.as_ref()) {
 			Ok(pk) => pk
-				.verify_simple_preaudit_deprecated(SIGNING_CTX, message.as_ref(), &sig.inner()[..])
+				.verify_simple_preaudit_deprecated(SIGNING_CTX, message.as_ref(), &sig.0[..])
 				.is_ok(),
 			Err(_) => false,
 		}
@@ -521,7 +521,7 @@ pub mod vrf {
 	impl VrfPublic for Public {
 		fn vrf_verify(&self, data: &Self::VrfSignData, signature: &Self::VrfSignature) -> bool {
 			let do_verify = || {
-				let public = schnorrkel::PublicKey::from_bytes(self)?;
+				let public = schnorrkel::PublicKey::from_bytes(&self.0)?;
 
 				let inout =
 					signature.pre_output.0.attach_input_hash(&public, data.transcript.0.clone())?;
@@ -593,7 +593,7 @@ pub mod vrf {
 		where
 			[u8; N]: Default,
 		{
-			let pubkey = schnorrkel::PublicKey::from_bytes(self).map_err(convert_error)?;
+			let pubkey = schnorrkel::PublicKey::from_bytes(&self.0).map_err(convert_error)?;
 			let inout = pre_output
 				.0
 				.attach_input_hash(&pubkey, input.0.clone())
