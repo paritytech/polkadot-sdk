@@ -36,8 +36,6 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
 
-use sp_runtime_interface::pass_by::PassByInner;
-
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls377 {
@@ -119,7 +117,7 @@ pub mod ecdsa_bls377 {
 			let Ok(left_pub) = public.inner[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
 				return false
 			};
-			let Ok(left_sig) = sig.inner[0..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
+			let Ok(left_sig) = sig.inner[..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
 				return false
 			};
 			if !ecdsa::Pair::verify_prehashed(&left_sig, &msg_hash, &left_pub) {
@@ -197,7 +195,7 @@ where
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(self.inner()), &s[0..8])
+		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.inner), &s[0..8])
 	}
 
 	#[cfg(not(feature = "std"))]

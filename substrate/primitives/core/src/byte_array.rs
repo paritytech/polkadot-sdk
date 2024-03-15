@@ -37,7 +37,7 @@ pub struct ByteArray<const N: usize, M = ()> {
 
 impl<const N: usize, M> Clone for ByteArray<N, M> {
 	fn clone(&self) -> Self {
-		Self { inner: self.inner.clone(), marker: PhantomData }
+		Self { inner: self.inner, marker: PhantomData }
 	}
 }
 
