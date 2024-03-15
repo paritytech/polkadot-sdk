@@ -25,9 +25,10 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use bp_runtime::BlockNumberOf;
 use finality_relay::TargetClient;
 use relay_substrate_client::{
-	AccountKeyPairOf, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
+	AccountKeyPairOf, Chain, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
 	TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
@@ -101,6 +102,18 @@ impl<P: SubstrateFinalitySyncPipeline> TargetClient<FinalitySyncPipelineAdapter<
 		)
 		.await?
 		.ok_or(Error::BridgePalletIsNotInitialized)?)
+	}
+
+	async fn free_source_headers_interval(
+		&self,
+	) -> Result<Option<BlockNumberOf<P::SourceChain>>, Self::Error> {
+		self.client
+			.typed_state_call(
+				P::SourceChain::FREE_HEADERS_INTERVAL_METHOD.into(),
+				(),
+				Some(self.client.best_header().await?.hash()),
+			)
+			.await
 	}
 
 	async fn submit_finality_proof(

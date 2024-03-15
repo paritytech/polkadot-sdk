@@ -198,6 +198,10 @@ impl TargetClient<TestFinalitySyncPipeline> for TestTargetClient {
 		Ok(data.target_best_block_id)
 	}
 
+	async fn free_source_headers_interval(&self) -> Result<Option<TestNumber>, TestError> {
+		Ok(Some(3))
+	}
+
 	async fn submit_finality_proof(
 		&self,
 		header: TestSourceHeader,
