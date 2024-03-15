@@ -414,6 +414,8 @@ where
 			.filter(|id| !local_keys.contains(id.as_ref()))
 			.collect::<Vec<_>>();
 
+		error!(target: LOG_TARGET, "Found authority-ids num {:?}", authorities.len());
+
 		self.addr_cache.retain_ids(&authorities);
 
 		authorities.shuffle(&mut thread_rng());
