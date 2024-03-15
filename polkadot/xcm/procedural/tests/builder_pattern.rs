@@ -23,7 +23,7 @@ use xcm::latest::prelude::*;
 fn builder_pattern_works() {
 	let asset: Asset = (Here, 100u128).into();
 	let beneficiary: Location = [0u8; 32].into();
-	let message: Xcm<()> = Xcm::builder_unsafe()
+	let message: Xcm<()> = Xcm::builder()
 		.receive_teleported_asset(asset.clone())
 		.buy_execution(asset.clone(), Unlimited)
 		.deposit_asset(asset.clone(), beneficiary.clone())
