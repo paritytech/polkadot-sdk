@@ -126,7 +126,9 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 	/// List of keys onto which addresses have been published at the latest publication.
 	/// Used to check whether they have changed.
 	latest_published_keys: HashSet<AuthorityId>,
-	/// Same value as in the configuration.
+	/// Should we publish only these explicitly set addresses?
+	public_addresses_only: Option<Vec<Multiaddr>>,
+	/// Same value as in the configuration. Does not apply to `public_addresses_only`.
 	publish_non_global_ips: bool,
 	/// Same value as in the configuration.
 	strict_record_validation: bool,
@@ -224,6 +226,29 @@ where
 			None => None,
 		};
 
+		// Make sure we have only valid peer ids in public addresses.
+		let public_addresses_only = {
+			let local_peer_id: Multihash = network.local_peer_id().into();
+
+			config.public_addresses_only.map(|addresses| {
+				addresses
+					.into_iter()
+					.map(|mut address| {
+						if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
+							if peer_id != local_peer_id {
+								error!(
+									target: LOG_TARGET,
+									"Discarding invalid local peer ID in public address {address}.",
+								);
+								address.pop();
+							}
+						}
+						address
+					})
+					.collect()
+			})
+		};
+
 		Worker {
 			from_service: from_service.fuse(),
 			client,
@@ -232,6 +257,7 @@ where
 			publish_interval,
 			publish_if_changed_interval,
 			latest_published_keys: HashSet::new(),
+			public_addresses_only,
 			publish_non_global_ips: config.publish_non_global_ips,
 			strict_record_validation: config.strict_record_validation,
 			query_interval,
@@ -306,30 +332,50 @@ where
 	fn addresses_to_publish(&self) -> impl Iterator<Item = Multiaddr> {
 		let peer_id: Multihash = self.network.local_peer_id().into();
 		let publish_non_global_ips = self.publish_non_global_ips;
-		let addresses = self.network.external_addresses().into_iter().filter(move |a| {
-			if publish_non_global_ips {
-				return true
-			}
+		let addresses: Vec<_> = {
+			let addresses = match self.public_addresses_only {
+				Some(ref public_addresses) => public_addresses.clone(),
+				None => self
+					.network
+					.external_addresses()
+					.into_iter()
+					.filter(move |a| {
+						if publish_non_global_ips {
+							return true
+						}
 
-			a.iter().all(|p| match p {
-				// The `ip_network` library is used because its `is_global()` method is stable,
-				// while `is_global()` in the standard library currently isn't.
-				multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() => false,
-				multiaddr::Protocol::Ip6(ip) if !IpNetwork::from(ip).is_global() => false,
-				_ => true,
-			})
-		});
+						a.iter().all(|p| match p {
+							// The `ip_network` library is used because its `is_global()` method is
+							// stable, while `is_global()` in the standard library currently isn't.
+							multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() =>
+								false,
+							multiaddr::Protocol::Ip6(ip) if !IpNetwork::from(ip).is_global() =>
+								false,
+							_ => true,
+						})
+					})
+					.collect(),
+			};
 
-		debug!(target: LOG_TARGET, "Authority DHT record peer_id='{:?}' addresses='{:?}'", peer_id, addresses.clone().collect::<Vec<_>>());
+			// The address must include the peer id if not already set.
+			addresses
+				.into_iter()
+				.map(move |a| {
+					if a.iter().any(|p| matches!(p, multiaddr::Protocol::P2p(_))) {
+						a
+					} else {
+						a.with(multiaddr::Protocol::P2p(peer_id))
+					}
+				})
+				.collect()
+		};
 
-		// The address must include the peer id if not already set.
-		addresses.map(move |a| {
-			if a.iter().any(|p| matches!(p, multiaddr::Protocol::P2p(_))) {
-				a
-			} else {
-				a.with(multiaddr::Protocol::P2p(peer_id))
-			}
-		})
+		debug!(
+			target: LOG_TARGET,
+			"Authority DHT record peer_id='{peer_id:?}' addresses='{addresses:?}'",
+		);
+
+		addresses.into_iter()
 	}
 
 	/// Publish own public addresses.

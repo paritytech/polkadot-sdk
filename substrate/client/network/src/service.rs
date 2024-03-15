@@ -427,12 +427,7 @@ where
 			};
 
 			let behaviour = {
-				// Prepare the list of explicit external addresses.
-				let public_addresses_only = network_config
-					.public_addresses_only
-					.then_some(network_config.public_addresses.clone());
-
-				if let Some(addresses) = &public_addresses_only {
+				if let Some(ref addresses) = network_config.public_addresses_only {
 					if addresses.is_empty() {
 						return Err(Error::NoPublicAddresses)
 					}
@@ -446,7 +441,7 @@ where
 					request_response_protocols,
 					params.peer_store.clone(),
 					external_addresses.clone(),
-					public_addresses_only,
+					network_config.public_addresses_only,
 				);
 
 				match result {

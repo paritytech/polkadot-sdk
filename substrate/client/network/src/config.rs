@@ -581,11 +581,13 @@ pub struct NetworkConfiguration {
 	/// Multiaddresses to advertise. Detected automatically if empty.
 	pub public_addresses: Vec<Multiaddr>,
 
-	/// Do not advertise automatically discovered address.
+	/// Advertise `public_addresses` instead of automatically discovered address.
 	///
 	/// This applies to external addresses in the authority discovery DHT record and external &
 	/// listen addresses in Identify protocol messages.
-	pub public_addresses_only: bool,
+	///
+	/// If `Some`, the contained value should match `public_addresses`.
+	pub public_addresses_only: Option<Vec<Multiaddr>>,
 
 	/// List of initial node addresses
 	pub boot_nodes: Vec<MultiaddrWithPeerId>,
@@ -676,7 +678,7 @@ impl NetworkConfiguration {
 			net_config_path,
 			listen_addresses: Vec::new(),
 			public_addresses: Vec::new(),
-			public_addresses_only: false,
+			public_addresses_only: None,
 			boot_nodes: Vec::new(),
 			node_key,
 			default_peers_set_num_full: default_peers_set.in_peers + default_peers_set.out_peers,

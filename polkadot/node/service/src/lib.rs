@@ -807,6 +807,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	let shared_voter_state = rpc_setup;
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
+	let auth_disc_public_addresses_only = config.network.public_addresses_only.clone();
 	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
 
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
@@ -1060,6 +1061,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 				});
 			let (worker, service) = sc_authority_discovery::new_worker_and_service_with_config(
 				sc_authority_discovery::WorkerConfig {
+					public_addresses_only: auth_disc_public_addresses_only,
 					publish_non_global_ips: auth_disc_publish_non_global_ips,
 					// Require that authority discovery records are signed.
 					strict_record_validation: true,

@@ -72,8 +72,14 @@ pub struct WorkerConfig {
 	/// By default this is set to 10 minutes.
 	pub max_query_interval: Duration,
 
+	/// Explicitly set public addresses that should be published instead of the discovered
+	/// external addresses.
+	///
+	/// Defaults to `None`, meaning the discovered external addresses should be published.
+	pub public_addresses_only: Option<Vec<Multiaddr>>,
+
 	/// If `false`, the node won't publish on the DHT multiaddresses that contain non-global
-	/// IP addresses (such as 10.0.0.1).
+	/// IP addresses (such as 10.0.0.1). Does not apply to `public_addresses_only`.
 	///
 	/// Recommended: `false` for live chains, and `true` for local chains or for testing.
 	///
@@ -103,6 +109,7 @@ impl Default for WorkerConfig {
 			// comparing `authority_discovery_authority_addresses_requested_total` and
 			// `authority_discovery_dht_event_received`.
 			max_query_interval: Duration::from_secs(10 * 60),
+			public_addresses_only: None,
 			publish_non_global_ips: true,
 			strict_record_validation: false,
 		}

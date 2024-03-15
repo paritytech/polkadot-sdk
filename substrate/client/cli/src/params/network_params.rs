@@ -54,8 +54,6 @@ pub struct NetworkParams {
 	/// Public address that other nodes will use to connect to this node.
 	///
 	/// This can be used if there's a proxy in front of this node.
-	///
-	/// If you use this flag, consider also passing `--public-addr-only` (see below).
 	#[arg(long, value_name = "PUBLIC_ADDR", num_args = 1..)]
 	pub public_addr: Vec<Multiaddr>,
 
@@ -222,6 +220,7 @@ impl NetworkParams {
 		};
 
 		let public_addresses = self.public_addr.clone();
+		let public_addresses_only = self.public_addr_only.then_some(public_addresses.clone());
 
 		let mut boot_nodes = chain_spec.boot_nodes().to_vec();
 		boot_nodes.extend(self.bootnodes.clone());
@@ -257,7 +256,7 @@ impl NetworkParams {
 			default_peers_set_num_full: self.in_peers + self.out_peers,
 			listen_addresses,
 			public_addresses,
-			public_addresses_only: self.public_addr_only,
+			public_addresses_only,
 			node_key,
 			node_name: node_name.to_string(),
 			client_version: client_id.to_string(),
