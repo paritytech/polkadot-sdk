@@ -72,7 +72,7 @@
 //!   balance that is strictly between 0 and the existential deposit (exclusive). If this ever
 //!   happens, it indicates either a bug in this pallet or an erroneous raw mutation of storage.
 //!
-//! - **Untouchable Balance**: The part of a users free balance they cannot spend, due to ED or
+//! - **Untouchable Balance**: The part of a user's free balance they cannot spend, due to ED or
 //!   Freeze/s.
 //!
 //! - **Spendable Balance**: The part of a users free balance they can spend.
