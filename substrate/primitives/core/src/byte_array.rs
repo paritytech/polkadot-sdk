@@ -28,22 +28,25 @@ use scale_info::TypeInfo;
 use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 
 /// Generic byte array.
+///
+/// The type is generic over a constant length `N` and a "tag" `T` which
+/// can be used to specialize the byte array without using newtypes.
 #[derive(Encode, Decode, MaxEncodedLen)]
-pub struct ByteArray<const N: usize, M = ()> {
+pub struct ByteArray<const N: usize, T = ()> {
 	/// Inner raw array
 	pub inner: [u8; N],
-	marker: PhantomData<fn() -> M>,
+	marker: PhantomData<fn() -> T>,
 }
 
-impl<const N: usize, M> Copy for ByteArray<N, M> {}
+impl<const N: usize, T> Copy for ByteArray<N, T> {}
 
-impl<const N: usize, M> Clone for ByteArray<N, M> {
+impl<const N: usize, T> Clone for ByteArray<N, T> {
 	fn clone(&self) -> Self {
 		Self { inner: self.inner, marker: PhantomData }
 	}
 }
 
-impl<const N: usize, M> TypeInfo for ByteArray<N, M> {
+impl<const N: usize, T> TypeInfo for ByteArray<N, T> {
 	type Identity = [u8; N];
 
 	fn type_info() -> scale_info::Type {
@@ -51,39 +54,39 @@ impl<const N: usize, M> TypeInfo for ByteArray<N, M> {
 	}
 }
 
-impl<const N: usize, M> PartialOrd for ByteArray<N, M> {
+impl<const N: usize, T> PartialOrd for ByteArray<N, T> {
 	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
 		self.inner.partial_cmp(&other.inner)
 	}
 }
 
-impl<const N: usize, M> Ord for ByteArray<N, M> {
+impl<const N: usize, T> Ord for ByteArray<N, T> {
 	fn cmp(&self, other: &Self) -> core::cmp::Ordering {
 		self.inner.cmp(&other.inner)
 	}
 }
 
-impl<const N: usize, M> PartialEq for ByteArray<N, M> {
+impl<const N: usize, T> PartialEq for ByteArray<N, T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.inner.eq(&other.inner)
 	}
 }
 
-impl<const N: usize, M> core::hash::Hash for ByteArray<N, M> {
+impl<const N: usize, T> core::hash::Hash for ByteArray<N, T> {
 	fn hash<H: scale_info::prelude::hash::Hasher>(&self, state: &mut H) {
 		self.inner.hash(state)
 	}
 }
 
-impl<const N: usize, M> Eq for ByteArray<N, M> {}
+impl<const N: usize, T> Eq for ByteArray<N, T> {}
 
-impl<const N: usize, M> Default for ByteArray<N, M> {
+impl<const N: usize, T> Default for ByteArray<N, T> {
 	fn default() -> Self {
 		Self { inner: [0_u8; N], marker: PhantomData }
 	}
 }
 
-impl<const N: usize, M> PassByInner for ByteArray<N, M> {
+impl<const N: usize, T> PassByInner for ByteArray<N, T> {
 	type Inner = [u8; N];
 
 	fn into_inner(self) -> Self::Inner {
@@ -99,41 +102,41 @@ impl<const N: usize, M> PassByInner for ByteArray<N, M> {
 	}
 }
 
-impl<const N: usize, M> PassBy for ByteArray<N, M> {
+impl<const N: usize, T> PassBy for ByteArray<N, T> {
 	type PassBy = pass_by::Inner<Self, [u8; N]>;
 }
 
-impl<const N: usize, M> AsRef<[u8]> for ByteArray<N, M> {
+impl<const N: usize, T> AsRef<[u8]> for ByteArray<N, T> {
 	fn as_ref(&self) -> &[u8] {
 		&self.inner[..]
 	}
 }
 
-impl<const N: usize, M> AsMut<[u8]> for ByteArray<N, M> {
+impl<const N: usize, T> AsMut<[u8]> for ByteArray<N, T> {
 	fn as_mut(&mut self) -> &mut [u8] {
 		&mut self.inner[..]
 	}
 }
 
-impl<const N: usize, M> From<ByteArray<N, M>> for [u8; N] {
-	fn from(v: ByteArray<N, M>) -> [u8; N] {
+impl<const N: usize, T> From<ByteArray<N, T>> for [u8; N] {
+	fn from(v: ByteArray<N, T>) -> [u8; N] {
 		v.inner
 	}
 }
 
-impl<const N: usize, M> AsRef<[u8; N]> for ByteArray<N, M> {
+impl<const N: usize, T> AsRef<[u8; N]> for ByteArray<N, T> {
 	fn as_ref(&self) -> &[u8; N] {
 		&self.inner
 	}
 }
 
-impl<const N: usize, M> From<[u8; N]> for ByteArray<N, M> {
+impl<const N: usize, T> From<[u8; N]> for ByteArray<N, T> {
 	fn from(value: [u8; N]) -> Self {
 		Self::from_raw(value)
 	}
 }
 
-impl<const N: usize, M> TryFrom<&[u8]> for ByteArray<N, M> {
+impl<const N: usize, T> TryFrom<&[u8]> for ByteArray<N, T> {
 	type Error = ();
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
@@ -146,13 +149,13 @@ impl<const N: usize, M> TryFrom<&[u8]> for ByteArray<N, M> {
 	}
 }
 
-impl<const N: usize, M> UncheckedFrom<[u8; N]> for ByteArray<N, M> {
+impl<const N: usize, T> UncheckedFrom<[u8; N]> for ByteArray<N, T> {
 	fn unchecked_from(data: [u8; N]) -> Self {
 		Self::from_raw(data)
 	}
 }
 
-impl<const N: usize, M> core::ops::Deref for ByteArray<N, M> {
+impl<const N: usize, T> core::ops::Deref for ByteArray<N, T> {
 	type Target = [u8];
 
 	fn deref(&self) -> &Self::Target {
@@ -160,7 +163,7 @@ impl<const N: usize, M> core::ops::Deref for ByteArray<N, M> {
 	}
 }
 
-impl<const N: usize, M> ByteArray<N, M> {
+impl<const N: usize, T> ByteArray<N, T> {
 	/// Construct from raw array.
 	pub fn from_raw(inner: [u8; N]) -> Self {
 		Self { inner, marker: PhantomData }
@@ -177,16 +180,16 @@ impl<const N: usize, M> ByteArray<N, M> {
 	}
 }
 
-impl<const N: usize, M> ByteArray<N, M> {
+impl<const N: usize, T> ByteArray<N, T> {
 	/// Size of the byte array.
 	pub const LEN: usize = N;
 }
 
-impl<const N: usize, M> crate::ByteArray for ByteArray<N, M> {
+impl<const N: usize, T> crate::ByteArray for ByteArray<N, T> {
 	const LEN: usize = N;
 }
 
-impl<const N: usize, M> FromEntropy for ByteArray<N, M> {
+impl<const N: usize, T> FromEntropy for ByteArray<N, T> {
 	fn from_entropy(input: &mut impl codec::Input) -> Result<Self, codec::Error> {
 		let mut result = Self::default();
 		input.read(result.as_mut())?;
@@ -194,26 +197,26 @@ impl<const N: usize, M> FromEntropy for ByteArray<N, M> {
 	}
 }
 
-impl<M> From<ByteArray<32, M>> for H256 {
-	fn from(x: ByteArray<32, M>) -> H256 {
+impl<T> From<ByteArray<32, T>> for H256 {
+	fn from(x: ByteArray<32, T>) -> H256 {
 		H256::from(x.inner)
 	}
 }
 
-impl<M> From<ByteArray<64, M>> for H512 {
-	fn from(x: ByteArray<64, M>) -> H512 {
+impl<T> From<ByteArray<64, T>> for H512 {
+	fn from(x: ByteArray<64, T>) -> H512 {
 		H512::from(x.inner)
 	}
 }
 
-impl<M> ByteArray<32, M> {
+impl<T> ByteArray<32, T> {
 	/// A new instance from an H256.
 	pub fn from_h256(x: H256) -> Self {
 		Self::from_raw(x.into())
 	}
 }
 
-impl<M> ByteArray<64, M> {
+impl<T> ByteArray<64, T> {
 	/// A new instance from an H512.
 	pub fn from_h512(x: H512) -> Self {
 		Self::from_raw(x.into())
@@ -224,10 +227,10 @@ impl<M> ByteArray<64, M> {
 mod tests {
 	use super::*;
 
-	struct Marker<const I: u8 = 0>;
+	struct Tag<const I: u8 = 0>;
 
-	type Foo = ByteArray<32, Marker>;
-	type Bar = ByteArray<32, Marker<1>>;
+	type Foo = ByteArray<32, Tag>;
+	type Bar = ByteArray<32, Tag<1>>;
 
 	fn print_foo(f: &Foo) {
 		println!("{:02x?}", f.inner());
@@ -245,7 +248,7 @@ mod tests {
 		print_foo(&foo);
 		print_bar(&bar);
 
-		// Different Maker!
+		// Different Tag!
 		// print_bar(&foo);
 	}
 }
