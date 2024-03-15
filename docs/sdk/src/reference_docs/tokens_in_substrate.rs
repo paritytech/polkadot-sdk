@@ -60,7 +60,7 @@
 //! ## Fungible Token Traits in Substrate
 //!
 //! The [`frame_support::traits::fungible`] crate contains the latest set of Substrate
-//! fungible token traits, and is recommended to use for all new logic requiring a fungible tokens.
+//! fungible token traits, and is recommended to use for all new logic requiring a fungible token.
 //! See the crate documentation for more info about these fungible traits.
 //!
 //! [`frame_support::traits::fungibles`] provides very similar functionality to
