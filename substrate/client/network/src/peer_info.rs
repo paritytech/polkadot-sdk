@@ -72,8 +72,9 @@ pub struct PeerInfoBehaviour {
 	garbage_collect: Pin<Box<dyn Stream<Item = ()> + Send>>,
 	/// Record keeping of external addresses. Data is queried by the `NetworkService`.
 	external_addresses: ExternalAddresses,
-	/// Whether only these addresses should be advertised to remote peers in [`Identify`] messages.
-	public_addresses_only: Option<Vec<Multiaddr>>,
+	/// Whether only explicitly set public addresses should be advertised to remote peers in
+	/// [`Identify`] messages.
+	public_addresses_only: bool,
 }
 
 /// Information about a node we're connected to.
@@ -159,7 +160,7 @@ impl PeerInfoBehaviour {
 			nodes_info: FnvHashMap::default(),
 			garbage_collect: Box::pin(interval(GARBAGE_COLLECT_INTERVAL)),
 			external_addresses,
-			public_addresses_only,
+			public_addresses_only: public_addresses_only.is_some(),
 		}
 	}
 
@@ -412,14 +413,14 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				self.ping.on_swarm_event(FromSwarm::NewListenAddr(e));
 				// Only notify [`Identify`] if we do not have the explicit list of advertised
 				// addresses.
-				if self.public_addresses_only.is_none() {
+				if !self.public_addresses_only {
 					self.identify.on_swarm_event(FromSwarm::NewListenAddr(e));
 				}
 			},
 			FromSwarm::ExpiredListenAddr(e) => {
 				self.ping.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
 				// See `FromSwarm::NewListenAddr` for why we do not always notify [`Identify`].
-				if self.public_addresses_only.is_none() {
+				if !self.public_addresses_only {
 					self.identify.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
 				}
 			},
@@ -427,7 +428,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				self.ping.on_swarm_event(FromSwarm::NewExternalAddr(e));
 				// Only notify [`Identify`] and add an external address if we do not have the
 				// explicit list of advertised addresses.
-				if self.public_addresses_only.is_none() {
+				if !self.public_addresses_only {
 					self.identify.on_swarm_event(FromSwarm::NewExternalAddr(e));
 					self.external_addresses.add(e.addr.clone());
 				}
@@ -435,7 +436,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 			FromSwarm::ExpiredExternalAddr(e) => {
 				self.ping.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
 				// See `FromSwarm::NewExternalAddr` for why we do not always notify [`Identify`].
-				if self.public_addresses_only.is_none() {
+				if !self.public_addresses_only {
 					self.identify.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
 					self.external_addresses.remove(e.addr);
 				}
