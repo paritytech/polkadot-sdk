@@ -523,13 +523,12 @@ fn free_disputed() {
 	let mut config = genesis_config(paras);
 	config.configuration.config.scheduler_params.group_rotation_frequency = 3;
 	new_test_ext(config).execute_with(|| {
-		let disputed_cores = ParaInclusion::free_disputed(&BTreeSet::new()).collect::<Vec<_>>();
+		let disputed_cores = ParaInclusion::free_disputed(&BTreeSet::new());
 		assert!(disputed_cores.is_empty());
 
 		let disputed_cores = ParaInclusion::free_disputed(
 			&[CandidateHash::default()].into_iter().collect::<BTreeSet<_>>(),
-		)
-		.collect::<Vec<_>>();
+		);
 		assert!(disputed_cores.is_empty());
 
 		let make_candidate = |core_index: u32| {
@@ -611,7 +610,7 @@ fn free_disputed() {
 		let disputed_cores = ParaInclusion::free_disputed(&disputed_candidates);
 
 		assert_eq!(
-			disputed_cores.map(|(core, _)| core).collect::<Vec<_>>(),
+			disputed_cores.into_iter().map(|(core, _)| core).collect::<Vec<_>>(),
 			vec![
 				CoreIndex(0),
 				CoreIndex(2),

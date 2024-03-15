@@ -232,7 +232,7 @@ pub mod pallet {
 	/// the given `freed_concluded`).
 	///
 	/// The parameter `freed_concluded` contains all core indicies that became
-	/// free due to candidates that became available.
+	/// free due to candidates that became available or due to candidates being disputed.
 	pub(crate) fn collect_all_freed_cores<T, I>(
 		freed_concluded: I,
 	) -> BTreeMap<CoreIndex, FreedReason>
@@ -538,26 +538,15 @@ impl<T: Config> Pallet<T> {
 			.map(|(_session, candidate)| candidate)
 			.collect::<BTreeSet<CandidateHash>>();
 
-		let (freed_disputed_cores, freed_disputed_candidates): (
-			BTreeMap<CoreIndex, FreedReason>,
-			BTreeSet<CandidateHash>,
-		) = <inclusion::Pallet<T>>::free_disputed(&current_concluded_invalid_disputes)
-			.map(|(core, candidate)| ((core, FreedReason::Concluded), candidate))
-			.unzip();
+		let freed_disputed =
+			<inclusion::Pallet<T>>::free_disputed(&current_concluded_invalid_disputes);
 
 		// Create a bit index from the set of core indices where each index corresponds to
 		// a core index that was freed due to a dispute.
 		//
 		// I.e. 010100 would indicate, the candidates on Core 1 and 3 would be disputed.
 		let disputed_bitfield =
-			create_disputed_bitfield(expected_bits, freed_disputed_cores.keys());
-
-		if !freed_disputed_cores.is_empty() {
-			<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(
-				freed_disputed_cores.clone(),
-				now,
-			);
-		}
+			create_disputed_bitfield(expected_bits, freed_disputed.iter().map(|(core, _)| core));
 
 		let bitfields = sanitize_bitfields::<T>(
 			bitfields,
@@ -571,7 +560,7 @@ impl<T: Config> Pallet<T> {
 
 		// Process new availability bitfields, yielding any availability cores whose
 		// work has now concluded.
-		let freed_concluded =
+		let mut freed_concluded =
 			<inclusion::Pallet<T>>::update_pending_availability_and_get_freed_cores(
 				&validator_public[..],
 				bitfields.clone(),
@@ -584,7 +573,10 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_included(freed_concluded.len() as u64);
 
-		let freed = collect_all_freed_cores::<T, _>(freed_concluded.iter().cloned());
+		// Add the disputed candidates to the concluded collection.
+		freed_concluded.extend(freed_disputed.iter());
+
+		let freed = collect_all_freed_cores::<T, _>(freed_concluded);
 
 		<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(freed, now);
 
@@ -608,7 +600,7 @@ impl<T: Config> Pallet<T> {
 		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
 			backed_candidates,
 			&allowed_relay_parents,
-			freed_disputed_candidates,
+			freed_disputed.into_iter().map(|(_, hash)| hash).collect(),
 			scheduled,
 			core_index_enabled,
 		);

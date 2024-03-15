@@ -1015,12 +1015,13 @@ impl<T: Config> Pallet<T> {
 	/// Returns a vector of cleaned-up core IDs, along with the evicted candidate hashes.
 	pub(crate) fn free_disputed(
 		disputed: &BTreeSet<CandidateHash>,
-	) -> impl Iterator<Item = (CoreIndex, CandidateHash)> + '_ {
+	) -> Vec<(CoreIndex, CandidateHash)> {
 		Self::free_failed_cores(
 			|candidate| disputed.contains(&candidate.hash),
 			Some(disputed.len()),
 		)
 		.map(|candidate| (candidate.core, candidate.hash))
+		.collect()
 	}
 
 	// Clean up cores whose candidates are deemed as failed by the predicate. `pred` returns true if
