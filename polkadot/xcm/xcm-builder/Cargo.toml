@@ -23,7 +23,7 @@ sp-weights = { path = "../../../substrate/primitives/weights", default-features 
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 # Polkadot dependencies
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }

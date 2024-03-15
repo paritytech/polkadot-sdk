@@ -26,7 +26,8 @@ use crate::primitives::{AccountId, UNITS};
 use sp_runtime::BuildStorage;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::ConvertLocation;
-use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
+pub use xcm_simulator::TestExt;
+use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
 // Accounts
 pub const ADMIN: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);

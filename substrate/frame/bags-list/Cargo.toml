@@ -33,7 +33,7 @@ frame-system = { path = "../system", default-features = false }
 frame-election-provider-support = { path = "../election-provider-support", default-features = false }
 
 # third party
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 docify = "0.2.7"
 aquamarine = { version = "0.5.0" }
 

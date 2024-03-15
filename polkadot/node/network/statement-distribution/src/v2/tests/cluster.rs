@@ -170,7 +170,7 @@ fn cluster_valid_statement_before_seconded_ignored() {
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r))) => {
 				assert_eq!(p, peer_a);
-				assert_eq!(r, COST_UNEXPECTED_STATEMENT.into());
+				assert_eq!(r, COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED.into());
 			}
 		);
 
@@ -305,7 +305,7 @@ fn useful_cluster_statement_from_non_cluster_peer_rejected() {
 		assert_matches!(
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-				if p == peer_a && r == COST_UNEXPECTED_STATEMENT.into() => { }
+				if p == peer_a && r == COST_UNEXPECTED_STATEMENT_INVALID_SENDER.into() => { }
 		);
 
 		overseer
@@ -359,7 +359,7 @@ fn statement_from_non_cluster_originator_unexpected() {
 		assert_matches!(
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-				if p == peer_a && r == COST_UNEXPECTED_STATEMENT.into() => { }
+				if p == peer_a && r == COST_UNEXPECTED_STATEMENT_INVALID_SENDER.into() => { }
 		);
 
 		overseer

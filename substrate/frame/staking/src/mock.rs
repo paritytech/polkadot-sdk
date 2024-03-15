@@ -31,14 +31,8 @@ use frame_support::{
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_core::H256;
 use sp_io;
-use sp_runtime::{
-	curve::PiecewiseLinear,
-	testing::UintAuthorityId,
-	traits::{IdentityLookup, Zero},
-	BuildStorage,
-};
+use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate,
@@ -49,7 +43,6 @@ pub const BLOCK_TIME: u64 = 1000;
 
 /// The AccountId alias in this test module.
 pub(crate) type AccountId = u64;
-pub(crate) type Nonce = u64;
 pub(crate) type BlockNumber = u64;
 pub(crate) type Balance = u128;
 
@@ -125,31 +118,11 @@ parameter_types! {
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
 	type DbWeight = RocksDbWeight;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = Nonce;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = frame_support::traits::ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 impl pallet_balances::Config for Test {
 	type MaxLocks = frame_support::traits::ConstU32<1024>;
@@ -811,6 +784,57 @@ pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> 
 	<Ledger<Test>>::insert(controller, StakingLedger::<Test>::default_from(stash));
 
 	Ok(())
+}
+
+pub(crate) fn setup_double_bonded_ledgers() {
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 10, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(2), 20, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 20, RewardDestination::Staked));
+	// not relevant to the test case, but ensures try-runtime checks pass.
+	[1, 2, 3]
+		.iter()
+		.for_each(|s| Payee::<Test>::insert(s, RewardDestination::Staked));
+
+	// we want to test the case where a controller can also be a stash of another ledger.
+	// for that, we change the controller/stash bonding so that:
+	// * 2 becomes controller of 1.
+	// * 3 becomes controller of 2.
+	// * 4 becomes controller of 3.
+	let ledger_1 = Ledger::<Test>::get(1).unwrap();
+	let ledger_2 = Ledger::<Test>::get(2).unwrap();
+	let ledger_3 = Ledger::<Test>::get(3).unwrap();
+
+	// 4 becomes controller of 3.
+	Bonded::<Test>::mutate(3, |controller| *controller = Some(4));
+	Ledger::<Test>::insert(4, ledger_3);
+
+	// 3 becomes controller of 2.
+	Bonded::<Test>::mutate(2, |controller| *controller = Some(3));
+	Ledger::<Test>::insert(3, ledger_2);
+
+	// 2 becomes controller of 1
+	Bonded::<Test>::mutate(1, |controller| *controller = Some(2));
+	Ledger::<Test>::insert(2, ledger_1);
+	// 1 is not controller anymore.
+	Ledger::<Test>::remove(1);
+
+	// checks. now we have:
+	// * 3 ledgers
+	assert_eq!(Ledger::<Test>::iter().count(), 3);
+	// * stash 1 has controller 2.
+	assert_eq!(Bonded::<Test>::get(1), Some(2));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(1)), Some(2));
+	assert_eq!(Ledger::<Test>::get(2).unwrap().stash, 1);
+
+	// * stash 2 has controller 3.
+	assert_eq!(Bonded::<Test>::get(2), Some(3));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(2)), Some(3));
+	assert_eq!(Ledger::<Test>::get(3).unwrap().stash, 2);
+
+	// * stash 3 has controller 4.
+	assert_eq!(Bonded::<Test>::get(3), Some(4));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(3)), Some(4));
+	assert_eq!(Ledger::<Test>::get(4).unwrap().stash, 3);
 }
 
 #[macro_export]

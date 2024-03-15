@@ -48,6 +48,9 @@ pub enum Error {
 	#[error("Candidate is not found")]
 	CandidateNotFound,
 
+	#[error("CoreIndex cannot be determined for a candidate")]
+	CoreIndexUnavailable,
+
 	#[error("Signature is invalid")]
 	InvalidSignature,
 
