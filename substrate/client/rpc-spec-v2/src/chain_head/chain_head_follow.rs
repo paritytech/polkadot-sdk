@@ -19,7 +19,7 @@
 //! Implementation of the `chainHead_follow` method.
 
 use crate::chain_head::{
-	chain_head::LOG_TARGET,
+	chain_head::{LOG_TARGET, MAX_PINNED_BLOCKS},
 	event::{
 		BestBlockChanged, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
 		RuntimeVersionEvent,
@@ -51,11 +51,6 @@ use std::{
 /// The maximum number of finalized blocks provided by the
 /// `Initialized` event.
 const MAX_FINALIZED_BLOCKS: usize = 16;
-/// The size of the LRU cache for pruned blocks.
-///
-/// This is the exact value of the total number of pinned blocks, and ensures
-/// that all active pruned block hashes (if any) are kept in memory.
-const LRU_CACHE_SIZE: u32 = 512;
 
 use super::subscription::InsertedSubscriptionData;
 
@@ -93,7 +88,9 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 			with_runtime,
 			sub_id,
 			current_best_block: None,
-			pruned_blocks: LruMap::new(ByLength::new(LRU_CACHE_SIZE)),
+			pruned_blocks: LruMap::new(ByLength::new(
+				MAX_PINNED_BLOCKS.try_into().unwrap_or(u32::MAX),
+			)),
 		}
 	}
 }
