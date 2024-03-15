@@ -45,7 +45,7 @@
 //!
 //! - **Total Issuance**: The total number of units in existence in a system.
 //!
-//! - **Total Balance**: The sum of an accounts free and held balances.
+//! - **Total Balance**: The sum of an account's free and held balances.
 //!
 //! - **Free Balance**: A portion of an accounts total balance that is not held.
 //!
