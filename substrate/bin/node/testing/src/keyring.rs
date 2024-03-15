@@ -19,13 +19,13 @@
 //! Test accounts.
 
 use codec::Encode;
-use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, TxExtension, UncheckedExtrinsic};
+use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
 use node_cli::chain_spec::get_from_seed;
 use node_primitives::{AccountId, Balance, Nonce};
 use sp_core::{ecdsa, ed25519, sr25519};
 use sp_crypto_hashing::blake2_256;
 use sp_keyring::AccountKeyring;
-use sp_runtime::generic::{Era, ExtrinsicFormat};
+use sp_runtime::generic::Era;
 
 /// Alice's account id.
 pub fn alice() -> AccountId {
@@ -70,18 +70,15 @@ pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 }
 
 /// Returns transaction extra.
-pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
+pub fn signed_extra(nonce: Nonce, extra_fee: Balance) -> SignedExtra {
 	(
-		(
-			frame_system::CheckNonZeroSender::new(),
-			frame_system::CheckSpecVersion::new(),
-			frame_system::CheckTxVersion::new(),
-			frame_system::CheckGenesis::new(),
-			frame_system::CheckEra::from(Era::mortal(256, 0)),
-			frame_system::CheckNonce::from(nonce),
-			frame_system::CheckWeight::new(),
-		)
-			.into(),
+		frame_system::CheckNonZeroSender::new(),
+		frame_system::CheckSpecVersion::new(),
+		frame_system::CheckTxVersion::new(),
+		frame_system::CheckGenesis::new(),
+		frame_system::CheckEra::from(Era::mortal(256, 0)),
+		frame_system::CheckNonce::from(nonce),
+		frame_system::CheckWeight::new(),
 		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
 		),
@@ -95,10 +92,10 @@ pub fn sign(
 	tx_version: u32,
 	genesis_hash: [u8; 32],
 ) -> UncheckedExtrinsic {
-	match xt.format {
-		ExtrinsicFormat::Signed(signed, tx_ext) => {
+	match xt.signed {
+		Some((signed, extra)) => {
 			let payload =
-				(xt.function, tx_ext.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
+				(xt.function, extra.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
 			let key = AccountKeyring::from_account_id(&signed).unwrap();
 			let signature =
 				payload
@@ -111,21 +108,10 @@ pub fn sign(
 					})
 					.into();
 			UncheckedExtrinsic {
-				preamble: sp_runtime::generic::Preamble::Signed(
-					sp_runtime::MultiAddress::Id(signed),
-					signature,
-					tx_ext,
-				),
+				signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
 				function: payload.0,
 			}
 		},
-		ExtrinsicFormat::Bare => UncheckedExtrinsic {
-			preamble: sp_runtime::generic::Preamble::Bare,
-			function: xt.function,
-		},
-		ExtrinsicFormat::General(tx_ext) => UncheckedExtrinsic {
-			preamble: sp_runtime::generic::Preamble::General(tx_ext),
-			function: xt.function,
-		},
+		None => UncheckedExtrinsic { signature: None, function: xt.function },
 	}
 }
