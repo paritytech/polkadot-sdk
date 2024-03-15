@@ -40,8 +40,8 @@ fn main() -> Result<(), String> {
 
 	let usage = warm_up_and_benchmark(
 		WarmUpOptions::new(&[
-			("availability-distribution", 0.03),
-			("bitfield-distribution", 0.01),
+			("availability-distribution", 0.06),
+			("bitfield-distribution", 0.03),
 			("availability-store", 0.01),
 		]),
 		|| {

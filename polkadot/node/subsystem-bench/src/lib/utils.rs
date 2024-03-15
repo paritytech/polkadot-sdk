@@ -33,7 +33,7 @@ pub struct WarmUpOptions<'a> {
 
 impl<'a> WarmUpOptions<'a> {
 	pub fn new(precisions: &[(&'a str, f64)]) -> Self {
-		Self { warm_up: 100, bench: 3, precisions: precisions.iter().cloned().collect() }
+		Self { warm_up: 10, bench: 3, precisions: precisions.iter().cloned().collect() }
 	}
 }
 
@@ -41,7 +41,8 @@ pub fn warm_up_and_benchmark(
 	options: WarmUpOptions,
 	run: impl Fn() -> BenchmarkUsage,
 ) -> Result<BenchmarkUsage, String> {
-	println!("Warming up...");
+	print!("Warming up...");
+	stdout().flush().unwrap();
 	let mut usages = Vec::with_capacity(options.bench);
 
 	for n in 1..=options.warm_up {
@@ -73,17 +74,19 @@ pub fn warm_up_and_benchmark(
 			}
 		}
 		usages.push(curr);
-		print!("\r{}%", n * 100 / options.warm_up);
+		print!("\rWarming up... {}%", n * 100 / options.warm_up);
+		stdout().flush().unwrap();
+		if n == options.warm_up {
+			println!("\nWarm up finished");
+		}
 		if usages.len() == options.bench {
-			println!("\rTook {} runs to warm up", n.saturating_sub(options.bench));
+			println!("\nTook {} runs to warm up", n.saturating_sub(options.bench));
 			break;
 		}
-		stdout().flush().unwrap();
 	}
 
 	if usages.len() != options.bench {
-		println!("Didn't warm up after {} runs", options.warm_up);
-		return Err("Can't warm up".to_string())
+		return Err(format!("Didn't warm up after {} runs", options.warm_up))
 	}
 
 	Ok(BenchmarkUsage::average(&usages))
