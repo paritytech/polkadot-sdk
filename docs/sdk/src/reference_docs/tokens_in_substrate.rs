@@ -33,7 +33,7 @@
 //! Broadly speaking, token logic in Substrate can be divided into two categories: traits and
 //! trait implementations.
 //!
-//! **Traits** define common interfaces that types of token should implement. For example, the
+//! **Traits** define common interfaces that types of tokens should implement. For example, the
 //! [`frame_support::traits::fungible::Inspect`] trait specifies an interface for *inspecting*
 //! token state such as the total issuance of the token, the balance of individual accounts, etc.
 //!
