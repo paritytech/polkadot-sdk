@@ -570,7 +570,7 @@ impl From<sr25519::Public> for AccountId32 {
 
 impl From<ed25519::Public> for AccountId32 {
 	fn from(k: ed25519::Public) -> Self {
-		k.0.into()
+		k.into()
 	}
 }
 

@@ -209,6 +209,12 @@ impl<T> From<ByteArray<64, T>> for H512 {
 	}
 }
 
+impl<T> UncheckedFrom<H256> for ByteArray<32, T> {
+	fn unchecked_from(x: H256) -> Self {
+		Self::from_h256(x)
+	}
+}
+
 impl<T> ByteArray<32, T> {
 	/// A new instance from an H256.
 	pub fn from_h256(x: H256) -> Self {

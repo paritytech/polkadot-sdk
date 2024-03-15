@@ -33,8 +33,7 @@ use sp_std::vec::Vec;
 
 use crate::{
 	byte_array::ByteArray as ByteArrayGen,
-	crypto::{CryptoType, CryptoTypeId, Derive, Public as TraitPublic, UncheckedFrom},
-	hash::H256,
+	crypto::{CryptoType, CryptoTypeId, Derive, Public as TraitPublic},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -86,12 +85,6 @@ impl std::str::FromStr for Public {
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		Self::from_ss58check(s)
-	}
-}
-
-impl UncheckedFrom<H256> for Public {
-	fn unchecked_from(x: H256) -> Self {
-		Public::from_h256(x)
 	}
 }
 
