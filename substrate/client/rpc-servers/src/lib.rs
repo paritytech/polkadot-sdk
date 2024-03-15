@@ -21,30 +21,29 @@
 #![warn(missing_docs)]
 
 pub mod middleware;
+pub mod utils;
 
 use std::{
-	convert::Infallible,
-	error::Error as StdError,
-	net::{IpAddr, SocketAddr, ToSocketAddrs},
-	num::NonZeroU32,
-	time::Duration,
+	convert::Infallible, error::Error as StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
 };
 
-use http::header::HeaderValue;
 use hyper::{
 	server::conn::AddrStream,
 	service::{make_service_fn, service_fn},
 };
 use jsonrpsee::{
 	server::{
-		middleware::http::{HostFilterLayer, ProxyGetRequestLayer},
-		stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
+		middleware::http::ProxyGetRequestLayer, stop_channel, ws, PingConfig, StopHandle,
+		TowerServiceBuilder,
 	},
 	Methods, RpcModule,
 };
 use tokio::net::TcpListener;
 use tower::Service;
-use tower_http::cors::{AllowOrigin, CorsLayer};
+use utils::{
+	build_rpc_api, format_cors, host_filtering, hosts_to_ip_addrs, read_ip_from_proxy,
+	try_into_cors,
+};
 
 pub use jsonrpsee::{
 	core::{
@@ -128,7 +127,7 @@ where
 
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
 	let local_addr = std_listener.local_addr().ok();
-	let host_filter = hosts_filtering(cors.is_some(), local_addr);
+	let host_filter = host_filtering(cors.is_some(), local_addr);
 	let rate_limit_whitelisted_ip_addrs = hosts_to_ip_addrs(rate_limit_whitelisted_hosts)?;
 
 	let http_middleware = tower::ServiceBuilder::new()
@@ -170,7 +169,7 @@ where
 
 	let make_service = make_service_fn(move |conn: &AddrStream| {
 		let cfg = cfg.clone();
-		let conn_ip = conn.remote_addr().ip();
+		let peer_ip = conn.remote_addr().ip();
 		let rate_limit_whitelisted_ip_addrs = rate_limit_whitelisted_ip_addrs.clone();
 
 		async move {
@@ -178,7 +177,8 @@ where
 			let rate_limit_whitelisted_ip_addrs = rate_limit_whitelisted_ip_addrs.clone();
 
 			Ok::<_, Infallible>(service_fn(move |req| {
-				let ip = read_ip(conn_ip, &req);
+				let ip =
+					if let Some(proxy_ip) = read_ip_from_proxy(&req) { proxy_ip } else { peer_ip };
 
 				let rate_limit_cfg = if rate_limit_whitelisted_ip_addrs.iter().any(|ip2| ip2 == &ip)
 				{
@@ -246,95 +246,4 @@ where
 	);
 
 	Ok(server_handle)
-}
-
-fn hosts_filtering(enabled: bool, addr: Option<SocketAddr>) -> Option<HostFilterLayer> {
-	// If the local_addr failed, fallback to wildcard.
-	let port = addr.map_or("*".to_string(), |p| p.port().to_string());
-
-	if enabled {
-		// NOTE: The listening addresses are whitelisted by default.
-		let hosts =
-			[format!("localhost:{port}"), format!("127.0.0.1:{port}"), format!("[::1]:{port}")];
-		Some(HostFilterLayer::new(hosts).expect("Valid hosts; qed"))
-	} else {
-		None
-	}
-}
-
-fn build_rpc_api<M: Send + Sync + 'static>(mut rpc_api: RpcModule<M>) -> RpcModule<M> {
-	let mut available_methods = rpc_api.method_names().collect::<Vec<_>>();
-	// The "rpc_methods" is defined below and we want it to be part of the reported methods.
-	available_methods.push("rpc_methods");
-	available_methods.sort();
-
-	rpc_api
-		.register_method("rpc_methods", move |_, _| {
-			serde_json::json!({
-				"methods": available_methods,
-			})
-		})
-		.expect("infallible all other methods have their own address space; qed");
-
-	rpc_api
-}
-
-fn try_into_cors(
-	maybe_cors: Option<&Vec<String>>,
-) -> Result<CorsLayer, Box<dyn StdError + Send + Sync>> {
-	if let Some(cors) = maybe_cors {
-		let mut list = Vec::new();
-		for origin in cors {
-			list.push(HeaderValue::from_str(origin)?);
-		}
-		Ok(CorsLayer::new().allow_origin(AllowOrigin::list(list)))
-	} else {
-		// allow all cors
-		Ok(CorsLayer::permissive())
-	}
-}
-
-fn format_cors(maybe_cors: Option<&Vec<String>>) -> String {
-	if let Some(cors) = maybe_cors {
-		format!("{:?}", cors)
-	} else {
-		format!("{:?}", ["*"])
-	}
-}
-
-/// Helper function that tries to read the ip addr from "X-Real-IP" header
-/// which is only set if the connection was made via a reverse-proxy
-///
-/// If that header is missing then remote addr from the socket is used.
-fn read_ip(remote_addr: IpAddr, req: &hyper::Request<hyper::Body>) -> IpAddr {
-	if let Some(ip) = req
-		.headers()
-		.get("X-Real-IP")
-		.and_then(|v| v.to_str().ok())
-		.and_then(|s| s.parse().ok())
-	{
-		ip
-	} else {
-		remote_addr
-	}
-}
-
-fn hosts_to_ip_addrs(hosts: &[String]) -> Result<Vec<IpAddr>, Box<dyn StdError + Send + Sync>> {
-	let mut ip_list = Vec::new();
-
-	for host in hosts {
-		// The host may contain a port such as `hostname:8080`
-		// and we don't care about the port to lookup the IP addr.
-		//
-		// to_socket_addr without the port will fail though
-		let host_no_port = if let Some((h, _port)) = host.split_once(":") { h } else { host };
-
-		let sockaddrs = (host_no_port, 0).to_socket_addrs()?;
-
-		for sockaddr in sockaddrs {
-			ip_list.push(sockaddr.ip());
-		}
-	}
-
-	Ok(ip_list)
 }
