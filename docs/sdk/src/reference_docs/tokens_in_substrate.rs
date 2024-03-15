@@ -18,7 +18,7 @@
 //! # Tokens in Substrate
 //!
 //! This reference doc serves as a high-level overview of the token-related logic in Substrate and
-//! how to properly apply it to your usecase.
+//! how to properly apply it to your use case.
 //!
 //! On completion of reading this doc, you should have a good understanding of
 //! - The distinction between token traits and trait implementations in Substrate, and why this
