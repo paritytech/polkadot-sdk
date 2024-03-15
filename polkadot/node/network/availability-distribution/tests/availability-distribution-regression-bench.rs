@@ -62,9 +62,9 @@ fn main() -> Result<(), String> {
 		("Sent to peers", 18480.000, 0.05),
 	]));
 	messages.extend(usage.check_cpu_usage(&[
-		("availability-distribution", 0.013, 0.10),
-		("bitfield-distribution", 0.043, 0.10),
-		("availability-store", 0.150, 0.10),
+		("availability-distribution", 0.012, 0.10),
+		("bitfield-distribution", 0.048, 0.10),
+		("availability-store", 0.155, 0.10),
 	]));
 
 	if messages.is_empty() {
