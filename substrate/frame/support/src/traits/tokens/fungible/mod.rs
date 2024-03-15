@@ -73,7 +73,7 @@
 //!   happens, it indicates either a bug in the implementation of this trait or an erroneous raw mutation of storage.
 //!
 //! - **Untouchable Balance**: The part of a user's free balance they cannot spend, due to ED or
-//!   Freeze/s.
+//!   Freeze(s).
 //!
 //! - **Spendable Balance**: The part of a user's free balance they can spend.
 //!
