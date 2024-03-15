@@ -48,7 +48,7 @@
 //! ### Implementations
 //!
 //! The Balances pallet provides implementations for the following [`fungible`] traits. If these
-//! traits provide the functionality that you need, then you can avoid coupling with the Balances
+//! traits provide the functionality that you need, then you should avoid tight coupling with the Balances
 //! pallet.
 //!
 //! - [`fungible::Inspect`]
