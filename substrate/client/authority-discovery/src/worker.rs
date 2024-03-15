@@ -81,6 +81,15 @@ pub enum Role {
 	Discover,
 }
 
+/// Addreses, published as the authority discovery DHT record.
+enum PublishedAddresses {
+	/// Publish only these addresses.
+	List(Vec<Multiaddr>),
+	/// Publish all external addresses as reported by network backend, possibly including
+	/// non-global ips.
+	External { publish_non_global_ips: bool },
+}
+
 /// An authority discovery [`Worker`] can publish the local node's addresses as well as discover
 /// those of other nodes via a Kademlia DHT.
 ///
@@ -120,16 +129,18 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 
 	/// Interval to be proactive, publishing own addresses.
 	publish_interval: ExpIncInterval,
+
 	/// Pro-actively publish our own addresses at this interval, if the keys in the keystore
 	/// have changed.
 	publish_if_changed_interval: ExpIncInterval,
+
 	/// List of keys onto which addresses have been published at the latest publication.
 	/// Used to check whether they have changed.
 	latest_published_keys: HashSet<AuthorityId>,
-	/// Should we publish only these explicitly set addresses?
-	public_addresses_only: Option<Vec<Multiaddr>>,
-	/// Same value as in the configuration. Does not apply to `public_addresses_only`.
-	publish_non_global_ips: bool,
+
+	/// Addresses to publish as the authority discovery DHT record.
+	published_addresses: PublishedAddresses,
+
 	/// Same value as in the configuration.
 	strict_record_validation: bool,
 
@@ -138,6 +149,7 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 
 	/// Queue of throttled lookups pending to be passed to the network.
 	pending_lookups: Vec<AuthorityId>,
+
 	/// Set of in-flight lookups.
 	in_flight_lookups: HashMap<KademliaKey, AuthorityId>,
 
@@ -226,27 +238,32 @@ where
 			None => None,
 		};
 
-		// Make sure we have only valid peer ids in public addresses.
-		let public_addresses_only = {
-			let local_peer_id: Multihash = network.local_peer_id().into();
+		let published_addresses = match config.public_addresses_only {
+			Some(addresses) => {
+				PublishedAddresses::List({
+					// Make sure we have only valid peer ids in public addresses.
+					let local_peer_id: Multihash = network.local_peer_id().into();
 
-			config.public_addresses_only.map(|addresses| {
-				addresses
-					.into_iter()
-					.map(|mut address| {
-						if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
-							if peer_id != local_peer_id {
-								error!(
-									target: LOG_TARGET,
-									"Discarding invalid local peer ID in public address {address}.",
-								);
-								address.pop();
+					addresses
+						.into_iter()
+						.map(|mut address| {
+							if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
+								if peer_id != local_peer_id {
+									error!(
+										target: LOG_TARGET,
+										"Discarding invalid local peer ID in public address {address}.",
+									);
+									address.pop();
+								}
 							}
-						}
-						address
-					})
-					.collect()
-			})
+							address
+						})
+						.collect()
+				})
+			},
+			None => PublishedAddresses::External {
+				publish_non_global_ips: config.publish_non_global_ips,
+			},
 		};
 
 		Worker {
@@ -257,8 +274,7 @@ where
 			publish_interval,
 			publish_if_changed_interval,
 			latest_published_keys: HashSet::new(),
-			public_addresses_only,
-			publish_non_global_ips: config.publish_non_global_ips,
+			published_addresses,
 			strict_record_validation: config.strict_record_validation,
 			query_interval,
 			pending_lookups: Vec::new(),
@@ -331,11 +347,10 @@ where
 
 	fn addresses_to_publish(&self) -> impl Iterator<Item = Multiaddr> {
 		let peer_id = self.network.local_peer_id();
-		let publish_non_global_ips = self.publish_non_global_ips;
 		let addresses: Vec<_> = {
-			let addresses = match self.public_addresses_only {
-				Some(ref public_addresses) => public_addresses.clone(),
-				None => self
+			let addresses = match self.published_addresses {
+				PublishedAddresses::List(ref addresses) => addresses.clone(),
+				PublishedAddresses::External { publish_non_global_ips } => self
 					.network
 					.external_addresses()
 					.into_iter()
