@@ -268,7 +268,7 @@ impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
 
 	fn additional_signed(
 		&self,
-	) -> sp_std::result::Result<Self::AdditionalSigned, TransactionValidityError> {
+	) -> core::result::Result<Self::AdditionalSigned, TransactionValidityError> {
 		Ok(())
 	}
 
