@@ -330,7 +330,7 @@ where
 	}
 
 	fn addresses_to_publish(&self) -> impl Iterator<Item = Multiaddr> {
-		let peer_id: Multihash = self.network.local_peer_id().into();
+		let peer_id = self.network.local_peer_id();
 		let publish_non_global_ips = self.publish_non_global_ips;
 		let addresses: Vec<_> = {
 			let addresses = match self.public_addresses_only {
@@ -364,7 +364,7 @@ where
 					if a.iter().any(|p| matches!(p, multiaddr::Protocol::P2p(_))) {
 						a
 					} else {
-						a.with(multiaddr::Protocol::P2p(peer_id))
+						a.with(multiaddr::Protocol::P2p(peer_id.into()))
 					}
 				})
 				.collect()
@@ -372,7 +372,7 @@ where
 
 		debug!(
 			target: LOG_TARGET,
-			"Authority DHT record peer_id='{peer_id:?}' addresses='{addresses:?}'",
+			"Authority DHT record peer_id='{peer_id}' addresses='{addresses:?}'",
 		);
 
 		addresses.into_iter()
