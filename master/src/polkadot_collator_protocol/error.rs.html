@@ -278,6 +278,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -369,13 +377,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[error(<span class="string">&quot;Received duplicate collation from the peer&quot;</span>)]
 	</span>Duplicate,
+
+	<span class="attr">#[error(<span class="string">&quot;The provided parent head data does not match the hash&quot;</span>)]
+	</span>ParentHeadDataMismatch,
 }
 
 <span class="kw">impl </span>SecondingError {
 	<span class="doccomment">/// Returns true if an error indicates that a peer is malicious.
 	</span><span class="kw">pub fn </span>is_malicious(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="kw">use </span>SecondingError::<span class="kw-2">*</span>;
-		<span class="macro">matches!</span>(<span class="self">self</span>, PersistedValidationDataMismatch | CandidateHashMismatch | Duplicate)
+		<span class="macro">matches!</span>(
+			<span class="self">self</span>,
+			PersistedValidationDataMismatch |
+				CandidateHashMismatch |
+				Duplicate | ParentHeadDataMismatch
+		)
 	}
 }
 

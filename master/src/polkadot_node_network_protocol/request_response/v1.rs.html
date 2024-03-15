@@ -362,6 +362,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -386,7 +399,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AvailableData, DisputeMessage, ErasureChunk, PoV, Proof, UncheckedDisputeMessage,
 };
 <span class="kw">use </span>polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, Hash, Id <span class="kw">as </span>ParaId, ValidatorIndex,
+	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, Hash, HeadData, Id <span class="kw">as </span>ParaId,
+	ValidatorIndex,
 };
 
 <span class="kw">use super</span>::{IsRequest, Protocol};
@@ -467,6 +481,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Deliver requested collation.
 	</span><span class="attr">#[codec(index = <span class="number">0</span>)]
 	</span>Collation(CandidateReceipt, PoV),
+
+	<span class="doccomment">/// Deliver requested collation along with parent head data.
+	</span><span class="attr">#[codec(index = <span class="number">1</span>)]
+	</span>CollationWithParentHeadData {
+		<span class="doccomment">/// The receipt of the candidate.
+		</span>receipt: CandidateReceipt,
+		<span class="doccomment">/// Candidate&#39;s proof of validity.
+		</span>pov: PoV,
+		<span class="doccomment">/// The head data of the candidate&#39;s parent.
+		/// This is needed for elastic scaling to work.
+		</span>parent_head_data: HeadData,
+	},
 }
 
 <span class="kw">impl </span>IsRequest <span class="kw">for </span>CollationFetchingRequest {

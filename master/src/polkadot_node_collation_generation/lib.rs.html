@@ -745,6 +745,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1213,6 +1215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	} = collation;
 
 	<span class="kw">let </span>persisted_validation_data_hash = validation_data.hash();
+	<span class="kw">let </span>parent_head_data = validation_data.parent_head.clone();
 	<span class="kw">let </span>parent_head_data_hash = validation_data.parent_head.hash();
 
 	<span class="comment">// Apply compression to the block data.
@@ -1298,12 +1301,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	metrics.on_collation_generated();
 
 	sender
-		.send_message(CollatorProtocolMessage::DistributeCollation(
-			ccr,
+		.send_message(CollatorProtocolMessage::DistributeCollation {
+			candidate_receipt: ccr,
 			parent_head_data_hash,
 			pov,
+			parent_head_data,
 			result_sender,
-		))
+		})
 		.<span class="kw">await</span>;
 }
 

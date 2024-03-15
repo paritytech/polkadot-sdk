@@ -1114,6 +1114,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#967" id="967">967</a>
 <a href="#968" id="968">968</a>
 <a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1152,8 +1159,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_subsystem::{
 	messages::{
 		Ancestors, ChainApiMessage, FragmentTreeMembership, HypotheticalCandidate,
-		HypotheticalFrontierRequest, IntroduceCandidateRequest, ProspectiveParachainsMessage,
-		ProspectiveValidationDataRequest, RuntimeApiMessage, RuntimeApiRequest,
+		HypotheticalFrontierRequest, IntroduceCandidateRequest, ParentHeadData,
+		ProspectiveParachainsMessage, ProspectiveValidationDataRequest, RuntimeApiMessage,
+		RuntimeApiRequest,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -1880,8 +1888,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Some</span>(s) =&gt; s,
 	};
 
-	<span class="kw">let </span><span class="kw-2">mut </span>head_data =
-		storage.head_data_by_hash(<span class="kw-2">&amp;</span>request.parent_head_data_hash).map(|x| x.clone());
+	<span class="kw">let </span>(<span class="kw-2">mut </span>head_data, parent_head_data_hash) = <span class="kw">match </span>request.parent_head_data {
+		ParentHeadData::OnlyHash(parent_head_data_hash) =&gt; (
+			storage.head_data_by_hash(<span class="kw-2">&amp;</span>parent_head_data_hash).map(|x| x.clone()),
+			parent_head_data_hash,
+		),
+		ParentHeadData::WithData { head_data, hash } =&gt; (<span class="prelude-val">Some</span>(head_data), hash),
+	};
+
 	<span class="kw">let </span><span class="kw-2">mut </span>relay_parent_info = <span class="prelude-val">None</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>max_pov_size = <span class="prelude-val">None</span>;
 
@@ -1899,7 +1913,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">if </span>head_data.is_none() {
 			<span class="kw">let </span>required_parent = <span class="kw-2">&amp;</span>fragment_tree.scope().base_constraints().required_parent;
-			<span class="kw">if </span>required_parent.hash() == request.parent_head_data_hash {
+			<span class="kw">if </span>required_parent.hash() == parent_head_data_hash {
 				head_data = <span class="prelude-val">Some</span>(required_parent.clone());
 			}
 		}

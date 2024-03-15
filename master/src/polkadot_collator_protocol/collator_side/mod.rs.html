@@ -1643,6 +1643,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1496" id="1496">1496</a>
 <a href="#1497" id="1497">1497</a>
 <a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1700,7 +1729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, CollatorPair, CoreIndex, CoreState,
-	GroupIndex, Hash, Id <span class="kw">as </span>ParaId, SessionIndex,
+	GroupIndex, Hash, HeadData, Id <span class="kw">as </span>ParaId, SessionIndex,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::LOG_TARGET;
@@ -1992,6 +2021,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	receipt: CandidateReceipt,
 	parent_head_data_hash: Hash,
 	pov: PoV,
+	parent_head_data: HeadData,
 	result_sender: <span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;CollationSecondedSignal&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">let </span>candidate_relay_parent = receipt.descriptor.relay_parent;
@@ -2110,7 +2140,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	per_relay_parent.collations.insert(
 		candidate_hash,
-		Collation { receipt, parent_head_data_hash, pov, status: CollationStatus::Created },
+		Collation {
+			receipt,
+			parent_head_data_hash,
+			pov,
+			parent_head_data,
+			status: CollationStatus::Created,
+		},
 	);
 
 	<span class="comment">// If prospective parachains are disabled, a leaf should be known to peer.
@@ -2408,20 +2444,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		CollateOn(id) =&gt; {
 			state.collating_on = <span class="prelude-val">Some</span>(id);
 		},
-		DistributeCollation(receipt, parent_head_data_hash, pov, result_sender) =&gt; {
+		DistributeCollation {
+			candidate_receipt,
+			parent_head_data_hash,
+			pov,
+			parent_head_data,
+			result_sender,
+		} =&gt; {
 			<span class="kw">let </span>_span1 = state
 				.span_per_relay_parent
-				.get(<span class="kw-2">&amp;</span>receipt.descriptor.relay_parent)
+				.get(<span class="kw-2">&amp;</span>candidate_receipt.descriptor.relay_parent)
 				.map(|s| s.child(<span class="string">&quot;distributing-collation&quot;</span>));
 			<span class="kw">let </span>_span2 = jaeger::Span::new(<span class="kw-2">&amp;</span>pov, <span class="string">&quot;distributing-collation&quot;</span>);
 
 			<span class="kw">match </span>state.collating_on {
-				<span class="prelude-val">Some</span>(id) <span class="kw">if </span>receipt.descriptor.para_id != id =&gt; {
+				<span class="prelude-val">Some</span>(id) <span class="kw">if </span>candidate_receipt.descriptor.para_id != id =&gt; {
 					<span class="comment">// If the ParaId of a collation requested to be distributed does not match
 					// the one we expect, we ignore the message.
 					</span><span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
-						para_id = %receipt.descriptor.para_id,
+						para_id = %candidate_receipt.descriptor.para_id,
 						collating_on = %id,
 						<span class="string">&quot;DistributeCollation for unexpected para_id&quot;</span>,
 					);
@@ -2433,9 +2475,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						runtime,
 						state,
 						id,
-						receipt,
+						candidate_receipt,
 						parent_head_data_hash,
 						pov,
+						parent_head_data,
 						result_sender,
 					)
 					.<span class="kw">await</span><span class="question-mark">?</span>;
@@ -2443,7 +2486,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
-						para_id = %receipt.descriptor.para_id,
+						para_id = %candidate_receipt.descriptor.para_id,
 						<span class="string">&quot;DistributeCollation message while not collating on any&quot;</span>,
 					);
 				},
@@ -2480,6 +2523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	request: VersionedCollationRequest,
 	receipt: CandidateReceipt,
 	pov: PoV,
+	_parent_head_data: HeadData,
 ) {
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 
@@ -2487,13 +2531,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>peer_id = request.peer_id();
 	<span class="kw">let </span>candidate_hash = receipt.hash();
 
-	<span class="comment">// The response payload is the same for both versions of protocol
+	<span class="comment">// The response payload is the same for v1 and v2 versions of protocol
 	// and doesn&#39;t have v2 alias for simplicity.
-	</span><span class="kw">let </span>response = OutgoingResponse {
-		result: <span class="prelude-val">Ok</span>(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
-		reputation_changes: Vec::new(),
-		sent_feedback: <span class="prelude-val">Some</span>(tx),
-	};
+	// For now, we don&#39;t send parent head data to the collation requester.
+	</span><span class="kw">let </span>result =
+	<span class="comment">// 	if assigned_multiple_cores {
+	// 	Ok(request_v1::CollationFetchingResponse::CollationWithParentHeadData {
+	// 		receipt,
+	// 		pov,
+	// 		parent_head_data,
+	// 	})
+	// } else {
+		</span><span class="prelude-val">Ok</span>(request_v1::CollationFetchingResponse::Collation(receipt, pov))
+	<span class="comment">// }
+	</span>;
+	<span class="kw">let </span>response =
+		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: <span class="prelude-val">Some</span>(tx) };
 
 	<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = request.send_outgoing_response(response) {
 		<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Sending collation response failed&quot;</span>);
@@ -2672,9 +2725,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 				},
 			};
-			<span class="kw">let </span>(receipt, pov) = <span class="kw">if let </span><span class="prelude-val">Some</span>(collation) = collation {
+			<span class="kw">let </span>(receipt, pov, parent_head_data) = <span class="kw">if let </span><span class="prelude-val">Some</span>(collation) = collation {
 				collation.status.advance_to_requested();
-				(collation.receipt.clone(), collation.pov.clone())
+				(
+					collation.receipt.clone(),
+					collation.pov.clone(),
+					collation.parent_head_data.clone(),
+				)
 			} <span class="kw">else </span>{
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
@@ -2713,7 +2770,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				waiting.collation_fetch_active = <span class="bool-val">true</span>;
 				<span class="comment">// Obtain a timer for sending collation
 				</span><span class="kw">let _ </span>= state.metrics.time_collation_distribution(<span class="string">&quot;send&quot;</span>);
-				send_collation(state, req, receipt, pov).<span class="kw">await</span>;
+				send_collation(state, req, receipt, pov, parent_head_data).<span class="kw">await</span>;
 			}
 		},
 		<span class="prelude-val">Some</span>(our_para_id) =&gt; {
@@ -3098,8 +3155,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(collation) = next_collation {
 					<span class="kw">let </span>receipt = collation.receipt.clone();
 					<span class="kw">let </span>pov = collation.pov.clone();
+					<span class="kw">let </span>parent_head_data = collation.parent_head_data.clone();
 
-					send_collation(<span class="kw-2">&amp;mut </span>state, next, receipt, pov).<span class="kw">await</span>;
+					send_collation(<span class="kw-2">&amp;mut </span>state, next, receipt, pov, parent_head_data).<span class="kw">await</span>;
 				}
 			},
 			(candidate_hash, peer_id) = state.advertisement_timeouts.select_next_some() =&gt; {

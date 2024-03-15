@@ -1325,6 +1325,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1178" id="1178">1178</a>
 <a href="#1179" id="1179">1179</a>
 <a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1373,11 +1392,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
 	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreState,
-	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Header <span class="kw">as </span>BlockHeader,
-	Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecKind, SessionIndex,
-	SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData,
+	Header <span class="kw">as </span>BlockHeader, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	PvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 <span class="kw">use </span>polkadot_statement_table::v2::Misbehavior;
 <span class="kw">use </span>std::{
@@ -1534,16 +1554,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This should be sent before any `DistributeCollation` message.
 	</span>CollateOn(ParaId),
 	<span class="doccomment">/// Provide a collation to distribute to validators with an optional result sender.
-	/// The second argument is the parent head-data hash.
-	///
-	/// The result sender should be informed when at least one parachain validator seconded the
-	/// collation. It is also completely okay to just drop the sender.
-	</span>DistributeCollation(
-		CandidateReceipt,
-		Hash,
-		PoV,
-		<span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;CollationSecondedSignal&gt;&gt;,
-	),
+	</span>DistributeCollation {
+		<span class="doccomment">/// The receipt of the candidate.
+		</span>candidate_receipt: CandidateReceipt,
+		<span class="doccomment">/// The hash of the parent head-data.
+		/// Here to avoid computing the hash of the parent head data twice.
+		</span>parent_head_data_hash: Hash,
+		<span class="doccomment">/// Proof of validity.
+		</span>pov: PoV,
+		<span class="doccomment">/// This parent head-data is needed for elastic scaling.
+		</span>parent_head_data: HeadData,
+		<span class="doccomment">/// The result sender should be informed when at least one parachain validator seconded the
+		/// collation. It is also completely okay to just drop the sender.
+		</span>result_sender: <span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;CollationSecondedSignal&gt;&gt;,
+	},
 	<span class="doccomment">/// Report a collator as having provided an invalid collation. This should lead to disconnect
 	/// and blacklist of the collator.
 	</span>ReportCollator(CollatorId),
@@ -2431,8 +2455,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>para_id: ParaId,
 	<span class="doccomment">/// The relay-parent of the candidate.
 	</span><span class="kw">pub </span>candidate_relay_parent: Hash,
-	<span class="doccomment">/// The parent head-data hash.
-	</span><span class="kw">pub </span>parent_head_data_hash: Hash,
+	<span class="doccomment">/// The parent head-data.
+	</span><span class="kw">pub </span>parent_head_data: ParentHeadData,
+}
+
+<span class="doccomment">/// The parent head-data hash with optional data itself.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub enum </span>ParentHeadData {
+	<span class="doccomment">/// Parent head-data hash.
+	</span>OnlyHash(Hash),
+	<span class="doccomment">/// Parent head-data along with its hash.
+	</span>WithData {
+		<span class="doccomment">/// This will be provided for collations with elastic scaling enabled.
+		</span>head_data: HeadData,
+		<span class="doccomment">/// Parent head-data hash.
+		</span>hash: Hash,
+	},
 }
 
 <span class="doccomment">/// Indicates the relay-parents whose fragment tree a candidate

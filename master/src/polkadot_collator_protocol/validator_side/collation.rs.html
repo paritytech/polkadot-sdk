@@ -518,6 +518,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -561,7 +568,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	metrics::prometheus::prometheus::HistogramTimer, runtime::ProspectiveParachainsMode,
 };
 <span class="kw">use </span>polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CollatorId, Hash, Id <span class="kw">as </span>ParaId, PersistedValidationData,
+	CandidateHash, CandidateReceipt, CollatorId, Hash, HeadData, Id <span class="kw">as </span>ParaId,
+	PersistedValidationData,
 };
 <span class="kw">use </span>tokio_util::sync::CancellationToken;
 
@@ -640,7 +648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// v2 advertisement that was rejected by the backing
+<span class="doccomment">/// v2 or v3 advertisement that was rejected by the backing
 /// subsystem. Validator may fetch it later if its fragment
 /// membership gets recognized before relay parent goes out of view.
 </span><span class="attr">#[derive(Debug, Clone)]
@@ -663,6 +671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	advertised: <span class="kw-2">&amp;</span>PendingCollation,
 	fetched: <span class="kw-2">&amp;</span>CandidateReceipt,
 	persisted_validation_data: <span class="kw-2">&amp;</span>PersistedValidationData,
+	maybe_parent_head_and_hash: <span class="prelude-ty">Option</span>&lt;(HeadData, Hash)&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SecondingError&gt; {
 	<span class="kw">if </span>persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash {
 		<span class="prelude-val">Err</span>(SecondingError::PersistedValidationDataMismatch)
@@ -671,6 +680,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map_or(<span class="bool-val">false</span>, |pc| pc.candidate_hash() != fetched.hash())
 	{
 		<span class="prelude-val">Err</span>(SecondingError::CandidateHashMismatch)
+	} <span class="kw">else if </span>maybe_parent_head_and_hash.map_or(<span class="bool-val">false</span>, |(head, hash)| head.hash() != hash) {
+		<span class="prelude-val">Err</span>(SecondingError::ParentHeadDataMismatch)
 	} <span class="kw">else </span>{
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -696,6 +707,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>candidate_receipt: CandidateReceipt,
 	<span class="doccomment">/// Proof of validity.
 	</span><span class="kw">pub </span>pov: PoV,
+	<span class="doccomment">/// Optional parachain parent head data.
+	/// Only needed for elastic scaling.
+	</span><span class="kw">pub </span>maybe_parent_head_data: <span class="prelude-ty">Option</span>&lt;HeadData&gt;,
 }
 
 <span class="doccomment">/// The status of the collations in [`CollationsPerRelayParent`].
@@ -879,7 +893,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		<span class="kw">match </span><span class="kw-2">&amp;</span>res {
-			Poll::Ready((<span class="kw">_</span>, <span class="prelude-val">Ok</span>(request_v1::CollationFetchingResponse::Collation(..)))) =&gt; {
+			Poll::Ready((<span class="kw">_</span>, <span class="prelude-val">Ok</span>(<span class="kw">_</span>))) =&gt; {
 				<span class="self">self</span>.span.as_mut().map(|s| s.add_string_tag(<span class="string">&quot;success&quot;</span>, <span class="string">&quot;true&quot;</span>));
 			},
 			Poll::Ready((<span class="kw">_</span>, <span class="prelude-val">Err</span>(<span class="kw">_</span>))) =&gt; {
