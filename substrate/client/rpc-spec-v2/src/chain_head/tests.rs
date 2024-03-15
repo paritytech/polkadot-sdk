@@ -3356,7 +3356,7 @@ async fn chain_head_single_connection_context() {
 		.unwrap()
 		.unwrap();
 	let finalized_hash = match event {
-		FollowEvent::Initialized(init) => init.finalized_block_hash,
+		FollowEvent::Initialized(init) => init.finalized_block_hashes.into_iter().last().unwrap(),
 		_ => panic!("Expected FollowEvent::Initialized"),
 	};
 
