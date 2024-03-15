@@ -58,6 +58,7 @@ mod storage_types;
 
 /// Module, containing weights for this pallet.
 pub mod weights;
+pub mod weights_ext;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -66,6 +67,7 @@ pub mod benchmarking;
 pub use call_ext::*;
 pub use pallet::*;
 pub use weights::WeightInfo;
+pub use weights_ext::WeightInfoExt;
 
 /// The target that will be used when publishing logs related to this pallet.
 pub const LOG_TARGET: &str = "runtime::bridge-grandpa";
@@ -138,7 +140,7 @@ pub mod pallet {
 		type HeadersToKeep: Get<u32>;
 
 		/// Weights gathered through benchmarking.
-		type WeightInfo: WeightInfo;
+		type WeightInfo: WeightInfoExt;
 	}
 
 	#[pallet::pallet]
@@ -169,7 +171,7 @@ pub mod pallet {
 		/// `submit_finality_proof_ex` instead. Semantically, this call is an equivalent of the
 		/// `submit_finality_proof_ex` call without current authority set id check.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T::WeightInfo as WeightInfo>::submit_finality_proof(
+		#[pallet::weight(T::WeightInfo::submit_finality_proof_weight(
 			justification.commit.precommits.len().saturated_into(),
 			justification.votes_ancestries.len().saturated_into(),
 		))]
@@ -273,7 +275,7 @@ pub mod pallet {
 		/// be executed for free. If transaction extension is not used by the runtime, this
 		/// parameter is not used at all.
 		#[pallet::call_index(4)]
-		#[pallet::weight(<T::WeightInfo as WeightInfo>::submit_finality_proof(
+		#[pallet::weight(T::WeightInfo::submit_finality_proof_weight(
 			justification.commit.precommits.len().saturated_into(),
 			justification.votes_ancestries.len().saturated_into(),
 		))]
