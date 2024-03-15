@@ -6,11 +6,32 @@ const DISPUTES_TOTAL_METRIC: &str = "polkadot_parachain_candidate_disputes_total
 const DISPUTES_CONCLUDED_VALID: &str =
 	"polkadot_parachain_candidate_dispute_concluded{validity=\"valid\"}";
 
+// This ones will be used only when the image is not set as env var
+const DEFAULT_POLKADOT_IMAGE: &str = "docker.io/paritypr/polkadot-debug:master-3c6ebd9e";
+const DEFAULT_MALUS_IMAGE: &str = "docker.io/paritypr/malus:master-3c6ebd9e";
+const DEFAULT_CUMULUS_IMAGE: &str = "docker.io/paritypr/polkadot-parachain-debug:master-3c6ebd9e";
+
+fn get_images_from_env() -> Images {
+	let polkadot_image =
+		env::var("ZOMBIENET_INTEGRATION_TEST_IMAGE").unwrap_or(DEFAULT_POLKADOT_IMAGE.into());
+	let malus_image = env::var("MALUS_IMAGE").unwrap_or(DEFAULT_MALUS_IMAGE.into());
+	let cumulus_image = env::var("CUMULUS_IMAGE").unwrap_or(DEFAULT_CUMULUS_IMAGE.into());
+	Images { polkadot: polkadot_image, malus: malus_image, cumulus: cumulus_image }
+}
+
+fn get_provider_from_env() -> Provider {
+	match env::var("ZOMBIE_PROVIDER") {
+		Ok(provider) => provider.into(),
+		Err(_) => Provider::Native,
+	}
+}
+
 #[tokio::test]
 async fn test_backing_disabling() -> Result<(), Error> {
 	tracing_subscriber::fmt::init();
 
-	let network = spawn_network_malus_backer().await?;
+	let network =
+		spawn_network_malus_backer(Some(get_images_from_env()), get_provider_from_env()).await?;
 
 	println!("🚀🚀🚀 network deployed");
 
@@ -59,7 +80,8 @@ async fn test_backing_disabling() -> Result<(), Error> {
 async fn test_disputes_offchain_disabling() -> Result<(), Error> {
 	tracing_subscriber::fmt::init();
 
-	let network = spawn_network_dispute_valid().await?;
+	let images = get_images_from_env();
+	let network = spawn_network_dispute_valid(Some(images), get_provider_from_env()).await?;
 
 	println!("🚀🚀🚀 network deployed");
 
@@ -101,7 +123,8 @@ async fn test_disputes_offchain_disabling() -> Result<(), Error> {
 async fn test_runtime_upgrade() -> Result<(), Error> {
 	tracing_subscriber::fmt::init();
 
-	let network = spawn_honest_network().await?;
+	let network =
+		spawn_honest_network(Some(get_images_from_env()), get_provider_from_env()).await?;
 
 	println!("🚀🚀🚀 network deployed");
 
@@ -164,7 +187,8 @@ async fn test_runtime_upgrade() -> Result<(), Error> {
 async fn test_runtime_upgrade_with_old_client() -> Result<(), Error> {
 	tracing_subscriber::fmt::init();
 
-	let network = spawn_honest_network().await?;
+	let network =
+		spawn_honest_network(Some(get_images_from_env()), get_provider_from_env()).await?;
 
 	println!("🚀🚀🚀 network deployed");
 

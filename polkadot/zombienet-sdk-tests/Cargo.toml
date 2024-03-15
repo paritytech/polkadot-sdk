@@ -11,4 +11,4 @@ subxt = { version = "0.33.0", default-features = false, features = ["native"] }
 subxt-signer = { version = "0.33.0" }
 tokio = "1.35.0"
 tracing-subscriber = "0.3.18"
-zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk", rev = "92c2338" }
+zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk", rev = "1b124e5" }

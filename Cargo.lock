@@ -25142,7 +25142,7 @@ dependencies = [
 [[package]]
 name = "zombienet-configuration"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=92c2338#92c233873daead09e1d8729be40d08d061cb20de"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -25158,7 +25158,7 @@ dependencies = [
 [[package]]
 name = "zombienet-orchestrator"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=92c2338#92c233873daead09e1d8729be40d08d061cb20de"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
 dependencies = [
  "anyhow",
  "futures",
@@ -25186,7 +25186,7 @@ dependencies = [
 [[package]]
 name = "zombienet-prom-metrics-parser"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=92c2338#92c233873daead09e1d8729be40d08d061cb20de"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
 dependencies = [
  "pest",
  "pest_derive",
@@ -25196,10 +25196,11 @@ dependencies = [
 [[package]]
 name = "zombienet-provider"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=92c2338#92c233873daead09e1d8729be40d08d061cb20de"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
 dependencies = [
  "anyhow",
  "async-trait",
+ "flate2",
  "futures",
  "hex",
  "k8s-openapi",
@@ -25216,6 +25217,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "url",
  "uuid",
  "zombienet-configuration",
  "zombienet-support",
@@ -25224,10 +25226,11 @@ dependencies = [
 [[package]]
 name = "zombienet-sdk"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=92c2338#92c233873daead09e1d8729be40d08d061cb20de"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
 dependencies = [
  "async-trait",
  "futures",
+ "lazy_static",
  "subxt",
  "tokio",
  "zombienet-configuration",
@@ -25251,7 +25254,7 @@ dependencies = [
 [[package]]
 name = "zombienet-support"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=92c2338#92c233873daead09e1d8729be40d08d061cb20de"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
 dependencies = [
  "anyhow",
  "async-trait",
