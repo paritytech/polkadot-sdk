@@ -50,7 +50,7 @@
 //! [`pallet_balances`] to reserve and unreserve deposits. This approach works well, until someone
 //! has a use case requiring that an asset from a different pallet such as [`pallet_assets`] is
 //! used for the deposit. Rather than tightly couple [`pallet_preimage`] to [`pallet_balances`] AND
-//! [`pallet_assets`], along with every other token type pallet a user could possibly specify,
+//! [`pallet_assets`], along with every other token-handling pallet a user could possibly specify,
 //! [`pallet_preimage`] does not specify a concrete pallet as a dependency but instead accepts any
 //! dependency which implements the [`frame_support::traits::tokens::currency::ReservableCurrency`]
 //! trait. This allows [`pallet_preimage`] to support any arbitrary pallet implementing this trait,
