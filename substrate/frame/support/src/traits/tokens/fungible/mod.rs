@@ -47,7 +47,7 @@
 //!
 //! - **Total Balance**: The sum of an account's free and held balances.
 //!
-//! - **Free Balance**: A portion of an accounts total balance that is not held.
+//! - **Free Balance**: A portion of an account's total balance that is not held.
 //!
 //! - **Held Balance**: Held balance still belongs to the account holder, but is suspended. It can
 //!   be slashed, but only after all the free balance has been slashed.
