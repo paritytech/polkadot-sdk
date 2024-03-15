@@ -38,6 +38,7 @@ regex = "1"
 default = ["std"]
 std = ["sp-crypto-hashing/std"]
 no-metadata-docs = []
+experimental = []
 # Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of
 # pallets in a runtime grows. Does increase the compile time!
 tuples-96 = []
