@@ -871,12 +871,9 @@ mod tests {
 	use std::{cell::RefCell, collections::BTreeMap, sync::Arc};
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are requried.
-	use crate::{
-		crowdloan,
-		mock::TestRegistrar,
-		traits::{AuctionStatus, OnSwap},
-	};
+	use crate::{crowdloan, mock::TestRegistrar, traits::AuctionStatus};
 	use ::test_helpers::{dummy_head_data, dummy_validation_code};
+	use runtime_parachains::OnSwap;
 	use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup, TrailingZeroInput},

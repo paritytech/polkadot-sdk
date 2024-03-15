@@ -22,6 +22,7 @@ use frame_support::{
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
 use sp_runtime::traits::Convert;
+use sp_std::vec::Vec;
 use CompletionStatus::{Complete, Partial};
 
 impl<T: Config> Pallet<T> {

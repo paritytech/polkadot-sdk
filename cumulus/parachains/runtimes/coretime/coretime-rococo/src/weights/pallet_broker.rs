@@ -515,4 +515,8 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+
+	fn swap_leases() -> Weight {
+			Weight::zero()
+		}
 }
