@@ -22,7 +22,7 @@ use sp_runtime_interface::pass_by::PassByInner;
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::{
-	byte_array::ByteArray as ByteArrayGen,
+	byte_array::{PublicBytes, SignatureBytes},
 	crypto::{
 		CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
 		Public as TraitPublic, SecretStringError,
@@ -53,9 +53,7 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 
 #[allow(missing_docs)]
-pub struct EcdsaPublicTag;
-#[allow(missing_docs)]
-pub struct EcdsaSignatureTag;
+pub struct EcdsaTag;
 
 /// The secret seed.
 ///
@@ -63,7 +61,7 @@ pub struct EcdsaSignatureTag;
 type Seed = [u8; 32];
 
 /// The ECDSA compressed public key.
-pub type Public = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, EcdsaPublicTag>;
+pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, EcdsaTag>;
 
 impl Public {
 	/// Create a new instance from the given full public key.
@@ -158,7 +156,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
-pub type Signature = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, EcdsaSignatureTag>;
+pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, EcdsaTag>;
 
 #[cfg(feature = "serde")]
 impl Serialize for Signature {

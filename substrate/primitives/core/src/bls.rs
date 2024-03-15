@@ -26,7 +26,7 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::{
-	byte_array::ByteArray as ByteArrayGen,
+	byte_array::{PublicBytes, SignatureBytes},
 	crypto::{
 		CryptoType, Derive, DeriveError, DeriveJunction, Pair as TraitPair, Public as TraitPublic,
 		SecretStringError, UncheckedFrom,
@@ -55,6 +55,9 @@ pub mod bls377 {
 
 	/// An identifier used to match public keys against BLS12-377 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"bls7");
+
+	#[allow(missing_docs)]
+	pub type Bls377Tag = TinyBLS377;
 
 	/// BLS12-377 key pair.
 	pub type Pair = super::Pair<TinyBLS377>;
@@ -113,12 +116,10 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize =
 type Seed = [u8; SECRET_KEY_SERIALIZED_SIZE];
 
 #[allow(missing_docs)]
-pub struct BlsPublicTag;
-#[allow(missing_docs)]
-pub struct BlsSignatureTag;
+pub struct BlsTag;
 
 /// A public key.
-pub type Public<T> = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, (T, BlsPublicTag)>;
+pub type Public<SubTag> = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, (BlsTag, SubTag)>;
 
 impl<T: BlsBound> From<Pair<T>> for Public<T> {
 	fn from(x: Pair<T>) -> Self {
@@ -187,7 +188,7 @@ impl<T: BlsBound> CryptoType for Public<T> {
 }
 
 /// A generic BLS signature.
-pub type Signature<T> = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, (T, BlsSignatureTag)>;
+pub type Signature<SubTag> = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, (BlsTag, SubTag)>;
 
 #[cfg(feature = "serde")]
 impl<T> Serialize for Signature<T> {

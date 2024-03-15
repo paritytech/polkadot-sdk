@@ -32,7 +32,7 @@ use schnorrkel::{
 use sp_std::vec::Vec;
 
 use crate::{
-	byte_array::ByteArray as ByteArrayGen,
+	byte_array::{PublicBytes, SignatureBytes},
 	crypto::{CryptoType, CryptoTypeId, Derive, Public as TraitPublic},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -59,12 +59,10 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 32;
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 64;
 
 #[allow(missing_docs)]
-pub struct Sr25519PublicTag;
-#[allow(missing_docs)]
-pub struct Sr25519SignatureTag;
+pub struct Sr25519Tag;
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") public key.
-pub type Public = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, Sr25519PublicTag>;
+pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Sr25519Tag>;
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") key pair.
 pub struct Pair(Keypair);
@@ -130,7 +128,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
-pub type Signature = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, Sr25519SignatureTag>;
+pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Sr25519Tag>;
 
 #[cfg(feature = "serde")]
 impl Serialize for Signature {

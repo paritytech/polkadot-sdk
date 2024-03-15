@@ -20,7 +20,7 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::{
-	byte_array::ByteArray as ByteArrayGen,
+	byte_array::{PublicBytes, SignatureBytes},
 	crypto::{
 		ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction,
 		Pair as TraitPair, Public as TraitPublic, SecretStringError,
@@ -49,12 +49,10 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize = 64;
 type Seed = [u8; 32];
 
 #[allow(missing_docs)]
-pub struct Ed25519PublicTag;
-#[allow(missing_docs)]
-pub struct Ed25519SignatureTag;
+pub struct Ed25519Tag;
 
 /// A public key.
-pub type Public = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, Ed25519PublicTag>;
+pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Ed25519Tag>;
 
 impl TraitPublic for Public {}
 
@@ -118,7 +116,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature.
-pub type Signature = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, Ed25519SignatureTag>;
+pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Ed25519Tag>;
 
 #[cfg(feature = "serde")]
 impl Serialize for Signature {

@@ -22,7 +22,7 @@ use core::marker::PhantomData;
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::{
-	byte_array::ByteArray as ByteArrayGen,
+	byte_array::{PublicBytes, SignatureBytes},
 	crypto::{
 		ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair as PairT,
 		Public as PublicT, SecretStringError, UncheckedFrom,
@@ -55,7 +55,7 @@ pub mod ecdsa_bls377 {
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
 	#[allow(missing_docs)]
-	pub struct EcdsaBls377Tag;
+	pub struct EcdsaBls377Tag(ecdsa::EcdsaTag, bls377::Bls377Tag);
 	impl super::PairedCryptoSubTagBound for EcdsaBls377Tag {}
 
 	/// (ECDSA,BLS12-377) key-pair pair.
@@ -150,13 +150,11 @@ type Seed = [u8; SECURE_SEED_LEN];
 #[allow(missing_docs)]
 pub trait PairedCryptoSubTagBound {}
 #[allow(missing_docs)]
-pub struct PairedCryptoPublicTag;
-#[allow(missing_docs)]
-pub struct PairedCryptoSignatureTag;
+pub struct PairedCryptoTag;
 
 /// A public key.
 pub type Public<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
-	ByteArrayGen<LEFT_PLUS_RIGHT_LEN, (PairedCryptoPublicTag, SubTag)>;
+	PublicBytes<LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)>;
 
 impl<
 		LeftPair: PairT,
@@ -255,7 +253,7 @@ impl<T: ByteArray> SignatureBound for T {}
 
 /// A pair of signatures of different types
 pub type Signature<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
-	ByteArrayGen<LEFT_PLUS_RIGHT_LEN, (SubTag, PairedCryptoSignatureTag)>;
+	SignatureBytes<LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)>;
 
 #[cfg(feature = "serde")]
 impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> Serialize
@@ -302,7 +300,6 @@ where
 }
 
 /// A key pair.
-#[derive(Clone)]
 pub struct Pair<
 	LeftPair: PairT,
 	RightPair: PairT,
@@ -313,6 +310,19 @@ pub struct Pair<
 	left: LeftPair,
 	right: RightPair,
 	_phantom: PhantomData<fn() -> SubTag>,
+}
+
+impl<
+		LeftPair: PairT + Clone,
+		RightPair: PairT + Clone,
+		const PUBLIC_KEY_LEN: usize,
+		const SIGNATURE_LEN: usize,
+		SubTag,
+	> Clone for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>
+{
+	fn clone(&self) -> Self {
+		Self { left: self.left.clone(), right: self.right.clone(), _phantom: PhantomData }
+	}
 }
 
 impl<
