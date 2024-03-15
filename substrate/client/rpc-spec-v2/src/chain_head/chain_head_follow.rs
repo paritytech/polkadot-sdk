@@ -447,8 +447,6 @@ where
 	}
 
 	/// Get all pruned block hashes from the provided stale heads.
-	///
-	/// The result does not include hashes from `to_ignore`.
 	fn get_pruned_hashes(
 		&mut self,
 		stale_heads: &[Block::Hash],
