@@ -19,6 +19,7 @@
 //! stage.
 
 use codec::Encode;
+use core::marker::PhantomData;
 
 use crate::{
 	traits::{
@@ -59,22 +60,24 @@ pub enum ExtrinsicFormat<AccountId, Extension> {
 /// This is typically passed into [`traits::Applyable::apply`], which should execute
 /// [`CheckedExtrinsic::function`], alongside all other bits and bobs.
 #[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
-pub struct CheckedExtrinsic<AccountId, Call, Extension> {
+pub struct CheckedExtrinsic<AccountId, Call, Extension, Context = ()> {
 	/// Who this purports to be from and the number of extrinsics have come before
 	/// from the same signer, if anyone (note this is not a signature).
 	pub format: ExtrinsicFormat<AccountId, Extension>,
 
 	/// The function that should be called.
 	pub function: Call,
+	pub _phantom: PhantomData<Context>,
 }
 
-impl<AccountId, Call, Extension, RuntimeOrigin> traits::Applyable
-	for CheckedExtrinsic<AccountId, Call, Extension>
+impl<AccountId, Call, Extension, RuntimeOrigin, Context> traits::Applyable
+	for CheckedExtrinsic<AccountId, Call, Extension, Context>
 where
 	AccountId: Member + MaybeDisplay,
 	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin> + Encode,
-	Extension: TransactionExtension<Call, ()>,
+	Extension: TransactionExtension<Call, Context>,
 	RuntimeOrigin: From<Option<AccountId>>,
+	Context: Sync + Send + Default,
 {
 	type Call = Call;
 

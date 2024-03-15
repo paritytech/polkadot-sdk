@@ -17,6 +17,8 @@
 
 //! Generic implementation of an unchecked (pre-verification) extrinsic.
 
+use core::marker::PhantomData;
+
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
@@ -119,27 +121,29 @@ where
 /// counterpart of this type after its signature (and other non-negotiable validity checks) have
 /// passed.
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub struct UncheckedExtrinsic<Address, Call, Signature, Extension> {
+pub struct UncheckedExtrinsic<Address, Call, Signature, Extension, Context = ()> {
 	/// Information regarding the type of extrinsic this is (inherent or transaction) as well as
 	/// associated extension (`Extension`) data if it's a transaction and a possible signature.
 	pub preamble: Preamble<Address, Signature, Extension>,
 	/// The function that should be called.
 	pub function: Call,
+	pub _phantom: PhantomData<Context>,
 }
 
 /// Manual [`TypeInfo`] implementation because of custom encoding. The data is a valid encoded
 /// `Vec<u8>`, but requires some logic to extract the signature and payload.
 ///
 /// See [`UncheckedExtrinsic::encode`] and [`UncheckedExtrinsic::decode`].
-impl<Address, Call, Signature, Extension> TypeInfo
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<Address, Call, Signature, Extension, Context> TypeInfo
+	for UncheckedExtrinsic<Address, Call, Signature, Extension, Context>
 where
 	Address: StaticTypeInfo,
 	Call: StaticTypeInfo,
 	Signature: StaticTypeInfo,
 	Extension: StaticTypeInfo,
+	Context: StaticTypeInfo,
 {
-	type Identity = UncheckedExtrinsic<Address, Call, Signature, Extension>;
+	type Identity = UncheckedExtrinsic<Address, Call, Signature, Extension, Context>;
 
 	fn type_info() -> Type {
 		Type::builder()
@@ -161,7 +165,9 @@ where
 	}
 }
 
-impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Signature, Extension> {
+impl<Address, Call, Signature, Extension, Context>
+	UncheckedExtrinsic<Address, Call, Signature, Extension, Context>
+{
 	/// New instance of a bare (ne unsigned) extrinsic. This could be used for an inherent or an
 	/// old-school "unsigned transaction" (which are new being deprecated in favour of general
 	/// transactions).
@@ -183,12 +189,12 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 
 	/// Create an `UncheckedExtrinsic` from a `Preamble` and the actual `Call`.
 	pub fn from_parts(function: Call, preamble: Preamble<Address, Signature, Extension>) -> Self {
-		Self { preamble, function }
+		Self { preamble, function, _phantom: Default::default() }
 	}
 
 	/// New instance of a bare (ne unsigned) extrinsic.
 	pub fn new_bare(function: Call) -> Self {
-		Self { preamble: Preamble::Bare, function }
+		Self { preamble: Preamble::Bare, function, _phantom: Default::default() }
 	}
 
 	/// New instance of an old-school signed transaction.
@@ -198,19 +204,23 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 		signature: Signature,
 		tx_ext: Extension,
 	) -> Self {
-		Self { preamble: Preamble::Signed(signed, signature, tx_ext), function }
+		Self {
+			preamble: Preamble::Signed(signed, signature, tx_ext),
+			function,
+			_phantom: Default::default(),
+		}
 	}
 
 	/// New instance of an new-school unsigned transaction.
 	pub fn new_transaction(function: Call, tx_ext: Extension) -> Self {
-		Self { preamble: Preamble::General(tx_ext), function }
+		Self { preamble: Preamble::General(tx_ext), function, _phantom: Default::default() }
 	}
 }
 
 // TODO: We can get rid of this trait and just use UncheckedExtrinsic directly.
 
-impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> Extrinsic
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo, Context> Extrinsic
+	for UncheckedExtrinsic<Address, Call, Signature, Extension, Context>
 {
 	type Call = Call;
 
@@ -237,18 +247,18 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo
 	}
 }
 
-impl<LookupSource, AccountId, Call, Signature, Extension, Lookup> Checkable<Lookup>
-	for UncheckedExtrinsic<LookupSource, Call, Signature, Extension>
+impl<LookupSource, AccountId, Call, Signature, Extension, Lookup, Context> Checkable<Lookup>
+	for UncheckedExtrinsic<LookupSource, Call, Signature, Extension, Context>
 where
 	LookupSource: Member + MaybeDisplay,
 	Call: Encode + Member + Dispatchable,
 	Signature: Member + traits::Verify,
 	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountId>,
-	Extension: Encode + TransactionExtension<Call, ()>,
+	Extension: Encode + TransactionExtension<Call, Context>,
 	AccountId: Member + MaybeDisplay,
 	Lookup: traits::Lookup<Source = LookupSource, Target = AccountId>,
 {
-	type Checked = CheckedExtrinsic<AccountId, Call, Extension>;
+	type Checked = CheckedExtrinsic<AccountId, Call, Extension, Context>;
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		Ok(match self.preamble {
@@ -260,14 +270,22 @@ where
 					return Err(InvalidTransaction::BadProof.into())
 				}
 				let (function, tx_ext, _) = raw_payload.deconstruct();
-				CheckedExtrinsic { format: ExtrinsicFormat::Signed(signed, tx_ext), function }
+				CheckedExtrinsic {
+					format: ExtrinsicFormat::Signed(signed, tx_ext),
+					function,
+					_phantom: Default::default(),
+				}
 			},
 			Preamble::General(tx_ext) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(tx_ext),
 				function: self.function,
+				_phantom: Default::default(),
 			},
-			Preamble::Bare =>
-				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
+			Preamble::Bare => CheckedExtrinsic {
+				format: ExtrinsicFormat::Bare,
+				function: self.function,
+				_phantom: Default::default(),
+			},
 		})
 	}
 
@@ -294,15 +312,20 @@ where
 	}
 }
 
-impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call, ()>>
-	ExtrinsicMetadata for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<
+		Address,
+		Call: Dispatchable,
+		Signature,
+		Extension: TransactionExtension<Call, Context>,
+		Context,
+	> ExtrinsicMetadata for UncheckedExtrinsic<Address, Call, Signature, Extension, Context>
 {
 	const VERSION: u8 = EXTRINSIC_FORMAT_VERSION;
 	type Extra = Extension;
 }
 
-impl<Address, Call, Signature, Extension> Decode
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<Address, Call, Signature, Extension, Context> Decode
+	for UncheckedExtrinsic<Address, Call, Signature, Extension, Context>
 where
 	Address: Decode,
 	Signature: Decode,
@@ -329,13 +352,13 @@ where
 			}
 		}
 
-		Ok(Self { preamble, function })
+		Ok(Self { preamble, function, _phantom: Default::default() })
 	}
 }
 
 #[docify::export(unchecked_extrinsic_encode_impl)]
-impl<Address, Call, Signature, Extension> Encode
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<Address, Call, Signature, Extension, Context> Encode
+	for UncheckedExtrinsic<Address, Call, Signature, Extension, Context>
 where
 	Preamble<Address, Signature, Extension>: Encode,
 	Call: Encode,
@@ -357,19 +380,19 @@ where
 	}
 }
 
-impl<Address, Call, Signature, Extension> EncodeLike
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<Address, Call, Signature, Extension, Context> EncodeLike
+	for UncheckedExtrinsic<Address, Call, Signature, Extension, Context>
 where
 	Address: Encode,
 	Signature: Encode,
 	Call: Encode + Dispatchable,
-	Extension: TransactionExtension<Call, ()>,
+	Extension: TransactionExtension<Call, Context>,
 {
 }
 
 #[cfg(feature = "serde")]
-impl<Address: Encode, Signature: Encode, Call: Encode, Extension: Encode> serde::Serialize
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<Address: Encode, Signature: Encode, Call: Encode, Extension: Encode, Context> serde::Serialize
+	for UncheckedExtrinsic<Address, Call, Signature, Extension, Context>
 {
 	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error>
 	where
@@ -380,8 +403,8 @@ impl<Address: Encode, Signature: Encode, Call: Encode, Extension: Encode> serde:
 }
 
 #[cfg(feature = "serde")]
-impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extension: Decode> serde::Deserialize<'a>
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extension: Decode, Context>
+	serde::Deserialize<'a> for UncheckedExtrinsic<Address, Call, Signature, Extension, Context>
 {
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
 	where
@@ -445,15 +468,15 @@ where
 {
 }
 
-impl<Address, Call, Signature, Extension>
-	From<UncheckedExtrinsic<Address, Call, Signature, Extension>> for OpaqueExtrinsic
+impl<Address, Call, Signature, Extension, Context>
+	From<UncheckedExtrinsic<Address, Call, Signature, Extension, Context>> for OpaqueExtrinsic
 where
 	Address: Encode,
 	Signature: Encode,
 	Call: Encode,
 	Extension: Encode,
 {
-	fn from(extrinsic: UncheckedExtrinsic<Address, Call, Signature, Extension>) -> Self {
+	fn from(extrinsic: UncheckedExtrinsic<Address, Call, Signature, Extension, Context>) -> Self {
 		Self::from_bytes(extrinsic.encode().as_slice()).expect(
 			"both OpaqueExtrinsic and UncheckedExtrinsic have encoding that is compatible with \
 				raw Vec<u8> encoding; qed",

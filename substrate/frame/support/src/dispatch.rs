@@ -369,8 +369,8 @@ where
 }
 
 /// Implementation for unchecked extrinsic.
-impl<Address, Call, Signature, Extension> GetDispatchInfo
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<Address, Call, Signature, Extension, Context> GetDispatchInfo
+	for UncheckedExtrinsic<Address, Call, Signature, Extension, Context>
 where
 	Call: GetDispatchInfo + Dispatchable,
 {
@@ -380,7 +380,8 @@ where
 }
 
 /// Implementation for checked extrinsic.
-impl<AccountId, Call, Extension> GetDispatchInfo for CheckedExtrinsic<AccountId, Call, Extension>
+impl<AccountId, Call, Extension, Context> GetDispatchInfo
+	for CheckedExtrinsic<AccountId, Call, Extension, Context>
 where
 	Call: GetDispatchInfo,
 {

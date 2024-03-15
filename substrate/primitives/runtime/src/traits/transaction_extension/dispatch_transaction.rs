@@ -22,7 +22,7 @@ use super::*;
 /// Single-function utility trait with a blanket impl over [TransactionExtension] in order to
 /// provide transaction dispatching functionality. We avoid implementing this directly on the trait
 /// since we never want it to be overriden by the trait implementation.
-pub trait DispatchTransaction<Call: Dispatchable> {
+pub trait DispatchTransaction<Call: Dispatchable, Context> {
 	/// The origin type of the transaction.
 	type Origin;
 	/// The info type.
@@ -43,7 +43,7 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 		call: &Call,
 		info: &Self::Info,
 		len: usize,
-	) -> Result<(ValidTransaction, Self::Val, Self::Origin), TransactionValidityError>;
+	) -> Result<(ValidTransaction, Self::Val, Self::Origin, Context), TransactionValidityError>;
 	/// Validate and prepare a transaction, ready for dispatch.
 	fn validate_and_prepare(
 		self,
@@ -51,7 +51,7 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 		call: &Call,
 		info: &Self::Info,
 		len: usize,
-	) -> Result<(Self::Pre, Self::Origin), TransactionValidityError>;
+	) -> Result<(Self::Pre, Self::Origin, Context), TransactionValidityError>;
 	/// Dispatch a transaction with the given base origin and call.
 	fn dispatch_transaction(
 		self,
@@ -75,8 +75,8 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 	) -> Self::Result;
 }
 
-impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTransaction<Call>
-	for T
+impl<Context: Default, T: TransactionExtension<Call, Context>, Call: Dispatchable + Encode>
+	DispatchTransaction<Call, Context> for T
 {
 	type Origin = <Call as Dispatchable>::RuntimeOrigin;
 	type Info = DispatchInfoOf<Call>;
@@ -90,8 +90,11 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-	) -> Result<(ValidTransaction, T::Val, Self::Origin), TransactionValidityError> {
-		self.validate(origin, call, info, len, &mut (), self.implicit()?, call)
+	) -> Result<(ValidTransaction, T::Val, Self::Origin, Context), TransactionValidityError> {
+		let mut context = Context::default();
+		let (info, val, origin) =
+			self.validate(origin, call, info, len, &mut context, self.implicit()?, call)?;
+		return Ok((info, val, origin, context));
 	}
 	fn validate_and_prepare(
 		self,
@@ -99,10 +102,10 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-	) -> Result<(T::Pre, Self::Origin), TransactionValidityError> {
-		let (_, val, origin) = self.validate_only(origin, call, info, len)?;
-		let pre = self.prepare(val, &origin, &call, info, len, &())?;
-		Ok((pre, origin))
+	) -> Result<(T::Pre, Self::Origin, Context), TransactionValidityError> {
+		let (_, val, origin, context) = self.validate_only(origin, call, info, len)?;
+		let pre = self.prepare(val, &origin, &call, info, len, &context)?;
+		Ok((pre, origin, context))
 	}
 	fn dispatch_transaction(
 		self,
@@ -111,11 +114,11 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> Self::Result {
-		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
+		let (pre, origin, context) = self.validate_and_prepare(origin, &call, info, len)?;
 		let res = call.dispatch(origin);
 		let post_info = res.unwrap_or_else(|err| err.post_info);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
-		T::post_dispatch(pre, info, &post_info, len, &pd_res, &())?;
+		T::post_dispatch(pre, info, &post_info, len, &pd_res, &context)?;
 		Ok(res)
 	}
 	fn test_run(
@@ -128,14 +131,14 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 			Self::Origin,
 		) -> crate::DispatchResultWithInfo<<Call as Dispatchable>::PostInfo>,
 	) -> Self::Result {
-		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
+		let (pre, origin, context) = self.validate_and_prepare(origin, &call, info, len)?;
 		let res = substitute(origin);
 		let post_info = match res {
 			Ok(info) => info,
 			Err(err) => err.post_info,
 		};
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
-		T::post_dispatch(pre, info, &post_info, len, &pd_res, &())?;
+		T::post_dispatch(pre, info, &post_info, len, &pd_res, &context)?;
 		Ok(res)
 	}
 }
