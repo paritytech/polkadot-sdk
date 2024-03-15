@@ -48,7 +48,7 @@
 //! deposit in exchange for storing some preimage for use later. A naive implementation of the
 //! pallet may use [`pallet_balances`] as a dependency, and directly call the methods exposed by
 //! [`pallet_balances`] to reserve and unreserve deposits. This approach works well, until someone
-//! has a usecase requiring that an asset from a different pallet such as [`pallet_assets`] is
+//! has a use case requiring that an asset from a different pallet such as [`pallet_assets`] is
 //! used for the deposit. Rather than tightly couple [`pallet_preimage`] to [`pallet_balances`] AND
 //! [`pallet_assets`], along with every other token type pallet a user could possibly specify,
 //! [`pallet_preimage`] does not specify a concrete pallet as a dependency but instead accepts any
