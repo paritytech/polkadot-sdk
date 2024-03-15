@@ -30,7 +30,7 @@
 //!
 //! ## Traits and Trait Implementations
 //!
-//! Broardly speaking, token logic in Substrate can be divided into two categories: traits and
+//! Broadly speaking, token logic in Substrate can be divided into two categories: traits and
 //! trait implementations.
 //!
 //! **Traits** define common interfaces that types of token should implement. For example, the
