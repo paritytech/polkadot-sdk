@@ -225,6 +225,18 @@ impl<T> ByteArray<64, T> {
 	}
 }
 
+/// Tag used for public key bytes.
+pub struct PublicTag;
+
+/// A generic encoded public key.
+pub type PublicBytes<const N: usize, SubTag> = ByteArray<N, (PublicTag, SubTag)>;
+
+/// Tag used for public key bytes.
+pub struct SignatureTag;
+
+/// A generic encoded public key.
+pub type SignatureBytes<const N: usize, SubTag> = ByteArray<N, (SignatureTag, SubTag)>;
+
 #[cfg(test)]
 mod tests {
 	use super::*;
