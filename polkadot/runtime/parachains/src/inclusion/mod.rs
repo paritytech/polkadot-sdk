@@ -23,7 +23,7 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	disputes, dmp, hrmp,
 	paras::{self, SetGoAhead},
-	scheduler::{self, AvailabilityTimeoutStatus},
+	scheduler,
 	shared::{self, AllowedRelayParentsTracker},
 	util::make_persisted_validation_data_with_parent,
 };
@@ -610,7 +610,7 @@ impl<T: Config> Pallet<T> {
 			Vec::with_capacity(candidates.len());
 		let mut core_indices = Vec::with_capacity(candidates.len());
 
-		for (para_id, candidates) in candidates {
+		for (para_id, para_candidates) in candidates {
 			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
 				None => {
 					defensive!("Latest included head data for paraid {:?} is None", para_id);
@@ -619,7 +619,7 @@ impl<T: Config> Pallet<T> {
 				Some(latest_head_data) => latest_head_data,
 			};
 
-			for (candidate, core) in candidates.iter() {
+			for (candidate, core) in para_candidates.iter() {
 				let candidate_hash = candidate.candidate().hash();
 
 				let check_ctx = CandidateCheckContext::<T>::new(None);
@@ -978,19 +978,18 @@ impl<T: Config> Pallet<T> {
 		weight
 	}
 
-	/// Cleans up all timed out candidates that the predicate returns true for.
-	/// Also cleans up their descendant candidates.
-	///
-	/// The predicate accepts the block number the core has been occupied
-	/// since (i.e. the block number the candidate was backed at in this fork of the relay chain).
+	/// Cleans up all timed out candidates as well as their descendant candidates.
 	///
 	/// Returns a vector of cleaned-up core IDs.
-	pub(crate) fn collect_timedout(
-		pred: impl Fn(BlockNumberFor<T>) -> AvailabilityTimeoutStatus<BlockNumberFor<T>>,
-	) -> Vec<CoreIndex> {
-		let timed_out: Vec<_> =
-			Self::free_failed_cores(|candidate| pred(candidate.backed_in_number).timed_out, None)
-				.collect();
+	pub(crate) fn free_timedout() -> Vec<CoreIndex> {
+		let timeout_pred = <scheduler::Pallet<T>>::availability_timeout_predicate();
+
+		let timed_out: Vec<_> = Self::free_failed_cores(
+			|candidate| timeout_pred(candidate.backed_in_number).timed_out,
+			None,
+		)
+		.collect();
+
 		let mut timed_out_cores = Vec::with_capacity(timed_out.len());
 		for candidate in timed_out.iter() {
 			timed_out_cores.push(candidate.core);
@@ -1014,7 +1013,7 @@ impl<T: Config> Pallet<T> {
 	/// are descendants of a disputed candidate.
 	///
 	/// Returns a vector of cleaned-up core IDs, along with the evicted candidate hashes.
-	pub(crate) fn collect_disputed(
+	pub(crate) fn free_disputed(
 		disputed: &BTreeSet<CandidateHash>,
 	) -> impl Iterator<Item = (CoreIndex, CandidateHash)> + '_ {
 		Self::free_failed_cores(

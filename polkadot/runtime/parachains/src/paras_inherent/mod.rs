@@ -242,8 +242,7 @@ pub mod pallet {
 	{
 		// Handle timeouts for any availability core work.
 		let freed_timeout = if <scheduler::Pallet<T>>::availability_timeout_check_required() {
-			let pred = <scheduler::Pallet<T>>::availability_timeout_predicate();
-			<inclusion::Pallet<T>>::collect_timedout(pred)
+			<inclusion::Pallet<T>>::free_timedout()
 		} else {
 			Vec::new()
 		};
@@ -523,7 +522,7 @@ impl<T: Config> Pallet<T> {
 
 		// Contains the disputes that are concluded in the current session only,
 		// since these are the only ones that are relevant for the occupied cores
-		// and lightens the load on `collect_disputed` significantly.
+		// and lightens the load on `free_disputed` significantly.
 		// Cores can't be occupied with candidates of the previous sessions, and only
 		// things with new votes can have just concluded. We only need to collect
 		// cores with disputes that conclude just now, because disputes that
@@ -542,7 +541,7 @@ impl<T: Config> Pallet<T> {
 		let (freed_disputed_cores, freed_disputed_candidates): (
 			BTreeMap<CoreIndex, FreedReason>,
 			BTreeSet<CandidateHash>,
-		) = <inclusion::Pallet<T>>::collect_disputed(&current_concluded_invalid_disputes)
+		) = <inclusion::Pallet<T>>::free_disputed(&current_concluded_invalid_disputes)
 			.map(|(core, candidate)| ((core, FreedReason::Concluded), candidate))
 			.unzip();
 

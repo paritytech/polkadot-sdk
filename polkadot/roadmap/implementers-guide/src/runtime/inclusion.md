@@ -156,7 +156,7 @@ All failed checks should lead to an unrecoverable error making the block invalid
   pending availability for the para provided, if any.
 * `pending_availability(ParaId) -> Option<CandidatePendingAvailability>`: returns the metadata around the candidate
   pending availability for the para, if any.
-* `collect_disputed(disputed: Vec<CandidateHash>) -> Vec<CoreIndex>`: Sweeps through all paras pending availability. If
+* `free_disputed(disputed: Vec<CandidateHash>) -> Vec<CoreIndex>`: Sweeps through all paras pending availability. If
   the candidate hash is one of the disputed candidates, then clean up the corresponding storage for that candidate and
   the commitments. Return a vector of cleaned-up core IDs.
 

@@ -371,7 +371,7 @@ pub(crate) fn process_bitfields(
 }
 
 #[test]
-fn collect_timedout() {
+fn free_timedout() {
 	let chain_a = ParaId::from(1_u32);
 	let chain_b = ParaId::from(2_u32);
 	let chain_c = ParaId::from(3_u32);
@@ -392,8 +392,7 @@ fn collect_timedout() {
 	let mut config = genesis_config(paras);
 	config.configuration.config.scheduler_params.group_rotation_frequency = 3;
 	new_test_ext(config).execute_with(|| {
-		let timed_out_cores =
-			ParaInclusion::collect_timedout(Scheduler::availability_timeout_predicate());
+		let timed_out_cores = ParaInclusion::free_timedout();
 		assert!(timed_out_cores.is_empty());
 
 		let make_candidate = |core_index: u32, timed_out: bool| {
@@ -464,8 +463,7 @@ fn collect_timedout() {
 		assert_eq!(<PendingAvailability<Test>>::get(&chain_e).unwrap().len(), 3);
 		assert_eq!(<PendingAvailability<Test>>::get(&chain_f).unwrap().len(), 3);
 
-		let timed_out_cores =
-			ParaInclusion::collect_timedout(Scheduler::availability_timeout_predicate());
+		let timed_out_cores = ParaInclusion::free_timedout();
 
 		assert_eq!(
 			timed_out_cores,
@@ -504,7 +502,7 @@ fn collect_timedout() {
 }
 
 #[test]
-fn collect_disputed() {
+fn free_disputed() {
 	let chain_a = ParaId::from(1_u32);
 	let chain_b = ParaId::from(2_u32);
 	let chain_c = ParaId::from(3_u32);
@@ -525,10 +523,10 @@ fn collect_disputed() {
 	let mut config = genesis_config(paras);
 	config.configuration.config.scheduler_params.group_rotation_frequency = 3;
 	new_test_ext(config).execute_with(|| {
-		let disputed_cores = ParaInclusion::collect_disputed(&BTreeSet::new()).collect::<Vec<_>>();
+		let disputed_cores = ParaInclusion::free_disputed(&BTreeSet::new()).collect::<Vec<_>>();
 		assert!(disputed_cores.is_empty());
 
-		let disputed_cores = ParaInclusion::collect_disputed(
+		let disputed_cores = ParaInclusion::free_disputed(
 			&[CandidateHash::default()].into_iter().collect::<BTreeSet<_>>(),
 		)
 		.collect::<Vec<_>>();
@@ -610,7 +608,7 @@ fn collect_disputed() {
 		]
 		.into_iter()
 		.collect::<BTreeSet<_>>();
-		let disputed_cores = ParaInclusion::collect_disputed(&disputed_candidates);
+		let disputed_cores = ParaInclusion::free_disputed(&disputed_candidates);
 
 		assert_eq!(
 			disputed_cores.map(|(core, _)| core).collect::<Vec<_>>(),
