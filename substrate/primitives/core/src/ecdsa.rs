@@ -17,8 +17,6 @@
 
 //! Simple ECDSA secp256k1 API.
 
-use codec::Encode;
-use scale_info::TypeInfo;
 use sp_runtime_interface::pass_by::PassByInner;
 
 #[cfg(feature = "serde")]
@@ -55,8 +53,9 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, TypeInfo)]
-pub struct EcdsaMarker<const I: u8 = 0>;
+pub struct EcdsaPublicTag;
+#[allow(missing_docs)]
+pub struct EcdsaSignatureTag;
 
 /// The secret seed.
 ///
@@ -64,7 +63,7 @@ pub struct EcdsaMarker<const I: u8 = 0>;
 type Seed = [u8; 32];
 
 /// The ECDSA compressed public key.
-pub type Public = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, EcdsaMarker>;
+pub type Public = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, EcdsaPublicTag>;
 
 impl Public {
 	/// Create a new instance from the given full public key.
@@ -159,7 +158,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
-pub type Signature = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, EcdsaMarker<1>>;
+pub type Signature = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, EcdsaSignatureTag>;
 
 #[cfg(feature = "serde")]
 impl Serialize for Signature {
@@ -245,6 +244,7 @@ impl From<RecoverableSignature> for Signature {
 
 /// Derive a single hard junction.
 fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
+	use codec::Encode;
 	("Secp256k1HDKD", secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 

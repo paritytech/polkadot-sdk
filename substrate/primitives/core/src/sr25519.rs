@@ -60,11 +60,12 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 32;
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 64;
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, TypeInfo)]
-pub struct Sr25519Marker<const I: u8 = 0>;
+pub struct Sr25519PublicTag;
+#[allow(missing_docs)]
+pub struct Sr25519SignatureTag;
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") public key.
-pub type Public = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, Sr25519Marker>;
+pub type Public = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, Sr25519PublicTag>;
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") key pair.
 pub struct Pair(Keypair);
@@ -136,7 +137,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
-pub type Signature = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, Sr25519Marker<1>>;
+pub type Signature = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, Sr25519SignatureTag>;
 
 #[cfg(feature = "serde")]
 impl Serialize for Signature {

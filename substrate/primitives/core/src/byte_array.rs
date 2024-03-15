@@ -28,16 +28,38 @@ use scale_info::TypeInfo;
 use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 
 /// Generic byte array.
-#[derive(Copy, Encode, Decode, MaxEncodedLen, TypeInfo, PartialOrd, Ord)]
+#[derive(Encode, Decode, MaxEncodedLen)]
 pub struct ByteArray<const N: usize, M = ()> {
 	/// Inner raw array
 	pub inner: [u8; N],
 	marker: PhantomData<fn() -> M>,
 }
 
+impl<const N: usize, M> Copy for ByteArray<N, M> {}
+
 impl<const N: usize, M> Clone for ByteArray<N, M> {
 	fn clone(&self) -> Self {
 		Self { inner: self.inner, marker: PhantomData }
+	}
+}
+
+impl<const N: usize, M> TypeInfo for ByteArray<N, M> {
+	type Identity = [u8; N];
+
+	fn type_info() -> scale_info::Type {
+		Self::Identity::type_info()
+	}
+}
+
+impl<const N: usize, M> PartialOrd for ByteArray<N, M> {
+	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+		self.inner.partial_cmp(&other.inner)
+	}
+}
+
+impl<const N: usize, M> Ord for ByteArray<N, M> {
+	fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+		self.inner.cmp(&other.inner)
 	}
 }
 

@@ -113,10 +113,12 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize =
 type Seed = [u8; SECRET_KEY_SERIALIZED_SIZE];
 
 #[allow(missing_docs)]
-pub struct PublicMarker;
+pub struct BlsPublicTag;
+#[allow(missing_docs)]
+pub struct BlsSignatureTag;
 
 /// A public key.
-pub type Public<T> = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, (T, PublicMarker)>;
+pub type Public<T> = ByteArrayGen<PUBLIC_KEY_SERIALIZED_SIZE, (T, BlsPublicTag)>;
 
 impl<T: BlsBound> From<Pair<T>> for Public<T> {
 	fn from(x: Pair<T>) -> Self {
@@ -184,11 +186,8 @@ impl<T: BlsBound> CryptoType for Public<T> {
 	type Pair = Pair<T>;
 }
 
-#[allow(missing_docs)]
-pub struct SignatureMarker;
-
 /// A generic BLS signature.
-pub type Signature<T> = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, (T, SignatureMarker)>;
+pub type Signature<T> = ByteArrayGen<SIGNATURE_SERIALIZED_SIZE, (T, BlsSignatureTag)>;
 
 #[cfg(feature = "serde")]
 impl<T> Serialize for Signature<T> {
