@@ -55,6 +55,12 @@ pub enum ExplicitOrAccountParams<AccountId> {
 	Params(RewardsAccountParams),
 }
 
+impl<AccountId> From<RewardsAccountParams> for ExplicitOrAccountParams<AccountId> {
+	fn from(params: RewardsAccountParams) -> Self {
+		ExplicitOrAccountParams::Params(params)
+	}
+}
+
 /// Relayer registration.
 #[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct Registration<BlockNumber, Balance> {
