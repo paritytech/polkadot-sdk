@@ -361,14 +361,12 @@ fn simple_sanitize_bitfields(
 /// Process a set of already sanitized bitfields.
 pub(crate) fn process_bitfields(
 	signed_bitfields: SignedAvailabilityBitfields,
-	core_lookup: impl Fn(CoreIndex) -> Option<ParaId>,
 ) -> Vec<(CoreIndex, CandidateHash)> {
 	let validators = shared::Pallet::<Test>::active_validator_keys();
 
-	ParaInclusion::update_pending_availability_and_get_freed_cores::<_>(
+	ParaInclusion::update_pending_availability_and_get_freed_cores(
 		&validators[..],
 		signed_bitfields,
-		core_lookup,
 	)
 }
 
@@ -686,14 +684,6 @@ fn bitfield_checks() {
 		let signing_context =
 			SigningContext { parent_hash: System::parent_hash(), session_index: 5 };
 
-		let core_lookup = |core| match core {
-			core if core == CoreIndex::from(0) => Some(chain_a),
-			core if core == CoreIndex::from(1) => Some(chain_b),
-			core if core == CoreIndex::from(2) => Some(thread_a),
-			core if core == CoreIndex::from(3) => None, // for the expected_cores() + 1 test below.
-			_ => panic!("out of bounds for testing"),
-		};
-
 		// too many bits in bitfield
 		{
 			let mut bare_bitfield = default_bitfield();
@@ -762,7 +752,7 @@ fn bitfield_checks() {
 			);
 			assert_eq!(checked_bitfields.len(), 1, "No bitfields should have been filtered!");
 
-			let x = process_bitfields(checked_bitfields, core_lookup);
+			let x = process_bitfields(checked_bitfields);
 			assert!(x.is_empty(), "No core should be freed.");
 		}
 
@@ -783,15 +773,13 @@ fn bitfield_checks() {
 			);
 			assert_eq!(checked_bitfields.len(), 1, "No bitfields should have been filtered!");
 
-			let x = process_bitfields(checked_bitfields, core_lookup);
+			let x = process_bitfields(checked_bitfields);
 			assert!(x.is_empty(), "No core should be freed.");
 		}
 
 		// bitfield signed with pending bit signed.
 		{
 			let mut bare_bitfield = default_bitfield();
-
-			assert_eq!(core_lookup(CoreIndex::from(0)), Some(chain_a));
 
 			let default_candidate = TestCandidateBuilder::default().build();
 			<PendingAvailability<Test>>::insert(
@@ -827,7 +815,7 @@ fn bitfield_checks() {
 			);
 			assert_eq!(checked_bitfields.len(), 1, "No bitfields should have been filtered!");
 
-			let x = process_bitfields(checked_bitfields, core_lookup);
+			let x = process_bitfields(checked_bitfields);
 			assert!(x.is_empty(), "No core should be freed.");
 
 			<PendingAvailability<Test>>::remove(chain_a);
@@ -883,16 +871,6 @@ fn supermajority_bitfields_trigger_availability() {
 
 		let signing_context =
 			SigningContext { parent_hash: System::parent_hash(), session_index: 5 };
-
-		let core_lookup = |core| match core {
-			core if core == CoreIndex::from(0) => Some(chain_a),
-			core if core == CoreIndex::from(1) => Some(chain_b),
-			core if core == CoreIndex::from(2) => Some(chain_c),
-			core if core == CoreIndex::from(3) => Some(chain_c),
-			core if core == CoreIndex::from(4) => Some(chain_c),
-			core if core == CoreIndex::from(5) => Some(thread_a),
-			_ => panic!("Core out of bounds"),
-		};
 
 		// Chain A only has one candidate pending availability. It will be made available now.
 		let candidate_a = TestCandidateBuilder {
@@ -1058,9 +1036,9 @@ fn supermajority_bitfields_trigger_availability() {
 		assert_eq!(checked_bitfields.len(), old_len, "No bitfields should have been filtered!");
 
 		// only chain A's core and candidate's C1 core are freed.
-		let v = process_bitfields(checked_bitfields, core_lookup);
+		let v = process_bitfields(checked_bitfields);
 		assert_eq!(
-			vec![(CoreIndex(0), candidate_a.hash()), (CoreIndex(2), candidate_c_1.hash())],
+			vec![(CoreIndex(2), candidate_c_1.hash()), (CoreIndex(0), candidate_a.hash())],
 			v
 		);
 
@@ -1136,7 +1114,7 @@ fn supermajority_bitfields_trigger_availability() {
 		);
 		assert_eq!(checked_bitfields.len(), old_len, "No bitfields should have been filtered!");
 
-		let v = process_bitfields(checked_bitfields, core_lookup);
+		let v = process_bitfields(checked_bitfields);
 		assert_eq!(
 			vec![(CoreIndex(3), candidate_c_2.hash()), (CoreIndex(4), candidate_c_3.hash())],
 			v
@@ -2833,11 +2811,6 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		]];
 		Scheduler::set_validator_groups(validator_groups);
 
-		let core_lookup = |core| match core {
-			core if core == CoreIndex::from(0) => Some(chain_a),
-			_ => None,
-		};
-
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
@@ -2903,7 +2876,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			expected_bits(),
 		);
 
-		let v = process_bitfields(checked_bitfields, core_lookup);
+		let v = process_bitfields(checked_bitfields);
 		assert_eq!(vec![(CoreIndex(0), candidate_a.hash())], v);
 
 		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());

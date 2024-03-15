@@ -391,16 +391,6 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
-	/// Get the para (chain or thread) ID assigned to a particular core or index, if any. Core
-	/// indices out of bounds will return `None`, as will indices of unassigned cores.
-	pub(crate) fn core_para(core_index: CoreIndex) -> Option<ParaId> {
-		let cores = AvailabilityCores::<T>::get();
-		match cores.get(core_index.0 as usize) {
-			None | Some(CoreOccupied::Free) => None,
-			Some(CoreOccupied::Paras(entry)) => Some(entry.para_id()),
-		}
-	}
-
 	/// Get the validators in the given group, if the group index is valid for this session.
 	pub(crate) fn group_validators(group_index: GroupIndex) -> Option<Vec<ValidatorIndex>> {
 		ValidatorGroups::<T>::get().get(group_index.0 as usize).map(|g| g.clone())

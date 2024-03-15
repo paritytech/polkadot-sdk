@@ -482,14 +482,10 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns a `Vec` of `CandidateHash`es and their respective `AvailabilityCore`s that became
 	/// available, and cores free.
-	pub(crate) fn update_pending_availability_and_get_freed_cores<F>(
+	pub(crate) fn update_pending_availability_and_get_freed_cores(
 		validators: &[ValidatorId],
 		signed_bitfields: SignedAvailabilityBitfields,
-		core_lookup: F,
-	) -> Vec<(CoreIndex, CandidateHash)>
-	where
-		F: Fn(CoreIndex) -> Option<ParaId>,
-	{
+	) -> Vec<(CoreIndex, CandidateHash)> {
 		let now = <frame_system::Pallet<T>>::block_number();
 		let threshold = availability_threshold(validators.len());
 
@@ -515,59 +511,53 @@ impl<T: Config> Pallet<T> {
 			<AvailabilityBitfields<T>>::insert(&validator_index, record);
 		}
 
-		// Update the availability votes for each candidate and take note of what cores were made
-		// available.
-		let mut candidates_made_available: BTreeMap<ParaId, BTreeSet<usize>> = BTreeMap::new();
-		for (core_index, validator_indices) in votes_per_core {
-			if let Some(para_id) = core_lookup(core_index) {
-				<PendingAvailability<T>>::mutate(&para_id, |candidates| {
-					if let Some(candidates) = candidates {
-						for (index, candidate) in candidates.iter_mut().enumerate() {
-							if candidate.core == core_index {
-								for validator_index in validator_indices.iter() {
-									// defensive check - this is constructed by loading the
-									// availability bitfield record, which is always `Some` if
-									// the core is occupied - that's why we're here.
-									if let Some(mut bit) = candidate
-										.availability_votes
-										.get_mut(validator_index.0 as usize)
-									{
-										*bit = true;
-									}
+		let mut freed_cores = vec![];
+
+		let pending_paraids: Vec<_> = <PendingAvailability<T>>::iter_keys().collect();
+		for paraid in pending_paraids {
+			<PendingAvailability<T>>::mutate(paraid, |candidates| {
+				if let Some(candidates) = candidates {
+					let mut last_enacted_index: Option<usize> = None;
+
+					for (candidate_index, candidate) in candidates.iter_mut().enumerate() {
+						if let Some(validator_indices) = votes_per_core.remove(&candidate.core) {
+							for validator_index in validator_indices.iter() {
+								// defensive check - this is constructed by loading the
+								// availability bitfield record, which is always `Some` if
+								// the core is occupied - that's why we're here.
+								if let Some(mut bit) =
+									candidate.availability_votes.get_mut(validator_index.0 as usize)
+								{
+									*bit = true;
 								}
 							}
+						}
 
-							if candidate.availability_votes.count_ones() >= threshold {
-								candidates_made_available
-									.entry(para_id)
-									.or_insert_with(|| BTreeSet::new())
-									.insert(index);
+						// We check for the candidate's availability even if we didn't get any new
+						// bitfields for its core, as it may have already been available at a
+						// previous block but wasn't enacted due to its predecessors not being
+						// available.
+						if candidate.availability_votes.count_ones() >= threshold {
+							// We can only enact a candidate if we've enacted all of its
+							// predecessors already.
+							let can_enact = if candidate_index == 0 {
+								last_enacted_index == None
+							} else {
+								let prev_candidate_index = usize::try_from(candidate_index - 1)
+									.expect("Previous `if` would have caught a 0 candidate index.");
+								matches!(last_enacted_index, Some(old_index) if old_index == prev_candidate_index)
+							};
+
+							if can_enact {
+								last_enacted_index = Some(candidate_index);
 							}
 						}
 					}
-				});
-			} else {
-				// No parachain is occupying that core yet.
-			}
-		}
 
-		let mut freed_cores = Vec::with_capacity(candidates_made_available.len());
-
-		// Trim the pending availability candidates storage and enact candidates now.
-		for (para_id, available_candidates) in candidates_made_available {
-			<PendingAvailability<T>>::mutate(&para_id, |candidates| {
-				if let Some(candidates) = candidates {
-					let mut stopped_at_index = None;
-					for index in 0..candidates.len() {
-						if available_candidates.contains(&index) {
-							stopped_at_index = Some(index);
-						} else {
-							break
-						}
-					}
-
-					if let Some(stopped_at_index) = stopped_at_index {
-						let evicted_candidates = candidates.drain(0..=stopped_at_index);
+					// Trim the pending availability candidates storage and enact candidates of this
+					// para now.
+					if let Some(last_enacted_index) = last_enacted_index {
+						let evicted_candidates = candidates.drain(0..=last_enacted_index);
 						for candidate in evicted_candidates {
 							freed_cores.push((candidate.core, candidate.hash));
 

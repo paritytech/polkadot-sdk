@@ -573,10 +573,9 @@ impl<T: Config> Pallet<T> {
 		// Process new availability bitfields, yielding any availability cores whose
 		// work has now concluded.
 		let freed_concluded =
-			<inclusion::Pallet<T>>::update_pending_availability_and_get_freed_cores::<_>(
+			<inclusion::Pallet<T>>::update_pending_availability_and_get_freed_cores(
 				&validator_public[..],
 				bitfields.clone(),
-				<scheduler::Pallet<T>>::core_para,
 			);
 
 		// Inform the disputes module of all included candidates.
