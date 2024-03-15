@@ -72,7 +72,7 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Subscription ID.
 	sub_id: String,
 	/// The best reported block by this subscription.
-	best_block_cache: Option<Block::Hash>,
+	current_best_block: Option<Block::Hash>,
 	/// LRU cache of pruned blocks.
 	pruned_blocks: LruMap<Block::Hash, ()>,
 }
@@ -92,7 +92,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 			sub_handle,
 			with_runtime,
 			sub_id,
-			best_block_cache: None,
+			current_best_block: None,
 			pruned_blocks: LruMap::new(ByLength::new(LRU_CACHE_SIZE)),
 		}
 	}
@@ -311,7 +311,7 @@ where
 		let best_block_hash = startup_point.best_hash;
 		if best_block_hash != finalized_block_hash {
 			let best_block = FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
-			self.best_block_cache = Some(best_block_hash);
+			self.current_best_block = Some(best_block_hash);
 			finalized_block_descendants.push(best_block);
 		};
 
@@ -343,19 +343,19 @@ where
 		let best_block_event =
 			FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash: block_hash });
 
-		match self.best_block_cache {
+		match self.current_best_block {
 			Some(block_cache) => {
 				// The RPC layer has not reported this block as best before.
 				// Note: This handles the race with the finalized branch.
 				if block_cache != block_hash {
-					self.best_block_cache = Some(block_hash);
+					self.current_best_block = Some(block_hash);
 					vec![new_block, best_block_event]
 				} else {
 					vec![new_block]
 				}
 			},
 			None => {
-				self.best_block_cache = Some(block_hash);
+				self.current_best_block = Some(block_hash);
 				vec![new_block, best_block_event]
 			},
 		}
@@ -424,7 +424,7 @@ where
 				// When the node falls out of sync and then syncs up to the tip of the chain, it can
 				// happen that we skip notifications. Then it is better to terminate the connection
 				// instead of trying to send notifications for all missed blocks.
-				if let Some(best_block_hash) = self.best_block_cache {
+				if let Some(best_block_hash) = self.current_best_block {
 					let ancestor = sp_blockchain::lowest_common_ancestor(
 						&*self.client,
 						*hash,
@@ -507,7 +507,7 @@ where
 			pruned_block_hashes: pruned_block_hashes.clone(),
 		});
 
-		match self.best_block_cache {
+		match self.current_best_block {
 			Some(block_cache) => {
 				// We need to generate a `BestBlock` event for the finalized block when:
 				// - (i) the last reported best block was pruned
@@ -544,7 +544,7 @@ where
 
 					// The RPC needs to also submit a new best block changed before the
 					// finalized event.
-					self.best_block_cache = Some(best_block_hash);
+					self.current_best_block = Some(best_block_hash);
 					let best_block_event =
 						FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
 					events.extend([best_block_event, finalized_event]);
@@ -583,7 +583,7 @@ where
 
 				// The RPC needs to also submit a new best block changed before the
 				// finalized event.
-				self.best_block_cache = Some(best_block_hash);
+				self.current_best_block = Some(best_block_hash);
 				let best_block_event =
 					FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
 				events.extend([best_block_event, finalized_event]);
