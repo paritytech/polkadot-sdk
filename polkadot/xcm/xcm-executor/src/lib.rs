@@ -1214,15 +1214,20 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
-				Config::TransactionalProcessor::process(|| Config::HrmpNewChannelOpenRequestHandler::handle(
-					sender,
-					max_message_size,
-					max_capacity,
-				)),
-			HrmpChannelAccepted { recipient } =>
-				Config::TransactionalProcessor::process(|| Config::HrmpChannelAcceptedHandler::handle(recipient)),
+				Config::TransactionalProcessor::process(|| {
+					Config::HrmpNewChannelOpenRequestHandler::handle(
+						sender,
+						max_message_size,
+						max_capacity,
+					)
+				}),
+			HrmpChannelAccepted { recipient } => Config::TransactionalProcessor::process(|| {
+				Config::HrmpChannelAcceptedHandler::handle(recipient)
+			}),
 			HrmpChannelClosing { initiator, sender, recipient } =>
-				Config::TransactionalProcessor::process(|| Config::HrmpChannelClosingHandler::handle(initiator, sender, recipient)),
+				Config::TransactionalProcessor::process(|| {
+					Config::HrmpChannelClosingHandler::handle(initiator, sender, recipient)
+				}),
 		}
 	}
 }
