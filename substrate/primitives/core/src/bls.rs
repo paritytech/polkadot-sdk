@@ -33,14 +33,11 @@ use crate::{
 	},
 };
 
-use sp_std::vec::Vec;
-
-use codec::Encode;
-
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
+use sp_std::vec::Vec;
 
 use w3f_bls::{
 	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
@@ -244,6 +241,7 @@ trait HardJunctionId {
 
 /// Derive a single hard junction.
 fn derive_hard_junction<T: HardJunctionId>(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
+	use codec::Encode;
 	(T::ID, secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 

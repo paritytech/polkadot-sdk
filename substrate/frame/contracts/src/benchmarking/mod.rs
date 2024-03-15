@@ -2346,7 +2346,7 @@ benchmarks! {
 		let key_type = sp_core::crypto::KeyTypeId(*b"code");
 		let pub_keys_bytes = (0..r)
 			.flat_map(|_| {
-				sp_io::crypto::ecdsa_generate(key_type, None).to_raw()
+				sp_io::crypto::ecdsa_generate(key_type, None).0
 			})
 		.collect::<Vec<_>>();
 		let pub_keys_bytes_len = pub_keys_bytes.len() as i32;

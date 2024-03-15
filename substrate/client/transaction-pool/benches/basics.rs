@@ -50,7 +50,7 @@ impl TestApi {
 fn to_tag(nonce: u64, from: AccountId) -> Tag {
 	let mut data = [0u8; 40];
 	data[..8].copy_from_slice(&nonce.to_le_bytes()[..]);
-	data[8..].copy_from_slice(&from.to_raw()[..]);
+	data[8..].copy_from_slice(&from.0[..]);
 	data.to_vec()
 }
 

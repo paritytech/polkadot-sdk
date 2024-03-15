@@ -398,18 +398,13 @@ where
 		message: Msg,
 		public: &Self::Public,
 	) -> bool {
-		let Ok(left_pub) = public.as_slice()[..LeftPair::Public::LEN].try_into() else {
-			return false
-		};
+		let Ok(left_pub) = public.0[..LeftPair::Public::LEN].try_into() else { return false };
 		let Ok(left_sig) = sig.0[0..LeftPair::Signature::LEN].try_into() else { return false };
 		if !LeftPair::verify(&left_sig, message.as_ref(), &left_pub) {
 			return false
 		}
 
-		let Ok(right_pub) = public.as_slice()[LeftPair::Public::LEN..PUBLIC_KEY_LEN].try_into()
-		else {
-			return false
-		};
+		let Ok(right_pub) = public.0[LeftPair::Public::LEN..].try_into() else { return false };
 		let Ok(right_sig) = sig.0[LeftPair::Signature::LEN..].try_into() else { return false };
 		RightPair::verify(&right_sig, message.as_ref(), &right_pub)
 	}

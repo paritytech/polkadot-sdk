@@ -156,14 +156,14 @@ impl<'de> Deserialize<'de> for Signature {
 #[cfg(feature = "full_crypto")]
 impl From<schnorrkel::Signature> for Signature {
 	fn from(s: schnorrkel::Signature) -> Signature {
-		Signature::from_raw(s.to_bytes())
+		Signature::from(s.to_bytes())
 	}
 }
 
 impl sp_std::fmt::Debug for Signature {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(self.inner()))
+		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
@@ -185,7 +185,7 @@ impl Derive for Public {
 				DeriveJunction::Hard(_cc) => return None,
 			}
 		}
-		Some(Self::from_raw(acc.to_bytes()))
+		Some(Self::from(acc.to_bytes()))
 	}
 }
 
@@ -241,7 +241,7 @@ impl TraitPair for Pair {
 
 	/// Get the public key.
 	fn public(&self) -> Public {
-		Public::from_raw(self.0.public.to_bytes())
+		Public::from(self.0.public.to_bytes())
 	}
 
 	/// Make a new key pair from raw secret seed material.

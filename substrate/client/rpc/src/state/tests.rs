@@ -266,7 +266,7 @@ async fn should_send_initial_storage_changes_and_notifications() {
 		]
 		.concat()
 		.iter()
-		.chain(AccountKeyring::Alice.public().to_raw().iter())
+		.chain(AccountKeyring::Alice.public().0.iter())
 		.cloned()
 		.collect::<Vec<u8>>();
 

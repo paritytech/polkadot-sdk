@@ -460,10 +460,7 @@ pub mod vrf {
 				thin_signature.preouts.into_iter().map(VrfPreOutput).collect();
 			let pre_outputs = VrfIosVec::truncate_from(pre_outputs);
 
-			let mut signature = VrfSignature {
-				signature: Signature::from([0; SIGNATURE_SERIALIZED_SIZE]),
-				pre_outputs,
-			};
+			let mut signature = VrfSignature { signature: Signature::default(), pre_outputs };
 
 			thin_signature
 				.proof

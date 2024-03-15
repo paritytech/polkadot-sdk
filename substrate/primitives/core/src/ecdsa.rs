@@ -17,8 +17,6 @@
 
 //! Simple ECDSA secp256k1 API.
 
-use sp_runtime_interface::pass_by::PassByInner;
-
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::{
@@ -92,14 +90,14 @@ impl Derive for Public {}
 #[cfg(feature = "std")]
 impl From<PublicKey> for Public {
 	fn from(pubkey: PublicKey) -> Self {
-		Self::from_raw(pubkey.serialize())
+		Self::from(pubkey.serialize())
 	}
 }
 
 #[cfg(not(feature = "std"))]
 impl From<VerifyingKey> for Public {
 	fn from(pubkey: VerifyingKey) -> Self {
-		Self::from_raw(
+		Self::from(
 			pubkey.to_sec1_bytes()[..]
 				.try_into()
 				.expect("valid key is serializable to [u8,33]. qed."),
@@ -184,7 +182,7 @@ impl<'de> Deserialize<'de> for Signature {
 impl sp_std::fmt::Debug for Signature {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(self.inner()))
+		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
@@ -203,16 +201,16 @@ impl Signature {
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
 		#[cfg(feature = "std")]
 		{
-			let rid = RecoveryId::from_i32(self.inner()[64] as i32).ok()?;
-			let sig = RecoverableSignature::from_compact(&self.inner()[..64], rid).ok()?;
+			let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
+			let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
 			let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
 			SECP256K1.recover_ecdsa(&message, &sig).ok().map(Public::from)
 		}
 
 		#[cfg(not(feature = "std"))]
 		{
-			let rid = k256::ecdsa::RecoveryId::from_byte(self.inner()[64])?;
-			let sig = k256::ecdsa::Signature::from_bytes((&self.inner()[..64]).into()).ok()?;
+			let rid = k256::ecdsa::RecoveryId::from_byte(self.0[64])?;
+			let sig = k256::ecdsa::Signature::from_bytes((&self.0[..64]).into()).ok()?;
 			VerifyingKey::recover_from_prehash(message, &sig, rid).map(Public::from).ok()
 		}
 	}
@@ -222,8 +220,8 @@ impl Signature {
 impl From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for Signature {
 	fn from(recsig: (k256::ecdsa::Signature, k256::ecdsa::RecoveryId)) -> Signature {
 		let mut r = Self::default();
-		r.as_mut()[..64].copy_from_slice(&recsig.0.to_bytes());
-		r.as_mut()[64] = recsig.1.to_byte();
+		r.0[..64].copy_from_slice(&recsig.0.to_bytes());
+		r.0[64] = recsig.1.to_byte();
 		r
 	}
 }
@@ -233,9 +231,9 @@ impl From<RecoverableSignature> for Signature {
 	fn from(recsig: RecoverableSignature) -> Signature {
 		let mut r = Self::default();
 		let (recid, sig) = recsig.serialize_compact();
-		r.as_mut()[..64].copy_from_slice(&sig);
+		r.0[..64].copy_from_slice(&sig);
 		// This is safe due to the limited range of possible valid ids.
-		r.as_mut()[64] = recid.to_i32() as u8;
+		r.0[64] = recid.to_i32() as u8;
 		r
 	}
 }
@@ -381,12 +379,12 @@ impl Pair {
 			Some((sig, rid))
 		};
 
-		let (sig, rid) = match parse_signature_overflowing(*sig.inner()) {
+		let (sig, rid) = match parse_signature_overflowing(sig.0) {
 			Some(sigri) => sigri,
 			_ => return false,
 		};
 		match libsecp256k1::recover(&message, &sig, &rid) {
-			Ok(actual) => pubkey.inner() == &actual.serialize_compressed(),
+			Ok(actual) => pubkey.0 == actual.serialize_compressed(),
 			_ => false,
 		}
 	}
