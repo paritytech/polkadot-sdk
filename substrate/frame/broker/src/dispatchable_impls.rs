@@ -437,4 +437,36 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::AllowedRenewalDropped { core, when });
 		Ok(())
 	}
+
+	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
+		let mut id_exists = false;
+		let mut other_exists = false;
+		let leases = Leases::<T>::get()
+			.into_inner()
+			.into_iter()
+			.map(|mut lease| {
+				if lease.task == id {
+					lease.task = other;
+					id_exists = true;
+				} else if lease.task == other {
+					lease.task = id;
+					other_exists = true;
+				}
+				lease
+			})
+			.collect::<Vec<_>>();
+
+		ensure!(id_exists && other_exists, Error::<T>::UnknownReservation);
+
+		let leases = if let Ok(leases) = BoundedVec::try_from(leases) {
+			leases
+		} else {
+			defensive!("leases is extracted from a `BoundedVec` without adding new elements so the conversation should always succeed");
+			return Err(DispatchError::Other("Failed to convert leases to BoundedVec"));
+		};
+
+		Leases::<T>::set(leases);
+
+		Ok(())
+	}
 }

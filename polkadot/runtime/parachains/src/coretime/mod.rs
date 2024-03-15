@@ -84,6 +84,8 @@ enum CoretimeCalls {
 	SetLease(pallet_broker::TaskId, pallet_broker::Timeslice),
 	#[codec(index = 19)]
 	NotifyCoreCount(u16),
+	#[codec(index = 20)]
+	SwapLeases(ParaId, ParaId),
 }
 
 #[frame_support::pallet]
@@ -244,7 +246,19 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 
 impl<T: Config> OnSwap for Pallet<T> {
 	fn on_swap(one: ParaId, other: ParaId) {
-		todo!()
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			mk_coretime_call(crate::coretime::CoretimeCalls::SwapLeases(one, other)),
+		]);
+		if let Err(err) = send_xcm::<T::SendXcm>(
+			Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
+			message,
+		) {
+			log::error!("Sending `SwapLeases` to coretime chain failed: {:?}", err);
+		}
 	}
 }
 
