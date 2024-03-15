@@ -1069,38 +1069,33 @@ impl<T: Config> Pallet<T> {
 		cleaned_up_cores.into_iter()
 	}
 
-	/// Forcibly enact the candidate with the given ID as though it had been deemed available
-	/// by bitfields.
+	/// Forcibly enact the pending candidates of the given paraid as though they had been deemed
+	/// available by bitfields.
 	///
 	/// Is a no-op if there is no candidate pending availability for this para-id.
-	/// This should generally not be used but it is useful during execution of Runtime APIs,
+	/// If there are multiple candidates pending availability for this para-id, it will enact all of
+	/// them. This should generally not be used but it is useful during execution of Runtime APIs,
 	/// where the changes to the state are expected to be discarded directly after.
 	pub(crate) fn force_enact(para: ParaId) {
-		// This does not take elastic-scaling into account, it enacts the first candidate.
-		let enacted_candidate =
-			<PendingAvailability<T>>::mutate(&para, |candidates| match candidates {
-				Some(candidates) => candidates.pop_front(),
-				// TODO: this should also check the descendants, as they may have been made
-				// available before their parent. Or just change the semantic of force_enact to
-				// enact all candidates of a para.
-				_ => None,
-			});
+		<PendingAvailability<T>>::mutate(&para, |candidates| {
+			if let Some(candidates) = candidates {
+				for candidate in candidates.drain(..) {
+					let receipt = CommittedCandidateReceipt {
+						descriptor: candidate.descriptor,
+						commitments: candidate.commitments,
+					};
 
-		if let Some(candidate) = enacted_candidate {
-			let receipt = CommittedCandidateReceipt {
-				descriptor: candidate.descriptor,
-				commitments: candidate.commitments,
-			};
-
-			Self::enact_candidate(
-				candidate.relay_parent_number,
-				receipt,
-				candidate.backers,
-				candidate.availability_votes,
-				candidate.core,
-				candidate.backing_group,
-			);
-		}
+					Self::enact_candidate(
+						candidate.relay_parent_number,
+						receipt,
+						candidate.backers,
+						candidate.availability_votes,
+						candidate.core,
+						candidate.backing_group,
+					);
+				}
+			}
+		});
 	}
 
 	/// Returns the first `CommittedCandidateReceipt` pending availability for the para provided, if

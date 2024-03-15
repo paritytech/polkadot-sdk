@@ -202,8 +202,8 @@ pub fn assumed_validation_data<T: initializer::Config>(
 	};
 
 	let persisted_validation_data = make_validation_data().or_else(|| {
-		// Try again with force enacting the core. This check only makes sense if
-		// the core is occupied.
+		// Try again with force enacting the pending candidates. This check only makes sense if
+		// there are any pending candidates.
 		<inclusion::Pallet<T>>::pending_availability(para_id).and_then(|_| {
 			<inclusion::Pallet<T>>::force_enact(para_id);
 			make_validation_data()
