@@ -18,31 +18,30 @@
 //! # Tokens in Substrate
 //!
 //! This reference doc serves as a high-level overview of the token-related logic in Substrate and
-//! how to use it.
+//! how to properly apply it to your usecase.
 //!
 //! On completion of reading this doc, you should have a good understanding of
 //! - The distinction between token traits and trait implementations in Substrate, and why this
 //!   distinction is helpful
-//! - The token-related traits avaliable in Substrate
-//! - The token-related trait implementations in Substrate
+//! - Token-related traits avaliable in Substrate
+//! - Token-related trait implementations in Substrate
 //! - How to choose the right trait or trait implementation for your use case
 //! - Where to go next
 //!
 //! ## Traits and Trait Implementations
 //!
-//! Broardly speaking, token logic in Substrate can be divided into two categories: traits, and
+//! Broardly speaking, token logic in Substrate can be divided into two categories: traits and
 //! trait implementations.
 //!
-//! *Traits* define common interfaces that types of token should implement. For example, the
-//! [`frame_support::traits::fungible::Inspect`] trait specifies that implementations of this trait
-//! must contain methods for accessing the total issuance of the token, the balance of individual
-//! accounts, etc.
+//! **Traits** define common interfaces that types of token should implement. For example, the
+//! [`frame_support::traits::fungible::Inspect`] trait specifies an interface for *inspecting*
+//! token state such as the total issuance of the token, the balance of individual accounts, etc.
 //!
-//! *Trait implementations* are concrete implementations of these traits. For example, one of the
+//! **Trait implementations** are concrete implementations of these traits. For example, one of the
 //! many traits [`pallet_balances`] implements is [`frame_support::traits::fungible::Inspect`].
 //!
 //! The distinction between traits and trait implementations is helpful because it allows pallets
-//! and other logic to be generic over their dependencies, avoiding cumbersome and unwieldy tight
+//! and other logic to be generic over their dependencies, avoiding cumbersome pallet tight
 //! coupling.
 //!
 //! To illustrate this with an example let's consider [`pallet_preimage`]. This pallet takes a
@@ -50,12 +49,13 @@
 //! pallet may use [`pallet_balances`] as a dependency, and directly call the methods exposed by
 //! [`pallet_balances`] to reserve and unreserve deposits. This approach works well, until someone
 //! has a usecase requiring that an asset from a different pallet such as [`pallet_assets`] is
-//! used for the deposit. Rather than tightly couple [`pallet_preimage`] to [`pallet_balances`],
+//! used for the deposit. Rather than tightly couple [`pallet_preimage`] to [`pallet_balances`] AND
 //! [`pallet_assets`], along with every other token type pallet a user could possibly specify,
 //! [`pallet_preimage`] does not specify a concrete pallet as a dependency but instead accepts any
-//! dependency which implements the `Reservable` trait. This allows [`pallet_preimage`] to support
-//! any arbitrary pallet implementing this trait, without needing any knowledge of what those
-//! pallets may be or requiring changes to support new pallets which may be written.
+//! dependency which implements the [`frame_support::traits::tokens::currency::ReservableCurrency`]
+//! trait. This allows [`pallet_preimage`] to support any arbitrary pallet implementing this trait,
+//! without needing any knowledge of what those pallets may be or requiring changes to support new
+//! pallets which may be written in the future.
 //!
 //! ## Fungible Token Traits in Substrate
 //!

@@ -17,7 +17,16 @@
 
 //! # Assets Pallet
 //!
-//! A simple, secure module for dealing with fungible assets.
+//! A simple, secure module for dealing with sets of assets implementing
+//! [`fungible`](frame_support::traits::fungible) traits, via
+//! [`fungibles`](frame_support::traits::fungibles) traits.
+//!
+//! The pallet makes heavy use of concepts such as Holds and Freezes from the
+//! [`frame_support::traits::fungible`] traits, therefore you should read and understand those docs
+//! as a prerequisite to understanding this pallet.
+//!
+//! See the [`tokens_in_substrate`] reference docs for more information about the place of the
+//! Assets pallet in Substrate.
 //!
 //! ## Overview
 //!
@@ -133,6 +142,8 @@
 //!
 //! * [`System`](../frame_system/index.html)
 //! * [`Support`](../frame_support/index.html)
+//!
+//! [`tokens_in_substrate`]: ../polkadot_sdk_docs/reference_docs/tokens_in_substrate/index.html
 
 // This recursion limit is needed because we have too many benchmarks and benchmarking will fail if
 // we add more without this limit.

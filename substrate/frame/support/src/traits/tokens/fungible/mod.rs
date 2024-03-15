@@ -17,7 +17,7 @@
 
 //! The traits for dealing with a single fungible token class and any associated types.
 //!
-//! See the [`tokens_in_substrate`] reference docs for more information about the place of
+//! Also see the [`tokens_in_substrate`] reference docs for more information about the place of
 //! `fungible` traits in Substrate.
 //!
 //! # Avaliable Traits
@@ -43,43 +43,47 @@
 //!
 //! ## Terminology
 //!
-//! ### Total Balance
+//! - **Total Issuance**: The total number of units in existence in a system.
 //!
-//! The sum of an accounts free and held balances.
+//! - **Total Balance**: The sum of an accounts free and held balances.
 //!
-//! ### Free Balance
+//! - **Free Balance**: A portion of an accounts total balance that is not held.
 //!
-//! A portion of an accounts total balance that is not held.
+//! - **Held Balance**: Held balance still belongs to the account holder, but is suspended. It can
+//!   be slashed, but only after all the free balance has been slashed.
 //!
-//! ### Held Balance
+//!   Multiple holds stack rather than overlay. This means that if an account has
+//!   3 locks for 100 units, the account can spend it's funds for any reason down to 300 units, at
+//!   which point the holds will start to come into play.
 //!
-//! A portion of a users total balance that is not free.
+//! - **Frozen Balance**: A freeze on a specified amount of an account's free balance until a
+//!   specified block number.
 //!
-//! Multiple holds stack rather than overlay. This means that if an account has
-//! 3 locks for 100 units, the account can spend it's funds for any reason down to 300 units, at
-//! which point the holds will start to come into play.
+//!   Multiple freezes always operate over the same funds, so they "overlay" rather than
+//!   "stack". This means that if an account has 3 freezes for 100 units, the account can spend it's
+//!   funds for any reason down to 100 units, at which point the freezes will start to come into
+//!   play.
 //!
-//! Multiple holds are stack on top of another (cumulative) rather than overlay another.
+//! - **Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)**: The minimum balance required to
+//!   create or keep an account open. This is to prevent "dust accounts" from filling storage. When
+//!   the free plus the held balance (i.e. the total balance) fall below this, then the account is
+//!   said to be dead; and it loses its functionality as well as any prior history and all
+//!   information on it is removed from the chain's state. No account should ever have a total
+//!   balance that is strictly between 0 and the existential deposit (exclusive). If this ever
+//!   happens, it indicates either a bug in this pallet or an erroneous raw mutation of storage.
 //!
-//! ### Frozen Balance
+//! - **Untouchable Balance**: The part of a users free balance they cannot spend, due to ED or
+//!   Freeze/s.
 //!
-//! An minimum amount a user should not be allowed to withdraw below.
+//! - **Spendable Balance**: The part of a users free balance they can spend.
 //!
-//! Multiple freezes overlay rather than stack on top of another. This means that if an account has
-//! 3 locks for 100 units, the account can spend it's funds for any reason down to 100 units, at
-//! which point the freezes will start to come into play.
+//! - **Imbalance**: A condition when some funds were credited or debited without equal and opposite
+//!   accounting (i.e. a difference between total issuance and account balances). Functions that
+//!   result in an imbalance will return an object of the [`imbalance::Credit`] or
+//!   [`imbalance::Debt`] traits that can be managed within your runtime logic.
 //!
-//! ### Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)
-//!
-//! The minimum amount of balance that an account must have to exist.
-//!
-//! ### Untouchable Balance
-//!
-//! The part of a users free balance they cannot spend, due to ED or Freeze/s.
-//!
-//! ### Spendable Balance
-//!
-//! The part of a users free balance they can spend.
+//!   If an imbalance is simply dropped, it should automatically maintain any book-keeping such as
+//!   total issuance.
 //!
 //! ## Visualising Balance Components Together 💫
 //!
@@ -108,6 +112,11 @@
 //! |__freeze_c________|
 //! |__frozen_________________| // <- the max of all freezes
 //! ```
+//!
+//! ## Sets of Tokens
+//!
+//! For managing sets of tokens, see the [`fungibles`](`frame_support::traits::fungibles`) trait
+//! which is a wrapper around this trait but supporting multiple asset instances.
 //!
 //! [`tokens_in_substrate`]: ../../../../polkadot_sdk_docs/reference_docs/tokens_in_substrate/index.html
 

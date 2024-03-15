@@ -15,7 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The traits for sets of fungible tokens and any associated types.
+//! The traits for *sets* of [`fungible`](`frame_support::traits::fungible`) tokens and any
+//! associated types.
+//!
+//! Also see the [`tokens_in_substrate`] reference docs for more information about the place of
+//! `fungible` traits in Substrate.
+//!
+//! [`tokens_in_substrate`]: ../../../../polkadot_sdk_docs/reference_docs/tokens_in_substrate/index.html
 
 pub mod approvals;
 mod enumerable;
