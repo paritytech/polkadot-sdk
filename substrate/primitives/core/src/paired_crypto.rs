@@ -21,12 +21,9 @@ use core::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::{
-	byte_array::{PublicBytes, SignatureBytes},
-	crypto::{
-		ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair as PairT,
-		Public as PublicT, SecretStringError, UncheckedFrom,
-	},
+use crate::crypto::{
+	ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair as PairT, Public as PublicT,
+	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
 };
 
 use sp_std::vec::Vec;

@@ -32,17 +32,17 @@ use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 /// The type is generic over a constant length `N` and a "tag" `T` which
 /// can be used to specialize the byte array without using newtypes.
 #[derive(Encode, Decode, MaxEncodedLen)]
-pub struct ByteArray<const N: usize, T = ()>(pub [u8; N], PhantomData<fn() -> T>);
+pub struct CryptoBytes<const N: usize, T = ()>(pub [u8; N], PhantomData<fn() -> T>);
 
-impl<const N: usize, T> Copy for ByteArray<N, T> {}
+impl<const N: usize, T> Copy for CryptoBytes<N, T> {}
 
-impl<const N: usize, T> Clone for ByteArray<N, T> {
+impl<const N: usize, T> Clone for CryptoBytes<N, T> {
 	fn clone(&self) -> Self {
 		Self(self.0, PhantomData)
 	}
 }
 
-impl<const N: usize, T> TypeInfo for ByteArray<N, T> {
+impl<const N: usize, T> TypeInfo for CryptoBytes<N, T> {
 	type Identity = [u8; N];
 
 	fn type_info() -> scale_info::Type {
@@ -50,39 +50,39 @@ impl<const N: usize, T> TypeInfo for ByteArray<N, T> {
 	}
 }
 
-impl<const N: usize, T> PartialOrd for ByteArray<N, T> {
+impl<const N: usize, T> PartialOrd for CryptoBytes<N, T> {
 	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
 		self.0.partial_cmp(&other.0)
 	}
 }
 
-impl<const N: usize, T> Ord for ByteArray<N, T> {
+impl<const N: usize, T> Ord for CryptoBytes<N, T> {
 	fn cmp(&self, other: &Self) -> core::cmp::Ordering {
 		self.0.cmp(&other.0)
 	}
 }
 
-impl<const N: usize, T> PartialEq for ByteArray<N, T> {
+impl<const N: usize, T> PartialEq for CryptoBytes<N, T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.0.eq(&other.0)
 	}
 }
 
-impl<const N: usize, T> core::hash::Hash for ByteArray<N, T> {
+impl<const N: usize, T> core::hash::Hash for CryptoBytes<N, T> {
 	fn hash<H: scale_info::prelude::hash::Hasher>(&self, state: &mut H) {
 		self.0.hash(state)
 	}
 }
 
-impl<const N: usize, T> Eq for ByteArray<N, T> {}
+impl<const N: usize, T> Eq for CryptoBytes<N, T> {}
 
-impl<const N: usize, T> Default for ByteArray<N, T> {
+impl<const N: usize, T> Default for CryptoBytes<N, T> {
 	fn default() -> Self {
 		Self([0_u8; N], PhantomData)
 	}
 }
 
-impl<const N: usize, T> PassByInner for ByteArray<N, T> {
+impl<const N: usize, T> PassByInner for CryptoBytes<N, T> {
 	type Inner = [u8; N];
 
 	fn into_inner(self) -> Self::Inner {
@@ -98,41 +98,41 @@ impl<const N: usize, T> PassByInner for ByteArray<N, T> {
 	}
 }
 
-impl<const N: usize, T> PassBy for ByteArray<N, T> {
+impl<const N: usize, T> PassBy for CryptoBytes<N, T> {
 	type PassBy = pass_by::Inner<Self, [u8; N]>;
 }
 
-impl<const N: usize, T> AsRef<[u8]> for ByteArray<N, T> {
+impl<const N: usize, T> AsRef<[u8]> for CryptoBytes<N, T> {
 	fn as_ref(&self) -> &[u8] {
 		&self.0[..]
 	}
 }
 
-impl<const N: usize, T> AsMut<[u8]> for ByteArray<N, T> {
+impl<const N: usize, T> AsMut<[u8]> for CryptoBytes<N, T> {
 	fn as_mut(&mut self) -> &mut [u8] {
 		&mut self.0[..]
 	}
 }
 
-impl<const N: usize, T> From<ByteArray<N, T>> for [u8; N] {
-	fn from(v: ByteArray<N, T>) -> [u8; N] {
+impl<const N: usize, T> From<CryptoBytes<N, T>> for [u8; N] {
+	fn from(v: CryptoBytes<N, T>) -> [u8; N] {
 		v.0
 	}
 }
 
-impl<const N: usize, T> AsRef<[u8; N]> for ByteArray<N, T> {
+impl<const N: usize, T> AsRef<[u8; N]> for CryptoBytes<N, T> {
 	fn as_ref(&self) -> &[u8; N] {
 		&self.0
 	}
 }
 
-impl<const N: usize, T> From<[u8; N]> for ByteArray<N, T> {
+impl<const N: usize, T> From<[u8; N]> for CryptoBytes<N, T> {
 	fn from(value: [u8; N]) -> Self {
 		Self::from_raw(value)
 	}
 }
 
-impl<const N: usize, T> TryFrom<&[u8]> for ByteArray<N, T> {
+impl<const N: usize, T> TryFrom<&[u8]> for CryptoBytes<N, T> {
 	type Error = ();
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
@@ -145,13 +145,13 @@ impl<const N: usize, T> TryFrom<&[u8]> for ByteArray<N, T> {
 	}
 }
 
-impl<const N: usize, T> UncheckedFrom<[u8; N]> for ByteArray<N, T> {
+impl<const N: usize, T> UncheckedFrom<[u8; N]> for CryptoBytes<N, T> {
 	fn unchecked_from(data: [u8; N]) -> Self {
 		Self::from_raw(data)
 	}
 }
 
-impl<const N: usize, T> core::ops::Deref for ByteArray<N, T> {
+impl<const N: usize, T> core::ops::Deref for CryptoBytes<N, T> {
 	type Target = [u8];
 
 	fn deref(&self) -> &Self::Target {
@@ -159,7 +159,7 @@ impl<const N: usize, T> core::ops::Deref for ByteArray<N, T> {
 	}
 }
 
-impl<const N: usize, T> ByteArray<N, T> {
+impl<const N: usize, T> CryptoBytes<N, T> {
 	/// Construct from raw array.
 	pub fn from_raw(inner: [u8; N]) -> Self {
 		Self(inner, PhantomData)
@@ -176,11 +176,11 @@ impl<const N: usize, T> ByteArray<N, T> {
 	}
 }
 
-impl<const N: usize, T> crate::ByteArray for ByteArray<N, T> {
+impl<const N: usize, T> crate::ByteArray for CryptoBytes<N, T> {
 	const LEN: usize = N;
 }
 
-impl<const N: usize, T> FromEntropy for ByteArray<N, T> {
+impl<const N: usize, T> FromEntropy for CryptoBytes<N, T> {
 	fn from_entropy(input: &mut impl codec::Input) -> Result<Self, codec::Error> {
 		let mut result = Self::default();
 		input.read(result.as_mut())?;
@@ -188,76 +188,46 @@ impl<const N: usize, T> FromEntropy for ByteArray<N, T> {
 	}
 }
 
-impl<T> From<ByteArray<32, T>> for H256 {
-	fn from(x: ByteArray<32, T>) -> H256 {
+impl<T> From<CryptoBytes<32, T>> for H256 {
+	fn from(x: CryptoBytes<32, T>) -> H256 {
 		H256::from(x.0)
 	}
 }
 
-impl<T> From<ByteArray<64, T>> for H512 {
-	fn from(x: ByteArray<64, T>) -> H512 {
+impl<T> From<CryptoBytes<64, T>> for H512 {
+	fn from(x: CryptoBytes<64, T>) -> H512 {
 		H512::from(x.0)
 	}
 }
 
-impl<T> UncheckedFrom<H256> for ByteArray<32, T> {
+impl<T> UncheckedFrom<H256> for CryptoBytes<32, T> {
 	fn unchecked_from(x: H256) -> Self {
 		Self::from_h256(x)
 	}
 }
 
-impl<T> ByteArray<32, T> {
+impl<T> CryptoBytes<32, T> {
 	/// A new instance from an H256.
 	pub fn from_h256(x: H256) -> Self {
 		Self::from_raw(x.into())
 	}
 }
 
-impl<T> ByteArray<64, T> {
+impl<T> CryptoBytes<64, T> {
 	/// A new instance from an H512.
 	pub fn from_h512(x: H512) -> Self {
 		Self::from_raw(x.into())
 	}
 }
 
-/// Tag used for public key bytes.
+/// Tag used for generic public key bytes.
 pub struct PublicTag;
 
-/// A generic encoded public key.
-pub type PublicBytes<const N: usize, SubTag> = ByteArray<N, (PublicTag, SubTag)>;
+/// Generic encoded public key.
+pub type PublicBytes<const N: usize, SubTag> = CryptoBytes<N, (PublicTag, SubTag)>;
 
-/// Tag used for public key bytes.
+/// Tag used for generic signature bytes.
 pub struct SignatureTag;
 
-/// A generic encoded public key.
-pub type SignatureBytes<const N: usize, SubTag> = ByteArray<N, (SignatureTag, SubTag)>;
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	struct Tag<const I: u8 = 0>;
-
-	type Foo = ByteArray<32, Tag>;
-	type Bar = ByteArray<32, Tag<1>>;
-
-	fn print_foo(f: &Foo) {
-		println!("{:02x?}", f.inner());
-	}
-
-	fn print_bar(f: &Bar) {
-		println!("{:02x?}", f.inner());
-	}
-
-	#[test]
-	fn byte_array_works() {
-		let foo = Foo::default();
-		let bar = Bar::default();
-
-		print_foo(&foo);
-		print_bar(&bar);
-
-		// Different Tag!
-		// print_bar(&foo);
-	}
-}
+/// Generic encoded signature.
+pub type SignatureBytes<const N: usize, SubTag> = CryptoBytes<N, (SignatureTag, SubTag)>;

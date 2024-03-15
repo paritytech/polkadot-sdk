@@ -24,12 +24,10 @@
 use crate::crypto::Ss58Codec;
 #[cfg(feature = "full_crypto")]
 use crate::crypto::VrfSecret;
-use crate::{
-	byte_array::{PublicBytes, SignatureBytes},
-	crypto::{
-		ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction,
-		Pair as TraitPair, Public as TraitPublic, SecretStringError, UncheckedFrom, VrfPublic,
-	},
+use crate::crypto::{
+	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
+	Public as TraitPublic, PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
+	VrfPublic,
 };
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};

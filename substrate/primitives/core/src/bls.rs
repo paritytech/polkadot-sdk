@@ -25,12 +25,9 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::{
-	byte_array::{PublicBytes, SignatureBytes},
-	crypto::{
-		CryptoType, Derive, DeriveError, DeriveJunction, Pair as TraitPair, Public as TraitPublic,
-		SecretStringError, UncheckedFrom,
-	},
+use crate::crypto::{
+	CryptoType, Derive, DeriveError, DeriveJunction, Pair as TraitPair, Public as TraitPublic,
+	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
 };
 
 #[cfg(feature = "serde")]

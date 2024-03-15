@@ -19,12 +19,9 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::{
-	byte_array::{PublicBytes, SignatureBytes},
-	crypto::{
-		ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction,
-		Pair as TraitPair, Public as TraitPublic, SecretStringError,
-	},
+use crate::crypto::{
+	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
+	Public as TraitPublic, PublicBytes, SecretStringError, SignatureBytes,
 };
 
 use ed25519_zebra::{SigningKey, VerificationKey};

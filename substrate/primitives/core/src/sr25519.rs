@@ -31,9 +31,8 @@ use schnorrkel::{
 };
 use sp_std::vec::Vec;
 
-use crate::{
-	byte_array::{PublicBytes, SignatureBytes},
-	crypto::{CryptoType, CryptoTypeId, Derive, Public as TraitPublic},
+use crate::crypto::{
+	CryptoType, CryptoTypeId, Derive, Public as TraitPublic, PublicBytes, SignatureBytes,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
