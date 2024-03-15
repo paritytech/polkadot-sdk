@@ -60,7 +60,7 @@
 //!   specified block number.
 //!
 //!   Multiple freezes always operate over the same funds, so they "overlay" rather than
-//!   "stack". This means that if an account has 3 freezes for 100 units, the account can spend it's
+//!   "stack". This means that if an account has 3 freezes for 100 units, the account can spend its
 //!   funds for any reason down to 100 units, at which point the freezes will start to come into
 //!   play.
 //!
