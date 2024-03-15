@@ -18,10 +18,7 @@
 
 use crate::usage::BenchmarkUsage;
 use itertools::Itertools;
-use std::{
-	collections::HashMap,
-	io::{stdout, Write},
-};
+use std::collections::HashMap;
 
 pub struct WarmUpOptions<'a> {
 	/// The maximum number of runs considered for marming up.
