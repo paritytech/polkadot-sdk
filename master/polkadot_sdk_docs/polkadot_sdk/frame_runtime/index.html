@@ -276,7 +276,7 @@ next to the <a href="../../../frame_system/index.html" title="mod frame_system">
 	);
 
 	<span class="comment">// These `impl` blocks specify the parameters of each pallet&#39;s `trait Config`.
-	</span><span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	</span><span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
 		<span class="kw">type </span>Block = MockBlock&lt;<span class="self">Self</span>&gt;;
 	}

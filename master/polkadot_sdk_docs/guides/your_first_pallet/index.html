@@ -365,7 +365,7 @@ and the one we just wrote.</p>
 		}
 	);
 
-	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
 		<span class="kw">type </span>Block = MockBlock&lt;Runtime&gt;;
 		<span class="comment">// within pallet we just said `&lt;T as frame_system::Config&gt;::AccountId`, now we
@@ -697,7 +697,7 @@ setup.</p>
 		}
 	);
 
-	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
 		<span class="kw">type </span>Block = MockBlock&lt;Runtime&gt;;
 		<span class="kw">type </span>AccountId = u64;

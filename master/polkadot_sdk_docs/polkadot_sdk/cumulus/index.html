@@ -170,7 +170,7 @@ Notably:</p>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>system_pallets {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
 		<span class="kw">type </span>Block = MockBlock&lt;<span class="self">Self</span>&gt;;
 		<span class="kw">type </span>OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode&lt;<span class="self">Self</span>&gt;;
@@ -218,7 +218,7 @@ pallets also need to be added:</p>
 		</span><span class="kw">type </span>SlotDuration = pallet_aura::MinimumPeriodTimesTwo&lt;<span class="self">Self</span>&gt;;
 	}
 
-	<span class="attr">#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig <span class="kw">as </span>pallet_timestamp::DefaultConfig)]
+	<span class="attr">#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 	</span><span class="kw">impl </span>pallet_timestamp::Config <span class="kw">for </span>Runtime {}
 
 	<span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
