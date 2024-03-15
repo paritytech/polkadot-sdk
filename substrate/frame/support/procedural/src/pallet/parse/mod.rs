@@ -558,8 +558,6 @@ mod keyword {
 	syn::custom_keyword!(validate_unsigned);
 	syn::custom_keyword!(type_value);
 	syn::custom_keyword!(pallet);
-	syn::custom_keyword!(generate_store);
-	syn::custom_keyword!(Store);
 	syn::custom_keyword!(extra_constants);
 	syn::custom_keyword!(composite_enum);
 }
