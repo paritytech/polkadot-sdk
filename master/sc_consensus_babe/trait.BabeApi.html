@@ -159,7 +159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="item-spacer"></span>    fn <a href="#method.current_epoch_start" class="fn">current_epoch_start</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as Block&gt;::Hash
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Slot, ApiError&gt; { ... }
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>, ApiError&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.current_epoch" class="fn">current_epoch</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as Block&gt;::Hash
@@ -171,13 +171,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="item-spacer"></span>    fn <a href="#method.generate_key_ownership_proof" class="fn">generate_key_ownership_proof</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as Block&gt;::Hash,
-        slot: Slot,
+        slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>,
         authority_id: Public
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;OpaqueKeyOwnershipProof&gt;, ApiError&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.submit_report_equivocation_unsigned_extrinsic" class="fn">submit_report_equivocation_unsigned_extrinsic</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as Block&gt;::Hash,
-        equivocation_proof: EquivocationProof&lt;&lt;Block as Block&gt;::Header, Public&gt;,
+        equivocation_proof: <a class="struct" href="../sp_consensus_slots/struct.EquivocationProof.html" title="struct sp_consensus_slots::EquivocationProof">EquivocationProof</a>&lt;&lt;Block as Block&gt;::Header, Public&gt;,
         key_owner_proof: OpaqueKeyOwnershipProof
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;, ApiError&gt; { ... }
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>API necessary for block authorship with BABE.</p>
@@ -192,7 +192,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><details class="toggle method-toggle" open><summary><section id="method.current_epoch_start" class="method"><h4 class="code-header">fn <a href="#method.current_epoch_start" class="fn">current_epoch_start</a>(
     &amp;self,
     __runtime_api_at_param__: &lt;Block as Block&gt;::Hash
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Slot, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the slot that started the current epoch.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the slot that started the current epoch.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.current_epoch" class="method"><h4 class="code-header">fn <a href="#method.current_epoch" class="fn">current_epoch</a>(
     &amp;self,
     __runtime_api_at_param__: &lt;Block as Block&gt;::Hash
@@ -205,7 +205,7 @@ previously announced).</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.generate_key_ownership_proof" class="method"><h4 class="code-header">fn <a href="#method.generate_key_ownership_proof" class="fn">generate_key_ownership_proof</a>(
     &amp;self,
     __runtime_api_at_param__: &lt;Block as Block&gt;::Hash,
-    slot: Slot,
+    slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>,
     authority_id: Public
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;OpaqueKeyOwnershipProof&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Generates a proof of key ownership for the given authority in the
 current epoch. An example usage of this module is coupled with the
@@ -221,7 +221,7 @@ worker, not requiring older states to be available.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.submit_report_equivocation_unsigned_extrinsic" class="method"><h4 class="code-header">fn <a href="#method.submit_report_equivocation_unsigned_extrinsic" class="fn">submit_report_equivocation_unsigned_extrinsic</a>(
     &amp;self,
     __runtime_api_at_param__: &lt;Block as Block&gt;::Hash,
-    equivocation_proof: EquivocationProof&lt;&lt;Block as Block&gt;::Header, Public&gt;,
+    equivocation_proof: <a class="struct" href="../sp_consensus_slots/struct.EquivocationProof.html" title="struct sp_consensus_slots::EquivocationProof">EquivocationProof</a>&lt;&lt;Block as Block&gt;::Header, Public&gt;,
     key_owner_proof: OpaqueKeyOwnershipProof
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Submits an unsigned extrinsic to report an equivocation. The caller
 must provide the equivocation proof and a key ownership proof

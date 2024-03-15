@@ -160,13 +160,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="item-spacer"></span>    fn <a href="#tymethod.aux_data" class="fn">aux_data</a>(
         &amp;self,
         header: &amp;B::Header,
-        slot: Slot
+        slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.AuxData" title="type sc_consensus_slots::SimpleSlotWorker::AuxData">AuxData</a>, Error&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.authorities_len" class="fn">authorities_len</a>(&amp;self, aux_data: &amp;Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.AuxData" title="type sc_consensus_slots::SimpleSlotWorker::AuxData">AuxData</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.claim_slot" class="fn">claim_slot</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
         &amp;'life0 mut self,
         header: &amp;'life1 B::Header,
-        slot: Slot,
+        slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>,
         aux_data: &amp;'life2 Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.AuxData" title="type sc_consensus_slots::SimpleSlotWorker::AuxData">AuxData</a>
     ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.Claim" title="type sc_consensus_slots::SimpleSlotWorker::Claim">Claim</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
        <span class="where">where Self: 'async_trait,
@@ -175,7 +175,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
              'life2: 'async_trait</span>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.pre_digest_data" class="fn">pre_digest_data</a>(
         &amp;self,
-        slot: Slot,
+        slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>,
         claim: &amp;Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.Claim" title="type sc_consensus_slots::SimpleSlotWorker::Claim">Claim</a>
     ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;DigestItem&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.block_import_params" class="fn">block_import_params</a>&lt;'life0, 'life1, 'async_trait&gt;(
@@ -201,10 +201,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     fn <a href="#method.notify_slot" class="fn">notify_slot</a>(
         &amp;self,
         _header: &amp;B::Header,
-        _slot: Slot,
+        _slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>,
         _aux_data: &amp;Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.AuxData" title="type sc_consensus_slots::SimpleSlotWorker::AuxData">AuxData</a>
     ) { ... }
-<span class="item-spacer"></span>    fn <a href="#method.should_backoff" class="fn">should_backoff</a>(&amp;self, _slot: Slot, _chain_head: &amp;B::Header) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.should_backoff" class="fn">should_backoff</a>(&amp;self, _slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>, _chain_head: &amp;B::Header) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a> { ... }
 <span class="item-spacer"></span>    fn <a href="#method.propose" class="fn">propose</a>&lt;'life0, 'life1, 'async_trait&gt;(
         &amp;'life0 mut self,
         proposer: Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.Proposer" title="type sc_consensus_slots::SimpleSlotWorker::Proposer">Proposer</a>,
@@ -244,21 +244,21 @@ justification sync process.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.aux_data" class="method"><a class="src rightside" href="../src/sc_consensus_slots/lib.rs.html#117-121">source</a><h4 class="code-header">fn <a href="#tymethod.aux_data" class="fn">aux_data</a>(
     &amp;self,
     header: &amp;B::Header,
-    slot: Slot
+    slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.AuxData" title="type sc_consensus_slots::SimpleSlotWorker::AuxData">AuxData</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Returns the auxiliary data necessary for authoring.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.authorities_len" class="method"><a class="src rightside" href="../src/sc_consensus_slots/lib.rs.html#125">source</a><h4 class="code-header">fn <a href="#tymethod.authorities_len" class="fn">authorities_len</a>(&amp;self, aux_data: &amp;Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.AuxData" title="type sc_consensus_slots::SimpleSlotWorker::AuxData">AuxData</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the number of authorities.
 None indicate that the authorities information is incomplete.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.claim_slot" class="method"><a class="src rightside" href="../src/sc_consensus_slots/lib.rs.html#128-133">source</a><h4 class="code-header">fn <a href="#tymethod.claim_slot" class="fn">claim_slot</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
     &amp;'life0 mut self,
     header: &amp;'life1 B::Header,
-    slot: Slot,
+    slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>,
     aux_data: &amp;'life2 Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.AuxData" title="type sc_consensus_slots::SimpleSlotWorker::AuxData">AuxData</a>
 ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.Claim" title="type sc_consensus_slots::SimpleSlotWorker::Claim">Claim</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
     Self: 'async_trait,
     'life0: 'async_trait,
     'life1: 'async_trait,
     'life2: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Tries to claim the given slot, returning an object with claim data if successful.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.pre_digest_data" class="method"><a class="src rightside" href="../src/sc_consensus_slots/lib.rs.html#140">source</a><h4 class="code-header">fn <a href="#tymethod.pre_digest_data" class="fn">pre_digest_data</a>(&amp;self, slot: Slot, claim: &amp;Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.Claim" title="type sc_consensus_slots::SimpleSlotWorker::Claim">Claim</a>) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;DigestItem&gt;</h4></section></summary><div class="docblock"><p>Return the pre digest data to include in a block authored with the given claim.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.pre_digest_data" class="method"><a class="src rightside" href="../src/sc_consensus_slots/lib.rs.html#140">source</a><h4 class="code-header">fn <a href="#tymethod.pre_digest_data" class="fn">pre_digest_data</a>(&amp;self, slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>, claim: &amp;Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.Claim" title="type sc_consensus_slots::SimpleSlotWorker::Claim">Claim</a>) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;DigestItem&gt;</h4></section></summary><div class="docblock"><p>Return the pre digest data to include in a block authored with the given claim.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.block_import_params" class="method"><a class="src rightside" href="../src/sc_consensus_slots/lib.rs.html#143-151">source</a><h4 class="code-header">fn <a href="#tymethod.block_import_params" class="fn">block_import_params</a>&lt;'life0, 'life1, 'async_trait&gt;(
     &amp;'life0 self,
     header: B::Header,
@@ -280,11 +280,11 @@ None indicate that the authorities information is incomplete.</p>
 </div></details></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.notify_slot" class="method"><a class="src rightside" href="../src/sc_consensus_slots/lib.rs.html#137">source</a><h4 class="code-header">fn <a href="#method.notify_slot" class="fn">notify_slot</a>(
     &amp;self,
     _header: &amp;B::Header,
-    _slot: Slot,
+    _slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>,
     _aux_data: &amp;Self::<a class="associatedtype" href="trait.SimpleSlotWorker.html#associatedtype.AuxData" title="type sc_consensus_slots::SimpleSlotWorker::AuxData">AuxData</a>
 )</h4></section></summary><div class="docblock"><p>Notifies the given slot. Similar to <code>claim_slot</code>, but will be called no matter whether we
 need to author blocks or not.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.should_backoff" class="method"><a class="src rightside" href="../src/sc_consensus_slots/lib.rs.html#162-164">source</a><h4 class="code-header">fn <a href="#method.should_backoff" class="fn">should_backoff</a>(&amp;self, _slot: Slot, _chain_head: &amp;B::Header) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether the block production should back off.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.should_backoff" class="method"><a class="src rightside" href="../src/sc_consensus_slots/lib.rs.html#162-164">source</a><h4 class="code-header">fn <a href="#method.should_backoff" class="fn">should_backoff</a>(&amp;self, _slot: <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>, _chain_head: &amp;B::Header) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether the block production should back off.</p>
 <p>By default this function always returns <code>false</code>.</p>
 <p>An example strategy that back offs if the finalized head is lagging too much behind the tip
 is implemented by <a href="struct.BackoffAuthoringOnFinalizedHeadLagging.html" title="struct sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging"><code>BackoffAuthoringOnFinalizedHeadLagging</code></a>.</p>
