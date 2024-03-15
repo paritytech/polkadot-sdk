@@ -608,7 +608,7 @@ mod test {
 		let signature = pair.sign(&message[..]);
 
 		let serialized_signature = serde_json::to_string(&signature).unwrap();
-		println!("{:?} -- {:}", signature.inner, serialized_signature);
+		println!("{:?} -- {:}", signature.0, serialized_signature);
 		// Signature is 177 bytes, hexify * 2 + 2 quote charsy
 		assert_eq!(serialized_signature.len(), 356);
 		let signature = serde_json::from_str(&serialized_signature).unwrap();
