@@ -27,7 +27,7 @@ use crate::{
 	shared::AllowedRelayParentsTracker,
 };
 use primitives::{
-	effective_minimum_backing_votes, SignedAvailabilityBitfields,
+	effective_minimum_backing_votes, AvailabilityBitfield, SignedAvailabilityBitfields,
 	UncheckedSignedAvailabilityBitfields,
 };
 
@@ -2653,21 +2653,6 @@ fn session_change_wipes() {
 
 		run_to_block(10, |_| None);
 
-		<AvailabilityBitfields<Test>>::insert(
-			&ValidatorIndex(0),
-			AvailabilityBitfieldRecord { bitfield: default_bitfield(), submitted_at: 9 },
-		);
-
-		<AvailabilityBitfields<Test>>::insert(
-			&ValidatorIndex(1),
-			AvailabilityBitfieldRecord { bitfield: default_bitfield(), submitted_at: 9 },
-		);
-
-		<AvailabilityBitfields<Test>>::insert(
-			&ValidatorIndex(4),
-			AvailabilityBitfieldRecord { bitfield: default_bitfield(), submitted_at: 9 },
-		);
-
 		let candidate = TestCandidateBuilder::default().build();
 		<PendingAvailability<Test>>::insert(
 			&chain_a,
@@ -2707,10 +2692,6 @@ fn session_change_wipes() {
 
 		assert_eq!(shared::Pallet::<Test>::session_index(), 5);
 
-		assert!(<AvailabilityBitfields<Test>>::get(&ValidatorIndex(0)).is_some());
-		assert!(<AvailabilityBitfields<Test>>::get(&ValidatorIndex(1)).is_some());
-		assert!(<AvailabilityBitfields<Test>>::get(&ValidatorIndex(4)).is_some());
-
 		assert!(<PendingAvailability<Test>>::get(&chain_a).is_some());
 		assert!(<PendingAvailability<Test>>::get(&chain_b).is_some());
 
@@ -2728,14 +2709,6 @@ fn session_change_wipes() {
 
 		assert_eq!(shared::Pallet::<Test>::session_index(), 6);
 
-		assert!(<AvailabilityBitfields<Test>>::get(&ValidatorIndex(0)).is_none());
-		assert!(<AvailabilityBitfields<Test>>::get(&ValidatorIndex(1)).is_none());
-		assert!(<AvailabilityBitfields<Test>>::get(&ValidatorIndex(4)).is_none());
-
-		assert!(<PendingAvailability<Test>>::get(&chain_a).is_none());
-		assert!(<PendingAvailability<Test>>::get(&chain_b).is_none());
-
-		assert!(<AvailabilityBitfields<Test>>::iter().collect::<Vec<_>>().is_empty());
 		assert!(<PendingAvailability<Test>>::iter().collect::<Vec<_>>().is_empty());
 	});
 }

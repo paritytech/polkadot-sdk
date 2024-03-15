@@ -20,12 +20,12 @@ mod v0 {
 	use frame_system::pallet_prelude::BlockNumberFor;
 	use parity_scale_codec::{Decode, Encode};
 	use primitives::{
-		CandidateCommitments, CandidateDescriptor, CandidateHash, CoreIndex, GroupIndex,
-		Id as ParaId,
+		AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CoreIndex,
+		GroupIndex, Id as ParaId, ValidatorIndex,
 	};
 	use scale_info::TypeInfo;
 
-	#[derive(Encode, Decode, PartialEq, TypeInfo, Clone)]
+	#[derive(Encode, Decode, PartialEq, TypeInfo, Clone, Debug)]
 	pub struct CandidatePendingAvailability<H, N> {
 		pub core: CoreIndex,
 		pub hash: CandidateHash,
@@ -35,6 +35,12 @@ mod v0 {
 		pub relay_parent_number: N,
 		pub backed_in_number: N,
 		pub backing_group: GroupIndex,
+	}
+
+	#[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
+	pub struct AvailabilityBitfieldRecord<N> {
+		pub bitfield: AvailabilityBitfield,
+		pub submitted_at: N,
 	}
 
 	#[storage_alias]
@@ -48,11 +54,19 @@ mod v0 {
 	#[storage_alias]
 	pub type PendingAvailabilityCommitments<T: Config> =
 		StorageMap<Pallet<T>, Twox64Concat, ParaId, CandidateCommitments>;
+
+	#[storage_alias]
+	pub type AvailabilityBitfields<T: Config> = StorageMap<
+		Pallet<T>,
+		Twox64Concat,
+		ValidatorIndex,
+		AvailabilityBitfieldRecord<BlockNumberFor<T>>,
+	>;
 }
 
 mod v1 {
 	use super::v0::{
-		PendingAvailability as V0PendingAvailability,
+		AvailabilityBitfields, PendingAvailability as V0PendingAvailability,
 		PendingAvailabilityCommitments as V0PendingAvailabilityCommitments,
 	};
 	use crate::inclusion::{
@@ -68,6 +82,8 @@ mod v1 {
 		ensure,
 		traits::{GetStorageVersion, StorageVersion},
 	};
+	#[cfg(feature = "try-runtime")]
+	use parity_scale_codec::{Decode, Encode};
 
 	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
 
@@ -75,7 +91,19 @@ mod v1 {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 			log::trace!(target: crate::inclusion::LOG_TARGET, "Running pre_upgrade() for inclusion MigrateToV1");
-			Ok(Vec::new())
+			let candidates_before_upgrade = V0PendingAvailability::<T>::iter().count();
+			let commitments_before_upgrade = V0PendingAvailabilityCommitments::<T>::iter().count();
+
+			if candidates_before_upgrade != commitments_before_upgrade {
+				log::warn!(
+					target: crate::inclusion::LOG_TARGET,
+					"Number of pending candidates differ from the number of pending commitments. {} vs {}",
+					candidates_before_upgrade,
+					commitments_before_upgrade
+				);
+			}
+
+			Ok((candidates_before_upgrade as u32).encode())
 		}
 
 		fn on_runtime_upgrade() -> Weight {
@@ -108,9 +136,17 @@ mod v1 {
 			}
 
 			// should've already been drained by the above for loop, but as a sanity check, in case
-			// there are more commitments than candidates. V0PendingAvailabilityCommitments should
-			// not contain too many keys so removing everything at once should be safe
+			// there are more commitments than candidates.
+			// V0PendingAvailabilityCommitments should not contain too many keys so removing
+			// everything at once should be safe
 			let res = V0PendingAvailabilityCommitments::<T>::clear(u32::MAX, None);
+			weight = weight.saturating_add(
+				T::DbWeight::get().reads_writes(res.loops as u64, res.backend as u64),
+			);
+
+			// AvailabilityBitfields should not contain too many keys so removing everything at once
+			// should be safe.
+			let res = AvailabilityBitfields::<T>::clear(u32::MAX, None);
 			weight = weight.saturating_add(
 				T::DbWeight::get().reads_writes(res.loops as u64, res.backend as u64),
 			);
@@ -119,17 +155,48 @@ mod v1 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			log::trace!(target: crate::inclusion::LOG_TARGET, "Running post_upgrade() for inclusion MigrateToV1");
 			ensure!(
 				Pallet::<T>::on_chain_storage_version() >= StorageVersion::new(1),
 				"Storage version should be >= 1 after the migration"
 			);
 
+			let candidates_before_upgrade =
+				u32::decode(&mut &state[..]).expect("Was properly encoded") as usize;
+			let candidates_after_upgrade = V1PendingAvailability::<T>::iter().fold(
+				0usize,
+				|mut acc, (_paraid, para_candidates)| {
+					acc += para_candidates.len();
+					acc
+				},
+			);
+
+			ensure!(
+				candidates_before_upgrade == candidates_after_upgrade,
+				"Number of pending candidates should be the same as the one before the upgrade."
+			);
+			ensure!(
+				V0PendingAvailability::<T>::iter().next() == None,
+				"Pending availability candidates storage v0 should have been removed"
+			);
+			ensure!(
+				V0PendingAvailabilityCommitments::<T>::iter().next() == None,
+				"Pending availability commitments storage should have been removed"
+			);
+			ensure!(
+				AvailabilityBitfields::<T>::iter().next() == None,
+				"Availability bitfields storage should have been removed"
+			);
+
 			Ok(())
 		}
 	}
 
+	/// Migrate to v1 inclusion module storage.
+	/// - merges the `PendingAvailabilityCommitments` into the `CandidatePendingAvailability`
+	///   storage
+	/// - removes the `AvailabilityBitfields` storage, which was never read.
 	pub type MigrateToV1<T> = frame_support::migrations::VersionedMigration<
 		0,
 		1,
@@ -150,7 +217,7 @@ mod tests {
 		mock::{new_test_ext, MockGenesisConfig, Test},
 	};
 	use frame_support::traits::OnRuntimeUpgrade;
-	use primitives::Id as ParaId;
+	use primitives::{AvailabilityBitfield, Id as ParaId};
 	use test_helpers::{dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash};
 
 	#[test]
@@ -183,6 +250,14 @@ mod tests {
 				v0::PendingAvailabilityCommitments::<Test>::insert(
 					ParaId::from(i),
 					dummy_candidate_commitments(HeadData(vec![i as _])),
+				);
+
+				v0::AvailabilityBitfields::<Test>::insert(
+					ValidatorIndex(i),
+					v0::AvailabilityBitfieldRecord {
+						bitfield: AvailabilityBitfield(Default::default()),
+						submitted_at: i,
+					},
 				);
 
 				expected.push((
@@ -227,6 +302,10 @@ mod tests {
 				<VersionUncheckedMigrateToV1<Test> as OnRuntimeUpgrade>::on_runtime_upgrade(),
 				Weight::zero()
 			);
+
+			assert_eq!(v0::PendingAvailabilityCommitments::<Test>::iter().next(), None);
+			assert_eq!(v0::PendingAvailability::<Test>::iter().next(), None);
+			assert_eq!(v0::AvailabilityBitfields::<Test>::iter().next(), None);
 
 			let mut actual = V1PendingAvailability::<Test>::iter().collect::<Vec<_>>();
 			actual.sort_by(|(id1, _), (id2, _)| id1.cmp(id2));

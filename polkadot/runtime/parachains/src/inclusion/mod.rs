@@ -38,11 +38,11 @@ use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{
-	effective_minimum_backing_votes, supermajority_threshold, well_known_keys,
-	AvailabilityBitfield, BackedCandidate, CandidateCommitments, CandidateDescriptor,
-	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash,
-	HeadData, Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage,
-	ValidatorId, ValidatorIndex, ValidityAttestation,
+	effective_minimum_backing_votes, supermajority_threshold, well_known_keys, BackedCandidate,
+	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
+	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
+	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
+	ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
@@ -85,18 +85,6 @@ impl WeightInfo for () {
 /// This is used for benchmarking sanely bounding relevant storage items. It is expected from the
 /// `configuration` pallet to check these values before setting.
 pub const MAX_UPWARD_MESSAGE_SIZE_BOUND: u32 = 128 * 1024;
-
-/// A bitfield signed by a validator indicating that it is keeping its piece of the erasure-coding
-/// for any backed candidates referred to by a `1` bit available.
-///
-/// The bitfield's signature should be checked at the point of submission. Afterwards it can be
-/// dropped.
-#[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(Debug))]
-pub struct AvailabilityBitfieldRecord<N> {
-	bitfield: AvailabilityBitfield, // one bit per core.
-	submitted_at: N,                // for accounting, as meaning of bits may change over time.
-}
 
 /// A backed candidate pending availability.
 #[derive(Encode, Decode, PartialEq, TypeInfo, Clone)]
@@ -355,14 +343,13 @@ pub mod pallet {
 		ParaHeadMismatch,
 	}
 
-	/// The latest bitfield for each validator, referred to by their index in the validator set.
-	#[pallet::storage]
-	pub(crate) type AvailabilityBitfields<T: Config> =
-		StorageMap<_, Twox64Concat, ValidatorIndex, AvailabilityBitfieldRecord<BlockNumberFor<T>>>;
-
 	/// Candidates pending availability by `ParaId`. They form a chain starting from the latest
 	/// included head of the para.
+	/// Use a different prefix post-migration to v1, since the v0 `PendingAvailability` storage
+	/// would otherwise have the exact same prefix which could cause undefined behaviour when doing
+	/// the migration.
 	#[pallet::storage]
+	#[pallet::storage_prefix = "V1"]
 	pub(crate) type PendingAvailability<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -459,7 +446,6 @@ impl<T: Config> Pallet<T> {
 		// unlike most drain methods, drained elements are not cleared on `Drop` of the iterator
 		// and require consumption.
 		for _ in <PendingAvailability<T>>::drain() {}
-		for _ in <AvailabilityBitfields<T>>::drain() {}
 
 		Self::cleanup_outgoing_ump_dispatch_queues(outgoing_paras);
 	}
@@ -478,7 +464,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Bitfields are expected to have been sanitized already. E.g. via `sanitize_bitfields`!
 	///
-	/// Updates storage items `PendingAvailability` and `AvailabilityBitfields`.
+	/// Updates storage items `PendingAvailability`.
 	///
 	/// Returns a `Vec` of `CandidateHash`es and their respective `AvailabilityCore`s that became
 	/// available, and cores free.
@@ -486,7 +472,6 @@ impl<T: Config> Pallet<T> {
 		validators: &[ValidatorId],
 		signed_bitfields: SignedAvailabilityBitfields,
 	) -> Vec<(CoreIndex, CandidateHash)> {
-		let now = <frame_system::Pallet<T>>::block_number();
 		let threshold = availability_threshold(validators.len());
 
 		let mut votes_per_core: BTreeMap<CoreIndex, BTreeSet<ValidatorIndex>> = BTreeMap::new();
@@ -504,11 +489,6 @@ impl<T: Config> Pallet<T> {
 					.or_insert_with(|| BTreeSet::new())
 					.insert(validator_index);
 			}
-
-			let record =
-				AvailabilityBitfieldRecord { bitfield: checked_bitfield, submitted_at: now };
-
-			<AvailabilityBitfields<T>>::insert(&validator_index, record);
 		}
 
 		let mut freed_cores = vec![];
