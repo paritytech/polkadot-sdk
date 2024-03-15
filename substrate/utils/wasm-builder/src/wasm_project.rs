@@ -855,7 +855,7 @@ fn build_bloaty_blob(
 	println!("{} {}", colorize_info_message("Using rustc version:"), cargo_cmd.rustc_version());
 
 	// Use `process::exit(1)` to have a clean error output.
-	if !matches!(build_cmd.status().map(|s| s.success()), Ok(true)) {
+	if !build_cmd.status().map_or(false, |s| s.success()) {
 		process::exit(1);
 	}
 

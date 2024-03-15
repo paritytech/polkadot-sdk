@@ -64,7 +64,7 @@ mod enter {
 			)
 			.set_max_validators_per_core(num_validators_per_core)
 			.set_dispute_statements(dispute_statements)
-			.set_backed_and_concluding_cores(backed_and_concluding)
+			.set_backed_and_concluding_paras(backed_and_concluding)
 			.set_dispute_sessions(&dispute_sessions[..])
 			.set_fill_claimqueue(fill_claimqueue);
 

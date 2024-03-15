@@ -265,12 +265,9 @@ mod test {
 	use libp2p::PeerId;
 	use sc_network_common::sync::message;
 	use sp_core::H256;
-	use sp_runtime::{
-		generic::UncheckedExtrinsic,
-		testing::{Block as RawBlock, MockCallU64},
-	};
+	use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper};
 
-	type Block = RawBlock<UncheckedExtrinsic<u64, MockCallU64, (), ()>>;
+	type Block = RawBlock<ExtrinsicWrapper<u64>>;
 
 	fn is_empty(bc: &BlockCollection<Block>) -> bool {
 		bc.blocks.is_empty() && bc.peer_requests.is_empty()
