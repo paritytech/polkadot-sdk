@@ -74,7 +74,7 @@
 //!
 //! [`pallet_balances`] implements [`frame_support::traits::fungible`], and is the most commonly
 //! used fungible implementation in Substrate. Most of the time, it's used for managing the native
-//! token of the blockchain network.
+//! token of the blockchain network it's used in.
 //!
 //! [`pallet_assets`] implements [`frame_support::traits::fungibles`], and is another popular
 //! fungible token implementation. It supports the creation and management of multiple assets in a
