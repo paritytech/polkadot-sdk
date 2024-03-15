@@ -92,8 +92,8 @@ impl PeerSet {
 						// to ensure any `MIN_GOSSIP_PEERS` always include reserved peers
 						// we limit the amount of non-reserved slots to be less
 						// than `MIN_GOSSIP_PEERS` in total
-						in_peers: super::MIN_GOSSIP_PEERS as u32 / 2 - 1,
-						out_peers: super::MIN_GOSSIP_PEERS as u32 / 2 - 1,
+						in_peers: 2,
+						out_peers: 2,
 						reserved_nodes: Vec::new(),
 						non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
 					},
