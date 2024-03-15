@@ -918,6 +918,20 @@ mod benches {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn swap_leases() -> Result<(), BenchmarkError> {
+		let admin_origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		setup_leases::<T>(T::MaxLeasedCores::get(), 1, 10);
+		setup_leases::<T>(T::MaxLeasedCores::get(), 2, 10);
+
+		#[extrinsic_call]
+		_(admin_origin as T::RuntimeOrigin, 1, 2);
+
+		Ok(())
+	}
+
 	// Implements a test for each benchmark. Execute with:
 	// `cargo test -p pallet-broker --features runtime-benchmarks`.
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
