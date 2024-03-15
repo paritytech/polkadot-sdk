@@ -38,7 +38,7 @@ use sp_core::traits::SpawnNamed;
 use sp_inherents::InherentData;
 use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
-	Digest, Percent, SaturatedConversion,
+	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
 
@@ -335,11 +335,12 @@ where
 
 		self.apply_inherents(&mut block_builder, inherent_data)?;
 
-		// TODO call `after_inherents` and check if we should apply extrinsincs here
-		// <https://github.com/paritytech/substrate/pull/14275/>
-
-		let end_reason =
-			self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?;
+		let mode = block_builder.extrinsic_inclusion_mode();
+		let end_reason = match mode {
+			ExtrinsicInclusionMode::AllExtrinsics =>
+				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
+			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
+		};
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
 

@@ -35,7 +35,7 @@ use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
 	messages::{
-		ChainApiMessage, FragmentTreeMembership, HypotheticalCandidate,
+		Ancestors, ChainApiMessage, FragmentTreeMembership, HypotheticalCandidate,
 		HypotheticalFrontierRequest, IntroduceCandidateRequest, ProspectiveParachainsMessage,
 		ProspectiveValidationDataRequest, RuntimeApiMessage, RuntimeApiRequest,
 	},
@@ -150,16 +150,9 @@ async fn run_iteration<Context>(
 					relay_parent,
 					para,
 					count,
-					required_path,
+					ancestors,
 					tx,
-				) => answer_get_backable_candidates(
-					&view,
-					relay_parent,
-					para,
-					count,
-					required_path,
-					tx,
-				),
+				) => answer_get_backable_candidates(&view, relay_parent, para, count, ancestors, tx),
 				ProspectiveParachainsMessage::GetHypotheticalFrontier(request, tx) =>
 					answer_hypothetical_frontier_request(&view, request, tx),
 				ProspectiveParachainsMessage::GetTreeMembership(para, candidate, tx) =>
@@ -565,7 +558,7 @@ fn answer_get_backable_candidates(
 	relay_parent: Hash,
 	para: ParaId,
 	count: u32,
-	required_path: Vec<CandidateHash>,
+	ancestors: Ancestors,
 	tx: oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 ) {
 	let data = match view.active_leaves.get(&relay_parent) {
@@ -614,7 +607,7 @@ fn answer_get_backable_candidates(
 	};
 
 	let backable_candidates: Vec<_> = tree
-		.select_children(&required_path, count, |candidate| storage.is_backed(candidate))
+		.find_backable_chain(ancestors.clone(), count, |candidate| storage.is_backed(candidate))
 		.into_iter()
 		.filter_map(|child_hash| {
 			storage.relay_parent_by_candidate_hash(&child_hash).map_or_else(
@@ -635,7 +628,7 @@ fn answer_get_backable_candidates(
 	if backable_candidates.is_empty() {
 		gum::trace!(
 			target: LOG_TARGET,
-			?required_path,
+			?ancestors,
 			para_id = ?para,
 			%relay_parent,
 			"Could not find any backable candidate",

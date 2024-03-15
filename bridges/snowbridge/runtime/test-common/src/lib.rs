@@ -40,6 +40,7 @@ where
 }
 
 pub fn send_transfer_token_message<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	assethub_parachain_id: u32,
 	weth_contract_address: H160,
 	destination_address: H160,
@@ -89,7 +90,7 @@ where
 		WithdrawAsset(Assets::from(vec![fee.clone()])),
 		BuyExecution { fees: fee, weight_limit: Unlimited },
 		ExportMessage {
-			network: Ethereum { chain_id: 11155111 },
+			network: Ethereum { chain_id: ethereum_chain_id },
 			destination: Here,
 			xcm: inner_xcm,
 		},
@@ -107,6 +108,7 @@ where
 }
 
 pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -149,6 +151,7 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 			initial_fund::<Runtime>(assethub_parachain_id, 5_000_000_000_000);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,
@@ -205,6 +208,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works<
 	XcmConfig,
 	AllPalletsWithoutSystem,
 >(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -249,6 +253,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works<
 			initial_fund::<Runtime>(assethub_parachain_id, 5_000_000_000_000);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,
@@ -290,6 +295,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works<
 }
 
 pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -353,7 +359,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 			let xcm = Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				ExportMessage {
-					network: Ethereum { chain_id: 11155111 },
+					network: Ethereum { chain_id: ethereum_chain_id },
 					destination: Here,
 					xcm: inner_xcm,
 				},
@@ -375,6 +381,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 
 #[allow(clippy::too_many_arguments)]
 pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -414,6 +421,7 @@ pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 			initial_fund::<Runtime>(assethub_parachain_id, initial_amount);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,

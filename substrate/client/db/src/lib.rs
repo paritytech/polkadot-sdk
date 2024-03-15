@@ -2531,7 +2531,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			self.storage.state_db.pin(&hash, number.saturated_into::<u64>(), hint).map_err(
 				|_| {
 					sp_blockchain::Error::UnknownBlock(format!(
-						"State already discarded for `{:?}`",
+						"Unable to pin: state already discarded for `{:?}`",
 						hash
 					))
 				},

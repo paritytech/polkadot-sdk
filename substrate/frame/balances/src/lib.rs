@@ -219,7 +219,7 @@ pub mod pallet {
 
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -320,7 +320,7 @@ pub mod pallet {
 		type MaxFreezes: Get<u32>;
 	}
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: frame_support::traits::StorageVersion =
 		frame_support::traits::StorageVersion::new(1);
 

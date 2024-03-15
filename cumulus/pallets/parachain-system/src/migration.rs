@@ -21,7 +21,7 @@ use frame_support::{
 	weights::Weight,
 };
 
-/// The current storage version.
+/// The in-code storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 /// Migrates the pallet storage to the most recent version.
