@@ -41,8 +41,7 @@ pub fn warm_up_and_benchmark(
 	options: WarmUpOptions,
 	run: impl Fn() -> BenchmarkUsage,
 ) -> Result<BenchmarkUsage, String> {
-	print!("Warming up...");
-	stdout().flush().unwrap();
+	println!("Warming up...");
 	let mut usages = Vec::with_capacity(options.bench);
 
 	for n in 1..=options.warm_up {
@@ -72,13 +71,17 @@ pub fn warm_up_and_benchmark(
 			if !is_warmed_up {
 				usages.clear();
 			}
+			println!(
+				"{}/{}: {}",
+				n,
+				options.warm_up,
+				diffs
+					.iter()
+					.map(|(subsystem, diff)| format!("{}: {:.3}", subsystem, diff))
+					.join(", ")
+			);
 		}
 		usages.push(curr);
-		print!("\rWarming up... {}%", n * 100 / options.warm_up);
-		stdout().flush().unwrap();
-		if n == options.warm_up {
-			println!("\nWarm up finished");
-		}
 		if usages.len() == options.bench {
 			println!("\nTook {} runs to warm up", n.saturating_sub(options.bench));
 			break;
