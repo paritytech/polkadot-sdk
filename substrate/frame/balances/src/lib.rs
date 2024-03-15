@@ -547,8 +547,8 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		#[cfg(not(feature = "insecure_zero_ed"))]
 		fn integrity_test() {
+			#[cfg(not(feature = "insecure_zero_ed"))]
 			assert!(
 				!<T as Config<I>>::ExistentialDeposit::get().is_zero(),
 				"The existential deposit must be greater than zero!"
