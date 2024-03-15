@@ -509,7 +509,7 @@ where
 
 		match self.best_block_cache {
 			Some(block_cache) => {
-				// We need to generate a `NewBlock` event for the finalized block when:
+				// We need to generate a `BestBlock` event for the finalized block when:
 				// - (i) the last reported best block was pruned
 				// - (ii) the last reported best block is on a fork that will be pruned in the
 				//   future.
