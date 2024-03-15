@@ -32,17 +32,13 @@ use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 /// The type is generic over a constant length `N` and a "tag" `T` which
 /// can be used to specialize the byte array without using newtypes.
 #[derive(Encode, Decode, MaxEncodedLen)]
-pub struct ByteArray<const N: usize, T = ()> {
-	/// Inner raw array
-	pub inner: [u8; N],
-	marker: PhantomData<fn() -> T>,
-}
+pub struct ByteArray<const N: usize, T = ()>(pub [u8; N], PhantomData<fn() -> T>);
 
 impl<const N: usize, T> Copy for ByteArray<N, T> {}
 
 impl<const N: usize, T> Clone for ByteArray<N, T> {
 	fn clone(&self) -> Self {
-		Self { inner: self.inner, marker: PhantomData }
+		Self(self.0, PhantomData)
 	}
 }
 
@@ -56,25 +52,25 @@ impl<const N: usize, T> TypeInfo for ByteArray<N, T> {
 
 impl<const N: usize, T> PartialOrd for ByteArray<N, T> {
 	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-		self.inner.partial_cmp(&other.inner)
+		self.0.partial_cmp(&other.0)
 	}
 }
 
 impl<const N: usize, T> Ord for ByteArray<N, T> {
 	fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-		self.inner.cmp(&other.inner)
+		self.0.cmp(&other.0)
 	}
 }
 
 impl<const N: usize, T> PartialEq for ByteArray<N, T> {
 	fn eq(&self, other: &Self) -> bool {
-		self.inner.eq(&other.inner)
+		self.0.eq(&other.0)
 	}
 }
 
 impl<const N: usize, T> core::hash::Hash for ByteArray<N, T> {
 	fn hash<H: scale_info::prelude::hash::Hasher>(&self, state: &mut H) {
-		self.inner.hash(state)
+		self.0.hash(state)
 	}
 }
 
@@ -82,7 +78,7 @@ impl<const N: usize, T> Eq for ByteArray<N, T> {}
 
 impl<const N: usize, T> Default for ByteArray<N, T> {
 	fn default() -> Self {
-		Self { inner: [0_u8; N], marker: PhantomData }
+		Self([0_u8; N], PhantomData)
 	}
 }
 
@@ -90,15 +86,15 @@ impl<const N: usize, T> PassByInner for ByteArray<N, T> {
 	type Inner = [u8; N];
 
 	fn into_inner(self) -> Self::Inner {
-		self.inner
+		self.0
 	}
 
 	fn inner(&self) -> &Self::Inner {
-		&self.inner
+		&self.0
 	}
 
 	fn from_inner(inner: Self::Inner) -> Self {
-		Self { inner, marker: PhantomData }
+		Self(inner, PhantomData)
 	}
 }
 
@@ -108,25 +104,25 @@ impl<const N: usize, T> PassBy for ByteArray<N, T> {
 
 impl<const N: usize, T> AsRef<[u8]> for ByteArray<N, T> {
 	fn as_ref(&self) -> &[u8] {
-		&self.inner[..]
+		&self.0[..]
 	}
 }
 
 impl<const N: usize, T> AsMut<[u8]> for ByteArray<N, T> {
 	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.inner[..]
+		&mut self.0[..]
 	}
 }
 
 impl<const N: usize, T> From<ByteArray<N, T>> for [u8; N] {
 	fn from(v: ByteArray<N, T>) -> [u8; N] {
-		v.inner
+		v.0
 	}
 }
 
 impl<const N: usize, T> AsRef<[u8; N]> for ByteArray<N, T> {
 	fn as_ref(&self) -> &[u8; N] {
-		&self.inner
+		&self.0
 	}
 }
 
@@ -159,19 +155,19 @@ impl<const N: usize, T> core::ops::Deref for ByteArray<N, T> {
 	type Target = [u8];
 
 	fn deref(&self) -> &Self::Target {
-		&self.inner
+		&self.0
 	}
 }
 
 impl<const N: usize, T> ByteArray<N, T> {
 	/// Construct from raw array.
 	pub fn from_raw(inner: [u8; N]) -> Self {
-		Self { inner, marker: PhantomData }
+		Self(inner, PhantomData)
 	}
 
 	/// Construct from raw array.
 	pub fn to_raw(self) -> [u8; N] {
-		self.inner
+		self.0
 	}
 
 	/// Return a slice filled with raw data.
@@ -199,13 +195,13 @@ impl<const N: usize, T> FromEntropy for ByteArray<N, T> {
 
 impl<T> From<ByteArray<32, T>> for H256 {
 	fn from(x: ByteArray<32, T>) -> H256 {
-		H256::from(x.inner)
+		H256::from(x.0)
 	}
 }
 
 impl<T> From<ByteArray<64, T>> for H512 {
 	fn from(x: ByteArray<64, T>) -> H512 {
-		H512::from(x.inner)
+		H512::from(x.0)
 	}
 }
 

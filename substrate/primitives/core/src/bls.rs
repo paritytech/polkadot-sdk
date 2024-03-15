@@ -146,7 +146,7 @@ impl<T: BlsBound> std::fmt::Display for Public<T> {
 impl<T: BlsBound> sp_std::fmt::Debug for Public<T> {
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.inner), &s[0..8])
+		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
 	}
 }
 
@@ -215,7 +215,7 @@ impl<'de, T> Deserialize<'de> for Signature<T> {
 impl<T> sp_std::fmt::Debug for Signature<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.inner))
+		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
@@ -309,7 +309,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 			Err(_) => return false,
 		};
 
-		let sig_array = match sig.inner[..].try_into() {
+		let sig_array = match sig.0[..].try_into() {
 			Ok(s) => s,
 			Err(_) => return false,
 		};

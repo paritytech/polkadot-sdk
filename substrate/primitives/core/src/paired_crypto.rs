@@ -114,20 +114,20 @@ pub mod ecdsa_bls377 {
 		{
 			let msg_hash = H::hash(message).into();
 
-			let Ok(left_pub) = public.inner[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
+			let Ok(left_pub) = public.0[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
 				return false
 			};
-			let Ok(left_sig) = sig.inner[..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
+			let Ok(left_sig) = sig.0[..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
 				return false
 			};
 			if !ecdsa::Pair::verify_prehashed(&left_sig, &msg_hash, &left_pub) {
 				return false
 			}
 
-			let Ok(right_pub) = public.inner[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].try_into() else {
+			let Ok(right_pub) = public.0[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].try_into() else {
 				return false
 			};
-			let Ok(right_sig) = sig.inner[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() else {
+			let Ok(right_sig) = sig.0[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() else {
 				return false
 			};
 			bls377::Pair::verify(&right_sig, message, &right_pub)
@@ -195,7 +195,7 @@ where
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.inner), &s[0..8])
+		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
 	}
 
 	#[cfg(not(feature = "std"))]
@@ -285,7 +285,7 @@ where
 {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.inner))
+		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
@@ -384,7 +384,7 @@ where
 		let Ok(left_pub) = public.as_slice()[..LeftPair::Public::LEN].try_into() else {
 			return false
 		};
-		let Ok(left_sig) = sig.inner[0..LeftPair::Signature::LEN].try_into() else { return false };
+		let Ok(left_sig) = sig.0[0..LeftPair::Signature::LEN].try_into() else { return false };
 		if !LeftPair::verify(&left_sig, message.as_ref(), &left_pub) {
 			return false
 		}
@@ -393,7 +393,7 @@ where
 		else {
 			return false
 		};
-		let Ok(right_sig) = sig.inner[LeftPair::Signature::LEN..].try_into() else { return false };
+		let Ok(right_sig) = sig.0[LeftPair::Signature::LEN..].try_into() else { return false };
 		RightPair::verify(&right_sig, message.as_ref(), &right_pub)
 	}
 

@@ -350,8 +350,8 @@ impl Statement {
 			},
 			Some(Proof::Ed25519 { signature, signer }) => {
 				let to_sign = self.signature_material();
-				let signature = sp_core::ed25519::Signature(*signature);
-				let public = sp_core::ed25519::Public(*signer);
+				let signature = sp_core::ed25519::Signature::from_raw(*signature);
+				let public = sp_core::ed25519::Public::from_raw(*signer);
 				if signature.verify(to_sign.as_slice(), &public) {
 					SignatureVerificationResult::Valid(*signer)
 				} else {
@@ -622,7 +622,7 @@ mod test {
 		statement.sign_sr25519_private(&sr25519_kp);
 		assert_eq!(
 			statement.verify_signature(),
-			SignatureVerificationResult::Valid(sr25519_kp.public().into())
+			SignatureVerificationResult::Valid(sr25519_kp.public().0)
 		);
 
 		statement.sign_ed25519_private(&ed25519_kp);
