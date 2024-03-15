@@ -39,7 +39,6 @@ use sp_std::alloc::{format, string::String};
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls377 {
-	use super::MarkerBound;
 	use crate::{bls377, crypto::CryptoTypeId, ecdsa};
 	#[cfg(feature = "full_crypto")]
 	use crate::{
@@ -56,17 +55,18 @@ pub mod ecdsa_bls377 {
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
 	#[allow(missing_docs)]
-	#[derive(Clone, core::hash::Hash, PartialEq, Eq)]
-	pub struct EcdsaBls377Marker;
-	impl MarkerBound for EcdsaBls377Marker {}
+	pub struct EcdsaBls377Tag;
+	impl super::PairedCryptoSubTagBound for EcdsaBls377Tag {}
 
 	/// (ECDSA,BLS12-377) key-pair pair.
 	pub type Pair =
-		super::Pair<ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN, EcdsaBls377Marker>;
+		super::Pair<ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN, EcdsaBls377Tag>;
+
 	/// (ECDSA,BLS12-377) public key pair.
-	pub type Public = super::Public<PUBLIC_KEY_LEN, EcdsaBls377Marker>;
+	pub type Public = super::Public<PUBLIC_KEY_LEN, EcdsaBls377Tag>;
+
 	/// (ECDSA,BLS12-377) signature pair.
-	pub type Signature = super::Signature<SIGNATURE_LEN, EcdsaBls377Marker>;
+	pub type Signature = super::Signature<SIGNATURE_LEN, EcdsaBls377Tag>;
 
 	impl super::CryptoType for Public {
 		type Pair = Pair;
@@ -148,48 +148,50 @@ const SECURE_SEED_LEN: usize = 32;
 type Seed = [u8; SECURE_SEED_LEN];
 
 #[allow(missing_docs)]
-pub trait MarkerBound: Clone + PartialEq + Eq + core::hash::Hash {}
-
+pub trait PairedCryptoSubTagBound {}
 #[allow(missing_docs)]
-#[derive(Clone, PartialEq, Eq, core::hash::Hash)]
-pub struct PublicMarker;
+pub struct PairedCryptoPublicTag;
+#[allow(missing_docs)]
+pub struct PairedCryptoSignatureTag;
 
 /// A public key.
-pub type Public<const LEFT_PLUS_RIGHT_LEN: usize, M> =
-	ByteArrayGen<LEFT_PLUS_RIGHT_LEN, (M, PublicMarker)>;
+pub type Public<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
+	ByteArrayGen<LEFT_PLUS_RIGHT_LEN, (PairedCryptoPublicTag, SubTag)>;
 
 impl<
 		LeftPair: PairT,
 		RightPair: PairT,
 		const LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		M: MarkerBound,
-	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, M>>
-	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, M>
+		SubTag: PairedCryptoSubTagBound,
+	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag>>
+	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, M>:
-		PairT<Public = Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, M>>,
+	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag>:
+		PairT<Public = Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>>,
 {
-	fn from(x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, M>) -> Self {
+	fn from(
+		x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag>,
+	) -> Self {
 		x.public()
 	}
 }
 
 #[cfg(feature = "std")]
-impl<const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> std::fmt::Display
-	for Public<LEFT_PLUS_RIGHT_LEN, M>
+impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> std::fmt::Display
+	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
 where
-	Public<LEFT_PLUS_RIGHT_LEN, M>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN, SubTag>: CryptoType,
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}", self.to_ss58check())
 	}
 }
 
-impl<const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> sp_std::fmt::Debug
-	for Public<LEFT_PLUS_RIGHT_LEN, M>
+impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> sp_std::fmt::Debug
+	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
 where
-	Public<LEFT_PLUS_RIGHT_LEN, M>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN, SubTag>: CryptoType,
 	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
 {
 	#[cfg(feature = "std")]
@@ -205,9 +207,10 @@ where
 }
 
 #[cfg(feature = "serde")]
-impl<const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> Serialize for Public<LEFT_PLUS_RIGHT_LEN, M>
+impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> Serialize
+	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
 where
-	Public<LEFT_PLUS_RIGHT_LEN, M>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN, SubTag>: CryptoType,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -218,10 +221,10 @@ where
 }
 
 #[cfg(feature = "serde")]
-impl<'de, const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> Deserialize<'de>
-	for Public<LEFT_PLUS_RIGHT_LEN, M>
+impl<'de, const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> Deserialize<'de>
+	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
 where
-	Public<LEFT_PLUS_RIGHT_LEN, M>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN, SubTag>: CryptoType,
 {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
@@ -232,12 +235,17 @@ where
 	}
 }
 
-impl<const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> PublicT for Public<LEFT_PLUS_RIGHT_LEN, M> where
-	Public<LEFT_PLUS_RIGHT_LEN, M>: CryptoType
+impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> PublicT
+	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
+where
+	Public<LEFT_PLUS_RIGHT_LEN, SubTag>: CryptoType,
 {
 }
 
-impl<const LEFT_PLUS_RIGHT_LEN: usize, M: MarkerBound> Derive for Public<LEFT_PLUS_RIGHT_LEN, M> {}
+impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> Derive
+	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
+{
+}
 
 /// Trait characterizing a signature which could be used as individual component of an
 /// `paired_crypto:Signature` pair.
@@ -245,16 +253,14 @@ pub trait SignatureBound: ByteArray {}
 
 impl<T: ByteArray> SignatureBound for T {}
 
-#[derive(Clone, Eq, PartialEq)]
-#[allow(missing_docs)]
-pub struct SignatureMarker;
-
 /// A pair of signatures of different types
-pub type Signature<const LEFT_PLUS_RIGHT_LEN: usize, M> =
-	ByteArrayGen<LEFT_PLUS_RIGHT_LEN, (M, SignatureMarker)>;
+pub type Signature<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
+	ByteArrayGen<LEFT_PLUS_RIGHT_LEN, (SubTag, PairedCryptoSignatureTag)>;
 
 #[cfg(feature = "serde")]
-impl<const LEFT_PLUS_RIGHT_LEN: usize, M> Serialize for Signature<LEFT_PLUS_RIGHT_LEN, M> {
+impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> Serialize
+	for Signature<LEFT_PLUS_RIGHT_LEN, SubTag>
+{
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -264,8 +270,8 @@ impl<const LEFT_PLUS_RIGHT_LEN: usize, M> Serialize for Signature<LEFT_PLUS_RIGH
 }
 
 #[cfg(feature = "serde")]
-impl<'de, const LEFT_PLUS_RIGHT_LEN: usize, M> Deserialize<'de>
-	for Signature<LEFT_PLUS_RIGHT_LEN, M>
+impl<'de, const LEFT_PLUS_RIGHT_LEN: usize, SubTag> Deserialize<'de>
+	for Signature<LEFT_PLUS_RIGHT_LEN, SubTag>
 {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
@@ -273,13 +279,14 @@ impl<'de, const LEFT_PLUS_RIGHT_LEN: usize, M> Deserialize<'de>
 	{
 		let bytes = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
 			.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
-		Signature::<LEFT_PLUS_RIGHT_LEN, M>::try_from(bytes.as_ref()).map_err(|e| {
+		Signature::<LEFT_PLUS_RIGHT_LEN, SubTag>::try_from(bytes.as_ref()).map_err(|e| {
 			de::Error::custom(format!("Error converting deserialized data into signature: {:?}", e))
 		})
 	}
 }
 
-impl<const LEFT_PLUS_RIGHT_LEN: usize, M> sp_std::fmt::Debug for Signature<LEFT_PLUS_RIGHT_LEN, M>
+impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> sp_std::fmt::Debug
+	for Signature<LEFT_PLUS_RIGHT_LEN, SubTag>
 where
 	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
 {
@@ -301,11 +308,11 @@ pub struct Pair<
 	RightPair: PairT,
 	const PUBLIC_KEY_LEN: usize,
 	const SIGNATURE_LEN: usize,
-	M,
+	SubTag,
 > {
 	left: LeftPair,
 	right: RightPair,
-	_phantom: PhantomData<fn() -> M>,
+	_phantom: PhantomData<fn() -> SubTag>,
 }
 
 impl<
@@ -313,19 +320,19 @@ impl<
 		RightPair: PairT,
 		const PUBLIC_KEY_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		M: MarkerBound,
-	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, M>
+		SubTag: PairedCryptoSubTagBound,
+	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, M>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>: CryptoType,
 	LeftPair::Signature: SignatureBound,
 	RightPair::Signature: SignatureBound,
-	Public<PUBLIC_KEY_LEN, M>: CryptoType,
+	Public<PUBLIC_KEY_LEN, SubTag>: CryptoType,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	type Seed = Seed;
-	type Public = Public<PUBLIC_KEY_LEN, M>;
-	type Signature = Signature<SIGNATURE_LEN, M>;
+	type Public = Public<PUBLIC_KEY_LEN, SubTag>;
+	type Signature = Signature<SIGNATURE_LEN, SubTag>;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECURE_SEED_LEN {
