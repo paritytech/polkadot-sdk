@@ -1748,7 +1748,7 @@ mod tests {
 
 	// Regression test to check that a pot account with just one provider can be dissolved.
 	#[test]
-	fn dissolve_provider_refs_ti_works() {
+	fn dissolve_provider_refs_total_issuance_works() {
 		new_test_ext().execute_with(|| {
 			let para = new_para();
 			let issuance = Balances::total_issuance();
