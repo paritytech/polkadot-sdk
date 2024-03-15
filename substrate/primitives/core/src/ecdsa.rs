@@ -97,11 +97,8 @@ impl From<PublicKey> for Public {
 #[cfg(not(feature = "std"))]
 impl From<VerifyingKey> for Public {
 	fn from(pubkey: VerifyingKey) -> Self {
-		Self::from(
-			pubkey.to_sec1_bytes()[..]
-				.try_into()
-				.expect("valid key is serializable to [u8,33]. qed."),
-		)
+		Self::try_from(&pubkey.to_sec1_bytes()[..])
+			.expect("Valid key is serializable to [u8; 33]. qed.")
 	}
 }
 
@@ -203,7 +200,8 @@ impl Signature {
 		{
 			let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
 			let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
-			let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
+			let message =
+				Message::from_digest_slice(message).expect("Message is a 32 bytes hash; qed");
 			SECP256K1.recover_ecdsa(&message, &sig).ok().map(Public::from)
 		}
 
@@ -344,15 +342,18 @@ impl Pair {
 	pub fn sign_prehashed(&self, message: &[u8; 32]) -> Signature {
 		#[cfg(feature = "std")]
 		{
-			let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
+			let message =
+				Message::from_digest_slice(message).expect("Message is a 32 bytes hash; qed");
 			SECP256K1.sign_ecdsa_recoverable(&message, &self.secret).into()
 		}
 
 		#[cfg(not(feature = "std"))]
 		{
+			// Signing fails only if the `message` number of bytes is less than the field length
+			// (unfallible as we're using a fixed message length of 32).
 			self.secret
 				.sign_prehash_recoverable(message)
-				.expect("signing may not fail (???). qed.")
+				.expect("Signing can't fail when using 32 bytes message hash. qed.")
 				.into()
 		}
 	}
