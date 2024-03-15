@@ -41,7 +41,7 @@ impl pallet_conviction_voting::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Currency = Balances;
 	type VoteLockingPeriod = VoteLockingPeriod;
-	type MaxVotes = ConstU32<512>;
+	type MaxVotes = ConstU32<10>;
 	type MaxTurnout =
 		frame_support::traits::tokens::currency::ActiveIssuanceOf<Balances, Self::AccountId>;
 	type Polls = Referenda;
