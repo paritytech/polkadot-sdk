@@ -75,7 +75,7 @@
 //! - **Untouchable Balance**: The part of a user's free balance they cannot spend, due to ED or
 //!   Freeze/s.
 //!
-//! - **Spendable Balance**: The part of a users free balance they can spend.
+//! - **Spendable Balance**: The part of a user's free balance they can spend.
 //!
 //! - **Imbalance**: A condition when some funds were credited or debited without equal and opposite
 //!   accounting (i.e. a difference between total issuance and account balances). Functions that
