@@ -127,6 +127,8 @@ pub struct UncheckedExtrinsic<Address, Call, Signature, Extension, Context = ()>
 	pub preamble: Preamble<Address, Signature, Extension>,
 	/// The function that should be called.
 	pub function: Call,
+	/// Phantom type for `Context`.
+	#[codec(skip)]
 	pub _phantom: PhantomData<Context>,
 }
 

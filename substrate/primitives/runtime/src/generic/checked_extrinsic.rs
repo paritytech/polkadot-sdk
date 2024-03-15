@@ -67,6 +67,9 @@ pub struct CheckedExtrinsic<AccountId, Call, Extension, Context = ()> {
 
 	/// The function that should be called.
 	pub function: Call,
+
+	/// Phantom type for `Context`.
+	#[codec(skip)]
 	pub _phantom: PhantomData<Context>,
 }
 
