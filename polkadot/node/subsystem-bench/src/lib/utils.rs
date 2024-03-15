@@ -17,6 +17,7 @@
 //! Test utils
 
 use crate::usage::BenchmarkUsage;
+use itertools::Itertools;
 use std::{
 	collections::HashMap,
 	io::{stdout, Write},
