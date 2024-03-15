@@ -70,7 +70,7 @@ parameter_types! {
 	pub static OperationalFeeMultiplier: u8 = 5;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -157,14 +157,4 @@ impl Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();
-	type WeightInfo = ();
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	crate::tests::ExtBuilder::default()
-		.base_weight(Weight::from_parts(100, 0))
-		.byte_fee(10)
-		.balance_factor(0)
-		.build()
 }
