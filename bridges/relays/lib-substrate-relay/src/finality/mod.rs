@@ -25,7 +25,7 @@ use crate::{
 
 use async_trait::async_trait;
 use bp_header_chain::justification::{GrandpaJustification, JustificationVerificationContext};
-use finality_relay::{FinalityPipeline, FinalitySyncPipeline};
+use finality_relay::{FinalityPipeline, FinalitySyncPipeline, HeadersToRelay};
 use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
 use relay_substrate_client::{
 	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain,
@@ -235,15 +235,16 @@ macro_rules! generate_submit_finality_proof_ex_call_builder {
 pub async fn run<P: SubstrateFinalitySyncPipeline>(
 	source_client: Client<P::SourceChain>,
 	target_client: Client<P::TargetChain>,
-	only_mandatory_headers: bool,
+	headers_to_relay: HeadersToRelay,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	metrics_params: MetricsParams,
 ) -> anyhow::Result<()> {
 	log::info!(
 		target: "bridge",
-		"Starting {} -> {} finality proof relay",
+		"Starting {} -> {} finality proof relay: relaying {:?} headers",
 		P::SourceChain::NAME,
 		P::TargetChain::NAME,
+		headers_to_relay,
 	);
 
 	finality_relay::run(
@@ -260,7 +261,7 @@ pub async fn run<P: SubstrateFinalitySyncPipeline>(
 				P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 				relay_utils::STALL_TIMEOUT,
 			),
-			only_mandatory_headers,
+			headers_to_relay,
 		},
 		metrics_params,
 		futures::future::pending(),

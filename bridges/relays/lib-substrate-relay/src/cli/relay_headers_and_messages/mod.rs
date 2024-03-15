@@ -40,7 +40,7 @@ use crate::{
 	cli::{bridge::MessagesCliBridge, HexLaneId, PrometheusParams},
 	messages_lane::{MessagesRelayLimits, MessagesRelayParams},
 	on_demand::OnDemandRelay,
-	TaggedAccount, TransactionParams,
+	HeadersToRelay, TaggedAccount, TransactionParams,
 };
 use bp_messages::LaneId;
 use bp_runtime::BalanceOf;
@@ -61,9 +61,23 @@ pub struct HeadersAndMessagesSharedParams {
 	/// are relayed.
 	#[structopt(long)]
 	pub only_mandatory_headers: bool,
+	/// If passed, only free headers (mandatory and every Nth header, if configured in runtime)
+	/// are relayed. Overrides `only_mandatory_headers`.
+	#[structopt(long)]
+	pub only_free_headers: bool,
 	#[structopt(flatten)]
 	/// Prometheus metrics params.
 	pub prometheus_params: PrometheusParams,
+}
+
+impl HeadersAndMessagesSharedParams {
+	fn headers_to_relay(&self) -> HeadersToRelay {
+		match (self.only_mandatory_headers, self.only_free_headers) {
+			(_, true) => HeadersToRelay::Free,
+			(true, false) => HeadersToRelay::Mandatory,
+			_ => HeadersToRelay::All,
+		}
+	}
 }
 
 /// Bridge parameters, shared by all bridge types.
@@ -418,6 +432,7 @@ mod tests {
 				shared: HeadersAndMessagesSharedParams {
 					lane: vec![HexLaneId([0x00, 0x00, 0x00, 0x00])],
 					only_mandatory_headers: false,
+					only_free_headers: false,
 					prometheus_params: PrometheusParams {
 						no_prometheus: false,
 						prometheus_host: "0.0.0.0".into(),

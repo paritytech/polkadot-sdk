@@ -39,6 +39,17 @@ use std::{
 	time::{Duration, Instant},
 };
 
+/// Type of headers that we relay.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HeadersToRelay {
+	/// Relay all headers.
+	All,
+	/// Relay only mandatory headers.
+	Mandatory,
+	/// Relay only free (including mandatory) headers.
+	Free,
+}
+
 /// Finality proof synchronization loop parameters.
 #[derive(Debug, Clone)]
 pub struct FinalitySyncParams {
@@ -63,7 +74,7 @@ pub struct FinalitySyncParams {
 	/// Timeout before we treat our transactions as lost and restart the whole sync process.
 	pub stall_timeout: Duration,
 	/// If true, only mandatory headers are relayed.
-	pub only_mandatory_headers: bool,
+	pub headers_to_relay: HeadersToRelay,
 }
 
 /// Source client used in finality synchronization loop.
@@ -304,7 +315,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		// read missing headers
 		let selector = JustifiedHeaderSelector::new::<SC, TC>(&self.source_client, info).await?;
 		// if we see that the header schedules GRANDPA change, we need to submit it
-		if self.sync_params.only_mandatory_headers {
+		if self.sync_params.headers_to_relay == HeadersToRelay::Mandatory {
 			return Ok(selector.select_mandatory())
 		}
 
@@ -509,7 +520,7 @@ mod tests {
 			tick: Duration::from_secs(0),
 			recent_finality_proofs_limit: 1024,
 			stall_timeout: Duration::from_secs(1),
-			only_mandatory_headers: false,
+			headers_to_relay: HeadersToRelay::All,
 		}
 	}
 
@@ -593,8 +604,8 @@ mod tests {
 		);
 	}
 
-	fn run_only_mandatory_headers_mode_test(
-		only_mandatory_headers: bool,
+	fn run_headers_to_relay_mode_test(
+		headers_to_relay: HeadersToRelay,
 		has_mandatory_headers: bool,
 	) -> Option<JustifiedHeader<TestFinalitySyncPipeline>> {
 		let (exit_sender, _) = futures::channel::mpsc::unbounded();
@@ -619,7 +630,7 @@ mod tests {
 					tick: Duration::from_secs(0),
 					recent_finality_proofs_limit: 0,
 					stall_timeout: Duration::from_secs(0),
-					only_mandatory_headers,
+					headers_to_relay,
 				},
 				None,
 			);
@@ -635,9 +646,9 @@ mod tests {
 	#[test]
 	fn select_header_to_submit_skips_non_mandatory_headers_when_only_mandatory_headers_are_required(
 	) {
-		assert_eq!(run_only_mandatory_headers_mode_test(true, false), None);
+		assert_eq!(run_headers_to_relay_mode_test(HeadersToRelay::Mandatory, false), None);
 		assert_eq!(
-			run_only_mandatory_headers_mode_test(false, false),
+			run_headers_to_relay_mode_test(HeadersToRelay::All, false),
 			Some(JustifiedHeader {
 				header: TestSourceHeader(false, 10, 10),
 				proof: TestFinalityProof(10)
@@ -649,14 +660,14 @@ mod tests {
 	fn select_header_to_submit_selects_mandatory_headers_when_only_mandatory_headers_are_required()
 	{
 		assert_eq!(
-			run_only_mandatory_headers_mode_test(true, true),
+			run_headers_to_relay_mode_test(HeadersToRelay::Mandatory, true),
 			Some(JustifiedHeader {
 				header: TestSourceHeader(true, 8, 8),
 				proof: TestFinalityProof(8)
 			}),
 		);
 		assert_eq!(
-			run_only_mandatory_headers_mode_test(false, true),
+			run_headers_to_relay_mode_test(HeadersToRelay::All, true),
 			Some(JustifiedHeader {
 				header: TestSourceHeader(true, 8, 8),
 				proof: TestFinalityProof(8)
