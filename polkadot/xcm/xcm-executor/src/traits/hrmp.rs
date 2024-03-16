@@ -32,10 +32,7 @@ pub trait HandleHrmpChannelAccepted {
 	fn handle(recipient: u32) -> XcmResult;
 }
 
-/// Executes optional logic when a `HrmpChannelClosing` XCM notification is received from the relay
-/// chain. Both `sender` and `recipient` can close the channel, and the opposite party will be
-/// notified. The chain could, for example, decide to close the other direction channel once this
-/// notification is received.
+/// Executes optional logic when a `HrmpChannelClosing` XCM notification is received.
 pub trait HandleHrmpChannelClosing {
 	fn handle(initiator: u32, sender: u32, recipient: u32) -> XcmResult;
 }
