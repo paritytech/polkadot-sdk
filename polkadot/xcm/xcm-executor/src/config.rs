@@ -116,13 +116,10 @@ pub trait Config {
 	/// Transactional processor for XCM instructions.
 	type TransactionalProcessor: ProcessTransaction;
 
-	/// Allows optional logic execution for the `HrmpNewChannelOpenRequest` XCM notification sent by
-	/// the relay chain.
+	/// Allows optional logic execution for the `HrmpNewChannelOpenRequest` XCM notification.
 	type HrmpNewChannelOpenRequestHandler: HandleHrmpNewChannelOpenRequest;
-	/// Allows optional logic execution for the `HrmpChannelAccepted` XCM notification sent by the
-	/// relay chain.
+	/// Allows optional logic execution for the `HrmpChannelAccepted` XCM notification.
 	type HrmpChannelAcceptedHandler: HandleHrmpChannelAccepted;
-	/// Allows optional logic execution for the `HrmpChannelClosing` XCM notification sent by the
-	/// relay chain.
+	/// Allows optional logic execution for the `HrmpChannelClosing` XCM notification.
 	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
 }
