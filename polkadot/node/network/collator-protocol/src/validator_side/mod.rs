@@ -1899,7 +1899,7 @@ async fn disconnect_inactive_peers(
 ) {
 	for (peer, peer_data) in peers {
 		if peer_data.is_inactive(&eviction_policy) {
-			gum::trace!(target: LOG_TARGET, "Disconnecting inactive peer");
+			gum::trace!(target: LOG_TARGET, ?peer, "Disconnecting inactive peer");
 			disconnect_peer(sender, *peer).await;
 		}
 	}
