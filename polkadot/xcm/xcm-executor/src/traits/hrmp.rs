@@ -16,9 +16,7 @@
 
 use xcm::latest::Result as XcmResult;
 
-/// Executes optional logic when a `HrmpNewChannelOpenRequest` XCM notification is received from the
-/// relay chain. A chain could, for example, decide to accept it or reject the request based on its
-/// own business logic, and send a response back to the relay chain to open/close the channel.
+/// Executes logic when a `HrmpNewChannelOpenRequest` XCM notification is received.
 pub trait HandleHrmpNewChannelOpenRequest {
 	fn handle(sender: u32, max_message_size: u32, max_capacity: u32) -> XcmResult;
 }
