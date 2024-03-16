@@ -23,11 +23,7 @@ pub trait HandleHrmpNewChannelOpenRequest {
 	fn handle(sender: u32, max_message_size: u32, max_capacity: u32) -> XcmResult;
 }
 
-/// Executes optional logic when a `HrmpChannelAccepted` XCM notification is received from the relay
-/// chain. If chain `sender` receives this notification, it means that chain `recipient`
-/// has accepted the channel `sender` -> `recipient`.
-/// The sender chain could, for example, decide to accept the other channel `recipient` -> `sender`,
-/// once their request was accepted, by automatically sending a `Transact` message to the relay.
+/// Executes optional logic when a `HrmpChannelAccepted` XCM notification is received.
 pub trait HandleHrmpChannelAccepted {
 	fn handle(recipient: u32) -> XcmResult;
 }
