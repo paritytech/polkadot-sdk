@@ -343,7 +343,8 @@ pub struct ForkEquivocationProof<Id: RuntimeAppPublic, Header: HeaderT, Hash> {
 	pub signatories: Vec<(Id, Id::Signature)>,
 	/// Canonical header at the same height as `commitment.block_number`.
 	pub canonical_header: Option<Header>,
-	/// Ancestry proof showing mmr root
+	/// Ancestry proof showing that the current best mmr root descends from another mmr root at
+	/// `commitment.block_number` than commitment.payload
 	pub ancestry_proof: Option<AncestryProof<Hash>>,
 }
 
@@ -446,7 +447,7 @@ fn check_ancestry_proof<Header, NodeHash>(
 	commitment: &Commitment<Header::Number>,
 	ancestry_proof: &Option<AncestryProof<NodeHash::Output>>,
 	first_mmr_block_num: Header::Number,
-	canonical_root: NodeHash::Output,
+	best_root: NodeHash::Output,
 	mmr_size: u64,
 ) -> bool
 where
@@ -477,7 +478,7 @@ where
 			if sp_mmr_primitives::utils::verify_ancestry_proof::<
 				NodeHash::Output,
 				utils::AncestryHasher<NodeHash>,
-			>(canonical_root, mmr_size, ancestry_proof.clone()) !=
+			>(best_root, mmr_size, ancestry_proof.clone()) !=
 				Ok(true)
 			{
 				return false
@@ -524,7 +525,7 @@ where
 /// GRANDPA.
 pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash>(
 	proof: &ForkEquivocationProof<Id, Header, NodeHash::Output>,
-	canonical_root: NodeHash::Output,
+	best_root: NodeHash::Output,
 	mmr_size: u64,
 	canonical_header_hash: &Header::Hash,
 	first_mmr_block_num: Header::Number,
@@ -553,7 +554,7 @@ where
 				commitment,
 				ancestry_proof,
 				first_mmr_block_num,
-				canonical_root,
+				best_root,
 				mmr_size,
 			) {
 			return false;

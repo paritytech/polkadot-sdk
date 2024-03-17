@@ -41,7 +41,8 @@ impl<H: sp_runtime::traits::Hash> mmr_lib::Merge for AncestryHasher<H> {
 	}
 }
 
-/// Stateless verification of the ancestry proof of a previous root.
+/// Stateless verification of the ancestry proof of `root` against a prev_root implicit in the
+/// ancestry proof.
 pub fn verify_ancestry_proof<H, M>(
 	root: H,
 	mmr_size: NodeIndex,

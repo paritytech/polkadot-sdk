@@ -185,7 +185,7 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<pallet_beefy::Error<T>, H
 		Id: sp_consensus_beefy::BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: sp_runtime::traits::Hash,
 	{
-		let canonical_root = <pallet_mmr::Pallet<T>>::mmr_root();
+		let best_root = <pallet_mmr::Pallet<T>>::mmr_root();
 		let mmr_size =
 			sp_mmr_primitives::utils::NodesUtils::new(<pallet_mmr::Pallet<T>>::mmr_leaves()).size();
 		// if first_mmr_block_num is invalid, then presumably beefy is not active.
@@ -203,7 +203,7 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<pallet_beefy::Error<T>, H
 		};
 		if !sp_consensus_beefy::check_fork_equivocation_proof::<_, _, HeaderFor<T>, Self::Hash>(
 			proof,
-			canonical_root,
+			best_root,
 			mmr_size,
 			&canonical_header_hash,
 			first_mmr_block_num,
