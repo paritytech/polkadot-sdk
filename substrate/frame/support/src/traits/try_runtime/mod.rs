@@ -19,6 +19,7 @@
 
 pub mod decode_entire_state;
 pub use decode_entire_state::{TryDecodeEntireStorage, TryDecodeEntireStorageError};
+use enumflags2::{bitflags, BitFlags};
 
 use super::StorageInstance;
 
@@ -95,6 +96,8 @@ impl sp_std::str::FromStr for Select {
 }
 
 /// Select which checks should be run when trying a runtime upgrade upgrade.
+#[bitflags]
+#[repr(u64)]
 #[derive(codec::Encode, codec::Decode, Clone, Debug, Copy, scale_info::TypeInfo)]
 pub enum UpgradeCheckSelect {
 	/// Run no checks.
@@ -136,6 +139,13 @@ impl core::str::FromStr for UpgradeCheckSelect {
 			"try-state" => Ok(Self::TryState),
 			_ => Err("Invalid CheckSelector"),
 		}
+	}
+}
+
+impl TryDecodeEntireStorage for UpgradeCheckSelect {
+	fn try_decode_entire_state() -> Result<usize, Vec<TryDecodeEntireStorage<Error>>> {
+		let res = BitFlags::<ExampleEnum>::all();
+		return Ok(res.bits() as usize);
 	}
 }
 

@@ -292,6 +292,7 @@ where
 
 #[cfg(test)]
 mod tests {
+	use self::UpgradeCheckSelect;
 	use super::*;
 	use crate::{
 		storage::types::{self, CountedStorageMapInstance, CountedStorageNMapInstance, Key},
@@ -521,6 +522,19 @@ mod tests {
 
 			Map::insert(0, 42);
 			assert_eq!(<(Value, Map) as TryDecodeEntireStorage>::try_decode_entire_state(), Ok(8));
+		});
+	}
+
+	#[test]
+	fn try_decode_entire_state() {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			assert_eq!(
+				UpgradeCheckSelect::try_decode_entire_state(),
+				Ok((UpgradeCheckSelect::None
+					&& UpgradeCheckSelect::All
+					&& UpgradeCheckSelect::PreAndPost
+					&& UpgradeCheckSelect::TryState))
+			);
 		});
 	}
 }
