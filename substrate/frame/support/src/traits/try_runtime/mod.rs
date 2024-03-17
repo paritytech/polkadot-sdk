@@ -125,6 +125,10 @@ impl UpgradeCheckSelect {
 	pub fn any(&self) -> bool {
 		!matches!(self, Self::None)
 	}
+
+	pub fn should_check_state(&self, state: UpgradeCheckSelect) -> bool {
+		self.contains(state)
+	}
 }
 
 #[cfg(feature = "std")]
@@ -139,13 +143,6 @@ impl core::str::FromStr for UpgradeCheckSelect {
 			"try-state" => Ok(Self::TryState),
 			_ => Err("Invalid CheckSelector"),
 		}
-	}
-}
-
-impl TryDecodeEntireStorage for UpgradeCheckSelect {
-	fn try_decode_entire_state() -> Result<usize, Vec<TryDecodeEntireStorage<Error>>> {
-		let res = BitFlags::<ExampleEnum>::all();
-		return Ok(res.bits() as usize);
 	}
 }
 

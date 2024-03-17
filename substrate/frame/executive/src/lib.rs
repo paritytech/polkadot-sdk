@@ -449,7 +449,7 @@ where
 		let _guard = StorageNoopGuard::default();
 
 		// The state must be decodable:
-		if checks.any() {
+		if checks.should_check_state(UpgradeCheckSelect::All) {
 			let res = AllPalletsWithSystem::try_decode_entire_state();
 			Self::log_decode_result(res)?;
 		}
