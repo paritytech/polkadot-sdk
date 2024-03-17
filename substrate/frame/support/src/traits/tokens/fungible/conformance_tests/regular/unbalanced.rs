@@ -146,7 +146,7 @@ where
 			Preservation::Preserve,
 			Fortitude::Polite,
 		),
-		Err(TokenError::FundsUnavailable.into()),
+		Err(TokenError::BelowMinimum.into()),
 	);
 	// Balance should not have changed.
 	assert_eq!(T::balance(&account_0), account_0_initial_balance);
