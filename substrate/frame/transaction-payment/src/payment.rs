@@ -18,11 +18,11 @@
 /// ! Traits and default implementation for paying transaction fees.
 use crate::Config;
 
+use core::marker::PhantomData;
 use sp_runtime::{
 	traits::{DispatchInfoOf, PostDispatchInfoOf, Saturating, Zero},
 	transaction_validity::InvalidTransaction,
 };
-use sp_std::marker::PhantomData;
 
 use frame_support::{
 	traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},

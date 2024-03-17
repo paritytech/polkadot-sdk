@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix pallet-nomination-pools v6 to v7 migration
+
+doc:
+  - audience: Node Dev
+    description: |
+      Restores the behaviour of the nomination pools `V6ToV7` migration so that it still works when
+      the pallet will be upgraded to V8 afterwards.
+
+crates:
+  - name: "pallet-nomination-pools"

@@ -49,7 +49,7 @@ impl Chain for BridgeHubWestend {
 	}
 
 	fn max_extrinsic_weight() -> Weight {
-		BlockWeights::get()
+		BlockWeightsForAsyncBacking::get()
 			.get(DispatchClass::Normal)
 			.max_extrinsic
 			.unwrap_or(Weight::MAX)
@@ -90,7 +90,7 @@ frame_support::parameter_types! {
 	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Westend
 	/// BridgeHub.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	pub const BridgeHubWestendBaseXcmFeeInWnds: u128 = 492_077_333_333;
+	pub const BridgeHubWestendBaseXcmFeeInWnds: u128 = 17_756_830_000;
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single inbound message.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)

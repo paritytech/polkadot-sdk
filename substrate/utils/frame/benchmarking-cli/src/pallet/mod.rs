@@ -19,6 +19,7 @@ mod command;
 mod writer;
 
 use crate::shared::HostInfoParams;
+use clap::ValueEnum;
 use sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
 	DEFAULT_WASM_EXECUTION_METHOD,
@@ -31,16 +32,31 @@ fn parse_pallet_name(pallet: &str) -> std::result::Result<String, String> {
 	Ok(pallet.replace("-", "_"))
 }
 
+/// List options for available benchmarks.
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum ListOutput {
+	/// List all available pallets and extrinsics.
+	All,
+	/// List all available pallets only.
+	Pallets,
+}
+
 /// Benchmark the extrinsic weight of FRAME Pallets.
 #[derive(Debug, clap::Parser)]
 pub struct PalletCmd {
 	/// Select a FRAME Pallet to benchmark, or `*` for all (in which case `extrinsic` must be `*`).
-	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input"])]
+	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
 	pub pallet: Option<String>,
 
 	/// Select an extrinsic inside the pallet to benchmark, or `*` for all.
-	#[arg(short, long, required_unless_present_any = ["list", "json_input"])]
+	#[arg(short, long, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
 	pub extrinsic: Option<String>,
+
+	/// Run benchmarks for all pallets and extrinsics.
+	///
+	/// This is equivalent to running `--pallet * --extrinsic *`.
+	#[arg(long)]
+	pub all: bool,
 
 	/// Select how many samples we should take across the variable components.
 	#[arg(short, long, default_value_t = 50)]
@@ -158,11 +174,15 @@ pub struct PalletCmd {
 	#[arg(long = "db-cache", value_name = "MiB", default_value_t = 1024)]
 	pub database_cache_size: u32,
 
-	/// List the benchmarks that match your query rather than running them.
+	/// List and print available benchmarks in a csv-friendly format.
 	///
-	/// When nothing is provided, we list all benchmarks.
-	#[arg(long)]
-	pub list: bool,
+	/// NOTE: `num_args` and `require_equals` are required to allow `--list`
+	#[arg(long, value_enum, ignore_case = true, num_args = 0..=1, require_equals = true, default_missing_value("All"))]
+	pub list: Option<ListOutput>,
+
+	/// Don't include csv header when listing benchmarks.
+	#[arg(long, requires("list"))]
+	pub no_csv_header: bool,
 
 	/// If enabled, the storage info is not displayed in the output next to the analysis.
 	///

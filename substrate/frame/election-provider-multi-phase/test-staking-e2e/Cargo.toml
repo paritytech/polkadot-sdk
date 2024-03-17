@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 parking_lot = "0.12.1"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 scale-info = { version = "2.10.0", features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-io = { path = "../../../primitives/io" }
@@ -35,7 +35,23 @@ frame-election-provider-support = { path = "../../election-provider-support" }
 
 pallet-election-provider-multi-phase = { path = ".." }
 pallet-staking = { path = "../../staking" }
+pallet-nomination-pools = { path = "../../nomination-pools" }
 pallet-bags-list = { path = "../../bags-list" }
 pallet-balances = { path = "../../balances" }
 pallet-timestamp = { path = "../../timestamp" }
 pallet-session = { path = "../../session" }
+
+[features]
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-election-provider-multi-phase/try-runtime",
+	"pallet-nomination-pools/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
+]

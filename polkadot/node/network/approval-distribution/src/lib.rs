@@ -36,7 +36,9 @@ use polkadot_node_network_protocol::{
 	UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_primitives::approval::{
-	v1::{AssignmentCertKind, BlockApprovalMeta, IndirectAssignmentCert},
+	v1::{
+		AssignmentCertKind, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
+	},
 	v2::{
 		AsBitIndex, AssignmentCertKindV2, CandidateBitfield, IndirectAssignmentCertV2,
 		IndirectSignedApprovalVoteV2,
@@ -1063,17 +1065,17 @@ impl State {
 				.await;
 			},
 			Versioned::V3(protocol_v3::ApprovalDistributionMessage::Approvals(approvals)) => {
-				self.process_incoming_approvals(ctx, metrics, peer_id, approvals).await;
+				let sanitized_approvals =
+					self.sanitize_v2_approvals(peer_id, ctx.sender(), approvals).await;
+				self.process_incoming_approvals(ctx, metrics, peer_id, sanitized_approvals)
+					.await;
 			},
 			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
 			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) => {
-				self.process_incoming_approvals(
-					ctx,
-					metrics,
-					peer_id,
-					approvals.into_iter().map(|approval| approval.into()).collect::<Vec<_>>(),
-				)
-				.await;
+				let sanitized_approvals =
+					self.sanitize_v1_approvals(peer_id, ctx.sender(), approvals).await;
+				self.process_incoming_approvals(ctx, metrics, peer_id, sanitized_approvals)
+					.await;
 			},
 		}
 	}
@@ -2195,6 +2197,60 @@ impl State {
 		}
 
 		sanitized_assignments
+	}
+
+	// Filter out obviously invalid candidate indicies.
+	async fn sanitize_v1_approvals(
+		&mut self,
+		peer_id: PeerId,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
+		approval: Vec<IndirectSignedApprovalVote>,
+	) -> Vec<IndirectSignedApprovalVoteV2> {
+		let mut sanitized_approvals = Vec::new();
+		for approval in approval.into_iter() {
+			if approval.candidate_index as usize > MAX_BITFIELD_SIZE {
+				// Punish the peer for the invalid message.
+				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
+					.await;
+				gum::debug!(
+					target: LOG_TARGET,
+					block_hash = ?approval.block_hash,
+					candidate_index = ?approval.candidate_index,
+					"Bad approval v1, invalid candidate index"
+				);
+			} else {
+				sanitized_approvals.push(approval.into())
+			}
+		}
+
+		sanitized_approvals
+	}
+
+	// Filter out obviously invalid candidate indicies.
+	async fn sanitize_v2_approvals(
+		&mut self,
+		peer_id: PeerId,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
+		approval: Vec<IndirectSignedApprovalVoteV2>,
+	) -> Vec<IndirectSignedApprovalVoteV2> {
+		let mut sanitized_approvals = Vec::new();
+		for approval in approval.into_iter() {
+			if approval.candidate_indices.len() as usize > MAX_BITFIELD_SIZE {
+				// Punish the peer for the invalid message.
+				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
+					.await;
+				gum::debug!(
+					target: LOG_TARGET,
+					block_hash = ?approval.block_hash,
+					candidate_indices_len = ?approval.candidate_indices.len(),
+					"Bad approval v2, invalid candidate indices size"
+				);
+			} else {
+				sanitized_approvals.push(approval)
+			}
+		}
+
+		sanitized_approvals
 	}
 }
 

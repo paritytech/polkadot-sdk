@@ -87,6 +87,10 @@ pub enum Outcome {
 	/// a trap. Errors related to the preparation process are not expected to be encountered by the
 	/// execution workers.
 	InvalidCandidate { err: String, idle_worker: IdleWorker },
+	/// The error is probably transient. It may be for example
+	/// because the artifact was prepared with a Wasmtime version different from the version
+	/// in the current execution environment.
+	RuntimeConstruction { err: String, idle_worker: IdleWorker },
 	/// The execution time exceeded the hard limit. The worker is terminated.
 	HardTimeout,
 	/// An I/O error happened during communication with the worker. This may mean that the worker
@@ -190,6 +194,10 @@ pub async fn start_work(
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},
 			WorkerResponse::InvalidCandidate(err) => Outcome::InvalidCandidate {
+				err,
+				idle_worker: IdleWorker { stream, pid, worker_dir },
+			},
+			WorkerResponse::RuntimeConstruction(err) => Outcome::RuntimeConstruction {
 				err,
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},

@@ -24,7 +24,7 @@ use crate::{
 	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
-	prepare, security, Priority, SecurityStatus, ValidationError, LOG_TARGET,
+	prepare, Priority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 use always_assert::never;
 use futures::{
@@ -225,9 +225,31 @@ pub async fn start(
 
 	// Run checks for supported security features once per host startup. If some checks fail, warn
 	// if Secure Validator Mode is disabled and return an error otherwise.
-	let security_status = match security::check_security_status(&config).await {
+	#[cfg(target_os = "linux")]
+	let security_status = match crate::security::check_security_status(&config).await {
 		Ok(ok) => ok,
 		Err(err) => return Err(SubsystemError::Context(err)),
+	};
+	#[cfg(not(target_os = "linux"))]
+	let security_status = if config.secure_validator_mode {
+		gum::error!(
+			target: LOG_TARGET,
+			"{}{}{}",
+			crate::SECURE_MODE_ERROR,
+			crate::SECURE_LINUX_NOTE,
+			crate::IGNORE_SECURE_MODE_TIP
+		);
+		return Err(SubsystemError::Context(
+			"could not enable Secure Validator Mode for non-Linux; check logs".into(),
+		));
+	} else {
+		gum::warn!(
+			target: LOG_TARGET,
+			"{}{}",
+			crate::SECURE_MODE_WARNING,
+			crate::SECURE_LINUX_NOTE,
+		);
+		SecurityStatus::default()
 	};
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(HOST_MESSAGE_QUEUE_SIZE);
@@ -252,7 +274,7 @@ pub async fn start(
 		from_prepare_pool,
 	);
 
-	let (to_execute_queue_tx, run_execute_queue) = execute::start(
+	let (to_execute_queue_tx, from_execute_queue_rx, run_execute_queue) = execute::start(
 		metrics,
 		config.execute_worker_program_path.to_owned(),
 		config.cache_path.clone(),
@@ -274,6 +296,7 @@ pub async fn start(
 			to_prepare_queue_tx,
 			from_prepare_queue_rx,
 			to_execute_queue_tx,
+			from_execute_queue_rx,
 			to_sweeper_tx,
 			awaiting_prepare: AwaitingPrepare::default(),
 		})
@@ -320,6 +343,8 @@ struct Inner {
 	from_prepare_queue_rx: mpsc::UnboundedReceiver<prepare::FromQueue>,
 
 	to_execute_queue_tx: mpsc::Sender<execute::ToQueue>,
+	from_execute_queue_rx: mpsc::UnboundedReceiver<execute::FromQueue>,
+
 	to_sweeper_tx: mpsc::Sender<PathBuf>,
 
 	awaiting_prepare: AwaitingPrepare,
@@ -336,6 +361,7 @@ async fn run(
 		to_host_rx,
 		from_prepare_queue_rx,
 		mut to_prepare_queue_tx,
+		from_execute_queue_rx,
 		mut to_execute_queue_tx,
 		mut to_sweeper_tx,
 		mut awaiting_prepare,
@@ -362,10 +388,21 @@ async fn run(
 
 	let mut to_host_rx = to_host_rx.fuse();
 	let mut from_prepare_queue_rx = from_prepare_queue_rx.fuse();
+	let mut from_execute_queue_rx = from_execute_queue_rx.fuse();
 
 	loop {
 		// biased to make it behave deterministically for tests.
 		futures::select_biased! {
+			from_execute_queue_rx = from_execute_queue_rx.next() => {
+				let from_queue = break_if_fatal!(from_execute_queue_rx.ok_or(Fatal));
+				let execute::FromQueue::RemoveArtifact { artifact, reply_to } = from_queue;
+				break_if_fatal!(handle_artifact_removal(
+					&mut to_sweeper_tx,
+					&mut artifacts,
+					artifact,
+					reply_to,
+				).await);
+			},
 			() = cleanup_pulse.select_next_some() => {
 				// `select_next_some` because we don't expect this to fail, but if it does, we
 				// still don't fail. The trade-off is that the compiled cache will start growing
@@ -839,6 +876,37 @@ async fn handle_cleanup_pulse(
 	Ok(())
 }
 
+async fn handle_artifact_removal(
+	sweeper_tx: &mut mpsc::Sender<PathBuf>,
+	artifacts: &mut Artifacts,
+	artifact_id: ArtifactId,
+	reply_to: oneshot::Sender<()>,
+) -> Result<(), Fatal> {
+	let (artifact_id, path) = if let Some(artifact) = artifacts.remove(artifact_id) {
+		artifact
+	} else {
+		// if we haven't found the artifact by its id,
+		// it has been probably removed
+		// anyway with the randomness of the artifact name
+		// it is safe to ignore
+		return Ok(());
+	};
+	reply_to
+		.send(())
+		.expect("the execute queue waits for the artifact remove confirmation; qed");
+	// Thanks to the randomness of the artifact name (see
+	// `artifacts::generate_artifact_path`) there is no issue with any name conflict on
+	// future repreparation.
+	// So we can confirm the artifact removal already
+	gum::debug!(
+		target: LOG_TARGET,
+		validation_code_hash = ?artifact_id.code_hash,
+		"PVF pruning: pruning artifact by request from the execute queue",
+	);
+	sweeper_tx.send(path).await.map_err(|_| Fatal)?;
+	Ok(())
+}
+
 /// A simple task which sole purpose is to delete files thrown at it.
 async fn sweeper_task(mut sweeper_rx: mpsc::Receiver<PathBuf>) {
 	loop {
@@ -946,6 +1014,8 @@ pub(crate) mod tests {
 		to_prepare_queue_rx: mpsc::Receiver<prepare::ToQueue>,
 		from_prepare_queue_tx: mpsc::UnboundedSender<prepare::FromQueue>,
 		to_execute_queue_rx: mpsc::Receiver<execute::ToQueue>,
+		#[allow(unused)]
+		from_execute_queue_tx: mpsc::UnboundedSender<execute::FromQueue>,
 		to_sweeper_rx: mpsc::Receiver<PathBuf>,
 
 		run: BoxFuture<'static, ()>,
@@ -957,6 +1027,7 @@ pub(crate) mod tests {
 			let (to_prepare_queue_tx, to_prepare_queue_rx) = mpsc::channel(10);
 			let (from_prepare_queue_tx, from_prepare_queue_rx) = mpsc::unbounded();
 			let (to_execute_queue_tx, to_execute_queue_rx) = mpsc::channel(10);
+			let (from_execute_queue_tx, from_execute_queue_rx) = mpsc::unbounded();
 			let (to_sweeper_tx, to_sweeper_rx) = mpsc::channel(10);
 
 			let run = run(Inner {
@@ -967,6 +1038,7 @@ pub(crate) mod tests {
 				to_prepare_queue_tx,
 				from_prepare_queue_rx,
 				to_execute_queue_tx,
+				from_execute_queue_rx,
 				to_sweeper_tx,
 				awaiting_prepare: AwaitingPrepare::default(),
 			})
@@ -977,6 +1049,7 @@ pub(crate) mod tests {
 				to_prepare_queue_rx,
 				from_prepare_queue_tx,
 				to_execute_queue_rx,
+				from_execute_queue_tx,
 				to_sweeper_rx,
 				run,
 			}

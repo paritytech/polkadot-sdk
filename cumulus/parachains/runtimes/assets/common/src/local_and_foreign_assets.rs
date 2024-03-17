@@ -52,8 +52,3 @@ where
 		}
 	}
 }
-
-pub trait MatchesLocalAndForeignAssetsLocation<L = Location> {
-	fn is_local(location: &L) -> bool;
-	fn is_foreign(location: &L) -> bool;
-}

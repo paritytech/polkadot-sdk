@@ -244,6 +244,16 @@ pub enum BridgeGrandpaCall<Header: HeaderT> {
 		/// All data, required to initialize the pallet.
 		init_data: InitializationData<Header>,
 	},
+	/// `pallet-bridge-grandpa::Call::submit_finality_proof_ex`
+	#[codec(index = 4)]
+	submit_finality_proof_ex {
+		/// The header that we are going to finalize.
+		finality_target: Box<Header>,
+		/// Finality justification for the `finality_target`.
+		justification: justification::GrandpaJustification<Header>,
+		/// An identifier of the validators set, that have signed the justification.
+		current_set_id: SetId,
+	},
 }
 
 /// The `BridgeGrandpaCall` used by a chain.

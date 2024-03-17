@@ -22,9 +22,7 @@ use super::*;
 #[allow(unused)]
 use crate::Pallet as CollatorSelection;
 use codec::Decode;
-use frame_benchmarking::{
-	account, impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError,
-};
+use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::traits::{Currency, EnsureOrigin, Get, ReservableCurrency};
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, RawOrigin};
 use pallet_authorship::EventHandler;
@@ -394,7 +392,7 @@ mod benchmarks {
 		register_validators::<T>(c);
 		register_candidates::<T>(c);
 
-		let new_block: BlockNumberFor<T> = 1800u32.into();
+		let new_block: BlockNumberFor<T> = T::KickThreshold::get();
 		let zero_block: BlockNumberFor<T> = 0u32.into();
 		let candidates: Vec<T::AccountId> = <CandidateList<T>>::get()
 			.iter()

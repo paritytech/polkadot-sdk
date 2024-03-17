@@ -376,6 +376,9 @@ pub use sp_externalities::{
 #[doc(hidden)]
 pub use codec;
 
+#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]
+pub mod polkavm;
+
 #[cfg(feature = "std")]
 pub mod host;
 pub(crate) mod impls;
