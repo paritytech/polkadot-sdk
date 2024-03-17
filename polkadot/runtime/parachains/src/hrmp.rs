@@ -836,6 +836,37 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// TODO write docs
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::establish_system_channel())] // TODO benchmarks
+		pub fn establish_channel_with_system(
+			origin: OriginFor<T>,
+			recipient: ParaId,
+		) -> DispatchResultWithPostInfo {
+			let sender = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+
+			ensure!(
+				recipient.is_system(),
+				Error::<T>::ChannelCreationNotAuthorized
+			);
+
+			let config = <configuration::Pallet<T>>::config();
+			let max_message_size = config.hrmp_channel_max_message_size;
+			let max_capacity = config.hrmp_channel_max_capacity;
+
+			Self::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
+			Self::accept_open_channel(recipient, sender)?;
+
+			Self::deposit_event(Event::HrmpSystemChannelOpened {
+				sender,
+				recipient,
+				proposed_max_capacity: max_capacity,
+				proposed_max_message_size: max_message_size,
+			});
+
+			Ok(Pays::No.into())
+		}
 	}
 }
 
