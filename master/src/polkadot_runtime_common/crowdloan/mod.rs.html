@@ -2380,6 +2380,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2233" id="2233">2233</a>
 <a href="#2234" id="2234">2234</a>
 <a href="#2235" id="2235">2235</a>
+<a href="#2236" id="2236">2236</a>
+<a href="#2237" id="2237">2237</a>
+<a href="#2238" id="2238">2238</a>
+<a href="#2239" id="2239">2239</a>
+<a href="#2240" id="2240">2240</a>
+<a href="#2241" id="2241">2241</a>
+<a href="#2242" id="2242">2242</a>
+<a href="#2243" id="2243">2243</a>
+<a href="#2244" id="2244">2244</a>
+<a href="#2245" id="2245">2245</a>
+<a href="#2246" id="2246">2246</a>
+<a href="#2247" id="2247">2247</a>
+<a href="#2248" id="2248">2248</a>
+<a href="#2249" id="2249">2249</a>
+<a href="#2250" id="2250">2250</a>
+<a href="#2251" id="2251">2251</a>
+<a href="#2252" id="2252">2252</a>
+<a href="#2253" id="2253">2253</a>
+<a href="#2254" id="2254">2254</a>
+<a href="#2255" id="2255">2255</a>
+<a href="#2256" id="2256">2256</a>
+<a href="#2257" id="2257">2257</a>
+<a href="#2258" id="2258">2258</a>
+<a href="#2259" id="2259">2259</a>
+<a href="#2260" id="2260">2260</a>
+<a href="#2261" id="2261">2261</a>
+<a href="#2262" id="2262">2262</a>
+<a href="#2263" id="2263">2263</a>
+<a href="#2264" id="2264">2264</a>
+<a href="#2265" id="2265">2265</a>
+<a href="#2266" id="2266">2266</a>
+<a href="#2267" id="2267">2267</a>
+<a href="#2268" id="2268">2268</a>
+<a href="#2269" id="2269">2269</a>
+<a href="#2270" id="2270">2270</a>
+<a href="#2271" id="2271">2271</a>
+<a href="#2272" id="2272">2272</a>
+<a href="#2273" id="2273">2273</a>
+<a href="#2274" id="2274">2274</a>
+<a href="#2275" id="2275">2275</a>
+<a href="#2276" id="2276">2276</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2442,7 +2483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	pallet_prelude::{DispatchResult, Weight},
 	storage::{child, ChildTriePrefixIterator},
 	traits::{
-		Currency,
+		Currency, Defensive,
 		ExistenceRequirement::{<span class="self">self</span>, AllowDeath, KeepAlive},
 		Get, ReservableCurrency,
 	},
@@ -2945,6 +2986,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>fund = <span class="self">Self</span>::funds(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
+			<span class="kw">let </span>pot = <span class="self">Self</span>::fund_account_id(fund.fund_index);
 			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 
 			<span class="comment">// Only allow dissolution when the raised funds goes to zero,
@@ -2958,7 +3000,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// can take care of that.
 			</span><span class="macro">debug_assert!</span>(<span class="self">Self</span>::contribution_iterator(fund.fund_index).count().is_zero());
 
-			frame_system::Pallet::&lt;T&gt;::dec_providers(<span class="kw-2">&amp;</span><span class="self">Self</span>::fund_account_id(fund.fund_index))<span class="question-mark">?</span>;
+			<span class="comment">// Crowdloan over, burn all funds.
+			</span><span class="kw">let </span>_imba = CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>pot, Zero::zero());
+			<span class="kw">let _ </span>= frame_system::Pallet::&lt;T&gt;::dec_providers(<span class="kw-2">&amp;</span>pot).defensive();
+
 			CurrencyOf::&lt;T&gt;::unreserve(<span class="kw-2">&amp;</span>fund.depositor, fund.deposit);
 			Funds::&lt;T&gt;::remove(index);
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Dissolved { para_id: index });
@@ -3991,6 +4036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		new_test_ext().execute_with(|| {
 			<span class="kw">let </span>para = new_para();
 			<span class="kw">let </span>index = NextFundIndex::&lt;Test&gt;::get();
+			<span class="kw">let </span>issuance = Balances::total_issuance();
 
 			<span class="comment">// Set up a crowdloan
 			</span><span class="macro">assert_ok!</span>(Crowdloan::create(RuntimeOrigin::signed(<span class="number">1</span>), para, <span class="number">1000</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">9</span>, <span class="prelude-val">None</span>));
@@ -4011,9 +4057,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Some funds are left over
 			</span><span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span>account_id), <span class="number">10</span>);
-			<span class="comment">// They wil be left in the account at the end
+			<span class="comment">// Remaining funds will be burned
 			</span><span class="macro">assert_ok!</span>(Crowdloan::dissolve(RuntimeOrigin::signed(<span class="number">1</span>), para));
-			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span>account_id), <span class="number">10</span>);
+			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span>account_id), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(Balances::total_issuance(), issuance - <span class="number">10</span>);
 		});
 	}
 
@@ -4115,6 +4162,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Now that `fund.raised` is zero, it can be dissolved.
 			</span><span class="macro">assert_ok!</span>(Crowdloan::dissolve(RuntimeOrigin::signed(<span class="number">1</span>), para));
+			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">1</span>), <span class="number">1000</span>);
+			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">2</span>), <span class="number">2000</span>);
+			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">3</span>), <span class="number">3000</span>);
+			<span class="macro">assert_eq!</span>(Balances::total_issuance(), issuance);
+		});
+	}
+
+	<span class="comment">// Regression test to check that a pot account with just one provider can be dissolved.
+	</span><span class="attr">#[test]
+	</span><span class="kw">fn </span>dissolve_provider_refs_total_issuance_works() {
+		new_test_ext().execute_with(|| {
+			<span class="kw">let </span>para = new_para();
+			<span class="kw">let </span>issuance = Balances::total_issuance();
+
+			<span class="comment">// Set up a crowdloan
+			</span><span class="macro">assert_ok!</span>(Crowdloan::create(RuntimeOrigin::signed(<span class="number">1</span>), para, <span class="number">1000</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">9</span>, <span class="prelude-val">None</span>));
+			<span class="macro">assert_ok!</span>(Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">2</span>), para, <span class="number">100</span>, <span class="prelude-val">None</span>));
+			<span class="macro">assert_ok!</span>(Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">3</span>), para, <span class="number">50</span>, <span class="prelude-val">None</span>));
+
+			run_to_block(<span class="number">10</span>);
+
+			<span class="comment">// We test the historic case where crowdloan accounts only have one provider:
+			</span>{
+				<span class="kw">let </span>fund = Crowdloan::funds(para).unwrap();
+				<span class="kw">let </span>pot = Crowdloan::fund_account_id(fund.fund_index);
+				System::dec_providers(<span class="kw-2">&amp;</span>pot).unwrap();
+				<span class="macro">assert_eq!</span>(System::providers(<span class="kw-2">&amp;</span>pot), <span class="number">1</span>);
+			}
+
+			<span class="comment">// All funds are refunded
+			</span><span class="macro">assert_ok!</span>(Crowdloan::refund(RuntimeOrigin::signed(<span class="number">2</span>), para));
+
+			<span class="comment">// Now that `fund.raised` is zero, it can be dissolved.
+			</span><span class="macro">assert_ok!</span>(Crowdloan::dissolve(RuntimeOrigin::signed(<span class="number">1</span>), para));
+
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">1</span>), <span class="number">1000</span>);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">2</span>), <span class="number">2000</span>);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">3</span>), <span class="number">3000</span>);
