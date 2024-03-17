@@ -4,7 +4,7 @@
 title: Remove `experimental` feature from `pallet-aura`
 
 doc:
-  - audience: Node Dev
+  - audience: Runtime Dev
     description: |
       The `experimental` feature in `pallet-aura`, previously used to gate different experimental
       changes, became redundant with the introduction of the async backing which relies on the
