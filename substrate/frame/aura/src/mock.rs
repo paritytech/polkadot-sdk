@@ -84,8 +84,6 @@ impl pallet_aura::Config for Test {
 	type DisabledValidators = MockDisabledValidators;
 	type MaxAuthorities = ConstU32<10>;
 	type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
-
-	#[cfg(feature = "experimental")]
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
