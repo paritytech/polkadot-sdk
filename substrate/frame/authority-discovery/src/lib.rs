@@ -144,19 +144,22 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			);
 
 			Keys::<T>::put(bounded_keys);
-
-			let next_keys = queued_validators.map(|x| x.1).collect::<Vec<_>>();
-
-			let next_bounded_keys = WeakBoundedVec::<_, T::MaxAuthorities>::force_from(
-				next_keys,
-				Some(
-					"Warning: The session has more queued validators than expected. \
-				A runtime configuration adjustment may be needed.",
-				),
-			);
-
-			NextKeys::<T>::put(next_bounded_keys);
 		}
+
+		// `changed` represents if queued_validators changed in the previous session not in the
+		// current one, so it does not make sense to guard updating of next_keys by it.
+		// see: https://github.com/paritytech/polkadot-sdk/blob/02e1a7f476d7d7c67153e975ab9a1bdc02ffea12/substrate/frame/session/src/lib.rs#L613
+		let next_keys = queued_validators.map(|x| x.1).collect::<Vec<_>>();
+
+		let next_bounded_keys = WeakBoundedVec::<_, T::MaxAuthorities>::force_from(
+			next_keys,
+			Some(
+				"Warning: The session has more queued validators than expected. \
+			A runtime configuration adjustment may be needed.",
+			),
+		);
+
+		NextKeys::<T>::put(next_bounded_keys);
 	}
 
 	fn on_disabled(_i: u32) {
