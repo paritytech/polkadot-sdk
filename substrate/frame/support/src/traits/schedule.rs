@@ -130,7 +130,8 @@ impl<T: Decode, H> MaybeHashed<T, H> {
 	}
 }
 
-// TODO: deprecate
+#[allow(deprecated)]
+#[deprecated = "traits::schedule::v1 is deprecated. Please use v3 instead."]
 pub mod v1 {
 	use super::*;
 
@@ -286,7 +287,8 @@ pub mod v1 {
 	}
 }
 
-// TODO: deprecate
+#[allow(deprecated)]
+#[deprecated = "traits::schedule::v2 is deprecated. Please use v3 instead."]
 pub mod v2 {
 	use super::*;
 
