@@ -189,7 +189,7 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 					if matches!(preservation, Preservation::Protect | Preservation::Preserve) {
 						return Err(TokenError::BelowMinimum.into());
 					}
-					return Err(TokenError::FundsUnavailable);
+					return Err(TokenError::FundsUnavailable.into());
 				},
 		}
 
