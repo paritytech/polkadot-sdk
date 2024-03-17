@@ -846,10 +846,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 
-			ensure!(
-				recipient.is_system(),
-				Error::<T>::ChannelCreationNotAuthorized
-			);
+			ensure!(recipient.is_system(), Error::<T>::ChannelCreationNotAuthorized);
 
 			let config = <configuration::Pallet<T>>::config();
 			let max_message_size = config.hrmp_channel_max_message_size;
