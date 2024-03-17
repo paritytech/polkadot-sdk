@@ -184,19 +184,16 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 		let reducible = Self::reducible_balance(who, preservation, force);
 		match precision {
 			BestEffort => amount = amount.min(reducible),
-			Exact => ensure!(reducible >= amount, TokenError::FundsUnavailable),
+			Exact =>
+				if reducible < amount {
+					if matches!(preservation, Preservation::Protect | Preservation::Preserve) {
+						return Err(TokenError::BelowMinimum.into());
+					}
+					return Err(TokenError::FundsUnavailable);
+				},
 		}
 
-		let new_balance = match old_balance.checked_sub(&amount) {
-			Some(balance) => balance,
-			None => {
-				if matches!(preservation, Preservation::Protect | Preservation::Preserve) {
-					return Err(TokenError::BelowMinimum.into());
-				}
-				return Err(TokenError::FundsUnavailable.into());
-			},
-		};
-
+		let new_balance = old_balance.checked_sub(&amount).ok_or(TokenError::FundsUnavailable)?;
 		if let Some(dust) = Self::write_balance(who, new_balance)? {
 			Self::handle_dust(Dust(dust));
 		}
