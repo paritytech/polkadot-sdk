@@ -1991,7 +1991,7 @@ sp_api::impl_runtime_apis! {
 	#[api_version(3)]
 	impl beefy_primitives::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
-			Beefy::genesis_block()
+			pallet_beefy::GenesisBlock::<Runtime>::get()
 		}
 
 		fn validator_set() -> Option<beefy_primitives::ValidatorSet<BeefyId>> {

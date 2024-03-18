@@ -120,20 +120,17 @@ pub mod pallet {
 
 	/// The current authorities set
 	#[pallet::storage]
-	#[pallet::getter(fn authorities)]
-	pub(super) type Authorities<T: Config> =
+	pub type Authorities<T: Config> =
 		StorageValue<_, BoundedVec<T::BeefyId, T::MaxAuthorities>, ValueQuery>;
 
 	/// The current validator set id
 	#[pallet::storage]
-	#[pallet::getter(fn validator_set_id)]
-	pub(super) type ValidatorSetId<T: Config> =
+	pub type ValidatorSetId<T: Config> =
 		StorageValue<_, sp_consensus_beefy::ValidatorSetId, ValueQuery>;
 
 	/// Authorities set scheduled to be used with the next session
 	#[pallet::storage]
-	#[pallet::getter(fn next_authorities)]
-	pub(super) type NextAuthorities<T: Config> =
+	pub type NextAuthorities<T: Config> =
 		StorageValue<_, BoundedVec<T::BeefyId, T::MaxAuthorities>, ValueQuery>;
 
 	/// A mapping from BEEFY set ID to the index of the *most recent* session for which its
@@ -147,17 +144,14 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: `ValidatorSetId` is not under user control.
 	#[pallet::storage]
-	#[pallet::getter(fn session_for_set)]
-	pub(super) type SetIdSession<T: Config> =
+	pub type SetIdSession<T: Config> =
 		StorageMap<_, Twox64Concat, sp_consensus_beefy::ValidatorSetId, SessionIndex>;
 
 	/// Block number where BEEFY consensus is enabled/started.
 	/// By changing this (through privileged `set_new_genesis()`), BEEFY consensus is effectively
 	/// restarted from the newly set block number.
 	#[pallet::storage]
-	#[pallet::getter(fn genesis_block)]
-	pub(super) type GenesisBlock<T: Config> =
-		StorageValue<_, Option<BlockNumberFor<T>>, ValueQuery>;
+	pub type GenesisBlock<T: Config> = StorageValue<_, Option<BlockNumberFor<T>>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -303,8 +297,8 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	/// Return the current active BEEFY validator set.
 	pub fn validator_set() -> Option<ValidatorSet<T::BeefyId>> {
-		let validators: BoundedVec<T::BeefyId, T::MaxAuthorities> = Self::authorities();
-		let id: sp_consensus_beefy::ValidatorSetId = Self::validator_set_id();
+		let validators: BoundedVec<T::BeefyId, T::MaxAuthorities> = Authorities::<T>::get();
+		let id: sp_consensus_beefy::ValidatorSetId = ValidatorSetId::<T>::get();
 		ValidatorSet::<T::BeefyId>::new(validators, id)
 	}
 
@@ -328,7 +322,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		<Authorities<T>>::put(&new);
 
-		let new_id = Self::validator_set_id() + 1u64;
+		let new_id = ValidatorSetId::<T>::get() + 1u64;
 		<ValidatorSetId<T>>::put(new_id);
 
 		<NextAuthorities<T>>::put(&queued);
@@ -442,7 +436,7 @@ where
 		// We want to have at least one BEEFY mandatory block per session.
 		Self::change_authorities(bounded_next_authorities, bounded_next_queued_authorities);
 
-		let validator_set_id = Self::validator_set_id();
+		let validator_set_id = ValidatorSetId::<T>::get();
 		// Update the mapping for the new set id that corresponds to the latest session (i.e. now).
 		let session_index = <pallet_session::Pallet<T>>::current_index();
 		SetIdSession::<T>::insert(validator_set_id, &session_index);
@@ -465,7 +459,7 @@ where
 
 impl<T: Config> IsMember<T::BeefyId> for Pallet<T> {
 	fn is_member(authority_id: &T::BeefyId) -> bool {
-		Self::authorities().iter().any(|id| id == authority_id)
+		Authorities::<T>::get().iter().any(|id| id == authority_id)
 	}
 }
 
