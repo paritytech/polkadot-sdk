@@ -18,13 +18,13 @@
 //! *BW6-761* types and host functions.
 
 use crate::utils;
+use alloc::vec::Vec;
 use ark_bw6_761_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveConfig};
 use sp_runtime_interface::{
 	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
 	runtime_interface,
 };
-use sp_std::vec::Vec;
 
 /// First pairing group definitions.
 pub mod g1 {

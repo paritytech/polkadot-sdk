@@ -20,12 +20,14 @@
 
 //! A crate which contains statement-store primitives.
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 #[cfg(feature = "std")]
 use sp_core::Pair;
-use sp_std::vec::Vec;
 
 /// Statement topic.
 pub type Topic = [u8; 32];

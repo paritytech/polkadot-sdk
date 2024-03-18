@@ -18,13 +18,13 @@
 //! *BLS12-377* types and host functions.
 
 use crate::utils;
+use alloc::vec::Vec;
 use ark_bls12_377_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveConfig};
 use sp_runtime_interface::{
 	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
 	runtime_interface,
 };
-use sp_std::vec::Vec;
 
 /// First pairing group definitions.
 pub mod g1 {
