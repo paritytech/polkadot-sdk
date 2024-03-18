@@ -524,17 +524,4 @@ mod tests {
 			assert_eq!(<(Value, Map) as TryDecodeEntireStorage>::try_decode_entire_state(), Ok(8));
 		});
 	}
-
-	#[test]
-	fn try_decode_entire_state() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			assert_eq!(
-				UpgradeCheckSelect::try_decode_entire_state(),
-				Ok((UpgradeCheckSelect::None
-					&& UpgradeCheckSelect::All
-					&& UpgradeCheckSelect::PreAndPost
-					&& UpgradeCheckSelect::TryState))
-			);
-		});
-	}
 }

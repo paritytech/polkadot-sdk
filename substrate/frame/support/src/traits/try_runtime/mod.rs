@@ -108,6 +108,8 @@ pub enum UpgradeCheckSelect {
 	PreAndPost,
 	/// Run the `try_state` checks.
 	TryState,
+	/// Run if state is decodable
+	DecodeState,
 }
 
 impl UpgradeCheckSelect {
@@ -126,8 +128,8 @@ impl UpgradeCheckSelect {
 		!matches!(self, Self::None)
 	}
 
-	pub fn should_check_state(&self, state: UpgradeCheckSelect) -> bool {
-		self.contains(state)
+	pub fn should_decode_state(&self) -> bool {
+		self.contains(Self::DecodeState)
 	}
 }
 
