@@ -597,7 +597,10 @@ fn add_unscrupulous_items_works() {
 			]
 		));
 		assert_eq!(alliance::UnscrupulousAccounts::<Test>::get().into_inner(), vec![3]);
-		assert_eq!(alliance::UnscrupulousWebsites::<Test>::get().into_inner(), vec!["abc".as_bytes().to_vec()]);
+		assert_eq!(
+			alliance::UnscrupulousWebsites::<Test>::get().into_inner(),
+			vec!["abc".as_bytes().to_vec()]
+		);
 
 		assert_noop!(
 			Alliance::add_unscrupulous_items(
