@@ -22,7 +22,7 @@ use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
-use bp_runtime::HeaderIdProvider;
+use bp_runtime::{BlockNumberOf, HeaderIdProvider};
 use codec::Decode;
 use parachains_relay::parachains_loop::{AvailableHeader, SourceClient};
 use relay_substrate_client::{
@@ -96,6 +96,13 @@ where
 			Err(SubstrateError::ClientNotSynced(_)) => Ok(false),
 			Err(e) => Err(e),
 		}
+	}
+
+	async fn relay_header_id(
+		&self,
+		number: BlockNumberOf<P::SourceRelayChain>,
+	) -> Result<HeaderIdOf<P::SourceRelayChain>, Self::Error> {
+		self.client.header_by_number(number).await.map(|h| h.id())
 	}
 
 	async fn parachain_head(

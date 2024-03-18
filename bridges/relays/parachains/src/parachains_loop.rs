@@ -25,7 +25,7 @@ use futures::{
 	future::{FutureExt, Shared},
 	poll, select_biased,
 };
-use relay_substrate_client::{Chain, HeaderIdOf, ParachainBase};
+use relay_substrate_client::{BlockNumberOf, Chain, HeaderIdOf, ParachainBase};
 use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, FailedClient,
 	TrackedTransactionStatus, TransactionTracker,
@@ -74,6 +74,12 @@ pub trait SourceClient<P: ParachainsPipeline>: RelayClient {
 	/// Returns `Ok(true)` if client is in synced state.
 	async fn ensure_synced(&self) -> Result<bool, Self::Error>;
 
+	/// Get finalized relay chain header id by its number.
+	async fn relay_header_id(
+		&self,
+		number: BlockNumberOf<P::SourceRelayChain>,
+	) -> Result<HeaderIdOf<P::SourceRelayChain>, Self::Error>;
+
 	/// Get parachain head id at given block.
 	async fn parachain_head(
 		&self,
@@ -96,17 +102,27 @@ pub trait TargetClient<P: ParachainsPipeline>: RelayClient {
 	/// Get best block id.
 	async fn best_block(&self) -> Result<HeaderIdOf<P::TargetChain>, Self::Error>;
 
-	/// Get best finalized source relay chain block id.
+	/// Get best finalized source relay chain block id. If `free_source_relay_headers_interval`
+	/// is `Some(_)`, the returned
 	async fn best_finalized_source_relay_chain_block(
 		&self,
 		at_block: &HeaderIdOf<P::TargetChain>,
 	) -> Result<HeaderIdOf<P::SourceRelayChain>, Self::Error>;
+	/// Get free source **relay** headers submission interval, if it is configured in the
+	/// target runtime. We assume that the target chain will accept parachain header, proved
+	/// at such relay header for free.
+	async fn free_source_relay_headers_interval(
+		&self,
+	) -> Result<Option<BlockNumberOf<P::SourceRelayChain>>, Self::Error>;
 
 	/// Get parachain head id at given block.
 	async fn parachain_head(
 		&self,
 		at_block: HeaderIdOf<P::TargetChain>,
-	) -> Result<Option<HeaderIdOf<P::SourceParachain>>, Self::Error>;
+	) -> Result<
+		Option<(HeaderIdOf<P::SourceRelayChain>, HeaderIdOf<P::SourceParachain>)>,
+		Self::Error,
+	>;
 
 	/// Submit parachain heads proof.
 	async fn submit_parachain_head_proof(
@@ -133,6 +149,7 @@ pub async fn run<P: ParachainsPipeline>(
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	metrics_params: MetricsParams,
+	only_free_headers: bool,
 	exit_signal: impl Future<Output = ()> + 'static + Send,
 ) -> Result<(), relay_utils::Error>
 where
@@ -145,7 +162,13 @@ where
 		.expose()
 		.await?
 		.run(metrics_prefix::<P>(), move |source_client, target_client, metrics| {
-			run_until_connection_lost(source_client, target_client, metrics, exit_signal.clone())
+			run_until_connection_lost(
+				source_client,
+				target_client,
+				metrics,
+				only_free_headers,
+				exit_signal.clone(),
+			)
 		})
 		.await
 }
@@ -155,6 +178,7 @@ async fn run_until_connection_lost<P: ParachainsPipeline>(
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	metrics: Option<ParachainsLoopMetrics>,
+	only_free_headers: bool,
 	exit_signal: impl Future<Output = ()> + Send,
 ) -> Result<(), FailedClient>
 where
@@ -165,6 +189,29 @@ where
 		P::SourceRelayChain::AVERAGE_BLOCK_INTERVAL,
 		P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 	);
+
+	// free parachain header = header, available (proved) at free relay chain block. Let's
+	// read interval of free source relay chain blocks from target client
+	let free_source_relay_headers_interval = if only_free_headers {
+		let free_source_relay_headers_interval = target_client
+			.free_source_relay_headers_interval()
+			.await
+			.map_err(|e| {
+				log::warn!(target: "bridge", "Failed to read free {} headers interval at {}: {:?}", P::SourceRelayChain::NAME, P::TargetChain::NAME, e);
+				FailedClient::Target
+			})?;
+		match free_source_relay_headers_interval {
+			Some(free_source_relay_headers_interval) if free_source_relay_headers_interval != 0 =>
+				free_source_relay_headers_interval,
+			_ => {
+				log::warn!(target: "bridge", "Invalid free {} headers interval at {}: {:?}", P::SourceRelayChain::NAME, P::TargetChain::NAME, free_source_relay_headers_interval);
+				return Err(FailedClient::Target)
+			},
+		}
+	} else {
+		// ignore - we don't need it
+		0
+	};
 
 	let mut submitted_heads_tracker: Option<SubmittedHeadsTracker<P>> = None;
 
@@ -211,7 +258,7 @@ where
 			log::warn!(target: "bridge", "Failed to read best {} block: {:?}", P::SourceRelayChain::NAME, e);
 			FailedClient::Target
 		})?;
-		let head_at_target =
+		let (relay_of_head_at_target, head_at_target) =
 			read_head_at_target(&target_client, metrics.as_ref(), &best_target_block).await?;
 
 		// check if our transaction has been mined
@@ -238,9 +285,9 @@ where
 			}
 		}
 
-		// we have no active transaction and may need to update heads, but do we have something for
-		// update?
-		let best_finalized_relay_block = target_client
+		// in all-headers strategy we'll be submitting para head, available at
+		// `best_finalized_relay_block_at_target`
+		let best_finalized_relay_block_at_target = target_client
 			.best_finalized_source_relay_chain_block(&best_target_block)
 			.await
 			.map_err(|e| {
@@ -253,21 +300,61 @@ where
 				);
 				FailedClient::Target
 			})?;
+
+		// ..but if we only need to submit free headers, we need to submit para
+		// head, available at best free source relay chain header, known to the
+		// target chain
+		let prove_at_relay_block = if only_free_headers {
+			let relay_of_head_at_target = match relay_of_head_at_target {
+				Some(relay_of_head_at_target) => relay_of_head_at_target,
+				None => {
+					// no relay headers available at target => wait
+					continue
+				},
+			};
+
+			// find last free relay chain header in the range that we are interested in
+			let scan_range_begin = relay_of_head_at_target.number() + 1;
+			let scan_range_end = best_finalized_relay_block_at_target.number();
+			let last_free_source_relay_header_number = (scan_range_end /
+				free_source_relay_headers_interval) *
+				free_source_relay_headers_interval;
+			if last_free_source_relay_header_number < scan_range_begin {
+				// there are no new **free** relay chain headers in the range
+				continue;
+			}
+
+			// ok - we know the relay chain header number, now let's get its full id
+			source_client
+				.relay_header_id(last_free_source_relay_header_number)
+				.await
+				.map_err(|e| {
+					log::warn!(
+						target: "bridge",
+						"Failed to get full header id of {} block #{:?}: {:?}",
+						P::SourceRelayChain::NAME,
+						last_free_source_relay_header_number,
+						e,
+					);
+					FailedClient::Source
+				})?
+		} else {
+			best_finalized_relay_block_at_target
+		};
+
+		// now let's check if we need to update parachain head at all
 		let head_at_source =
-			read_head_at_source(&source_client, metrics.as_ref(), &best_finalized_relay_block)
-				.await?;
+			read_head_at_source(&source_client, metrics.as_ref(), &prove_at_relay_block).await?;
 		let is_update_required = is_update_required::<P>(
 			head_at_source,
 			head_at_target,
-			best_finalized_relay_block,
+			prove_at_relay_block,
 			best_target_block,
 		);
 
 		if is_update_required {
-			let (head_proof, head_hash) = source_client
-				.prove_parachain_head(best_finalized_relay_block)
-				.await
-				.map_err(|e| {
+			let (head_proof, head_hash) =
+				source_client.prove_parachain_head(prove_at_relay_block).await.map_err(|e| {
 					log::warn!(
 						target: "bridge",
 						"Failed to prove {} parachain ParaId({}) heads: {:?}",
@@ -283,12 +370,12 @@ where
 				P::SourceRelayChain::NAME,
 				P::SourceParachain::PARACHAIN_ID,
 				P::TargetChain::NAME,
-				best_finalized_relay_block,
+				prove_at_relay_block,
 				head_hash,
 			);
 
 			let transaction_tracker = target_client
-				.submit_parachain_head_proof(best_finalized_relay_block, head_hash, head_proof)
+				.submit_parachain_head_proof(prove_at_relay_block, head_hash, head_proof)
 				.await
 				.map_err(|e| {
 					log::warn!(
@@ -311,7 +398,7 @@ where
 fn is_update_required<P: ParachainsPipeline>(
 	head_at_source: AvailableHeader<HeaderIdOf<P::SourceParachain>>,
 	head_at_target: Option<HeaderIdOf<P::SourceParachain>>,
-	best_finalized_relay_block_at_source: HeaderIdOf<P::SourceRelayChain>,
+	prove_at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 	best_target_block: HeaderIdOf<P::TargetChain>,
 ) -> bool
 where
@@ -326,7 +413,7 @@ where
 		P::SourceParachain::PARACHAIN_ID,
 		P::TargetChain::NAME,
 		P::SourceRelayChain::NAME,
-		best_finalized_relay_block_at_source,
+		prove_at_relay_block,
 		head_at_source,
 		P::TargetChain::NAME,
 		best_target_block,
@@ -413,24 +500,28 @@ async fn read_head_at_source<P: ParachainsPipeline>(
 	}
 }
 
-/// Reads parachain head from the target client.
+/// Reads parachain head from the target client. Also returns source relay chain header
+/// that has been used to prove that head.
 async fn read_head_at_target<P: ParachainsPipeline>(
 	target_client: &impl TargetClient<P>,
 	metrics: Option<&ParachainsLoopMetrics>,
 	at_block: &HeaderIdOf<P::TargetChain>,
-) -> Result<Option<HeaderIdOf<P::SourceParachain>>, FailedClient> {
+) -> Result<
+	(Option<HeaderIdOf<P::SourceRelayChain>>, Option<HeaderIdOf<P::SourceParachain>>),
+	FailedClient,
+> {
 	let para_head_id = target_client.parachain_head(*at_block).await;
 	match para_head_id {
-		Ok(Some(para_head_id)) => {
+		Ok(Some((relay_header_id, para_head_id))) => {
 			if let Some(metrics) = metrics {
 				metrics.update_best_parachain_block_at_target(
 					ParaId(P::SourceParachain::PARACHAIN_ID),
 					para_head_id.number(),
 				);
 			}
-			Ok(Some(para_head_id))
+			Ok((Some(relay_header_id), Some(para_head_id)))
 		},
-		Ok(None) => Ok(None),
+		Ok(None) => Ok((None, None)),
 		Err(e) => {
 			log::warn!(
 				target: "bridge",
@@ -543,6 +634,7 @@ mod tests {
 	use relay_substrate_client::test_chain::{TestChain, TestParachain};
 	use relay_utils::{HeaderId, MaybeConnectionError};
 	use sp_core::H256;
+	use std::collections::HashMap;
 
 	const PARA_10_HASH: ParaHash = H256([10u8; 32]);
 	const PARA_20_HASH: ParaHash = H256([20u8; 32]);
@@ -590,14 +682,20 @@ mod tests {
 	#[derive(Clone, Debug)]
 	struct TestClientData {
 		source_sync_status: Result<bool, TestError>,
-		source_head: Result<AvailableHeader<HeaderIdOf<TestParachain>>, TestError>,
+		source_head: HashMap<
+			BlockNumberOf<TestChain>,
+			Result<AvailableHeader<HeaderIdOf<TestParachain>>, TestError>,
+		>,
 		source_proof: Result<(), TestError>,
 
+		target_free_source_relay_headers_interval:
+			Result<Option<BlockNumberOf<TestChain>>, TestError>,
 		target_best_block: Result<HeaderIdOf<TestChain>, TestError>,
 		target_best_finalized_source_block: Result<HeaderIdOf<TestChain>, TestError>,
-		target_head: Result<Option<HeaderIdOf<TestParachain>>, TestError>,
+		target_head: Result<Option<(HeaderIdOf<TestChain>, HeaderIdOf<TestParachain>)>, TestError>,
 		target_submit_result: Result<(), TestError>,
 
+		submitted_proof_at_source_relay_block: Option<HeaderIdOf<TestChain>>,
 		exit_signal_sender: Option<Box<futures::channel::mpsc::UnboundedSender<()>>>,
 	}
 
@@ -605,14 +703,18 @@ mod tests {
 		pub fn minimal() -> Self {
 			TestClientData {
 				source_sync_status: Ok(true),
-				source_head: Ok(AvailableHeader::Available(HeaderId(0, PARA_20_HASH))),
+				source_head: vec![(0, Ok(AvailableHeader::Available(HeaderId(0, PARA_20_HASH))))]
+					.into_iter()
+					.collect(),
 				source_proof: Ok(()),
 
+				target_free_source_relay_headers_interval: Ok(None),
 				target_best_block: Ok(HeaderId(0, Default::default())),
 				target_best_finalized_source_block: Ok(HeaderId(0, Default::default())),
 				target_head: Ok(None),
 				target_submit_result: Ok(()),
 
+				submitted_proof_at_source_relay_block: None,
 				exit_signal_sender: None,
 			}
 		}
@@ -647,18 +749,34 @@ mod tests {
 			self.data.lock().await.source_sync_status.clone()
 		}
 
+		async fn relay_header_id(
+			&self,
+			number: BlockNumberOf<TestChain>,
+		) -> Result<HeaderIdOf<TestChain>, Self::Error> {
+			let hash = number.using_encoded(sp_core::blake2_256);
+			Ok(HeaderId(number, hash.into()))
+		}
+
 		async fn parachain_head(
 			&self,
-			_at_block: HeaderIdOf<TestChain>,
+			at_block: HeaderIdOf<TestChain>,
 		) -> Result<AvailableHeader<HeaderIdOf<TestParachain>>, TestError> {
-			self.data.lock().await.source_head.clone()
+			self.data
+				.lock()
+				.await
+				.source_head
+				.get(&at_block.0)
+				.expect(&format!("SourceClient::parachain_head({})", at_block.0))
+				.clone()
 		}
 
 		async fn prove_parachain_head(
 			&self,
-			_at_block: HeaderIdOf<TestChain>,
+			at_block: HeaderIdOf<TestChain>,
 		) -> Result<(ParaHeadsProof, ParaHash), TestError> {
-			let head = *self.data.lock().await.source_head.clone()?.as_available().unwrap();
+			let head_result =
+				SourceClient::<TestParachainsPipeline>::parachain_head(self, at_block).await?;
+			let head = head_result.as_available().unwrap();
 			let storage_proof = vec![head.hash().encode()];
 			let proof = (ParaHeadsProof { storage_proof }, head.hash());
 			self.data.lock().await.source_proof.clone().map(|_| proof)
@@ -680,21 +798,28 @@ mod tests {
 			self.data.lock().await.target_best_finalized_source_block.clone()
 		}
 
+		async fn free_source_relay_headers_interval(
+			&self,
+		) -> Result<Option<BlockNumberOf<TestParachain>>, TestError> {
+			self.data.lock().await.target_free_source_relay_headers_interval.clone()
+		}
+
 		async fn parachain_head(
 			&self,
 			_at_block: HeaderIdOf<TestChain>,
-		) -> Result<Option<HeaderIdOf<TestParachain>>, TestError> {
+		) -> Result<Option<(HeaderIdOf<TestChain>, HeaderIdOf<TestParachain>)>, TestError> {
 			self.data.lock().await.target_head.clone()
 		}
 
 		async fn submit_parachain_head_proof(
 			&self,
-			_at_source_block: HeaderIdOf<TestChain>,
+			at_source_block: HeaderIdOf<TestChain>,
 			_updated_parachain_head: ParaHash,
 			_proof: ParaHeadsProof,
 		) -> Result<TestTransactionTracker, Self::Error> {
 			let mut data = self.data.lock().await;
 			data.target_submit_result.clone()?;
+			data.submitted_proof_at_source_relay_block = Some(at_source_block);
 
 			if let Some(mut exit_signal_sender) = data.exit_signal_sender.take() {
 				exit_signal_sender.send(()).await.unwrap();
@@ -715,6 +840,7 @@ mod tests {
 				TestClient::from(test_source_client),
 				TestClient::from(TestClientData::minimal()),
 				None,
+				false,
 				futures::future::pending(),
 			)),
 			Err(FailedClient::Source),
@@ -731,6 +857,7 @@ mod tests {
 				TestClient::from(TestClientData::minimal()),
 				TestClient::from(test_target_client),
 				None,
+				false,
 				futures::future::pending(),
 			)),
 			Err(FailedClient::Target),
@@ -747,6 +874,7 @@ mod tests {
 				TestClient::from(TestClientData::minimal()),
 				TestClient::from(test_target_client),
 				None,
+				false,
 				futures::future::pending(),
 			)),
 			Err(FailedClient::Target),
@@ -763,6 +891,7 @@ mod tests {
 				TestClient::from(TestClientData::minimal()),
 				TestClient::from(test_target_client),
 				None,
+				false,
 				futures::future::pending(),
 			)),
 			Err(FailedClient::Target),
@@ -772,13 +901,14 @@ mod tests {
 	#[test]
 	fn when_source_client_fails_to_read_heads() {
 		let mut test_source_client = TestClientData::minimal();
-		test_source_client.source_head = Err(TestError::Error);
+		test_source_client.source_head.insert(0, Err(TestError::Error));
 
 		assert_eq!(
 			async_std::task::block_on(run_until_connection_lost(
 				TestClient::from(test_source_client),
 				TestClient::from(TestClientData::minimal()),
 				None,
+				false,
 				futures::future::pending(),
 			)),
 			Err(FailedClient::Source),
@@ -795,6 +925,7 @@ mod tests {
 				TestClient::from(test_source_client),
 				TestClient::from(TestClientData::minimal()),
 				None,
+				false,
 				futures::future::pending(),
 			)),
 			Err(FailedClient::Source),
@@ -811,6 +942,7 @@ mod tests {
 				TestClient::from(TestClientData::minimal()),
 				TestClient::from(test_target_client),
 				None,
+				false,
 				futures::future::pending(),
 			)),
 			Err(FailedClient::Target),
@@ -825,9 +957,69 @@ mod tests {
 				TestClient::from(TestClientData::minimal()),
 				TestClient::from(TestClientData::with_exit_signal_sender(exit_signal_sender)),
 				None,
+				false,
 				exit_signal.into_future().map(|(_, _)| ()),
 			)),
 			Ok(()),
+		);
+	}
+
+	#[async_std::test]
+	async fn free_headers_are_relayed() {
+		// prepare following case:
+		// 1) best source relay at target: 95
+		// 2) best source parachain at target: 5 at relay 50
+		// 3) free headers interval: 10
+		// 4) at source relay chain block 90 source parachain block is 9
+		// +
+		// 5) best finalized source relay chain block is 95
+		// 6) at source relay chain block 95 source parachain block is 42
+		// =>
+		// without free requirement, parachain block 42 would have been relayed
+		// with free requirement we relay parachain block 9
+		let (exit_signal_sender, exit_signal) = futures::channel::mpsc::unbounded();
+		let clients_data = TestClientData {
+			source_sync_status: Ok(true),
+			source_head: vec![
+				(90, Ok(AvailableHeader::Available(HeaderId(9, [9u8; 32].into())))),
+				(95, Ok(AvailableHeader::Available(HeaderId(42, [42u8; 32].into())))),
+			]
+			.into_iter()
+			.collect(),
+			source_proof: Ok(()),
+
+			target_free_source_relay_headers_interval: Ok(Some(10)),
+			target_best_block: Ok(HeaderId(200, [200u8; 32].into())),
+			target_best_finalized_source_block: Ok(HeaderId(95, [95u8; 32].into())),
+			target_head: Ok(Some((HeaderId(50, [50u8; 32].into()), HeaderId(5, [5u8; 32].into())))),
+			target_submit_result: Ok(()),
+
+			submitted_proof_at_source_relay_block: None,
+			exit_signal_sender: Some(Box::new(exit_signal_sender)),
+		};
+
+		let source_client = TestClient::from(clients_data.clone());
+		let target_client = TestClient::from(clients_data);
+		assert_eq!(
+			run_until_connection_lost(
+				source_client.clone(),
+				target_client.clone(),
+				None,
+				true,
+				exit_signal.into_future().map(|(_, _)| ()),
+			)
+			.await,
+			Ok(()),
+		);
+
+		assert_eq!(
+			target_client
+				.data
+				.lock()
+				.await
+				.submitted_proof_at_source_relay_block
+				.map(|id| id.0),
+			Some(90)
 		);
 	}
 
