@@ -44,6 +44,7 @@ use bp_header_chain::{
 };
 use bp_runtime::{BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
 use frame_support::{dispatch::PostDispatchInfo, ensure, DefaultNoBound};
+use sp_consensus_grandpa::SetId;
 use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
 	SaturatedConversion,
@@ -57,6 +58,7 @@ mod storage_types;
 
 /// Module, containing weights for this pallet.
 pub mod weights;
+pub mod weights_ext;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -65,6 +67,7 @@ pub mod benchmarking;
 pub use call_ext::*;
 pub use pallet::*;
 pub use weights::WeightInfo;
+pub use weights_ext::WeightInfoExt;
 
 /// The target that will be used when publishing logs related to this pallet.
 pub const LOG_TARGET: &str = "runtime::bridge-grandpa";
@@ -101,17 +104,30 @@ pub mod pallet {
 		/// The chain we are bridging to here.
 		type BridgedChain: ChainWithGrandpa;
 
-		/// Maximal number of "free" mandatory header transactions per block.
+		/// Maximal number of "free" header transactions per block.
 		///
 		/// To be able to track the bridged chain, the pallet requires all headers that are
 		/// changing GRANDPA authorities set at the bridged chain (we call them mandatory).
-		/// So it is a common good deed to submit mandatory headers to the pallet. However, if the
-		/// bridged chain gets compromised, its validators may generate as many mandatory headers
-		/// as they want. And they may fill the whole block (at this chain) for free. This constants
-		/// limits number of calls that we may refund in a single block. All calls above this
-		/// limit are accepted, but are not refunded.
+		/// So it is a common good deed to submit mandatory headers to the pallet.
+		///
+		/// The pallet may be configured (see `[Self::FreeHeadersInterval]`) to import some
+		/// non-mandatory headers for free as well. It also may be treated as a common good
+		/// deed, because it may help to reduce bridge fees - this cost may be deducted from
+		/// bridge fees, paid by message senders.
+		///
+		/// However, if the bridged chain gets compromised, its validators may generate as many
+		/// "free" headers as they want. And they may fill the whole block (at this chain) for
+		/// free. This constants limits number of calls that we may refund in a single block.
+		/// All calls above this limit are accepted, but are not refunded.
 		#[pallet::constant]
-		type MaxFreeMandatoryHeadersPerBlock: Get<u32>;
+		type MaxFreeHeadersPerBlock: Get<u32>;
+
+		/// The distance between bridged chain headers, that may be submitted for free. The
+		/// first free header is header number zero, the next one is header number
+		/// `FreeHeadersInterval::get()`. In other words, header with number that
+		/// is divisible by `FreeHeadersInterval` may be submitted for free.
+		#[pallet::constant]
+		type FreeHeadersInterval: Get<Option<u32>>;
 
 		/// Maximal number of finalized headers to keep in the storage.
 		///
@@ -124,7 +140,7 @@ pub mod pallet {
 		type HeadersToKeep: Get<u32>;
 
 		/// Weights gathered through benchmarking.
-		type WeightInfo: WeightInfo;
+		type WeightInfo: WeightInfoExt;
 	}
 
 	#[pallet::pallet]
@@ -133,12 +149,12 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			FreeMandatoryHeadersRemaining::<T, I>::put(T::MaxFreeMandatoryHeadersPerBlock::get());
+			FreeHeadersRemaining::<T, I>::put(T::MaxFreeHeadersPerBlock::get());
 			Weight::zero()
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
-			FreeMandatoryHeadersRemaining::<T, I>::kill();
+			FreeHeadersRemaining::<T, I>::kill();
 		}
 	}
 
@@ -155,7 +171,7 @@ pub mod pallet {
 		/// `submit_finality_proof_ex` instead. Semantically, this call is an equivalent of the
 		/// `submit_finality_proof_ex` call without current authority set id check.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T::WeightInfo as WeightInfo>::submit_finality_proof(
+		#[pallet::weight(T::WeightInfo::submit_finality_proof_weight(
 			justification.commit.precommits.len().saturated_into(),
 			justification.votes_ancestries.len().saturated_into(),
 		))]
@@ -175,6 +191,8 @@ pub mod pallet {
 				// the `submit_finality_proof_ex` also reads this value, but it is done from the
 				// cache, so we don't treat it as an additional db access
 				<CurrentAuthoritySet<T, I>>::get().set_id,
+				// cannot enforce free execution using this call
+				false,
 			)
 		}
 
@@ -250,8 +268,14 @@ pub mod pallet {
 		/// - verification is not optimized or invalid;
 		///
 		/// - header contains forced authorities set change or change with non-zero delay.
+		///
+		/// The `is_free_execution_expected` parameter is not really used inside the call. It is
+		/// used by the transaction extension, which should be registered at the runtime level. If
+		/// this parameter is `true`, the transaction will be treated as invalid, if the call won't
+		/// be executed for free. If transaction extension is not used by the runtime, this
+		/// parameter is not used at all.
 		#[pallet::call_index(4)]
-		#[pallet::weight(<T::WeightInfo as WeightInfo>::submit_finality_proof(
+		#[pallet::weight(T::WeightInfo::submit_finality_proof_weight(
 			justification.commit.precommits.len().saturated_into(),
 			justification.votes_ancestries.len().saturated_into(),
 		))]
@@ -260,6 +284,7 @@ pub mod pallet {
 			finality_target: Box<BridgedHeader<T, I>>,
 			justification: GrandpaJustification<BridgedHeader<T, I>>,
 			current_set_id: sp_consensus_grandpa::SetId,
+			_is_free_execution_expected: bool,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
 			ensure_signed(origin)?;
@@ -283,16 +308,14 @@ pub mod pallet {
 
 			let maybe_new_authority_set =
 				try_enact_authority_change::<T, I>(&finality_target, set_id)?;
-			let may_refund_call_fee = maybe_new_authority_set.is_some() &&
-				// if we have seen too many mandatory headers in this block, we don't want to refund
-				Self::free_mandatory_headers_remaining() > 0 &&
-				// if arguments out of expected bounds, we don't want to refund
-				submit_finality_proof_info_from_args::<T, I>(&finality_target, &justification, Some(current_set_id))
-					.fits_limits();
+			let may_refund_call_fee = may_refund_call_fee::<T, I>(
+				maybe_new_authority_set.is_some(),
+				&finality_target,
+				&justification,
+				current_set_id,
+			);
 			if may_refund_call_fee {
-				FreeMandatoryHeadersRemaining::<T, I>::mutate(|count| {
-					*count = count.saturating_sub(1)
-				});
+				FreeHeadersRemaining::<T, I>::mutate(|count| *count = count.saturating_sub(1));
 			}
 			insert_header::<T, I>(*finality_target, hash);
 			log::info!(
@@ -335,19 +358,18 @@ pub mod pallet {
 		}
 	}
 
-	/// Number mandatory headers that we may accept in the current block for free (returning
-	/// `Pays::No`).
+	/// Number of free header submissions that we may yet accept in the current block.
 	///
-	/// If the `FreeMandatoryHeadersRemaining` hits zero, all following mandatory headers in the
+	/// If the `FreeHeadersRemaining` hits zero, all following mandatory headers in the
 	/// current block are accepted with fee (`Pays::Yes` is returned).
 	///
-	/// The `FreeMandatoryHeadersRemaining` is an ephemeral value that is set to
-	/// `MaxFreeMandatoryHeadersPerBlock` at each block initialization and is killed on block
+	/// The `FreeHeadersRemaining` is an ephemeral value that is set to
+	/// `MaxFreeHeadersPerBlock` at each block initialization and is killed on block
 	/// finalization. So it never ends up in the storage trie.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	#[pallet::getter(fn free_mandatory_headers_remaining)]
-	pub(super) type FreeMandatoryHeadersRemaining<T: Config<I>, I: 'static = ()> =
+	pub(super) type FreeHeadersRemaining<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, u32, ValueQuery>;
 
 	/// Hash of the header used to bootstrap the pallet.
@@ -473,6 +495,52 @@ pub mod pallet {
 		/// The `current_set_id` argument of the `submit_finality_proof_ex` doesn't match
 		/// the id of the current set, known to the pallet.
 		InvalidAuthoritySetId,
+		/// The submitter wanted free execution, but we can't fit more free transactions
+		/// to the block.
+		CannotAcceptMoreFreeHeaders,
+	}
+
+	/// Return true if we may refund transaction cost to the submitter. In other words,
+	/// this transaction is considered as common good deed w.r.t to pallet configuration.
+	fn may_refund_call_fee<T: Config<I>, I: 'static>(
+		is_mandatory_header: bool,
+		finality_target: &BridgedHeader<T, I>,
+		justification: &GrandpaJustification<BridgedHeader<T, I>>,
+		current_set_id: SetId,
+	) -> bool {
+		// if we have refunded too much at this block => not refunding
+		if FreeHeadersRemaining::<T, I>::get() == 0 {
+			return false;
+		}
+
+		// if size/weight of call is larger than expected => not refunding
+		let call_info = submit_finality_proof_info_from_args::<T, I>(
+			&finality_target,
+			&justification,
+			Some(current_set_id),
+			// this function is called from the transaction body and we do not want
+			// to do MAY-be-free-executed checks here - they had to be done in the
+			// transaction extension before
+			false,
+		);
+		if !call_info.fits_limits() {
+			return false;
+		}
+
+		// if that's a mandatory header => refund
+		if is_mandatory_header {
+			return true;
+		}
+
+		// if configuration allows free non-mandatory headers and the header
+		// matches criteria => refund
+		if let Some(free_headers_interval) = T::FreeHeadersInterval::get() {
+			if *finality_target.number() % free_headers_interval.into() == Zero::zero() {
+				return true;
+			}
+		}
+
+		false
 	}
 
 	/// Check the given header for a GRANDPA scheduled authority set change. If a change
@@ -692,8 +760,8 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader
 mod tests {
 	use super::*;
 	use crate::mock::{
-		run_test, test_header, RuntimeEvent as TestEvent, RuntimeOrigin, System, TestBridgedChain,
-		TestHeader, TestNumber, TestRuntime, MAX_BRIDGED_AUTHORITIES,
+		run_test, test_header, FreeHeadersInterval, RuntimeEvent as TestEvent, RuntimeOrigin,
+		System, TestBridgedChain, TestHeader, TestNumber, TestRuntime, MAX_BRIDGED_AUTHORITIES,
 	};
 	use bp_header_chain::BridgeGrandpaCall;
 	use bp_runtime::BasicOperatingMode;
@@ -747,6 +815,7 @@ mod tests {
 			Box::new(header),
 			justification,
 			TEST_GRANDPA_SET_ID,
+			false,
 		)
 	}
 
@@ -766,6 +835,7 @@ mod tests {
 			Box::new(header),
 			justification,
 			set_id,
+			false,
 		)
 	}
 
@@ -794,6 +864,7 @@ mod tests {
 			Box::new(header),
 			justification,
 			set_id,
+			false,
 		)
 	}
 
@@ -1009,6 +1080,7 @@ mod tests {
 					Box::new(header.clone()),
 					justification.clone(),
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::InvalidJustification
 			);
@@ -1018,6 +1090,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					next_set_id,
+					false,
 				),
 				<Error<TestRuntime>>::InvalidAuthoritySetId
 			);
@@ -1039,6 +1112,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::InvalidJustification
 			);
@@ -1069,6 +1143,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::InvalidAuthoritySet
 			);
@@ -1108,6 +1183,7 @@ mod tests {
 				Box::new(header.clone()),
 				justification.clone(),
 				TEST_GRANDPA_SET_ID,
+				false,
 			);
 			assert_ok!(result);
 			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::No);
@@ -1171,6 +1247,7 @@ mod tests {
 				Box::new(header.clone()),
 				justification,
 				TEST_GRANDPA_SET_ID,
+				false,
 			);
 			assert_ok!(result);
 			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
@@ -1203,6 +1280,7 @@ mod tests {
 				Box::new(header.clone()),
 				justification,
 				TEST_GRANDPA_SET_ID,
+				false,
 			);
 			assert_ok!(result);
 			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
@@ -1233,6 +1311,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
@@ -1259,6 +1338,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
@@ -1285,6 +1365,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				<Error<TestRuntime>>::TooManyAuthoritiesInSet
 			);
@@ -1350,12 +1431,13 @@ mod tests {
 					Box::new(header),
 					invalid_justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				)
 			};
 
 			initialize_substrate_bridge();
 
-			for _ in 0..<TestRuntime as Config>::MaxFreeMandatoryHeadersPerBlock::get() + 1 {
+			for _ in 0..<TestRuntime as Config>::MaxFreeHeadersPerBlock::get() + 1 {
 				assert_err!(submit_invalid_request(), <Error<TestRuntime>>::InvalidJustification);
 			}
 
@@ -1421,6 +1503,45 @@ mod tests {
 			let result = submit_mandatory_finality_proof(6, 3);
 			assert_eq!(result.expect("call failed").pays_fee, Pays::Yes);
 		})
+	}
+
+	#[test]
+	fn may_import_non_mandatory_header_for_free() {
+		run_test(|| {
+			initialize_substrate_bridge();
+
+			// non-mandatory header is imported with fee
+			let non_free_header_number = FreeHeadersInterval::get() as u8 - 1;
+			let result = submit_finality_proof(non_free_header_number);
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
+
+			// non-mandatory free header is imported without fee
+			let free_header_number = FreeHeadersInterval::get() as u8;
+			let result = submit_finality_proof(free_header_number);
+			assert_eq!(result.unwrap().pays_fee, Pays::No);
+
+			// another non-mandatory free header is imported without fee
+			let free_header_number = FreeHeadersInterval::get() as u8 * 2;
+			let result = submit_finality_proof(free_header_number);
+			assert_eq!(result.unwrap().pays_fee, Pays::No);
+
+			// now the rate limiter starts charging fees even for free headers
+			let free_header_number = FreeHeadersInterval::get() as u8 * 3;
+			let result = submit_finality_proof(free_header_number);
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
+
+			next_block();
+
+			// check that the rate limiter shares the counter between mandatory
+			// and free non-mandatory headers
+			let free_header_number = FreeHeadersInterval::get() as u8 * 4;
+			let result = submit_finality_proof(free_header_number);
+			assert_eq!(result.unwrap().pays_fee, Pays::No);
+			let result = submit_mandatory_finality_proof(free_header_number + 1, 1);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
+			let result = submit_mandatory_finality_proof(free_header_number + 2, 2);
+			assert_eq!(result.expect("call failed").pays_fee, Pays::Yes);
+		});
 	}
 
 	#[test]
@@ -1519,6 +1640,7 @@ mod tests {
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
+					false,
 				),
 				DispatchError::BadOrigin,
 			);

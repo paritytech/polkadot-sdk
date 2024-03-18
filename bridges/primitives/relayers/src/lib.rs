@@ -19,7 +19,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use registration::{Registration, StakeAndSlash};
+pub use registration::{ExplicitOrAccountParams, Registration, StakeAndSlash};
 
 use bp_messages::LaneId;
 use bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
