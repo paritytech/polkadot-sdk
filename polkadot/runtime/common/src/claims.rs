@@ -29,11 +29,7 @@ use scale_info::TypeInfo;
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{
-		AsSystemOriginSigner, CheckedSub, DispatchInfoOf, Dispatchable, TransactionExtension,
-		TransactionExtensionBase, Zero,
-	},
+	traits::{CheckedSub, DispatchInfoOf, SignedExtension, Zero},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -54,7 +50,6 @@ pub trait WeightInfo {
 	fn claim_attest() -> Weight;
 	fn attest() -> Weight;
 	fn move_claim() -> Weight;
-	fn prevalidate_attests() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -74,9 +69,6 @@ impl WeightInfo for TestWeightInfo {
 	fn move_claim() -> Weight {
 		Weight::zero()
 	}
-	fn prevalidate_attests() -> Weight {
-		Weight::zero()
-	}
 }
 
 /// The kind of statement an account needs to make for a claim to be valid.
@@ -92,7 +84,7 @@ pub enum StatementKind {
 
 impl StatementKind {
 	/// Convert this to the (English) statement it represents.
-	pub fn to_text(self) -> &'static [u8] {
+	fn to_text(self) -> &'static [u8] {
 		match self {
 			StatementKind::Regular =>
 				&b"I hereby agree to the terms of the statement whose SHA-256 multihash is \
@@ -174,13 +166,6 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
-	#[cfg(feature = "runtime-benchmarks")]
-	/// Helper trait to benchmark the `PrevalidateAttests` transaction extension.
-	pub trait BenchmarkHelperTrait<RuntimeCall, DispatchInfo> {
-		/// `Call` to be used when benchmarking the transaction extension.
-		fn default_call_and_info() -> (RuntimeCall, DispatchInfo);
-	}
-
 	/// Configuration trait.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -191,12 +176,6 @@ pub mod pallet {
 		type Prefix: Get<&'static [u8]>;
 		type MoveClaimOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
-		#[cfg(feature = "runtime-benchmarks")]
-		/// Benchmark helper
-		type BenchmarkHelper: BenchmarkHelperTrait<
-			Self::RuntimeCall,
-			DispatchInfoOf<Self::RuntimeCall>,
-		>;
 	}
 
 	#[pallet::event]
@@ -423,7 +402,7 @@ pub mod pallet {
 		/// Attest to a statement, needed to finalize the claims process.
 		///
 		/// WARNING: Insecure unless your chain includes `PrevalidateAttests` as a
-		/// `TransactionExtension`.
+		/// `SignedExtension`.
 		///
 		/// Unsigned Validation:
 		/// A call to attest is deemed valid if the sender has a `Preclaim` registered
@@ -633,46 +612,46 @@ impl<T: Config> PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
-	/// Create new `TransactionExtension` to check runtime version.
+	/// Create new `SignedExtension` to check runtime version.
 	pub fn new() -> Self {
 		Self(sp_std::marker::PhantomData)
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for PrevalidateAttests<T>
+impl<T: Config> SignedExtension for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
-	const IDENTIFIER: &'static str = "PrevalidateAttests";
-	type Implicit = ();
-}
-
-impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context> for PrevalidateAttests<T>
-where
-	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
-		AsSystemOriginSigner<T::AccountId> + Clone,
-{
+	type AccountId = T::AccountId;
+	type Call = <T as frame_system::Config>::RuntimeCall;
+	type AdditionalSigned = ();
 	type Pre = ();
-	type Val = ();
+	const IDENTIFIER: &'static str = "PrevalidateAttests";
+
+	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+		Ok(())
+	}
+
+	fn pre_dispatch(
+		self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		self.validate(who, call, info, len).map(|_| ())
+	}
 
 	// <weight>
 	// The weight of this logic is included in the `attest` dispatchable.
 	// </weight>
 	fn validate(
 		&self,
-		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-		call: &T::RuntimeCall,
-		_info: &DispatchInfoOf<T::RuntimeCall>,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
-		_context: &mut Context,
-		_self_implicit: Self::Implicit,
-		_inherited_implication: &impl Encode,
-	) -> Result<
-		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError,
-	> {
-		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+	) -> TransactionValidity {
 		if let Some(local_call) = call.is_sub_type() {
 			if let Call::attest { statement: attested_statement } = local_call {
 				let signer = Preclaims::<T>::get(who)
@@ -683,9 +662,8 @@ where
 				}
 			}
 		}
-		Ok((ValidTransaction::default(), (), origin))
+		Ok(ValidTransaction::default())
 	}
-	impl_tx_ext_default!(T::RuntimeCall; Context; prepare);
 }
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -718,7 +696,7 @@ mod secp_utils {
 }
 
 #[cfg(test)]
-pub(super) mod tests {
+mod tests {
 	use super::*;
 	use hex_literal::hex;
 	use secp_utils::*;
@@ -736,11 +714,8 @@ pub(super) mod tests {
 	};
 	use pallet_balances;
 	use sp_runtime::{
-		traits::{DispatchTransaction, Identity},
-		transaction_validity::TransactionLongevity,
-		BuildStorage,
-		DispatchError::BadOrigin,
-		TokenError,
+		traits::Identity, transaction_validity::TransactionLongevity, BuildStorage,
+		DispatchError::BadOrigin, TokenError,
 	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
@@ -755,7 +730,7 @@ pub(super) mod tests {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
@@ -815,19 +790,6 @@ pub(super) mod tests {
 		type Prefix = Prefix;
 		type MoveClaimOrigin = frame_system::EnsureSignedBy<Six, u64>;
 		type WeightInfo = TestWeightInfo;
-		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper = ();
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	impl BenchmarkHelperTrait<RuntimeCall, DispatchInfoOf<RuntimeCall>> for () {
-		fn default_call_and_info() -> (RuntimeCall, DispatchInfoOf<RuntimeCall>) {
-			let call = RuntimeCall::Claims(crate::claims::Call::attest {
-				statement: StatementKind::Regular.to_text().to_vec(),
-			});
-			let info = call.get_dispatch_info();
-			(call, info)
-		}
 	}
 
 	fn alice() -> libsecp256k1::SecretKey {
@@ -1109,8 +1071,8 @@ pub(super) mod tests {
 			});
 			let di = c.get_dispatch_info();
 			assert_eq!(di.pays_fee, Pays::No);
-			let r = p.validate_only(Some(42).into(), &c, &di, 20);
-			assert_eq!(r.unwrap().0, ValidTransaction::default());
+			let r = p.validate(&42, &c, &di, 20);
+			assert_eq!(r, TransactionValidity::Ok(ValidTransaction::default()));
 		});
 	}
 
@@ -1122,13 +1084,13 @@ pub(super) mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = p.validate_only(Some(42).into(), &c, &di, 20);
+			let r = p.validate(&42, &c, &di, 20);
 			assert!(r.is_err());
 			let c = RuntimeCall::Claims(ClaimsCall::attest {
 				statement: StatementKind::Saft.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = p.validate_only(Some(69).into(), &c, &di, 20);
+			let r = p.validate(&69, &c, &di, 20);
 			assert!(r.is_err());
 		});
 	}
@@ -1482,17 +1444,14 @@ pub(super) mod tests {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub(super) mod benchmarking {
+mod benchmarking {
 	use super::*;
 	use crate::claims::Call;
 	use frame_benchmarking::{account, benchmarks};
 	use frame_support::traits::UnfilteredDispatchable;
 	use frame_system::RawOrigin;
 	use secp_utils::*;
-	use sp_runtime::{
-		traits::{DispatchTransaction, ValidateUnsigned},
-		DispatchResult,
-	};
+	use sp_runtime::{traits::ValidateUnsigned, DispatchResult};
 
 	const SEED: u32 = 0;
 
@@ -1528,11 +1487,6 @@ pub(super) mod benchmarking {
 	}
 
 	benchmarks! {
-		where_clause { where <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
-			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: Default,
-		}
-
 		// Benchmark `claim` including `validate_unsigned` logic.
 		claim {
 			let c = MAX_CLAIMS;
@@ -1709,38 +1663,6 @@ pub(super) mod benchmarking {
 			for _ in 0 .. i {
 				assert!(super::Pallet::<T>::eth_recover(&signature, &data, extra).is_some());
 			}
-		}
-
-		prevalidate_attests {
-			let c = MAX_CLAIMS;
-
-			for i in 0 .. c / 2 {
-				create_claim::<T>(c)?;
-				create_claim_attest::<T>(u32::MAX - c)?;
-			}
-
-			let ext = PrevalidateAttests::<T>::new();
-			let (call, info) = T::BenchmarkHelper::default_call_and_info();
-			let attest_c = u32::MAX - c;
-			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
-			let eth_address = eth(&secret_key);
-			let account: T::AccountId = account("user", c, SEED);
-			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
-			let statement = StatementKind::Regular;
-			let signature = sig::<T>(&secret_key, &account.encode(), statement.to_text());
-			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, Some(statement))?;
-			Preclaims::<T>::insert(&account, eth_address);
-			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
-		}: {
-			assert!(ext.test_run(
-				RawOrigin::Signed(account).into(),
-				&call,
-				&info,
-				0,
-				|_| {
-					Ok(Default::default())
-				}
-			).unwrap().is_ok());
 		}
 
 		impl_benchmark_test_suite!(
