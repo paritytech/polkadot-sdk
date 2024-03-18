@@ -315,7 +315,7 @@ impl<T: Config> Pallet<T> {
 	/// Process inherent data.
 	///
 	/// The given inherent data is processed and state is altered accordingly. If any data could
-	/// not be applied (inconsitencies, weight limit, ...) it is removed.
+	/// not be applied (inconsistencies, weight limit, ...) it is removed.
 	///
 	/// When called from `create_inherent` the `context` must be set to
 	/// `ProcessInherentDataContext::ProvideInherent` so it guarantees the invariant that inherent

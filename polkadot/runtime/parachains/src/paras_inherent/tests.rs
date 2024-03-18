@@ -16,6 +16,28 @@
 
 use super::*;
 
+use crate::{
+	configuration::{self, HostConfiguration},
+	mock::MockGenesisConfig,
+};
+use primitives::vstaging::SchedulerParams;
+
+fn default_config() -> MockGenesisConfig {
+	MockGenesisConfig {
+		configuration: configuration::GenesisConfig {
+			config: HostConfiguration {
+				max_head_data_size: 0b100000,
+				scheduler_params: SchedulerParams {
+					group_rotation_frequency: u32::MAX,
+					..Default::default()
+				},
+				..Default::default()
+			},
+		},
+		..Default::default()
+	}
+}
+
 // In order to facilitate benchmarks as tests we have a benchmark feature gated `WeightInfo` impl
 // that uses 0 for all the weights. Because all the weights are 0, the tests that rely on
 // weights for limiting data will fail, so we don't run them when using the benchmark feature.
@@ -25,7 +47,7 @@ mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
 	use crate::{
 		builder::{Bench, BenchBuilder},
-		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
+		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
 		scheduler::{
 			common::{Assignment, AssignmentProvider},
 			ParasEntry,
@@ -45,6 +67,7 @@ mod enter {
 		num_validators_per_core: u32,
 		code_upgrade: Option<u32>,
 		fill_claimqueue: bool,
+		elastic_paras: BTreeMap<u32, u8>,
 	}
 
 	fn make_inherent_data(
@@ -55,13 +78,21 @@ mod enter {
 			num_validators_per_core,
 			code_upgrade,
 			fill_claimqueue,
+			elastic_paras,
 		}: TestConfig,
 	) -> Bench<Test> {
+		let extra_cores = elastic_paras
+			.values()
+			.map(|count| *count as usize)
+			.sum::<usize>()
+			.saturating_sub(elastic_paras.len() as usize);
+
 		let builder = BenchBuilder::<Test>::new()
 			.set_max_validators(
-				(dispute_sessions.len() + backed_and_concluding.len()) as u32 *
+				(dispute_sessions.len() + backed_and_concluding.len() + extra_cores) as u32 *
 					num_validators_per_core,
 			)
+			.set_elastic_paras(elastic_paras.clone())
 			.set_max_validators_per_core(num_validators_per_core)
 			.set_dispute_statements(dispute_statements)
 			.set_backed_and_concluding_paras(backed_and_concluding)
@@ -70,10 +101,16 @@ mod enter {
 
 		// Setup some assignments as needed:
 		mock_assigner::Pallet::<Test>::set_core_count(builder.max_cores());
-		for core_index in 0..builder.max_cores() {
-			// Core index == para_id in this case
-			mock_assigner::Pallet::<Test>::add_test_assignment(Assignment::Bulk(core_index.into()));
-		}
+
+		(0..(builder.max_cores() as usize - extra_cores)).for_each(|para_id| {
+			(0..elastic_paras.get(&(para_id as u32)).cloned().unwrap_or(1)).for_each(
+				|_para_local_core_idx| {
+					mock_assigner::Pallet::<Test>::add_test_assignment(Assignment::Bulk(
+						para_id.into(),
+					));
+				},
+			);
+		});
 
 		if let Some(code_size) = code_upgrade {
 			builder.set_code_upgrade(code_size).build()
@@ -104,6 +141,7 @@ mod enter {
 				num_validators_per_core: 1,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			// We expect the scenario to have cores 0 & 1 with pending availability. The backed
@@ -144,6 +182,122 @@ mod enter {
 				// The session of the on chain votes should equal the current session, which is 2
 				Pallet::<Test>::on_chain_votes().unwrap().session,
 				2
+			);
+
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(0))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![CoreIndex(0)]
+			);
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(1))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![CoreIndex(1)]
+			);
+		});
+	}
+
+	#[test]
+	// ParaId 1 has one pending candidate on core 0.
+	// ParaId 2 has one pending candidate on core 1.
+	// ParaId 3 has three pending candidates on cores 2, 3 and 4.
+	// All of them are being made available in this block. Propose 5 more candidates (one for each
+	// core) and check that they're successfully backed and the old ones enacted.
+	fn include_backed_candidates_elastic_scaling() {
+		let config = default_config();
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+
+		new_test_ext(config).execute_with(|| {
+			// Set the elastic scaling MVP feature.
+			<configuration::Pallet<Test>>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::ElasticScalingMVP as u8,
+				true,
+			)
+			.unwrap();
+
+			let dispute_statements = BTreeMap::new();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements,
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				fill_claimqueue: false,
+				elastic_paras: [(2, 3)].into_iter().collect(),
+			});
+
+			let expected_para_inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (5 validators)
+			assert_eq!(expected_para_inherent_data.bitfields.len(), 5);
+			// * 1 backed candidate per core (5 cores)
+			assert_eq!(expected_para_inherent_data.backed_candidates.len(), 5);
+			// * 0 disputes.
+			assert_eq!(expected_para_inherent_data.disputes.len(), 0);
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
+				.unwrap();
+
+			// The current schedule is empty prior to calling `create_inherent_enter`.
+			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+
+			// Nothing is filtered out (including the backed candidates.)
+			assert_eq!(
+				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap(),
+				expected_para_inherent_data
+			);
+
+			assert_eq!(
+				// The length of this vec is equal to the number of candidates, so we know our 5
+				// backed candidates did not get filtered out
+				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				5
+			);
+
+			assert_eq!(
+				// The session of the on chain votes should equal the current session, which is 2
+				Pallet::<Test>::on_chain_votes().unwrap().session,
+				2
+			);
+
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(0))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![CoreIndex(0)]
+			);
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(1))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![CoreIndex(1)]
+			);
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(2))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![CoreIndex(2), CoreIndex(3), CoreIndex(4)]
 			);
 		});
 	}
@@ -255,6 +409,7 @@ mod enter {
 				num_validators_per_core: 5,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -326,6 +481,7 @@ mod enter {
 				num_validators_per_core: 6,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -395,6 +551,7 @@ mod enter {
 				num_validators_per_core: 4,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -480,6 +637,7 @@ mod enter {
 				num_validators_per_core: 5,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -565,6 +723,7 @@ mod enter {
 				num_validators_per_core: 5,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -649,6 +808,7 @@ mod enter {
 				num_validators_per_core: 5,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -754,6 +914,7 @@ mod enter {
 				num_validators_per_core: 5,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -820,6 +981,7 @@ mod enter {
 				num_validators_per_core: 5,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -884,6 +1046,7 @@ mod enter {
 				num_validators_per_core: 5,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -985,6 +1148,7 @@ mod enter {
 				num_validators_per_core: 5,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			let mut para_inherent_data = scenario.data.clone();
@@ -1072,6 +1236,7 @@ mod enter {
 				num_validators_per_core: 5,
 				code_upgrade: None,
 				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1119,7 +1284,7 @@ mod sanitizers {
 		inclusion::tests::{
 			back_candidate, collator_sign_candidate, BackingKind, TestCandidateBuilder,
 		},
-		mock::{new_test_ext, MockGenesisConfig},
+		mock::new_test_ext,
 	};
 	use bitvec::order::Lsb0;
 	use primitives::{
@@ -1375,31 +1540,14 @@ mod sanitizers {
 
 	mod candidates {
 		use crate::{
-			configuration::HostConfiguration,
 			mock::{set_disabled_validators, RuntimeOrigin},
 			scheduler::{common::Assignment, ParasEntry},
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
-		use primitives::{vstaging::SchedulerParams, ValidationCode};
+		use primitives::ValidationCode;
 		use sp_std::collections::vec_deque::VecDeque;
 
 		use super::*;
-
-		fn default_config() -> MockGenesisConfig {
-			MockGenesisConfig {
-				configuration: configuration::GenesisConfig {
-					config: HostConfiguration {
-						max_head_data_size: 0b100000,
-						scheduler_params: SchedulerParams {
-							group_rotation_frequency: u32::MAX,
-							..Default::default()
-						},
-						..Default::default()
-					},
-				},
-				..Default::default()
-			}
-		}
 
 		// Backed candidates and scheduled parachains used for `sanitize_backed_candidates` testing
 		struct TestData {

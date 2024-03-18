@@ -159,7 +159,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	}
 
 	/// Set a map from para id seed to number of cores assigned to it.
-	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn set_elastic_paras(mut self, elastic_paras: BTreeMap<u32, u8>) -> Self {
 		self.elastic_paras = elastic_paras;
 		self
@@ -326,10 +325,14 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			availability_votes,
 			commitments,
 		);
-		inclusion::PendingAvailability::<T>::insert(
-			para_id,
-			[candidate_availability].into_iter().collect::<VecDeque<_>>(),
-		);
+		inclusion::PendingAvailability::<T>::mutate(para_id, |maybe_andidates| {
+			if let Some(candidates) = maybe_andidates {
+				candidates.push_back(candidate_availability);
+			} else {
+				*maybe_andidates =
+					Some([candidate_availability].into_iter().collect::<VecDeque<_>>());
+			}
+		});
 	}
 
 	/// Create an `AvailabilityBitfield` where `concluding` is a map where each key is a core index
@@ -361,13 +364,13 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		}
 	}
 
-	/// Register `cores` count of parachains.
+	/// Register `n_paras` count of parachains.
 	///
 	/// Note that this must be called at least 2 sessions before the target session as there is a
 	/// n+2 session delay for the scheduled actions to take effect.
-	fn setup_para_ids(cores: usize) {
+	fn setup_para_ids(n_paras: usize) {
 		// make sure parachains exist prior to session change.
-		for i in 0..cores {
+		for i in 0..n_paras {
 			let para_id = ParaId::from(i as u32);
 			let validation_code = mock_validation_code();
 
@@ -527,7 +530,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// validity votes.
 	fn create_backed_candidates(
 		&self,
-		cores_with_backed_candidates: &BTreeMap<u32, u32>,
+		paras_with_backed_candidates: &BTreeMap<u32, u32>,
 		elastic_paras: &BTreeMap<u32, u8>,
 		includes_code_upgrade: Option<u32>,
 	) -> Vec<BackedCandidate<T::Hash>> {
@@ -536,7 +539,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let config = configuration::Pallet::<T>::config();
 
 		let mut current_core_idx = 0u32;
-		cores_with_backed_candidates
+		paras_with_backed_candidates
 			.iter()
 			.flat_map(|(seed, num_votes)| {
 				assert!(*num_votes <= validators.len() as u32);
@@ -765,7 +768,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 		// NOTE: there is an n+2 session delay for these actions to take effect.
 		// We are currently in Session 0, so these changes will take effect in Session 2.
-		Self::setup_para_ids(used_cores);
+		Self::setup_para_ids(used_cores - extra_cores);
 		configuration::ActiveConfig::<T>::mutate(|c| {
 			c.scheduler_params.num_cores = used_cores as u32;
 		});
@@ -787,11 +790,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 		let disputes = builder.create_disputes(
 			builder.backed_and_concluding_paras.len() as u32,
-			used_cores as u32,
+			(used_cores - extra_cores) as u32,
 			builder.dispute_sessions.as_slice(),
 		);
 		let mut disputed_cores = (builder.backed_and_concluding_paras.len() as u32..
-			used_cores as u32)
+			((used_cores - extra_cores) as u32))
 			.into_iter()
 			.map(|idx| (idx, 0))
 			.collect::<BTreeMap<_, _>>();
@@ -799,7 +802,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let mut all_cores = builder.backed_and_concluding_paras.clone();
 		all_cores.append(&mut disputed_cores);
 
-		assert_eq!(inclusion::PendingAvailability::<T>::iter().count(), used_cores as usize,);
+		assert_eq!(inclusion::PendingAvailability::<T>::iter().count(), used_cores - extra_cores);
 
 		// Mark all the used cores as occupied. We expect that there are
 		// `backed_and_concluding_paras` that are pending availability and that there are
