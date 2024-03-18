@@ -108,8 +108,6 @@ impl WeightInfo for TestWeightInfo {
 ///  this divides per core.
 ///
 ///  Reads still exist, also improved slightly, but worst case we fetch all entries.
-///
-///  TODO: Add benchmark results.
 #[derive(Encode, Decode, TypeInfo)]
 struct QueueStatusType {
 	/// Last calculated traffic value.
