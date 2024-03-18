@@ -14,4 +14,4 @@ doc:
       The traits of these config types are implemented on tuples, and on `()` for the default case.
 
 crates:
-    - name: xcm-executor
+    - name: staging-xcm-executor
