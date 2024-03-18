@@ -152,7 +152,6 @@ pub mod pallet {
 
 	/// All allowed relay-parents.
 	#[pallet::storage]
-	#[pallet::getter(fn allowed_relay_parents)]
 	pub(crate) type AllowedRelayParents<T: Config> =
 		StorageValue<_, AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>, ValueQuery>;
 
