@@ -64,7 +64,7 @@
 #![no_std]
 
 extern crate self as sp_runtime_interface;
-extern crate alloc;
+pub extern crate alloc;
 
 #[doc(hidden)]
 #[cfg(not(substrate_runtime))]
@@ -348,7 +348,7 @@ pub use sp_std;
 pub use sp_runtime_interface_proc_macro::runtime_interface;
 
 #[doc(hidden)]
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use sp_externalities::{
 	set_and_run_with_externalities, with_externalities, ExtensionStore, Externalities,
 	ExternalitiesExt,

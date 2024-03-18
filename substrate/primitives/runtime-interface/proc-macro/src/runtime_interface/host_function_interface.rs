@@ -289,7 +289,7 @@ fn generate_host_function_implementation(
 		);
 		convert_args_static_ffi_to_host.push(quote! {
 			let mut #host_name = <#host_ty as #crate_::host::FromFFIValue>::from_ffi_value(__function_context__, #ffi_name)
-				.map_err(|err| format!("{}: {}", err, #convert_arg_error))?;
+				.map_err(|err| #crate_::alloc::format!("{}: {}", err, #convert_arg_error))?;
 		});
 
 		host_names_with_ref.push(
@@ -306,9 +306,9 @@ fn generate_host_function_implementation(
 			trait_name
 		);
 		convert_args_dynamic_ffi_to_static_ffi.push(quote! {
-			let #ffi_name = args.next().ok_or_else(|| #arg_count_mismatch_error.to_owned())?;
+			let #ffi_name = args.next().ok_or_else(|| #crate_::alloc::borrow::ToOwned::to_owned(#arg_count_mismatch_error))?;
 			let #ffi_name: #ffi_ty = #crate_::sp_wasm_interface::TryFromValue::try_from_value(#ffi_name)
-				.ok_or_else(|| #convert_arg_error.to_owned())?;
+				.ok_or_else(|| #crate_::alloc::borrow::ToOwned::to_owned(#convert_arg_error))?;
 		});
 	}
 
@@ -364,7 +364,7 @@ fn generate_host_function_implementation(
 			fn call(
 				__function_context__: &mut dyn #crate_::sp_wasm_interface::FunctionContext,
 				#(#ffi_args_prototype),*
-			) -> std::result::Result<#ffi_return_ty, String> {
+			) -> ::core::result::Result<#ffi_return_ty, #crate_::alloc::string::String> {
 				#(#convert_args_static_ffi_to_host)*
 				let __result__ = #fn_name(#(#host_names_with_ref),*);
 				#(#copy_data_into_ref_mut_args)*
@@ -388,7 +388,7 @@ fn generate_host_function_implementation(
 				&self,
 				__function_context__: &mut dyn #crate_::sp_wasm_interface::FunctionContext,
 				args: &mut dyn Iterator<Item = #crate_::sp_wasm_interface::Value>,
-			) -> std::result::Result<Option<#crate_::sp_wasm_interface::Value>, String> {
+			) -> ::core::result::Result<Option<#crate_::sp_wasm_interface::Value>, #crate_::alloc::string::String> {
 				#(#convert_args_dynamic_ffi_to_static_ffi)*
 				let __result__ = Self::call(
 					__function_context__,
@@ -405,7 +405,7 @@ fn generate_host_function_implementation(
 		registry.register_static(
 			#crate_::sp_wasm_interface::Function::name(&#struct_name),
 			|mut caller: #crate_::sp_wasm_interface::wasmtime::Caller<T::State>, #(#ffi_args_prototype),*|
-				-> std::result::Result<#ffi_return_ty, #crate_::sp_wasm_interface::anyhow::Error>
+				-> ::core::result::Result<#ffi_return_ty, #crate_::sp_wasm_interface::anyhow::Error>
 			{
 				T::with_function_context(caller, move |__function_context__| {
 					let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -418,12 +418,12 @@ fn generate_host_function_implementation(
 						Ok(result) => result,
 						Err(panic) => {
 							let message =
-								if let Some(message) = panic.downcast_ref::<String>() {
-									format!("host code panicked while being called by the runtime: {}", message)
+								if let Some(message) = panic.downcast_ref::<#crate_::alloc::string::String>() {
+									#crate_::alloc::format!("host code panicked while being called by the runtime: {}", message)
 								} else if let Some(message) = panic.downcast_ref::<&'static str>() {
-									format!("host code panicked while being called by the runtime: {}", message)
+									#crate_::alloc::format!("host code panicked while being called by the runtime: {}", message)
 								} else {
-									"host code panicked while being called by the runtime".to_owned()
+									#crate_::alloc::borrow::ToOwned::to_owned("host code panicked while being called by the runtime")
 								};
 							return Err(#crate_::sp_wasm_interface::anyhow::Error::msg(message));
 						}
@@ -458,7 +458,7 @@ fn generate_wasm_interface_signature_for_host_function(sig: &Signature) -> Resul
 
 	Ok(quote! {
 		#crate_::sp_wasm_interface::Signature {
-			args: std::borrow::Cow::Borrowed(&[ #( #arg_types ),* ][..]),
+			args: #crate_::alloc::borrow::Cow::Borrowed(&[ #( #arg_types ),* ][..]),
 			return_value: #return_value,
 		}
 	})

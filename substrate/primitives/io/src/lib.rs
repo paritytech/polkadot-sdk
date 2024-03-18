@@ -77,19 +77,21 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(enable_alloc_error_handler, feature(alloc_error_handler))]
 
-use sp_std::vec::Vec;
+extern crate alloc;
 
-#[cfg(feature = "std")]
+use alloc::vec::Vec;
+
+#[cfg(not(substrate_runtime))]
 use tracing;
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use sp_core::{
 	crypto::Pair,
 	hexdisplay::HexDisplay,
 	offchain::{OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
 	storage::ChildInfo,
 };
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use sp_keystore::KeystoreExt;
 
 #[cfg(feature = "bandersnatch-experimental")]
@@ -108,7 +110,7 @@ use sp_core::{
 #[cfg(feature = "bls-experimental")]
 use sp_core::{bls377, ecdsa_bls377};
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 
 use sp_runtime_interface::{
@@ -122,13 +124,13 @@ use sp_runtime_interface::{
 
 use codec::{Decode, Encode};
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
 	Message, SECP256K1,
 };
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use sp_externalities::{Externalities, ExternalitiesExt};
 
 pub use sp_externalities::MultiRemovalResults;
@@ -143,7 +145,7 @@ mod global_alloc_wasm;
 ))]
 mod global_alloc_riscv;
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 const LOG_TARGET: &str = "runtime::io";
 
 /// Error verifying ECDSA signature
@@ -206,7 +208,7 @@ pub trait Storage {
 		self.storage(key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			data.len() as u32
 		})
@@ -436,7 +438,7 @@ pub trait DefaultChildStorage {
 		self.child_storage(&child_info, key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			data.len() as u32
 		})
@@ -798,7 +800,7 @@ pub trait Misc {
 
 	/// Print any valid `utf8` buffer.
 	fn print_utf8(utf8: PassFatPointerAndRead<&[u8]>) {
-		if let Ok(data) = std::str::from_utf8(utf8) {
+		if let Ok(data) = core::str::from_utf8(utf8) {
 			log::debug!(target: "runtime", "{}", data)
 		}
 	}
@@ -849,7 +851,7 @@ pub trait Misc {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 sp_externalities::decl_extension! {
 	/// Extension to signal to [`crypt::ed25519_verify`] to use the dalek crate.
 	///
@@ -870,7 +872,7 @@ sp_externalities::decl_extension! {
 	pub struct UseDalekExt;
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 impl Default for UseDalekExt {
 	fn default() -> Self {
 		Self
@@ -901,7 +903,7 @@ pub trait Crypto {
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		seed: PassByCodec<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<ed25519::Public, 32> {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ed25519_generate_new(id, seed)
@@ -1080,7 +1082,7 @@ pub trait Crypto {
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		seed: PassByCodec<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<sr25519::Public, 32> {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.sr25519_generate_new(id, seed)
@@ -1137,7 +1139,7 @@ pub trait Crypto {
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		seed: PassByCodec<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<ecdsa::Public, 33> {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_generate_new(id, seed)
@@ -1350,7 +1352,7 @@ pub trait Crypto {
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		seed: PassByCodec<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<bls377::Public, 144> {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.bls377_generate_new(id, seed)
@@ -1369,7 +1371,7 @@ pub trait Crypto {
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		seed: PassByCodec<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<ecdsa_bls377::Public, { 144 + 33 }> {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_bls377_generate_new(id, seed)
@@ -1388,7 +1390,7 @@ pub trait Crypto {
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		seed: PassByCodec<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<bandersnatch::Public, 33> {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.bandersnatch_generate_new(id, seed)
@@ -1473,7 +1475,7 @@ pub trait OffchainIndex {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 sp_externalities::decl_extension! {
 	/// Deprecated verification context.
 	///
@@ -1764,7 +1766,7 @@ pub trait Logging {
 		target: PassFatPointerAndRead<&str>,
 		message: PassFatPointerAndRead<&[u8]>,
 	) {
-		if let Ok(message) = std::str::from_utf8(message) {
+		if let Ok(message) = core::str::from_utf8(message) {
 			log::log!(target: target, log::Level::from(level), "{}", message)
 		}
 	}
@@ -1828,7 +1830,7 @@ pub trait WasmTracing {
 	}
 }
 
-#[cfg(all(not(feature = "std"), feature = "with-tracing"))]
+#[cfg(all(substrate_runtime, feature = "with-tracing"))]
 mod tracing_setup {
 	use super::wasm_tracing;
 	use core::sync::atomic::{AtomicBool, Ordering};
@@ -1884,7 +1886,7 @@ mod tracing_setup {
 	}
 }
 
-#[cfg(not(all(not(feature = "std"), feature = "with-tracing")))]
+#[cfg(not(all(substrate_runtime, feature = "with-tracing")))]
 mod tracing_setup {
 	/// Initialize tracing of sp_tracing not necessary – noop. To enable build
 	/// without std and with the `with-tracing`-feature.
@@ -1917,7 +1919,7 @@ pub fn unreachable() -> ! {
 #[panic_handler]
 #[no_mangle]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
-	let message = sp_std::alloc::format!("{}", info);
+	let message = alloc::format!("{}", info);
 	#[cfg(feature = "improved_panic_error_reporting")]
 	{
 		panic_handler::abort_on_panic(&message);
@@ -1945,13 +1947,13 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 }
 
 /// Type alias for Externalities implementation used in tests.
-#[cfg(feature = "std")]
+#[cfg(feature = "std")] // NOTE: Deliberately isn't `not(substrate_runtime)`.
 pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher>;
 
 /// The host functions Substrate provides for the Wasm runtime environment.
 ///
 /// All these host functions will be callable from inside the Wasm environment.
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub type SubstrateHostFunctions = (
 	storage::HostFunctions,
 	default_child_storage::HostFunctions,

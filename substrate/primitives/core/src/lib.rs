@@ -20,6 +20,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 /// Initialize a key-value collection from array.
 ///
 /// Creates a vector of given pairs and calls `collect` on the iterator from it.
@@ -65,13 +67,13 @@ pub mod defer;
 pub mod ecdsa;
 pub mod ed25519;
 pub mod hash;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod hasher;
 pub mod offchain;
 pub mod paired_crypto;
 pub mod sr25519;
 pub mod testing;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub mod traits;
 pub mod uint;
 
@@ -86,9 +88,9 @@ pub use self::{
 };
 pub use crypto::{ByteArray, DeriveJunction, Pair, Public};
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use self::hasher::blake2::Blake2Hasher;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use self::hasher::keccak::KeccakHasher;
 pub use hash_db::Hasher;
 

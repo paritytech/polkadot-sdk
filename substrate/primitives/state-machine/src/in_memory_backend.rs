@@ -21,11 +21,17 @@ use crate::{
 	backend::Backend, trie_backend::TrieBackend, StorageCollection, StorageKey, StorageValue,
 	TrieBackendBuilder,
 };
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::Codec;
 use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, Storage};
 use sp_trie::{empty_trie_root, LayoutV1, PrefixedMemoryDB};
-use std::collections::{BTreeMap, HashMap};
+
+#[cfg(feature = "std")]
+use std::collections::HashMap;
+
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap as HashMap;
 
 /// Create a new empty instance of in-memory backend.
 pub fn new_in_mem<H>() -> TrieBackend<PrefixedMemoryDB<H>, H>

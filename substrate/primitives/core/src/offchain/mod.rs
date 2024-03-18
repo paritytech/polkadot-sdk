@@ -621,13 +621,13 @@ impl<T: Externalities> Externalities for LimitedExternalities<T> {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 sp_externalities::decl_extension! {
 	/// The offchain worker extension that will be registered at the Substrate externalities.
 	pub struct OffchainWorkerExt(Box<dyn Externalities>);
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 impl OffchainWorkerExt {
 	/// Create a new instance of `Self`.
 	pub fn new<O: Externalities + 'static>(offchain: O) -> Self {
@@ -727,13 +727,13 @@ impl<T: DbExternalities> DbExternalities for LimitedExternalities<T> {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 sp_externalities::decl_extension! {
 	/// The offchain database extension that will be registered at the Substrate externalities.
 	pub struct OffchainDbExt(Box<dyn DbExternalities>);
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 impl OffchainDbExt {
 	/// Create a new instance of `OffchainDbExt`.
 	pub fn new<O: DbExternalities + 'static>(offchain: O) -> Self {
@@ -746,7 +746,7 @@ impl OffchainDbExt {
 /// This trait is currently used within the `ExternalitiesExtension`
 /// to provide offchain calls with access to the transaction pool without
 /// tight coupling with any pool implementation.
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub trait TransactionPool {
 	/// Submit transaction.
 	///
@@ -754,13 +754,13 @@ pub trait TransactionPool {
 	fn submit_transaction(&mut self, extrinsic: Vec<u8>) -> Result<(), ()>;
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 sp_externalities::decl_extension! {
 	/// An externalities extension to submit transactions to the pool.
 	pub struct TransactionPoolExt(Box<dyn TransactionPool + Send>);
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 impl TransactionPoolExt {
 	/// Create a new instance of `TransactionPoolExt`.
 	pub fn new<O: TransactionPool + Send + 'static>(pool: O) -> Self {
