@@ -23,7 +23,6 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 impl-trait-for-tuples = "0.2.2"
 thiserror = { optional = true, workspace = true }
 sp-runtime = { path = "../runtime", default-features = false, optional = true }
-sp-std = { path = "../std", default-features = false }
 
 [dev-dependencies]
 futures = "0.3.21"
@@ -35,6 +34,5 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"thiserror",
 ]
