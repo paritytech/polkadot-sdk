@@ -62,7 +62,7 @@ pub fn generate(trait_def: &ItemTrait, is_wasm_only: bool) -> Result<TokenStream
 		/// The implementations of the extern host functions. This special implementation module
 		/// is required to change the extern host functions signature to
 		/// `unsafe fn name(args) -> ret` to make the function implementations exchangeable.
-		#[cfg(not(feature = "std"))]
+		#[cfg(substrate_runtime)]
 		mod extern_host_function_impls {
 			use super::*;
 
@@ -174,7 +174,7 @@ fn generate_exchangeable_host_function(method: &TraitItemFn) -> Result<TokenStre
 
 	Ok(quote! {
 		#(#cfg_attrs)*
-		#[cfg(not(feature = "std"))]
+		#[cfg(substrate_runtime)]
 		#[allow(non_upper_case_globals)]
 		#[doc = #doc_string]
 		pub static #exchangeable_function : #crate_::wasm::ExchangeableFunction<
@@ -207,10 +207,10 @@ fn generate_host_functions_struct(
 		#(#host_function_impls)*
 
 		/// Provides implementations for the extern host functions.
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		pub struct HostFunctions;
 
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		impl #crate_::sp_wasm_interface::HostFunctions for HostFunctions {
 			fn host_functions() -> Vec<&'static dyn #crate_::sp_wasm_interface::Function> {
 				let mut host_functions_list = Vec::new();
@@ -355,11 +355,11 @@ fn generate_host_function_implementation(
 
 	let implementation = quote! {
 		#(#cfg_attrs)*
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		struct #struct_name;
 
 		#(#cfg_attrs)*
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		impl #struct_name {
 			fn call(
 				__function_context__: &mut dyn #crate_::sp_wasm_interface::FunctionContext,
@@ -374,7 +374,7 @@ fn generate_host_function_implementation(
 		}
 
 		#(#cfg_attrs)*
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		impl #crate_::sp_wasm_interface::Function for #struct_name {
 			fn name(&self) -> &str {
 				#name
