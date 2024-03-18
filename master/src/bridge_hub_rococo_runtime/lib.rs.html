@@ -2458,7 +2458,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>authorities() -&gt; Vec&lt;AuraId&gt; {
-			Aura::authorities().into_inner()
+			pallet_aura::Authorities::&lt;Runtime&gt;::get().into_inner()
 		}
 	}
 

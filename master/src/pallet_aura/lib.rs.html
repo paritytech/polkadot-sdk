@@ -548,8 +548,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -713,16 +711,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The current authority set.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>authorities)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Authorities&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>Authorities&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;T::AuthorityId, T::MaxAuthorities&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The current slot of this block.
 	///
 	/// This will be set in `on_initialize`.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>current_slot)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CurrentSlot&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Slot, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>CurrentSlot&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Slot, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -870,7 +866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// instant changes
 		</span><span class="kw">if </span>changed {
 			<span class="kw">let </span>next_authorities = validators.map(|(<span class="kw">_</span>, k)| k).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-			<span class="kw">let </span>last_authorities = <span class="self">Self</span>::authorities();
+			<span class="kw">let </span>last_authorities = Authorities::&lt;T&gt;::get();
 			<span class="kw">if </span>last_authorities != next_authorities {
 				<span class="kw">if </span>next_authorities.len() <span class="kw">as </span>u32 &gt; T::MaxAuthorities::get() {
 					<span class="macro">log::warn!</span>(
@@ -926,7 +922,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		<span class="kw">let </span>i = Inner::find_author(digests)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>validators = &lt;Pallet&lt;T&gt;&gt;::authorities();
+		<span class="kw">let </span>validators = Authorities::&lt;T&gt;::get();
 		validators.get(i <span class="kw">as </span>usize).cloned()
 	}
 }
@@ -936,7 +932,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&gt; IsMember&lt;T::AuthorityId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>is_member(authority_id: <span class="kw-2">&amp;</span>T::AuthorityId) -&gt; bool {
-		<span class="self">Self</span>::authorities().iter().any(|id| id == authority_id)
+		Authorities::&lt;T&gt;::get().iter().any(|id| id == authority_id)
 	}
 }
 
