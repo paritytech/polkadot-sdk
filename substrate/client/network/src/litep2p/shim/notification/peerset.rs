@@ -214,7 +214,7 @@ pub enum PeersetNotificationCommand {
 /// either fully open or fully closed and the slot allocation for opening a substream is tied to a
 /// state transition which moves the peer to [`PeerState::Opening`]. This is because it allows
 /// reserving a slot for peer to prevent infinite outbound substreams. If the substream is opened
-/// successfully, peer is moved to state [`PeerState::Open`] but there is no modification to the
+/// successfully, peer is moved to state [`PeerState::Connected`] but there is no modification to the
 /// slot count as an outbound slot was already allocated for the peer. If the substream fails to
 /// open, the event is reported by litep2p and [`Peerset::report_substream_open_failure()`] is
 /// called which will decrease the outbound slot count. Similarly for inbound streams, the slot is
@@ -224,7 +224,7 @@ pub enum PeersetNotificationCommand {
 /// decreased in [`Peerset::report_substream_open_failure()`]. If the substream is opened
 /// successfully, the slot count is not modified.
 ///
-/// Since closing a substream is not instantaneous, there is a separate [`PeersState::Closing`]
+/// Since closing a substream is not instantaneous, there is a separate [`PeerState::Closing`]
 /// state which indicates that the substream is being closed but hasn't been closed by litep2p yet.
 /// This state is used to prevent invalid state transitions where, for example, [`Peerset`] would
 /// close a substream and then try to reopen it immediately.
@@ -252,7 +252,7 @@ pub enum PeersetNotificationCommand {
 /// not yet open. This can happen, for example, when a peer has connected over the syncing protocol
 /// and it was added to, e.g., GRANDPA's reserved peers, an outbound substream was opened
 /// ([`PeerState::Opening`]) and then the peer disconnected. This state transition is handled by the
-/// `[Peerset`] with `PeerState::Canceled` which indicates that should the substream open
+/// [`Peerset`] with `PeerState::Canceled` which indicates that should the substream open
 /// successfully, it should be closed immediately and if the connection is opened successfully while
 /// the peer was marked as canceled, the substream will be closed without notifying the protocol
 /// about the substream.
@@ -401,7 +401,7 @@ impl Peerset {
 			.map(|peer| (*peer, PeerState::Disconnected))
 			.collect::<HashMap<_, _>>();
 
-		// register protocol's commad channel to `Peerstore` so it can issue disconnect commands
+		// register protocol's command channel to `Peerstore` so it can issue disconnect commands
 		// if some connected peer gets banned.
 		peerstore_handle.register_protocol(Arc::new(PeersetHandle { tx: cmd_tx.clone() }));
 

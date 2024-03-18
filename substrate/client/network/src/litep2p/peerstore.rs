@@ -44,9 +44,6 @@ const LOG_TARGET: &str = "sub-libp2p::peerstore";
 /// We don't accept nodes whose reputation is under this value.
 pub const BANNED_THRESHOLD: i32 = 82 * (i32::MIN / 100);
 
-/// Reputation change for a node when we get disconnected from it.
-const _DISCONNECT_REPUTATION_CHANGE: i32 = -256;
-
 /// Relative decrement of a reputation value that is applied every second. I.e., for inverse
 /// decrement of 50 we decrease absolute value of the reputation by 1/50. This corresponds to a
 /// factor of `k = 0.98`. It takes ~ `ln(0.5) / ln(k)` seconds to reduce the reputation by half,

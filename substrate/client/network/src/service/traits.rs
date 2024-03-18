@@ -265,7 +265,9 @@ pub trait NetworkStatusProvider {
 	/// Returns an error if the `NetworkWorker` is no longer running.
 	async fn status(&self) -> Result<NetworkStatus, ()>;
 
-	/// TODO
+	/// Get the network state.
+	///
+	/// Returns an error if the `NetworkWorker` is no longer running.
 	async fn network_state(&self) -> Result<NetworkState, ()>;
 }
 
