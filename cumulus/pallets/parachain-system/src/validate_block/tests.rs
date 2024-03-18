@@ -26,8 +26,18 @@ use cumulus_test_client::{
 	TestClientBuilderExt, ValidationParams,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+use cumulus_test_runtime::GetLastTimestamp;
+use sc_consensus_aura::{standalone::slot_author, AuraApi};
+use sp_api::ProvideRuntimeApi;
+use sp_application_crypto::{AppCrypto, RuntimeAppPublic};
+use sp_consensus_aura::{digests::CompatibleDigestItem, sr25519::AuthoritySignature};
+use sp_consensus_slots::{Slot, SlotDuration};
+use sp_core::sr25519::Public;
 use sp_keyring::AccountKeyring::*;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT},
+	DigestItem,
+};
 use std::{env, process::Command};
 
 use crate::validate_block::MemoryOptimizedValidationParams;
@@ -73,6 +83,7 @@ fn create_test_client() -> (Client, Header) {
 struct TestBlockData {
 	block: ParachainBlockData<Block>,
 	validation_data: PersistedValidationData,
+	slot: Slot,
 }
 
 fn build_block_with_witness(
@@ -90,14 +101,14 @@ fn build_block_with_witness(
 		..Default::default()
 	};
 
-	let (mut builder, validation_data) =
+	let (mut builder, validation_data, slot) =
 		client.init_block_builder(Some(validation_data), sproof_builder);
 
 	extra_extrinsics.into_iter().for_each(|e| builder.push(e).unwrap());
 
 	let block = builder.build_parachain_block(*parent_head.state_root());
 
-	TestBlockData { block, validation_data }
+	TestBlockData { block, validation_data, slot }
 }
 
 #[test]
@@ -105,10 +116,11 @@ fn validate_block_works() {
 	sp_tracing::try_init_simple();
 
 	let (client, parent_head) = create_test_client();
-	let TestBlockData { block, validation_data } =
+	let TestBlockData { block, validation_data, slot } =
 		build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
-	let header = block.header().clone();
 
+	let block = seal_block(block, slot, &client);
+	let header = block.header().clone();
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");
@@ -126,12 +138,13 @@ fn validate_block_with_extra_extrinsics() {
 		transfer(&client, Charlie, Alice, 500),
 	];
 
-	let TestBlockData { block, validation_data } = build_block_with_witness(
+	let TestBlockData { block, validation_data, slot } = build_block_with_witness(
 		&client,
 		extra_extrinsics,
 		parent_head.clone(),
 		Default::default(),
 	);
+	let block = seal_block(block, slot, &client);
 	let header = block.header().clone();
 
 	let res_header =
@@ -159,7 +172,7 @@ fn validate_block_returns_custom_head_data() {
 		transfer(&client, Bob, Charlie, 100),
 	];
 
-	let TestBlockData { block, validation_data } = build_block_with_witness(
+	let TestBlockData { block, validation_data, slot } = build_block_with_witness(
 		&client,
 		extra_extrinsics,
 		parent_head.clone(),
@@ -168,6 +181,7 @@ fn validate_block_returns_custom_head_data() {
 	let header = block.header().clone();
 	assert_ne!(expected_header, header.encode());
 
+	let block = seal_block(block, slot, &client);
 	let res_header = call_validate_block_encoded_header(
 		parent_head,
 		block,
@@ -183,7 +197,7 @@ fn validate_block_invalid_parent_hash() {
 
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
-		let TestBlockData { block, validation_data } =
+		let TestBlockData { block, validation_data, .. } =
 			build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
 		let (mut header, extrinsics, witness) = block.deconstruct();
 		header.set_parent_hash(Hash::from_low_u64_be(1));
@@ -233,7 +247,7 @@ fn check_inherents_are_unsigned_and_before_all_other_extrinsics() {
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
 
-		let TestBlockData { block, validation_data } =
+		let TestBlockData { block, validation_data, .. } =
 			build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
 
 		let (header, mut extrinsics, proof) = block.deconstruct();
@@ -316,17 +330,41 @@ fn validate_block_works_with_child_tries() {
 
 	let parent_head = block.header().clone();
 
-	let TestBlockData { block, validation_data } = build_block_with_witness(
+	let TestBlockData { block, validation_data, slot } = build_block_with_witness(
 		&client,
 		vec![generate_extrinsic(&client, Alice, TestPalletCall::read_and_write_child_tries {})],
 		parent_head.clone(),
 		Default::default(),
 	);
 
-	let header = block.header().clone();
-
+	let block = seal_block(block, slot, &client);
+	let header: cumulus_test_runtime::Header = block.header().clone();
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
+}
+
+fn seal_block(
+	block: ParachainBlockData<cumulus_test_runtime::Block>,
+	parachain_slot: Slot,
+	client: &Client,
+) -> ParachainBlockData<cumulus_test_runtime::Block> {
+	let parent_hash = block.header().parent_hash;
+	let authorities = client.runtime_api().authorities(parent_hash).unwrap();
+	let expected_author: Option<&sp_consensus_aura::sr25519::AuthorityId> =
+		slot_author::<<cumulus_test_runtime::AuraId as AppCrypto>::Pair>(
+			parachain_slot,
+			&authorities,
+		);
+
+	let core_public = Public::try_from(expected_author.unwrap().to_raw_vec().as_slice()).unwrap();
+	let author = sp_keyring::Sr25519Keyring::from_public(&core_public).unwrap();
+
+	let (mut header, extrinsics, proof) = block.deconstruct();
+	let signature = author.sign(header.hash().as_ref());
+	let digest_item =
+		<DigestItem as CompatibleDigestItem<AuthoritySignature>>::aura_seal(signature.into());
+	header.digest_mut().push(digest_item.clone());
+	ParachainBlockData::new(header, extrinsics, proof)
 }

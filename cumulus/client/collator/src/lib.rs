@@ -381,7 +381,7 @@ mod tests {
 			sproof.included_para_head = Some(HeadData(parent.encode()));
 			sproof.para_id = cumulus_test_runtime::PARACHAIN_ID.into();
 
-			let builder = self.client.init_block_builder_at(
+			let (builder, ..) = self.client.init_block_builder_at(
 				parent.hash(),
 				Some(validation_data.clone()),
 				sproof,

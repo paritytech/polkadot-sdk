@@ -45,7 +45,11 @@ pub trait InitBlockBuilder {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> (sc_block_builder::BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>);
+	) -> (
+		sc_block_builder::BlockBuilder<Block, Client>,
+		PersistedValidationData<PHash, PBlockNumber>,
+		Slot,
+	);
 
 	/// Init a specific block builder at a specific block that works for the test runtime.
 	///
@@ -56,7 +60,11 @@ pub trait InitBlockBuilder {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> (sc_block_builder::BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>);
+	) -> (
+		sc_block_builder::BlockBuilder<Block, Client>,
+		PersistedValidationData<PHash, PBlockNumber>,
+		Slot,
+	);
 
 	/// Init a specific block builder that works for the test runtime.
 	///
@@ -69,7 +77,11 @@ pub trait InitBlockBuilder {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> (sc_block_builder::BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>);
+	) -> (
+		sc_block_builder::BlockBuilder<Block, Client>,
+		PersistedValidationData<PHash, PBlockNumber>,
+		Slot,
+	);
 }
 
 fn init_block_builder(
@@ -78,7 +90,7 @@ fn init_block_builder(
 	validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 	mut relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
-) -> (BlockBuilder<'_, Block, Client>, PersistedValidationData<PHash, PBlockNumber>) {
+) -> (BlockBuilder<'_, Block, Client>, PersistedValidationData<PHash, PBlockNumber>, Slot) {
 	let slot: Slot = (timestamp / cumulus_test_runtime::SLOT_DURATION).into();
 	relay_sproof_builder.current_slot = slot;
 	let aura_pre_digest = Digest {
@@ -124,7 +136,7 @@ fn init_block_builder(
 		.into_iter()
 		.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
 
-	(block_builder, validation_data)
+	(block_builder, validation_data, slot)
 }
 
 impl InitBlockBuilder for Client {
@@ -132,7 +144,7 @@ impl InitBlockBuilder for Client {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> (BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>) {
+	) -> (BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>, Slot) {
 		let chain_info = self.chain_info();
 		self.init_block_builder_at(chain_info.best_hash, validation_data, relay_sproof_builder)
 	}
@@ -142,7 +154,7 @@ impl InitBlockBuilder for Client {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> (BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>) {
+	) -> (BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>, Slot) {
 		let last_timestamp = self.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
 
 		let timestamp = if last_timestamp == 0 {
@@ -163,7 +175,7 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> (BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>) {
+	) -> (BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>, Slot) {
 		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
 	}
 }
