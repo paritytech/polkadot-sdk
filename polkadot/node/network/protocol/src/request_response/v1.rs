@@ -22,7 +22,8 @@ use polkadot_node_primitives::{
 	AvailableData, DisputeMessage, ErasureChunk, PoV, Proof, UncheckedDisputeMessage,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, Hash, Id as ParaId, ValidatorIndex,
+	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, Hash, HeadData, Id as ParaId,
+	ValidatorIndex,
 };
 
 use super::{IsRequest, Protocol};
@@ -103,6 +104,18 @@ pub enum CollationFetchingResponse {
 	/// Deliver requested collation.
 	#[codec(index = 0)]
 	Collation(CandidateReceipt, PoV),
+
+	/// Deliver requested collation along with parent head data.
+	#[codec(index = 1)]
+	CollationWithParentHeadData {
+		/// The receipt of the candidate.
+		receipt: CandidateReceipt,
+		/// Candidate's proof of validity.
+		pov: PoV,
+		/// The head data of the candidate's parent.
+		/// This is needed for elastic scaling to work.
+		parent_head_data: HeadData,
+	},
 }
 
 impl IsRequest for CollationFetchingRequest {

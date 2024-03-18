@@ -19,11 +19,3 @@ mod set_xcm_versions;
 mod swap;
 mod teleport;
 mod treasury;
-
-use crate::*;
-emulated_integration_tests_common::include_penpal_create_foreign_asset_on_asset_hub!(
-	PenpalA,
-	AssetHubRococo,
-	ROCOCO_ED,
-	testnet_parachains_constants::rococo::fee::WeightToFee
-);

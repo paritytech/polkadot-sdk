@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use emulated_integration_tests_common::accounts::{ALICE, BOB};
 use frame_support::{
 	dispatch::RawOrigin,
@@ -23,6 +23,7 @@ use frame_support::{
 		fungibles::{Create, Inspect as FungiblesInspect, Mutate},
 	},
 };
+use parachains_common::AccountId;
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
 use rococo_runtime::OriginCaller;
 use rococo_runtime_constants::currency::GRAND;
