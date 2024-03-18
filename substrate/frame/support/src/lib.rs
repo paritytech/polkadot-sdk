@@ -54,8 +54,7 @@ pub mod __private {
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
 	pub use sp_runtime::{
-		traits::{AsSystemOriginSigner, Dispatchable},
-		DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
+		traits::Dispatchable, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
 	};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
@@ -76,7 +75,6 @@ pub mod storage;
 #[cfg(test)]
 mod tests;
 pub mod traits;
-pub mod transaction_extensions;
 pub mod weights;
 #[doc(hidden)]
 pub mod unsigned {
@@ -1586,8 +1584,8 @@ pub mod pallet_macros {
 	/// [`ValidateUnsigned`](frame_support::pallet_prelude::ValidateUnsigned) for
 	/// type `Pallet<T>`, and some optional where clause.
 	///
-	/// NOTE: There is also the [`sp_runtime::traits::TransactionExtension`] trait that can be
-	/// used to add some specific logic for transaction validation.
+	/// NOTE: There is also the [`sp_runtime::traits::SignedExtension`] trait that can be used
+	/// to add some specific logic for transaction validation.
 	///
 	/// ## Macro expansion
 	///
@@ -1935,7 +1933,7 @@ pub mod pallet_macros {
 	/// #   use frame_support::__private::TestExternalities;
 	/// #   use frame_support::traits::UnfilteredDispatchable;
 	/// #    impl custom_pallet::Config for Runtime {}
-	/// #    #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	/// #    #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	/// #    impl frame_system::Config for Runtime {
 	/// #        type Block = frame_system::mocking::MockBlock<Self>;
 	/// #    }
