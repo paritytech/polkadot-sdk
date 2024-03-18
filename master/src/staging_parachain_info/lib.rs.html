@@ -221,6 +221,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -277,7 +282,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::genesis_build]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-			&lt;ParachainId&lt;T&gt;&gt;::put(<span class="self">self</span>.parachain_id);
+			ParachainId::&lt;T&gt;::put(<span class="self">self</span>.parachain_id);
 		}
 	}
 
@@ -287,13 +292,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>parachain_id)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ParachainId&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, ParaId, ValueQuery, DefaultForParachainId&gt;;
 
 	<span class="kw">impl</span>&lt;T: Config&gt; Get&lt;ParaId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">fn </span>get() -&gt; ParaId {
-			<span class="self">Self</span>::parachain_id()
+			ParachainId::&lt;T&gt;::get()
+		}
+	}
+
+	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="kw">pub fn </span>parachain_id() -&gt; ParaId {
+			ParachainId::&lt;T&gt;::get()
 		}
 	}
 }

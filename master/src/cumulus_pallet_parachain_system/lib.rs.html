@@ -1906,10 +1906,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1759" id="1759">1759</a>
 <a href="#1760" id="1760">1760</a>
 <a href="#1761" id="1761">1761</a>
-<a href="#1762" id="1762">1762</a>
-<a href="#1763" id="1763">1763</a>
-<a href="#1764" id="1764">1764</a>
-<a href="#1765" id="1765">1765</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2179,7 +2175,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			LastRelayChainBlockNumber::&lt;T&gt;::put(vfp.relay_parent_number);
 
-			<span class="kw">let </span>host_config = <span class="kw">match </span><span class="self">Self</span>::host_configuration() {
+			<span class="kw">let </span>host_config = <span class="kw">match </span>HostConfiguration::&lt;T&gt;::get() {
 				<span class="prelude-val">Some</span>(ok) =&gt; ok,
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">debug_assert!</span>(
@@ -2193,7 +2189,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Before updating the relevant messaging state, we need to extract
 			// the total bandwidth limits for the purpose of updating the unincluded
 			// segment.
-			</span><span class="kw">let </span>total_bandwidth_out = <span class="kw">match </span><span class="self">Self</span>::relevant_messaging_state() {
+			</span><span class="kw">let </span>total_bandwidth_out = <span class="kw">match </span>RelevantMessagingState::&lt;T&gt;::get() {
 				<span class="prelude-val">Some</span>(s) =&gt; OutboundBandwidthLimits::from_relay_chain_state(<span class="kw-2">&amp;</span>s),
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">debug_assert!</span>(
@@ -2210,7 +2206,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="self">Self</span>::adjust_egress_bandwidth_limits();
 
 			<span class="kw">let </span>(ump_msg_count, ump_total_bytes) = &lt;PendingUpwardMessages&lt;T&gt;&gt;::mutate(|up| {
-				<span class="kw">let </span>(available_capacity, available_size) = <span class="kw">match </span><span class="self">Self</span>::relevant_messaging_state() {
+				<span class="kw">let </span>(available_capacity, available_size) = <span class="kw">match </span>RelevantMessagingState::&lt;T&gt;::get()
+				{
 					<span class="prelude-val">Some</span>(limits) =&gt; (
 						limits.relay_dispatch_queue_remaining_capacity.remaining_count,
 						limits.relay_dispatch_queue_remaining_capacity.remaining_size,
@@ -2388,7 +2385,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// than the announced, we would waste some of weight. In the case the actual value is
 			// greater than the announced, we will miss opportunity to send a couple of messages.
 			</span>weight += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>);
-			<span class="kw">let </span>hrmp_max_message_num_per_candidate = <span class="self">Self</span>::host_configuration()
+			<span class="kw">let </span>hrmp_max_message_num_per_candidate = HostConfiguration::&lt;T&gt;::get()
 				.map(|cfg| cfg.hrmp_max_message_num_per_candidate)
 				.unwrap_or(<span class="number">0</span>);
 			&lt;AnnouncedHrmpMessagesPerCandidate&lt;T&gt;&gt;::put(hrmp_max_message_num_per_candidate);
@@ -2676,7 +2673,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// [`:code`][sp_core::storage::well_known_keys::CODE] which will result the next block process
 	/// with the new validation code. This concludes the upgrade process.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>new_validation_function)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>PendingValidationCode&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;u8&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Validation code that is set by the parachain and is to be communicated to collator and
@@ -2691,7 +2687,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This value is expected to be set only once per block and it&#39;s never stored
 	/// in the trie.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>validation_data)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ValidationData&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, PersistedValidationData&gt;;
 
 	<span class="doccomment">/// Were the validation data set to notify the relay chain?
@@ -2732,7 +2727,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This data is also absent from the genesis.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>relay_state_proof)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>RelayStateProof&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, sp_trie::StorageProof&gt;;
 
 	<span class="doccomment">/// The snapshot of some state related to messaging relevant to the current parachain as per
@@ -2743,7 +2737,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This data is also absent from the genesis.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>relevant_messaging_state)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>RelevantMessagingState&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, MessagingStateSnapshot&gt;;
 
 	<span class="doccomment">/// The parachain host configuration that was obtained from the relay parent.
@@ -2754,7 +2747,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This data is also absent from the genesis.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::disable_try_decode_storage]
-	#[pallet::getter(<span class="kw">fn </span>host_configuration)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>HostConfiguration&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, AbridgedHostConfiguration&gt;;
 
 	<span class="doccomment">/// The last downward message queue chain head we have observed.
@@ -2953,7 +2945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		// Here it a similar case, with the difference that the realization that the channel is
 		// closed came the same block.
-		</span><span class="kw">let </span>channels = <span class="kw">match </span><span class="self">Self</span>::relevant_messaging_state() {
+		</span><span class="kw">let </span>channels = <span class="kw">match </span>RelevantMessagingState::&lt;T&gt;::get() {
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">log::warn!</span>(<span class="string">&quot;calling `get_channel_status` with no RelevantMessagingState?!&quot;</span>);
 				<span class="kw">return </span>ChannelStatus::Closed
@@ -2981,7 +2973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>get_channel_info(id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;ChannelInfo&gt; {
-		<span class="kw">let </span>channels = <span class="self">Self</span>::relevant_messaging_state()<span class="question-mark">?</span>.egress_channels;
+		<span class="kw">let </span>channels = RelevantMessagingState::&lt;T&gt;::get()<span class="question-mark">?</span>.egress_channels;
 		<span class="kw">let </span>index = channels.binary_search_by_key(<span class="kw-2">&amp;</span>id, |item| item.<span class="number">0</span>).ok()<span class="question-mark">?</span>;
 		<span class="kw">let </span>info = ChannelInfo {
 			max_capacity: channels[index].<span class="number">1</span>.max_capacity,
@@ -3318,7 +3310,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">ensure!</span>(&lt;UpgradeRestrictionSignal&lt;T&gt;&gt;::get().is_none(), Error::&lt;T&gt;::ProhibitedByPolkadot);
 
 		<span class="macro">ensure!</span>(!&lt;PendingValidationCode&lt;T&gt;&gt;::exists(), Error::&lt;T&gt;::OverlappingUpgrades);
-		<span class="kw">let </span>cfg = <span class="self">Self</span>::host_configuration().ok_or(Error::&lt;T&gt;::HostConfigurationNotAvailable)<span class="question-mark">?</span>;
+		<span class="kw">let </span>cfg = HostConfiguration::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::HostConfigurationNotAvailable)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(validation_function.len() &lt;= cfg.max_code_size <span class="kw">as </span>usize, Error::&lt;T&gt;::TooBig);
 
 		<span class="comment">// When a code upgrade is scheduled, it has to be applied in two
@@ -3474,7 +3466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// may change so that the message is no longer valid.
 		//
 		// However, changing this setting is expected to be rare.
-		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(cfg) = <span class="self">Self</span>::host_configuration() {
+		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(cfg) = HostConfiguration::&lt;T&gt;::get() {
 			<span class="kw">if </span>message_len &gt; cfg.max_upward_message_size <span class="kw">as </span>usize {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(MessageSendError::TooBig)
 			}
@@ -3630,14 +3622,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>BlockNumber = relay_chain::BlockNumber;
 
 	<span class="kw">fn </span>current_block_number() -&gt; relay_chain::BlockNumber {
-		Pallet::&lt;T&gt;::validation_data()
+		ValidationData::&lt;T&gt;::get()
 			.map(|d| d.relay_parent_number)
 			.unwrap_or_else(|| Pallet::&lt;T&gt;::last_relay_block_number())
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">fn </span>set_block_number(block: <span class="self">Self</span>::BlockNumber) {
-		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = Pallet::&lt;T&gt;::validation_data().unwrap_or_else(||
+		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
 			<span class="comment">// PersistedValidationData does not impl default in non-std
 			</span>PersistedValidationData {
 				parent_head: <span class="macro">vec!</span>[].into(),
@@ -3652,7 +3644,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&gt; RelaychainStateProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
 	<span class="kw">fn </span>current_relay_chain_state() -&gt; RelayChainState {
-		Pallet::&lt;T&gt;::validation_data()
+		ValidationData::&lt;T&gt;::get()
 			.map(|d| RelayChainState {
 				number: d.relay_parent_number,
 				state_root: d.relay_parent_storage_root,
@@ -3662,7 +3654,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">fn </span>set_current_relay_chain_state(state: RelayChainState) {
-		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = Pallet::&lt;T&gt;::validation_data().unwrap_or_else(||
+		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
 			<span class="comment">// PersistedValidationData does not impl default in non-std
 			</span>PersistedValidationData {
 				parent_head: <span class="macro">vec!</span>[].into(),

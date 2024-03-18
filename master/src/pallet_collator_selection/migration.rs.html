@@ -273,7 +273,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
 			<span class="kw">if </span>on_chain_version == <span class="number">0 </span>{
 				<span class="kw">let </span>invulnerables_len = Invulnerables::&lt;T&gt;::get().to_vec().len();
-				&lt;Invulnerables&lt;T&gt;&gt;::mutate(|invulnerables| {
+				Invulnerables::&lt;T&gt;::mutate(|invulnerables| {
 					invulnerables.sort();
 				});
 

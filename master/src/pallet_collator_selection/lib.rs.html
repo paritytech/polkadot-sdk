@@ -1128,11 +1128,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#981" id="981">981</a>
 <a href="#982" id="982">982</a>
 <a href="#983" id="983">983</a>
-<a href="#984" id="984">984</a>
-<a href="#985" id="985">985</a>
-<a href="#986" id="986">986</a>
-<a href="#987" id="987">987</a>
-<a href="#988" id="988">988</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1331,7 +1326,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The invulnerable, permissioned collators. This list must be sorted.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>invulnerables)]
 	</span><span class="kw">pub type </span>Invulnerables&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;T::AccountId, T::MaxInvulnerables&gt;, ValueQuery&gt;;
 
@@ -1341,7 +1335,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This list is sorted in ascending order by deposit and when the deposits are equal, the least
 	/// recently updated is considered greater.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>candidate_list)]
 	</span><span class="kw">pub type </span>CandidateList&lt;T: Config&gt; = StorageValue&lt;
 		<span class="kw">_</span>,
 		BoundedVec&lt;CandidateInfo&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;, T::MaxCandidates&gt;,
@@ -1350,7 +1343,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Last block authored by collator.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>last_authored_block)]
 	</span><span class="kw">pub type </span>LastAuthoredBlock&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::AccountId, BlockNumberFor&lt;T&gt;, ValueQuery&gt;;
 
@@ -1358,14 +1350,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This should ideally always be less than [`Config::MaxCandidates`] for weights to be correct.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>desired_candidates)]
 	</span><span class="kw">pub type </span>DesiredCandidates&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// Fixed amount to deposit to become a collator.
 	///
 	/// When a collator calls `leave_intent` they immediately receive the deposit back.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>candidacy_bond)]
 	</span><span class="kw">pub type </span>CandidacyBond&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, BalanceOf&lt;T&gt;, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
@@ -1398,9 +1388,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			bounded_invulnerables.sort();
 
-			&lt;DesiredCandidates&lt;T&gt;&gt;::put(<span class="self">self</span>.desired_candidates);
-			&lt;CandidacyBond&lt;T&gt;&gt;::put(<span class="self">self</span>.candidacy_bond);
-			&lt;Invulnerables&lt;T&gt;&gt;::put(bounded_invulnerables);
+			DesiredCandidates::&lt;T&gt;::put(<span class="self">self</span>.desired_candidates);
+			CandidacyBond::&lt;T&gt;::put(<span class="self">self</span>.candidacy_bond);
+			Invulnerables::&lt;T&gt;::put(bounded_invulnerables);
 		}
 	}
 
@@ -1559,7 +1549,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Invulnerables must be sorted for removal.
 			</span>bounded_invulnerables.sort();
 
-			&lt;Invulnerables&lt;T&gt;&gt;::put(<span class="kw-2">&amp;</span>bounded_invulnerables);
+			Invulnerables::&lt;T&gt;::put(<span class="kw-2">&amp;</span>bounded_invulnerables);
 			<span class="self">Self</span>::deposit_event(Event::NewInvulnerables {
 				invulnerables: bounded_invulnerables.to_vec(),
 			});
@@ -1583,7 +1573,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">if </span>max &gt; T::MaxCandidates::get() {
 				<span class="macro">log::warn!</span>(<span class="string">&quot;max &gt; T::MaxCandidates; you might need to run benchmarks again&quot;</span>);
 			}
-			&lt;DesiredCandidates&lt;T&gt;&gt;::put(max);
+			DesiredCandidates::&lt;T&gt;::put(max);
 			<span class="self">Self</span>::deposit_event(Event::NewDesiredCandidates { desired_candidates: max });
 			<span class="prelude-val">Ok</span>(().into())
 		}
@@ -1605,17 +1595,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			bond: BalanceOf&lt;T&gt;,
 		) -&gt; DispatchResultWithPostInfo {
 			T::UpdateOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>bond_increased = &lt;CandidacyBond&lt;T&gt;&gt;::mutate(|old_bond| -&gt; bool {
+			<span class="kw">let </span>bond_increased = CandidacyBond::&lt;T&gt;::mutate(|old_bond| -&gt; bool {
 				<span class="kw">let </span>bond_increased = <span class="kw-2">*</span>old_bond &lt; bond;
 				<span class="kw-2">*</span>old_bond = bond;
 				bond_increased
 			});
-			<span class="kw">let </span>initial_len = &lt;CandidateList&lt;T&gt;&gt;::decode_len().unwrap_or_default();
+			<span class="kw">let </span>initial_len = CandidateList::&lt;T&gt;::decode_len().unwrap_or_default();
 			<span class="kw">let </span>kicked = (bond_increased &amp;&amp; initial_len &gt; <span class="number">0</span>)
 				.then(|| {
 					<span class="comment">// Closure below returns the number of candidates which were kicked because
 					// their deposits were lower than the new candidacy bond.
-					</span>&lt;CandidateList&lt;T&gt;&gt;::mutate(|candidates| -&gt; usize {
+					</span>CandidateList::&lt;T&gt;::mutate(|candidates| -&gt; usize {
 						<span class="kw">let </span>first_safe_candidate = candidates
 							.iter()
 							.position(|candidate| candidate.deposit &gt;= bond)
@@ -1623,7 +1613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span>kicked_candidates = candidates.drain(..first_safe_candidate);
 						<span class="kw">for </span>candidate <span class="kw">in </span>kicked_candidates {
 							T::Currency::unreserve(<span class="kw-2">&amp;</span>candidate.who, candidate.deposit);
-							&lt;LastAuthoredBlock&lt;T&gt;&gt;::remove(candidate.who);
+							LastAuthoredBlock::&lt;T&gt;::remove(candidate.who);
 						}
 						first_safe_candidate
 					})
@@ -1647,12 +1637,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// ensure we are below limit.
-			</span><span class="kw">let </span>length: u32 = &lt;CandidateList&lt;T&gt;&gt;::decode_len()
+			</span><span class="kw">let </span>length: u32 = CandidateList::&lt;T&gt;::decode_len()
 				.unwrap_or_default()
 				.try_into()
 				.unwrap_or_default();
 			<span class="macro">ensure!</span>(length &lt; T::MaxCandidates::get(), Error::&lt;T&gt;::TooManyCandidates);
-			<span class="macro">ensure!</span>(!<span class="self">Self</span>::invulnerables().contains(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::AlreadyInvulnerable);
+			<span class="macro">ensure!</span>(!Invulnerables::&lt;T&gt;::get().contains(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::AlreadyInvulnerable);
 
 			<span class="kw">let </span>validator_key = T::ValidatorIdOf::convert(who.clone())
 				.ok_or(Error::&lt;T&gt;::NoAssociatedValidatorId)<span class="question-mark">?</span>;
@@ -1661,15 +1651,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;T&gt;::ValidatorNotRegistered
 			);
 
-			<span class="kw">let </span>deposit = <span class="self">Self</span>::candidacy_bond();
+			<span class="kw">let </span>deposit = CandidacyBond::&lt;T&gt;::get();
 			<span class="comment">// First authored block is current block plus kick threshold to handle session delay
-			</span>&lt;CandidateList&lt;T&gt;&gt;::try_mutate(|candidates| -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+			</span>CandidateList::&lt;T&gt;::try_mutate(|candidates| -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 				<span class="macro">ensure!</span>(
 					!candidates.iter().any(|candidate_info| candidate_info.who == who),
 					Error::&lt;T&gt;::AlreadyCandidate
 				);
 				T::Currency::reserve(<span class="kw-2">&amp;</span>who, deposit)<span class="question-mark">?</span>;
-				&lt;LastAuthoredBlock&lt;T&gt;&gt;::insert(
+				LastAuthoredBlock::&lt;T&gt;::insert(
 					who.clone(),
 					frame_system::Pallet::&lt;T&gt;::block_number() + T::KickThreshold::get(),
 				);
@@ -1699,7 +1689,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">Self</span>::eligible_collators() &gt; T::MinEligibleCollators::get(),
 				Error::&lt;T&gt;::TooFewEligibleCollators
 			);
-			<span class="kw">let </span>length = &lt;CandidateList&lt;T&gt;&gt;::decode_len().unwrap_or_default();
+			<span class="kw">let </span>length = CandidateList::&lt;T&gt;::decode_len().unwrap_or_default();
 			<span class="comment">// Do remove their last authored block.
 			</span><span class="self">Self</span>::try_remove_candidate(<span class="kw-2">&amp;</span>who, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 
@@ -1729,7 +1719,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;T&gt;::ValidatorNotRegistered
 			);
 
-			&lt;Invulnerables&lt;T&gt;&gt;::try_mutate(|invulnerables| -&gt; DispatchResult {
+			Invulnerables::&lt;T&gt;::try_mutate(|invulnerables| -&gt; DispatchResult {
 				<span class="kw">match </span>invulnerables.binary_search(<span class="kw-2">&amp;</span>who) {
 					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::AlreadyInvulnerable)<span class="question-mark">?</span>,
 					<span class="prelude-val">Err</span>(pos) =&gt; invulnerables
@@ -1750,7 +1740,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.unwrap_or_default()
 					.try_into()
 					.unwrap_or(T::MaxInvulnerables::get().saturating_sub(<span class="number">1</span>)),
-				&lt;CandidateList&lt;T&gt;&gt;::decode_len()
+				CandidateList::&lt;T&gt;::decode_len()
 					.unwrap_or_default()
 					.try_into()
 					.unwrap_or(T::MaxCandidates::get()),
@@ -1773,7 +1763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;T&gt;::TooFewEligibleCollators
 			);
 
-			&lt;Invulnerables&lt;T&gt;&gt;::try_mutate(|invulnerables| -&gt; DispatchResult {
+			Invulnerables::&lt;T&gt;::try_mutate(|invulnerables| -&gt; DispatchResult {
 				<span class="kw">let </span>pos =
 					invulnerables.binary_search(<span class="kw-2">&amp;</span>who).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::NotInvulnerable)<span class="question-mark">?</span>;
 				invulnerables.remove(pos);
@@ -1798,12 +1788,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			new_deposit: BalanceOf&lt;T&gt;,
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(new_deposit &gt;= &lt;CandidacyBond&lt;T&gt;&gt;::get(), Error::&lt;T&gt;::DepositTooLow);
+			<span class="macro">ensure!</span>(new_deposit &gt;= CandidacyBond::&lt;T&gt;::get(), Error::&lt;T&gt;::DepositTooLow);
 			<span class="comment">// The function below will try to mutate the `CandidateList` entry for the caller to
 			// update their deposit to the new value of `new_deposit`. The return value is the
 			// position of the entry in the list, used for weight calculation.
 			</span><span class="kw">let </span>length =
-				&lt;CandidateList&lt;T&gt;&gt;::try_mutate(|candidates| -&gt; <span class="prelude-ty">Result</span>&lt;usize, DispatchError&gt; {
+				CandidateList::&lt;T&gt;::try_mutate(|candidates| -&gt; <span class="prelude-ty">Result</span>&lt;usize, DispatchError&gt; {
 					<span class="kw">let </span>idx = candidates
 						.iter()
 						.position(|candidate_info| candidate_info.who == who)
@@ -1817,7 +1807,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					} <span class="kw">else if </span>new_deposit &lt; old_deposit {
 						<span class="comment">// Casting `u32` to `usize` should be safe on all machines running this.
 						</span><span class="macro">ensure!</span>(
-							idx.saturating_add(&lt;DesiredCandidates&lt;T&gt;&gt;::get() <span class="kw">as </span>usize) &lt;
+							idx.saturating_add(DesiredCandidates::&lt;T&gt;::get() <span class="kw">as </span>usize) &lt;
 								candidate_count,
 							Error::&lt;T&gt;::InvalidUnreserve
 						);
@@ -1862,8 +1852,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="macro">ensure!</span>(!<span class="self">Self</span>::invulnerables().contains(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::AlreadyInvulnerable);
-			<span class="macro">ensure!</span>(deposit &gt;= <span class="self">Self</span>::candidacy_bond(), Error::&lt;T&gt;::InsufficientBond);
+			<span class="macro">ensure!</span>(!Invulnerables::&lt;T&gt;::get().contains(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::AlreadyInvulnerable);
+			<span class="macro">ensure!</span>(deposit &gt;= CandidacyBond::&lt;T&gt;::get(), Error::&lt;T&gt;::InsufficientBond);
 
 			<span class="kw">let </span>validator_key = T::ValidatorIdOf::convert(who.clone())
 				.ok_or(Error::&lt;T&gt;::NoAssociatedValidatorId)<span class="question-mark">?</span>;
@@ -1872,12 +1862,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;T&gt;::ValidatorNotRegistered
 			);
 
-			<span class="kw">let </span>length = &lt;CandidateList&lt;T&gt;&gt;::decode_len().unwrap_or_default();
+			<span class="kw">let </span>length = CandidateList::&lt;T&gt;::decode_len().unwrap_or_default();
 			<span class="comment">// The closure below iterates through all elements of the candidate list to ensure that
 			// the caller isn&#39;t already a candidate and to find the target it&#39;s trying to replace in
 			// the list. The return value is a tuple of the position of the candidate to be replaced
 			// in the list along with its candidate information.
-			</span><span class="kw">let </span>target_info = &lt;CandidateList&lt;T&gt;&gt;::try_mutate(
+			</span><span class="kw">let </span>target_info = CandidateList::&lt;T&gt;::try_mutate(
 				|candidates| -&gt; <span class="prelude-ty">Result</span>&lt;CandidateInfo&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;, DispatchError&gt; {
 					<span class="comment">// Find the position in the list of the candidate that is being replaced.
 					</span><span class="kw">let </span><span class="kw-2">mut </span>target_info_idx = <span class="prelude-val">None</span>;
@@ -1922,8 +1912,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)<span class="question-mark">?</span>;
 			T::Currency::reserve(<span class="kw-2">&amp;</span>who, deposit)<span class="question-mark">?</span>;
 			T::Currency::unreserve(<span class="kw-2">&amp;</span>target_info.who, target_info.deposit);
-			&lt;LastAuthoredBlock&lt;T&gt;&gt;::remove(target_info.who.clone());
-			&lt;LastAuthoredBlock&lt;T&gt;&gt;::insert(
+			LastAuthoredBlock::&lt;T&gt;::remove(target_info.who.clone());
+			LastAuthoredBlock::&lt;T&gt;::insert(
 				who.clone(),
 				frame_system::Pallet::&lt;T&gt;::block_number() + T::KickThreshold::get(),
 			);
@@ -1942,7 +1932,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Return the total number of accounts that are eligible collators (candidates and
 		/// invulnerables).
 		</span><span class="kw">fn </span>eligible_collators() -&gt; u32 {
-			&lt;CandidateList&lt;T&gt;&gt;::decode_len()
+			CandidateList::&lt;T&gt;::decode_len()
 				.unwrap_or_default()
 				.saturating_add(Invulnerables::&lt;T&gt;::decode_len().unwrap_or_default())
 				.try_into()
@@ -1954,7 +1944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			who: <span class="kw-2">&amp;</span>T::AccountId,
 			remove_last_authored: bool,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
-			&lt;CandidateList&lt;T&gt;&gt;::try_mutate(|candidates| -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+			CandidateList::&lt;T&gt;::try_mutate(|candidates| -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 				<span class="kw">let </span>idx = candidates
 					.iter()
 					.position(|candidate_info| candidate_info.who == <span class="kw-2">*</span>who)
@@ -1963,7 +1953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				T::Currency::unreserve(who, deposit);
 				candidates.remove(idx);
 				<span class="kw">if </span>remove_last_authored {
-					&lt;LastAuthoredBlock&lt;T&gt;&gt;::remove(who.clone())
+					LastAuthoredBlock::&lt;T&gt;::remove(who.clone())
 				};
 				<span class="prelude-val">Ok</span>(())
 			})<span class="question-mark">?</span>;
@@ -1976,10 +1966,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// This is done on the fly, as frequent as we are told to do so, as the session manager.
 		</span><span class="kw">pub fn </span>assemble_collators() -&gt; Vec&lt;T::AccountId&gt; {
 			<span class="comment">// Casting `u32` to `usize` should be safe on all machines running this.
-			</span><span class="kw">let </span>desired_candidates = &lt;DesiredCandidates&lt;T&gt;&gt;::get() <span class="kw">as </span>usize;
-			<span class="kw">let </span><span class="kw-2">mut </span>collators = <span class="self">Self</span>::invulnerables().to_vec();
+			</span><span class="kw">let </span>desired_candidates = DesiredCandidates::&lt;T&gt;::get() <span class="kw">as </span>usize;
+			<span class="kw">let </span><span class="kw-2">mut </span>collators = Invulnerables::&lt;T&gt;::get().to_vec();
 			collators.extend(
-				&lt;CandidateList&lt;T&gt;&gt;::get()
+				CandidateList::&lt;T&gt;::get()
 					.iter()
 					.rev()
 					.cloned()
@@ -2000,10 +1990,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			candidates
 				.into_iter()
 				.filter_map(|c| {
-					<span class="kw">let </span>last_block = &lt;LastAuthoredBlock&lt;T&gt;&gt;::get(c.clone());
+					<span class="kw">let </span>last_block = LastAuthoredBlock::&lt;T&gt;::get(c.clone());
 					<span class="kw">let </span>since_last = now.saturating_sub(last_block);
 
-					<span class="kw">let </span>is_invulnerable = <span class="self">Self</span>::invulnerables().contains(<span class="kw-2">&amp;</span>c);
+					<span class="kw">let </span>is_invulnerable = Invulnerables::&lt;T&gt;::get().contains(<span class="kw-2">&amp;</span>c);
 					<span class="kw">let </span>is_lazy = since_last &gt;= kick_threshold;
 
 					<span class="kw">if </span>is_invulnerable {
@@ -2042,7 +2032,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///   or equal to the minimum number of eligible collators.
 		</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>))]
 		</span><span class="kw">pub fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
-			<span class="kw">let </span>desired_candidates = &lt;DesiredCandidates&lt;T&gt;&gt;::get();
+			<span class="kw">let </span>desired_candidates = DesiredCandidates::&lt;T&gt;::get();
 
 			<span class="macro">frame_support::ensure!</span>(
 				desired_candidates &lt;= T::MaxCandidates::get(),
@@ -2074,7 +2064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// `reward` is half of pot account minus ED, this should never fail.
 			</span><span class="kw">let </span>_success = T::Currency::transfer(<span class="kw-2">&amp;</span>pot, <span class="kw-2">&amp;</span>author, reward, KeepAlive);
 			<span class="macro">debug_assert!</span>(_success.is_ok());
-			&lt;LastAuthoredBlock&lt;T&gt;&gt;::insert(author, frame_system::Pallet::&lt;T&gt;::block_number());
+			LastAuthoredBlock::&lt;T&gt;::insert(author, frame_system::Pallet::&lt;T&gt;::block_number());
 
 			frame_system::Pallet::&lt;T&gt;::register_extra_weight_unchecked(
 				T::WeightInfo::note_author(),
@@ -2095,12 +2085,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// The `expect` below is safe because the list is a `BoundedVec` with a max size of
 			// `T::MaxCandidates`, which is a `u32`. When `decode_len` returns `Some(len)`, `len`
 			// must be valid and at most `u32::MAX`, which must always be able to convert to `u32`.
-			</span><span class="kw">let </span>candidates_len_before: u32 = &lt;CandidateList&lt;T&gt;&gt;::decode_len()
+			</span><span class="kw">let </span>candidates_len_before: u32 = CandidateList::&lt;T&gt;::decode_len()
 				.unwrap_or_default()
 				.try_into()
 				.expect(<span class="string">&quot;length is at most `T::MaxCandidates`, so it must fit in `u32`; qed&quot;</span>);
 			<span class="kw">let </span>active_candidates_count = <span class="self">Self</span>::kick_stale_candidates(
-				&lt;CandidateList&lt;T&gt;&gt;::get()
+				CandidateList::&lt;T&gt;::get()
 					.iter()
 					.map(|candidate_info| candidate_info.who.clone()),
 			);

@@ -324,8 +324,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>velocity = V.max(<span class="number">1</span>);
 		<span class="kw">let </span>relay_chain_slot = state_proof.read_slot().expect(<span class="string">&quot;failed to read relay chain slot&quot;</span>);
 
-		<span class="kw">let </span>(slot, authored) = pallet::Pallet::&lt;T&gt;::slot_info()
-			.expect(<span class="string">&quot;slot info is inserted on block initialization&quot;</span>);
+		<span class="kw">let </span>(slot, authored) =
+			pallet::SlotInfo::&lt;T&gt;::get().expect(<span class="string">&quot;slot info is inserted on block initialization&quot;</span>);
 
 		<span class="comment">// Convert relay chain timestamp.
 		</span><span class="kw">let </span>relay_chain_timestamp =
@@ -370,7 +370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// is more recent than the included block itself.
 	</span><span class="kw">pub fn </span>can_build_upon(included_hash: T::Hash, new_slot: Slot) -&gt; bool {
 		<span class="kw">let </span>velocity = V.max(<span class="number">1</span>);
-		<span class="kw">let </span>(last_slot, authored_so_far) = <span class="kw">match </span>pallet::Pallet::&lt;T&gt;::slot_info() {
+		<span class="kw">let </span>(last_slot, authored_so_far) = <span class="kw">match </span>pallet::SlotInfo::&lt;T&gt;::get() {
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="bool-val">true</span>,
 			<span class="prelude-val">Some</span>(x) =&gt; x,
 		};
