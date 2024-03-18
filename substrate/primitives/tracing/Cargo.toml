@@ -6,7 +6,7 @@ authors.workspace = true
 edition.workspace = true
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Instrumentation primitives and macros for Substrate."
+description = "Instrumentation primitives and macros for Substrate. (polkadot v1.9.0)"
 readme = "README.md"
 
 [lints]
@@ -21,7 +21,7 @@ features = ["with-tracing"]
 targets = ["wasm32-unknown-unknown", "x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-std = { path = "../std", default-features = false }
+sp-std = { path = "../std", default-features = false, version = "14.0.0" }
 codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = [
 	"derive",
 ] }
