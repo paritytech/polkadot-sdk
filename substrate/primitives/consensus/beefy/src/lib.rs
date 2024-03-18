@@ -71,7 +71,9 @@ pub type BeefySignatureHasher = sp_runtime::traits::Keccak256;
 /// A trait bound which lists all traits which are required to be implemented by
 /// a BEEFY AuthorityId type in order to be able to be used in BEEFY Keystore
 pub trait AuthorityIdBound:
-	Ord + AppPublic + Display + BeefyAuthorityId<BeefySignatureHasher> { }
+	Ord + AppPublic + Display + BeefyAuthorityId<BeefySignatureHasher>
+{
+}
 // pub trait AuthorityIdBound:
 // 	Codec
 // 	+ Debug
