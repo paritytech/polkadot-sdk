@@ -109,15 +109,17 @@ mod v1 {
 			);
 
 			let expected_len = u32::decode(&mut &state[..]).unwrap();
-			let queue_status_size = QueueStatus::<T>::size();
+			let queue_status_size = QueueStatus::<T>::get().size();
 			ensure!(
 				expected_len == queue_status_size,
 				"Number of orders should be the same before and after migration"
 			);
 
+			let n_affinity_entries =
+				AffinityEntries::<T>::iter().map(|(_index, heap)| heap.len() as u32).count();
 			let n_para_id_affinity = ParaIdAffinity::<T>::iter()
 				.map(|(_para_id, affinity)| affinity.count as u32)
-				.fold(0, |acc, x| acc + x);
+				.count();
 			ensure!(
 				n_para_id_affinity == n_affinity_entries,
 				"Number of affinity entries should be the same as the counts in ParaIdAffinity"
