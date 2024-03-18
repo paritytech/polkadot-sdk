@@ -28,13 +28,11 @@ use sp_consensus_beefy::{
 use sp_runtime::traits::{Block, NumberFor};
 use std::collections::BTreeMap;
 
-use smart_default::SmartDefault;
-
 /// Tracks for each round which validators have voted/signed and
 /// whether the local `self` validator has voted/signed.
 ///
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
-#[derive(Debug, Decode, Encode, PartialEq, SmartDefault)]
+#[derive(Debug, Decode, Encode, PartialEq)]
 pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound>
 where
 	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
