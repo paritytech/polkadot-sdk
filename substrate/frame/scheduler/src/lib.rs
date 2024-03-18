@@ -1435,7 +1435,6 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-// TODO: migrate `schedule::v2::Anon` to `v3`
 #[allow(deprecated)]
 impl<T: Config> schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
