@@ -283,9 +283,8 @@ impl EnqueuedOrder {
 impl PartialOrd for EnqueuedOrder {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		match other.idx.partial_cmp(&self.idx) {
-			None => return None,
 			Some(Ordering::Equal) => other.para_id.partial_cmp(&self.para_id),
-			Some(o) => Some(o),
+			o => o,
 		}
 	}
 }
