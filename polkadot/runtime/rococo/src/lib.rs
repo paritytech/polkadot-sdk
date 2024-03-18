@@ -2029,11 +2029,11 @@ sp_api::impl_runtime_apis! {
 	#[api_version(2)]
 	impl mmr::MmrApi<Block, mmr::Hash, BlockNumber> for Runtime {
 		fn mmr_root() -> Result<mmr::Hash, mmr::Error> {
-			Ok(Mmr::mmr_root())
+			Ok(pallet_mmr::RootHash::<Runtime>::get())
 		}
 
 		fn mmr_leaf_count() -> Result<mmr::LeafIndex, mmr::Error> {
-			Ok(Mmr::mmr_leaves())
+			Ok(pallet_mmr::NumberOfLeaves::<Runtime>::get())
 		}
 
 		fn generate_proof(

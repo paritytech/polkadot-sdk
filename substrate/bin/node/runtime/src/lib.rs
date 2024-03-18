@@ -3018,11 +3018,11 @@ impl_runtime_apis! {
 		BlockNumber,
 	> for Runtime {
 		fn mmr_root() -> Result<mmr::Hash, mmr::Error> {
-			Ok(Mmr::mmr_root())
+			Ok(pallet_mmr::RootHash::<Runtime>::get())
 		}
 
 		fn mmr_leaf_count() -> Result<mmr::LeafIndex, mmr::Error> {
-			Ok(Mmr::mmr_leaves())
+			Ok(pallet_mmr::NumberOfLeaves::<Runtime>::get())
 		}
 
 		fn generate_proof(
