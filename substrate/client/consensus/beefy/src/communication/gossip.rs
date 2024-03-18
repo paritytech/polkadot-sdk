@@ -73,7 +73,7 @@ enum Consider {
 
 /// BEEFY gossip message type that gets encoded and sent on the network.
 #[derive(Debug, Encode, Decode)]
-pub(crate) enum GossipMessage<B: Block, AuthorityId: AuthorityIdBound + Encode + Decode>
+pub(crate) enum GossipMessage<B: Block, AuthorityId: AuthorityIdBound>
 where
 	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {

@@ -95,7 +95,6 @@ where
 	best_grandpa_block_header: <B as Block>::Header,
 	/// Best block a BEEFY voting round has been concluded for.
 	best_beefy_block: NumberFor<B>,
-
 	_phantom: PhantomData<fn() -> AuthorityId>,
 }
 
