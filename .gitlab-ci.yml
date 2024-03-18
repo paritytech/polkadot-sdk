@@ -303,7 +303,7 @@ test-linux-stable-codecov:
 
 # requires seccomp adjustments
 # https://github.com/xd009642/tarpaulin?tab=readme-ov-file#docker
-test-linux-stable-tarpaulin:
+.test-linux-stable-tarpaulin:
   stage: test
   extends:
     - .docker-env
