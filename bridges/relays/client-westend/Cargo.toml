@@ -10,7 +10,7 @@ workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", features = ["derive"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.0", default-features = false, features = ["derive"] }
 subxt = { version = "0.32.1", default-features = false, features = ["native"] }
 
 # Bridge dependencies
