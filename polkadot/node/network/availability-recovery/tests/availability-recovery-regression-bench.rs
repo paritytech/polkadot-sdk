@@ -34,9 +34,17 @@ fn main() -> Result<(), String> {
 	let mut messages = vec![];
 
 	let options = DataAvailabilityReadOptions { fetch_from_backers: true };
-	let mut config = TestConfiguration::default();
-	config.num_blocks = 3;
-	config.generate_pov_sizes();
+	let config = TestConfiguration::builder()
+		.n_cores(20)
+		.min_pov_size(5120)
+		.max_pov_size(5120)
+		.latency(PeerLatency { mean_latency_ms: 100, std_dev: 1.0 })
+		.n_validators(300)
+		.peer_bandwidth(52428800)
+		.bandwidth(52428800)
+		.num_blocks(3)
+		.connectivity(90)
+		.build();
 
 	let usage = warm_up_and_benchmark(WarmUpOptions::new(&["availability-recovery"]), || {
 		let mut state = TestState::new(&config);

@@ -139,31 +139,16 @@ pub struct TestConfiguration {
 	pub num_blocks: usize,
 }
 
-impl Default for TestConfiguration {
-	fn default() -> Self {
-		Self {
-			n_validators: default_n_validators(),
-			n_cores: default_n_cores(),
-			needed_approvals: default_needed_approvals(),
-			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
-			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
-			n_delay_tranches: default_n_delay_tranches(),
-			no_show_slots: default_no_show_slots(),
-			max_validators_per_core: default_backing_group_size(),
-			min_pov_size: default_pov_size(),
-			max_pov_size: default_pov_size(),
-			pov_sizes: Default::default(),
-			peer_bandwidth: default_bandwidth(),
-			bandwidth: default_bandwidth(),
-			latency: default_peer_latency(),
-			connectivity: default_connectivity(),
-			num_blocks: Default::default(),
-		}
-	}
-}
-
 impl TestConfiguration {
-	pub fn generate_pov_sizes(&mut self) {
+	pub fn builder() -> TestConfigurationBuilder {
+		TestConfigurationBuilder::new()
+	}
+
+	pub fn builder_from(config: TestConfiguration) -> TestConfigurationBuilder {
+		TestConfigurationBuilder::from(config)
+	}
+
+	fn generate_pov_sizes(&mut self) {
 		self.pov_sizes = generate_pov_sizes(self.n_cores, self.min_pov_size, self.max_pov_size);
 	}
 
@@ -258,4 +243,171 @@ pub fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> usize {
 				.sample(&mut thread_rng())
 		})
 		.unwrap_or(0.0) as usize
+}
+
+pub struct TestConfigurationBuilder {
+	n_validators: usize,
+	n_cores: usize,
+	needed_approvals: usize,
+	zeroth_delay_tranche_width: usize,
+	relay_vrf_modulo_samples: usize,
+	n_delay_tranches: usize,
+	no_show_slots: usize,
+	max_validators_per_core: usize,
+	min_pov_size: usize,
+	max_pov_size: usize,
+	pov_sizes: Vec<usize>,
+	peer_bandwidth: usize,
+	bandwidth: usize,
+	latency: Option<PeerLatency>,
+	connectivity: usize,
+	num_blocks: usize,
+}
+
+impl Default for TestConfigurationBuilder {
+	fn default() -> Self {
+		Self {
+			n_validators: Default::default(),
+			n_cores: Default::default(),
+			needed_approvals: default_needed_approvals(),
+			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
+			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
+			n_delay_tranches: default_n_delay_tranches(),
+			no_show_slots: default_no_show_slots(),
+			max_validators_per_core: default_backing_group_size(),
+			min_pov_size: default_pov_size(),
+			max_pov_size: default_pov_size(),
+			pov_sizes: Default::default(),
+			peer_bandwidth: default_bandwidth(),
+			bandwidth: default_bandwidth(),
+			latency: Default::default(),
+			connectivity: default_connectivity(),
+			num_blocks: Default::default(),
+		}
+	}
+}
+
+impl TestConfigurationBuilder {
+	fn new() -> Self {
+		TestConfigurationBuilder::default()
+	}
+
+	fn from(test_config: TestConfiguration) -> Self {
+		Self {
+			n_validators: test_config.n_validators,
+			n_cores: test_config.n_cores,
+			needed_approvals: test_config.needed_approvals,
+			zeroth_delay_tranche_width: test_config.zeroth_delay_tranche_width,
+			relay_vrf_modulo_samples: test_config.relay_vrf_modulo_samples,
+			n_delay_tranches: test_config.n_delay_tranches,
+			no_show_slots: test_config.no_show_slots,
+			max_validators_per_core: test_config.max_validators_per_core,
+			min_pov_size: test_config.min_pov_size,
+			max_pov_size: test_config.max_pov_size,
+			pov_sizes: test_config.pov_sizes,
+			peer_bandwidth: test_config.peer_bandwidth,
+			bandwidth: test_config.bandwidth,
+			latency: test_config.latency,
+			connectivity: test_config.connectivity,
+			num_blocks: test_config.num_blocks,
+		}
+	}
+
+	pub fn n_validators(mut self, n_validators: usize) -> Self {
+		self.n_validators = n_validators;
+		self
+	}
+
+	pub fn n_cores(mut self, n_cores: usize) -> Self {
+		self.n_cores = n_cores;
+		self
+	}
+
+	pub fn needed_approvals(mut self, needed_approvals: usize) -> Self {
+		self.needed_approvals = needed_approvals;
+		self
+	}
+
+	pub fn zeroth_delay_tranche_width(mut self, zeroth_delay_tranche_width: usize) -> Self {
+		self.zeroth_delay_tranche_width = zeroth_delay_tranche_width;
+		self
+	}
+
+	pub fn relay_vrf_modulo_samples(mut self, relay_vrf_modulo_samples: usize) -> Self {
+		self.relay_vrf_modulo_samples = relay_vrf_modulo_samples;
+		self
+	}
+
+	pub fn n_delay_tranches(mut self, n_delay_tranches: usize) -> Self {
+		self.n_delay_tranches = n_delay_tranches;
+		self
+	}
+
+	pub fn no_show_slots(mut self, no_show_slots: usize) -> Self {
+		self.no_show_slots = no_show_slots;
+		self
+	}
+
+	pub fn max_validators_per_core(mut self, max_validators_per_core: usize) -> Self {
+		self.max_validators_per_core = max_validators_per_core;
+		self
+	}
+
+	pub fn min_pov_size(mut self, min_pov_size: usize) -> Self {
+		self.min_pov_size = min_pov_size;
+		self
+	}
+
+	pub fn max_pov_size(mut self, max_pov_size: usize) -> Self {
+		self.max_pov_size = max_pov_size;
+		self
+	}
+
+	pub fn peer_bandwidth(mut self, peer_bandwidth: usize) -> Self {
+		self.peer_bandwidth = peer_bandwidth;
+		self
+	}
+
+	pub fn bandwidth(mut self, bandwidth: usize) -> Self {
+		self.bandwidth = bandwidth;
+		self
+	}
+
+	pub fn latency(mut self, latency: PeerLatency) -> Self {
+		self.latency = Some(latency);
+		self
+	}
+
+	pub fn connectivity(mut self, connectivity: usize) -> Self {
+		self.connectivity = connectivity;
+		self
+	}
+
+	pub fn num_blocks(mut self, num_blocks: usize) -> Self {
+		self.num_blocks = num_blocks;
+		self
+	}
+
+	pub fn build(self) -> TestConfiguration {
+		let mut config = TestConfiguration {
+			n_validators: self.n_validators,
+			n_cores: self.n_cores,
+			needed_approvals: self.needed_approvals,
+			zeroth_delay_tranche_width: self.zeroth_delay_tranche_width,
+			relay_vrf_modulo_samples: self.relay_vrf_modulo_samples,
+			n_delay_tranches: self.n_delay_tranches,
+			no_show_slots: self.no_show_slots,
+			max_validators_per_core: self.max_validators_per_core,
+			min_pov_size: self.min_pov_size,
+			max_pov_size: self.max_pov_size,
+			pov_sizes: self.pov_sizes,
+			peer_bandwidth: self.peer_bandwidth,
+			bandwidth: self.bandwidth,
+			latency: self.latency,
+			connectivity: self.connectivity,
+			num_blocks: self.num_blocks,
+		};
+		config.generate_pov_sizes();
+		config
+	}
 }

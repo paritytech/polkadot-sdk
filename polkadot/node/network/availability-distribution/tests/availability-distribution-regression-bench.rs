@@ -31,11 +31,20 @@ use polkadot_subsystem_bench::{
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
-	let mut config = TestConfiguration::default();
-	// A single node effort roughly n_cores * needed_approvals / n_validators = 60 * 30 / 300
-	config.n_cores = 6;
-	config.num_blocks = 3;
-	config.generate_pov_sizes();
+
+	// TODO: Adjust the test configurations to Kusama values
+	let config = TestConfiguration::builder()
+		.n_cores(200)
+		.min_pov_size(5120)
+		.max_pov_size(5120)
+		.latency(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 })
+		.max_validators_per_core(5)
+		.n_validators(1000)
+		.peer_bandwidth(52428800)
+		.bandwidth(52428800)
+		.num_blocks(3)
+		.connectivity(75)
+		.build();
 
 	let usage = warm_up_and_benchmark(
 		WarmUpOptions::new(&[
