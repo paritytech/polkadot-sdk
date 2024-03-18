@@ -46,7 +46,7 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, u64::MAX));
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
@@ -77,7 +77,7 @@ parameter_types! {
 	pub const ExistentialDeposit: u64 = 7;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
@@ -103,8 +103,7 @@ impl xcm_executor::traits::MatchesFungible<u64> for MatchAnyFungible {
 }
 
 // Use balances as the asset transactor.
-#[allow(deprecated)]
-pub type AssetTransactor = xcm_builder::CurrencyAdapter<
+pub type AssetTransactor = xcm_builder::FungibleAdapter<
 	Balances,
 	MatchAnyFungible,
 	AccountIdConverter,
@@ -192,8 +191,7 @@ impl xcm_balances_benchmark::Config for Test {
 	type TrustedReserve = TrustedReserve;
 
 	fn get_asset() -> Asset {
-		let amount =
-			<Balances as frame_support::traits::fungible::Inspect<u64>>::minimum_balance() as u128;
+		let amount = 1_000_000_000_000;
 		Asset { id: AssetId(Here.into()), fun: Fungible(amount) }
 	}
 }

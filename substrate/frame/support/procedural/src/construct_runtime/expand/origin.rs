@@ -103,7 +103,7 @@ pub fn expand_outer_origin(
 		#[doc = #doc_string]
 		#[derive(Clone)]
 		pub struct RuntimeOrigin {
-			caller: OriginCaller,
+			pub caller: OriginCaller,
 			filter: alloc::rc::Rc<Box<dyn Fn(&<#runtime as #system_path::Config>::RuntimeCall) -> bool>>,
 		}
 

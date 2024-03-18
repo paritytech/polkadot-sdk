@@ -29,14 +29,14 @@ pub mod v1 {
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
-			ensure!(onchain_version < 1, "assigned_slots::MigrateToV1 migration can be deleted");
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
+			ensure!(on_chain_version < 1, "assigned_slots::MigrateToV1 migration can be deleted");
 			Ok(Default::default())
 		}
 
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
-			if onchain_version < 1 {
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
+			if on_chain_version < 1 {
 				const MAX_PERMANENT_SLOTS: u32 = 100;
 				const MAX_TEMPORARY_SLOTS: u32 = 100;
 
@@ -52,8 +52,8 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
-			ensure!(onchain_version == 1, "assigned_slots::MigrateToV1 needs to be run");
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
+			ensure!(on_chain_version == 1, "assigned_slots::MigrateToV1 needs to be run");
 			assert_eq!(<MaxPermanentSlots<T>>::get(), 100);
 			assert_eq!(<MaxTemporarySlots<T>>::get(), 100);
 			Ok(())

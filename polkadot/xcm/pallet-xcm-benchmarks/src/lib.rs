@@ -24,10 +24,8 @@ use alloc::vec::Vec;
 use codec::Encode;
 use frame_benchmarking::{account, BenchmarkError};
 use xcm::latest::prelude::*;
-use xcm_executor::{
-	traits::{ConvertLocation, FeeReason},
-	Config as XcmConfig, FeesMode,
-};
+use xcm_builder::EnsureDelivery;
+use xcm_executor::{traits::ConvertLocation, Config as XcmConfig};
 
 pub mod fungible;
 pub mod generic;
@@ -115,30 +113,4 @@ pub fn account_and_location<T: Config>(index: u32) -> (T::AccountId, Location) {
 	let account = T::AccountIdConverter::convert_location(&location).unwrap();
 
 	(account, location)
-}
-
-/// Trait for a type which ensures all requirements for successful delivery with XCM transport
-/// layers.
-pub trait EnsureDelivery {
-	/// Prepare all requirements for successful `XcmSender: SendXcm` passing (accounts, balances,
-	/// channels ...). Returns:
-	/// - possible `FeesMode` which is expected to be set to executor
-	/// - possible `Assets` which are expected to be subsume to the Holding Register
-	fn ensure_successful_delivery(
-		origin_ref: &Location,
-		dest: &Location,
-		fee_reason: FeeReason,
-	) -> (Option<FeesMode>, Option<Assets>);
-}
-
-/// `()` implementation does nothing which means no special requirements for environment.
-impl EnsureDelivery for () {
-	fn ensure_successful_delivery(
-		_origin_ref: &Location,
-		_dest: &Location,
-		_fee_reason: FeeReason,
-	) -> (Option<FeesMode>, Option<Assets>) {
-		// doing nothing
-		(None, None)
-	}
 }

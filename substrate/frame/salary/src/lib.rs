@@ -18,7 +18,6 @@
 //! Make periodic payment to members of a ranked collective according to rank.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "128"]
 
 extern crate alloc;
 

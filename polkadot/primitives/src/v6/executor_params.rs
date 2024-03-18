@@ -160,7 +160,9 @@ impl alloc::fmt::LowerHex for ExecutorParamsHash {
 // into individual fields of the structure. Thus, complex migrations shall be avoided when adding
 // new entries and removing old ones. At the moment, there's no mandatory parameters defined. If
 // they show up, they must be clearly documented as mandatory ones.
-#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo, Serialize, Deserialize)]
+#[derive(
+	Clone, Debug, Default, Encode, Decode, PartialEq, Eq, TypeInfo, Serialize, Deserialize,
+)]
 pub struct ExecutorParams(Vec<ExecutorParam>);
 
 impl ExecutorParams {
@@ -333,11 +335,5 @@ impl Deref for ExecutorParams {
 impl From<&[ExecutorParam]> for ExecutorParams {
 	fn from(arr: &[ExecutorParam]) -> Self {
 		ExecutorParams(arr.to_vec())
-	}
-}
-
-impl Default for ExecutorParams {
-	fn default() -> Self {
-		ExecutorParams(vec![])
 	}
 }

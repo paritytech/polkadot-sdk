@@ -37,6 +37,7 @@ use pallet_identity::{self, legacy::IdentityInfo};
 use parity_scale_codec::Encode;
 use primitives::{
 	BlockNumber, HeadData, Id as ParaId, SessionIndex, ValidationCode, LOWEST_PUBLIC_ID,
+	MAX_CODE_SIZE,
 };
 use runtime_parachains::{
 	configuration, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
@@ -114,7 +115,7 @@ parameter_types! {
 		);
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -315,7 +316,7 @@ pub fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	configuration::GenesisConfig::<Test> {
 		config: configuration::HostConfiguration {
-			max_code_size: 2 * 1024 * 1024,      // 2 MB
+			max_code_size: MAX_CODE_SIZE,
 			max_head_data_size: 1 * 1024 * 1024, // 1 MB
 			..Default::default()
 		},

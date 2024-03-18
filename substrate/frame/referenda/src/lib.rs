@@ -145,7 +145,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::EnsureOriginWithArg};
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -434,6 +434,11 @@ pub mod pallet {
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()?;
 			Ok(())
+		}
+
+		#[cfg(any(feature = "std", test))]
+		fn integrity_test() {
+			T::Tracks::check_integrity().expect("Static tracks configuration is valid.");
 		}
 	}
 

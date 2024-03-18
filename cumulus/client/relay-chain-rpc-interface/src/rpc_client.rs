@@ -19,7 +19,7 @@ use futures::channel::{
 	oneshot::Sender as OneshotSender,
 };
 use jsonrpsee::{
-	core::{params::ArrayParams, Error as JsonRpseeError},
+	core::{params::ArrayParams, ClientError as JsonRpseeError},
 	rpc_params,
 };
 use serde::de::DeserializeOwned;
@@ -645,6 +645,20 @@ impl RelayChainRpcClient {
 	) -> Result<Option<BackingState>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_para_backing_state", at, Some(para_id))
 			.await
+	}
+
+	pub async fn validation_code_hash(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> Result<Option<ValidationCodeHash>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_validation_code_hash",
+			at,
+			Some((para_id, occupied_core_assumption)),
+		)
+		.await
 	}
 
 	fn send_register_message_to_worker(

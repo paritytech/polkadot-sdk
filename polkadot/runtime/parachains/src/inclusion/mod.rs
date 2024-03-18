@@ -48,6 +48,9 @@ use primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
+#[cfg(feature = "std")]
+use sp_std::fmt;
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 pub use pallet::*;
 
@@ -598,18 +601,16 @@ impl<T: Config> Pallet<T> {
 	/// scheduled cores. If these conditions are not met, the execution of the function fails.
 	pub(crate) fn process_candidates<GV>(
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-		candidates: Vec<BackedCandidate<T::Hash>>,
-		scheduled: &BTreeMap<ParaId, CoreIndex>,
+		candidates: Vec<(BackedCandidate<T::Hash>, CoreIndex)>,
 		group_validators: GV,
+		core_index_enabled: bool,
 	) -> Result<ProcessedCandidates<T::Hash>, DispatchError>
 	where
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
 	{
 		let now = <frame_system::Pallet<T>>::block_number();
 
-		ensure!(candidates.len() <= scheduled.len(), Error::<T>::UnscheduledCandidate);
-
-		if scheduled.is_empty() {
+		if candidates.is_empty() {
 			return Ok(ProcessedCandidates::default())
 		}
 
@@ -645,7 +646,7 @@ impl<T: Config> Pallet<T> {
 			//
 			// In the meantime, we do certain sanity checks on the candidates and on the scheduled
 			// list.
-			for (candidate_idx, backed_candidate) in candidates.iter().enumerate() {
+			for (candidate_idx, (backed_candidate, core_index)) in candidates.iter().enumerate() {
 				let relay_parent_hash = backed_candidate.descriptor().relay_parent;
 				let para_id = backed_candidate.descriptor().para_id;
 
@@ -660,7 +661,7 @@ impl<T: Config> Pallet<T> {
 				let relay_parent_number = match check_ctx.verify_backed_candidate(
 					&allowed_relay_parents,
 					candidate_idx,
-					backed_candidate,
+					backed_candidate.candidate(),
 				)? {
 					Err(FailedToCreatePVD) => {
 						log::debug!(
@@ -676,11 +677,22 @@ impl<T: Config> Pallet<T> {
 					Ok(rpn) => rpn,
 				};
 
-				let para_id = backed_candidate.descriptor().para_id;
+				let (validator_indices, _) =
+					backed_candidate.validator_indices_and_core_index(core_index_enabled);
+
+				log::debug!(
+					target: LOG_TARGET,
+					"Candidate {:?} on {:?},
+					core_index_enabled = {}",
+					backed_candidate.hash(),
+					core_index,
+					core_index_enabled
+				);
+
+				check_assignment_in_order(core_index)?;
+
 				let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 
-				let core_idx = *scheduled.get(&para_id).ok_or(Error::<T>::UnscheduledCandidate)?;
-				check_assignment_in_order(core_idx)?;
 				ensure!(
 					<PendingAvailability<T>>::get(&para_id).is_none() &&
 						<PendingAvailabilityCommitments<T>>::get(&para_id).is_none(),
@@ -691,7 +703,7 @@ impl<T: Config> Pallet<T> {
 				// assigned to core at block `N + 1`. Thus, `relay_parent_number + 1`
 				// will always land in the current session.
 				let group_idx = <scheduler::Pallet<T>>::group_assigned_to_core(
-					core_idx,
+					*core_index,
 					relay_parent_number + One::one(),
 				)
 				.ok_or_else(|| {
@@ -708,7 +720,9 @@ impl<T: Config> Pallet<T> {
 				// check the signatures in the backing and that it is a majority.
 				{
 					let maybe_amount_validated = primitives::check_candidate_backing(
-						&backed_candidate,
+						backed_candidate.candidate().hash(),
+						backed_candidate.validity_votes(),
+						validator_indices,
 						&signing_context,
 						group_vals.len(),
 						|intra_group_vi| {
@@ -735,16 +749,15 @@ impl<T: Config> Pallet<T> {
 
 					let mut backer_idx_and_attestation =
 						Vec::<(ValidatorIndex, ValidityAttestation)>::with_capacity(
-							backed_candidate.validator_indices.count_ones(),
+							validator_indices.count_ones(),
 						);
 					let candidate_receipt = backed_candidate.receipt();
 
-					for ((bit_idx, _), attestation) in backed_candidate
-						.validator_indices
+					for ((bit_idx, _), attestation) in validator_indices
 						.iter()
 						.enumerate()
 						.filter(|(_, signed)| **signed)
-						.zip(backed_candidate.validity_votes.iter().cloned())
+						.zip(backed_candidate.validity_votes().iter().cloned())
 					{
 						let val_idx =
 							group_vals.get(bit_idx).expect("this query succeeded above; qed");
@@ -757,7 +770,7 @@ impl<T: Config> Pallet<T> {
 				}
 
 				core_indices_and_backers.push((
-					(core_idx, para_id),
+					(*core_index, para_id),
 					backers,
 					group_idx,
 					relay_parent_number,
@@ -769,7 +782,7 @@ impl<T: Config> Pallet<T> {
 
 		// one more sweep for actually writing to storage.
 		let core_indices = core_indices_and_backers.iter().map(|(c, ..)| *c).collect();
-		for (candidate, (core, backers, group, relay_parent_number)) in
+		for ((candidate, _), (core, backers, group, relay_parent_number)) in
 			candidates.into_iter().zip(core_indices_and_backers)
 		{
 			let para_id = candidate.descriptor().para_id;
@@ -779,16 +792,18 @@ impl<T: Config> Pallet<T> {
 				bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 
 			Self::deposit_event(Event::<T>::CandidateBacked(
-				candidate.candidate.to_plain(),
-				candidate.candidate.commitments.head_data.clone(),
+				candidate.candidate().to_plain(),
+				candidate.candidate().commitments.head_data.clone(),
 				core.0,
 				group,
 			));
 
-			let candidate_hash = candidate.candidate.hash();
+			let candidate_hash = candidate.candidate().hash();
 
-			let (descriptor, commitments) =
-				(candidate.candidate.descriptor, candidate.candidate.commitments);
+			let (descriptor, commitments) = (
+				candidate.candidate().descriptor.clone(),
+				candidate.candidate().commitments.clone(),
+			);
 
 			<PendingAvailability<T>>::insert(
 				&para_id,
@@ -1192,10 +1207,10 @@ impl<T: Config> CandidateCheckContext<T> {
 		&self,
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		candidate_idx: usize,
-		backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>,
+		backed_candidate_receipt: &CommittedCandidateReceipt<<T as frame_system::Config>::Hash>,
 	) -> Result<Result<BlockNumberFor<T>, FailedToCreatePVD>, Error<T>> {
-		let para_id = backed_candidate.descriptor().para_id;
-		let relay_parent = backed_candidate.descriptor().relay_parent;
+		let para_id = backed_candidate_receipt.descriptor().para_id;
+		let relay_parent = backed_candidate_receipt.descriptor().relay_parent;
 
 		// Check that the relay-parent is one of the allowed relay-parents.
 		let (relay_parent_storage_root, relay_parent_number) = {
@@ -1220,13 +1235,13 @@ impl<T: Config> CandidateCheckContext<T> {
 			let expected = persisted_validation_data.hash();
 
 			ensure!(
-				expected == backed_candidate.descriptor().persisted_validation_data_hash,
+				expected == backed_candidate_receipt.descriptor().persisted_validation_data_hash,
 				Error::<T>::ValidationDataHashMismatch,
 			);
 		}
 
 		ensure!(
-			backed_candidate.descriptor().check_collator_signature().is_ok(),
+			backed_candidate_receipt.descriptor().check_collator_signature().is_ok(),
 			Error::<T>::NotCollatorSigned,
 		);
 
@@ -1234,25 +1249,25 @@ impl<T: Config> CandidateCheckContext<T> {
 			// A candidate for a parachain without current validation code is not scheduled.
 			.ok_or_else(|| Error::<T>::UnscheduledCandidate)?;
 		ensure!(
-			backed_candidate.descriptor().validation_code_hash == validation_code_hash,
+			backed_candidate_receipt.descriptor().validation_code_hash == validation_code_hash,
 			Error::<T>::InvalidValidationCodeHash,
 		);
 
 		ensure!(
-			backed_candidate.descriptor().para_head ==
-				backed_candidate.candidate.commitments.head_data.hash(),
+			backed_candidate_receipt.descriptor().para_head ==
+				backed_candidate_receipt.commitments.head_data.hash(),
 			Error::<T>::ParaHeadMismatch,
 		);
 
 		if let Err(err) = self.check_validation_outputs(
 			para_id,
 			relay_parent_number,
-			&backed_candidate.candidate.commitments.head_data,
-			&backed_candidate.candidate.commitments.new_validation_code,
-			backed_candidate.candidate.commitments.processed_downward_messages,
-			&backed_candidate.candidate.commitments.upward_messages,
-			BlockNumberFor::<T>::from(backed_candidate.candidate.commitments.hrmp_watermark),
-			&backed_candidate.candidate.commitments.horizontal_messages,
+			&backed_candidate_receipt.commitments.head_data,
+			&backed_candidate_receipt.commitments.new_validation_code,
+			backed_candidate_receipt.commitments.processed_downward_messages,
+			&backed_candidate_receipt.commitments.upward_messages,
+			BlockNumberFor::<T>::from(backed_candidate_receipt.commitments.hrmp_watermark),
+			&backed_candidate_receipt.commitments.horizontal_messages,
 		) {
 			log::debug!(
 				target: LOG_TARGET,

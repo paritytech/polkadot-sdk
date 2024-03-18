@@ -212,8 +212,9 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint,
-		ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
+		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
+		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
+		QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -445,6 +446,7 @@ impl<MessageOrigin> From<BookState<MessageOrigin>> for QueueFootprint {
 	fn from(book: BookState<MessageOrigin>) -> Self {
 		QueueFootprint {
 			pages: book.count,
+			ready_pages: book.end.defensive_saturating_sub(book.begin),
 			storage: Footprint { count: book.message_count, size: book.size },
 		}
 	}
@@ -1284,6 +1286,9 @@ impl<T: Config> Pallet<T> {
 			ensure!(book.message_count < 1 << 30, "Likely overflow or corruption");
 			ensure!(book.size < 1 << 30, "Likely overflow or corruption");
 			ensure!(book.count < 1 << 30, "Likely overflow or corruption");
+
+			let fp: QueueFootprint = book.into();
+			ensure!(fp.ready_pages <= fp.pages, "There cannot be more ready than total pages");
 		}
 
 		//loop around this origin

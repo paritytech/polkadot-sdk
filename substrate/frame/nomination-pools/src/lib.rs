@@ -1296,27 +1296,6 @@ impl<T: Config> BondedPool<T> {
 			});
 		};
 	}
-
-	/// Withdraw all the funds that are already unlocked from staking for the
-	/// [`BondedPool::bonded_account`].
-	///
-	/// Also reduces the [`TotalValueLocked`] by the difference of the
-	/// [`T::Staking::total_stake`] of the [`BondedPool::bonded_account`] that might occur by
-	/// [`T::Staking::withdraw_unbonded`].
-	///
-	/// Returns the result of [`T::Staking::withdraw_unbonded`]
-	fn withdraw_from_staking(&self, num_slashing_spans: u32) -> Result<bool, DispatchError> {
-		let bonded_account = self.bonded_account();
-
-		let prev_total = T::Staking::total_stake(&bonded_account.clone()).unwrap_or_default();
-		let outcome = T::Staking::withdraw_unbonded(bonded_account.clone(), num_slashing_spans);
-		let diff = prev_total
-			.defensive_saturating_sub(T::Staking::total_stake(&bonded_account).unwrap_or_default());
-		TotalValueLocked::<T>::mutate(|tvl| {
-			tvl.saturating_reduce(diff);
-		});
-		outcome
-	}
 }
 
 /// A reward pool.
@@ -1600,7 +1579,7 @@ pub mod pallet {
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use sp_runtime::Perbill;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
 	#[pallet::pallet]
@@ -1736,7 +1715,7 @@ pub mod pallet {
 		CountedStorageMap<_, Twox64Concat, PoolId, BondedPoolInner<T>>;
 
 	/// Reward pools. This is where there rewards for each pool accumulate. When a members payout is
-	/// claimed, the balance comes out fo the reward pool. Keyed by the bonded pools account.
+	/// claimed, the balance comes out of the reward pool. Keyed by the bonded pools account.
 	#[pallet::storage]
 	pub type RewardPools<T: Config> = CountedStorageMap<_, Twox64Concat, PoolId, RewardPool<T>>;
 
@@ -1756,8 +1735,8 @@ pub mod pallet {
 
 	/// A reverse lookup from the pool's account id to its id.
 	///
-	/// This is only used for slashing. In all other instances, the pool id is used, and the
-	/// accounts are deterministically derived from it.
+	/// This is only used for slashing and on automatic withdraw update. In all other instances, the
+	/// pool id is used, and the accounts are deterministically derived from it.
 	#[pallet::storage]
 	pub type ReversePoolIdLookup<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, PoolId, OptionQuery>;
@@ -2226,7 +2205,7 @@ pub mod pallet {
 			// For now we only allow a pool to withdraw unbonded if its not destroying. If the pool
 			// is destroying then `withdraw_unbonded` can be used.
 			ensure!(pool.state != PoolState::Destroying, Error::<T>::NotDestroying);
-			pool.withdraw_from_staking(num_slashing_spans)?;
+			T::Staking::withdraw_unbonded(pool.bonded_account(), num_slashing_spans)?;
 
 			Ok(())
 		}
@@ -2278,7 +2257,8 @@ pub mod pallet {
 
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
 			// `transferrable_balance` is correct.
-			let stash_killed = bonded_pool.withdraw_from_staking(num_slashing_spans)?;
+			let stash_killed =
+				T::Staking::withdraw_unbonded(bonded_pool.bonded_account(), num_slashing_spans)?;
 
 			// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.
@@ -2424,6 +2404,11 @@ pub mod pallet {
 		///
 		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
 		/// account.
+		///
+		/// # Note
+		///
+		/// In addition to a `root` or `nominator` role of `origin`, pool's depositor needs to have
+		/// at least `depositor_min_bond` in the pool to start nominating.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::nominate(validators.len() as u32))]
 		pub fn nominate(
@@ -2434,6 +2419,16 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
 			ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
+
+			let depositor_points = PoolMembers::<T>::get(&bonded_pool.roles.depositor)
+				.ok_or(Error::<T>::PoolMemberNotFound)?
+				.active_points();
+
+			ensure!(
+				bonded_pool.points_to_balance(depositor_points) >= Self::depositor_min_bond(),
+				Error::<T>::MinimumBondNotMet
+			);
+
 			T::Staking::nominate(&bonded_pool.bonded_account(), validators)
 		}
 
@@ -2596,17 +2591,37 @@ pub mod pallet {
 
 		/// Chill on behalf of the pool.
 		///
-		/// The dispatch origin of this call must be signed by the pool nominator or the pool
+		/// The dispatch origin of this call can be signed by the pool nominator or the pool
 		/// root role, same as [`Pallet::nominate`].
 		///
+		/// Under certain conditions, this call can be dispatched permissionlessly (i.e. by any
+		/// account).
+		///
+		/// # Conditions for a permissionless dispatch:
+		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise  pool members
+		///   are unable to unbond.
+		///
+		/// # Conditions for permissioned dispatch:
+		/// * The caller has a nominator or root role of the pool.
 		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
 		/// account.
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::chill())]
 		pub fn chill(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
-			ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
+
+			let depositor_points = PoolMembers::<T>::get(&bonded_pool.roles.depositor)
+				.ok_or(Error::<T>::PoolMemberNotFound)?
+				.active_points();
+
+			if bonded_pool.points_to_balance(depositor_points) >=
+				T::Staking::minimum_nominator_bond()
+			{
+				ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
+			}
+
 			T::Staking::chill(&bonded_pool.bonded_account())
 		}
 
@@ -3630,5 +3645,15 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 			defensive!("Expected SubPools were not found");
 		}
 		Self::deposit_event(Event::<T>::PoolSlashed { pool_id, balance: slashed_bonded });
+	}
+
+	/// Reduces the overall `TotalValueLocked` if a withdrawal happened for a pool involved in the
+	/// staking withdraw.
+	fn on_withdraw(pool_account: &T::AccountId, amount: BalanceOf<T>) {
+		if ReversePoolIdLookup::<T>::get(pool_account).is_some() {
+			TotalValueLocked::<T>::mutate(|tvl| {
+				tvl.saturating_reduce(amount);
+			});
+		}
 	}
 }

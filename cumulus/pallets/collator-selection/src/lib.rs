@@ -120,7 +120,7 @@ pub mod pallet {
 	};
 	use sp_staking::SessionIndex;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	type BalanceOf<T> =
@@ -497,7 +497,11 @@ pub mod pallet {
 				})
 				.unwrap_or_default();
 			Self::deposit_event(Event::NewCandidacyBond { bond_amount: bond });
-			Ok(Some(T::WeightInfo::set_candidacy_bond(initial_len as u32, kicked as u32)).into())
+			Ok(Some(T::WeightInfo::set_candidacy_bond(
+				bond_increased.then(|| initial_len as u32).unwrap_or_default(),
+				kicked as u32,
+			))
+			.into())
 		}
 
 		/// Register this account as a collator candidate. The account must (a) already have

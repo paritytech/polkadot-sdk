@@ -14,7 +14,7 @@ cargo install honggfuzz
 In this directory, run this command:
 
 ```
-cargo hfuzz run xcm-fuzzer
+HFUZZ_BUILD_ARGS="--features=try-runtime" cargo hfuzz run xcm-fuzzer
 ```
 
 ## Run a single input
@@ -22,7 +22,7 @@ cargo hfuzz run xcm-fuzzer
 In this directory, run this command:
 
 ```
-cargo hfuzz run-debug xcm-fuzzer hfuzz_workspace/xcm-fuzzer/fuzzer_input_file
+cargo run --features=try-runtime -- hfuzz_workspace/xcm-fuzzer/fuzzer_input_file
 ```
 
 ## Generate coverage
@@ -31,7 +31,7 @@ In this directory, run these four commands:
 
 ```
 RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort" \
-CARGO_INCREMENTAL=0 SKIP_WASM_BUILD=1 CARGO_HOME=./cargo cargo build
+CARGO_INCREMENTAL=0 SKIP_WASM_BUILD=1 CARGO_HOME=./cargo cargo build --features=try-runtime
 ../../../target/debug/xcm-fuzzer hfuzz_workspace/xcm-fuzzer/input/
 zip -0 ccov.zip `find ../../../target/ \( -name "*.gc*" -o -name "test-*.gc*" \) -print`
 grcov ccov.zip -s ../../../ -t html --llvm --branch --ignore-not-existing -o ./coverage

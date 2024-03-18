@@ -17,7 +17,7 @@
 
 //! Little util for parsing an address URI. Replaces regular expressions.
 
-#[cfg(all(not(feature = "std"), any(feature = "serde", feature = "full_crypto")))]
+#[cfg(not(feature = "std"))]
 use alloc::{
 	string::{String, ToString},
 	vec::Vec,

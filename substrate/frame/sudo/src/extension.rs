@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Config, Pallet};
-use alloc::fmt;
+use core::fmt;
+use crate::{Config, Key};
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{dispatch::DispatchInfo, ensure};
@@ -87,7 +87,7 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> TransactionValidity {
-		let sudo_key: T::AccountId = <Pallet<T>>::key().ok_or(UnknownTransaction::CannotLookup)?;
+		let sudo_key: T::AccountId = Key::<T>::get().ok_or(UnknownTransaction::CannotLookup)?;
 		ensure!(*who == sudo_key, InvalidTransaction::BadSigner);
 
 		Ok(ValidTransaction {

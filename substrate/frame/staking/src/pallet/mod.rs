@@ -65,7 +65,7 @@ pub mod pallet {
 
 	use super::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(14);
 
 	#[pallet::pallet]
@@ -274,7 +274,7 @@ pub mod pallet {
 		/// Something that listens to staking updates and performs actions based on the data it
 		/// receives.
 		///
-		/// WARNING: this only reports slashing events for the time being.
+		/// WARNING: this only reports slashing and withdraw events for the time being.
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
 		/// Some parameters of the benchmarking.
@@ -563,6 +563,12 @@ pub mod pallet {
 	#[pallet::getter(fn force_era)]
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
 
+	/// Maximum staked rewards, i.e. the percentage of the era inflation that
+	/// is used for stake rewards.
+	/// See [Era payout](./index.html#era-payout).
+	#[pallet::storage]
+	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
+
 	/// The percentage of the slash that is distributed to reporters.
 	///
 	/// The rest of the slashed value is handled by the `Slash`.
@@ -784,6 +790,8 @@ pub mod pallet {
 		SnapshotTargetsSizeExceeded { size: u32 },
 		/// A new force era mode was set.
 		ForceEra { mode: Forcing },
+		/// Report of a controller batch deprecation.
+		ControllerBatchDeprecated { failures: u32 },
 	}
 
 	#[pallet::error]
@@ -928,6 +936,11 @@ pub mod pallet {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
 
+			// An existing controller cannot become a stash.
+			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
+				return Err(Error::<T>::AlreadyPaired.into())
+			}
+
 			// Reject a bond which is considered to be _dust_.
 			if value < T::Currency::minimum_balance() {
 				return Err(Error::<T>::InsufficientBond.into())
@@ -968,7 +981,6 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-
 			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
 			let stash_balance = T::Currency::free_balance(&stash);
@@ -1325,8 +1337,6 @@ pub mod pallet {
 		pub fn set_controller(origin: OriginFor<T>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			// The bonded map and ledger are mutated directly as this extrinsic is related to a
-			// (temporary) passive migration.
 			Self::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
 				let controller = ledger.controller()
                     .defensive_proof("Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.")
@@ -1336,9 +1346,8 @@ pub mod pallet {
 					// Stash is already its own controller.
 					return Err(Error::<T>::AlreadyPaired.into())
 				}
-				<Ledger<T>>::remove(controller);
-				<Bonded<T>>::insert(&stash, &stash);
-				<Ledger<T>>::insert(&stash, ledger);
+
+				let _ = ledger.set_controller_to_stash()?;
 				Ok(())
 			})?
 		}
@@ -1716,6 +1725,7 @@ pub mod pallet {
 			max_validator_count: ConfigOp<u32>,
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
+			max_staked_rewards: ConfigOp<Percent>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -1735,6 +1745,7 @@ pub mod pallet {
 			config_op_exp!(MaxValidatorsCount<T>, max_validator_count);
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
+			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
@@ -1951,7 +1962,7 @@ pub mod pallet {
 						};
 
 						if ledger.stash != *controller && !payee_deprecated {
-							Some((controller.clone(), ledger))
+							Some(ledger)
 						} else {
 							None
 						}
@@ -1960,13 +1971,12 @@ pub mod pallet {
 				.collect();
 
 			// Update unique pairs.
-			for (controller, ledger) in filtered_batch_with_ledger {
-				let stash = ledger.stash.clone();
-
-				<Bonded<T>>::insert(&stash, &stash);
-				<Ledger<T>>::remove(controller);
-				<Ledger<T>>::insert(stash, ledger);
+			let mut failures = 0;
+			for ledger in filtered_batch_with_ledger {
+				let _ = ledger.clone().set_controller_to_stash().map_err(|_| failures += 1);
 			}
+			Self::deposit_event(Event::<T>::ControllerBatchDeprecated { failures });
+
 			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
 		}
 	}

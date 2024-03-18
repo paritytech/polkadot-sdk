@@ -33,4 +33,4 @@ sp-runtime = { path = "../../../primitives/runtime" }
 remote-externalities = { package = "frame-remote-externalities", path = "../../../utils/frame/remote-externalities" }
 
 # others
-log = "0.4.17"
+log = { workspace = true, default-features = true }

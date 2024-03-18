@@ -180,7 +180,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
@@ -900,7 +900,7 @@ mod tests {
 
 	type BlockNumber = u64;
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

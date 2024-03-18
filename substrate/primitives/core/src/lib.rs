@@ -49,7 +49,6 @@ pub use sp_debug_derive::RuntimeDebug;
 #[cfg(feature = "serde")]
 pub use impl_serde::serialize as bytes;
 
-#[cfg(feature = "full_crypto")]
 #[deprecated(
 	since = "27.0.0",
 	note = "`sp-crypto-hashing` re-exports will be removed after June 2024. Use `sp-crypto-hashing` instead."
@@ -61,7 +60,6 @@ pub mod crypto;
 pub mod hexdisplay;
 pub use paste;
 
-#[cfg(any(feature = "full_crypto", feature = "std"))]
 mod address_uri;
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
@@ -90,7 +88,6 @@ pub use self::{
 	hash::{convert_hash, H160, H256, H512},
 	uint::{U256, U512},
 };
-#[cfg(feature = "full_crypto")]
 pub use crypto::{ByteArray, DeriveJunction, Pair, Public};
 
 #[cfg(feature = "std")]

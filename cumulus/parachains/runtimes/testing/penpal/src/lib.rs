@@ -56,7 +56,10 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned,
 };
-use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
+use parachains_common::{
+	impls::{AssetsToBlockAuthor, NonZeroIssuance},
+	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
+};
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -73,7 +76,7 @@ pub use sp_runtime::{traits::ConvertInto, MultiAddress, Perbill, Permill};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm_config::{AssetsToBlockAuthor, XcmOriginToTransactDispatchOrigin};
+use xcm_config::XcmOriginToTransactDispatchOrigin;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -326,7 +329,7 @@ parameter_types! {
 
 // Configure FRAME pallets to include in runtime.
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
@@ -621,7 +624,7 @@ impl pallet_asset_tx_payment::Config for Runtime {
 			ConvertInto,
 			pallet_assets::Instance1,
 		>,
-		AssetsToBlockAuthor<Runtime>,
+		AssetsToBlockAuthor<Runtime, pallet_assets::Instance1>,
 	>;
 }
 
@@ -702,7 +705,7 @@ impl_runtime_apis! {
 			Executive::execute_block(block)
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}

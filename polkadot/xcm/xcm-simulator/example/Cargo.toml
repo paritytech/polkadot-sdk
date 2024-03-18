@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 scale-info = { version = "2.10.0", features = ["derive"] }
-log = { version = "0.4.14", default-features = false }
+log = { workspace = true }
 
 frame-system = { path = "../../../../substrate/frame/system" }
 frame-support = { path = "../../../../substrate/frame/support" }

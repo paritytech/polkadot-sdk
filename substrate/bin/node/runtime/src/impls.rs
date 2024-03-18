@@ -29,8 +29,8 @@ use pallet_asset_tx_payment::HandleCredit;
 use pallet_identity::legacy::IdentityField;
 
 use crate::{
-	AccountId, AllianceMotion, Assets, Authorship, Balances, Hash, NegativeImbalance, Runtime,
-	RuntimeCall,
+	AccountId, AllianceCollective, AllianceMotion, Assets, Authorship, Balances, Hash,
+	NegativeImbalance, Runtime, RuntimeCall,
 };
 
 pub struct Author;
@@ -106,7 +106,7 @@ impl ProposalProvider<AccountId, Hash, RuntimeCall> for AllianceProposalProvider
 	}
 
 	fn proposal_of(proposal_hash: Hash) -> Option<RuntimeCall> {
-		AllianceMotion::proposal_of(proposal_hash)
+		pallet_collective::ProposalOf::<Runtime, AllianceCollective>::get(proposal_hash)
 	}
 }
 
@@ -275,7 +275,7 @@ mod multiplier_tests {
 				let next = runtime_multiplier_update(fm);
 				fm = next;
 				if fm == min_multiplier() {
-					break
+					break;
 				}
 				iterations += 1;
 			}

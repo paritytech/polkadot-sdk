@@ -91,7 +91,7 @@ SS58 addresses are:
 
 ### Json output
 
-`subkey` can calso generate the output as *json*. This is useful for automation.
+`subkey` can also generate the output as *json*. This is useful for automation.
 
 command:
 

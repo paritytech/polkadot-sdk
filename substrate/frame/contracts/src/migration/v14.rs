@@ -42,7 +42,7 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::TryRuntimeError;
 use sp_runtime::{traits::Zero, Saturating};
 
-mod old {
+mod v13 {
 	use super::*;
 
 	pub type BalanceOf<T, OldCurrency> = <OldCurrency as frame_support::traits::Currency<
@@ -59,7 +59,7 @@ mod old {
 	{
 		pub owner: AccountIdOf<T>,
 		#[codec(compact)]
-		pub deposit: old::BalanceOf<T, OldCurrency>,
+		pub deposit: v13::BalanceOf<T, OldCurrency>,
 		#[codec(compact)]
 		pub refcount: u64,
 		pub determinism: Determinism,
@@ -83,14 +83,14 @@ where
 	let code = vec![42u8; len as usize];
 	let hash = T::Hashing::hash(&code);
 
-	let info = old::CodeInfo {
+	let info = v13::CodeInfo {
 		owner: account,
 		deposit: 10_000u32.into(),
 		refcount: u64::MAX,
 		determinism: Determinism::Enforced,
 		code_len: len,
 	};
-	old::CodeInfoOf::<T, OldCurrency>::insert(hash, info);
+	v13::CodeInfoOf::<T, OldCurrency>::insert(hash, info);
 }
 
 #[cfg(feature = "try-runtime")]
@@ -102,9 +102,9 @@ where
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId>,
 {
 	/// Total reserved balance as code upload deposit for the owner.
-	reserved: old::BalanceOf<T, OldCurrency>,
+	reserved: v13::BalanceOf<T, OldCurrency>,
 	/// Total balance of the owner.
-	total: old::BalanceOf<T, OldCurrency>,
+	total: v13::BalanceOf<T, OldCurrency>,
 }
 
 #[derive(Encode, Decode, MaxEncodedLen, DefaultNoBound)]
@@ -131,11 +131,11 @@ where
 
 	fn step(&mut self) -> (IsFinished, Weight) {
 		let mut iter = if let Some(last_hash) = self.last_code_hash.take() {
-			old::CodeInfoOf::<T, OldCurrency>::iter_from(
-				old::CodeInfoOf::<T, OldCurrency>::hashed_key_for(last_hash),
+			v13::CodeInfoOf::<T, OldCurrency>::iter_from(
+				v13::CodeInfoOf::<T, OldCurrency>::hashed_key_for(last_hash),
 			)
 		} else {
-			old::CodeInfoOf::<T, OldCurrency>::iter()
+			v13::CodeInfoOf::<T, OldCurrency>::iter()
 		};
 
 		if let Some((hash, code_info)) = iter.next() {
@@ -191,7 +191,7 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade_step() -> Result<Vec<u8>, TryRuntimeError> {
-		let info: Vec<_> = old::CodeInfoOf::<T, OldCurrency>::iter().collect();
+		let info: Vec<_> = v13::CodeInfoOf::<T, OldCurrency>::iter().collect();
 
 		let mut owner_balance_allocation =
 			BTreeMap::<AccountIdOf<T>, BalanceAllocation<T, OldCurrency>>::new();

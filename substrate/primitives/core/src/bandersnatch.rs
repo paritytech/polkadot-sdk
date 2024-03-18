@@ -22,19 +22,17 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, Public as TraitPublic, UncheckedFrom, VrfPublic,
-};
-#[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError, VrfSecret};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::{format, string::String};
+use crate::crypto::VrfSecret;
+use crate::crypto::{
+	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
+	Public as TraitPublic, SecretStringError, UncheckedFrom, VrfPublic,
+};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use bandersnatch_vrfs::CanonicalSerialize;
-#[cfg(feature = "full_crypto")]
-use bandersnatch_vrfs::SecretKey;
+use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -45,10 +43,8 @@ use sp_runtime_interface::pass_by::PassByInner;
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"band");
 
 /// Context used to produce a plain signature without any VRF input/output.
-#[cfg(feature = "full_crypto")]
 pub const SIGNING_CTX: &[u8] = b"BandersnatchSigningContext";
 
-#[cfg(feature = "full_crypto")]
 const SEED_SERIALIZED_SIZE: usize = 32;
 
 const PUBLIC_SERIALIZED_SIZE: usize = 33;
@@ -56,7 +52,6 @@ const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 const PREOUT_SERIALIZED_SIZE: usize = 33;
 
 /// Bandersnatch public key.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(
 	Clone,
 	Copy,
@@ -69,6 +64,7 @@ const PREOUT_SERIALIZED_SIZE: usize = 33;
 	PassByInner,
 	MaxEncodedLen,
 	TypeInfo,
+	Hash,
 )]
 pub struct Public(pub [u8; PUBLIC_SERIALIZED_SIZE]);
 
@@ -116,7 +112,6 @@ impl ByteArray for Public {
 impl TraitPublic for Public {}
 
 impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
@@ -154,8 +149,9 @@ impl<'de> Deserialize<'de> for Public {
 ///
 /// The signature is created via the [`VrfSecret::vrf_sign`] using [`SIGNING_CTX`] as transcript
 /// `label`.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, PassByInner, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Clone, Copy, PartialEq, Eq, Encode, Decode, PassByInner, MaxEncodedLen, TypeInfo, Hash,
+)]
 pub struct Signature([u8; SIGNATURE_SERIALIZED_SIZE]);
 
 impl UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature {
@@ -194,7 +190,6 @@ impl ByteArray for Signature {
 }
 
 impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
@@ -211,18 +206,15 @@ impl alloc::fmt::Debug for Signature {
 }
 
 /// The raw secret seed, which can be used to reconstruct the secret [`Pair`].
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; SEED_SERIALIZED_SIZE];
 
 /// Bandersnatch secret key.
-#[cfg(feature = "full_crypto")]
 #[derive(Clone)]
 pub struct Pair {
 	secret: SecretKey,
 	seed: Seed,
 }
 
-#[cfg(feature = "full_crypto")]
 impl Pair {
 	/// Get the key seed.
 	pub fn seed(&self) -> Seed {
@@ -230,7 +222,6 @@ impl Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
 	type Seed = Seed;
 	type Public = Public;
@@ -287,6 +278,7 @@ impl TraitPair for Pair {
 	/// the constant label [`SIGNING_CTX`] and `data` without any additional data.
 	///
 	/// See [`vrf::VrfSignData`] for additional details.
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, data: &[u8]) -> Signature {
 		let data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, &[data], None);
 		self.vrf_sign(&data).signature
@@ -305,7 +297,6 @@ impl TraitPair for Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl CryptoType for Pair {
 	type Pair = Pair;
 }
@@ -983,6 +974,19 @@ mod tests {
 		// Soft derivation not supported
 		let res = Pair::from_string(&format!("{}//Alice/Soft", DEV_PHRASE), None);
 		assert!(res.is_err());
+	}
+
+	#[test]
+	fn generate_with_phrase_should_be_recoverable_with_from_string() {
+		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
+		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_seed.public());
+		let (repair_phrase, reseed) =
+			Pair::from_phrase(phrase.as_ref(), None).expect("seed slice is valid");
+		assert_eq!(seed, reseed);
+		assert_eq!(pair.public(), repair_phrase.public());
+		let repair_string = Pair::from_string(phrase.as_str(), None).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_string.public());
 	}
 
 	#[test]
