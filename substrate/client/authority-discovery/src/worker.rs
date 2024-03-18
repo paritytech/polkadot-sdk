@@ -241,22 +241,26 @@ where
 		let published_addresses = match config.public_addresses_only {
 			Some(addresses) => {
 				PublishedAddresses::List({
-					// Make sure we have only valid peer ids in public addresses.
+					// Make sure we have valid peer ids in public addresses.
 					let local_peer_id: Multihash = network.local_peer_id().into();
 
 					addresses
 						.into_iter()
 						.map(|mut address| {
 							if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
-								if peer_id != local_peer_id {
+								if peer_id == local_peer_id {
+									address
+								} else {
 									error!(
 										target: LOG_TARGET,
 										"Discarding invalid local peer ID in public address {address}.",
 									);
 									address.pop();
+									address.with(multiaddr::Protocol::P2p(local_peer_id))
 								}
+							} else {
+								address.with(multiaddr::Protocol::P2p(local_peer_id))
 							}
-							address
 						})
 						.collect()
 				})
@@ -347,42 +351,34 @@ where
 
 	fn addresses_to_publish(&self) -> impl Iterator<Item = Multiaddr> {
 		let peer_id = self.network.local_peer_id();
-		let addresses: Vec<_> = {
-			let addresses = match self.published_addresses {
-				PublishedAddresses::List(ref addresses) => addresses.clone(),
-				PublishedAddresses::External { publish_non_global_ips } => self
-					.network
-					.external_addresses()
-					.into_iter()
-					.filter(move |a| {
-						if publish_non_global_ips {
-							return true
-						}
-
-						a.iter().all(|p| match p {
-							// The `ip_network` library is used because its `is_global()` method is
-							// stable, while `is_global()` in the standard library currently isn't.
-							multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() =>
-								false,
-							multiaddr::Protocol::Ip6(ip) if !IpNetwork::from(ip).is_global() =>
-								false,
-							_ => true,
-						})
-					})
-					.collect(),
-			};
-
-			// The address must include the peer id if not already set.
-			addresses
+		let addresses: Vec<_> = match self.published_addresses {
+			PublishedAddresses::List(ref addresses) => addresses.clone(),
+			PublishedAddresses::External { publish_non_global_ips } => self
+				.network
+				.external_addresses()
 				.into_iter()
+				.filter(move |a| {
+					if publish_non_global_ips {
+						return true
+					}
+
+					a.iter().all(|p| match p {
+						// The `ip_network` library is used because its `is_global()` method is
+						// stable, while `is_global()` in the standard library currently isn't.
+						multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() => false,
+						multiaddr::Protocol::Ip6(ip) if !IpNetwork::from(ip).is_global() => false,
+						_ => true,
+					})
+				})
 				.map(move |a| {
+					// The address must include the peer id if not already set.
 					if a.iter().any(|p| matches!(p, multiaddr::Protocol::P2p(_))) {
 						a
 					} else {
 						a.with(multiaddr::Protocol::P2p(peer_id.into()))
 					}
 				})
-				.collect()
+				.collect(),
 		};
 
 		debug!(
