@@ -180,7 +180,7 @@ pub mod pallet {
 				// we panic here as runtime maintainers can simply reconfigure genesis and restart
 				// the chain easily
 				.expect("Authorities vec too big");
-			<GenesisBlock<T>>::put(&self.genesis_block);
+			GenesisBlock::<T>::put(&self.genesis_block);
 		}
 	}
 
@@ -320,19 +320,19 @@ impl<T: Config> Pallet<T> {
 		new: BoundedVec<T::BeefyId, T::MaxAuthorities>,
 		queued: BoundedVec<T::BeefyId, T::MaxAuthorities>,
 	) {
-		<Authorities<T>>::put(&new);
+		Authorities::<T>::put(&new);
 
 		let new_id = ValidatorSetId::<T>::get() + 1u64;
-		<ValidatorSetId<T>>::put(new_id);
+		ValidatorSetId::<T>::put(new_id);
 
-		<NextAuthorities<T>>::put(&queued);
+		NextAuthorities::<T>::put(&queued);
 
 		if let Some(validator_set) = ValidatorSet::<T::BeefyId>::new(new, new_id) {
 			let log = DigestItem::Consensus(
 				BEEFY_ENGINE_ID,
 				ConsensusLog::AuthoritiesChange(validator_set.clone()).encode(),
 			);
-			<frame_system::Pallet<T>>::deposit_log(log);
+			frame_system::Pallet::<T>::deposit_log(log);
 
 			let next_id = new_id + 1;
 			if let Some(next_validator_set) = ValidatorSet::<T::BeefyId>::new(queued, next_id) {
@@ -349,7 +349,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(())
 		}
 
-		if !<Authorities<T>>::get().is_empty() {
+		if !Authorities::<T>::get().is_empty() {
 			return Err(())
 		}
 
@@ -358,10 +358,10 @@ impl<T: Config> Pallet<T> {
 				.map_err(|_| ())?;
 
 		let id = GENESIS_AUTHORITY_SET_ID;
-		<Authorities<T>>::put(bounded_authorities);
-		<ValidatorSetId<T>>::put(id);
+		Authorities::<T>::put(bounded_authorities);
+		ValidatorSetId::<T>::put(id);
 		// Like `pallet_session`, initialize the next validator set as well.
-		<NextAuthorities<T>>::put(bounded_authorities);
+		NextAuthorities::<T>::put(bounded_authorities);
 
 		if let Some(validator_set) = ValidatorSet::<T::BeefyId>::new(authorities.clone(), id) {
 			let next_id = id + 1;
@@ -438,7 +438,7 @@ where
 
 		let validator_set_id = ValidatorSetId::<T>::get();
 		// Update the mapping for the new set id that corresponds to the latest session (i.e. now).
-		let session_index = <pallet_session::Pallet<T>>::current_index();
+		let session_index = pallet_session::Pallet::<T>::current_index();
 		SetIdSession::<T>::insert(validator_set_id, &session_index);
 		// Prune old entry if limit reached.
 		let max_set_id_session_entries = T::MaxSetIdSessionEntries::get().max(1);
@@ -453,7 +453,7 @@ where
 			ConsensusLog::<T::BeefyId>::OnDisabled(i as AuthorityIndex).encode(),
 		);
 
-		<frame_system::Pallet<T>>::deposit_log(log);
+		frame_system::Pallet::<T>::deposit_log(log);
 	}
 }
 
