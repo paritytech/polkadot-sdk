@@ -214,8 +214,8 @@ pub enum PeersetNotificationCommand {
 /// either fully open or fully closed and the slot allocation for opening a substream is tied to a
 /// state transition which moves the peer to [`PeerState::Opening`]. This is because it allows
 /// reserving a slot for peer to prevent infinite outbound substreams. If the substream is opened
-/// successfully, peer is moved to state [`PeerState::Connected`] but there is no modification to the
-/// slot count as an outbound slot was already allocated for the peer. If the substream fails to
+/// successfully, peer is moved to state [`PeerState::Connected`] but there is no modification to
+/// the slot count as an outbound slot was already allocated for the peer. If the substream fails to
 /// open, the event is reported by litep2p and [`Peerset::report_substream_open_failure()`] is
 /// called which will decrease the outbound slot count. Similarly for inbound streams, the slot is
 /// allocated in [`Peerset::report_inbound_substream()`] which will prevent `Peerset` from accepting
