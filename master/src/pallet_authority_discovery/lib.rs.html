@@ -496,6 +496,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
 <a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -642,19 +664,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			Keys::&lt;T&gt;::put(bounded_keys);
-
-			<span class="kw">let </span>next_keys = queued_validators.map(|x| x.<span class="number">1</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-
-			<span class="kw">let </span>next_bounded_keys = WeakBoundedVec::&lt;<span class="kw">_</span>, T::MaxAuthorities&gt;::force_from(
-				next_keys,
-				<span class="prelude-val">Some</span>(
-					<span class="string">&quot;Warning: The session has more queued validators than expected. \
-				A runtime configuration adjustment may be needed.&quot;</span>,
-				),
-			);
-
-			NextKeys::&lt;T&gt;::put(next_bounded_keys);
 		}
+
+		<span class="comment">// `changed` represents if queued_validators changed in the previous session not in the
+		// current one.
+		</span><span class="kw">let </span>next_keys = queued_validators.map(|x| x.<span class="number">1</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+		<span class="kw">let </span>next_bounded_keys = WeakBoundedVec::&lt;<span class="kw">_</span>, T::MaxAuthorities&gt;::force_from(
+			next_keys,
+			<span class="prelude-val">Some</span>(
+				<span class="string">&quot;Warning: The session has more queued validators than expected. \
+			A runtime configuration adjustment may be needed.&quot;</span>,
+			),
+		);
+
+		NextKeys::&lt;T&gt;::put(next_bounded_keys);
 	}
 
 	<span class="kw">fn </span>on_disabled(_i: u32) {
@@ -768,13 +792,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|id| (<span class="kw-2">&amp;</span>account_id, id))
 			.collect::&lt;Vec&lt;(<span class="kw-2">&amp;</span>AuthorityId, AuthorityId)&gt;&gt;();
 
-		<span class="kw">let </span><span class="kw-2">mut </span>third_authorities: Vec&lt;AuthorityId&gt; = <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>]
+		<span class="kw">let </span>third_authorities: Vec&lt;AuthorityId&gt; = <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>]
 			.into_iter()
 			.map(|i| AuthorityPair::from_seed_slice(<span class="macro">vec!</span>[i; <span class="number">32</span>].as_ref()).unwrap().public())
 			.map(AuthorityId::from)
 			.collect();
 		<span class="comment">// Needed for `pallet_session::OneSessionHandler::on_new_session`.
 		</span><span class="kw">let </span>third_authorities_and_account_ids = third_authorities
+			.clone()
+			.into_iter()
+			.map(|id| (<span class="kw-2">&amp;</span>account_id, id))
+			.collect::&lt;Vec&lt;(<span class="kw-2">&amp;</span>AuthorityId, AuthorityId)&gt;&gt;();
+
+		<span class="kw">let </span><span class="kw-2">mut </span>fourth_authorities: Vec&lt;AuthorityId&gt; = <span class="macro">vec!</span>[<span class="number">6</span>, <span class="number">7</span>]
+			.into_iter()
+			.map(|i| AuthorityPair::from_seed_slice(<span class="macro">vec!</span>[i; <span class="number">32</span>].as_ref()).unwrap().public())
+			.map(AuthorityId::from)
+			.collect();
+		<span class="comment">// Needed for `pallet_session::OneSessionHandler::on_new_session`.
+		</span><span class="kw">let </span>fourth_authorities_and_account_ids = fourth_authorities
 			.clone()
 			.into_iter()
 			.map(|id| (<span class="kw-2">&amp;</span>account_id, id))
@@ -808,25 +844,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				third_authorities_and_account_ids.clone().into_iter(),
 			);
 			<span class="kw">let </span>authorities_returned = AuthorityDiscovery::authorities();
+			<span class="kw">let </span><span class="kw-2">mut </span>first_and_third_authorities = first_authorities
+				.iter()
+				.chain(third_authorities.iter())
+				.cloned()
+				.collect::&lt;Vec&lt;AuthorityId&gt;&gt;();
+			first_and_third_authorities.sort();
+
 			<span class="macro">assert_eq!</span>(
-				first_authorities, authorities_returned,
+				first_and_third_authorities, authorities_returned,
 				<span class="string">&quot;Expected authority set not to change as `changed` was set to false.&quot;</span>,
 			);
 
 			<span class="comment">// When `changed` set to true, the authority set should be updated.
 			</span>AuthorityDiscovery::on_new_session(
 				<span class="bool-val">true</span>,
-				second_authorities_and_account_ids.into_iter(),
-				third_authorities_and_account_ids.clone().into_iter(),
+				third_authorities_and_account_ids.into_iter(),
+				fourth_authorities_and_account_ids.clone().into_iter(),
 			);
-			<span class="kw">let </span><span class="kw-2">mut </span>second_and_third_authorities = second_authorities
+
+			<span class="kw">let </span><span class="kw-2">mut </span>third_and_fourth_authorities = third_authorities
 				.iter()
-				.chain(third_authorities.iter())
+				.chain(fourth_authorities.iter())
 				.cloned()
 				.collect::&lt;Vec&lt;AuthorityId&gt;&gt;();
-			second_and_third_authorities.sort();
+			third_and_fourth_authorities.sort();
 			<span class="macro">assert_eq!</span>(
-				second_and_third_authorities,
+				third_and_fourth_authorities,
 				AuthorityDiscovery::authorities(),
 				<span class="string">&quot;Expected authority set to contain both the authorities of the new as well as the \
 				 next session.&quot;
@@ -835,12 +879,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// With overlapping authority sets, `authorities()` should return a deduplicated set.
 			</span>AuthorityDiscovery::on_new_session(
 				<span class="bool-val">true</span>,
-				third_authorities_and_account_ids.clone().into_iter(),
-				third_authorities_and_account_ids.clone().into_iter(),
+				fourth_authorities_and_account_ids.clone().into_iter(),
+				fourth_authorities_and_account_ids.clone().into_iter(),
 			);
-			third_authorities.sort();
+			fourth_authorities.sort();
 			<span class="macro">assert_eq!</span>(
-				third_authorities,
+				fourth_authorities,
 				AuthorityDiscovery::authorities(),
 				<span class="string">&quot;Expected authority set to be deduplicated.&quot;
 			</span>);

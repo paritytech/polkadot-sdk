@@ -1075,6 +1075,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#928" id="928">928</a>
 <a href="#929" id="929">929</a>
 <a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1362,7 +1366,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// before initialization of your pallet.
 	///
 	/// `changed` is true whenever any of the session keys or underlying economic
-	/// identities or weightings behind those keys has changed.
+	/// identities or weightings behind `validators` keys has changed. `queued_validators`
+	/// could change without `validators` changing. Example of possible sequent calls:
+	///     Session N: on_new_session(false, unchanged_validators, unchanged_queued_validators)
+	///     Session N + 1: on_new_session(false, unchanged_validators, new_queued_validators)
+	/// 	Session N + 2: on_new_session(true, new_queued_validators, new_queued_validators)
 	</span><span class="kw">fn </span>on_new_session&lt;Ks: OpaqueKeys&gt;(
 		changed: bool,
 		validators: <span class="kw-2">&amp;</span>[(ValidatorId, Ks)],
