@@ -227,7 +227,7 @@ crate::construct_runtime!(
 	}
 );
 
-#[crate::derive_impl(self::frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[crate::derive_impl(self::frame_system::config_preludes::TestDefaultConfig as self::frame_system::DefaultConfig)]
 impl Config for Runtime {
 	type Block = Block;
 	type AccountId = AccountId;
