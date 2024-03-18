@@ -47,7 +47,7 @@ pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
 use codec::{Codec, Decode, Encode};
 use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
-use sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
+use sp_application_crypto::{AppPublic, RuntimeAppPublic};
 use sp_core::H256;
 use sp_runtime::traits::{Hash, Keccak256, NumberFor};
 use sp_std::prelude::*;
@@ -71,19 +71,21 @@ pub type BeefySignatureHasher = sp_runtime::traits::Keccak256;
 /// A trait bound which lists all traits which are required to be implemented by
 /// a BEEFY AuthorityId type in order to be able to be used in BEEFY Keystore
 pub trait AuthorityIdBound:
-	Codec
-	+ Debug
-	+ Clone
-	+ Ord
-	+ AsRef<[u8]>
-	+ ByteArray
-	+ AppPublic
-	+ AppCrypto
-	+ RuntimeAppPublic
-	+ Display
-	+ BeefyAuthorityId<BeefySignatureHasher>
-{
-}
+	Ord + AppPublic + Display + BeefyAuthorityId<BeefySignatureHasher> { }
+// pub trait AuthorityIdBound:
+// 	Codec
+// 	+ Debug
+// 	+ Clone
+// 	+ Ord
+// 	+ AsRef<[u8]>
+// 	+ ByteArray
+// 	+ AppPublic
+// 	+ AppCrypto
+// 	+ RuntimeAppPublic
+// 	+ Display
+// 	+ BeefyAuthorityId<BeefySignatureHasher>
+// {
+// }
 
 /// BEEFY cryptographic types for ECDSA crypto
 ///

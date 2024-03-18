@@ -40,6 +40,15 @@ where
 	votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 }
 
+impl<AuthorityId: AuthorityIdBound> Default for RoundTracker<AuthorityId>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
+	fn default() -> Self {
+		Self { votes: Default::default() }
+	}
+}
+
 impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId>
 where
 	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
