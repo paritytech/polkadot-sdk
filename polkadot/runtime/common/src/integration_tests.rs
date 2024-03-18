@@ -22,7 +22,7 @@ use crate::{
 	paras_registrar,
 	slot_range::SlotRange,
 	slots,
-	traits::{AuctionStatus, Auctioneer, Leaser, OnSwap, Registrar as RegistrarT},
+	traits::{AuctionStatus, Auctioneer, Leaser, Registrar as RegistrarT},
 };
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
