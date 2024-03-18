@@ -191,5 +191,3 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental = ["pallet-aura/experimental"]
