@@ -323,13 +323,15 @@ impl<ParaId: IsSystem + From<u32>> Contains<Location> for IsChildSystemParachain
 }
 
 /// Matches if the given location is a system-level sibling parachain.
-pub struct IsSiblingSystemParachain<ParaId>(PhantomData<ParaId>);
-impl<ParaId: IsSystem + From<u32>> Contains<Location> for IsSiblingSystemParachain<ParaId> {
+pub struct IsSiblingSystemParachain<ParaId, SelfParaId>(PhantomData<(ParaId, SelfParaId)>);
+impl<ParaId: IsSystem + From<u32> + Eq, SelfParaId: Get<ParaId>> Contains<Location>
+	for IsSiblingSystemParachain<ParaId, SelfParaId>
+{
 	fn contains(l: &Location) -> bool {
 		matches!(
-			l.interior().as_slice(),
-			[Junction::Parachain(id)]
-				if ParaId::from(*id).is_system() && l.parent_count() == 1,
+			l.unpack(),
+			(1, [Junction::Parachain(id)])
+				if SelfParaId::get() != ParaId::from(*id) && ParaId::from(*id).is_system(),
 		)
 	}
 }

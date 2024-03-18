@@ -21,8 +21,9 @@ mod tracks;
 use crate::{
 	weights,
 	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
-	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation, Preimage,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, WestendTreasuryAccount, DAYS,
+	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation,
+	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler,
+	WestendTreasuryAccount, DAYS,
 };
 use cumulus_primitives_core::ParaId;
 use frame_support::{
@@ -265,6 +266,7 @@ parameter_types! {
 	// The asset's interior location for the paying account. This is the Fellowship Treasury
 	// pallet instance (which sits at index 65).
 	pub FellowshipTreasuryInteriorLocation: InteriorLocation = PalletInstance(65).into();
+	pub SelfParaId: ParaId = ParachainInfo::parachain_id();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -349,7 +351,7 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type Paymaster = PayWithEnsure<FellowshipTreasuryPaymaster, OpenHrmpChannel<ConstU32<1000>>>;
 	type BalanceConverter = UnityOrOuterConversion<
 		ContainsLatest<
-			xcm_builder::IsSiblingSystemParachain<ParaId>,
+			xcm_builder::IsSiblingSystemParachain<ParaId, SelfParaId>,
 			xcm_builder::IsParentsOnly<ConstU8<1>>,
 		>,
 		AssetRate,
