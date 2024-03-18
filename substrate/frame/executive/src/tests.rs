@@ -309,7 +309,7 @@ parameter_types! {
 	};
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BlockWeights = BlockWeights;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -358,7 +358,7 @@ impl pallet_balances::WeightInfo for BalancesWeights {
 	}
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type AccountStore = System;

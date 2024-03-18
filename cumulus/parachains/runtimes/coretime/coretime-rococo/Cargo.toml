@@ -195,6 +195,4 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-experimental = ["pallet-aura/experimental"]
-
 fast-runtime = []

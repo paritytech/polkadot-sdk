@@ -297,7 +297,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-experimental = ["pallet-aura/experimental"]
 fast-runtime = []
 
 # A feature that should be enabled when the runtime should be built for on-chain

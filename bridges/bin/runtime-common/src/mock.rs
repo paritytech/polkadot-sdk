@@ -141,7 +141,7 @@ parameter_types! {
 	pub const ReserveId: [u8; 8] = *b"brdgrlrs";
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for TestRuntime {
 	type Hash = ThisChainHash;
 	type Hashing = ThisChainHasher;
@@ -158,13 +158,13 @@ impl pallet_utility::Config for TestRuntime {
 	type WeightInfo = ();
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
 }
 
-#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig as pallet_transaction_payment::DefaultConfig)]
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for TestRuntime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;

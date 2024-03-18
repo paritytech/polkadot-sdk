@@ -55,7 +55,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, CollatorPair, CoreIndex, CoreState,
-	GroupIndex, Hash, Id as ParaId, SessionIndex,
+	GroupIndex, Hash, HeadData, Id as ParaId, SessionIndex,
 };
 
 use super::LOG_TARGET;
@@ -347,6 +347,7 @@ async fn distribute_collation<Context>(
 	receipt: CandidateReceipt,
 	parent_head_data_hash: Hash,
 	pov: PoV,
+	parent_head_data: HeadData,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 ) -> Result<()> {
 	let candidate_relay_parent = receipt.descriptor.relay_parent;
@@ -465,7 +466,13 @@ async fn distribute_collation<Context>(
 
 	per_relay_parent.collations.insert(
 		candidate_hash,
-		Collation { receipt, parent_head_data_hash, pov, status: CollationStatus::Created },
+		Collation {
+			receipt,
+			parent_head_data_hash,
+			pov,
+			parent_head_data,
+			status: CollationStatus::Created,
+		},
 	);
 
 	// If prospective parachains are disabled, a leaf should be known to peer.
@@ -763,20 +770,26 @@ async fn process_msg<Context>(
 		CollateOn(id) => {
 			state.collating_on = Some(id);
 		},
-		DistributeCollation(receipt, parent_head_data_hash, pov, result_sender) => {
+		DistributeCollation {
+			candidate_receipt,
+			parent_head_data_hash,
+			pov,
+			parent_head_data,
+			result_sender,
+		} => {
 			let _span1 = state
 				.span_per_relay_parent
-				.get(&receipt.descriptor.relay_parent)
+				.get(&candidate_receipt.descriptor.relay_parent)
 				.map(|s| s.child("distributing-collation"));
 			let _span2 = jaeger::Span::new(&pov, "distributing-collation");
 
 			match state.collating_on {
-				Some(id) if receipt.descriptor.para_id != id => {
+				Some(id) if candidate_receipt.descriptor.para_id != id => {
 					// If the ParaId of a collation requested to be distributed does not match
 					// the one we expect, we ignore the message.
 					gum::warn!(
 						target: LOG_TARGET,
-						para_id = %receipt.descriptor.para_id,
+						para_id = %candidate_receipt.descriptor.para_id,
 						collating_on = %id,
 						"DistributeCollation for unexpected para_id",
 					);
@@ -788,9 +801,10 @@ async fn process_msg<Context>(
 						runtime,
 						state,
 						id,
-						receipt,
+						candidate_receipt,
 						parent_head_data_hash,
 						pov,
+						parent_head_data,
 						result_sender,
 					)
 					.await?;
@@ -798,7 +812,7 @@ async fn process_msg<Context>(
 				None => {
 					gum::warn!(
 						target: LOG_TARGET,
-						para_id = %receipt.descriptor.para_id,
+						para_id = %candidate_receipt.descriptor.para_id,
 						"DistributeCollation message while not collating on any",
 					);
 				},
@@ -835,6 +849,7 @@ async fn send_collation(
 	request: VersionedCollationRequest,
 	receipt: CandidateReceipt,
 	pov: PoV,
+	_parent_head_data: HeadData,
 ) {
 	let (tx, rx) = oneshot::channel();
 
@@ -842,13 +857,22 @@ async fn send_collation(
 	let peer_id = request.peer_id();
 	let candidate_hash = receipt.hash();
 
-	// The response payload is the same for both versions of protocol
+	// The response payload is the same for v1 and v2 versions of protocol
 	// and doesn't have v2 alias for simplicity.
-	let response = OutgoingResponse {
-		result: Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
-		reputation_changes: Vec::new(),
-		sent_feedback: Some(tx),
-	};
+	// For now, we don't send parent head data to the collation requester.
+	let result =
+	// 	if assigned_multiple_cores {
+	// 	Ok(request_v1::CollationFetchingResponse::CollationWithParentHeadData {
+	// 		receipt,
+	// 		pov,
+	// 		parent_head_data,
+	// 	})
+	// } else {
+		Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov))
+	// }
+	;
+	let response =
+		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
 
 	if let Err(_) = request.send_outgoing_response(response) {
 		gum::warn!(target: LOG_TARGET, "Sending collation response failed");
@@ -1027,9 +1051,13 @@ async fn handle_incoming_request<Context>(
 					return Ok(())
 				},
 			};
-			let (receipt, pov) = if let Some(collation) = collation {
+			let (receipt, pov, parent_head_data) = if let Some(collation) = collation {
 				collation.status.advance_to_requested();
-				(collation.receipt.clone(), collation.pov.clone())
+				(
+					collation.receipt.clone(),
+					collation.pov.clone(),
+					collation.parent_head_data.clone(),
+				)
 			} else {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -1068,7 +1096,7 @@ async fn handle_incoming_request<Context>(
 				waiting.collation_fetch_active = true;
 				// Obtain a timer for sending collation
 				let _ = state.metrics.time_collation_distribution("send");
-				send_collation(state, req, receipt, pov).await;
+				send_collation(state, req, receipt, pov, parent_head_data).await;
 			}
 		},
 		Some(our_para_id) => {
@@ -1453,8 +1481,9 @@ async fn run_inner<Context>(
 				if let Some(collation) = next_collation {
 					let receipt = collation.receipt.clone();
 					let pov = collation.pov.clone();
+					let parent_head_data = collation.parent_head_data.clone();
 
-					send_collation(&mut state, next, receipt, pov).await;
+					send_collation(&mut state, next, receipt, pov, parent_head_data).await;
 				}
 			},
 			(candidate_hash, peer_id) = state.advertisement_timeouts.select_next_some() => {
