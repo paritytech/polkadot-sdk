@@ -147,8 +147,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		}
 
 		// `changed` represents if queued_validators changed in the previous session not in the
-		// current one, so it does not make sense to guard updating of next_keys by it.
-		// see: https://github.com/paritytech/polkadot-sdk/blob/02e1a7f476d7d7c67153e975ab9a1bdc02ffea12/substrate/frame/session/src/lib.rs#L613
+		// current one.
 		let next_keys = queued_validators.map(|x| x.1).collect::<Vec<_>>();
 
 		let next_bounded_keys = WeakBoundedVec::<_, T::MaxAuthorities>::force_from(
