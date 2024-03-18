@@ -88,10 +88,10 @@ fn warm_up(config: TestConfiguration) -> Result<(), String> {
 }
 
 fn benchmark(config: TestConfiguration) -> BenchmarkUsage {
-	println!("Benchmarking data_availability_write...");
+	println!("Benchmarking...");
 	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT).map(|_| run(config.clone())).collect();
 	let usage = BenchmarkUsage::average(&usages);
-	println!("{}", usage);
+	println!("\n{}{}", "data_availability_write", usage);
 	usage
 }
 

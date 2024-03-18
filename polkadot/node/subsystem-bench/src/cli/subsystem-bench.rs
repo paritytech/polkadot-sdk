@@ -129,6 +129,7 @@ impl BenchCli {
 		for (index, CliTestConfiguration { objective, mut test_config }) in
 			test_sequence.into_iter().enumerate()
 		{
+			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, objective);
 			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {:?}", objective).green(), test_config);
 			test_config.generate_pov_sizes();
@@ -162,7 +163,7 @@ impl BenchCli {
 					env.runtime().block_on(approval::bench_approvals(&mut env, state))
 				},
 			};
-			println!("{}", usage);
+			println!("\n{}{}", benchmark_name, usage);
 		}
 
 		if let Some(agent_running) = agent_running {
