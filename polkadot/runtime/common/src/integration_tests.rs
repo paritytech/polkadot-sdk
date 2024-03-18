@@ -39,7 +39,7 @@ use primitives::{
 	MAX_CODE_SIZE,
 };
 use runtime_parachains::{
-	configuration, coretime, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
+	configuration, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
 };
 use sp_core::H256;
 use sp_io::TestExternalities;
