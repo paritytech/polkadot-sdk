@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "std")]
 pub mod extrinsic;
 #[cfg(feature = "std")]
@@ -42,9 +44,10 @@ use frame_system::{
 	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
+
+use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
-use sp_std::vec;
+use alloc::{vec, vec::Vec};
 
 use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 use sp_core::{OpaqueMetadata, RuntimeDebug};
@@ -58,11 +61,9 @@ use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_core::hash::H256;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-	create_runtime_str, impl_opaque_keys, impl_tx_ext_default,
-	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor, Verify},
-	transaction_validity::{
-		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
+	create_runtime_str, impl_opaque_keys,
+	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, NumberFor, Verify},
+	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
 #[cfg(any(feature = "std", test))]
@@ -144,14 +145,13 @@ pub type Signature = sr25519::Signature;
 #[cfg(feature = "std")]
 pub type Pair = sp_core::sr25519::Pair;
 
-// TODO: Remove after the Checks are migrated to TxExtension.
-/// The extension to the basic transaction logic.
-pub type TxExtension = ((CheckNonce<Runtime>, CheckWeight<Runtime>), CheckSubstrateCall);
+/// The SignedExtension to the basic transaction logic.
+pub type SignedExtra = (CheckNonce<Runtime>, CheckWeight<Runtime>, CheckSubstrateCall);
 /// The payload being signed in transactions.
-pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, TxExtension>;
+pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, SignedExtra>;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type Extrinsic =
-	sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+	sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
 /// An identifier for an account on this system.
 pub type AccountId = <Signature as Verify>::Signer;
@@ -246,7 +246,7 @@ impl sp_runtime::traits::Printable for CheckSubstrateCall {
 }
 
 impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
-	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeOrigin = CheckSubstrateCall;
 	type Config = CheckSubstrateCall;
 	type Info = CheckSubstrateCall;
 	type PostInfo = CheckSubstrateCall;
@@ -259,37 +259,42 @@ impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
 	}
 }
 
-impl sp_runtime::traits::TransactionExtensionBase for CheckSubstrateCall {
-	const IDENTIFIER: &'static str = "CheckSubstrateCall";
-	type Implicit = ();
-}
-impl<Context> sp_runtime::traits::TransactionExtension<RuntimeCall, Context>
-	for CheckSubstrateCall
-{
+impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
+	type AccountId = AccountId;
+	type Call = RuntimeCall;
+	type AdditionalSigned = ();
 	type Pre = ();
-	type Val = ();
-	impl_tx_ext_default!(RuntimeCall; Context; prepare);
+	const IDENTIFIER: &'static str = "CheckSubstrateCall";
+
+	fn additional_signed(
+		&self,
+	) -> core::result::Result<Self::AdditionalSigned, TransactionValidityError> {
+		Ok(())
+	}
 
 	fn validate(
 		&self,
-		origin: <RuntimeCall as Dispatchable>::RuntimeOrigin,
-		call: &RuntimeCall,
-		_info: &DispatchInfoOf<RuntimeCall>,
+		_who: &Self::AccountId,
+		call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
-		_context: &mut Context,
-		_self_implicit: Self::Implicit,
-		_inherited_implication: &impl Encode,
-	) -> Result<
-		(ValidTransaction, Self::Val, <RuntimeCall as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError,
-	> {
+	) -> TransactionValidity {
 		log::trace!(target: LOG_TARGET, "validate");
-		let v = match call {
+		match call {
 			RuntimeCall::SubstrateTest(ref substrate_test_call) =>
-				substrate_test_pallet::validate_runtime_call(substrate_test_call)?,
-			_ => Default::default(),
-		};
-		Ok((v, (), origin))
+				substrate_test_pallet::validate_runtime_call(substrate_test_call),
+			_ => Ok(Default::default()),
+		}
+	}
+
+	fn pre_dispatch(
+		self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		self.validate(who, call, info, len).map(drop)
 	}
 }
 
@@ -340,7 +345,7 @@ parameter_types! {
 		.build_or_panic();
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::pallet::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
@@ -362,7 +367,6 @@ impl frame_system::pallet::Config for Runtime {
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
@@ -439,7 +443,7 @@ fn code_using_trie() -> u64 {
 	.to_vec();
 
 	let mut mdb = PrefixedMemoryDB::default();
-	let mut root = sp_std::default::Default::default();
+	let mut root = core::default::Default::default();
 	{
 		let mut t = TrieDBMutBuilderV1::<Hashing>::new(&mut mdb, &mut root).build();
 		for (key, value) in &pairs {
@@ -493,7 +497,7 @@ impl_runtime_apis! {
 		fn metadata_at_version(_version: u32) -> Option<OpaqueMetadata> {
 			unimplemented!()
 		}
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			unimplemented!()
 		}
 	}
@@ -671,7 +675,7 @@ impl_runtime_apis! {
 
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
-			let ext = Extrinsic::new_bare(
+			let ext = Extrinsic::new_unsigned(
 				substrate_test_pallet::pallet::Call::storage_change{
 					key:b"some_key".encode(),
 					value:Some(header.number.encode())
@@ -1024,7 +1028,7 @@ mod tests {
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_keyring::AccountKeyring;
 	use sp_runtime::{
-		traits::{DispatchTransaction, Hash as _},
+		traits::{Hash as _, SignedExtension},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{
@@ -1173,33 +1177,31 @@ mod tests {
 	fn check_substrate_check_signed_extension_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
-			let x: AccountId = sp_keyring::AccountKeyring::Alice.into();
+			let x = sp_keyring::AccountKeyring::Alice.into();
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			assert_eq!(
 				CheckSubstrateCall {}
-					.validate_only(
-						Some(x).into(),
+					.validate(
+						&x,
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
-						len,
+						len
 					)
 					.unwrap()
-					.0
 					.priority,
 				16
 			);
 
 			assert_eq!(
 				CheckSubstrateCall {}
-					.validate_only(
-						Some(x).into(),
+					.validate(
+						&x,
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
-						len,
+						len
 					)
 					.unwrap()
-					.0
 					.propagate,
 				false
 			);

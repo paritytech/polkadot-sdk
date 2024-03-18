@@ -20,8 +20,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::{prelude::*, result::Result};
+extern crate alloc;
 
+use core::result::Result;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_inherents::{InherentData, InherentIdentifier, IsFatalError};
 use sp_runtime::traits::{Block as BlockT, NumberFor};

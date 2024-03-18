@@ -26,7 +26,6 @@ sp-consensus-slots = { path = "../slots", default-features = false }
 sp-core = { path = "../../core", default-features = false }
 sp-inherents = { path = "../../inherents", default-features = false }
 sp-runtime = { path = "../../runtime", default-features = false }
-sp-std = { path = "../../std", default-features = false }
 sp-timestamp = { path = "../../timestamp", optional = true }
 
 [features]
@@ -42,7 +41,6 @@ std = [
 	"sp-core/std",
 	"sp-inherents/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-timestamp/std",
 ]
 

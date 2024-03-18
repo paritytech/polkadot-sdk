@@ -306,29 +306,30 @@ where
 	fn addresses_to_publish(&self) -> impl Iterator<Item = Multiaddr> {
 		let peer_id: Multihash = self.network.local_peer_id().into();
 		let publish_non_global_ips = self.publish_non_global_ips;
-		self.network
-			.external_addresses()
-			.into_iter()
-			.filter(move |a| {
-				if publish_non_global_ips {
-					return true
-				}
+		let addresses = self.network.external_addresses().into_iter().filter(move |a| {
+			if publish_non_global_ips {
+				return true
+			}
 
-				a.iter().all(|p| match p {
-					// The `ip_network` library is used because its `is_global()` method is stable,
-					// while `is_global()` in the standard library currently isn't.
-					multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() => false,
-					multiaddr::Protocol::Ip6(ip) if !IpNetwork::from(ip).is_global() => false,
-					_ => true,
-				})
+			a.iter().all(|p| match p {
+				// The `ip_network` library is used because its `is_global()` method is stable,
+				// while `is_global()` in the standard library currently isn't.
+				multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() => false,
+				multiaddr::Protocol::Ip6(ip) if !IpNetwork::from(ip).is_global() => false,
+				_ => true,
 			})
-			.map(move |a| {
-				if a.iter().any(|p| matches!(p, multiaddr::Protocol::P2p(_))) {
-					a
-				} else {
-					a.with(multiaddr::Protocol::P2p(peer_id))
-				}
-			})
+		});
+
+		debug!(target: LOG_TARGET, "Authority DHT record peer_id='{:?}' addresses='{:?}'", peer_id, addresses.clone().collect::<Vec<_>>());
+
+		// The address must include the peer id if not already set.
+		addresses.map(move |a| {
+			if a.iter().any(|p| matches!(p, multiaddr::Protocol::P2p(_))) {
+				a
+			} else {
+				a.with(multiaddr::Protocol::P2p(peer_id))
+			}
+		})
 	}
 
 	/// Publish own public addresses.

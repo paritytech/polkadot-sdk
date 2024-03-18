@@ -31,7 +31,7 @@
 //! data, like what is the corresponding response type.
 //!
 //!  ## Versioning
-//!  
+//!
 //! Versioning for request-response protocols can be done in multiple ways.
 //!
 //! If you're just changing the protocol name but the binary payloads are the same, just add a new
