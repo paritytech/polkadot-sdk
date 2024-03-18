@@ -28,10 +28,11 @@ use polkadot_subsystem_bench::{
 	},
 	configuration::TestConfiguration,
 	usage::BenchmarkUsage,
+	utils::{warm_up_and_benchmark, WarmUpOptions},
 };
 
 const BENCH_COUNT: usize = 3;
-const WARM_UP_COUNT: usize = 10;
+const WARM_UP_COUNT: usize = 30;
 const WARM_UP_PRECISION: f64 = 0.01;
 
 fn main() -> Result<(), String> {
@@ -42,14 +43,23 @@ fn main() -> Result<(), String> {
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
 
-	warm_up(config.clone(), options.clone())?;
-	let usage = benchmark(config.clone(), options.clone());
+	let usage = warm_up_and_benchmark(WarmUpOptions::new(&["availability-recovery"]), || {
+		let mut state = TestState::new(&config);
+		let (mut env, _protocol_config) = prepare_test(
+			config.clone(),
+			&mut state,
+			TestDataAvailability::Read(options.clone()),
+			false,
+		);
+		env.runtime().block_on(benchmark_availability_read(&mut env, state))
+	})?;
+	println!("\n{}{}", "data_availability_read", usage);
 
 	messages.extend(usage.check_network_usage(&[
-		("Received from peers", 102400.000, 0.05),
-		("Sent to peers", 0.335, 0.05),
+		("Received from peers", 307200.000, 0.05),
+		("Sent to peers", 1.667, 0.05),
 	]));
-	messages.extend(usage.check_cpu_usage(&[("availability-recovery", 3.850, 0.05)]));
+	messages.extend(usage.check_cpu_usage(&[("availability-recovery", 11.500, 0.05)]));
 
 	if messages.is_empty() {
 		Ok(())
