@@ -768,6 +768,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
 <a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -789,7 +792,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">use </span>sp_std::{borrow::Cow, iter::Iterator, marker::PhantomData, mem, result, vec, vec::Vec};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{borrow::Cow, vec, vec::Vec};
+<span class="kw">use </span>core::{iter::Iterator, marker::PhantomData, mem, result};
 
 <span class="attr">#[cfg(not(all(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;wasmtime&quot;</span>)))]
 #[macro_export]
@@ -846,7 +852,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>TryFrom&lt;u8&gt; <span class="kw">for </span>ValueType {
 	<span class="kw">type </span>Error = ();
 
-	<span class="kw">fn </span>try_from(val: u8) -&gt; sp_std::result::Result&lt;ValueType, ()&gt; {
+	<span class="kw">fn </span>try_from(val: u8) -&gt; core::result::Result&lt;ValueType, ()&gt; {
 		<span class="kw">match </span>val {
 			<span class="number">0 </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::I32),
 			<span class="number">1 </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::I64),

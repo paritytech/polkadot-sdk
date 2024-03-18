@@ -670,6 +670,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -687,9 +688,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>codec::{Decode, Encode, Error, Input};
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>codec::{Decode, Encode, Error, Input};
+<span class="kw">use </span>core::cmp;
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_std::{cmp, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">use crate</span>::{Payload, ValidatorSetId};
 
@@ -769,10 +771,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>signatures: Vec&lt;<span class="prelude-ty">Option</span>&lt;TSignature&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;TBlockNumber: sp_std::fmt::Debug, TSignature&gt; sp_std::fmt::Display
+<span class="kw">impl</span>&lt;TBlockNumber: core::fmt::Debug, TSignature&gt; core::fmt::Display
 	<span class="kw">for </span>SignedCommitment&lt;TBlockNumber, TSignature&gt;
 {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="kw">let </span>signatures_count = <span class="self">self</span>.signatures.iter().filter(|s| s.is_some()).count();
 		<span class="macro">write!</span>(
 			f,
@@ -926,8 +928,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>V1(SignedCommitment&lt;N, S&gt;),
 }
 
-<span class="kw">impl</span>&lt;N: sp_std::fmt::Debug, S&gt; sp_std::fmt::Display <span class="kw">for </span>VersionedFinalityProof&lt;N, S&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+<span class="kw">impl</span>&lt;N: core::fmt::Debug, S&gt; core::fmt::Display <span class="kw">for </span>VersionedFinalityProof&lt;N, S&gt; {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
 			VersionedFinalityProof::V1(sc) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;VersionedFinalityProof::V1({})&quot;</span>, sc),
 		}

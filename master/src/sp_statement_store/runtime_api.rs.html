@@ -352,11 +352,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Runtime support for the statement store.
 
 </span><span class="kw">use crate</span>::{Hash, Statement, Topic};
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="kw">use </span>sp_runtime_interface::{pass_by::PassByEnum, runtime_interface};
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_externalities::ExternalitiesExt;

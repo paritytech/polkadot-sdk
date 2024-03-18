@@ -263,6 +263,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -285,7 +287,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 #![warn(missing_docs)]
 
-</span><span class="comment">// Re-export.
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="comment">// Re-export.
 </span><span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>frame_metadata;
 
@@ -317,8 +321,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Returns the supported metadata versions.
-</span><span class="kw">pub fn </span>supported_versions() -&gt; sp_std::vec::Vec&lt;u32&gt; {
-	<span class="macro">sp_std::vec!</span>[V14, V15]
+</span><span class="kw">pub fn </span>supported_versions() -&gt; alloc::vec::Vec&lt;u32&gt; {
+	<span class="macro">alloc::vec!</span>[V14, V15]
 }
 
 <span class="doccomment">/// Transform the IR to the latest stable metadata version.

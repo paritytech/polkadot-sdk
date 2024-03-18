@@ -404,6 +404,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -432,7 +434,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! but we imagine they will be useful for other chains that either want to bridge with Polkadot
 //! or are completely standalone, but heavily inspired by Polkadot.
 
-</span><span class="kw">use crate</span>::{ecdsa_crypto::AuthorityId, ConsensusLog, MmrRootHash, Vec, BEEFY_ENGINE_ID};
+</span><span class="kw">use crate</span>::{ecdsa_crypto::AuthorityId, ConsensusLog, MmrRootHash, BEEFY_ENGINE_ID};
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
@@ -556,10 +559,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>mmr_root_provider {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{known_payloads, payload::PayloadProvider, Payload};
+	<span class="kw">use </span>alloc::sync::Arc;
+	<span class="kw">use </span>core::marker::PhantomData;
 	<span class="kw">use </span>sp_api::ProvideRuntimeApi;
 	<span class="kw">use </span>sp_mmr_primitives::MmrApi;
 	<span class="kw">use </span>sp_runtime::traits::NumberFor;
-	<span class="kw">use </span>sp_std::{marker::PhantomData, sync::Arc};
 
 	<span class="doccomment">/// A [`crate::Payload`] provider where payload is Merkle Mountain Range root hash.
 	///

@@ -578,6 +578,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -600,15 +603,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #![forbid(unsafe_code, missing_docs, unused_variables, unused_imports)]
 #![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">pub mod </span>digests;
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">pub mod </span>digests;
 <span class="kw">pub mod </span>inherents;
 
+<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_runtime::{traits::Header, ConsensusEngineId, RuntimeDebug};
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">use </span><span class="kw">crate</span>::digests::{NextConfigDescriptor, NextEpochDescriptor};
 

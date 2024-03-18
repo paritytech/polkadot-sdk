@@ -373,8 +373,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! See [`balance`] for more information.
 
 </span><span class="kw">use crate</span>::{BalancingConfig, Edge, ExtendedBalance, IdentifierT, Voter};
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>sp_arithmetic::traits::Zero;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Balance the weight distribution of a given `voters` at most `iterations` times, or up until the
 /// point where the biggest difference created per iteration of all stakes is `tolerance`. If this

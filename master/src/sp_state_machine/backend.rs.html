@@ -613,13 +613,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	trie_backend_essence::TrieBackendStorage, ChildStorageCollection, StorageCollection,
 	StorageKey, StorageValue, UsageInfo,
 };
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>hash_db::Hasher;
 <span class="kw">use </span>sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_core::traits::RuntimeCode;
-<span class="kw">use </span>sp_std::vec::Vec;
 <span class="kw">use </span>sp_trie::{MerkleValue, PrefixedMemoryDB};
 
 <span class="doccomment">/// A struct containing arguments for iterating over the storage.
@@ -769,7 +769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// to it.
 ///
 /// The clone operation (if implemented) should be cheap.
-</span><span class="kw">pub trait </span>Backend&lt;H: Hasher&gt;: sp_std::fmt::Debug {
+</span><span class="kw">pub trait </span>Backend&lt;H: Hasher&gt;: core::fmt::Debug {
 	<span class="doccomment">/// An error type when fetching data is not possible.
 	</span><span class="kw">type </span>Error: <span class="kw">super</span>::Error;
 

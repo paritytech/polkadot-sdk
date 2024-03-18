@@ -1296,6 +1296,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1149" id="1149">1149</a>
 <a href="#1150" id="1150">1150</a>
 <a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1320,6 +1322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="self">self</span>::changeset::OverlayedChangeSet;
 <span class="kw">use crate</span>::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
+<span class="kw">use </span>alloc::{collections::btree_set::BTreeSet, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>hash_db::Hasher;
 <span class="kw">pub use </span>offchain::OffchainOverlayedChanges;
@@ -1329,12 +1332,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_externalities::{Extension, Extensions};
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">use </span>sp_std::collections::btree_map::BTreeMap <span class="kw">as </span>Map;
-<span class="kw">use </span>sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 <span class="kw">use </span>sp_trie::{empty_child_trie_root, LayoutV1};
+
+<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="kw">use </span>alloc::collections::btree_map::BTreeMap <span class="kw">as </span>Map;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>std::collections::{hash_map::Entry <span class="kw">as </span>MapEntry, HashMap <span class="kw">as </span>Map};
+
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>std::{
 	any::{Any, TypeId},
@@ -1434,7 +1438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;H: Hasher&gt; sp_std::fmt::Debug <span class="kw">for </span>OverlayedChanges&lt;H&gt; {
+<span class="kw">impl</span>&lt;H: Hasher&gt; core::fmt::Debug <span class="kw">for </span>OverlayedChanges&lt;H&gt; {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
 		f.debug_struct(<span class="string">&quot;OverlayedChanges&quot;</span>)
 			.field(<span class="string">&quot;top&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.top)
@@ -1557,7 +1561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;H: Hasher&gt; sp_std::fmt::Debug <span class="kw">for </span>StorageTransactionCache&lt;H&gt; {
+<span class="kw">impl</span>&lt;H: Hasher&gt; core::fmt::Debug <span class="kw">for </span>StorageTransactionCache&lt;H&gt; {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="kw">let </span><span class="kw-2">mut </span>debug = f.debug_struct(<span class="string">&quot;StorageTransactionCache&quot;</span>);
 
@@ -1870,7 +1874,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		};
 
-		<span class="kw">use </span>sp_std::mem::take;
+		<span class="kw">use </span>core::mem::take;
 		<span class="kw">let </span>main_storage_changes = take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.top).drain_commited();
 		<span class="kw">let </span>child_storage_changes = take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.children)
 			.into_iter()
@@ -2075,7 +2079,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>K: Ord,
 	F: FnMut(<span class="kw-2">&amp;</span>K, <span class="kw-2">&amp;mut </span>V) -&gt; bool,
 {
-	<span class="kw">let </span>old = sp_std::mem::replace(map, Map::default());
+	<span class="kw">let </span>old = core::mem::replace(map, Map::default());
 	<span class="kw">for </span>(k, <span class="kw-2">mut </span>v) <span class="kw">in </span>old.into_iter() {
 		<span class="kw">if </span>f(<span class="kw-2">&amp;</span>k, <span class="kw-2">&amp;mut </span>v) {
 			map.insert(k, v);

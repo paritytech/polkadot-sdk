@@ -487,7 +487,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -515,11 +514,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! This crate exposes the main [`Externalities`] trait.
 
-</span><span class="kw">use </span>sp_std::{
-	any::{Any, TypeId},
-	boxed::Box,
-	vec::Vec,
-};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
+<span class="kw">use </span>core::any::{Any, TypeId};
 
 <span class="kw">use </span>sp_storage::{ChildInfo, StateVersion, TrackedStorageKey};
 

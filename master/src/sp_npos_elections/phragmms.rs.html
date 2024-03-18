@@ -576,8 +576,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	balance, setup_inputs, BalancingConfig, CandidatePtr, ElectionResult, ExtendedBalance,
 	IdentifierT, PerThing128, VoteWeight, Voter,
 };
+<span class="kw">use </span>alloc::{rc::Rc, vec, vec::Vec};
 <span class="kw">use </span>sp_arithmetic::{traits::Bounded, PerThing, Rational128};
-<span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, rc::Rc};
 
 <span class="doccomment">/// Execute the phragmms method.
 ///
@@ -783,8 +783,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{Assignment, ElectionResult};
+	<span class="kw">use </span>alloc::rc::Rc;
 	<span class="kw">use </span>sp_runtime::{Perbill, Percent};
-	<span class="kw">use </span>sp_std::rc::Rc;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>basic_election_manual_works() {

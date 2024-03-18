@@ -405,6 +405,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -424,7 +425,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! (very) Basic implementation of a graph node used in the reduce algorithm.
 
-</span><span class="kw">use </span>sp_std::{cell::RefCell, fmt, prelude::<span class="kw-2">*</span>, rc::Rc};
+</span><span class="kw">use </span>alloc::{rc::Rc, vec::Vec};
+<span class="kw">use </span>core::{cell::RefCell, fmt};
 
 <span class="doccomment">/// The role that a node can accept.
 </span><span class="attr">#[derive(PartialEq, Eq, Ord, PartialOrd, Clone, Debug)]
@@ -456,8 +458,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;A: fmt::Debug&gt; sp_std::fmt::Debug <span class="kw">for </span>NodeId&lt;A&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+</span><span class="kw">impl</span>&lt;A: fmt::Debug&gt; fmt::Debug <span class="kw">for </span>NodeId&lt;A&gt; {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
 		<span class="macro">write!</span>(
 			f,
 			<span class="string">&quot;Node({:?}, {:?})&quot;</span>,

@@ -567,6 +567,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -589,14 +592,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! A crate which contains primitives that are useful for implementation that uses staking
 //! approaches in general. Definitions related to sessions, slashing, etc go here.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::currency_to_vote::CurrencyToVote;
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span><span class="kw">crate</span>::currency_to_vote::CurrencyToVote;
+<span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
+<span class="kw">use </span>core::ops::Sub;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
 	DispatchError, DispatchResult, RuntimeDebug, Saturating,
 };
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, ops::Sub, vec, vec::Vec};
 
 <span class="kw">pub mod </span>offence;
 
@@ -741,7 +747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ Saturating;
 
 	<span class="doccomment">/// AccountId type used by the staking system.
-	</span><span class="kw">type </span>AccountId: Clone + sp_std::fmt::Debug;
+	</span><span class="kw">type </span>AccountId: Clone + core::fmt::Debug;
 
 	<span class="doccomment">/// Means of converting Currency to VoteWeight.
 	</span><span class="kw">type </span>CurrencyToVote: CurrencyToVote&lt;<span class="self">Self</span>::Balance&gt;;

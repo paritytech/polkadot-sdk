@@ -227,6 +227,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -248,14 +250,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>codec::{Decode, Encode};
 
 <span class="kw">pub use </span>sp_application_crypto;
 <span class="kw">use </span>sp_application_crypto::sr25519;
 
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">pub use </span>sp_core::{hash::H256, RuntimeDebug};
 <span class="kw">use </span>sp_runtime::traits::{BlakeTwo256, Extrinsic <span class="kw">as </span>ExtrinsicT, Verify};
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// Extrinsic for test-runtime.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]

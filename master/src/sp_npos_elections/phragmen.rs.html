@@ -383,12 +383,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	balancing, setup_inputs, BalancingConfig, CandidatePtr, ElectionResult, ExtendedBalance,
 	IdentifierT, PerThing128, VoteWeight, Voter,
 };
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>sp_arithmetic::{
 	helpers_128bit::multiply_by_rational_with_rounding,
 	traits::{Bounded, Zero},
 	Rational128, Rounding,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// The denominator used for loads. Since votes are collected as u64, the smallest ratio that we
 /// might collect is `1/approval_stake` where approval stake is the sum of votes. Hence, some number

@@ -210,6 +210,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -231,9 +234,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">use </span>codec::Decode;
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::Decode;
 <span class="kw">use </span>sp_runtime::ConsensusEngineId;
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// The `ConsensusEngineId` of PoW.
 </span><span class="kw">pub const </span>POW_ENGINE_ID: ConsensusEngineId = [<span class="string">b&#39;p&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;w&#39;</span>, <span class="string">b&#39;_&#39;</span>];

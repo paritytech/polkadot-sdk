@@ -345,8 +345,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -364,14 +362,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>alloc::{collections::btree_set::BTreeSet, vec::Vec};
+<span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::iter::{DoubleEndedIterator, IntoIterator};
 <span class="kw">use </span>hash_db::{HashDB, Hasher};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_std::{
-	collections::btree_set::BTreeSet,
-	iter::{DoubleEndedIterator, IntoIterator},
-	vec::Vec,
-};
+
 <span class="comment">// Note that `LayoutV1` usage here (proof compaction) is compatible
 // with `LayoutV0`.
 </span><span class="kw">use </span><span class="kw">crate</span>::LayoutV1 <span class="kw">as </span>Layout;

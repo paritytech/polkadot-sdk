@@ -651,6 +651,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#504" id="504">504</a>
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -815,9 +817,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 #![warn(missing_docs)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">extern crate </span>alloc;
 
-<span class="kw">use </span>sp_std::{
+<span class="kw">use </span>codec::{Decode, Encode};
+
+<span class="kw">use </span>alloc::{
 	collections::btree_map::{BTreeMap, Entry, IntoIter},
 	vec::Vec,
 };

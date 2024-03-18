@@ -399,7 +399,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -425,9 +424,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! verification. This allows lowering the data and computation cost of verifying the
 //! signed commitment.
 
-</span><span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
-
-<span class="kw">use </span><span class="kw">crate</span>::commitment::{Commitment, SignedCommitment};
+</span><span class="kw">use </span><span class="kw">crate</span>::commitment::{Commitment, SignedCommitment};
+<span class="kw">use </span>alloc::vec::Vec;
 
 <span class="doccomment">/// A light form of [SignedCommitment].
 ///

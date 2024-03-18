@@ -324,6 +324,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -347,11 +349,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #![forbid(unsafe_code, missing_docs, unused_variables, unused_imports)]
 #![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">use </span>scale_codec::{Decode, Encode, MaxEncodedLen};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>scale_codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_core::crypto::KeyTypeId;
 <span class="kw">use </span>sp_runtime::{ConsensusEngineId, RuntimeDebug};
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">pub use </span>sp_consensus_slots::{Slot, SlotDuration};
 

@@ -725,6 +725,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -801,15 +802,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, rc::Rc, vec, vec::Vec};
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::{cell::RefCell, cmp::Ordering};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_arithmetic::{traits::Zero, Normalizable, PerThing, Rational128, ThresholdOrd};
 <span class="kw">use </span>sp_core::{bounded::BoundedVec, RuntimeDebug};
-<span class="kw">use </span>sp_std::{
-	cell::RefCell, cmp::Ordering, collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>, rc::Rc, vec,
-};
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
@@ -925,7 +927,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_std::cmp::Ord <span class="kw">for </span>ElectionScore {
+<span class="kw">impl </span>core::cmp::Ord <span class="kw">for </span>ElectionScore {
 	<span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; Ordering {
 		<span class="comment">// we delegate this to the lexicographic cmp of slices`, and to incorporate that we want the
 		// third element to be minimized, we swap them.
@@ -937,7 +939,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_std::cmp::PartialOrd <span class="kw">for </span>ElectionScore {
+<span class="kw">impl </span>core::cmp::PartialOrd <span class="kw">for </span>ElectionScore {
 	<span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Ordering&gt; {
 		<span class="prelude-val">Some</span>(<span class="self">self</span>.cmp(other))
 	}
@@ -1005,8 +1007,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;A: IdentifierT&gt; sp_std::fmt::Debug <span class="kw">for </span>Edge&lt;A&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+</span><span class="kw">impl</span>&lt;A: IdentifierT&gt; core::fmt::Debug <span class="kw">for </span>Edge&lt;A&gt; {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">&quot;Edge({:?}, weight = {:?})&quot;</span>, <span class="self">self</span>.who, <span class="self">self</span>.weight)
 	}
 }
@@ -1026,7 +1028,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">impl</span>&lt;A: IdentifierT&gt; std::fmt::Debug <span class="kw">for </span>Voter&lt;A&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">&quot;Voter({:?}, budget = {}, edges = {:?})&quot;</span>, <span class="self">self</span>.who, <span class="self">self</span>.budget, <span class="self">self</span>.edges)
 	}
 }

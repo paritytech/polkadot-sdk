@@ -382,9 +382,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>mmr_lib::helper;
 
-<span class="kw">use </span>sp_runtime::traits::{CheckedAdd, CheckedSub, Header, One};
 <span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">use </span>sp_std::prelude::Vec;
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>sp_runtime::traits::{CheckedAdd, CheckedSub, Header, One};
 
 <span class="kw">use crate</span>::{Error, LeafIndex, NodeIndex};
 
@@ -493,7 +493,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Used for nodes added by now finalized blocks.
 	/// Never read keys using `node_canon_offchain_key` unless you sure that
 	/// there&#39;s no `node_offchain_key` key in the storage.
-	</span><span class="kw">pub fn </span>node_canon_offchain_key(prefix: <span class="kw-2">&amp;</span>[u8], pos: NodeIndex) -&gt; sp_std::prelude::Vec&lt;u8&gt; {
+	</span><span class="kw">pub fn </span>node_canon_offchain_key(prefix: <span class="kw-2">&amp;</span>[u8], pos: NodeIndex) -&gt; alloc::vec::Vec&lt;u8&gt; {
 		(prefix, pos).encode()
 	}
 }

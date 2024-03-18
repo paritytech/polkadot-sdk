@@ -267,10 +267,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::traits::Block;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Id of different payloads in the [`crate::Commitment`] data.
 </span><span class="kw">pub type </span>BeefyPayloadId = [u8; <span class="number">2</span>];

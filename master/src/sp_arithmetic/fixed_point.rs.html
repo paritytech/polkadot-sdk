@@ -2360,7 +2360,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2213" id="2213">2213</a>
 <a href="#2214" id="2214">2214</a>
 <a href="#2215" id="2215">2215</a>
-<a href="#2216" id="2216">2216</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2389,17 +2388,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	PerThing, Perbill, Rounding, SignedRounding,
 };
 <span class="kw">use </span>codec::{CompactAs, Decode, Encode};
-<span class="kw">use </span>sp_std::{
+<span class="kw">use </span>core::{
 	fmt::Debug,
 	ops::{<span class="self">self</span>, Add, Div, Mul, Sub},
-	prelude::<span class="kw-2">*</span>,
 };
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 <span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
-</span><span class="kw">use </span>sp_std::alloc::string::{String, ToString};
+</span><span class="kw">use </span>alloc::string::{String, ToString};
 
 <span class="doccomment">/// Integer types that can be used to interact with `FixedPointNumber` implementations.
 </span><span class="kw">pub trait </span>FixedPointOperand:
@@ -3262,9 +3260,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+		<span class="kw">impl </span>::core::fmt::Debug <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
 			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-			</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+			</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>::core::fmt::Formatter) -&gt; ::core::fmt::Result {
 				<span class="kw">let </span>integral = {
 					<span class="kw">let </span>int = <span class="self">self</span>.<span class="number">0 </span>/ <span class="self">Self</span>::accuracy();
 					<span class="kw">let </span>signum_for_zero = <span class="kw">if </span>int == <span class="number">0 </span>&amp;&amp; <span class="self">self</span>.is_negative() { <span class="string">&quot;-&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;&quot; </span>};
@@ -3280,7 +3278,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-			</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+			</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>::core::fmt::Formatter) -&gt; ::core::fmt::Result {
 				<span class="prelude-val">Ok</span>(())
 			}
 		}
@@ -3296,13 +3294,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="kw">impl </span>sp_std::fmt::Display <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
-			<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+		<span class="kw">impl </span>::core::fmt::Display <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+			<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>::core::fmt::Formatter) -&gt; ::core::fmt::Result {
 				<span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
 			}
 		}
 
-		<span class="kw">impl </span>sp_std::str::FromStr <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+		<span class="kw">impl </span>::core::str::FromStr <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
 			<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
 
 			<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
@@ -3332,7 +3330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">where
 				</span>D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
 			{
-				<span class="kw">use </span>sp_std::str::FromStr;
+				<span class="kw">use </span>::core::str::FromStr;
 				<span class="kw">let </span>s = String::deserialize(deserializer)<span class="question-mark">?</span>;
 				<span class="macro-nonterminal">$name::from_str</span>(<span class="kw-2">&amp;</span>s).map_err(de::Error::custom)
 			}

@@ -680,6 +680,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -701,9 +703,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span>serde::Serialize;
 
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Codec, Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
@@ -712,7 +717,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Header <span class="kw">as </span>HeaderT, NumberFor},
 	ConsensusEngineId, RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// The log target to be used by client code.
 </span><span class="kw">pub const </span>CLIENT_LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;grandpa&quot;</span>;

@@ -420,7 +420,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! functioning runtime. Some calls are allowed to be submitted as unsigned extrinsics, however most
 //! of them requires signing. Refer to `pallet::Call` for further details.
 
-</span><span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, storage};
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, storage};
 <span class="kw">use </span>sp_core::sr25519::Public;
 <span class="kw">use </span>sp_runtime::{
 	traits::Hash,
@@ -428,7 +429,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span><span class="self">self</span>::pallet::<span class="kw-2">*</span>;
 
@@ -458,7 +458,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
 		<span class="kw">pub </span>authorities: Vec&lt;Public&gt;,
 		<span class="attr">#[serde(skip)]
-		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]

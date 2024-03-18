@@ -375,7 +375,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! it to substrate specific layout and child trie system.
 
 </span><span class="kw">use crate</span>::{CompactProof, HashDBT, TrieConfiguration, TrieHash, EMPTY_PREFIX};
-<span class="kw">use </span>sp_std::{boxed::Box, vec::Vec};
+<span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
 <span class="kw">use </span>trie_db::{CError, Trie};
 
 <span class="doccomment">/// Error for trie node decoding.

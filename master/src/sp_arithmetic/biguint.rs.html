@@ -898,6 +898,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#751" id="751">751</a>
 <a href="#752" id="752">752</a>
 <a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -917,9 +918,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Infinite precision unsigned integer for substrate runtime.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::{cell::RefCell, cmp::Ordering, ops};
 <span class="kw">use </span>num_traits::{One, Zero};
-<span class="kw">use </span>sp_std::{cell::RefCell, cmp::Ordering, ops, prelude::<span class="kw-2">*</span>, vec};
 
 <span class="comment">// A sensible value for this would be half of the dword size of the host machine. Since the
 // runtime is compiled to 32bit webassembly, using 32 and 64 for single and double respectively
@@ -935,7 +937,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">const </span>B: Double = Single::max_value() <span class="kw">as </span>Double + <span class="number">1</span>;
 
 <span class="macro">static_assertions::const_assert!</span>(
-	sp_std::mem::size_of::&lt;Double&gt;() - sp_std::mem::size_of::&lt;Single&gt;() == SHIFT / <span class="number">8
+	core::mem::size_of::&lt;Double&gt;() - core::mem::size_of::&lt;Single&gt;() == SHIFT / <span class="number">8
 </span>);
 
 <span class="doccomment">/// Splits a [`Double`] limb number into a tuple of two [`Single`] limb numbers.
@@ -1338,9 +1340,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>BigUint {
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>BigUint {
 	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(
 			f,
 			<span class="string">&quot;BigUint {{ {:?} ({:?})}}&quot;</span>,
@@ -1350,7 +1352,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
 }

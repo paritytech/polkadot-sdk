@@ -197,6 +197,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -218,7 +220,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">use </span>sp_inherents::{CheckInherentsResult, InherentData};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>sp_inherents::{CheckInherentsResult, InherentData};
 <span class="kw">use </span>sp_runtime::{traits::Block <span class="kw">as </span>BlockT, ApplyExtrinsicResult};
 
 <span class="macro">sp_api::decl_runtime_apis! </span>{
@@ -243,7 +247,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Generate inherent extrinsics. The inherent data will vary from chain to chain.
 		</span><span class="kw">fn </span>inherent_extrinsics(
 			inherent: InherentData,
-		) -&gt; sp_std::vec::Vec&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic&gt;;
+		) -&gt; alloc::vec::Vec&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic&gt;;
 
 		<span class="doccomment">/// Check that the inherents are valid. The inherent data will vary from chain to chain.
 		</span><span class="kw">fn </span>check_inherents(block: Block, data: InherentData) -&gt; CheckInherentsResult;

@@ -1216,6 +1216,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1069" id="1069">1069</a>
 <a href="#1070" id="1070">1070</a>
 <a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1237,7 +1240,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub mod </span>cache;
 <span class="kw">mod </span>error;
 <span class="kw">mod </span>node_codec;
@@ -1251,6 +1256,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub mod </span>proof_size_extension;
 
+<span class="kw">use </span>alloc::{borrow::Borrow, boxed::Box, vec, vec::Vec};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="doccomment">/// Our `NodeCodec`-specific error.
 </span><span class="kw">pub use </span>error::Error;
 <span class="doccomment">/// Various re-exports from the `hash-db` crate.
@@ -1260,7 +1267,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 <span class="doccomment">/// The Substrate format implementation of `NodeCodec`.
 </span><span class="kw">pub use </span>node_codec::NodeCodec;
-<span class="kw">use </span>sp_std::{borrow::Borrow, boxed::Box, marker::PhantomData, vec::Vec};
 <span class="kw">pub use </span>storage_proof::{CompactProof, StorageProof};
 <span class="doccomment">/// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
@@ -1718,7 +1724,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Utility function used to merge some byte data (keyspace) and `prefix` data
 /// before calling key value database primitives.
 </span><span class="kw">fn </span>keyspace_as_prefix_alloc(ks: <span class="kw-2">&amp;</span>[u8], prefix: Prefix) -&gt; (Vec&lt;u8&gt;, <span class="prelude-ty">Option</span>&lt;u8&gt;) {
-	<span class="kw">let </span><span class="kw-2">mut </span>result = <span class="macro">sp_std::vec!</span>[<span class="number">0</span>; ks.len() + prefix.<span class="number">0</span>.len()];
+	<span class="kw">let </span><span class="kw-2">mut </span>result = <span class="macro">vec!</span>[<span class="number">0</span>; ks.len() + prefix.<span class="number">0</span>.len()];
 	result[..ks.len()].copy_from_slice(ks);
 	result[ks.len()..].copy_from_slice(prefix.<span class="number">0</span>);
 	(result, prefix.<span class="number">1</span>)

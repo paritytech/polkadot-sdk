@@ -799,8 +799,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Candidate, CandidatePtr, Edge, ExtendedBalance, IdentifierT, Support, SupportMap, Supports,
 	VoteWeight, Voter,
 };
+<span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, rc::Rc, vec::Vec};
 <span class="kw">use </span>sp_arithmetic::{traits::Zero, Perbill};
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, rc::Rc, vec::Vec};
 <span class="doccomment">/// The type used as the threshold.
 ///
 /// Just some reading sugar; Must always be same as [`ExtendedBalance`];

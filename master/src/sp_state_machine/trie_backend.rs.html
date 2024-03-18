@@ -2031,7 +2031,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>H: Hasher,
 {
-	last_key: sp_std::vec::Vec&lt;u8&gt;,
+	last_key: alloc::vec::Vec&lt;u8&gt;,
 	iter: RawIter&lt;S, H, C, R&gt;,
 }
 
@@ -2124,9 +2124,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C: TrieCacheProvider&lt;H&gt;, R: TrieRecorderProvider&lt;H&gt;&gt;
-	sp_std::fmt::Debug <span class="kw">for </span>TrieBackend&lt;S, H, C, R&gt;
+	core::fmt::Debug <span class="kw">for </span>TrieBackend&lt;S, H, C, R&gt;
 {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">&quot;TrieBackend&quot;</span>)
 	}
 }

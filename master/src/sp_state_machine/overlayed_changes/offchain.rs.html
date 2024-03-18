@@ -296,8 +296,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Overlayed changes for offchain indexing.
 
 </span><span class="kw">use </span><span class="kw">super</span>::changeset::OverlayedMap;
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>sp_core::offchain::OffchainOverlayedChange;
-<span class="kw">use </span>sp_std::prelude::Vec;
 
 <span class="doccomment">/// In-memory storage for offchain workers recoding changes for the actual offchain storage
 /// implementation.
@@ -326,7 +326,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Drain all elements of changeset.
 	</span><span class="kw">pub fn </span>drain(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = OffchainOverlayedChangesItemOwned&gt; {
-		sp_std::mem::take(<span class="self">self</span>).into_iter()
+		core::mem::take(<span class="self">self</span>).into_iter()
 	}
 
 	<span class="doccomment">/// Remove a key and its associated value from the offchain database.

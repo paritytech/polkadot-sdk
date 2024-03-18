@@ -1201,8 +1201,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1054" id="1054">1054</a>
 <a href="#1055" id="1055">1055</a>
 <a href="#1056" id="1056">1056</a>
-<a href="#1057" id="1057">1057</a>
-<a href="#1058" id="1058">1058</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1237,12 +1235,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
 
 <span class="kw">use crate</span>::{log_error, trace, warn};
-<span class="kw">use </span>sp_std::{
+<span class="kw">use </span>alloc::{boxed::Box, vec, vec::Vec};
+<span class="kw">use </span>core::{
 	any::{Any, TypeId},
-	boxed::Box,
 	cmp::Ordering,
-	vec,
-	vec::Vec,
 };
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>std::error;
@@ -1944,7 +1940,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: Vec&lt;u8&gt;) {
 		<span class="kw">let </span>value = <span class="macro">vec!</span>[EncodeOpaqueValue(value)];
 
-		<span class="kw">let </span>item = sp_std::mem::take(<span class="self">self</span>.<span class="number">0</span>);
+		<span class="kw">let </span>item = core::mem::take(<span class="self">self</span>.<span class="number">0</span>);
 
 		<span class="kw-2">*</span><span class="self">self</span>.<span class="number">0 </span>= <span class="kw">match </span>Vec::&lt;EncodeOpaqueValue&gt;::append_or_new(item, <span class="kw-2">&amp;</span>value) {
 			<span class="prelude-val">Ok</span>(item) =&gt; item,

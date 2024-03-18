@@ -787,6 +787,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#640" id="640">640</a>
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -809,14 +811,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 #![warn(missing_docs)]
 
-</span><span class="kw">pub use </span>mmr_lib;
+</span><span class="kw">extern crate </span>alloc;
 
+<span class="kw">pub use </span>mmr_lib;
+
+<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>core::fmt;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_debug_derive::RuntimeDebug;
 <span class="kw">use </span>sp_runtime::traits;
-<span class="kw">use </span>sp_std::fmt;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">use </span>sp_std::prelude::Vec;
 
 <span class="kw">pub mod </span>utils;
 
@@ -1037,10 +1041,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>Compact&lt;H, T&gt; {
 	<span class="doccomment">/// Internal tuple representation.
 	</span><span class="kw">pub </span>tuple: T,
-	_hash: sp_std::marker::PhantomData&lt;H&gt;,
+	_hash: core::marker::PhantomData&lt;H&gt;,
 }
 
-<span class="kw">impl</span>&lt;H, T&gt; sp_std::ops::Deref <span class="kw">for </span>Compact&lt;H, T&gt; {
+<span class="kw">impl</span>&lt;H, T&gt; core::ops::Deref <span class="kw">for </span>Compact&lt;H, T&gt; {
 	<span class="kw">type </span>Target = T;
 
 	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {

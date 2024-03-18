@@ -998,8 +998,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#851" id="851">851</a>
 <a href="#852" id="852">852</a>
 <a href="#853" id="853">853</a>
-<a href="#854" id="854">854</a>
-<a href="#855" id="855">855</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1022,16 +1020,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use super</span>::{Extrinsics, StorageKey, StorageValue};
 
 <span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">use </span>sp_std::collections::btree_set::BTreeSet <span class="kw">as </span>Set;
+</span><span class="kw">use </span>alloc::collections::btree_set::BTreeSet <span class="kw">as </span>Set;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>std::collections::HashSet <span class="kw">as </span>Set;
 
 <span class="kw">use </span><span class="kw">crate</span>::warn;
+<span class="kw">use </span>alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+<span class="kw">use </span>core::hash::Hash;
 <span class="kw">use </span>smallvec::SmallVec;
-<span class="kw">use </span>sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	hash::Hash,
-};
 
 <span class="kw">const </span>PROOF_OVERLAY_NON_EMPTY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;\
 	An OverlayValue is always created with at least one transaction and dropped as soon
@@ -1227,7 +1223,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This changeset might be created when there are already open transactions.
 	/// We need to catch up here so that the child is at the same transaction depth.
 	</span><span class="kw">pub fn </span>spawn_child(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-		<span class="kw">use </span>sp_std::iter::repeat;
+		<span class="kw">use </span>core::iter::repeat;
 		<span class="self">Self </span>{
 			changes: Default::default(),
 			dirty_keys: repeat(Set::new()).take(<span class="self">self</span>.transaction_depth()).collect(),
@@ -1244,7 +1240,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Get an optional reference to the value stored for the specified key.
 	</span><span class="kw">pub fn </span>get&lt;Q&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Q) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>OverlayedEntry&lt;V&gt;&gt;
 	<span class="kw">where
-		</span>K: sp_std::borrow::Borrow&lt;Q&gt;,
+		</span>K: core::borrow::Borrow&lt;Q&gt;,
 		Q: Ord + <span class="question-mark">?</span>Sized,
 	{
 		<span class="self">self</span>.changes.get(key)
@@ -1450,7 +1446,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Get the iterator over all changes that follow the supplied `key`.
 	</span><span class="kw">pub fn </span>changes_after(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>OverlayedValue)&gt; {
-		<span class="kw">use </span>sp_std::ops::Bound;
+		<span class="kw">use </span>core::ops::Bound;
 		<span class="kw">let </span>range = (Bound::Excluded(key), Bound::Unbounded);
 		<span class="self">self</span>.changes.range::&lt;[u8], <span class="kw">_</span>&gt;(range).map(|(k, v)| (k.as_slice(), v))
 	}

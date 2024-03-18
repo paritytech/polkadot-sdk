@@ -217,7 +217,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Runtime API for querying mixnet configuration and registering mixnodes.
 
 </span><span class="kw">use </span><span class="kw">super</span>::types::{Mixnode, MixnodesErr, SessionIndex, SessionStatus};
-<span class="kw">use </span>sp_std::vec::Vec;
+<span class="kw">use </span>alloc::vec::Vec;
 
 <span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="doccomment">/// API to query the mixnet session status and mixnode sets, and to register mixnodes.

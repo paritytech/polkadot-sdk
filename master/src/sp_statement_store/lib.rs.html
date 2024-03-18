@@ -806,6 +806,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#659" id="659">659</a>
 <a href="#660" id="660">660</a>
 <a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -828,13 +830,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! A crate which contains statement-store primitives.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_core::Pair;
 <span class="kw">use </span>sp_runtime_interface::pass_by::PassByCodec;
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// Statement topic.
 </span><span class="kw">pub type </span>Topic = [u8; <span class="number">32</span>];

@@ -2016,7 +2016,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1869" id="1869">1869</a>
 <a href="#1870" id="1870">1870</a>
 <a href="#1871" id="1871">1871</a>
-<a href="#1872" id="1872">1872</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2042,12 +2041,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Saturating, UniqueSaturatedInto, Unsigned, Zero,
 };
 <span class="kw">use </span>codec::{CompactAs, Encode};
-<span class="kw">use </span>num_traits::{Pow, SaturatingAdd, SaturatingSub};
-<span class="kw">use </span>sp_std::{
+<span class="kw">use </span>core::{
 	fmt, ops,
 	ops::{Add, Sub},
-	prelude::<span class="kw-2">*</span>,
 };
+<span class="kw">use </span>num_traits::{Pow, SaturatingAdd, SaturatingSub};
 
 <span class="doccomment">/// Get the inner type of a `PerThing`.
 </span><span class="kw">pub type </span>InnerOf&lt;P&gt; = &lt;P <span class="kw">as </span>PerThing&gt;::Inner;
@@ -2433,7 +2431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// The rounding method to use for unsigned quantities.
-</span><span class="attr">#[derive(Copy, Clone, sp_std::fmt::Debug)]
+</span><span class="attr">#[derive(Copy, Clone, core::fmt::Debug)]
 </span><span class="kw">pub enum </span>Rounding {
 	<span class="comment">// Towards infinity.
 	</span>Up,
@@ -2446,7 +2444,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// The rounding method to use.
-</span><span class="attr">#[derive(Copy, Clone, sp_std::fmt::Debug)]
+</span><span class="attr">#[derive(Copy, Clone, core::fmt::Debug)]
 </span><span class="kw">pub enum </span>SignedRounding {
 	<span class="comment">// Towards positive infinity.
 	</span>High,
@@ -2599,8 +2597,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-		</span><span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
-			<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
+		</span><span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+			<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 				<span class="kw">if </span><span class="macro-nonterminal">$max </span>== &lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt;<span class="macro-nonterminal">::max_value</span>() {
 					<span class="comment">// Not a power of ten: show as N/D and approx %
 					</span><span class="kw">let </span>pc = (<span class="self">self</span>.<span class="number">0 </span><span class="kw">as </span>f64) / (<span class="self">self</span>.<span class="number">0 </span><span class="kw">as </span>f64) * <span class="number">100f64</span>;
@@ -2625,8 +2623,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-		</span><span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
-			<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+		</span><span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+			<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 				<span class="kw">if </span><span class="macro-nonterminal">$max </span>== &lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt;<span class="macro-nonterminal">::max_value</span>() {
 					<span class="comment">// Not a power of ten: show as N/D and approx %
 					</span><span class="macro">write!</span>(fmt, <span class="string">&quot;{}/{}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>, <span class="macro-nonterminal">$max</span>)

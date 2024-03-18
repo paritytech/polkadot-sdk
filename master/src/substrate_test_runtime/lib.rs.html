@@ -1610,6 +1610,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1463" id="1463">1463</a>
 <a href="#1464" id="1464">1464</a>
 <a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1631,7 +1634,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub mod </span>extrinsic;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub mod </span>genesismap;
@@ -1654,9 +1659,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CheckNonce, CheckWeight,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">use </span>alloc::boxed::Box;
 <span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">use </span>sp_std::vec;
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
 
 <span class="kw">use </span>sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 <span class="kw">use </span>sp_core::{OpaqueMetadata, RuntimeDebug};
@@ -1877,7 +1883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>additional_signed(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-	) -&gt; sp_std::result::Result&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
+	) -&gt; core::result::Result&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -2052,7 +2058,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	.to_vec();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>mdb = PrefixedMemoryDB::default();
-	<span class="kw">let </span><span class="kw-2">mut </span>root = sp_std::default::Default::default();
+	<span class="kw">let </span><span class="kw-2">mut </span>root = core::default::Default::default();
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>t = TrieDBMutBuilderV1::&lt;Hashing&gt;::new(<span class="kw-2">&amp;mut </span>mdb, <span class="kw-2">&amp;mut </span>root).build();
 		<span class="kw">for </span>(key, value) <span class="kw">in </span><span class="kw-2">&amp;</span>pairs {
@@ -2106,7 +2112,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>metadata_at_version(_version: u32) -&gt; <span class="prelude-ty">Option</span>&lt;OpaqueMetadata&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
-		<span class="kw">fn </span>metadata_versions() -&gt; sp_std::vec::Vec&lt;u32&gt; {
+		<span class="kw">fn </span>metadata_versions() -&gt; alloc::vec::Vec&lt;u32&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 	}

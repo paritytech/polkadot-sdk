@@ -702,6 +702,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#555" id="555">555</a>
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -735,7 +737,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! it will use a different set of keys. For Polkadot use case we plan to use `secp256k1` for BEEFY,
 //! while GRANDPA uses `ed25519`.
 
-</span><span class="kw">mod </span>commitment;
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">mod </span>commitment;
 <span class="kw">mod </span>payload;
 
 <span class="kw">pub mod </span>mmr;
@@ -748,13 +752,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
 <span class="kw">pub use </span>payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
 
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Codec, Decode, Encode};
 <span class="kw">use </span>core::fmt::{Debug, Display};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
 <span class="kw">use </span>sp_core::H256;
 <span class="kw">use </span>sp_runtime::traits::{Hash, Keccak256, NumberFor};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Key type for BEEFY module.
 </span><span class="kw">pub const </span>KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::BEEFY;

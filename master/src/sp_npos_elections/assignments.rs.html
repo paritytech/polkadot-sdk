@@ -332,6 +332,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Structs and helpers for distributing a voter&#39;s stake among various winners.
 
 </span><span class="kw">use crate</span>::{ExtendedBalance, IdentifierT, PerThing128};
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>sp_arithmetic::{
@@ -339,7 +340,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Normalizable, PerThing,
 };
 <span class="kw">use </span>sp_core::RuntimeDebug;
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// A voter&#39;s stake assignment among a set of targets, represented as ratios.
 </span><span class="attr">#[derive(RuntimeDebug, Clone, Default)]
