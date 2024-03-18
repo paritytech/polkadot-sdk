@@ -31,6 +31,8 @@
 //! allows to catch and build the raw storage of `RuntimeGenesisConfig` which is the foundation for
 //! genesis block.
 
+extern crate alloc;
+
 /// The result type alias, used in build methods. `Err` contains formatted error message.
 pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;
 
@@ -41,7 +43,7 @@ sp_api::decl_runtime_apis! {
 		///
 		/// This function instantiates the default `RuntimeGenesisConfig` struct for the runtime and serializes it into a JSON
 		/// blob. It returns a `Vec<u8>` containing the JSON representation of the default `RuntimeGenesisConfig`.
-		fn create_default_config() -> sp_std::vec::Vec<u8>;
+		fn create_default_config() -> alloc::vec::Vec<u8>;
 
 		/// Build `RuntimeGenesisConfig` from a JSON blob not using any defaults and store it in the storage.
 		///
@@ -50,6 +52,6 @@ sp_api::decl_runtime_apis! {
 		/// It is recommended to log any errors encountered during the process.
 		///
 		/// Please note that provided json blob must contain all `RuntimeGenesisConfig` fields, no defaults will be used.
-		fn build_config(json: sp_std::vec::Vec<u8>) -> Result;
+		fn build_config(json: alloc::vec::Vec<u8>) -> Result;
 	}
 }

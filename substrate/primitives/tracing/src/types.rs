@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 /// Types for wasm based tracing. Loosly inspired by `tracing-core` but
 /// optimised for the specific use case.
 use core::{fmt::Debug, format_args};
-use sp_std::{vec, vec::Vec, Writer};
 
 /// The Tracing Level – the user can filter by this
 #[derive(Clone, Encode, Decode, Debug)]
@@ -132,9 +132,9 @@ impl From<bool> for WasmValue {
 
 impl From<core::fmt::Arguments<'_>> for WasmValue {
 	fn from(inp: core::fmt::Arguments<'_>) -> WasmValue {
-		let mut buf = Writer::default();
+		let mut buf = alloc::string::String::default();
 		core::fmt::write(&mut buf, inp).expect("Writing of arguments doesn't fail");
-		WasmValue::Formatted(buf.into_inner())
+		WasmValue::Formatted(buf.into_bytes())
 	}
 }
 
