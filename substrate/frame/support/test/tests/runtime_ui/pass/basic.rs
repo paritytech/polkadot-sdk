@@ -15,28 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[frame_support::pallet]
-mod pallet {
-	use frame_support::pallet_prelude::Hooks;
-	use frame_system::pallet_prelude::BlockNumberFor;
-	use frame_support::pallet_prelude::StorageValue;
+use frame_support::derive_impl;
 
-	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+pub type Block = frame_system::mocking::MockBlock<Runtime>;
 
-	#[pallet::pallet]
-	#[pallet::generate_store(trait Store)]
-	#[pallet::generate_store(trait Store)]
-	pub struct Pallet<T>(core::marker::PhantomData<T>);
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+impl frame_system::Config for Runtime {
+	type Block = Block;
+}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+#[frame_support::runtime]
+mod runtime {
+    #[runtime::runtime]
+    #[runtime::derive(RuntimeCall, RuntimeEvent, RuntimeOrigin, RuntimeError, RuntimeTask)]
+    pub struct Runtime;
 
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
-
-	#[pallet::storage]
-	type Foo<T> = StorageValue<_, u8>;
+    #[runtime::pallet_index(0)]
+    pub type System = frame_system;
 }
 
 fn main() {}

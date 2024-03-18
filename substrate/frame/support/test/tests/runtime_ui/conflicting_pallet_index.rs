@@ -17,12 +17,27 @@
 
 #[frame_support::pallet]
 mod pallet {
-	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+    #[pallet::config]
+    pub trait Config: frame_system::Config {}
 
-	#[pallet::pallet]
-	#[pallet::generate_store(trait Store)]
-	pub struct Pallet<T>(core::marker::PhantomData<T>);
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {}
+}
+
+#[frame_support::runtime]
+mod runtime {
+    #[runtime::runtime]
+    #[runtime::derive(RuntimeCall)]
+    pub struct Runtime;
+
+    #[runtime::pallet_index(0)]
+    pub type System = frame_system;
+
+    #[runtime::pallet_index(0)]
+    pub type Pallet = pallet;
 }
 
 fn main() {}
