@@ -610,7 +610,7 @@ fn queue_index_ordering_is_unsound_over_max_size() {
 #[test]
 fn queue_index_ordering_works() {
 	// The largest accepted queue size.
-	let mut max_num = ON_DEMAND_MAX_QUEUE_MAX_SIZE;
+	let max_num = ON_DEMAND_MAX_QUEUE_MAX_SIZE;
 
 	// 0 == 0
 	assert_eq!(QueueIndex(0).cmp(&QueueIndex(0)), Ordering::Equal);
