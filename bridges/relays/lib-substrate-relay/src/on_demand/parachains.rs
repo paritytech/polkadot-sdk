@@ -395,7 +395,8 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 					parachains_source.clone(),
 					parachains_target.clone(),
 					MetricsParams::disabled(),
-					false, // TODO
+					// we do not support free parachain headers relay in on-demand relays
+					false,
 					futures::future::pending(),
 				)
 				.fuse(),
