@@ -122,8 +122,6 @@ where
 	async fn free_source_relay_headers_interval(
 		&self,
 	) -> Result<Option<BlockNumberOf<P::SourceRelayChain>>, Self::Error> {
-		// may be cached, because we assume that on upgrades (when this may change), relayer
-		// is also upgraded and restarted
 		self.target_client
 			.typed_state_call(P::SourceRelayChain::FREE_HEADERS_INTERVAL_METHOD.into(), (), None)
 			.await
