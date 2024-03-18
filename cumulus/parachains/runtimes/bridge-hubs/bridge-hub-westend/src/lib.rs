@@ -38,7 +38,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::Block as BlockT,
+	traits::{Block as BlockT, Get},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -52,6 +52,7 @@ use bridge_hub_common::{
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	AggregateMessageOrigin,
 };
+use bridge_runtime_common::extensions::check_obsolete_extension::CheckAndBoostBridgeGrandpaTransactions;
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -505,7 +506,12 @@ construct_runtime!(
 bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	RuntimeCall, AccountId,
 	// Grandpa
-	BridgeRococoGrandpa,
+	CheckAndBoostBridgeGrandpaTransactions<
+		Runtime,
+		bridge_to_rococo_config::BridgeGrandpaRococoInstance,
+		bridge_to_rococo_config::PriorityBoostPerHeader,
+		xcm_config::TreasuryAccount,
+	>,
 	// Parachains
 	BridgeRococoParachains,
 	// Messages
@@ -697,6 +703,9 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<HeaderId<bp_rococo::Hash, bp_rococo::BlockNumber>> {
 			BridgeRococoGrandpa::best_finalized()
 		}
+		fn free_headers_interval() -> Option<bp_rococo::BlockNumber> {
+			<Runtime as pallet_bridge_grandpa::Config<bridge_to_rococo_config::BridgeGrandpaRococoInstance>>::MaxFreeHeadersPerBlock::get()
+		}
 		fn synced_headers_grandpa_info(
 		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_rococo::Header>> {
 			BridgeRococoGrandpa::synced_headers_grandpa_info()
@@ -708,6 +717,9 @@ impl_runtime_apis! {
 			BridgeRococoParachains::best_parachain_head_id::<
 				bp_bridge_hub_rococo::BridgeHubRococo
 			>().unwrap_or(None)
+		}
+		fn free_headers_interval() -> Option<bp_rococo::BlockNumber> {
+			None
 		}
 	}
 

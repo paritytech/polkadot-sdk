@@ -26,7 +26,7 @@ use super::{
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::UnderlyingChainProvider;
-use bridge_runtime_common::messages::ThisChainWithMessages;
+use bridge_runtime_common::{messages::ThisChainWithMessages, FreeParachainUpdateForFreeRelayHeader, RefundableParachain};
 use frame_support::{parameter_types, traits::ConstU32};
 use sp_runtime::RuntimeDebug;
 
@@ -49,7 +49,8 @@ pub type BridgeGrandpaWestendInstance = pallet_bridge_grandpa::Instance3;
 impl pallet_bridge_grandpa::Config<BridgeGrandpaWestendInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = bp_westend::Westend;
-	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
+	type MaxFreeHeadersPerBlock = ConstU32<4>;
+	type FreeHeadersInterval = ConstU32<5>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
 	type WeightInfo = weights::pallet_bridge_grandpa::WeightInfo<Runtime>;
 }
@@ -61,6 +62,14 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaWestendInstance;
 	type ParasPalletName = WestendBridgeParachainPalletName;
+	type FreeHeadsUpdateFilter = FreeParachainUpdateForFreeRelayHeader<
+		Runtime,
+		Self::BridgesGrandpaPalletInstance,
+		RefundableParachain<
+			BridgeParachainWestendInstance,
+			bp_bridge_hub_westend::BridgeHubWestend,
+		>,
+	>;
 	type ParaStoredHeaderDataBuilder =
 		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_westend::BridgeHubWestend>;
 	type HeadsToKeep = ParachainHeadsToKeep;
@@ -89,7 +98,8 @@ pub type BridgeGrandpaRococoBulletinInstance = pallet_bridge_grandpa::Instance4;
 impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoBulletinInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
-	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
+	type MaxFreeHeadersPerBlock = ConstU32<4>;
+	type FreeHeadersInterval = ConstU32<5>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
 	// Technically this is incorrect - we have two pallet instances and ideally we shall
 	// benchmark every instance separately. But the benchmarking engine has a flaw - it

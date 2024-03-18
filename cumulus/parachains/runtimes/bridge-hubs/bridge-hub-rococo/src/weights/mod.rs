@@ -17,6 +17,7 @@
 
 //! Expose the auto generated weight files.
 
+use ::pallet_bridge_grandpa::WeightInfoExt as GrandpaWeightInfoExt;
 use ::pallet_bridge_messages::WeightInfoExt as MessagesWeightInfoExt;
 use ::pallet_bridge_parachains::WeightInfoExt as ParachainsWeightInfoExt;
 
@@ -57,6 +58,12 @@ use frame_support::weights::Weight;
 
 // import trait from dependency module
 use ::pallet_bridge_relayers::WeightInfoExt as _;
+
+impl GrandpaWeightInfoExt for pallet_bridge_grandpa::WeightInfo<crate::Runtime> {
+	fn submit_finality_proof_overhead_from_runtime() -> Weight {
+		pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_proof_overhead_from_runtime()
+	}
+}
 
 impl MessagesWeightInfoExt
 	for pallet_bridge_messages_rococo_to_rococo_bulletin::WeightInfo<crate::Runtime>

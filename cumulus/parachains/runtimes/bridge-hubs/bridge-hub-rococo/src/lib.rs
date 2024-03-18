@@ -45,7 +45,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{Block as BlockT, Keccak256},
+	traits::{Block as BlockT, Get, Keccak256},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128,
 };
@@ -78,6 +78,7 @@ use bridge_hub_common::{
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	AggregateMessageOrigin,
 };
+use bridge_runtime_common::extensions::check_obsolete_extension::CheckAndBoostBridgeGrandpaTransactions;
 use pallet_xcm::EnsureXcm;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
@@ -749,8 +750,18 @@ pub type XcmOverRococoBulletin = XcmOverPolkadotBulletin;
 bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	RuntimeCall, AccountId,
 	// Grandpa
-	BridgeWestendGrandpa,
-	BridgeRococoBulletinGrandpa,
+	CheckAndBoostBridgeGrandpaTransactions<
+		Runtime,
+		bridge_common_config::BridgeGrandpaWestendInstance,
+		bridge_to_westend_config::PriorityBoostPerHeader,
+		xcm_config::TreasuryAccount,
+	>,
+	CheckAndBoostBridgeGrandpaTransactions<
+		Runtime,
+		bridge_common_config::BridgeGrandpaRococoBulletinInstance,
+		bridge_to_bulletin_config::PriorityBoostPerHeader,
+		xcm_config::TreasuryAccount,
+		>,
 	// Parachains
 	BridgeWestendParachains,
 	// Messages
@@ -949,6 +960,9 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<HeaderId<bp_westend::Hash, bp_westend::BlockNumber>> {
 			BridgeWestendGrandpa::best_finalized()
 		}
+		fn free_headers_interval() -> Option<bp_westend::BlockNumber> {
+			<Runtime as pallet_bridge_grandpa::Config<bridge_common_config::BridgeGrandpaWestendInstance>>::MaxFreeHeadersPerBlock::get()
+		}
 		fn synced_headers_grandpa_info(
 		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_westend::Header>> {
 			BridgeWestendGrandpa::synced_headers_grandpa_info()
@@ -960,6 +974,9 @@ impl_runtime_apis! {
 			BridgeWestendParachains::best_parachain_head_id::<
 				bp_bridge_hub_westend::BridgeHubWestend
 			>().unwrap_or(None)
+		}
+		fn free_headers_interval() -> Option<bp_westend::BlockNumber> {
+			None
 		}
 	}
 
@@ -993,6 +1010,10 @@ impl_runtime_apis! {
 	impl bp_polkadot_bulletin::PolkadotBulletinFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<bp_runtime::HeaderId<bp_polkadot_bulletin::Hash, bp_polkadot_bulletin::BlockNumber>> {
 			BridgePolkadotBulletinGrandpa::best_finalized()
+		}
+
+		fn free_headers_interval() -> Option<bp_polkadot_bulletin::BlockNumber> {
+			<Runtime as pallet_bridge_grandpa::Config<bridge_common_config::BridgeGrandpaRococoBulletinInstance>>::MaxFreeHeadersPerBlock::get()
 		}
 
 		fn synced_headers_grandpa_info(

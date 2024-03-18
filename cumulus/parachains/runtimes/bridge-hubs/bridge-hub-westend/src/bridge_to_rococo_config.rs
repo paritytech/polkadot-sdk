@@ -35,10 +35,11 @@ use bridge_runtime_common::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
-	refund_relayer_extension::{
+	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundTransactionExtensionAdapter,
-		RefundableMessagesLane, RefundableParachain,
+		RefundableMessagesLane,
 	},
+	FreeParachainUpdateForFreeRelayHeader, RefundableParachain,
 };
 use codec::Encode;
 use frame_support::{
@@ -72,6 +73,8 @@ parameter_types! {
 	);
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
+
+	pub PriorityBoostPerHeader: u64 = PriorityBoostPerMessage::get() / 1_000_000; // TODO
 
 	pub AssetHubWestendParaId: cumulus_primitives_core::ParaId = bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into();
 	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
@@ -210,7 +213,8 @@ pub type BridgeGrandpaRococoInstance = pallet_bridge_grandpa::Instance1;
 impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = bp_rococo::Rococo;
-	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
+	type MaxFreeHeadersPerBlock = ConstU32<4>;
+	type FreeHeadersInterval = ConstU32<5>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
 	type WeightInfo = weights::pallet_bridge_grandpa::WeightInfo<Runtime>;
 }
@@ -222,6 +226,14 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaRococoInstance;
 	type ParasPalletName = RococoBridgeParachainPalletName;
+	type FreeHeadsUpdateFilter = FreeParachainUpdateForFreeRelayHeader<
+		Runtime,
+		Self::BridgesGrandpaPalletInstance,
+		RefundableParachain<
+			BridgeParachainRococoInstance,
+			bp_bridge_hub_rococo::BridgeHubRococo,
+		>,
+	>;
 	type ParaStoredHeaderDataBuilder =
 		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
 	type HeadsToKeep = ParachainHeadsToKeep;
@@ -352,7 +364,7 @@ mod tests {
 			},
 		});
 
-		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::<
+		bridge_runtime_common::extensions::priority_calculator::ensure_priority_boost_is_sane::<
 			Runtime,
 			WithBridgeHubRococoMessagesInstance,
 			PriorityBoostPerMessage,
