@@ -254,3 +254,12 @@ pub trait Auctioneer<BlockNumber> {
 	/// Check if the para and user combination has won an auction in the past.
 	fn has_won_an_auction(para: ParaId, bidder: &Self::AccountId) -> bool;
 }
+
+/// Runtime hook for when we swap a lease holding parachain and an on-demand parachain.
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+pub trait OnSwap {
+	/// Updates any needed state/references to enact a logical swap of two parachains. Identity,
+	/// code and `head_data` remain equivalent for all parachains/threads, however other properties
+	/// such as leases, deposits held and thread/chain nature are swapped.
+	fn on_swap(one: ParaId, other: ParaId);
+}

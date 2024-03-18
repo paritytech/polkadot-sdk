@@ -328,7 +328,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> runtime_parachains::OnSwap for Pallet<T> {
+impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 	fn on_swap(one: ParaId, other: ParaId) {
 		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| sp_std::mem::swap(x, y)))
 	}

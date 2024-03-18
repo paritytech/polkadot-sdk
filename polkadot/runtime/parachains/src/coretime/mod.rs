@@ -32,7 +32,6 @@ use crate::{
 	assigner_coretime::{self, PartsOf57600},
 	initializer::{OnNewSession, SessionChangeNotification},
 	origin::{ensure_parachain, Origin},
-	OnSwap,
 };
 
 mod benchmarking;
@@ -236,16 +235,10 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 	}
-}
 
-impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
-	fn on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
-		Self::initializer_on_new_session(notification);
-	}
-}
-
-impl<T: Config> OnSwap for Pallet<T> {
-	fn on_swap(one: ParaId, other: ParaId) {
+	// Handle legacy swaps in coretime. Notifies broker parachain that a lease swap has occurred via
+	// XCM message. This function is meant to be used in an implementation of `OnSwap` trait.
+	pub fn on_legacy_lease_swap(one: ParaId, other: ParaId) {
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
@@ -259,6 +252,12 @@ impl<T: Config> OnSwap for Pallet<T> {
 		) {
 			log::error!("Sending `SwapLeases` to coretime chain failed: {:?}", err);
 		}
+	}
+}
+
+impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
+	fn on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
+		Self::initializer_on_new_session(notification);
 	}
 }
 

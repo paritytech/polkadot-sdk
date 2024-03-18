@@ -22,7 +22,7 @@ use crate::{
 	paras_registrar,
 	slot_range::SlotRange,
 	slots,
-	traits::{AuctionStatus, Auctioneer, Leaser, Registrar as RegistrarT},
+	traits::{AuctionStatus, Auctioneer, Leaser, OnSwap, Registrar as RegistrarT},
 };
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
@@ -39,7 +39,7 @@ use primitives::{
 	MAX_CODE_SIZE,
 };
 use runtime_parachains::{
-	configuration, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
+	configuration, coretime, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
 };
 use sp_core::H256;
 use sp_io::TestExternalities;

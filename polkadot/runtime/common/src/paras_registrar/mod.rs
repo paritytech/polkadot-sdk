@@ -34,13 +34,10 @@ use runtime_parachains::{
 };
 use sp_std::{prelude::*, result};
 
-use crate::traits::Registrar;
+use crate::traits::{OnSwap, Registrar};
 pub use pallet::*;
 use parity_scale_codec::{Decode, Encode};
-use runtime_parachains::{
-	paras::{OnNewHead, ParaKind},
-	OnSwap,
-};
+use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
@@ -134,7 +131,7 @@ pub mod pallet {
 		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// Runtime hook for when a lease holding parachain and on-demand parachain swap.
-		type OnSwap: runtime_parachains::OnSwap;
+		type OnSwap: crate::traits::OnSwap;
 
 		/// The deposit to be paid to run a on-demand parachain.
 		/// This should include the cost for storing the genesis head and validation code.
