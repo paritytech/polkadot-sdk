@@ -787,7 +787,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(20)]
+		#[pallet::call_index(99)]
 		#[pallet::weight(T::WeightInfo::swap_leases())]
 		pub fn swap_leases(origin: OriginFor<T>, id: TaskId, other: TaskId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;

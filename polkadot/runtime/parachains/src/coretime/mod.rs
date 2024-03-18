@@ -83,7 +83,7 @@ enum CoretimeCalls {
 	SetLease(pallet_broker::TaskId, pallet_broker::Timeslice),
 	#[codec(index = 19)]
 	NotifyCoreCount(u16),
-	#[codec(index = 20)]
+	#[codec(index = 99)]
 	SwapLeases(ParaId, ParaId),
 }
 
