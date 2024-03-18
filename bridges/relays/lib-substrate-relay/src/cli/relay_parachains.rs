@@ -43,6 +43,10 @@ pub struct RelayParachainsParams {
 	target: TargetConnectionParams,
 	#[structopt(flatten)]
 	target_sign: TargetSigningParams,
+	/// If passed, only free headers (those, available at "free" relay chain headers)
+	/// are relayed.
+	#[structopt(long)]
+	only_free_headers: bool,
 	#[structopt(flatten)]
 	prometheus_params: PrometheusParams,
 }
@@ -84,7 +88,7 @@ where
 			source_client,
 			target_client,
 			metrics_params,
-			false, // TODO
+			data.only_free_headers,
 			futures::future::pending(),
 		)
 		.await
