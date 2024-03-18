@@ -130,7 +130,7 @@ impl<T: Decode, H> MaybeHashed<T, H> {
 	}
 }
 
-#[deprecated(note = "Use `v3` instead")]
+#[deprecated(note = "Use `v3` instead. Will be removed after September 2024.")]
 pub mod v1 {
 	use super::*;
 
