@@ -299,7 +299,7 @@ pub mod v1 {
 	}
 }
 
-#[deprecated(note = "Use `v3` instead")]
+#[deprecated(note = "Use `v3` instead. Will be removed after September 2024.")]
 pub mod v2 {
 	use super::*;
 
