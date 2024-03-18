@@ -65,7 +65,7 @@ mod benches {
 		Pallet::Storage: Measured,
 		Pallet::Storage::Nested: Ignored
 	}, extra, skip_meta)]
-	fn bench5() {
+	fn bench6() {
 		#[block]
 		{}
 	}
