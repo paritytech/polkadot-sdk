@@ -2287,6 +2287,20 @@ sp_api::impl_runtime_apis! {
 			<xcm_config::XcmConfig as xcm_executor::Config>::Weigher::weight(&mut message)
 				.map_err(|_| XcmPaymentApiError::WeightNotComputable)
 		}
+
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
+			let destination = destination
+				.try_into()
+				.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
+			let message = message
+				.try_into()
+				.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
+			let (_, fees) = xcm_config::XcmRouter::validate(&mut Some(destination), &mut Some(message)).map_err(|error| {
+				log::error!("Error when querying delivery fees: {:?}", error);
+				XcmPaymentApiError::Unroutable
+			})?;
+			Ok(VersionedAssets::from(fees))
+		}
 	}
 
 	impl pallet_nomination_pools_runtime_api::NominationPoolsApi<
