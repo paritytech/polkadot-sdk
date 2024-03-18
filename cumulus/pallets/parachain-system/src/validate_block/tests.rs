@@ -83,15 +83,15 @@ fn build_block_with_witness(
 ) -> TestBlockData {
 	sproof_builder.para_id = test_runtime::PARACHAIN_ID.into();
 	sproof_builder.included_para_head = Some(HeadData(parent_head.encode()));
-	let (relay_parent_storage_root, _) = sproof_builder.clone().into_state_root_and_proof();
-	let mut validation_data = PersistedValidationData {
+
+	let validation_data = PersistedValidationData {
 		relay_parent_number: 1,
 		parent_head: parent_head.encode().into(),
 		..Default::default()
 	};
-	let mut builder = client.init_block_builder(Some(validation_data.clone()), sproof_builder);
 
-	validation_data.relay_parent_storage_root = relay_parent_storage_root;
+	let (mut builder, validation_data) =
+		client.init_block_builder(Some(validation_data), sproof_builder);
 
 	extra_extrinsics.into_iter().for_each(|e| builder.push(e).unwrap());
 

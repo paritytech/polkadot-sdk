@@ -4260,6 +4260,7 @@ dependencies = [
  "sc-service",
  "sp-api",
  "sp-blockchain",
+ "sp-consensus-aura",
  "sp-core",
  "sp-inherents",
  "sp-io",

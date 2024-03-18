@@ -42,6 +42,7 @@ cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-size-hostfunction" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
 cumulus-primitives-storage-weight-reclaim = { path = "../../primitives/storage-weight-reclaim" }
+sp-consensus-aura = { version = "0.32.0", path = "../../../substrate/primitives/consensus/aura" }
 
 [features]
 runtime-benchmarks = [
