@@ -48,9 +48,6 @@ use primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
-#[cfg(feature = "std")]
-use sp_std::fmt;
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 pub use pallet::*;
 

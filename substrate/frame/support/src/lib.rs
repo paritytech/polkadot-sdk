@@ -1223,7 +1223,7 @@ pub mod pallet_macros {
 	/// # 	use frame_support::pallet_prelude::*;
 	/// # 	use frame_support::inherent::IsFatalError;
 	/// # 	use sp_timestamp::InherentError;
-	/// # 	use sp_std::result;
+	/// # 	use core::result;
 	/// #
 	/// 	// Example inherent identifier
 	/// 	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"timstap0";
@@ -1827,7 +1827,7 @@ pub mod pallet_macros {
 	/// Field types in enum variants must also implement [`frame_support::PalletError`],
 	/// otherwise the pallet will fail to compile. Rust primitive types have already
 	/// implemented the [`frame_support::PalletError`] trait along with some commonly used
-	/// stdlib types such as [`Option`] and [`sp_std::marker::PhantomData`], and hence
+	/// stdlib types such as [`Option`] and [`core::marker::PhantomData`], and hence
 	/// in most use cases, a manual implementation is not necessary and is discouraged.
 	///
 	/// The generic `T` must not bound anything and a `where` clause is not allowed. That said,

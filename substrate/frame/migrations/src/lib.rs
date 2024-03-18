@@ -139,6 +139,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 mod mock;
 pub mod mock_helpers;
@@ -159,7 +161,7 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
 use sp_runtime::Saturating;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// Points to the next migration to execute.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]

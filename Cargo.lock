@@ -4009,7 +4009,6 @@ dependencies = [
  "scale-info",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0",
  "sp-trie",
 ]
 
@@ -5656,7 +5655,6 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-state-machine",
- "sp-std 14.0.0",
  "sp-timestamp",
  "sp-tracing 16.0.0",
  "sp-weights",
@@ -9786,7 +9784,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0",
  "sp-version",
 ]
 
@@ -10044,7 +10041,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "sp-version",
 ]
@@ -10373,7 +10369,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18096,7 +18091,6 @@ dependencies = [
  "sp-offchain",
  "sp-runtime",
  "sp-session",
- "sp-std 14.0.0",
  "sp-storage 19.0.0",
  "sp-transaction-pool",
  "sp-version",

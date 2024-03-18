@@ -22,7 +22,6 @@ frame-executive = { path = "../../executive", default-features = false }
 frame-system = { path = "../../system", default-features = false }
 frame-try-runtime = { path = "../../try-runtime", default-features = false, optional = true }
 pallet-balances = { path = "../../balances", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 sp-core = { path = "../../../primitives/core", default-features = false }
 sp-io = { path = "../../../primitives/io", default-features = false }
@@ -42,7 +41,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-version/std",
 ]
 runtime-benchmarks = [

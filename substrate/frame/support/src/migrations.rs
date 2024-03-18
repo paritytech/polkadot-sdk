@@ -24,6 +24,7 @@ use crate::{
 	},
 	weights::{RuntimeDbWeight, Weight, WeightMeter},
 };
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 use codec::{Decode, Encode, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
@@ -71,7 +72,7 @@ use sp_runtime::traits::Zero;
 /// /// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
 /// mod version_unchecked {
 /// 	use super::*;
-/// 	pub struct MigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
+/// 	pub struct MigrateV5ToV6<T>(core::marker::PhantomData<T>);
 /// 	impl<T: Config> OnRuntimeUpgrade for  VersionUncheckedMigrateV5ToV6<T> {
 /// 		// OnRuntimeUpgrade implementation...
 /// 	}
@@ -102,7 +103,7 @@ pub struct VersionedMigration<const FROM: u16, const TO: u16, Inner, Pallet, Wei
 #[derive(Encode, Decode)]
 pub enum VersionedPostUpgradeData {
 	/// The migration ran, inner vec contains pre_upgrade data.
-	MigrationExecuted(alloc::vec::Vec<u8>),
+	MigrationExecuted(Vec<u8>),
 	/// This migration is a noop, do not run post_upgrade checks.
 	Noop,
 }
@@ -125,7 +126,7 @@ impl<
 	/// [`VersionedPostUpgradeData`] before passing them to post_upgrade, so it knows whether the
 	/// migration ran or not.
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		let on_chain_version = Pallet::on_chain_storage_version();
 		if on_chain_version == FROM {
 			Ok(VersionedPostUpgradeData::MigrationExecuted(Inner::pre_upgrade()?).encode())
@@ -175,7 +176,7 @@ impl<
 	/// the migration ran, and [`VersionedPostUpgradeData::Noop`] otherwise.
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(
-		versioned_post_upgrade_data_bytes: alloc::vec::Vec<u8>,
+		versioned_post_upgrade_data_bytes: Vec<u8>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::DecodeAll;
 		match <VersionedPostUpgradeData>::decode_all(&mut &versioned_post_upgrade_data_bytes[..])
@@ -339,7 +340,7 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		use crate::storage::unhashed::contains_prefixed_key;
 
 		let hashed_prefix = twox_128(P::get().as_bytes());
@@ -350,11 +351,11 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 				P::get()
 			),
 		};
-		Ok(alloc::vec::Vec::new())
+		Ok(Vec::new())
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use crate::storage::unhashed::contains_prefixed_key;
 
 		let hashed_prefix = twox_128(P::get().as_bytes());

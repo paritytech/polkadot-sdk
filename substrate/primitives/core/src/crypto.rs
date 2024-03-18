@@ -21,7 +21,6 @@ use crate::{ed25519, sr25519};
 use alloc::vec::Vec;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::{format, string::String, vec};
-#[cfg(feature = "std")]
 use bip39::{Language, Mnemonic};
 use codec::{Decode, Encode, MaxEncodedLen};
 #[doc(hidden)]

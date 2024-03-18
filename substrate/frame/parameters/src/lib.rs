@@ -118,6 +118,8 @@
 //! implementor can then match on the key and the origin to decide whether the origin is
 //! permissioned to set the value.
 
+extern crate alloc;
+
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 

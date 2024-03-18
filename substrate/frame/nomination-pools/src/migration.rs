@@ -60,7 +60,7 @@ pub mod unversioned {
 	use super::*;
 
 	/// Checks and updates `TotalValueLocked` if out of sync.
-	pub struct TotalValueLockedSync<T>(sp_std::marker::PhantomData<T>);
+	pub struct TotalValueLockedSync<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for TotalValueLockedSync<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {

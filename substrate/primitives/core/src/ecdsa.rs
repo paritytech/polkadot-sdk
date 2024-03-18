@@ -27,11 +27,9 @@ use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
 	Public as TraitPublic, SecretStringError, UncheckedFrom,
 };
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 use alloc::vec::Vec;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::{format, string::String};
-use secp256k1::Secp256k1;
 
 #[cfg(not(feature = "std"))]
 use k256::ecdsa::{SigningKey as SecretKey, VerifyingKey};

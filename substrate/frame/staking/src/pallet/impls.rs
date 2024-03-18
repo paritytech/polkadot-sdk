@@ -1855,7 +1855,7 @@ impl<T: Config> Pallet<T> {
 	/// <https://github.com/paritytech/polkadot-sdk/issues/3245> is resolved, turn warns into check
 	/// failures.
 	fn check_bonded_consistency() -> Result<(), TryRuntimeError> {
-		use sp_std::collections::btree_set::BTreeSet;
+		use alloc::collections::btree_set::BTreeSet;
 
 		let mut count_controller_double = 0;
 		let mut count_double = 0;
