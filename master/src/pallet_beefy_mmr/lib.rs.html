@@ -381,8 +381,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -453,7 +451,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				&lt;T <span class="kw">as </span>pallet_beefy::Config&gt;::BeefyId,
 			&gt;::MmrRoot(<span class="kw-2">*</span>root)),
 		);
-		&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_log(digest);
+		frame_system::Pallet::&lt;T&gt;::deposit_log(digest);
 	}
 }
 
@@ -511,7 +509,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Details of current BEEFY authority set.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>beefy_authorities)]
 	</span><span class="kw">pub type </span>BeefyAuthorities&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BeefyAuthoritySet&lt;MerkleRootOf&lt;T&gt;&gt;, ValueQuery&gt;;
 
@@ -519,7 +516,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This storage entry is used as cache for calls to `update_beefy_next_authority_set`.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>beefy_next_authorities)]
 	</span><span class="kw">pub type </span>BeefyNextAuthorities&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BeefyNextAuthoritySet&lt;MerkleRootOf&lt;T&gt;&gt;, ValueQuery&gt;;
 }
@@ -537,7 +533,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			version: T::LeafVersion::get(),
 			parent_number_and_hash: ParentNumberAndHash::&lt;T&gt;::leaf_data(),
 			leaf_extra: T::BeefyDataProvider::extra_data(),
-			beefy_next_authority_set: Pallet::&lt;T&gt;::beefy_next_authorities(),
+			beefy_next_authority_set: BeefyNextAuthorities::&lt;T&gt;::get(),
 		}
 	}
 }
@@ -562,12 +558,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="doccomment">/// Return the currently active BEEFY authority set proof.
 	</span><span class="kw">pub fn </span>authority_set_proof() -&gt; BeefyAuthoritySet&lt;MerkleRootOf&lt;T&gt;&gt; {
-		Pallet::&lt;T&gt;::beefy_authorities()
+		BeefyAuthorities::&lt;T&gt;::get()
 	}
 
 	<span class="doccomment">/// Return the next/queued BEEFY authority set proof.
 	</span><span class="kw">pub fn </span>next_authority_set_proof() -&gt; BeefyNextAuthoritySet&lt;MerkleRootOf&lt;T&gt;&gt; {
-		Pallet::&lt;T&gt;::beefy_next_authorities()
+		BeefyNextAuthorities::&lt;T&gt;::get()
 	}
 
 	<span class="doccomment">/// Returns details of a BEEFY authority set.

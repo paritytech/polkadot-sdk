@@ -624,7 +624,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		evidence: EquivocationEvidenceFor&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		<span class="kw">let </span>(equivocation_proof, key_owner_proof) = evidence;
-		<span class="kw">let </span>reporter = reporter.or_else(|| &lt;pallet_authorship::Pallet&lt;T&gt;&gt;::author());
+		<span class="kw">let </span>reporter = reporter.or_else(|| pallet_authorship::Pallet::&lt;T&gt;::author());
 		<span class="kw">let </span>offender = equivocation_proof.offender_id().clone();
 
 		<span class="comment">// We check the equivocation within the context of its set id (and

@@ -4648,7 +4648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[api_version(<span class="number">3</span>)]
 	</span><span class="kw">impl </span>beefy_primitives::BeefyApi&lt;Block, BeefyId&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>beefy_genesis() -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
-			Beefy::genesis_block()
+			pallet_beefy::GenesisBlock::&lt;Runtime&gt;::get()
 		}
 
 		<span class="kw">fn </span>validator_set() -&gt; <span class="prelude-ty">Option</span>&lt;beefy_primitives::ValidatorSet&lt;BeefyId&gt;&gt; {
@@ -4686,11 +4686,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[api_version(<span class="number">2</span>)]
 	</span><span class="kw">impl </span>mmr::MmrApi&lt;Block, mmr::Hash, BlockNumber&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>mmr_root() -&gt; <span class="prelude-ty">Result</span>&lt;mmr::Hash, mmr::Error&gt; {
-			<span class="prelude-val">Ok</span>(Mmr::mmr_root())
+			<span class="prelude-val">Ok</span>(pallet_mmr::RootHash::&lt;Runtime&gt;::get())
 		}
 
 		<span class="kw">fn </span>mmr_leaf_count() -&gt; <span class="prelude-ty">Result</span>&lt;mmr::LeafIndex, mmr::Error&gt; {
-			<span class="prelude-val">Ok</span>(Mmr::mmr_leaves())
+			<span class="prelude-val">Ok</span>(pallet_mmr::NumberOfLeaves::&lt;Runtime&gt;::get())
 		}
 
 		<span class="kw">fn </span>generate_proof(

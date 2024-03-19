@@ -1196,6 +1196,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1049" id="1049">1049</a>
 <a href="#1050" id="1050">1050</a>
 <a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1262,7 +1274,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	DenyUnsafe, SubscriptionTaskExecutor,
 };
 <span class="kw">use </span>sc_rpc_spec_v2::{
-	archive::ArchiveApiServer, chain_head::ChainHeadApiServer, transaction::TransactionApiServer,
+	archive::ArchiveApiServer,
+	chain_head::ChainHeadApiServer,
+	transaction::{TransactionApiServer, TransactionBroadcastApiServer},
 };
 <span class="kw">use </span>sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 <span class="kw">use </span>sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
@@ -1851,6 +1865,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(chain, state, child_state)
 	};
 
+	<span class="kw">let </span>transaction_broadcast_rpc_v2 = sc_rpc_spec_v2::transaction::TransactionBroadcast::new(
+		client.clone(),
+		transaction_pool.clone(),
+		task_executor.clone(),
+	)
+	.into_rpc();
+
 	<span class="kw">let </span>transaction_v2 = sc_rpc_spec_v2::transaction::Transaction::new(
 		client.clone(),
 		transaction_pool.clone(),
@@ -1906,6 +1927,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Part of the RPC v2 spec.
 	</span>rpc_api.merge(transaction_v2).map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
+	rpc_api
+		.merge(transaction_broadcast_rpc_v2)
+		.map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
 
 	<span class="comment">// Part of the old RPC spec.

@@ -614,12 +614,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#467" id="467">467</a>
 <a href="#468" id="468">468</a>
 <a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -742,20 +736,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The current authorities set
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>authorities)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Authorities&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>Authorities&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;T::BeefyId, T::MaxAuthorities&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The current validator set id
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>validator_set_id)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ValidatorSetId&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>ValidatorSetId&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, sp_consensus_beefy::ValidatorSetId, ValueQuery&gt;;
 
 	<span class="doccomment">/// Authorities set scheduled to be used with the next session
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>next_authorities)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>NextAuthorities&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>NextAuthorities&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;T::BeefyId, T::MaxAuthorities&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// A mapping from BEEFY set ID to the index of the *most recent* session for which its
@@ -769,17 +760,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// TWOX-NOTE: `ValidatorSetId` is not under user control.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>session_for_set)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>SetIdSession&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>SetIdSession&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, sp_consensus_beefy::ValidatorSetId, SessionIndex&gt;;
 
 	<span class="doccomment">/// Block number where BEEFY consensus is enabled/started.
 	/// By changing this (through privileged `set_new_genesis()`), BEEFY consensus is effectively
 	/// restarted from the newly set block number.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>genesis_block)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>GenesisBlock&lt;T: Config&gt; =
-		StorageValue&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>GenesisBlock&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
@@ -808,7 +796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// we panic here as runtime maintainers can simply reconfigure genesis and restart
 				// the chain easily
 				</span>.expect(<span class="string">&quot;Authorities vec too big&quot;</span>);
-			&lt;GenesisBlock&lt;T&gt;&gt;::put(<span class="kw-2">&amp;</span><span class="self">self</span>.genesis_block);
+			GenesisBlock::&lt;T&gt;::put(<span class="kw-2">&amp;</span><span class="self">self</span>.genesis_block);
 		}
 	}
 
@@ -925,8 +913,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="doccomment">/// Return the current active BEEFY validator set.
 	</span><span class="kw">pub fn </span>validator_set() -&gt; <span class="prelude-ty">Option</span>&lt;ValidatorSet&lt;T::BeefyId&gt;&gt; {
-		<span class="kw">let </span>validators: BoundedVec&lt;T::BeefyId, T::MaxAuthorities&gt; = <span class="self">Self</span>::authorities();
-		<span class="kw">let </span>id: sp_consensus_beefy::ValidatorSetId = <span class="self">Self</span>::validator_set_id();
+		<span class="kw">let </span>validators: BoundedVec&lt;T::BeefyId, T::MaxAuthorities&gt; = Authorities::&lt;T&gt;::get();
+		<span class="kw">let </span>id: sp_consensus_beefy::ValidatorSetId = ValidatorSetId::&lt;T&gt;::get();
 		ValidatorSet::&lt;T::BeefyId&gt;::new(validators, id)
 	}
 
@@ -948,19 +936,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		new: BoundedVec&lt;T::BeefyId, T::MaxAuthorities&gt;,
 		queued: BoundedVec&lt;T::BeefyId, T::MaxAuthorities&gt;,
 	) {
-		&lt;Authorities&lt;T&gt;&gt;::put(<span class="kw-2">&amp;</span>new);
+		Authorities::&lt;T&gt;::put(<span class="kw-2">&amp;</span>new);
 
-		<span class="kw">let </span>new_id = <span class="self">Self</span>::validator_set_id() + <span class="number">1u64</span>;
-		&lt;ValidatorSetId&lt;T&gt;&gt;::put(new_id);
+		<span class="kw">let </span>new_id = ValidatorSetId::&lt;T&gt;::get() + <span class="number">1u64</span>;
+		ValidatorSetId::&lt;T&gt;::put(new_id);
 
-		&lt;NextAuthorities&lt;T&gt;&gt;::put(<span class="kw-2">&amp;</span>queued);
+		NextAuthorities::&lt;T&gt;::put(<span class="kw-2">&amp;</span>queued);
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(validator_set) = ValidatorSet::&lt;T::BeefyId&gt;::new(new, new_id) {
 			<span class="kw">let </span>log = DigestItem::Consensus(
 				BEEFY_ENGINE_ID,
 				ConsensusLog::AuthoritiesChange(validator_set.clone()).encode(),
 			);
-			&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_log(log);
+			frame_system::Pallet::&lt;T&gt;::deposit_log(log);
 
 			<span class="kw">let </span>next_id = new_id + <span class="number">1</span>;
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(next_validator_set) = ValidatorSet::&lt;T::BeefyId&gt;::new(queued, next_id) {
@@ -977,7 +965,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
 
-		<span class="kw">if </span>!&lt;Authorities&lt;T&gt;&gt;::get().is_empty() {
+		<span class="kw">if </span>!Authorities::&lt;T&gt;::get().is_empty() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(())
 		}
 
@@ -986,10 +974,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>id = GENESIS_AUTHORITY_SET_ID;
-		&lt;Authorities&lt;T&gt;&gt;::put(bounded_authorities);
-		&lt;ValidatorSetId&lt;T&gt;&gt;::put(id);
+		Authorities::&lt;T&gt;::put(bounded_authorities);
+		ValidatorSetId::&lt;T&gt;::put(id);
 		<span class="comment">// Like `pallet_session`, initialize the next validator set as well.
-		</span>&lt;NextAuthorities&lt;T&gt;&gt;::put(bounded_authorities);
+		</span>NextAuthorities::&lt;T&gt;::put(bounded_authorities);
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(validator_set) = ValidatorSet::&lt;T::BeefyId&gt;::new(authorities.clone(), id) {
 			<span class="kw">let </span>next_id = id + <span class="number">1</span>;
@@ -1064,9 +1052,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// We want to have at least one BEEFY mandatory block per session.
 		</span><span class="self">Self</span>::change_authorities(bounded_next_authorities, bounded_next_queued_authorities);
 
-		<span class="kw">let </span>validator_set_id = <span class="self">Self</span>::validator_set_id();
+		<span class="kw">let </span>validator_set_id = ValidatorSetId::&lt;T&gt;::get();
 		<span class="comment">// Update the mapping for the new set id that corresponds to the latest session (i.e. now).
-		</span><span class="kw">let </span>session_index = &lt;pallet_session::Pallet&lt;T&gt;&gt;::current_index();
+		</span><span class="kw">let </span>session_index = pallet_session::Pallet::&lt;T&gt;::current_index();
 		SetIdSession::&lt;T&gt;::insert(validator_set_id, <span class="kw-2">&amp;</span>session_index);
 		<span class="comment">// Prune old entry if limit reached.
 		</span><span class="kw">let </span>max_set_id_session_entries = T::MaxSetIdSessionEntries::get().max(<span class="number">1</span>);
@@ -1081,13 +1069,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ConsensusLog::&lt;T::BeefyId&gt;::OnDisabled(i <span class="kw">as </span>AuthorityIndex).encode(),
 		);
 
-		&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_log(log);
+		frame_system::Pallet::&lt;T&gt;::deposit_log(log);
 	}
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; IsMember&lt;T::BeefyId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>is_member(authority_id: <span class="kw-2">&amp;</span>T::BeefyId) -&gt; bool {
-		<span class="self">Self</span>::authorities().iter().any(|id| id == authority_id)
+		Authorities::&lt;T&gt;::get().iter().any(|id| id == authority_id)
 	}
 }
 

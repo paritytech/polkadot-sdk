@@ -481,7 +481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	L: primitives::FullLeaf,
 {
 	<span class="kw">fn </span>get_elem(<span class="kw-2">&amp;</span><span class="self">self</span>, pos: NodeIndex) -&gt; mmr_lib::Result&lt;<span class="prelude-ty">Option</span>&lt;NodeOf&lt;T, I, L&gt;&gt;&gt; {
-		<span class="prelude-val">Ok</span>(&lt;Nodes&lt;T, I&gt;&gt;::get(pos).map(Node::Hash))
+		<span class="prelude-val">Ok</span>(Nodes::&lt;T, I&gt;::get(pos).map(Node::Hash))
 	}
 
 	<span class="kw">fn </span>append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pos: NodeIndex, elems: Vec&lt;NodeOf&lt;T, I, L&gt;&gt;) -&gt; mmr_lib::Result&lt;()&gt; {
@@ -517,7 +517,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>elem <span class="kw">in </span>elems {
 			<span class="comment">// On-chain we are going to only store new peaks.
 			</span><span class="kw">if </span>peaks_to_store.next_if_eq(<span class="kw-2">&amp;</span>node_index).is_some() {
-				&lt;Nodes&lt;T, I&gt;&gt;::insert(node_index, elem.hash());
+				Nodes::&lt;T, I&gt;::insert(node_index, elem.hash());
 			}
 			<span class="comment">// We are storing full node off-chain (using indexing API).
 			</span><span class="self">Self</span>::store_to_offchain(node_index, parent_hash, <span class="kw-2">&amp;</span>elem);
@@ -534,7 +534,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// And remove all remaining items from `peaks_before` collection.
 		</span><span class="kw">for </span>pos <span class="kw">in </span>peaks_to_prune {
-			&lt;Nodes&lt;T, I&gt;&gt;::remove(pos);
+			Nodes::&lt;T, I&gt;::remove(pos);
 		}
 
 		<span class="prelude-val">Ok</span>(())

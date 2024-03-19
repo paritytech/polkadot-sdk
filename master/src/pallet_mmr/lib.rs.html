@@ -517,7 +517,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#370" id="370">370</a>
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -703,7 +702,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Latest MMR Root hash.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>mmr_root_hash)]
 	</span><span class="kw">pub type </span>RootHash&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, HashOf&lt;T, I&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Current size of the MMR (number of leaves).
@@ -724,7 +722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 		<span class="kw">fn </span>on_initialize(_n: BlockNumberFor&lt;T&gt;) -&gt; Weight {
 			<span class="kw">use </span>primitives::LeafDataProvider;
-			<span class="kw">let </span>leaves = <span class="self">Self</span>::mmr_leaves();
+			<span class="kw">let </span>leaves = NumberOfLeaves::&lt;T, I&gt;::get();
 			<span class="kw">let </span>peaks_before = sp_mmr_primitives::utils::NodesUtils::new(leaves).number_of_peaks();
 			<span class="kw">let </span>data = T::LeafData::leaf_data();
 
@@ -745,8 +743,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 			&lt;T::OnNewRoot <span class="kw">as </span>primitives::OnNewRoot&lt;<span class="kw">_</span>&gt;&gt;::on_new_root(<span class="kw-2">&amp;</span>root);
 
-			&lt;NumberOfLeaves&lt;T, I&gt;&gt;::put(leaves);
-			&lt;RootHash&lt;T, I&gt;&gt;::put(root);
+			NumberOfLeaves::&lt;T, I&gt;::put(leaves);
+			RootHash::&lt;T, I&gt;::put(root);
 
 			<span class="kw">let </span>peaks_after = sp_mmr_primitives::utils::NodesUtils::new(leaves).number_of_peaks();
 
@@ -821,7 +819,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		<span class="kw">let </span>first_mmr_block = utils::first_mmr_block_num::&lt;HeaderFor&lt;T&gt;&gt;(
 			&lt;frame_system::Pallet&lt;T&gt;&gt;::block_number(),
-			<span class="self">Self</span>::mmr_leaves(),
+			NumberOfLeaves::&lt;T, I&gt;::get(),
 		)<span class="question-mark">?</span>;
 
 		utils::block_num_to_leaf_index::&lt;HeaderFor&lt;T&gt;&gt;(block_num, first_mmr_block)
@@ -861,7 +859,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Return the on-chain MMR root hash.
 	</span><span class="kw">pub fn </span>mmr_root() -&gt; HashOf&lt;T, I&gt; {
-		<span class="self">Self</span>::mmr_root_hash()
+		RootHash::&lt;T, I&gt;::get()
 	}
 
 	<span class="doccomment">/// Verify MMR proof for given `leaves`.
@@ -874,7 +872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		leaves: Vec&lt;LeafOf&lt;T, I&gt;&gt;,
 		proof: primitives::Proof&lt;HashOf&lt;T, I&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), primitives::Error&gt; {
-		<span class="kw">if </span>proof.leaf_count &gt; <span class="self">Self</span>::mmr_leaves() ||
+		<span class="kw">if </span>proof.leaf_count &gt; NumberOfLeaves::&lt;T, I&gt;::get() ||
 			proof.leaf_count == <span class="number">0 </span>||
 			(proof.items.len().saturating_add(leaves.len())) <span class="kw">as </span>u64 &gt; proof.leaf_count
 		{
