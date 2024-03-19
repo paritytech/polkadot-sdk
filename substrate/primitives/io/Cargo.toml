@@ -34,8 +34,8 @@ sp-keystore = { path = "../keystore", default-features = false }
 sp-trie = { path = "../trie", default-features = false }
 sp-state-machine = { path = "../state-machine", default-features = false }
 log = { workspace = true, default-features = true }
-libsecp256k1 = { version = "0.7" }
-secp256k1 = { version = "0.28.0", features = ["global-context", "recovery"] }
+libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"] }
+secp256k1 = { version = "0.28.2", default-features = false, features = ["alloc", "recovery"] }
 
 # Required for backwards compatibility reason, but only used for verifying when `UseDalekExt` is set.
 ed25519-dalek = { version = "2.1", default-features = false }
@@ -52,7 +52,10 @@ std = [
 	"bytes/std",
 	"codec/std",
 	"ed25519-dalek/std",
+	"libsecp256k1/std",
 	"log/std",
+	"secp256k1/global-context",
+	"secp256k1/std",
 	"sp-core/std",
 	"sp-crypto-hashing/std",
 	"sp-externalities/std",

@@ -127,7 +127,7 @@ use codec::{Decode, Encode};
 #[cfg(not(substrate_runtime))]
 use secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
-	Message, SECP256K1,
+	Message,
 };
 
 #[cfg(not(substrate_runtime))]
@@ -1288,9 +1288,11 @@ pub trait Crypto {
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;
 		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
-		let pubkey = SECP256K1
-			.recover_ecdsa(&msg, &sig)
-			.map_err(|_| EcdsaVerifyError::BadSignature)?;
+		#[cfg(feature = "std")]
+		let ctx = secp256k1::SECP256K1;
+		#[cfg(not(feature = "std"))]
+		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
+		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		let mut res = [0u8; 64];
 		res.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
 		Ok(res)
@@ -1334,9 +1336,11 @@ pub trait Crypto {
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;
 		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
-		let pubkey = SECP256K1
-			.recover_ecdsa(&msg, &sig)
-			.map_err(|_| EcdsaVerifyError::BadSignature)?;
+		#[cfg(feature = "std")]
+		let ctx = secp256k1::SECP256K1;
+		#[cfg(not(feature = "std"))]
+		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
+		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		Ok(pubkey.serialize())
 	}
 
