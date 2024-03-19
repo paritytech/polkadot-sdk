@@ -639,7 +639,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 						// Check if the elastic scaling bit is set, if so we need to supply the core
 						// index in the generated candidate.
-						let core_idx = configuration::Pallet::<T>::config()
+						let core_idx = configuration::ActiveConfig::<T>::get()
 							.node_features
 							.get(FeatureIndex::ElasticScalingMVP as usize)
 							.map(|_the_bit| core_idx);
@@ -806,7 +806,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.flat_map(|(para_id, _)| {
 				(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
 					.map(|_para_local_core_idx| {
-						let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
+						let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
 						// Load an assignment into provider so that one is present to pop
 						let assignment =
 							<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
@@ -829,7 +829,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 				.flat_map(|para_id| {
 					(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
 						.map(|_para_local_core_idx| {
-							let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
+							let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
 							// Load an assignment into provider so that one is present to pop
 							let assignment =
 								<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
