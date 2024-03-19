@@ -22,12 +22,52 @@ use frame_support_test::Config;
 mod benches {
 	use super::*;
 
-	#[benchmark(skip_meta, pov_mode = Measured, extra)]
-	fn bench() {
-		let a = 2 + 2;
+	#[benchmark(skip_meta, extra, pov_mode = Measured)]
+	fn bench1() {
 		#[block]
 		{}
-		assert_eq!(a, 4);
+	}
+
+	#[benchmark(pov_mode = Measured, extra, skip_meta)]
+	fn bench2() {
+		#[block]
+		{}
+	}
+
+	#[benchmark(extra, pov_mode = Measured {
+		Pallet: Measured,
+		Pallet::Storage: MaxEncodedLen,
+	}, skip_meta)]
+	fn bench3() {
+		#[block]
+		{}
+	}
+
+	#[benchmark(skip_meta, extra, pov_mode = Measured {
+		Pallet::Storage: MaxEncodedLen,
+		Pallet::StorageSubKey: Measured,
+	})]
+	fn bench4() {
+		#[block]
+		{}
+	}
+
+	#[benchmark(pov_mode = MaxEncodedLen {
+		Pallet::Storage: Measured,
+		Pallet::StorageSubKey: Measured
+	}, extra, skip_meta)]
+	fn bench5() {
+		#[block]
+		{}
+	}
+
+	#[benchmark(pov_mode = MaxEncodedLen {
+		Pallet::Storage: Measured,
+		Pallet::Storage::Nested: Ignored
+	}, extra, skip_meta)]
+	fn bench6() {
+		#[block]
+		{}
 	}
 }
 
