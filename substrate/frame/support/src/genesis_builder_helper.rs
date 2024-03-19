@@ -39,7 +39,7 @@ pub fn build_state<GC: BuildGenesisConfig>(json: Vec<u8>) -> BuildResult {
 ///
 /// No named presets are supported. For more info refer to
 /// [`sp_genesis_builder::GenesisBuilder::get_preset`].
-pub fn get_preset<GC>(id: Option<PresetId>) -> Option<Vec<u8>>
+pub fn get_preset<GC>(id: &Option<PresetId>) -> Option<Vec<u8>>
 where
 	GC: BuildGenesisConfig + Default,
 {

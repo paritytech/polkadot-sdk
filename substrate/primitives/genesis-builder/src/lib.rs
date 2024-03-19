@@ -91,7 +91,7 @@ sp_api::decl_runtime_apis! {
 		/// Otherwise function returns a JSON representation of the built-in, named
 		/// `RuntimeGenesisConfig` preset identified by `id`, or `None` if such preset does not
 		/// exists. Returned `Vec<u8>` contains bytes of JSON blob.
-		fn get_preset(id: Option<PresetId>) -> Option<Vec<u8>>;
+		fn get_preset(id: &Option<PresetId>) -> Option<Vec<u8>>;
 
 		/// Returns a list of names for available builtin `RuntimeGenesisConfig` presets.
 		///
