@@ -24,7 +24,7 @@
 //! [`frame_support::traits::fungible`] traits, therefore you should read and understand those docs
 //! as a prerequisite to understanding this pallet.
 //!
-//! Also see the [`tokens_in_substrate`] reference docs for higher level information regarding the
+//! Also see the [`frame_tokens`] reference docs for higher level information regarding the
 //! place of this palet in Substrate.
 //!
 //! ## Overview
@@ -139,7 +139,7 @@
 //! `insecure_zero_ed` cargo feature is enabled. However this is not a configuration which is
 //! generally supported, nor will it be.
 //!
-//! [`tokens_in_substrate`]: ../polkadot_sdk_docs/reference_docs/tokens_in_substrate/index.html
+//! [`frame_tokens`]: ../polkadot_sdk_docs/reference_docs/frame_tokens/index.html
 
 #![cfg_attr(not(feature = "std"), no_std)]
 mod benchmarking;

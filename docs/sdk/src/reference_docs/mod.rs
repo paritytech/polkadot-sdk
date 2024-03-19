@@ -32,9 +32,6 @@ pub mod glossary;
 /// Learn about the WASM meta-protocol of all Substrate-based chains.
 pub mod wasm_meta_protocol;
 
-/// Learn about the token-related logic in Substrate and how to apply it to your use case.
-pub mod tokens_in_substrate;
-
 /// Learn about the differences between smart contracts and a FRAME-based runtime. They are both
 /// "code stored onchain", but how do they differ?
 pub mod runtime_vs_smart_contract;
@@ -78,6 +75,9 @@ pub mod development_environment_advice;
 /// Learn about benchmarking and weight.
 // TODO: @shawntabrizi @ggwpez https://github.com/paritytech/polkadot-sdk-docs/issues/50
 pub mod frame_benchmarking_weight;
+
+/// Learn about the token-related logic in FRAME and how to apply it to your use case.
+pub mod frame_tokens;
 
 /// Learn about chain specification file and the genesis state of the blockchain.
 // TODO: @michalkucharczyk https://github.com/paritytech/polkadot-sdk-docs/issues/51

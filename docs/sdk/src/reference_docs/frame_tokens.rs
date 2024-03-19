@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Tokens in Substrate
+//! # FRAME Tokens
 //!
-//! This reference doc serves as a high-level overview of the token-related logic in Substrate and
+//! This reference doc serves as a high-level overview of the token-related logic in FRAME, and
 //! how to properly apply it to your use case.
 //!
 //! On completion of reading this doc, you should have a good understanding of:

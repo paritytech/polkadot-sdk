@@ -17,7 +17,7 @@
 
 //! The traits for dealing with a single fungible token class and any associated types.
 //!
-//! Also see the [`tokens_in_substrate`] reference docs for more information about the place of
+//! Also see the [`frame_tokens`] reference docs for more information about the place of
 //! `fungible` traits in Substrate.
 //!
 //! # Avaliable Traits
@@ -118,7 +118,7 @@
 //! For managing sets of tokens, see the [`fungibles`](`frame_support::traits::fungibles`) trait
 //! which is a wrapper around this trait but supporting multiple asset instances.
 //!
-//! [`tokens_in_substrate`]: ../../../../polkadot_sdk_docs/reference_docs/tokens_in_substrate/index.html
+//! [`frame_tokens`]: ../../../../polkadot_sdk_docs/reference_docs/frame_tokens/index.html
 
 pub mod conformance_tests;
 pub mod freeze;
