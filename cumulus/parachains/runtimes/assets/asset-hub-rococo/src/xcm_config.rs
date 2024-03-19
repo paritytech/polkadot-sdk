@@ -723,18 +723,11 @@ pub mod bridging {
 		/// Base price of every byte of the Rococo -> Westend message. Can be adjusted via
 		/// governance `set_storage` call.
 		///
-		/// Default value is our estimation of the:
-		///
-		/// 1) an approximate cost of XCM execution (`ExportMessage` and surroundings) at Rococo bridge hub;
-		///
-		/// 2) the approximate cost of Rococo -> Westend message delivery transaction on Westend Bridge Hub,
-		///    converted into ROCs using 1:1 conversion rate;
-		///
-		/// 3) the approximate cost of Rococo -> Westend message confirmation transaction on Rococo Bridge Hub.
+		/// Default value is our estimation of the approximate cost of XCM execution
+		/// (`ExportMessage` and surroundings) at Rococo bridge hub. We assume that the
+		/// finality transactions will be submitted for free.
 		pub storage XcmBridgeHubRouterBaseFee: Balance =
-			bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs::get()
-				.saturating_add(bp_bridge_hub_westend::BridgeHubWestendBaseDeliveryFeeInWnds::get())
-				.saturating_add(bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get());
+			bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs::get();
 		/// Price of every byte of the Rococo -> Westend message. Can be adjusted via
 		/// governance `set_storage` call.
 		pub storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();

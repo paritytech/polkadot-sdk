@@ -39,10 +39,9 @@ use bridge_runtime_common::{
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	extensions::refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundTransactionExtensionAdapter,
+		ActualFeeRefund, RefundBridgedMessages, RefundTransactionExtensionAdapter,
 		RefundableMessagesLane,
 	},
-	RefundableParachain,
 };
 
 use codec::Encode;
@@ -177,12 +176,8 @@ impl messages::BridgedChainWithMessages for BridgeHubWestend {}
 
 /// Signed extension that refunds relayers that are delivering messages from the Westend parachain.
 pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundTransactionExtensionAdapter<
-	RefundBridgedParachainMessages<
+	RefundBridgedMessages<
 		Runtime,
-		RefundableParachain<
-			BridgeParachainWestendInstance,
-			bp_bridge_hub_westend::BridgeHubWestend,
-		>,
 		RefundableMessagesLane<
 			WithBridgeHubWestendMessagesInstance,
 			AssetHubRococoToAssetHubWestendMessagesLane,
