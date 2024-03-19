@@ -6945,7 +6945,7 @@ dependencies = [
  "proc-macro-crate 3.0.0",
  "proc-macro2",
  "quote",
- "syn 2.0.50",
+ "syn 2.0.53",
 ]
 
 [[package]]
