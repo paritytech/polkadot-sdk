@@ -24,7 +24,9 @@
 //! - availability-store
 
 use polkadot_subsystem_bench::{
-	availability::{benchmark_availability_write, prepare_test, TestDataAvailability, TestState},
+	availability::{
+		benchmark_availability_write, prepare_data, prepare_test, TestDataAvailability, TestState,
+	},
 	configuration::TestConfiguration,
 	utils::{warm_up_and_benchmark, WarmUpOptions},
 };
@@ -37,21 +39,41 @@ fn main() -> Result<(), String> {
 	config.n_validators = 500;
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
+	let (
+		state,
+		test_authorities,
+		block_headers,
+		block_infos,
+		chunk_fetching_requests,
+		signed_bitfields,
+		availability_state,
+		runtime_api,
+	) = prepare_data(&config);
 
 	let usage = warm_up_and_benchmark(
 		WarmUpOptions::new(&[
-			("availability-distribution", 0.06),
-			("bitfield-distribution", 0.03),
+			("availability-distribution", 0.01),
+			("bitfield-distribution", 0.01),
 			("availability-store", 0.01),
 		]),
 		|| {
-			let mut state = TestState::new(&config);
-			let (mut env, _protocol_config) =
-				prepare_test(config.clone(), &mut state, TestDataAvailability::Write, false);
+			let mut env = prepare_test(
+				&config,
+				&state,
+				&test_authorities,
+				&block_headers,
+				&availability_state,
+				&runtime_api,
+				TestDataAvailability::Write,
+				false,
+			);
 			env.runtime().block_on(benchmark_availability_write(
 				"data_availability_write",
 				&mut env,
-				state,
+				&state,
+				&block_infos,
+				&chunk_fetching_requests,
+				&signed_bitfields,
 			))
 		},
 	)?;

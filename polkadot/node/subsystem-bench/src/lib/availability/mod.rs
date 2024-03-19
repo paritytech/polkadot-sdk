@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	configuration::TestConfiguration,
+	configuration::{TestAuthorities, TestConfiguration},
 	dummy_builder,
 	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
 	mock::{
@@ -58,7 +58,7 @@ use polkadot_node_subsystem_types::{
 	messages::{AvailabilityStoreMessage, NetworkBridgeEvent},
 	Span,
 };
-use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
+use polkadot_overseer::{metrics::Metrics as OverseerMetrics, BlockInfo, Handle as OverseerHandle};
 use polkadot_primitives::{
 	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData,
 	Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
@@ -149,32 +149,21 @@ fn build_overseer_for_availability_write(
 	(overseer, OverseerHandle::new(raw_handle))
 }
 
-/// Takes a test configuration and uses it to create the `TestEnvironment`.
-pub fn prepare_test(
-	config: TestConfiguration,
-	state: &mut TestState,
-	mode: TestDataAvailability,
-	with_prometheus_endpoint: bool,
-) -> (TestEnvironment, Vec<ProtocolConfig>) {
-	prepare_test_inner(
-		config,
-		state,
-		mode,
-		TestEnvironmentDependencies::default(),
-		with_prometheus_endpoint,
-	)
-}
-
-fn prepare_test_inner(
-	config: TestConfiguration,
-	state: &mut TestState,
-	mode: TestDataAvailability,
-	dependencies: TestEnvironmentDependencies,
-	with_prometheus_endpoint: bool,
-) -> (TestEnvironment, Vec<ProtocolConfig>) {
+pub fn prepare_data(
+	config: &TestConfiguration,
+) -> (
+	TestState,
+	TestAuthorities,
+	HashMap<H256, Header>,
+	Vec<BlockInfo>,
+	Vec<Vec<Vec<u8>>>,
+	HashMap<H256, Vec<VersionedValidationProtocol>>,
+	NetworkAvailabilityState,
+	MockRuntimeApi,
+) {
+	let mut state = TestState::new(config);
 	// Generate test authorities.
 	let test_authorities = config.generate_authorities();
-
 	let mut candidate_hashes: HashMap<H256, Vec<CandidateReceipt>> = HashMap::new();
 
 	// Prepare per block candidates.
@@ -213,21 +202,117 @@ fn prepare_test_inner(
 		chunks: state.chunks.clone(),
 	};
 
-	let mut req_cfgs = Vec::new();
+	let block_headers = (1..=config.num_blocks)
+		.map(|block_number| {
+			(
+				Hash::repeat_byte(block_number as u8),
+				Header {
+					digest: Default::default(),
+					number: block_number as BlockNumber,
+					parent_hash: Default::default(),
+					extrinsics_root: Default::default(),
+					state_root: Default::default(),
+				},
+			)
+		})
+		.collect::<HashMap<_, _>>();
 
-	let (collation_req_receiver, collation_req_cfg) =
+	let block_infos: Vec<BlockInfo> = (1..=config.num_blocks)
+		.map(|block_num| {
+			let relay_block_hash = Hash::repeat_byte(block_num as u8);
+			new_block_import_info(relay_block_hash, block_num as BlockNumber)
+		})
+		.collect();
+
+	let chunk_fetching_requests = state
+		.backed_candidates()
+		.iter()
+		.map(|candidate| {
+			(0..config.n_validators)
+				.map(|index| {
+					ChunkFetchingRequest {
+						candidate_hash: candidate.hash(),
+						index: ValidatorIndex(index as u32),
+					}
+					.encode()
+				})
+				.collect::<Vec<_>>()
+		})
+		.collect::<Vec<_>>();
+
+	let signed_bitfields: HashMap<H256, Vec<VersionedValidationProtocol>> = block_infos
+		.iter()
+		.map(|block_info| {
+			let signing_context = SigningContext { session_index: 0, parent_hash: block_info.hash };
+			let messages = (0..config.n_validators)
+				.map(|index| {
+					let validator_public = test_authorities
+						.validator_public
+						.get(index)
+						.expect("All validator keys are known");
+
+					// Node has all the chunks in the world.
+					let payload: AvailabilityBitfield =
+						AvailabilityBitfield(bitvec![u8, bitvec::order::Lsb0; 1u8; 32]);
+					let signed_bitfield = Signed::<AvailabilityBitfield>::sign(
+						&test_authorities.keyring.keystore(),
+						payload,
+						&signing_context,
+						ValidatorIndex(index as u32),
+						validator_public,
+					)
+					.ok()
+					.flatten()
+					.expect("should be signed");
+
+					peer_bitfield_message_v2(block_info.hash, signed_bitfield)
+				})
+				.collect::<Vec<_>>();
+
+			(block_info.hash, messages)
+		})
+		.collect();
+
+	(
+		state,
+		test_authorities,
+		block_headers,
+		block_infos,
+		chunk_fetching_requests,
+		signed_bitfields,
+		availability_state,
+		runtime_api,
+	)
+}
+
+/// Takes a test configuration and uses it to create the `TestEnvironment`.
+pub fn prepare_test(
+	config: &TestConfiguration,
+	state: &TestState,
+	test_authorities: &TestAuthorities,
+	block_headers: &HashMap<H256, Header>,
+	availability_state: &NetworkAvailabilityState,
+	runtime_api: &MockRuntimeApi,
+	mode: TestDataAvailability,
+	with_prometheus_endpoint: bool,
+) -> TestEnvironment {
+	let dependencies = TestEnvironmentDependencies::default();
+
+	let (collation_req_receiver, _collation_req_cfg) =
 		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	req_cfgs.push(collation_req_cfg);
 
-	let (pov_req_receiver, pov_req_cfg) =
+	let (pov_req_receiver, _pov_req_cfg) =
 		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
 
 	let (chunk_req_receiver, chunk_req_cfg) =
 		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	req_cfgs.push(pov_req_cfg);
 
-	let (network, network_interface, network_receiver) =
-		new_network(&config, &dependencies, &test_authorities, vec![Arc::new(availability_state)]);
+	let (network, network_interface, network_receiver) = new_network(
+		&config,
+		&dependencies,
+		&test_authorities,
+		vec![Arc::new(availability_state.clone())],
+	);
 
 	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
 		network.clone(),
@@ -262,7 +347,7 @@ fn prepare_test_inner(
 
 			build_overseer_for_availability_read(
 				dependencies.task_manager.spawn_handle(),
-				runtime_api,
+				runtime_api.clone(),
 				av_store,
 				(network_bridge_tx, network_bridge_rx),
 				subsystem,
@@ -276,28 +361,13 @@ fn prepare_test_inner(
 				Metrics::try_register(&dependencies.registry).unwrap(),
 			);
 
-			let block_headers = (1..=config.num_blocks)
-				.map(|block_number| {
-					(
-						Hash::repeat_byte(block_number as u8),
-						Header {
-							digest: Default::default(),
-							number: block_number as BlockNumber,
-							parent_hash: Default::default(),
-							extrinsics_root: Default::default(),
-							state_root: Default::default(),
-						},
-					)
-				})
-				.collect::<HashMap<_, _>>();
-
-			let chain_api_state = ChainApiState { block_headers };
+			let chain_api_state = ChainApiState { block_headers: block_headers.clone() };
 			let chain_api = MockChainApi::new(chain_api_state);
 			let bitfield_distribution =
 				BitfieldDistribution::new(Metrics::try_register(&dependencies.registry).unwrap());
 			build_overseer_for_availability_write(
 				dependencies.task_manager.spawn_handle(),
-				runtime_api,
+				runtime_api.clone(),
 				(network_bridge_tx, network_bridge_rx),
 				availability_distribution,
 				chain_api,
@@ -308,17 +378,14 @@ fn prepare_test_inner(
 		},
 	};
 
-	(
-		TestEnvironment::new(
-			dependencies,
-			config,
-			network,
-			overseer,
-			overseer_handle,
-			test_authorities,
-			with_prometheus_endpoint,
-		),
-		req_cfgs,
+	TestEnvironment::new(
+		dependencies,
+		config.clone(),
+		network,
+		overseer,
+		overseer_handle,
+		test_authorities.clone(),
+		with_prometheus_endpoint,
 	)
 }
 
@@ -443,8 +510,8 @@ impl TestState {
 		_self
 	}
 
-	pub fn backed_candidates(&mut self) -> &mut Vec<CandidateReceipt> {
-		&mut self.backed_candidates
+	pub fn backed_candidates(&self) -> &Vec<CandidateReceipt> {
+		&self.backed_candidates
 	}
 }
 
@@ -519,7 +586,10 @@ pub async fn benchmark_availability_read(
 pub async fn benchmark_availability_write(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
-	mut state: TestState,
+	state: &TestState,
+	block_infos: &[BlockInfo],
+	chunk_fetching_requests: &[Vec<Vec<u8>>],
+	signed_bitfields: &HashMap<H256, Vec<VersionedValidationProtocol>>,
 ) -> BenchmarkUsage {
 	let config = env.config().clone();
 
@@ -550,15 +620,14 @@ pub async fn benchmark_availability_write(
 	gum::info!(target: LOG_TARGET, "Done");
 
 	let test_start = Instant::now();
-
-	for block_num in 1..=env.config().num_blocks {
+	for block_info in block_infos {
+		let block_num = block_info.number as usize;
 		gum::info!(target: LOG_TARGET, "Current block #{}", block_num);
 		env.metrics().set_current_block(block_num);
 
 		let block_start_ts = Instant::now();
-		let relay_block_hash = Hash::repeat_byte(block_num as u8);
-		env.import_block(new_block_import_info(relay_block_hash, block_num as BlockNumber))
-			.await;
+		let relay_block_hash = block_info.hash.clone();
+		env.import_block(block_info.clone()).await;
 
 		// Inform bitfield distribution about our view of current test block
 		let message = polkadot_node_subsystem_types::messages::BitfieldDistributionMessage::NetworkBridgeUpdate(
@@ -569,75 +638,53 @@ pub async fn benchmark_availability_write(
 		let chunk_fetch_start_ts = Instant::now();
 
 		// Request chunks of our own backed candidate from all other validators.
-		let mut receivers = Vec::new();
-		for index in 1..config.n_validators {
-			let (pending_response, pending_response_receiver) = oneshot::channel();
+		let payloads = chunk_fetching_requests.get(block_num - 1).expect("pregenerated");
+		let receivers = (1..config.n_validators)
+			.map(|index| {
+				let (pending_response, pending_response_receiver) = oneshot::channel();
 
-			let request = RawIncomingRequest {
-				peer: PeerId::random(),
-				payload: ChunkFetchingRequest {
-					candidate_hash: state.backed_candidates()[block_num - 1].hash(),
-					index: ValidatorIndex(index as u32),
+				let peer_id =
+					*env.authorities().peer_ids.get(index).expect("all validators have ids");
+				let payload = payloads.get(index).expect("pregenerated").clone();
+				let request = RawIncomingRequest { peer: peer_id, payload, pending_response };
+				let peer = env
+					.authorities()
+					.validator_authority_id
+					.get(index)
+					.expect("all validators have keys");
+
+				if env.network().is_peer_connected(peer) &&
+					env.network().send_request_from_peer(peer, request).is_ok()
+				{
+					Some(pending_response_receiver)
+				} else {
+					None
 				}
-				.encode(),
-				pending_response,
-			};
-
-			let peer = env
-				.authorities()
-				.validator_authority_id
-				.get(index)
-				.expect("all validators have keys");
-
-			if env.network().is_peer_connected(peer) &&
-				env.network().send_request_from_peer(peer, request).is_ok()
-			{
-				receivers.push(pending_response_receiver);
-			}
-		}
+			})
+			.filter_map(|v| v);
 
 		gum::info!(target: LOG_TARGET, "Waiting for all emulated peers to receive their chunk from us ...");
-		for receiver in receivers.into_iter() {
-			let response = receiver.await.expect("Chunk is always served successfully");
-			// TODO: check if chunk is the one the peer expects to receive.
-			assert!(response.result.is_ok());
-		}
+
+		let responses = futures::future::try_join_all(receivers)
+			.await
+			.expect("Chunk is always served successfully");
+		// TODO: check if chunk is the one the peer expects to receive.
+		assert!(responses.iter().all(|v| v.result.is_ok()));
 
 		let chunk_fetch_duration = Instant::now().sub(chunk_fetch_start_ts).as_millis();
-
 		gum::info!(target: LOG_TARGET, "All chunks received in {}ms", chunk_fetch_duration);
 
-		let signing_context = SigningContext { session_index: 0, parent_hash: relay_block_hash };
 		let network = env.network().clone();
 		let authorities = env.authorities().clone();
-		let n_validators = config.n_validators;
 
 		// Spawn a task that will generate `n_validator` - 1 signed bitfiends and
 		// send them from the emulated peers to the subsystem.
 		// TODO: Implement topology.
+		let messages = signed_bitfields.get(&relay_block_hash).expect("pregenerated").clone();
 		env.spawn_blocking("send-bitfields", async move {
-			for index in 1..n_validators {
-				let validator_public =
-					authorities.validator_public.get(index).expect("All validator keys are known");
-
-				// Node has all the chunks in the world.
-				let payload: AvailabilityBitfield =
-					AvailabilityBitfield(bitvec![u8, bitvec::order::Lsb0; 1u8; 32]);
-				// TODO(soon): Use pre-signed messages. This is quite intensive on the CPU.
-				let signed_bitfield = Signed::<AvailabilityBitfield>::sign(
-					&authorities.keyring.keystore(),
-					payload,
-					&signing_context,
-					ValidatorIndex(index as u32),
-					validator_public,
-				)
-				.ok()
-				.flatten()
-				.expect("should be signed");
-
+			for index in 1..config.n_validators {
 				let from_peer = &authorities.validator_authority_id[index];
-
-				let message = peer_bitfield_message_v2(relay_block_hash, signed_bitfield);
+				let message = messages.get(index).expect("pregenerated").clone();
 
 				// Send the action from peer only if it is connected to our node.
 				if network.is_peer_connected(from_peer) {

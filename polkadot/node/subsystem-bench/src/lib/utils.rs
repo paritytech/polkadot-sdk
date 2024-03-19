@@ -31,7 +31,7 @@ pub struct WarmUpOptions<'a> {
 
 impl<'a> WarmUpOptions<'a> {
 	pub fn new(precisions: &[(&'a str, f64)]) -> Self {
-		Self { warm_up: 10, bench: 3, precisions: precisions.iter().cloned().collect() }
+		Self { warm_up: 100, bench: 3, precisions: precisions.iter().cloned().collect() }
 	}
 }
 
