@@ -36,7 +36,7 @@
 //! chain-spec-builder create -r runtime.wasm default
 //! ```
 //! 
-//! _Note:_ [`GenesisBuilder::create_default_config`][sp-genesis-builder-create] runtime function is
+//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is
 //! called.
 //!
 //!
@@ -113,7 +113,6 @@
 //! [`sc-chain-spec`]: ../sc_chain_spec/index.html
 //! [`node-cli`]: ../node_cli/index.html
 //! [`sp-genesis-builder`]: ../sp_genesis_builder/index.html
-//! [sp-genesis-builder-create]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.create_default_config
 //! [sp-genesis-builder-build]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.build_state
 //! [sp-genesis-builder-list]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.preset_names
 //! [sp-genesis-builder-get-preset]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset

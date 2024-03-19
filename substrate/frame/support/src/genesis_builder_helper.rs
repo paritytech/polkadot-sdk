@@ -23,7 +23,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame_support::traits::BuildGenesisConfig;
-use sp_genesis_builder::{Result as BuildResult, PresetId};
+use sp_genesis_builder::{PresetId, Result as BuildResult};
 use sp_runtime::format_runtime_string;
 
 /// Build `GenesisConfig` from a JSON blob not using any defaults and store it in the storage. For

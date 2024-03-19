@@ -81,7 +81,16 @@ fn main() -> Result<(), String> {
 			let presets = caller
 				.preset_names()
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
-			let presets: Vec<String> = presets.into_iter().map(Into::into).collect();
+			let presets: Vec<String> = presets
+				.into_iter()
+				.map(|preset| {
+					String::from(
+						TryInto::<&str>::try_into(&preset)
+							.unwrap_or_else(|_| "cannot display preset id")
+							.to_string(),
+					)
+				})
+				.collect();
 			println!("Known presets are:\n{presets:#?}");
 		},
 		ChainSpecBuilderCmd::DisplayPreset(DisplayPresetCmd { runtime_wasm_path, preset_name }) => {

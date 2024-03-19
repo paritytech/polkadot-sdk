@@ -1323,8 +1323,11 @@ mod tests {
 		fn default_config_as_json_works() {
 			sp_tracing::try_init_simple();
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_create_default_config", &vec![]).unwrap();
-			let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_get_preset", &None::<&PresetId>.encode())
+				.unwrap();
+			let r = Option::<Vec<u8>>::decode(&mut &r[..])
+				.unwrap()
+				.expect("defuault config is there");
 			let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
 
 			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c":[1,4],"allowed_slots":"PrimaryAndSecondaryVRFSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
@@ -1336,8 +1339,8 @@ mod tests {
 			sp_tracing::try_init_simple();
 			let mut t = BasicExternalities::new_empty();
 			let r = executor_call(&mut t, "GenesisBuilder_preset_names", &vec![]).unwrap();
-			let r = Vec::<RuntimeString>::decode(&mut &r[..]).unwrap();
-			assert_eq!(r, vec![RuntimeString::from("foobar"), RuntimeString::from("staging"),]);
+			let r = Vec::<PresetId>::decode(&mut &r[..]).unwrap();
+			assert_eq!(r, vec![PresetId::from("foobar"), PresetId::from("staging"),]);
 			log::info!("r: {:#?}", r);
 		}
 
@@ -1457,8 +1460,11 @@ mod tests {
 			sp_tracing::try_init_simple();
 
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_create_default_config", &vec![]).unwrap();
-			let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_get_preset", &None::<&PresetId>.encode())
+				.unwrap();
+			let r = Option::<Vec<u8>>::decode(&mut &r[..])
+				.unwrap()
+				.expect("default config is there");
 			let mut default_config: serde_json::Value =
 				serde_json::from_slice(&r[..]).expect("returned value is json. qed.");
 

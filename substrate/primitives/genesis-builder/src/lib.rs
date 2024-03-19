@@ -51,7 +51,7 @@ use scale_info::TypeInfo;
 pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;
 
 /// Wrapper representing preset id.
-#[derive(Decode, Encode, Debug, TypeInfo)]
+#[derive(Decode, Encode, Debug, TypeInfo, PartialEq)]
 pub struct PresetId(Vec<u8>);
 
 impl From<&str> for PresetId {

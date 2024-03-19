@@ -26,7 +26,7 @@ use sp_core::{
 	storage::Storage,
 	traits::{CallContext, CodeExecutor, Externalities, FetchRuntimeCode, RuntimeCode},
 };
-use sp_genesis_builder::Result as BuildResult;
+use sp_genesis_builder::{PresetId, Result as BuildResult};
 use sp_state_machine::BasicExternalities;
 use std::borrow::Cow;
 
@@ -84,7 +84,8 @@ where
 	/// Returns a json representation of the default `RuntimeGenesisConfig` provided by the
 	/// `runtime`.
 	///
-	/// Calls [`GenesisBuilder::create_default_config`](sp_genesis_builder::GenesisBuilder::create_default_config) in the `runtime`.
+	/// Calls [`GenesisBuilder::get_preset`](sp_genesis_builder::GenesisBuilder::get_preset) in the
+	/// `runtime` with `None` argument.
 	pub fn get_default_config(&self) -> core::result::Result<Value, String> {
 		self.get_named_preset(None)
 	}
@@ -156,13 +157,13 @@ where
 		self.get_storage_for_patch(self.get_named_preset(name)?)
 	}
 
-	pub fn preset_names(&self) -> core::result::Result<Vec<sp_runtime::RuntimeString>, String> {
+	pub fn preset_names(&self) -> core::result::Result<Vec<PresetId>, String> {
 		let mut t = BasicExternalities::new_empty();
 		let call_result = self
 			.call(&mut t, "GenesisBuilder_preset_names", &vec![])
 			.map_err(|e| format!("wasm call error {e}"))?;
 
-		let preset_names = Vec::<sp_runtime::RuntimeString>::decode(&mut &call_result[..])
+		let preset_names = Vec::<PresetId>::decode(&mut &call_result[..])
 			.map_err(|e| format!("scale codec error: {e}"))?;
 
 		Ok(preset_names)
@@ -174,7 +175,7 @@ mod tests {
 	use super::*;
 	use serde_json::{from_str, json};
 	pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration};
-	pub use sp_runtime::RuntimeString;
+	pub use sp_genesis_builder::PresetId;
 
 	#[test]
 	fn list_presets_works() {
@@ -183,7 +184,7 @@ mod tests {
 			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
 				.preset_names()
 				.unwrap();
-		assert_eq!(presets, vec![RuntimeString::from("foobar"), RuntimeString::from("staging"),]);
+		assert_eq!(presets, vec![PresetId::from("foobar"), PresetId::from("staging"),]);
 	}
 
 	#[test]
