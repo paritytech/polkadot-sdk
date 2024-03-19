@@ -480,6 +480,12 @@ where
 
 		let (rp, rp_fut) = method_started_response(operation_id.clone(), None);
 		let fut = async move {
+			// Wait for the server to send out the response and if it produces an error no event
+			// should be generated.
+			if rp_fut.await.is_err() {
+				return
+			}
+
 			let event = client
 				.executor()
 				.call(hash, &function, &call_parameters, CallContext::Offchain)
@@ -496,11 +502,6 @@ where
 					})
 				});
 
-			// Wait for the server to send out the response and if it produces an error no event
-			// should be generated.
-			if rp_fut.await.is_err() {
-				return
-			}
 			let _ = block_guard.response_sender().unbounded_send(event);
 		};
 		self.executor
