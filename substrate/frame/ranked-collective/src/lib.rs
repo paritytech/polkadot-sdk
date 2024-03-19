@@ -503,8 +503,6 @@ pub mod pallet {
 		NoneRemaining,
 		/// Unexpected error in state.
 		Corruption,
-		/// The member's rank is too low to vote.
-		RankTooLow,
 		/// The information provided is incorrect.
 		InvalidWitness,
 		/// The origin is not sufficiently privileged to do the operation.
@@ -625,7 +623,7 @@ pub mod pallet {
 								None => pays = Pays::No,
 							}
 							let min_rank = T::MinRankOfClass::convert(class);
-							let votes = Self::rank_to_votes(record.rank, min_rank)?;
+							let votes = Self::rank_to_votes(record.rank, min_rank).unwrap_or(0);
 							let vote = VoteRecord::from((aye, votes));
 							match aye {
 								true => {
@@ -728,9 +726,9 @@ pub mod pallet {
 			Members::<T, I>::get(who).ok_or(Error::<T, I>::NotMember.into())
 		}
 
-		fn rank_to_votes(rank: Rank, min: Rank) -> Result<Votes, DispatchError> {
-			let excess = rank.checked_sub(min).ok_or(Error::<T, I>::RankTooLow)?;
-			Ok(T::VoteWeight::convert(excess))
+		fn rank_to_votes(rank: Rank, min: Rank) -> Option<Votes> {
+			let excess = rank.checked_sub(min)?;
+			Some(T::VoteWeight::convert(excess))
 		}
 
 		fn remove_from_rank(who: &T::AccountId, rank: Rank) -> DispatchResult {
