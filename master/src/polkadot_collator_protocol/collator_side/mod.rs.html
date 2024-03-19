@@ -1672,6 +1672,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1525" id="1525">1525</a>
 <a href="#1526" id="1526">1526</a>
 <a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1714,7 +1733,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_subsystem::{
 	jaeger,
 	messages::{
-		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, RuntimeApiMessage,
+		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
+		RuntimeApiMessage,
 	},
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, PerLeafSpan,
 };
@@ -2069,12 +2089,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="comment">// Determine which core the para collated-on is assigned to.
+	<span class="comment">// Determine which core(s) the para collated-on is assigned to.
 	// If it is not scheduled then ignore the message.
-	</span><span class="kw">let </span>(our_core, num_cores) =
-		<span class="kw">match </span>determine_core(ctx.sender(), id, candidate_relay_parent, relay_parent_mode).<span class="kw">await</span><span class="question-mark">? </span>{
-			<span class="prelude-val">Some</span>(core) =&gt; core,
-			<span class="prelude-val">None </span>=&gt; {
+	</span><span class="kw">let </span>(our_cores, num_cores) =
+		<span class="kw">match </span>determine_cores(ctx.sender(), id, candidate_relay_parent, relay_parent_mode).<span class="kw">await</span><span class="question-mark">? </span>{
+			(cores, _num_cores) <span class="kw">if </span>cores.is_empty() =&gt; {
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					para_id = %id,
@@ -2083,8 +2102,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			},
+			(cores, num_cores) =&gt; (cores, num_cores),
 		};
 
+	<span class="kw">let </span>elastic_scaling = our_cores.len() &gt; <span class="number">1</span>;
+	<span class="kw">if </span>elastic_scaling {
+		<span class="macro">gum::debug!</span>(
+			target: LOG_TARGET,
+			para_id = %id,
+			cores = <span class="question-mark">?</span>our_cores,
+			<span class="string">&quot;{} is assigned to {} cores at {}&quot;</span>, id, our_cores.len(), candidate_relay_parent,
+		);
+	}
+
+	<span class="kw">let </span>our_core = our_cores[<span class="number">0</span>];
 	<span class="comment">// Determine the group on that core.
 	//
 	// When prospective parachains are disabled, candidate relay parent here is
@@ -2138,15 +2169,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		state.collation_result_senders.insert(candidate_hash, result_sender);
 	}
 
+	<span class="kw">let </span>parent_head_data = <span class="kw">if </span>elastic_scaling {
+		ParentHeadData::WithData { hash: parent_head_data_hash, head_data: parent_head_data }
+	} <span class="kw">else </span>{
+		ParentHeadData::OnlyHash(parent_head_data_hash)
+	};
+
 	per_relay_parent.collations.insert(
 		candidate_hash,
-		Collation {
-			receipt,
-			parent_head_data_hash,
-			pov,
-			parent_head_data,
-			status: CollationStatus::Created,
-		},
+		Collation { receipt, pov, parent_head_data, status: CollationStatus::Created },
 	);
 
 	<span class="comment">// If prospective parachains are disabled, a leaf should be known to peer.
@@ -2187,15 +2218,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Get the Id of the Core that is assigned to the para being collated on if any
+<span class="doccomment">/// Get the core indices that are assigned to the para being collated on if any
 /// and the total number of cores.
-</span><span class="kw">async fn </span>determine_core(
+</span><span class="kw">async fn </span>determine_cores(
 	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::SubsystemSender&lt;RuntimeApiMessage&gt;,
 	para_id: ParaId,
 	relay_parent: Hash,
 	relay_parent_mode: ProspectiveParachainsMode,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(CoreIndex, usize)&gt;&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;CoreIndex&gt;, usize)&gt; {
 	<span class="kw">let </span>cores = get_availability_cores(sender, relay_parent).<span class="kw">await</span><span class="question-mark">?</span>;
+	<span class="kw">let </span>n_cores = cores.len();
+	<span class="kw">let </span><span class="kw-2">mut </span>assigned_cores = Vec::new();
 
 	<span class="kw">for </span>(idx, core) <span class="kw">in </span>cores.iter().enumerate() {
 		<span class="kw">let </span>core_para_id = <span class="kw">match </span>core {
@@ -2212,11 +2245,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">if </span>core_para_id == <span class="prelude-val">Some</span>(para_id) {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(((idx <span class="kw">as </span>u32).into(), cores.len())))
+			assigned_cores.push(CoreIndex::from(idx <span class="kw">as </span>u32));
 		}
 	}
 
-	<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+	<span class="prelude-val">Ok</span>((assigned_cores, n_cores))
 }
 
 <span class="doccomment">/// Validators of a particular group index.
@@ -2399,7 +2432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>wire_message = protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					relay_parent,
 					candidate_hash: <span class="kw-2">*</span>candidate_hash,
-					parent_head_data_hash: collation.parent_head_data_hash,
+					parent_head_data_hash: collation.parent_head_data.hash(),
 				};
 				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 			},
@@ -2523,7 +2556,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	request: VersionedCollationRequest,
 	receipt: CandidateReceipt,
 	pov: PoV,
-	_parent_head_data: HeadData,
+	parent_head_data: ParentHeadData,
 ) {
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 
@@ -2531,20 +2564,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>peer_id = request.peer_id();
 	<span class="kw">let </span>candidate_hash = receipt.hash();
 
-	<span class="comment">// The response payload is the same for v1 and v2 versions of protocol
-	// and doesn&#39;t have v2 alias for simplicity.
-	// For now, we don&#39;t send parent head data to the collation requester.
-	</span><span class="kw">let </span>result =
-	<span class="comment">// 	if assigned_multiple_cores {
-	// 	Ok(request_v1::CollationFetchingResponse::CollationWithParentHeadData {
-	// 		receipt,
-	// 		pov,
-	// 		parent_head_data,
-	// 	})
-	// } else {
-		</span><span class="prelude-val">Ok</span>(request_v1::CollationFetchingResponse::Collation(receipt, pov))
-	<span class="comment">// }
-	</span>;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;elastic-scaling-experimental&quot;</span>)]
+	</span><span class="kw">let </span>result = <span class="kw">match </span>parent_head_data {
+		ParentHeadData::WithData { head_data, .. } =&gt;
+			<span class="prelude-val">Ok</span>(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
+				receipt,
+				pov,
+				parent_head_data: head_data,
+			}),
+		ParentHeadData::OnlyHash(<span class="kw">_</span>) =&gt;
+			<span class="prelude-val">Ok</span>(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
+	};
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;elastic-scaling-experimental&quot;</span>))]
+	</span><span class="kw">let </span>result = {
+		<span class="comment">// suppress unused warning
+		</span><span class="kw">let </span>_parent_head_data = parent_head_data;
+
+		<span class="prelude-val">Ok</span>(request_v1::CollationFetchingResponse::Collation(receipt, pov))
+	};
+
 	<span class="kw">let </span>response =
 		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: <span class="prelude-val">Some</span>(tx) };
 

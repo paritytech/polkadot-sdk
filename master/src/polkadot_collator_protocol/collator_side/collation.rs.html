@@ -305,7 +305,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -335,7 +334,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	PeerId,
 };
 <span class="kw">use </span>polkadot_node_primitives::PoV;
-<span class="kw">use </span>polkadot_primitives::{CandidateHash, CandidateReceipt, Hash, HeadData, Id <span class="kw">as </span>ParaId};
+<span class="kw">use </span>polkadot_node_subsystem::messages::ParentHeadData;
+<span class="kw">use </span>polkadot_primitives::{CandidateHash, CandidateReceipt, Hash, Id <span class="kw">as </span>ParaId};
 
 <span class="doccomment">/// The status of a collation as seen from the collator.
 </span><span class="kw">pub enum </span>CollationStatus {
@@ -367,12 +367,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>Collation {
 	<span class="doccomment">/// Candidate receipt.
 	</span><span class="kw">pub </span>receipt: CandidateReceipt,
-	<span class="doccomment">/// Parent head-data hash.
-	</span><span class="kw">pub </span>parent_head_data_hash: Hash,
 	<span class="doccomment">/// Proof to verify the state transition of the parachain.
 	</span><span class="kw">pub </span>pov: PoV,
-	<span class="doccomment">/// Parent head-data needed for elastic scaling.
-	</span><span class="kw">pub </span>parent_head_data: HeadData,
+	<span class="doccomment">/// Parent head-data (or just hash).
+	</span><span class="kw">pub </span>parent_head_data: ParentHeadData,
 	<span class="doccomment">/// Collation status.
 	</span><span class="kw">pub </span>status: CollationStatus,
 }
