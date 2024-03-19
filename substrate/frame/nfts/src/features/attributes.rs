@@ -282,6 +282,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///   `CollectionOwner`, `ItemOwner`, or `Account`.
 	/// - `key`: The key of the attribute to be cleared. It should be a vector of bytes within the
 	///   limits defined by `T::KeyLimit`.
+	///
+	/// Note: When the item doesn't longer exist and the attributes are not locked, then anyone
+	/// can clear them.
 	pub(crate) fn do_clear_attribute(
 		maybe_check_origin: Option<T::AccountId>,
 		collection: T::CollectionId,
@@ -293,9 +296,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.ok_or(Error::<T, I>::AttributeNotFound)?;
 
 		if let Some(check_origin) = &maybe_check_origin {
+			// allow to clear attributes when the item doesn't exist
+			let mut bypass_namespace_validation = false;
+			if let Some(item) = maybe_item {
+				if !Item::<T, I>::contains_key(&collection, &item) {
+					bypass_namespace_validation = true;
+				}
+			}
+
 			// validate the provided namespace when it's not a root call and the caller is not
 			// the same as the `deposit.account` (e.g. the deposit was paid by different account)
-			if deposit.account != maybe_check_origin {
+			if !bypass_namespace_validation && deposit.account != maybe_check_origin {
 				ensure!(
 					Self::is_valid_namespace(&check_origin, &namespace, &collection, &maybe_item)?,
 					Error::<T, I>::NoPermission
