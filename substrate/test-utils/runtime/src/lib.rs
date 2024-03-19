@@ -34,7 +34,7 @@ use codec::{Decode, Encode};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_state, create_default_config},
+	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::{
@@ -49,7 +49,6 @@ use frame_system::{
 use scale_info::TypeInfo;
 use sp_application_crypto::Ss58Codec;
 use sp_keyring::AccountKeyring;
-use sp_runtime::RuntimeString;
 
 use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 use sp_core::{OpaqueMetadata, RuntimeDebug};
@@ -62,6 +61,7 @@ use trie_db::{Trie, TrieMut};
 use serde_json::json;
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_core::hash::H256;
+use sp_genesis_builder::PresetId;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	create_runtime_str, impl_opaque_keys,
@@ -732,10 +732,10 @@ impl_runtime_apis! {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(params: Option<Vec<u8>>) -> Option<Vec<u8>> {
+		fn get_preset(params: Option<PresetId>) -> Option<Vec<u8>> {
 			Some(if let Some(params) = params {
-				let patch = match params {
-					s if s == "staging".as_bytes() => {
+				let patch = match (&params).try_into() {
+					Ok("staging") => {
 						let endowed_accounts: Vec<AccountId> = vec![
 							AccountKeyring::Bob.public().into(),
 							AccountKeyring::Charlie.public().into(),
@@ -753,19 +753,19 @@ impl_runtime_apis! {
 							}
 						})
 					},
-					s if s == "foobar".as_bytes() => json!({"foo":"bar"}),
+					Ok("foobar") => json!({"foo":"bar"}),
 					_ => return None,
 				};
 				serde_json::to_string(&patch)
 					.expect("serialization to json is expected to work. qed.")
 					.into_bytes()
 			} else {
-				create_default_config::<RuntimeGenesisConfig>()
+				get_preset::<RuntimeGenesisConfig>(None)?
 			})
 		}
 
-		fn preset_names() -> Vec<RuntimeString> {
-			vec![RuntimeString::from("foobar"), RuntimeString::from("staging")]
+		fn preset_names() -> Vec<PresetId> {
+			vec![PresetId::from("foobar"), PresetId::from("staging")]
 		}
 	}
 }
