@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Pair","Public","Signature"],"trait":["SignatureBound"]};
+window.SIDEBAR_ITEMS = {"struct":["Pair"],"trait":["SignatureBound"],"type":["Public","Signature"]};

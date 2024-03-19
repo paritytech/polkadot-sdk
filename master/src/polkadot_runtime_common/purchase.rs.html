@@ -1787,8 +1787,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="kw">fn </span>verify_signature(who: <span class="kw-2">&amp;</span>T::AccountId, signature: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		<span class="comment">// sr25519 always expects a 64 byte signature.
-		</span><span class="kw">let </span>signature: AnySignature = sr25519::Signature::from_slice(signature)
-			.ok_or(Error::&lt;T&gt;::InvalidSignature)<span class="question-mark">?
+		</span><span class="kw">let </span>signature: AnySignature = sr25519::Signature::try_from(signature)
+			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidSignature)<span class="question-mark">?
 			</span>.into();
 
 		<span class="comment">// In Polkadot, the AccountId is always the same as the 32 byte public key.

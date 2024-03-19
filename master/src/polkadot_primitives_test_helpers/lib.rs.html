@@ -593,17 +593,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Create a meaningless collator id.
 </span><span class="kw">pub fn </span>dummy_collator() -&gt; CollatorId {
-	CollatorId::from(sr25519::Public::from_raw([<span class="number">0</span>; <span class="number">32</span>]))
+	CollatorId::from(sr25519::Public::default())
 }
 
 <span class="doccomment">/// Create a meaningless validator id.
 </span><span class="kw">pub fn </span>dummy_validator() -&gt; ValidatorId {
-	ValidatorId::from(sr25519::Public::from_raw([<span class="number">0</span>; <span class="number">32</span>]))
+	ValidatorId::from(sr25519::Public::default())
 }
 
 <span class="doccomment">/// Create a meaningless collator signature.
 </span><span class="kw">pub fn </span>dummy_collator_signature() -&gt; CollatorSignature {
-	CollatorSignature::from(sr25519::Signature([<span class="number">0u8</span>; <span class="number">64</span>]))
+	CollatorSignature::from(sr25519::Signature::default())
 }
 
 <span class="doccomment">/// Create a meaningless persisted validation data.

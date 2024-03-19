@@ -2779,7 +2779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.as_ref(),
 			<span class="kw-2">&amp;</span>sp_io::hashing::blake2_256(msg.get()),
 		) {
-			<span class="prelude-val">Ok</span>(pubkey) =&gt; signer.as_ref() == <span class="kw-2">&amp;</span>pubkey[..],
+			<span class="prelude-val">Ok</span>(pubkey) =&gt; signer.<span class="number">0 </span>== pubkey,
 			<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 		}
 	}

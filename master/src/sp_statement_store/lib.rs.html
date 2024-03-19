@@ -1150,8 +1150,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(Proof::OnChain { .. }) | <span class="prelude-val">None </span>=&gt; SignatureVerificationResult::NoSignature,
 			<span class="prelude-val">Some</span>(Proof::Sr25519 { signature, signer }) =&gt; {
 				<span class="kw">let </span>to_sign = <span class="self">self</span>.signature_material();
-				<span class="kw">let </span>signature = sp_core::sr25519::Signature(<span class="kw-2">*</span>signature);
-				<span class="kw">let </span>public = sp_core::sr25519::Public(<span class="kw-2">*</span>signer);
+				<span class="kw">let </span>signature = sp_core::sr25519::Signature::from(<span class="kw-2">*</span>signature);
+				<span class="kw">let </span>public = sp_core::sr25519::Public::from(<span class="kw-2">*</span>signer);
 				<span class="kw">if </span>signature.verify(to_sign.as_slice(), <span class="kw-2">&amp;</span>public) {
 					SignatureVerificationResult::Valid(<span class="kw-2">*</span>signer)
 				} <span class="kw">else </span>{
@@ -1160,8 +1160,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			<span class="prelude-val">Some</span>(Proof::Ed25519 { signature, signer }) =&gt; {
 				<span class="kw">let </span>to_sign = <span class="self">self</span>.signature_material();
-				<span class="kw">let </span>signature = sp_core::ed25519::Signature(<span class="kw-2">*</span>signature);
-				<span class="kw">let </span>public = sp_core::ed25519::Public(<span class="kw-2">*</span>signer);
+				<span class="kw">let </span>signature = sp_core::ed25519::Signature::from(<span class="kw-2">*</span>signature);
+				<span class="kw">let </span>public = sp_core::ed25519::Public::from(<span class="kw-2">*</span>signer);
 				<span class="kw">if </span>signature.verify(to_sign.as_slice(), <span class="kw-2">&amp;</span>public) {
 					SignatureVerificationResult::Valid(<span class="kw-2">*</span>signer)
 				} <span class="kw">else </span>{
@@ -1170,8 +1170,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			<span class="prelude-val">Some</span>(Proof::Secp256k1Ecdsa { signature, signer }) =&gt; {
 				<span class="kw">let </span>to_sign = <span class="self">self</span>.signature_material();
-				<span class="kw">let </span>signature = sp_core::ecdsa::Signature(<span class="kw-2">*</span>signature);
-				<span class="kw">let </span>public = sp_core::ecdsa::Public(<span class="kw-2">*</span>signer);
+				<span class="kw">let </span>signature = sp_core::ecdsa::Signature::from(<span class="kw-2">*</span>signature);
+				<span class="kw">let </span>public = sp_core::ecdsa::Public::from(<span class="kw-2">*</span>signer);
 				<span class="kw">if </span>signature.verify(to_sign.as_slice(), <span class="kw-2">&amp;</span>public) {
 					<span class="kw">let </span>sender_hash =
 						&lt;sp_runtime::traits::BlakeTwo256 <span class="kw">as </span>sp_core::Hasher&gt;::hash(signer);

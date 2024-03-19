@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["CRYPTO_ID"],"mod":["vrf"],"struct":["Pair","Public","Signature"]};
+window.SIDEBAR_ITEMS = {"constant":["CRYPTO_ID","PUBLIC_KEY_SERIALIZED_SIZE","SIGNATURE_SERIALIZED_SIZE"],"mod":["vrf"],"struct":["Pair"],"type":["Public","Signature"]};

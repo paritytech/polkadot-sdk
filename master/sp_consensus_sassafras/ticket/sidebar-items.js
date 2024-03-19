@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["ticket_id_threshold"],"struct":["EphemeralPublic","EphemeralSignature","TicketBody","TicketClaim","TicketEnvelope"],"type":["TicketId","TicketSignature"]};
+window.SIDEBAR_ITEMS = {"fn":["ticket_id_threshold"],"struct":["TicketBody","TicketClaim","TicketEnvelope"],"type":["EphemeralPublic","EphemeralSignature","TicketId","TicketSignature"]};

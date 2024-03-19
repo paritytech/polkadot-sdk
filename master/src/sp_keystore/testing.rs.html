@@ -1280,7 +1280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(res.is_some());
 
 		<span class="comment">// does not verify with default out-of-the-box verification
-		</span><span class="macro">assert!</span>(!ecdsa_bls377::Pair::verify(<span class="kw-2">&amp;</span>res.clone().unwrap(), <span class="kw-2">&amp;</span>msg[..], <span class="kw-2">&amp;</span>pair.public()));
+		</span><span class="macro">assert!</span>(!ecdsa_bls377::Pair::verify(<span class="kw-2">&amp;</span>res.unwrap(), <span class="kw-2">&amp;</span>msg[..], <span class="kw-2">&amp;</span>pair.public()));
 
 		<span class="comment">// should verify using keccak256 as hasher
 		</span><span class="macro">assert!</span>(ecdsa_bls377::Pair::verify_with_hasher::&lt;KeccakHasher&gt;(

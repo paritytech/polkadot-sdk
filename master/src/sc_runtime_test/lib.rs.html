@@ -744,7 +744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sig.copy_from_slice(<span class="kw-2">&amp;</span>input[<span class="number">32</span>..<span class="number">96</span>]);
 
 		<span class="kw">let </span>msg = <span class="string">b&quot;all ok!&quot;</span>;
-		ed25519_verify(<span class="kw-2">&amp;</span>ed25519::Signature(sig), <span class="kw-2">&amp;</span>msg[..], <span class="kw-2">&amp;</span>ed25519::Public(pubkey))
+		ed25519_verify(<span class="kw-2">&amp;</span>ed25519::Signature::from(sig), <span class="kw-2">&amp;</span>msg[..], <span class="kw-2">&amp;</span>ed25519::Public::from(pubkey))
 	}
 
 	<span class="kw">fn </span>test_sr25519_verify(input: Vec&lt;u8&gt;) -&gt; bool {
@@ -755,7 +755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sig.copy_from_slice(<span class="kw-2">&amp;</span>input[<span class="number">32</span>..<span class="number">96</span>]);
 
 		<span class="kw">let </span>msg = <span class="string">b&quot;all ok!&quot;</span>;
-		sr25519_verify(<span class="kw-2">&amp;</span>sr25519::Signature(sig), <span class="kw-2">&amp;</span>msg[..], <span class="kw-2">&amp;</span>sr25519::Public(pubkey))
+		sr25519_verify(<span class="kw-2">&amp;</span>sr25519::Signature::from(sig), <span class="kw-2">&amp;</span>msg[..], <span class="kw-2">&amp;</span>sr25519::Public::from(pubkey))
 	}
 
 	<span class="kw">fn </span>test_ordered_trie_root() -&gt; Vec&lt;u8&gt; {

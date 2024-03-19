@@ -5501,14 +5501,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>sr25519_verify(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span>[u8; <span class="number">64</span>], message: <span class="kw-2">&amp;</span>[u8], pub_key: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; bool {
 		sp_io::crypto::sr25519_verify(
-			<span class="kw-2">&amp;</span>SR25519Signature(<span class="kw-2">*</span>signature),
+			<span class="kw-2">&amp;</span>SR25519Signature::from(<span class="kw-2">*</span>signature),
 			message,
-			<span class="kw-2">&amp;</span>SR25519Public(<span class="kw-2">*</span>pub_key),
+			<span class="kw-2">&amp;</span>SR25519Public::from(<span class="kw-2">*</span>pub_key),
 		)
 	}
 
 	<span class="kw">fn </span>ecdsa_to_eth_address(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: <span class="kw-2">&amp;</span>[u8; <span class="number">33</span>]) -&gt; <span class="prelude-ty">Result</span>&lt;[u8; <span class="number">20</span>], ()&gt; {
-		ECDSAPublic(<span class="kw-2">*</span>pk).to_eth_address()
+		ECDSAPublic::from(<span class="kw-2">*</span>pk).to_eth_address()
 	}
 
 	<span class="attr">#[cfg(test)]

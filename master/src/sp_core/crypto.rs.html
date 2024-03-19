@@ -1653,6 +1653,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1506" id="1506">1506</a>
 <a href="#1507" id="1507">1507</a>
 <a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1694,7 +1697,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Trait to zeroize a memory buffer.
 </span><span class="kw">pub use </span>zeroize::Zeroize;
 
-<span class="kw">pub use </span><span class="kw">crate</span>::address_uri::{AddressUri, Error <span class="kw">as </span>AddressUriError};
+<span class="kw">pub use crate</span>::{
+	address_uri::{AddressUri, Error <span class="kw">as </span>AddressUriError},
+	crypto_bytes::{CryptoBytes, PublicBytes, SignatureBytes},
+};
 
 <span class="doccomment">/// The root phrase for our publicly known keys.
 </span><span class="kw">pub const </span>DEV_PHRASE: <span class="kw-2">&amp;</span>str =

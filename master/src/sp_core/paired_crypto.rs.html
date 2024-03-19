@@ -804,91 +804,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#657" id="657">657</a>
 <a href="#658" id="658">658</a>
 <a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
-<a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -908,24 +823,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! API for using a pair of crypto schemes together.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+</span><span class="kw">use </span>core::marker::PhantomData;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::crypto::Ss58Codec;
 <span class="kw">use </span><span class="kw">crate</span>::crypto::{
 	ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair <span class="kw">as </span>PairT, Public <span class="kw">as </span>PublicT,
-	SecretStringError, UncheckedFrom,
+	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
 };
 
 <span class="kw">use </span>sp_std::vec::Vec;
 
-<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
-<span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 <span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
 </span><span class="kw">use </span>sp_std::alloc::{format, string::String};
-
-<span class="kw">use </span>sp_runtime_interface::pass_by::{<span class="self">self</span>, PassBy, PassByInner};
-<span class="kw">use </span>sp_std::convert::TryFrom;
 
 <span class="doccomment">/// ECDSA and BLS12-377 paired crypto scheme
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
@@ -945,12 +857,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
+	<span class="attr">#[doc(hidden)]
+	</span><span class="kw">pub struct </span>EcdsaBls377Tag(ecdsa::EcdsaTag, bls377::Bls377Tag);
+
+	<span class="kw">impl </span><span class="kw">super</span>::PairedCryptoSubTagBound <span class="kw">for </span>EcdsaBls377Tag {}
+
 	<span class="doccomment">/// (ECDSA,BLS12-377) key-pair pair.
-	</span><span class="kw">pub type </span>Pair = <span class="kw">super</span>::Pair&lt;ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN&gt;;
+	</span><span class="kw">pub type </span>Pair =
+		<span class="kw">super</span>::Pair&lt;ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN, EcdsaBls377Tag&gt;;
+
 	<span class="doccomment">/// (ECDSA,BLS12-377) public key pair.
-	</span><span class="kw">pub type </span>Public = <span class="kw">super</span>::Public&lt;PUBLIC_KEY_LEN&gt;;
+	</span><span class="kw">pub type </span>Public = <span class="kw">super</span>::Public&lt;PUBLIC_KEY_LEN, EcdsaBls377Tag&gt;;
+
 	<span class="doccomment">/// (ECDSA,BLS12-377) signature pair.
-	</span><span class="kw">pub type </span>Signature = <span class="kw">super</span>::Signature&lt;SIGNATURE_LEN&gt;;
+	</span><span class="kw">pub type </span>Signature = <span class="kw">super</span>::Signature&lt;SIGNATURE_LEN, EcdsaBls377Tag&gt;;
 
 	<span class="kw">impl </span><span class="kw">super</span>::CryptoType <span class="kw">for </span>Public {
 		<span class="kw">type </span>Pair = Pair;
@@ -1001,7 +921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="prelude-val">Ok</span>(left_pub) = public.<span class="number">0</span>[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() <span class="kw">else </span>{
 				<span class="kw">return </span><span class="bool-val">false
 			</span>};
-			<span class="kw">let </span><span class="prelude-val">Ok</span>(left_sig) = sig.<span class="number">0</span>[<span class="number">0</span>..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() <span class="kw">else </span>{
+			<span class="kw">let </span><span class="prelude-val">Ok</span>(left_sig) = sig.<span class="number">0</span>[..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() <span class="kw">else </span>{
 				<span class="kw">return </span><span class="bool-val">false
 			</span>};
 			<span class="kw">if </span>!ecdsa::Pair::verify_prehashed(<span class="kw-2">&amp;</span>left_sig, <span class="kw-2">&amp;</span>msg_hash, <span class="kw-2">&amp;</span>left_pub) {
@@ -1031,110 +951,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// will need it later (such as for HDKD).
 </span><span class="kw">type </span>Seed = [u8; SECURE_SEED_LEN];
 
+<span class="attr">#[doc(hidden)]
+</span><span class="kw">pub trait </span>PairedCryptoSubTagBound {}
+<span class="attr">#[doc(hidden)]
+</span><span class="kw">pub struct </span>PairedCryptoTag;
+
 <span class="doccomment">/// A public key.
-</span><span class="attr">#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
-</span><span class="kw">pub struct </span>Public&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt;([u8; LEFT_PLUS_RIGHT_LEN]);
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; sp_std::hash::Hash <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">fn </span>hash&lt;H: sp_std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
-		<span class="self">self</span>.<span class="number">0</span>.hash(state);
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; ByteArray <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">const </span>LEN: usize = LEFT_PLUS_RIGHT_LEN;
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; TryFrom&lt;<span class="kw-2">&amp;</span>[u8]&gt; <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">type </span>Error = ();
-
-	<span class="kw">fn </span>try_from(data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-		<span class="kw">if </span>data.len() != LEFT_PLUS_RIGHT_LEN {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(())
-		}
-		<span class="kw">let </span><span class="kw-2">mut </span>inner = [<span class="number">0u8</span>; LEFT_PLUS_RIGHT_LEN];
-		inner.copy_from_slice(data);
-		<span class="prelude-val">Ok</span>(Public(inner))
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; AsRef&lt;[u8; LEFT_PLUS_RIGHT_LEN]&gt;
-	<span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt;
-{
-	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8; LEFT_PLUS_RIGHT_LEN] {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
-	</span>}
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; AsRef&lt;[u8]&gt; <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[..]
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; AsMut&lt;[u8]&gt; <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">fn </span>as_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>[u8] {
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">0</span>[..]
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; PassByInner <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">type </span>Inner = [u8; LEFT_PLUS_RIGHT_LEN];
-
-	<span class="kw">fn </span>into_inner(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Inner {
-		<span class="self">self</span>.<span class="number">0
-	</span>}
-
-	<span class="kw">fn </span>inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Inner {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
-	</span>}
-
-	<span class="kw">fn </span>from_inner(inner: <span class="self">Self</span>::Inner) -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>(inner)
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; PassBy <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">type </span>PassBy = pass_by::Inner&lt;<span class="self">Self</span>, [u8; LEFT_PLUS_RIGHT_LEN]&gt;;
-}
+</span><span class="kw">pub type </span>Public&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize, SubTag&gt; =
+	PublicBytes&lt;LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)&gt;;
 
 <span class="kw">impl</span>&lt;
 		LeftPair: PairT,
 		RightPair: PairT,
 		<span class="kw">const </span>LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
 		<span class="kw">const </span>SIGNATURE_LEN: usize,
-	&gt; From&lt;Pair&lt;LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN&gt;&gt;
-	<span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_PUBLIC_LEN&gt;
+		SubTag: PairedCryptoSubTagBound,
+	&gt; From&lt;Pair&lt;LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag&gt;&gt;
+	<span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag&gt;
 <span class="kw">where
-	</span>Pair&lt;LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN&gt;:
-		PairT&lt;Public = Public&lt;LEFT_PLUS_RIGHT_PUBLIC_LEN&gt;&gt;,
+	</span>Pair&lt;LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag&gt;:
+		PairT&lt;Public = Public&lt;LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag&gt;&gt;,
 {
-	<span class="kw">fn </span>from(x: Pair&lt;LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN&gt;) -&gt; <span class="self">Self </span>{
+	<span class="kw">fn </span>from(
+		x: Pair&lt;LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag&gt;,
+	) -&gt; <span class="self">Self </span>{
 		x.public()
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; UncheckedFrom&lt;[u8; LEFT_PLUS_RIGHT_LEN]&gt;
-	<span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt;
-{
-	<span class="kw">fn </span>unchecked_from(data: [u8; LEFT_PLUS_RIGHT_LEN]) -&gt; <span class="self">Self </span>{
-		Public(data)
-	}
-}
-
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; std::fmt::Display <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt;
+</span><span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound&gt; std::fmt::Display
+	<span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;
 <span class="kw">where
-	</span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt;: CryptoType,
+	</span>Public&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;: CryptoType,
 {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.to_ss58check())
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; sp_std::fmt::Debug <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt;
+<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound&gt; sp_std::fmt::Debug
+	<span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;
 <span class="kw">where
-	</span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt;: CryptoType,
+	</span>Public&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;: CryptoType,
 	[u8; LEFT_PLUS_RIGHT_LEN]: <span class="kw">crate</span>::hexdisplay::AsBytesRef,
 {
 	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
@@ -1150,9 +1009,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; Serialize <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt;
+</span><span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound&gt; Serialize
+	<span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;
 <span class="kw">where
-	</span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt;: CryptoType,
+	</span>Public&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;: CryptoType,
 {
 	<span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
 	<span class="kw">where
@@ -1163,9 +1023,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>, <span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt;
+</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>, <span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt;
+	<span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;
 <span class="kw">where
-	</span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt;: CryptoType,
+	</span>Public&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;: CryptoType,
 {
 	<span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
@@ -1176,12 +1037,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; PublicT <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; <span class="kw">where
-	</span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt;: CryptoType
+<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound&gt; PublicT
+	<span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;
+<span class="kw">where
+	</span>Public&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;: CryptoType,
 {
 }
 
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; Derive <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; {}
+<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound&gt; Derive
+	<span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;
+{
+}
 
 <span class="doccomment">/// Trait characterizing a signature which could be used as individual component of an
 /// `paired_crypto:Signature` pair.
@@ -1190,54 +1056,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: ByteArray&gt; SignatureBound <span class="kw">for </span>T {}
 
 <span class="doccomment">/// A pair of signatures of different types
-</span><span class="attr">#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>Signature&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt;([u8; LEFT_PLUS_RIGHT_LEN]);
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; sp_std::hash::Hash <span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">fn </span>hash&lt;H: sp_std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
-		<span class="self">self</span>.<span class="number">0</span>.hash(state);
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; ByteArray <span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">const </span>LEN: usize = LEFT_PLUS_RIGHT_LEN;
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; TryFrom&lt;<span class="kw-2">&amp;</span>[u8]&gt; <span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">type </span>Error = ();
-
-	<span class="kw">fn </span>try_from(data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-		<span class="kw">if </span>data.len() != LEFT_PLUS_RIGHT_LEN {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(())
-		}
-		<span class="kw">let </span><span class="kw-2">mut </span>inner = [<span class="number">0u8</span>; LEFT_PLUS_RIGHT_LEN];
-		inner.copy_from_slice(data);
-		<span class="prelude-val">Ok</span>(Signature(inner))
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; AsMut&lt;[u8]&gt; <span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">fn </span>as_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>[u8] {
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">0</span>[..]
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; AsRef&lt;[u8; LEFT_PLUS_RIGHT_LEN]&gt;
-	<span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt;
-{
-	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8; LEFT_PLUS_RIGHT_LEN] {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
-	</span>}
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; AsRef&lt;[u8]&gt; <span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt; {
-	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[..]
-	}
-}
+</span><span class="kw">pub type </span>Signature&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize, SubTag&gt; =
+	SignatureBytes&lt;LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)&gt;;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; Serialize <span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt; {
+</span><span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize, SubTag&gt; Serialize
+	<span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;
+{
 	<span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
 	<span class="kw">where
 		</span>S: Serializer,
@@ -1247,28 +1072,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>, <span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>, <span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize, SubTag&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt;
+	<span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;
+{
 	<span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
 		</span>D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
 	{
 		<span class="kw">let </span>bytes = array_bytes::hex2bytes(<span class="kw-2">&amp;</span>String::deserialize(deserializer)<span class="question-mark">?</span>)
 			.map_err(|e| de::Error::custom(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))<span class="question-mark">?</span>;
-		Signature::&lt;LEFT_PLUS_RIGHT_LEN&gt;::try_from(bytes.as_ref()).map_err(|e| {
+		Signature::&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;::try_from(bytes.as_ref()).map_err(|e| {
 			de::Error::custom(<span class="macro">format!</span>(<span class="string">&quot;Error converting deserialized data into signature: {:?}&quot;</span>, e))
 		})
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; From&lt;Signature&lt;LEFT_PLUS_RIGHT_LEN&gt;&gt;
-	<span class="kw">for </span>[u8; LEFT_PLUS_RIGHT_LEN]
-{
-	<span class="kw">fn </span>from(signature: Signature&lt;LEFT_PLUS_RIGHT_LEN&gt;) -&gt; [u8; LEFT_PLUS_RIGHT_LEN] {
-		signature.<span class="number">0
-	</span>}
-}
-
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; sp_std::fmt::Debug <span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt;
+<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize, SubTag&gt; sp_std::fmt::Debug
+	<span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN, SubTag&gt;
 <span class="kw">where
 	</span>[u8; LEFT_PLUS_RIGHT_LEN]: <span class="kw">crate</span>::hexdisplay::AsBytesRef,
 {
@@ -1283,24 +1103,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; UncheckedFrom&lt;[u8; LEFT_PLUS_RIGHT_LEN]&gt;
-	<span class="kw">for </span>Signature&lt;LEFT_PLUS_RIGHT_LEN&gt;
-{
-	<span class="kw">fn </span>unchecked_from(data: [u8; LEFT_PLUS_RIGHT_LEN]) -&gt; <span class="self">Self </span>{
-		Signature(data)
-	}
-}
-
 <span class="doccomment">/// A key pair.
-</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Pair&lt;
 	LeftPair: PairT,
 	RightPair: PairT,
 	<span class="kw">const </span>PUBLIC_KEY_LEN: usize,
 	<span class="kw">const </span>SIGNATURE_LEN: usize,
+	SubTag,
 &gt; {
 	left: LeftPair,
 	right: RightPair,
+	_phantom: PhantomData&lt;<span class="kw">fn</span>() -&gt; SubTag&gt;,
+}
+
+<span class="kw">impl</span>&lt;
+		LeftPair: PairT + Clone,
+		RightPair: PairT + Clone,
+		<span class="kw">const </span>PUBLIC_KEY_LEN: usize,
+		<span class="kw">const </span>SIGNATURE_LEN: usize,
+		SubTag,
+	&gt; Clone <span class="kw">for </span>Pair&lt;LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag&gt;
+{
+	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ left: <span class="self">self</span>.left.clone(), right: <span class="self">self</span>.right.clone(), _phantom: PhantomData }
+	}
 }
 
 <span class="kw">impl</span>&lt;
@@ -1308,18 +1134,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RightPair: PairT,
 		<span class="kw">const </span>PUBLIC_KEY_LEN: usize,
 		<span class="kw">const </span>SIGNATURE_LEN: usize,
-	&gt; PairT <span class="kw">for </span>Pair&lt;LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN&gt;
+		SubTag: PairedCryptoSubTagBound,
+	&gt; PairT <span class="kw">for </span>Pair&lt;LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag&gt;
 <span class="kw">where
-	</span>Pair&lt;LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN&gt;: CryptoType,
+	</span>Pair&lt;LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag&gt;: CryptoType,
 	LeftPair::Signature: SignatureBound,
 	RightPair::Signature: SignatureBound,
-	Public&lt;PUBLIC_KEY_LEN&gt;: CryptoType,
+	Public&lt;PUBLIC_KEY_LEN, SubTag&gt;: CryptoType,
 	LeftPair::Seed: From&lt;Seed&gt; + Into&lt;Seed&gt;,
 	RightPair::Seed: From&lt;Seed&gt; + Into&lt;Seed&gt;,
 {
 	<span class="kw">type </span>Seed = Seed;
-	<span class="kw">type </span>Public = Public&lt;PUBLIC_KEY_LEN&gt;;
-	<span class="kw">type </span>Signature = Signature&lt;SIGNATURE_LEN&gt;;
+	<span class="kw">type </span>Public = Public&lt;PUBLIC_KEY_LEN, SubTag&gt;;
+	<span class="kw">type </span>Signature = Signature&lt;SIGNATURE_LEN, SubTag&gt;;
 
 	<span class="kw">fn </span>from_seed_slice(seed_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SecretStringError&gt; {
 		<span class="kw">if </span>seed_slice.len() != SECURE_SEED_LEN {
@@ -1327,7 +1154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">let </span>left = LeftPair::from_seed_slice(<span class="kw-2">&amp;</span>seed_slice)<span class="question-mark">?</span>;
 		<span class="kw">let </span>right = RightPair::from_seed_slice(<span class="kw-2">&amp;</span>seed_slice)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(Pair { left, right })
+		<span class="prelude-val">Ok</span>(Pair { left, right, _phantom: PhantomData })
 	}
 
 	<span class="doccomment">/// Derive a child key from a series of given junctions.
@@ -1350,7 +1177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		};
 
-		<span class="prelude-val">Ok</span>((<span class="self">Self </span>{ left: left.<span class="number">0</span>, right: right.<span class="number">0 </span>}, seed))
+		<span class="prelude-val">Ok</span>((<span class="self">Self </span>{ left: left.<span class="number">0</span>, right: right.<span class="number">0</span>, _phantom: PhantomData }, seed))
 	}
 
 	<span class="kw">fn </span>public(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Public {
@@ -1370,16 +1197,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::Signature::unchecked_from(raw)
 	}
 
-	<span class="kw">fn </span>verify&lt;M: AsRef&lt;[u8]&gt;&gt;(sig: <span class="kw-2">&amp;</span><span class="self">Self</span>::Signature, message: M, public: <span class="kw-2">&amp;</span><span class="self">Self</span>::Public) -&gt; bool {
+	<span class="kw">fn </span>verify&lt;Msg: AsRef&lt;[u8]&gt;&gt;(
+		sig: <span class="kw-2">&amp;</span><span class="self">Self</span>::Signature,
+		message: Msg,
+		public: <span class="kw-2">&amp;</span><span class="self">Self</span>::Public,
+	) -&gt; bool {
 		<span class="kw">let </span><span class="prelude-val">Ok</span>(left_pub) = public.<span class="number">0</span>[..LeftPair::Public::LEN].try_into() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
 		<span class="kw">let </span><span class="prelude-val">Ok</span>(left_sig) = sig.<span class="number">0</span>[<span class="number">0</span>..LeftPair::Signature::LEN].try_into() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
 		<span class="kw">if </span>!LeftPair::verify(<span class="kw-2">&amp;</span>left_sig, message.as_ref(), <span class="kw-2">&amp;</span>left_pub) {
 			<span class="kw">return </span><span class="bool-val">false
 		</span>}
 
-		<span class="kw">let </span><span class="prelude-val">Ok</span>(right_pub) = public.<span class="number">0</span>[LeftPair::Public::LEN..PUBLIC_KEY_LEN].try_into() <span class="kw">else </span>{
-			<span class="kw">return </span><span class="bool-val">false
-		</span>};
+		<span class="kw">let </span><span class="prelude-val">Ok</span>(right_pub) = public.<span class="number">0</span>[LeftPair::Public::LEN..].try_into() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
 		<span class="kw">let </span><span class="prelude-val">Ok</span>(right_sig) = sig.<span class="number">0</span>[LeftPair::Signature::LEN..].try_into() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
 		RightPair::verify(<span class="kw-2">&amp;</span>right_sig, message.as_ref(), <span class="kw-2">&amp;</span>right_pub)
 	}
@@ -1397,6 +1226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>test {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{crypto::DEV_PHRASE, KeccakHasher};
+	<span class="kw">use </span>codec::{Decode, Encode};
 	<span class="kw">use </span>ecdsa_bls377::{Pair, Signature};
 
 	<span class="kw">use crate</span>::{bls377, ecdsa};

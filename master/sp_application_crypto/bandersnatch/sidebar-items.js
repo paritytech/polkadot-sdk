@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["CRYPTO_ID","SIGNING_CTX"],"mod":["ring_vrf","vrf"],"struct":["AppPair","AppPublic","AppSignature","Pair","Public","Signature"]};
+window.SIDEBAR_ITEMS = {"constant":["CRYPTO_ID","PREOUT_SERIALIZED_SIZE","PUBLIC_SERIALIZED_SIZE","SEED_SERIALIZED_SIZE","SIGNATURE_SERIALIZED_SIZE","SIGNING_CTX"],"mod":["ring_vrf","vrf"],"struct":["AppPair","AppPublic","AppSignature","Pair"],"type":["Public","Signature"]};
