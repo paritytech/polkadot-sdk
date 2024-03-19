@@ -21,16 +21,33 @@
 //! how to properly apply it to your use case.
 //!
 //! On completion of reading this doc, you should have a good understanding of:
-//! - The distinction between token traits and trait implementations in Substrate, and why this
+//! - The distinction between token traits and trait implementations in FRAME, and why this
 //!   distinction is helpful
-//! - Token-related traits avaliable in Substrate
-//! - Token-related trait implementations in Substrate
+//! - Token-related traits avaliable in FRAME
+//! - Token-related trait implementations in FRAME
 //! - How to choose the right trait or trait implementation for your use case
 //! - Where to go next
 //!
+//! ## Getting Started
+//!
+//! The most ubiquitous way to add a token to a FRAME runtime with [`pallet_balances`]. Read
+//! more about pallets [here](crate::polkadot_sdk::frame_runtime#pallets).
+//!
+//! You may then write custom pallets that interact with [`pallet_balances`]. The fastest way to
+//! get started with that is by
+//! [tightly coupling](crate::reference_docs::frame_pallet_coupling#tight-coupling-pallets) your
+//! custom pallet to [`pallet_balances`].
+//!
+//! However, to keep pallets flexible and modular, it is often prefered to
+//! [loosely couple](crate::reference_docs::frame_pallet_coupling#loosely--coupling-pallets).
+//!
+//! To achieve
+//! [loose coupling](crate::reference_docs::frame_pallet_coupling#loosely--coupling-pallets),
+//! we seperate token logic into traits and trait implementations.
+//!
 //! ## Traits and Trait Implementations
 //!
-//! Broadly speaking, token logic in Substrate can be divided into two categories: traits and
+//! Broadly speaking, token logic in FRAME can be divided into two categories: traits and
 //! trait implementations.
 //!
 //! **Traits** define common interfaces that types of tokens should implement. For example, the
@@ -38,28 +55,40 @@
 //! token state such as the total issuance of the token, the balance of individual accounts, etc.
 //!
 //! **Trait implementations** are concrete implementations of these traits. For example, one of the
-//! many traits [`pallet_balances`] implements is [`frame_support::traits::fungible::Inspect`].
+//! many traits [`pallet_balances`] implements is [`frame_support::traits::fungible::Inspect`]*.
 //!
 //! The distinction between traits and trait implementations is helpful because it allows pallets
-//! and other logic to be generic over their dependencies, avoiding cumbersome pallet tight
-//! coupling.
+//! and other logic to be generic over their dependencies, avoiding tight coupling.
 //!
 //! To illustrate this with an example let's consider [`pallet_preimage`]. This pallet takes a
 //! deposit in exchange for storing some preimage for use later. A naive implementation of the
-//! pallet may use [`pallet_balances`] as a dependency, and directly call the methods exposed by
-//! [`pallet_balances`] to reserve and unreserve deposits. This approach works well, until someone
-//! has a use case requiring that an asset from a different pallet such as [`pallet_assets`] is
-//! used for the deposit. Rather than tightly couple [`pallet_preimage`] to [`pallet_balances`] AND
-//! [`pallet_assets`], along with every other token-handling pallet a user could possibly specify,
-//! [`pallet_preimage`] does not specify a concrete pallet as a dependency but instead accepts any
-//! dependency which implements the [`frame_support::traits::tokens::currency::ReservableCurrency`]
-//! trait. This allows [`pallet_preimage`] to support any arbitrary pallet implementing this trait,
-//! without needing any knowledge of what those pallets may be or requiring changes to support new
-//! pallets which may be written in the future.
+//! pallet may use [`pallet_balances`] in a tightly coupled manner, directly calling methods
+//! on the pallet to reserve and unreserve deposits. This approach works well,
+//! until someone has a use case requiring that an asset from a different pallet such as
+//! [`pallet_assets`] is used for the deposit. Rather than tightly couple [`pallet_preimage`] to
+//! [`pallet_balances`], [`pallet_assets`], and every other token-handling pallet a user
+//! could possibly specify, [`pallet_preimage`] does not specify a concrete pallet as a dependency
+//! but instead accepts any dependency which implements the
+//! [`frame_support::traits::tokens::currency::ReservableCurrency`] trait. This allows
+//! [`pallet_preimage`] to support any arbitrary pallet implementing this trait, without needing any
+//! knowledge of what those pallets may be or requiring changes to support new pallets which may be
+//! written in the future.
 //!
-//! ## Fungible Token Traits in Substrate
+//! Read more about coupling, and the benefits to loose coupling
+//! [here](crate::reference_docs::frame_pallet_coupling).
 //!
-//! The [`frame_support::traits::fungible`] crate contains the latest set of Substrate
+//! ##### *Rust Advanced Tip
+//!
+//! The knowledge that [`pallet_balances`] implements [`frame_support::traits::fungible::Inspect`]
+//! is not some arcane knowledge that you have to know by heart or memorize. One can
+//! simply look at the list of the implementors of any trait in the Rust Doc to find all
+//! implementors (e.g.
+//! <https://paritytech.github.io/polkadot-sdk/master/frame/traits/tokens/fungible/trait.Mutate.html#implementors>),
+//! or use the `rust-analyzer` `Implementations` action.
+//!
+//! ## Fungible Token Traits in FRAME
+//!
+//! The [`frame_support::traits::fungible`] crate contains the latest set of FRAME
 //! fungible token traits, and is recommended to use for all new logic requiring a fungible token.
 //! See the crate documentation for more info about these fungible traits.
 //!
@@ -70,10 +99,10 @@
 //! used in the codebase, however this trait is deprecated and existing logic is in the process of
 //! being migrated to [`frame_support::traits::fungible`] ([tracking issue](https://github.com/paritytech/polkadot-sdk/issues/226)).
 //!
-//! ## Fungible Token Trait Implementations in Substrate
+//! ## Fungible Token Trait Implementations in FRAME
 //!
 //! [`pallet_balances`] implements [`frame_support::traits::fungible`], and is the most commonly
-//! used fungible implementation in Substrate. Most of the time, it's used for managing the native
+//! used fungible implementation in FRAME. Most of the time, it's used for managing the native
 //! token of the blockchain network it's used in.
 //!
 //! [`pallet_assets`] implements [`frame_support::traits::fungibles`], and is another popular
@@ -81,9 +110,9 @@
 //! single crate, making it a good choice when a network requires more assets in
 //! addition to its native token.
 //!
-//! ## Non-Fungible Tokens in Substrate
+//! ## Non-Fungible Tokens in FRAME
 //!
-//! [`pallet_uniques`] is recommended to use for all NFT use cases in Substrate.
+//! [`pallet_uniques`] is recommended to use for all NFT use cases in FRAME.
 //! See the crate documentation for more info about this pallet.
 //!
 //! [`pallet_nfts`] is deprecated and should not be used.
