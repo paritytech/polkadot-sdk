@@ -40,7 +40,7 @@ cumulus_based = true
 	rpc_port = 8935
 	ws_port = 8945
 	args = [
-		"-lparachain=debug,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace"
+		"-lparachain=debug,runtime::bridge=trace,xcm=trace,txpool=trace"
 	]
 
 	# run bob as parachain collator
@@ -51,7 +51,7 @@ cumulus_based = true
 	rpc_port = 8936
 	ws_port = 8946
 	args = [
-		"-lparachain=trace,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace"
+		"-lparachain=debug,runtime::bridge=trace,xcm=trace,txpool=trace"
 	]
 
 [[parachains]]
@@ -65,14 +65,14 @@ cumulus_based = true
 	ws_port = 9010
 	command = "{{POLKADOT_PARACHAIN_BINARY}}"
 	args = [
-		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
+		"-lparachain=debug,xcm=trace,runtime::bridge=trace,txpool=trace"
 	]
 
 	[[parachains.collators]]
 	name = "asset-hub-westend-collator2"
 	command = "{{POLKADOT_PARACHAIN_BINARY}}"
 	args = [
-		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
+		"-lparachain=debug,xcm=trace,runtime::bridge=trace,txpool=trace"
 	]
 
 #[[hrmp_channels]]

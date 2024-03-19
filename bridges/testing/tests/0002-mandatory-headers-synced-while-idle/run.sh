@@ -22,7 +22,7 @@ echo
 # which is expected to be 60 seconds for the test environment.
 echo -e "Sleeping 90s before starting relayer ...\n"
 sleep 90
-${BASH_SOURCE%/*}/../../environments/rococo-westend/start_relayer.sh $rococo_dir $westend_dir relayer_pid
+${BASH_SOURCE%/*}/../../environments/rococo-westend/start_relayer.sh $rococo_dir $westend_dir finality_relayer_pid parachains_relayer_pid messages_relayer_pid
 
 # Sometimes the relayer syncs multiple parachain heads in the begining leading to test failures.
 # See issue: https://github.com/paritytech/parity-bridges-common/issues/2838.
