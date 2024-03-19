@@ -68,7 +68,7 @@ use beefy_primitives::{
 
 use frame_support::{
 	construct_runtime, derive_impl,
-	genesis_builder_helper::{build_state, create_default_config},
+	genesis_builder_helper::build_state,
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EverythingBut,
@@ -2469,7 +2469,7 @@ sp_api::impl_runtime_apis! {
 			if let Some(id) = id {
 				genesis_config_presets::get_preset(id)
 			} else {
-				Some(create_default_config::<RuntimeGenesisConfig>())
+				get_preset::<RuntimeGenesisConfig>(None)
 			}
 		}
 
