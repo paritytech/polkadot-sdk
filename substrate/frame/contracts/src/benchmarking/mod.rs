@@ -838,7 +838,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn seal_input(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
@@ -902,7 +902,7 @@ mod benchmarks {
 	// We cannot call `seal_return` multiple times. Therefore our weight determination is not
 	// as precise as with other APIs. Because this function can only be called once per
 	// contract it cannot be used as an attack vector.
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn seal_return(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
@@ -1097,7 +1097,7 @@ mod benchmarks {
 
 	// Overhead of calling the function without any topic.
 	// We benchmark for the worst case (largest event).
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn seal_deposit_event(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
@@ -1165,7 +1165,7 @@ mod benchmarks {
 	// Benchmark debug_message call with zero input data.
 	// Whereas this function is used in RPC mode only, it still should be secured
 	// against an excessive use.
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn seal_debug_message(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory { min_pages: 1, max_pages: 1 }),
@@ -1209,7 +1209,6 @@ mod benchmarks {
 	// Vary size of input in bytes up to maximum allowed contract memory
 	// or maximum allowed debug buffer size, whichever is less.
 	#[benchmark]
-	#[rustfmt::skip(pov_mode = Measured)]
 	fn seal_debug_message_per_byte(
 		i: Linear<
 			0,
@@ -2048,7 +2047,7 @@ mod benchmarks {
 
 	// We assume that every instantiate sends at least the minimum balance.
 	// This is a slow call: we reduce the number of runs.
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn seal_instantiate(r: Linear<1, { API_BENCHMARK_RUNS / 2 }>) -> Result<(), BenchmarkError> {
 		let hashes = (0..r)
 			.map(|i| {
@@ -2669,7 +2668,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn seal_account_reentrance_count(
 		r: Linear<0, API_BENCHMARK_RUNS>,
 	) -> Result<(), BenchmarkError> {
@@ -2731,7 +2730,7 @@ mod benchmarks {
 	// We do this to enforce random memory accesses which are particularly expensive.
 	//
 	// The combination of this computation is our weight base `w_base`.
-	#[benchmark]
+	#[benchmark(pov_mode = Ignored)]
 	fn instr_i64_load_store(r: Linear<0, INSTR_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
 		use rand::prelude::*;
 
