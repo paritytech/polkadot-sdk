@@ -1758,7 +1758,7 @@ mod tests {
 
 			// We test the historic case where crowdloan accounts only have one provider:
 			{
-				let fund = Crowdloan::funds(para).unwrap();
+				let fund = crowdloan::Funds::<Test>::get(para).unwrap();
 				let pot = Crowdloan::fund_account_id(fund.fund_index);
 				System::dec_providers(&pot).unwrap();
 				assert_eq!(System::providers(&pot), 1);
