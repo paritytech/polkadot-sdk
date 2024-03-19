@@ -31,7 +31,7 @@ use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
-	genesis_builder_helper::{build_state, create_default_config, get_preset},
+	genesis_builder_helper::{build_state, get_preset},
 	instances::{Instance1, Instance2},
 	ord_parameter_types,
 	pallet_prelude::Get,
@@ -3185,11 +3185,11 @@ impl_runtime_apis! {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
 			get_preset::<RuntimeGenesisConfig>(id)
 		}
 
-		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			vec![]
 		}
 	}

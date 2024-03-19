@@ -2465,7 +2465,7 @@ sp_api::impl_runtime_apis! {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
 			if let Some(id) = id {
 				genesis_config_presets::get_preset(id)
 			} else {
@@ -2473,7 +2473,7 @@ sp_api::impl_runtime_apis! {
 			}
 		}
 
-		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			vec![
 				RuntimeString::from("local_testnet"),
 				RuntimeString::from("development"),

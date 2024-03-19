@@ -18781,6 +18781,8 @@ dependencies = [
 name = "sp-genesis-builder"
 version = "0.7.0"
 dependencies = [
+ "parity-scale-codec",
+ "scale-info",
  "serde_json",
  "sp-api",
  "sp-runtime",

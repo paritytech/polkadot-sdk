@@ -43,7 +43,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	construct_runtime, derive_impl,
-	genesis_builder_helper::{build_state, create_default_config, get_preset},
+	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{KeyOwnerProofSystem, WithdrawReasons},
 };
@@ -1150,11 +1150,11 @@ sp_api::impl_runtime_apis! {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
 			get_preset::<RuntimeGenesisConfig>(id)
 		}
 
-		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			vec![]
 		}
 	}

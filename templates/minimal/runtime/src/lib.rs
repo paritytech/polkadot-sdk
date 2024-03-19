@@ -23,7 +23,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use frame::{
 	deps::frame_support::{
-		genesis_builder_helper::{build_state, create_default_config, get_preset},
+		genesis_builder_helper::{build_state, get_preset},
 		weights::{FixedFee, NoFee},
 	},
 	prelude::*,
@@ -225,11 +225,11 @@ impl_runtime_apis! {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
 			get_preset::<RuntimeGenesisConfig>(id)
 		}
 
-		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			vec![]
 		}
 	}

@@ -197,7 +197,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			unimplemented!()
 		}
 	}
