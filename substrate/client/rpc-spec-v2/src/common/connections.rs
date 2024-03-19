@@ -26,19 +26,30 @@ use std::{
 /// Limit the RPC functionality to a single connection.
 #[derive(Default, Clone)]
 pub struct RpcConnections {
+	/// The number of tokens that can be registered for each connection.
+	capacity: usize,
+	/// Map the connecton ID to a set of tokens.
 	data: Arc<Mutex<HashMap<ConnectionId, HashSet<String>>>>,
 }
 
 impl RpcConnections {
 	/// Constructs a new instance of [`RpcConnections`].
-	pub fn new() -> Self {
-		RpcConnections { data: Default::default() }
+	pub fn new(capacity: usize) -> Self {
+		RpcConnections { capacity, data: Default::default() }
 	}
 
 	/// Register a token for the given connection.
-	pub fn register_token(&self, connection_id: ConnectionId, token: String) {
+	///
+	/// Returns true if the token can be registered, false otherwise.
+	pub fn register_token(&self, connection_id: ConnectionId, token: String) -> bool {
 		let mut data = self.data.lock();
-		data.entry(connection_id).or_insert_with(HashSet::new).insert(token);
+
+		let mut entry = data.entry(connection_id).or_insert_with(HashSet::new);
+		if entry.len() >= self.capacity {
+			return false;
+		}
+
+		entry.insert(token)
 	}
 
 	/// Unregister a token for the given connection.
@@ -56,5 +67,30 @@ impl RpcConnections {
 	pub fn contains_token(&self, connection_id: ConnectionId, token: &str) -> bool {
 		let data = self.data.lock();
 		data.get(&connection_id).map(|tokens| tokens.contains(token)).unwrap_or(false)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn register_token() {
+		let rpc_connections = RpcConnections::new(2);
+		assert!(rpc_connections.register_token(1, "token1".to_string()));
+		assert!(rpc_connections.register_token(1, "token2".to_string()));
+		// Cannot be registered due to exceeding limits.
+		assert!(!rpc_connections.register_token(1, "token3".to_string()));
+	}
+
+	#[test]
+	fn unregister_token() {
+		let rpc_connections = RpcConnections::new(2);
+		rpc_connections.register_token(1, "token1".to_string());
+		rpc_connections.register_token(1, "token2".to_string());
+
+		rpc_connections.unregister_token(1, "token1");
+		assert!(!rpc_connections.contains_token(1, "token1"));
+		assert!(rpc_connections.contains_token(1, "token2"));
 	}
 }
