@@ -206,6 +206,7 @@ impl TargetClient<TestFinalitySyncPipeline> for TestTargetClient {
 		&self,
 		header: TestSourceHeader,
 		proof: TestFinalityProof,
+		_is_free_execution_expected: bool,
 	) -> Result<TestTransactionTracker, TestError> {
 		let mut data = self.data.lock();
 		(self.on_method_call)(&mut data);

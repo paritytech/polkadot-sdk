@@ -115,6 +115,7 @@ pub trait SubmitFinalityProofCallBuilder<P: SubstrateFinalitySyncPipeline> {
 	fn build_submit_finality_proof_call(
 		header: SyncHeader<HeaderOf<P::SourceChain>>,
 		proof: SubstrateFinalityProof<P>,
+		is_free_execution_expected: bool,
 		context: <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<P::SourceChain>>::FinalityVerificationContext,
 	) -> CallOf<P::TargetChain>;
 }
@@ -142,6 +143,7 @@ where
 	fn build_submit_finality_proof_call(
 		header: SyncHeader<HeaderOf<P::SourceChain>>,
 		proof: GrandpaJustification<HeaderOf<P::SourceChain>>,
+		_is_free_execution_expected: bool,
 		_context: JustificationVerificationContext,
 	) -> CallOf<P::TargetChain> {
 		BridgeGrandpaCall::<R, I>::submit_finality_proof {
@@ -176,6 +178,7 @@ macro_rules! generate_submit_finality_proof_call_builder {
 						<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::SourceChain
 					>
 				>,
+				_is_free_execution_expected: bool,
 				_context: bp_header_chain::justification::JustificationVerificationContext,
 			) -> relay_substrate_client::CallOf<
 				<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::TargetChain
@@ -215,6 +218,7 @@ macro_rules! generate_submit_finality_proof_ex_call_builder {
 						<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::SourceChain
 					>
 				>,
+				is_free_execution_expected: bool,
 				context: bp_header_chain::justification::JustificationVerificationContext,
 			) -> relay_substrate_client::CallOf<
 				<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::TargetChain
@@ -223,7 +227,8 @@ macro_rules! generate_submit_finality_proof_ex_call_builder {
 					$bridge_grandpa($submit_finality_proof {
 						finality_target: Box::new(header.into_inner()),
 						justification: proof,
-						current_set_id: context.authority_set_id
+						current_set_id: context.authority_set_id,
+						is_free_execution_expected,
 					})
 				}
 			}

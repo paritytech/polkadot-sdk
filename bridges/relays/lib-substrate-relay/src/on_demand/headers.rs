@@ -191,7 +191,7 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandRelay<P::SourceChain, P::TargetCh
 
 			// and then craft the submit-proof call
 			let call = P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(
-				header, proof, context,
+				header, proof, false, context,
 			);
 
 			return Ok((header_id, vec![call]));

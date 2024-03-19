@@ -110,6 +110,7 @@ pub trait TargetClient<P: FinalitySyncPipeline>: RelayClient {
 		&self,
 		header: P::Header,
 		proof: P::FinalityProof,
+		is_free_execution_expected: bool,
 	) -> Result<Self::TransactionTracker, Self::Error>;
 }
 
@@ -218,6 +219,7 @@ impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracke
 		target_client: &TC,
 		header: P::Header,
 		justification: P::FinalityProof,
+		is_free_execution_expected: bool,
 	) -> Result<Self, TC::Error> {
 		let header_number = header.number();
 		log::debug!(
@@ -228,7 +230,9 @@ impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracke
 			P::TARGET_NAME,
 		);
 
-		let tracker = target_client.submit_finality_proof(header, justification).await?;
+		let tracker = target_client
+			.submit_finality_proof(header, justification, is_free_execution_expected)
+			.await?;
 		Ok(Transaction { tracker, header_number })
 	}
 
@@ -388,10 +392,14 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		// submit new header if we have something new
 		match self.select_header_to_submit(&info).await? {
 			Some(header) => {
-				let transaction =
-					Transaction::submit(&self.target_client, header.header, header.proof)
-						.await
-						.map_err(Error::Target)?;
+				let transaction = Transaction::submit(
+					&self.target_client,
+					header.header,
+					header.proof,
+					self.sync_params.headers_to_relay == HeadersToRelay::Free,
+				)
+				.await
+				.map_err(Error::Target)?;
 				self.best_submitted_number = Some(transaction.header_number);
 				Ok(Some(transaction))
 			},
