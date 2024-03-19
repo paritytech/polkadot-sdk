@@ -189,10 +189,6 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
-			unimplemented!()
-		}
-
 		fn build_state(_: Vec<u8>) -> sp_genesis_builder::Result {
 			unimplemented!()
 		}
