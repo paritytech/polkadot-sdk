@@ -601,7 +601,7 @@ where
 
 		// If we got here either:
 		// - the substrate streams have closed
-		// - the `Stop` receiver was triggered internally.
+		// - the `Stop` receiver was triggered internally (cannot hold the pinned block guarantee)
 		// - the client disconnected.
 		let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 		let _ = sink.send(msg).await;

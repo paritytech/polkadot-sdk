@@ -88,7 +88,7 @@ pub async fn run_server() -> std::net::SocketAddr {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			max_follow_subscriptions_per_connection: 1,
 		},
 	)
 	.into_rpc();
@@ -3467,4 +3467,44 @@ async fn chain_head_single_connection_context() {
 		.await
 		.unwrap();
 	assert_matches!(response, MethodResponse::LimitReached);
+}
+
+#[tokio::test]
+async fn chain_head_limit_reached() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let client = Arc::new(builder.build());
+
+	// Maximum of 1 chainHead_follow subscription.
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+			max_follow_subscriptions_per_connection: 1,
+		},
+	)
+	.into_rpc();
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	// Initialized must always be reported first.
+	let _event: FollowEvent<String> = get_next_event(&mut sub).await;
+
+	let error = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap_err();
+	assert!(error
+		.to_string()
+		.contains("Maximum number of chainHead_follow has been reached"));
+
+	// After dropping the subscription, other subscriptions are allowed to be created.
+	drop(sub);
+	// Ensure the `chainHead_unfollow` is propagated to the server.
+	tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	// Initialized must always be reported first.
+	let _event: FollowEvent<String> = get_next_event(&mut sub).await;
 }
