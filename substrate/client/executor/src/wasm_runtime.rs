@@ -297,6 +297,10 @@ pub fn create_wasm_runtime_with_code<H>(
 where
 	H: HostFunctions,
 {
+	if let Some(blob) = blob.as_polkavm_blob() {
+		return sc_executor_polkavm::create_runtime::<H>(blob);
+	}
+
 	match wasm_method {
 		WasmExecutionMethod::Compiled { instantiation_strategy } =>
 			sc_executor_wasmtime::create_runtime::<H>(

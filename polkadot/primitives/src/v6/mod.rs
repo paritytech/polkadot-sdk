@@ -533,18 +533,6 @@ impl<H> CandidateReceipt<H> {
 	}
 }
 
-/// All data pertaining to the execution of a para candidate.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-pub struct FullCandidateReceipt<H = Hash, N = BlockNumber> {
-	/// The inner candidate receipt.
-	pub inner: CandidateReceipt<H>,
-	/// The validation data derived from the relay-chain state at that
-	/// point. The hash of the persisted validation data should
-	/// match the `persisted_validation_data_hash` in the descriptor
-	/// of the receipt.
-	pub validation_data: PersistedValidationData<H, N>,
-}
-
 /// A candidate-receipt with commitments directly included.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Hash))]
@@ -1965,11 +1953,11 @@ mod tests {
 			descriptor: CandidateDescriptor {
 				para_id: 0.into(),
 				relay_parent: zeros,
-				collator: CollatorId::from(sr25519::Public::from_raw([0; 32])),
+				collator: CollatorId::from(sr25519::Public::default()),
 				persisted_validation_data_hash: zeros,
 				pov_hash: zeros,
 				erasure_root: zeros,
-				signature: CollatorSignature::from(sr25519::Signature([0u8; 64])),
+				signature: CollatorSignature::from(sr25519::Signature::default()),
 				para_head: zeros,
 				validation_code_hash: ValidationCode(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).hash(),
 			},
