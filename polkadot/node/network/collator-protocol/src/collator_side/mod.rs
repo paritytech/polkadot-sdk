@@ -871,6 +871,7 @@ async fn send_collation(
 	let peer_id = request.peer_id();
 	let candidate_hash = receipt.hash();
 
+	#[cfg(feature = "elastic-scaling-experimental")]
 	let result = match parent_head_data {
 		ParentHeadData::WithData { head_data, .. } =>
 			Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
@@ -881,6 +882,14 @@ async fn send_collation(
 		ParentHeadData::OnlyHash(_) =>
 			Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
 	};
+	#[cfg(not(feature = "elastic-scaling-experimental"))]
+	let result = {
+		// suppress unused warning
+		let _parent_head_data = parent_head_data;
+
+		Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov))
+	};
+
 	let response =
 		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
 
