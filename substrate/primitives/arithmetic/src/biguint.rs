@@ -17,6 +17,7 @@
 
 //! Infinite precision unsigned integer for substrate runtime.
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::{cell::RefCell, cmp::Ordering, ops};

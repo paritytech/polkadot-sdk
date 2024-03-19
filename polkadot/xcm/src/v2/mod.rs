@@ -57,6 +57,7 @@ use super::{
 	},
 	DoubleEncoded,
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use bounded_collections::{ConstU32, WeakBoundedVec};
 use core::{fmt::Debug, result};

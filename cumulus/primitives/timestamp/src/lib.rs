@@ -27,9 +27,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::time::Duration;
 use cumulus_primitives_core::relay_chain::Slot;
 use sp_inherents::{Error, InherentData};
-use sp_std::time::Duration;
 
 pub use sp_timestamp::{InherentType, INHERENT_IDENTIFIER};
 

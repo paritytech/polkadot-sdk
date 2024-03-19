@@ -31,11 +31,11 @@ impl<T: Into<QueuedMessage>> From<T> for VersionedQueuedMessage {
 
 mod v1 {
 	use crate::{pricing::UD60x18, ChannelId};
+	use alloc::{borrow::ToOwned, vec, vec::Vec};
 	use codec::{Decode, Encode};
 	use ethabi::Token;
 	use scale_info::TypeInfo;
 	use sp_core::{RuntimeDebug, H160, H256, U256};
-	use sp_std::{borrow::ToOwned, vec, vec::Vec};
 
 	/// A message which can be accepted by implementations of `/[`SendMessage`\]`
 	#[derive(Encode, Decode, TypeInfo, Clone, RuntimeDebug)]

@@ -17,6 +17,7 @@
 use super::*;
 
 use crate::{disputes::SlashingHandler, initializer, shared};
+use alloc::vec;
 use frame_benchmarking::{benchmarks, whitelist_account};
 use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};

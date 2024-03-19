@@ -16,13 +16,13 @@
 
 //! Utilities for working with test accounts.
 
+use alloc::{vec, vec::Vec};
 use bp_header_chain::{justification::JustificationVerificationContext, AuthoritySet};
 use codec::Encode;
 use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 use finality_grandpa::voter_set::VoterSet;
 use sp_consensus_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
 
 /// Set of test accounts with friendly names: Alice.
 pub const ALICE: Account = Account(0);

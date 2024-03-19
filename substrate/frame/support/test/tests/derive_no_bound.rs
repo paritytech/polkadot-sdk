@@ -18,6 +18,8 @@
 //! Tests for DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound,
 //! RuntimeDebugNoBound, PartialOrdNoBound and OrdNoBound
 
+extern crate alloc;
+
 use frame_support::{
 	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
 	PartialOrdNoBound, RuntimeDebugNoBound,

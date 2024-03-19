@@ -16,7 +16,6 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
 sp-state-machine = { path = "../../../substrate/primitives/state-machine", default-features = false }
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Polkadot
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false }
@@ -32,6 +31,5 @@ std = [
 	"polkadot-primitives/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-trie/std",
 ]

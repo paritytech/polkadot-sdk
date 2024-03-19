@@ -22,11 +22,11 @@ use crate::{
 	weights::WeightInfo,
 	CodeHash, Config, Determinism, Pallet, Weight, LOG_TARGET,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound, Identity};
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
-use sp_std::prelude::*;
 
 mod v8 {
 	use super::*;

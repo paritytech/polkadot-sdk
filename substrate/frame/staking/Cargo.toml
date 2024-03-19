@@ -24,7 +24,6 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
 sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
-sp-std = { path = "../../primitives/std", default-features = false }
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 pallet-session = { path = "../session", default-features = false, features = [
@@ -74,7 +73,6 @@ std = [
 	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-benchmarks = [

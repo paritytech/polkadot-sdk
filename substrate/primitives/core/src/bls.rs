@@ -30,23 +30,23 @@ use crate::crypto::{
 	Public as TraitPublic, SecretStringError, UncheckedFrom,
 };
 
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::{format, string::String};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
 
 use w3f_bls::{
 	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
 	SecretKey, SerializableToBytes, TinyBLS381,
 };
 
+use core::{convert::TryFrom, marker::PhantomData, ops::Deref};
 use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
-use sp_std::{convert::TryFrom, marker::PhantomData, ops::Deref};
 
 /// BLS-377 specialized types
 pub mod bls377 {
@@ -136,19 +136,19 @@ impl<T> PartialEq for Public<T> {
 impl<T> Eq for Public<T> {}
 
 impl<T> PartialOrd for Public<T> {
-	fn partial_cmp(&self, other: &Self) -> Option<sp_std::cmp::Ordering> {
+	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
 		Some(self.cmp(other))
 	}
 }
 
 impl<T> Ord for Public<T> {
-	fn cmp(&self, other: &Self) -> sp_std::cmp::Ordering {
+	fn cmp(&self, other: &Self) -> core::cmp::Ordering {
 		self.inner.cmp(&other.inner)
 	}
 }
 
-impl<T> sp_std::hash::Hash for Public<T> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
+impl<T> core::hash::Hash for Public<T> {
+	fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
 		self.inner.hash(state)
 	}
 }
@@ -251,16 +251,16 @@ impl<T: BlsBound> std::fmt::Display for Public<T> {
 }
 
 #[cfg(feature = "std")]
-impl<T: BlsBound> sp_std::fmt::Debug for Public<T> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<T: BlsBound> alloc::fmt::Debug for Public<T> {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		let s = self.to_ss58check();
 		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.inner), &s[0..8])
 	}
 }
 
 #[cfg(not(feature = "std"))]
-impl<T> sp_std::fmt::Debug for Public<T> {
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<T> alloc::fmt::Debug for Public<T> {
+	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		Ok(())
 	}
 }
@@ -316,8 +316,8 @@ impl<T> PartialEq for Signature<T> {
 
 impl<T> Eq for Signature<T> {}
 
-impl<T> sp_std::hash::Hash for Signature<T> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
+impl<T> core::hash::Hash for Signature<T> {
+	fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
 		self.inner.hash(state)
 	}
 }
@@ -386,14 +386,14 @@ impl<T> AsMut<[u8]> for Signature<T> {
 	}
 }
 
-impl<T> sp_std::fmt::Debug for Signature<T> {
+impl<T> alloc::fmt::Debug for Signature<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.inner))
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		Ok(())
 	}
 }

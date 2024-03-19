@@ -82,7 +82,7 @@ benchmarks_instance_pallet! {
 
 	send_message {
 		let dest = T::ensure_bridged_target_destination()?;
-		let xcm = sp_std::vec![].into();
+		let xcm = alloc::vec![].into();
 
 		// make local queue congested, because it means additional db write
 		T::make_congested();

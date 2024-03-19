@@ -19,6 +19,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use bridge_runtime_common::messages_xcm_extension::XcmBlobHauler;
 use pallet_bridge_messages::Config as BridgeMessagesConfig;
 use xcm::prelude::*;
@@ -63,7 +65,7 @@ pub mod pallet {
 
 		/// Get point-to-point links with bridged consensus (`Self::BridgedNetworkId`).
 		/// (this will be replaced with dynamic on-chain bridges - `Bridges V2`)
-		type Lanes: Get<sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))>>;
+		type Lanes: Get<alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))>>;
 		/// Support for point-to-point links
 		/// (this will be replaced with dynamic on-chain bridges - `Bridges V2`)
 		type LanesSupport: XcmBlobHauler;

@@ -31,12 +31,12 @@ mod enter {
 			ParasEntry,
 		},
 	};
+	use alloc::collections::btree_map::BTreeMap;
 	use assert_matches::assert_matches;
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use primitives::vstaging::SchedulerParams;
 	use sp_runtime::Perbill;
-	use sp_std::collections::btree_map::BTreeMap;
 
 	struct TestConfig {
 		dispute_statements: BTreeMap<u32, u32>,
@@ -1378,7 +1378,7 @@ mod sanitizers {
 			mock::set_disabled_validators,
 			scheduler::{common::Assignment, ParasEntry},
 		};
-		use sp_std::collections::vec_deque::VecDeque;
+		use alloc::collections::vec_deque::VecDeque;
 
 		use super::*;
 

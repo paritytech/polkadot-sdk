@@ -26,7 +26,6 @@ sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 pallet-ranked-collective = { path = "../ranked-collective", default-features = false, optional = true }
 
 [features]
@@ -44,7 +43,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

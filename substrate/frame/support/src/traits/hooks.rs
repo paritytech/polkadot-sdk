@@ -24,11 +24,10 @@
 use crate::weights::Weight;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::traits::AtLeast32BitUnsigned;
-use sp_std::prelude::*;
 use sp_weights::WeightMeter;
 
 #[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use {alloc::vec::Vec, sp_runtime::TryRuntimeError};
 
 /// Provides a callback to execute logic before the all inherents.
 pub trait PreInherents {
@@ -680,7 +679,7 @@ mod tests {
 
 	#[test]
 	fn on_idle_round_robin_works() {
-		static mut ON_IDLE_INVOCATION_ORDER: sp_std::vec::Vec<&str> = sp_std::vec::Vec::new();
+		static mut ON_IDLE_INVOCATION_ORDER: alloc::vec::Vec<&str> = alloc::vec::Vec::new();
 
 		struct Test1;
 		struct Test2;

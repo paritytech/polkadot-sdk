@@ -37,7 +37,7 @@ pub struct SubmitParachainHeadsInfo {
 
 /// Helper struct that provides methods for working with the `SubmitParachainHeads` call.
 pub struct SubmitParachainHeadsHelper<T: Config<I>, I: 'static> {
-	_phantom_data: sp_std::marker::PhantomData<(T, I)>,
+	_phantom_data: core::marker::PhantomData<(T, I)>,
 }
 
 impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {

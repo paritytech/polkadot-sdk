@@ -20,7 +20,7 @@ use crate::{
 	inbound_lane::InboundLaneStorage, outbound_lane, weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH,
 	Call, OutboundLanes, RuntimeInboundLaneStorage,
 };
-
+use alloc::vec;
 use bp_messages::{
 	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, DeliveredMessages,
 	InboundLaneData, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
@@ -28,11 +28,11 @@ use bp_messages::{
 };
 use bp_runtime::StorageProofSize;
 use codec::Decode;
+use core::ops::RangeInclusive;
 use frame_benchmarking::{account, benchmarks_instance_pallet};
 use frame_support::weights::Weight;
 use frame_system::RawOrigin;
 use sp_runtime::{traits::TrailingZeroInput, BoundedVec};
-use sp_std::{ops::RangeInclusive, prelude::*};
 
 const SEED: u32 = 0;
 

@@ -41,7 +41,6 @@ use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 use substrate_test_utils::assert_eq_uvec;
 
 #[test]

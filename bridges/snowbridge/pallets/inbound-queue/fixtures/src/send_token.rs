@@ -4,10 +4,10 @@
 // See ethereum client README.md for instructions to generate
 
 use crate::InboundQueueFixture;
+use alloc::vec;
 use hex_literal::hex;
 use snowbridge_beacon_primitives::CompactExecutionHeader;
 use snowbridge_core::inbound::{Log, Message, Proof};
-use sp_std::vec;
 
 pub fn make_send_token_message() -> InboundQueueFixture {
 	InboundQueueFixture {

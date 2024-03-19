@@ -30,7 +30,6 @@ frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", defaul
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 sp-io = { path = "../../../../substrate/primitives/io", default-features = false, optional = true }
 
@@ -54,13 +53,7 @@ serde = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-fuzzing = [
-	"hex-literal",
-	"pallet-timestamp",
-	"serde",
-	"serde_json",
-	"sp-io",
-]
+fuzzing = ["hex-literal", "pallet-timestamp", "serde", "serde_json", "sp-io"]
 std = [
 	"bp-runtime/std",
 	"byte-slice-cast/std",
@@ -79,7 +72,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"ssz_rs/std",
 	'frame-benchmarking/std',
 ]

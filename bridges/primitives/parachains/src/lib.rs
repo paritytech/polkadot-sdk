@@ -19,8 +19,11 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use bp_header_chain::StoredHeaderData;
 
+use alloc::vec::Vec;
 use bp_polkadot_core::{
 	parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId},
 	BlockNumber as RelayBlockNumber, Hash as RelayBlockHash,
@@ -30,11 +33,11 @@ use bp_runtime::{
 	StorageMapKeyProvider,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{Blake2_128Concat, Twox64Concat};
 use scale_info::TypeInfo;
 use sp_core::storage::StorageKey;
 use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
-use sp_std::{marker::PhantomData, prelude::*};
 
 /// Best known parachain head hash.
 #[derive(Clone, Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]

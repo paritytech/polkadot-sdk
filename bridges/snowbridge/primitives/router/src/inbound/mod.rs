@@ -5,6 +5,7 @@
 #[cfg(test)]
 mod tests;
 
+use alloc::vec;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{traits::tokens::Balance as BalanceT, weights::Weight, PalletError};
@@ -12,7 +13,7 @@ use scale_info::TypeInfo;
 use sp_core::{Get, RuntimeDebug, H160};
 use sp_io::hashing::blake2_256;
 use sp_runtime::MultiAddress;
-use sp_std::prelude::*;
+
 use xcm::prelude::{Junction::AccountKey20, *};
 use xcm_executor::traits::ConvertLocation;
 

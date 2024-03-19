@@ -43,7 +43,7 @@
 #![allow(unused_imports)]
 
 use frame_support::{traits::Get, weights::Weight};
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Weights for `pallet_xcm_benchmarks::generic`.
 pub struct WeightInfo<T>(PhantomData<T>);

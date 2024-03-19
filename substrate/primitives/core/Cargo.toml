@@ -34,7 +34,6 @@ zeroize = { version = "1.4.3", default-features = false }
 secrecy = { version = "0.8.0", default-features = false, features = ["alloc"] }
 parking_lot = { version = "0.12.1", optional = true }
 ss58-registry = { version = "1.34.0", default-features = false }
-sp-std = { path = "../std", default-features = false }
 sp-debug-derive = { path = "../debug-derive", default-features = false }
 sp-storage = { path = "../storage", default-features = false }
 sp-externalities = { path = "../externalities", optional = true }
@@ -117,7 +116,6 @@ std = [
 	"sp-debug-derive/std",
 	"sp-externalities/std",
 	"sp-runtime-interface/std",
-	"sp-std/std",
 	"sp-storage/std",
 	"ss58-registry/std",
 	"substrate-bip39/std",

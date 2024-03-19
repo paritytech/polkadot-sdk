@@ -42,6 +42,7 @@
 //! ## Usage
 //!
 //! ```
+//! # extern crate alloc;
 //! use pallet_im_online::{self as im_online};
 //!
 //! #[frame_support::pallet]
@@ -76,12 +77,15 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 pub mod migration;
 mod mock;
 mod tests;
 pub mod weights;
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::*,
@@ -107,7 +111,7 @@ use sp_staking::{
 	offence::{DisableStrategy, Kind, Offence, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
+
 pub use weights::WeightInfo;
 
 pub mod sr25519 {
@@ -196,8 +200,8 @@ enum OffchainErr<BlockNumber> {
 	SubmitTransaction,
 }
 
-impl<BlockNumber: sp_std::fmt::Debug> sp_std::fmt::Debug for OffchainErr<BlockNumber> {
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<BlockNumber: alloc::fmt::Debug> alloc::fmt::Debug for OffchainErr<BlockNumber> {
+	fn fmt(&self, fmt: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		match *self {
 			OffchainErr::TooEarly => write!(fmt, "Too early to send heartbeat."),
 			OffchainErr::WaitingForInclusion(ref block) => {

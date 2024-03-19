@@ -24,15 +24,18 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use weights::WeightInfo;
 pub use weights_ext::WeightInfoExt;
 
+use alloc::vec::Vec;
 use bp_header_chain::{HeaderChain, HeaderChainError};
 use bp_parachains::{parachain_head_storage_key_at_source, ParaInfo, ParaStoredHeaderData};
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain, StorageProofError};
+use core::marker::PhantomData;
 use frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
-use sp_std::{marker::PhantomData, vec::Vec};
 
 #[cfg(feature = "runtime-benchmarks")]
 use bp_parachains::ParaStoredHeaderDataBuilder;
@@ -643,7 +646,7 @@ pub mod pallet {
 		/// Initial pallet owner.
 		pub owner: Option<T::AccountId>,
 		/// Dummy marker.
-		pub phantom: sp_std::marker::PhantomData<I>,
+		pub phantom: core::marker::PhantomData<I>,
 	}
 
 	#[pallet::genesis_build]

@@ -19,6 +19,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{ChainWithMessages, MessageNonce};
 use bp_runtime::{

@@ -59,12 +59,12 @@ fn get_type_param(ty: &syn::Type) -> syn::Type {
 /// Extract the documentation from the provided attributes.
 ///
 /// It takes into account the `no-metadata-docs` feature.
-fn collect_docs(attrs: &[syn::Attribute], crate_: &TokenStream2) -> TokenStream2 {
+fn collect_docs(attrs: &[syn::Attribute]) -> TokenStream2 {
 	if cfg!(feature = "no-metadata-docs") {
-		quote!(#crate_::vec![])
+		quote!(::alloc::vec![])
 	} else {
 		let docs = get_doc_literals(&attrs);
-		quote!(#crate_::vec![ #( #docs, )* ])
+		quote!(::alloc::vec![ #( #docs, )* ])
 	}
 }
 
@@ -127,7 +127,7 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 
 		// String method name including quotes for constructing `v15::RuntimeApiMethodMetadata`.
 		let method_name = signature.ident.to_string();
-		let docs = collect_docs(&method.attrs, &crate_);
+		let docs = collect_docs(&method.attrs);
 
 		// Include the method metadata only if its `cfg` features are enabled.
 		let attrs = filter_cfg_attributes(&method.attrs);
@@ -135,7 +135,7 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 			#( #attrs )*
 			#crate_::metadata_ir::RuntimeApiMethodMetadataIR {
 				name: #method_name,
-				inputs: #crate_::vec![ #( #inputs, )* ],
+				inputs: ::alloc::vec![ #( #inputs, )* ],
 				output: #output,
 				docs: #docs,
 			}
@@ -144,7 +144,7 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 
 	let trait_name_ident = &decl.ident;
 	let trait_name = trait_name_ident.to_string();
-	let docs = collect_docs(&decl.attrs, &crate_);
+	let docs = collect_docs(&decl.attrs);
 	let attrs = filter_cfg_attributes(&decl.attrs);
 	// The trait generics where already extended with `Block: BlockT`.
 	let mut generics = decl.generics.clone();
@@ -171,7 +171,7 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 		{
 			#crate_::metadata_ir::RuntimeApiMetadataIR {
 				name: #trait_name,
-				methods: #crate_::vec![ #( #methods, )* ],
+				methods: ::alloc::vec![ #( #methods, )* ],
 				docs: #docs,
 			}
 		}
@@ -258,8 +258,8 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 		#[doc(hidden)]
 		trait InternalImplRuntimeApis {
 			#[inline(always)]
-			fn runtime_metadata(&self) -> #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
-				#crate_::vec![ #( #metadata, )* ]
+			fn runtime_metadata(&self) -> ::alloc::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
+				::alloc::vec![ #( #metadata, )* ]
 			}
 		}
 		#[doc(hidden)]

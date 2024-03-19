@@ -42,6 +42,7 @@
 //! ### Example - Get random seed for the current block
 //!
 //! ```
+//! # extern crate alloc;
 //! use frame_support::traits::Randomness;
 //!
 //! #[frame_support::pallet]
@@ -69,6 +70,8 @@
 //! ```
 
 #![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
 
 use safe_mix::TripletMix;
 

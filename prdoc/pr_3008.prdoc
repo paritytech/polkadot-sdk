@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: remove sp-std
+
+doc:
+  - audience: Node Dev
+    description: |
+      The types in alloc and core now cover everything that sp-std was doing.
+      The crate is now superflous and removing it makes things easier to understand
+      for new joiners to the project. 
+
+crates: [ ]

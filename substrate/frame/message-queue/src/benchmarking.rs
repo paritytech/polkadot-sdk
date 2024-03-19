@@ -26,7 +26,6 @@ use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use sp_io::hashing::blake2_256;
-use sp_std::prelude::*;
 
 #[benchmarks(
 	where

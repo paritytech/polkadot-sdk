@@ -110,7 +110,6 @@ impl ToTokens for DocMetaValue {
 /// Unlike the `doc` attribute, the documentation provided to the `proc_macro` attribute is
 /// not added to the pallet.
 pub fn expand_documentation(def: &mut Def) -> proc_macro2::TokenStream {
-	let frame_support = &def.frame_support;
 	let type_impl_gen = &def.type_impl_generics(proc_macro2::Span::call_site());
 	let type_use_gen = &def.type_use_generics(proc_macro2::Span::call_site());
 	let pallet_ident = &def.pallet_struct.pallet;
@@ -163,9 +162,9 @@ pub fn expand_documentation(def: &mut Def) -> proc_macro2::TokenStream {
 
 			#[doc(hidden)]
 			pub fn pallet_documentation_metadata()
-				-> #frame_support::__private::sp_std::vec::Vec<&'static str>
+				-> alloc::vec::Vec<&'static str>
 			{
-				#frame_support::__private::sp_std::vec![ #( #docs ),* ]
+				alloc::vec![ #( #docs ),* ]
 			}
 		}
 	)

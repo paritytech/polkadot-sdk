@@ -19,6 +19,7 @@
 //! pallet.
 
 use crate::{PropIndex, Voting, DEMOCRACY_ID};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use core::iter::Sum;
 use frame_support::{
 	pallet_prelude::ValueQuery,
@@ -29,7 +30,6 @@ use frame_support::{
 };
 use sp_core::Get;
 use sp_runtime::{traits::Zero, BoundedVec, Saturating};
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 const LOG_TARGET: &str = "runtime::democracy::migrations::unlock_and_unreserve_all_funds";
 
@@ -87,7 +87,7 @@ type VotingOf<T: UnlockConfig> = StorageMap<
 /// The pallet should be made inoperable before this migration is run.
 ///
 /// (See also [`RemovePallet`][frame_support::migrations::RemovePallet])
-pub struct UnlockAndUnreserveAllFunds<T: UnlockConfig>(sp_std::marker::PhantomData<T>);
+pub struct UnlockAndUnreserveAllFunds<T: UnlockConfig>(core::marker::PhantomData<T>);
 
 impl<T: UnlockConfig> UnlockAndUnreserveAllFunds<T> {
 	/// Calculates and returns the total amounts reserved by each account by this pallet, and all
@@ -170,8 +170,8 @@ where
 	/// the actual total reserved amount for any accounts.
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		use alloc::collections::btree_set::BTreeSet;
 		use codec::Encode;
-		use sp_std::collections::btree_set::BTreeSet;
 
 		// Get staked and deposited balances as reported by this pallet.
 		let (account_deposits, account_locks, _) = Self::get_account_deposits_and_locks();

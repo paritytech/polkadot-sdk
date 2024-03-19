@@ -20,8 +20,8 @@
 use super::super::imbalance::Imbalance;
 use crate::traits::misc::SameOrOther;
 use codec::FullCodec;
+use core::fmt::Debug;
 use sp_runtime::traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize};
-use sp_std::fmt::Debug;
 
 /// Either a positive or a negative imbalance.
 pub enum SignedImbalance<B, PositiveImbalance: Imbalance<B>> {

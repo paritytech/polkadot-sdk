@@ -30,7 +30,6 @@ use sp_runtime::{
 	traits::{Get, Hash, IdentityLookup},
 	AccountId32,
 };
-use sp_std::prelude::*;
 
 use pallet_xcm::XcmPassthrough;
 use polkadot_core_primitives::BlockNumber as RelayBlockNumber;
@@ -154,7 +153,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
 	fn try_origin(
 		o: RuntimeOrigin,
 		a: &Location,
-	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
+	) -> core::result::Result<Self::Success, RuntimeOrigin> {
 		let origin_location = pallet_xcm::EnsureXcm::<Everything>::try_origin(o.clone())?;
 		if !a.starts_with(&origin_location) {
 			return Err(o)

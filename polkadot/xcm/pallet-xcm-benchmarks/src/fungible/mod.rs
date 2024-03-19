@@ -16,6 +16,8 @@
 
 // Benchmarking for the `AssetTransactor` trait via `Fungible`.
 
+extern crate alloc;
+
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]

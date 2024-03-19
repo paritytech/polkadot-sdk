@@ -18,7 +18,6 @@ frame-support = { path = "../../../substrate/frame/support", default-features = 
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-size-hostfunction", default-features = false }
@@ -41,6 +40,5 @@ std = [
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-trie/std",
 ]

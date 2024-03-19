@@ -18,6 +18,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![doc = include_str!("../README.md")]
 
+extern crate alloc;
+
 pub use pallet::*;
 
 mod adapt_price;
@@ -47,6 +49,7 @@ pub use types::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
@@ -57,7 +60,6 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack};
-	use sp_std::vec::Vec;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);

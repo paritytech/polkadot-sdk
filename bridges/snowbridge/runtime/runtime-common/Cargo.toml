@@ -16,7 +16,6 @@ log = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
@@ -35,7 +34,6 @@ std = [
 	"log/std",
 	"snowbridge-core/std",
 	"sp-arithmetic/std",
-	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

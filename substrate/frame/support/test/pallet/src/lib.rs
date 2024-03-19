@@ -20,6 +20,8 @@
 // Ensure docs are propagated properly by the macros.
 #![warn(missing_docs)]
 
+extern crate alloc;
+
 pub use pallet::*;
 
 #[frame_support::pallet]

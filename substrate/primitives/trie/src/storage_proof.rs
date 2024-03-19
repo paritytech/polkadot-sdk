@@ -15,9 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec::Vec},
+};
+use {
+	alloc::{collections::btree_set::BTreeSet},
+};
 use codec::{Decode, Encode};
-use core::iter::{DoubleEndedIterator, IntoIterator};
 use hash_db::{HashDB, Hasher};
 use scale_info::TypeInfo;
 

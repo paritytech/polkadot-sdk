@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate alloc;
+
 use codec::Encode;
 use frame_support::{derive_impl, storage::unhashed, StoragePrefixedMap};
 use frame_system::pallet_prelude::BlockNumberFor;

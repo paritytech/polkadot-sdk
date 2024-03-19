@@ -22,7 +22,6 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core" }
@@ -39,7 +38,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

@@ -20,9 +20,12 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use crate::justification::{
 	GrandpaJustification, JustificationVerificationContext, JustificationVerificationError,
 };
+use alloc::{boxed::Box, vec::Vec};
 use bp_runtime::{
 	BasicOperatingMode, Chain, HashOf, HasherOf, HeaderOf, RawStorageProof, StorageProofChecker,
 	StorageProofError, UnderlyingChainProvider,
@@ -34,7 +37,6 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_consensus_grandpa::{AuthorityList, ConsensusLog, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{traits::Header as HeaderT, Digest, RuntimeDebug};
-use sp_std::{boxed::Box, vec::Vec};
 
 pub mod justification;
 pub mod storage_keys;
@@ -143,7 +145,7 @@ pub trait ConsensusLogReader {
 }
 
 /// A struct that provides helper methods for querying the GRANDPA consensus log.
-pub struct GrandpaConsensusLogReader<Number>(sp_std::marker::PhantomData<Number>);
+pub struct GrandpaConsensusLogReader<Number>(core::marker::PhantomData<Number>);
 
 impl<Number: Codec> GrandpaConsensusLogReader<Number> {
 	/// Find and return scheduled (regular) change digest item.

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use snowbridge_beacon_primitives::CompactExecutionHeader;
 use snowbridge_core::inbound::Message;
 use sp_core::RuntimeDebug;

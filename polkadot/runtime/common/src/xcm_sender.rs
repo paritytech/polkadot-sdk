@@ -16,6 +16,10 @@
 
 //! XCM sender for relay chain.
 
+#[cfg(feature = "runtime-benchmarks")]
+use alloc::vec;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
 use parity_scale_codec::Encode;
@@ -25,7 +29,6 @@ use runtime_parachains::{
 	dmp, FeeTracker,
 };
 use sp_runtime::FixedPointNumber;
-use sp_std::{marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use SendError::*;
 
@@ -55,7 +58,7 @@ impl<Id> PriceForMessageDelivery for NoPriceForMessageDelivery<Id> {
 }
 
 /// Implementation of [`PriceForMessageDelivery`] which returns a fixed price.
-pub struct ConstantPrice<T>(sp_std::marker::PhantomData<T>);
+pub struct ConstantPrice<T>(core::marker::PhantomData<T>);
 impl<T: Get<Assets>> PriceForMessageDelivery for ConstantPrice<T> {
 	type Id = ();
 
@@ -78,7 +81,7 @@ impl<T: Get<Assets>> PriceForMessageDelivery for ConstantPrice<T> {
 /// - `B`: The base fee to pay for message delivery.
 /// - `M`: The fee to pay for each and every byte of the message after encoding it.
 /// - `F`: A fee factor multiplier. It can be understood as the exponent term in the formula.
-pub struct ExponentialPrice<A, B, M, F>(sp_std::marker::PhantomData<(A, B, M, F)>);
+pub struct ExponentialPrice<A, B, M, F>(core::marker::PhantomData<(A, B, M, F)>);
 impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForMessageDelivery
 	for ExponentialPrice<A, B, M, F>
 {
@@ -148,7 +151,7 @@ pub struct ToParachainDeliveryHelper<
 	ParaId,
 	ToParaIdHelper,
 >(
-	sp_std::marker::PhantomData<(
+	core::marker::PhantomData<(
 		XcmConfig,
 		ExistentialDeposit,
 		PriceForDelivery,

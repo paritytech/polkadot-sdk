@@ -303,6 +303,9 @@
 //!   [`frame::pallet_macros`].
 
 #[docify::export]
+extern crate alloc;
+
+#[docify::export]
 #[frame::pallet(dev_mode)]
 pub mod shell_pallet {
 	use frame::prelude::*;
@@ -418,6 +421,7 @@ pub mod pallet {
 	#[cfg(any(test, doc))]
 	pub(crate) mod tests {
 		use crate::guides::your_first_pallet::pallet::*;
+		use alloc::vec::Vec;
 		use frame::testing_prelude::*;
 		const ALICE: u64 = 1;
 		const BOB: u64 = 2;

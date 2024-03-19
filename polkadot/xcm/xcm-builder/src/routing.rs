@@ -16,9 +16,9 @@
 
 //! Various implementations for `SendXcm`.
 
+use core::{marker::PhantomData, result::Result};
 use frame_system::unique;
 use parity_scale_codec::Encode;
-use sp_std::{marker::PhantomData, result::Result};
 use xcm::prelude::*;
 use xcm_executor::{traits::FeeReason, FeesMode};
 

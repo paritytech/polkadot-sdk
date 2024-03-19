@@ -15,7 +15,6 @@ futures = "0.3.28"
 
 # Substrate
 sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 sp-timestamp = { path = "../../../substrate/primitives/timestamp", default-features = false }
 
 # Cumulus
@@ -27,6 +26,5 @@ std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"sp-inherents/std",
-	"sp-std/std",
 	"sp-timestamp/std",
 ]

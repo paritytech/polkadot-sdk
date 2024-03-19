@@ -30,13 +30,13 @@ pub use verification::{
 	PrecommitError,
 };
 
+use alloc::vec::Vec;
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HeaderId};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::RuntimeDebugNoBound;
 use scale_info::TypeInfo;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature};
 use sp_runtime::{traits::Header as HeaderT, RuntimeDebug, SaturatedConversion};
-use sp_std::prelude::*;
 
 /// A GRANDPA Justification is a proof that a given header was finalized
 /// at a certain height and with a certain set of authorities.

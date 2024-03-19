@@ -25,7 +25,6 @@ serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 thiserror = { optional = true, workspace = true }
 sp-crypto-hashing-proc-macro = { path = "../crypto/hashing/proc-macro" }
 sp-runtime = { path = "../runtime", default-features = false }
-sp-std = { path = "../std", default-features = false }
 sp-version-proc-macro = { path = "proc-macro", default-features = false }
 
 [features]
@@ -37,7 +36,6 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"thiserror",
 ]
 

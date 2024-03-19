@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate alloc;
+
 use frame_election_provider_solution_type::generate_solution_type;
 use honggfuzz::fuzz;
 use sp_arithmetic::Percent;

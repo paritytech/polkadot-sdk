@@ -22,12 +22,15 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub mod migration;
 mod mock;
 mod tests;
 
 use core::marker::PhantomData;
 
+use alloc::vec::Vec;
 use codec::Encode;
 use frame_support::weights::Weight;
 use sp_runtime::{traits::Hash, Perbill};
@@ -35,7 +38,6 @@ use sp_staking::{
 	offence::{Kind, Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 
 pub use pallet::*;
 

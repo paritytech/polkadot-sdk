@@ -17,13 +17,13 @@
 //! Adapters to work with [`frame_support::traits::fungible`] through XCM.
 
 use super::MintLocation;
+use core::{marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
 		fungible, Fortitude::Polite, Precision::Exact, Preservation::Preserve, Provenance::Minted,
 	},
 	Get,
 };
-use sp_std::{marker::PhantomData, prelude::*, result};
 use xcm::latest::prelude::*;
 use xcm_executor::{
 	traits::{ConvertLocation, Error as MatchError, MatchesFungible, TransactAsset},

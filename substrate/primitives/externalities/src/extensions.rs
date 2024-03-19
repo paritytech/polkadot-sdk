@@ -23,14 +23,12 @@
 //! It is required that each extension implements the [`Extension`] trait.
 
 use crate::Error;
+#[cfg(not(feature = "std"))]
 use alloc::{
-	boxed::Box,
-	collections::btree_map::{BTreeMap, Entry},
-};
-use core::{
-	any::{Any, TypeId},
-	ops::DerefMut,
-};
+		boxed::Box,
+	};
+use alloc::collections::btree_map::{BTreeMap, Entry};
+use core::{any::{Any, TypeId}, ops::DerefMut};
 
 /// Marker trait for types that should be registered as [`Externalities`](crate::Externalities)
 /// extension.

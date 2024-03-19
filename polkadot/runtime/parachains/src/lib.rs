@@ -23,6 +23,8 @@
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "256")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub mod assigner_coretime;
 pub mod assigner_on_demand;
 pub mod assigner_parachains;

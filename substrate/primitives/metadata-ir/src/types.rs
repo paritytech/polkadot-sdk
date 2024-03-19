@@ -18,9 +18,10 @@
 use codec::Encode;
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
-	prelude::vec::Vec,
 	IntoPortable, MetaType, Registry,
 };
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 /// The intermediate representation for the runtime metadata.
 /// Contains the needed context that allows conversion to multiple metadata versions.

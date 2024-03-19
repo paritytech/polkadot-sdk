@@ -22,13 +22,13 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
+use alloc::vec::Vec;
 #[cfg(feature = "full_crypto")]
 use schnorrkel::signing_context;
 use schnorrkel::{
 	derive::{ChainCode, Derivation, CHAIN_CODE_LENGTH},
 	ExpansionMode, Keypair, MiniSecretKey, PublicKey, SecretKey,
 };
-use sp_std::vec::Vec;
 
 use crate::{
 	crypto::{
@@ -38,15 +38,15 @@ use crate::{
 	hash::{H256, H512},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::ops::Deref;
 use scale_info::TypeInfo;
-use sp_std::ops::Deref;
 
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::{format, string::String};
 use schnorrkel::keys::{MINI_SECRET_KEY_LENGTH, SECRET_KEY_LENGTH};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime_interface::pass_by::PassByInner;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
 
 // signing context
 const SIGNING_CTX: &[u8] = b"substrate";
@@ -171,15 +171,15 @@ impl std::fmt::Display for Public {
 	}
 }
 
-impl sp_std::fmt::Debug for Public {
+impl alloc::fmt::Debug for Public {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		let s = self.to_ss58check();
 		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		Ok(())
 	}
 }
@@ -291,14 +291,14 @@ impl From<schnorrkel::Signature> for Signature {
 	}
 }
 
-impl sp_std::fmt::Debug for Signature {
+impl alloc::fmt::Debug for Signature {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		Ok(())
 	}
 }

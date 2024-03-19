@@ -4,13 +4,15 @@
 // See README.md for instructions to generate
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, updates::AncestryProof, BeaconHeader, ExecutionHeaderUpdate,
 	NextSyncCommitteeUpdate, SyncAggregate, SyncCommittee, VersionedExecutionPayloadHeader,
 };
 use sp_core::U256;
-use sp_std::{boxed::Box, vec};
 
 const SC_SIZE: usize = 512;
 const SC_BITS_SIZE: usize = 64;

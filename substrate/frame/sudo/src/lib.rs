@@ -43,6 +43,7 @@
 //! Here's an example of a privileged function in another pallet:
 //!
 //! ```
+//! # extern crate alloc;
 //! #[frame_support::pallet]
 //! pub mod pallet {
 //! 	use super::*;
@@ -121,10 +122,13 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use sp_runtime::{traits::StaticLookup, DispatchResult};
-use sp_std::prelude::*;
 
 use frame_support::{dispatch::GetDispatchInfo, traits::UnfilteredDispatchable};
+
+use alloc::boxed::Box;
 
 mod extension;
 #[cfg(test)]

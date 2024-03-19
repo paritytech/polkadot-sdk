@@ -5,6 +5,8 @@
 //! Common traits and types
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod tests;
 
@@ -20,6 +22,7 @@ pub use polkadot_parachain_primitives::primitives::{
 pub use ringbuffer::{RingBufferMap, RingBufferMapImpl};
 pub use sp_core::U256;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::Contains;
 use hex_literal::hex;
@@ -27,7 +30,7 @@ use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
-use sp_std::prelude::*;
+
 use xcm::prelude::{Junction::Parachain, Location};
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
 

@@ -20,7 +20,6 @@ frame-system = { path = "../../../substrate/frame/system", default-features = fa
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
 
 # Polkadot
@@ -70,7 +69,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

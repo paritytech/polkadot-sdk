@@ -5,15 +5,17 @@
 //! Common traits and types shared by runtimes.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod tests;
 
+use alloc::fmt::Debug;
 use codec::FullCodec;
 use core::marker::PhantomData;
 use frame_support::traits::Get;
 use snowbridge_core::outbound::SendMessageFeeProvider;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
-use sp_std::fmt::Debug;
 use xcm::prelude::*;
 use xcm_builder::HandleFee;
 use xcm_executor::traits::{FeeReason, TransactAsset};

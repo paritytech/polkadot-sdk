@@ -26,9 +26,9 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, CodeHash, Config, Determinism, HoldReason, Pallet, Weight, LOG_TARGET,
 };
-use codec::{Decode, Encode};
 #[cfg(feature = "try-runtime")]
-use environmental::Vec;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use codec::{Decode, Encode};
 #[cfg(feature = "try-runtime")]
 use frame_support::traits::fungible::{Inspect, InspectHold};
 use frame_support::{
@@ -41,8 +41,6 @@ use sp_core::hexdisplay::HexDisplay;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_runtime::{traits::Zero, Saturating};
-#[cfg(feature = "try-runtime")]
-use sp_std::collections::btree_map::BTreeMap;
 
 mod v13 {
 	use super::*;
@@ -80,7 +78,6 @@ where
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId> + 'static,
 {
 	use sp_runtime::traits::Hash;
-	use sp_std::vec;
 
 	let len = T::MaxCodeLen::get();
 	let code = vec![42u8; len as usize];

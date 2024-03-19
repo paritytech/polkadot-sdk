@@ -40,4 +40,8 @@ std = [
 	"serde/std",
 	"sp-weights/std",
 ]
-json-schema = ["bounded-collections/json-schema", "dep:schemars", "sp-weights/json-schema"]
+json-schema = [
+	"bounded-collections/json-schema",
+	"dep:schemars",
+	"sp-weights/json-schema",
+]

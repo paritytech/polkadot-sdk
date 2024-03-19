@@ -31,7 +31,6 @@ frame-metadata = { version = "16.0.0", default-features = false, features = [
 sp-api = { path = "../../primitives/api", default-features = false, features = [
 	"frame-metadata",
 ] }
-sp-std = { path = "../../primitives/std", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = [
 	"serde",
@@ -94,7 +93,6 @@ std = [
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-timestamp/std",
 	"sp-tracing/std",
 	"sp-weights/std",

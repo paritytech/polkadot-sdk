@@ -19,7 +19,10 @@
 //! Simple Ed25519 API.
 // end::description[]
 
-use sp_std::vec::Vec;
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec::Vec},
+};
 
 use crate::{
 	crypto::ByteArray,
@@ -34,15 +37,13 @@ use crate::crypto::{
 	CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, FromEntropy, Pair as TraitPair,
 	Public as TraitPublic, SecretStringError, UncheckedFrom,
 };
-#[cfg(feature = "full_crypto")]
-use core::convert::TryFrom;
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::{format, string::String};
+use core::ops::Deref;
 use ed25519_zebra::{SigningKey, VerificationKey};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime_interface::pass_by::PassByInner;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
-use sp_std::ops::Deref;
 
 /// An identifier used to match public keys against ed25519 keys
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ed25");
@@ -170,15 +171,15 @@ impl std::fmt::Display for Public {
 	}
 }
 
-impl sp_std::fmt::Debug for Public {
+impl alloc::fmt::Debug for Public {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		let s = self.to_ss58check();
 		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		Ok(())
 	}
 }
@@ -283,14 +284,14 @@ impl AsMut<[u8]> for Signature {
 	}
 }
 
-impl sp_std::fmt::Debug for Signature {
+impl alloc::fmt::Debug for Signature {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		Ok(())
 	}
 }

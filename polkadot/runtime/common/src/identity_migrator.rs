@@ -172,6 +172,7 @@ impl<AccountId> OnReapIdentity<AccountId> for () {
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+	use alloc::{boxed::Box, vec::Vec};
 	use frame_support::traits::EnsureOrigin;
 	use frame_system::RawOrigin;
 	use pallet_identity::{Data, IdentityInformationProvider, Judgement, Pallet as Identity};
@@ -180,7 +181,6 @@ mod benchmarks {
 		traits::{Bounded, Hash, StaticLookup},
 		Saturating,
 	};
-	use sp_std::{boxed::Box, vec::Vec, *};
 
 	const SEED: u32 = 0;
 

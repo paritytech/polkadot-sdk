@@ -34,7 +34,6 @@ pallet-staking-reward-curve = { path = "../staking/reward-curve" }
 
 sp-core = { path = "../../primitives/core" }
 sp-io = { path = "../../primitives/io", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 
 frame-election-provider-support = { path = "../election-provider-support" }
 
@@ -74,5 +73,4 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 ]

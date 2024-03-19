@@ -30,6 +30,7 @@ use crate::{
 	},
 };
 
+use alloc::vec;
 use bp_messages::MessagePayload;
 use bp_polkadot_core::parachains::ParaHash;
 use bp_runtime::{Chain, Parachain, StorageProofSize, UnderlyingChainOf};
@@ -37,7 +38,6 @@ use codec::Encode;
 use frame_support::weights::Weight;
 use pallet_bridge_messages::benchmarking::{MessageDeliveryProofParams, MessageProofParams};
 use sp_runtime::traits::{Header, Zero};
-use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 
 /// Prepare inbound bridge message according to given message proof parameters.

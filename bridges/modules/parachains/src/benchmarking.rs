@@ -20,12 +20,11 @@ use crate::{
 	weights_ext::DEFAULT_PARACHAIN_HEAD_SIZE, Call, RelayBlockHash, RelayBlockHasher,
 	RelayBlockNumber,
 };
-
+use alloc::{vec, vec::Vec};
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use bp_runtime::StorageProofSize;
 use frame_benchmarking::{account, benchmarks_instance_pallet};
 use frame_system::RawOrigin;
-use sp_std::prelude::*;
 
 /// Pallet we're benchmarking here.
 pub struct Pallet<T: Config<I>, I: 'static = ()>(crate::Pallet<T, I>);

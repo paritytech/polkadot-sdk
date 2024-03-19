@@ -54,18 +54,15 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 mod tests;
 
 pub mod migrations;
 pub mod weights;
 
-use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, Hash, StaticLookup, TrailingZeroInput, Zero},
-	Percent, RuntimeDebug,
-};
-use sp_std::prelude::*;
-
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
@@ -76,6 +73,10 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use sp_runtime::{
+	traits::{AccountIdConversion, BadOrigin, Hash, StaticLookup, TrailingZeroInput, Zero},
+	Percent, RuntimeDebug,
+};
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;

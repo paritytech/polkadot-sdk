@@ -21,7 +21,6 @@ frame-system = { path = "../../../substrate/frame/system", default-features = fa
 sp-core = { path = "../../../substrate/primitives/core", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
@@ -51,7 +50,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

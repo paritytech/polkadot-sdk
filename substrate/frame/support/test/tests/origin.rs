@@ -19,6 +19,8 @@
 
 #![recursion_limit = "128"]
 
+extern crate alloc;
+
 use frame_support::{
 	derive_impl,
 	traits::{Contains, OriginTrait},
@@ -66,7 +68,7 @@ mod nested {
 		#[derive(frame_support::DefaultNoBound)]
 		pub struct GenesisConfig<T: Config> {
 			#[serde(skip)]
-			pub _config: sp_std::marker::PhantomData<T>,
+			pub _config: core::marker::PhantomData<T>,
 		}
 
 		#[pallet::genesis_build]
@@ -136,7 +138,7 @@ pub mod module {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

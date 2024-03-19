@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate alloc;
+
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, dispatch::DispatchResult, ensure,
 	pallet_prelude::ConstU32, storage::with_storage_layer,

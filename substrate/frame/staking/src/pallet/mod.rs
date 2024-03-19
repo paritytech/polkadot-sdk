@@ -17,6 +17,7 @@
 
 //! Staking FRAME Pallet.
 
+use alloc::{vec, vec::Vec};
 use codec::Codec;
 use frame_election_provider_support::{
 	ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
@@ -35,12 +36,10 @@ use sp_runtime::{
 	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
-
 use sp_staking::{
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 };
-use sp_std::prelude::*;
 
 mod impls;
 
@@ -98,7 +97,7 @@ pub mod pallet {
 			+ codec::FullCodec
 			+ Copy
 			+ MaybeSerializeDeserialize
-			+ sp_std::fmt::Debug
+			+ alloc::fmt::Debug
 			+ Default
 			+ From<u64>
 			+ TypeInfo

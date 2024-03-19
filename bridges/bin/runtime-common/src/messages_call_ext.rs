@@ -22,13 +22,13 @@ use crate::messages::{
 };
 use bp_messages::{target_chain::MessageDispatch, InboundLaneData, LaneId, MessageNonce};
 use bp_runtime::OwnedBridgeModule;
+use core::ops::RangeInclusive;
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
 };
 use pallet_bridge_messages::{Config, Pallet};
 use sp_runtime::{transaction_validity::TransactionValidity, RuntimeDebug};
-use sp_std::ops::RangeInclusive;
 
 /// Generic info about a messages delivery/confirmation proof.
 #[derive(PartialEq, RuntimeDebug)]
@@ -137,7 +137,7 @@ impl CallInfo {
 
 /// Helper struct that provides methods for working with a call supported by `CallInfo`.
 pub struct CallHelper<T: Config<I>, I: 'static> {
-	_phantom_data: sp_std::marker::PhantomData<(T, I)>,
+	_phantom_data: core::marker::PhantomData<(T, I)>,
 }
 
 impl<T: Config<I>, I: 'static> CallHelper<T, I> {
@@ -368,7 +368,7 @@ mod tests {
 		},
 	};
 	use bp_messages::{DeliveredMessages, UnrewardedRelayer, UnrewardedRelayersState};
-	use sp_std::ops::RangeInclusive;
+	use core::ops::RangeInclusive;
 
 	fn fill_unrewarded_relayers() {
 		let mut inbound_lane_state =

@@ -17,6 +17,8 @@
 
 //! Tests for the Westmint (Westend Assets Hub) chain.
 
+extern crate alloc;
+
 use asset_hub_westend_runtime::{
 	xcm_config,
 	xcm_config::{
@@ -1252,7 +1254,7 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 		collator_session_keys(),
 		bridging_to_asset_hub_rococo,
 		|| {
-			sp_std::vec![
+			alloc::vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				Transact {
 					origin_kind: OriginKind::Xcm,
@@ -1271,7 +1273,7 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 			.into()
 		},
 		|| {
-			sp_std::vec![
+			alloc::vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				Transact {
 					origin_kind: OriginKind::Xcm,

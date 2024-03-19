@@ -19,6 +19,8 @@
 //! This crate contains the code necessary to gather basic hardware
 //! and software telemetry information about the node on which we're running.
 
+extern crate alloc;
+
 use futures::prelude::*;
 use std::time::Duration;
 

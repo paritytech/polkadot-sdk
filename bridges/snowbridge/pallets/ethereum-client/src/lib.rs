@@ -19,6 +19,8 @@
 //!   that can be verified against an already imported finalized beacon header.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub mod config;
 pub mod functions;
 pub mod impls;
@@ -45,7 +47,7 @@ use primitives::{
 };
 use snowbridge_core::{BasicOperatingMode, RingBufferMap};
 use sp_core::H256;
-use sp_std::prelude::*;
+
 pub use weights::WeightInfo;
 
 use functions::{

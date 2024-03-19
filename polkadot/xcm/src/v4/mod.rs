@@ -22,10 +22,12 @@ use super::v3::{
 	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
 };
 use crate::DoubleEncoded;
-use alloc::{vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec, vec::Vec},
+};
 use bounded_collections::{parameter_types, BoundedVec};
 use core::{
-	convert::{TryFrom, TryInto},
 	fmt::Debug,
 	result,
 };

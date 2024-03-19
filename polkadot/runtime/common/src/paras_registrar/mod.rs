@@ -19,6 +19,9 @@
 
 pub mod migration;
 
+use crate::traits::{OnSwap, Registrar};
+use alloc::{vec, vec::Vec};
+use core::result;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -26,23 +29,19 @@ use frame_support::{
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
+use parity_scale_codec::{Decode, Encode};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
 use runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, ParaGenesisArgs, SetGoAhead},
+	paras::{self, OnNewHead, ParaGenesisArgs, ParaKind, SetGoAhead},
 	Origin, ParaLifecycle,
 };
-use sp_std::{prelude::*, result};
-
-use crate::traits::{OnSwap, Registrar};
-pub use pallet::*;
-use parity_scale_codec::{Decode, Encode};
-use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
 	RuntimeDebug,
 };
+pub use pallet::*;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {
@@ -208,7 +207,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 		pub next_free_para_id: ParaId,
 	}
 
@@ -704,6 +703,7 @@ mod tests {
 	use crate::{
 		mock::conclude_pvf_checking, paras_registrar, traits::Registrar as RegistrarTrait,
 	};
+	use alloc::collections::btree_map::BTreeMap;
 	use frame_support::{
 		assert_noop, assert_ok, derive_impl,
 		error::BadOrigin,
@@ -722,7 +722,6 @@ mod tests {
 		transaction_validity::TransactionPriority,
 		BuildStorage, Perbill,
 	};
-	use sp_std::collections::btree_map::BTreeMap;
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlockU32<Test>;

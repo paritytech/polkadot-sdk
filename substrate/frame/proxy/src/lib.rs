@@ -29,10 +29,13 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 mod tests;
 pub mod weights;
 
+use alloc::vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::GetDispatchInfo,
@@ -47,7 +50,7 @@ use sp_runtime::{
 	traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
 	DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::prelude::*;
+
 pub use weights::WeightInfo;
 
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;

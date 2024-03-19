@@ -140,6 +140,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 pub mod migration;
@@ -157,13 +159,7 @@ mod impl_stored_map;
 mod types;
 pub use types::*;
 
-use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub, Saturating, StaticLookup, Zero},
-	ArithmeticError, DispatchError, TokenError,
-};
-use sp_std::prelude::*;
-
+use alloc::vec::Vec;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -176,6 +172,11 @@ use frame_support::{
 	},
 };
 use frame_system::Config as SystemConfig;
+use scale_info::TypeInfo;
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub, Saturating, StaticLookup, Zero},
+	ArithmeticError, DispatchError, TokenError,
+};
 
 pub use pallet::*;
 pub use weights::WeightInfo;

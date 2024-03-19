@@ -27,9 +27,15 @@ use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
 	Public as TraitPublic, SecretStringError, UncheckedFrom,
 };
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::{format, string::String};
 
 #[cfg(not(feature = "std"))]
-use k256::ecdsa::{SigningKey as SecretKey, VerifyingKey};
+use {
+	k256::ecdsa::{SigningKey as SecretKey, VerifyingKey},
+	alloc::vec::Vec,
+};
+
 #[cfg(feature = "std")]
 use secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
@@ -37,10 +43,6 @@ use secp256k1::{
 };
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
-#[cfg(not(feature = "std"))]
-use sp_std::vec::Vec;
 
 /// An identifier used to match public keys against ecdsa keys
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecds");
@@ -182,7 +184,7 @@ impl std::fmt::Display for Public {
 	}
 }
 
-impl sp_std::fmt::Debug for Public {
+impl alloc::fmt::Debug for Public {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		let s = self.to_ss58check();
@@ -190,7 +192,7 @@ impl sp_std::fmt::Debug for Public {
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		Ok(())
 	}
 }
@@ -299,14 +301,14 @@ impl AsMut<[u8]> for Signature {
 	}
 }
 
-impl sp_std::fmt::Debug for Signature {
+impl alloc::fmt::Debug for Signature {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		Ok(())
 	}
 }

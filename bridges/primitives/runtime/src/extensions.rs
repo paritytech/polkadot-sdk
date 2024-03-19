@@ -16,14 +16,15 @@
 
 //! Primitives that may be used for creating signed extensions for indirect runtimes.
 
+use alloc::fmt::Debug;
 use codec::{Compact, Decode, Encode};
+use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{DispatchInfoOf, SignedExtension},
 	transaction_validity::TransactionValidityError,
 };
-use sp_std::{fmt::Debug, marker::PhantomData};
 
 /// Trait that describes some properties of a `SignedExtension` that are needed in order to send a
 /// transaction to the chain.

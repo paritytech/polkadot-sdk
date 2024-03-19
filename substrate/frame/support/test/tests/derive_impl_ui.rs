@@ -18,6 +18,8 @@
 #![cfg(not(feature = "disable-ui-tests"))]
 #![cfg(test)]
 
+extern crate alloc;
+
 #[rustversion::attr(not(stable), ignore)]
 #[test]
 fn derive_impl_ui() {

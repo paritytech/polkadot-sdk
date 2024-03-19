@@ -49,7 +49,6 @@ sp-api = { path = "../../primitives/api", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
@@ -98,7 +97,6 @@ std = [
 	"sp-io/std",
 	"sp-keystore/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"wasm-instrument?/std",
 	"wasmi/std",
 	"xcm-builder/std",

@@ -32,6 +32,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -46,7 +48,6 @@ pub use weights::WeightInfo;
 
 use frame_support::{traits::schedule::DispatchTime, BoundedVec};
 use sp_core::ConstU32;
-use sp_std::prelude::*;
 
 /// IPFS compatible CID.
 // Worst case 2 bytes base and codec, 2 bytes hash type and size, 64 bytes hash digest.

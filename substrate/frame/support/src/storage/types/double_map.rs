@@ -26,11 +26,11 @@ use crate::{
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 	StorageHasher, Twox128,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
-use sp_std::prelude::*;
 
 /// A type representing a *double map* in storage. This structure associates a pair of keys with a
 /// value of a specified type stored on-chain.
@@ -51,6 +51,7 @@ use sp_std::prelude::*;
 /// ### Kitchen-sink
 ///
 /// ```
+/// # extern crate alloc;
 /// #[frame_support::pallet]
 /// mod pallet {
 /// # 	use frame_support::pallet_prelude::*;

@@ -26,6 +26,8 @@ mod v_coretime {
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
 		paras,
 	};
+	use alloc::{vec, vec::Vec};
+	use core::{iter, result};
 	#[cfg(feature = "try-runtime")]
 	use frame_support::ensure;
 	use frame_support::{
@@ -43,9 +45,6 @@ mod v_coretime {
 	use sp_arithmetic::traits::SaturatedConversion;
 	use sp_core::Get;
 	use sp_runtime::BoundedVec;
-	#[cfg(feature = "try-runtime")]
-	use sp_std::vec::Vec;
-	use sp_std::{iter, prelude::*, result};
 	use xcm::v4::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
 
 	/// Return information about a legacy lease of a parachain.
@@ -59,7 +58,7 @@ mod v_coretime {
 	/// This assumes that the `Coretime` and the `AssignerCoretime` pallets are added at the same
 	/// time to a runtime.
 	pub struct MigrateToCoretime<T, SendXcm, LegacyLease>(
-		sp_std::marker::PhantomData<(T, SendXcm, LegacyLease)>,
+		core::marker::PhantomData<(T, SendXcm, LegacyLease)>,
 	);
 
 	impl<T: Config, SendXcm: xcm::v4::SendXcm, LegacyLease: GetLegacyLease<BlockNumberFor<T>>>

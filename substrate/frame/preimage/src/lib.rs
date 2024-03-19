@@ -28,6 +28,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod migration;
@@ -37,11 +39,11 @@ mod mock;
 mod tests;
 pub mod weights;
 
+use alloc::{borrow::Cow, vec::Vec};
 use sp_runtime::{
 	traits::{BadOrigin, Hash, Saturating},
 	Perbill,
 };
-use sp_std::{borrow::Cow, prelude::*};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{

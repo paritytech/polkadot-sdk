@@ -49,7 +49,7 @@ use sp_runtime::{
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
 };
 
-use sp_std::{collections::vec_deque::VecDeque, prelude::*};
+use alloc::collections::vec_deque::VecDeque;
 
 const LOG_TARGET: &str = "runtime::parachains::assigner-on-demand";
 

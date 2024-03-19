@@ -18,6 +18,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 #[cfg(test)]
@@ -27,7 +29,9 @@ mod tests;
 
 pub mod migration;
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use core::{marker::PhantomData, result::Result};
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
@@ -47,7 +51,6 @@ use sp_runtime::{
 	},
 	RuntimeDebug,
 };
-use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
 	ExecuteController, ExecuteControllerWeightInfo, QueryController, QueryControllerWeightInfo,
@@ -765,7 +768,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 		/// The default version to encode outgoing XCM messages with.
 		pub safe_xcm_version: Option<XcmVersion>,
 	}
@@ -935,7 +938,7 @@ pub mod pallet {
 			let maybe_dest: Result<Location, ()> = (*dest.clone()).try_into();
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
-					use sp_std::vec;
+					use alloc::vec;
 					let count = assets.len() as u32;
 					let mut message = Xcm(vec![
 						WithdrawAsset(assets),
@@ -993,7 +996,7 @@ pub mod pallet {
 			let maybe_dest: Result<Location, ()> = (*dest.clone()).try_into();
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
-					use sp_std::vec;
+					use alloc::vec;
 					// heaviest version of locally executed XCM program: equivalent in weight to
 					// transfer assets to SA, reanchor them, extend XCM program, and send onward XCM
 					let mut message = Xcm(vec![
@@ -1160,7 +1163,7 @@ pub mod pallet {
 			let maybe_dest: Result<Location, ()> = (*dest.clone()).try_into();
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
-					use sp_std::vec;
+					use alloc::vec;
 					// heaviest version of locally executed XCM program: equivalent in weight to
 					// transfer assets to SA, reanchor them, extend XCM program, and send onward XCM
 					let mut message = Xcm(vec![
@@ -1214,7 +1217,7 @@ pub mod pallet {
 			let maybe_dest: Result<Location, ()> = (*dest.clone()).try_into();
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
-					use sp_std::vec;
+					use alloc::vec;
 					let count = assets.len() as u32;
 					let mut message = Xcm(vec![
 						WithdrawAsset(assets),
@@ -1295,7 +1298,7 @@ pub mod pallet {
 			let maybe_dest: Result<Location, ()> = (*dest.clone()).try_into();
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
-					use sp_std::vec;
+					use alloc::vec;
 					// heaviest version of locally executed XCM program: equivalent in weight to withdrawing fees,
 					// burning them, transferring rest of assets to SA, reanchoring them, extending XCM program,
 					// and sending onward XCM
@@ -1464,8 +1467,8 @@ enum FeesHandling<T: Config> {
 	Separate { local_xcm: Xcm<<T as Config>::RuntimeCall>, remote_xcm: Xcm<()> },
 }
 
-impl<T: Config> sp_std::fmt::Debug for FeesHandling<T> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl<T: Config> alloc::fmt::Debug for FeesHandling<T> {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
 		match self {
 			Self::Batched { fees } => write!(f, "FeesHandling::Batched({:?})", fees),
 			Self::Separate { local_xcm, remote_xcm } => write!(
@@ -1791,8 +1794,8 @@ impl<T: Config> Pallet<T> {
 			FeesHandling::Separate { local_xcm: mut local_fees, remote_xcm: mut remote_fees } => {
 				// fees are handled by separate XCM instructions, prepend fees instructions (for
 				// remote XCM they have to be prepended instead of appended to pass barriers).
-				sp_std::mem::swap(local, &mut local_fees);
-				sp_std::mem::swap(remote, &mut remote_fees);
+				core::mem::swap(local, &mut local_fees);
+				core::mem::swap(remote, &mut remote_fees);
 				// these are now swapped so fees actually go first
 				local.inner_mut().append(&mut local_fees.into_inner());
 				remote.inner_mut().append(&mut remote_fees.into_inner());

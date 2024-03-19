@@ -151,7 +151,11 @@ pub mod block_flowchart {}
 #[cfg(test)]
 mod tests;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Codec, Encode};
+use core::marker::PhantomData;
 use frame_support::{
 	defensive_assert,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
@@ -174,7 +178,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 
 #[cfg(feature = "try-runtime")]
 use ::{

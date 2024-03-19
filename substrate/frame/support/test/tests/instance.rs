@@ -17,6 +17,8 @@
 
 #![recursion_limit = "128"]
 
+extern crate alloc;
+
 use frame_support::{
 	derive_impl,
 	inherent::{InherentData, InherentIdentifier, MakeFatalError, ProvideInherent},

@@ -54,6 +54,8 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -70,6 +72,7 @@ pub use swap::*;
 pub use types::*;
 pub use weights::WeightInfo;
 
+use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::Codec;
 use frame_support::{
 	storage::{with_storage_layer, with_transaction},
@@ -93,7 +96,6 @@ use sp_runtime::{
 	},
 	DispatchError, Saturating, TokenError, TransactionOutcome,
 };
-use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 
 #[frame_support::pallet]
 pub mod pallet {

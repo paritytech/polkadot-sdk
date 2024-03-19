@@ -17,9 +17,9 @@
 //! Utilities that don't belong to any particular module but may draw
 //! on all modules.
 
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{Id as ParaId, PersistedValidationData, ValidatorIndex};
-use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 use crate::{configuration, hrmp, paras};
 
@@ -101,7 +101,7 @@ pub fn take_active_subset<T: Clone>(active: &[ValidatorIndex], set: &[T]) -> Vec
 #[cfg(test)]
 mod tests {
 
-	use sp_std::vec::Vec;
+	use alloc::vec::Vec;
 
 	use crate::util::{split_active_subset, take_active_subset};
 	use primitives::ValidatorIndex;

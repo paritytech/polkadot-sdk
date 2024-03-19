@@ -20,6 +20,8 @@
 
 #![recursion_limit = "128"]
 
+extern crate alloc;
+
 use codec::Encode;
 use frame_support::{derive_impl, traits::VariantCount};
 use sp_core::sr25519;

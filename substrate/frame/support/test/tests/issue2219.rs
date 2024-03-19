@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate alloc;
+
 use frame_support::derive_impl;
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::{sr25519, ConstU64};
@@ -139,7 +141,7 @@ mod module {
 		pub enable_storage_role: bool,
 		pub request_life_time: u64,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

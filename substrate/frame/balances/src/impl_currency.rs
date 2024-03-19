@@ -21,6 +21,7 @@
 //! are expected to be removed in the near future, once migration to `fungible::*` traits is done.
 
 use super::*;
+use alloc::vec::Vec;
 use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
@@ -39,8 +40,8 @@ pub use imbalances::{NegativeImbalance, PositiveImbalance};
 // of the inner member.
 mod imbalances {
 	use super::{result, Config, Imbalance, RuntimeDebug, Saturating, TryDrop, Zero};
+	use core::mem;
 	use frame_support::traits::SameOrOther;
-	use sp_std::mem;
 
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been created without any equal and opposite accounting.

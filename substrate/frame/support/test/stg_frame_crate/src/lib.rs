@@ -18,6 +18,8 @@
 // ! A basic pallet to test it compiles along with a runtime using it when `frame_system` and
 // `frame_support` are reexported by a `frame` crate.
 
+extern crate alloc;
+
 use frame::deps::{frame_support, frame_system};
 
 #[frame_support::pallet]

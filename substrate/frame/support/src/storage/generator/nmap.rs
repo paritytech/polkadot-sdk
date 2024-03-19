@@ -40,9 +40,8 @@ use crate::{
 	},
 	Never,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::*;
 
 /// Generator for `StorageNMap` used by `decl_storage` and storage types.
 ///

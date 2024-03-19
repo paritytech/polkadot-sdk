@@ -21,7 +21,6 @@ pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
 sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
@@ -68,7 +67,6 @@ std = [
 	"parachains-runtimes-test-utils/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

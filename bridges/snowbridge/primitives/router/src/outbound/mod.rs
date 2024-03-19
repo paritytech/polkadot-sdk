@@ -5,17 +5,15 @@
 #[cfg(test)]
 mod tests;
 
-use core::slice::Iter;
-
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-
+use core::{iter::Peekable, marker::PhantomData, slice::Iter};
 use frame_support::{ensure, traits::Get};
 use snowbridge_core::{
 	outbound::{AgentExecuteCommand, Command, Message, SendMessage},
 	ChannelId, ParaId,
 };
 use sp_core::{H160, H256};
-use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 

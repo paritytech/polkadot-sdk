@@ -28,13 +28,14 @@ use crate::{
 	ChainWithGrandpa, FindEquivocations,
 };
 
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use bp_runtime::{BlockNumberOf, HashOf, HeaderOf};
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, EquivocationProof, Precommit};
 use sp_runtime::traits::Header as HeaderT;
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	prelude::*,
-};
 
 enum AuthorityVotes<Header: HeaderT> {
 	SingleVote(SignedPrecommit<Header>),
@@ -174,7 +175,7 @@ impl<'a, Header: HeaderT> JustificationVerifier<Header> for EquivocationsCollect
 }
 
 /// Helper struct for finding equivocations in GRANDPA proofs.
-pub struct GrandpaEquivocationsFinder<C>(sp_std::marker::PhantomData<C>);
+pub struct GrandpaEquivocationsFinder<C>(core::marker::PhantomData<C>);
 
 impl<C: ChainWithGrandpa>
 	FindEquivocations<

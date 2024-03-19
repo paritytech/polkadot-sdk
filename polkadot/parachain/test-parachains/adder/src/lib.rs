@@ -18,6 +18,8 @@
 
 #![no_std]
 
+extern crate alloc;
+
 use parity_scale_codec::{Decode, Encode};
 use tiny_keccak::{Hasher as _, Keccak};
 

@@ -10,7 +10,6 @@ description = "Runtime metric interface for the Polkadot node"
 workspace = true
 
 [dependencies]
-sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 parity-scale-codec = { version = "3.6.1", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
@@ -25,7 +24,6 @@ std = [
 	"frame-benchmarking?/std",
 	"parity-scale-codec/std",
 	"primitives/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-metrics = ["frame-benchmarking", "sp-tracing/with-tracing"]

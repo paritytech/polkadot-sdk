@@ -24,6 +24,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::{dispatch::DispatchResult, sp_runtime::Perbill};
 
 pub use pallet::*;

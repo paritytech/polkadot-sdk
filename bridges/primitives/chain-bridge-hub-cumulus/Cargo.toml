@@ -21,7 +21,6 @@ bp-runtime = { path = "../runtime", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Polkadot Dependencies
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false }
@@ -36,5 +35,4 @@ std = [
 	"frame-system/std",
 	"polkadot-primitives/std",
 	"sp-api/std",
-	"sp-std/std",
 ]

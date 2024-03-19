@@ -17,7 +17,7 @@
 
 //! `Inspect` and `Mutate` traits for working with regular balances.
 
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::{
 	ensure,

@@ -18,6 +18,7 @@
 
 use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
 use codec::Encode;
+use core::ops::Mul;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
 	assert_ok,

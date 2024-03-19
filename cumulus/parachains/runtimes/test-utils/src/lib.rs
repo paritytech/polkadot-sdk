@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use codec::{Decode, DecodeLimit};
 use cumulus_primitives_core::{

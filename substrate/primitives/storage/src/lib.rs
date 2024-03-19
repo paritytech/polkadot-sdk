@@ -25,6 +25,7 @@ extern crate alloc;
 use serde::{Deserialize, Serialize};
 use sp_debug_derive::RuntimeDebug;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::{

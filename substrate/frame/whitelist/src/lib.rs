@@ -31,6 +31,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -40,6 +42,7 @@ mod tests;
 pub mod weights;
 pub use weights::WeightInfo;
 
+use alloc::boxed::Box;
 use codec::{DecodeLimit, Encode, FullCodec};
 use frame_support::{
 	dispatch::{GetDispatchInfo, PostDispatchInfo},
@@ -49,7 +52,6 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, Hash};
-use sp_std::prelude::*;
 
 pub use pallet::*;
 

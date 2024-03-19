@@ -21,6 +21,8 @@
 
 #![recursion_limit = "128"]
 
+extern crate alloc;
+
 use codec::MaxEncodedLen;
 use frame_support::{
 	derive_impl, parameter_types, traits::PalletInfo as _, weights::RuntimeDbWeight,
@@ -169,7 +171,7 @@ mod nested {
 		#[derive(frame_support::DefaultNoBound)]
 		pub struct GenesisConfig<T: Config> {
 			#[serde(skip)]
-			pub _config: sp_std::marker::PhantomData<T>,
+			pub _config: core::marker::PhantomData<T>,
 		}
 
 		#[pallet::genesis_build]
@@ -251,7 +253,7 @@ pub mod module3 {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

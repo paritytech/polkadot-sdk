@@ -82,12 +82,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 pub mod migrations;
 mod tests;
 pub mod weights;
-
-use sp_std::prelude::*;
 
 use frame_support::traits::{
 	Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced, ReservableCurrency,

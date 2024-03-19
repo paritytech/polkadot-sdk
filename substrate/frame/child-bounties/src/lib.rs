@@ -52,11 +52,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 mod tests;
 pub mod weights;
-
-use sp_std::prelude::*;
 
 use frame_support::traits::{
 	Currency,

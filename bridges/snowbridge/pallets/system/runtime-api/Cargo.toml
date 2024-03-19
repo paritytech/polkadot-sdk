@@ -19,7 +19,6 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 ] }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 snowbridge-core = { path = "../../../primitives/core", default-features = false }
@@ -31,6 +30,5 @@ std = [
 	"snowbridge-core/std",
 	"sp-api/std",
 	"sp-core/std",
-	"sp-std/std",
 	"xcm/std",
 ]

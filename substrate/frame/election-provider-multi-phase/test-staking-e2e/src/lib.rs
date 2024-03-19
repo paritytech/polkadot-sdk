@@ -16,6 +16,9 @@
 // limitations under the License.
 
 #![cfg(test)]
+
+extern crate alloc;
+
 mod mock;
 
 pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";

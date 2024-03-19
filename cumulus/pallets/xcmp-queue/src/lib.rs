@@ -35,6 +35,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub mod migration;
 
 #[cfg(test)]
@@ -50,6 +52,7 @@ pub mod bridging;
 pub mod weights;
 pub use weights::WeightInfo;
 
+use alloc::vec::Vec;
 use bounded_collections::BoundedBTreeSet;
 use codec::{Decode, DecodeLimit, Encode};
 use cumulus_primitives_core::{
@@ -69,7 +72,7 @@ use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{FixedU128, RuntimeDebug, Saturating};
-use sp_std::prelude::*;
+
 use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::ConvertOrigin;
 

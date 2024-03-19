@@ -25,7 +25,7 @@ frame_support::parameter_types! {
 }
 
 /// Accepts an asset if it is from the origin.
-pub struct IsForeignConcreteAsset<IsForeign>(sp_std::marker::PhantomData<IsForeign>);
+pub struct IsForeignConcreteAsset<IsForeign>(core::marker::PhantomData<IsForeign>);
 impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 	for IsForeignConcreteAsset<IsForeign>
 {
@@ -38,7 +38,7 @@ impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 /// Checks if `a` is from sibling location `b`. Checks that `Location-a` starts with
 /// `Location-b`, and that the `ParaId` of `b` is not equal to `a`.
 pub struct FromSiblingParachain<SelfParaId, L = Location>(
-	sp_std::marker::PhantomData<(SelfParaId, L)>,
+	core::marker::PhantomData<(SelfParaId, L)>,
 );
 impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> ContainsPair<L, L>
 	for FromSiblingParachain<SelfParaId, L>
@@ -62,7 +62,7 @@ impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> 
 /// Checks if `a` is from the expected global consensus network. Checks that `Location-a`
 /// starts with `Location-b`, and that network is a foreign consensus system.
 pub struct FromNetwork<UniversalLocation, ExpectedNetworkId, L = Location>(
-	sp_std::marker::PhantomData<(UniversalLocation, ExpectedNetworkId, L)>,
+	core::marker::PhantomData<(UniversalLocation, ExpectedNetworkId, L)>,
 );
 impl<
 		UniversalLocation: Get<InteriorLocation>,
@@ -98,7 +98,7 @@ impl<
 ///
 /// Note: `Location` has to be from a different global consensus.
 pub struct IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Reserves>(
-	sp_std::marker::PhantomData<(UniversalLocation, Reserves)>,
+	core::marker::PhantomData<(UniversalLocation, Reserves)>,
 );
 impl<UniversalLocation: Get<InteriorLocation>, Reserves: ContainsPair<Asset, Location>>
 	ContainsPair<Asset, Location>

@@ -23,13 +23,13 @@ use crate::{
 	messages_generation::grow_trie_leaf_value,
 };
 
+use alloc::{vec, vec::Vec};
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::{record_all_trie_keys, StorageProofSize};
 use codec::Encode;
 use frame_support::traits::Get;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
-use sp_std::prelude::*;
 use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 /// Prepare proof of messages for the `receive_messages_proof` call.

@@ -22,7 +22,6 @@ frame-executive = { path = "../../../../substrate/frame/executive" }
 frame-try-runtime = { path = "../../../../substrate/frame/try-runtime" }
 pallet-balances = { path = "../../../../substrate/frame/balances" }
 pallet-message-queue = { path = "../../../../substrate/frame/message-queue" }
-sp-std = { path = "../../../../substrate/primitives/std" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 sp-io = { path = "../../../../substrate/primitives/io" }

@@ -224,6 +224,7 @@ pub mod call_data {
 pub mod encoding_example {
 	use super::call_data::{Call, PalletACall};
 	use crate::reference_docs::signed_extensions::signed_extensions_example;
+	use alloc::vec::Vec;
 	use parity_scale_codec::Encode;
 	use sp_core::crypto::AccountId32;
 	use sp_keyring::sr25519::Keyring;

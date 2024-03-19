@@ -19,10 +19,10 @@
 
 use codec::Encode;
 use sp_runtime::traits::Convert;
-use sp_std::prelude::*;
 
 use super::{shared, Config as HistoricalConfig};
 use crate::{Config as SessionConfig, Pallet as SessionModule, SessionIndex};
+use alloc::vec::Vec;
 
 /// Store the validator-set associated to the `session_index` to the off-chain database.
 ///

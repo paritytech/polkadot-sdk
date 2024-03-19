@@ -98,10 +98,6 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
 
-	/// All of the std alternative types.
-	#[doc(no_inline)]
-	pub use sp_std::prelude::*;
-
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
 	pub use super::derive::*;
@@ -130,7 +126,6 @@ pub mod testing_prelude {
 
 	pub use frame_system::{self, mocking::*};
 	pub use sp_io::TestExternalities as TestState;
-	pub use sp_std::if_std;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -312,6 +307,7 @@ pub mod primitives {
 ///
 /// This is already part of the [`prelude`].
 pub mod derive {
+	pub use core::fmt::Debug;
 	pub use frame_support::{
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
 		PartialOrdNoBound, RuntimeDebugNoBound,
@@ -319,7 +315,6 @@ pub mod derive {
 	pub use parity_scale_codec::{Decode, Encode};
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::RuntimeDebug;
-	pub use sp_std::fmt::Debug;
 }
 
 /// Access to all of the dependencies of this crate. In case the re-exports are not enough, this
@@ -339,7 +334,6 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
-	pub use sp_std;
 
 	pub use parity_scale_codec as codec;
 	pub use scale_info;

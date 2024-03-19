@@ -84,6 +84,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(doc)]
 #[cfg_attr(doc, aquamarine::aquamarine)]
 ///
@@ -122,11 +124,11 @@
 #[doc = docify::embed!("src/tests.rs", examples_work)]
 pub mod example {}
 
+use alloc::boxed::Box;
 use codec::FullCodec;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, StaticLookup};
-use sp_std::prelude::*;
 
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 use sp_runtime::TryRuntimeError;
@@ -238,7 +240,7 @@ pub mod pallet {
 			+ Eq
 			+ Ord
 			+ PartialOrd
-			+ sp_std::fmt::Debug
+			+ core::fmt::Debug
 			+ Copy
 			+ AtLeast32BitUnsigned
 			+ Bounded
@@ -465,7 +467,7 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 			let node = list::Node::<T, I>::get(who).unwrap();
 			let current_bag_idx = thresholds
 				.iter()
-				.chain(sp_std::iter::once(&T::Score::max_value()))
+				.chain(core::iter::once(&T::Score::max_value()))
 				.position(|w| w == &node.bag_upper)
 				.unwrap();
 

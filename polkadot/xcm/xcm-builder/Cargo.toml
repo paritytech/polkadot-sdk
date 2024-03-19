@@ -15,7 +15,6 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
@@ -66,7 +65,6 @@ std = [
 	"sp-arithmetic/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-weights/std",
 	"xcm-executor/std",
 	"xcm/std",

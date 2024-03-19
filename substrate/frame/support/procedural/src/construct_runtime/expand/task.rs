@@ -67,8 +67,6 @@ pub fn expand_outer_task(
 		task_paths.push(quote!(#path::Task));
 	}
 
-	let prelude = quote!(#scrate::traits::tasks::__private);
-
 	const INCOMPLETE_MATCH_QED: &'static str =
 		"cannot have an instantiated RuntimeTask without some Task variant in the runtime. QED";
 
@@ -87,7 +85,7 @@ pub fn expand_outer_task(
 
 		#[automatically_derived]
 		impl #scrate::traits::Task for RuntimeTask {
-			type Enumeration = #prelude::IntoIter<RuntimeTask>;
+			type Enumeration = ::alloc::vec::IntoIter<RuntimeTask>;
 
 			fn is_valid(&self) -> bool {
 				match self {

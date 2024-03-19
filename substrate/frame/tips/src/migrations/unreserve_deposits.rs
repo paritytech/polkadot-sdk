@@ -18,6 +18,7 @@
 //! A migration that unreserves all deposit and unlocks all stake held in the context of this
 //! pallet.
 
+use alloc::collections::btree_map::BTreeMap;
 use core::iter::Sum;
 use frame_support::{
 	pallet_prelude::OptionQuery,
@@ -27,7 +28,6 @@ use frame_support::{
 	Parameter, Twox64Concat,
 };
 use sp_runtime::{traits::Zero, Saturating};
-use sp_std::collections::btree_map::BTreeMap;
 
 #[cfg(feature = "try-runtime")]
 const LOG_TARGET: &str = "runtime::tips::migrations::unreserve_deposits";
@@ -85,7 +85,7 @@ type Tips<T: UnlockConfig<I>, I: 'static> = StorageMap<
 /// The pallet should be made inoperable before or immediately after this migration is run.
 ///
 /// (See also the `RemovePallet` migration in `frame/support/src/migrations.rs`)
-pub struct UnreserveDeposits<T: UnlockConfig<I>, I: 'static>(sp_std::marker::PhantomData<(T, I)>);
+pub struct UnreserveDeposits<T: UnlockConfig<I>, I: 'static>(core::marker::PhantomData<(T, I)>);
 
 impl<T: UnlockConfig<I>, I: 'static> UnreserveDeposits<T, I> {
 	/// Calculates and returns the total amount reserved by each account by this pallet from open
@@ -133,7 +133,7 @@ where
 	/// Fails with a `TryRuntimeError` if somehow the amount reserved by this pallet is greater than
 	/// the actual total reserved amount for any accounts.
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		use codec::Encode;
 		use frame_support::ensure;
 
@@ -189,7 +189,7 @@ where
 	/// Verifies that the account reserved balances were reduced by the actual expected amounts.
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(
-		account_reserved_before_bytes: sp_std::vec::Vec<u8>,
+		account_reserved_before_bytes: alloc::vec::Vec<u8>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::Decode;
 

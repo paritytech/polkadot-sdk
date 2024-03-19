@@ -45,6 +45,7 @@ use crate::{
 	AccountIdOf, BadOrigin, BalanceOf, CodeHash, CodeInfoOf, CodeVec, Config, Error, Event,
 	HoldReason, Pallet, PristineCode, Schedule, Weight, LOG_TARGET,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchResult,
@@ -53,7 +54,6 @@ use frame_support::{
 };
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
-use sp_std::prelude::*;
 use wasmi::{InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;

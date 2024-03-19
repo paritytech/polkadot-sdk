@@ -30,7 +30,6 @@ sc-telemetry = { path = "../telemetry" }
 sp-core = { path = "../../primitives/core" }
 sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-io = { path = "../../primitives/io" }
-sp-std = { path = "../../primitives/std" }
 
 [dev-dependencies]
 sp-runtime = { path = "../../primitives/runtime" }

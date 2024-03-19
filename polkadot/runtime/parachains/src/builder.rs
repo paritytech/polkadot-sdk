@@ -21,6 +21,7 @@ use crate::{
 	scheduler::{self, common::AssignmentProvider, CoreOccupied, ParasEntry},
 	session_info, shared,
 };
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
@@ -38,11 +39,6 @@ use sp_runtime::{
 	generic::Digest,
 	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
-};
-use sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::Vec,
-	vec,
 };
 
 fn mock_validation_code() -> ValidationCode {
@@ -104,7 +100,7 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	code_upgrade: Option<u32>,
 	/// Specifies whether the claimqueue should be filled.
 	fill_claimqueue: bool,
-	_phantom: sp_std::marker::PhantomData<T>,
+	_phantom: core::marker::PhantomData<T>,
 }
 
 /// Paras inherent `enter` benchmark scenario.
@@ -133,7 +129,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			elastic_paras: Default::default(),
 			code_upgrade: None,
 			fill_claimqueue: true,
-			_phantom: sp_std::marker::PhantomData::<T>,
+			_phantom: core::marker::PhantomData::<T>,
 		}
 	}
 

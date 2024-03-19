@@ -22,7 +22,6 @@ use cargo_metadata::{DependencyKind, Metadata, MetadataCommand};
 use console::style;
 use parity_wasm::elements::{deserialize_buffer, Module};
 use std::{
-	borrow::ToOwned,
 	collections::HashSet,
 	env, fs,
 	hash::{Hash, Hasher},

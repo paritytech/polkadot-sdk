@@ -25,12 +25,11 @@ pub mod v1 {
 		pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
 	};
 	use primitives::SessionIndex;
-	use sp_std::prelude::*;
 
 	#[storage_alias]
 	type SpamSlots<T: Config> = StorageMap<Pallet<T>, Twox64Concat, SessionIndex, Vec<u32>>;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();

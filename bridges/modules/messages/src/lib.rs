@@ -36,6 +36,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use inbound_lane::StoredInboundLaneData;
 pub use outbound_lane::StoredMessagePayload;
 pub use weights::WeightInfo;
@@ -66,9 +68,9 @@ use bp_runtime::{
 	BasicOperatingMode, ChainId, OwnedBridgeModule, PreComputedSize, RangeInclusiveExt, Size,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get, DefaultNoBound};
 use sp_runtime::traits::UniqueSaturatedFrom;
-use sp_std::{marker::PhantomData, prelude::*};
 
 mod inbound_lane;
 mod outbound_lane;
@@ -474,11 +476,11 @@ pub mod pallet {
 				);
 
 				// update relayers state with actual numbers to compute actual weight below
-				relayers_state.unrewarded_relayer_entries = sp_std::cmp::min(
+				relayers_state.unrewarded_relayer_entries = core::cmp::min(
 					relayers_state.unrewarded_relayer_entries,
 					actually_rewarded_relayers,
 				);
-				relayers_state.total_messages = sp_std::cmp::min(
+				relayers_state.total_messages = core::cmp::min(
 					relayers_state.total_messages,
 					received_range.checked_len().unwrap_or(MessageNonce::MAX),
 				);
@@ -634,7 +636,7 @@ pub mod pallet {
 		/// Initial pallet owner.
 		pub owner: Option<T::AccountId>,
 		/// Dummy marker.
-		pub phantom: sp_std::marker::PhantomData<I>,
+		pub phantom: core::marker::PhantomData<I>,
 	}
 
 	#[pallet::genesis_build]

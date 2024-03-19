@@ -31,7 +31,6 @@ use primitives::{
 	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
-use sp_std::prelude::*;
 
 #[cfg(test)]
 mod tests;
@@ -316,7 +315,7 @@ pub enum InconsistentError<BlockNumber> {
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
 where
-	BlockNumber: Zero + PartialOrd + sp_std::fmt::Debug + Clone + From<u32>,
+	BlockNumber: Zero + PartialOrd + alloc::fmt::Debug + Clone + From<u32>,
 {
 	/// Checks that this instance is consistent with the requirements on each individual member.
 	///

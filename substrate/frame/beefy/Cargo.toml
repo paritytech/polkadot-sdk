@@ -24,7 +24,6 @@ sp-consensus-beefy = { path = "../../primitives/consensus/beefy", default-featur
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
 sp-session = { path = "../../primitives/session", default-features = false }
 sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
-sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
 frame-election-provider-support = { path = "../election-provider-support" }
@@ -61,7 +60,6 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",

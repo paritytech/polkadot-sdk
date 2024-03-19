@@ -30,6 +30,8 @@
 
 #![warn(missing_docs)]
 
+extern crate alloc;
+
 #[macro_use]
 mod executor;
 #[cfg(test)]

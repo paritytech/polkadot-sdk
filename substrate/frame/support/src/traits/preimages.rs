@@ -17,6 +17,7 @@
 
 //! Stuff for dealing with hashed preimages.
 
+use alloc::borrow::Cow;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
@@ -24,7 +25,6 @@ use sp_runtime::{
 	traits::{ConstU32, Hash},
 	DispatchError,
 };
-use sp_std::borrow::Cow;
 
 pub type BoundedInline = crate::BoundedVec<u8, ConstU32<128>>;
 
@@ -37,7 +37,7 @@ pub enum Bounded<T, H: Hash> {
 	/// A hash with no preimage length. We do not support creation of this except
 	/// for transitioning from legacy state. In the future we will make this a pure
 	/// `Dummy` item storing only the final `dummy` field.
-	Legacy { hash: H::Output, dummy: sp_std::marker::PhantomData<T> },
+	Legacy { hash: H::Output, dummy: core::marker::PhantomData<T> },
 	/// A an bounded `Call`. Its encoding must be at most 128 bytes.
 	Inline(BoundedInline),
 	/// A hash of the call together with an upper limit for its size.`
@@ -61,7 +61,7 @@ impl<T, H: Hash> Bounded<T, H> {
 	{
 		use Bounded::*;
 		match self {
-			Legacy { hash, .. } => Legacy { hash, dummy: sp_std::marker::PhantomData },
+			Legacy { hash, .. } => Legacy { hash, dummy: core::marker::PhantomData },
 			Inline(x) => Inline(x),
 			Lookup { hash, len } => Lookup { hash, len },
 		}
@@ -123,7 +123,7 @@ impl<T, H: Hash> Bounded<T, H> {
 	/// Constructs a `Legacy` bounded item.
 	#[deprecated = "This API is only for transitioning to Scheduler v3 API"]
 	pub fn from_legacy_hash(hash: impl Into<H::Output>) -> Self {
-		Self::Legacy { hash: hash.into(), dummy: sp_std::marker::PhantomData }
+		Self::Legacy { hash: hash.into(), dummy: core::marker::PhantomData }
 	}
 }
 

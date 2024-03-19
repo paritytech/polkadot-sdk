@@ -21,7 +21,6 @@ pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-featur
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false }
 sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false }
@@ -44,7 +43,6 @@ std = [
 	"sp-application-crypto/std",
 	"sp-consensus-aura/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"cumulus-pallet-parachain-system/try-runtime",

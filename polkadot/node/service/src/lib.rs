@@ -18,6 +18,8 @@
 
 #![deny(unused_results)]
 
+extern crate alloc;
+
 pub mod benchmarking;
 pub mod chain_spec;
 mod fake_runtime_api;

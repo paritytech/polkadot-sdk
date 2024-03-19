@@ -22,6 +22,8 @@ use crate::{
 	Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 
+use alloc::{fmt::Debug, vec, vec::Vec};
+use core::marker::PhantomData;
 use frame_support::{
 	ensure,
 	traits::{
@@ -37,7 +39,6 @@ use sp_runtime::{
 	traits::{Hash as HashT, Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
 };
-use sp_std::{fmt::Debug, marker::PhantomData, vec, vec::Vec};
 
 /// Deposit that uses the native fungible's balance type.
 pub type DepositOf<T> = Deposit<BalanceOf<T>>;

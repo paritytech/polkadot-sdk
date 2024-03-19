@@ -31,6 +31,8 @@
 )]
 #![doc(issue_tracker_base_url = "https://github.com/paritytech/polkadot-sdk/issues")]
 
+extern crate alloc;
+
 /// Meta information about this crate, how it is built, what principles dictates its evolution and
 /// how one can contribute to it.
 pub mod meta_contributing;
