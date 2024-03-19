@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	chain_head::{event::MethodResponse, test_utils::ChainHeadMockClient},
+	chain_head::{api::ChainHeadApiClient, event::MethodResponse, test_utils::ChainHeadMockClient},
 	common::events::{StorageQuery, StorageQueryType, StorageResultType},
 	hex_string,
 };
@@ -28,8 +28,7 @@ use codec::{Decode, Encode};
 use futures::Future;
 use jsonrpsee::{
 	core::{
-		client::{ClientT, Subscription as RpcClientSubscription, SubscriptionClientT},
-		server::Subscription as RpcSubscription,
+		client::Subscription as RpcClientSubscription, server::Subscription as RpcSubscription,
 	},
 	rpc_params, MethodsError as Error, RpcModule,
 };
@@ -3366,10 +3365,10 @@ async fn chain_head_single_connection_context() {
 		.await
 		.unwrap();
 
-	let mut sub: RpcClientSubscription<FollowEvent<String>> = client
-		.subscribe("chainHead_unstable_follow", rpc_params![true], "chainHead_unstable_unfollow")
-		.await
-		.unwrap();
+	let mut sub: RpcClientSubscription<FollowEvent<String>> =
+		ChainHeadApiClient::<String>::chain_head_unstable_follow(&client, true)
+			.await
+			.unwrap();
 
 	let event = tokio::time::timeout(std::time::Duration::from_secs(60), sub.next())
 		.await
@@ -3390,82 +3389,98 @@ async fn chain_head_single_connection_context() {
 	};
 
 	// Cannot make a call from a different connection context.
-	let _response: () = second_client
-		.request("chainHead_unstable_unpin", [&first_sub_id, &finalized_hash])
-		.await
-		.unwrap();
+	let _response = ChainHeadApiClient::<String>::chain_head_unstable_unpin(
+		&second_client,
+		first_sub_id.clone(),
+		crate::chain_head::api::ListOrValue::Value(finalized_hash.clone()),
+	)
+	.await
+	.unwrap();
 
 	// Body can still be fetched from the first subscription.
-	let response: MethodResponse = client
-		.request("chainHead_unstable_body", rpc_params![&first_sub_id, &finalized_hash])
-		.await
-		.unwrap();
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_body(
+		&client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+	)
+	.await
+	.unwrap();
 	assert_matches!(response, MethodResponse::Started(_started));
+
 	// Cannot make a call from a different connection context.
-	let response: MethodResponse = second_client
-		.request("chainHead_unstable_body", rpc_params![&first_sub_id, &finalized_hash])
-		.await
-		.unwrap();
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_body(
+		&second_client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+	)
+	.await
+	.unwrap();
 	assert_matches!(response, MethodResponse::LimitReached);
 
-	let response: Option<String> = client
-		.request("chainHead_unstable_header", rpc_params![&first_sub_id, &finalized_hash])
-		.await
-		.unwrap();
+	let response: Option<String> = ChainHeadApiClient::<String>::chain_head_unstable_header(
+		&client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+	)
+	.await
+	.unwrap();
 	assert!(response.is_some());
 	// Cannot make a call from a different connection context.
-	let response: Option<String> = second_client
-		.request("chainHead_unstable_header", rpc_params![&first_sub_id, &finalized_hash])
-		.await
-		.unwrap();
+	let response: Option<String> = ChainHeadApiClient::<String>::chain_head_unstable_header(
+		&second_client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+	)
+	.await
+	.unwrap();
 	assert!(response.is_none());
 
 	let key = hex_string(&KEY);
-	let response: MethodResponse = client
-		.request(
-			"chainHead_unstable_storage",
-			rpc_params![
-				&first_sub_id,
-				&finalized_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash }]
-			],
-		)
-		.await
-		.unwrap();
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_storage(
+		&client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+		vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash }],
+		None,
+	)
+	.await
+	.unwrap();
 	assert_matches!(response, MethodResponse::Started(_started));
 	// Cannot make a call from a different connection context.
-	let response: MethodResponse = second_client
-		.request(
-			"chainHead_unstable_storage",
-			rpc_params![
-				&first_sub_id,
-				&finalized_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash }]
-			],
-		)
-		.await
-		.unwrap();
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_storage(
+		&second_client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+		vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash }],
+		None,
+	)
+	.await
+	.unwrap();
 	assert_matches!(response, MethodResponse::LimitReached);
 
 	let alice_id = AccountKeyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
-	let response: MethodResponse = client
-		.request(
-			"chainHead_unstable_call",
-			[&first_sub_id, &finalized_hash, "AccountNonceApi_account_nonce", &call_parameters],
-		)
-		.await
-		.unwrap();
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_call(
+		&client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+		"AccountNonceApi_account_nonce".into(),
+		call_parameters.clone(),
+	)
+	.await
+	.unwrap();
 	assert_matches!(response, MethodResponse::Started(_started));
 	// Cannot make a call from a different connection context.
-	let response: MethodResponse = second_client
-		.request(
-			"chainHead_unstable_call",
-			[&first_sub_id, &finalized_hash, "AccountNonceApi_account_nonce", &call_parameters],
-		)
-		.await
-		.unwrap();
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_call(
+		&second_client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+		"AccountNonceApi_account_nonce".into(),
+		call_parameters.clone(),
+	)
+	.await
+	.unwrap();
 	assert_matches!(response, MethodResponse::LimitReached);
 }
 
