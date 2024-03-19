@@ -25,4 +25,10 @@ serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 
 [features]
 default = ["std"]
-std = ["serde_json/std", "sp-api/std", "sp-runtime/std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"serde_json/std",
+	"sp-api/std",
+	"sp-runtime/std",
+]
