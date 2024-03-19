@@ -117,11 +117,11 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 	}
 
 	/// Get the relay-chain block number this was backed in.
-	pub(crate) fn backed_in_number(&self) -> &N
+	pub(crate) fn backed_in_number(&self) -> N
 	where
 		N: Clone,
 	{
-		&self.backed_in_number
+		self.backed_in_number.clone()
 	}
 
 	/// Get the core index.

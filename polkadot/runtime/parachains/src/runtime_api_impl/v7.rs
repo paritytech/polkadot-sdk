@@ -117,7 +117,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 						availability_votes: candidate.availability_votes().clone(),
 						backers: candidate.backers().clone(),
 						relay_parent_number: candidate.relay_parent_number(),
-						backed_in_number: candidate.backed_in_number().clone(),
+						backed_in_number: candidate.backed_in_number(),
 						backing_group: candidate.backing_group(),
 					}
 				};
