@@ -193,7 +193,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn get_preset(_id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+		fn get_preset(_id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
 			unimplemented!()
 		}
 
