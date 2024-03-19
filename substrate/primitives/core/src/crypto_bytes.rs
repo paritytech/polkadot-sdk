@@ -32,6 +32,7 @@ use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 /// The type is generic over a constant length `N` and a "tag" `T` which
 /// can be used to specialize the byte array without using newtypes.
 #[derive(Encode, Decode, MaxEncodedLen)]
+#[repr(transparent)]
 pub struct CryptoBytes<const N: usize, T = ()>(pub [u8; N], PhantomData<fn() -> T>);
 
 impl<const N: usize, T> Copy for CryptoBytes<N, T> {}
@@ -123,6 +124,12 @@ impl<const N: usize, T> From<CryptoBytes<N, T>> for [u8; N] {
 impl<const N: usize, T> AsRef<[u8; N]> for CryptoBytes<N, T> {
 	fn as_ref(&self) -> &[u8; N] {
 		&self.0
+	}
+}
+
+impl<const N: usize, T> AsMut<[u8; N]> for CryptoBytes<N, T> {
+	fn as_mut(&mut self) -> &mut [u8; N] {
+		&mut self.0
 	}
 }
 

@@ -788,7 +788,7 @@ mod tests {
 		let public = pair.public();
 		let message = b"Signed payload";
 		let mut signature = pair.sign(&message[..]);
-		let bytes = signature.as_mut();
+		let bytes = &mut signature.0;
 		bytes[0] = !bytes[0];
 		bytes[2] = !bytes[2];
 		assert!(!Pair::verify(&signature, &message[..], &public));
