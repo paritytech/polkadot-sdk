@@ -61,7 +61,7 @@
 //! These guidelines could be summarized in the following example, where `bad_pop` is prone to
 //! panicking, and `good_pop` allows for proper error handling to take place:
 //!
-//!```rust
+//!```ignore
 //! // Bad pop always requires that we return something, even if vector/array is empty.
 //! fn bad_pop<T>(v: Vec<T>) -> T {}
 //! // Good pop allows us to return None from the Option if need be.
@@ -85,7 +85,7 @@
 //!
 //! ## Integer Overflow
 //!
-//! The Rust compiler prevents static overflow from happening at compile time.  
+//! The Rust compiler prevents static overflow from happening at compile time.
 //! The compiler panics in **debug** mode in the event of an integer overflow. In
 //! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion
 //! (from the `MAX` back to zero).
@@ -93,8 +93,12 @@
 //! In runtime development, we don't always have control over what is being supplied
 //! as a parameter. For example, even this simple add function could present one of two outcomes
 //! depending on whether it is in **release** or **debug** mode:
-#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", naive_add)]
 //!
+//! ```ignore
+//! fn naive_add(x: u8, y: u8) -> u8 {
+//!     x + y
+//! }
+//! ```
 //! If we passed overflow-able values at runtime, this could panic (or wrap if in release).
 //!
 //! ```ignore
@@ -160,10 +164,7 @@
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance)]
 //!
 //! Optionally, match may also be directly used in a more concise manner:
-#![doc = docify::embed!(
-    "./src/reference_docs/defensive_programming.rs",
-    increase_balance_match
-)]
+#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_match)]
 //!
 //! This is generally a useful convention for handling checked types and most types that return
 //! `Option<T>`.
@@ -173,20 +174,14 @@
 //! In the Polkadot SDK codebase, checked operations are handled as a `Result` via `ok_or`. This is
 //! a less verbose way of expressing the above. This usage often boils down to the developer’s
 //! preference:
-#![doc = docify::embed!(
-    "./src/reference_docs/defensive_programming.rs",
-    increase_balance_result
-)]
+#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_result)]
 //!
 //! ### Saturating Operations
 //!
 //! Saturating a number limits it to the type’s upper or lower bound, even if the integer type
 //! overflowed in runtime. For example, adding to `u32::MAX` would simply limit itself to
 //! `u32::MAX`:
-#![doc = docify::embed!(
-    "./src/reference_docs/defensive_programming.rs",
-    saturated_add_example
-)]
+#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", saturated_add_example)]
 //!
 //! Saturating calculations can be used if one is very sure that something won't overflow, but wants
 //! to avoid introducing the notion of any potential-panic or wrapping behavior.
@@ -272,8 +267,6 @@
 //! From the above, we can clearly see the problematic nature of seemingly simple operations in the
 //! runtime, and care should be given to ensure a defensive approach is taken.
 //!
-//! ### Decision Chart: When to use which?
-#![doc = simple_mermaid::mermaid!("../../../mermaid/integer_operation_decision.mmd")]
 //! ### Edge cases of `panic!`-able instances in Substrate
 //!
 //! As you traverse through the codebase (particularly in `substrate/frame`, where the majority of
@@ -286,7 +279,7 @@
 //! Take the example of the BABE pallet ([`pallet_babe`]), which doesn't allow for a validator to
 //! 	participate if it is disabled (see: [`frame::traits::DisabledValidators`]):
 //!
-//! ```rust
+//! ```ignore
 //! if T::DisabledValidators::is_disabled(authority_index) {
 //!     panic!(
 //!       "Validator with index {:?} is disabled and should not be attempting to author blocks.",
@@ -302,29 +295,69 @@
 //! ## Other Resources
 //!
 //! - [PBA Book - FRAME Tips & Tricks](https://polkadot-blockchain-academy.github.io/pba-book/substrate/tips-tricks/page.html?highlight=perthing#substrate-and-frame-tips-and-tricks)
-
-#[cfg(test)]
-mod tests {
-	enum BlockchainError {
+#![allow(dead_code)]
+mod fake_runtime_types {
+	// Note: The following types are purely for the purpose of example, and do not contain any
+	// *real* use case other than demonstrating various concepts.
+	pub enum RuntimeError {
 		Overflow,
+		UserDoesntExist,
 	}
 
-	type Address = ();
+	pub type Address = ();
 
-	struct Runtime;
+	pub struct Runtime;
 
 	impl Runtime {
-		fn get_balance(account: Address) -> u64 {
-			0
+		fn get_balance(account: Address) -> Result<u64, RuntimeError> {
+			Ok(0u64)
+		}
+
+		fn set_balance(account: Address, new_balance: u64) {}
+	}
+
+	#[docify::export]
+	fn increase_balance(account: Address, amount: u64) -> Result<(), RuntimeError> {
+		// Get a user's current balance
+		let balance = Runtime::get_balance(account)?;
+		// SAFELY increase the balance by some amount
+		if let Some(new_balance) = balance.checked_add(amount) {
+			Runtime::set_balance(account, new_balance);
+			return Ok(());
+		} else {
+			return Err(RuntimeError::Overflow);
 		}
 	}
 
 	#[docify::export]
-	#[test]
-	fn naive_add(x: u8, y: u8) -> u8 {
-		x + y
+	fn increase_balance_match(account: Address, amount: u64) -> Result<(), RuntimeError> {
+		// Get a user's current balance
+		let balance = Runtime::get_balance(account)?;
+		// SAFELY increase the balance by some amount
+		let new_balance = match balance.checked_add(amount) {
+			Some(balance) => balance,
+			None => {
+				return Err(RuntimeError::Overflow);
+			},
+		};
+		Runtime::set_balance(account, new_balance);
+		Ok(())
 	}
 
+	#[docify::export]
+	fn increase_balance_result(account: Address, amount: u64) -> Result<(), RuntimeError> {
+		// Get a user's current balance
+		let balance = Runtime::get_balance(account)?;
+		// SAFELY increase the balance by some amount - this time, by using `ok_or`
+		let new_balance = balance.checked_add(amount).ok_or_else(|| RuntimeError::Overflow)?;
+		Runtime::set_balance(account, new_balance);
+		Ok(())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use frame::traits::DefensiveSaturating;
 	#[docify::export]
 	#[test]
 	fn checked_add_example() {
@@ -340,47 +373,6 @@ mod tests {
 		// Luckily, checked_add just marks this as None!
 		let add = u32::MAX.checked_add(10);
 		assert_eq!(add, None)
-	}
-
-	#[docify::export]
-	#[test]
-	fn increase_balance(account: Address, amount: u64) -> Result<(), BlockchainError> {
-		// Get a user's current balance
-		let balance = Runtime::get_balance(account)?;
-		// SAFELY increase the balance by some amount
-		if let Some(new_balance) = balance.checked_add(amount) {
-			Runtime::set_balance(account, new_balance);
-			return Ok(());
-		} else {
-			return Err(BlockchainError::Overflow);
-		}
-	}
-
-	#[docify::export]
-	#[test]
-	fn increase_balance_match(account: Address, amount: u64) -> Result<(), BlockchainError> {
-		// Get a user's current balance
-		let balance = Runtime::get_balance(account)?;
-		// SAFELY increase the balance by some amount
-		let new_balance = match balance.checked_add(amount) {
-			Some(balance) => balance,
-			None => {
-				return Err(BlockchainError::Overflow);
-			},
-		};
-		Runtime::set_balance(account, new_balance);
-		Ok(())
-	}
-
-	#[docify::export]
-	#[test]
-	fn increase_balance_result(account: Address, amount: u64) -> Result<(), BlockchainError> {
-		// Get a user's current balance
-		let balance = Runtime::get_balance(account)?;
-		// SAFELY increase the balance by some amount - this time, by using `ok_or`
-		let new_balance = balance.checked_add(amount).ok_or_else(|| BlockchainError::Overflow)?;
-		Runtime::set_balance(account, new_balance);
-		Ok(())
 	}
 
 	#[docify::export]
