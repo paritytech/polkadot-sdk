@@ -77,6 +77,8 @@ pub struct XcmExecutor<Config: config::Config> {
 	appendix_weight: Weight,
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
+	delivery_fees: AssetsInHolding,
+	xcm_weight: Weight,
 	_config: PhantomData<Config>,
 }
 
@@ -214,12 +216,13 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 				"Barrier blocked execution! Error: {e:?}. \
 				 (origin: {origin:?}, message: {message:?}, properties: {properties:?})",
 			);
-			return Outcome::Error { error: XcmError::Barrier }
+			return Outcome::Error { error: XcmError::Barrier };
 		}
 
 		*id = properties.message_id.unwrap_or(*id);
 
 		let mut vm = Self::new(origin, *id);
+		vm.xcm_weight = xcm_weight;
 
 		while !message.0.is_empty() {
 			let result = vm.process(message);
@@ -293,6 +296,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			appendix_weight: Weight::zero(),
 			transact_status: Default::default(),
 			fees_mode: FeesMode { jit_withdraw: false },
+			delivery_fees: AssetsInHolding::new(),
+			xcm_weight: Weight::zero(),
 			_config: PhantomData,
 		}
 	}
@@ -317,6 +322,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			let effective_origin = self.context.origin.as_ref().unwrap_or(&self.original_origin);
 			let trap_weight =
 				Config::AssetTrap::drop_assets(effective_origin, self.holding, &self.context);
+			weight_used.saturating_accrue(trap_weight);
+		};
+
+		if !self.delivery_fees.is_empty() {
+			log::trace!(
+				target: "xcm::post_process",
+				"Trapping assets in delivery_fees register: {:?}, context: {:?} (original_origin: {:?})",
+				self.delivery_fees, self.context, self.original_origin,
+			);
+			let effective_origin = self.context.origin.as_ref().unwrap_or(&self.original_origin);
+			let trap_weight =
+				Config::AssetTrap::drop_assets(effective_origin, self.delivery_fees, &self.context);
 			weight_used.saturating_accrue(trap_weight);
 		};
 
@@ -410,7 +427,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						target: "xcm::refund_surplus",
 						"error: HoldingWouldOverflow",
 					);
-					return Err(XcmError::HoldingWouldOverflow)
+					return Err(XcmError::HoldingWouldOverflow);
 				}
 				self.total_refunded.saturating_accrue(current_surplus);
 				self.holding.subsume_assets(w.into());
@@ -426,7 +443,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	fn take_fee(&mut self, fee: Assets, reason: FeeReason) -> XcmResult {
 		if Config::FeeManager::is_waived(self.origin_ref(), reason.clone()) {
-			return Ok(())
+			return Ok(());
 		}
 		log::trace!(
 			target: "xcm::fees",
@@ -443,7 +460,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			}
 			fee
 		} else {
-			self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
+			self.delivery_fees
+				.try_take(fee.into())
+				.map_err(|error| {
+					log::error!(target: "xcm::fees", "Error when paying fee from delivery_fees register: {:?}", error);
+					XcmError::NotHoldingFees
+				})?
+				.into()
 		};
 		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())
@@ -527,7 +550,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let inst_res = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > RECURSION_LIMIT {
-								return Err(XcmError::ExceedsStackLimit)
+								return Err(XcmError::ExceedsStackLimit);
 							}
 							*count = count.saturating_add(1);
 							Ok(())
@@ -703,7 +726,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						"Call filtered by `SafeCallFilter`",
 					);
 
-					return Err(XcmError::NoPermission)
+					return Err(XcmError::NoPermission);
 				}
 
 				let dispatch_origin =
@@ -731,7 +754,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						"Max {weight} bigger than require at most {require_weight_at_most}",
 					);
 
-					return Err(XcmError::MaxWeightInvalid)
+					return Err(XcmError::MaxWeightInvalid);
 				}
 
 				let maybe_actual_weight =
@@ -1215,6 +1238,23 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			HrmpNewChannelOpenRequest { .. } => Err(XcmError::Unimplemented),
 			HrmpChannelAccepted { .. } => Err(XcmError::Unimplemented),
 			HrmpChannelClosing { .. } => Err(XcmError::Unimplemented),
+			PayFees { fees } => {
+				let old_holding = self.holding.clone();
+				let taken_fees = self.holding.try_take(fees.into()).map_err(|error| {
+					log::error!(target: "xcm::process_instruction::DepositFee", "Failed to take fees from holding, error: {:?}", error);
+					XcmError::NotHoldingFees
+				})?;
+				let result = || -> Result<(), XcmError> {
+					let unspent =
+						self.trader.buy_weight(self.xcm_weight, taken_fees, &self.context)?;
+					self.delivery_fees.subsume_assets(unspent);
+					Ok(())
+				}();
+				if result.is_err() {
+					self.holding = old_holding;
+				}
+				result
+			},
 		}
 	}
 }

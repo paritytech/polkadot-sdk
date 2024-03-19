@@ -111,7 +111,7 @@ where
 			*id
 		} else {
 			*dest = Some(d);
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		};
 
 		// Downward message passing.

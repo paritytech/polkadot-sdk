@@ -156,8 +156,13 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
 			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
 		if amount == 0 {
-			return Ok(payment)
+			return Ok(payment);
 		}
+		log::trace!(
+			target: "xcm::weight",
+			"FixedRateOfFungible::buy_weight amount: {:?}",
+			amount,
+		);
 		let unused =
 			payment.checked_sub((id, amount).into()).map_err(|_| XcmError::TooExpensive)?;
 		self.0 = self.0.saturating_add(weight);

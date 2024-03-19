@@ -80,7 +80,7 @@ impl<Call> Decode for Xcm<Call> {
 			instructions_count::with(|count| {
 				*count = count.saturating_add(number_of_instructions as u8);
 				if *count > MAX_INSTRUCTIONS_TO_DECODE {
-					return Err(CodecError::from("Max instructions exceeded"))
+					return Err(CodecError::from("Max instructions exceeded"));
 				}
 				Ok(())
 			})
@@ -694,6 +694,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
+	#[builder(pays_fees)]
 	BuyExecution { fees: Asset, weight_limit: WeightLimit },
 
 	/// Refund any surplus weight previously bought with `BuyExecution`.
@@ -1042,6 +1043,18 @@ pub enum Instruction<Call> {
 	///
 	/// Errors: If the given origin is `Some` and not equal to the current Origin register.
 	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<Location> },
+
+	/// Pays the given `fees` for all work done during execution.
+	///
+	/// These fees are used to pay for execution and the rest are left in the `delivery_assets`
+	/// register to be used whenever messages are sent as a result of executing the current
+	/// message.
+	///
+	/// Kind: *Command*.
+	///
+	/// Errors: None.
+	#[builder(pays_fees)]
+	PayFees { fees: Assets },
 }
 
 impl<Call> Xcm<Call> {
@@ -1119,6 +1132,7 @@ impl<Call> Instruction<Call> {
 			AliasOrigin(location) => AliasOrigin(location),
 			UnpaidExecution { weight_limit, check_origin } =>
 				UnpaidExecution { weight_limit, check_origin },
+			PayFees { fees } => PayFees { fees },
 		}
 	}
 }
@@ -1188,6 +1202,7 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			AliasOrigin(location) => W::alias_origin(location),
 			UnpaidExecution { weight_limit, check_origin } =>
 				W::unpaid_execution(weight_limit, check_origin),
+			PayFees { fees } => W::pay_fees(fees),
 		}
 	}
 }

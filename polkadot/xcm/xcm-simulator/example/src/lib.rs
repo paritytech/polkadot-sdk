@@ -145,6 +145,7 @@ mod tests {
 	use codec::Encode;
 	use frame_support::{assert_ok, weights::Weight};
 	use xcm::latest::QueryResponseInfo;
+	use xcm_builder::QueryHandler;
 	use xcm_simulator::TestExt;
 
 	// Helper function for forming buy execution message
@@ -647,6 +648,83 @@ mod tests {
 					querier: Some(Here.into()),
 				}])],
 			);
+		});
+	}
+
+	#[test]
+	fn testing_delivery_fees() {
+		MockNet::reset();
+
+		// First pre-load the sovereign account of (Parent, Parachain(1), ALICE)
+		ParaB::execute_with(|| {
+			let alice_para_a_sov_account = parachain::LocationToAccountId::convert_location(
+				&(
+					Parent,
+					Parachain(1),
+					AccountId32 { id: ALICE.clone().into(), network: Some(NetworkId::Kusama) },
+				)
+					.into(),
+			)
+			.unwrap();
+			assert_ok!(parachain::Balances::force_set_balance(
+				parachain::RuntimeOrigin::root(),
+				alice_para_a_sov_account.clone(),
+				1_000_000_000_000
+			));
+
+			dbg!(&parachain::Balances::free_balance(&alice_para_a_sov_account));
+		});
+
+		ParaA::execute_with(|| {
+			let remark_call =
+				parachain::RuntimeCall::System(frame_system::Call::<parachain::Runtime>::remark {
+					remark: b"Hello".to_vec(),
+				});
+			// Prepare to receive responses
+			let first_query_id = <parachain::PolkadotXcm as QueryHandler>::new_query(
+				(Parent, Parachain(2)),
+				600,
+				AccountId32 { id: ALICE.clone().into(), network: Some(NetworkId::Kusama) },
+			);
+			let second_query_id = <parachain::PolkadotXcm as QueryHandler>::new_query(
+				(Parent, Parachain(2)),
+				600,
+				AccountId32 { id: ALICE.clone().into(), network: Some(NetworkId::Kusama) },
+			);
+			let message = Xcm::<()>::builder()
+				.withdraw_asset((Parent, 100u128).into())
+				// We can't use all the assets if we want to have something left over to deposit.
+				.pay_fees((Parent, 50u128).into()) // We only need 21 for fees, the rest (29) will be trapped
+				.set_appendix(
+					Xcm::builder_unsafe()
+						.report_error(QueryResponseInfo {
+							destination: (Parent, Parachain(1)).into(),
+							query_id: second_query_id,
+							max_weight: Weight::from_parts(1_000_000, 1024),
+						})
+						.build(),
+				)
+				.transact(
+					OriginKind::SovereignAccount,
+					Weight::from_parts(3_000_000, 1024 * 1024),
+					remark_call.encode().into(),
+				)
+				.report_transact_status(QueryResponseInfo {
+					destination: (Parent, Parachain(1)).into(),
+					query_id: first_query_id,
+					max_weight: Weight::from_parts(1_000_000, 1024),
+				})
+				.refund_surplus()
+				.deposit_asset(
+					AllCounted(1).into(),
+					AccountId32 { id: ALICE.clone().into(), network: None }.into(),
+				)
+				.build();
+			assert_ok!(parachain::PolkadotXcm::send(
+				parachain::RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedLocation::V4((Parent, Parachain(2)).into())),
+				Box::new(VersionedXcm::V4(message)),
+			));
 		});
 	}
 }

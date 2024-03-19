@@ -104,6 +104,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 					*weight_limit = Limited(max_weight);
 					Ok(())
 				},
+				PayFees { .. } => Ok(()),
 				_ => Err(ProcessMessageError::Overweight(max_weight)),
 			})?;
 		Ok(())
@@ -192,7 +193,7 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 					},
 					DescendOrigin(j) => {
 						let Ok(_) = actual_origin.append_with(j.clone()) else {
-							return Err(ProcessMessageError::Unsupported)
+							return Err(ProcessMessageError::Unsupported);
 						};
 					},
 					_ => return Ok(ControlFlow::Break(())),
