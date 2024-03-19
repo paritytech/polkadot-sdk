@@ -45,7 +45,7 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize = 64;
 /// will need it later (such as for HDKD).
 type Seed = [u8; 32];
 
-#[allow(missing_docs)]
+#[doc(hidden)]
 pub struct Ed25519Tag;
 
 /// A public key.

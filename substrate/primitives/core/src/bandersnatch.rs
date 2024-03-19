@@ -58,7 +58,7 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 /// The byte length of serialized pre-output.
 pub const PREOUT_SERIALIZED_SIZE: usize = 33;
 
-#[allow(missing_docs)]
+#[doc(hidden)]
 pub struct BandersnatchTag;
 
 /// Bandersnatch public key.

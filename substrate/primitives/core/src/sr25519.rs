@@ -57,7 +57,7 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 32;
 /// The byte length of signature
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 64;
 
-#[allow(missing_docs)]
+#[doc(hidden)]
 pub struct Sr25519Tag;
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") public key.

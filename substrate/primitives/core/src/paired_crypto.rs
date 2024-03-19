@@ -51,8 +51,9 @@ pub mod ecdsa_bls377 {
 	const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
-	#[allow(missing_docs)]
+	#[doc(hidden)]
 	pub struct EcdsaBls377Tag(ecdsa::EcdsaTag, bls377::Bls377Tag);
+
 	impl super::PairedCryptoSubTagBound for EcdsaBls377Tag {}
 
 	/// (ECDSA,BLS12-377) key-pair pair.
@@ -144,9 +145,9 @@ const SECURE_SEED_LEN: usize = 32;
 /// will need it later (such as for HDKD).
 type Seed = [u8; SECURE_SEED_LEN];
 
-#[allow(missing_docs)]
+#[doc(hidden)]
 pub trait PairedCryptoSubTagBound {}
-#[allow(missing_docs)]
+#[doc(hidden)]
 pub struct PairedCryptoTag;
 
 /// A public key.

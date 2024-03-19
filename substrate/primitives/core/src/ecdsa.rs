@@ -47,7 +47,7 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 /// The byte length of signature
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 
-#[allow(missing_docs)]
+#[doc(hidden)]
 pub struct EcdsaTag;
 
 /// The secret seed.

@@ -27,10 +27,14 @@ use core::marker::PhantomData;
 use scale_info::TypeInfo;
 use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 
-/// Generic byte array.
+/// Generic byte array holding some crypto-related raw data.
 ///
 /// The type is generic over a constant length `N` and a "tag" `T` which
-/// can be used to specialize the byte array without using newtypes.
+/// can be used to specialize the byte array without requiring newtypes.
+///
+/// The tag `T` is held in a `PhantomData<fn() ->T>`, a trick allowing
+/// `CryptoBytes` to be `Send` and `Sync` regardless of `T` properties
+/// ([ref](https://doc.rust-lang.org/nomicon/phantom-data.html#table-of-phantomdata-patterns)).
 #[derive(Encode, Decode, MaxEncodedLen)]
 #[repr(transparent)]
 pub struct CryptoBytes<const N: usize, T = ()>(pub [u8; N], PhantomData<fn() -> T>);

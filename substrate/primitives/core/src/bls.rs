@@ -50,7 +50,7 @@ pub mod bls377 {
 	/// An identifier used to match public keys against BLS12-377 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"bls7");
 
-	#[allow(missing_docs)]
+	#[doc(hidden)]
 	pub type Bls377Tag = TinyBLS377;
 
 	/// BLS12-377 key pair.
@@ -109,7 +109,7 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize =
 /// will need it later (such as for HDKD).
 type Seed = [u8; SECRET_KEY_SERIALIZED_SIZE];
 
-#[allow(missing_docs)]
+#[doc(hidden)]
 pub struct BlsTag;
 
 /// A public key.
