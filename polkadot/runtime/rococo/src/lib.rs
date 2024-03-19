@@ -20,6 +20,11 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
 
+use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
+use beefy_primitives::{
+	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
+	mmr::{BeefyDataProvider, MmrLeafVersion},
+};
 use pallet_nis::WithMaximumOf;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
@@ -57,18 +62,12 @@ use runtime_parachains::{
 	shared as parachains_shared,
 };
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeString;
+use sp_genesis_builder::PresetId;
 use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
-
-use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
-use beefy_primitives::{
-	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
-	mmr::{BeefyDataProvider, MmrLeafVersion},
-};
 
 use frame_support::{
 	construct_runtime, derive_impl,
-	genesis_builder_helper::build_state,
+	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EverythingBut,
@@ -2465,21 +2464,21 @@ sp_api::impl_runtime_apis! {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+		fn get_preset(id: &Option<PresetId>) -> Option<Vec<u8>> {
 			if let Some(id) = id {
 				genesis_config_presets::get_preset(id)
 			} else {
-				get_preset::<RuntimeGenesisConfig>(None)
+				get_preset::<RuntimeGenesisConfig>(&None)
 			}
 		}
 
-		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+		fn preset_names() -> Vec<PresetId> {
 			vec![
-				RuntimeString::from("local_testnet"),
-				RuntimeString::from("development"),
-				RuntimeString::from("staging_testnet"),
-				RuntimeString::from("wococo_local_testnet"),
-				RuntimeString::from("versi_local_testnet"),
+				PresetId::from("local_testnet"),
+				PresetId::from("development"),
+				PresetId::from("staging_testnet"),
+				PresetId::from("wococo_local_testnet"),
+				PresetId::from("versi_local_testnet"),
 			]
 		}
 	}

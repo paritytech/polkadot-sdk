@@ -527,13 +527,13 @@ fn wococo_local_testnet_genesis() -> serde_json::Value {
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
-pub fn get_preset(id: sp_std::vec::Vec<u8>) -> Option<sp_std::vec::Vec<u8>> {
-	let patch = match id {
-		s if s == "local_testnet".as_bytes() => rococo_local_testnet_genesis(),
-		s if s == "development".as_bytes() => rococo_development_config_genesis(),
-		s if s == "staging_testnet".as_bytes() => rococo_staging_testnet_config_genesis(),
-		s if s == "wococo_local_testnet".as_bytes() => wococo_local_testnet_genesis(),
-		s if s == "versi_local_testnet".as_bytes() => versi_local_testnet_genesis(),
+pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
+	let patch = match id.try_into() {
+		Ok("local_testnet") => rococo_local_testnet_genesis(),
+		Ok("development") => rococo_development_config_genesis(),
+		Ok("staging_testnet") => rococo_staging_testnet_config_genesis(),
+		Ok("wococo_local_testnet") => wococo_local_testnet_genesis(),
+		Ok("versi_local_testnet") => versi_local_testnet_genesis(),
 		_ => return None,
 	};
 	Some(
