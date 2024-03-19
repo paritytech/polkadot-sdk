@@ -19513,6 +19513,7 @@ dependencies = [
  "sp-core",
  "sp-crypto-hashing",
  "sp-externalities 0.25.0",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
