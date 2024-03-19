@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+// http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -284,14 +284,14 @@
 //! actually cause harm to the network, and thus stalling would be the better option.
 //!
 //! Take the example of the BABE pallet ([`pallet_babe`]), which doesn't allow for a validator to
-//! participate if it is disabled (see: [`frame::traits::DisabledValidators`]):
+//! 	participate if it is disabled (see: [`frame::traits::DisabledValidators`]):
 //!
 //! ```rust
 //! if T::DisabledValidators::is_disabled(authority_index) {
-//! 	panic!(
-//! 		"Validator with index {:?} is disabled and should not be attempting to author blocks.",
-//! 		authority_index,
-//! 	);
+//!     panic!(
+//!       "Validator with index {:?} is disabled and should not be attempting to author blocks.",
+//!         authority_index,
+//!     );
 //! }
 //! ```
 //!
