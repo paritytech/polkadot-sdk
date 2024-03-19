@@ -26,7 +26,7 @@
 //! as a prerequisite to understanding this pallet.
 //!
 //! See the [`frame_tokens`] reference docs for more information about the place of the
-//! Assets pallet in Substrate.
+//! Assets pallet in FRAME.
 //!
 //! ## Overview
 //!
