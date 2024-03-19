@@ -301,9 +301,8 @@ where
 
 			let (rp, rp_fut) = method_started_response(operation_id, None);
 			let fut = async move {
-				// This leaves on a seperate task, because the `rp` needs to be acknowledged by the
-				// server. Events should only by generated if the response was successfully
-				// propagated.
+				// Wait for the server to send out the response and if it produces an error no event
+				// should be generated.
 				if rp_fut.await.is_err() {
 					return;
 				}
@@ -421,9 +420,8 @@ where
 
 		let (rp, rp_fut) = method_started_response(operation_id, Some(discarded));
 		let fut = async move {
-			// This leaves on a seperate task, because the `rp` needs to be acknowledged by the
-			// server. Events should only by generated if the response was successfully
-			// propagated.
+			// Wait for the server to send out the response and if it produces an error no event
+			// should be generated.
 			if rp_fut.await.is_err() {
 				return;
 			}
@@ -498,9 +496,8 @@ where
 					})
 				});
 
-			// This leaves on a seperate task, because the `rp` needs to be acknowledged by the
-			// server. Events should only by generated if the response was successfully
-			// propagated.
+			// Wait for the server to send out the response and if it produces an error no event
+			// should be generated.
 			if rp_fut.await.is_err() {
 				return
 			}
