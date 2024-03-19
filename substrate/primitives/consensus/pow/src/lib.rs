@@ -21,6 +21,7 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::Decode;
 use sp_runtime::ConsensusEngineId;

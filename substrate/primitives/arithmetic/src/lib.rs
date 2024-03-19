@@ -51,8 +51,8 @@ pub use per_things::{
 };
 pub use rational::{MultiplyRational, Rational128, RationalInfinite};
 
-use alloc::{fmt::Debug, vec::Vec};
-use core::cmp::Ordering;
+use alloc::vec::Vec;
+use core::{cmp::Ordering, fmt::Debug};
 use traits::{BaseArithmetic, One, SaturatedConversion, Unsigned, Zero};
 
 use codec::{Decode, Encode, MaxEncodedLen};

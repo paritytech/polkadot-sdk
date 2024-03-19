@@ -21,15 +21,16 @@
 
 extern crate alloc;
 
-use core::fmt::Display;
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_debug_derive::RuntimeDebug;
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use core::ops::{Deref, DerefMut};
+use core::{
+	fmt::Display,
+	ops::{Deref, DerefMut},
+};
 use ref_cast::RefCast;
 
 /// Storage key.

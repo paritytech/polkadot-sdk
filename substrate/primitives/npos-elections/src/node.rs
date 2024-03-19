@@ -17,8 +17,8 @@
 
 //! (very) Basic implementation of a graph node used in the reduce algorithm.
 
-use alloc::{fmt, rc::Rc, vec::Vec};
-use core::cell::RefCell;
+use alloc::{rc::Rc, vec::Vec};
+use core::{cell::RefCell, fmt};
 
 /// The role that a node can accept.
 #[derive(PartialEq, Eq, Ord, PartialOrd, Clone, Debug)]
@@ -50,8 +50,8 @@ impl<A> NodeId<A> {
 }
 
 #[cfg(feature = "std")]
-impl<A: fmt::Debug> alloc::fmt::Debug for NodeId<A> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl<A: fmt::Debug> fmt::Debug for NodeId<A> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(
 			f,
 			"Node({:?}, {:?})",

@@ -439,9 +439,9 @@ impl BigUint {
 	}
 }
 
-impl alloc::fmt::Debug for BigUint {
+impl core::fmt::Debug for BigUint {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(
 			f,
 			"BigUint {{ {:?} ({:?})}}",
@@ -451,7 +451,7 @@ impl alloc::fmt::Debug for BigUint {
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		Ok(())
 	}
 }

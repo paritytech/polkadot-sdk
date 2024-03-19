@@ -92,15 +92,15 @@ impl From<Rational128> for RationalInfinite {
 pub struct Rational128(u128, u128);
 
 #[cfg(feature = "std")]
-impl alloc::fmt::Debug for Rational128 {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl core::fmt::Debug for Rational128 {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "Rational128({} / {} ≈ {:.8})", self.0, self.1, self.0 as f64 / self.1 as f64)
 	}
 }
 
 #[cfg(not(feature = "std"))]
-impl alloc::fmt::Debug for Rational128 {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl core::fmt::Debug for Rational128 {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "Rational128({} / {})", self.0, self.1)
 	}
 }

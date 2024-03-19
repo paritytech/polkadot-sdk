@@ -18,8 +18,7 @@
 //! Traits for the npos-election operations.
 
 use crate::ExtendedBalance;
-use alloc::fmt::Debug;
-use core::ops::Mul;
+use core::{fmt::Debug, ops::Mul};
 use sp_arithmetic::PerThing;
 
 /// an aggregator trait for a generic type of a voter/target identifier. This usually maps to

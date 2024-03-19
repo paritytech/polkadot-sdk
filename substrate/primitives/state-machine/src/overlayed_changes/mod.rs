@@ -22,8 +22,6 @@ mod offchain;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
-#[cfg(not(feature = "std"))]
-use alloc::collections::btree_map::BTreeMap as Map;
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode};
 use hash_db::Hasher;
@@ -35,8 +33,12 @@ use sp_core::{
 #[cfg(feature = "std")]
 use sp_externalities::{Extension, Extensions};
 use sp_trie::{empty_child_trie_root, LayoutV1};
+
+#[cfg(not(feature = "std"))]
+use alloc::collections::btree_map::BTreeMap as Map;
 #[cfg(feature = "std")]
 use std::collections::{hash_map::Entry as MapEntry, HashMap as Map};
+
 #[cfg(feature = "std")]
 use std::{
 	any::{Any, TypeId},
@@ -136,7 +138,7 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 	}
 }
 
-impl<H: Hasher> alloc::fmt::Debug for OverlayedChanges<H> {
+impl<H: Hasher> core::fmt::Debug for OverlayedChanges<H> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		f.debug_struct("OverlayedChanges")
 			.field("top", &self.top)
@@ -259,7 +261,7 @@ impl<H: Hasher> Clone for StorageTransactionCache<H> {
 	}
 }
 
-impl<H: Hasher> alloc::fmt::Debug for StorageTransactionCache<H> {
+impl<H: Hasher> core::fmt::Debug for StorageTransactionCache<H> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		let mut debug = f.debug_struct("StorageTransactionCache");
 

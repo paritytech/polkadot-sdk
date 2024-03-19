@@ -390,9 +390,9 @@ where
 }
 
 impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H>, R: TrieRecorderProvider<H>>
-	alloc::fmt::Debug for TrieBackend<S, H, C, R>
+	core::fmt::Debug for TrieBackend<S, H, C, R>
 {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "TrieBackend")
 	}
 }

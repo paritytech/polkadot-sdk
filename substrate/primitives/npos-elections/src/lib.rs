@@ -279,8 +279,8 @@ impl<AccountId: Clone> Edge<AccountId> {
 }
 
 #[cfg(feature = "std")]
-impl<A: IdentifierT> alloc::fmt::Debug for Edge<A> {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl<A: IdentifierT> core::fmt::Debug for Edge<A> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "Edge({:?}, weight = {:?})", self.who, self.weight)
 	}
 }
@@ -300,7 +300,7 @@ pub struct Voter<AccountId> {
 
 #[cfg(feature = "std")]
 impl<A: IdentifierT> std::fmt::Debug for Voter<A> {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "Voter({:?}, budget = {}, edges = {:?})", self.who, self.budget, self.edges)
 	}
 }

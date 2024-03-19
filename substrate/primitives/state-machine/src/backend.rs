@@ -179,7 +179,7 @@ pub type BackendTransaction<H> = PrefixedMemoryDB<H>;
 /// to it.
 ///
 /// The clone operation (if implemented) should be cheap.
-pub trait Backend<H: Hasher>: alloc::fmt::Debug {
+pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// An error type when fetching data is not possible.
 	type Error: super::Error;
 

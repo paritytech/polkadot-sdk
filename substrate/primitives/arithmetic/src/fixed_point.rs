@@ -27,7 +27,10 @@ use crate::{
 };
 use alloc::fmt::Debug;
 use codec::{CompactAs, Decode, Encode};
-use core::ops::{self, Add, Div, Mul, Sub};
+use core::{
+	fmt::Debug,
+	ops::{self, Add, Div, Mul, Sub},
+};
 
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -896,9 +899,9 @@ macro_rules! implement_fixed {
 			}
 		}
 
-		impl alloc::fmt::Debug for $name {
+		impl ::core::fmt::Debug for $name {
 			#[cfg(feature = "std")]
-			fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+			fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 				let integral = {
 					let int = self.0 / Self::accuracy();
 					let signum_for_zero = if int == 0 && self.is_negative() { "-" } else { "" };
@@ -914,7 +917,7 @@ macro_rules! implement_fixed {
 			}
 
 			#[cfg(not(feature = "std"))]
-			fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+			fn fmt(&self, _: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 				Ok(())
 			}
 		}
@@ -930,13 +933,13 @@ macro_rules! implement_fixed {
 			}
 		}
 
-		impl alloc::fmt::Display for $name {
-			fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+		impl ::core::fmt::Display for $name {
+			fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 				write!(f, "{}", self.0)
 			}
 		}
 
-		impl core::str::FromStr for $name {
+		impl ::core::str::FromStr for $name {
 			type Err = &'static str;
 
 			fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -966,7 +969,7 @@ macro_rules! implement_fixed {
 			where
 				D: Deserializer<'de>,
 			{
-				use core::str::FromStr;
+				use ::core::str::FromStr;
 				let s = String::deserialize(deserializer)?;
 				$name::from_str(&s).map_err(de::Error::custom)
 			}
