@@ -23,7 +23,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
-use core::{fmt::Debug, convert::TryFrom, ops::RangeInclusive};
+use core::{convert::TryFrom, fmt::Debug, ops::RangeInclusive};
 use frame_support::{
 	pallet_prelude::DispatchResult, weights::Weight, PalletError, StorageHasher, StorageValue,
 };

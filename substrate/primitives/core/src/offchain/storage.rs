@@ -18,9 +18,7 @@
 //! In-memory implementation of offchain workers database.
 
 use crate::offchain::{DbExternalities, OffchainStorage, StorageKind, STORAGE_PREFIX};
-use std::{
-	collections::hash_map::{Entry, HashMap},
-};
+use std::collections::hash_map::{Entry, HashMap};
 
 const LOG_TARGET: &str = "offchain-worker::storage";
 

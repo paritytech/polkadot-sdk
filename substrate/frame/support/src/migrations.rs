@@ -25,8 +25,8 @@ use crate::{
 	weights::{RuntimeDbWeight, Weight, WeightMeter},
 };
 use alloc::vec::Vec;
-use core::marker::PhantomData;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::Bounded;
 use sp_core::Get;

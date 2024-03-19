@@ -16,10 +16,7 @@
 // limitations under the License.
 
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec::Vec},
-	alloc::{boxed::Box},
-};
+use {alloc::boxed::Box, alloc::vec::Vec};
 
 /// Error type used for trie related errors.
 #[derive(Debug, PartialEq, Eq, Clone)]

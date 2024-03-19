@@ -16,9 +16,8 @@
 
 //! Primitives that may be used for creating signed extensions for indirect runtimes.
 
-use core::fmt::Debug;
 use codec::{Compact, Decode, Encode};
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{

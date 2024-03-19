@@ -16,10 +16,10 @@
 
 //! Pallet to process claims from Ethereum addresses.
 
-use core::fmt::Debug;
-use alloc::{vec::Vec};
+use alloc::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String};
+use core::fmt::Debug;
 use frame_support::{
 	ensure,
 	traits::{Currency, Get, IsSubType, VestingSchedule},

@@ -25,9 +25,7 @@ use crate::crypto::{
 };
 
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec::Vec},
-};
+use alloc::vec::Vec;
 
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::{format, string::String};

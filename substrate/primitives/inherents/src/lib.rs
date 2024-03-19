@@ -164,14 +164,10 @@
 
 extern crate alloc;
 
-use codec::{Decode, Encode};
+use alloc::collections::btree_map::{BTreeMap, Entry, IntoIter};
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec::Vec},
-};
-use alloc::{
-	collections::btree_map::{BTreeMap, Entry, IntoIter},
-};
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
 
 #[cfg(feature = "std")]
 mod client_side;

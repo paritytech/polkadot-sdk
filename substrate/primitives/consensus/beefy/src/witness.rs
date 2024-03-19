@@ -25,9 +25,7 @@
 
 use crate::commitment::{Commitment, SignedCommitment};
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec::Vec},
-};
+use alloc::vec::Vec;
 
 /// A light form of [SignedCommitment].
 ///

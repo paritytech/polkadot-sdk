@@ -47,9 +47,7 @@ pub use commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
 pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
 
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec::Vec},
-};
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
 use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;

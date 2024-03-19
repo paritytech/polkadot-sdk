@@ -17,10 +17,9 @@
 //! Code that allows `NamedReservableCurrency` to be used as a `StakeAndSlash`
 //! mechanism of the relayers pallet.
 
-use core::fmt::Debug;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountParams, StakeAndSlash};
 use codec::Codec;
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::traits::{tokens::BalanceStatus, NamedReservableCurrency};
 use sp_runtime::{traits::Get, DispatchError, DispatchResult};
 

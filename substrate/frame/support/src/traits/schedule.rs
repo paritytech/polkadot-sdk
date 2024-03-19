@@ -19,7 +19,7 @@
 
 #[allow(deprecated)]
 use super::PreimageProvider;
-use alloc::{vec::Vec};
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::{fmt::Debug, result::Result};
 use scale_info::TypeInfo;

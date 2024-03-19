@@ -23,14 +23,9 @@ use super::v3::{
 };
 use crate::DoubleEncoded;
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec, vec::Vec},
-};
+use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
-use core::{
-	fmt::Debug,
-	result,
-};
+use core::{fmt::Debug, result};
 use derivative::Derivative;
 use parity_scale_codec::{
 	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,

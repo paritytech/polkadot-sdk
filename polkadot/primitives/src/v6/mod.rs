@@ -20,11 +20,11 @@ use alloc::{
 	vec,
 	vec::{IntoIter, Vec},
 };
+use bitvec::{field::BitField, slice::BitSlice, vec::BitVec};
 use core::{
 	marker::PhantomData,
 	slice::{Iter, IterMut},
 };
-use bitvec::{field::BitField, slice::BitSlice, vec::BitVec};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 

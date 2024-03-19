@@ -16,8 +16,7 @@
 
 //! Implementation of `ProcessMessage` for an `ExecuteXcm` implementation.
 
-use core::fmt::Debug;
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::traits::{ProcessMessage, ProcessMessageError};
 use parity_scale_codec::{Decode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;

@@ -26,9 +26,9 @@ use crate::{
 	},
 	DispatchResult,
 };
-use core::fmt::Debug;
-use alloc::{vec::Vec};
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use core::fmt::Debug;
 #[doc(hidden)]
 pub use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;

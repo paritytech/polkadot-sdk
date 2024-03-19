@@ -23,10 +23,9 @@ extern crate alloc;
 
 pub use registration::{Registration, StakeAndSlash};
 
-use core::fmt::Debug;
 use bp_messages::LaneId;
 use bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{traits::tokens::Preservation, Blake2_128Concat, Identity};
 use scale_info::TypeInfo;
 use sp_runtime::{

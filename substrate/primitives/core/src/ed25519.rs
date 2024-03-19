@@ -20,9 +20,7 @@
 // end::description[]
 
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec::Vec},
-};
+use alloc::vec::Vec;
 
 use crate::{
 	crypto::ByteArray,

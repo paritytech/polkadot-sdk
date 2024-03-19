@@ -207,7 +207,7 @@ pub mod weights;
 
 use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
-use core::{ops::Deref, fmt::Debug};
+use core::{fmt::Debug, ops::Deref};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,

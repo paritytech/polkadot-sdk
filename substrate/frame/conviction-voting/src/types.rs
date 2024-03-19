@@ -17,9 +17,8 @@
 
 //! Miscellaneous additional datatypes.
 
-use core::fmt::Debug;
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };

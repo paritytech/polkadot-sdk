@@ -19,9 +19,9 @@
 
 use super::node_header::{NodeHeader, NodeKind};
 use crate::{error::Error, trie_constants};
-use alloc::{vec::Vec};
+use alloc::vec::Vec;
 use codec::{Compact, Decode, Encode, Input};
-use core::{marker::PhantomData, ops::Range, borrow::Borrow};
+use core::{borrow::Borrow, marker::PhantomData, ops::Range};
 use hash_db::Hasher;
 use trie_db::{
 	nibble_ops,

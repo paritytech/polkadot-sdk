@@ -101,9 +101,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use core::fmt::Debug;
 use codec::{FullCodec, MaxEncodedLen};
-use core::cmp::Reverse;
+use core::{cmp::Reverse, fmt::Debug};
 use frame_support::{
 	ensure,
 	traits::{ChangeMembers, Currency, Get, InitializeMembers, ReservableCurrency},

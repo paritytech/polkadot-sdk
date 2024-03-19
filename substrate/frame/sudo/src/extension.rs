@@ -15,10 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::fmt;
 use crate::{Config, Key};
 use codec::{Decode, Encode};
-use core::marker::PhantomData;
+use core::{fmt, marker::PhantomData};
 use frame_support::{dispatch::DispatchInfo, ensure};
 use scale_info::TypeInfo;
 use sp_runtime::{

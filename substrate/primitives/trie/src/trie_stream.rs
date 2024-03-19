@@ -22,9 +22,7 @@ use crate::{
 	trie_constants,
 };
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec::Vec},
-};
+use alloc::vec::Vec;
 use codec::{Compact, Encode};
 use hash_db::Hasher;
 use trie_root;

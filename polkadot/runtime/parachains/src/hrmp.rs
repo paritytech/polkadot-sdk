@@ -18,9 +18,7 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	dmp, ensure_parachain, initializer, paras,
 };
-use alloc::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-};
+use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 use core::{fmt, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;

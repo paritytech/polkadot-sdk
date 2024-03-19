@@ -29,6 +29,7 @@ use frame_support::{
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
+pub use pallet::*;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
 use runtime_parachains::{
@@ -41,7 +42,6 @@ use sp_runtime::{
 	traits::{CheckedSub, Saturating},
 	RuntimeDebug,
 };
-pub use pallet::*;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {

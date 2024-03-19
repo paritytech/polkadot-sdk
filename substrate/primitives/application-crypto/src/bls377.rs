@@ -18,8 +18,8 @@
 //! BLS12-377 crypto applications.
 use crate::{KeyTypeId, RuntimePublic};
 
-pub use sp_core::bls::bls377::*;
 use alloc::vec::Vec;
+pub use sp_core::bls::bls377::*;
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BLS377);

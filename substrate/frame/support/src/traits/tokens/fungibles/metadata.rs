@@ -19,9 +19,7 @@
 
 use crate::dispatch::DispatchResult;
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec::Vec},
-};
+use alloc::vec::Vec;
 
 pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 	// Get name for an AssetId.

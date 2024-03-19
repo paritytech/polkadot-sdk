@@ -179,7 +179,7 @@ pub mod bounds;
 pub mod onchain;
 pub mod traits;
 
-use alloc::{vec::Vec};
+use alloc::vec::Vec;
 use core::fmt::Debug;
 use sp_runtime::{
 	traits::{Bounded, Saturating, Zero},

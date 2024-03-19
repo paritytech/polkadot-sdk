@@ -19,9 +19,7 @@
 
 use crate::dispatch::{DispatchResult, Parameter};
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec, vec::Vec},
-};
+use alloc::{vec, vec::Vec};
 use codec::{CompactLen, Decode, DecodeLimit, Encode, EncodeLike, Input, MaxEncodedLen};
 use core::cmp::Ordering;
 use impl_trait_for_tuples::impl_for_tuples;

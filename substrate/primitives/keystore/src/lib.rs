@@ -33,9 +33,9 @@ use sp_core::{
 	ecdsa, ed25519, sr25519,
 };
 
+use alloc::sync::Arc;
 #[cfg(not(feature = "std"))]
 use alloc::{string::String, vec::Vec};
-use alloc::sync::Arc;
 
 /// Keystore error
 #[derive(Debug)]

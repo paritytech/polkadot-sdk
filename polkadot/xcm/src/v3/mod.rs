@@ -27,15 +27,10 @@ use super::{
 	},
 };
 use crate::DoubleEncoded;
-use bounded_collections::{parameter_types, BoundedVec};
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec, vec::Vec},
-};
-use core::{
-	fmt::Debug,
-	result,
-};
+use alloc::{vec, vec::Vec};
+use bounded_collections::{parameter_types, BoundedVec};
+use core::{fmt::Debug, result};
 use derivative::Derivative;
 use parity_scale_codec::{
 	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,

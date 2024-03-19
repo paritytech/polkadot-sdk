@@ -16,7 +16,7 @@
 //! Runtime API definition for assets.
 
 use crate::runtime_api::FungiblesAccessError;
-use alloc::{vec::Vec};
+use alloc::vec::Vec;
 use core::borrow::Borrow;
 use frame_support::traits::Contains;
 use sp_runtime::traits::MaybeEquivalence;

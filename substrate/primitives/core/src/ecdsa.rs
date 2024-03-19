@@ -32,8 +32,8 @@ use alloc::{format, string::String};
 
 #[cfg(not(feature = "std"))]
 use {
-	k256::ecdsa::{SigningKey as SecretKey, VerifyingKey},
 	alloc::vec::Vec,
+	k256::ecdsa::{SigningKey as SecretKey, VerifyingKey},
 };
 
 #[cfg(feature = "std")]

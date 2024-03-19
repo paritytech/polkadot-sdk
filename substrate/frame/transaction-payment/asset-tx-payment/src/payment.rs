@@ -17,9 +17,8 @@
 use super::*;
 use crate::Config;
 
-use core::fmt::Debug;
 use codec::FullCodec;
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::{
 		fungibles::{Balanced, Credit, Inspect},

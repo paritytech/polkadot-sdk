@@ -18,9 +18,7 @@
 
 use super::{traits::Reanchorable, Junction, Junctions};
 use crate::{v3::MultiLocation as OldLocation, VersionedLocation};
-use core::{
-	result,
-};
+use core::result;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 

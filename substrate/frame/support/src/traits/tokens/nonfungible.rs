@@ -27,9 +27,7 @@
 use super::nonfungibles;
 use crate::{dispatch::DispatchResult, traits::Get};
 #[cfg(not(feature = "std"))]
-use {
-	alloc::{vec::Vec},
-};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::TokenError;
 

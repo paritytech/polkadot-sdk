@@ -15,13 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use codec::Encode;
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
 	IntoPortable, MetaType, Registry,
 };
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 
 /// The intermediate representation for the runtime metadata.
 /// Contains the needed context that allows conversion to multiple metadata versions.

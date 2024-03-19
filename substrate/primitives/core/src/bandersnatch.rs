@@ -22,13 +22,12 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use alloc::{format, string::String};
-use crate::crypto::VrfSecret;
 use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
-	Public as TraitPublic, SecretStringError, UncheckedFrom, VrfPublic,
+	Public as TraitPublic, SecretStringError, UncheckedFrom, VrfPublic, VrfSecret,
 };
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::{format, string::String};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 

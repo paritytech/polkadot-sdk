@@ -24,11 +24,12 @@
 
 use crate::Error;
 #[cfg(not(feature = "std"))]
-use alloc::{
-		boxed::Box,
-	};
+use alloc::boxed::Box;
 use alloc::collections::btree_map::{BTreeMap, Entry};
-use core::{any::{Any, TypeId}, ops::DerefMut};
+use core::{
+	any::{Any, TypeId},
+	ops::DerefMut,
+};
 
 /// Marker trait for types that should be registered as [`Externalities`](crate::Externalities)
 /// extension.

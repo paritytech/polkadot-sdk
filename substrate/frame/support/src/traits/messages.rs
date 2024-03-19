@@ -18,9 +18,8 @@
 //! Traits for managing message queuing and handling.
 
 use super::storage::Footprint;
-use core::fmt::Debug;
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, TypedGet};
 use sp_runtime::{traits::Convert, BoundedSlice, RuntimeDebug};

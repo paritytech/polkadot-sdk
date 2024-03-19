@@ -25,10 +25,11 @@ pub use crate::{
 	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, FixedRateOfFungible,
 	FixedWeightBounds, TakeWeightCredit,
 };
-pub use alloc::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+pub use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+pub use core::{
+	cell::{Cell, RefCell},
+	fmt::Debug,
 };
-pub use core::{cell::{Cell, RefCell}, fmt::Debug};
 use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},

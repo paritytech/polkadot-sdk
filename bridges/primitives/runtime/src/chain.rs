@@ -17,7 +17,7 @@
 use crate::{ChainId, HeaderIdProvider};
 use alloc::{str::FromStr, vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
-use core::{fmt::Debug, convert::TryFrom, hash::Hash};
+use core::{convert::TryFrom, fmt::Debug, hash::Hash};
 use frame_support::{weights::Weight, Parameter};
 use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
 use sp_runtime::{

@@ -10,9 +10,8 @@ extern crate alloc;
 #[cfg(test)]
 mod tests;
 
-use core::fmt::Debug;
 use codec::FullCodec;
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::traits::Get;
 use snowbridge_core::outbound::SendMessageFeeProvider;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};

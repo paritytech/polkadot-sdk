@@ -55,8 +55,8 @@
 
 extern crate alloc;
 
-use codec::{Decode, Encode};
 use alloc::vec::Vec;
+use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
 	traits::IsSubType,

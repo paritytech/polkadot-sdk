@@ -20,9 +20,7 @@ use super::{Junction, Junctions};
 use crate::{
 	v2::MultiLocation as OldMultiLocation, v4::Location as NewMultiLocation, VersionedLocation,
 };
-use core::{
-	result,
-};
+use core::result;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 

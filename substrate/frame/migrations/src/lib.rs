@@ -150,6 +150,7 @@ pub mod weights;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
 use frame_support::{
@@ -161,7 +162,6 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
 use sp_runtime::Saturating;
-use alloc::vec::Vec;
 
 /// Points to the next migration to execute.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
