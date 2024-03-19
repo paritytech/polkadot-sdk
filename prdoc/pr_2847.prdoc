@@ -1,0 +1,9 @@
+title: Adding `try-state` hook to vesting pallet
+
+doc:
+  - audience: Runtime User
+    description: |
+      At the blocks before vesting begins, the locked amount of a vesting schedule must be equal to the product of the duration and the release per block amount when the locked amount is divisible by the per block amount, else the final vesting block should be equal to the unvested amount. This should also hold true during vesting schedules.
+
+crates:
+- name: pallet-vesting
