@@ -546,7 +546,12 @@ where
 		EventStream: Stream<Item = NotificationType<Block>> + Unpin,
 	{
 		let mut stream_item = stream.next();
-		let mut stop_event = rx_stop;
+
+		// The stop event can be triggered by the chainHead logic when the pinned
+		// block guarantee cannot be hold. Or when the client is disconnected.
+		let connection_closed = sink.closed();
+		tokio::pin!(connection_closed);
+		let mut stop_event = futures_util::future::select(rx_stop, connection_closed);
 
 		while let Either::Left((Some(event), next_stop_event)) =
 			futures_util::future::select(stream_item, stop_event).await
@@ -594,8 +599,10 @@ where
 			stop_event = next_stop_event;
 		}
 
-		// If we got here either the substrate streams have closed
-		// or the `Stop` receiver was triggered.
+		// If we got here either:
+		// - the substrate streams have closed
+		// - the `Stop` receiver was triggered internally.
+		// - the client disconnected.
 		let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 		let _ = sink.send(msg).await;
 	}
