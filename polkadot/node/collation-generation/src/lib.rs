@@ -48,8 +48,8 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
-	CollatorPair, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
-	ValidationCodeHash,
+	CollatorPair, CoreIndex, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, ValidationCodeHash,
 };
 use sp_core::crypto::Pair;
 use std::sync::Arc;
@@ -224,6 +224,13 @@ async fn handle_new_activations<Context>(
 		let n_validators = validators??.len();
 		let async_backing_params = async_backing_params?.ok();
 
+		// The loop bellow will fill in cores that the para is assigned to.
+		let mut cores_to_build_on = Vec::new();
+		// The latest on chain PVD.
+		let mut pvd = None;
+		// The validation code hash.
+		let mut validation_code_hash = None;
+
 		for (core_idx, core) in availability_cores.into_iter().enumerate() {
 			let _availability_core_timer = metrics.time_new_activations_availability_core();
 
@@ -304,7 +311,7 @@ async fn handle_new_activations<Context>(
 				},
 			};
 
-			let validation_code_hash = match obtain_validation_code_hash_with_assumption(
+			let code_hash = match obtain_validation_code_hash_with_assumption(
 				relay_parent,
 				scheduled_core.para_id,
 				assumption,
@@ -326,12 +333,39 @@ async fn handle_new_activations<Context>(
 				},
 			};
 
-			let task_config = config.clone();
-			let metrics = metrics.clone();
-			let mut task_sender = ctx.sender().clone();
-			ctx.spawn(
-				"collation-builder",
-				Box::pin(async move {
+			// Prepare data for building collation(s) outside the loop.
+			cores_to_build_on.push(CoreIndex(core_idx as u32));
+
+			// We only need the validation data only for the first collation we build,
+			// we will construct the other ones based on the outputs of prev collation.
+			// This should be fine as we always enact the chain candidates of the para at once
+			// in the runtime.
+			if pvd.is_none() {
+				pvd = Some(validation_data);
+				validation_code_hash = Some(code_hash);
+			}
+		}
+
+		let task_config = config.clone();
+		let metrics = metrics.clone();
+		let mut task_sender = ctx.sender().clone();
+
+		let (mut validation_data, validation_code_hash) = if !cores_to_build_on.is_empty() {
+			(
+				pvd.expect("If cores is not empty, `pvd` is always Some; qed"),
+				validation_code_hash
+					.expect("If cores is not empty, `validation_code_hash` is always Some; qed"),
+			)
+		} else {
+			// Bail out if no cores to build on.
+			return Ok(())
+		};
+
+		let para_id = config.para_id;
+		ctx.spawn(
+			"chained-collation-builder",
+			Box::pin(async move {
+				for core_index in cores_to_build_on {
 					let collator_fn = match task_config.collator.as_ref() {
 						Some(x) => x,
 						None => return,
@@ -343,21 +377,23 @@ async fn handle_new_activations<Context>(
 							None => {
 								gum::debug!(
 									target: LOG_TARGET,
-									para_id = %scheduled_core.para_id,
+									?para_id,
 									"collator returned no collation on collate",
 								);
 								return
 							},
 						};
 
+					let parent_head = collation.head_data.clone();
 					construct_and_distribute_receipt(
 						PreparedCollation {
 							collation,
-							para_id: scheduled_core.para_id,
+							para_id,
 							relay_parent,
-							validation_data,
+							validation_data: validation_data.clone(),
 							validation_code_hash,
 							n_validators,
+							core_index,
 						},
 						task_config.key.clone(),
 						&mut task_sender,
@@ -365,9 +401,13 @@ async fn handle_new_activations<Context>(
 						&metrics,
 					)
 					.await;
-				}),
-			)?;
-		}
+
+					// Chain the collations. All else stays the same as we build the chained
+					// collation on same relay parent.
+					validation_data.parent_head = parent_head;
+				}
+			}),
+		)?;
 	}
 
 	Ok(())
@@ -388,6 +428,7 @@ async fn handle_submit_collation<Context>(
 		parent_head,
 		validation_code_hash,
 		result_sender,
+		core_index,
 	} = params;
 
 	let validators = request_validators(relay_parent, ctx.sender()).await.await??;
@@ -424,6 +465,7 @@ async fn handle_submit_collation<Context>(
 		validation_data,
 		validation_code_hash,
 		n_validators,
+		core_index,
 	};
 
 	construct_and_distribute_receipt(
@@ -445,6 +487,7 @@ struct PreparedCollation {
 	validation_data: PersistedValidationData,
 	validation_code_hash: ValidationCodeHash,
 	n_validators: usize,
+	core_index: CoreIndex,
 }
 
 /// Takes a prepared collation, along with its context, and produces a candidate receipt
@@ -463,6 +506,7 @@ async fn construct_and_distribute_receipt(
 		validation_data,
 		validation_code_hash,
 		n_validators,
+		core_index,
 	} = collation;
 
 	let persisted_validation_data_hash = validation_data.hash();
@@ -558,6 +602,7 @@ async fn construct_and_distribute_receipt(
 			pov,
 			parent_head_data,
 			result_sender,
+			core_index,
 		})
 		.await;
 }
