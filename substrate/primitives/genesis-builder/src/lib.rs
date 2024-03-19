@@ -49,15 +49,7 @@ pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with RuntimeGenesisConfig for the runtime
-	#[api_version(2)]
 	pub trait GenesisBuilder {
-		/// Creates the default `RuntimeGenesisConfig` and returns it as a JSON blob.
-		///
-		/// This function instantiates the default `RuntimeGenesisConfig` struct for the runtime and
-		/// serializes it into a JSON blob. It returns a `Vec<u8>` containing the JSON
-		/// representation of the default `RuntimeGenesisConfig`.
-		fn create_default_config() -> alloc::vec::Vec<u8>;
-
 		/// Build `RuntimeGenesisConfig` from a JSON blob not using any defaults and store it in the
 		/// storage.
 		///
@@ -67,7 +59,6 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Please note that provided json blob must contain all `RuntimeGenesisConfig` fields, no
 		/// defaults will be used.
-		#[renamed("build_config", 2)]
 		fn build_state(json: alloc::vec::Vec<u8>) -> Result;
 
 		/// Returns a JSON blob representation of the built-in `RuntimeGenesisConfig` identified by
@@ -80,14 +71,12 @@ sp_api::decl_runtime_apis! {
 		/// Otherwise function returns a JSON representation of the built-in, named
 		/// `RuntimeGenesisConfig` preset identified by `id`, or `None` if such preset does not
 		/// exists. Returned `Vec<u8>` contains bytes of JSON blob.
-		#[api_version(2)]
 		fn get_preset(id: Option<alloc::vec::Vec<u8>>) -> Option<alloc::vec::Vec<u8>>;
 
 		/// Returns a list of names for available builtin `RuntimeGenesisConfig` presets.
 		///
 		/// The presets from the list can be queried with [`GenesisBuilder::get_preset`] method. If
 		/// no named presets are provided by the runtime the list is empty.
-		#[api_version(2)]
 		fn preset_names() -> alloc::vec::Vec<sp_runtime::RuntimeString>;
 	}
 }
