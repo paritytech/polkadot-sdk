@@ -93,6 +93,7 @@ std = [
 	"codec/std",
 	"ed25519-zebra/std",
 	"full_crypto",
+	"futures/std",
 	"futures/thread-pool",
 	"hash-db/std",
 	"hash256-std-hasher/std",
