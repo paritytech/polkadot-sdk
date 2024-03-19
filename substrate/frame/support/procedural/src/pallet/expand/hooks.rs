@@ -176,6 +176,22 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 
 		impl<#type_impl_gen>
+			#frame_support::traits::OnPoll<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+			for #pallet_ident<#type_use_gen> #where_clause
+		{
+			fn on_poll(
+				n: #frame_system::pallet_prelude::BlockNumberFor::<T>,
+				weight: &mut #frame_support::weights::WeightMeter
+			) {
+				<
+					Self as #frame_support::traits::Hooks<
+						#frame_system::pallet_prelude::BlockNumberFor::<T>
+					>
+				>::on_poll(n, weight);
+			}
+		}
+
+		impl<#type_impl_gen>
 			#frame_support::traits::OnInitialize<#frame_system::pallet_prelude::BlockNumberFor::<T>>
 			for #pallet_ident<#type_use_gen> #where_clause
 		{

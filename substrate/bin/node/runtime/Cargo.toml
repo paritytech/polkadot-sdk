@@ -58,7 +58,7 @@ sp-io = { path = "../../../primitives/io", default-features = false }
 frame-executive = { path = "../../../frame/executive", default-features = false }
 frame-benchmarking = { path = "../../../frame/benchmarking", default-features = false }
 frame-benchmarking-pallet-pov = { path = "../../../frame/benchmarking/pov", default-features = false }
-frame-support = { path = "../../../frame/support", default-features = false, features = ["tuples-96"] }
+frame-support = { path = "../../../frame/support", default-features = false, features = ["experimental", "tuples-96"] }
 frame-system = { path = "../../../frame/system", default-features = false }
 frame-system-benchmarking = { path = "../../../frame/system/benchmarking", default-features = false, optional = true }
 frame-election-provider-support = { path = "../../../frame/election-provider-support", default-features = false }
@@ -88,6 +88,7 @@ pallet-election-provider-support-benchmarking = { path = "../../../frame/electio
 pallet-elections-phragmen = { path = "../../../frame/elections-phragmen", default-features = false }
 pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
 pallet-fast-unstake = { path = "../../../frame/fast-unstake", default-features = false }
+pallet-migrations = { path = "../../../frame/migrations", default-features = false }
 pallet-nis = { path = "../../../frame/nis", default-features = false }
 pallet-grandpa = { path = "../../../frame/grandpa", default-features = false }
 pallet-im-online = { path = "../../../frame/im-online", default-features = false }
@@ -198,6 +199,7 @@ std = [
 	"pallet-lottery/std",
 	"pallet-membership/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-mixnet/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
@@ -302,6 +304,7 @@ runtime-benchmarks = [
 	"pallet-lottery/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-mixnet/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -381,6 +384,7 @@ try-runtime = [
 	"pallet-lottery/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-mixnet/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",

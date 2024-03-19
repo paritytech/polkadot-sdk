@@ -23,7 +23,6 @@ impl-trait-for-tuples = "0.2.2"
 
 sp-core = { path = "../core", default-features = false }
 sp-runtime = { path = "../runtime", default-features = false }
-sp-std = { path = "../std", default-features = false }
 
 [features]
 default = ["std"]
@@ -33,6 +32,5 @@ std = [
 	"serde/std",
 	"sp-core/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = ["sp-runtime/runtime-benchmarks"]

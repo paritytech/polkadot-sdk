@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 array-bytes = "6.1"
 chrono = "0.4.31"
-clap = { version = "4.5.1", features = ["derive", "string", "wrap_help"] }
+clap = { version = "4.5.3", features = ["derive", "string", "wrap_help"] }
 fdlimit = "0.3.0"
 futures = "0.3.21"
 itertools = "0.10.3"
@@ -32,7 +32,8 @@ rpassword = "7.0.0"
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-bip39 = "2.0.0"
+# personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
+bip39 = { package = "parity-bip39", version = "2.0.1", features = ["rand"] }
 tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "signal"] }
 sc-client-api = { path = "../api" }
 sc-client-db = { path = "../db", default-features = false }

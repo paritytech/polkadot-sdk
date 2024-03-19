@@ -435,11 +435,11 @@ fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 
 	assert_eq!(to_collator_protocol.len(), 1);
 	match AllMessages::from(to_collator_protocol.pop().unwrap()) {
-		AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation(
-			CandidateReceipt { descriptor, .. },
-			_pov,
-			..,
-		)) => {
+		AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation {
+			candidate_receipt,
+			..
+		}) => {
+			let CandidateReceipt { descriptor, .. } = candidate_receipt;
 			// signature generation is non-deterministic, so we can't just assert that the
 			// expected descriptor is correct. What we can do is validate that the produced
 			// descriptor has a valid signature, then just copy in the generated signature
@@ -589,11 +589,11 @@ fn fallback_when_no_validation_code_hash_api(#[case] runtime_version: u32) {
 
 	assert_eq!(to_collator_protocol.len(), 1);
 	match &to_collator_protocol[0] {
-		AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation(
-			CandidateReceipt { descriptor, .. },
-			_pov,
-			..,
-		)) => {
+		AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation {
+			candidate_receipt,
+			..
+		}) => {
+			let CandidateReceipt { descriptor, .. } = candidate_receipt;
 			assert_eq!(expect_validation_code_hash, descriptor.validation_code_hash);
 		},
 		_ => panic!("received wrong message type"),
@@ -679,15 +679,16 @@ fn submit_collation_leads_to_distribution() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation(
-				ccr,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation {
+				candidate_receipt,
 				parent_head_data_hash,
 				..
-			)) => {
+			}) => {
+				let CandidateReceipt { descriptor, .. } = candidate_receipt;
 				assert_eq!(parent_head_data_hash, parent_head.hash());
-				assert_eq!(ccr.descriptor().persisted_validation_data_hash, expected_pvd.hash());
-				assert_eq!(ccr.descriptor().para_head, dummy_head_data().hash());
-				assert_eq!(ccr.descriptor().validation_code_hash, validation_code_hash);
+				assert_eq!(descriptor.persisted_validation_data_hash, expected_pvd.hash());
+				assert_eq!(descriptor.para_head, dummy_head_data().hash());
+				assert_eq!(descriptor.validation_code_hash, validation_code_hash);
 			}
 		);
 

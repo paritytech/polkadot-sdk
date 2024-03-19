@@ -17,7 +17,7 @@
 use super::*;
 use frame_support::{assert_err, assert_ok, assert_storage_noop};
 use keyring::Sr25519Keyring;
-use primitives::{BlockNumber, PARACHAIN_KEY_TYPE_ID};
+use primitives::{vstaging::SchedulerParams, BlockNumber, PARACHAIN_KEY_TYPE_ID};
 use sc_keystore::LocalKeystore;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
@@ -909,7 +909,10 @@ fn full_parachain_cleanup_storage() {
 				minimum_validation_upgrade_delay: 2,
 				// Those are not relevant to this test. However, HostConfiguration is still a
 				// subject for the consistency check.
-				paras_availability_period: 1,
+				scheduler_params: SchedulerParams {
+					paras_availability_period: 1,
+					..Default::default()
+				},
 				..Default::default()
 			},
 		},
