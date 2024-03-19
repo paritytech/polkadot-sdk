@@ -64,10 +64,7 @@ use polkadot_primitives::{
 	Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
-use sc_network::{
-	request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig},
-	PeerId,
-};
+use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
@@ -681,17 +678,15 @@ pub async fn benchmark_availability_write(
 		// send them from the emulated peers to the subsystem.
 		// TODO: Implement topology.
 		let messages = signed_bitfields.get(&relay_block_hash).expect("pregenerated").clone();
-		env.spawn_blocking("send-bitfields", async move {
-			for index in 1..config.n_validators {
-				let from_peer = &authorities.validator_authority_id[index];
-				let message = messages.get(index).expect("pregenerated").clone();
+		for index in 1..config.n_validators {
+			let from_peer = &authorities.validator_authority_id[index];
+			let message = messages.get(index).expect("pregenerated").clone();
 
-				// Send the action from peer only if it is connected to our node.
-				if network.is_peer_connected(from_peer) {
-					let _ = network.send_message_from_peer(from_peer, message);
-				}
+			// Send the action from peer only if it is connected to our node.
+			if network.is_peer_connected(from_peer) {
+				let _ = network.send_message_from_peer(from_peer, message);
 			}
-		});
+		}
 
 		gum::info!(
 			"Waiting for {} bitfields to be received and processed",

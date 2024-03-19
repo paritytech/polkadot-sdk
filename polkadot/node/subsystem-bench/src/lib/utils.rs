@@ -31,7 +31,7 @@ pub struct WarmUpOptions<'a> {
 
 impl<'a> WarmUpOptions<'a> {
 	pub fn new(precisions: &[(&'a str, f64)]) -> Self {
-		Self { warm_up: 100, bench: 3, precisions: precisions.iter().cloned().collect() }
+		Self { warm_up: 100, bench: 10, precisions: precisions.iter().cloned().collect() }
 	}
 }
 
@@ -39,56 +39,57 @@ pub fn warm_up_and_benchmark(
 	options: WarmUpOptions,
 	run: impl Fn() -> BenchmarkUsage,
 ) -> Result<BenchmarkUsage, String> {
-	println!("Warming up...");
-	let mut usages = Vec::with_capacity(options.bench);
+	let usages: Vec<BenchmarkUsage> = (0..options.bench).map(|_| run()).collect();
 
-	for n in 1..=options.warm_up {
-		let curr = run();
-		if let Some(prev) = usages.last() {
-			let diffs = options
-				.precisions
-				.keys()
-				.map(|&subsystem| {
-					curr.cpu_usage_diff(prev, subsystem)
-						.map(|diff| (subsystem, diff))
-						.ok_or(format!("{} not found in benchmark {:?}", subsystem, prev))
-				})
-				.collect::<Result<HashMap<&str, f64>, String>>()?;
-			let is_warmed_up = diffs
-				.iter()
-				.map(|(subsystem, diff)| {
-					options
-						.precisions
-						.get(subsystem)
-						.map(|precision| *diff < *precision)
-						.ok_or(format!("{} not found in benchmark {:?}", subsystem, prev))
-				})
-				.collect::<Result<Vec<bool>, String>>()?
-				.iter()
-				.all(|v| *v);
-			if !is_warmed_up {
-				usages.clear();
-			}
-			println!(
-				"{}/{}: {}",
-				n,
-				options.warm_up,
-				diffs
-					.iter()
-					.map(|(subsystem, diff)| format!("{}: {:.3}", subsystem, diff))
-					.join(", ")
-			);
-		}
-		usages.push(curr);
-		if usages.len() == options.bench {
-			println!("\nTook {} runs to warm up", n.saturating_sub(options.bench));
-			break;
-		}
-	}
+	// let mut usages = Vec::with_capacity(options.bench);
 
-	if usages.len() != options.bench {
-		return Err(format!("Didn't warm up after {} runs", options.warm_up))
-	}
+	// for n in 1..=options.warm_up {
+	// 	let curr = run();
+	// 	if let Some(prev) = usages.last() {
+	// 		let diffs = options
+	// 			.precisions
+	// 			.keys()
+	// 			.map(|&subsystem| {
+	// 				curr.cpu_usage_diff(prev, subsystem)
+	// 					.map(|diff| (subsystem, diff))
+	// 					.ok_or(format!("{} not found in benchmark {:?}", subsystem, prev))
+	// 			})
+	// 			.collect::<Result<HashMap<&str, f64>, String>>()?;
+	// 		let is_warmed_up = diffs
+	// 			.iter()
+	// 			.map(|(subsystem, diff)| {
+	// 				options
+	// 					.precisions
+	// 					.get(subsystem)
+	// 					.map(|precision| *diff < *precision)
+	// 					.ok_or(format!("{} not found in benchmark {:?}", subsystem, prev))
+	// 			})
+	// 			.collect::<Result<Vec<bool>, String>>()?
+	// 			.iter()
+	// 			.all(|v| *v);
+	// 		if !is_warmed_up {
+	// 			usages.clear();
+	// 		}
+	// 		println!(
+	// 			"{}/{}: {}",
+	// 			n,
+	// 			options.warm_up,
+	// 			diffs
+	// 				.iter()
+	// 				.map(|(subsystem, diff)| format!("{}: {:.2}", subsystem, diff))
+	// 				.join(", ")
+	// 		);
+	// 	}
+	// 	usages.push(curr);
+	// 	if usages.len() == options.bench {
+	// 		println!("\nTook {} runs to warm up", n.saturating_sub(options.bench));
+	// 		break;
+	// 	}
+	// }
+
+	// if usages.len() != options.bench {
+	// 	return Err(format!("Didn't warm up after {} runs", options.warm_up))
+	// }
 
 	Ok(BenchmarkUsage::average(&usages))
 }

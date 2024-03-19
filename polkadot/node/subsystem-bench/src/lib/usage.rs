@@ -101,8 +101,8 @@ fn check_resource_usage(
 			None
 		} else {
 			Some(format!(
-				"The resource `{}` is expected to be equal to {} with a precision {}, but the current value is {}",
-				resource_name, base, precision, usage.per_block
+				"The resource `{}` is expected to be equal to {} with a precision {}, but the current value is {} ({})",
+				resource_name, base, precision, usage.per_block, diff
 			))
 		}
 	} else {
@@ -119,7 +119,7 @@ pub struct ResourceUsage {
 
 impl std::fmt::Display for ResourceUsage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{:<32}{:>12.3}{:>12.3}", self.resource_name.cyan(), self.total, self.per_block)
+		write!(f, "{:<32}{:>12.4}{:>12.4}", self.resource_name.cyan(), self.total, self.per_block)
 	}
 }
 

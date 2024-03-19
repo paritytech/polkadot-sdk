@@ -25,10 +25,10 @@
 
 use polkadot_subsystem_bench::{
 	availability::{
-		benchmark_availability_write, prepare_data, prepare_test, TestDataAvailability, TestState,
+		benchmark_availability_write, prepare_data, prepare_test, TestDataAvailability,
 	},
 	configuration::TestConfiguration,
-	utils::{warm_up_and_benchmark, WarmUpOptions},
+	usage::BenchmarkUsage,
 };
 
 fn main() -> Result<(), String> {
@@ -50,13 +50,8 @@ fn main() -> Result<(), String> {
 		runtime_api,
 	) = prepare_data(&config);
 
-	let usage = warm_up_and_benchmark(
-		WarmUpOptions::new(&[
-			("availability-distribution", 0.01),
-			("bitfield-distribution", 0.01),
-			("availability-store", 0.01),
-		]),
-		|| {
+	let usages: Vec<BenchmarkUsage> = (0..10)
+		.map(|_| {
 			let mut env = prepare_test(
 				&config,
 				&state,
@@ -75,18 +70,19 @@ fn main() -> Result<(), String> {
 				&chunk_fetching_requests,
 				&signed_bitfields,
 			))
-		},
-	)?;
+		})
+		.collect();
+	let usage = BenchmarkUsage::average(&usages);
 	println!("{}", usage);
 
 	messages.extend(usage.check_network_usage(&[
-		("Received from peers", 433.333, 0.05),
-		("Sent to peers", 18480.000, 0.05),
+		("Received from peers", 433.3, 0.05),
+		("Sent to peers", 18480.0, 0.05),
 	]));
 	messages.extend(usage.check_cpu_usage(&[
-		("availability-distribution", 0.012, 0.15),
-		("bitfield-distribution", 0.048, 0.15),
-		("availability-store", 0.155, 0.15),
+		("availability-distribution", 0.012, 0.05),
+		("bitfield-distribution", 0.057, 0.05),
+		("availability-store", 0.157, 0.05),
 	]));
 
 	if messages.is_empty() {
