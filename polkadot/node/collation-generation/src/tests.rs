@@ -931,15 +931,15 @@ mod helpers {
 
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
-			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation(
-				ccr,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation{
+				candidate_receipt,
 				parent_head_data_hash,
 				..
-			)) => {
+			}) => {
 				assert_eq!(parent_head_data_hash, parent_head.hash());
-				assert_eq!(ccr.descriptor().persisted_validation_data_hash, pvd.hash());
-				assert_eq!(ccr.descriptor().para_head, dummy_head_data().hash());
-				assert_eq!(ccr.descriptor().validation_code_hash, validation_code_hash);
+				assert_eq!(candidate_receipt.descriptor().persisted_validation_data_hash, pvd.hash());
+				assert_eq!(candidate_receipt.descriptor().para_head, dummy_head_data().hash());
+				assert_eq!(candidate_receipt.descriptor().validation_code_hash, validation_code_hash);
 			}
 		);
 	}
