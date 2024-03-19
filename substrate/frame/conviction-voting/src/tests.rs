@@ -63,8 +63,8 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
+	type FreezeIdentifier = FreezeReason;
+	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
 }
@@ -157,6 +157,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 }
 
 impl Config for Test {
+	type RuntimeFreezeReason = FreezeReason;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
 	type VoteLockingPeriod = ConstU64<3>;
@@ -387,7 +388,7 @@ fn successful_conviction_vote_balance_stays_locked_for_correct_time() {
 			for i in 1..=5 {
 				assert_ok!(Voting::unlock(RuntimeOrigin::signed(i), c, i));
 				let expired = block >= (3 << (i - 1)) + 3;
-				assert_eq!(Balances::usable_balance(i), i * 10 - if expired { 0 } else { 10 });
+				assert_eq!(Balances::usable_balance(i), (i * 10) - if expired { 0 } else { 10 });
 			}
 		}
 	});
