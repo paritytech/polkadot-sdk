@@ -194,17 +194,14 @@ where
 		let fut = async move {
 			// Ensure the current connection ID has enough space to accept a new subscription.
 			let connection_id = pending.connection_id();
-			if !rpc_connections.reserve_token(connection_id) {
-				pending.reject(ChainHeadRpcError::ReachedLimits).await;
-				return
-			}
 
-			let Ok(sink) = pending.accept().await else {
-				rpc_connections.unreserve_token(connection_id);
+			let Some(reserved_token) = rpc_connections.reserve_token(connection_id) else {
+				pending.reject(ChainHeadRpcError::ReachedLimits).await;
 				return
 			};
 
-			let connection_id = sink.connection_id();
+			let Ok(sink) = pending.accept().await else { return };
+
 			let sub_id = read_subscription_id_as_string(&sink);
 			// Keep track of the subscription.
 			let Some(sub_data) = subscriptions.insert_subscription(sub_id.clone(), with_runtime)
@@ -214,12 +211,11 @@ where
 				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted", sub_id);
 				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 				let _ = sink.send(msg).await;
-				rpc_connections.unreserve_token(connection_id);
 				return
 			};
 			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription accepted", sub_id);
 
-			rpc_connections.register_token(connection_id, sub_id.clone());
+			let _registered_token = reserved_token.register(sub_id.clone());
 
 			let mut chain_head_follow = ChainHeadFollower::new(
 				client,
@@ -232,7 +228,6 @@ where
 			chain_head_follow.generate_events(sink, sub_data).await;
 
 			subscriptions.remove_subscription(&sub_id);
-			rpc_connections.unregister_token(connection_id, &sub_id);
 			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription removed", sub_id);
 		};
 

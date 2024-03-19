@@ -54,19 +54,16 @@ impl RpcConnections {
 	}
 
 	/// Reserve space for a token.
-	///
-	/// This ensures that [`Self::register_token`] has enough capacity.
-	/// Returns false if the token cannot be reserved.
-	pub fn reserve_token(&self, connection_id: ConnectionId) -> bool {
+	pub fn reserve_token(&self, connection_id: ConnectionId) -> Option<ReservedConnectionToken> {
 		let mut data = self.data.lock();
 
 		let entry = data.entry(connection_id).or_insert_with(ConnectionData::default);
 		if entry.num_tokens >= self.capacity {
-			return false;
+			return None;
 		}
 		entry.num_tokens += 1;
 
-		true
+		Some(ReservedConnectionToken { connection_id, rpc_connections: Some(self.clone()) })
 	}
 
 	/// Gives back the reserved space before the token is registered.
@@ -74,7 +71,7 @@ impl RpcConnections {
 	/// # Note
 	///
 	/// This may happen if the pending subscription cannot be accepted (unlikely).
-	pub fn unreserve_token(&self, connection_id: ConnectionId) {
+	fn unreserve_token(&self, connection_id: ConnectionId) {
 		let mut data = self.data.lock();
 
 		let entry = data.entry(connection_id).or_insert_with(ConnectionData::default);
@@ -86,7 +83,7 @@ impl RpcConnections {
 	/// Register a token for the given connection.
 	///
 	/// Users should call [`Self::reserve_token`] before calling this method.
-	pub fn register_token(&self, connection_id: ConnectionId, token: String) {
+	fn register_token(&self, connection_id: ConnectionId, token: String) {
 		let mut data = self.data.lock();
 
 		let entry = data.entry(connection_id).or_insert_with(ConnectionData::default);
@@ -94,7 +91,7 @@ impl RpcConnections {
 	}
 
 	/// Unregister a token for the given connection.
-	pub fn unregister_token(&self, connection_id: ConnectionId, token: &str) {
+	fn unregister_token(&self, connection_id: ConnectionId, token: &str) {
 		let mut data = self.data.lock();
 		if let Some(connection_data) = data.get_mut(&connection_id) {
 			connection_data.tokens.remove(token);
@@ -112,6 +109,47 @@ impl RpcConnections {
 		data.get(&connection_id)
 			.map(|connection_data| connection_data.tokens.contains(token))
 			.unwrap_or(false)
+	}
+}
+
+/// RAII wrapper that ensures the reserved space is given back if the object is
+/// dropped before the token is registered.
+pub struct ReservedConnectionToken {
+	connection_id: ConnectionId,
+	rpc_connections: Option<RpcConnections>,
+}
+
+impl ReservedConnectionToken {
+	/// Register the token for the given connection.
+	pub fn register(mut self, token: String) -> RegisteredConnectionToken {
+		let rpc_connections = self
+			.rpc_connections
+			.take()
+			.expect("Always constructed with rpc connections; qed");
+
+		rpc_connections.register_token(self.connection_id, token.clone());
+		RegisteredConnectionToken { connection_id: self.connection_id, token, rpc_connections }
+	}
+}
+
+impl Drop for ReservedConnectionToken {
+	fn drop(&mut self) {
+		if let Some(rpc_connections) = self.rpc_connections.take() {
+			rpc_connections.unreserve_token(self.connection_id);
+		}
+	}
+}
+
+/// RAII wrapper that ensures the token is unregistered if the object is dropped.
+pub struct RegisteredConnectionToken {
+	connection_id: ConnectionId,
+	token: String,
+	rpc_connections: RpcConnections,
+}
+
+impl Drop for RegisteredConnectionToken {
+	fn drop(&mut self) {
+		self.rpc_connections.unregister_token(self.connection_id, &self.token);
 	}
 }
 
