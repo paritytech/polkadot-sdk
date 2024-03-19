@@ -61,7 +61,7 @@ impl RpcConnections {
 		if entry.num_tokens >= self.capacity {
 			return None;
 		}
-		entry.num_tokens += 1;
+		entry.num_tokens = entry.num_tokens.saturating_add(1);
 
 		Some(ReservedConnectionToken { connection_id, rpc_connections: Some(self.clone()) })
 	}
@@ -75,9 +75,7 @@ impl RpcConnections {
 		let mut data = self.data.lock();
 
 		let entry = data.entry(connection_id).or_insert_with(ConnectionData::default);
-		if entry.num_tokens > 0 {
-			entry.num_tokens -= 1;
-		}
+		entry.num_tokens = entry.num_tokens.saturating_sub(1);
 	}
 
 	/// Register a token for the given connection.
@@ -87,6 +85,11 @@ impl RpcConnections {
 		let mut data = self.data.lock();
 
 		let entry = data.entry(connection_id).or_insert_with(ConnectionData::default);
+		// Should be already checked `Self::reserve_token`.
+		if entry.tokens.len() >= self.capacity {
+			return;
+		}
+
 		entry.tokens.insert(token);
 	}
 
@@ -95,7 +98,7 @@ impl RpcConnections {
 		let mut data = self.data.lock();
 		if let Some(connection_data) = data.get_mut(&connection_id) {
 			connection_data.tokens.remove(token);
-			connection_data.num_tokens -= 1;
+			connection_data.num_tokens = connection_data.num_tokens.saturating_sub(1);
 
 			if connection_data.num_tokens == 0 {
 				data.remove(&connection_id);
@@ -158,22 +161,68 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn register_token() {
+	fn reserve_token() {
 		let rpc_connections = RpcConnections::new(2);
-		assert!(rpc_connections.register_token(1, "token1".to_string()));
-		assert!(rpc_connections.register_token(1, "token2".to_string()));
-		// Cannot be registered due to exceeding limits.
-		assert!(!rpc_connections.register_token(1, "token3".to_string()));
+		let reserved = rpc_connections.reserve_token(1);
+		assert!(reserved.is_some());
+		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
+
+		let reserved = reserved.unwrap();
+		let registered = reserved.register("token1".to_string());
+		assert!(rpc_connections.contains_token(1, "token1"));
+		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
+		drop(registered);
+
+		// Data is dropped.
+		assert!(rpc_connections.data.lock().get(&1).is_none());
+		// Checks can still happen.
+		assert!(!rpc_connections.contains_token(1, "token1"));
 	}
 
 	#[test]
-	fn unregister_token() {
+	fn reserve_token_capacity_reached() {
 		let rpc_connections = RpcConnections::new(2);
-		rpc_connections.register_token(1, "token1".to_string());
-		rpc_connections.register_token(1, "token2".to_string());
 
-		rpc_connections.unregister_token(1, "token1");
-		assert!(!rpc_connections.contains_token(1, "token1"));
+		// Reserve token for connection 1.
+		let reserved = rpc_connections.reserve_token(1);
+		assert!(reserved.is_some());
+		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
+
+		// Add token for connection 1.
+		let reserved = reserved.unwrap();
+		let registered = reserved.register("token1".to_string());
+		assert!(rpc_connections.contains_token(1, "token1"));
+		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
+
+		// Reserve token for connection 1 again.
+		let reserved = rpc_connections.reserve_token(1);
+		assert!(reserved.is_some());
+		assert_eq!(2, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
+
+		// Add token for connection 1 again.
+		let reserved = reserved.unwrap();
+		let registered_second = reserved.register("token2".to_string());
 		assert!(rpc_connections.contains_token(1, "token2"));
+		assert_eq!(2, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
+
+		// Cannot reserve more tokens.
+		let reserved = rpc_connections.reserve_token(1);
+		assert!(reserved.is_none());
+
+		// Drop the first token.
+		drop(registered);
+		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
+		assert!(rpc_connections.contains_token(1, "token2"));
+		assert!(!rpc_connections.contains_token(1, "token1"));
+
+		// Can reserve again after clearing the space.
+		let reserved = rpc_connections.reserve_token(1);
+		assert!(reserved.is_some());
+		assert_eq!(2, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
+
+		// Ensure data is cleared.
+		drop(reserved);
+		drop(registered_second);
+		assert!(rpc_connections.data.lock().get(&1).is_none());
 	}
 }
