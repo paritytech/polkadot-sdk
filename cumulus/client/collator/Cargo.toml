@@ -1,12 +1,17 @@
 [package]
 name = "cumulus-client-collator"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
+description = "Common node-side functionality and glue code to collate parachain blocks."
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 parking_lot = "0.12.1"
-codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
 futures = "0.3.21"
 tracing = "0.1.25"
 
@@ -29,7 +34,7 @@ cumulus-client-network = { path = "../network" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 
 [dev-dependencies]
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 
 # Substrate
 sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }

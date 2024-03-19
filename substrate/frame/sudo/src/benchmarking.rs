@@ -22,41 +22,40 @@ use crate::Pallet;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
-const SEED: u32 = 0;
-
-fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
-	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
+	let re: <T as Config>::RuntimeEvent = generic_event.into();
+	frame_system::Pallet::<T>::assert_last_event(re.into());
 }
 
-#[benchmarks( where <T as Config>::RuntimeCall: From<frame_system::Call<T>>)]
+#[benchmarks(where <T as Config>::RuntimeCall: From<frame_system::Call<T>>)]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
 	fn set_key() {
 		let caller: T::AccountId = whitelisted_caller();
-		Key::<T>::put(caller.clone());
+		Key::<T>::put(&caller);
 
-		let new_sudoer: T::AccountId = account("sudoer", 0, SEED);
+		let new_sudoer: T::AccountId = account("sudoer", 0, 0);
 		let new_sudoer_lookup = T::Lookup::unlookup(new_sudoer.clone());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), new_sudoer_lookup);
 
-		assert_last_event::<T>(Event::KeyChanged { old_sudoer: Some(caller) }.into());
+		assert_last_event::<T>(Event::KeyChanged { old: Some(caller), new: new_sudoer });
 	}
 
 	#[benchmark]
 	fn sudo() {
 		let caller: T::AccountId = whitelisted_caller();
-		Key::<T>::put(caller.clone());
+		Key::<T>::put(&caller);
 
-		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		let call = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), Box::new(call.clone()));
+		_(RawOrigin::Signed(caller), Box::new(call));
 
-		assert_last_event::<T>(Event::Sudid { sudo_result: Ok(()) }.into())
+		assert_last_event::<T>(Event::Sudid { sudo_result: Ok(()) })
 	}
 
 	#[benchmark]
@@ -64,15 +63,26 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		Key::<T>::put(caller.clone());
 
-		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		let call = frame_system::Call::remark { remark: vec![] }.into();
 
-		let who: T::AccountId = account("as", 0, SEED);
-		let who_lookup = T::Lookup::unlookup(who.clone());
+		let who: T::AccountId = account("as", 0, 0);
+		let who_lookup = T::Lookup::unlookup(who);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), who_lookup, Box::new(call.clone()));
+		_(RawOrigin::Signed(caller), who_lookup, Box::new(call));
 
-		assert_last_event::<T>(Event::SudoAsDone { sudo_result: Ok(()) }.into())
+		assert_last_event::<T>(Event::SudoAsDone { sudo_result: Ok(()) })
+	}
+
+	#[benchmark]
+	fn remove_key() {
+		let caller: T::AccountId = whitelisted_caller();
+		Key::<T>::put(&caller);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()));
+
+		assert_last_event::<T>(Event::KeyRemoved {});
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_bench_ext(), crate::mock::Test);

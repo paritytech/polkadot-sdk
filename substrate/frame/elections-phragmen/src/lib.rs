@@ -188,7 +188,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
@@ -1307,44 +1307,19 @@ mod tests {
 	use super::*;
 	use crate as elections_phragmen;
 	use frame_support::{
-		assert_noop, assert_ok,
+		assert_noop, assert_ok, derive_impl,
 		dispatch::DispatchResultWithPostInfo,
 		parameter_types,
 		traits::{ConstU32, ConstU64, OnInitialize},
 	};
 	use frame_system::ensure_signed;
-	use sp_core::H256;
-	use sp_runtime::{
-		testing::Header,
-		traits::{BlakeTwo256, IdentityLookup},
-		BuildStorage,
-	};
+	use sp_runtime::{testing::Header, BuildStorage};
 	use substrate_test_utils::assert_eq_uvec;
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
-		type BaseCallFilter = frame_support::traits::Everything;
-		type BlockWeights = ();
-		type BlockLength = ();
-		type DbWeight = ();
-		type RuntimeOrigin = RuntimeOrigin;
-		type Nonce = u64;
-		type RuntimeCall = RuntimeCall;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
-		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = ConstU64<250>;
-		type Version = ();
-		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type SS58Prefix = ();
-		type OnSetCode = ();
-		type MaxConsumers = ConstU32<16>;
 	}
 
 	impl pallet_balances::Config for Test {
@@ -1360,7 +1335,7 @@ mod tests {
 		type FreezeIdentifier = ();
 		type MaxFreezes = ();
 		type RuntimeHoldReason = ();
-		type MaxHolds = ();
+		type RuntimeFreezeReason = ();
 	}
 
 	frame_support::parameter_types! {
@@ -1452,9 +1427,9 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Event<T>, Config<T>},
-			Elections: elections_phragmen::{Pallet, Call, Event<T>, Config<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			Elections: elections_phragmen,
 		}
 	);
 
@@ -1505,6 +1480,7 @@ mod tests {
 				*m.borrow_mut() = self.genesis_members.iter().map(|(m, _)| *m).collect::<Vec<_>>()
 			});
 			let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+				system: frame_system::GenesisConfig::default(),
 				balances: pallet_balances::GenesisConfig::<Test> {
 					balances: vec![
 						(1, 10 * self.balance_factor),

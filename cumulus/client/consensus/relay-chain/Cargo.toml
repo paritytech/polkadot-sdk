@@ -1,12 +1,16 @@
 [package]
 name = "cumulus-client-consensus-relay-chain"
 description = "The relay-chain provided consensus algorithm"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 futures = "0.3.28"
 parking_lot = "0.12.1"
 tracing = "0.1.37"

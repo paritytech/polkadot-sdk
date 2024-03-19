@@ -60,7 +60,8 @@ pub fn ensure_weights_are_correct<W: WeightInfoExt>() {
 	// W::receive_messages_delivery_proof_messages_overhead(1).ref_time() may be zero because:
 	// there's no code that iterates over confirmed messages in confirmation transaction
 	assert_eq!(W::receive_messages_delivery_proof_messages_overhead(1).proof_size(), 0);
-	assert_ne!(W::receive_messages_delivery_proof_relayers_overhead(1).ref_time(), 0);
+	// W::receive_messages_delivery_proof_relayers_overhead(1).ref_time() may be zero because:
+	// runtime **can** choose not to pay any rewards to relayers
 	// W::receive_messages_delivery_proof_relayers_overhead(1).proof_size() is an exception
 	// it may or may not cause additional db reads, so proof size may vary
 	assert_ne!(W::storage_proof_size_overhead(1).ref_time(), 0);

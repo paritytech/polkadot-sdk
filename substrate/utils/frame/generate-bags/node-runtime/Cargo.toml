@@ -9,9 +9,12 @@ repository.workspace = true
 description = "Bag threshold generation script for pallet-bag-list and kitchensink-runtime."
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 kitchensink-runtime = { path = "../../../../bin/node/runtime" }
 generate-bags = { path = ".." }
 
 # third-party
-clap = { version = "4.4.6", features = ["derive"] }
+clap = { version = "4.5.3", features = ["derive"] }

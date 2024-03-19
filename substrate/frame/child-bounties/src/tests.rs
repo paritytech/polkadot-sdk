@@ -23,7 +23,7 @@ use super::*;
 use crate as pallet_child_bounties;
 
 use frame_support::{
-	assert_noop, assert_ok, parameter_types,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		ConstU32, ConstU64, OnInitialize,
@@ -32,9 +32,8 @@ use frame_support::{
 	PalletId,
 };
 
-use sp_core::H256;
 use sp_runtime::{
-	traits::{BadOrigin, BlakeTwo256, IdentityLookup},
+	traits::{BadOrigin, IdentityLookup},
 	BuildStorage, Perbill, Permill, TokenError,
 };
 
@@ -46,11 +45,11 @@ type BountiesError = pallet_bounties::Error<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Bounties: pallet_bounties::{Pallet, Call, Storage, Event<T>},
-		Treasury: pallet_treasury::{Pallet, Call, Storage, Config<T>, Event<T>},
-		ChildBounties: pallet_child_bounties::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Bounties: pallet_bounties,
+		Treasury: pallet_treasury,
+		ChildBounties: pallet_child_bounties,
 	}
 );
 
@@ -62,30 +61,12 @@ parameter_types! {
 
 type Balance = u64;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = u128;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -101,7 +82,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(5);

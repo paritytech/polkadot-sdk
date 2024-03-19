@@ -1,6 +1,6 @@
 [package]
 name = "sc-sync-state-rpc"
-version = "0.10.0-dev"
+version = "0.34.0"
 authors.workspace = true
 description = "A RPC handler to create sync states for light clients."
 edition.workspace = true
@@ -8,15 +8,18 @@ license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
-serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.107"
-thiserror = "1.0.48"
+jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
+serde = { features = ["derive"], workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
+thiserror = { workspace = true }
 sc-chain-spec = { path = "../chain-spec" }
 sc-client-api = { path = "../api" }
 sc-consensus-babe = { path = "../consensus/babe" }

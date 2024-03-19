@@ -22,66 +22,9 @@ use crate::block_relay_protocol::{BlockDownloader as BlockDownloaderT, BlockResp
 
 use futures::channel::oneshot;
 use libp2p::PeerId;
-use sc_network::RequestFailure;
-use sc_network_common::sync::{
-	message::{BlockAnnounce, BlockData, BlockRequest, BlockResponse},
-	BadPeer, ChainSync as ChainSyncT, ImportBlocksAction, Metrics, OnBlockData,
-	OnBlockJustification, PeerInfo, SyncStatus,
-};
-use sp_runtime::traits::{Block as BlockT, NumberFor};
-
-mockall::mock! {
-	pub ChainSync<Block: BlockT> {}
-
-	impl<Block: BlockT> ChainSyncT<Block> for ChainSync<Block> {
-		fn peer_info(&self, who: &PeerId) -> Option<PeerInfo<Block>>;
-		fn status(&self) -> SyncStatus<Block>;
-		fn num_sync_requests(&self) -> usize;
-		fn num_downloaded_blocks(&self) -> usize;
-		fn num_peers(&self) -> usize;
-		fn new_peer(
-			&mut self,
-			who: PeerId,
-			best_hash: Block::Hash,
-			best_number: NumberFor<Block>,
-		) -> Result<Option<BlockRequest<Block>>, BadPeer>;
-		fn update_chain_info(&mut self, best_hash: &Block::Hash, best_number: NumberFor<Block>);
-		fn request_justification(&mut self, hash: &Block::Hash, number: NumberFor<Block>);
-		fn clear_justification_requests(&mut self);
-		fn set_sync_fork_request(
-			&mut self,
-			peers: Vec<PeerId>,
-			hash: &Block::Hash,
-			number: NumberFor<Block>,
-		);
-		fn on_block_data(
-			&mut self,
-			who: &PeerId,
-			request: Option<BlockRequest<Block>>,
-			response: BlockResponse<Block>,
-		) -> Result<OnBlockData<Block>, BadPeer>;
-		fn on_block_justification(
-			&mut self,
-			who: PeerId,
-			response: BlockResponse<Block>,
-		) -> Result<OnBlockJustification<Block>, BadPeer>;
-		fn on_justification_import(
-			&mut self,
-			hash: Block::Hash,
-			number: NumberFor<Block>,
-			success: bool,
-		);
-		fn on_block_finalized(&mut self, hash: &Block::Hash, number: NumberFor<Block>);
-		fn on_validated_block_announce(
-			&mut self,
-			is_best: bool,
-			who: PeerId,
-			announce: &BlockAnnounce<Block::Header>,
-		);
-		fn peer_disconnected(&mut self, who: &PeerId) -> Option<ImportBlocksAction<Block>>;
-		fn metrics(&self) -> Metrics;
-	}
-}
+use sc_network::{ProtocolName, RequestFailure};
+use sc_network_common::sync::message::{BlockData, BlockRequest};
+use sp_runtime::traits::Block as BlockT;
 
 mockall::mock! {
 	pub BlockDownloader<Block: BlockT> {}
@@ -92,7 +35,7 @@ mockall::mock! {
 			&self,
 			who: PeerId,
 			request: BlockRequest<Block>,
-		) -> Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>;
+		) -> Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled>;
 		fn block_response_into_blocks(
 			&self,
 			request: &BlockRequest<Block>,

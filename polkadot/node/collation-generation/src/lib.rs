@@ -144,6 +144,16 @@ impl CollationGenerationSubsystem {
 				false
 			},
 			Ok(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Reinitialize(config),
+			}) => {
+				if self.config.is_none() {
+					gum::error!(target: LOG_TARGET, "no initial initialization");
+				} else {
+					self.config = Some(Arc::new(config));
+				}
+				false
+			},
+			Ok(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(params),
 			}) => {
 				if let Some(config) = &self.config {
@@ -456,6 +466,7 @@ async fn construct_and_distribute_receipt(
 	} = collation;
 
 	let persisted_validation_data_hash = validation_data.hash();
+	let parent_head_data = validation_data.parent_head.clone();
 	let parent_head_data_hash = validation_data.parent_head.hash();
 
 	// Apply compression to the block data.
@@ -541,12 +552,13 @@ async fn construct_and_distribute_receipt(
 	metrics.on_collation_generated();
 
 	sender
-		.send_message(CollatorProtocolMessage::DistributeCollation(
-			ccr,
+		.send_message(CollatorProtocolMessage::DistributeCollation {
+			candidate_receipt: ccr,
 			parent_head_data_hash,
 			pov,
+			parent_head_data,
 			result_sender,
-		))
+		})
 		.await;
 }
 

@@ -323,7 +323,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub authorities: Vec<(AuthorityId, BabeAuthorityWeight)>,
-		pub epoch_config: Option<BabeEpochConfiguration>,
+		pub epoch_config: BabeEpochConfiguration,
 		#[serde(skip)]
 		pub _config: sp_std::marker::PhantomData<T>,
 	}
@@ -333,9 +333,7 @@ pub mod pallet {
 		fn build(&self) {
 			SegmentIndex::<T>::put(0);
 			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
-			EpochConfig::<T>::put(
-				self.epoch_config.clone().expect("epoch_config must not be None"),
-			);
+			EpochConfig::<T>::put(&self.epoch_config);
 		}
 	}
 
@@ -384,7 +382,11 @@ pub mod pallet {
 							});
 
 							public
-								.make_bytes(RANDOMNESS_VRF_CONTEXT, &transcript, &signature.output)
+								.make_bytes(
+									RANDOMNESS_VRF_CONTEXT,
+									&transcript,
+									&signature.pre_output,
+								)
 								.ok()
 						});
 
@@ -900,8 +902,9 @@ impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T> {
 		let timestamp_slot = moment / slot_duration;
 		let timestamp_slot = Slot::from(timestamp_slot.saturated_into::<u64>());
 
-		assert!(
-			CurrentSlot::<T>::get() == timestamp_slot,
+		assert_eq!(
+			CurrentSlot::<T>::get(),
+			timestamp_slot,
 			"Timestamp slot must match `CurrentSlot`"
 		);
 	}

@@ -60,7 +60,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn initialize_block(_: &<Block as BlockT>::Header) {
+		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			unimplemented!()
 		}
 	}
@@ -116,7 +116,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
+	impl runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			unimplemented!()
 		}

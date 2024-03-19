@@ -14,6 +14,7 @@ funds are rewarded under normal operation but are held at pain of _slash_ (expro
 be found not to be discharging its duties properly.
 
 ### Terminology
+
 <!-- Original author of paragraph: @gavofyork -->
 
 - Staking: The process of locking up funds for some time, placing them at risk of slashing (loss) in order to become a
@@ -23,12 +24,13 @@ be found not to be discharging its duties properly.
 - Nominating: The process of placing staked funds behind one or more validators in order to share in any reward, and
   punishment, they take.
 - Stash account: The account holding an owner's funds used for staking.
-- Controller account: The account that controls an owner's funds for staking.
+- Controller account (being deprecated): The account that controls an owner's funds for staking.
 - Era: A (whole) number of sessions, which is the period that the validator set (and each validator's active nominator
   set) is recalculated and where rewards are paid out.
 - Slash: The punishment of a staker by reducing its funds.
 
 ### Goals
+
 <!-- Original author of paragraph: @gavofyork -->
 
 The staking system in Substrate NPoS is designed to make the following possible:
@@ -43,10 +45,10 @@ The staking system in Substrate NPoS is designed to make the following possible:
 
 Almost any interaction with the Staking module requires a process of _**bonding**_ (also known as being a _staker_). To
 become *bonded*, a fund-holding account known as the _stash account_, which holds some or all of the funds that become
-frozen in place as part of the staking process, is paired with an active **controller** account, which issues
-instructions on how they shall be used.
+frozen in place as part of the staking process. The controller account, which this pallet now assigns the stash account to,
+issues instructions on how funds shall be used.
 
-An account pair can become bonded using the
+An account can become a bonded stash account using the
 [`bond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.bond) call.
 
 Stash accounts can update their associated controller back to their stash account using the
@@ -75,7 +77,7 @@ An account can become a validator candidate via the
 
 #### Nomination
 
-A **nominator** does not take any _direct_ role in maintaining the network, instead, it votes on a set of validators  to
+A **nominator** does not take any _direct_ role in maintaining the network, instead, it votes on a set of validators to
 be elected. Once interest in nomination is stated by an account, it takes effect at the next election round. The funds
 in the nominator's stash account indicate the _weight_ of its vote. Both the rewards and any punishment that a validator
 earns are shared between the validator and its nominators. This rule incentivizes the nominators to NOT vote for the
@@ -90,10 +92,12 @@ An account can become a nominator via the
 The **reward and slashing** procedure is the core of the Staking module, attempting to _embrace valid behavior_ while
 _punishing any misbehavior or lack of availability_.
 
-Rewards must be claimed for each era before it gets too old by `$HISTORY_DEPTH` using the `payout_stakers` call. Any
-account can call `payout_stakers`, which pays the reward to the validator as well as its nominators. Only the
-[`Config::MaxNominatorRewardedPerValidator`] biggest stakers can claim their reward. This is to limit the i/o cost to
-mutate storage for each nominator's account.
+Rewards must be claimed for each era before it gets too old by `$HISTORY_DEPTH` using the `payout_stakers` call. When a
+validator has more than [`Config::MaxExposurePageSize`] nominators, nominators are divided into pages with each call to
+`payout_stakers` paying rewards to one page of nominators in a sequential and ascending manner. Any account can also
+call `payout_stakers_by_page` to explicitly pay reward for a given page. As evident, this means only the
+[`Config::MaxExposurePageSize`] nominators are rewarded per call. This is to limit the i/o cost to mutate storage for
+each nominator's account.
 
 Slashing can occur at any point in time, once misbehavior is reported. Once slashing is determined, a value is deducted
 from the balance of the validator and all the nominators who voted for this validator (values are deducted from the
@@ -173,11 +177,13 @@ such:
 ```nocompile
 staker_payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens / era_per_year
 ```
+
 This payout is used to reward stakers as defined in next section
 
 ```nocompile
 remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
 ```
+
 The remaining reward is send to the configurable end-point
 [`T::RewardRemainder`](https://docs.rs/pallet-staking/latest/pallet_staking/trait.Config.html#associatedtype.RewardRemainder).
 
@@ -225,8 +231,8 @@ following:
 Any funds already placed into stash can be the target of the following operations:
 
 The controller account can free a portion (or all) of the funds using the
-[`unbond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.unbond) call. Note that the funds
-are not immediately accessible. Instead, a duration denoted by
+[`unbond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.unbond) call. Note that the
+funds are not immediately accessible. Instead, a duration denoted by
 [`BondingDuration`](https://docs.rs/pallet-staking/latest/pallet_staking/trait.Config.html#associatedtype.BondingDuration)
 (in number of eras) must pass until the funds can actually be removed. Once the `BondingDuration` is over, the
 [`withdraw_unbonded`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.withdraw_unbonded)

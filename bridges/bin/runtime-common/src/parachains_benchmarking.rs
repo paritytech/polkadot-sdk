@@ -84,5 +84,5 @@ where
 	let (relay_block_number, relay_block_hash) =
 		insert_header_to_grandpa_pallet::<R, R::BridgesGrandpaPalletInstance>(state_root);
 
-	(relay_block_number, relay_block_hash, ParaHeadsProof(proof), parachain_heads)
+	(relay_block_number, relay_block_hash, ParaHeadsProof { storage_proof: proof }, parachain_heads)
 }

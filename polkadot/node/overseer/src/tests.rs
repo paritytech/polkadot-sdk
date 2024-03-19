@@ -30,7 +30,7 @@ use polkadot_node_subsystem_types::messages::{
 };
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
-	PvfExecTimeoutKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+	PvfExecKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
 };
 
 use crate::{
@@ -102,13 +102,13 @@ where
 						};
 
 						let (tx, _) = oneshot::channel();
-						ctx.send_message(CandidateValidationMessage::ValidateFromChainState(
+						ctx.send_message(CandidateValidationMessage::ValidateFromChainState {
 							candidate_receipt,
-							PoV { block_data: BlockData(Vec::new()) }.into(),
-							Default::default(),
-							PvfExecTimeoutKind::Backing,
-							tx,
-						))
+							pov: PoV { block_data: BlockData(Vec::new()) }.into(),
+							executor_params: Default::default(),
+							exec_kind: PvfExecKind::Backing,
+							response_sender: tx,
+						})
 						.await;
 						c += 1;
 						continue
@@ -793,20 +793,20 @@ where
 }
 
 fn test_candidate_validation_msg() -> CandidateValidationMessage {
-	let (sender, _) = oneshot::channel();
+	let (response_sender, _) = oneshot::channel();
 	let pov = Arc::new(PoV { block_data: BlockData(Vec::new()) });
 	let candidate_receipt = CandidateReceipt {
 		descriptor: dummy_candidate_descriptor(dummy_hash()),
 		commitments_hash: Hash::zero(),
 	};
 
-	CandidateValidationMessage::ValidateFromChainState(
+	CandidateValidationMessage::ValidateFromChainState {
 		candidate_receipt,
 		pov,
-		Default::default(),
-		PvfExecTimeoutKind::Backing,
-		sender,
-	)
+		executor_params: Default::default(),
+		exec_kind: PvfExecKind::Backing,
+		response_sender,
+	}
 }
 
 fn test_candidate_backing_msg() -> CandidateBackingMessage {

@@ -19,20 +19,14 @@
 //!
 //! Note: `CHAIN_CODE_LENGTH` must be equal to `crate::crypto::JUNCTION_ID_LEN`
 //! for this to work.
-#[cfg(any(feature = "full_crypto", feature = "serde"))]
-use crate::crypto::DeriveJunction;
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
+use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 #[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, Pair as TraitPair, SecretStringError};
-#[cfg(feature = "full_crypto")]
+use schnorrkel::signing_context;
 use schnorrkel::{
-	derive::CHAIN_CODE_LENGTH, signing_context, ExpansionMode, Keypair, MiniSecretKey, SecretKey,
-};
-#[cfg(any(feature = "full_crypto", feature = "serde"))]
-use schnorrkel::{
-	derive::{ChainCode, Derivation},
-	PublicKey,
+	derive::{ChainCode, Derivation, CHAIN_CODE_LENGTH},
+	ExpansionMode, Keypair, MiniSecretKey, PublicKey, SecretKey,
 };
 use sp_std::vec::Vec;
 
@@ -47,7 +41,6 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_std::ops::Deref;
 
-#[cfg(feature = "full_crypto")]
 use schnorrkel::keys::{MINI_SECRET_KEY_LENGTH, SECRET_KEY_LENGTH};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -56,14 +49,12 @@ use sp_runtime_interface::pass_by::PassByInner;
 use sp_std::alloc::{format, string::String};
 
 // signing context
-#[cfg(feature = "full_crypto")]
 const SIGNING_CTX: &[u8] = b"substrate";
 
 /// An identifier used to match public keys against sr25519 keys
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"sr25");
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") public key.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(
 	PartialEq,
 	Eq,
@@ -76,14 +67,13 @@ pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"sr25");
 	PassByInner,
 	MaxEncodedLen,
 	TypeInfo,
+	Hash,
 )]
 pub struct Public(pub [u8; 32]);
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") key pair.
-#[cfg(feature = "full_crypto")]
 pub struct Pair(Keypair);
 
-#[cfg(feature = "full_crypto")]
 impl Clone for Pair {
 	fn clone(&self) -> Self {
 		Pair(schnorrkel::Keypair {
@@ -216,8 +206,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash)]
 pub struct Signature(pub [u8; 64]);
 
 impl TryFrom<&[u8]> for Signature {
@@ -435,16 +424,13 @@ impl AsRef<schnorrkel::Keypair> for Pair {
 }
 
 /// Derive a single hard junction.
-#[cfg(feature = "full_crypto")]
 fn derive_hard_junction(secret: &SecretKey, cc: &[u8; CHAIN_CODE_LENGTH]) -> MiniSecretKey {
 	secret.hard_derive_mini_secret_key(Some(ChainCode(*cc)), b"").0
 }
 
 /// The raw secret seed, which can be used to recreate the `Pair`.
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; MINI_SECRET_KEY_LENGTH];
 
-#[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
@@ -499,6 +485,7 @@ impl TraitPair for Pair {
 		Ok((Self(result.into()), seed.map(|s| MiniSecretKey::to_bytes(&s))))
 	}
 
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, message: &[u8]) -> Signature {
 		let context = signing_context(SIGNING_CTX);
 		self.0.sign(context.bytes(message)).into()
@@ -533,16 +520,13 @@ impl Pair {
 }
 
 impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
 impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
-#[cfg(feature = "full_crypto")]
 impl CryptoType for Pair {
 	type Pair = Pair;
 }
@@ -555,7 +539,7 @@ pub mod vrf {
 	use crate::crypto::{VrfCrypto, VrfPublic};
 	use schnorrkel::{
 		errors::MultiSignatureStage,
-		vrf::{VRF_OUTPUT_LENGTH, VRF_PROOF_LENGTH},
+		vrf::{VRF_PREOUT_LENGTH, VRF_PROOF_LENGTH},
 		SignatureError,
 	};
 
@@ -628,37 +612,37 @@ pub mod vrf {
 	/// VRF signature data
 	#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub struct VrfSignature {
-		/// VRF output.
-		pub output: VrfOutput,
+		/// VRF pre-output.
+		pub pre_output: VrfPreOutput,
 		/// VRF proof.
 		pub proof: VrfProof,
 	}
 
-	/// VRF output type suitable for schnorrkel operations.
+	/// VRF pre-output type suitable for schnorrkel operations.
 	#[derive(Clone, Debug, PartialEq, Eq)]
-	pub struct VrfOutput(pub schnorrkel::vrf::VRFOutput);
+	pub struct VrfPreOutput(pub schnorrkel::vrf::VRFPreOut);
 
-	impl Encode for VrfOutput {
+	impl Encode for VrfPreOutput {
 		fn encode(&self) -> Vec<u8> {
 			self.0.as_bytes().encode()
 		}
 	}
 
-	impl Decode for VrfOutput {
+	impl Decode for VrfPreOutput {
 		fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
-			let decoded = <[u8; VRF_OUTPUT_LENGTH]>::decode(i)?;
-			Ok(Self(schnorrkel::vrf::VRFOutput::from_bytes(&decoded).map_err(convert_error)?))
+			let decoded = <[u8; VRF_PREOUT_LENGTH]>::decode(i)?;
+			Ok(Self(schnorrkel::vrf::VRFPreOut::from_bytes(&decoded).map_err(convert_error)?))
 		}
 	}
 
-	impl MaxEncodedLen for VrfOutput {
+	impl MaxEncodedLen for VrfPreOutput {
 		fn max_encoded_len() -> usize {
-			<[u8; VRF_OUTPUT_LENGTH]>::max_encoded_len()
+			<[u8; VRF_PREOUT_LENGTH]>::max_encoded_len()
 		}
 	}
 
-	impl TypeInfo for VrfOutput {
-		type Identity = [u8; VRF_OUTPUT_LENGTH];
+	impl TypeInfo for VrfPreOutput {
+		type Identity = [u8; VRF_PREOUT_LENGTH];
 
 		fn type_info() -> scale_info::Type {
 			Self::Identity::type_info()
@@ -699,7 +683,7 @@ pub mod vrf {
 	#[cfg(feature = "full_crypto")]
 	impl VrfCrypto for Pair {
 		type VrfInput = VrfTranscript;
-		type VrfOutput = VrfOutput;
+		type VrfPreOutput = VrfPreOutput;
 		type VrfSignData = VrfSignData;
 		type VrfSignature = VrfSignature;
 	}
@@ -717,18 +701,18 @@ pub mod vrf {
 
 			let proof = self.0.dleq_proove(extra, &inout, true).0;
 
-			VrfSignature { output: VrfOutput(inout.to_output()), proof: VrfProof(proof) }
+			VrfSignature { pre_output: VrfPreOutput(inout.to_preout()), proof: VrfProof(proof) }
 		}
 
-		fn vrf_output(&self, input: &Self::VrfInput) -> Self::VrfOutput {
-			let output = self.0.vrf_create_hash(input.0.clone()).to_output();
-			VrfOutput(output)
+		fn vrf_pre_output(&self, input: &Self::VrfInput) -> Self::VrfPreOutput {
+			let pre_output = self.0.vrf_create_hash(input.0.clone()).to_preout();
+			VrfPreOutput(pre_output)
 		}
 	}
 
 	impl VrfCrypto for Public {
 		type VrfInput = VrfTranscript;
-		type VrfOutput = VrfOutput;
+		type VrfPreOutput = VrfPreOutput;
 		type VrfSignData = VrfSignData;
 		type VrfSignature = VrfSignature;
 	}
@@ -739,7 +723,7 @@ pub mod vrf {
 				let public = schnorrkel::PublicKey::from_bytes(self)?;
 
 				let inout =
-					signature.output.0.attach_input_hash(&public, data.transcript.0.clone())?;
+					signature.pre_output.0.attach_input_hash(&public, data.transcript.0.clone())?;
 
 				let extra = data
 					.extra
@@ -762,6 +746,7 @@ pub mod vrf {
 			ScalarFormatError => "Signature error: `ScalarFormatError`".into(),
 			NotMarkedSchnorrkel => "Signature error: `NotMarkedSchnorrkel`".into(),
 			BytesLengthError { .. } => "Signature error: `BytesLengthError`".into(),
+			InvalidKey => "Signature error: `InvalidKey`".into(),
 			MuSigAbsent { musig_stage: Commitment } =>
 				"Signature error: `MuSigAbsent` at stage `Commitment`".into(),
 			MuSigAbsent { musig_stage: Reveal } =>
@@ -802,19 +787,21 @@ pub mod vrf {
 			&self,
 			context: &[u8],
 			input: &VrfInput,
-			output: &VrfOutput,
+			pre_output: &VrfPreOutput,
 		) -> Result<[u8; N], codec::Error>
 		where
 			[u8; N]: Default,
 		{
 			let pubkey = schnorrkel::PublicKey::from_bytes(&self.0).map_err(convert_error)?;
-			let inout =
-				output.0.attach_input_hash(&pubkey, input.0.clone()).map_err(convert_error)?;
+			let inout = pre_output
+				.0
+				.attach_input_hash(&pubkey, input.0.clone())
+				.map_err(convert_error)?;
 			Ok(inout.make_bytes::<[u8; N]>(context))
 		}
 	}
 
-	impl VrfOutput {
+	impl VrfPreOutput {
 		/// Generate output bytes from the given VRF configuration.
 		pub fn make_bytes<const N: usize>(
 			&self,
@@ -968,6 +955,22 @@ mod tests {
 	}
 
 	#[test]
+	fn generate_with_phrase_should_be_recoverable_with_from_string() {
+		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
+		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_seed.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+		let (repair_phrase, reseed) =
+			Pair::from_phrase(phrase.as_ref(), None).expect("seed slice is valid");
+		assert_eq!(seed, reseed);
+		assert_eq!(pair.public(), repair_phrase.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+		let repair_string = Pair::from_string(phrase.as_str(), None).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_string.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+	}
+
+	#[test]
 	fn generated_pair_should_work() {
 		let (pair, _) = Pair::generate();
 		let public = pair.public();
@@ -1097,10 +1100,10 @@ mod tests {
 
 		let input = VrfTranscript::new(b"label", &[(b"domain1", b"data1")]);
 
-		let output = pair.vrf_output(&input);
+		let pre_output = pair.vrf_pre_output(&input);
 
 		let out1 = pair.make_bytes::<32>(ctx, &input);
-		let out2 = output.make_bytes::<32>(ctx, &input, &public).unwrap();
+		let out2 = pre_output.make_bytes::<32>(ctx, &input, &public).unwrap();
 		assert_eq!(out1, out2);
 
 		let extra = VrfTranscript::new(b"extra", &[(b"domain2", b"data2")]);
@@ -1108,7 +1111,7 @@ mod tests {
 		let signature = pair.vrf_sign(&data);
 		assert!(public.vrf_verify(&data, &signature));
 
-		let out3 = public.make_bytes::<32>(ctx, &input, &signature.output).unwrap();
+		let out3 = public.make_bytes::<32>(ctx, &input, &signature.pre_output).unwrap();
 		assert_eq!(out2, out3);
 	}
 
@@ -1126,7 +1129,7 @@ mod tests {
 		assert!(public.vrf_verify(&data, &signature));
 
 		let out1 = pair.make_bytes::<32>(ctx, &input);
-		let out2 = public.make_bytes::<32>(ctx, &input, &signature.output).unwrap();
+		let out2 = public.make_bytes::<32>(ctx, &input, &signature.pre_output).unwrap();
 		assert_eq!(out1, out2);
 
 		// Direct call to backend version of sign after check with extra params
@@ -1139,9 +1142,9 @@ mod tests {
 			})
 			.unwrap();
 		let signature2 =
-			VrfSignature { output: VrfOutput(inout.to_output()), proof: VrfProof(proof) };
+			VrfSignature { pre_output: VrfPreOutput(inout.to_preout()), proof: VrfProof(proof) };
 
 		assert!(public.vrf_verify(&data, &signature2));
-		assert_eq!(signature.output, signature2.output);
+		assert_eq!(signature.pre_output, signature2.pre_output);
 	}
 }

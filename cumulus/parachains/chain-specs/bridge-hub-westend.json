@@ -5,8 +5,6 @@
   "bootNodes": [
     "/dns/westend-bridge-hub-collator-node-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWKyEuqkkWvFSrwZWKWBAsHgLV3HGfHj7yH3LNJLAVhmxY",
     "/dns/westend-bridge-hub-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWBpvudthz61XC4oP2YYFFJdhWohBeQ1ffn1BMSGWhapjd",
-    "/dns/westend-bridge-hub-collator-node-2.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWPXqdRRthjKAMPFtaXUK7yBxsvh83QsmzXzALA3inoJfo",
-    "/dns/westend-bridge-hub-collator-node-3.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWAp2YpVaiNBy7rozEHJGocDpaLFt3VFZsGMBEYh4BoEz7",
     "/dns/westend-bridge-hub-boot-ng.dwellir.com/tcp/30338/p2p/12D3KooWJWWRYTAwBLqYkh7iMBGDr5ouJ3MHj7M3fZ7zWS4zEk6F",
     "/dns/westend-bridge-hub-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWJWWRYTAwBLqYkh7iMBGDr5ouJ3MHj7M3fZ7zWS4zEk6F",
     "/dns/boot-cr.gatotech.network/tcp/33330/p2p/12D3KooWJHG6qznPzTSEbuujHNcvyzBZcR9zNRPFcXWUaoVWZBEw",
@@ -16,7 +14,14 @@
     "/dns/boot.metaspan.io/tcp/36032/p2p/12D3KooWPaLsu3buByBnGFQnp5UP4q1S652dGVft92TFeChizFir",
     "/dns/boot.metaspan.io/tcp/36036/wss/p2p/12D3KooWPaLsu3buByBnGFQnp5UP4q1S652dGVft92TFeChizFir",
     "/dns/boot-node.helikon.io/tcp/9220/p2p/12D3KooWK3K1Mu5Jjg96Lt9DUzg84KsWnZo44V4KB7mvhGqi6xnp",
-    "/dns/boot-node.helikon.io/tcp/9222/wss/p2p/12D3KooWK3K1Mu5Jjg96Lt9DUzg84KsWnZo44V4KB7mvhGqi6xnp"
+    "/dns/boot-node.helikon.io/tcp/9222/wss/p2p/12D3KooWK3K1Mu5Jjg96Lt9DUzg84KsWnZo44V4KB7mvhGqi6xnp",
+    "/dns/bridgehub-westend-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWBsBArCMxmQyo3feCEqMWuwyhb2LTRK8hmCCJxgrNeMke",
+    "/dns/bridgehub-westend-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWBsBArCMxmQyo3feCEqMWuwyhb2LTRK8hmCCJxgrNeMke",
+    "/dns/wbr13.rotko.net/tcp/33563/p2p/12D3KooWJyeRHpxZZbfBCNEgeUFzmRC5AMSAs2tJhjJS1k5hULkD",
+    "/dns/wbr13.rotko.net/tcp/34563/ws/p2p/12D3KooWJyeRHpxZZbfBCNEgeUFzmRC5AMSAs2tJhjJS1k5hULkD",
+    "/dns/wbr13.rotko.net/tcp/35563/wss/p2p/12D3KooWJyeRHpxZZbfBCNEgeUFzmRC5AMSAs2tJhjJS1k5hULkD",
+    "/dns/bridge-hub-westend.bootnodes.polkadotters.com/tcp/30523/p2p/12D3KooWPkwgJofp4GeeRwNgXqkp2aFwdLkCWv3qodpBJLwK43Jj",
+    "/dns/bridge-hub-westend.bootnodes.polkadotters.com/tcp/30525/wss/p2p/12D3KooWPkwgJofp4GeeRwNgXqkp2aFwdLkCWv3qodpBJLwK43Jj"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

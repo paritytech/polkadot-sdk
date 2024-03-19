@@ -32,7 +32,7 @@ cumulus_based = true
 add_to_genesis = false
 register_para = false
 # Set some random value in the genesis state to create a different genesis hash.
-[parachains.genesis.runtime.runtime_genesis_config.sudo]
+[parachains.genesis.runtimeGenesis.patch.sudo]
 key = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
 
   # run the parachain that will be used to return the header of the solo chain.

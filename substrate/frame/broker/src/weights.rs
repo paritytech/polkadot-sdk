@@ -74,6 +74,7 @@ pub trait WeightInfo {
 	fn process_pool() -> Weight;
 	fn process_core_schedule() -> Weight;
 	fn request_revenue_info_at() -> Weight;
+	fn notify_core_count() -> Weight;
 	fn do_tick_base() -> Weight;
 }
 
@@ -446,6 +447,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 147_000 picoseconds.
 		Weight::from_parts(184_000, 0)
+	}
+	fn notify_core_count() -> Weight {
+		T::DbWeight::get().reads_writes(1, 1)
 	}
 	/// Storage: `Broker::Status` (r:1 w:1)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
@@ -834,6 +838,10 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 147_000 picoseconds.
 		Weight::from_parts(184_000, 0)
+	}
+	fn notify_core_count() -> Weight {
+		RocksDbWeight::get().reads(1)
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	/// Storage: `Broker::Status` (r:1 w:1)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)

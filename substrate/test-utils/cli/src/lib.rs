@@ -135,7 +135,7 @@ pub fn build_substrate(args: &[&str]) {
 	// Get the root workspace directory from the CARGO_MANIFEST_DIR environment variable
 	let mut cmd = Command::new("cargo");
 
-	cmd.arg("build").arg("-p=node-cli");
+	cmd.arg("build").arg("-p=staging-node-cli");
 
 	if is_release_build {
 		cmd.arg("--release");

@@ -5,12 +5,8 @@
   "bootNodes": [
     "/dns/rococo-contracts-collator-node-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWKg3Rpxcr9oJ8n6khoxpGKWztCZydtUZk2cojHqnfLrpj",
     "/dns/rococo-contracts-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWPEXYrz8tHU3nDtPoPw4V7ou5dzMEWSTuUj7vaWiYVAVh",
-    "/dns/rococo-contracts-collator-node-2.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWEVU8AFNary4nP4qEnEcwJaRuy59Wefekzdu9pKbnVEhk",
-    "/dns/rococo-contracts-collator-node-3.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWP6pV3ZmcXzGDjv8ZMgA6nZxfAKDxSz4VNiLx6vVCQgJX",
     "/dns/rococo-contracts-collator-node-0.polkadot.io/tcp/443/wss/p2p/12D3KooWKg3Rpxcr9oJ8n6khoxpGKWztCZydtUZk2cojHqnfLrpj",
-    "/dns/rococo-contracts-collator-node-1.polkadot.io/tcp/443/wss/p2p/12D3KooWPEXYrz8tHU3nDtPoPw4V7ou5dzMEWSTuUj7vaWiYVAVh",
-    "/dns/rococo-contracts-collator-node-2.polkadot.io/tcp/443/wss/p2p/12D3KooWEVU8AFNary4nP4qEnEcwJaRuy59Wefekzdu9pKbnVEhk",
-    "/dns/rococo-contracts-collator-node-3.polkadot.io/tcp/443/wss/p2p/12D3KooWP6pV3ZmcXzGDjv8ZMgA6nZxfAKDxSz4VNiLx6vVCQgJX"
+    "/dns/rococo-contracts-collator-node-1.polkadot.io/tcp/443/wss/p2p/12D3KooWPEXYrz8tHU3nDtPoPw4V7ou5dzMEWSTuUj7vaWiYVAVh"
   ],
 
   "telemetryEndpoints": null,

@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::worker_intf::{self, Outcome};
+use super::worker_interface::{self, Outcome};
 use crate::{
 	metrics::Metrics,
-	worker_intf::{IdleWorker, WorkerHandle},
+	worker_interface::{IdleWorker, WorkerHandle},
 	LOG_TARGET,
 };
 use always_assert::never;
@@ -68,7 +68,7 @@ pub enum ToPool {
 	///
 	/// In either case, the worker is considered busy and no further `StartWork` messages should be
 	/// sent until either `Concluded` or `Rip` message is received.
-	StartWork { worker: Worker, pvf: PvfPrepData, artifact_path: PathBuf },
+	StartWork { worker: Worker, pvf: PvfPrepData, cache_path: PathBuf },
 }
 
 /// A message sent from pool to its client.
@@ -232,7 +232,7 @@ fn handle_to_pool(
 				.boxed(),
 			);
 		},
-		ToPool::StartWork { worker, pvf, artifact_path } => {
+		ToPool::StartWork { worker, pvf, cache_path } => {
 			if let Some(data) = spawned.get_mut(worker) {
 				if let Some(idle) = data.idle.take() {
 					let preparation_timer = metrics.time_preparation();
@@ -242,7 +242,7 @@ fn handle_to_pool(
 							worker,
 							idle,
 							pvf,
-							artifact_path,
+							cache_path,
 							preparation_timer,
 						)
 						.boxed(),
@@ -278,7 +278,7 @@ async fn spawn_worker_task(
 	use futures_timer::Delay;
 
 	loop {
-		match worker_intf::spawn(
+		match worker_interface::spawn(
 			&program_path,
 			&cache_path,
 			spawn_timeout,
@@ -303,10 +303,10 @@ async fn start_work_task<Timer>(
 	worker: Worker,
 	idle: IdleWorker,
 	pvf: PvfPrepData,
-	artifact_path: PathBuf,
+	cache_path: PathBuf,
 	_preparation_timer: Option<Timer>,
 ) -> PoolEvent {
-	let outcome = worker_intf::start_work(&metrics, idle, pvf, artifact_path).await;
+	let outcome = worker_interface::start_work(&metrics, idle, pvf, cache_path).await;
 	PoolEvent::StartWork(worker, outcome)
 }
 
@@ -339,17 +339,17 @@ fn handle_mux(
 					spawned,
 					worker,
 					idle,
-					Err(PrepareError::CreateTmpFileErr(err)),
+					Err(PrepareError::CreateTmpFile(err)),
 				),
 				// Return `Concluded`, but do not kill the worker since the error was on the host
 				// side.
-				Outcome::RenameTmpFileErr { worker: idle, result: _, err, src, dest } =>
+				Outcome::RenameTmpFile { worker: idle, result: _, err, src, dest } =>
 					handle_concluded_no_rip(
 						from_pool,
 						spawned,
 						worker,
 						idle,
-						Err(PrepareError::RenameTmpFileErr { err, src, dest }),
+						Err(PrepareError::RenameTmpFile { err, src, dest }),
 					),
 				// Could not clear worker cache. Kill the worker so other jobs can't see the data.
 				Outcome::ClearWorkerDir { err } => {
@@ -387,6 +387,21 @@ fn handle_mux(
 
 					Ok(())
 				},
+				// The worker might still be usable, but we kill it just in case.
+				Outcome::JobDied { err, job_pid } => {
+					if attempt_retire(metrics, spawned, worker) {
+						reply(
+							from_pool,
+							FromPool::Concluded {
+								worker,
+								rip: true,
+								result: Err(PrepareError::JobDied { err, job_pid }),
+							},
+						)?;
+					}
+
+					Ok(())
+				},
 				Outcome::TimedOut => {
 					if attempt_retire(metrics, spawned, worker) {
 						reply(
@@ -395,6 +410,20 @@ fn handle_mux(
 								worker,
 								rip: true,
 								result: Err(PrepareError::TimedOut),
+							},
+						)?;
+					}
+
+					Ok(())
+				},
+				Outcome::OutOfMemory => {
+					if attempt_retire(metrics, spawned, worker) {
+						reply(
+							from_pool,
+							FromPool::Concluded {
+								worker,
+								rip: true,
+								result: Err(PrepareError::OutOfMemory),
 							},
 						)?;
 					}

@@ -1,0 +1,10 @@
+[package]
+name = "staging-tracking-allocator"
+description = "Tracking allocator to control the amount of memory consumed by the process"
+version = "2.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true

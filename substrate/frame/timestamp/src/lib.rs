@@ -31,7 +31,7 @@
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
 //! including its configuration trait, dispatchables, storage items, events and errors.
-//!  
+//!
 //! ## Overview
 //!
 //! The Timestamp pallet is designed to create a consensus-based time source. This helps ensure that
@@ -144,12 +144,33 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{derive_impl, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 
-	#[pallet::config]
+	/// Default preludes for [`Config`].
+	pub mod config_preludes {
+		use super::*;
+
+		/// Default prelude sensible to be used in a testing environment.
+		pub struct TestDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			type Moment = u64;
+			type OnTimestampSet = ();
+			type MinimumPeriod = frame_support::traits::ConstU64<1>;
+			type WeightInfo = ();
+		}
+	}
+
+	/// The pallet configuration trait
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// Type used for expressing a timestamp.
+		#[pallet::no_default_bounds]
 		type Moment: Parameter
 			+ Default
 			+ AtLeast32Bit

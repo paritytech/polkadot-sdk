@@ -227,7 +227,7 @@ transactions that are prepared for block inclusion. Propagation is best
 effort, especially for block authors and is not directly incentivised.
 However the networking protocol might penalise peers that send invalid or
 useless transactions so we should be nice to others. Also see below a proposal
-to instead of gossiping everyting have other peers request transactions they
+to instead of gossiping everything have other peers request transactions they
 are interested in.
 
 Since the pool is expected to store more transactions than what can fit

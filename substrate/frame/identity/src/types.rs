@@ -17,17 +17,22 @@
 
 use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
-use enumflags2::{bitflags, BitFlags};
 use frame_support::{
 	traits::{ConstU32, Get},
 	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::{
 	build::{Fields, Variants},
-	meta_type, Path, Type, TypeInfo, TypeParameter,
+	Path, Type, TypeInfo,
 };
-use sp_runtime::{traits::Zero, RuntimeDebug};
+use sp_runtime::{
+	traits::{Member, Zero},
+	RuntimeDebug,
+};
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
+
+/// An identifier for a single name registrar/identity verification service.
+pub type RegistrarIndex = u32;
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -180,9 +185,6 @@ impl Default for Data {
 	}
 }
 
-/// An identifier for a single name registrar/identity verification service.
-pub type RegistrarIndex = u32;
-
 /// An attestation of a registrar over how accurate some `IdentityInfo` is in describing an account.
 ///
 /// NOTE: Registrars may pay little attention to some fields. Registrars may want to make clear
@@ -228,143 +230,26 @@ impl<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + Part
 	}
 }
 
-/// The fields that we use to identify the owner of an account with. Each corresponds to a field
-/// in the `IdentityInfo` struct.
-#[bitflags]
-#[repr(u64)]
-#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-pub enum IdentityField {
-	Display = 0b0000000000000000000000000000000000000000000000000000000000000001,
-	Legal = 0b0000000000000000000000000000000000000000000000000000000000000010,
-	Web = 0b0000000000000000000000000000000000000000000000000000000000000100,
-	Riot = 0b0000000000000000000000000000000000000000000000000000000000001000,
-	Email = 0b0000000000000000000000000000000000000000000000000000000000010000,
-	PgpFingerprint = 0b0000000000000000000000000000000000000000000000000000000000100000,
-	Image = 0b0000000000000000000000000000000000000000000000000000000001000000,
-	Twitter = 0b0000000000000000000000000000000000000000000000000000000010000000,
-}
-
-/// Wrapper type for `BitFlags<IdentityField>` that implements `Codec`.
-#[derive(Clone, Copy, PartialEq, Default, RuntimeDebug)]
-pub struct IdentityFields(pub BitFlags<IdentityField>);
-
-impl MaxEncodedLen for IdentityFields {
-	fn max_encoded_len() -> usize {
-		u64::max_encoded_len()
-	}
-}
-
-impl Eq for IdentityFields {}
-impl Encode for IdentityFields {
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		self.0.bits().using_encoded(f)
-	}
-}
-impl Decode for IdentityFields {
-	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
-		let field = u64::decode(input)?;
-		Ok(Self(<BitFlags<IdentityField>>::from_bits(field as u64).map_err(|_| "invalid value")?))
-	}
-}
-impl TypeInfo for IdentityFields {
-	type Identity = Self;
-
-	fn type_info() -> Type {
-		Type::builder()
-			.path(Path::new("BitFlags", module_path!()))
-			.type_params(vec![TypeParameter::new("T", Some(meta_type::<IdentityField>()))])
-			.composite(Fields::unnamed().field(|f| f.ty::<u64>().type_name("IdentityField")))
-	}
-}
-
 /// Information concerning the identity of the controller of an account.
-///
-/// NOTE: This should be stored at the end of the storage item to facilitate the addition of extra
-/// fields in a backwards compatible way through a specialized `Decode` impl.
-#[derive(
-	CloneNoBound, Encode, Decode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
-)]
-#[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
-#[scale_info(skip_type_params(FieldLimit))]
-pub struct IdentityInfo<FieldLimit: Get<u32>> {
-	/// Additional fields of the identity that are not catered for with the struct's explicit
-	/// fields.
-	pub additional: BoundedVec<(Data, Data), FieldLimit>,
+pub trait IdentityInformationProvider:
+	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + Default
+{
+	/// Type capable of holding information on which identity fields are set.
+	type FieldsIdentifier: Member + Encode + Decode + MaxEncodedLen + TypeInfo + Default;
 
-	/// A reasonable display name for the controller of the account. This should be whatever it is
-	/// that it is typically known as and should not be confusable with other entities, given
-	/// reasonable context.
-	///
-	/// Stored as UTF-8.
-	pub display: Data,
+	/// Check if an identity registered information for some given `fields`.
+	fn has_identity(&self, fields: Self::FieldsIdentifier) -> bool;
 
-	/// The full legal name in the local jurisdiction of the entity. This might be a bit
-	/// long-winded.
-	///
-	/// Stored as UTF-8.
-	pub legal: Data,
+	/// Create a basic instance of the identity information.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_identity_info() -> Self;
 
-	/// A representative website held by the controller of the account.
-	///
-	/// NOTE: `https://` is automatically prepended.
-	///
-	/// Stored as UTF-8.
-	pub web: Data,
-
-	/// The Riot/Matrix handle held by the controller of the account.
-	///
-	/// Stored as UTF-8.
-	pub riot: Data,
-
-	/// The email address of the controller of the account.
-	///
-	/// Stored as UTF-8.
-	pub email: Data,
-
-	/// The PGP/GPG public key of the controller of the account.
-	pub pgp_fingerprint: Option<[u8; 20]>,
-
-	/// A graphic image representing the controller of the account. Should be a company,
-	/// organization or project logo or a headshot in the case of a human.
-	pub image: Data,
-
-	/// The Twitter identity. The leading `@` character may be elided.
-	pub twitter: Data,
+	/// The identity information representation for all identity fields enabled.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn all_fields() -> Self::FieldsIdentifier;
 }
 
-impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
-	pub(crate) fn fields(&self) -> IdentityFields {
-		let mut res = <BitFlags<IdentityField>>::empty();
-		if !self.display.is_none() {
-			res.insert(IdentityField::Display);
-		}
-		if !self.legal.is_none() {
-			res.insert(IdentityField::Legal);
-		}
-		if !self.web.is_none() {
-			res.insert(IdentityField::Web);
-		}
-		if !self.riot.is_none() {
-			res.insert(IdentityField::Riot);
-		}
-		if !self.email.is_none() {
-			res.insert(IdentityField::Email);
-		}
-		if self.pgp_fingerprint.is_some() {
-			res.insert(IdentityField::PgpFingerprint);
-		}
-		if !self.image.is_none() {
-			res.insert(IdentityField::Image);
-		}
-		if !self.twitter.is_none() {
-			res.insert(IdentityField::Twitter);
-		}
-		IdentityFields(res)
-	}
-}
-
-/// Information concerning the identity of the controller of an account.
+/// Information on an identity along with judgements from registrars.
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
 /// backwards compatible way through a specialized `Decode` impl.
@@ -372,11 +257,11 @@ impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
 	CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
 #[codec(mel_bound())]
-#[scale_info(skip_type_params(MaxJudgements, MaxAdditionalFields))]
+#[scale_info(skip_type_params(MaxJudgements))]
 pub struct Registration<
 	Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
 	MaxJudgements: Get<u32>,
-	MaxAdditionalFields: Get<u32>,
+	IdentityInfo: IdentityInformationProvider,
 > {
 	/// Judgements from the registrars on this identity. Stored ordered by `RegistrarIndex`. There
 	/// may be only a single judgement from each registrar.
@@ -386,14 +271,14 @@ pub struct Registration<
 	pub deposit: Balance,
 
 	/// Information on the identity.
-	pub info: IdentityInfo<MaxAdditionalFields>,
+	pub info: IdentityInfo,
 }
 
 impl<
 		Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq + Zero + Add,
 		MaxJudgements: Get<u32>,
-		MaxAdditionalFields: Get<u32>,
-	> Registration<Balance, MaxJudgements, MaxAdditionalFields>
+		IdentityInfo: IdentityInformationProvider,
+	> Registration<Balance, MaxJudgements, IdentityInfo>
 {
 	pub(crate) fn total_deposit(&self) -> Balance {
 		self.deposit +
@@ -407,8 +292,8 @@ impl<
 impl<
 		Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
 		MaxJudgements: Get<u32>,
-		MaxAdditionalFields: Get<u32>,
-	> Decode for Registration<Balance, MaxJudgements, MaxAdditionalFields>
+		IdentityInfo: IdentityInformationProvider,
+	> Decode for Registration<Balance, MaxJudgements, IdentityInfo>
 {
 	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
 		let (judgements, deposit, info) = Decode::decode(&mut AppendZerosInput::new(input))?;
@@ -421,6 +306,7 @@ impl<
 pub struct RegistrarInfo<
 	Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
 	AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
+	IdField: Encode + Decode + Clone + Debug + Default + Eq + PartialEq + TypeInfo + MaxEncodedLen,
 > {
 	/// The account of the registrar.
 	pub account: AccountId,
@@ -430,8 +316,30 @@ pub struct RegistrarInfo<
 
 	/// Relevant fields for this registrar. Registrar judgements are limited to attestations on
 	/// these fields.
-	pub fields: IdentityFields,
+	pub fields: IdField,
 }
+
+/// Authority properties for a given pallet configuration.
+pub type AuthorityPropertiesOf<T> = AuthorityProperties<Suffix<T>>;
+
+/// The number of usernames that an authority may allocate.
+type Allocation = u32;
+/// A byte vec used to represent a username.
+pub(crate) type Suffix<T> = BoundedVec<u8, <T as Config>::MaxSuffixLength>;
+
+/// Properties of a username authority.
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug)]
+pub struct AuthorityProperties<Suffix> {
+	/// The suffix added to usernames granted by this authority. Will be appended to usernames; for
+	/// example, a suffix of `wallet` will result in `.wallet` being appended to a user's selected
+	/// name.
+	pub suffix: Suffix,
+	/// The number of usernames remaining that this authority can grant.
+	pub allocation: Allocation,
+}
+
+/// A byte vec used to represent a username.
+pub(crate) type Username<T> = BoundedVec<u8, <T as Config>::MaxUsernameLength>;
 
 #[cfg(test)]
 mod tests {

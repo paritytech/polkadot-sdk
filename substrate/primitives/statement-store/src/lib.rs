@@ -20,13 +20,15 @@
 
 //! A crate which contains statement-store primitives.
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 #[cfg(feature = "std")]
 use sp_core::Pair;
 use sp_runtime_interface::pass_by::PassByCodec;
-use sp_std::vec::Vec;
 
 /// Statement topic.
 pub type Topic = [u8; 32];
@@ -87,7 +89,7 @@ mod ecdsa {
 /// Returns blake2-256 hash for the encoded statement.
 #[cfg(feature = "std")]
 pub fn hash_encoded(data: &[u8]) -> [u8; 32] {
-	sp_core::hashing::blake2_256(data)
+	sp_crypto_hashing::blake2_256(data)
 }
 
 /// Statement proof.
@@ -632,7 +634,7 @@ mod test {
 		statement.sign_ecdsa_private(&secp256k1_kp);
 		assert_eq!(
 			statement.verify_signature(),
-			SignatureVerificationResult::Valid(sp_core::hashing::blake2_256(
+			SignatureVerificationResult::Valid(sp_crypto_hashing::blake2_256(
 				&secp256k1_kp.public().0
 			))
 		);

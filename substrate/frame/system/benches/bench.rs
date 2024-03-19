@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use frame_support::traits::{ConstU32, ConstU64};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU32, ConstU64},
+};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -44,10 +47,9 @@ mod module {
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Module: module::{Pallet, Event},
+	pub enum Runtime {
+		System: frame_system,
+		Module: module,
 	}
 );
 
@@ -57,6 +59,8 @@ frame_support::parameter_types! {
 			4 * 1024 * 1024, Perbill::from_percent(75),
 		);
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

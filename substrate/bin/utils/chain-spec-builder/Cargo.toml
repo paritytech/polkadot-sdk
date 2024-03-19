@@ -1,5 +1,5 @@
 [package]
-name = "chain-spec-builder"
+name = "staging-chain-spec-builder"
 version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
@@ -7,8 +7,10 @@ build = "build.rs"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-readme = "README.md"
 publish = false
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -21,11 +23,8 @@ name = "chain-spec-builder"
 crate-type = ["rlib"]
 
 [dependencies]
-ansi_term = "0.12.1"
-clap = { version = "4.4.6", features = ["derive"] }
-rand = "0.8"
-node-cli = { path = "../../node/cli" }
+clap = { version = "4.5.3", features = ["derive"] }
+log = { workspace = true, default-features = true }
 sc-chain-spec = { path = "../../../client/chain-spec" }
-sc-keystore = { path = "../../../client/keystore" }
-sp-core = { path = "../../../primitives/core" }
-sp-keystore = { path = "../../../primitives/keystore" }
+serde_json = { workspace = true, default-features = true }
+sp-tracing = { path = "../../../primitives/tracing" }

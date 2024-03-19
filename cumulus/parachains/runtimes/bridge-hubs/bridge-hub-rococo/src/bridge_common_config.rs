@@ -21,18 +21,21 @@
 //! For example, the messaging pallet needs to know the sending and receiving chains, but the
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
-use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
+use super::{
+	weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent, RuntimeOrigin,
+};
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
+use bp_runtime::UnderlyingChainProvider;
+use bridge_runtime_common::messages::ThisChainWithMessages;
 use frame_support::{parameter_types, traits::ConstU32};
+use sp_runtime::RuntimeDebug;
 
 parameter_types! {
 	pub const RelayChainHeadersToKeep: u32 = 1024;
 	pub const ParachainHeadsToKeep: u32 = 64;
 
-	pub const RococoBridgeParachainPalletName: &'static str = "Paras";
-	pub const MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
-	pub const WococoBridgeParachainPalletName: &'static str = "Paras";
-	pub const MaxWococoParaHeadDataSize: u32 = bp_wococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
+	pub const WestendBridgeParachainPalletName: &'static str = bp_westend::PARAS_PALLET_NAME;
+	pub const MaxWestendParaHeadDataSize: u32 = bp_westend::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
 	pub const RelayerStakeLease: u32 = 8;
@@ -41,50 +44,27 @@ parameter_types! {
 	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
 }
 
-/// Add GRANDPA bridge pallet to track Wococo relay chain.
-pub type BridgeGrandpaWococoInstance = pallet_bridge_grandpa::Instance1;
-impl pallet_bridge_grandpa::Config<BridgeGrandpaWococoInstance> for Runtime {
+/// Add GRANDPA bridge pallet to track Westend relay chain.
+pub type BridgeGrandpaWestendInstance = pallet_bridge_grandpa::Instance3;
+impl pallet_bridge_grandpa::Config<BridgeGrandpaWestendInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type BridgedChain = bp_wococo::Wococo;
+	type BridgedChain = bp_westend::Westend;
 	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
-	type WeightInfo = weights::pallet_bridge_grandpa_wococo_finality::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_grandpa::WeightInfo<Runtime>;
 }
 
-/// Add parachain bridge pallet to track Wococo BridgeHub parachain
-pub type BridgeParachainWococoInstance = pallet_bridge_parachains::Instance1;
-impl pallet_bridge_parachains::Config<BridgeParachainWococoInstance> for Runtime {
+/// Add parachain bridge pallet to track Westend BridgeHub parachain
+pub type BridgeParachainWestendInstance = pallet_bridge_parachains::Instance3;
+impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_parachains_within_wococo::WeightInfo<Runtime>;
-	type BridgesGrandpaPalletInstance = BridgeGrandpaWococoInstance;
-	type ParasPalletName = WococoBridgeParachainPalletName;
+	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
+	type BridgesGrandpaPalletInstance = BridgeGrandpaWestendInstance;
+	type ParasPalletName = WestendBridgeParachainPalletName;
 	type ParaStoredHeaderDataBuilder =
-		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_wococo::BridgeHubWococo>;
+		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_westend::BridgeHubWestend>;
 	type HeadsToKeep = ParachainHeadsToKeep;
-	type MaxParaHeadDataSize = MaxWococoParaHeadDataSize;
-}
-
-/// Add GRANDPA bridge pallet to track Rococo relay chain.
-pub type BridgeGrandpaRococoInstance = pallet_bridge_grandpa::Instance2;
-impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type BridgedChain = bp_rococo::Rococo;
-	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
-	type HeadersToKeep = RelayChainHeadersToKeep;
-	type WeightInfo = weights::pallet_bridge_grandpa_rococo_finality::WeightInfo<Runtime>;
-}
-
-/// Add parachain bridge pallet to track Rococo BridgeHub parachain
-pub type BridgeParachainRococoInstance = pallet_bridge_parachains::Instance2;
-impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_parachains_within_rococo::WeightInfo<Runtime>;
-	type BridgesGrandpaPalletInstance = BridgeGrandpaRococoInstance;
-	type ParasPalletName = RococoBridgeParachainPalletName;
-	type ParaStoredHeaderDataBuilder =
-		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
-	type HeadsToKeep = ParachainHeadsToKeep;
-	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
+	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
 }
 
 /// Allows collect and claim rewards for relayers
@@ -102,4 +82,34 @@ impl pallet_bridge_relayers::Config for Runtime {
 		RelayerStakeLease,
 	>;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
+}
+
+/// Add GRANDPA bridge pallet to track Rococo Bulletin chain.
+pub type BridgeGrandpaRococoBulletinInstance = pallet_bridge_grandpa::Instance4;
+impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoBulletinInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
+	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
+	type HeadersToKeep = RelayChainHeadersToKeep;
+	// Technically this is incorrect - we have two pallet instances and ideally we shall
+	// benchmark every instance separately. But the benchmarking engine has a flaw - it
+	// messes with components. E.g. in Kusama maximal validators count is 1024 and in
+	// Bulletin chain it is 100. But benchmarking engine runs Bulletin benchmarks using
+	// components range, computed for Kusama => it causes an error.
+	//
+	// In practice, however, GRANDPA pallet works the same way for all bridged chains, so
+	// weights are also the same for both bridges.
+	type WeightInfo = weights::pallet_bridge_grandpa::WeightInfo<Runtime>;
+}
+
+/// BridgeHubRococo chain from message lane point of view.
+#[derive(RuntimeDebug, Clone, Copy)]
+pub struct BridgeHubRococo;
+
+impl UnderlyingChainProvider for BridgeHubRococo {
+	type Chain = bp_bridge_hub_rococo::BridgeHubRococo;
+}
+
+impl ThisChainWithMessages for BridgeHubRococo {
+	type RuntimeOrigin = RuntimeOrigin;
 }

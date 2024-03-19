@@ -1,0 +1,9 @@
+title: "[NPoS] Check if staker is exposed in paged exposure storage entries"
+author: Ank4n
+topic: Pallets
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

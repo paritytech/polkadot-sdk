@@ -1,10 +1,13 @@
 [package]
 name = "bp-rococo"
 description = "Primitives of Rococo runtime."
-version = "0.1.0"
+version = "0.6.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 
@@ -16,12 +19,12 @@ bp-runtime = { path = "../runtime", default-features = false }
 
 # Substrate Based Dependencies
 
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-header-chain/std",
 	"bp-polkadot-core/std",

@@ -16,18 +16,19 @@
 // limitations under the License.
 
 use frame_support::{
-	assert_ok,
+	assert_ok, derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Parameter, Pays},
 	dispatch_context::with_context,
 	pallet_prelude::{StorageInfoTrait, ValueQuery},
 	parameter_types,
-	storage::unhashed,
+	storage::{unhashed, unhashed::contains_prefixed_key},
 	traits::{
 		ConstU32, GetCallIndex, GetCallName, GetStorageVersion, OnFinalize, OnGenesis,
 		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, StorageVersion,
 		UnfilteredDispatchable,
 	},
 	weights::{RuntimeDbWeight, Weight},
+	OrdNoBound, PartialOrdNoBound,
 };
 use scale_info::{meta_type, TypeInfo};
 use sp_io::{
@@ -208,7 +209,7 @@ pub mod pallet {
 	where
 		T::AccountId: From<SomeType1> + From<SomeType3> + SomeAssociation1,
 	{
-		/// Doc comment put in metadata
+		/// call foo doc comment put in metadata
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		pub fn foo(
@@ -224,7 +225,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Doc comment put in metadata
+		/// call foo_storage_layer doc comment put in metadata
 		#[pallet::call_index(1)]
 		#[pallet::weight({1})]
 		pub fn foo_storage_layer(
@@ -257,18 +258,27 @@ pub mod pallet {
 		pub fn check_for_dispatch_context(_origin: OriginFor<T>) -> DispatchResult {
 			with_context::<(), _>(|_| ()).ok_or_else(|| DispatchError::Unavailable)
 		}
+
+		#[cfg(feature = "frame-feature-testing")]
+		#[pallet::call_index(5)]
+		#[pallet::weight({1})]
+		pub fn foo_feature_test(_origin: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
 	}
 
 	#[pallet::error]
 	#[derive(PartialEq, Eq)]
 	pub enum Error<T> {
-		/// doc comment put into metadata
+		/// error doc comment put in metadata
 		InsufficientProposersBalance,
 		NonExistentStorageValue,
 		Code(u8),
 		#[codec(skip)]
 		Skipped(u128),
 		CompactU8(#[codec(compact)] u8),
+		#[cfg(feature = "frame-feature-testing")]
+		FeatureTest,
 	}
 
 	#[pallet::event]
@@ -277,9 +287,8 @@ pub mod pallet {
 	where
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
 	{
-		/// doc comment put in metadata
+		/// event doc comment put in metadata
 		Proposed(<T as frame_system::Config>::AccountId),
-		/// doc
 		Spending(BalanceOf<T>),
 		Something(u32),
 		SomethingElse(<T::AccountId as SomeAssociation1>::_1),
@@ -458,6 +467,8 @@ pub mod pallet {
 		RuntimeDebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
+		PartialOrdNoBound,
+		OrdNoBound,
 		Encode,
 		Decode,
 		TypeInfo,
@@ -578,7 +589,7 @@ pub mod pallet2 {
 			Self::deposit_event(Event::Something(31));
 
 			if UpdateStorageVersion::get() {
-				Self::current_storage_version().put::<Self>();
+				Self::in_code_storage_version().put::<Self>();
 			}
 
 			Weight::zero()
@@ -682,6 +693,7 @@ frame_support::parameter_types!(
 	pub const MyGetParam3: u32 = 12;
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -737,8 +749,7 @@ pub type UncheckedExtrinsic =
 	sp_runtime::testing::TestXt<RuntimeCall, frame_system::CheckNonZeroSender<Runtime>>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
+	pub struct Runtime {
 		// Exclude part `Storage` in order not to check its metadata in tests.
 		System: frame_system exclude_parts { Pallet, Storage },
 		Example: pallet,
@@ -756,6 +767,14 @@ frame_support::construct_runtime!(
 fn _ensure_call_is_correctly_excluded_and_included(call: RuntimeCall) {
 	match call {
 		RuntimeCall::System(_) | RuntimeCall::Example(_) | RuntimeCall::Example4(_) => (),
+	}
+}
+
+fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
+	if cfg!(feature = "no-metadata-docs") {
+		vec![]
+	} else {
+		doc
 	}
 }
 
@@ -795,6 +814,7 @@ fn call_expand() {
 		}
 	);
 	assert_eq!(call_foo.get_call_name(), "foo");
+	#[cfg(not(feature = "frame-feature-testing"))]
 	assert_eq!(
 		pallet::Call::<Runtime>::get_call_names(),
 		&[
@@ -805,9 +825,24 @@ fn call_expand() {
 			"check_for_dispatch_context"
 		],
 	);
+	#[cfg(feature = "frame-feature-testing")]
+	assert_eq!(
+		pallet::Call::<Runtime>::get_call_names(),
+		&[
+			"foo",
+			"foo_storage_layer",
+			"foo_index_out_of_order",
+			"foo_no_post_info",
+			"check_for_dispatch_context",
+			"foo_feature_test"
+		],
+	);
 
 	assert_eq!(call_foo.get_call_index(), 0u8);
-	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8])
+	#[cfg(not(feature = "frame-feature-testing"))]
+	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8]);
+	#[cfg(feature = "frame-feature-testing")]
+	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8, 5u8]);
 }
 
 #[test]
@@ -815,7 +850,10 @@ fn call_expand_index() {
 	let call_foo = pallet::Call::<Runtime>::foo_index_out_of_order {};
 
 	assert_eq!(call_foo.get_call_index(), 4u8);
-	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8])
+	#[cfg(not(feature = "frame-feature-testing"))]
+	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8]);
+	#[cfg(feature = "frame-feature-testing")]
+	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8, 5u8]);
 }
 
 #[test]
@@ -837,6 +875,8 @@ fn error_expand() {
 		}),
 	);
 	assert_eq!(<pallet::Error::<Runtime> as PalletError>::MAX_ENCODED_SIZE, 3);
+	#[cfg(feature = "frame-feature-testing")]
+	assert_eq!(format!("{:?}", pallet::Error::<Runtime>::FeatureTest), String::from("FeatureTest"),);
 }
 
 #[test]
@@ -1271,58 +1311,12 @@ fn pallet_hooks_expand() {
 }
 
 #[test]
-fn all_pallets_type_reversed_order_is_correct() {
-	TestExternalities::default().execute_with(|| {
-		frame_system::Pallet::<Runtime>::set_block_number(1);
-
-		#[allow(deprecated)]
-		{
-			assert_eq!(
-				AllPalletsWithoutSystemReversed::on_initialize(1),
-				Weight::from_parts(10, 0)
-			);
-			AllPalletsWithoutSystemReversed::on_finalize(1);
-
-			assert_eq!(
-				AllPalletsWithoutSystemReversed::on_runtime_upgrade(),
-				Weight::from_parts(30, 0)
-			);
-		}
-
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[0].event,
-			RuntimeEvent::Example2(pallet2::Event::Something(11)),
-		);
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[1].event,
-			RuntimeEvent::Example(pallet::Event::Something(10)),
-		);
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[2].event,
-			RuntimeEvent::Example2(pallet2::Event::Something(21)),
-		);
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[3].event,
-			RuntimeEvent::Example(pallet::Event::Something(20)),
-		);
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[4].event,
-			RuntimeEvent::Example2(pallet2::Event::Something(31)),
-		);
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[5].event,
-			RuntimeEvent::Example(pallet::Event::Something(30)),
-		);
-	})
-}
-
-#[test]
 fn pallet_on_genesis() {
 	TestExternalities::default().execute_with(|| {
 		assert_eq!(pallet::Pallet::<Runtime>::on_chain_storage_version(), StorageVersion::new(0));
 		pallet::Pallet::<Runtime>::on_genesis();
 		assert_eq!(
-			pallet::Pallet::<Runtime>::current_storage_version(),
+			pallet::Pallet::<Runtime>::in_code_storage_version(),
 			pallet::Pallet::<Runtime>::on_chain_storage_version(),
 		);
 	})
@@ -1375,17 +1369,45 @@ fn migrate_from_pallet_version_to_storage_version() {
 }
 
 #[test]
+fn pallet_item_docs_in_metadata() {
+	// call
+	let call_variants = match meta_type::<pallet::Call<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(call_variants[0].docs, maybe_docs(vec!["call foo doc comment put in metadata"]));
+	assert_eq!(
+		call_variants[1].docs,
+		maybe_docs(vec!["call foo_storage_layer doc comment put in metadata"])
+	);
+	assert!(call_variants[2].docs.is_empty());
+
+	// event
+	let event_variants = match meta_type::<pallet::Event<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(event_variants[0].docs, maybe_docs(vec!["event doc comment put in metadata"]));
+	assert!(event_variants[1].docs.is_empty());
+
+	// error
+	let error_variants = match meta_type::<pallet::Error<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(error_variants[0].docs, maybe_docs(vec!["error doc comment put in metadata"]));
+	assert!(error_variants[1].docs.is_empty());
+
+	// storage is already covered in the main `fn metadata` test.
+}
+
+#[test]
 fn metadata() {
 	use codec::Decode;
 	use frame_metadata::{v15::*, *};
-
-	fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
-		if cfg!(feature = "no-metadata-docs") {
-			vec![]
-		} else {
-			doc
-		}
-	}
 
 	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected_pallet_doc = vec![" Pallet documentation", readme, readme];
@@ -2186,31 +2208,6 @@ fn test_storage_info() {
 }
 
 #[test]
-fn assert_type_all_pallets_reversed_with_system_first_is_correct() {
-	// Just ensure the 2 types are same.
-	#[allow(deprecated)]
-	fn _a(_t: AllPalletsReversedWithSystemFirst) {}
-	#[cfg(all(not(feature = "frame-feature-testing"), not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (System, Example4, Example2, Example)) {
-		_a(t)
-	}
-	#[cfg(all(feature = "frame-feature-testing", not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (System, Example4, Example3, Example2, Example)) {
-		_a(t)
-	}
-
-	#[cfg(all(not(feature = "frame-feature-testing"), feature = "frame-feature-testing-2"))]
-	fn _b(t: (System, Example5, Example4, Example2, Example)) {
-		_a(t)
-	}
-
-	#[cfg(all(feature = "frame-feature-testing", feature = "frame-feature-testing-2"))]
-	fn _b(t: (System, Example5, Example4, Example3, Example2, Example)) {
-		_a(t)
-	}
-}
-
-#[test]
 fn assert_type_all_pallets_with_system_is_correct() {
 	// Just ensure the 2 types are same.
 	fn _a(_t: AllPalletsWithSystem) {}
@@ -2255,52 +2252,6 @@ fn assert_type_all_pallets_without_system_is_correct() {
 }
 
 #[test]
-fn assert_type_all_pallets_with_system_reversed_is_correct() {
-	// Just ensure the 2 types are same.
-	#[allow(deprecated)]
-	fn _a(_t: AllPalletsWithSystemReversed) {}
-	#[cfg(all(not(feature = "frame-feature-testing"), not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (Example4, Example2, Example, System)) {
-		_a(t)
-	}
-	#[cfg(all(feature = "frame-feature-testing", not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (Example4, Example3, Example2, Example, System)) {
-		_a(t)
-	}
-	#[cfg(all(not(feature = "frame-feature-testing"), feature = "frame-feature-testing-2"))]
-	fn _b(t: (Example5, Example4, Example2, Example, System)) {
-		_a(t)
-	}
-	#[cfg(all(feature = "frame-feature-testing", feature = "frame-feature-testing-2"))]
-	fn _b(t: (Example5, Example4, Example3, Example2, Example, System)) {
-		_a(t)
-	}
-}
-
-#[test]
-fn assert_type_all_pallets_without_system_reversed_is_correct() {
-	// Just ensure the 2 types are same.
-	#[allow(deprecated)]
-	fn _a(_t: AllPalletsWithoutSystemReversed) {}
-	#[cfg(all(not(feature = "frame-feature-testing"), not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (Example4, Example2, Example)) {
-		_a(t)
-	}
-	#[cfg(all(feature = "frame-feature-testing", not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (Example4, Example3, Example2, Example)) {
-		_a(t)
-	}
-	#[cfg(all(not(feature = "frame-feature-testing"), feature = "frame-feature-testing-2"))]
-	fn _b(t: (Example5, Example4, Example2, Example)) {
-		_a(t)
-	}
-	#[cfg(all(feature = "frame-feature-testing", feature = "frame-feature-testing-2"))]
-	fn _b(t: (Example5, Example4, Example3, Example2, Example)) {
-		_a(t)
-	}
-}
-
-#[test]
 fn test_storage_alias() {
 	use frame_support::Twox64Concat;
 
@@ -2330,6 +2281,58 @@ fn test_storage_alias() {
 	})
 }
 
+#[test]
+fn pallet_on_chain_storage_version_initializes_correctly() {
+	type Executive = frame_executive::Executive<
+		Runtime,
+		Block,
+		frame_system::ChainContext<Runtime>,
+		Runtime,
+		AllPalletsWithSystem,
+	>;
+
+	// Simple example of a pallet with in-code version 10 being added to the runtime for the first
+	// time.
+	TestExternalities::default().execute_with(|| {
+		let in_code_version = Example::in_code_storage_version();
+
+		// Check the pallet has no storage items set.
+		let pallet_hashed_prefix = twox_128(Example::name().as_bytes());
+		let exists = contains_prefixed_key(&pallet_hashed_prefix);
+		assert_eq!(exists, false);
+
+		// [`frame_support::traits::BeforeAllRuntimeMigrations`] hook should initialize the storage
+		// version.
+		Executive::execute_on_runtime_upgrade();
+
+		// Check that the storage version was initialized to the in-code version
+		let on_chain_version_after = StorageVersion::get::<Example>();
+		assert_eq!(on_chain_version_after, in_code_version);
+	});
+
+	// Pallet with no in-code storage version should have the on-chain version initialized to 0.
+	TestExternalities::default().execute_with(|| {
+		// Example4 in_code_storage_version is NoStorageVersionSet.
+
+		// Check the pallet has no storage items set.
+		let pallet_hashed_prefix = twox_128(Example4::name().as_bytes());
+		let exists = contains_prefixed_key(&pallet_hashed_prefix);
+		assert_eq!(exists, false);
+
+		// Confirm the storage version is implicitly 0.
+		let on_chain_version_before = StorageVersion::get::<Example4>();
+		assert_eq!(on_chain_version_before, StorageVersion::new(0));
+
+		// [`frame_support::traits::BeforeAllRuntimeMigrations`] initializes the storage version.
+		Executive::execute_on_runtime_upgrade();
+
+		// Check that the storage version now exists and was initialized to 0.
+		let on_chain_version_after = StorageVersion::get::<Example4>();
+		assert_eq!(StorageVersion::exists::<Example4>(), true);
+		assert_eq!(on_chain_version_after, StorageVersion::new(0));
+	});
+}
+
 #[cfg(feature = "try-runtime")]
 #[test]
 fn post_runtime_upgrade_detects_storage_version_issues() {
@@ -2339,7 +2342,7 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 
 	impl OnRuntimeUpgrade for CustomUpgrade {
 		fn on_runtime_upgrade() -> Weight {
-			Example2::current_storage_version().put::<Example2>();
+			Example2::in_code_storage_version().put::<Example2>();
 
 			Default::default()
 		}
@@ -2382,12 +2385,14 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 	>;
 
 	TestExternalities::default().execute_with(|| {
-		// Call `on_genesis` to put the storage version of `Example` into the storage.
-		Example::on_genesis();
+		// Set the on-chain version to one less than the in-code version for `Example`, simulating a
+		// forgotten migration
+		StorageVersion::new(9).put::<Example2>();
+
 		// The version isn't changed, we should detect it.
 		assert!(
 			Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap_err() ==
-				"On chain and current storage version do not match. Missing runtime upgrade?"
+				"On chain and in-code storage version do not match. Missing runtime upgrade?"
 					.into()
 		);
 	});
@@ -2440,4 +2445,34 @@ fn test_dispatch_context() {
 		assert_ok!(RuntimeCall::from(pallet::Call::<Runtime>::check_for_dispatch_context {})
 			.dispatch(RuntimeOrigin::root()));
 	});
+}
+
+#[test]
+fn test_call_feature_parsing() {
+	let call = pallet::Call::<Runtime>::check_for_dispatch_context {};
+	match call {
+		pallet::Call::<Runtime>::check_for_dispatch_context {} |
+		pallet::Call::<Runtime>::foo { .. } |
+		pallet::Call::foo_storage_layer { .. } |
+		pallet::Call::foo_index_out_of_order {} |
+		pallet::Call::foo_no_post_info {} => (),
+		#[cfg(feature = "frame-feature-testing")]
+		pallet::Call::foo_feature_test {} => (),
+		pallet::Call::__Ignore(_, _) => (),
+	}
+}
+
+#[test]
+fn test_error_feature_parsing() {
+	let err = pallet::Error::<Runtime>::InsufficientProposersBalance;
+	match err {
+		pallet::Error::InsufficientProposersBalance |
+		pallet::Error::NonExistentStorageValue |
+		pallet::Error::Code(_) |
+		pallet::Error::Skipped(_) |
+		pallet::Error::CompactU8(_) => (),
+		#[cfg(feature = "frame-feature-testing")]
+		pallet::Error::FeatureTest => (),
+		pallet::Error::__Ignore(_, _) => (),
+	}
 }

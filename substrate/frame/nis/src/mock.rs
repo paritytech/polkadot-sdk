@@ -20,20 +20,14 @@
 use crate::{self as pallet_nis, Perquintill, WithMaximumOf};
 
 use frame_support::{
-	ord_parameter_types, parameter_types,
-	traits::{
-		fungible::Inspect, ConstU16, ConstU32, ConstU64, Everything, OnFinalize, OnInitialize,
-		StorageMapShim,
-	},
+	derive_impl, ord_parameter_types, parameter_types,
+	traits::{fungible::Inspect, ConstU32, ConstU64, OnFinalize, OnInitialize, StorageMapShim},
 	weights::Weight,
 	PalletId,
 };
 use pallet_balances::{Instance1, Instance2};
-use sp_core::{ConstU128, H256};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use sp_core::ConstU128;
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -50,30 +44,10 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config<Instance1> for Test {
@@ -89,7 +63,7 @@ impl pallet_balances::Config<Instance1> for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type MaxHolds = ConstU32<1>;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 impl pallet_balances::Config<Instance2> for Test {
@@ -109,7 +83,7 @@ impl pallet_balances::Config<Instance2> for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 parameter_types! {

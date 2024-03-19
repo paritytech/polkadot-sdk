@@ -16,7 +16,7 @@
 
 use frame_support::traits::ProcessMessageError;
 use sp_std::result::Result;
-use xcm::latest::{Instruction, MultiLocation, Weight, XcmHash};
+use xcm::latest::{Instruction, Location, Weight, XcmHash};
 
 /// Properyies of an XCM message and its imminent execution.
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -43,7 +43,7 @@ pub trait ShouldExecute {
 	/// - `properties`: Various pre-established properties of the message which may be mutated by
 	///   this API.
 	fn should_execute<RuntimeCall>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
@@ -53,7 +53,7 @@ pub trait ShouldExecute {
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl ShouldExecute for Tuple {
 	fn should_execute<RuntimeCall>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
@@ -87,7 +87,7 @@ impl ShouldExecute for Tuple {
 /// if any of the tuple elements returns true.
 pub trait CheckSuspension {
 	fn is_suspended<Call>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
 		properties: &mut Properties,
@@ -97,7 +97,7 @@ pub trait CheckSuspension {
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl CheckSuspension for Tuple {
 	fn is_suspended<Call>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instruction: &mut [Instruction<Call>],
 		max_weight: Weight,
 		properties: &mut Properties,

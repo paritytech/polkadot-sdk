@@ -205,8 +205,7 @@ impl WsServer {
 								Ok(soketto::Data::Text(len)) => String::from_utf8(buf[..len].to_vec())
 									.map(Message::Text)
 									.map_err(|err| Box::new(err) as Box<_>),
-								Ok(soketto::Data::Binary(len)) => Ok(buf[..len].to_vec())
-									.map(Message::Binary),
+								Ok(soketto::Data::Binary(len)) => Ok(Message::Binary(buf[..len].to_vec())),
 								Err(err) => Err(Box::new(err) as Box<_>),
 							};
 							Some((ret, (receiver, buf)))
