@@ -13,7 +13,7 @@
 
 pub use v1::MigrateToV1;
 
-mod v0 {
+pub mod v0 {
 	use crate::inclusion::{Config, Pallet};
 	use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 	use frame_support::{storage_alias, Twox64Concat};

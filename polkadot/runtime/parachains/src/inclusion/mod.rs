@@ -117,7 +117,10 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 	}
 
 	/// Get the relay-chain block number this was backed in.
-	pub(crate) fn backed_in_number(&self) -> &N {
+	pub(crate) fn backed_in_number(&self) -> &N
+	where
+		N: Clone,
+	{
 		&self.backed_in_number
 	}
 
@@ -147,6 +150,16 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 		N: Clone,
 	{
 		self.relay_parent_number.clone()
+	}
+
+	/// Get the candidate backing group.
+	pub(crate) fn backing_group(&self) -> GroupIndex {
+		self.backing_group
+	}
+
+	/// Get the candidate's backers.
+	pub(crate) fn backers(&self) -> &BitVec<u8, BitOrderLsb0> {
+		&self.backers
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]

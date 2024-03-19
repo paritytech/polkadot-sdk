@@ -22,6 +22,7 @@ use crate::{
 	scheduler::{self, CoreOccupied},
 	session_info, shared,
 };
+use frame_support::traits::{GetStorageVersion, StorageVersion};
 use frame_system::pallet_prelude::*;
 use primitives::{
 	async_backing::{
@@ -92,18 +93,41 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 		.enumerate()
 		.map(|(i, core)| match core {
 			CoreOccupied::Paras(entry) => {
-				let pending_availability = <inclusion::Pallet<T>>::pending_availability_with_core(
-					entry.para_id(),
-					CoreIndex(i as u32),
-				)
-				.expect("Occupied core always has pending availability; qed");
+				// Due to https://github.com/paritytech/polkadot-sdk/issues/64, using the new storage types would cause
+				// this runtime API to panic. We explicitly handle the storage for version 0 to
+				// prevent that. When removing the inclusion v0 -> v1 migration, this bit of code
+				// can also be removed.
+				let pending_availability = if <inclusion::Pallet<T>>::on_chain_storage_version() ==
+					StorageVersion::new(0)
+				{
+					inclusion::migration::v0::PendingAvailability::<T>::get(entry.para_id())
+						.expect("Occupied core always has pending availability; qed")
+				} else {
+					let candidate = <inclusion::Pallet<T>>::pending_availability_with_core(
+						entry.para_id(),
+						CoreIndex(i as u32),
+					)
+					.expect("Occupied core always has pending availability; qed");
 
-				let backed_in_number = *pending_availability.backed_in_number();
+					// Translate to the old candidate format, as we don't need the commitments now.
+					inclusion::migration::v0::CandidatePendingAvailability {
+						core: candidate.core_occupied(),
+						hash: candidate.candidate_hash(),
+						descriptor: candidate.candidate_descriptor().clone(),
+						availability_votes: candidate.availability_votes().clone(),
+						backers: candidate.backers().clone(),
+						relay_parent_number: candidate.relay_parent_number(),
+						backed_in_number: candidate.backed_in_number().clone(),
+						backing_group: candidate.backing_group(),
+					}
+				};
+
+				let backed_in_number = pending_availability.backed_in_number;
 
 				// Use the same block number for determining the responsible group as what the
 				// backing subsystem would use when it calls validator_groups api.
 				let backing_group_allocation_time =
-					pending_availability.relay_parent_number() + One::one();
+					pending_availability.relay_parent_number + One::one();
 				CoreState::Occupied(OccupiedCore {
 					next_up_on_available: <scheduler::Pallet<T>>::next_up_on_available(CoreIndex(
 						i as u32,
@@ -113,13 +137,13 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 					next_up_on_time_out: <scheduler::Pallet<T>>::next_up_on_time_out(CoreIndex(
 						i as u32,
 					)),
-					availability: pending_availability.availability_votes().clone(),
+					availability: pending_availability.availability_votes.clone(),
 					group_responsible: group_responsible_for(
 						backing_group_allocation_time,
-						pending_availability.core_occupied(),
+						pending_availability.core,
 					),
-					candidate_hash: pending_availability.candidate_hash(),
-					candidate_descriptor: pending_availability.candidate_descriptor().clone(),
+					candidate_hash: pending_availability.hash,
+					candidate_descriptor: pending_availability.descriptor,
 				})
 			},
 			CoreOccupied::Free => {
