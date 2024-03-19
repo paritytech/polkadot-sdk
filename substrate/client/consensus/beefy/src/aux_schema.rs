@@ -20,7 +20,7 @@
 
 use crate::{error::Error, worker::PersistedState, LOG_TARGET};
 use codec::{Decode, Encode};
-use log::{debug, trace};
+use log::{debug, trace, warn};
 use sc_client_api::{backend::AuxStore, Backend};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
@@ -72,7 +72,12 @@ where
 
 	match version {
 		None => (),
-		Some(1) | Some(2) | Some(3) => (), // versions 1, 2 & 3 are obsolete and should be ignored
+		Some(1) | Some(2) | Some(3) =>
+		// versions 1, 2 & 3 are obsolete and should be ignored
+			warn!(
+				target: LOG_TARGET,
+		    "🥩 backend contains a BEEFY state of an obselete version {}. ignoring...",
+		    version.expect("we already checked that it is some obselete version")),
 		Some(4) =>
 			return load_decode::<_, PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY),
 		other =>
