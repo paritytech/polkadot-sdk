@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "std")]
 pub mod extrinsic;
 #[cfg(feature = "std")]
@@ -45,9 +47,9 @@ use scale_info::TypeInfo;
 use sp_application_crypto::Ss58Codec;
 use sp_keyring::AccountKeyring;
 use sp_runtime::RuntimeString;
-use sp_std::prelude::*;
+use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
-use sp_std::vec;
+use alloc::{vec, vec::Vec};
 
 use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 use sp_core::{OpaqueMetadata, RuntimeDebug};
@@ -269,7 +271,7 @@ impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
 
 	fn additional_signed(
 		&self,
-	) -> sp_std::result::Result<Self::AdditionalSigned, TransactionValidityError> {
+	) -> core::result::Result<Self::AdditionalSigned, TransactionValidityError> {
 		Ok(())
 	}
 
@@ -346,7 +348,7 @@ parameter_types! {
 		.build_or_panic();
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::pallet::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
@@ -444,7 +446,7 @@ fn code_using_trie() -> u64 {
 	.to_vec();
 
 	let mut mdb = PrefixedMemoryDB::default();
-	let mut root = sp_std::default::Default::default();
+	let mut root = core::default::Default::default();
 	{
 		let mut t = TrieDBMutBuilderV1::<Hashing>::new(&mut mdb, &mut root).build();
 		for (key, value) in &pairs {
@@ -498,7 +500,7 @@ impl_runtime_apis! {
 		fn metadata_at_version(_version: u32) -> Option<OpaqueMetadata> {
 			unimplemented!()
 		}
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			unimplemented!()
 		}
 	}
@@ -734,11 +736,11 @@ impl_runtime_apis! {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(params: Option<sp_std::vec::Vec<u8>>) -> Option<sp_std::vec::Vec<u8>> {
+		fn get_preset(params: Option<Vec<u8>>) -> Option<Vec<u8>> {
 			Some(if let Some(params) = params {
 				let patch = match params {
 					s if s == "staging".as_bytes() => {
-						let endowed_accounts: sp_std::vec::Vec<AccountId> = vec![
+						let endowed_accounts: Vec<AccountId> = vec![
 							AccountKeyring::Bob.public().into(),
 							AccountKeyring::Charlie.public().into(),
 						];
