@@ -116,7 +116,10 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	operation_max_storage_items: usize,
-	/// Limit the RPC functionality to a single connection.
+	/// Ensures that chainHead methods can be called from a single connection context.
+	///
+	/// For example, `chainHead_storage` cannot be called with a subscription ID that
+	/// was obtained from a different connection.
 	rpc_connections: RpcConnections,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
